@@ -6,7 +6,7 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine.Rendering;
-using System;
+using System.Threading.Tasks;
 
 
 public class GameSceneMannager : MonoBehaviour
@@ -72,10 +72,10 @@ public class GameSceneMannager : MonoBehaviour
     public int NowCurrentIndex;
     public int currentCutTime;
 
-    public List<string> selfDiscardslist = new List<string>();
-    public List<string> leftDiscardslist = new List<string>();
-    public List<string> topDiscardslist = new List<string>();
-    public List<string> rightDiscardslist = new List<string>();
+    public List<int> selfDiscardslist = new List<int>();
+    public List<int> leftDiscardslist = new List<int>();
+    public List<int> topDiscardslist = new List<int>();
+    public List<int> rightDiscardslist = new List<int>();
 
     // 存储玩家位置至字典
     public Dictionary<int, string> player_local_position = new Dictionary<int, string>();
@@ -124,7 +124,7 @@ public class GameSceneMannager : MonoBehaviour
         }
     }
 
-    public void CutCards(string tileId,int playerIndex,bool cut_class){
+    public void CutCards(int tileId,int playerIndex,bool cut_class){
         Debug.Log($"{playerIndex},{selfCurrentIndex}");
         // 如果出牌玩家和当前玩家相同，并且满足NowCurrentIndex为-1（手动出牌）或出牌玩家和NowCurrentIndex相同（超时出牌）
         if (playerIndex == selfCurrentIndex && (NowCurrentIndex == -1 || playerIndex == NowCurrentIndex)){
@@ -137,10 +137,11 @@ public class GameSceneMannager : MonoBehaviour
             }
             else{ // 手切则手动找到摸到的牌加入手牌
                 GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
+                int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
                 Destroy(GetCardObj);
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(tileId, false);
+                tileCard.SetTile(GetTileId, false);
             }
             // 添加null检查，防止_countdownCoroutine为null时抛出异常
             if (_countdownCoroutine != null) {
@@ -150,6 +151,7 @@ public class GameSceneMannager : MonoBehaviour
             remianTimeText.text = $""; // 隐藏倒计时文本
             DisCardAnimation(tileId,selfDiscardsPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",selfDiscardslist.Count);
             selfDiscardslist.Add(tileId);
+
         }
         if (selfCurrentIndex == 0){
             if (playerIndex == 1){
@@ -221,7 +223,7 @@ public class GameSceneMannager : MonoBehaviour
         }
     }
 
-    private void DisCardAnimation(string tileId,Transform DiscardPosition,Vector3 widthdirection,Vector3 heightdirection,string PlayerPosition,int discardCount){
+    private void DisCardAnimation(int tileId,Transform DiscardPosition,Vector3 widthdirection,Vector3 heightdirection,string PlayerPosition,int discardCount){
         float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
         float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z;
         float widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
@@ -276,12 +278,14 @@ public class GameSceneMannager : MonoBehaviour
         ApplyCardTexture(cardObj, tileId);
     }
     
-    private void removeOtherHandCards(Transform cardPosition,bool cut_class){
+    private async void removeOtherHandCards(Transform cardPosition,bool cut_class){
         Debug.Log($"移除其他玩家手牌 {cardPosition},{cut_class}");
 
         float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
+        float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z;
+
         float spacing = cardWidth * 1f; // 间距为卡片宽度的1.0倍
-        // 从其他玩家的手牌中移除该牌
+        // 如果摸切就直接删除摸到的牌
         if (cut_class){
             if (cardPosition == rightCardsPosition){
                 Transform cardTransform = rightCardsPosition.Find("Card_Current");
@@ -302,58 +306,50 @@ public class GameSceneMannager : MonoBehaviour
                 }
             }
         }
+        // 如果摸牌则随机删除一张牌，将摸牌加入手牌
         else{
-            // 计算子物体数量
+            // 计算子物体数量，获取随机索引，随机删除选中的子物体
             int childCount = cardPosition.childCount;
-            if (childCount > 0) {
-                // 获取随机索引
-                int randomIndex = UnityEngine.Random.Range(0, childCount);
-                
-                // 获取随机选中的子物体
-                Transform randomChild = cardPosition.GetChild(randomIndex);
-                
-                // 删除随机选中的子物体
-                if (randomChild != null) {
-                    Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
-                    Destroy(randomChild.gameObject);
-                    
-                    // 确定方向向量
-                    Vector3 direction = Vector3.zero;
-                    if (cardPosition == rightCardsPosition)
-                        direction = new Vector3(0, 0, 1); // 向前
-                    else if (cardPosition == leftCardsPosition)
-                        direction = new Vector3(0, 0, -1); // 向后
-                    else if (cardPosition == topCardsPosition)
-                        direction = new Vector3(-1, 0, 0); // 向左
-                    
-                    // 获取所有剩余子物体并按照名称索引排序
-                    List<Transform> remainingCards = new List<Transform>();
-                    for (int i = 0; i < cardPosition.childCount; i++) {
-                        remainingCards.Add(cardPosition.GetChild(i));
-                    }
-                    
-                    // 重新定位所有卡牌
-                    Vector3 startPosition = cardPosition.position;
-                    for (int i = 0; i < remainingCards.Count; i++) {
-                        // 计算新位置
-                        Vector3 newPosition = startPosition + direction * spacing * (i + 1);
-                        // 设置新位置
-                        remainingCards[i].position = newPosition;
-                        // 重命名卡牌
-                        remainingCards[i].name = $"Card_{i}";
-                    }
-                }
+            int randomIndex = UnityEngine.Random.Range(0, childCount);
+            Transform randomChild = cardPosition.GetChild(randomIndex);
+            Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
+            Destroy(randomChild.gameObject);
+            // 等待1秒
+            await Task.Delay(1000);
+
+            // 确定方向向量 方向向量乘以spacing等于目标位置
+            Vector3 direction = Vector3.zero;
+            if (cardPosition == rightCardsPosition)
+                direction = new Vector3(0, 0, 1); // 向前
+            else if (cardPosition == leftCardsPosition)
+                direction = new Vector3(0, 0, -1); // 向后
+            else if (cardPosition == topCardsPosition)
+                direction = new Vector3(-1, 0, 0); // 向左
+
+            // 获取所有剩余子物体并按照名称索引排序[0,1,2,3,4,5,6,7,8,9,10,11,12]
+            List<Transform> remainingCards = new List<Transform>();
+            int cardCount = cardPosition.childCount;
+            for (int i = 0; i < cardCount; i++) {
+                remainingCards.Add(cardPosition.GetChild(i));
+            }
+            // 拿取手牌初始位置，遍历卡牌乘以spacing移动到目标位置
+            Vector3 startPosition = cardPosition.position;
+            for (int i = 0; i < cardCount; i++) {
+                Vector3 newPosition = startPosition + direction * spacing * (i + 0);
+                remainingCards[i].position = newPosition;
+                remainingCards[i].name = $"ReSeTCard_{i}";
             }
         }
     }
 
-    public void GetCards(int remaining_time,string tileId,int playerIndex){
+    public void GetCards(int remaining_time,int tileId,int playerIndex,int remain_tiles){
 
         float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
         float spacing = cardWidth * 1f; // 间距为卡片宽度的1倍
 
         Debug.Log($"获取牌 {tileId},{playerIndex}");
         NowCurrentIndex = playerIndex;
+        remiansTilesText.text = $"余: {remain_tiles}";
 
         string GetCardPlayer = player_local_position[playerIndex];
         // 如果玩家是自己，则将牌添加到手牌中
@@ -375,8 +371,8 @@ public class GameSceneMannager : MonoBehaviour
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
-            player_self_current_image.enabled = true;
-            player_left_current_image.enabled = false;
+            player_self_current_image.enabled = false;
+            player_left_current_image.enabled = true;
             player_right_current_image.enabled = false;
             player_top_current_image.enabled = false;
         }
@@ -386,10 +382,10 @@ public class GameSceneMannager : MonoBehaviour
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
-            player_self_current_image.enabled = true;
+            player_self_current_image.enabled = false;
             player_left_current_image.enabled = false;
             player_right_current_image.enabled = false;
-            player_top_current_image.enabled = false;
+            player_top_current_image.enabled = true;
         }
         else if (GetCardPlayer == "right"){
             Quaternion rotation = Quaternion.Euler(90, 0, 180);
@@ -397,18 +393,16 @@ public class GameSceneMannager : MonoBehaviour
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
-            player_self_current_image.enabled = true;
+            player_self_current_image.enabled = false;
             player_left_current_image.enabled = false;
-            player_right_current_image.enabled = false;
+            player_right_current_image.enabled = true;
             player_top_current_image.enabled = false;
         }
-
-
     }
 
 
     // 新增方法：应用牌面纹理
-    private void ApplyCardTexture(GameObject cardObj, string tileId)
+    private void ApplyCardTexture(GameObject cardObj, int tileId)
     {
 
         // 从Resources加载对应ID的图片
@@ -423,8 +417,7 @@ public class GameSceneMannager : MonoBehaviour
         renderer.materials = materials;
     }
 
-    private void InitializeGame(GameInfo gameInfo)
-    {
+    private void InitializeGame(GameInfo gameInfo){
         // 1.存储房间信息
         InitializeSetInfo(gameInfo);
         // 2.初始化房间信息
@@ -460,8 +453,7 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     // 设置房间面板信息
-    private void InitializeRoomInfo(int tile_count, int currentRound, int game_time)
-    {
+    private void InitializeRoomInfo(int tile_count, int currentRound, int game_time){
         // 剩余牌数
         remiansTilesText.text = $"剩余牌数: {tile_count}";
         // 房间轮数
@@ -482,8 +474,7 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     // 初始化玩家信息 根据playlist的顺序判断玩家位置，并根据位置执行setplayerinfo方法
-    private void InitializePlayerInfo(PlayerPosition[] playerPositions, PlayerInfo[] playersInfo)
-    {
+    private void InitializePlayerInfo(PlayerPosition[] playerPositions, PlayerInfo[] playersInfo){
         foreach (var position in playerPositions)
         {
             if (position.username == Administrator.Instance.Username)
@@ -496,8 +487,7 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     /// 初始化手牌区域 
-    private void InitializeHandCards(string[] handTiles, int currentPlayerIndex, string gameStatus)
-    {
+    private void InitializeHandCards(int[] handTiles, int currentPlayerIndex, string gameStatus){
         // 清空现有手牌
         foreach (Transform child in handCardsContainer)
         {
@@ -506,7 +496,7 @@ public class GameSceneMannager : MonoBehaviour
 
         int cardCount = 0;  // 从0开始计数
         // 实例化新手牌 如果手牌数量等于自己的手牌数量，且当前玩家是自己，且游戏状态是playing，则不再实例化最后一张牌
-        foreach (string tile in handTiles)
+        foreach (int tile in handTiles)
         {
             if (cardCount == Administrator.Instance.hand_tiles_count - 1 && SaveCount == currentPlayerIndex && gameStatus == "playing")
             {
@@ -525,8 +515,7 @@ public class GameSceneMannager : MonoBehaviour
         }
     }
 
-    private void InitializeOtherCards(PlayerPosition[] playerPositions, PlayerInfo[] playersInfo)
-    {
+    private void InitializeOtherCards(PlayerPosition[] playerPositions, PlayerInfo[] playersInfo){
         // 获取3D预制体的实际大小
         float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
         float spacing = cardWidth * 1f; // 间距为卡片宽度的1.2倍
@@ -559,8 +548,7 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     // 辅助方法：在指定位置放置卡牌
-    private void PlaceCards(Transform startPosition, int cardCount, float spacing, Vector3 direction)
-    {
+    private void PlaceCards(Transform startPosition, int cardCount, float spacing, Vector3 direction){
         // 清除该位置现有的卡牌
         foreach (Transform child in startPosition)
         {
@@ -637,8 +625,7 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     // 倒计时协程
-    private IEnumerator CountdownTimer()
-    {
+    private IEnumerator CountdownTimer(){
         // 使用WaitForSeconds缓存，提高性能
         WaitForSeconds oneSecondWait = new WaitForSeconds(1.0f);
         
@@ -717,7 +704,7 @@ public class GameSceneMannager : MonoBehaviour
             player_self_name.text = playersInfo[0].username;
             player_self_score.text = playersInfo[0].score.ToString();
             player_self_index.text = "东";
-            player_self_current_image.enabled = false;
+            player_self_current_image.enabled = true;
             player_local_position[0] = "self";
             // 这一变量用于判断服务器传参的手牌长度，决定list尾部的手牌属于手切或摸切
             Administrator.Instance.hand_tiles_count = playersInfo[0].hand_tiles_count; 
@@ -749,7 +736,7 @@ public class GameSceneMannager : MonoBehaviour
             player_left_name.text = playersInfo[0].username;
             player_left_score.text = playersInfo[0].score.ToString();
             player_left_index.text = "东";
-            player_left_current_image.enabled = false;
+            player_left_current_image.enabled = true;
             player_local_position[0] = "left";
             player_top_name.text = playersInfo[3].username;
             player_top_score.text = playersInfo[3].score.ToString();
@@ -784,7 +771,7 @@ public class GameSceneMannager : MonoBehaviour
             player_right_name.text = playersInfo[3].username;
             player_right_score.text = playersInfo[3].score.ToString();
             player_right_index.text = "北";
-            player_right_current_image.enabled = false;
+            player_right_current_image.enabled = true;
             player_local_position[3] = "right";
         }
         else if (SaveCount == 3)
@@ -809,7 +796,7 @@ public class GameSceneMannager : MonoBehaviour
             player_right_name.text = playersInfo[0].username;
             player_right_score.text = playersInfo[0].score.ToString();
             player_right_index.text = "东";
-            player_right_current_image.enabled = false;
+            player_right_current_image.enabled = true;
             player_local_position[0] = "right";
         }
     }

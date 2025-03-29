@@ -160,7 +160,8 @@ public class NetworkManager : MonoBehaviour
                     GameSceneMannager.Instance.GetCards(
                         dealresponse.remaining_time,
                         dealresponse.deal_tiles,
-                        dealresponse.deal_player_index
+                        dealresponse.deal_player_index,
+                        dealresponse.remain_tiles
                     );
                     break;
 
@@ -270,12 +271,12 @@ public class NetworkManager : MonoBehaviour
     }
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
-    public void SendChineseGameTile(bool cutClass,string message,string roomId){
+    public void SendChineseGameTile(bool cutClass,int tileId,string roomId){
         var request = new SendChineseGameTileRequest
         {
             type = "CutTiles",
             cutClass = cutClass,
-            TileId = message,
+            TileId = tileId,
             room_id = roomId
         };
         websocket.Send(JsonUtility.ToJson(request));
@@ -412,7 +413,7 @@ public class GameInfo
     public int cuttime;
     public int game_time;
     public PlayerInfo[] players_info;
-    public string[] self_hand_tiles;
+    public int[] self_hand_tiles;
 }
 
 [Serializable]
@@ -420,7 +421,7 @@ public class SendChineseGameTileRequest
 {
     public string type;
     public bool cutClass;
-    public string TileId;
+    public int TileId;
     public string room_id;
 }
 
@@ -429,14 +430,15 @@ public class CutTileResponse
 {
     public int cut_player_index;
     public bool cut_class;
-    public string cut_tiles; 
+    public int cut_tiles; 
 }
 
 [Serializable]
 public class DealTileInfo
 {
     public int deal_player_index;
-    public string deal_tiles;
+    public int deal_tiles;
     public int remaining_time;
+    public int remain_tiles;
 }
 

@@ -5728,8 +5728,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 612948362}
   m_HandleRect: {fileID: 612948361}
   m_Direction: 2
-  m_Value: -0.0000028926786
-  m_Size: 0.75171113
+  m_Value: -0.0000051654997
+  m_Size: 0.75048673
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -6260,21 +6260,22 @@ MonoBehaviour:
   player_self_name: {fileID: 564613729}
   player_self_score: {fileID: 455479751}
   player_self_index: {fileID: 1936375271}
-  player_self_current: {fileID: 27370752}
+  player_self_current_image: {fileID: 27370752}
   player_left_name: {fileID: 22882950}
   player_left_score: {fileID: 993682401}
   player_left_index: {fileID: 816754308}
-  player_left_current: {fileID: 1822056108}
+  player_left_current_image: {fileID: 1822056108}
   player_top_name: {fileID: 2087677988}
   player_top_score: {fileID: 183516673}
   player_top_index: {fileID: 1937963903}
-  player_top_current: {fileID: 1011781681}
+  player_top_current_image: {fileID: 1011781681}
   player_right_name: {fileID: 1749736087}
   player_right_score: {fileID: 133155986}
   player_right_index: {fileID: 409435326}
-  player_right_current: {fileID: 1279150829}
+  player_right_current_image: {fileID: 1279150829}
   selfCurrentIndex: 0
   NowCurrentIndex: 0
+  currentCutTime: 0
   selfDiscardslist: []
   leftDiscardslist: []
   topDiscardslist: []
@@ -13476,7 +13477,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.000061035156, y: 73.849724}
+  m_AnchoredPosition: {x: 0.000061035156, y: 73.84988}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1876749538

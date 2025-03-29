@@ -15,8 +15,8 @@ public class TileCard : MonoBehaviour
     [SerializeField] private Button tileButton;  // 按钮组件
 
 
-
-    private string tileId;    // 牌的ID（如"11"表示一万）
+    // 将私有字段改为公共属性
+    public int tileId { get; private set; }    // 牌的ID（如"11"表示一万）
     private bool currentGetTile;   // 是否是当前摸到的牌
 
     private void Start()
@@ -28,7 +28,7 @@ public class TileCard : MonoBehaviour
     /// <summary>
     /// 设置牌面图片
     /// </summary>
-    public void SetTile(string id,bool isCurrentGetTile)
+    public void SetTile(int id,bool isCurrentGetTile)
     {
         tileId = id;
         currentGetTile = isCurrentGetTile;
