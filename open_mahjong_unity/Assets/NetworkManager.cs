@@ -164,7 +164,15 @@ public class NetworkManager : MonoBehaviour
                         dealresponse.remain_tiles
                     );
                     break;
-
+                case "ask_action_chinese":
+                    Debug.Log($"收到询问操作消息: {response.ask_action_info}");
+                    AskActionInfo askresponse = response.ask_action_info;
+                    GameSceneMannager.Instance.AskAction(
+                        askresponse.remaining_time,
+                        askresponse.action_list,
+                        askresponse.cut_tile
+                    );
+                    break;
                 default:
                     throw new Exception($"未知的消息类型: {response.type}");
             }
@@ -282,7 +290,16 @@ public class NetworkManager : MonoBehaviour
         websocket.Send(JsonUtility.ToJson(request));
     }
     // 4.8 发送吃碰杠回应
-
+    public void SendAction(string action)
+    {
+        var request = new SendActionRequest
+        {
+            type = "send_action",
+            room_id = Administrator.Instance.room_id,
+            action = action
+        };
+        websocket.Send(JsonUtility.ToJson(request));
+    }
 
 
 
@@ -332,6 +349,32 @@ public class Response
     public GameInfo game_info;
     public CutTileResponse cut_info;
     public DealTileInfo deal_tile_info;
+    public AskActionInfo ask_action_info;
+}
+
+[Serializable]
+public class CutTileResponse
+{
+    public int cut_player_index;
+    public bool cut_class;
+    public int cut_tiles; 
+}
+
+[Serializable]
+public class DealTileInfo
+{
+    public int deal_player_index;
+    public int deal_tiles;
+    public int remaining_time;
+    public int remain_tiles;
+}
+
+[Serializable]
+public class AskActionInfo
+{
+    public int remaining_time;
+    public string[] action_list;
+    public int cut_tile;
 }
 
 // 6.Request 发送数据类型 ##################################################################
@@ -425,20 +468,12 @@ public class SendChineseGameTileRequest
     public string room_id;
 }
 
-[Serializable]
-public class CutTileResponse
-{
-    public int cut_player_index;
-    public bool cut_class;
-    public int cut_tiles; 
-}
+
 
 [Serializable]
-public class DealTileInfo
+public class SendActionRequest
 {
-    public int deal_player_index;
-    public int deal_tiles;
-    public int remaining_time;
-    public int remain_tiles;
+    public string type;
+    public string action;
+    public string room_id;
 }
-

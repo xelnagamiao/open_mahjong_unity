@@ -108,6 +108,10 @@ async def message_input(websocket: WebSocket, player_id: str):
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
             await chinese_game_state.cut_tiles(player_id, message["cutClass"], message["TileId"])
+        elif message["type"] == "send_action":
+            room_id = message["room_id"]
+            chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
+            await chinese_game_state.get_action(player_id, message["action"])
         
     # 1.3 接受信息头类型错误打印错误值
     #except Exception as e:

@@ -9,3 +9,9 @@ open_mahjong_server/*
 !open_mahjong_server/server/
 
 !.gitignore
+
+
+
+
+open_mahjong_server/server/__pycache__
+

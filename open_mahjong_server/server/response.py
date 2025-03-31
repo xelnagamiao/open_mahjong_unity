@@ -58,6 +58,11 @@ class Deal_tile_info(BaseModel):
     deal_tiles: int
     remain_tiles: int
 
+class Ask_action_info(BaseModel):
+    remaining_time: int
+    action_list: list[str]
+    cut_tile: int
+
 class Response(BaseModel):
     type: str
     success: bool
@@ -68,4 +73,5 @@ class Response(BaseModel):
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息
     cut_info: Optional[Cut_response] = None # 用于执行cut_tiles时返回切牌信息
     deal_tile_info: Optional[Deal_tile_info] = None # 用于执行deal_tile时返回发牌信息
+    ask_action_info: Optional[Ask_action_info] = None # 用于询问玩家操作
 
