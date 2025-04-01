@@ -87,7 +87,7 @@ GameObject:
   - component: {fileID: 1298640491865880533}
   - component: {fileID: 1871040073054492541}
   m_Layer: 5
-  m_Name: AskTileCard
+  m_Name: StaticTileCard
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

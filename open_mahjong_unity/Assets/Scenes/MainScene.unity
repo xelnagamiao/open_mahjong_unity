@@ -5728,8 +5728,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 612948362}
   m_HandleRect: {fileID: 612948361}
   m_Direction: 2
-  m_Value: 0
-  m_Size: 0.7538349
+  m_Value: -0.0000016529592
+  m_Size: 0.75383484
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -6242,11 +6242,6 @@ MonoBehaviour:
   tile3DPrefab: {fileID: 996332116635676784, guid: d071934cf89470d44a6fdc475c40ddab, type: 3}
   handCardsContainer: {fileID: 429637845}
   GetCardsContainer: {fileID: 782628376}
-  AskActionContainer: {fileID: 1904274050}
-  AskActionContenterTips: {fileID: 1934348814}
-  AskActionButtonPrefab: {fileID: 0}
-  AskActionCardPrefab: {fileID: 0}
-  AskActionCardContainerBlock: {fileID: 0}
   remianTimeText: {fileID: 1630940471}
   leftCardsPosition: {fileID: 1666987847}
   topCardsPosition: {fileID: 1874941106}
@@ -6278,6 +6273,11 @@ MonoBehaviour:
   player_right_score: {fileID: 133155986}
   player_right_index: {fileID: 409435326}
   player_right_current_image: {fileID: 1279150829}
+  ActionButtonContainer: {fileID: 1904274050}
+  ActionBlockContenter: {fileID: 1934348814}
+  ActionButtonPrefab: {fileID: 1529395238790874561, guid: f55338001e5b0884882afdfb83474c8d, type: 3}
+  StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
+  ActionBlockPrefab: {fileID: 3763865473911665470, guid: d2e40a710816b52409b56534a20ad37e, type: 3}
   roomId: 0
   selfCurrentIndex: 0
   NowCurrentIndex: 0
@@ -13484,7 +13484,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.000061035156, y: 73.84952}
+  m_AnchoredPosition: {x: 0.000061035156, y: 73.84966}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1876749538
@@ -13603,7 +13603,7 @@ GameObject:
   - component: {fileID: 1904274050}
   - component: {fileID: 1904274051}
   m_Layer: 12
-  m_Name: ActionContainer
+  m_Name: ActionButtonContainer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -13744,7 +13744,7 @@ GameObject:
   - component: {fileID: 1934348814}
   - component: {fileID: 1934348815}
   m_Layer: 12
-  m_Name: ActionContainerTips
+  m_Name: ActionBlockContainer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

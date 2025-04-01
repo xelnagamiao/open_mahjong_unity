@@ -7,7 +7,7 @@ import mysql.connector
 from mysql.connector import Error
 import asyncio  # 添加这个导入
 from response import *
-from ChineseGameState import ChineseGameState,ChinesePlayer
+from ChineseGameState import ChineseGameState
 from room import Room
 
 # 0.0 原神启动

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class ActionButton : MonoBehaviour
 {
-    public List<string> actionTypeList; // 动作类型列表
+    public List<string> actionTypeList = new List<string>(); // 动作类型列表
     // Start is called before the first frame update
     void Start()
     {

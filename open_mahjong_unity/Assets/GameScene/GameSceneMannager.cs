@@ -9,6 +9,7 @@ using UnityEngine.Rendering;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
+using JetBrains.Annotations;
 
 
 public class GameSceneMannager : MonoBehaviour
@@ -20,11 +21,6 @@ public class GameSceneMannager : MonoBehaviour
     [SerializeField] private GameObject tile3DPrefab;    // 他人手牌预制体
     [SerializeField] private Transform handCardsContainer; // 手牌容器（水平布局组）
     [SerializeField] private Transform GetCardsContainer;  // 获得牌容器
-    [SerializeField] private Transform AskActionContainer;  // 询问操作容器
-    [SerializeField] private Transform AskActionContenterTips;  // 询问操作内容提示
-    [SerializeField] private GameObject AskActionButtonPrefab;  // 询问操作按钮预制体
-    [SerializeField] private GameObject AskActionCardPrefab;  // 询问操作卡片预制体
-    [SerializeField] private GameObject AskActionCardContainerBlock;  // 询问操作卡片容器块
     [SerializeField] private Text remianTimeText;        // 剩余时间文本
 
     [Header("3D对象生成位置")]
@@ -68,6 +64,15 @@ public class GameSceneMannager : MonoBehaviour
     [SerializeField] private Text player_right_index;        // 玩家索引文本
     [SerializeField] private Image player_right_current_image;     // 玩家回合标记
 
+    [Header("询问操作模块")]
+    [SerializeField] private Transform ActionButtonContainer;  // 询问操作容器
+    [SerializeField] private Transform ActionBlockContenter;  // 询问操作内容提示
+    [SerializeField] private GameObject ActionButtonPrefab;  // 询问操作按钮预制体
+    [SerializeField] private GameObject StaticCardPrefab;  // 静态牌预制体
+    [SerializeField] private GameObject ActionBlockPrefab;  // 操作卡片容器块
+
+    private bool isArrangeHandCards = true; // 是否排列手牌
+
 
 
     private int SaveCount;
@@ -84,6 +89,8 @@ public class GameSceneMannager : MonoBehaviour
     public List<int> leftDiscardslist = new List<int>();
     public List<int> topDiscardslist = new List<int>();
     public List<int> rightDiscardslist = new List<int>();
+
+
 
     // 存储玩家位置至字典
     public Dictionary<int, string> player_local_position = new Dictionary<int, string>();
@@ -159,7 +166,7 @@ public class GameSceneMannager : MonoBehaviour
             remianTimeText.text = $""; // 隐藏倒计时文本
             DisCardAnimation(tileId,selfDiscardsPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",selfDiscardslist.Count);
             selfDiscardslist.Add(tileId);
-
+            ArrangeHandCards();
         }
         if (selfCurrentIndex == 0){
             if (playerIndex == 1){
@@ -414,75 +421,76 @@ public class GameSceneMannager : MonoBehaviour
         if (action_list.Length > 0){
             loadingRemianTime(remaining_time, currentCutTime);
         }
+        Debug.Log($"询问操作列表: {action_list}");
         for (int i = 0; i < action_list.Length; i++){
             Debug.Log($"询问操作: {action_list[i]}");
             if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
                 Debug.Log($"吃牌");
                 // 实例化按钮
-                GameObject askActionObj = Instantiate(AskActionButtonPrefab, AskActionContainer);
+                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = askActionObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
                 buttonText.text = "吃";
                 // 设置按钮行动列表
-                ActionButton actionButton = askActionObj.GetComponent<ActionButton>();
+                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
                 actionButton.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "peng"){
                 Debug.Log($"碰牌");
                 // 实例化按钮
-                GameObject askActionObj = Instantiate(AskActionButtonPrefab, AskActionContainer);
+                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = askActionObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
                 buttonText.text = "碰";
                 // 设置按钮行动列表
-                ActionButton actionButton = askActionObj.GetComponent<ActionButton>();
+                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
                 actionButton.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "gang"){
                 Debug.Log($"杠牌");
                 // 实例化按钮
-                GameObject askActionObj = Instantiate(AskActionButtonPrefab, AskActionContainer);
+                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = askActionObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
                 buttonText.text = "杠";
                 // 设置按钮行动列表
-                ActionButton actionButton = askActionObj.GetComponent<ActionButton>();
+                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
                 actionButton.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "hu"){
                 Debug.Log($"胡牌");
                 // 实例化按钮
-                GameObject askActionObj = Instantiate(AskActionButtonPrefab, AskActionContainer);
+                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = askActionObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
                 buttonText.text = "胡";
                 // 设置按钮行动列表
-                ActionButton actionButton = askActionObj.GetComponent<ActionButton>();
+                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
                 actionButton.actionTypeList.Add(action_list[i]);
             }
         }
         if (action_list.Length > 0){
-            GameObject askActionObj = Instantiate(AskActionButtonPrefab, AskActionContainer);
+            GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
             // 设置按钮文本
-            Text buttonText = askActionObj.transform.Find("Text").GetComponent<Text>();
+            Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
             buttonText.text = "取消";
             // 设置按钮行动列表
-            ActionButton actionButton = askActionObj.GetComponent<ActionButton>();
+            ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
             actionButton.actionTypeList.Add("pass");
         }
     }
 
     private void CreateActionCards(List<int> tiles,string actionType) {
         // 清空现有提示牌
-        foreach (Transform child in AskActionContenterTips)
+        foreach (Transform child in ActionBlockContenter)
         {
             Destroy(child.gameObject);
         }
-        GameObject containerBlockObj = Instantiate(AskActionCardContainerBlock, AskActionContenterTips);
+        GameObject containerBlockObj = Instantiate(StaticCardPrefab, ActionBlockContenter);
         BlockClick blockClick = containerBlockObj.GetComponent<BlockClick>();
         blockClick.actionType = actionType;
         foreach (int tile in tiles){
-            GameObject cardObj = Instantiate(AskActionCardPrefab, containerBlockObj.transform);
+            GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
             cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
         }
     }
@@ -536,21 +544,68 @@ public class GameSceneMannager : MonoBehaviour
         }
     }
 
+    public void DoAction(string actionType, int remianTime,int playerIndex){
+    }
 
-    // 新增方法：应用牌面纹理
-    private void ApplyCardTexture(GameObject cardObj, int tileId)
-    {
+    public void ActionAnimation(){}
 
+    private void ArrangeHandCards() {
+        // 获取所有子对象并存入列表
+        if (isArrangeHandCards){
+            List<TileCard> cards = new List<TileCard>();
+            foreach (Transform child in handCardsContainer) {
+                TileCard tileCard = child.GetComponent<TileCard>();
+                if (tileCard != null) {
+                    cards.Add(tileCard);
+                }
+            }
+            // 直接按tileId排序
+            cards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
+            // 重新排列子对象
+            for (int i = 0; i < cards.Count; i++) {
+                cards[i].transform.SetSiblingIndex(i);
+            }
+        }
+    }
+
+    // 应用牌面纹理
+    private void ApplyCardTexture(GameObject cardObj, int tileId) {
         // 从Resources加载对应ID的图片
         Texture2D texture = Resources.Load<Texture2D>($"image/CardMaterial/{tileId}");
+        
+        if (texture == null) {
+            Debug.LogError($"无法加载纹理: image/CardMaterial/{tileId}");
+            return;
+        }
+        
         // 获取预制体的渲染器
         Renderer renderer = cardObj.GetComponent<Renderer>();
+        
         // 克隆材质以避免修改原始材质
-        Material[] materials = renderer.materials;        
-        // 修改第二个材质的纹理（索引1）
-        materials[1].mainTexture = texture;         
-        // 应用修改后的材质
-        renderer.materials = materials;
+        Material[] materials = renderer.materials;
+        
+        // 修改第二个材质的纹理及相关设置
+        if (materials.Length > 1) {
+            // 设置纹理
+            materials[1].mainTexture = texture;
+            
+            // 设置纹理属性
+            materials[1].mainTextureScale = new Vector2(1, 1);          // 设置缩放为1:1
+            materials[1].mainTextureOffset = new Vector2(0, 0);         // 设置偏移为0
+            
+            // 设置纹理包裹模式为Clamp，防止拉伸
+            texture.wrapMode = TextureWrapMode.Clamp;
+            
+            // 设置过滤模式为点过滤，保持像素锐利度
+            texture.filterMode = FilterMode.Bilinear;
+            
+            // 应用修改后的材质
+            renderer.materials = materials;
+            
+            Debug.Log($"应用纹理到卡片 {tileId} 完成");
+        } else {
+            Debug.LogError($"材质数组长度不足: {materials.Length}");
+        }
     }
 
     private void InitializeGame(GameInfo gameInfo){
@@ -562,6 +617,7 @@ public class GameSceneMannager : MonoBehaviour
         InitializePlayerInfo(gameInfo.player_positions, gameInfo.players_info);
         // 4.初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
         InitializeHandCards(gameInfo.self_hand_tiles,gameInfo.current_player_index,gameInfo.game_status);
+        ArrangeHandCards(); // 排列手牌
         // 5.初始化他人手牌区域
         InitializeOtherCards(gameInfo.player_positions, gameInfo.players_info);
         // 6.初始化剩余时间,如果自己的index为0
@@ -944,6 +1000,5 @@ public class GameSceneMannager : MonoBehaviour
         }
         remianTimeText.text = $""; // 隐藏倒计时文本
     }
-
 
 }

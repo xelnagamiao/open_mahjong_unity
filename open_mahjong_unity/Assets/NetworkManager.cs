@@ -173,6 +173,14 @@ public class NetworkManager : MonoBehaviour
                         askresponse.cut_tile
                     );
                     break;
+                case "do_action_chinese":
+                    Debug.Log($"收到执行操作消息: {response.action_info}");
+                    GameSceneMannager.Instance.DoAction(
+                        response.action_info.action_type,
+                        response.action_info.remaining_time,
+                        response.action_info.player_index
+                    );
+                    break;
                 default:
                     throw new Exception($"未知的消息类型: {response.type}");
             }
@@ -350,6 +358,7 @@ public class Response
     public CutTileResponse cut_info;
     public DealTileInfo deal_tile_info;
     public AskActionInfo ask_action_info;
+    public ActionInfo action_info;
 }
 
 [Serializable]
@@ -375,6 +384,13 @@ public class AskActionInfo
     public int remaining_time;
     public string[] action_list;
     public int cut_tile;
+}
+
+public class ActionInfo
+{
+    public string action_type;
+    public int remaining_time;
+    public int player_index;
 }
 
 // 6.Request 发送数据类型 ##################################################################

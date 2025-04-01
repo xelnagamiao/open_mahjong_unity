@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5097449357024156036}
   - component: {fileID: -9182234765954935505}
   m_Layer: 12
-  m_Name: ActionContainerTipsBlock
+  m_Name: ActionBlock
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
