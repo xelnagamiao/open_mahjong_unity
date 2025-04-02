@@ -5728,8 +5728,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 612948362}
   m_HandleRect: {fileID: 612948361}
   m_Direction: 2
-  m_Value: -0.0000016529592
-  m_Size: 0.75383484
+  m_Value: 0
+  m_Size: 0.7538349
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -6275,7 +6275,7 @@ MonoBehaviour:
   player_right_current_image: {fileID: 1279150829}
   ActionButtonContainer: {fileID: 1904274050}
   ActionBlockContenter: {fileID: 1934348814}
-  ActionButtonPrefab: {fileID: 1529395238790874561, guid: f55338001e5b0884882afdfb83474c8d, type: 3}
+  ActionButtonPrefab: {fileID: 2631809785816465823, guid: f55338001e5b0884882afdfb83474c8d, type: 3}
   StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
   ActionBlockPrefab: {fileID: 3763865473911665470, guid: d2e40a710816b52409b56534a20ad37e, type: 3}
   roomId: 0
@@ -13484,7 +13484,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.000061035156, y: 73.84966}
+  m_AnchoredPosition: {x: 0.000061035156, y: 73.8495}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1876749538

@@ -67,6 +67,7 @@ class Action_info(BaseModel):
     remaining_time: int
     do_action_type: str
     current_player_index: int
+    tile_id: int
 
 
 class Response(BaseModel):

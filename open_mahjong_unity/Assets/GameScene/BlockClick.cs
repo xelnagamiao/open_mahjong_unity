@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class BlockClick : MonoBehaviour, IPointerClickHandler
+public class ActionBlock : MonoBehaviour, IPointerClickHandler
 {
     [SerializeField] public string actionType; // 可以在Inspector中设置
     
@@ -20,6 +20,7 @@ public class BlockClick : MonoBehaviour, IPointerClickHandler
         }
         // 点击后停止计时器
         GameSceneMannager.Instance.StopTimeRunning();
+        GameSceneMannager.Instance.ClearActionContenter();
     }
 
 

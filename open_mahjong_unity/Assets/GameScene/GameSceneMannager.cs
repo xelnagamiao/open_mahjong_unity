@@ -67,7 +67,7 @@ public class GameSceneMannager : MonoBehaviour
     [Header("询问操作模块")]
     [SerializeField] private Transform ActionButtonContainer;  // 询问操作容器
     [SerializeField] private Transform ActionBlockContenter;  // 询问操作内容提示
-    [SerializeField] private GameObject ActionButtonPrefab;  // 询问操作按钮预制体
+    [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体
     [SerializeField] private GameObject StaticCardPrefab;  // 静态牌预制体
     [SerializeField] private GameObject ActionBlockPrefab;  // 操作卡片容器块
 
@@ -79,6 +79,8 @@ public class GameSceneMannager : MonoBehaviour
     private Coroutine _countdownCoroutine;
     private int _currentRemainingTime;
     private int _currentCutTime;
+    private GameObject LastCutCard;
+    private int LastDoActionPlayer;
 
     public int roomId;
     public int selfCurrentIndex;
@@ -90,7 +92,10 @@ public class GameSceneMannager : MonoBehaviour
     public List<int> topDiscardslist = new List<int>();
     public List<int> rightDiscardslist = new List<int>();
 
-
+    private Vector3 selfCombinationsPositionVector3;
+    private Vector3 leftCombinationsPositionVector3;
+    private Vector3 topCombinationsPositionVector3;
+    private Vector3 rightCombinationsPositionVector3;
 
     // 存储玩家位置至字典
     public Dictionary<int, string> player_local_position = new Dictionary<int, string>();
@@ -284,7 +289,8 @@ public class GameSceneMannager : MonoBehaviour
         Debug.Log($"创建卡片 {discardCount}, 牌ID: {tileId}");
         // 创建麻将牌预制体
         GameObject cardObj = Instantiate(tile3DPrefab, currentPosition, rotation);
-        
+        LastCutCard = cardObj;
+
         // 设置父对象
         cardObj.transform.SetParent(DiscardPosition, worldPositionStays: true);
         cardObj.name = $"Card_{discardCount}";
@@ -422,61 +428,69 @@ public class GameSceneMannager : MonoBehaviour
             loadingRemianTime(remaining_time, currentCutTime);
         }
         Debug.Log($"询问操作列表: {action_list}");
+
+        // 用于跟踪吃牌按钮
+        ActionButton chiButton = null;
+
         for (int i = 0; i < action_list.Length; i++){
             Debug.Log($"询问操作: {action_list[i]}");
             if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
-                Debug.Log($"吃牌");
-                // 实例化按钮
-                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                // 设置按钮文本
-                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
-                buttonText.text = "吃";
-                // 设置按钮行动列表
-                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
-                actionButton.actionTypeList.Add(action_list[i]);
+                if (chiButton == null)
+                {
+                    // 第一次遇到吃牌选项时创建按钮
+                    chiButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                    Text buttonText = chiButton.TextObject;
+                    buttonText.text = "吃";
+                    Debug.Log($"创建吃牌按钮: {chiButton}");
+                }
+                // 将当前的吃牌选项添加到已存在的吃牌按钮中
+                chiButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"添加吃牌选项: {action_list[i]}");
             }
             else if (action_list[i] == "peng"){
                 Debug.Log($"碰牌");
                 // 实例化按钮
-                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "碰";
                 // 设置按钮行动列表
-                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
-                actionButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"碰牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "gang"){
                 Debug.Log($"杠牌");
                 // 实例化按钮
-                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "杠";
                 // 设置按钮行动列表
-                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
-                actionButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"杠牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "hu"){
                 Debug.Log($"胡牌");
                 // 实例化按钮
-                GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 // 设置按钮文本
-                Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
+                Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "胡";
                 // 设置按钮行动列表
-                ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
-                actionButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"胡牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
-        }
+        } 
         if (action_list.Length > 0){
-            GameObject ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+            Debug.Log($"取消");
+            // 实例化按钮
+            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
             // 设置按钮文本
-            Text buttonText = ActionButtonObj.transform.Find("Text").GetComponent<Text>();
+            Text buttonText = ActionButtonObj.TextObject;
             buttonText.text = "取消";
             // 设置按钮行动列表
-            ActionButton actionButton = ActionButtonObj.GetComponent<ActionButton>();
-            actionButton.actionTypeList.Add("pass");
+            Debug.Log($"取消按钮: {ActionButtonObj}");
+            ActionButtonObj.actionTypeList.Add("pass");
         }
     }
 
@@ -486,8 +500,8 @@ public class GameSceneMannager : MonoBehaviour
         {
             Destroy(child.gameObject);
         }
-        GameObject containerBlockObj = Instantiate(StaticCardPrefab, ActionBlockContenter);
-        BlockClick blockClick = containerBlockObj.GetComponent<BlockClick>();
+        GameObject containerBlockObj = Instantiate(ActionBlockPrefab, ActionBlockContenter);
+        ActionBlock blockClick = containerBlockObj.GetComponent<ActionBlock>();
         blockClick.actionType = actionType;
         foreach (int tile in tiles){
             GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
@@ -531,23 +545,226 @@ public class GameSceneMannager : MonoBehaviour
                     TipsCardsList.Add(lastCutTile);
                     CreateActionCards(TipsCardsList, actionType);
                     break;
-                case "pass": // 如果点击取消则停止计时
-                    if (_countdownCoroutine != null) {
-                        StopCoroutine(_countdownCoroutine);
-                        _countdownCoroutine = null;
-                    }
+                case "pass": // 如果点击取消则停止计时 清空行为列表 发送pass请求
+                    ClearActionContenter();
+                    StopTimeRunning();
                     NetworkManager.Instance.SendAction("pass");
                     break;
-                case "hu":
+                case "hu": // 如果点击胡牌则停止计时 清空行为列表 发送胡牌请求
+                    ClearActionContenter();
+                    StopTimeRunning();
+                    NetworkManager.Instance.SendAction("hu");
                     break;
                 }
         }
     }
 
-    public void DoAction(string actionType, int remianTime,int playerIndex){
+    public void ClearActionContenter(){
+        foreach (Transform child in ActionBlockContenter){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in ActionButtonContainer){
+            Destroy(child.gameObject);
+        }
     }
 
-    public void ActionAnimation(){}
+    public void DoAction(string doActionType, int remianTime,int playerIndex,int tileId){
+        // 获取玩家位置
+        string playerPosition = player_local_position[playerIndex];
+        // 记录上一次操作玩家
+        LastDoActionPlayer = NowCurrentIndex;
+        // 更新当前玩家
+        NowCurrentIndex = playerIndex;
+        // 删除最后一张切牌
+        Destroy(LastCutCard);
+        // 删除上一次操作玩家最后一张弃牌
+        string LastDoActionPlayerPosition = player_local_position[LastDoActionPlayer];
+        if (LastDoActionPlayerPosition == "self"){
+            selfDiscardslist.RemoveAt(selfDiscardslist.Count - 1);
+        }
+        else if (LastDoActionPlayerPosition == "left"){
+            leftDiscardslist.RemoveAt(leftDiscardslist.Count - 1);
+        }
+        else if (LastDoActionPlayerPosition == "top"){
+            topDiscardslist.RemoveAt(topDiscardslist.Count - 1);
+        }
+        else if (LastDoActionPlayerPosition == "right"){
+            rightDiscardslist.RemoveAt(rightDiscardslist.Count - 1);
+        }
+
+        // 如果操作者是他家 删除他家手牌 如果操作者是自己 删除自己手牌
+        if (playerPosition == "self"){
+            if (doActionType == "chi_left"){
+                // 从handcardscontainer中删除
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId - 1){
+                        Destroy(child.gameObject);
+                    }
+                }
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId - 2){
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+            else if (doActionType == "chi_mid"){
+                // 从handcardscontainer中删除
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId - 1){
+                        Destroy(child.gameObject);
+                    }
+                }
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId + 1){
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+            else if (doActionType == "chi_right"){
+                // 从handcardscontainer中删除
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId + 1){
+                        Destroy(child.gameObject);
+                    }
+                }
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId + 2){
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+            else if (doActionType == "peng"){
+                // 从handcardscontainer中删除
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId){
+                        Destroy(child.gameObject);
+                    }
+                }
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId){
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+            else if (doActionType == "gang"){
+                // 从handcardscontainer中删除
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId){
+                        Destroy(child.gameObject);
+                    }
+                }
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId){
+                        Destroy(child.gameObject);
+                    }
+                }
+                foreach (Transform child in handCardsContainer){
+                    if (child.GetComponent<TileCard>().tileId == tileId){
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+            // 执行动画
+            ActionAnimation(doActionType,tileId,"self",LastDoActionPlayerPosition);
+            // 更新剩余时间
+            loadingRemianTime(remianTime,currentCutTime);
+        }
+        else if (playerPosition == "left"){
+            removeOtherHandCards(leftCardsPosition,false);
+            removeOtherHandCards(leftCardsPosition,false);
+            ActionAnimation(doActionType,tileId,"left",LastDoActionPlayerPosition);
+        }
+        else if (playerPosition == "top"){
+            removeOtherHandCards(topCardsPosition,false);
+            removeOtherHandCards(topCardsPosition,false);
+            ActionAnimation(doActionType,tileId,"top",LastDoActionPlayerPosition);
+        }
+        else if (playerPosition == "right"){
+            removeOtherHandCards(rightCardsPosition,false);
+            removeOtherHandCards(rightCardsPosition,false);
+            ActionAnimation(doActionType,tileId,"right",LastDoActionPlayerPosition);
+        }
+    }
+
+    public void ActionAnimation(string actionType,int tileId,string playerPosition,string LastDoActionPlayerPosition){
+        // 根据actionType执行动画
+        Quaternion rotation = Quaternion.identity;
+        Vector3 SetCombinationPosition = Vector3.zero;
+        if (playerPosition == "self"){
+            rotation = Quaternion.Euler(0, 0, -90); // 自身位置
+            if (selfCombinationsPosition == null){
+                selfCombinationsPositionVector3 = selfCombinationsPosition.position;
+            }
+        }
+        else if (playerPosition == "left"){
+            rotation = Quaternion.Euler(0, 90, -90); // 左侧玩家
+            if (leftCombinationsPosition == null){
+                leftCombinationsPositionVector3 = leftCombinationsPosition.position;
+            }
+        }
+        else if (playerPosition == "top"){
+            rotation = Quaternion.Euler(0, 180, -90); // 上方玩家
+            if (topCombinationsPosition == null){
+                topCombinationsPositionVector3 = topCombinationsPosition.position;
+            }
+        }
+        else if (playerPosition == "right"){
+            rotation = Quaternion.Euler(0, 270, -90); // 右侧玩家
+            if (rightCombinationsPosition == null){
+                rightCombinationsPositionVector3 = rightCombinationsPosition.position;
+            }
+        }
+        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
+        float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z;
+        float widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+        float heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
+        // 根据actionType执行动画
+
+
+
+
+
+        if (LastDoActionPlayerPosition == "self"){
+            if (actionType == "chi_left"){
+                Quaternion Newrotation = Quaternion.Euler(0, 90+90, -90);// 牌角度
+                Vector3 ArrangePoint = new Vector3(-1,0,0); // 向左
+
+                // 越往右侧的越最先布置 最靠自身的牌是横置的tileId
+                ActionAnimationSetCombination(tileId-1,SetCombinationPosition,rotation);
+                selfCombinationsPositionVector3 += heightSpacing*ArrangePoint;
+                ActionAnimationSetCombination(tileId-2,SetCombinationPosition,rotation);
+                selfCombinationsPositionVector3 += heightSpacing*ArrangePoint;
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,Newrotation);
+                selfCombinationsPositionVector3 += widthSpacing*ArrangePoint;
+            }
+            else if (actionType == "chi_mid"){
+                ActionAnimationSetCombination(tileId-1,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId+1,SetCombinationPosition,rotation);
+            }
+            else if (actionType == "chi_right"){
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId+1,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId+2,SetCombinationPosition,rotation);
+            }
+            else if (actionType == "peng"){
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+            }
+            else if (actionType == "gang"){
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
+            }  
+        }
+    }
+
+    private void ActionAnimationSetCombination(int tileId,Vector3 SetCombinationPosition,Quaternion rotation){
+        // 根据tileId设置组合位置
+        
+    }
 
     private void ArrangeHandCards() {
         // 获取所有子对象并存入列表

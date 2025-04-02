@@ -176,9 +176,10 @@ public class NetworkManager : MonoBehaviour
                 case "do_action_chinese":
                     Debug.Log($"收到执行操作消息: {response.action_info}");
                     GameSceneMannager.Instance.DoAction(
-                        response.action_info.action_type,
+                        response.action_info.do_action_type,
                         response.action_info.remaining_time,
-                        response.action_info.player_index
+                        response.action_info.current_player_index,
+                        response.action_info.tile_id
                     );
                     break;
                 default:
@@ -388,9 +389,10 @@ public class AskActionInfo
 
 public class ActionInfo
 {
-    public string action_type;
     public int remaining_time;
-    public int player_index;
+    public string do_action_type;
+    public int current_player_index;
+    public int tile_id;
 }
 
 // 6.Request 发送数据类型 ##################################################################

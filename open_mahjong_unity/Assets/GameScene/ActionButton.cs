@@ -6,10 +6,22 @@ using UnityEngine.UI;
 
 public class ActionButton : MonoBehaviour
 {
+    [SerializeField] private Text textObject;
+    public Text TextObject
+    {
+        get
+        {
+            if (textObject == null)
+                textObject = GetComponentInChildren<Text>();
+            return textObject;
+        }
+    }
     public List<string> actionTypeList = new List<string>(); // 动作类型列表
     // Start is called before the first frame update
     void Start()
     {
+        if (textObject == null)
+            textObject = GetComponentInChildren<Text>();
         // 按钮点击事件
         Button button = GetComponent<Button>();
         button.onClick.AddListener(OnClick);
@@ -18,14 +30,14 @@ public class ActionButton : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 
     // 按钮点击事件
     void OnClick()
     {
-        Debug.Log($"点击了{actionTypeList}按钮");
         // 发送请求
         GameSceneMannager.Instance.ChooseAction(actionTypeList);
     }
 }
+
