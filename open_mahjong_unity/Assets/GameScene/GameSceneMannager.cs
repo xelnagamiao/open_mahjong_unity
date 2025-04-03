@@ -18,7 +18,7 @@ public class GameSceneMannager : MonoBehaviour
     
     [Header("主用户界面")]
     [SerializeField] private GameObject tileCardPrefab;    // 手牌预制体
-    [SerializeField] private GameObject tile3DPrefab;    // 他人手牌预制体
+    [SerializeField] private GameObject tile3DPrefab;    // 3D预制体
     [SerializeField] private Transform handCardsContainer; // 手牌容器（水平布局组）
     [SerializeField] private Transform GetCardsContainer;  // 获得牌容器
     [SerializeField] private Text remianTimeText;        // 剩余时间文本
@@ -80,22 +80,25 @@ public class GameSceneMannager : MonoBehaviour
     private int _currentRemainingTime;
     private int _currentCutTime;
     private GameObject LastCutCard;
-    private int LastDoActionPlayer;
+    private int LastDoActionPlayer = -1;
 
     public int roomId;
     public int selfCurrentIndex;
     public int NowCurrentIndex;
     public int currentCutTime;
     public int lastCutTile;
-    public List<int> selfDiscardslist = new List<int>();
+
+    public bool selfDoAction=false;
+
+    public List<int> selfDiscardslist = new List<int>(); // 弃牌列表.count用于估算弃牌动画位置
     public List<int> leftDiscardslist = new List<int>();
     public List<int> topDiscardslist = new List<int>();
     public List<int> rightDiscardslist = new List<int>();
 
-    private Vector3 selfCombinationsPositionVector3;
-    private Vector3 leftCombinationsPositionVector3;
-    private Vector3 topCombinationsPositionVector3;
-    private Vector3 rightCombinationsPositionVector3;
+    private Vector3 selfSetCombinationsPoint; // 组合指针用于存储各家组合牌生成位置
+    private Vector3 leftSetCombinationsPoint;
+    private Vector3 topSetCombinationsPoint;
+    private Vector3 rightSetCombinationsPoint;
 
     // 存储玩家位置至字典
     public Dictionary<int, string> player_local_position = new Dictionary<int, string>();
@@ -110,6 +113,10 @@ public class GameSceneMannager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        selfSetCombinationsPoint = selfCombinationsPosition.position;
+        leftSetCombinationsPoint = leftCombinationsPosition.position;
+        topSetCombinationsPoint = topCombinationsPosition.position;
+        rightSetCombinationsPoint = rightCombinationsPosition.position;
     }
 
     private void Start()
@@ -146,9 +153,9 @@ public class GameSceneMannager : MonoBehaviour
 
     public void CutCards(int tileId,int playerIndex,bool cut_class){
         Debug.Log($"{playerIndex},{selfCurrentIndex}");
-        // 如果出牌玩家和当前玩家相同，并且满足NowCurrentIndex为-1（手动出牌）或出牌玩家和NowCurrentIndex相同（超时出牌）
-        if (playerIndex == selfCurrentIndex && (NowCurrentIndex == -1 || playerIndex == NowCurrentIndex)){
-            NowCurrentIndex = -2; // 等待服务器指示NowCurrentIndex
+        // 如果出牌玩家和当前玩家相同，并且没有进行过操作
+        if (playerIndex == selfCurrentIndex && selfDoAction == false){
+            selfDoAction=true;
             if (cut_class){ // 摸切有两种可能 手动则卡牌自动消除 超时则需要验证消除
                 if (GetCardsContainer.childCount > 0) {
                     GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
@@ -156,12 +163,14 @@ public class GameSceneMannager : MonoBehaviour
                 }
             }
             else{ // 手切则手动找到摸到的牌加入手牌
-                GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
-                int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
-                Destroy(GetCardObj);
-                GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
-                TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(GetTileId, false);
+                if (GetCardsContainer.childCount > 0) {
+                    GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
+                    int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
+                    Destroy(GetCardObj);
+                    GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+                    TileCard tileCard = cardObj.GetComponent<TileCard>();
+                    tileCard.SetTile(GetTileId, false);
+                }
             }
             // 添加null检查，防止_countdownCoroutine为null时抛出异常
             if (_countdownCoroutine != null) {
@@ -369,7 +378,7 @@ public class GameSceneMannager : MonoBehaviour
         float spacing = cardWidth * 1f; // 间距为卡片宽度的1倍
 
         Debug.Log($"获取牌 {tileId},{playerIndex}");
-        NowCurrentIndex = playerIndex;
+        RefreshPlayerAnimation(playerIndex);
         remiansTilesText.text = $"余: {remain_tiles}";
 
         string GetCardPlayer = player_local_position[playerIndex];
@@ -380,10 +389,6 @@ public class GameSceneMannager : MonoBehaviour
             tileCard.SetTile(tileId, true);
             // 开启倒计时
             loadingRemianTime(remaining_time, currentCutTime);
-            player_self_current_image.enabled = true;
-            player_left_current_image.enabled = false;
-            player_right_current_image.enabled = false;
-            player_top_current_image.enabled = false;
         }
         // 如果玩家是其他玩家，则将牌添加到他人手牌中
         else if (GetCardPlayer == "left"){
@@ -392,10 +397,6 @@ public class GameSceneMannager : MonoBehaviour
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
-            player_self_current_image.enabled = false;
-            player_left_current_image.enabled = true;
-            player_right_current_image.enabled = false;
-            player_top_current_image.enabled = false;
         }
         else if (GetCardPlayer == "top"){
             Quaternion rotation = Quaternion.Euler(90, 0, -90);
@@ -403,10 +404,6 @@ public class GameSceneMannager : MonoBehaviour
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
-            player_self_current_image.enabled = false;
-            player_left_current_image.enabled = false;
-            player_right_current_image.enabled = false;
-            player_top_current_image.enabled = true;
         }
         else if (GetCardPlayer == "right"){
             Quaternion rotation = Quaternion.Euler(90, 0, 180);
@@ -414,10 +411,6 @@ public class GameSceneMannager : MonoBehaviour
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
-            player_self_current_image.enabled = false;
-            player_left_current_image.enabled = false;
-            player_right_current_image.enabled = true;
-            player_top_current_image.enabled = false;
         }
     }
 
@@ -569,26 +562,28 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     public void DoAction(string doActionType, int remianTime,int playerIndex,int tileId){
+        Debug.Log($"执行DoAction操作: {doActionType}, 时间={remianTime}, 玩家={playerIndex}, 牌={tileId}");
+        if (doActionType == "pass"){
+            return; // 如果接收到pass信息则不执行任何操作
+        }
         // 获取玩家位置
         string playerPosition = player_local_position[playerIndex];
-        // 记录上一次操作玩家
-        LastDoActionPlayer = NowCurrentIndex;
-        // 更新当前玩家
-        NowCurrentIndex = playerIndex;
+        // 更新玩家位置
+        RefreshPlayerAnimation(playerIndex);
         // 删除最后一张切牌
         Destroy(LastCutCard);
         // 删除上一次操作玩家最后一张弃牌
-        string LastDoActionPlayerPosition = player_local_position[LastDoActionPlayer];
-        if (LastDoActionPlayerPosition == "self"){
+        string DoActionFrom = player_local_position[LastDoActionPlayer];
+        if (DoActionFrom == "self"){
             selfDiscardslist.RemoveAt(selfDiscardslist.Count - 1);
         }
-        else if (LastDoActionPlayerPosition == "left"){
+        else if (DoActionFrom == "left"){
             leftDiscardslist.RemoveAt(leftDiscardslist.Count - 1);
         }
-        else if (LastDoActionPlayerPosition == "top"){
+        else if (DoActionFrom == "top"){
             topDiscardslist.RemoveAt(topDiscardslist.Count - 1);
         }
-        else if (LastDoActionPlayerPosition == "right"){
+        else if (DoActionFrom == "right"){
             rightDiscardslist.RemoveAt(rightDiscardslist.Count - 1);
         }
 
@@ -665,105 +660,175 @@ public class GameSceneMannager : MonoBehaviour
                 }
             }
             // 执行动画
-            ActionAnimation(doActionType,tileId,"self",LastDoActionPlayerPosition);
+            ActionAnimation(doActionType,tileId,"self",DoActionFrom);
             // 更新剩余时间
             loadingRemianTime(remianTime,currentCutTime);
         }
         else if (playerPosition == "left"){
             removeOtherHandCards(leftCardsPosition,false);
             removeOtherHandCards(leftCardsPosition,false);
-            ActionAnimation(doActionType,tileId,"left",LastDoActionPlayerPosition);
+            ActionAnimation(doActionType,tileId,"left",DoActionFrom);
         }
         else if (playerPosition == "top"){
             removeOtherHandCards(topCardsPosition,false);
             removeOtherHandCards(topCardsPosition,false);
-            ActionAnimation(doActionType,tileId,"top",LastDoActionPlayerPosition);
+            ActionAnimation(doActionType,tileId,"top",DoActionFrom);
         }
         else if (playerPosition == "right"){
             removeOtherHandCards(rightCardsPosition,false);
             removeOtherHandCards(rightCardsPosition,false);
-            ActionAnimation(doActionType,tileId,"right",LastDoActionPlayerPosition);
+            ActionAnimation(doActionType,tileId,"right",DoActionFrom);
         }
     }
 
-    public void ActionAnimation(string actionType,int tileId,string playerPosition,string LastDoActionPlayerPosition){
+    public void ActionAnimation(string actionType,int tileId,string playerPosition,string DoActionFrom){
         // 根据actionType执行动画
-        Quaternion rotation = Quaternion.identity;
-        Vector3 SetCombinationPosition = Vector3.zero;
+        Quaternion rotation = Quaternion.identity; // 卡牌旋转角度
+        Vector3 SetDirection = Vector3.zero; // 放置方向
+        Vector3 TempSetPosition = Vector3.zero; // 临时放置位置
         if (playerPosition == "self"){
-            rotation = Quaternion.Euler(0, 0, -90); // 自身位置
-            if (selfCombinationsPosition == null){
-                selfCombinationsPositionVector3 = selfCombinationsPosition.position;
-            }
+            rotation = Quaternion.Euler(0, 0, -90); // 获取卡牌旋转角度 
+            SetDirection = new Vector3(-1,0,0); // 获取放置方向 向左
+            TempSetPosition = selfSetCombinationsPoint; // 获取放置指针
         }
         else if (playerPosition == "left"){
             rotation = Quaternion.Euler(0, 90, -90); // 左侧玩家
-            if (leftCombinationsPosition == null){
-                leftCombinationsPositionVector3 = leftCombinationsPosition.position;
-            }
+            SetDirection = new Vector3(0,0,1); // 向上
+            TempSetPosition = leftSetCombinationsPoint;
         }
         else if (playerPosition == "top"){
             rotation = Quaternion.Euler(0, 180, -90); // 上方玩家
-            if (topCombinationsPosition == null){
-                topCombinationsPositionVector3 = topCombinationsPosition.position;
-            }
+            SetDirection = new Vector3(1,0,0); // 向右
+            TempSetPosition = topSetCombinationsPoint;
         }
         else if (playerPosition == "right"){
             rotation = Quaternion.Euler(0, 270, -90); // 右侧玩家
-            if (rightCombinationsPosition == null){
-                rightCombinationsPositionVector3 = rightCombinationsPosition.position;
+            SetDirection = new Vector3(0,0,-1); // 向下
+            TempSetPosition = rightSetCombinationsPoint;
+        }
+        // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
+        List<int> SetTileList = new List<int>();
+        List<int> SignDirectionList = new List<int>();
+        // 放置牌原理是从右向左放置,为了理解方便SetTileList和SignDirectionList从左到右放置随后倒转列表
+        if (actionType == "chi_left"){ 
+            SetTileList.Add(tileId);
+            SetTileList.Add(tileId-2); 
+            SetTileList.Add(tileId-1);
+            // [5,3,4]
+            SignDirectionList = new List<int>{1,0,0};
+        }
+        else if (actionType == "chi_mid"){
+            SetTileList.Add(tileId);
+            SetTileList.Add(tileId-1);
+            SetTileList.Add(tileId+1);
+            // [5,4,6]
+            SignDirectionList = new List<int> {1,0,0};
+        }
+        else if (actionType == "chi_right"){
+            SetTileList.Add(tileId);
+            SetTileList.Add(tileId+1);
+            SetTileList.Add(tileId+2);
+            // [5,6,7]
+            SignDirectionList = new List<int> {1,0,0};
+        }
+        else if (actionType == "peng" || actionType == "gang"){
+            SetTileList.Add(tileId);
+            SetTileList.Add(tileId);
+            SetTileList.Add(tileId);
+            // [5,5,5]
+            SignDirectionList = new List<int> {1,1,1};
+
+            if (playerPosition == "self"){
+                if (DoActionFrom == "left"){
+                    SignDirectionList = new List<int> {1,0,0};
+                }
+                else if (DoActionFrom == "top"){
+                    SignDirectionList = new List<int> {0,1,0};
+                }
+                else if (DoActionFrom == "right"){
+                    SignDirectionList = new List<int> {0,0,1};
+                }
+            }
+            else if (playerPosition == "left"){
+                if (DoActionFrom == "self"){
+                    SignDirectionList = new List<int> {0,0,1};
+                }
+                else if (DoActionFrom == "right"){
+                    SignDirectionList = new List<int> {0,1,0};
+                }
+                else if (DoActionFrom == "top"){
+                    SignDirectionList = new List<int> {1,0,0};
+                }
+            }
+            else if (playerPosition == "top"){
+                if (DoActionFrom == "self"){
+                    SignDirectionList = new List<int> {0,1,0};
+                }
+                else if (DoActionFrom == "right"){
+                    SignDirectionList = new List<int> {1,0,0};
+                }
+                else if (DoActionFrom == "left"){
+                    SignDirectionList = new List<int> {0,0,1};
+                }
+            }
+            else if (playerPosition == "right"){
+                if (DoActionFrom == "self"){
+                    SignDirectionList = new List<int> {1,0,0};
+                }
+                else if (DoActionFrom == "left"){
+                    SignDirectionList = new List<int> {0,1,0};
+                }
+                else if (DoActionFrom == "top"){
+                    SignDirectionList = new List<int> {0,0,1};
+                }
+            }
+            if (actionType == "gang"){
+                SetTileList.Add(tileId);
+                SignDirectionList.Insert(2, 0);
             }
         }
+
+        // 倒转SetTileList
+        SetTileList.Reverse();
+        // 倒转SignDirectionList
+        SignDirectionList.Reverse();
+        // 获得卡牌朝向rotation 和放置方向 SetDirection
         float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
         float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z;
         float widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
         float heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
-        // 根据actionType执行动画
-
-
-
-
-
-        if (LastDoActionPlayerPosition == "self"){
-            if (actionType == "chi_left"){
-                Quaternion Newrotation = Quaternion.Euler(0, 90+90, -90);// 牌角度
-                Vector3 ArrangePoint = new Vector3(-1,0,0); // 向左
-
-                // 越往右侧的越最先布置 最靠自身的牌是横置的tileId
-                ActionAnimationSetCombination(tileId-1,SetCombinationPosition,rotation);
-                selfCombinationsPositionVector3 += heightSpacing*ArrangePoint;
-                ActionAnimationSetCombination(tileId-2,SetCombinationPosition,rotation);
-                selfCombinationsPositionVector3 += heightSpacing*ArrangePoint;
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,Newrotation);
-                selfCombinationsPositionVector3 += widthSpacing*ArrangePoint;
+        // 执行动画
+        for (int i = 0; i < SetTileList.Count; i++) {
+            // 声明变量在条件语句之前
+            GameObject cardObj;
+            
+            // 如果卡牌横置,指针增加一个宽度单位
+            if (SignDirectionList[i] == 1){
+                Quaternion TurnWidthRotation = Quaternion.Euler(0,90,0) * rotation;
+                cardObj = Instantiate(tile3DPrefab, TempSetPosition, TurnWidthRotation);
+                TempSetPosition += SetDirection * widthSpacing;
             }
-            else if (actionType == "chi_mid"){
-                ActionAnimationSetCombination(tileId-1,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId+1,SetCombinationPosition,rotation);
+            // 如果卡牌竖置
+            else{
+                cardObj = Instantiate(tile3DPrefab, TempSetPosition, rotation);
+                TempSetPosition += SetDirection * heightSpacing;
             }
-            else if (actionType == "chi_right"){
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId+1,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId+2,SetCombinationPosition,rotation);
-            }
-            else if (actionType == "peng"){
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-            }
-            else if (actionType == "gang"){
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-                ActionAnimationSetCombination(tileId,SetCombinationPosition,rotation);
-            }  
+            // 设置卡牌纹理
+            ApplyCardTexture(cardObj, SetTileList[i]);
         }
-    }
-
-    private void ActionAnimationSetCombination(int tileId,Vector3 SetCombinationPosition,Quaternion rotation){
-        // 根据tileId设置组合位置
-        
+        // 将更新后的指针位置赋值给公共变量
+        if (playerPosition == "self"){
+            selfSetCombinationsPoint = TempSetPosition;
+        }
+        else if (playerPosition == "left"){
+            leftSetCombinationsPoint = TempSetPosition;
+        }
+        else if (playerPosition == "top"){
+            topSetCombinationsPoint = TempSetPosition;
+        }
+        else if (playerPosition == "right"){
+            rightSetCombinationsPoint = TempSetPosition;
+        }
     }
 
     private void ArrangeHandCards() {
@@ -1027,6 +1092,7 @@ public class GameSceneMannager : MonoBehaviour
         }
         if (_currentRemainingTime == 0){
             remianTimeText.text = $""; // 如果剩余时间为0，则不显示剩余时间
+            StopTimeRunning();
         }
         
         // 启动新的倒计时协程
@@ -1216,6 +1282,47 @@ public class GameSceneMannager : MonoBehaviour
             _countdownCoroutine = null; // 设置为null以避免重复停止
         }
         remianTimeText.text = $""; // 隐藏倒计时文本
+        ClearActionContenter();
+    }
+
+
+    private void RefreshPlayerAnimation(int playerIndex){
+        // 记录上一次操作玩家
+        LastDoActionPlayer = NowCurrentIndex;
+        // 更新当前玩家
+        NowCurrentIndex = playerIndex;
+        // 如果玩家是自己 则selfDoAction为false 代表可以操作
+        if (player_local_position[playerIndex] == "self"){
+            selfDoAction = false;
+        }
+        else{
+            selfDoAction = true;
+        }
+
+        if (player_local_position[playerIndex] == "self"){
+            player_self_current_image.enabled = true;
+            player_left_current_image.enabled = false;
+            player_top_current_image.enabled = false;
+            player_right_current_image.enabled = false;
+        }
+        else if (player_local_position[playerIndex] == "left"){
+            player_self_current_image.enabled = false;
+            player_left_current_image.enabled = true;
+            player_top_current_image.enabled = false;
+            player_right_current_image.enabled = false;
+        }
+        else if (player_local_position[playerIndex] == "top"){
+            player_self_current_image.enabled = false;
+            player_left_current_image.enabled = false;
+            player_top_current_image.enabled = true;
+            player_right_current_image.enabled = false;
+        }
+        else if (player_local_position[playerIndex] == "right"){
+            player_self_current_image.enabled = false;
+            player_left_current_image.enabled = false;
+            player_top_current_image.enabled = false;
+            player_right_current_image.enabled = true;
+        }
     }
 
 }

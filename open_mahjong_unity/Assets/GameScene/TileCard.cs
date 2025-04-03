@@ -53,15 +53,15 @@ public class TileCard : MonoBehaviour
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
         // TODO: 添加选中效果或其他交互
-        if (GameSceneMannager.Instance.NowCurrentIndex == GameSceneMannager.Instance.selfCurrentIndex){
+        if (GameSceneMannager.Instance.NowCurrentIndex == GameSceneMannager.Instance.selfCurrentIndex && 
+            GameSceneMannager.Instance.selfDoAction == false){
             if (currentGetTile){
                 NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
             }
             else{
                 NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
             }
-            GameSceneMannager.Instance.NowCurrentIndex = -1; // 点击牌后设置当前玩家为-1，确保不会重复出牌
-            GameSceneMannager.Instance.CutCards(tileId,-1,currentGetTile);
+            GameSceneMannager.Instance.CutCards(tileId,GameSceneMannager.Instance.NowCurrentIndex,currentGetTile);
             Destroy(gameObject);
         }
     }

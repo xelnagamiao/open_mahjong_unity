@@ -567,7 +567,7 @@ class ChineseGameState:
                             self.player_list[player_index].hand_tiles.remove(remove_tile)
                             self.player_list[player_index].combination_tiles.append(f"g{remove_tile}")
                         if action_type == "hu":
-                            pass
+                            pass # 可能有多人胡的情况
                         if action_type == "pass":
                             pass
                         if action_type != "pass":

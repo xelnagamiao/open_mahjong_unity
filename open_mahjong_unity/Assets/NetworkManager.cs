@@ -175,11 +175,12 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "do_action_chinese":
                     Debug.Log($"收到执行操作消息: {response.action_info}");
+                    ActionInfo doresponse = response.action_info;
                     GameSceneMannager.Instance.DoAction(
-                        response.action_info.do_action_type,
-                        response.action_info.remaining_time,
-                        response.action_info.current_player_index,
-                        response.action_info.tile_id
+                        doresponse.do_action_type,
+                        doresponse.remaining_time,
+                        doresponse.current_player_index,
+                        doresponse.tile_id
                     );
                     break;
                 default:
@@ -387,6 +388,7 @@ public class AskActionInfo
     public int cut_tile;
 }
 
+[Serializable]
 public class ActionInfo
 {
     public int remaining_time;
