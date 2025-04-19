@@ -35,6 +35,10 @@ public class GameSceneMannager : MonoBehaviour
     [SerializeField] private Transform leftCombinationsPosition; // 上家组合位置
     [SerializeField] private Transform topCombinationsPosition; // 对家组合位置
     [SerializeField] private Transform rightCombinationsPosition; // 下家组合位置
+    [SerializeField] private Transform selfBuhuaPosition; // 自家补花位置
+    [SerializeField] private Transform leftBuhuaPosition; // 上家补花位置
+    [SerializeField] private Transform topBuhuaPosition; // 对家补花位置
+    [SerializeField] private Transform rightBuhuaPosition; // 下家补花位置
 
 
     [Header("房间ui界面")]
@@ -88,12 +92,17 @@ public class GameSceneMannager : MonoBehaviour
     public int currentCutTime;
     public int lastCutTile;
 
-    public bool selfDoAction=false;
+    public bool CutAction=false;
 
     public List<int> selfDiscardslist = new List<int>(); // 弃牌列表.count用于估算弃牌动画位置
     public List<int> leftDiscardslist = new List<int>();
     public List<int> topDiscardslist = new List<int>();
     public List<int> rightDiscardslist = new List<int>();
+
+    private int buhuaSelfCount = 0; // 补花次数用于估算补花动画位置
+    private int buhuaLeftCount = 0;
+    private int buhuaTopCount = 0;
+    private int buhuaRightCount = 0;
 
     private Vector3 selfSetCombinationsPoint; // 组合指针用于存储各家组合牌生成位置
     private Vector3 leftSetCombinationsPoint;
@@ -154,8 +163,8 @@ public class GameSceneMannager : MonoBehaviour
     public void CutCards(int tileId,int playerIndex,bool cut_class){
         Debug.Log($"{playerIndex},{selfCurrentIndex}");
         // 如果出牌玩家和当前玩家相同，并且没有进行过操作
-        if (playerIndex == selfCurrentIndex && selfDoAction == false){
-            selfDoAction=true;
+        if (playerIndex == selfCurrentIndex && CutAction == true){
+            CutAction=false;
             if (cut_class){ // 摸切有两种可能 手动则卡牌自动消除 超时则需要验证消除
                 if (GetCardsContainer.childCount > 0) {
                     GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
@@ -164,11 +173,11 @@ public class GameSceneMannager : MonoBehaviour
             }
             else{ // 手切则手动找到摸到的牌加入手牌
                 if (GetCardsContainer.childCount > 0) {
-                    GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
+                GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
                     int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
-                    Destroy(GetCardObj);
-                    GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
-                    TileCard tileCard = cardObj.GetComponent<TileCard>();
+                Destroy(GetCardObj);
+                GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+                TileCard tileCard = cardObj.GetComponent<TileCard>();
                     tileCard.SetTile(GetTileId, false);
                 }
             }
@@ -299,7 +308,7 @@ public class GameSceneMannager : MonoBehaviour
         // 创建麻将牌预制体
         GameObject cardObj = Instantiate(tile3DPrefab, currentPosition, rotation);
         LastCutCard = cardObj;
-
+        
         // 设置父对象
         cardObj.transform.SetParent(DiscardPosition, worldPositionStays: true);
         cardObj.name = $"Card_{discardCount}";
@@ -340,92 +349,55 @@ public class GameSceneMannager : MonoBehaviour
         else{
             // 计算子物体数量，获取随机索引，随机删除选中的子物体
             int childCount = cardPosition.childCount;
-            int randomIndex = UnityEngine.Random.Range(0, childCount);
-            Transform randomChild = cardPosition.GetChild(randomIndex);
-            Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
-            Destroy(randomChild.gameObject);
+                int randomIndex = UnityEngine.Random.Range(0, childCount);
+                Transform randomChild = cardPosition.GetChild(randomIndex);
+                    Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
+                    Destroy(randomChild.gameObject);
             // 等待1秒
             await Task.Delay(1000);
-
+                    
             // 确定方向向量 方向向量乘以spacing等于目标位置
-            Vector3 direction = Vector3.zero;
-            if (cardPosition == rightCardsPosition)
-                direction = new Vector3(0, 0, 1); // 向前
-            else if (cardPosition == leftCardsPosition)
-                direction = new Vector3(0, 0, -1); // 向后
-            else if (cardPosition == topCardsPosition)
-                direction = new Vector3(-1, 0, 0); // 向左
-
+                    Vector3 direction = Vector3.zero;
+                    if (cardPosition == rightCardsPosition)
+                        direction = new Vector3(0, 0, 1); // 向前
+                    else if (cardPosition == leftCardsPosition)
+                        direction = new Vector3(0, 0, -1); // 向后
+                    else if (cardPosition == topCardsPosition)
+                        direction = new Vector3(-1, 0, 0); // 向左
+                    
             // 获取所有剩余子物体并按照名称索引排序[0,1,2,3,4,5,6,7,8,9,10,11,12]
-            List<Transform> remainingCards = new List<Transform>();
+                    List<Transform> remainingCards = new List<Transform>();
             int cardCount = cardPosition.childCount;
             for (int i = 0; i < cardCount; i++) {
-                remainingCards.Add(cardPosition.GetChild(i));
-            }
+                        remainingCards.Add(cardPosition.GetChild(i));
+                    }
             // 拿取手牌初始位置，遍历卡牌乘以spacing移动到目标位置
-            Vector3 startPosition = cardPosition.position;
+                    Vector3 startPosition = cardPosition.position;
             for (int i = 0; i < cardCount; i++) {
                 Vector3 newPosition = startPosition + direction * spacing * (i + 0);
-                remainingCards[i].position = newPosition;
+                        remainingCards[i].position = newPosition;
                 remainingCards[i].name = $"ReSeTCard_{i}";
             }
         }
     }
 
-    public void GetCards(int remaining_time,int tileId,int playerIndex,int remain_tiles){
 
-        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
-        float spacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+    public void AskBuhuaAction(int remaining_time,int tileId,int playerIndex,int remain_tiles,string[] action_list){
 
-        Debug.Log($"获取牌 {tileId},{playerIndex}");
-        RefreshPlayerAnimation(playerIndex);
+        Debug.Log($"获取补花信息 {remaining_time},{tileId},{playerIndex},{remain_tiles},{action_list}");
+        RefreshPlayerAnimation(playerIndex,action_list);
         remiansTilesText.text = $"余: {remain_tiles}";
-
         string GetCardPlayer = player_local_position[playerIndex];
-        // 如果玩家是自己，则将牌添加到手牌中
         if (GetCardPlayer == "self"){
-            GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer);
-            TileCard tileCard = cardObj.GetComponent<TileCard>();
-            tileCard.SetTile(tileId, true);
-            // 开启倒计时
-            loadingRemianTime(remaining_time, currentCutTime);
-        }
-        // 如果玩家是其他玩家，则将牌添加到他人手牌中
-        else if (GetCardPlayer == "left"){
-            Quaternion rotation = Quaternion.Euler(90, 0, 0);
-            Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+2) * spacing * new Vector3(0,0,-1);
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
-            cardObj.name = $"Card_Current";
-        }
-        else if (GetCardPlayer == "top"){
-            Quaternion rotation = Quaternion.Euler(90, 0, -90);
-            Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+2) * spacing * new Vector3(-1,0,0);
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
-            cardObj.name = $"Card_Current";
-        }
-        else if (GetCardPlayer == "right"){
-            Quaternion rotation = Quaternion.Euler(90, 0, 180);
-            Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+2) * spacing * new Vector3(0,0,1);
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
-            cardObj.name = $"Card_Current";
+            SetActionButton(action_list);
         }
     }
 
-    public void AskAction(int remaining_time,string[] action_list,int cut_tile){
-        lastCutTile = cut_tile;
-        // 如果列表中有服务器提供的可用操作，则显示倒计时
-        if (action_list.Length > 0){
-            loadingRemianTime(remaining_time, currentCutTime);
-        }
-        Debug.Log($"询问操作列表: {action_list}");
 
-        // 用于跟踪吃牌按钮
-        ActionButton chiButton = null;
-
+    private void SetActionButton(string[] action_list){
         for (int i = 0; i < action_list.Length; i++){
+            // 用于跟踪吃牌按钮
+            ActionButton chiButton = null;
             Debug.Log($"询问操作: {action_list[i]}");
             if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
                 if (chiButton == null)
@@ -473,7 +445,40 @@ public class GameSceneMannager : MonoBehaviour
                 Debug.Log($"胡牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
-        } 
+            else if (action_list[i] == "buhua"){
+                Debug.Log($"补花");
+                // 实例化按钮
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                // 设置按钮文本
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "补花";
+                // 设置按钮行动列表
+                Debug.Log($"补花按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            } 
+            else if (action_list[i] == "angang"){
+                Debug.Log($"暗杠");
+                // 实例化按钮
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                // 设置按钮文本
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "暗杠";
+                // 设置按钮行动列表
+                Debug.Log($"暗杠按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "jiagang"){
+                Debug.Log($"加杠");
+                // 实例化按钮
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                // 设置按钮文本
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "加杠";
+                // 设置按钮行动列表
+                Debug.Log($"加杠按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+        }
         if (action_list.Length > 0){
             Debug.Log($"取消");
             // 实例化按钮
@@ -485,6 +490,88 @@ public class GameSceneMannager : MonoBehaviour
             Debug.Log($"取消按钮: {ActionButtonObj}");
             ActionButtonObj.actionTypeList.Add("pass");
         }
+    }
+
+
+    public void BuhuaAnimation(int playerIndex,int deal_tiles,int remain_tiles){
+        Debug.Log($"补花动画 {playerIndex},{deal_tiles},{remain_tiles}");
+        remiansTilesText.text = $"余: {remain_tiles}";
+        string GetCardPlayer = player_local_position[playerIndex];
+        if (GetCardPlayer == "self"){
+            DisCardAnimation(deal_tiles,selfBuhuaPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",buhuaSelfCount);
+            buhuaSelfCount++;
+        }
+        else if (GetCardPlayer == "left"){
+            DisCardAnimation(deal_tiles,leftBuhuaPosition,new Vector3(0,0,-1),new Vector3(-1,0,0),"left",buhuaLeftCount);
+            buhuaLeftCount++;
+        }
+        else if (GetCardPlayer == "top"){
+            DisCardAnimation(deal_tiles,topBuhuaPosition,new Vector3(-1,0,0),new Vector3(0,0,1),"top",buhuaTopCount);
+            buhuaTopCount++;
+        }
+        else if (GetCardPlayer == "right"){
+            DisCardAnimation(deal_tiles,rightBuhuaPosition,new Vector3(0,0,1),new Vector3(1,0,0),"right",buhuaRightCount);
+            buhuaRightCount++;
+        }
+    }
+
+
+
+
+
+
+    public void AskHandAction(int remaining_time,int tileId,int playerIndex,int remain_tiles,string[] action_list){
+
+        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
+        float spacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+
+        Debug.Log($"获取牌 {tileId},{playerIndex}");
+        RefreshPlayerAnimation(playerIndex,action_list);
+        remiansTilesText.text = $"余: {remain_tiles}";
+
+        string GetCardPlayer = player_local_position[playerIndex];
+        // 如果玩家是自己，则将牌添加到手牌中
+        if (GetCardPlayer == "self"){
+            GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer);
+            TileCard tileCard = cardObj.GetComponent<TileCard>();
+            tileCard.SetTile(tileId, true);
+            // 询问手牌操作 开启倒计时
+            AskOtherCutAction(remaining_time,action_list,tileId);
+        }
+        // 如果玩家是其他玩家，则将牌添加到他人手牌中
+        else if (GetCardPlayer == "left"){
+            Quaternion rotation = Quaternion.Euler(90, 0, 0);
+            Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+2) * spacing * new Vector3(0,0,-1);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+        else if (GetCardPlayer == "top"){
+            Quaternion rotation = Quaternion.Euler(90, 0, -90);
+            Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+2) * spacing * new Vector3(-1,0,0);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+        else if (GetCardPlayer == "right"){
+            Quaternion rotation = Quaternion.Euler(90, 0, 180);
+            Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+2) * spacing * new Vector3(0,0,1);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+    }
+
+
+
+    public void AskOtherCutAction(int remaining_time,string[] action_list,int cut_tile){
+        lastCutTile = cut_tile;
+        // 如果列表中有服务器提供的可用操作，则显示倒计时
+        if (action_list.Length > 0){
+            loadingRemianTime(remaining_time, currentCutTime);
+        }
+        Debug.Log($"询问操作列表: {action_list}");
+        SetActionButton(action_list); 
     }
 
     private void CreateActionCards(List<int> tiles,string actionType) {
@@ -503,11 +590,11 @@ public class GameSceneMannager : MonoBehaviour
     }
 
     public void ChooseAction(List<string> actionTypeList){
-
         List<int> TipsCardsList = new List<int>();
         // 根据行动类型设置提示牌
         foreach (string actionType in actionTypeList){
             switch (actionType){
+                // 吃碰杠显示吃碰杠列表
                 case "chi_left": 
                     TipsCardsList.Add(lastCutTile-2);
                     TipsCardsList.Add(lastCutTile-1);
@@ -538,17 +625,27 @@ public class GameSceneMannager : MonoBehaviour
                     TipsCardsList.Add(lastCutTile);
                     CreateActionCards(TipsCardsList, actionType);
                     break;
-                case "pass": // 如果点击取消则停止计时 清空行为列表 发送pass请求
-                    ClearActionContenter();
+                case "pass": // 如果点击取消则停止计时 发送pass请求
                     StopTimeRunning();
                     NetworkManager.Instance.SendAction("pass");
                     break;
-                case "hu": // 如果点击胡牌则停止计时 清空行为列表 发送胡牌请求
-                    ClearActionContenter();
+                case "hu":
                     StopTimeRunning();
                     NetworkManager.Instance.SendAction("hu");
                     break;
-                }
+                case "buhua":
+                    StopTimeRunning();
+                    NetworkManager.Instance.SendAction("buhua");
+                    break;
+                case "jiagang":
+                    StopTimeRunning();
+                    NetworkManager.Instance.SendAction("jiagang");
+                    break;
+                case "angang":
+                    StopTimeRunning();
+                    NetworkManager.Instance.SendAction("angang");
+                    break;
+            }
         }
     }
 
@@ -569,7 +666,7 @@ public class GameSceneMannager : MonoBehaviour
         // 获取玩家位置
         string playerPosition = player_local_position[playerIndex];
         // 更新玩家位置
-        RefreshPlayerAnimation(playerIndex);
+        RefreshPlayerAnimation(playerIndex,new string[]{});
         // 删除最后一张切牌
         Destroy(LastCutCard);
         // 删除上一次操作玩家最后一张弃牌
@@ -864,12 +961,12 @@ public class GameSceneMannager : MonoBehaviour
         Renderer renderer = cardObj.GetComponent<Renderer>();
         
         // 克隆材质以避免修改原始材质
-        Material[] materials = renderer.materials;
+        Material[] materials = renderer.materials;        
         
         // 修改第二个材质的纹理及相关设置
         if (materials.Length > 1) {
             // 设置纹理
-            materials[1].mainTexture = texture;
+        materials[1].mainTexture = texture;         
             
             // 设置纹理属性
             materials[1].mainTextureScale = new Vector2(1, 1);          // 设置缩放为1:1
@@ -881,8 +978,8 @@ public class GameSceneMannager : MonoBehaviour
             // 设置过滤模式为点过滤，保持像素锐利度
             texture.filterMode = FilterMode.Bilinear;
             
-            // 应用修改后的材质
-            renderer.materials = materials;
+        // 应用修改后的材质
+        renderer.materials = materials;
             
             Debug.Log($"应用纹理到卡片 {tileId} 完成");
         } else {
@@ -1286,19 +1383,22 @@ public class GameSceneMannager : MonoBehaviour
     }
 
 
-    private void RefreshPlayerAnimation(int playerIndex){
+    private void RefreshPlayerAnimation(int playerIndex,string[] actionType){
         // 记录上一次操作玩家
         LastDoActionPlayer = NowCurrentIndex;
         // 更新当前玩家
         NowCurrentIndex = playerIndex;
         // 如果玩家是自己 则selfDoAction为false 代表可以操作
         if (player_local_position[playerIndex] == "self"){
-            selfDoAction = false;
+            foreach (string action in actionType){
+                if (action == "cut"){
+                    CutAction = true;
+                }
+            }
         }
         else{
-            selfDoAction = true;
+            CutAction = false;
         }
-
         if (player_local_position[playerIndex] == "self"){
             player_self_current_image.enabled = true;
             player_left_current_image.enabled = false;

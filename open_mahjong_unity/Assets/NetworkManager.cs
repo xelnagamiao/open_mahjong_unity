@@ -145,6 +145,26 @@ public class NetworkManager : MonoBehaviour
                         response.game_info
                     );
                     break;
+                case "broadcast_buhua_action":
+                    Debug.Log($"收到补花消息: {response.ask_hand_action_info}");
+                    AskHandActionInfo buhuaresponse = response.ask_hand_action_info;
+                    GameSceneMannager.Instance.AskBuhuaAction(
+                        buhuaresponse.remaining_time,
+                        buhuaresponse.player_index,
+                        buhuaresponse.deal_tiles,
+                        buhuaresponse.remain_tiles,
+                        buhuaresponse.action_list
+                    );
+                    break;
+                case "broadcast_buhua_animation":
+                    Debug.Log($"收到补花动画消息: {response.buhua_animation_info}");
+                    BuhuaAnimationInfo buhuaanimationresponse = response.buhua_animation_info;
+                    GameSceneMannager.Instance.BuhuaAnimation(
+                        buhuaanimationresponse.player_index,
+                        buhuaanimationresponse.deal_tiles,
+                        buhuaanimationresponse.remain_tiles
+                    );
+                    break;
                 case "cut_tiles_chinese":
                     Debug.Log($"收到切牌消息: {response.cut_info}");
                     CutTileResponse cutresponse = response.cut_info;
@@ -154,20 +174,21 @@ public class NetworkManager : MonoBehaviour
                         cutresponse.cut_class
                         );
                     break;
-                case "deal_tile_chinese":
-                    Debug.Log($"收到发牌消息: {response.deal_tile_info}");
-                    DealTileInfo dealresponse = response.deal_tile_info;
-                    GameSceneMannager.Instance.GetCards(
-                        dealresponse.remaining_time,
-                        dealresponse.deal_tiles,
-                        dealresponse.deal_player_index,
-                        dealresponse.remain_tiles
+                case "broadcast_hand_action":
+                    Debug.Log($"收到发牌消息: {response.ask_hand_action_info}");
+                    AskHandActionInfo handresponse = response.ask_hand_action_info;
+                    GameSceneMannager.Instance.AskHandAction(
+                        handresponse.remaining_time,
+                        handresponse.deal_tiles,
+                        handresponse.player_index,
+                        handresponse.remain_tiles,
+                        handresponse.action_list
                     );
                     break;
                 case "ask_action_chinese":
                     Debug.Log($"收到询问操作消息: {response.ask_action_info}");
                     AskActionInfo askresponse = response.ask_action_info;
-                    GameSceneMannager.Instance.AskAction(
+                    GameSceneMannager.Instance.AskOtherCutAction(
                         askresponse.remaining_time,
                         askresponse.action_list,
                         askresponse.cut_tile
@@ -183,6 +204,7 @@ public class NetworkManager : MonoBehaviour
                         doresponse.tile_id
                     );
                     break;
+                
                 default:
                     throw new Exception($"未知的消息类型: {response.type}");
             }
@@ -348,6 +370,14 @@ public class RoomInfo // 房间信息数据类型 通过get_room_info更新
 }
 
 [Serializable]
+public class BuhuaAnimationInfo
+{
+    public int player_index;
+    public int deal_tiles;
+    public int remain_tiles;
+}
+
+[Serializable]
 public class Response 
 {
     public string type;
@@ -358,9 +388,10 @@ public class Response
     public RoomInfo room_info;
     public GameInfo game_info;
     public CutTileResponse cut_info;
-    public DealTileInfo deal_tile_info;
+    public AskHandActionInfo ask_hand_action_info;
     public AskActionInfo ask_action_info;
     public ActionInfo action_info;
+    public BuhuaAnimationInfo buhua_animation_info;
 }
 
 [Serializable]
@@ -372,12 +403,13 @@ public class CutTileResponse
 }
 
 [Serializable]
-public class DealTileInfo
+public class AskHandActionInfo
 {
-    public int deal_player_index;
+    public int player_index;
     public int deal_tiles;
     public int remaining_time;
     public int remain_tiles;
+    public string[] action_list;
 }
 
 [Serializable]

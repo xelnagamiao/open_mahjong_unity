@@ -20,7 +20,6 @@ public class ActionBlock : MonoBehaviour, IPointerClickHandler
         }
         // 点击后停止计时器
         GameSceneMannager.Instance.StopTimeRunning();
-        GameSceneMannager.Instance.ClearActionContenter();
     }
 
 

@@ -54,7 +54,7 @@ public class TileCard : MonoBehaviour
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
         // TODO: 添加选中效果或其他交互
         if (GameSceneMannager.Instance.NowCurrentIndex == GameSceneMannager.Instance.selfCurrentIndex && 
-            GameSceneMannager.Instance.selfDoAction == false){
+            GameSceneMannager.Instance.CutAction == true){
             if (currentGetTile){
                 NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
             }
@@ -63,6 +63,9 @@ public class TileCard : MonoBehaviour
             }
             GameSceneMannager.Instance.CutCards(tileId,GameSceneMannager.Instance.NowCurrentIndex,currentGetTile);
             Destroy(gameObject);
+        }
+        else{
+            Debug.Log("没有权限出牌");
         }
     }
 

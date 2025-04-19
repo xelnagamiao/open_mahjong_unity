@@ -52,11 +52,12 @@ class Cut_response(BaseModel):
     cut_class: bool
     cut_tiles: int
 
-class Deal_tile_info(BaseModel):
+class Ask_hand_action_info(BaseModel):
     remaining_time: int
-    deal_player_index: int
+    player_index: int
     deal_tiles: int
     remain_tiles: int
+    action_list: list[str]
 
 class Ask_action_info(BaseModel):
     remaining_time: int
@@ -69,6 +70,10 @@ class Action_info(BaseModel):
     current_player_index: int
     tile_id: int
 
+class Buhua_animation_info(BaseModel):
+    player_index: int
+    deal_tiles: int
+    remain_tiles: int
 
 class Response(BaseModel):
     type: str
@@ -79,6 +84,7 @@ class Response(BaseModel):
     room_info: Optional[RoomResponse] = None # 用于在join_room和房间信息更新时广播房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息
     cut_info: Optional[Cut_response] = None # 用于执行cut_tiles时返回切牌信息
-    deal_tile_info: Optional[Deal_tile_info] = None # 用于执行deal_tile时返回发牌信息
     ask_action_info: Optional[Ask_action_info] = None # 用于询问玩家操作
     action_info: Optional[Action_info] = None # 用于执行玩家操作
+    ask_hand_action_info: Optional[Ask_hand_action_info] = None # 用于询问玩家手牌操作 出牌 自摸 补花 暗杠 加杠
+    buhua_animation_info: Optional[Buhua_animation_info] = None # 用于广播补花动画

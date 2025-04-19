@@ -1,7 +1,7 @@
 import random
 import asyncio
 from typing import Dict, Optional, List
-from response import Cut_response, Deal_tile_info, GameInfo, Response, Ask_action_info,Action_info
+from response import Cut_response,GameInfo, Response, Ask_action_info,Action_info,Ask_hand_action_info,Buhua_animation_info
 import time  # 直接导入整个模块
 
 
@@ -18,6 +18,7 @@ class ChinesePlayer:
         self.score = 0                  # 分数
         self.remaining_time = 20        # 剩余时间 （局时）
         self.current_player_index = 0   # 当前玩家索引 东南西北
+        self.huapai_list = []          # 花牌列表
 
     def get_tile(self, tiles_list):
         element = tiles_list.pop(0)
@@ -43,7 +44,20 @@ class ChineseGameState:
         self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
         self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作字典
         # 行为 -> 优先级
-        self.action_priority:Dict[str,int] = {"hu": 3, "peng": 2, "gang": 2, "chi_left": 1, "chi_mid": 1, "chi_right": 1, "pass": 0}
+        self.action_priority:Dict[str,int] = {
+        "hu": 3, "peng": 2, "gang": 2, 
+        "chi_left": 1, "chi_mid": 1, "chi_right": 1, 
+        "pass": 0,"buhua":0,"cut":0,
+        "angang":0,"jiagang":0}
+# 麻将组合 -> 排斥的下集麻将组合列表
+# 九莲宝灯 幺九刻-1
+# 三风刻的三个刻子不计幺九刻
+# 箭刻不计幺九刻
+# 花牌不计起和番
+
+        
+            
+        
 
     async def next_current_index(self):
         if self.current_player_index == 3:
@@ -165,7 +179,27 @@ class ChineseGameState:
             except Exception as e:
                 print(f"向玩家 {current_player.username} 广播切牌信息失败: {e}")
 
-    async def broadcast_deal_tile(self):
+
+    async def broadcast_buhua_animation(self):
+        # 遍历列表时获取索引
+        for i in range(0,3):
+            if self.player_list[i].username in self.room.game_server.username_to_connection:
+                player_conn = self.room.game_server.username_to_connection[self.player_list[i].username]
+                response = Response(
+                    type="broadcast_buhua_animation",
+                    success=True,
+                    message="广播补花动画",
+                    buhua_animation_info=Buhua_animation_info(
+                        player_index=i,
+                        deal_tiles=self.player_list[i].hand_tiles[-1],
+                        remain_tiles=len(self.tiles_list)
+                    )
+                )
+                await player_conn.websocket.send_json(response.model_dump(exclude_none=True))
+                print(f"已向玩家 {self.player_list[i].username} 广播补花动画")
+
+    # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
+    async def broadcast_hand_action(self):
         # 遍历列表时获取索引
         for i, current_player in enumerate(self.player_list):
             if i == self.current_player_index:
@@ -173,36 +207,42 @@ class ChineseGameState:
                 if current_player.username in self.room.game_server.username_to_connection:
                     player_conn = self.room.game_server.username_to_connection[current_player.username]
                     response = Response(
-                        type="deal_tile_chinese",
+                        type="broadcast_hand_action",
                         success=True,
-                        message="发牌",
-                        deal_tile_info = Deal_tile_info(
+                        message="发牌，并询问手牌操作",
+                        ask_hand_action_info = Ask_hand_action_info(
                             remaining_time=current_player.remaining_time,
-                            deal_player_index= self.current_player_index,
+                            player_index= self.current_player_index,
                             deal_tiles=self.player_list[i].hand_tiles[-1],
-                            remain_tiles=len(self.tiles_list)
+                            remain_tiles=len(self.tiles_list),
+                            action_list=self.action_dict[i]
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    print(f"已向玩家 {current_player.username} 广播发牌信息")
+                    print(f"已向玩家 {current_player.username} 广播手牌操作信息")
             else:
                 # 向其余玩家发送通用消息
                 if current_player.username in self.room.game_server.username_to_connection:
                     player_conn = self.room.game_server.username_to_connection[current_player.username]
                     response = Response(
-                        type="deal_tile_chinese",
+                        type="broadcast_hand_action",
                         success=True,
-                        message="发牌",
-                        deal_tile_info = Deal_tile_info(
+                        message="发牌，并询问手牌操作",
+                        deal_tile_info = Ask_hand_action_info(
                             remaining_time=current_player.remaining_time,
-                            deal_player_index= self.current_player_index,
+                            player_index= self.current_player_index,
                             deal_tiles=0,
-                            remain_tiles=len(self.tiles_list)
+                            remain_tiles=len(self.tiles_list),
+                            action_list=self.action_dict[i]
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    print(f"已向玩家 {current_player.username} 广播发牌信息")
-    
+                    print(f"已向玩家 {current_player.username} 广播手牌操作信息")
+
+
+
+
+
     async def broadcast_ask_action(self):
         # 遍历列表时获取索引
         for i, current_player in enumerate(self.player_list):
@@ -262,81 +302,8 @@ class ChineseGameState:
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 print(f"已向玩家 {current_player.username} 广播操作信息")
 
-    async def wait_cut(self):
-        """
-        wait_cut方法使用消息队列,接受cut_tiles传递的event状态和queue数据
-        获取当前玩家,找到当前玩家的索引,将当前玩家的索引添加进入action_events和action_queues中,其中action_events
-        代表当前玩家是否出牌,是一个事件布尔值,action_queues代表具体的操作数据,是一个队列
-        每当循环开始,重置事件布尔值,并计算总计时时间(切牌时间 + 剩余时间)
-        根据总等待时间进行计时循环,添加两个任务,等待1秒的time_task和等待玩家操作action_task
-        await asyncio.wait 监听一个任务列表,通过设置return_when=asyncio.FIRST_COMPLETED 
-        决定当任意一个任务完成时,决定返回完成的任务为第一个列表,随后则可以通过for task in pending 取消未完成的任务
-        如果是action_task完成,则获取操作数据,处理出牌操作,如果time_task一直完成,直到总等待时间结束,则自动出牌。
-        """
-        # 获取当前玩家
-        current_player = self.player_list[self.current_player_index]
-
-        # 重置事件状态
-        self.action_events[self.current_player_index].clear()
-        
-        # 标记是否已出牌
-        is_cut = False
-        
-        # 计算总计时时间（切牌时间 + 剩余时间）
-        total_time = self.cuttime + current_player.remaining_time
-        used_time = 0
-        # 变量初始化，确保广播时有值
-        cut_tile = None  
-        cut_class = True
-        
-        try:
-            for _ in range(total_time):
-                # 创建两个任务：等待1秒和等待玩家操作
-                timer_task = asyncio.create_task(asyncio.sleep(1))
-                action_task = asyncio.create_task(self.action_events[self.current_player_index].wait())
-                # 等待任意一个任务完成
-                done, pending = await asyncio.wait(
-                    [timer_task, action_task],
-                    return_when=asyncio.FIRST_COMPLETED
-                )
-                # 取消未完成的任务
-                for task in pending:
-                    task.cancel()
-                # 检查是否收到玩家操作
-                if action_task in done:
-                    action_data = await self.action_queues[self.current_player_index].get()
-                    cut_class = action_data.get("cutClass")  # 布尔值
-                    tile_id = action_data.get("TileId")     # 现在是整数类型
-                    if tile_id in current_player.hand_tiles:
-                        current_player.hand_tiles.remove(tile_id)
-                        current_player.discard_tiles.append(tile_id)
-                        cut_tile = tile_id
-                        is_cut = True
-                        break
-                    else:
-                        print(f"找不到牌 {tile_id} 在玩家 {current_player.username} 的手牌中")
-                        continue
-                else:
-                    used_time += 1
-                    print(f"used_time={used_time}")
-            # 如果is_cut为False,则自动出牌
-            if not is_cut:
-                cut_tile = current_player.hand_tiles[-1]
-                current_player.hand_tiles.pop()
-                current_player.discard_tiles.append(cut_tile)
-            if used_time >= self.cuttime:
-                current_player.remaining_time -= (used_time - self.cuttime)
-            # 获取操作字典
-            self.action_dict = await self.action_check_after_cut(cut_tile)
-            # 广播切牌信息
-            await self.broadcast_cut_tiles(self.current_player_index, cut_class, cut_tile)
-        except Exception as e:
-            print(f"等待切牌操作时发生错误: {e}")
-        finally:
-            print("出牌结束")
-
     # 切牌后检查操作
-    async def action_check_after_cut(self,cut_tile):
+    def check_action_after_cut(self,cut_tile):
         # 如果下家有C+1和C-1，则可以吃
         temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
         next_player_index = self.next_current_num(self.current_player_index)
@@ -348,8 +315,8 @@ class ChineseGameState:
                         temp_action_dict[next_player_index] = []
                     temp_action_dict[next_player_index].append("chi_left")
             # mid 中间吃牌 [a-1,a,a+1]
-            if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
+        if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
+            if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
                     if next_player_index not in temp_action_dict:
                         temp_action_dict[next_player_index] = []
                     temp_action_dict[next_player_index].append("chi_mid")
@@ -377,7 +344,7 @@ class ChineseGameState:
         temp_action_dict[self.current_player_index] = []
         return temp_action_dict
     # 杠后检查操作
-    async def action_check_after_gang(self,gang_tile):
+    async def check_action_after_jiagang(self,gang_tile):
         # 如果该牌是任意家的等待牌，则可以抢杠和
         temp_action_dict = {}
         for item in self.player_list:
@@ -386,8 +353,32 @@ class ChineseGameState:
                     temp_action_dict[item.current_player_index] = []
                 temp_action_dict[item.current_player_index].append("hu")
         return temp_action_dict
+    # 检查补花操作
+    async def check_action_buhua(self,player_index):
+        temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+        if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
+            temp_action_dict[player_index].append("buhua")
+        return temp_action_dict
+
+    async def check_action_hand_action(self,player_index):
+        temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+        if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
+            temp_action_dict[player_index].append("buhua")
+        if self.player_list[player_index].hand_tiles[-1] in self.player_list[player_index].waiting_tiles:
+            temp_action_dict[player_index].append("hu")
+        if any(self.player_list[player_index].hand_tiles.count(carditem) == 4 for carditem in self.player_list[player_index].hand_tiles):
+            temp_action_dict[player_index].append("angang")
+        for combination_tile in self.player_list[player_index].combination_tiles:
+            if combination_tile[0] == "k":
+                jiagang_index = int(combination_tile[1:])  # 提取所有数字
+                if jiagang_index in self.player_list[player_index].hand_tiles:
+                    temp_action_dict[player_index].append("jiagang")
+        temp_action_dict[player_index].append("cut")
+        return temp_action_dict
 
     async def game_loop_chinese(self):
+
+        # 房间初始化
 
         # 创建chineseplayer类 添加入game_state.player_list
         for username in self.room.player_list:
@@ -404,31 +395,59 @@ class ChineseGameState:
             player.current_player_index = index
         self.init_tiles() # 初始化牌山
         self.init_deal_tiles() # 初始化手牌
-        self.game_status = "playing" # 初始化游戏状态
-        self.action_dict[self.current_player_index] = "cut" # 初始化行动字典
-        # 广播游戏开始
-        await self.broadcast_game_start()
+
+
         
-        # 游戏主循环
-        while self.game_status == "playing":
-            # 等待第一位玩家切牌
-            await self.wait_cut()
-            # 如果切牌后有吃碰杠询问则广播询问操作，如无则发牌。
-            if any(self.action_dict[i] for i in self.action_dict):
-                print(f"action_dict={self.action_dict}")
-                await self.broadcast_ask_action()
-                if await self.wait_action(): # 等待玩家操作 # 方法内进行boardcast_action
-                    pass
-                else:
-                    await self.next_current_index()
-                    self.player_list[self.current_player_index].get_tile(self.tiles_list)
-                    self.action_dict[self.current_player_index] = "cut"
-                    await self.broadcast_deal_tile()
-            else:
+        for gameloopround in range(0,self.game_time):
+
+            # 单局游戏初始化
+
+            await self.broadcast_game_start()
+            for index, player in enumerate(self.player_list):
+                player.current_player_index = index
+            # 遍历每个玩家,直到玩家选择pass或没有新的补花行为
+            self.game_status = "waiting_buhua"
+
+            for i in range(0,3):
+                action_anymore = True
+                while action_anymore:
+                    self.action_dict = await self.check_action_buhua(i)
+                    if self.action_dict[i] != []:
+                        await self.broadcast_hand_action()
+                        action_anymore = await self.wait_action() # 如果玩家补花了则继续检查能不能再补花
+                    else:
+                        action_anymore = False
                 await self.next_current_index()
-                self.player_list[self.current_player_index].get_tile(self.tiles_list)
-                self.action_dict[self.current_player_index] = "cut"
-                await self.broadcast_deal_tile()
+
+            # 游戏主循环 
+            self.game_status = "waiting_hand_action" # 初始行动
+
+            while self.game_status != "END":
+                match self.game_status:
+                    case "deal_card": # 无人吃碰杠和后发牌历时行为
+                        await self.next_current_index()
+                        self.player_list[self.current_player_index].get_tile(self.tiles_list)
+                        self.game_status = "waiting_hand_action"
+                    case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后循环行为
+                        self.action_dict[self.current_player_index].append("cut")
+                        await self.check_hand_action()
+                        await self.broadcast_deal_tile()
+                        await self.wait_action()
+                    case "waiting_action_after_cut": # 出牌后询问吃碰杠和行为
+                        await self.broadcast_ask_action()
+                        await self.wait_action()
+                    case "waiting_action_after_jiagang": # 加杠后询问胡牌行为
+                        pass
+                    case "onlycut_afteraction": # 吃碰后行为
+                        await self.broadcast_deal_tile()
+                        await self.wait_action()
+            while self.game_status == "END": # 胡牌后计分行为 由于可能有多人和的情况 所以需要循环
+                pass
+            if self.game_status == "count_point": # 计分行为
+                pass
+
+
+
 
                 
 
@@ -437,9 +456,9 @@ class ChineseGameState:
         try:
             # 检查行动合法性 并获取玩家索引
             player_index = self.check_action_index(player_id,"cut")
-            
             # 将操作数据放入队列
             await self.action_queues[player_index].put({
+                "action_type": "cut",
                 "cutClass": cutClass,
                 "TileId": TileId
             })
@@ -462,29 +481,26 @@ class ChineseGameState:
                 break
         if current_player is None:
             return -2 # 当前玩家不存在玩家列表中
-        if action_type == "cut":
-            if player_index != self.current_player_index:
-                return -3 # 不是当前玩家的回合
+        if player_index != self.current_player_index:
+            return -3 # 不是当前玩家的回合
         if action_type not in self.action_dict[player_index]:
             return -4 # 不是该玩家的合法行动
         return player_index # 返回玩家索引
 
 
     async def wait_action(self):
-        # 遍历所有玩家，将等待行动的玩家加入列表
-        waiting_players_list = []
+        
+        waiting_players_list = [] # [2,3]
+        used_time = 0 # 已用时间
+        # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
         for player_index, action_list in self.action_dict.items():
             if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
-                self.action_dict[player_index].append("pass")
+                self.action_dict[player_index].append("pass") # [cut,pass]
                 waiting_players_list.append(player_index)
-                self.action_events[player_index].clear() # 这里处理clear可能会有问题
-        
-        # 记录收到的操作
-        received_actions = {} # 记录收到的操作
-        longest_wait_time = max(self.player_list[i].remaining_time for i in waiting_players_list) + 5 # 最长等待时间
-        used_time = 0 # 已用时间
-        
-        while waiting_players_list and used_time < longest_wait_time:
+                self.action_events[player_index].clear()
+
+        # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
+        while waiting_players_list and any(self.player_list[i].remaining_time + self.cuttime > used_time for i in waiting_players_list):
             # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
             task_list = []  # 任务列表
             task_to_player = {}  # 任务与玩家的映射
@@ -497,7 +513,7 @@ class ChineseGameState:
             timer_task = asyncio.create_task(asyncio.sleep(1))
             task_list.append(timer_task)
 
-            print(f"开始新一轮等待操作 waiting_players_list={waiting_players_list} action_dict={self.action_dict}")
+            print(f"开始新一轮等待操作 waiting_players_list={waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
             
             # 等待任意任务完成
             time_start = time.time()
@@ -523,13 +539,12 @@ class ChineseGameState:
                     # 获取操作数据
                     action_data = await self.action_queues[player_index].get()
                     action_type = action_data.get("action_type")
+
                     used_time += time_end - time_start # 服务器计算操作时间
                     used_int_time = int(used_time) # 变量整数时间
                     if used_int_time >= self.cuttime:
                         self.player_list[player_index].remaining_time -= (used_int_time - self.cuttime)
-                    
-                    # 记录操作信息
-                    received_actions[player_index] = action_type # 在记录玩家操作字典中记录操作
+                   
                     self.action_dict[player_index] = [] # 从可执行操作列表中移除操作
                     waiting_players_list.remove(player_index) # 从玩家等待列表中移除玩家
                     
@@ -537,55 +552,186 @@ class ChineseGameState:
                     do_interrupt = True
                     for temp_player_index in waiting_players_list:
                         for action in self.action_dict[temp_player_index]:
-                            # 如果有其他更高优先级的操作，则中断等待
+                            # 如果有其他更高优先级的操作，则继续等待
                             if self.action_priority[action_type] < self.action_priority[action]:
                                 do_interrupt = False
                     
                     # 如果是最高优先级，中断等待
                     if do_interrupt:
                         waiting_players_list = [] # 清空等待列表，强制结束循环
-                        remove_tile = self.player_list[self.current_player_index].discard_tiles[-1] # 获取最后一张牌
-                        if action_type == "chi_left":
-                            self.player_list[player_index].hand_tiles.remove(remove_tile-1)
-                            self.player_list[player_index].hand_tiles.remove(remove_tile-2)
-                            self.player_list[player_index].combination_tiles.append(f"s{remove_tile+1}")
-                        if action_type == "chi_mid":
-                            self.player_list[player_index].hand_tiles.remove(remove_tile-1)
-                            self.player_list[player_index].hand_tiles.remove(remove_tile+1)
-                            self.player_list[player_index].combination_tiles.append(f"s{remove_tile}")
-                        if action_type == "chi_right":
-                            self.player_list[player_index].hand_tiles.remove(remove_tile+1)
-                            self.player_list[player_index].hand_tiles.remove(remove_tile+2)
-                            self.player_list[player_index].combination_tiles.append(f"s{remove_tile-1}")
-                        if action_type == "peng":
-                            self.player_list[player_index].hand_tiles.remove(remove_tile)
-                            self.player_list[player_index].hand_tiles.remove(remove_tile)
-                            self.player_list[player_index].combination_tiles.append(f"k{remove_tile}")
-                        if action_type == "gang":
-                            self.player_list[player_index].hand_tiles.remove(remove_tile)
-                            self.player_list[player_index].hand_tiles.remove(remove_tile)
-                            self.player_list[player_index].hand_tiles.remove(remove_tile)
-                            self.player_list[player_index].combination_tiles.append(f"g{remove_tile}")
-                        if action_type == "hu":
-                            pass # 可能有多人胡的情况
-                        if action_type == "pass":
-                            pass
-                        if action_type != "pass":
-                            self.player_list[self.current_player_index].discard_tiles.pop(-1)
-                        # 设置行动者位置，设置行动者可执行操作，广播行动信息
-                        self.current_player_index = player_index
-                        for key,value in self.action_dict.items():
-                            if key == player_index:
-                                self.action_dict[key] = ["cut"]
-                            else:
-                                self.action_dict[key] = []
-                        print(f" action_type={action_type}")
-                        await self.broadcast_action(action_type,remove_tile)
-                        if action_type != "pass":
-                            return True
+                        match self.game_status:
+                            # 补花轮特殊case 是循环行为
+                            case "waiting_buhua":
+                                if action_type == "buhua":
+                                    self.player_list[player_index].get_tile(self.tiles_list)
+                                    self.huapai_list.append(max(self.player_list[player_index].hand_tiles))
+                                    self.player_list[player_index].hand_tiles.remove(max(self.player_list[player_index].hand_tiles))
+                                    await self.broadcast_buhua_animation()
+                                    return True # 补花以后如果能够补花继续询问
+                                elif action_type == "pass":
+                                    return False # pass表示不要补花
+                             #手牌行为包含 切牌 暗杠 加杠 自摸 补花 其中自摸是终结条件 补花 加杠 暗杠是循环行为 切牌是转移/历时行为
+                            case "waiting_hand_action":
+                                if action_type == "cut":
+                                    cut_class = action_data.get("cutClass")  # 布尔值
+                                    tile_id = action_data.get("TileId") 
+                                    if tile_id in self.player_list[player_index].hand_tiles:
+                                        if cut_class:
+                                            self.player_list[player_index].hand_tiles.remove(tile_id)
+                                            self.player_list[player_index].discard_tiles.append(tile_id)
+                                            remove_tile = tile_id
+                                        else:
+                                            remove_tile = self.player_list[player_index].hand_tiles.pop(-1)
+                                            self.player_list[player_index].discard_tiles.append(remove_tile)
+                                    await self.broadcast_cut_tiles(player_index,cut_class,tile_id)
+                                    self.action_dict = self.check_action_after_cut(remove_tile)
+                                    if any(self.action_dict[i] for i in self.action_dict):
+                                        self.game_status = "waiting_action_after_cut" # 转移行为
+                                    else:
+                                        self.game_status = "deal_card" # 历时行为
+
+                                elif action_type == "angang":
+                                    # 暗杠后重新检查手牌操作 广播手牌动作
+                                    angang_tile = action_data.get("angang_tile")
+                                    self.player_list[player_index].hand_tiles.remove(angang_tile)
+                                    self.player_list[player_index].combination_tiles.append(f"g{angang_tile}")
+                                    self.player_list[player_index].get_tile(self.tiles_list)
+                                    await self.check_hand_action(player_index)
+                                    await self.broadcast_deal_tile()
+
+                                elif action_type == "jiagang":
+                                    # 加杠后重新检查手牌操作 广播手牌动作
+                                    jiagang_tile = action_data.get("jiagang_tile")
+                                    self.player_list[player_index].hand_tiles.remove(jiagang_tile)
+                                    self.player_list[player_index].combination_tiles.remove(f"k{jiagang_tile}")
+                                    self.player_list[player_index].combination_tiles.append(f"g{jiagang_tile}")
+                                    self.player_list[player_index].get_tile(self.tiles_list)
+                                    await self.check_hand_action(player_index)
+                                    await self.broadcast_deal_tile()
+
+                                elif action_type == "buhua":
+                                    # 补花后重新检查手牌操作 广播手牌动作
+                                    self.player_list[player_index].get_tile(self.tiles_list)
+                                    self.player_list[player_index].hand_tiles.remove(max(self.player_list[player_index].hand_tiles))
+                                    await self.check_hand_action(player_index)
+                                    await self.broadcast_deal_tile()
+
+                                elif action_type == "hu":
+                                    # 胡牌后结束本轮
+                                    pass
+                                # "waiting_hand_action" 不存在pass行为
+
+                            case "waiting_action_after_cut": # 吃 碰 杠 荣和 pass 其中吃碰杠是转移行为 荣和是终结行为 pass是历时行为
+                                remove_tile = self.player_list[self.current_player_index].discard_tiles[-1] # 获取最后一张牌
+                                if action_type == "chi_left":
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile-1)
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile-2)
+                                    self.player_list[player_index].combination_tiles.append(f"s{remove_tile+1}")
+                                if action_type == "chi_mid":
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile-1)
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile+1)
+                                    self.player_list[player_index].combination_tiles.append(f"s{remove_tile}")
+                                if action_type == "chi_right":
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile+1)
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile+2)
+                                    self.player_list[player_index].combination_tiles.append(f"s{remove_tile-1}")
+                                if action_type == "peng":
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile)
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile)
+                                    self.player_list[player_index].combination_tiles.append(f"k{remove_tile}")
+                                if action_type == "gang":
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile)
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile)
+                                    self.player_list[player_index].hand_tiles.remove(remove_tile)
+                                    self.player_list[player_index].combination_tiles.append(f"g{remove_tile}")
+                                if action_type == "hu": # 终结行为 可能有多人胡的情况
+                                    pass 
+                                if action_type == "chi_left" or action_type == "chi_mid" or action_type == "chi_right" or action_type == "peng" or action_type == "gang":
+                                    # 只保留行动者的cut方法 吃碰杠后只能出牌
+                                    self.current_player_index = player_index
+                                    for playeritem in self.action_dict:
+                                        if playeritem == player_index:
+                                            self.action_dict[playeritem] = ["cut"]
+                                        else:
+                                            self.action_dict[playeritem] = []
+                                    await self.broadcast_action(action_type,remove_tile)
+                                    self.game_status = "onlycut_afteraction" # 转移行为
+                                if action_type == "pass":
+                                    self.game_status = "deal_card" # 历时行为
+                                
+                            case "onlycut_afteraction":
+                                if action_type == "cut":
+                                    cut_class = action_data.get("cutClass")  # 布尔值
+                                    tile_id = action_data.get("TileId") 
+                                    if tile_id in self.player_list[player_index].hand_tiles:
+                                        if cut_class:
+                                            self.player_list[player_index].hand_tiles.remove(tile_id)
+                                            self.player_list[player_index].discard_tiles.append(tile_id)
+                                            remove_tile = tile_id
+                                        else:
+                                            remove_tile = self.player_list[player_index].hand_tiles.pop(-1)
+                                            self.player_list[player_index].discard_tiles.append(remove_tile)
+                                    await self.broadcast_cut_tiles(player_index,cut_class,tile_id)
+                                    self.action_dict = self.check_action_after_cut(remove_tile)
+                                    if any(self.action_dict[i] for i in self.action_dict):
+                                        self.game_status = "waiting_action_after_cut" # 转移行为
+                                    else:
+                                        self.game_status = "deal_card" # 历时行为
+                            
+                            case "waiting_action_after_plusgang": # 抢杠和
+                                if action_type == "hu":
+                                    pass
+                                elif action_type == "pass":
+                                    return False
+                                else:
+                                    return True
+        # 如果超时 直接剩余时间归零
+        if waiting_players_list:
+            for i in waiting_players_list:
+                self.player_list[i].remaining_time = 0
+            match self.game_status:
+                # 如果补花轮超时 则直接返回False
+                case "waiting_buhua":
+                    return False
+                case "waiting_hand_action":
+                # "waiting_hand_action"超时 只可能是切牌行为
+                    cut_class = True  # 超时自动摸切
+                    tile_id = action_data.get("TileId") 
+                    if tile_id in self.player_list[player_index].hand_tiles:
+                        if cut_class:
+                            self.player_list[player_index].hand_tiles.remove(tile_id)
+                            self.player_list[player_index].discard_tiles.append(tile_id)
+                            remove_tile = tile_id
                         else:
-                            return False
-        
+                            remove_tile = self.player_list[player_index].hand_tiles.pop(-1)
+                            self.player_list[player_index].discard_tiles.append(remove_tile)
+                    self.action_dict = self.check_action_after_cut(remove_tile)
+                    await self.broadcast_cut_tiles(player_index,cut_class,tile_id)
+                    if any(self.action_dict[i] for i in self.action_dict):
+                        self.game_status = "waiting_action_after_cut"
+                    else:
+                        self.game_status = "deal_card"
+                case "onlycut_afteraction":
+                    # "onlycut_afteraction"超时 只可能是切牌行为
+                    cut_class = False  # 超时自动手切 因为吃碰杠后不可能摸切
+                    tile_id = self.player_list[player_index].hand_tiles[-1]
+                    if tile_id in self.player_list[player_index].hand_tiles:
+                        if cut_class:
+                            self.player_list[player_index].hand_tiles.remove(tile_id)
+                            self.player_list[player_index].discard_tiles.append(tile_id)
+                            remove_tile = tile_id
+                        else:
+                            remove_tile = self.player_list[player_index].hand_tiles.pop(-1)
+                            self.player_list[player_index].discard_tiles.append(remove_tile)
+                    self.action_dict = self.check_action_after_cut(remove_tile)
+                    await self.broadcast_cut_tiles(player_index,cut_class,tile_id)
+                    if any(self.action_dict[i] for i in self.action_dict):
+                        self.game_status = "waiting_action_after_cut"
+                    else:
+                        self.game_status = "deal_card"
+                case "waiting_action_after_cut":
+                    # 如果"waiting_action_after_cut"超时 只可能是历时行为
+                    self.game_status = "deal_card"
 
 
 
