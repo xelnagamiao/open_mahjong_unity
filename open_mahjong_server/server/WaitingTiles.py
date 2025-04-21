@@ -100,10 +100,6 @@ class ChineseTilesCombinationCheck:
                     third_suit.append(tile_id)
             else:
                 null_suit.append(tile_id)
-
-        # 如果花色手牌总数小于8,则不符合全不靠(9或者8则可以)
-        if len(first_suit) + len(second_suit) + len(third_suit) < 8:
-            return False
             
         # 检查每个花色内部是否有重复的牌,有重复则不符合全不靠
         for suit_list in [first_suit, second_suit, third_suit]:
@@ -122,35 +118,65 @@ class ChineseTilesCombinationCheck:
                     return False
                 zipai_seen.add(tile_id)
 
+        # 妈的这个全不靠怎么是这个样子的,之前理解错了全重写了
         # 已经确定符合全不靠,检查全不靠缺张是否在数牌侧
-        need_tile = 0
-        if len(first_suit) == 2:
-            if first_suit[0] % 10 + first_suit[1] % 10 == 5: # 1+4
-                need_tile = (first_suit[0]// 10)*10 + 7
-            elif first_suit[0] % 10 + first_suit[1] % 10 == 8: # 1+7
-                need_tile = (first_suit[0]// 10)*10 + 4
-            elif first_suit[0] % 10 + first_suit[1] % 10 == 11: # 4+7
-                need_tile = (first_suit[0]// 10)*10 + 1
-        elif len(second_suit) == 2:
-            if second_suit[0] % 10 + second_suit[1] % 10 == 7: # 2+5
-                need_tile = (second_suit[0]// 10)*10 + 8
-            elif second_suit[0] % 10 + second_suit[1] % 10 == 10: # 2+8
-                need_tile = (second_suit[0]// 10)*10 + 5
-            elif second_suit[0] % 10 + second_suit[1] % 10 == 13: # 5+8
-                need_tile = (second_suit[0]// 10)*10 + 2
-        elif len(third_suit) == 2:
-            if third_suit[0] % 10 + third_suit[1] % 10 == 9: # 3+6
-                need_tile = (third_suit[0]// 10)*10 + 9
-            elif third_suit[0] % 10 + third_suit[1] % 10 == 12: # 3+9
-                need_tile = (third_suit[0]// 10)*10 + 6
-            elif third_suit[0] % 10 + third_suit[1] % 10 == 15: # 6+9
-                need_tile = (third_suit[0]// 10)*10 + 3
-                
+        need_tile = []
+        temp_first_suit = [1,4,7]
+        temp_second_suit = [2,5,8]
+        temp_third_suit = [3,6,9]
+        header_dict = {}
+        # 删除数牌中已经存在的牌 保存牌组中可能的同类牌标记至header_dict
+        if first_suit:
+            for i in first_suit:
+                temp_first_suit.remove(i % 10)
+            header_dict[0] = (first_suit[0]//10)*10
+        if second_suit:
+            for i in second_suit:
+                temp_second_suit.remove(i % 10)
+            header_dict[1] = (second_suit[0]//10)*10
+        if third_suit:
+            for i in third_suit:
+                temp_third_suit.remove(i % 10)
+            header_dict[2] = (third_suit[0]//10)*10
+        # 根据header_list中的标记 将可能的同类牌添加至need_tile
+        if len(header_dict) == 3:
+            for i in temp_first_suit:
+                need_tile.append(first_suit[0]//10*10 + i)
+            for i in temp_second_suit:
+                need_tile.append(second_suit[0]//10*10 + i)
+            for i in temp_third_suit:
+                need_tile.append(third_suit[0]//10*10 + i)
+        # 极端情况下可能出现缺色,即[12,15,18,21,24,27,41,42,43,44,45,46,47] 缺失3,6,9一整面
+        else:
+            # 获取缺少的键和值
+            lack_suit = 0
+            suit_value = 0
+            for i in range (0,2):
+                if i not in header_dict:
+                    lack_suit = i
+            for key,value in header_dict.items():
+                suit_value += value // 10
+            if suit_value == 3: # 1+2=3
+                suit_value = 3
+            elif suit_value == 4: # 1+3=4
+                suit_value = 2
+            elif suit_value == 5: # 2+3=5
+                suit_value = 1
+            header_dict[lack_suit] = suit_value
+            if header_dict[0]:
+                for i in temp_first_suit:
+                    need_tile.append(header_dict[0]*10 + i)
+            if header_dict[1]:
+                for i in temp_second_suit:
+                    need_tile.append(header_dict[1]*10 + i)
+            if header_dict[2]:
+                for i in temp_third_suit:
+                    need_tile.append(header_dict[2]*10 + i)
+        
         # 添加可能在数牌中存在的缺张,然后添加字牌中的缺张
         waiting_tiles = []
-        if need_tile != 0:
-            waiting_tiles.append(need_tile)
-        print(null_suit)
+        if need_tile:
+            waiting_tiles = need_tile
         # 检查字牌中的缺牌
         for tile_id in self.zipai:
             if tile_id not in null_suit:
@@ -291,6 +317,12 @@ if __name__ == "__main__":
     test_combination.check_waiting_tiles(test_tiles)
     print(test_combination.waiting_tiles_dict)
     """
+    # 测试全不靠
+    test_tiles = PlayerTiles([11,25,28,33,36,39,41,42,43,44,45,46,47], [],0)
+    test_combination = ChineseTilesCombinationCheck()
+    print(test_tiles.hand_tiles)
+    test_combination.check_waiting_tiles(test_tiles)
+    print(test_combination.waiting_tiles_dict)
     # 生成测试牌组可能
     # 标准牌堆
     sth_tiles_set = {
@@ -385,6 +417,8 @@ if __name__ == "__main__":
     print("end")
 
 
+    
+    """
     time_start = time()
     # 生成100次
     test_list = []
@@ -408,6 +442,7 @@ if __name__ == "__main__":
     print(time_end - time_start)
     print(test_list)
     print(test_list_copy)
+    """
     
 
 
