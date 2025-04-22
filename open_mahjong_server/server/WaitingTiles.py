@@ -146,7 +146,7 @@ class ChineseTilesCombinationCheck:
                 need_tile.append(second_suit[0]//10*10 + i)
             for i in temp_third_suit:
                 need_tile.append(third_suit[0]//10*10 + i)
-        # 极端情况下可能出现缺色,即[12,15,18,21,24,27,41,42,43,44,45,46,47] 缺失3,6,9一整面
+        # 极端情况下可能出现缺色,即[12,15,18,21,24,27,41,42,43,44,45,46,47] 缺失3,6,9一整面 缺色则执行以下操作
         else:
             # 获取缺少的键和值
             lack_suit = 0
@@ -163,6 +163,7 @@ class ChineseTilesCombinationCheck:
             elif suit_value == 5: # 2+3=5
                 suit_value = 1
             header_dict[lack_suit] = suit_value
+            # 使用遍历头字典找到1,2,3缺少头的头和通过计算得到缺少的值重新添加至need_tile
             if header_dict[0]:
                 for i in temp_first_suit:
                     need_tile.append(header_dict[0]*10 + i)
@@ -173,7 +174,7 @@ class ChineseTilesCombinationCheck:
                 for i in temp_third_suit:
                     need_tile.append(header_dict[2]*10 + i)
         
-        # 添加可能在数牌中存在的缺张,然后添加字牌中的缺张
+        # 在添加可能在数牌中存在的缺张以后,添加字牌中的缺张
         waiting_tiles = []
         if need_tile:
             waiting_tiles = need_tile

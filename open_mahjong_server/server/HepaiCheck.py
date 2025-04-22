@@ -26,7 +26,6 @@ class HePaiCheck:
             "qingyaojiu":["pengpenghe","quandaiyao","shuangtongke","yaojiuke","wuzi"],"xiaosixi":["sanfengke"] + ["yaojiuke"]*3, # 清幺九 小四喜
             "xiaosanyuan":["shuangjianke"] + ["yaojiuke"]*2 ,"ziyise":["pengpenghe","quandaiyao"] + ["yaojiuke"]*4, # 小三元 字一色
             "sianke_dianhe":["pengpenghe","menqianqing"],"sianke_zimo":["pengpenghe","buqiuren"], # 四暗刻 点和/自摸
-
             "yiseshuanglonghui":["qingyise","pinghe","wuzi"], "yisesitongshun":["siguiyi"], # 一色双龙会 一色四同顺
             "yisesijiegao":["pengpenghe"],"yisesibugao":[],"sangang":[], # 一色四节高 一色四步高 三杠
             "hunyaojiu":["pengpenghe","quandaiyao","yaojiuke"], # 混幺九
@@ -40,7 +39,7 @@ class HePaiCheck:
             "quanbukao_dianhe":["menqianqing"],"quanbukao_zimo":["buqiuren"], # 全不靠 点和/自摸
             "zuhelong":[],"dayuwu":["wuzi"],"xiaoyuwu":["wuzi"],"sanfengke":[], # 组合龙 大于五 小于五 三风刻
             "hualong":[],"tuibudao":["queyimen"],"sansesantongshun":[],"sansesanjiegao":[], # 花龙 推不倒 三色三同顺 三色三节高
-            "wufanhe":[],"miaoshouhuicun":[],"haidilaoyue":[],"gangshangkaihua":["zimo"], # 无番和 妙手回春 海底捞月 杠上开花
+            "wufanhe":[],"miaoshouhuichun":[],"haidilaoyue":[],"gangshangkaihua":["zimo"], # 无番和 妙手回春 海底捞月 杠上开花
             "qiangganghe":["hejuezhang"],"pengpenghe":[],"hunyise":[],"sansesanbugao":[], # 抢杠和 碰碰和 混一色 一色三步高
             "wumenqi":[],"quanqiuren":["dandiaojiang"],"shuangangang":["shuanganke"], # 五门齐 全求人 双暗杠
             "shuangjianke":["yaojiuke"],"quandaiyao":[],"buqiuren":["zimo"], # 双箭刻 全带幺 不求人
@@ -53,15 +52,15 @@ class HePaiCheck:
             }
         # 存储番种的番数
         self.count_model_dict:Dict[str,int] = {
-            "dasixi":88,"dasanyuan":88,"lvyise":88,"jiulianbaodeng_dianhe":88,"jiulianbaodeng_zimo":88,"sigang":88,
-            "lianqidui_dianhe":88,"lianqidui_zimo":88,"shisanyao_dianhe":88,"shisanyao_zimo":88,
-            "qingyaojiu":64,"xiaosixi":64,"xiaosanyuan":64,"ziyise":64,"sianke_dianhe":64,"sianke_zimo":64,"yiseshuanglonghui":64,
+            "dasixi":88,"dasanyuan":88,"lvyise":88,"jiulianbaodeng":88,"sigang":88,
+            "lianqidui":88,"shisanyao":88,
+            "qingyaojiu":64,"xiaosixi":64,"xiaosanyuan":64,"ziyise":64,"sianke":64,"yiseshuanglonghui":64,
             "yisesitongshun":48,"yisesijiegao":48,"yisesibugao":32,"sangang":32,"hunyaojiu":32,
-            "qidui_dianhe":24,"qidui_zimo":24,"qixingbukao_dianhe":24,"qixingbukao_zimo":24,"quanshuangke":24,
+            "qidui":24,"qixingbukao":24,"quanshuangke":24,
             "qingyise":24,"yisesantongshun":24,"yisesanjiegao":24,"quanda":24,"quanzhong":24,"quanxiao":24,
-            "qinglong":16,"sanseshuanglonghui":16,"yisesanbugao":16,"quandaiwu":16,"santongke":16,"sananke":16,"quanbukao_dianhe":12,
-            "quanbukao_zimo":12,"zuhelong":12,"dayuwu":12,"xiaoyuwu":12,"sanfengke":12,
-            "hualong":8,"tuibudao":8,"sansesantongshun":8,"sansesanjiegao":8,"wufanhe":8,"miaoshouhuicun":8,"haidilaoyue":8,
+            "qinglong":16,"sanseshuanglonghui":16,"yisesanbugao":16,"quandaiwu":16,"santongke":16,"sananke":16,
+            "quanbukao":12,"zuhelong":12,"dayuwu":12,"xiaoyuwu":12,"sanfengke":12,
+            "hualong":8,"tuibudao":8,"sansesantongshun":8,"sansesanjiegao":8,"wufanhe":8,"miaoshouhuichun":8,"haidilaoyue":8,
             "gangshangkaihua":8,"qiangganghe":8,"pengpenghe":6,"hunyise":6,"sansesanbugao":6,"wumenqi":6,"quanqiuren":6,"shuangangang":6,"shuangjianke":6,
             "quandaiyao":4,"buqiuren":4,"shuangminggang":4,"hejuezhang":4,"jianke":2,"quanfengke":2,"menfengke":2,"menqianqing":2,
             "pinghe":2,"siguiyi":2,"shuangtongke":2,"shuanganke":2,"angang":2,"duanyao":2,"yibangao":1,"xixiangfeng":1,
@@ -98,6 +97,9 @@ class HePaiCheck:
             "G31": [31,31,31],"G32": [32,32,32],"G33": [33,33,33],"G34": [34,34,34],"G35": [35,35,35],"G36": [36,36,36],"G37": [37,37,37],"G38": [38,38,38],"G39": [39,39,39],
             "G41": [41,41,41],"G42": [42,42,42],"G43": [43,43,43],"G44": [44,44,44],
             "G45": [45,45,45],"G46": [46,46,46],"G47": [47,47,47], # 暗杠
+            "z1": [11,14,17,21,24,27,31,34,37],"z2": [11,14,17,31,34,37,21,24,27],"z3": [21,24,27,11,14,17,31,34,37],
+            "z4": [21,24,27,31,34,37,11,14,17],"z5": [31,34,37,21,24,27,11,14,17],"z6": [31,34,37,11,14,17,21,24,27], # 组合龙case
+
         }
 
 
@@ -197,9 +199,20 @@ class HePaiCheck:
             else:
                 null_suit.append(tile_id)
 
-        # 如果花色手牌总数不等于9,则不符合全不靠
-        if len(first_suit) + len(second_suit) + len(third_suit) != 9:
-            return False
+        # 切个勾八片早知道全查表了 别的先不改了
+        # 如果三个组合中存在九种不同的牌 抛出一个牌型对象返回player_tiles_list 用于在normal_check中判断可能的组合龙复合型
+        zuhelong_case_list = [{11,14,17,21,24,27,31,34,37}, {11,14,17,31,34,37,21,24,27}, {21,24,27,11,14,17,31,34,37}, 
+                              {21,24,27,31,34,37,11,14,17}, {31,34,37,21,24,27,11,14,17}, {31,34,37,11,14,17,21,24,27}]
+        for case in zuhelong_case_list:
+            if all(i % 10 in case for i in player_tiles.hand_tiles):
+                zuhelong_player_tiles = player_tiles.__deepcopy__(None)
+                zuhelong_player_tiles.complete_step = 9
+                zuhelong_player_tiles.combination_list.append(f"z{case}")
+                zuhelong_player_tiles.fan_list.append("zuhelong") # 组合龙
+                for i in case:
+                    zuhelong_player_tiles.hand_tiles.remove(i)
+                print("组合龙返回一般型判断,手牌：",zuhelong_player_tiles.hand_tiles,"组合：",zuhelong_player_tiles.combination_list,"胡牌步数：",zuhelong_player_tiles.complete_step)
+                player_tiles_list.append(zuhelong_player_tiles)
             
         # 检查每个花色内部是否有重复的牌,有重复则不符合全不靠
         for suit_list in [first_suit, second_suit, third_suit]:
@@ -217,11 +230,19 @@ class HePaiCheck:
                 if tile_id in zipai_seen:
                     return False
                 zipai_seen.add(tile_id)
-
+        
+        # 已确定符合全不靠和牌
         temp_player_tiles = player_tiles.__deepcopy__(None)
         temp_player_tiles.complete_step = 14
+        if len(zipai_seen) == 7:
+            temp_player_tiles.fan_list.append("qixingbukao") # 七星不靠
+        elif len(first_suit) + len(second_suit) + len(third_suit) == 9:
+            temp_player_tiles.fan_list.append("zuhelong") # 组合龙
+        
+        # 如果同时被添加了七星不靠和全不靠,会在后面的阻挡算法中被移除
         temp_player_tiles.fan_list.append("quanbukao") # 全不靠
         player_tiles_list.append(temp_player_tiles)
+
 
     def normal_check(self, player_tiles: PlayerTiles):
         # 为节约性能 如果卡牌有不相邻的七组卡牌 说明无法和牌 直接返回False
@@ -331,8 +352,8 @@ class HePaiCheck:
         dayuwu_set = {16,17,18,19,26,27,28,29,36,37,38,39} # 大于五
         xiaoyuwu_set = {11,12,13,14,21,22,23,24,31,32,33,34} # 小于五
         tuibudao_set = {21,22,23,24,25,28,29,46,32,34,35,36,38,39} # 推不倒
-        jiulianbaodeng_list = [1,1,1,2,3,4,5,6,7,8,9,9,9]
-        yiseshuanglonghui_list = [1,1,2,2,3,3,5,5,7.7,8,8,9,9]
+        jiulianbaodeng_list = [1,1,1,2,3,4,5,6,7,8,9,9,9] # 九莲宝灯
+        yiseshuanglonghui_list = [1,1,2,2,3,3,5,5,7.7,8,8,9,9] # 一色双龙会
         quandaiwu_set = {"s14","s15","s16","s24","s25","s26","s34","s35","s36","k15","K15","g15","G15","k25","K25","g25","G25","k35","K35","g35","G35"
                          "S14","S15","S16","S24","S25","S26","S34","S35","S36"} # 全带五
         fengke_set = {"k41","k42","k43","k44","K41","K42","K43","K44","g41","G41","g42","G42","g43","G43","g44","G44"} # 风刻
@@ -345,6 +366,7 @@ class HePaiCheck:
         yaojiuke_set = {"k11","K11","k19","K19","k21","K21","k29","K29","k31","K31","k39","K39",
                         "k41","K41","k42","K42","k43","K43","k44","K44","K45","K45","K46","K46","K47","K47"} # 幺九刻
         special_set = {"shisanyao","qiduizi","quanbukao"}
+        sanseshuanglonghui_list = [{"s12","s18","s22","s28","q35"},{"s22","s28","s12","s18","q25"},{"s32","s38","s22","s28","q15"}]
         
         # 如果番数内有值说明是特殊型 特殊型传参时包含手牌列表 不需要获取手牌映射
         if player_tiles.fan_list:
@@ -400,7 +422,7 @@ class HePaiCheck:
             if all(i in xiaoyuwu_set for i in hand_tiles_list):
                 player_tiles.fan_list.append("xiaoyuwu") # 小于五
 
-        if all(i not in wan_set for i in hand_tiles_list) and all(i not in bing_set for i in hand_tiles_list) and all(i not in tiao_set for i in hand_tiles_list and all(i not in zipai_set for i in hand_tiles_list)):
+        if all(i not in wan_set for i in hand_tiles_list) and all(i not in bing_set for i in hand_tiles_list) and all(i not in tiao_set for i in hand_tiles_list) and all(i not in zipai_set for i in hand_tiles_list):
             player_tiles.fan_list.append("queyimen") # 缺一门
         
         if all (i not in zipai_set for i in hand_tiles_list):
@@ -421,11 +443,6 @@ class HePaiCheck:
                         if any(i in tiao_set for i in hand_tiles_list):
                             player_tiles.fan_list.append("wumenqi") # 五门齐
         
-            
-
-        # 没完成判断的役种 七星不靠 三色双龙会 组合龙 全求人 不求人 圈风刻 门风刻 门前清 平和 边张 嵌张 单吊将 自摸 花牌
-
-
         # 对组合单元本身查表
         # 负责判断全带五 全带幺 箭刻 双箭刻 大四喜 小四喜
         if all(i in quandaiwu_set for i in player_tiles.combination_list):
@@ -433,6 +450,10 @@ class HePaiCheck:
 
         if all(i in quandaiyao_set for i in player_tiles.combination_list):
             player_tiles.fan_list.append("quandaiyao") # 全带幺
+        
+        for i in sanseshuanglonghui_list:
+            if all(combination in i for combination in player_tiles.combination_list):
+                player_tiles.fan_list.append("sanseshuanglonghui") # 三色双龙会
 
         jianke_count = 0
         jianke_quetou = False
@@ -486,21 +507,21 @@ class HePaiCheck:
         anke_count = combination_str.count("K")
         kezi_count = combination_str.count("k")
 
-        if angang_count + minggang_count >= 1:
-            pass
-
-
+        # 如果有全不靠加一个顺子 或者四个顺子 同时所有手牌是数牌 满足平和
+        if ("z" in combination_str and combination_str.count("s") + combination_str.count("S") == 1) or (combination_str.count("s") + combination_str.count("S") == 4):
+            if all(i <= 40 for i in player_tiles.hand_tiles):
+                player_tiles.fan_list.append("pinghe") # 平和
         
         if combination_str.count("G") + combination_str.count("g") == 4:
             player_tiles.fan_list.append("sigang") # 四杠
         elif combination_str.count("G") + combination_str.count("g") == 3:
-            player_tiles.fan_list.append("sanzhang") # 三杠
+            player_tiles.fan_list.append("sangang") # 三杠
         
         if combination_str.count("G") + combination_str.count("K") == 4:
             player_tiles.fan_list.append("sianke") # 四暗刻
 
         if combination_str.count("G") + combination_str.count("K") == 3:
-            player_tiles.fan_list.append("sanzhang") # 三暗刻
+            player_tiles.fan_list.append("sananke") # 三暗刻
 
         if combination_str.count("G") + combination_str.count("g") + combination_str.count("K") + combination_str.count("k") == 4:
             player_tiles.fan_list.append("pengpenghe") # 碰碰和
@@ -692,28 +713,119 @@ class HePaiCheck:
                 if int(i)-1 in bing_list:
                     if int(i)-2 in tiao_list:
                         player_tiles.fan_list.append("sansesanjiegao") # 三色三节高
-                        
-        
+            
+
+        # 开始判断关于get_tile位置的番种
+        if "和单张" in way_to_hepai:
+            # 设有 123 2~4 进3 不符合唯一牌型 则不成立
+            # 设有 122~23 55 进2 不符合和单张 所以两边没有顺子的和单张即嵌张
+            if f"S{get_tile}" in combination_list:
+                if not f"S{get_tile + 1}" in combination_list and not f"S{get_tile - 1}" in combination_list:
+                    player_tiles.fan_list.append("qianzhang") # 嵌张
+            # 设有 1233~ 777 进3 如果S2存在即说明另有一副q3 不符合唯一牌型 所以单吊将的两侧不得有顺,12~边张的位置3不得有将
+            if f"q{get_tile}" in combination_list:
+                if not f"S{get_tile + 1}" in combination_list and not f"S{get_tile - 1}" in combination_list:
+                    player_tiles.fan_list.append("dandiaojiang") # 单吊将
+            # 规则同上 
+            if get_tile % 10 == 3:
+                if f"S{get_tile - 1}" in combination_list and not f"q{get_tile}" in combination_list:
+                    player_tiles.fan_list.append("bianzhang") # 边张
+            elif get_tile % 10 == 7:
+                if f"S{get_tile + 1}" in combination_list and not f"q{get_tile}" in combination_list:
+                    player_tiles.fan_list.append("bianzhang") # 边张
 
 
+        # 开始判断传参番种
+        # 妙手回春 杠上开花 抢杠和 和绝张
+        for i in way_to_hepai:
+            match i:
+                case "妙手回春":
+                    player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春
+                case "杠上开花":
+                    player_tiles.fan_list.append("gangshangkaifang") # 杠上开花
+                case "抢杠和":
+                    player_tiles.fan_list.append("qiangganghe") # 抢杠和
+                case "和绝张":
+                    player_tiles.fan_list.append("hejuezhang") # 和绝张
+                case "花牌":
+                    player_tiles.fan_list.append("huapai") # 花牌
+                case "海底捞月":
+                    player_tiles.fan_list.append("haidilaoyue") # 海底捞月
+                case "荣和":
+                    if all(i not in ["S","K","G"] for i in combination_str):
+                        player_tiles.fan_list.append("quanqiuren") # 全求人
+                    elif all(i not in ["s","k","g"] for i in combination_str):
+                        player_tiles.fan_list.append("menqianqing") # 门前清
+                case "自摸":
+                    if all(i not in ["s","k","g"] for i in combination_str):
+                        player_tiles.fan_list.append("buqiuren") # 不求人
+                    else:
+                        player_tiles.fan_list.append("zimo") # 自摸
 
+        if "自风东" in way_to_hepai and "41" in save_kezi_sign:
+            player_tiles.fan_list.append("menfengke") # 门风刻
+        elif "自风南" in way_to_hepai and "42" in save_kezi_sign:
+            player_tiles.fan_list.append("menfengke") # 门风刻
+        elif "自风西" in way_to_hepai and "43" in save_kezi_sign:
+            player_tiles.fan_list.append("menfengke") # 门风刻
+        elif "自风北" in way_to_hepai and "44" in save_kezi_sign:
+            player_tiles.fan_list.append("menfengke") # 门风刻
+        if "场风东" in way_to_hepai and "41" in save_kezi_sign:
+            player_tiles.fan_list.append("quanfengke") # 圈风刻
+        elif "场风南" in way_to_hepai and "42" in save_kezi_sign:
+            player_tiles.fan_list.append("quanfengke") # 圈风刻
+        elif "场风西" in way_to_hepai and "43" in save_kezi_sign:
+            player_tiles.fan_list.append("quanfengke") # 圈风刻
+        elif "场风北" in way_to_hepai and "44" in save_kezi_sign:
+            player_tiles.fan_list.append("quanfengke") # 圈风刻
 
+        zimo_or_not = False
+        if any(i in ["妙手回春","自摸","杠上开花"] for i in way_to_hepai):
+            zimo_or_not = True
 
         if not player_tiles.fan_list:
             player_tiles.fan_list.append("wufanhe") # 无番和
+        
+        modeled_fan_list = []
+        need_to_remove = []
+        # 开始排除阻挡番种
+        max_yaojiuke_count = 0
+        for fan in player_tiles.fan_list:
+            if fan in self.repel_model_dict:
+                for i in self.repel_model_dict[fan]:
+                    if i != "yaojiuke":
+                        need_to_remove.append(i)
+                    elif i == "yaojiuke":
+                        yaojiuke_count = self.repel_model_dict[fan].count("yaojiuke")
+                        if yaojiuke_count > max_yaojiuke_count:
+                            max_yaojiuke_count = yaojiuke_count
+            else:
+                if zimo_or_not: # yes
+                    for i in self.repel_model_dict[f"{fan}_zimo"]:
+                        if i != "yaojiuke":
+                            need_to_remove.append(i)
+                        elif i == "yaojiuke":
+                            yaojiuke_count = self.repel_model_dict[f"{fan}_zimo"].count("yaojiuke")
+                            if yaojiuke_count > max_yaojiuke_count:
+                                max_yaojiuke_count = yaojiuke_count
+                else: # no
+                    for i in self.repel_model_dict[f"{fan}_dianhe"]:
+                        if i != "yaojiuke":
+                            need_to_remove.append(i)
+                        elif i == "yaojiuke":
+                            yaojiuke_count = self.repel_model_dict[f"{fan}_dianhe"].count("yaojiuke")
+                            if yaojiuke_count > max_yaojiuke_count:
+                                max_yaojiuke_count = yaojiuke_count
+        
+        print("需要被移除的番种",need_to_remove)
+        for i in need_to_remove:
+            if i in player_tiles.fan_list:
+                player_tiles.fan_list.remove(i)
+        print("需要移除的幺九刻数量",max_yaojiuke_count)
+        for i in range(max_yaojiuke_count):
+            player_tiles.fan_list.remove("yaojiuke")
+        print("最终番种",player_tiles.fan_list)
 
-        # 妙手回春 岭上开花 抢杠和 和绝张
-        if way_to_hepai == "妙手回春":
-            player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春
-        elif way_to_hepai == "岭上开花":
-            player_tiles.fan_list.append("lingshangkaifang") # 岭上开花
-        elif way_to_hepai == "抢杠和":
-            player_tiles.fan_list.append("qiangganghe") # 抢杠和
-        elif way_to_hepai == "和绝张":
-            player_tiles.fan_list.append("hejuezhang") # 和绝张
-        
-        
-        
 
 
 # 测试
@@ -798,7 +910,21 @@ if __name__ == "__main__":
     hepai_tiles = tiles_list.pop(random.randint(0, len(tiles_list) - 1))
     
     # 选择一种和牌方式
-    way_to_hepai = random.choice(["荣和","自摸","抢杠和","妙手回春","海底捞月","岭上开花","和绝张"])
+    way_to_hepai = []
+    way_to_hepai.append(random.choice(["荣和","自摸","抢杠和","妙手回春","海底捞月","岭上开花"])) # 1级传参 和牌方式
+    way_to_hepai.append(random.choice(["场风东","场风南","场风西","场风北"])) # 2级传参 自身位置
+    way_to_hepai.append(random.choice(["自风东","自风南","自风西","自风北"]))
+    if random.randint(0,100) < 50:
+        way_to_hepai.append(random.choice(["和绝张"])) # 3级传参 条件番
+    if random.randint(0,100) < 50:
+        way_to_hepai.append(random.choice(["和单张"]))
+
+    for i in range(random.randint(0,3)):
+        if random.randint(0,100) < 50:
+            way_to_hepai.append("花牌") # 4级传参 奖励番
+
+    print("随机生成和牌方式：",way_to_hepai)
+
 
     # 开始测试
     test_check = HePaiCheck()
