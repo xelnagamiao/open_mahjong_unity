@@ -26,13 +26,19 @@ class ChineseTilesCombinationCheck:
         
         # 13张牌额外检查特殊牌型
         if len(player_tiles.hand_tiles) == 13:
-            self.GS_check(player_tiles.hand_tiles)  # 国士无双check
-            self.QD_check(player_tiles.hand_tiles)  # 七对子check
-            self.QBK_check(player_tiles.hand_tiles)  # 全不靠check
-            self.normal_check(player_tiles)
-        else:
-            self.normal_check(player_tiles)
+            self.GS_check(player_tiles.hand_tiles)  # 国士无双检查
+            self.QD_check(player_tiles.hand_tiles)  # 七对子检查
+
+
+        if self.QBK_check(player_tiles):  # 全不靠检查
+            return self.waiting_tiles_dict
         
+        self.normal_check(player_tiles) # 一般型检查
+        
+        print(self.waiting_tiles_dict)
+        if "组合龙" in self.waiting_tiles_dict:
+            if "一般型" in self.waiting_tiles_dict:
+                self.waiting_tiles_dict.pop("一般型")
         return self.waiting_tiles_dict
 
     def GS_check(self, hand_tiles):
@@ -82,115 +88,60 @@ class ChineseTilesCombinationCheck:
         if pairs == 6 and single == 1:
             self.waiting_tiles_dict["七对子"] = [waiting_tile]
 
-    def QBK_check(self, hand_tiles):
-        # 全不靠check可以查六种可能性的表，也可以进行切片计算操作，这里采用切片计算操作
-        first_suit = []
-        second_suit = []
-        third_suit = []
-        null_suit = []
-        # 将手牌按花色分类
-        for tile_id in hand_tiles:
-            if tile_id < 40:
-                rank = tile_id % 10   # 点数
-                if rank in [1, 4, 7]:
-                    first_suit.append(tile_id)
-                elif rank in [2, 5, 8]:
-                    second_suit.append(tile_id)
-                elif rank in [3, 6, 9]:
-                    third_suit.append(tile_id)
-            else:
-                null_suit.append(tile_id)
-            
-        # 检查每个花色内部是否有重复的牌,有重复则不符合全不靠
-        for suit_list in [first_suit, second_suit, third_suit]:
-            suits_count_list = []
-            for tile_id in suit_list:
-                suit = tile_id // 10
-                suits_count_list.append(suit)
-            if suit_list and suits_count_list.count(suits_count_list[0]) != len(suit_list):
-                return False
+    def QBK_check(self, player_tiles: PlayerTiles):
+        hand_kind_set = len(set(player_tiles.hand_tiles))
+        # 如果手牌种类大于13种,则可能全不靠听牌,如果手牌种类大于10种,则可能组合龙
+        if hand_kind_set >= 13:
+            QBK_case_list =[{11,14,17,22,25,28,33,36,39,41,42,43,44,45,46,47}, {11,14,17,32,35,38,23,26,29,41,42,43,44,45,46,47}, {21,24,27,12,15,18,33,36,39,41,42,43,44,45,46,47}, 
+                            {21,24,27,32,35,38,13,16,19,41,42,43,44,45,46,47}, {31,34,37,22,25,28,13,16,19,41,42,43,44,45,46,47}, {31,34,37,12,15,18,23,26,29,41,42,43,44,45,46,47}]
+            for case in QBK_case_list:
+                QBK_set = set()
+                for i in player_tiles.hand_tiles:
+                    if i in case:
+                        QBK_set.add(i)
+                if len(QBK_set) == 13:
+                    need_tile_list = []
+                    for i in case:
+                        if i not in player_tiles.hand_tiles:
+                            need_tile_list.append(i)
+                    self.waiting_tiles_dict["全不靠"] = need_tile_list
+                    return True
 
-        # 检查null_suit是否有重复字牌，有重复则不符合全不靠
-        zipai_seen = set()
-        for tile_id in null_suit:
-            if tile_id in self.zipai:
-                if tile_id in zipai_seen:
+        elif hand_kind_set >= 10:
+            ZHL_case_list = [{11,14,17,22,25,28,33,36,39}, {11,14,17,32,35,38,23,26,29}, {21,24,27,12,15,18,33,36,39}, 
+                            {21,24,27,32,35,38,13,16,19}, {31,34,37,22,25,28,13,16,19}, {31,34,37,12,15,18,23,26,29}]
+            for case in ZHL_case_list:
+                ZHL_set = set()
+                for i in player_tiles.hand_tiles:
+                    if i in case:
+                        ZHL_set.add(i)
+                # 如果组合龙集合 = 9或者8 则在一向听的前提下 如果的确听牌 和牌必然包含组合龙 直接移除后进入一般型检测
+                if len(ZHL_set) == 9:
+                    player_tiles.complete_step = 9
+                    player_tiles.combination_list.append(f"z{case}")
+                    for i in case:
+                        player_tiles.hand_tiles.remove(i)
                     return False
-                zipai_seen.add(tile_id)
-
-        # 妈的这个全不靠怎么是这个样子的,之前理解错了全重写了
-        # 已经确定符合全不靠,检查全不靠缺张是否在数牌侧
-        need_tile = []
-        temp_first_suit = [1,4,7]
-        temp_second_suit = [2,5,8]
-        temp_third_suit = [3,6,9]
-        header_dict = {}
-        # 删除数牌中已经存在的牌 保存牌组中可能的同类牌标记至header_dict
-        if first_suit:
-            for i in first_suit:
-                temp_first_suit.remove(i % 10)
-            header_dict[0] = (first_suit[0]//10)*10
-        if second_suit:
-            for i in second_suit:
-                temp_second_suit.remove(i % 10)
-            header_dict[1] = (second_suit[0]//10)*10
-        if third_suit:
-            for i in third_suit:
-                temp_third_suit.remove(i % 10)
-            header_dict[2] = (third_suit[0]//10)*10
-        # 根据header_list中的标记 将可能的同类牌添加至need_tile
-        if len(header_dict) == 3:
-            for i in temp_first_suit:
-                need_tile.append(first_suit[0]//10*10 + i)
-            for i in temp_second_suit:
-                need_tile.append(second_suit[0]//10*10 + i)
-            for i in temp_third_suit:
-                need_tile.append(third_suit[0]//10*10 + i)
-        # 极端情况下可能出现缺色,即[12,15,18,21,24,27,41,42,43,44,45,46,47] 缺失3,6,9一整面 缺色则执行以下操作
+                elif len(ZHL_set) == 8:
+                    player_tiles.complete_step = 9
+                    player_tiles.combination_list.append(f"z{case}")
+                    for i in case:
+                        if i in player_tiles.hand_tiles:
+                            player_tiles.hand_tiles.remove(i)
+                        else:
+                            self.waiting_tiles_dict["组合龙"] = [i]
+                    return False
         else:
-            # 获取缺少的键和值
-            lack_suit = 0
-            suit_value = 0
-            for i in range (0,2):
-                if i not in header_dict:
-                    lack_suit = i
-            for key,value in header_dict.items():
-                suit_value += value // 10
-            if suit_value == 3: # 1+2=3
-                suit_value = 3
-            elif suit_value == 4: # 1+3=4
-                suit_value = 2
-            elif suit_value == 5: # 2+3=5
-                suit_value = 1
-            header_dict[lack_suit] = suit_value
-            # 使用遍历头字典找到1,2,3缺少头的头和通过计算得到缺少的值重新添加至need_tile
-            if header_dict[0]:
-                for i in temp_first_suit:
-                    need_tile.append(header_dict[0]*10 + i)
-            if header_dict[1]:
-                for i in temp_second_suit:
-                    need_tile.append(header_dict[1]*10 + i)
-            if header_dict[2]:
-                for i in temp_third_suit:
-                    need_tile.append(header_dict[2]*10 + i)
-        
-        # 在添加可能在数牌中存在的缺张以后,添加字牌中的缺张
-        waiting_tiles = []
-        if need_tile:
-            waiting_tiles = need_tile
-        # 检查字牌中的缺牌
-        for tile_id in self.zipai:
-            if tile_id not in null_suit:
-                waiting_tiles.append(tile_id)
-                
-        if waiting_tiles:
-            self.waiting_tiles_dict["全不靠"] = waiting_tiles
+            return False
 
     def normal_check(self, player_tiles: PlayerTiles):
         # 为节约性能 如果卡牌有不相邻的七组卡牌 说明无法和牌 直接返回False
         if not self.normal_check_block(player_tiles):
             return False
         # 获取所有的雀头可能以及没有雀头的情况
+        
+        print(player_tiles.hand_tiles)
+        
         all_list = self.normal_check_traverse_quetou(player_tiles)
         end_list = []
         print([i.hand_tiles for i in all_list])
@@ -232,6 +183,7 @@ class ChineseTilesCombinationCheck:
             if waiting_tiles:
                 waiting_tiles = list(set(waiting_tiles))
                 self.waiting_tiles_dict["一般型"] = waiting_tiles
+        
 
 
     def normal_check_block(self,player_tiles: PlayerTiles):
@@ -280,15 +232,16 @@ class ChineseTilesCombinationCheck:
     def normal_check_traverse_dazi(self, player_tiles: PlayerTiles, all_list):
         same_tile_id = 0
         for tile_id in player_tiles.hand_tiles:
-            if tile_id+1 in player_tiles.hand_tiles and tile_id+2 in player_tiles.hand_tiles and tile_id != same_tile_id:
-                temp_list = player_tiles.__deepcopy__(None)
-                temp_list.hand_tiles.remove(tile_id)
-                temp_list.hand_tiles.remove(tile_id+1)
-                temp_list.hand_tiles.remove(tile_id+2)
-                temp_list.complete_step += 3
-                temp_list.combination_list.append(f"s{tile_id+1}")
-                all_list.append(temp_list)
-                same_tile_id = tile_id
+            if tile_id <= 40:
+                if tile_id+1 in player_tiles.hand_tiles and tile_id+2 in player_tiles.hand_tiles and tile_id != same_tile_id:
+                    temp_list = player_tiles.__deepcopy__(None)
+                    temp_list.hand_tiles.remove(tile_id)
+                    temp_list.hand_tiles.remove(tile_id+1)
+                    temp_list.hand_tiles.remove(tile_id+2)
+                    temp_list.complete_step += 3
+                    temp_list.combination_list.append(f"s{tile_id+1}")
+                    all_list.append(temp_list)
+                    same_tile_id = tile_id
     
                 
 # 测试
@@ -405,7 +358,9 @@ if __name__ == "__main__":
     tiles_list.sort()
 
     # 手动指定
-    # tiles_list = [13, 15, 17, 28, 28, 28, 32, 33, 34, 38, 38, 45, 45]
+    print("手动指定牌组")
+    tiles_list = [11,14,17,22,25,28,33,36,39,41,42,42,42]
+    tiles_list.sort()
     time_start = time()
     print("测试牌组",tiles_list)
     test_tiles = PlayerTiles(tiles_list,[],0)
