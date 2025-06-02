@@ -18,46 +18,48 @@ class ChineseTilesCombinationCheck:
     zipai = {41, 42, 43, 44, 45, 46, 47}
     
     def __init__(self):
-        self.waiting_tiles_dict : Dict[str, list] = {}
+        self.waiting_tiles = set()
+        self.temp_waiting_tiles = set()
 
     def check_waiting_tiles(self, player_tiles: PlayerTiles):
         # 清空之前的结果
-        self.waiting_tiles_dict.clear()
+        self.waiting_tiles.clear()
+        self.temp_waiting_tiles.clear()
         
-        # 13张牌额外检查特殊牌型
+        # 13张牌检查特殊牌型
         if len(player_tiles.hand_tiles) == 13:
             self.GS_check(player_tiles.hand_tiles)  # 国士无双检查
             self.QD_check(player_tiles.hand_tiles)  # 七对子检查
 
-
         if self.QBK_check(player_tiles):  # 全不靠检查
-            return self.waiting_tiles_dict
-        
+            return self.waiting_tiles
+            
         self.normal_check(player_tiles) # 一般型检查
         
-        print(self.waiting_tiles_dict)
-        if "组合龙" in self.waiting_tiles_dict:
-            if "一般型" in self.waiting_tiles_dict:
-                self.waiting_tiles_dict.pop("一般型")
-        return self.waiting_tiles_dict
+        print(self.waiting_tiles)
+
+        return self.waiting_tiles
 
     def GS_check(self, hand_tiles):
-        allow_same_id = True
-        same_tile_id = 0
-        hepai_step = 0
+        # 检查国士
+        GS_step_set = set()
+        GS_allowed = True
+        # 如果牌存在于幺九集合,则加入手牌幺九集合
         for tile_id in hand_tiles:
-            if tile_id in self.yaojiu and (tile_id != same_tile_id or allow_same_id):
-                if tile_id == same_tile_id:
-                    allow_same_id = False
-                same_tile_id = tile_id
-                hepai_step += 1
-        if hepai_step == 13:
-            for yaojiu in self.yaojiu:
-                if yaojiu not in hand_tiles:
-                    self.waiting_tiles_dict["国士无双"] = [yaojiu]
-            if "国士无双" not in self.waiting_tiles_dict:
-                self.waiting_tiles_dict["国士无双"] = [11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47]
-
+            if tile_id in self.yaojiu:
+                GS_step_set.add(tile_id)
+            else:
+                GS_allowed = False
+        # 如果牌都是幺九 并且满足12种或者13种 前者添加第十三种 后者添加全部十三种
+        if GS_allowed:
+            if len(GS_step_set) == 12:
+                for i in self.yaojiu:
+                    if i not in hand_tiles:
+                        self.waiting_tiles.add(i)
+            elif len(GS_step_set) == 13:
+                for i in self.yaojiu:
+                    self.waiting_tiles.add(i)
+        
     def QD_check(self, hand_tiles):
         # 检查七对子
         tile_counts = {}
@@ -69,24 +71,19 @@ class ChineseTilesCombinationCheck:
             else:
                 tile_counts[tile_id] = 1
         
-        # 检查是否符合七对子结构
-        pairs = 0
         single = 0
         waiting_tile = None
         
         for tile_id, count in tile_counts.items():
-            if count == 2:
-                pairs += 1
-            elif count == 1:
+            if count == 1 or count == 3:
                 single += 1
                 waiting_tile = tile_id
             # 如果有超过2张相同的牌，则不可能是七对子
-            elif count > 2:
+            elif single >= 2:
                 return False
         
-        # 七对子听牌：6对+1单张
-        if pairs == 6 and single == 1:
-            self.waiting_tiles_dict["七对子"] = [waiting_tile]
+        if single == 1:
+            self.waiting_tiles.add(waiting_tile)
 
     def QBK_check(self, player_tiles: PlayerTiles):
         hand_kind_set = len(set(player_tiles.hand_tiles))
@@ -94,20 +91,22 @@ class ChineseTilesCombinationCheck:
         if hand_kind_set >= 13:
             QBK_case_list =[{11,14,17,22,25,28,33,36,39,41,42,43,44,45,46,47}, {11,14,17,32,35,38,23,26,29,41,42,43,44,45,46,47}, {21,24,27,12,15,18,33,36,39,41,42,43,44,45,46,47}, 
                             {21,24,27,32,35,38,13,16,19,41,42,43,44,45,46,47}, {31,34,37,22,25,28,13,16,19,41,42,43,44,45,46,47}, {31,34,37,12,15,18,23,26,29,41,42,43,44,45,46,47}]
+            # 遍历手牌如果在对应的全不靠组合当中则加入全不靠集合
             for case in QBK_case_list:
                 QBK_set = set()
                 for i in player_tiles.hand_tiles:
                     if i in case:
                         QBK_set.add(i)
+                # 如果全不靠集合满足,就将手牌中不在全不靠组合中的牌加入等待牌,并返回True
                 if len(QBK_set) == 13:
                     need_tile_list = []
                     for i in case:
                         if i not in player_tiles.hand_tiles:
                             need_tile_list.append(i)
-                    self.waiting_tiles_dict["全不靠"] = need_tile_list
+                    self.waiting_tiles = need_tile_list
                     return True
 
-        elif hand_kind_set >= 10:
+        elif hand_kind_set >= 8:
             ZHL_case_list = [{11,14,17,22,25,28,33,36,39}, {11,14,17,32,35,38,23,26,29}, {21,24,27,12,15,18,33,36,39}, 
                             {21,24,27,32,35,38,13,16,19}, {31,34,37,22,25,28,13,16,19}, {31,34,37,12,15,18,23,26,29}]
             for case in ZHL_case_list:
@@ -116,20 +115,22 @@ class ChineseTilesCombinationCheck:
                     if i in case:
                         ZHL_set.add(i)
                 # 如果组合龙集合 = 9或者8 则在一向听的前提下 如果的确听牌 和牌必然包含组合龙 直接移除后进入一般型检测
+                # 完整情况的组合龙正常删除就行 当做一个正常的顺子和刻子来处理
                 if len(ZHL_set) == 9:
-                    player_tiles.complete_step = 9
+                    player_tiles.complete_step += 9
                     player_tiles.combination_list.append(f"z{case}")
                     for i in case:
                         player_tiles.hand_tiles.remove(i)
                     return False
+                # 不完整情况的组合龙将缺张牌加入temp_waiting_tiles 如果在一般型检测中和牌步数达到14 代表缺的那张就是组合龙的缺张，将缺张牌加入waiting_tiles
                 elif len(ZHL_set) == 8:
-                    player_tiles.complete_step = 9
+                    player_tiles.complete_step += 9
                     player_tiles.combination_list.append(f"z{case}")
                     for i in case:
                         if i in player_tiles.hand_tiles:
                             player_tiles.hand_tiles.remove(i)
                         else:
-                            self.waiting_tiles_dict["组合龙"] = [i]
+                            self.temp_waiting_tiles.add(i)
                     return False
         else:
             return False
@@ -165,10 +166,17 @@ class ChineseTilesCombinationCheck:
         print("列表长度:", len(end_list))
 
         # 剩余的手牌有五种组成方式 
-        # 1.单吊听牌型(无雀头型)[n] 2.有雀头剩余对子型(对碰)[n,n] 3.剩余两面型[n,n+1] 4.剩余坎张型[n,n+2] 5.无效型[n,m]
+        # 1.单吊听牌型(无雀头型)[n] 2.有雀头剩余对子型(对碰)[n,n] 3.剩余两面型[n,n+1] 4.剩余坎张型[n,n+2] 5.无效型[n,m] 特殊情况:组合龙型 complete_step == 14 [temp_waiting_tiles]
         if end_list:
             waiting_tiles = []
             for i in end_list:
+                print(i.hand_tiles, i.complete_step,i.combination_list)
+                # 如果听牌步数是14 则代表缺的那张牌就是组合龙的缺张 直接返回缺张牌
+                if i.complete_step == 14:
+                    print("组合龙型")
+                    self.waiting_tiles = self.temp_waiting_tiles
+                    return
+
                 if len(i.hand_tiles) == 1:
                     waiting_tiles.append(i.hand_tiles[0]) # 单吊型
                 elif len(i.hand_tiles) == 2:
@@ -181,8 +189,8 @@ class ChineseTilesCombinationCheck:
                         waiting_tiles.append(i.hand_tiles[0] + 1) # 坎张型
             # 去重
             if waiting_tiles:
-                waiting_tiles = list(set(waiting_tiles))
-                self.waiting_tiles_dict["一般型"] = waiting_tiles
+                waiting_tiles = set(waiting_tiles)
+                self.waiting_tiles = waiting_tiles | self.waiting_tiles
         
 
 
@@ -191,7 +199,7 @@ class ChineseTilesCombinationCheck:
         tile_id_pointer = player_tiles.hand_tiles[0]
         for tile_id in player_tiles.hand_tiles:
             if tile_id == tile_id_pointer or tile_id == tile_id_pointer + 1:
-                continue
+                pass
             else:
                 block_count += 1
             tile_id_pointer = tile_id
@@ -276,7 +284,7 @@ if __name__ == "__main__":
     test_combination = ChineseTilesCombinationCheck()
     print(test_tiles.hand_tiles)
     test_combination.check_waiting_tiles(test_tiles)
-    print(test_combination.waiting_tiles_dict)
+    print(test_combination.waiting_tiles)
     # 生成测试牌组可能
     # 标准牌堆
     sth_tiles_set = {
@@ -359,17 +367,17 @@ if __name__ == "__main__":
 
     # 手动指定
     print("手动指定牌组")
-    tiles_list = [11,14,17,22,25,28,33,36,39,41,42,42,42]
+    tiles_list = [12,15,18,36,39,21,24,27,47,47]
     tiles_list.sort()
     time_start = time()
     print("测试牌组",tiles_list)
-    test_tiles = PlayerTiles(tiles_list,[],0)
+    test_tiles = PlayerTiles(tiles_list,["s25"],3)
     test_combination.check_waiting_tiles(test_tiles)
     time_end = time()
     # 时间使用0.001-0.005 按每次手牌都是一向听,并且最高时长0.005情况下每秒可以处理200次计算
     # 按100次计算进行估测 平均出牌时间3秒 相当于可以承担300桌玩家同时进行(1200人)那就先不改了
     print(time_end - time_start)
-    print("测试结果",test_combination.waiting_tiles_dict)
+    print("测试结果",test_combination.waiting_tiles)
     print("end")
 
 
