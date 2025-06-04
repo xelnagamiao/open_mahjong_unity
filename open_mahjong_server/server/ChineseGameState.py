@@ -3,6 +3,9 @@ import asyncio
 from typing import Dict, Optional, List
 from response import Cut_response,GameInfo, Response, Ask_action_info,Action_info,Ask_hand_action_info,Buhua_animation_info
 import time  # 直接导入整个模块
+from Chinese_Tingpai_Check import Chinese_Tingpai_Check
+from Chinese_Hepai_Check import Chinese_Hepai_Check
+
 
 
 
@@ -29,13 +32,13 @@ class ChineseGameState:
     def __init__(self, room_id: str, room):
         self.room_id = room_id # 房间号
         self.room = room # 房间类
-        
+        self.tips = False # 是否提示(预留)
         self.player_list: List[ChinesePlayer] = [] # 玩家列表 包含chinesePlayer类
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
         self.random_seed = 0 # 随机种子
         self.game_status = "waiting"  # waiting, playing, finished
-        self.cuttime = room.cuttime # 切牌时间
+        self.cuttime = room.cuttime # 切牌时间(步时)
         self.game_time = room.game_time # 游戏时间
         self.current_round = 0 # 第几轮 # 默认4轮
 
@@ -49,15 +52,6 @@ class ChineseGameState:
         "chi_left": 1, "chi_mid": 1, "chi_right": 1, 
         "pass": 0,"buhua":0,"cut":0,
         "angang":0,"jiagang":0}
-# 麻将组合 -> 排斥的下集麻将组合列表
-# 九莲宝灯 幺九刻-1
-# 三风刻的三个刻子不计幺九刻
-# 箭刻不计幺九刻
-# 花牌不计起和番
-
-        
-            
-        
 
     async def next_current_index(self):
         if self.current_player_index == 3:
@@ -343,7 +337,7 @@ class ChineseGameState:
         # 出牌玩家不可对自己的出牌进行操作
         temp_action_dict[self.current_player_index] = []
         return temp_action_dict
-    # 杠后检查操作
+    # 杠后检查操作 
     async def check_action_after_jiagang(self,gang_tile):
         # 如果该牌是任意家的等待牌，则可以抢杠和
         temp_action_dict = {}
@@ -353,13 +347,13 @@ class ChineseGameState:
                     temp_action_dict[item.current_player_index] = []
                 temp_action_dict[item.current_player_index].append("hu")
         return temp_action_dict
-    # 检查补花操作
+    # 开局检查补花操作 补花buhua
     async def check_action_buhua(self,player_index):
         temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
         if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
             temp_action_dict[player_index].append("buhua")
         return temp_action_dict
-
+    # 摸牌后检查操作 补花buhua 和牌hu 暗杠angang 加杠jiagang 切牌cut
     async def check_action_hand_action(self,player_index):
         temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
         if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
