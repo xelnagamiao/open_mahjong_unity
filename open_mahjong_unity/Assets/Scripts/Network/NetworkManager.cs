@@ -10,8 +10,6 @@ using System.Collections.Generic;
 
 [Serializable]
 public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
-public class GetRoomListEvent : UnityEvent<bool, string, RoomData[]> {} // 获取房间列表类
-public class GetRoomInfoEvent : UnityEvent<bool, string, RoomInfo> {} // 获取房间信息类
 public class GameStartEvent : UnityEvent<bool, string, GameInfo> {} // 游戏开始类
 
 public class NetworkManager : MonoBehaviour
@@ -25,8 +23,6 @@ public class NetworkManager : MonoBehaviour
     private Action<bool, string> currentLoginCallback; // 登录回调
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
-    public GetRoomListEvent GetRoomListResponse = new GetRoomListEvent(); // 定义获取房间列表响应事件
-    public GetRoomInfoEvent GetRoomInfoResponse = new GetRoomInfoEvent(); // 定义获取房间信息响应事件
     public GameStartEvent GameStartResponse = new GameStartEvent(); // 定义游戏开始响应事件
 
 
@@ -119,7 +115,7 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "get_room_info": // 获取room_info
                     Debug.Log("处理房间信息更新");
-                    WindowsMannager.Instance.SwitchWindow("room");
+                    WindowsManager.Instance.SwitchWindow("room");
                     GetRoomInfoResponse.Invoke(
                         response.success, 
                         response.message, 
@@ -135,10 +131,10 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
                     if (response.success)
                     {
-                        WindowsMannager.Instance.SwitchWindow("roomList");
+                        WindowsManager.Instance.SwitchWindow("roomList");
                     }
                     break;
-                case "game_start_chinese":
+                case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
                     GameStartResponse.Invoke(
                         response.success, 
@@ -146,39 +142,10 @@ public class NetworkManager : MonoBehaviour
                         response.game_info
                     );
                     break;
-                case "broadcast_buhua_action":
-                    Debug.Log($"收到补花消息: {response.ask_hand_action_info}");
-                    AskHandActionInfo buhuaresponse = response.ask_hand_action_info;
-                    GameSceneMannager.Instance.AskBuhuaAction(
-                        buhuaresponse.remaining_time,
-                        buhuaresponse.player_index,
-                        buhuaresponse.deal_tiles,
-                        buhuaresponse.remain_tiles,
-                        buhuaresponse.action_list
-                    );
-                    break;
-                case "broadcast_buhua_animation":
-                    Debug.Log($"收到补花动画消息: {response.buhua_animation_info}");
-                    BuhuaAnimationInfo buhuaanimationresponse = response.buhua_animation_info;
-                    GameSceneMannager.Instance.BuhuaAnimation(
-                        buhuaanimationresponse.player_index,
-                        buhuaanimationresponse.deal_tiles,
-                        buhuaanimationresponse.remain_tiles
-                    );
-                    break;
-                case "cut_tiles_chinese":
-                    Debug.Log($"收到切牌消息: {response.cut_info}");
-                    CutTileResponse cutresponse = response.cut_info;
-                    GameSceneMannager.Instance.CutCards(
-                        cutresponse.cut_tiles,
-                        cutresponse.cut_player_index,
-                        cutresponse.cut_class
-                        );
-                    break;
-                case "broadcast_hand_action":
+                case "broadcast_hand_action_GB":
                     Debug.Log($"收到发牌消息: {response.ask_hand_action_info}");
-                    AskHandActionInfo handresponse = response.ask_hand_action_info;
-                    GameSceneMannager.Instance.AskHandAction(
+                    AskHandActionGBInfo handresponse = response.ask_hand_action_info;
+                    GameSceneManager.Instance.AskHandAction(
                         handresponse.remaining_time,
                         handresponse.deal_tiles,
                         handresponse.player_index,
@@ -186,23 +153,26 @@ public class NetworkManager : MonoBehaviour
                         handresponse.action_list
                     );
                     break;
-                case "ask_action_chinese":
+                case "ask_other_action_GB":
                     Debug.Log($"收到询问操作消息: {response.ask_action_info}");
-                    AskActionInfo askresponse = response.ask_action_info;
-                    GameSceneMannager.Instance.AskOtherCutAction(
+                    AskOtherActionGBInfo askresponse = response.ask_action_info;
+                    GameSceneManager.Instance.AskOtherAction(
                         askresponse.remaining_time,
                         askresponse.action_list,
                         askresponse.cut_tile
                     );
                     break;
-                case "do_action_chinese":
+                case "do_action_GB":
                     Debug.Log($"收到执行操作消息: {response.action_info}");
-                    ActionInfo doresponse = response.action_info;
-                    GameSceneMannager.Instance.DoAction(
-                        doresponse.do_action_type,
-                        doresponse.remaining_time,
-                        doresponse.current_player_index,
-                        doresponse.tile_id
+                    DoActionInfo doresponse = response.action_info;
+                    GameSceneManager.Instance.DoAction(
+                        doresponse.action_list,
+                        doresponse.action_player,
+                        doresponse.cut_tile,
+                        doresponse.cut_class,
+                        doresponse.deal_tile,
+                        doresponse.buhua_tile,
+                        doresponse.combination_mask
                     );
                     break;
                 
@@ -246,19 +216,22 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 4.2 创建房间方法 CreateRoom 从CreatePanel发送
-    public void CreateRoom(string roomname, int gametime, string password)
+    public void Create_GB_Room(GB_Create_RoomConfig config)
     {
         try
         {
-            var request = new CreateRoomRequest
+            var request = new CreateGBRoomRequest
             {
-                type = "create_room",
-                roomname = roomname,
-                gametime = gametime,
-                cuttime = 5,
-                password = password
+                type = "create_GB_room",
+                rule = config.Rule,
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password
             };
-            Debug.Log($"发送创建房间消息: {roomname}, {gametime}, {password}");
+            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}");
             websocket.Send(JsonUtility.ToJson(request));
         }
         catch (Exception e)

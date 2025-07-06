@@ -9,12 +9,15 @@ public class LoginRequest
 }
 
 [Serializable]
-public class CreateRoomRequest
+public class CreateGBRoomRequest
 {
     public string type;
+    public string rule;
     public string roomname;
-    public int gametime;
-    public int cuttime;
+    public int gameround;
+    public int roundTimerValue;
+    public int stepTimerValue;
+    public bool tips;
     public string password;
 }
 

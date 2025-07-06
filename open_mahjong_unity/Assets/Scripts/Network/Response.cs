@@ -2,123 +2,96 @@ using System;
 
 // 5.Response 接收数据类型
 [Serializable]
-public class RoomData // 刷新房间列表数据类型 通过get_room_list更新 标识了 had_password：bool
+public class RoomInfo
 {
     public string room_id;
-    public string host_name;
-    public string room_name;
-    public int game_time;
+    public string room_type;
+    public int max_player;
     public string[] player_list;
-    public int player_count;
     public bool has_password;
-}
-
-[Serializable]
-public class RoomInfo // 房间信息数据类型 通过get_room_info更新
-{
-    public string[] player_list;
-    public int player_count;
+    public bool tips;
     public string host_name;
-    public int game_time;
-    public string room_id;
     public string room_name;
+    public int max_round;
+    public int round_timer;
+    public int step_timer;
 }
 
 [Serializable]
-public class BuhuaAnimationInfo
+public class Response // 所有后端的返回数据都由Response类接收
 {
-    public int player_index;
-    public int deal_tiles;
-    public int remain_tiles;
+    // 消息头
+    public string type; // 消息类型
+    public bool success; // 消息是否成功
+    public string message; // 消息内容
+    // 消息体
+    public string username; // 登录用返回用户名
+    public RoomInfo[] room_list; // 返回房间列表
+    public RoomInfo room_info; // 返回单个房间信息
+    public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
+    public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问摸牌后自己的操作
+    public AskOtherActionGBInfo ask_action_info; // 国标游戏中询问切牌后其他家或许有的操作
+    public DoActionInfo action_info; // 国标游戏中执行操作
 }
 
 [Serializable]
-public class Response 
+public class AskHandActionGBInfo // 询问手牌操作
 {
-    public string type;
-    public bool success;
-    public string message;
-    public string username;
-    public RoomData[] room_list;
-    public RoomInfo room_info;
-    public GameInfo game_info;
-    public CutTileResponse cut_info;
-    public AskHandActionInfo ask_hand_action_info;
-    public AskActionInfo ask_action_info;
-    public ActionInfo action_info;
-    public BuhuaAnimationInfo buhua_animation_info;
+    public string[] action_list; // 操作列表
+    public int remaining_time; // 剩余时间
+    public int player_index; // 玩家索引
+    public int deal_tiles; // 摸牌
+    public int remain_tiles; // 剩余牌数
 }
 
 [Serializable]
-public class CutTileResponse
+public class AskOtherActionGBInfo // 询问切牌后操作
 {
-    public int cut_player_index;
-    public bool cut_class;
-    public int cut_tiles; 
+    public string[] action_list; // 操作列表
+    public int remaining_time; // 剩余时间
+    public int cut_tile; // 切牌
 }
 
 [Serializable]
-public class AskHandActionInfo
+public class DoActionInfo // 执行操作
 {
-    public int player_index;
-    public int deal_tiles;
-    public int remaining_time;
-    public int remain_tiles;
     public string[] action_list;
+    public int action_player;
+    public int? cut_tile;           // 可空类型
+    public bool? cut_class;         // 可空类型
+    public int? deal_tile;          // 可空类型
+    public int? buhua_tile;         // 可空类型
+    public int[] combination_mask;  // 数组可以为null
 }
 
 [Serializable]
-public class AskActionInfo
-{
-    public int remaining_time;
-    public string[] action_list;
-    public int cut_tile;
-}
-
-[Serializable]
-public class ActionInfo
-{
-    public int remaining_time;
-    public string do_action_type;
-    public int current_player_index;
-    public int tile_id;
-}
-
-// 6.Request 发送数据类型 ##################################################################
-
-[Serializable]
-public class PlayerInfo
+public class PlayerInfo // 房间信息中单个玩家信息
 {
     public string username;             // 玩家名
     public int hand_tiles_count;        // 手牌数量
-    public string[] discard_tiles;      // 弃牌
-    public string[] combination_tiles;   // 组合牌
+    public int[] discard_tiles;         // 弃牌 (改为int数组)
+    public string[] combination_tiles;  // 组合牌
     public int remaining_time;          // 剩余时间
-    public int current_player_index;    // 东南西北位置
+    public int player_index;            // 东南西北位置 (改为player_index)
     public int score;                   // 得分
+    public int[] huapai_list;           // 花牌列表
 }
 
 [Serializable]
-public class PlayerPosition  // 新增类来替代 Dictionary
+public class GameInfo // 游戏开始时传递房间信息
 {
-    public string username;
-    public int position;
-}
-
-[Serializable]
-public class GameInfo
-{
-    public string[] player_list;
-    public PlayerPosition[] player_positions;  // 改用数组
-    public int current_player_index;
-    public int tile_count;
-    public int random_seed;
-    public string game_status;
-    public int current_round;
-    public int cuttime;
-    public int game_time;
-    public PlayerInfo[] players_info;
-    public int[] self_hand_tiles;
+    public int room_id;                 // 房间ID
+    public bool tips;                   // 是否提示
+    public int current_player_index;    // 当前玩家索引
+    public int action_tick;             // 操作帧
+    public int max_round;               // 最大局数
+    public int tile_count;              // 牌山剩余牌数
+    public int random_seed;             // 随机种子
+    public int current_round;           // 当前轮数
+    public int step_time;               // 步时
+    public int round_time;              // 局时
+    public PlayerInfo[] players_info;   // 玩家信息列表
+    public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 }
 
 

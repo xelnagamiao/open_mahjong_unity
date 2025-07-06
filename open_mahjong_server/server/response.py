@@ -4,41 +4,30 @@ from typing import Dict, Optional, List
 
 
 # 0.4 定义发送数据格式BaseModel系列 能够创建符合json定义的格式
-class RoomListData(BaseModel):
-    room_id: str
-    host_name: str
-    room_name: str
-    game_time: int
-    player_list: list[str]
-    player_count: int
-    cuttime: int
-    has_password: bool
 
-class RoomResponse(BaseModel):
-    player_list: list[str]
-    player_count: int
-    host_name: str
-    game_time: int
-    room_id: str
-    room_name: str
-    cuttime: int
-
-class PlayerPosition(BaseModel):
+class PlayerInfo(BaseModel):
     username: str
-    position: int
+    hand_tiles_count: int
+    discard_tiles: List[int]
+    combination_tiles: List[str]
+    huapai_list: List[int]
+    remaining_time: int
+    player_index: int
+    score: int
 
 class GameInfo(BaseModel):
-    player_list: list[str]
-    player_positions: list[PlayerPosition]  # 改用列表
+    room_id: int
+    tips: bool
     current_player_index: int
+    action_tick: int
+    max_round: int
     tile_count: int
     random_seed: int
-    game_status: str
-    corrent_round: int
-    players_info: list[dict]
-    cuttime: int
-    game_time: int
-    self_hand_tiles: Optional[list[int]] = None
+    current_round: int
+    step_time: int
+    round_time: int
+    players_info: List[PlayerInfo]
+    self_hand_tiles: Optional[List[int]] = None
 
 class LoginResponse(BaseModel):
     # 消息头
@@ -47,44 +36,37 @@ class LoginResponse(BaseModel):
     message: str
     username: str
 
-class Cut_response(BaseModel):
-    cut_player_index: int
-    cut_class: bool
-    cut_tiles: int
-
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
     player_index: int
     deal_tiles: int
     remain_tiles: int
-    action_list: list[str]
+    action_list: List[str]
 
-class Ask_action_info(BaseModel):
+class Ask_other_action_info(BaseModel):
     remaining_time: int
-    action_list: list[str]
+    action_list: List[str]
     cut_tile: int
 
-class Action_info(BaseModel):
-    remaining_time: int
-    do_action_type: str
-    current_player_index: int
-    tile_id: int
-
-class Buhua_animation_info(BaseModel):
-    player_index: int
-    deal_tiles: int
-    remain_tiles: int
+class Do_action_info(BaseModel):
+    # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
+    # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_tile]
+    action_list: List[str] 
+    action_player: int # 存储操作玩家索引
+    cut_tile: int # 在切牌时广播切牌
+    cut_class: bool # 在切牌时广播切牌手模切类型
+    deal_tile: int # 在摸牌时广播摸牌
+    buhua_tile: int # 在补花时广播补花
+    combination_mask: List[int] # 在鸣牌时传递鸣牌形状
 
 class Response(BaseModel):
     type: str
     success: bool
     message: str
     # 消息体
-    room_list: Optional[list[RoomListData]] = None # 用于执行get_room_list时返回房间列表数据
-    room_info: Optional[RoomResponse] = None # 用于在join_room和房间信息更新时广播房间信息
+    room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
+    room_info: Optional[dict] = None # 用于在join_room和房间信息更新时广播单个房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息
-    cut_info: Optional[Cut_response] = None # 用于执行cut_tiles时返回切牌信息
-    ask_action_info: Optional[Ask_action_info] = None # 用于询问玩家操作
-    action_info: Optional[Action_info] = None # 用于执行玩家操作
     ask_hand_action_info: Optional[Ask_hand_action_info] = None # 用于询问玩家手牌操作 出牌 自摸 补花 暗杠 加杠
-    buhua_animation_info: Optional[Buhua_animation_info] = None # 用于广播补花动画
+    ask_other_action_info: Optional[Ask_other_action_info] = None # 用于询问切牌后其他家玩家操作 吃 碰 杠 胡
+    do_action_info: Optional[Do_action_info] = None # 用于广播玩家操作

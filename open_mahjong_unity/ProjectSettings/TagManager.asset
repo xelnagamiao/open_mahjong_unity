@@ -42,12 +42,9 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
-  - name: baseUI
+  - name: MeunUI
     uniqueID: 1379215237
     locked: 0
   - name: GameUI
-    uniqueID: 3568746607
-    locked: 0
-  - name: MainUI
     uniqueID: 1843980331
     locked: 0

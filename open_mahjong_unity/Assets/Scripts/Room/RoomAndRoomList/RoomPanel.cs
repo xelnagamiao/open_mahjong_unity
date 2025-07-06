@@ -58,7 +58,7 @@ public class RoomPanel : MonoBehaviour
     }
     private void BackButtonClicked()
     {
-        WindowsMannager.Instance.SwitchWindow("roomList");
+        WindowsManager.Instance.SwitchWindow("roomList");
         NetworkManager.Instance.LeaveRoom(roomid);
 
     }

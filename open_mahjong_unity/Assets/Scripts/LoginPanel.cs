@@ -42,6 +42,6 @@ public class LoginPanel : MonoBehaviour
 
         statusText.text = "登录成功";
 
-        WindowsMannager.Instance.LoginSuccess();
+        WindowsManager.Instance.LoginSuccess();
     }
 } 

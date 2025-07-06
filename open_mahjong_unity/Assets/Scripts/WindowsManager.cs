@@ -5,9 +5,11 @@ using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
 
-public class WindowsMannager : MonoBehaviour
+public class WindowsManager : MonoBehaviour
 {
     private Camera MainCamera;
+    [Header("Canvas")]
+    [SerializeField] private GameObject gameCanvas;
     [SerializeField] private GameObject mainCanvas;
     [Header("mainCanvas管理三个窗口")]
     [SerializeField] private GameObject loginRoot;
@@ -18,10 +20,9 @@ public class WindowsMannager : MonoBehaviour
     [SerializeField] private GameObject roomPanel;
     [SerializeField] private GameObject createRoomPanel;
     [SerializeField] private GameObject passwordInput;
-    [Header("GameCanvas")]
-    [SerializeField] private GameObject gameCanvas;
 
-    public static WindowsMannager Instance { get; private set; } // 单例模式 外部只读 内部可写
+
+    public static WindowsManager Instance { get; private set; } // 单例模式 外部只读 内部可写
     
     private void Awake()
     {
@@ -86,6 +87,7 @@ public class WindowsMannager : MonoBehaviour
         loginRoot.SetActive(true);
         mainRoot.SetActive(false);
         roomRoot.SetActive(false);
+        gameCanvas.SetActive(false);
     }
 
     // 登录完成

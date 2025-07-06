@@ -37,39 +37,34 @@ public class GB_Create_Panel : MonoBehaviour
     // 关闭面板
     private void ClosePanel()
     {
-        WindowsMannager.Instance.SwitchWindow("roomList");
+        WindowsManager.Instance.SwitchWindow("roomList");
     }
+
     // 创建房间
     private void CreateRoom()
     {
-        // 获取房间名 并去除两端的空白字符
-        string roomName = roomNameInput.text.Trim();
-        // 如果用户名为空 则设置状态文本为"用户名不能为空" 并跳出
-        if (string.IsNullOrEmpty(roomName))
+        var config = new GB_Create_RoomConfig
         {
-            Debug.LogWarning("房间名不能为空");
-            return; // 当break使用
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            Rule = "guobiao",
+            RoundTimer = roundTimer.value,
+            StepTimer = stepTimer.value,
+            Tips = tipsToggle.isOn
+        };
+
+        // 验证配置
+        if (!config.Validate(out string error,passwordToggle.isOn))
+        {
+            Debug.LogWarning(error);
+            return;
         }
-        else{  
-            if (passwordToggle.isOn)
-            {
-                string password = passwordInput.text.Trim();
-                if (string.IsNullOrEmpty(password))
-                {
-                    Debug.LogWarning("密码不能为空");
-                    return;
-                }
-                else{
-                    int gameTime = GetSelectedGameTime(); // 获取选择的打圈数
-                    NetworkManager.Instance.CreateRoom(roomName, gameTime, password);
-                }
-            }
-            else{
-                int gameTime = GetSelectedGameTime(); // 获取选择的打圈数
-                NetworkManager.Instance.CreateRoom(roomName, gameTime, "");
-            }
-        }
+
+        // 发送创建房间请求
+        NetworkManager.Instance.Create_GB_Room(config);
     }
+
     private int GetSelectedGameTime()
     {
         if (gameTime1Button.isOn) return 1;
@@ -78,6 +73,7 @@ public class GB_Create_Panel : MonoBehaviour
         if (gameTime4Button.isOn) return 4;
         return 1; // 默认返回1
     }
+
     // 创建房间响应
     private void CreateRoomResponse(bool success, string message)
     {

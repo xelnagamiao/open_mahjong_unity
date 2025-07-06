@@ -12,7 +12,7 @@ public class MainPanel : MonoBehaviour
         chineseButton.onClick.AddListener(ChineseRoom);
     }
     private void ChineseRoom(){
-        WindowsMannager.Instance.SwitchWindow("roomList");
+        WindowsManager.Instance.SwitchWindow("roomList");
         roomListPanel.RefreshRoomList(); // 刷新房间列表
     }
 

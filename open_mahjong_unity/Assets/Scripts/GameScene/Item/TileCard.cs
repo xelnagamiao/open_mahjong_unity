@@ -14,7 +14,6 @@ public class TileCard : MonoBehaviour
     [SerializeField] private Image tileImage;    // 牌面图片组件
     [SerializeField] private Button tileButton;  // 按钮组件
 
-
     // 将私有字段改为公共属性
     public int tileId { get; private set; }    // 牌的ID（如"11"表示一万）
     private bool currentGetTile;   // 是否是当前摸到的牌
@@ -53,15 +52,15 @@ public class TileCard : MonoBehaviour
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
         // TODO: 添加选中效果或其他交互
-        if (GameSceneMannager.Instance.NowCurrentIndex == GameSceneMannager.Instance.selfCurrentIndex && 
-            GameSceneMannager.Instance.CutAction == true){
+        if (GameSceneManager.Instance.NowCurrentIndex == GameSceneManager.Instance.selfCurrentIndex && 
+            GameSceneManager.Instance.CutAction == true){
             if (currentGetTile){
                 NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
             }
             else{
                 NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
             }
-            GameSceneMannager.Instance.CutCards(tileId,GameSceneMannager.Instance.NowCurrentIndex,currentGetTile);
+            GameSceneManager.Instance.CutCards(tileId,GameSceneManager.Instance.NowCurrentIndex,currentGetTile);
             Destroy(gameObject);
         }
         else{
