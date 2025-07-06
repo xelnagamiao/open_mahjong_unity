@@ -127,7 +127,7 @@ async def broadcast_ask_other_action(self):
                     type="ask_action_chinese",
                     success=True,
                     message="询问操作",
-                    ask_action_info = Ask_action_info(
+                    ask_action_info = Ask_other_action_info(
                         remaining_time=current_player.remaining_time,
                         action_list=[],
                         cut_tile=self.player_list[self.current_player_index].discard_tiles[-1]

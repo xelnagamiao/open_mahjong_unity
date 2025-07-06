@@ -111,12 +111,12 @@ public class NetworkManager : MonoBehaviour
                     Administrator.Instance.SetRoomId(response.room_info.room_id);
                     break;
                 case "get_room_list": // 获取room_list
-                    GetRoomListResponse.Invoke(response.success, response.message, response.room_list);
+                    RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
                     break;
-                case "get_room_info": // 获取room_info
+                case "get_room_info": // 获取room_info 更新房间面板
                     Debug.Log("处理房间信息更新");
                     WindowsManager.Instance.SwitchWindow("room");
-                    GetRoomInfoResponse.Invoke(
+                    RoomPanel.Instance.GetRoomInfoResponse(
                         response.success, 
                         response.message, 
                         response.room_info
@@ -253,7 +253,7 @@ public class NetworkManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            GetRoomListResponse.Invoke(false, e.Message, null);
+            RoomListPanel.Instance.GetRoomListResponse(false, e.Message, null);
         }
     }
     // 4.4 加入房间方法 JoinRoom 从RoomItem发送

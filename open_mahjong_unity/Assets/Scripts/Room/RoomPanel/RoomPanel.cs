@@ -6,6 +6,8 @@ using TMPro;
 
 public class RoomPanel : MonoBehaviour
 {
+    public static RoomPanel Instance { get; private set; }
+    
     [SerializeField] private TMP_Text roomIdText; // 房间号
     [SerializeField] private TMP_Text roomnameText; // 房间名
     [SerializeField] private TMP_Text player_1; // 玩家1
@@ -21,14 +23,20 @@ public class RoomPanel : MonoBehaviour
     {
         backButton.onClick.AddListener(BackButtonClicked);
         startButton.onClick.AddListener(StartButtonClicked);
+        // 单例模式
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
-    private void OnEnable()
-    {
-        NetworkManager.Instance.GetRoomInfoResponse.AddListener(GetRoomInfoResponse);
-    }
 
-    private void GetRoomInfoResponse(bool success, string message, RoomInfo roomInfo)
+
+    public void GetRoomInfoResponse(bool success, string message, RoomInfo roomInfo)
     {
         // 设置房间号
         roomid = roomInfo.room_id;
@@ -54,7 +62,13 @@ public class RoomPanel : MonoBehaviour
         }
 
         // 禁用开始按钮 满4人后开启
-        startButton.interactable = roomInfo.player_count == 4;
+        startButton.interactable = roomInfo.player_list.Length == 4;
+
+        if (roomInfo.room_type == "guobiao") // 显示房间右侧的设置栏
+        {
+            GB_RoomConfig gbRoomConfig = GetComponent<GB_RoomConfig>();
+            gbRoomConfig.SetGBRoomConfig(roomInfo);
+        }
     }
     private void BackButtonClicked()
     {

@@ -6,7 +6,7 @@ using TMPro; // Added TMPro namespace
 // RoomItem 的作用是通过SetRoomInfo方法设置房间信息，并保存自己的房间号
 // 监听JoinClick的事件，如果发生事件返回RoomPanel包含自己房间id的joinRoom调用
 
-public class RoomItem : MonoBehaviour
+public class GBRoomItem : MonoBehaviour
 {
 
     [SerializeField] private TMP_Text roomName; // 房间名

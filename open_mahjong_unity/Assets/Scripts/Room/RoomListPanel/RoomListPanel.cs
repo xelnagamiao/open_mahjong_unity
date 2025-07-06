@@ -33,8 +33,15 @@ public class RoomListPanel : MonoBehaviour
         // 订阅密码输入按钮
         passwordInputAdmit.onClick.AddListener(PasswordInputAdmit);
         passwordInputCancel.onClick.AddListener(PasswordInputCancel);
-        // 订阅GetRoomListResponse事件
-        NetworkManager.Instance.GetRoomListResponse.AddListener(GetRoomListResponse);
+        // 单例模式
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     // 1.点击创建房间按钮 打开房间面板
@@ -60,7 +67,7 @@ public class RoomListPanel : MonoBehaviour
         WindowsManager.Instance.SwitchWindow("main");
     }
     // 4.获取房间列表响应
-    private void GetRoomListResponse(bool success, string message, RoomData[] room_List)
+    public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List)
     {
         if (!success)
         {
@@ -80,13 +87,15 @@ public class RoomListPanel : MonoBehaviour
         {
             foreach (var roomData in room_List)
             {
+                if (roomData.room_type == "guobiao")
+                {
                 // instantiate 是python的实例化语法 将roomItemPrefab实例化 并添加到roomListContent下
                 GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
                 roomItem.SetActive(true);
                 currentRoomItems.Add(roomItem);
 
                 // 获取RoomItem组件 订阅RoomItem的JoinClicked事件
-                var roomItemComponent = roomItem.GetComponent<RoomItem>();
+                var roomItemComponent = roomItem.GetComponent<GBRoomItem>();
                 roomItemComponent.JoinClicked += JoinClicked;
 
                 // 初始化房间信息
@@ -94,10 +103,11 @@ public class RoomListPanel : MonoBehaviour
                     roomId: roomData.room_id,
                     roomName: roomData.room_name,
                     hostName: roomData.host_name,
-                    playerCount: roomData.player_count,
-                    gameTime: roomData.game_time,
+                    playerCount: roomData.player_list.Length,
+                    gameTime: roomData.max_round,
                     hasPassword: roomData.has_password
-                );
+                    );
+                }
             }
         }
     }

@@ -13,15 +13,13 @@ public class GB_RoomConfig : MonoBehaviour
     [SerializeField] private TMP_Text tips; // 提示
     [SerializeField] private TMP_Text password; // 密码
 
-    // Start is called before the first frame update
-    void Start()
+    public void SetGBRoomConfig(RoomInfo roomInfo)
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        rule.text = "国标麻将"; // 规则
+        round.text = roomInfo.max_round.ToString(); // 圈数
+        roundTime.text = roomInfo.round_timer.ToString(); // 局时
+        stepTime.text = roomInfo.step_timer.ToString(); // 步时
+        tips.text = roomInfo.tips ? "有提示" : "无提示"; // 提示
+        password.text = roomInfo.has_password ? "有密码" : "无密码"; // 密码
     }
 }
