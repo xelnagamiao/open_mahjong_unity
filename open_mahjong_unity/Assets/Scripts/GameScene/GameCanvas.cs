@@ -105,7 +105,8 @@ public class GameCanvas : MonoBehaviour
             cardCount++;
         }
     }
-
+    
+    // 只是摸一张牌
     public void GetCard(int tileId){
         GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer);
         TileCard tileCard = cardObj.GetComponent<TileCard>();

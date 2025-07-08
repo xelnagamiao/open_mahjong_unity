@@ -10,7 +10,6 @@ using System.Collections.Generic;
 
 [Serializable]
 public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
-public class GameStartEvent : UnityEvent<bool, string, GameInfo> {} // 游戏开始类
 
 public class NetworkManager : MonoBehaviour
 {
@@ -23,7 +22,6 @@ public class NetworkManager : MonoBehaviour
     private Action<bool, string> currentLoginCallback; // 登录回调
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
-    public GameStartEvent GameStartResponse = new GameStartEvent(); // 定义游戏开始响应事件
 
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
@@ -136,11 +134,7 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
-                    GameStartResponse.Invoke(
-                        response.success, 
-                        response.message, 
-                        response.game_info
-                    );
+                    GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);
                     break;
                 case "broadcast_hand_action_GB":
                     Debug.Log($"收到发牌消息: {response.ask_hand_action_info}");

@@ -73,7 +73,7 @@ async def broadcast_ask_hand_action(self):
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
                         deal_tiles=self.player_list[i].hand_tiles[-1],
-                        remain_tiles=len(self.tiles_list),
+                        remain_tiles_count=len(self.tiles_list),
                         action_list=self.action_dict[i]
                     )
                 )
@@ -91,7 +91,7 @@ async def broadcast_ask_hand_action(self):
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
                         deal_tiles=0,
-                        remain_tiles=len(self.tiles_list),
+                        remain_tiles_count=len(self.tiles_list),
                         action_list=self.action_dict[i]
                     )
                 )

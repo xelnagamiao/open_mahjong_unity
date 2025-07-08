@@ -29,13 +29,6 @@ class GameInfo(BaseModel):
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
 
-class LoginResponse(BaseModel):
-    # 消息头
-    type: str
-    success: bool
-    message: str
-    username: str
-
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
     player_index: int
@@ -64,6 +57,7 @@ class Response(BaseModel):
     success: bool
     message: str
     # 消息体
+    username: str # 用于在玩家登录时返回玩家信息
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
     room_info: Optional[dict] = None # 用于在join_room和房间信息更新时广播单个房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息

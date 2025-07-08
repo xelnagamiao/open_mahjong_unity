@@ -56,13 +56,7 @@ public class GameSceneManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    private void Start()
-    {
-        // Networkmannager 触发游戏开始事件则调用OnGameStart
-        NetworkManager.Instance.GameStartResponse.AddListener(InitializeGame);
-    }
-
-    private void InitializeGame(bool success, string message, GameInfo gameInfo){
+    public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 1.存储初始化信息
         InitializeSetInfo(gameInfo);
         // 2.初始化UI
@@ -76,7 +70,8 @@ public class GameSceneManager : MonoBehaviour
         // 6.如果当前玩家是自己,说明自己是庄家,进行摸牌
         if (selfIndex == currentIndex){
             GameCanvas.Instance.GetCard(gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1]);
-            GameCanvas.Instance.loadingRemianTime(gameInfo.players_info[selfIndex].remaining_time, gameInfo.step_time);
+            // 在这里可以添加向服务器传递加载完成方法
+            // 亲家与闲家完成配牌以后等待服务器传递补花行为
         }
     }
 
@@ -502,7 +497,7 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
-    public void DoAction(string doActionType, int remianTime,int playerIndex,int tileId){
+    public void DoAction2(string doActionType, int remianTime,int playerIndex,int tileId){
         Debug.Log($"执行DoAction操作: {doActionType}, 时间={remianTime}, 玩家={playerIndex}, 牌={tileId}");
         if (doActionType == "pass"){
             return; // 如果接收到pass信息则不执行任何操作
