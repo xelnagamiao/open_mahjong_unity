@@ -28,6 +28,7 @@ public class GameSceneManager : MonoBehaviour
     public int selfRoundTime; // 局时
     public int selfRemainingTime; // 剩余时间
     public bool tips; // 提示
+    public List<string> allowActionList = new List<string>(); // 允许操作列表
 
     // 玩家信息
     public List<int> selfDiscardslist = new List<int>(); // 弃牌列表
@@ -75,7 +76,97 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
+    // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
+    public void AskHandAction(int remaining_time,int tileId,int playerIndex,int remain_tiles,string[] action_list){
+        foreach (string action in action_list){
+            if (action == "cut"){
+                allowActionList.Add("cut");
+            }
+            else if (action == "buhua"){
+                allowActionList.Add("buhua");
+            }
+            else if (action == "hu"){
+                allowActionList.Add("hu");
+            }
+            else if (action == "angang"){
+                allowActionList.Add("angang");
+            }
+            else if (action == "jiagang"){
+                allowActionList.Add("jiagang");
+            }
+        }
 
+
+
+
+
+
+
+        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
+        float spacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+
+        Debug.Log($"获取牌 {tileId},{playerIndex}");
+        RefreshPlayerAnimation(playerIndex,action_list);
+        remiansTilesText.text = $"余: {remain_tiles}";
+
+        string GetCardPlayer = player_local_position[playerIndex];
+        // 如果玩家是自己，则将牌添加到手牌中
+        if (GetCardPlayer == "self"){
+            GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer);
+            TileCard tileCard = cardObj.GetComponent<TileCard>();
+            tileCard.SetTile(tileId, true);
+            // 询问手牌操作 开启倒计时
+            AskOtherCutAction(remaining_time,action_list,tileId);
+        }
+        // 如果玩家是其他玩家，则将牌添加到他人手牌中
+        else if (GetCardPlayer == "left"){
+            Quaternion rotation = Quaternion.Euler(90, 0, 0);
+            Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+2) * spacing * new Vector3(0,0,-1);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+        else if (GetCardPlayer == "top"){
+            Quaternion rotation = Quaternion.Euler(90, 0, -90);
+            Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+2) * spacing * new Vector3(-1,0,0);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+        else if (GetCardPlayer == "right"){
+            Quaternion rotation = Quaternion.Euler(90, 0, 180);
+            Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+2) * spacing * new Vector3(0,0,1);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+    }
+
+    // 出牌后他家反馈操作
+    public void AskOtherHandAction(int remaining_time,string[] action_list,int cut_tile){
+        lastCutTile = cut_tile;
+        // 如果列表中有服务器提供的可用操作，则显示倒计时
+        if (action_list.Length > 0){
+            loadingRemianTime(remaining_time, currentCutTime);
+        }
+    }
+
+
+    // 执行操作
+    public void DoAction(string actionType,int tileId,int playerIndex,bool cut_class){
+        switch (actionType){
+            case "cut":
+                CutCards(tileId,playerIndex,cut_class);
+                break;
+            case "buhua":
+                break;
+            case "hu":
+                break;
+            case "angang":
+                break;
+            case "jiagang":
+                break;
+        }
 
 
 
@@ -358,48 +449,6 @@ public class GameSceneManager : MonoBehaviour
     }
 
 
-
-    public void AskHandAction(int remaining_time,int tileId,int playerIndex,int remain_tiles,string[] action_list){
-
-        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
-        float spacing = cardWidth * 1f; // 间距为卡片宽度的1倍
-
-        Debug.Log($"获取牌 {tileId},{playerIndex}");
-        RefreshPlayerAnimation(playerIndex,action_list);
-        remiansTilesText.text = $"余: {remain_tiles}";
-
-        string GetCardPlayer = player_local_position[playerIndex];
-        // 如果玩家是自己，则将牌添加到手牌中
-        if (GetCardPlayer == "self"){
-            GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer);
-            TileCard tileCard = cardObj.GetComponent<TileCard>();
-            tileCard.SetTile(tileId, true);
-            // 询问手牌操作 开启倒计时
-            AskOtherCutAction(remaining_time,action_list,tileId);
-        }
-        // 如果玩家是其他玩家，则将牌添加到他人手牌中
-        else if (GetCardPlayer == "left"){
-            Quaternion rotation = Quaternion.Euler(90, 0, 0);
-            Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+2) * spacing * new Vector3(0,0,-1);
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
-            cardObj.name = $"Card_Current";
-        }
-        else if (GetCardPlayer == "top"){
-            Quaternion rotation = Quaternion.Euler(90, 0, -90);
-            Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+2) * spacing * new Vector3(-1,0,0);
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
-            cardObj.name = $"Card_Current";
-        }
-        else if (GetCardPlayer == "right"){
-            Quaternion rotation = Quaternion.Euler(90, 0, 180);
-            Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+2) * spacing * new Vector3(0,0,1);
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
-            cardObj.name = $"Card_Current";
-        }
-    }
 
 
 

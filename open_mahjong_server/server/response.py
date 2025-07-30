@@ -58,6 +58,7 @@ class Response(BaseModel):
     message: str
     # 消息体
     username: str # 用于在玩家登录时返回玩家信息
+    userkey: str # 用于在玩家登录时返回用户名对应的秘钥
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
     room_info: Optional[dict] = None # 用于在join_room和房间信息更新时广播单个房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息

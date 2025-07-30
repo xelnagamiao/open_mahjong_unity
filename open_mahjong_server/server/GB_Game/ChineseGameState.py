@@ -3,10 +3,10 @@ import asyncio
 from typing import Dict, Optional, List
 from response import GameInfo, Response, Ask_hand_action_info,Ask_other_action_info,Do_action_info
 import time  # 直接导入整个模块
-from Chinese_Tingpai_Check import Chinese_Tingpai_Check
-from Chinese_Hepai_Check import Chinese_Hepai_Check
-from method_Action_Check import check_action_after_cut,check_action_after_jiagang,check_action_buhua,check_action_hand_action
-from method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action
+from .Chinese_Tingpai_Check import Chinese_Tingpai_Check
+from .Chinese_Hepai_Check import Chinese_Hepai_Check
+from .method_Action_Check import check_action_after_cut,check_action_after_jiagang,check_action_buhua,check_action_hand_action
+from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action
 
 
 class ChinesePlayer:
@@ -174,7 +174,7 @@ class ChineseGameState:
 
             while self.game_status != "END":
                 match self.game_status:
-
+                    
                     case "deal_card": # 无人吃碰杠和后发牌历时行为
                         self.next_current_index() # 切换到下一个玩家
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌

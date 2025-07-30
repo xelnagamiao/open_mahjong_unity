@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>mahjong.fit-手牌输入</title>
+    <link rel="stylesheet" href="..\static\css\style.css">
+    <link rel="icon" href="..\static\image\logo.svg" type="image/png">
+    <style>
+        .mid-container {
+            margin: 50px auto;
+            max-width: 600px;
+            padding: 40px;
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+        }
+        .mid-container h1 {
+            color: #ff0095;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .mid-container>form>div {
+            margin: 20px auto;
+        }
+        .mid-container>form>div>input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ff0095;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .mid-container>form>div>input:focus {
+            outline: none;
+            box-shadow: 0 0 5px #ff0095;
+        }
+        .btn-primary {
+            background-color: #ff0095;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 0 auto;
+        }
+        .btn-primary:hover {
+            background-color: #d6007b;
+            transform: translateY(-2px);
+        }
+        body {
+            background: url(../static/image/background.jpg) no-repeat center center fixed;
+            background-size: cover;
+            background-color: #fff5fd;
+        }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+        }
+    </style>
+    
+</head>
+<body>
+    <header>
+        <a href="index" data-page="home" style="background-color: #FF6B6B;">首页-mahjong.fit</a>
+        <a href="mahjong_XT" data-page="shanten" style="background-color: #4ECDC4;">听牌待牌判断</a>
+        <a href="mahjong_GB" data-page="chinese" style="background-color: #45B7D1;">国标麻将牌型解算</a>
+        <a href="mahjong_RC" data-page="riichi" style="background-color: #FF8C42;">立直麻将牌型解算</a>
+    </header>
+
+    <div class="mid-container">
+        <form action="/count_hand" method="post">
+            <div>
+                <h1>输入手牌</h1>
+                <input type="text" class="input" id="handInput" placeholder="输入手牌/例如:123s456p789m东东东白白" name="hand">
+                <span id="counter" style="margin-left: 10px;">0/13</span>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">提交</button>
+            </div>
+        </form>
+    </div>
+    
+
+    <div class="mid-container mid-container-shortTopMargin">
+        <div id="result">
+            {{output|safe}}
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2024 立直麻雀研习社</p>
+        <p>网站管理员：Q1448826180</p>
+        <p>联系我们：QQGroup：432372422</p>
+    </footer>
+</body>
+    <script>
+        const validChars = ["0","1","2","3","4","5","6","7","8","9","0","东","南","西","北","中","白","发"];
+        const input = document.getElementById('handInput');
+        const counter = document.getElementById('counter');
+        let count = 0;
+
+        input.addEventListener('input', function(e) {
+            count = 0;
+            for (let char of this.value) {
+                if (validChars.includes(char)) {
+                    count++;
+                }
+            }
+            updateCounter();
+        });
+
+        function updateCounter() {
+            counter.textContent = `${count}/13`;
+            if (count < 13) {
+                counter.style.color = 'black';
+            } else if (count === 13) {
+                counter.style.color = 'green';
+            } else {
+                counter.style.color = 'red';
+            }
+        }
+    </script>
+</html>

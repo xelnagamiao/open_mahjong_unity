@@ -1,0 +1,35 @@
+body{
+    margin: 0; /* 去除默认的内外边距 */
+    padding: 0;
+}
+header {
+    display: flex; /* Flexbox布局默认横向布局 */
+    justify-content: stretch; /* 子元素均匀伸展 */
+    align-items: stretch; /* 子元素高度均匀 */
+    height: 40px; /* Navbar高度 */
+    position: fixed;/* 固定定位 */
+    top:0px;
+    left:0px;
+    right:0px;
+}
+header a:hover {
+    opacity: 0.6; /* 鼠标悬停时降低透明度 */
+}
+header a {
+    flex: 1; /* 均分可用空间 */
+    display: flex;
+    justify-content: center; /* 内容居中 */
+    align-items: center; /* 内容垂直居中 */
+    color: white; /* 链接文字颜色为白色 */
+    text-decoration: none; /* 去掉链接下划线 */
+    transition: opacity 0.2s ease; /* 高亮变化时间 */
+}
+footer {
+    background-color: #E6F3FF; /* 页脚背景颜色 */
+    padding: 2em; /* 内边距为2em */
+    text-align: center; /* 文本居中对齐 */
+    color: #000000; /* 字体颜色为深灰色 */
+}
+footer p {
+    margin: 0em 0; /* 页脚段落上下间距 */
+}

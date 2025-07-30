@@ -10,6 +10,9 @@ from response import Response
 from GB_Game.ChineseGameState import ChineseGameState
 from room_manager import RoomManager
 
+import secrets,hashlib
+import subprocess,os,signal,sys
+
 # 0.0 原神启动
 app = FastAPI()
 
@@ -49,6 +52,58 @@ def init_database():
 @app.on_event("startup")
 async def startup_event():
     init_database()
+
+# 0.4 启动聊天服务器
+@app.on_event("startup")
+async def start_chat_server():
+    global HASH_SALT
+    # 生成哈希用户名密钥,用于从用户名生成秘钥,用此秘钥可以在聊天服务器中注册
+    HASH_SALT = secrets.token_urlsafe(16)
+    
+    # 保存秘钥到文件，供聊天服务器使用
+    await save_secret_key_to_file(HASH_SALT)
+    
+    # 获取当前脚本所在目录
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    executable_path = os.path.join(script_dir, 'chatserver', 'chatserver.exe')
+    process = await subprocess.Popen(
+        [executable_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    print(f"聊天服务器进程已启动，PID: {process.pid}")
+
+async def save_secret_key_to_file(secret_key: str):
+    """将秘钥保存到文件，供聊天服务器读取"""
+    try:
+        # 获取当前脚本所在目录
+        self_dir = os.path.dirname(os.path.abspath(__file__))
+        # 创建chatserver文件夹
+        chatserver_dir = os.path.join(self_dir, 'chatserver')
+        # 确保chatserver文件夹存在
+        os.makedirs(chatserver_dir, exist_ok=True)
+        # 如果chatserver文件夹存在secret_key.txt文件，则删除
+        secret_file_path = os.path.join(chatserver_dir, 'secret_key.txt')
+        if os.path.exists(secret_file_path):
+            os.remove(secret_file_path)
+        # 保存新秘钥到新的secret_key.txt文件中
+        with open(secret_file_path, 'w') as f:
+            f.write(secret_key)
+        print(f"新秘钥已保存到 {secret_file_path}")
+        print(f"秘钥: {secret_key[:20]}...")
+
+    except Exception as e:
+        print(f"保存秘钥失败: {e}")
+        
+# 获取秘钥
+async def Get_secret_key():
+    return HASH_SALT
+
+# 哈希用户名
+async def hash_username(username: str) -> str:
+    return hashlib.sha256((username + HASH_SALT).encode()).hexdigest()
+
+
 
 class PlayerConnection:
     def __init__(self, websocket: WebSocket, player_id: str):
@@ -198,11 +253,14 @@ async def player_login(username: str, password: str) -> Response:
 
         if player:
             if player['password'] == password:
+                # 生成用户秘钥
+                user_key = await hash_username(username)
                 return Response(
                     type="login",
                     success=True,
                     message="登录成功",
-                    username=username
+                    username=username,
+                    user_key=user_key
                 )
             else:
                 return Response(
@@ -217,11 +275,14 @@ async def player_login(username: str, password: str) -> Response:
                 (username, password)
             )
             conn.commit()
+            # 生成用户秘钥
+            user_key = await hash_username(username)
             return Response(
                 type="login",
                 success=True,
                 message="注册并登录成功",
-                username=username
+                username=username,
+                user_key=user_key
             )
     finally:
         if conn.is_connected():

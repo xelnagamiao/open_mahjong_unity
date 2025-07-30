@@ -1,0 +1,23 @@
+blinker==1.8.2
+certifi==2024.8.30
+charset-normalizer==3.3.2
+click==8.1.7
+colorama==0.4.6
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-WTF==1.2.1
+greenlet==3.1.1
+idna==3.10
+itsdangerous==2.2.0
+jieba==0.42.1
+Jinja2==3.1.4
+MarkupSafe==2.1.5
+PyMySQL==1.1.1
+requests==2.31.0
+SQLAlchemy==2.0.35
+typing_extensions==4.12.2
+urllib3==2.2.3
+Werkzeug==3.0.4
+WTForms==3.1.2
+psycopg2 == 2.9.10
+pycparser == 2.22

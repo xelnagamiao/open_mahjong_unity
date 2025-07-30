@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 使页面在移动设备上适应屏幕宽度 -->
+    <title>mahjong.fit-首页</title>
+    <link rel="stylesheet" href="..\static\css\style.css">
+    <link rel="icon" href="..\static\image\logo.svg" type="image/png">
+    <style>
+        body {
+            font-family: Arial, sans-serif;/* 首选字体,次选字体 */
+            margin: 0; /* 去除默认的内外边距 */
+            margin-top: 40px; /* 顶部外边距40px */
+            padding: 0;
+            transition: background-color 0.8s ease; /* 背景色过渡时间 */
+            display: flex; /* 使用Flexbox布局 控制header、main、footer */
+            flex-direction: column; /* 主轴方向为列 */
+            min-height: calc(100vh - 40px); /* 激活flex-grow */
+            /*  background-image: url('https://i.imgur.com/5y9yJ0v.jpg');  背景图片 */
+        }
+        main {
+            display: flex; /* 主内容部分使用Flexbox布局 */
+            flex-wrap: wrap; /* 允许子元素换行 */
+            justify-content: center; /* 子元素居中 */
+            padding: 2em; /* 内边距为2em */
+            flex-grow: 1; /* 允许主内容区域扩展 */
+        }
+        
+        .card {
+            width: 40%; /* 卡片宽度为40% */
+            margin: 1em; /* 卡片外边距为1em */
+            padding: 1em; /* 卡片内边距为1em */
+            border-radius: 15px; /* 卡片圆角效果 */
+            color: white; /* 卡片文字颜色为白色 */
+            transition: transform 0.4s ease; /* 卡片变形时平滑过渡 */
+            cursor: pointer; /* 鼠标悬停时变成手形指针 */
+            position: relative; /* 相对定位 */
+        }
+        .card:hover {
+            transform: scale(1.05); /* 鼠标悬停时放大卡片 */
+        }
+        .card h2 {
+            font-size: 1.5em; /* 卡片标题字体大小 */
+            margin-top: 0; /* 去掉标题顶部间距 */
+        }
+        .card a {
+            position: absolute; /* 超链接填充card内部 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            text-decoration: none;
+            color: inherit;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="index" data-page="home" style="background-color: #FF6B6B;">首页-mahjong.fit</a>
+        <a href="mahjong_XT" data-page="shanten" style="background-color: #4ECDC4;">听牌待牌判断</a>
+        <a href="mahjong_GB" data-page="chinese" style="background-color: #45B7D1;">国标麻将牌型解算</a>
+        <a href="mahjong_RC" data-page="riichi" style="background-color: #FF8C42;">立直麻将牌型解算</a>
+    </header>
+
+    <main>
+        <div class="card" data-page="home" style="background-color: #FF6B6B;">
+            <h2>首页-mahjong.fit</h2>
+            <p>欢迎来到麻将分析网站mahjong-fit</p>
+            <a href="index"></a>
+        </div>
+        <div class="card" data-page="shanten" style="background-color: #4ECDC4;">
+            <h2>听牌待牌判断</h2>
+            <p>分析手牌是否听牌，以及听牌手牌的待牌</p>
+            <a href="mahjong_XT"></a>
+        </div>
+        <div class="card" data-page="chinese" style="background-color: #45B7D1;">
+            <h2>国标麻将牌型解算</h2>
+            <p>开发中：根据您输入的手牌、副露、花牌、和牌方式计算出可能的和牌构成与他家支付的点数</p>
+            <a href="mahjong_GB"></a>
+        </div>
+        <div class="card" data-page="riichi" style="background-color: #FF8C42;">
+            <h2>立直麻将牌型解算</h2>
+            <p>根据您输入的手牌、副露、宝牌、和牌方式计算出可能的和牌构成与他家支付的点数</p>
+            <a href="mahjong_RC"></a>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2024 立直麻雀研习社</p>
+        <p>网站管理员：Q1448826180</p>
+        <p>联系我们：QQGroup：432372422</p>
+    </footer>
+
+    <script>
+        // 此方法用于在选择'.card,header a'元素时绑定事件监听,执行mouseover与mouseout事件
+        document.querySelectorAll('.card,header a').forEach(element => {
+            element.addEventListener('mouseover', function() {
+                // 鼠标悬停时改变背景色
+                document.body.style.backgroundColor = this.style.backgroundColor;
+                const page = this.getAttribute('data-page'); // 获取当前元素的数据页面属性
+                const card = document.querySelector(`.card[data-page="${page}"]`); // 查找相应的卡片
+                if (card) {
+                    card.style.transform = 'scale(1.05)'; // 放大对应的卡片
+                }
+            });
+            element.addEventListener('mouseout', function() {
+                // 鼠标移开时恢复背景色
+                document.body.style.backgroundColor = '';
+                const page = this.getAttribute('data-page'); // 获取当前元素的数据页面属性
+                const card = document.querySelector(`.card[data-page="${page}"]`); // 查找相应的卡片
+                if (card) {
+                    card.style.transform = ''; // 恢复卡片大小
+                }
+            });
+        });
+    </script>
+</body>
+</html>
