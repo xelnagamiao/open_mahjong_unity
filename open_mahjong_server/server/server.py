@@ -95,10 +95,6 @@ async def save_secret_key_to_file(secret_key: str):
     except Exception as e:
         print(f"保存秘钥失败: {e}")
         
-# 获取秘钥
-async def Get_secret_key():
-    return HASH_SALT
-
 # 哈希用户名
 async def hash_username(username: str) -> str:
     return hashlib.sha256((username + HASH_SALT).encode()).hexdigest()
