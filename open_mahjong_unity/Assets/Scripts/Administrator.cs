@@ -6,6 +6,7 @@ public class Administrator : MonoBehaviour
 
     // 用户信息
     public string Username { get; private set; }
+    public string Userkey { get; private set; }
     public int hand_tiles_count;
     public string room_id;
 
@@ -21,9 +22,11 @@ public class Administrator : MonoBehaviour
     }
 
     // 设置用户信息
-    public void SetUserInfo(string username)
+    public void SetUserInfo(string username,string userkey)
     {
         Username = username;
+        Userkey = userkey;
+        ChatManager.Instance.LoginChatServer(username, userkey);
     }
 
     // 设置房间ID

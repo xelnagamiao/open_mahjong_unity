@@ -26,6 +26,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     public string message; // 消息内容
     // 消息体
     public string username; // 登录用返回用户名
+    public string userkey; // 登录用返回用户key
     public RoomInfo[] room_list; // 返回房间列表
     public RoomInfo room_info; // 返回单个房间信息
     public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
@@ -42,6 +43,7 @@ public class AskHandActionGBInfo // 询问手牌操作
     public int player_index; // 玩家索引
     public int deal_tiles; // 摸牌
     public int remain_tiles_count; // 剩余牌数 只有摸牌以后牌堆牌数会减少
+    public int action_tick;
 }
 
 [Serializable]
@@ -50,6 +52,7 @@ public class AskOtherActionGBInfo // 询问切牌后操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余时间
     public int cut_tile; // 切牌
+    public int action_tick;
 }
 
 [Serializable]
@@ -57,6 +60,7 @@ public class DoActionInfo // 执行操作
 {
     public string[] action_list;
     public int action_player;
+    public int action_tick;
     public int? cut_tile;           // 可空类型
     public bool? cut_class;         // 可空类型
     public int? deal_tile;          // 可空类型
@@ -71,6 +75,7 @@ public class PlayerInfo // 房间信息中单个玩家信息
     public int hand_tiles_count;        // 手牌数量
     public int[] discard_tiles;         // 弃牌 (改为int数组)
     public string[] combination_tiles;  // 组合牌
+    public int[] conbination_mask;      // 组合牌掩码
     public int remaining_time;          // 剩余时间
     public int player_index;            // 东南西北位置 (改为player_index)
     public int score;                   // 得分

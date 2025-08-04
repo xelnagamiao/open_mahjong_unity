@@ -25,6 +25,7 @@ async def broadcast_game_start(self):
             'hand_tiles_count': len(player.hand_tiles), # 手牌数量
             'discard_tiles': player.discard_tiles, # 弃牌
             'combination_tiles': player.combination_tiles, # 组合
+            "combination_mask": player.combination_mask, # 组合形状
             "huapai_list": player.huapai_list, # 花牌列表
             'remaining_time': player.remaining_time, # 剩余局时
             'player_index': player.player_index, # 东南西北位置
@@ -59,6 +60,7 @@ async def broadcast_game_start(self):
 
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
+    self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         if i == self.current_player_index:
@@ -74,7 +76,8 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         deal_tiles=self.player_list[i].hand_tiles[-1],
                         remain_tiles_count=len(self.tiles_list),
-                        action_list=self.action_dict[i]
+                        action_list=self.action_dict[i],
+                        action_tick=self.action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -92,7 +95,8 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         deal_tiles=0,
                         remain_tiles_count=len(self.tiles_list),
-                        action_list=self.action_dict[i]
+                        action_list=self.action_dict[i],
+                        action_tick=self.action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -100,6 +104,7 @@ async def broadcast_ask_hand_action(self):
 
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
+    self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         if self.action_dict[i] != []:
@@ -113,7 +118,8 @@ async def broadcast_ask_other_action(self):
                     ask_action_info = Ask_other_action_info(
                         remaining_time=current_player.remaining_time,
                         action_list=[item for item in self.action_dict[i]],
-                        cut_tile=self.player_list[self.current_player_index].discard_tiles[-1]
+                        cut_tile=self.player_list[self.current_player_index].discard_tiles[-1],
+                        action_tick=self.action_tick
                     )
                 )
                 print(response)
@@ -130,7 +136,8 @@ async def broadcast_ask_other_action(self):
                     ask_action_info = Ask_other_action_info(
                         remaining_time=current_player.remaining_time,
                         action_list=[],
-                        cut_tile=self.player_list[self.current_player_index].discard_tiles[-1]
+                        cut_tile=self.player_list[self.current_player_index].discard_tiles[-1],
+                        action_tick=self.action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -138,6 +145,7 @@ async def broadcast_ask_other_action(self):
 
 # 广播操作
 async def broadcast_do_action(self, action_list: List[str],action_player: int,cut_tile: int,cut_class: bool,deal_tile: int,buhua_tile: int,combination_mask: List[int]):
+    self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         # 发送通用信息
@@ -154,24 +162,11 @@ async def broadcast_do_action(self, action_list: List[str],action_player: int,cu
                     cut_class = cut_class,
                     deal_tile = deal_tile,
                     buhua_tile = buhua_tile,
-                    combination_mask = combination_mask
+                    combination_mask = combination_mask,
+                    action_tick=self.action_tick
                 )
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播操作信息")
 
 # 建立一个data列表 传参 [jiagang,dealcard], # 各种参数 然后按传参的数量和变量依次生成data列表，最后由前端统一解析。
-
-"""
-
-class Do_action_info(BaseModel):
-    # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
-    # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_tile]
-    action_list: List[str] 
-    action_player: int # 存储操作玩家索引
-    cut_tile: int # 在切牌时广播切牌
-    cut_class: bool # 在切牌时广播切牌手模切类型
-    deal_tile: int # 在摸牌时广播摸牌
-    buhua_tile: int # 在补花时广播补花
-    combination_mask: List[int] # 在鸣牌时传递鸣牌形状
-"""

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
 // 全局连接池实例
@@ -54,14 +56,15 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// 3. 将新连接添加到连接池
-	Pool.Add(playerId, conn)    // 玩家id:连接服务的指针
-	defer Pool.Remove(playerId) // 连接断开时清理掉引用
+	Pool.Add(playerId, conn)           // 玩家id:连接服务的指针
+	defer Pool.Remove(playerId)        // 连接断开时清理掉引用
+	defer roomManager.logout(playerId) // 玩家断开连接时退出所有房间
 
 	log.Printf("WebSocket connection established for player: %s", playerId)
 
 	// 4. 处理来自客户端的消息
 	for {
-		messageType, message, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("Error reading message from player %s: %v", playerId, err)
@@ -71,21 +74,101 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break // 跳出循环，连接将关闭，defer 会执行清理
 		}
 
-		// 在这里处理收到的消息
-		// 例如，解析 JSON，处理游戏逻辑等
-		log.Printf("Received from player %s (type: %d): %s", playerId, messageType, string(message))
-
-		// 5. 示例：回显消息给发送者 (Echo)
-		// 你可以根据需要修改这里，比如广播给其他玩家，处理游戏状态等
-		echoMessage := fmt.Sprintf("Echo to %s: %s", playerId, string(message))
-		if err := conn.WriteMessage(messageType, []byte(echoMessage)); err != nil {
-			log.Printf("Error sending echo to player %s: %v", playerId, err)
-			break // 如果发送失败，通常意味着连接有问题，断开
+		var jsonMsg struct {
+			Type string          `json:"type"`
+			Data json.RawMessage `json:"data"`
 		}
 
-		// 6. 示例：广播消息给所有玩家 (取消注释以启用)
-		// broadcastMsg := fmt.Sprintf("Player %s says: %s", playerId, string(message))
-		// pool.Broadcast([]byte(broadcastMsg))
+		type LoginMsg struct {
+			Username string `json:"username"`
+			Userkey  string `json:"userkey"`
+		}
+
+		type JoinRoomMsg struct {
+			RoomId int `json:"roomId"`
+		}
+
+		type LeaveRoomMsg struct {
+			RoomId int `json:"roomId"`
+		}
+
+		type SendChatMsg struct {
+			Content string `json:"content"`
+			RoomId  int    `json:"roomId"`
+		}
+
+		// 解析 JSON 消息
+		if err := json.Unmarshal(message, &jsonMsg); err != nil {
+			log.Printf("Error parsing JSON message from player %s: %v", playerId, err)
+			continue // 跳过当前消息，继续处理下一条
+		}
+
+		// 处理不同类型的消息
+		switch jsonMsg.Type {
+		case "login":
+			var loginMsg LoginMsg
+			if err := json.Unmarshal(jsonMsg.Data, &loginMsg); err != nil {
+				log.Printf("Error parsing login message from player %s: %v", playerId, err)
+				continue // 跳过当前消息，继续处理下一条
+			}
+			// 登录游戏大厅
+			if roomManager.loginChatHall(playerId, loginMsg.Username, loginMsg.Userkey) {
+				// 登录成功，向客户端发送登录成功消息
+				loginSuccessMsg := fmt.Sprintf("Login success for player %s", playerId)
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(loginSuccessMsg)); err != nil {
+					log.Printf("Error sending login success message to player %s: %v", playerId, err)
+					break // 如果发送失败，通常意味着连接有问题，断开
+				}
+			}
+		case "joinRoom":
+			var joinRoomMsg JoinRoomMsg
+			if err := json.Unmarshal(jsonMsg.Data, &joinRoomMsg); err != nil {
+				log.Printf("Error parsing join room message from player %s: %v", playerId, err)
+				continue // 跳过当前消息，继续处理下一条
+			}
+			// 加入聊天房间
+			if roomManager.joinRoom(playerId, joinRoomMsg.RoomId) {
+				// 加入房间成功，向客户端发送加入房间成功消息
+				joinRoomSuccessMsg := fmt.Sprintf("Join room success for player %s", playerId)
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(joinRoomSuccessMsg)); err != nil {
+					log.Printf("Error sending join room success message to player %s: %v", playerId, err)
+					break // 如果发送失败，通常意味着连接有问题，断开
+				}
+			}
+		case "leaveRoom":
+			var leaveRoomMsg LeaveRoomMsg
+			if err := json.Unmarshal(jsonMsg.Data, &leaveRoomMsg); err != nil {
+				log.Printf("Error parsing leave room message from player %s: %v", playerId, err)
+				continue // 跳过当前消息，继续处理下一条
+			}
+			// 处理离开房间消息
+			if roomManager.exitRoom(playerId, leaveRoomMsg.RoomId) {
+				// 离开房间成功，向客户端发送离开房间成功消息
+				leaveRoomSuccessMsg := fmt.Sprintf("Leave room success for player %s", playerId)
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(leaveRoomSuccessMsg)); err != nil {
+					log.Printf("Error sending leave room success message to player %s: %v", playerId, err)
+					break // 如果发送失败，通常意味着连接有问题，断开
+				}
+			}
+		case "sendChat":
+			var sendChatMsg SendChatMsg
+			if err := json.Unmarshal(jsonMsg.Data, &sendChatMsg); err != nil {
+				log.Printf("Error parsing send chat message from player %s: %v", playerId, err)
+				continue // 跳过当前消息，继续处理下一条
+			}
+			// 处理聊天消息
+			if roomManager.broadcastChat(playerId, sendChatMsg.Content, sendChatMsg.RoomId, &Pool) {
+				// 聊天成功，向客户端发送聊天成功消息
+				chatSuccessMsg := fmt.Sprintf("Chat success for player %s", playerId)
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(chatSuccessMsg)); err != nil {
+					log.Printf("Error sending chat success message to player %s: %v", playerId, err)
+					break // 如果发送失败，通常意味着连接有问题，断开
+				}
+			}
+		default:
+			log.Printf("Unknown message type from player %s: %s", playerId, jsonMsg.Type)
+			continue // 跳过当前消息，继续处理下一条
+		}
 	}
 }
 

@@ -35,11 +35,13 @@ class Ask_hand_action_info(BaseModel):
     deal_tiles: int
     remain_tiles: int
     action_list: List[str]
+    action_tick: int
 
 class Ask_other_action_info(BaseModel):
     remaining_time: int
     action_list: List[str]
     cut_tile: int
+    action_tick: int
 
 class Do_action_info(BaseModel):
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
@@ -51,6 +53,7 @@ class Do_action_info(BaseModel):
     deal_tile: int # 在摸牌时广播摸牌
     buhua_tile: int # 在补花时广播补花
     combination_mask: List[int] # 在鸣牌时传递鸣牌形状
+    action_tick: int # 用于同步操作时钟
 
 class Response(BaseModel):
     type: str

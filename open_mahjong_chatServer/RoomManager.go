@@ -111,7 +111,7 @@ func (rm *RoomManager) logout(uuid string) bool {
 }
 
 // 广播消息方法
-func (rm *RoomManager) broadcast(uuid string, message string, targetRoom int, Pool *ConnectionPool) {
+func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int, Pool *ConnectionPool) bool {
 	// 加只读锁
 	var recipients []*websocket.Conn                 // 用于存储有效的连接指针
 	if username, ok := rm.uuidToUsername[uuid]; ok { // 用户已登录
@@ -133,19 +133,16 @@ func (rm *RoomManager) broadcast(uuid string, message string, targetRoom int, Po
 			}
 		}
 	}
+	return recipients != nil
 }
 
 // 从 []int 切片中移除指定的整数
 func (rm *RoomManager) removeIntFromSlice(slice []int, item int) []int {
 	for i, v := range slice {
 		if v == item {
-			// 找到元素，使用切片操作将其移除
-			// 将 i 之后的元素向前移动一位，覆盖掉 i 位置的元素
-			// 然后返回长度减一的新切片
 			return append(slice[:i], slice[i+1:]...)
 		}
 	}
-	// 如果没有找到要删除的元素，返回原切片
 	return slice
 }
 

@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using System.Threading.Tasks;
 
 public class Game3DManager : MonoBehaviour
 {
@@ -33,7 +35,19 @@ public class Game3DManager : MonoBehaviour
     private int buhuaLeftCount;
     private int buhuaTopCount;
     private int buhuaRightCount;
-    
+
+    private GameObject lastCutTile; // 最后一张弃牌的3D对象
+
+    private float cardWidth; // 卡片宽度
+    private float cardHeight; // 卡片高度
+    private float widthSpacing; // 间距为卡片宽度的1倍
+    private float heightSpacing; // 间距为卡片高度的1倍
+    private Quaternion rotation = Quaternion.Euler(0, 0, -90); // 卡牌默认转角 默认值 如果需要右侧玩家竖立卡牌则将 rotation、rightRotation、erectRotation 相加
+    private Quaternion leftRotation = Quaternion.Euler(0, 90, 0); // 左侧玩家转角
+    private Quaternion topRotation = Quaternion.Euler(0, 180, 0); // 上方玩家转角
+    private Quaternion rightRotation = Quaternion.Euler(0, 270, 0); // 右侧玩家转角
+    private Quaternion erectRotation = Quaternion.Euler(90, 0, 0); // 竖立卡牌转角
+
     public static Game3DManager Instance { get; private set; }
     private void Awake()
     {
@@ -44,38 +58,30 @@ public class Game3DManager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        // 初始化配置
+        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度
+        float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片高度
+        float widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+        float heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
     }
 
     // 出牌3D动画
     private void DisCardAnimation(int tileId,Transform DiscardPosition,Vector3 widthdirection,Vector3 heightdirection,string PlayerPosition,int discardCount){
-        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
-        float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z;
-        float widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
-        float heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
 
+        // 计算放置位置
         Vector3 currentPosition = DiscardPosition.position;
-        discardCount = discardCount + 1; // 由于弃牌是从0开始计数的，所以需要加1
-        if (discardCount <= 6){
-            currentPosition += widthdirection.normalized * widthSpacing * discardCount;
-            currentPosition += heightdirection.normalized * heightSpacing * 0;
-        }
-        else if (discardCount <= 12){
-            currentPosition += widthdirection.normalized * widthSpacing * (discardCount-6);
-            currentPosition += heightdirection.normalized * heightSpacing * 1;
-        }
-        else if (discardCount <= 18){
-            currentPosition += widthdirection.normalized * widthSpacing * (discardCount-12);
-            currentPosition += heightdirection.normalized * heightSpacing * 2;
-        }
-        else if (discardCount <= 24){
-            currentPosition += widthdirection.normalized * widthSpacing * (discardCount-18);
-            currentPosition += heightdirection.normalized * heightSpacing * 3;
-        }
-        else if (discardCount <= 30){
-            currentPosition += widthdirection.normalized * widthSpacing * (discardCount-24);
-            currentPosition += heightdirection.normalized * heightSpacing * 4;
-        }
+        // 假设每行最多放 6 张牌
+        int cardsPerRow = 6;
+        // 将 discardCount 映射到从 0 开始的索引（第1张是0，第6张是5，第7张是6 → 行1列0）
+        int index = discardCount - 1;
+        // 计算当前是第几行、第几列
+        int row = index / cardsPerRow;     // 整除：行号
+        int col = index % cardsPerRow;     // 取余：列号
+        // 累加偏移
+        currentPosition += widthdirection.normalized * widthSpacing * col;
+        currentPosition += heightdirection.normalized * heightSpacing * row;
 
+        // 计算放置角度
         Quaternion rotation = Quaternion.identity;
         if (PlayerPosition == "self"){
             rotation = Quaternion.Euler(0, 0, -90); // 自身位置
@@ -104,10 +110,7 @@ public class Game3DManager : MonoBehaviour
     }
 
     // 补花3D动画
-    public void BuhuaAnimation(int playerIndex,int deal_tiles,int remain_tiles){
-        Debug.Log($"补花动画 {playerIndex},{deal_tiles},{remain_tiles}");
-        remiansTilesText.text = $"余: {remain_tiles}";
-        string GetCardPlayer = player_local_position[playerIndex];
+    public void BuhuaAnimation(string GetCardPlayer,int deal_tiles){
         if (GetCardPlayer == "self"){
             DisCardAnimation(deal_tiles,selfBuhuaPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",buhuaSelfCount);
             buhuaSelfCount++;
@@ -126,28 +129,78 @@ public class Game3DManager : MonoBehaviour
         }
     }
 
+    public void GetCard3D(string playerIndex){
+        // 如果玩家是其他玩家，则将牌添加到他人手牌中
+        if (playerIndex == "left"){
+            Quaternion rotation = Quaternion.Euler(90, 0, 0); // 定义旋转角
+            Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+2) * widthSpacing * new Vector3(0,0,-1); // 计算卡牌位置
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+        else if (playerIndex == "top"){
+            Quaternion rotation = Quaternion.Euler(90, 0, -90);
+            Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+2) * widthSpacing * new Vector3(-1,0,0);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+        else if (playerIndex == "right"){
+            Quaternion rotation = Quaternion.Euler(90, 0, 180);
+            Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+2) * widthSpacing * new Vector3(0,0,1);
+            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
+            cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
+            cardObj.name = $"Card_Current";
+        }
+    }
+
+    public void CutCards(string playerIndex,int tileId,bool cut_class){
+            // 显示切牌
+        if (playerIndex == "self"){
+            DisCardAnimation(tileId,selfDiscardsPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",GameSceneManager.Instance.selfDiscardslist.Count);
+            GameSceneManager.Instance.selfDiscardslist.Add(tileId);
+            GameCanvas.Instance.ArrangeHandCards();
+            }
+        else if (playerIndex == "left"){
+            DisCardAnimation(tileId,rightDiscardsPosition,new Vector3(0,0,1),new Vector3(1,0,0),"right",GameSceneManager.Instance.rightDiscardslist.Count);
+            removeOtherHandCards(rightCardsPosition,cut_class);
+            GameSceneManager.Instance.rightDiscardslist.Add(tileId);
+            }
+        else if (playerIndex == "top"){
+            DisCardAnimation(tileId,leftDiscardsPosition,new Vector3(0,0,-1),new Vector3(-1,0,0),"left",GameSceneManager.Instance.leftDiscardslist.Count);
+            removeOtherHandCards(leftCardsPosition,cut_class);
+            GameSceneManager.Instance.leftDiscardslist.Add(tileId);
+            }
+        else if (playerIndex == "right"){
+            DisCardAnimation(tileId,topDiscardsPosition,new Vector3(-1,0,0),new Vector3(0,0,1),"top",GameSceneManager.Instance.topDiscardslist.Count);
+            removeOtherHandCards(topCardsPosition,cut_class);
+            GameSceneManager.Instance.topDiscardslist.Add(tileId);
+            }
+        }
+    
+
     // 鸣牌3D动画
-    public void ActionAnimation(string actionType,int tileId,string playerPosition,string DoActionFrom){
+    public void ActionAnimation(string playerIndex,string actionType,int[]combination_mask){
         // 根据actionType执行动画
         Quaternion rotation = Quaternion.identity; // 卡牌旋转角度
         Vector3 SetDirection = Vector3.zero; // 放置方向
         Vector3 TempSetPosition = Vector3.zero; // 临时放置位置
-        if (playerPosition == "self"){
+        if (playerIndex == "self"){
             rotation = Quaternion.Euler(0, 0, -90); // 获取卡牌旋转角度 
             SetDirection = new Vector3(-1,0,0); // 获取放置方向 向左
             TempSetPosition = selfSetCombinationsPoint; // 获取放置指针
         }
-        else if (playerPosition == "left"){
+        else if (playerIndex == "left"){
             rotation = Quaternion.Euler(0, 90, -90); // 左侧玩家
             SetDirection = new Vector3(0,0,1); // 向上
             TempSetPosition = leftSetCombinationsPoint;
         }
-        else if (playerPosition == "top"){
+        else if (playerIndex == "top"){
             rotation = Quaternion.Euler(0, 180, -90); // 上方玩家
             SetDirection = new Vector3(1,0,0); // 向右
             TempSetPosition = topSetCombinationsPoint;
         }
-        else if (playerPosition == "right"){
+        else if (playerIndex == "right"){
             rotation = Quaternion.Euler(0, 270, -90); // 右侧玩家
             SetDirection = new Vector3(0,0,-1); // 向下
             TempSetPosition = rightSetCombinationsPoint;
@@ -156,84 +209,15 @@ public class Game3DManager : MonoBehaviour
         List<int> SetTileList = new List<int>();
         List<int> SignDirectionList = new List<int>();
         // 放置牌原理是从右向左放置,为了理解方便SetTileList和SignDirectionList从左到右放置随后倒转列表
-        if (actionType == "chi_left"){ 
-            SetTileList.Add(tileId);
-            SetTileList.Add(tileId-2); 
-            SetTileList.Add(tileId-1);
-            // [5,3,4]
-            SignDirectionList = new List<int>{1,0,0};
-        }
-        else if (actionType == "chi_mid"){
-            SetTileList.Add(tileId);
-            SetTileList.Add(tileId-1);
-            SetTileList.Add(tileId+1);
-            // [5,4,6]
-            SignDirectionList = new List<int> {1,0,0};
-        }
-        else if (actionType == "chi_right"){
-            SetTileList.Add(tileId);
-            SetTileList.Add(tileId+1);
-            SetTileList.Add(tileId+2);
-            // [5,6,7]
-            SignDirectionList = new List<int> {1,0,0};
-        }
-        else if (actionType == "peng" || actionType == "gang"){
-            SetTileList.Add(tileId);
-            SetTileList.Add(tileId);
-            SetTileList.Add(tileId);
-            // [5,5,5]
-            SignDirectionList = new List<int> {1,1,1};
 
-            if (playerPosition == "self"){
-                if (DoActionFrom == "left"){
-                    SignDirectionList = new List<int> {1,0,0};
-                }
-                else if (DoActionFrom == "top"){
-                    SignDirectionList = new List<int> {0,1,0};
-                }
-                else if (DoActionFrom == "right"){
-                    SignDirectionList = new List<int> {0,0,1};
-                }
-            }
-            else if (playerPosition == "left"){
-                if (DoActionFrom == "self"){
-                    SignDirectionList = new List<int> {0,0,1};
-                }
-                else if (DoActionFrom == "right"){
-                    SignDirectionList = new List<int> {0,1,0};
-                }
-                else if (DoActionFrom == "top"){
-                    SignDirectionList = new List<int> {1,0,0};
-                }
-            }
-            else if (playerPosition == "top"){
-                if (DoActionFrom == "self"){
-                    SignDirectionList = new List<int> {0,1,0};
-                }
-                else if (DoActionFrom == "right"){
-                    SignDirectionList = new List<int> {1,0,0};
-                }
-                else if (DoActionFrom == "left"){
-                    SignDirectionList = new List<int> {0,0,1};
-                }
-            }
-            else if (playerPosition == "right"){
-                if (DoActionFrom == "self"){
-                    SignDirectionList = new List<int> {1,0,0};
-                }
-                else if (DoActionFrom == "left"){
-                    SignDirectionList = new List<int> {0,1,0};
-                }
-                else if (DoActionFrom == "top"){
-                    SignDirectionList = new List<int> {0,0,1};
-                }
-            }
-            if (actionType == "gang"){
+        foreach (int tileId in combination_mask){
+            if (tileId >= 10){
                 SetTileList.Add(tileId);
-                SignDirectionList.Insert(2, 0);
+            }
+            else if (tileId < 5){
+                SignDirectionList.Add(tileId);
             }
         }
-
         // 倒转SetTileList
         SetTileList.Reverse();
         // 倒转SignDirectionList
@@ -263,19 +247,86 @@ public class Game3DManager : MonoBehaviour
             ApplyCardTexture(cardObj, SetTileList[i]);
         }
         // 将更新后的指针位置赋值给公共变量
-        if (playerPosition == "self"){
+        if (playerIndex == "self"){
             selfSetCombinationsPoint = TempSetPosition;
         }
-        else if (playerPosition == "left"){
+        else if (playerIndex == "left"){
             leftSetCombinationsPoint = TempSetPosition;
         }
-        else if (playerPosition == "top"){
+        else if (playerIndex == "top"){
             topSetCombinationsPoint = TempSetPosition;
         }
-        else if (playerPosition == "right"){
+        else if (playerIndex == "right"){
             rightSetCombinationsPoint = TempSetPosition;
         }
     }
+
+
+    private async void removeOtherHandCards(Transform cardPosition,bool cut_class){
+        Debug.Log($"移除其他玩家手牌 {cardPosition},{cut_class}");
+
+        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
+        float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z;
+
+        float spacing = cardWidth * 1f; // 间距为卡片宽度的1.0倍
+        // 如果摸切就直接删除摸到的牌
+        if (cut_class){
+            if (cardPosition == rightCardsPosition){
+                Transform cardTransform = rightCardsPosition.Find("Card_Current");
+                if (cardTransform != null) {
+                    Destroy(cardTransform.gameObject);
+                }
+            }
+            else if (cardPosition == leftCardsPosition){
+                Transform cardTransform = leftCardsPosition.Find("Card_Current");
+                if (cardTransform != null) {
+                    Destroy(cardTransform.gameObject);
+                }
+            }
+            else if (cardPosition == topCardsPosition){
+                Transform cardTransform = topCardsPosition.Find("Card_Current");
+                if (cardTransform != null) {
+                    Destroy(cardTransform.gameObject);
+                }
+            }
+        }
+        // 如果摸牌则随机删除一张牌，将摸牌加入手牌
+        else{
+            // 计算子物体数量，获取随机索引，随机删除选中的子物体
+            int childCount = cardPosition.childCount;
+                int randomIndex = UnityEngine.Random.Range(0, childCount);
+                Transform randomChild = cardPosition.GetChild(randomIndex);
+                    Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
+                    Destroy(randomChild.gameObject);
+            // 等待1秒
+            await Task.Delay(1000);
+                    
+            // 确定方向向量 方向向量乘以spacing等于目标位置
+                    Vector3 direction = Vector3.zero;
+                    if (cardPosition == rightCardsPosition)
+                        direction = new Vector3(0, 0, 1); // 向前
+                    else if (cardPosition == leftCardsPosition)
+                        direction = new Vector3(0, 0, -1); // 向后
+                    else if (cardPosition == topCardsPosition)
+                        direction = new Vector3(-1, 0, 0); // 向左
+                    
+            // 获取所有剩余子物体并按照名称索引排序[0,1,2,3,4,5,6,7,8,9,10,11,12]
+                    List<Transform> remainingCards = new List<Transform>();
+            int cardCount = cardPosition.childCount;
+            for (int i = 0; i < cardCount; i++) {
+                        remainingCards.Add(cardPosition.GetChild(i));
+                    }
+            // 拿取手牌初始位置，遍历卡牌乘以spacing移动到目标位置
+                    Vector3 startPosition = cardPosition.position;
+            for (int i = 0; i < cardCount; i++) {
+                Vector3 newPosition = startPosition + direction * spacing * (i + 0);
+                        remainingCards[i].position = newPosition;
+                remainingCards[i].name = $"ReSeTCard_{i}";
+            }
+        }
+    }
+
+
 
     // 初始化其他玩家手牌3D动画
     public void InitializeOtherCards(PlayerInfo[] playersInfo){
@@ -283,26 +334,27 @@ public class Game3DManager : MonoBehaviour
         float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y;
         float spacing = cardWidth * 1f; // 间距为卡片宽度的1.2倍
         
+
         // 根据玩家位置生成手牌，使用世界坐标系的固定方向
-        if (SaveCount == 0)
+        if (GameSceneManager.Instance.selfIndex == 0)
         {
             PlaceCards(leftCardsPosition, playersInfo[3].hand_tiles_count, spacing, new Vector3(0,0,-1)); // 向后
             PlaceCards(topCardsPosition, playersInfo[2].hand_tiles_count, spacing, new Vector3(-1,0,0)); // 向左
             PlaceCards(rightCardsPosition, playersInfo[1].hand_tiles_count, spacing, new Vector3(0,0,1)); // 向前
         }
-        else if (SaveCount == 1)
+        else if (GameSceneManager.Instance.selfIndex == 1)
         {
             PlaceCards(leftCardsPosition, playersInfo[0].hand_tiles_count, spacing, new Vector3(0,0,-1)); // 向后
             PlaceCards(topCardsPosition, playersInfo[3].hand_tiles_count, spacing, new Vector3(-1,0,0)); // 向左
             PlaceCards(rightCardsPosition, playersInfo[2].hand_tiles_count, spacing, new Vector3(0,0,1)); // 向前
         }
-        else if (SaveCount == 2)
+        else if (GameSceneManager.Instance.selfIndex == 2)
         {
             PlaceCards(leftCardsPosition, playersInfo[1].hand_tiles_count, spacing, new Vector3(0,0,-1)); // 向后
             PlaceCards(topCardsPosition, playersInfo[0].hand_tiles_count, spacing, new Vector3(-1,0,0)); // 向左
             PlaceCards(rightCardsPosition, playersInfo[3].hand_tiles_count, spacing, new Vector3(0,0,1)); // 向前
         }
-        else if (SaveCount == 3)
+        else if (GameSceneManager.Instance.selfIndex == 3)
         {
             PlaceCards(leftCardsPosition, playersInfo[2].hand_tiles_count, spacing, new Vector3(0,0,-1)); // 向后
             PlaceCards(topCardsPosition, playersInfo[1].hand_tiles_count, spacing, new Vector3(-1,0,0)); // 向左

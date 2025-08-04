@@ -70,4 +70,33 @@ public class BoardCanvas : MonoBehaviour
         }
     }
 
+    public void ShowCurrentPlayer(string currentPlayerIndex,int remain_tiles){
+        // 显示当前玩家
+        if (currentPlayerIndex == "self"){
+            player_self_current_image.gameObject.SetActive(true);
+            player_left_current_image.gameObject.SetActive(false);
+            player_top_current_image.gameObject.SetActive(false);
+            player_right_current_image.gameObject.SetActive(false);
+        }
+        else if (currentPlayerIndex == "left"){
+            player_self_current_image.gameObject.SetActive(false);
+            player_left_current_image.gameObject.SetActive(true);
+            player_top_current_image.gameObject.SetActive(false);
+            player_right_current_image.gameObject.SetActive(false);
+        }
+        else if (currentPlayerIndex == "top"){
+            player_self_current_image.gameObject.SetActive(false);
+            player_left_current_image.gameObject.SetActive(false);
+            player_top_current_image.gameObject.SetActive(true);
+            player_right_current_image.gameObject.SetActive(false);
+        }
+        else if (currentPlayerIndex == "right"){
+            player_self_current_image.gameObject.SetActive(false);
+            player_left_current_image.gameObject.SetActive(false);
+            player_top_current_image.gameObject.SetActive(false);
+            player_right_current_image.gameObject.SetActive(true);
+        }
+        remiansTilesText.text = $"剩余牌数：{remain_tiles}"; // 设置剩余牌数
+    }
+
 }
