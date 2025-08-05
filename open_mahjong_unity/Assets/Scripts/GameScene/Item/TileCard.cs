@@ -52,15 +52,10 @@ public class TileCard : MonoBehaviour
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
         // TODO: 添加选中效果或其他交互
-        if (GameSceneManager.Instance.NowCurrentIndex == GameSceneManager.Instance.selfCurrentIndex && 
-            GameSceneManager.Instance.CutAction == true){
-            if (currentGetTile){
-                NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
-            }
-            else{
-                NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
-            }
-            GameSceneManager.Instance.CutCards(tileId,GameSceneManager.Instance.NowCurrentIndex,currentGetTile);
+        if (GameSceneManager.Instance.allowActionList.Contains("cut")){
+            NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
+            string[] action_list = {"cut"};
+            GameSceneManager.Instance.DoAction(action_list,GameSceneManager.Instance.selfIndex,tileId,currentGetTile,null,null,null);
             Destroy(gameObject);
         }
         else{

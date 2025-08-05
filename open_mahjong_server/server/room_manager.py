@@ -46,7 +46,7 @@ class RoomManager:
             # 传参配置 传入的参数
             room_config = {
                 "room_name": room_name, # 房间名
-                "max_round": gameround, # 最大局数
+                "game_round": gameround, # 最大局数
                 "round_timer": roundTimerValue, # 局时
                 "step_timer": stepTimerValue, # 步时
             }

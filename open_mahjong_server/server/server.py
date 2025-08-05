@@ -65,13 +65,33 @@ async def start_chat_server():
     
     # 获取当前脚本所在目录
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    executable_path = os.path.join(script_dir, 'chatserver', 'chatserver.exe')
-    process = await subprocess.Popen(
-        [executable_path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    print(f"聊天服务器进程已启动，PID: {process.pid}")
+    executable_path = os.path.join(script_dir, 'chatserver', 'open_mahjong_chatServer.exe')
+    
+    try:
+        # 检查可执行文件是否存在
+        if not os.path.exists(executable_path):
+            print(f"聊天服务器可执行文件不存在: {executable_path}")
+            return
+            
+        # 调试环境使用命令行窗口显示日志信息
+        process = subprocess.Popen(
+        ['cmd.exe', '/k', 'cd /d', script_dir, '&&', executable_path],
+        creationflags=subprocess.CREATE_NEW_CONSOLE,
+        )
+        """
+        部署环境使用stdout/stderr捕获，避免日志输出到控制台
+        process = subprocess.Popen(
+            [executable_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        """
+        print(f"聊天服务器进程已启动，PID: {process.pid}")
+        
+    except Exception as e:
+        print(f"启动聊天服务器失败: {e}")
+        print(f"错误详情: {str(e)}")
 
 async def save_secret_key_to_file(secret_key: str):
     """将秘钥保存到文件，供聊天服务器读取"""
@@ -251,12 +271,13 @@ async def player_login(username: str, password: str) -> Response:
             if player['password'] == password:
                 # 生成用户秘钥
                 user_key = await hash_username(username)
+                print(f" 生成用户秘钥{user_key} ")
                 return Response(
                     type="login",
                     success=True,
                     message="登录成功",
                     username=username,
-                    user_key=user_key
+                    userkey=user_key
                 )
             else:
                 return Response(
@@ -273,12 +294,13 @@ async def player_login(username: str, password: str) -> Response:
             conn.commit()
             # 生成用户秘钥
             user_key = await hash_username(username)
+            print(f" 生成用户秘钥{user_key} ")
             return Response(
                 type="login",
                 success=True,
                 message="注册并登录成功",
                 username=username,
-                user_key=user_key
+                userkey=user_key
             )
     finally:
         if conn.is_connected():

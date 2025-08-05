@@ -5,10 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"os"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 // 聊天管理器

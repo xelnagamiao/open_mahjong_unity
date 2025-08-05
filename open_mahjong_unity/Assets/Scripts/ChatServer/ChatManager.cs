@@ -11,8 +11,8 @@ using System.Collections.Generic;
 public class ChatManager : MonoBehaviour
 {
     [SerializeField] private Button SendButton;
-    [SerializeField] private InputField MessageInputField;
-    [SerializeField] private Dropdown SwitchSendTarget;
+    [SerializeField] private TMP_InputField MessageInputField;
+    [SerializeField] private TMP_Dropdown SwitchSendTarget;
     [SerializeField] private GameObject ChatTextPrefab;
     [SerializeField] private GameObject ChatTextContainer;
 
@@ -31,21 +31,23 @@ public class ChatManager : MonoBehaviour
         }
         Instance = this;
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
-        websocket = new WebSocket($"ws://localhost:8081/chat/{playerId}"); // 初始化WebSocket
+        websocket = new WebSocket($"ws://localhost:8083/chat/{playerId}"); // 初始化WebSocket
         websocket.OnOpen += (sender, e) => Debug.Log("WebSocket To ChatServer连接已打开");
         websocket.OnMessage += (sender, e) => GetMessage(e.RawData);
+        websocket.OnError += (sender, e) => Debug.LogError($"WebSocket To ChatServer错误: {e.Message}");
+        websocket.OnClose += (sender, e) => Debug.Log($"WebSocket To ChatServer已关闭: {e.Code}");
         if (Instance == this && !isConnecting)
         {
             isConnecting = true;
             try
             {
-                Debug.Log($"开始连接服务器，当前状态: {websocket.ReadyState}");
+                Debug.Log($"开始连接聊天服务器，当前状态: {websocket.ReadyState}");
                 websocket.Connect();
-                Debug.Log($"连接完成，当前状态: {websocket.ReadyState}");
+                Debug.Log($"连接聊天服务器完成，当前状态: {websocket.ReadyState}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"连接错误: {e.Message}");
+                Debug.LogError($"连接聊天服务器错误: {e.Message}");
             }
             finally
             {
@@ -59,12 +61,12 @@ public class ChatManager : MonoBehaviour
         try
         {
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
-            Debug.Log($"收到服务器消息: {jsonStr}");
+            Debug.Log($"收到聊天服务器消息: {jsonStr}");
             GetChatMessage(jsonStr);
         }
         catch (Exception e)
         {
-            Debug.LogError($"解析消息错误: {e.Message}");
+            Debug.LogError($"解析聊天服务器消息错误: {e.Message}");
         }
     }
 
@@ -77,33 +79,63 @@ public class ChatManager : MonoBehaviour
 
     public void LoginChatServer(string username, string userkey)
     {
-        Debug.Log($"开始登录服务器，玩家ID: {playerId}, 用户名: {username}, 用户密钥: {userkey}");
+        Debug.Log($"开始登录聊天服务器，玩家ID: {playerId}, 用户名: {username}, 用户密钥: {userkey}");
         var message = new
         {
             type = "login",
-            username = username,
-            userkey = userkey
+            data = new
+            {
+                username = username,
+                userkey = userkey
+            }
         };
         // 发送登录消息
-        Debug.Log($"发送登录消息: {JsonUtility.ToJson(message)}");
+        Debug.Log($"发送登录聊天服务器消息: {JsonUtility.ToJson(message)}");
         websocket.Send(JsonUtility.ToJson(message));
     }
 
     public void SendChatMessage(string message)
     {
-        int tempTarget = 0;
-        if (SwitchSendTarget.value == 0)
-        {
-            tempTarget = 0;
-        }
-
         var chatMessage = new
         {
-            type = "chat",
-            target = tempTarget,
-            message = MessageInputField.text.Trim(),     
+            type = "sendChat",
+            data = new
+            {
+                content = MessageInputField.text.Trim(),
+                roomId = 0  // 默认房间ID，可以根据需要修改
+            }
         };
-        Debug.Log($"发送群聊消息: {JsonUtility.ToJson(chatMessage)}");
+        Debug.Log($"发送聊天消息: {JsonUtility.ToJson(chatMessage)}");
         websocket.Send(JsonUtility.ToJson(chatMessage));
+    }
+
+    // 加入聊天房间
+    public void JoinRoom(int roomId)
+    {
+        var message = new
+        {
+            type = "joinRoom",
+            data = new
+            {
+                roomId = roomId
+            }
+        };
+        Debug.Log($"发送聊天服务器加入房间消息: {JsonUtility.ToJson(message)}");
+        websocket.Send(JsonUtility.ToJson(message));
+    }
+
+    // 离开聊天房间
+    public void LeaveRoom(int roomId)
+    {
+        var message = new
+        {
+            type = "leaveRoom",
+            data = new
+            {
+                roomId = roomId
+            }
+        };
+        Debug.Log($"发送聊天服务器离开房间消息: {JsonUtility.ToJson(message)}");
+        websocket.Send(JsonUtility.ToJson(message));
     }
 }

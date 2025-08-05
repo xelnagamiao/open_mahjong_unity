@@ -29,6 +29,12 @@ public class GB_Create_Panel : MonoBehaviour
         passwordInput.gameObject.SetActive(false);
         // 订阅密码开关事件
         passwordToggle.onValueChanged.AddListener(TogglePassword);
+        // 初始化界面
+        roundTimer.value = 2; // 20s
+        stepTimer.value = 1; // 5s
+        gameTime4Button.isOn = true; // 打四圈
+        tipsToggle.isOn = false; // 提示关闭
+        passwordToggle.isOn = false; // 密码关闭
         
         // 订阅创建房间响应事件    
         NetworkManager.Instance.CreateRoomResponse.AddListener(CreateRoomResponse);
@@ -49,13 +55,13 @@ public class GB_Create_Panel : MonoBehaviour
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             Rule = "guobiao",
-            RoundTimer = roundTimer.value,
-            StepTimer = stepTimer.value,
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn
         };
 
         // 验证配置
-        if (!config.Validate(out string error,passwordToggle.isOn))
+        if (!config.Validate(out string error, passwordToggle.isOn))
         {
             Debug.LogWarning(error);
             return;
@@ -72,6 +78,29 @@ public class GB_Create_Panel : MonoBehaviour
         if (gameTime3Button.isOn) return 3;
         if (gameTime4Button.isOn) return 4;
         return 1; // 默认返回1
+    }
+
+    private int GetSelectedRoundTimer()
+    {
+        switch (roundTimer.value){
+            case 0: return 5;
+            case 1: return 10;
+            case 2: return 20;
+            case 3: return 40;
+            case 4: return 60;
+        }
+        return 20;
+    }
+
+    private int GetSelectedStepTimer(){
+        switch (stepTimer.value){
+            case 0: return 3;
+            case 1: return 5;
+            case 2: return 10;
+            case 3: return 20;
+            case 4: return 40;
+        }
+        return 5;
     }
 
     // 创建房间响应

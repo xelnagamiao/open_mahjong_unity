@@ -28,13 +28,16 @@ var roomManager = RoomManager{
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	// 允许所有来源 (生产环境应设置更严格的检查)
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
+	// 显式设置 Subprotocols，允许客户端使用任意子协议
+	Subprotocols: []string{}, // 空切片表示“接受任何子协议名，不校验”
+	// 或者你可以指定：[]string{"chat", "json", "v1"}
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	log.Printf(" 收到 WebSocket 请求: %s", r.URL.Path)
 	// URL 格式: /chat/{playerId} 提取 playerId
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 3 || pathParts[1] != "chat" { // 路径格式错误正确
@@ -175,9 +178,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	// 设置路由处理函数
-	http.HandleFunc("/chat/", handleWebSocket) // 注意尾部的斜杠，匹配 /chat/ 后面的内容
+	http.HandleFunc("/chat/", handleWebSocket) // 匹配所有 /chat/ 开头的路径
 
-	port := "8081"
+	port := "8083"
 	log.Printf("WebSocket server starting on ws://localhost:%s", port)
 	log.Printf("Expecting connections on paths like: ws://localhost:%s/chat/<playerId>", port)
 

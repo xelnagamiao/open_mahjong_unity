@@ -19,7 +19,7 @@ public class ActionBlock : MonoBehaviour, IPointerClickHandler
             Debug.Log("没有设置TipBlock的actionType");
         }
         // 点击后停止计时器
-        GameSceneManager.Instance.StopTimeRunning();
+        GameCanvas.Instance.StopTimeRunning();
     }
 
 

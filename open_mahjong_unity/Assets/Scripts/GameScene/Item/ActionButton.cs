@@ -37,7 +37,7 @@ public class ActionButton : MonoBehaviour
     void OnClick()
     {
         // 发送请求
-        GameSceneManager.Instance.ChooseAction(actionTypeList);
+        GameCanvas.Instance.ChooseAction(actionTypeList);
     }
 }
 

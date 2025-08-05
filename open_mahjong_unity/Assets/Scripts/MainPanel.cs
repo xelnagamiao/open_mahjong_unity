@@ -4,7 +4,6 @@ using UnityEngine.UI;
 public class MainPanel : MonoBehaviour
 {
     [SerializeField] private Button chineseButton;
-    [SerializeField] private RoomListPanel roomListPanel;
 
     // Start is called before the first frame update
     void Start()
@@ -13,7 +12,7 @@ public class MainPanel : MonoBehaviour
     }
     private void ChineseRoom(){
         WindowsManager.Instance.SwitchWindow("roomList");
-        roomListPanel.RefreshRoomList(); // 刷新房间列表
+        RoomListPanel.Instance.RefreshRoomList(); // 刷新房间列表
     }
 
     // Update is called once per frame

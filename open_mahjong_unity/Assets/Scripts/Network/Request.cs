@@ -13,10 +13,10 @@ public class CreateGBRoomRequest // 创建国标房间请求
 {
     public string type;
     public string rule;
-    public string roomname;
-    public int gameround;
-    public int roundTimerValue;
-    public int stepTimerValue;
+    public string roomname; // 服务器期望的字段名
+    public int gameround; // 服务器期望的字段名
+    public int roundTimerValue; // 服务器期望的字段名
+    public int stepTimerValue; // 服务器期望的字段名
     public bool tips;
     public string password;
 }
