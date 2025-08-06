@@ -8,6 +8,7 @@ using System.Collections.Generic;
 
 
 
+
 [Serializable]
 public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
 

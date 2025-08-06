@@ -105,7 +105,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error parsing JSON message from player %s: %v", playerId, err)
 			continue // 跳过当前消息，继续处理下一条
 		}
-
+		log.Printf("收到消息 type: %s, data: %s", jsonMsg.Type, string(jsonMsg.Data))
 		// 处理不同类型的消息
 		switch jsonMsg.Type {
 		case "login":

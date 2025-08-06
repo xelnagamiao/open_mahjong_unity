@@ -55,8 +55,10 @@ func (rm *RoomManager) loginChatHall(username string, userKey, uuid string) bool
 		rm.usernameToRoom[username] = append(rm.usernameToRoom[username], 0)
 		// 保存房间0的用户列表
 		rm.roomToUsername[0] = append(rm.roomToUsername[0], username)
+		log.Println("登录成功", username, uuid)
 		return true // 登录成功
 	}
+	log.Println("登录失败", username, uuid, hexString, userKey)
 	return false // 登录失败
 }
 

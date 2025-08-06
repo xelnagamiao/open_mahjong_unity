@@ -23,13 +23,19 @@ public class RoomPanel : MonoBehaviour
     {
         backButton.onClick.AddListener(BackButtonClicked);
         startButton.onClick.AddListener(StartButtonClicked);
-        // 单例模式
+    }
+
+    private void Awake()
+    {
+        // 单例模式 - 在Awake中初始化，确保在Start之前完成
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject); // 保持实例不被销毁
         }
-        else
+        else if (Instance != this)
         {
+            Debug.LogWarning($"发现重复的RoomPanel实例，销毁新实例: {gameObject.name}");
             Destroy(gameObject);
         }
     }
@@ -39,9 +45,8 @@ public class RoomPanel : MonoBehaviour
     public void GetRoomInfoResponse(bool success, string message, RoomInfo roomInfo)
     {
         // 设置房间号
-        roomid = roomInfo.room_id;
-        roomIdText.text = roomid;
-        roomnameText.text = roomInfo.room_name;
+        roomIdText.text = $"房间号: {roomInfo.room_id}";
+        roomnameText.text = $"房间名: {roomInfo.room_name}";
 
         // 清空文本
         player_1.text = "";
@@ -66,7 +71,7 @@ public class RoomPanel : MonoBehaviour
 
         if (roomInfo.room_type == "guobiao") // 显示房间右侧的设置栏
         {
-            GB_RoomConfig gbRoomConfig = GetComponent<GB_RoomConfig>();
+            GB_RoomConfig gbRoomConfig = GB_RoomConfig.Instance;
             gbRoomConfig.SetGBRoomConfig(roomInfo);
         }
     }

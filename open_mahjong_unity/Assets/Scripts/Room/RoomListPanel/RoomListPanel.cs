@@ -33,13 +33,19 @@ public class RoomListPanel : MonoBehaviour
         // 订阅密码输入按钮
         passwordInputAdmit.onClick.AddListener(PasswordInputAdmit);
         passwordInputCancel.onClick.AddListener(PasswordInputCancel);
-        // 单例模式
+    }
+
+    private void Awake()
+    {
+        // 单例模式 - 在Awake中初始化，确保在Start之前完成
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject); // 保持实例不被销毁
         }
-        else
+        else if (Instance != this)
         {
+            Debug.LogWarning($"发现重复的RoomListPanel实例，销毁新实例: {gameObject.name}");
             Destroy(gameObject);
         }
     }
@@ -105,7 +111,8 @@ public class RoomListPanel : MonoBehaviour
                     hostName: roomData.host_name,
                     playerCount: roomData.player_list.Length,
                     gameTime: roomData.max_round,
-                    hasPassword: roomData.has_password
+                    hasPassword: roomData.has_password,
+                    room_type: roomData.room_type
                     );
                 }
             }

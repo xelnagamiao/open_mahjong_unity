@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using WebSocketSharp;
 using TMPro;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 
 
@@ -77,65 +78,107 @@ public class ChatManager : MonoBehaviour
     }
 
 
+
+
     public void LoginChatServer(string username, string userkey)
     {
         Debug.Log($"开始登录聊天服务器，玩家ID: {playerId}, 用户名: {username}, 用户密钥: {userkey}");
-        var message = new
+        
+        // 检查WebSocket连接状态
+        if (websocket == null || websocket.ReadyState != WebSocketState.Open)
+        {
+            Debug.LogError("WebSocket连接未建立，无法发送登录消息");
+            return;
+        }
+        
+        var request = new ChatRequest
         {
             type = "login",
-            data = new
-            {
-                username = username,
-                userkey = userkey
+            data = new ChatLoginRequest { 
+                username = username, 
+                userkey = userkey 
             }
         };
+        
         // 发送登录消息
-        Debug.Log($"发送登录聊天服务器消息: {JsonUtility.ToJson(message)}");
-        websocket.Send(JsonUtility.ToJson(message));
+        string jsonMessage = JsonConvert.SerializeObject(request);
+        Debug.Log($"发送登录聊天服务器消息: {jsonMessage}");
+        websocket.Send(jsonMessage);
     }
 
     public void SendChatMessage(string message)
     {
-        var chatMessage = new
+        // 检查WebSocket连接状态
+        if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            type = "sendChat",
-            data = new
-            {
-                content = MessageInputField.text.Trim(),
-                roomId = 0  // 默认房间ID，可以根据需要修改
+            Debug.LogError("WebSocket连接未建立，无法发送聊天消息");
+            return;
+        }
+
+        int targetRoomId;
+        if (SwitchSendTarget.value == 1)
+        {
+            targetRoomId = int.Parse(Administrator.Instance.room_id);  // 房间id
+        }
+        else
+        {
+            targetRoomId = 0; // 大厅id
+        }
+
+        var request = new ChatRequest
+        {
+            type = "send_chat",
+            data = new ChatSendChatRequest { 
+                content = MessageInputField.text.Trim(), 
+                targetRoomId = targetRoomId 
             }
         };
-        Debug.Log($"发送聊天消息: {JsonUtility.ToJson(chatMessage)}");
-        websocket.Send(JsonUtility.ToJson(chatMessage));
+        string jsonMessage = JsonConvert.SerializeObject(request);
+        Debug.Log($"发送聊天消息: {jsonMessage}");
+        websocket.Send(jsonMessage);
     }
 
     // 加入聊天房间
     public void JoinRoom(int roomId)
     {
-        var message = new
+        // 检查WebSocket连接状态
+        if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            type = "joinRoom",
-            data = new
-            {
-                roomId = roomId
+            Debug.LogError("WebSocket连接未建立，无法发送加入房间消息");
+            return;
+        }
+        
+        var request = new ChatRequest
+        {
+            type = "join_room",
+            data = new ChatJoinRoomRequest { 
+                roomId = roomId 
             }
         };
-        Debug.Log($"发送聊天服务器加入房间消息: {JsonUtility.ToJson(message)}");
-        websocket.Send(JsonUtility.ToJson(message));
+        string jsonMessage = JsonConvert.SerializeObject(request);
+        Debug.Log($"发送聊天服务器加入房间消息: {jsonMessage}");
+        websocket.Send(jsonMessage);
     }
 
     // 离开聊天房间
     public void LeaveRoom(int roomId)
     {
-        var message = new
+        // 检查WebSocket连接状态
+        if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            type = "leaveRoom",
-            data = new
-            {
-                roomId = roomId
+            Debug.LogError("WebSocket连接未建立，无法发送离开房间消息");
+            return;
+        }
+        
+        var request = new ChatRequest
+        {
+            type = "leave_room",
+            data = new ChatLeaveRoomRequest { 
+                roomId = roomId 
             }
         };
-        Debug.Log($"发送聊天服务器离开房间消息: {JsonUtility.ToJson(message)}");
-        websocket.Send(JsonUtility.ToJson(message));
+        string jsonMessage = JsonConvert.SerializeObject(request);
+        Debug.Log($"发送聊天服务器离开房间消息: {jsonMessage}");
+        websocket.Send(jsonMessage);
     }
 }
