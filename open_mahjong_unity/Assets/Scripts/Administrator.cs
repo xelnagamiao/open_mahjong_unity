@@ -32,7 +32,16 @@ public class Administrator : MonoBehaviour
     // 设置房间ID
     public void SetRoomId(string room_id)
     {
-        this.room_id = room_id;
+        // 如果房间ID发生变化
+        if (this.room_id != room_id){
+            if (this.room_id != ""){ // 如果房间本身不是空的,就说明房间变空了,需要退出房间聊天室
+                ChatManager.Instance.LeaveRoom(int.Parse(this.room_id)); // 退出房间聊天室
+            }
+            else if (room_id != ""){ // 如果房间本身是空的,就说明房间变非空了,需要加入房间聊天室
+                ChatManager.Instance.JoinRoom(int.Parse(room_id)); // 加入房间聊天室
+            }
+            this.room_id = room_id;
+        }
     }
 
 }

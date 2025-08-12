@@ -2,12 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"strings"
-
-	"github.com/gorilla/websocket"
 )
 
 // 全局连接池实例
@@ -59,11 +57,12 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// 3. 将新连接添加到连接池
-	Pool.Add(playerId, conn)           // 玩家id:连接服务的指针
-	defer Pool.Remove(playerId)        // 连接断开时清理掉引用
-	defer roomManager.logout(playerId) // 玩家断开连接时退出所有房间
+	Pool.Add(playerId, conn)                                                // 玩家id:连接服务的指针
+	log.Printf("WebSocket connection established for player: %s", playerId) // 连接建立
 
-	log.Printf("WebSocket connection established for player: %s", playerId)
+	defer Pool.Remove(playerId)                                              // 连接断开时清理掉引用
+	defer roomManager.logout(playerId)                                       // 玩家断开连接时退出所有房间
+	defer log.Printf("WebSocket connection closed for player: %s", playerId) // 连接关闭
 
 	// 4. 处理来自客户端的消息
 	for {
@@ -108,64 +107,61 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("收到消息 type: %s, data: %s", jsonMsg.Type, string(jsonMsg.Data))
 		// 处理不同类型的消息
 		switch jsonMsg.Type {
+		// 登录游戏大厅
 		case "login":
 			var loginMsg LoginMsg
 			if err := json.Unmarshal(jsonMsg.Data, &loginMsg); err != nil {
 				log.Printf("Error parsing login message from player %s: %v", playerId, err)
 				continue // 跳过当前消息，继续处理下一条
 			}
-			// 登录游戏大厅
-			if roomManager.loginChatHall(playerId, loginMsg.Username, loginMsg.Userkey) {
-				// 登录成功，向客户端发送登录成功消息
-				loginSuccessMsg := fmt.Sprintf("Login success for player %s", playerId)
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(loginSuccessMsg)); err != nil {
-					log.Printf("Error sending login success message to player %s: %v", playerId, err)
-					break // 如果发送失败，通常意味着连接有问题，断开
-				}
+			// 登录游戏大厅 发送登录大厅结果
+			resp := roomManager.loginChatHall(playerId, loginMsg.Username, loginMsg.Userkey)
+			if err := conn.WriteJSON(resp); err != nil {
+				log.Printf("Error sending login message to player %s: %v", playerId, err)
+				break // 如果发送失败，通常意味着连接有问题，断开
 			}
+
+		// 加入聊天房间
 		case "joinRoom":
 			var joinRoomMsg JoinRoomMsg
 			if err := json.Unmarshal(jsonMsg.Data, &joinRoomMsg); err != nil {
 				log.Printf("Error parsing join room message from player %s: %v", playerId, err)
-				continue // 跳过当前消息，继续处理下一条
+				continue
 			}
-			// 加入聊天房间
-			if roomManager.joinRoom(playerId, joinRoomMsg.RoomId) {
-				// 加入房间成功，向客户端发送加入房间成功消息
-				joinRoomSuccessMsg := fmt.Sprintf("Join room success for player %s", playerId)
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(joinRoomSuccessMsg)); err != nil {
-					log.Printf("Error sending join room success message to player %s: %v", playerId, err)
-					break // 如果发送失败，通常意味着连接有问题，断开
-				}
+			// 加入聊天房间 发送加入房间结果
+			resp := roomManager.joinRoom(playerId, joinRoomMsg.RoomId)
+			if err := conn.WriteJSON(resp); err != nil {
+				log.Printf("Error sending join room success message to player %s: %v", playerId, err)
+				break
 			}
+
+		// 离开聊天房间
 		case "leaveRoom":
 			var leaveRoomMsg LeaveRoomMsg
 			if err := json.Unmarshal(jsonMsg.Data, &leaveRoomMsg); err != nil {
 				log.Printf("Error parsing leave room message from player %s: %v", playerId, err)
-				continue // 跳过当前消息，继续处理下一条
+				continue
 			}
-			// 处理离开房间消息
-			if roomManager.exitRoom(playerId, leaveRoomMsg.RoomId) {
-				// 离开房间成功，向客户端发送离开房间成功消息
-				leaveRoomSuccessMsg := fmt.Sprintf("Leave room success for player %s", playerId)
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(leaveRoomSuccessMsg)); err != nil {
-					log.Printf("Error sending leave room success message to player %s: %v", playerId, err)
-					break // 如果发送失败，通常意味着连接有问题，断开
-				}
+			// 处理离开房间消息 发送离开房间结果
+			resp := roomManager.exitRoom(playerId, leaveRoomMsg.RoomId)
+			if err := conn.WriteJSON(resp); err != nil {
+				log.Printf("Error sending leave room success message to player %s: %v", playerId, err)
+				break
 			}
+
+		// 发送聊天消息
 		case "sendChat":
 			var sendChatMsg SendChatMsg
 			if err := json.Unmarshal(jsonMsg.Data, &sendChatMsg); err != nil {
 				log.Printf("Error parsing send chat message from player %s: %v", playerId, err)
-				continue // 跳过当前消息，继续处理下一条
+				continue
 			}
-			// 处理聊天消息
 			if roomManager.broadcastChat(playerId, sendChatMsg.Content, sendChatMsg.RoomId, &Pool) {
 				// 聊天成功，向客户端发送聊天成功消息
-				chatSuccessMsg := fmt.Sprintf("Chat success for player %s", playerId)
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(chatSuccessMsg)); err != nil {
+				resp := ChatResponse{ResponseType: "sendChatOk", TargetRoomId: sendChatMsg.RoomId, Content: sendChatMsg.Content} // 发送接受到的聊天信息原句
+				if err := conn.WriteJSON(resp); err != nil {
 					log.Printf("Error sending chat success message to player %s: %v", playerId, err)
-					break // 如果发送失败，通常意味着连接有问题，断开
+					break
 				}
 			}
 		default:

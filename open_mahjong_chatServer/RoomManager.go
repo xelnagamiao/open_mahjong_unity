@@ -5,12 +5,19 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"log"
 	"os"
+	"strconv"
 	"sync"
-
-	"github.com/gorilla/websocket"
 )
+
+// 发送消息结构体
+type ChatResponse struct {
+	ResponseType string `json:"responseType"`
+	TargetRoomId int    `json:"roomId"`
+	Content      string `json:"content"`
+}
 
 // 聊天管理器
 type RoomManager struct {
@@ -38,7 +45,7 @@ func (rm *RoomManager) init() {
 }
 
 // 登录聊天服务器方法(自动登录聊天大厅)
-func (rm *RoomManager) loginChatHall(username string, userKey, uuid string) bool {
+func (rm *RoomManager) loginChatHall(uuid string, username string, userKey string) ChatResponse {
 
 	input := username + rm.secretKey           // 拼接用户名和盐值
 	hasher := sha256.New()                     // 创建哈希器
@@ -56,14 +63,17 @@ func (rm *RoomManager) loginChatHall(username string, userKey, uuid string) bool
 		// 保存房间0的用户列表
 		rm.roomToUsername[0] = append(rm.roomToUsername[0], username)
 		log.Println("登录成功", username, uuid)
-		return true // 登录成功
+		resp := ChatResponse{ResponseType: "Tips", TargetRoomId: 0, Content: "登录聊天大厅成功"}
+		return resp
+	} else {
+		log.Println("登录失败,用户名:", username, "用户ID:", uuid, "用户密钥:", userKey, "用户密钥哈希:", hexString)
+		resp := ChatResponse{ResponseType: "False", TargetRoomId: 0, Content: "登录聊天大厅失败,用户密钥错误"} // 失败仍然传递true值
+		return resp
 	}
-	log.Println("登录失败", username, uuid, hexString, userKey)
-	return false // 登录失败
 }
 
 // 登录后加入特定房间方法(加入游戏房间或者聊天频道)
-func (rm *RoomManager) joinRoom(uuid string, roomID int) bool {
+func (rm *RoomManager) joinRoom(uuid string, roomID int) ChatResponse {
 	rm.mu.Lock()         // 加读写锁
 	defer rm.mu.Unlock() // 解锁
 
@@ -72,13 +82,15 @@ func (rm *RoomManager) joinRoom(uuid string, roomID int) bool {
 		rm.usernameToRoom[username] = append(rm.usernameToRoom[username], roomID)
 		// 将用户加入房间的用户列表
 		rm.roomToUsername[roomID] = append(rm.roomToUsername[roomID], username)
-		return true
+		resp := ChatResponse{ResponseType: "Tips", TargetRoomId: roomID, Content: "加入房间" + strconv.Itoa(roomID) + "成功"}
+		return resp
 	}
-	return false // 用户未登录
+	resp := ChatResponse{ResponseType: "False", TargetRoomId: roomID, Content: "加入房间失败,用户未登录"}
+	return resp // 用户未登录
 }
 
 // 退出房间方法
-func (rm *RoomManager) exitRoom(uuid string, roomID int) bool {
+func (rm *RoomManager) exitRoom(uuid string, roomID int) ChatResponse {
 	rm.mu.Lock()         // 加读写锁
 	defer rm.mu.Unlock() // 解锁
 
@@ -87,9 +99,11 @@ func (rm *RoomManager) exitRoom(uuid string, roomID int) bool {
 		rm.usernameToRoom[username] = rm.removeIntFromSlice(rm.usernameToRoom[username], roomID)
 		// 退出房间的用户列表
 		rm.roomToUsername[roomID] = rm.removeStringFromSlice(rm.roomToUsername[roomID], username)
-		return true
+		resp := ChatResponse{ResponseType: "Tips", TargetRoomId: roomID, Content: "退出房间" + strconv.Itoa(roomID) + "成功"}
+		return resp
 	}
-	return false // 用户未登录
+	resp := ChatResponse{ResponseType: "False", TargetRoomId: roomID, Content: "退出房间失败,用户未登录"}
+	return resp // 用户未登录
 }
 
 // 注销用户方法
@@ -120,19 +134,21 @@ func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int
 	if username, ok := rm.uuidToUsername[uuid]; ok { // 用户已登录
 		rm.mu.RLock()
 		for _, user := range rm.roomToUsername[targetRoom] { // 遍历房间内的用户
-			if user != username { // 排除自己
-				if conn, exists := Pool.Get(rm.usernameTouuid[user]); exists {
-					// 连接存在就复制指针
-					recipients = append(recipients, conn)
-				}
+			// if user != username { 暂时不排除自己 因为没做客户端发送消息失败的验证 广播回客户端表示消息是否发送成功
+			if conn, exists := Pool.Get(rm.usernameTouuid[user]); exists {
+				// 连接存在就复制指针
+				recipients = append(recipients, conn)
 			}
+			//}
 		}
 		rm.mu.RUnlock() // 解锁
 		// 遍历 recipients[]conn切片发送消息
 		for _, conn := range recipients {
 			// 检查 WriteMessage 是否出错
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(username+": "+message)); err != nil {
+			resp := ChatResponse{ResponseType: "Chat", TargetRoomId: targetRoom, Content: username + ": " + message}
+			if err := conn.WriteJSON(resp); err != nil {
 				log.Printf("Error sending message to connection: %v", err)
+				return false
 			}
 		}
 	}

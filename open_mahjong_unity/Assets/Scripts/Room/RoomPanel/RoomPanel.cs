@@ -17,7 +17,6 @@ public class RoomPanel : MonoBehaviour
     [SerializeField] private Button backButton; // 返回按钮
     [SerializeField] private Button startButton; // 开始按钮
 
-    private string roomid;
     // Start is called before the first frame update
     void Start()
     {
@@ -31,7 +30,6 @@ public class RoomPanel : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject); // 保持实例不被销毁
         }
         else if (Instance != this)
         {
@@ -78,21 +76,13 @@ public class RoomPanel : MonoBehaviour
     private void BackButtonClicked()
     {
         WindowsManager.Instance.SwitchWindow("roomList");
-        NetworkManager.Instance.LeaveRoom(roomid);
+        NetworkManager.Instance.LeaveRoom(Administrator.Instance.room_id);
 
     }
 
     private void StartButtonClicked()
     {
-        NetworkManager.Instance.StartGame(roomid);
+        NetworkManager.Instance.StartGame(Administrator.Instance.room_id);
     }
 
-
-
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 }

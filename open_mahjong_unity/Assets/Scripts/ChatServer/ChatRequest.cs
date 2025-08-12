@@ -30,5 +30,5 @@ public class ChatLeaveRoomRequest
 public class ChatSendChatRequest
 {
     public string content;
-    public int targetRoomId;
+    public int roomId;
 }

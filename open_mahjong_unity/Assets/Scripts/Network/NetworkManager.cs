@@ -58,7 +58,7 @@ public class NetworkManager : MonoBehaviour
             try
             {
                 Debug.Log($"开始连接服务器，当前状态: {websocket.ReadyState}");
-                websocket.Connect();
+                websocket.ConnectAsync();
                 Debug.Log($"连接完成，当前状态: {websocket.ReadyState}");
             }
             catch (Exception e)
@@ -131,8 +131,12 @@ public class NetworkManager : MonoBehaviour
                     if (response.success)
                     {
                         WindowsManager.Instance.SwitchWindow("roomList");
+                        Administrator.Instance.SetRoomId("");
                     }
                     break;
+                case "join_room":
+                    Debug.Log($"加入房间响应: {response.success}, {response.message}");
+                    break; // 只是打印一下 房间信息服务器从get_room_info中发送过来
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
                     GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);

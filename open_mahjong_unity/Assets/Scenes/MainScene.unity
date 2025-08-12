@@ -2233,7 +2233,7 @@ GameObject:
   - component: {fileID: 57691616}
   - component: {fileID: 57691615}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3147,7 +3147,7 @@ GameObject:
   - component: {fileID: 109652375}
   - component: {fileID: 109652374}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3281,7 +3281,7 @@ GameObject:
   - component: {fileID: 109758637}
   - component: {fileID: 109758636}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: StepTimer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4833,7 +4833,7 @@ GameObject:
   - component: {fileID: 180963783}
   - component: {fileID: 180963782}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7067,7 +7067,7 @@ GameObject:
   - component: {fileID: 264509396}
   - component: {fileID: 264509395}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11314,7 +11314,7 @@ GameObject:
   - component: {fileID: 542139180}
   - component: {fileID: 542139179}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: RoundTimer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11581,8 +11581,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -438.71576, y: 461.69376}
-  m_SizeDelta: {x: 289.6046, y: 77.3404}
+  m_AnchoredPosition: {x: -369.3603, y: 461.69376}
+  m_SizeDelta: {x: 428.32, y: 77.3404}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &556620228
 MonoBehaviour:
@@ -13438,7 +13438,7 @@ GameObject:
   - component: {fileID: 693947406}
   - component: {fileID: 693947405}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: RoundCount
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -15706,6 +15706,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d1ef1b887e2fdf849bea3c4701ddb328, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  roomIdText: {fileID: 1869549979}
+  roomnameText: {fileID: 556620228}
+  player_1: {fileID: 43510076}
+  player_2: {fileID: 1619739229}
+  player_3: {fileID: 1329060483}
+  player_4: {fileID: 484942696}
+  backButton: {fileID: 1823270266}
+  startButton: {fileID: 1817811500}
 --- !u!1 &789942948
 GameObject:
   m_ObjectHideFlags: 0
@@ -19661,7 +19669,7 @@ GameObject:
   - component: {fileID: 977286930}
   - component: {fileID: 977286929}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Tips
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -20294,6 +20302,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab184b9d8a2e59a4a846478c56ccfae9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rule: {fileID: 57691615}
+  round: {fileID: 109652374}
+  roundTime: {fileID: 264509395}
+  stepTime: {fileID: 1187852000}
+  tips: {fileID: 180963782}
+  password: {fileID: 1863054918}
 --- !u!1 &1017270774
 GameObject:
   m_ObjectHideFlags: 0
@@ -23497,7 +23511,7 @@ GameObject:
   - component: {fileID: 1187852001}
   - component: {fileID: 1187852000}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -25780,7 +25794,7 @@ GameObject:
   - component: {fileID: 1291456945}
   - component: {fileID: 1291456944}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Rule
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -26202,7 +26216,7 @@ GameObject:
   - component: {fileID: 1327741256}
   - component: {fileID: 1327741255}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Password
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -35974,7 +35988,7 @@ GameObject:
   - component: {fileID: 1863054919}
   - component: {fileID: 1863054918}
   m_Layer: 11
-  m_Name: Text (TMP)
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
