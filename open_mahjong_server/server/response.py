@@ -48,11 +48,11 @@ class Do_action_info(BaseModel):
     # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_tile]
     action_list: List[str] 
     action_player: int # 存储操作玩家索引
-    cut_tile: int # 在切牌时广播切牌
-    cut_class: bool # 在切牌时广播切牌手模切类型
-    deal_tile: int # 在摸牌时广播摸牌
-    buhua_tile: int # 在补花时广播补花
-    combination_mask: List[int] # 在鸣牌时传递鸣牌形状
+    cut_tile: Optional[int] = None # 在切牌时广播切牌
+    cut_class: Optional[bool] = None # 在切牌时广播切牌手模切类型
+    deal_tile: Optional[int] = None # 在摸牌时广播摸牌
+    buhua_tile: Optional[int] = None # 在补花时广播补花
+    combination_mask: Optional[List[int]] = None # 在鸣牌时传递鸣牌形状
     action_tick: int # 用于同步操作时钟
 
 class Response(BaseModel):

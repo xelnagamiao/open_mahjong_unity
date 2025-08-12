@@ -198,7 +198,7 @@ class GameServer:
             return Response(type="error_message", success=False, message="人数不足")
             
         # 创建游戏任务
-        if room_data["type"] == "guobiao":
+        if room_data["room_type"] == "guobiao":
             self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data)
             asyncio.create_task(self.room_id_to_ChineseGameState[room_id].game_loop_chinese())
 

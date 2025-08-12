@@ -4,14 +4,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections.Generic;
-using System.Collections;
-using UnityEngine.Rendering;
-using System.Threading.Tasks;
-using System.Text.RegularExpressions;
-using System.Runtime.CompilerServices;
-using JetBrains.Annotations;
 using System.Linq;
-using UnityEditor.Timeline;
+
 
 
 public class GameSceneManager : MonoBehaviour
@@ -148,7 +142,6 @@ public class GameSceneManager : MonoBehaviour
                     break;
             }
         }
-        
     }
 
     private void InitializeSetInfo(GameInfo gameInfo){

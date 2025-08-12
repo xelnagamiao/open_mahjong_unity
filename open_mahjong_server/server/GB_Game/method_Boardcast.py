@@ -75,7 +75,7 @@ async def broadcast_ask_hand_action(self):
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
                         deal_tiles=self.player_list[i].hand_tiles[-1],
-                        remain_tiles_count=len(self.tiles_list),
+                        remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
                         action_tick=self.action_tick
                     )
@@ -94,7 +94,7 @@ async def broadcast_ask_hand_action(self):
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
                         deal_tiles=0,
-                        remain_tiles_count=len(self.tiles_list),
+                        remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
                         action_tick=self.action_tick
                     )
@@ -144,27 +144,48 @@ async def broadcast_ask_other_action(self):
                 print(f"已向玩家 {current_player.username} 广播询问操作信息")
 
 # 广播操作
-async def broadcast_do_action(self, action_list: List[str],action_player: int,cut_tile: int,cut_class: bool,deal_tile: int,buhua_tile: int,combination_mask: List[int]):
+async def broadcast_do_action(
+    self, 
+    action_list: List[str],
+    action_player: int,
+    cut_tile: int = None,
+    cut_class: bool = None,
+    deal_tile: int = None,
+    buhua_tile: int = None,
+    combination_mask: List[int] = None
+    ):
+    
     self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         # 发送通用信息
         if current_player.username in self.game_server.username_to_connection:
             player_conn = self.game_server.username_to_connection[current_player.username]
+            # 只传递有值的参数
+            do_action_data = {
+                "action_list": action_list,
+                "action_player": action_player,
+                "action_tick": self.action_tick
+            }
+            
+            if cut_tile is not None:
+                do_action_data["cut_tile"] = cut_tile
+            if cut_class is not None:
+                do_action_data["cut_class"] = cut_class
+            if deal_tile is not None:
+                do_action_data["deal_tile"] = deal_tile
+            if buhua_tile is not None:
+                do_action_data["buhua_tile"] = buhua_tile
+            if combination_mask is not None:
+                do_action_data["combination_mask"] = combination_mask
+            
+            do_action_info = Do_action_info(**do_action_data)
+            
             response = Response(
                 type="do_action_GB",
                 success=True,
                 message="返回操作内容",
-                do_action_info = Do_action_info(
-                    action_list = action_list,
-                    action_player = action_player,
-                    cut_tile = cut_tile,
-                    cut_class = cut_class,
-                    deal_tile = deal_tile,
-                    buhua_tile = buhua_tile,
-                    combination_mask = combination_mask,
-                    action_tick=self.action_tick
-                )
+                do_action_info=do_action_info
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播操作信息")

@@ -45,7 +45,7 @@ class ChineseGameState:
 
         self.room_id = room_data["room_id"] # 房间ID
         self.tips = room_data["tips"] # 是否提示
-        self.max_round = room_data["max_round"] # 最大局数
+        self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
 
