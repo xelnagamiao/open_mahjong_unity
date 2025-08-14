@@ -181,7 +181,7 @@ class ChineseGameState:
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
                         
                     case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后行为
-                        self.action_dict = check_action_hand_action(self) # 允许可执行的手牌操作
+                        self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
                         self.action_dict[self.current_player_index].append("cut") # 摸牌后允许切牌
                         await broadcast_ask_hand_action(self) # 广播手牌操作
                         await self.wait_action() # 等待手牌操作

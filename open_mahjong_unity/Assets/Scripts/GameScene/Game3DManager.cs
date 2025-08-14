@@ -42,11 +42,12 @@ public class Game3DManager : MonoBehaviour
     private float cardHeight; // 卡片高度
     private float widthSpacing; // 间距为卡片宽度的1倍
     private float heightSpacing; // 间距为卡片高度的1倍
-    private Quaternion rotation = Quaternion.Euler(0, 0, -90); // 卡牌默认转角 默认值 如果需要右侧玩家竖立卡牌则将 rotation、rightRotation、erectRotation 相加
+    private Quaternion baseRotation = Quaternion.Euler(0, 90, -90); // 卡牌默认平躺转角 默认值 如果需要右侧玩家竖立卡牌则将 rotation、rightRotation、erectRotation 相加
     private Quaternion leftRotation = Quaternion.Euler(0, 90, 0); // 左侧玩家转角
     private Quaternion topRotation = Quaternion.Euler(0, 180, 0); // 上方玩家转角
     private Quaternion rightRotation = Quaternion.Euler(0, 270, 0); // 右侧玩家转角
-    private Quaternion erectRotation = Quaternion.Euler(90, 0, 0); // 竖立卡牌转角
+    private Quaternion erectRotation = Quaternion.Euler(-90, 0, 0); // 竖立卡牌转角
+    private Quaternion TurnWidthRotation = Quaternion.Euler(0,90,0); // 平躺时横置转角
 
     public static Game3DManager Instance { get; private set; }
     private void Awake()
@@ -59,10 +60,10 @@ public class Game3DManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         // 初始化配置
-        float cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度
-        float cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片高度
-        float widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
-        float heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
+        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度
+        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片高度
+        this.widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+        this.heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
     }
 
     // 出牌3D动画
@@ -132,21 +133,21 @@ public class Game3DManager : MonoBehaviour
     public void GetCard3D(string playerIndex){
         // 如果玩家是其他玩家，则将牌添加到他人手牌中
         if (playerIndex == "left"){
-            Quaternion rotation = Quaternion.Euler(90, 0, 0); // 定义旋转角
+            Quaternion rotation = baseRotation * leftRotation * erectRotation;
             Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+2) * widthSpacing * new Vector3(0,0,-1); // 计算卡牌位置
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
         }
         else if (playerIndex == "top"){
-            Quaternion rotation = Quaternion.Euler(90, 0, -90);
+            Quaternion rotation = baseRotation * topRotation * erectRotation;
             Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+2) * widthSpacing * new Vector3(-1,0,0);
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
             cardObj.name = $"Card_Current";
         }
         else if (playerIndex == "right"){
-            Quaternion rotation = Quaternion.Euler(90, 0, 180);
+            Quaternion rotation = baseRotation * rightRotation * erectRotation;
             Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+2) * widthSpacing * new Vector3(0,0,1);
             GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
             cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
@@ -186,22 +187,22 @@ public class Game3DManager : MonoBehaviour
         Vector3 SetDirection = Vector3.zero; // 放置方向
         Vector3 TempSetPosition = Vector3.zero; // 临时放置位置
         if (playerIndex == "self"){
-            rotation = Quaternion.Euler(0, 0, -90); // 获取卡牌旋转角度 
+            rotation = baseRotation; // 获取卡牌旋转角度 
             SetDirection = new Vector3(-1,0,0); // 获取放置方向 向左
             TempSetPosition = selfSetCombinationsPoint; // 获取放置指针
         }
         else if (playerIndex == "left"){
-            rotation = Quaternion.Euler(0, 90, -90); // 左侧玩家
+            rotation = baseRotation * leftRotation; // 左侧玩家
             SetDirection = new Vector3(0,0,1); // 向上
             TempSetPosition = leftSetCombinationsPoint;
         }
         else if (playerIndex == "top"){
-            rotation = Quaternion.Euler(0, 180, -90); // 上方玩家
+            rotation = baseRotation * topRotation * erectRotation; // 上方玩家
             SetDirection = new Vector3(1,0,0); // 向右
             TempSetPosition = topSetCombinationsPoint;
         }
         else if (playerIndex == "right"){
-            rotation = Quaternion.Euler(0, 270, -90); // 右侧玩家
+            rotation = baseRotation * rightRotation * erectRotation; // 右侧玩家
             SetDirection = new Vector3(0,0,-1); // 向下
             TempSetPosition = rightSetCombinationsPoint;
         }
@@ -234,7 +235,7 @@ public class Game3DManager : MonoBehaviour
             
             // 如果卡牌横置,指针增加一个宽度单位
             if (SignDirectionList[i] == 1){
-                Quaternion TurnWidthRotation = Quaternion.Euler(0,90,0) * rotation;
+                rotation = TurnWidthRotation;
                 cardObj = Instantiate(tile3DPrefab, TempSetPosition, TurnWidthRotation);
                 TempSetPosition += SetDirection * widthSpacing;
             }
@@ -376,11 +377,11 @@ public class Game3DManager : MonoBehaviour
         // 调整牌的朝向，使其面向对应的玩家
         Quaternion rotation = Quaternion.identity;
         if (direction == new Vector3(0,0,-1))
-            rotation = Quaternion.Euler(90, 0, 0); // 左侧玩家
+            rotation = baseRotation * leftRotation * erectRotation; // 左侧玩家
         else if (direction == new Vector3(-1,0,0))
-            rotation = Quaternion.Euler(90, 0, -90); // 上方玩家
+            rotation = baseRotation * topRotation * erectRotation; // 上方玩家
         else if (direction == new Vector3(0,0,1))
-            rotation = Quaternion.Euler(90, 0, 180); // 右侧玩家
+            rotation = baseRotation * rightRotation * erectRotation; // 右侧玩家
         // 生成卡牌
         for (int i = 0; i < cardCount; i++)
         {
@@ -407,9 +408,9 @@ public class Game3DManager : MonoBehaviour
 
     // 应用牌面纹理
     private void ApplyCardTexture(GameObject cardObj, int tileId) {
+
         // 从Resources加载对应ID的图片
         Texture2D texture = Resources.Load<Texture2D>($"image/CardMaterial/{tileId}");
-        
         if (texture == null) {
             Debug.LogError($"无法加载纹理: image/CardMaterial/{tileId}");
             return;
@@ -418,30 +419,20 @@ public class Game3DManager : MonoBehaviour
         // 获取预制体的渲染器
         Renderer renderer = cardObj.GetComponent<Renderer>();
         
-        // 克隆材质以避免修改原始材质
-        Material[] materials = renderer.materials;        
+        // 通过材质名称找到SetImage材质
+        int setImageMaterialIndex = -1;
+        for (int i = 0; i < renderer.materials.Length; i++) {
+            if (renderer.materials[i].name.Contains("SetImage")) {
+                setImageMaterialIndex = i;
+                break;
+            }
+        }
         
-        // 修改第二个材质的纹理及相关设置
-        if (materials.Length > 1) {
-            // 设置纹理
-        materials[1].mainTexture = texture;         
-            
-            // 设置纹理属性
-            materials[1].mainTextureScale = new Vector2(1, 1);          // 设置缩放为1:1
-            materials[1].mainTextureOffset = new Vector2(0, 0);         // 设置偏移为0
-            
-            // 设置纹理包裹模式为Clamp，防止拉伸
-            texture.wrapMode = TextureWrapMode.Clamp;
-            
-            // 设置过滤模式为点过滤，保持像素锐利度
-            texture.filterMode = FilterMode.Bilinear;
-            
-        // 应用修改后的材质
-        renderer.materials = materials;
-            
-            Debug.Log($"应用纹理到卡片 {tileId} 完成");
+        if (setImageMaterialIndex != -1) {
+            renderer.materials[setImageMaterialIndex].mainTexture = texture;
+            Debug.Log($"应用纹理到卡片 {tileId} 的SetImage材质完成");
         } else {
-            Debug.LogError($"材质数组长度不足: {materials.Length}");
+            Debug.LogError($"未找到SetImage材质，材质列表: {string.Join(", ", System.Array.ConvertAll(renderer.materials, m => m.name))}");
         }
     }
 

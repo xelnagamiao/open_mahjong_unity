@@ -87,7 +87,7 @@ async def broadcast_ask_hand_action(self):
             if current_player.username in self.game_server.username_to_connection:
                 player_conn = self.game_server.username_to_connection[current_player.username]
                 response = Response(
-                    type="broadcast_hand_action",
+                    type="broadcast_hand_action_GB",
                     success=True,
                     message="发牌，并询问手牌操作",
                     deal_tile_info = Ask_hand_action_info(
@@ -130,7 +130,7 @@ async def broadcast_ask_other_action(self):
             if current_player.username in self.game_server.username_to_connection:
                 player_conn = self.game_server.username_to_connection[current_player.username]
                 response = Response(
-                    type="ask_action_chinese",
+                    type="ask_other_action_GB",
                     success=True,
                     message="询问操作",
                     ask_action_info = Ask_other_action_info(
