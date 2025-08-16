@@ -7,22 +7,25 @@ using UnityEngine.SceneManagement;
 
 public class WindowsManager : MonoBehaviour
 {
-    private Camera MainCamera;
-    [Header("Canvas")]
-    [SerializeField] private GameObject gameCanvas;
+    [Header("mainCanvas")]
     [SerializeField] private GameObject mainCanvas;
-    [Header("mainCanvas管理三个窗口")]
-    [SerializeField] private GameObject loginRoot;
-    [SerializeField] private GameObject mainRoot;
-    [SerializeField] private GameObject roomRoot;
-    [Header("roomRoot管理四个子窗口,passwordInput开关通过CreateRoom管理")]
-    [SerializeField] private GameObject roomListPanel;
-    [SerializeField] private GameObject roomPanel;
-    [SerializeField] private GameObject createRoomPanel;
-    [SerializeField] private GameObject passwordInput;
 
+    [Header("mainCanvas管理七个一级窗口")]
+    [SerializeField] private GameObject loginPanel; // 登录窗口
+    [SerializeField] private GameObject mainPanel; // 主界面窗口
+    [SerializeField] private GameObject roomListPanel; // 房间列表窗口
+    [SerializeField] private GameObject roomPanel; // 房间窗口
+    [SerializeField] private GameObject createRoomPanel; // 创建房间窗口
+    [SerializeField] private GameObject gamePanel; // 游戏窗口
+    [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
 
-    public static WindowsManager Instance { get; private set; } // 单例模式 外部只读 内部可写
+    /*
+    windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
+    如果一级窗口例如createRoomPanel有多个创建不同规则的子窗口 从属createRoomPanel窗口本身管理
+    同理 roomListPanel 进入密码房时可调用passwordInputPanel窗口 从属roomListPanel管理
+    */
+
+    public static WindowsManager Instance { get; private set; } // 单例
     
     private void Awake()
     {
@@ -35,12 +38,10 @@ public class WindowsManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
     }
 
-    private void Start()
-    {
-        WindowsInit();
-    }
+
 
     // 切换窗口
     public void SwitchWindow(string targetWindow)
@@ -48,53 +49,60 @@ public class WindowsManager : MonoBehaviour
         Debug.Log($"切换到{targetWindow}窗口");
         switch (targetWindow)
         {
+            // login 登录界面
+            case "login":
+                loginPanel.SetActive(true);
+                mainPanel.SetActive(false);
+                roomListPanel.SetActive(false);
+                roomPanel.SetActive(false);
+                createRoomPanel.SetActive(false);
+                gamePanel.SetActive(false);
+                break;
             // main 主界面 下属的窗口
             case "main": // 关闭登录界面 打开主界面
-                mainRoot.SetActive(true);
-                roomRoot.SetActive(false);
+                loginPanel.SetActive(false);
+                mainPanel.SetActive(true); // 主界面
+                roomListPanel.SetActive(false);
+                roomPanel.SetActive(false);
+                createRoomPanel.SetActive(false);
+                gamePanel.SetActive(false);
                 break;
             // 三个roomroot下属的窗口
             case "roomList": // 打开房间界面 关闭其他界面
-                roomRoot.SetActive(true);  // 房间根
+                loginPanel.SetActive(false);
+                mainPanel.SetActive(false);
                 roomListPanel.SetActive(true); // 房间列表界面
-                createRoomPanel.SetActive(false);
                 roomPanel.SetActive(false);
-                passwordInput.SetActive(false); // 在初次激活roomRoot时关闭密码输入框
+                createRoomPanel.SetActive(false);
+                gamePanel.SetActive(false);
                 break;
             case "room":
-                roomRoot.SetActive(true); // 房间根
+                loginPanel.SetActive(false);
+                mainPanel.SetActive(false);
+                roomListPanel.SetActive(false);
                 roomListPanel.SetActive(false); 
                 createRoomPanel.SetActive(false);
-                roomPanel.SetActive(true); // 房间内部界面
+                roomPanel.SetActive(true); // 房间界面
                 break;
             case "createRoom":
-                roomRoot.SetActive(true); // 房间根
+                loginPanel.SetActive(false);
+                mainPanel.SetActive(false);
+                roomListPanel.SetActive(false);
+                roomPanel.SetActive(false);
                 roomListPanel.SetActive(false); 
                 createRoomPanel.SetActive(true); // 创建房间界面
                 roomPanel.SetActive(false);
                 break;
             // game 游戏界面 下属的窗口
             case "game":
-                gameCanvas.SetActive(true);
-                mainRoot.SetActive(false);
-                roomRoot.SetActive(false);
+                loginPanel.SetActive(false);
+                mainPanel.SetActive(false);
+                roomListPanel.SetActive(false);
+                roomPanel.SetActive(false);
+                createRoomPanel.SetActive(false);
+                gamePanel.SetActive(true); // 游戏界面
                 break;
         }
     }
-
-    // 初始化窗口
-    private void WindowsInit(){
-        loginRoot.SetActive(true);
-        mainRoot.SetActive(false);
-        roomRoot.SetActive(false);
-        gameCanvas.SetActive(false);
-    }
-
-    // 登录完成
-    public void LoginSuccess(){
-        mainRoot.SetActive(true);
-        Destroy(loginRoot);
-    }
-
 }
 

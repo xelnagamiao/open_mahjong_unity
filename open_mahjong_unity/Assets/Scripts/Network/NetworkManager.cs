@@ -4,6 +4,7 @@ using System;
 using System.Threading.Tasks;
 using WebSocketSharp;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 
 
@@ -93,7 +94,7 @@ public class NetworkManager : MonoBehaviour
         {
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
             Debug.Log($"收到服务器消息: {jsonStr}");
-            var response = JsonUtility.FromJson<Response>(jsonStr);
+            var response = JsonConvert.DeserializeObject<Response>(jsonStr);
 
             switch (response.type)
             {
@@ -148,7 +149,7 @@ public class NetworkManager : MonoBehaviour
                         handresponse.remaining_time,
                         handresponse.deal_tiles,
                         handresponse.player_index,
-                        handresponse.remain_tiles_count,
+                        handresponse.remain_tiles,
                         handresponse.action_list
                     );
                     break;
@@ -162,8 +163,8 @@ public class NetworkManager : MonoBehaviour
                     );
                     break;
                 case "do_action_GB":
-                    Debug.Log($"收到执行操作消息: {response.action_info}");
-                    DoActionInfo doresponse = response.action_info;
+                    Debug.Log($"收到执行操作消息: {response.do_action_info}");
+                    DoActionInfo doresponse = response.do_action_info;
                     GameSceneManager.Instance.DoAction(
                         doresponse.action_list,
                         doresponse.action_player,
@@ -205,7 +206,7 @@ public class NetworkManager : MonoBehaviour
                 password = password
             };
             Debug.Log($"发送登录消息: {username}, {password}");
-            websocket.Send(JsonUtility.ToJson(request));
+            websocket.Send(JsonConvert.SerializeObject(request));
         }
         catch (Exception e)
         {
@@ -231,7 +232,7 @@ public class NetworkManager : MonoBehaviour
                 password = config.Password
             };
             Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}");
-            websocket.Send(JsonUtility.ToJson(request));
+            websocket.Send(JsonConvert.SerializeObject(request));
         }
         catch (Exception e)
         {
@@ -248,7 +249,7 @@ public class NetworkManager : MonoBehaviour
                 type = "get_room_list"
             };
             Debug.Log($"发送获取房间列表消息{request.type}");
-            websocket.Send(JsonUtility.ToJson(request));
+            websocket.Send(JsonConvert.SerializeObject(request));
         }
         catch (Exception e)
         {
@@ -265,7 +266,7 @@ public class NetworkManager : MonoBehaviour
             password = password
         };
         Debug.Log($"发送加入房间消息: {roomId}, {password}");
-        websocket.Send(JsonUtility.ToJson(request));
+        websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.5 离开房间方法 LeaveRoom 从RoomPanel发送
     public void LeaveRoom(string roomId)
@@ -275,7 +276,7 @@ public class NetworkManager : MonoBehaviour
             type = "leave_room",
             room_id = roomId
         };
-        websocket.Send(JsonUtility.ToJson(request));
+        websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.6 开始游戏方法 StartGame 从RoomPanel发送
     public void StartGame(string roomId)
@@ -285,7 +286,7 @@ public class NetworkManager : MonoBehaviour
             type = "start_game",
             room_id = roomId
         };
-        websocket.Send(JsonUtility.ToJson(request));
+        websocket.Send(JsonConvert.SerializeObject(request));
     }
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
@@ -297,7 +298,7 @@ public class NetworkManager : MonoBehaviour
             TileId = tileId,
             room_id = roomId
         };
-        websocket.Send(JsonUtility.ToJson(request));
+        websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.8 发送吃碰杠回应
     public void SendAction(string action)
@@ -308,7 +309,7 @@ public class NetworkManager : MonoBehaviour
             room_id = Administrator.Instance.room_id,
             action = action
         };
-        websocket.Send(JsonUtility.ToJson(request));
+        websocket.Send(JsonConvert.SerializeObject(request));
     }
 
 

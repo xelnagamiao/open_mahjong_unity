@@ -90,7 +90,7 @@ async def broadcast_ask_hand_action(self):
                     type="broadcast_hand_action_GB",
                     success=True,
                     message="发牌，并询问手牌操作",
-                    deal_tile_info = Ask_hand_action_info(
+                    ask_hand_action_info = Ask_hand_action_info(
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
                         deal_tiles=0,

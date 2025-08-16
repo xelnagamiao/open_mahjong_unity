@@ -70,7 +70,7 @@ public class BoardCanvas : MonoBehaviour
         }
     }
 
-    public void ShowCurrentPlayer(string currentPlayerIndex,int remain_tiles){
+    public void ShowCurrentPlayer(string currentPlayerIndex){
         // 显示当前玩家
         if (currentPlayerIndex == "self"){
             player_self_current_image.gameObject.SetActive(true);
@@ -96,7 +96,7 @@ public class BoardCanvas : MonoBehaviour
             player_top_current_image.gameObject.SetActive(false);
             player_right_current_image.gameObject.SetActive(true);
         }
-        remiansTilesText.text = $"剩余牌数：{remain_tiles}"; // 设置剩余牌数
+        remiansTilesText.text = $"剩余牌数：{GameSceneManager.Instance.remainTiles}"; // 设置剩余牌数
     }
 
 }

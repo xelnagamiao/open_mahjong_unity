@@ -27,12 +27,6 @@ public class ActionButton : MonoBehaviour
         button.onClick.AddListener(OnClick);
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-
-    }
-
     // 按钮点击事件
     void OnClick()
     {

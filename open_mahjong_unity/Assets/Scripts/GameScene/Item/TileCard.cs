@@ -51,13 +51,21 @@ public class TileCard : MonoBehaviour
     private void OnTileClick()
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
-        // TODO: 添加选中效果或其他交互
+        // 如果切牌在允许操作列表中
         if (GameSceneManager.Instance.allowActionList.Contains("cut")){
-            NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id);
-            string[] action_list = {"cut"};
-            GameSceneManager.Instance.DoAction(action_list,GameSceneManager.Instance.selfIndex,tileId,currentGetTile,null,null,null);
-            Destroy(gameObject);
-        }
+            NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id); // 发送切牌请求
+            string[] action_list = {"cut"}; // 生成切牌操作
+            // 执行切牌操作
+            GameSceneManager.Instance.DoAction(
+                action_list:action_list, // 操作列表
+                action_player:GameSceneManager.Instance.selfIndex, // 自身操作玩家索引
+                cut_tile:tileId, // 切牌id
+                cut_class:currentGetTile, // 切牌类型
+                deal_tile:null, // 摸牌id
+                buhua_tile:null, // 补花id
+                combination_mask:null // 组合牌掩码
+                );
+            }
         else{
             Debug.Log("没有权限出牌");
         }

@@ -7,7 +7,6 @@ public class Administrator : MonoBehaviour
     // 用户信息
     public string Username { get; private set; }
     public string Userkey { get; private set; }
-    public int hand_tiles_count;
     public string room_id;
 
     private void Awake()

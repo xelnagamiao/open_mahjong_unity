@@ -92,20 +92,19 @@ public class GameCanvas : MonoBehaviour
             Destroy(child.gameObject);
         }
         // 实例化手牌 如果当前玩家是自己,则不实例化最后一张牌
-        int cardCount = 0;  // 从0开始计数
+        int cardCount = 1;  // 从1开始计数
         foreach (int tile in handTiles)
         {
-            if (cardCount == Administrator.Instance.hand_tiles_count - 1 && GameSceneManager.Instance.selfIndex == currentPlayerIndex)
+            // 如果卡牌是第十四张,则创建在摸牌区(因为这说明最后一张牌是庄家额外摸的)
+            if (cardCount == 14)
             {
                 GameObject lastCardObj = Instantiate(tileCardPrefab, GetCardsContainer);
                 TileCard lastTileCard = lastCardObj.GetComponent<TileCard>();
                 lastTileCard.SetTile(tile, true);
                 break;
             }
-            // 创建牌物体
+            // 创建牌进入手牌区
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
-            
-            // 设置牌面
             TileCard tileCard = cardObj.GetComponent<TileCard>();
             tileCard.SetTile(tile, false);
             cardCount++;
@@ -114,15 +113,12 @@ public class GameCanvas : MonoBehaviour
     
     // 摸牌 手切区域
     public void GetCard(int tileId){
-        GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer);
-        TileCard tileCard = cardObj.GetComponent<TileCard>();
-        tileCard.SetTile(tileId, false);
+        GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer); // 实例化手牌
+        TileCard tileCard = cardObj.GetComponent<TileCard>(); // 获取手牌组件
+        tileCard.SetTile(tileId, true); // 设置手牌 牌id,是否是刚摸到的牌bool
     }
 
-
-
-
-    // 显示可用行动
+    // 显示可用行动按钮
     public void SetActionButton(string[] action_list){
     for (int i = 0; i < action_list.Length; i++){
         // 用于跟踪吃牌按钮
@@ -190,7 +186,7 @@ public class GameCanvas : MonoBehaviour
             ActionButtonObj.actionTypeList.Add(action_list[i]);
         }
     }
-    if (action_list.Length > 0){ // 添加取消
+    if (action_list.Length > 0 && action_list[0] != "cut"){ // 添加取消
         Debug.Log($"取消");
         ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
         Text buttonText = ActionButtonObj.TextObject;
@@ -313,21 +309,31 @@ public class GameCanvas : MonoBehaviour
     }
 
 
-    public void ClickCutCard(int tileId,bool cut_class){
+    public void RemoveCutCard(int tileId,bool cut_class){
         if (cut_class){ // 摸切有两种可能 手动则卡牌自动消除 超时则需要验证消除
             if (GetCardsContainer.childCount > 0) {
                 GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
                 Destroy(GetCardObj);
             }
         }
-        else{ // 手切则手动找到摸到的牌加入手牌
+        else{ 
+            // 手切则先将摸牌区的单张卡牌加入手牌
             if (GetCardsContainer.childCount > 0) {
             GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
-                int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
+            int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
             Destroy(GetCardObj);
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(GetTileId, false);
+            tileCard.SetTile(GetTileId, false);
+            // 再删除tildId对应的卡牌
+            foreach (Transform child in handCardsContainer){
+                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                if (needToRemoveTileCard.tileId == tileId){
+                    Destroy(child.gameObject);
+                    break;
+                }
+            }
+            ArrangeHandCards();
             }
         }
         // 添加null检查，防止_countdownCoroutine为null时抛出异常

@@ -1,7 +1,7 @@
 using System;
 
 // 5.Response 接收数据类型
-[Serializable]
+
 public class RoomInfo
 {
     public string room_id;
@@ -17,7 +17,6 @@ public class RoomInfo
     public int step_timer;
 }
 
-[Serializable]
 public class Response // 所有后端的返回数据都由Response类接收
 {
     // 消息头
@@ -32,21 +31,19 @@ public class Response // 所有后端的返回数据都由Response类接收
     public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
     public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问摸牌后自己的操作
     public AskOtherActionGBInfo ask_action_info; // 国标游戏中询问切牌后其他家或许有的操作
-    public DoActionInfo action_info; // 国标游戏中执行操作
+    public DoActionInfo do_action_info; // 国标游戏中执行操作
 }
 
-[Serializable]
 public class AskHandActionGBInfo // 询问手牌操作
 {
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余时间
     public int player_index; // 玩家索引
     public int deal_tiles; // 摸牌
-    public int remain_tiles_count; // 剩余牌数 只有摸牌以后牌堆牌数会减少
+    public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
     public int action_tick;
 }
 
-[Serializable]
 public class AskOtherActionGBInfo // 询问切牌后操作
 {
     public string[] action_list; // 操作列表
@@ -55,7 +52,6 @@ public class AskOtherActionGBInfo // 询问切牌后操作
     public int action_tick;
 }
 
-[Serializable]
 public class DoActionInfo // 执行操作
 {
     public string[] action_list;
@@ -68,7 +64,6 @@ public class DoActionInfo // 执行操作
     public int[] combination_mask;  // 数组可以为null
 }
 
-[Serializable]
 public class PlayerInfo // 房间信息中单个玩家信息
 {
     public string username;             // 玩家名
@@ -82,7 +77,6 @@ public class PlayerInfo // 房间信息中单个玩家信息
     public int[] huapai_list;           // 花牌列表
 }
 
-[Serializable]
 public class GameInfo // 游戏开始时传递房间信息
 {
     public int room_id;                 // 房间ID

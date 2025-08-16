@@ -1,6 +1,5 @@
 using System;
 
-[Serializable]
 public class LoginRequest // 登录请求
 {
     public string type;
@@ -8,7 +7,6 @@ public class LoginRequest // 登录请求
     public string password;
 }
 
-[Serializable]
 public class CreateGBRoomRequest // 创建国标房间请求
 {
     public string type;
@@ -21,13 +19,11 @@ public class CreateGBRoomRequest // 创建国标房间请求
     public string password;
 }
 
-[Serializable]
 public class GetRoomListRequest // 获取房间列表请求
 {
     public string type;
 }
 
-[Serializable]
 public class JoinRoomRequest // 加入房间请求
 {
     public string type;
@@ -35,21 +31,18 @@ public class JoinRoomRequest // 加入房间请求
     public string password;
 }
 
-[Serializable]
 public class LeaveRoomRequest // 离开房间请求
 {
     public string type;
     public string room_id;
 }
 
-[Serializable]
 public class StartGameRequest // 开始游戏请求
 {
     public string type;
     public string room_id;
 }
 
-[Serializable]
 public class SendChineseGameTileRequest // 发送国标游戏牌请求
 {
     public string type;
@@ -58,7 +51,6 @@ public class SendChineseGameTileRequest // 发送国标游戏牌请求
     public string room_id;
 }
 
-[Serializable]
 public class SendActionRequest // 发送国标游戏操作请求
 {
     public string type; // 消息类型 "send_action"

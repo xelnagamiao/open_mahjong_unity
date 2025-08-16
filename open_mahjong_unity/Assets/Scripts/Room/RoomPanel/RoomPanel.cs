@@ -64,14 +64,14 @@ public class RoomPanel : MonoBehaviour
             }
         }
 
+        // 如果不满4人 则禁用开始按钮
+        startButton.interactable = roomInfo.player_list.Length == 4;
+
         // 如果玩家1不是自己 则禁用开始按钮
         if (player_1.text != Administrator.Instance.Username)
         {
             startButton.interactable = false;
         }
-
-        // 如果不满4人 则禁用开始按钮
-        startButton.interactable = roomInfo.player_list.Length == 4;
 
         if (roomInfo.room_type == "guobiao") // 显示房间右侧的设置栏
         {
