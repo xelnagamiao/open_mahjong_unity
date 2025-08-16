@@ -95,7 +95,7 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         deal_tiles=0,
                         remain_tiles=len(self.tiles_list),
-                        action_list=self.action_dict[i],
+                        action_list=[],
                         action_tick=self.action_tick
                     )
                 )

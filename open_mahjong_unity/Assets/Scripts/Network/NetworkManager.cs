@@ -143,7 +143,7 @@ public class NetworkManager : MonoBehaviour
                     GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);
                     break;
                 case "broadcast_hand_action_GB":
-                    Debug.Log($"收到发牌消息: {response.ask_hand_action_info}");
+                    Debug.Log($"收到手牌轮操作信息: {response.ask_hand_action_info}");
                     AskHandActionGBInfo handresponse = response.ask_hand_action_info;
                     GameSceneManager.Instance.AskHandAction(
                         handresponse.remaining_time,
@@ -154,8 +154,8 @@ public class NetworkManager : MonoBehaviour
                     );
                     break;
                 case "ask_other_action_GB":
-                    Debug.Log($"收到询问操作消息: {response.ask_action_info}");
-                    AskOtherActionGBInfo askresponse = response.ask_action_info;
+                    Debug.Log($"收到询问弃牌后操作消息: {response.ask_other_action_info}");
+                    AskOtherActionGBInfo askresponse = response.ask_other_action_info;
                     GameSceneManager.Instance.AskOtherAction(
                         askresponse.remaining_time,
                         askresponse.action_list,

@@ -159,18 +159,33 @@ class ChineseGameState:
             # 遍历每个玩家,直到玩家选择pass或没有新的补花行为
             self.game_status = "waiting_buhua"
             for i in range(0,3): # 按索引顺序遍历
+                self.current_player_index = i
                 action_anymore = True
-                while action_anymore: # 如果单个玩家仍可以补花
-                    self.action_dict = check_action_buhua(self, i) # 检测补花
-                    if self.action_dict[i] != []: # 如果可以
+                while action_anymore: # 如果单个玩家可以补花
+                    self.action_dict = check_action_buhua(self, i)
+                    # 检测是否可以补花 如果可以补花
+                    if self.action_dict[i] != []: 
                         await broadcast_ask_hand_action(self) # 广播补花信息
-                        action_anymore = await self.wait_action() # 开始等待
+                        # 如果玩家选择补花 则广播摸牌信息
+                        if await self.wait_action():
+                            self.action_dict = {0:[],1:[],2:[],3:[]}
+                            self.action_dict[i].append("deal")
+                            await broadcast_ask_hand_action(self)
+                        # 如果玩家选择pass 则下一轮循环
+                        else:
+                            action_anymore = False
+                    # 如果不能补花 则下一轮循环
                     else:
                         action_anymore = False
-                self.next_current_index() # 玩家补花完毕或放弃补花 切换到下一个玩家
 
             # 游戏主循环 
             self.game_status = "waiting_hand_action" # 初始行动
+            self.current_player_index = 0 # 初始玩家索引
+            # 手动执行一次waiting_hand_action状态 因为庄家首次出牌不需要摸牌
+            self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
+            self.action_dict[self.current_player_index].remove("deal") # 摸牌后允许切牌
+            await broadcast_ask_hand_action(self) # 广播手牌操作
+            await self.wait_action() # 等待手牌操作
 
             while self.game_status != "END":
                 match self.game_status:
@@ -182,7 +197,6 @@ class ChineseGameState:
                         
                     case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后行为
                         self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
-                        self.action_dict[self.current_player_index].append("cut") # 摸牌后允许切牌
                         await broadcast_ask_hand_action(self) # 广播手牌操作
                         await self.wait_action() # 等待手牌操作
 

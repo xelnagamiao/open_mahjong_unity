@@ -65,7 +65,7 @@ public class GameSceneManager : MonoBehaviour
         // 3.初始化面板
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition);
         // 4.初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
-        GameCanvas.Instance.InitializeHandCards(gameInfo.self_hand_tiles,gameInfo.current_player_index);
+        GameCanvas.Instance.InitializeHandCards(gameInfo.self_hand_tiles);
         // 5.初始化他人手牌区域
         Game3DManager.Instance.InitializeOtherCards(gameInfo.players_info);
         // 6.如果当前玩家是自己,说明自己是庄家,进行摸牌
@@ -76,25 +76,30 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
-    // 询问摸牌手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
+    // 询问摸牌手牌操作 手牌操作包括 摸牌 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time,int deal_tile,int playerIndex,int remain_tiles,string[] action_list){
         string GetCardPlayer = indexToPosition[playerIndex];
         lastCutCardID = deal_tile;
         // 如果行动者是自己
         if (playerIndex == selfIndex){
-            // 1.存储全部可用行动
+            // 存储全部可用行动
             HashSet<string> AllowHandAction = new HashSet<string>(new string[] {"cut", "buhua", "hu", "angang", "jiagang"});
             foreach (string action in action_list){
                 if (AllowHandAction.Contains(action)){
                     allowActionList.Add(action);
                 }
             }
-            // 2.摸牌
-            if (this.remainTiles != remain_tiles){GameCanvas.Instance.GetCard(deal_tile);}
-            // 3.显示可用行动
-            GameCanvas.Instance.SetActionButton(action_list);
-            // 4.显示剩余时间
-            GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
+            // 如果有可用行动
+            if (allowActionList.Count > 0){
+                // 显示可用行动
+                GameCanvas.Instance.SetActionButton(action_list);
+                // 显示剩余时间
+                GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
+            }
+            // 如果有摸牌行动
+            if (action_list.Contains("deal")){
+                GameCanvas.Instance.GetCard(deal_tile);
+            }
         }
         // 如果行动者是他人
         else{
@@ -127,6 +132,7 @@ public class GameSceneManager : MonoBehaviour
     // 执行操作
     public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask) {
         string GetCardPlayer = indexToPosition[action_player];
+        allowActionList = new List<string>{}; // 清空允许操作列表
         foreach (string action in action_list) {
             switch (action) {
                 case "cut": // 切牌
@@ -134,13 +140,21 @@ public class GameSceneManager : MonoBehaviour
                         if (allowActionList.Contains("cut")){
                             selfDiscardslist.Add(cut_tile.Value); // 存储弃牌
                             GameCanvas.Instance.ArrangeHandCards(); // 重新排列手牌
-                            allowActionList = new List<string>{}; // 清空允许操作列表
+                            Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
                         }
                     }
-                    else if (GetCardPlayer == "left"){leftDiscardslist.Add(cut_tile.Value);} // 其他玩家存储弃牌
-                    else if (GetCardPlayer == "top"){topDiscardslist.Add(cut_tile.Value);}
-                    else if (GetCardPlayer == "right"){rightDiscardslist.Add(cut_tile.Value);}
-                    Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
+                    else if (GetCardPlayer == "left"){
+                        leftDiscardslist.Add(cut_tile.Value); // 存储弃牌
+                        Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
+                    } 
+                    else if (GetCardPlayer == "top"){
+                        topDiscardslist.Add(cut_tile.Value); // 存储弃牌
+                        Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
+                    }
+                    else if (GetCardPlayer == "right"){
+                        rightDiscardslist.Add(cut_tile.Value); // 存储弃牌
+                        Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
+                    }
                     break;
                 case "buhua":
                     int buhua_tile_id = buhua_tile.Value;
@@ -164,6 +178,10 @@ public class GameSceneManager : MonoBehaviour
                     break;
             }
         }
+        // 如果行动者是自己 则将摸牌区的卡牌加入手牌
+        // if (GetCardPlayer == "self"){
+            // GameCanvas.Instance.MoveAllGetCardsToHandCards();
+        //}
     }
 
     private void InitializeSetInfo(GameInfo gameInfo){

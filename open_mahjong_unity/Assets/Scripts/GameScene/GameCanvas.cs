@@ -85,7 +85,7 @@ public class GameCanvas : MonoBehaviour
     }
 
     // 初始化手牌区域 
-    public void InitializeHandCards(int[] handTiles, int currentPlayerIndex){
+    public void InitializeHandCards(int[] handTiles){
         // 清空现有手牌
         foreach (Transform child in handCardsContainer)
         {
@@ -95,14 +95,8 @@ public class GameCanvas : MonoBehaviour
         int cardCount = 1;  // 从1开始计数
         foreach (int tile in handTiles)
         {
-            // 如果卡牌是第十四张,则创建在摸牌区(因为这说明最后一张牌是庄家额外摸的)
-            if (cardCount == 14)
-            {
-                GameObject lastCardObj = Instantiate(tileCardPrefab, GetCardsContainer);
-                TileCard lastTileCard = lastCardObj.GetComponent<TileCard>();
-                lastTileCard.SetTile(tile, true);
-                break;
-            }
+            // 如果卡牌是第十四张,则不创建,因为手牌应当创建在摸牌区
+            if (cardCount == 14){break;}
             // 创建牌进入手牌区
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
@@ -317,14 +311,7 @@ public class GameCanvas : MonoBehaviour
             }
         }
         else{ 
-            // 手切则先将摸牌区的单张卡牌加入手牌
-            if (GetCardsContainer.childCount > 0) {
-            GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
-            int GetTileId = GetCardObj.GetComponent<TileCard>().tileId;
-            Destroy(GetCardObj);
-            GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
-            TileCard tileCard = cardObj.GetComponent<TileCard>();
-            tileCard.SetTile(GetTileId, false);
+            MoveAllGetCardsToHandCards();
             // 再删除tildId对应的卡牌
             foreach (Transform child in handCardsContainer){
                 TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
@@ -334,7 +321,6 @@ public class GameCanvas : MonoBehaviour
                 }
             }
             ArrangeHandCards();
-            }
         }
         // 添加null检查，防止_countdownCoroutine为null时抛出异常
         if (_countdownCoroutine != null) {
@@ -344,7 +330,29 @@ public class GameCanvas : MonoBehaviour
         remianTimeText.text = $""; // 隐藏倒计时文本
     }
 
-
+public void MoveAllGetCardsToHandCards(){
+        // 遍历GetCardsContainer中的所有子元素
+        while (GetCardsContainer.childCount > 0) {
+            // 获取第一个子元素
+            Transform child = GetCardsContainer.GetChild(0);
+            GameObject getCardObj = child.gameObject;
+            
+            // 获取卡牌信息
+            TileCard getTileCard = getCardObj.GetComponent<TileCard>();
+            int tileId = getTileCard.tileId;
+            
+            // 在HandCardsContainer中创建新的手牌
+            GameObject handCardObj = Instantiate(tileCardPrefab, handCardsContainer);
+            TileCard handTileCard = handCardObj.GetComponent<TileCard>();
+            handTileCard.SetTile(tileId, false);
+            
+            // 销毁GetCardsContainer中的原始卡牌
+            Destroy(getCardObj);
+        }
+        
+        // 重新排列手牌
+        ArrangeHandCards();
+    }
 
 
     public void ClearActionContenter(){

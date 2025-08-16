@@ -79,4 +79,5 @@ def check_action_hand_action(self,player_index):
             if jiagang_index in self.player_list[player_index].hand_tiles:
                 temp_action_dict[player_index].append("jiagang")
     temp_action_dict[player_index].append("cut")
+    temp_action_dict[player_index].append("deal")
     return temp_action_dict

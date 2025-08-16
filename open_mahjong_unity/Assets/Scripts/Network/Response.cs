@@ -30,7 +30,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     public RoomInfo room_info; // 返回单个房间信息
     public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
     public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问摸牌后自己的操作
-    public AskOtherActionGBInfo ask_action_info; // 国标游戏中询问切牌后其他家或许有的操作
+    public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问切牌后其他家或许有的操作
     public DoActionInfo do_action_info; // 国标游戏中执行操作
 }
 

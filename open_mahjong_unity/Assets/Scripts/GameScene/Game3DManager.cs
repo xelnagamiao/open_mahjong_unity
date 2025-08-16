@@ -114,14 +114,17 @@ public class Game3DManager : MonoBehaviour
         else if (GetCardPlayer == "left"){
             int buhuaCount = GameSceneManager.Instance.leftHuapaiList.Count;
             DisCardAnimation(deal_tiles,leftBuhuaPosition,new Vector3(0,0,-1),new Vector3(-1,0,0),"left",buhuaCount);
+            removeOtherHandCards(leftCardsPosition,false);
         }
         else if (GetCardPlayer == "top"){
             int buhuaCount = GameSceneManager.Instance.topHuapaiList.Count;
             DisCardAnimation(deal_tiles,topBuhuaPosition,new Vector3(-1,0,0),new Vector3(0,0,1),"top",buhuaCount);
+            removeOtherHandCards(topCardsPosition,false);
         }
         else if (GetCardPlayer == "right"){
             int buhuaCount = GameSceneManager.Instance.rightHuapaiList.Count;
             DisCardAnimation(deal_tiles,rightBuhuaPosition,new Vector3(0,0,1),new Vector3(1,0,0),"right",buhuaCount);
+            removeOtherHandCards(rightCardsPosition,false);
         }
     }
 
@@ -158,15 +161,15 @@ public class Game3DManager : MonoBehaviour
             }
         else if (playerIndex == "left"){
             DisCardAnimation(tileId,rightDiscardsPosition,new Vector3(0,0,1),new Vector3(1,0,0),"right",GameSceneManager.Instance.rightDiscardslist.Count);
-            removeOtherHandCards(rightCardsPosition,cut_class); // 如果是他家操作则移除他家手牌
+            removeOtherHandCards(leftCardsPosition,cut_class); // 如果是他家操作则移除他家手牌
             }
         else if (playerIndex == "top"){
             DisCardAnimation(tileId,leftDiscardsPosition,new Vector3(0,0,-1),new Vector3(-1,0,0),"left",GameSceneManager.Instance.leftDiscardslist.Count);
-            removeOtherHandCards(leftCardsPosition,cut_class);
+            removeOtherHandCards(topCardsPosition,cut_class);
             }
         else if (playerIndex == "right"){
             DisCardAnimation(tileId,topDiscardsPosition,new Vector3(-1,0,0),new Vector3(0,0,1),"top",GameSceneManager.Instance.topDiscardslist.Count);
-            removeOtherHandCards(topCardsPosition,cut_class);
+            removeOtherHandCards(rightCardsPosition,cut_class);
             }
         }
     
