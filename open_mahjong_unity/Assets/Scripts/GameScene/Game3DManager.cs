@@ -128,6 +128,7 @@ public class Game3DManager : MonoBehaviour
         }
     }
 
+    // 在其他玩家手牌右侧空一格的位置添加一张3Dcard 标识摸到的牌
     public void GetCard3D(string playerIndex){
         // 如果玩家是其他玩家，则将牌添加到他人手牌中
         if (playerIndex == "left"){

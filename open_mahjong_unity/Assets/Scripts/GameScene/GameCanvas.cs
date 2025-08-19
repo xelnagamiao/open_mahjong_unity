@@ -103,6 +103,7 @@ public class GameCanvas : MonoBehaviour
             tileCard.SetTile(tile, false);
             cardCount++;
         }
+        ArrangeHandCards();
     }
     
     // 摸牌 手切区域
@@ -113,74 +114,74 @@ public class GameCanvas : MonoBehaviour
     }
 
     // 显示可用行动按钮
-    public void SetActionButton(string[] action_list){
-    for (int i = 0; i < action_list.Length; i++){
-        // 用于跟踪吃牌按钮
-        ActionButton chiButton = null;
-        Debug.Log($"询问操作: {action_list[i]}");
-        if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
-            if (chiButton == null)
-            {
-                // 第一次遇到吃牌选项时创建按钮
-                chiButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = chiButton.TextObject;
-                buttonText.text = "吃";
-                Debug.Log($"创建吃牌按钮: {chiButton}");
+    public void SetActionButton(List<string> action_list){
+        for (int i = 0; i < action_list.Count; i++){
+            // 用于跟踪吃牌按钮
+            ActionButton chiButton = null;
+            Debug.Log($"询问操作: {action_list[i]}");
+            if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
+                if (chiButton == null)
+                {
+                    // 第一次遇到吃牌选项时创建按钮
+                    chiButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                    Text buttonText = chiButton.TextObject;
+                    buttonText.text = "吃";
+                    Debug.Log($"创建吃牌按钮: {chiButton}");
+                }
+                // 将当前的吃牌选项添加到已存在的吃牌按钮中
+                chiButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"添加吃牌选项: {action_list[i]}");
             }
-            // 将当前的吃牌选项添加到已存在的吃牌按钮中
-            chiButton.actionTypeList.Add(action_list[i]);
-            Debug.Log($"添加吃牌选项: {action_list[i]}");
+            else if (action_list[i] == "peng"){
+                Debug.Log($"碰牌");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer); // 实例化按钮
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "碰"; // 设置按钮文本
+                Debug.Log($"碰牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]); // 添加按钮对应的行动
+            }
+            else if (action_list[i] == "gang"){
+                Debug.Log($"杠牌");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "杠";
+                Debug.Log($"杠牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "hu"){
+                Debug.Log($"胡牌");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "胡";
+                Debug.Log($"胡牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "buhua"){
+                Debug.Log($"补花");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "补花";
+                Debug.Log($"补花按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            } 
+            else if (action_list[i] == "angang"){
+                Debug.Log($"暗杠");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "暗杠";
+                Debug.Log($"暗杠按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "jiagang"){
+                Debug.Log($"加杠");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "加杠";
+                Debug.Log($"加杠按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
         }
-        else if (action_list[i] == "peng"){
-            Debug.Log($"碰牌");
-            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer); // 实例化按钮
-            Text buttonText = ActionButtonObj.TextObject;
-            buttonText.text = "碰"; // 设置按钮文本
-            Debug.Log($"碰牌按钮: {ActionButtonObj}");
-            ActionButtonObj.actionTypeList.Add(action_list[i]); // 添加按钮对应的行动
-        }
-        else if (action_list[i] == "gang"){
-            Debug.Log($"杠牌");
-            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-            Text buttonText = ActionButtonObj.TextObject;
-            buttonText.text = "杠";
-            Debug.Log($"杠牌按钮: {ActionButtonObj}");
-            ActionButtonObj.actionTypeList.Add(action_list[i]);
-        }
-        else if (action_list[i] == "hu"){
-            Debug.Log($"胡牌");
-            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-            Text buttonText = ActionButtonObj.TextObject;
-            buttonText.text = "胡";
-            Debug.Log($"胡牌按钮: {ActionButtonObj}");
-            ActionButtonObj.actionTypeList.Add(action_list[i]);
-        }
-        else if (action_list[i] == "buhua"){
-            Debug.Log($"补花");
-            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-            Text buttonText = ActionButtonObj.TextObject;
-            buttonText.text = "补花";
-            Debug.Log($"补花按钮: {ActionButtonObj}");
-            ActionButtonObj.actionTypeList.Add(action_list[i]);
-        } 
-        else if (action_list[i] == "angang"){
-            Debug.Log($"暗杠");
-            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-            Text buttonText = ActionButtonObj.TextObject;
-            buttonText.text = "暗杠";
-            Debug.Log($"暗杠按钮: {ActionButtonObj}");
-            ActionButtonObj.actionTypeList.Add(action_list[i]);
-        }
-        else if (action_list[i] == "jiagang"){
-            Debug.Log($"加杠");
-            ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-            Text buttonText = ActionButtonObj.TextObject;
-            buttonText.text = "加杠";
-            Debug.Log($"加杠按钮: {ActionButtonObj}");
-            ActionButtonObj.actionTypeList.Add(action_list[i]);
-        }
-    }
-    if (action_list.Length > 0 && action_list[0] != "cut"){ // 添加取消
+    if (action_list.Count > 0 && action_list[0] != "cut"){ // 添加取消
         Debug.Log($"取消");
         ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
         Text buttonText = ActionButtonObj.TextObject;
@@ -304,50 +305,74 @@ public class GameCanvas : MonoBehaviour
 
 
     public void RemoveCutCard(int tileId,bool cut_class){
+        // 摸切则直接删除摸牌区卡牌
         if (cut_class){ // 摸切有两种可能 手动则卡牌自动消除 超时则需要验证消除
             if (GetCardsContainer.childCount > 0) {
                 GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
                 Destroy(GetCardObj);
             }
         }
-        else{ 
-            MoveAllGetCardsToHandCards();
-            // 再删除tildId对应的卡牌
+        // 手切或者补花 则先在手牌区删除tildId对应的卡牌 如果没找到则删除摸牌区卡牌
+        else{
+            // 删除手牌区tildId对应的卡牌
             foreach (Transform child in handCardsContainer){
                 TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
                 if (needToRemoveTileCard.tileId == tileId){
                     Destroy(child.gameObject);
-                    break;
+                    return;
                 }
             }
+            // 删除摸牌区tildId对应的卡牌
+            foreach (Transform child in GetCardsContainer){
+                TileCard tileCard = child.GetComponent<TileCard>();
+                if (tileCard.tileId == tileId){
+                    Destroy(child.gameObject);
+                    return;
+                }
+            }
+            // 重新排列手牌
             ArrangeHandCards();
         }
-        // 添加null检查，防止_countdownCoroutine为null时抛出异常
-        if (_countdownCoroutine != null) {
-            StopCoroutine(_countdownCoroutine);
-            _countdownCoroutine = null; // 设置为null以避免重复停止
-        }
-        remianTimeText.text = $""; // 隐藏倒计时文本
     }
 
-public void MoveAllGetCardsToHandCards(){
-        // 遍历GetCardsContainer中的所有子元素
-        while (GetCardsContainer.childCount > 0) {
-            // 获取第一个子元素
-            Transform child = GetCardsContainer.GetChild(0);
+    public void MoveAllGetCardsToHandCards(){
+        // 使用协程跳过一帧执行，确保Destroy操作完全完成
+        StartCoroutine(MoveAllGetCardsToHandCardsCoroutine());
+    }
+
+    private IEnumerator MoveAllGetCardsToHandCardsCoroutine(){
+        // 跳过一帧，等待Destroy操作完成
+        yield return null;
+        
+        // 先收集所有需要移动的卡牌信息，避免在循环中直接操作容器
+        List<int> tileIdsToMove = new List<int>();
+        List<GameObject> cardsToDestroy = new List<GameObject>();
+        
+        // 收集所有卡牌信息
+        for (int i = 0; i < GetCardsContainer.childCount; i++) {
+            Transform child = GetCardsContainer.GetChild(i);
             GameObject getCardObj = child.gameObject;
             
             // 获取卡牌信息
             TileCard getTileCard = getCardObj.GetComponent<TileCard>();
-            int tileId = getTileCard.tileId;
-            
-            // 在HandCardsContainer中创建新的手牌
+            if (getTileCard != null) {
+                tileIdsToMove.Add(getTileCard.tileId);
+                cardsToDestroy.Add(getCardObj);
+            }
+        }
+        
+        // 在HandCardsContainer中创建新的手牌
+        foreach (int tileId in tileIdsToMove) {
             GameObject handCardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard handTileCard = handCardObj.GetComponent<TileCard>();
             handTileCard.SetTile(tileId, false);
-            
-            // 销毁GetCardsContainer中的原始卡牌
-            Destroy(getCardObj);
+        }
+        
+        // 销毁GetCardsContainer中的原始卡牌
+        foreach (GameObject cardToDestroy in cardsToDestroy) {
+            if (cardToDestroy != null) {
+                Destroy(cardToDestroy);
+            }
         }
         
         // 重新排列手牌
@@ -404,6 +429,7 @@ public void MoveAllGetCardsToHandCards(){
     private IEnumerator CountdownTimer(){
         // 使用WaitForSeconds缓存，提高性能
         WaitForSeconds oneSecondWait = new WaitForSeconds(1.0f);
+        WaitForSeconds flashWait = new WaitForSeconds(0.05f);
         
         while (_currentCutTime > 0 || _currentRemainingTime > 0)
         {
@@ -430,46 +456,52 @@ public void MoveAllGetCardsToHandCards(){
             if (_currentRemainingTime <= 5 && _currentCutTime <= 0)
             {
                 remianTimeText.color = Color.red; // 时间不多时显示红色
+                
+                // 执行闪烁效果（使用安全的循环方式）
+                yield return StartCoroutine(FlashWarningEffect());
             }
             else
             {
                 remianTimeText.color = Color.white; // 正常时间显示白色
             }
+            
             if (_currentRemainingTime == 0){
                 remianTimeText.text = $""; // 如果剩余时间为0，则不显示剩余时间
-            }
-            
-            // 可以添加时间快要结束时的警告效果
-            if (_currentRemainingTime <= 5 && _currentCutTime <= 0)
-            {
-                // 检查是否已经在闪烁
-                if (remianTimeText.GetComponent<CanvasGroup>()?.alpha >= 1)
-                {
-                    CanvasGroup canvasGroup = remianTimeText.gameObject.GetComponent<CanvasGroup>();
-                    if (canvasGroup == null)
-                        canvasGroup = remianTimeText.gameObject.AddComponent<CanvasGroup>();
-                    
-                    // 闪烁3次
-                    for (int i = 0; i < 3; i++)
-                    {
-                        // 渐隐
-                        for (float alpha = 1f; alpha >= 0.3f; alpha -= 0.1f)
-                        {
-                            canvasGroup.alpha = alpha;
-                            yield return new WaitForSeconds(0.05f);
-                        }
-                        
-                        // 渐显
-                        for (float alpha = 0.3f; alpha <= 1f; alpha += 0.1f)
-                        {
-                            canvasGroup.alpha = alpha;
-                            yield return new WaitForSeconds(0.05f);
-                        }
-                    }
-                }
+                break; // 直接退出循环
             }
         }
         Debug.Log("倒计时结束！");
+    }
+
+    // 分离闪烁效果到独立的协程，避免死循环
+    private IEnumerator FlashWarningEffect()
+    {
+        CanvasGroup canvasGroup = remianTimeText.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+            canvasGroup = remianTimeText.gameObject.AddComponent<CanvasGroup>();
+        
+        // 闪烁3次，使用整数循环避免浮点数精度问题
+        for (int flashCount = 0; flashCount < 3; flashCount++)
+        {
+            // 渐隐：使用整数步数，避免浮点数精度问题
+            for (int step = 0; step <= 7; step++) // 7步从1.0到0.3
+            {
+                float alpha = 1.0f - (step * 0.1f);
+                canvasGroup.alpha = alpha;
+                yield return new WaitForSeconds(0.05f);
+            }
+            
+            // 渐显：使用整数步数，避免浮点数精度问题
+            for (int step = 0; step <= 7; step++) // 7步从0.3到1.0
+            {
+                float alpha = 0.3f + (step * 0.1f);
+                canvasGroup.alpha = alpha;
+                yield return new WaitForSeconds(0.05f);
+            }
+        }
+        
+        // 确保最终透明度为1
+        canvasGroup.alpha = 1f;
     }
 
 
@@ -479,6 +511,7 @@ public void MoveAllGetCardsToHandCards(){
             _countdownCoroutine = null; // 设置为null以避免重复停止
         }
         remianTimeText.text = $""; // 隐藏倒计时文本
+        Debug.Log("停止倒计时,删除所有操作按钮");
         ClearActionContenter();
     }
 }

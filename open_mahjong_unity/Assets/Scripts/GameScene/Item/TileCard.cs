@@ -65,6 +65,8 @@ public class TileCard : MonoBehaviour
                 buhua_tile:null, // 补花id
                 combination_mask:null // 组合牌掩码
                 );
+            // 停止计时器
+            GameCanvas.Instance.StopTimeRunning();
             }
         else{
             Debug.Log("没有权限出牌");

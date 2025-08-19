@@ -83,16 +83,16 @@ public class GameSceneManager : MonoBehaviour
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
-            HashSet<string> AllowHandAction = new HashSet<string>(new string[] {"cut", "buhua", "hu", "angang", "jiagang"});
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu", "angang", "jiagang"};
             foreach (string action in action_list){
-                if (AllowHandAction.Contains(action)){
+                if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);
                 }
             }
             // 如果有可用行动
             if (allowActionList.Count > 0){
                 // 显示可用行动
-                GameCanvas.Instance.SetActionButton(action_list);
+                GameCanvas.Instance.SetActionButton(allowActionList);
                 // 显示剩余时间
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             }
@@ -103,7 +103,7 @@ public class GameSceneManager : MonoBehaviour
         }
         // 如果行动者是他人
         else{
-            if (this.remainTiles != remain_tiles){
+            if (action_list.Contains("deal")){
                 Game3DManager.Instance.GetCard3D(GetCardPlayer);}
         }
         // 显示行动者
@@ -115,14 +115,14 @@ public class GameSceneManager : MonoBehaviour
         // 如果列表中有服务器提供的可用操作，则显示倒计时
         if (action_list.Length > 0){
             // 1.存储全部可用行动
-            HashSet<string> AllowHandAction = new HashSet<string>(new string[] {"chi_left", "chi_mid", "chi_right", "peng", "gang","hu"});
+            string[] AllowOtherActionCheck = new string[] {"chi_left", "chi_mid", "chi_right", "peng", "gang","hu"};
             foreach (string action in action_list){
-                if (AllowHandAction.Contains(action)){
+                if (AllowOtherActionCheck.Contains(action)){
                     allowActionList.Add(action);
                 }
             }
             // 2.显示可用行动
-            GameCanvas.Instance.SetActionButton(action_list);
+            GameCanvas.Instance.SetActionButton(allowActionList);
             // 3.显示剩余时间
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
         }
@@ -132,15 +132,19 @@ public class GameSceneManager : MonoBehaviour
     // 执行操作
     public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask) {
         string GetCardPlayer = indexToPosition[action_player];
-        allowActionList = new List<string>{}; // 清空允许操作列表
         foreach (string action in action_list) {
-            switch (action) {
+            Debug.Log($"执行DoAction操作: {action}");
+            switch (action) { // action_list 实际上只会包含一个操作
                 case "cut": // 切牌
                     if (GetCardPlayer == "self"){
+                        Debug.Log($"是自己");
                         if (allowActionList.Contains("cut")){
                             selfDiscardslist.Add(cut_tile.Value); // 存储弃牌
+                            Debug.Log($"重新排列手牌");
                             GameCanvas.Instance.ArrangeHandCards(); // 重新排列手牌
+                            Debug.Log($"生成3D切牌");
                             Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
+                            GameCanvas.Instance.RemoveCutCard(cut_tile.Value,false); // 删除切牌
                         }
                     }
                     else if (GetCardPlayer == "left"){
@@ -160,7 +164,7 @@ public class GameSceneManager : MonoBehaviour
                     int buhua_tile_id = buhua_tile.Value;
                     if (GetCardPlayer == "self"){
                         selfHuapaiList.Add(buhua_tile_id);
-                        GameCanvas.Instance.RemoveCutCard(buhua_tile_id,false); // 补花手切
+                        GameCanvas.Instance.RemoveCutCard(buhua_tile_id,false); // 删除补花牌
                     }
                     else if (GetCardPlayer == "left"){leftHuapaiList.Add(buhua_tile_id);}
                     else if (GetCardPlayer == "top"){topHuapaiList.Add(buhua_tile_id);}
@@ -178,10 +182,18 @@ public class GameSceneManager : MonoBehaviour
                     break;
             }
         }
-        // 如果行动者是自己 则将摸牌区的卡牌加入手牌
-        // if (GetCardPlayer == "self"){
-            // GameCanvas.Instance.MoveAllGetCardsToHandCards();
-        //}
+        // 行动终止清理
+        if (GetCardPlayer == "self"){
+            Debug.Log($"行动终止清理");
+            // 将摸牌区的卡牌加入手牌
+            if (allowActionList.Count > 0){
+                GameCanvas.Instance.MoveAllGetCardsToHandCards();
+            }
+            // 停止计时器
+            GameCanvas.Instance.StopTimeRunning();
+            // 清空允许操作列表
+            allowActionList = new List<string>{}; 
+        }
     }
 
     private void InitializeSetInfo(GameInfo gameInfo){

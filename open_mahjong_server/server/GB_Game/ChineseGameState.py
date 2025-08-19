@@ -68,7 +68,7 @@ class ChineseGameState:
         "hu": 3, "peng": 2, "gang": 2, 
         "chi_left": 1, "chi_mid": 1, "chi_right": 1, 
         "pass": 0,"buhua":0,"cut":0,
-        "angang":0,"jiagang":0}
+        "angang":0,"jiagang":0,"deal":0}
 
     
 
@@ -158,7 +158,7 @@ class ChineseGameState:
             
             # 遍历每个玩家,直到玩家选择pass或没有新的补花行为
             self.game_status = "waiting_buhua"
-            for i in range(0,3): # 按索引顺序遍历
+            for i in range(0,4): # 按索引顺序遍历
                 self.current_player_index = i
                 action_anymore = True
                 while action_anymore: # 如果单个玩家可以补花
@@ -166,11 +166,12 @@ class ChineseGameState:
                     # 检测是否可以补花 如果可以补花
                     if self.action_dict[i] != []: 
                         await broadcast_ask_hand_action(self) # 广播补花信息
-                        # 如果玩家选择补花 则广播摸牌信息
+                        # 如果玩家选择补花 则广播一次摸牌信息
                         if await self.wait_action():
-                            self.action_dict = {0:[],1:[],2:[],3:[]}
-                            self.action_dict[i].append("deal")
+                            # deal 操作需要广播给所有玩家 因为deal操作是摸牌操作 需要让所有玩家都知道其他人摸牌了
+                            self.action_dict = {0:["deal"],1:["deal"],2:["deal"],3:["deal"]}
                             await broadcast_ask_hand_action(self)
+                            self.action_dict = {0:[],1:[],2:[],3:[]}
                         # 如果玩家选择pass 则下一轮循环
                         else:
                             action_anymore = False
@@ -183,7 +184,9 @@ class ChineseGameState:
             self.current_player_index = 0 # 初始玩家索引
             # 手动执行一次waiting_hand_action状态 因为庄家首次出牌不需要摸牌
             self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
-            self.action_dict[self.current_player_index].remove("deal") # 摸牌后允许切牌
+            # 第一次不发牌
+            for i in self.action_dict:
+                self.action_dict[i].remove("deal")
             await broadcast_ask_hand_action(self) # 广播手牌操作
             await self.wait_action() # 等待手牌操作
 
@@ -267,9 +270,11 @@ class ChineseGameState:
         # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
         for player_index, action_list in self.action_dict.items():
             if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
-                self.action_dict[player_index].append("pass") # 在玩家对应的操作列表中添加pass 这样玩家可以点取消 [cut,pass]
                 waiting_players_list.append(player_index)
                 self.action_events[player_index].clear()
+                # 如果是吃牌以外操作 添加pass [chi,pass]
+                if len(action_list) >= 2 or "cut" not in action_list:
+                    self.action_dict[player_index].append("pass")
 
         # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
         player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)

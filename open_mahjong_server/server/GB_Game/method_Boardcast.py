@@ -54,7 +54,7 @@ async def broadcast_game_start(self):
                 )
                 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 发送游戏开始信息")
+                print(f"已向玩家 {current_player.username} 发送游戏开始信息{response.dict(exclude_none=True)}")
         except Exception as e:
             print(f"向玩家 {current_player.username} 发送消息失败: {e}")
 
@@ -81,7 +81,7 @@ async def broadcast_ask_hand_action(self):
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播手牌操作信息")
+                print(f"已向玩家 {current_player.username} 广播手牌操作信息{response.dict(exclude_none=True)}")
         else:
             # 向其余玩家发送通用消息
             if current_player.username in self.game_server.username_to_connection:
@@ -95,12 +95,12 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         deal_tiles=0,
                         remain_tiles=len(self.tiles_list),
-                        action_list=[],
+                        action_list=self.action_dict[i],
                         action_tick=self.action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播手牌操作信息")
+                print(f"已向玩家 {current_player.username} 广播手牌操作信息{response.dict(exclude_none=True)}")
 
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
@@ -124,7 +124,7 @@ async def broadcast_ask_other_action(self):
                 )
                 print(response)
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播询问操作信息")
+                print(f"已向玩家 {current_player.username} 广播询问操作信息{response.dict(exclude_none=True)}")
         else:
             # 发送通用信息
             if current_player.username in self.game_server.username_to_connection:
@@ -141,7 +141,7 @@ async def broadcast_ask_other_action(self):
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播询问操作信息")
+                print(f"已向玩家 {current_player.username} 广播询问操作信息{response.dict(exclude_none=True)}")
 
 # 广播操作
 async def broadcast_do_action(
@@ -188,6 +188,6 @@ async def broadcast_do_action(
                 do_action_info=do_action_info
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            print(f"已向玩家 {current_player.username} 广播操作信息")
+            print(f"已向玩家 {current_player.username} 广播操作信息{response.dict(exclude_none=True)}")
 
 # 建立一个data列表 传参 [jiagang,dealcard], # 各种参数 然后按传参的数量和变量依次生成data列表，最后由前端统一解析。

@@ -79,5 +79,8 @@ def check_action_hand_action(self,player_index):
             if jiagang_index in self.player_list[player_index].hand_tiles:
                 temp_action_dict[player_index].append("jiagang")
     temp_action_dict[player_index].append("cut")
-    temp_action_dict[player_index].append("deal")
+    # 给每个玩家广播这包含了一个摸牌行动
+    # deal 操作需要广播给所有玩家 因为deal操作是摸牌操作 需要让所有玩家都知道其他人摸牌了
+    for i in temp_action_dict:
+        temp_action_dict[i].append("deal")
     return temp_action_dict
