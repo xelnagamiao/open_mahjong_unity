@@ -1,7 +1,9 @@
 from typing import Dict, Any, Optional
 from room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
 from response import Response
-from GB_Game.ChineseGameState import ChineseGameState
+from open_mahjong_server.server.GB_Game.GameState_GB import ChineseGameState
+from open_mahjong_server.server.GB_Game.Hepai_Check_GB import Chinese_Hepai_Check
+from open_mahjong_server.server.GB_Game.Tingpai_Check_GB import Chinese_Tingpai_Check
 import json
 import asyncio
 
@@ -18,6 +20,9 @@ class RoomManager:
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator
         }
+        # 不同规则挂载的游戏验证器
+        self.Chinese_Hepai_Check = Chinese_Hepai_Check()
+        self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
         # 房间游戏状态
         self.room_game_states: Dict[str, ChineseGameState] = {}
 

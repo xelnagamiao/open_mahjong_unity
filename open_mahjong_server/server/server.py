@@ -7,7 +7,7 @@ import mysql.connector
 from mysql.connector import Error
 import asyncio
 from response import Response
-from GB_Game.ChineseGameState import ChineseGameState
+from GB_Game.GameState_GB import ChineseGameState
 from room_manager import RoomManager
 
 import secrets,hashlib

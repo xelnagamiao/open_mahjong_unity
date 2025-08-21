@@ -122,7 +122,6 @@ async def broadcast_ask_other_action(self):
                         action_tick=self.action_tick
                     )
                 )
-                print(response)
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 print(f"已向玩家 {current_player.username} 广播询问操作信息{response.dict(exclude_none=True)}")
         else:

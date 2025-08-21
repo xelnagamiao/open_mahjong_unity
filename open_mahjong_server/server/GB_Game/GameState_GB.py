@@ -1,10 +1,7 @@
 import random
 import asyncio
-from typing import Dict, Optional, List
-from response import GameInfo, Response, Ask_hand_action_info,Ask_other_action_info,Do_action_info
-import time  # 直接导入整个模块
-from .Chinese_Tingpai_Check import Chinese_Tingpai_Check
-from .Chinese_Hepai_Check import Chinese_Hepai_Check
+from typing import Dict, List
+import time
 from .method_Action_Check import check_action_after_cut,check_action_after_jiagang,check_action_buhua,check_action_hand_action
 from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action
 
@@ -26,7 +23,8 @@ class ChinesePlayer:
         self.score = 0                                # 分数
         self.remaining_time = remaining_time          # 剩余时间 （局时）
         self.player_index = 0                         # 玩家索引 东南西北 0 1 2 3
-        self.waiting_tiles = []                       # 听牌
+        self.waiting_tiles = {}                       # 听牌
+        self.result_hepai = []                        # 和牌结果
         
 
     def get_tile(self, tiles_list):
@@ -38,8 +36,8 @@ class ChineseGameState:
     def __init__(self, game_server, room_data: dict):
         self.game_server = game_server # 游戏服务器
         self.player_list: List[ChinesePlayer] = [] # 玩家列表 包含chinesePlayer类
-        self.hepai_check = Chinese_Hepai_Check()
-        self.tingpai_check = Chinese_Tingpai_Check()
+        self.Chinese_Hepai_Check = self.game_server.room_manager.Chinese_Hepai_Check
+        self.Chinese_Tingpai_Check = self.game_server.room_manager.Chinese_Tingpai_Check
         for player in room_data["player_list"]:
             self.player_list.append(ChinesePlayer(player,[],room_data["round_timer"]))
 
@@ -54,8 +52,7 @@ class ChineseGameState:
         self.random_seed = 0 # 随机种子
         self.game_status = "waiting"  # waiting, playing, finished
         self.action_tick = 0 # 操作帧
-        self.current_round = 0 # 目前局数
-        self.temp_variable = [] # 保存岭上 抢杠等特别变量
+        self.current_round = 1 # 目前小局数 (max_round * 4)
 
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
@@ -148,11 +145,12 @@ class ChineseGameState:
         # 根据打乱的玩家顺序设置玩家索引
         for index, player in enumerate(self.player_list):
             player.player_index = index
-        self.init_tiles() # 初始化牌山
-        self.init_deal_tiles() # 初始化手牌
 
         # 游戏主循环
-        while self.current_round <= self.max_round:
+        while self.current_round <= self.max_round * 4:
+
+            self.init_tiles() # 初始化牌山
+            self.init_deal_tiles() # 初始化手牌
             # 广播游戏开始
             await broadcast_game_start(self)
             
@@ -179,11 +177,11 @@ class ChineseGameState:
                     else:
                         action_anymore = False
 
-            # 游戏主循环 
+            # 游戏主循环
             self.game_status = "waiting_hand_action" # 初始行动
             self.current_player_index = 0 # 初始玩家索引
             # 手动执行一次waiting_hand_action状态 因为庄家首次出牌不需要摸牌
-            self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
+            self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
             # 第一次不发牌
             for i in self.action_dict:
                 self.action_dict[i].remove("deal")

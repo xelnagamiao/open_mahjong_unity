@@ -1,5 +1,4 @@
 from typing import Dict,List
-import random
 from time import time
 
 class PlayerTiles:
