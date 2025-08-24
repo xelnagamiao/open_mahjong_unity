@@ -66,16 +66,16 @@ public class GameCanvas : MonoBehaviour
                 // 根据头像id设置头像
                 // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
             }
-            else if (indexToPosition[player.player_index] == "left"){
-                player_left_name.text = player.username;
+            else if (indexToPosition[player.player_index] == "right"){
+                player_right_name.text = player.username;
                 // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
             }
             else if (indexToPosition[player.player_index] == "top"){
                 player_top_name.text = player.username;
                 // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
             }
-            else if (indexToPosition[player.player_index] == "right"){
-                player_right_name.text = player.username;
+            else if (indexToPosition[player.player_index] == "left"){
+                player_left_name.text = player.username;
                 // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
             }
         }
@@ -180,16 +180,16 @@ public class GameCanvas : MonoBehaviour
                 Debug.Log($"加杠按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
+            else if (action_list[i] == "pass"){
+                Debug.Log($"取消");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "取消";
+                Debug.Log($"取消按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add("pass");
+            }
         }
-    if (action_list.Count > 0 && action_list[0] != "cut"){ // 添加取消
-        Debug.Log($"取消");
-        ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-        Text buttonText = ActionButtonObj.TextObject;
-        buttonText.text = "取消";
-        Debug.Log($"取消按钮: {ActionButtonObj}");
-        ActionButtonObj.actionTypeList.Add("pass");
     }
-}
 
     // 选择行动以后打开次级菜单
     public void ShowAvailableAction(List<int> tiles,string actionType) {

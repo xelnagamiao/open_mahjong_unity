@@ -12,7 +12,7 @@ public class RoomInfo
     public bool tips;
     public string host_name;
     public string room_name;
-    public int max_round;
+    public int game_round;
     public int round_timer;
     public int step_timer;
 }

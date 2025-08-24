@@ -31,30 +31,30 @@ public class GB_RoomConfig : MonoBehaviour
     public void SetGBRoomConfig(RoomInfo roomInfo)
     {
         rule.text = "国标麻将"; // 规则
-        round.text = GetMaxRoundText(roomInfo.max_round); // 圈数
+        round.text = GetMaxRoundText(roomInfo.game_round); // 圈数
         roundTime.text = roomInfo.round_timer.ToString(); // 局时
         stepTime.text = roomInfo.step_timer.ToString(); // 步时
         tips.text = roomInfo.tips ? "有" : "无"; // 提示
         password.text = roomInfo.has_password ? "有" : "无"; // 密码
     }
 
-    private string GetMaxRoundText(int max_round){
-        if (max_round == 1)
+    private string GetMaxRoundText(int game_round){
+        if (game_round == 1)
         {
             return "东风战";
         }
-        else if (max_round == 2)
+        else if (game_round == 2)
         {
             return "东南战";
         }
-        else if (max_round == 3)
+        else if (game_round == 3)
         {
             return "东西战";
         }
-        else if (max_round == 4)
+        else if (game_round == 4)
         {
             return "全庄战";
         }
-        return "未知错误";
+        return "设置game_round未知错误";
     }
 }  

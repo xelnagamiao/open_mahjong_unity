@@ -110,7 +110,7 @@ public class RoomListPanel : MonoBehaviour
                     roomName: roomData.room_name,
                     hostName: roomData.host_name,
                     playerCount: roomData.player_list.Length,
-                    gameTime: roomData.max_round,
+                    gameTime: roomData.game_round,
                     hasPassword: roomData.has_password,
                     room_type: roomData.room_type
                     );

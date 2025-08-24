@@ -2,7 +2,7 @@ import random
 import asyncio
 from typing import Dict, List
 import time
-from .method_Action_Check import check_action_after_cut,check_action_after_jiagang,check_action_buhua,check_action_hand_action
+from .method_Action_Check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action
 from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action
 
 
@@ -57,6 +57,7 @@ class ChineseGameState:
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
         self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
+        self.waiting_players_list = [] # 等待操作的玩家列表
 
         # 所有check方法都返回action_dict字典
         self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
@@ -209,6 +210,7 @@ class ChineseGameState:
                         await broadcast_ask_other_action(self) # 广播是否胡牌
 
                     case "onlycut_afteraction": # 吃碰后行为
+                        self.action_dict = {0:[],1:[],2:[],3:[]}
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
                         await self.wait_action()
 
@@ -221,69 +223,26 @@ class ChineseGameState:
 
 
 
-                
-
-
-    async def cut_tiles(self, player_id: str, cutClass: bool, TileId: int):
-        try:
-            # 检查行动合法性 并获取玩家索引
-            player_index = self.check_action_index(player_id,"cut")
-            # 将操作数据放入队列
-            await self.action_queues[player_index].put({
-                "action_type": "cut",
-                "cutClass": cutClass,
-                "TileId": TileId
-            })
-            # 设置事件
-            self.action_events[player_index].set()
-        except Exception as e:
-            print(f"处理切牌操作时发生错误: {e}")
-
-    # 检查行动合法性
-    def check_action_index(self,player_id,action_type):
-        # check_action_index方法通过player_id获取玩家索引，确保不会有人替别人出牌，并且检测行动合法性
-        player_conn = self.game_server.players[player_id]
-        username = player_conn.username
-        # 查找对应的玩家和索引
-        current_player = None
-        player_index = -1
-        for i, p in enumerate(self.player_list):
-            if p.username == username:
-                current_player = p
-                player_index = i
-                break
-        if current_player is None:
-            return -2 # 当前玩家不存在玩家列表中
-        if player_index != self.current_player_index:
-            return -3 # 不是当前玩家的回合
-        if action_type not in self.action_dict[player_index]:
-            return -4 # 不是该玩家的合法行动
-        return player_index # 返回玩家索引
-
-
     async def wait_action(self):
         
-        waiting_players_list = [] # [2,3]
+        self.waiting_players_list = [] # [2,3]
         used_time = 0 # 已用时间
         # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
         for player_index, action_list in self.action_dict.items():
             if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
-                waiting_players_list.append(player_index)
+                self.waiting_players_list.append(player_index)
                 self.action_events[player_index].clear()
-                # 如果是吃牌以外操作 添加pass [chi,pass]
-                if len(action_list) >= 2 or "cut" not in action_list:
-                    self.action_dict[player_index].append("pass")
 
         # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
         player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)
         action_data = None # 保存操作数据
         action_type = None # 保存操作类型
-        while waiting_players_list and any(self.player_list[i].remaining_time + self.step_time > used_time for i in waiting_players_list):
+        while self.waiting_players_list and any(self.player_list[i].remaining_time + self.step_time > used_time for i in self.waiting_players_list):
             # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
             task_list = []  # 任务列表
             task_to_player = {}  # 任务与玩家的映射
             
-            for player_index in waiting_players_list:
+            for player_index in self.waiting_players_list:
                 # 为可以行动的玩家添加行动任务
                 action_task = asyncio.create_task(self.action_events[player_index].wait())
                 task_list.append(action_task)
@@ -292,7 +251,7 @@ class ChineseGameState:
             timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
             task_list.append(timer_task)
 
-            print(f"开始新一轮等待操作 waiting_players_list={waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
+            print(f"开始新一轮等待操作 waiting_players_list={self.waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
             
             # 等待计时器完成1s等待或者任意玩家进行操作
             time_start = time.time()
@@ -324,11 +283,11 @@ class ChineseGameState:
                         self.player_list[player_index].remaining_time -= (used_int_time - self.step_time)
                    
                     self.action_dict[player_index] = [] # 从可执行操作列表中移除操作
-                    waiting_players_list.remove(player_index) # 从玩家等待列表中移除玩家
+                    self.waiting_players_list.remove(player_index) # 从玩家等待列表中移除玩家
                     
                     # 检查当前操作是否是最高优先级的
                     do_interrupt = True
-                    for temp_player_index in waiting_players_list:
+                    for temp_player_index in self.waiting_players_list:
                         for action in self.action_dict[temp_player_index]:
                             # 如果有其他更高优先级的操作，则继续等待
                             if self.action_priority[action_type] < self.action_priority[action]:
@@ -336,16 +295,17 @@ class ChineseGameState:
                     
                     # 如果是最高优先级，中断等待
                     if do_interrupt:
-                        waiting_players_list = [] # 清空等待列表，强制结束循环
+                        self.waiting_players_list = [] # 清空等待列表，强制结束循环
 
         # 等待行为结束,开始处理操作,pass,超时逻辑
         # 如果操作是最高优先级的直接结束循环
         # 如果操作并非最高优先级的,在最高优先级取消或者超时后结束循环
         # 如果action_data有值,说明有操作,如果action_data无值,说明操作超时
         # 首先将超时玩家剩余时间归零
-        if waiting_players_list:
-            for i in waiting_players_list:
+        if self.waiting_players_list:
+            for i in self.waiting_players_list:
                 self.player_list[i].remaining_time = 0
+        # 情形处理
         match self.game_status:
             # 补花轮特殊case 只有在游戏开始时启用
             case "waiting_buhua":
@@ -361,7 +321,7 @@ class ChineseGameState:
                             await broadcast_do_action(self,action_list = ["buhua"],action_player = self.current_player_index,buhua_tile = max_tile) # 广播补花动画
                             return True # 补花以后如果能够补花继续询问
                         elif action_type == "pass":
-                            return False
+                            return False # 如果玩家选择pass则停止该玩家补花
                         else: # 报错
                             raise ValueError("补花阶段action_data出现非buhua和pass的值")
                 # 如果无操作结束补花 由于补花阶段是按索引进行循环补花的
@@ -415,7 +375,7 @@ class ChineseGameState:
                         self.player_list[self.current_player_index].combination_tiles.append(f"g{jiagang_tile}") # 将明杠牌加入组合牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 随后摸牌
                         await broadcast_do_action(self,action_list = ["jiagang"],action_player = self.current_player_index,combination_mask = self.player_list[self.current_player_index].combination_mask[combination_index]) # 广播加杠动画
-                        self.action_dict = check_action_after_jiagang(self,self.current_player_index) # 检查手牌操作
+                        self.action_dict = check_action_jiagang(self,self.current_player_index) # 检查手牌操作
                         if any(self.action_dict[i] for i in self.action_dict):
                             self.game_status = "waiting_action_after_jiagang" # 转移行为
                         else:
@@ -434,7 +394,7 @@ class ChineseGameState:
                         self.game_status = "END"
                         return
                     else:
-                        raise ValueError("摸牌后手牌阶段action_type出现非cut,angang,jiagang,buhua,hu的值")
+                        print(f"摸牌后手牌阶段action_type出现非cut,angang,jiagang,buhua,hu的值: {action_type}")
                 # 超时自动摸切
                 else:
                     cut_class = True # 摸切
@@ -498,11 +458,6 @@ class ChineseGameState:
                         return
                     # 如果发生吃碰杠而不是和牌 则发生转移行为
                     if action_type == "chi_left" or action_type == "chi_mid" or action_type == "chi_right" or action_type == "peng" or action_type == "gang":
-                        for player_action_list in self.action_dict: # 遍历玩家列表并且在吃碰后只允许玩家出牌
-                            if player_action_list == player_index:
-                                self.action_dict[player_action_list] = ["cut"]
-                            else:
-                                self.action_dict[player_action_list] = []
                         self.player_list[self.current_player_index].discard_tiles.pop(-1) # 删除弃牌堆的最后一张
                         self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                         self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
@@ -563,30 +518,50 @@ class ChineseGameState:
                     self.game_status = "deal_card" # 历时行为
                     return
 
-    async def get_action(self, player_id: str, action_type: str):
+
+
+    # 获取玩家行动
+    async def get_action(self, player_id: str, action_type: str, cutClass: bool, TileId: int):
         try:
-            # 检查行动合法性 并获取玩家索引
-            player_index = self.check_action_index(player_id,action_type)
+            # 检测行动合法性
+            # 从游戏服务器的PlayerConnection中获取username
+            player_conn = self.game_server.players[player_id]
+            username = player_conn.username
+            # 查找对应的玩家和索引
+            current_player = None
+            player_index = -1
+            # 通过比对username获取玩家索引
+            for index, player in enumerate(self.player_list):
+                if player.username == username:
+                    current_player = player
+                    player_index = index
+                    break
+            if current_player is None: # 未找到用户名
+                print(f"当前玩家不存在当前房间玩家列表中,可能是玩家操作发送到了错误的房间")
+            elif player_index not in self.waiting_players_list:
+                print(f"不是当前玩家的回合,可能是在错误的时间发送了消息")
+                if action_type not in self.action_dict[player_index]:
+                    print(f"不是该玩家的合法行动,可能是错误时间发送消息或者客户端程序出现错误")
+
             # 将操作数据放入队列
-            if player_index in [0,1,2,3]:
+            if action_type == "cut": # 切牌操作
+                await self.action_queues[player_index].put({
+                    "action_type": action_type,
+                    "cutClass": cutClass,
+                    "TileId": TileId
+                })
+                # 设置事件
+                self.action_events[player_index].set()
+            elif player_index in [0,1,2,3]: # 指令操作
                 await self.action_queues[player_index].put({
                     "action_type": action_type
                 })
                 # 设置事件
                 self.action_events[player_index].set()
             else:
-                error_message = ""
-                if player_index == -1:
-                    error_message = "check_action_index发生错误"
-                elif player_index == -2:
-                    error_message = "当前玩家不存在玩家列表中"
-                elif player_index == -3:
-                    error_message = "不是当前玩家的回合"
-                elif player_index == -4:
-                    error_message = "不是该玩家的合法行动"
-                raise Exception(f"操作错误: {error_message}")
+                raise Exception(f"操作错误: {player_index}")
+            
         except Exception as e:
             print(f"处理操作时发生错误: {e}")
             raise  # 重新抛出异常，让调用者知道发生了错误
-    
 

@@ -55,6 +55,11 @@ class Do_action_info(BaseModel):
     combination_mask: Optional[List[int]] = None # 在鸣牌时传递鸣牌形状
     action_tick: int # 用于同步操作时钟
 
+class Show_result_info(BaseModel):
+    action_player: int
+    result_hepai: List[str]
+    action_tick: int
+
 class Response(BaseModel):
     type: str
     success: bool
@@ -68,3 +73,4 @@ class Response(BaseModel):
     ask_hand_action_info: Optional[Ask_hand_action_info] = None # 用于询问玩家手牌操作 出牌 自摸 补花 暗杠 加杠
     ask_other_action_info: Optional[Ask_other_action_info] = None # 用于询问切牌后其他家玩家操作 吃 碰 杠 胡
     do_action_info: Optional[Do_action_info] = None # 用于广播玩家操作
+    show_result_info: Optional[Show_result_info] = None # 用于广播结算结果

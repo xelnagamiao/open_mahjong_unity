@@ -83,7 +83,7 @@ public class GameSceneManager : MonoBehaviour
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu", "angang", "jiagang"};
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu", "angang", "jiagang","pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);
@@ -214,31 +214,31 @@ public class GameSceneManager : MonoBehaviour
         if (selfIndex == 0)
         {
             indexToPosition[0] = "self";
-            indexToPosition[1] = "left";
+            indexToPosition[1] = "right";
             indexToPosition[2] = "top";
-            indexToPosition[3] = "right";
+            indexToPosition[3] = "left";
         }
         else if (selfIndex == 1)
         {
             indexToPosition[1] = "self";
-            indexToPosition[2] = "left";
+            indexToPosition[2] = "right";
             indexToPosition[3] = "top";
-            indexToPosition[0] = "right";
+            indexToPosition[0] = "left";
         }
         else if (selfIndex == 2)
         {
             indexToPosition[2] = "self";
-            indexToPosition[3] = "left";
+            indexToPosition[3] = "right";
             indexToPosition[0] = "top";
-            indexToPosition[1] = "right";
+            indexToPosition[1] = "left";
             
         }
         else if (selfIndex == 3)
         {
             indexToPosition[3] = "self";
-            indexToPosition[0] = "left";
+            indexToPosition[0] = "right";
             indexToPosition[1] = "top";
-            indexToPosition[2] = "right";
+            indexToPosition[2] = "left";
         }
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
@@ -248,20 +248,20 @@ public class GameSceneManager : MonoBehaviour
                 selfCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
                 selfHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
-            else if (indexToPosition[player.player_index] == "left"){
-                leftDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
-                leftCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
-                leftHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
+            else if (indexToPosition[player.player_index] == "right"){
+                rightDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
+                rightCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
+                rightHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
             else if (indexToPosition[player.player_index] == "top"){
                 topDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
                 topCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
                 topHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
-            else if (indexToPosition[player.player_index] == "right"){
-                rightDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
-                rightCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
-                rightHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
+            else if (indexToPosition[player.player_index] == "left"){
+                leftDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
+                leftCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
+                leftHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
         }
     }

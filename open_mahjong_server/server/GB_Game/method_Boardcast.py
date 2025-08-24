@@ -1,4 +1,4 @@
-from response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info
+from response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info
 from typing import List
 
 # 广播游戏开始/重连 方法
@@ -104,6 +104,7 @@ async def broadcast_ask_hand_action(self):
 
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
+    cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -115,10 +116,10 @@ async def broadcast_ask_other_action(self):
                     type="ask_other_action_GB",
                     success=True,
                     message="询问操作",
-                    ask_action_info = Ask_other_action_info(
+                    ask_other_action_info = Ask_other_action_info(
                         remaining_time=current_player.remaining_time,
-                        action_list=[item for item in self.action_dict[i]],
-                        cut_tile=self.player_list[self.current_player_index].discard_tiles[-1],
+                        action_list=self.action_dict[i],
+                        cut_tile=cut_tile,
                         action_tick=self.action_tick
                     )
                 )
@@ -132,15 +133,15 @@ async def broadcast_ask_other_action(self):
                     type="ask_other_action_GB",
                     success=True,
                     message="询问操作",
-                    ask_action_info = Ask_other_action_info(
+                    ask_other_action_info = Ask_other_action_info(
                         remaining_time=current_player.remaining_time,
                         action_list=[],
-                        cut_tile=self.player_list[self.current_player_index].discard_tiles[-1],
+                        cut_tile=cut_tile,
                         action_tick=self.action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播询问操作信息{response.dict(exclude_none=True)}")
+                print(f"已向玩家 {current_player.username} 广播通用询问操作信息{response.dict(exclude_none=True)}")
 
 # 广播操作
 async def broadcast_do_action(
@@ -189,4 +190,23 @@ async def broadcast_do_action(
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播操作信息{response.dict(exclude_none=True)}")
 
-# 建立一个data列表 传参 [jiagang,dealcard], # 各种参数 然后按传参的数量和变量依次生成data列表，最后由前端统一解析。
+# 广播结算结果
+async def broadcast_show_result(self):
+    self.action_tick += 1
+    # 遍历列表时获取索引
+    for i, current_player in enumerate(self.player_list):
+        if current_player.username in self.game_server.username_to_connection:
+            player_conn = self.game_server.username_to_connection[current_player.username]
+            
+            response = Response(
+                type="show_result_GB",
+                success=True,
+                message="显示结算结果",
+                show_result_info=Show_result_info(
+                    action_player=current_player.player_index,
+                    result_hepai=current_player.result_hepai,
+                    action_tick=self.action_tick
+                )
+            )
+            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            print(f"已向玩家 {current_player.username} 广播结算结果信息{response.dict(exclude_none=True)}")

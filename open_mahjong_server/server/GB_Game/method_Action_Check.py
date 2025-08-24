@@ -13,9 +13,9 @@ def check_action_after_cut(self,cut_tile):
             if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
                 temp_action_dict[next_player_index].append("chi_left")
         # mid 中间吃牌 [a-1,a,a+1]
-    if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-        if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
-                temp_action_dict[next_player_index].append("chi_mid")
+        if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
+            if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
+                    temp_action_dict[next_player_index].append("chi_mid")
         # right 右侧吃牌 [a,a+1,a+2]
         if cut_tile+2 in self.player_list[next_player_index].hand_tiles:
             if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
@@ -24,9 +24,9 @@ def check_action_after_cut(self,cut_tile):
     # 如果任意一家有C=2，则可以碰 如果C=3，则可以杠
     for item in self.player_list:
         if item.hand_tiles.count(cut_tile) == 2:
-            temp_action_dict[item.current_player_index].append("peng")
+            temp_action_dict[item.player_index].append("peng")
             if item.hand_tiles.count(cut_tile) == 3:
-                temp_action_dict[item.current_player_index].append("gang")
+                temp_action_dict[item.player_index].append("gang")
 
     # 如果该牌是任意家的等待牌
     for item in self.player_list:
@@ -66,11 +66,16 @@ def check_action_after_cut(self,cut_tile):
             hepai_tiles = item.waiting_tiles[cut_tile] # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
             if result[0] >= 8:
-                temp_action_dict[item.current_player_index].append("hu")
+                temp_action_dict[item.player_index].append("hu")
                 item.result_hepai = result # 保存结算结果
 
     # 出牌玩家不可对自己的出牌进行操作
     temp_action_dict[self.current_player_index] = []
+
+    # 如果玩家有操作 则添加pass
+    for i in temp_action_dict:
+        if i != []:
+            temp_action_dict[i].append("pass")
 
     return temp_action_dict
 
@@ -113,8 +118,13 @@ def check_action_jiagang(self,gang_tile):
             hepai_tiles = item.waiting_tiles[gang_tile] # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
             if result[0] >= 8:
-                temp_action_dict[item.current_player_index].append("hu")
+                temp_action_dict[item.player_index].append("hu")
                 item.result_hepai = result # 保存结算结果
+
+    # 如果玩家有操作 则添加pass
+    for i in temp_action_dict:
+        if i != []:
+            temp_action_dict[i].append("pass")
 
     return temp_action_dict
 
@@ -123,6 +133,7 @@ def check_action_buhua(self,player_index):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     if any(carditem >= 50 for carditem in self.player_list[player_index].hand_tiles):
         temp_action_dict[player_index].append("buhua")
+        temp_action_dict[player_index].append("pass")
     return temp_action_dict
 
 # 摸牌后检查操作 补花buhua 和牌hu 暗杠angang 加杠jiagang 切牌cut
