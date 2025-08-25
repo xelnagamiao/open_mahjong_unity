@@ -3,21 +3,22 @@ open_mahjong_unity/*
 !open_mahjong_unity/Assets/
 !open_mahjong_unity/ProjectSettings/
 !open_mahjong_unity/Packages/manifest.json
-**/__pycache__/
-**/error_log/
+
 
 # 服务器项目：只忽略不需要的文件和目录
-open_mahjong_server/*
+open_mahjong_server/* 
 !open_mahjong_server/server/
+open_mahjong_server/server/__pycache__/*
+open_mahjong_server/server/error_log/*
 
 # 聊天服务器项目：不忽略任何文件和目录
+!open_mahjong_server/server/chat_server/
 
 # Web项目：只忽略不需要的文件和目录
-open_mahjong_web/*
-!open_mahjong_web/client/
-!open_mahjong_web/server/
+open_mahjong_web/node_modules/*
+open_mahjong_web/client/node_modules/*
 
-# 忽略.gitignore
+# 不忽略.gitignore
 !.gitignore
 
 

@@ -19,9 +19,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 静态文件服务
-app.use(express.static(path.join(__dirname, '../client/dist')));
-
 // 数据库连接
 const db = require('./config/database');
 
@@ -51,10 +48,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// 前端路由处理 - 所有非API路由都返回index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-});
+// 开发模式下的前端路由处理
+if (process.env.NODE_ENV === 'production') {
+  // 生产模式：提供静态文件
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  
+  // 所有非API路由都返回index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+} else {
+  // 开发模式：重定向到Vue开发服务器
+  app.get('*', (req, res) => {
+    res.redirect('http://localhost:5173' + req.url);
+  });
+}
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

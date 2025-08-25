@@ -67,14 +67,33 @@ PORT=3000
 
 ### 启动项目
 
+#### 方法一：使用批处理脚本（推荐）
+```bash
+# Windows 开发模式
+start.bat
+
+# Windows 生产模式
+start-prod.bat
+```
+
+#### 方法二：使用 npm 命令
 ```bash
 # 开发模式（同时启动前后端）
 npm run dev
 
 # 或者分别启动
-npm run server  # 启动后端服务器
-npm run client  # 启动前端开发服务器
+npm run server  # 启动后端服务器 (端口 3000)
+npm run client  # 启动前端开发服务器 (端口 5173)
 ```
+
+### 访问地址
+
+- **开发模式**：
+  - 前端界面：http://localhost:5173
+  - 后端API：http://localhost:3000/api
+
+- **生产模式**：
+  - 网站地址：http://localhost:3000
 
 ### 生产部署
 
