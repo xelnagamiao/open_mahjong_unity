@@ -66,8 +66,15 @@ def check_action_after_cut(self,cut_tile):
             hepai_tiles = item.waiting_tiles[cut_tile] # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
             if result[0] >= 8:
-                temp_action_dict[item.player_index].append("hu")
-                item.result_hepai = result # 保存结算结果
+                if self.get_index_relative_position(self.current_player_index,item.player_index) == "left":
+                    temp_action_dict[item.player_index].append("hu_first") # 上家切牌 最高优先级和牌
+                    self.result_dict["hu_first"] = result # 保存结算结果
+                elif self.get_index_relative_position(self.current_player_index,item.player_index) == "top":
+                    temp_action_dict[item.player_index].append("hu_second") # 对家切牌 次高优先级和牌
+                    self.result_dict["hu_second"] = result # 保存结算结果
+                elif self.get_index_relative_position(self.current_player_index,item.player_index) == "right":
+                    temp_action_dict[item.player_index].append("hu_third") # 下家切牌 最低优先级和牌
+                    self.result_dict["hu_third"] = result # 保存结算结果
 
     # 出牌玩家不可对自己的出牌进行操作
     temp_action_dict[self.current_player_index] = []
@@ -118,8 +125,15 @@ def check_action_jiagang(self,gang_tile):
             hepai_tiles = item.waiting_tiles[gang_tile] # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
             if result[0] >= 8:
-                temp_action_dict[item.player_index].append("hu")
-                item.result_hepai = result # 保存结算结果
+                if self.get_index_relative_position(self.current_player_index,item.player_index) == "left":
+                    temp_action_dict[item.player_index].append("hu_first") # 上家切牌 最高优先级和牌
+                    self.result_dict["hu_first"] = result # 保存结算结果
+                elif self.get_index_relative_position(self.current_player_index,item.player_index) == "top":
+                    temp_action_dict[item.player_index].append("hu_second") # 对家切牌 次高优先级和牌
+                    self.result_dict["hu_second"] = result # 保存结算结果
+                elif self.get_index_relative_position(self.current_player_index,item.player_index) == "right":
+                    temp_action_dict[item.player_index].append("hu_third") # 下家切牌 最低优先级和牌
+                    self.result_dict["hu_third"] = result # 保存结算结果
 
     # 如果玩家有操作 则添加pass
     for i in temp_action_dict:
@@ -166,7 +180,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
 
     # 如果手牌中有等待牌 则检测和牌
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
-        temp_action_dict[player_index].append("hu")
+        temp_action_dict[player_index].append("hu_first")
         tiles_list = player_item.hand_tiles # 手牌列表
         combination_tiles = player_item.combination_tiles # 组合牌列表
         way_to_hepai = ["花牌"*len(player_item.huapai_list)] # 和牌方式
@@ -213,8 +227,8 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
         result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
 
         if result[0] >= 8:
-            temp_action_dict[player_index].append("hu")
-            player_item.result_hepai = result # 保存结算结果
+            temp_action_dict[player_index].append("hu_self") # 上家切牌 最高优先级和牌
+            self.result_dict["hu_self"] = result # 保存结算结果
 
     return temp_action_dict
 

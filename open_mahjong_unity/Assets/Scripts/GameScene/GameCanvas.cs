@@ -108,9 +108,10 @@ public class GameCanvas : MonoBehaviour
     
     // 摸牌 手切区域
     public void GetCard(int tileId){
+        // 在手牌区域添加手牌
         GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer); // 实例化手牌
         TileCard tileCard = cardObj.GetComponent<TileCard>(); // 获取手牌组件
-        tileCard.SetTile(tileId, true); // 设置手牌 牌id,是否是刚摸到的牌bool
+        tileCard.SetTile(tileId, true); // 设置手牌 牌id, 是否是刚摸到的牌 bool:true
     }
 
     // 显示可用行动按钮
@@ -148,7 +149,7 @@ public class GameCanvas : MonoBehaviour
                 Debug.Log($"杠牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
-            else if (action_list[i] == "hu"){
+            else if (action_list[i] == "hu_self" || action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
                 Debug.Log($"胡牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 Text buttonText = ActionButtonObj.TextObject;
@@ -191,22 +192,6 @@ public class GameCanvas : MonoBehaviour
         }
     }
 
-    // 选择行动以后打开次级菜单
-    public void ShowAvailableAction(List<int> tiles,string actionType) {
-        // 清空可选行动容器
-        foreach (Transform child in ActionBlockContenter)
-        {
-            Destroy(child.gameObject);
-        }
-        GameObject containerBlockObj = Instantiate(ActionBlockPrefab, ActionBlockContenter);
-        ActionBlock blockClick = containerBlockObj.GetComponent<ActionBlock>();
-        blockClick.actionType = actionType;
-        foreach (int tile in tiles){
-            GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
-            cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
-        }
-    }
-
     // 自动排序
     public void ArrangeHandCards() {
         // 获取所有子对象并存入列表
@@ -227,82 +212,11 @@ public class GameCanvas : MonoBehaviour
         }
     }
 
-    public void ChooseAction(List<string> actionTypeList){
-        List<int> TipsCardsList = new List<int>();
-        int lastCutTile = GameSceneManager.Instance.lastCutCardID;
-        // 根据行动类型设置提示牌
-        foreach (string actionType in actionTypeList){
-            switch (actionType){
-                // 吃碰杠显示吃碰杠列表
-                case "chi_left": 
-                    TipsCardsList.Add(lastCutTile-2);
-                    TipsCardsList.Add(lastCutTile-1);
-                    CreateActionCards(TipsCardsList, actionType);
-                    break;
-                case "chi_mid":
-                    TipsCardsList.Clear();
-                    TipsCardsList.Add(lastCutTile-1);
-                    TipsCardsList.Add(lastCutTile+1);
-                    CreateActionCards(TipsCardsList, actionType);
-                    break;
-                case "chi_right":
-                    TipsCardsList.Clear();
-                    TipsCardsList.Add(lastCutTile+1);
-                    TipsCardsList.Add(lastCutTile+2);
-                    CreateActionCards(TipsCardsList, actionType);
-                    break;
-                case "peng":
-                    TipsCardsList.Clear();
-                    TipsCardsList.Add(lastCutTile);
-                    TipsCardsList.Add(lastCutTile);
-                    CreateActionCards(TipsCardsList, actionType);
-                    break;
-                case "gang":
-                    TipsCardsList.Clear();
-                    TipsCardsList.Add(lastCutTile);
-                    TipsCardsList.Add(lastCutTile);
-                    TipsCardsList.Add(lastCutTile);
-                    CreateActionCards(TipsCardsList, actionType);
-                    break;
-                case "pass": // 如果点击取消则停止计时 发送pass请求
-                    StopTimeRunning();
-                    NetworkManager.Instance.SendAction("pass");
-                    break;
-                case "hu":
-                    StopTimeRunning();
-                    NetworkManager.Instance.SendAction("hu");
-                    break;
-                case "buhua":
-                    StopTimeRunning();
-                    NetworkManager.Instance.SendAction("buhua");
-                    break;
-                case "jiagang":
-                    StopTimeRunning();
-                    NetworkManager.Instance.SendAction("jiagang");
-                    break;
-                case "angang":
-                    StopTimeRunning();
-                    NetworkManager.Instance.SendAction("angang");
-                    break;
-            }
-        }
+    // 发送行动
+    public void ChooseAction(string actionType){
+        StopTimeRunning();
+        NetworkManager.Instance.SendAction(actionType);
     }
-
-    private void CreateActionCards(List<int> tiles,string actionType) {
-        // 清空现有提示牌
-        foreach (Transform child in ActionBlockContenter)
-        {
-            Destroy(child.gameObject);
-        }
-        GameObject containerBlockObj = Instantiate(ActionBlockPrefab, ActionBlockContenter);
-        ActionBlock blockClick = containerBlockObj.GetComponent<ActionBlock>();
-        blockClick.actionType = actionType;
-        foreach (int tile in tiles){
-            GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
-            cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
-        }
-    }
-
 
     public void RemoveCutCard(int tileId,bool cut_class){
         // 摸切则直接删除摸牌区卡牌
@@ -380,14 +294,7 @@ public class GameCanvas : MonoBehaviour
     }
 
 
-    public void ClearActionContenter(){
-        foreach (Transform child in ActionBlockContenter){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in ActionButtonContainer){
-            Destroy(child.gameObject);
-        }
-    }
+
 
     // 显示倒计时
     public void LoadingRemianTime(int remainingTime, int cuttime){
@@ -506,12 +413,21 @@ public class GameCanvas : MonoBehaviour
 
 
     public void StopTimeRunning(){
+
+        // 停止倒计时
         if (_countdownCoroutine != null) {
             StopCoroutine(_countdownCoroutine);
             _countdownCoroutine = null; // 设置为null以避免重复停止
         }
         remianTimeText.text = $""; // 隐藏倒计时文本
         Debug.Log("停止倒计时,删除所有操作按钮");
-        ClearActionContenter();
+
+        // 删除所有操作按钮
+        foreach (Transform child in ActionBlockContenter){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in ActionButtonContainer){
+            Destroy(child.gameObject);
+        }
     }
 }

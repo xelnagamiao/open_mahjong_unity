@@ -6,20 +6,13 @@ using UnityEngine.UI;
 
 public class ActionBlock : MonoBehaviour, IPointerClickHandler
 {
-    [SerializeField] public string actionType; // 可以在Inspector中设置
+    public string actionType;
     
     // 当点击时调用
     public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"点击了 {gameObject.name}");
-        if (actionType!= ""){
-            NetworkManager.Instance.SendAction(actionType);
-        }
-        else{
-            Debug.Log("没有设置TipBlock的actionType");
-        }
-        // 点击后停止计时器
-        GameCanvas.Instance.StopTimeRunning();
+        Debug.Log($"选择了行动 {actionType}");
+        GameCanvas.Instance.ChooseAction(actionType);
     }
 
 
@@ -35,5 +28,4 @@ public class ActionBlock : MonoBehaviour, IPointerClickHandler
     }
 
 
- 
 }

@@ -1,17 +1,18 @@
 <template>
+  <!-- 首页 欢迎词  -->
   <div class="home">
     <div class="hero-section">
-      <h1 class="hero-title">欢迎来到 Mahjong.fit</h1>
-      <p class="hero-subtitle">专业的麻将分析工具，助您提升麻将技巧</p>
+      <h1 class="hero-title">欢迎访问Mahjong.fit</h1>
+      <p class="hero-subtitle">一个简易的麻将工具网站 欢迎加入QQ群906497522参与测试</p>
     </div>
-    
+    <!-- 功能 -->
     <div class="features-grid">
       <el-card 
         v-for="feature in features" 
         :key="feature.id"
         class="feature-card"
         :body-style="{ padding: '0px' }"
-        @click="navigateTo(feature.route)"
+        @click="handleFeatureClick(feature)"
       >
         <div class="card-content" :style="{ backgroundColor: feature.color }">
           <div class="card-icon">
@@ -19,57 +20,14 @@
               <component :is="feature.icon" />
             </el-icon>
           </div>
-          <div class="card-text">
-            <h3>{{ feature.title }}</h3>
-            <p>{{ feature.description }}</p>
-          </div>
+             <div class="card-text">
+             <h3 v-html="feature.title.replace('\n', '<br>')"></h3>
+             <p>{{ feature.description }}</p>
+           </div>
         </div>
       </el-card>
     </div>
-    
-    <div class="stats-section">
-      <el-row :gutter="20">
-        <el-col :span="8">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <el-icon :size="32" color="#409EFF">
-                <DataAnalysis />
-              </el-icon>
-              <div class="stat-info">
-                <h3>{{ stats.analyses }}</h3>
-                <p>累计分析次数</p>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="8">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <el-icon :size="32" color="#67C23A">
-                <User />
-              </el-icon>
-              <div class="stat-info">
-                <h3>{{ stats.users }}</h3>
-                <p>注册用户数</p>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="8">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <el-icon :size="32" color="#E6A23C">
-                <Clock />
-              </el-icon>
-              <div class="stat-info">
-                <h3>{{ stats.uptime }}</h3>
-                <p>服务运行时间</p>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </div>
+
   </div>
 </template>
 
@@ -80,8 +38,9 @@ import {
   DataAnalysis,
   Trophy,
   Star,
-  User,
-  Clock
+  VideoPlay,
+  Document,
+  Link
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -89,38 +48,81 @@ const router = useRouter()
 const features = ref([
   {
     id: 1,
+    title: '对战平台',
+    description: 'open_mahjong_unity是基于Unity开发的麻将对战平台,目前仅支持国标规则',
+    icon: 'VideoPlay',
+    color: '#007bff', /* 蓝色 */
+    type: 'external',
+    url: '/unity-game/index.html'
+  },
+  {
+    id: 2,
+    title: '开发手册',
+    description: '查看开发文档,设计自定义的麻将规则',
+    icon: 'Document',
+    color: '#00b300', /* 绿色 */
+    type: 'external',
+    url: 'https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc# 《open》'
+  },
+  {
+    id: 3,
+    title: '玩家数据统计',
+    description: '查询玩家的胜率、得分、对战次数等数据',
+    icon: 'Link',
+    color: '#ff0000', /* 红色 */ 
+    type: 'external',
+    url: '/player-data'
+  },
+  {
+    id: 4,
+    title: 'GitHub项目',
+    description: '转至GitHub页面',
+    icon: 'Link',
+    color: '#808080', /* 灰色 */ 
+    type: 'external',
+    url: 'https://github.com/xelnagamiao/open_mahjong_unity'
+  },
+  {
+    id: 5,
     title: '听牌待牌判断',
     description: '分析手牌是否听牌，以及听牌手牌的待牌',
     icon: 'DataAnalysis',
     color: '#4ECDC4',
+    type: 'route',
     route: '/shanten'
   },
   {
-    id: 2,
+    id: 6,
     title: '国标麻将牌型解算',
     description: '根据您输入的手牌、副露、花牌、和牌方式计算出可能的和牌构成与他家支付的点数',
     icon: 'Trophy',
     color: '#45B7D1',
+    type: 'route',
     route: '/chinese'
   },
   {
-    id: 3,
+    id: 7,
     title: '立直麻将牌型解算',
     description: '根据您输入的手牌、副露、宝牌、和牌方式计算出可能的和牌构成与他家支付的点数',
     icon: 'Star',
     color: '#FF8C42',
+    type: 'route',
     route: '/riichi'
   }
 ])
 
-const stats = ref({
-  analyses: '10,000+',
-  users: '1,000+',
-  uptime: '99.9%'
-})
-
-const navigateTo = (route) => {
-  router.push(route)
+const handleFeatureClick = (feature) => {
+  if (feature.type === 'route') {
+    router.push(feature.route)
+  } else if (feature.type === 'external') {
+    if (feature.url.startsWith('http')) {
+      // 外部链接，在新窗口打开
+      window.open(feature.url, '_blank')
+    } else {
+      // 内部静态页面 - 直接跳转，不使用Vue路由
+      window.location.href = feature.url
+    }
+  }
 }
 </script>
 
@@ -196,43 +198,6 @@ const navigateTo = (route) => {
   font-size: 1rem;
   line-height: 1.6;
   opacity: 0.9;
-}
-
-.stats-section {
-  margin-top: 60px;
-}
-
-.stat-card {
-  text-align: center;
-  border: none;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  color: white;
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.stat-info {
-  margin-left: 15px;
-  text-align: left;
-}
-
-.stat-info h3 {
-  font-size: 2rem;
-  margin: 0;
-  font-weight: bold;
-  color: #409EFF;
-}
-
-.stat-info p {
-  margin: 5px 0 0 0;
-  opacity: 0.8;
 }
 
 @media (max-width: 768px) {

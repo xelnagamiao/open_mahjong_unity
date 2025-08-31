@@ -3,6 +3,7 @@ import Home from '@/views/Home.vue'
 import ShantenAnalysis from '@/views/ShantenAnalysis.vue'
 import ChineseMahjong from '@/views/ChineseMahjong.vue'
 import RiichiMahjong from '@/views/RiichiMahjong.vue'
+import PlayerData from '@/views/PlayerData.vue'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 
@@ -30,6 +31,12 @@ const routes = [
     name: 'RiichiMahjong',
     component: RiichiMahjong,
     meta: { title: '立直麻将牌型解算 - Mahjong.fit' }
+  },
+  {
+    path: '/player-data',
+    name: 'PlayerData',
+    component: PlayerData,
+    meta: { title: '玩家数据统计 - Mahjong.fit' }
   },
   {
     path: '/login',

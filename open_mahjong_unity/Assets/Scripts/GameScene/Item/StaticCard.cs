@@ -25,7 +25,7 @@ public class StaticCard : MonoBehaviour
         if (sprite != null)
         {
             tileImage.sprite = sprite;
-            Debug.Log($"成功加载图片: {path}");
+            Debug.Log($"成功加载静态卡片图片: {path}");
         }
         else
         {

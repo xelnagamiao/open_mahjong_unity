@@ -191,7 +191,7 @@ async def broadcast_do_action(
             print(f"已向玩家 {current_player.username} 广播操作信息{response.dict(exclude_none=True)}")
 
 # 广播结算结果
-async def broadcast_show_result(self):
+async def broadcast_result(self,hepai_player_index,hu_point,hu_fan,hu_class):
     self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -203,9 +203,11 @@ async def broadcast_show_result(self):
                 success=True,
                 message="显示结算结果",
                 show_result_info=Show_result_info(
-                    action_player=current_player.player_index,
-                    result_hepai=current_player.result_hepai,
-                    action_tick=self.action_tick
+                    hepai_player_index=hepai_player_index, # 和牌玩家索引
+                    hepai_hand_tiles=self.player_list[hepai_player_index].hand_tiles, # 和牌玩家手牌
+                    hu_point=hu_point, # 和牌分数
+                    hu_fan=hu_fan, # 和牌番数
+                    hu_class=hu_class # 和牌类型
                 )
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))

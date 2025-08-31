@@ -2,8 +2,8 @@ import random
 import asyncio
 from typing import Dict, List
 import time
-from .method_Action_Check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action
-from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action
+from .method_Action_Check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,check_waiting_tiles
+from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result
 
 
 class ChinesePlayer:
@@ -12,7 +12,7 @@ class ChinesePlayer:
         self.hand_tiles = tiles                       # 手牌
         self.huapai_list = []                         # 花牌列表
         self.discard_tiles = []                       # 弃牌
-        self.discard_origin = None                    # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
+        self.discard_origin = set()                    # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
         self.combination_tiles = []                   # 组合牌
         # combination_mask组合牌掩码 0代表竖 1代表横 2代表暗面 3代表上侧(加杠) 4代表空 因为普通的存储方式会造成掉线以后吃牌形状丢失 所以使用掩码存储
         # [1,13,0,11,0,12] = 吃上家 312m s12
@@ -23,9 +23,7 @@ class ChinesePlayer:
         self.score = 0                                # 分数
         self.remaining_time = remaining_time          # 剩余时间 （局时）
         self.player_index = 0                         # 玩家索引 东南西北 0 1 2 3
-        self.waiting_tiles = {}                       # 听牌
-        self.result_hepai = []                        # 和牌结果
-        
+        self.waiting_tiles = set()                    # 听牌
 
     def get_tile(self, tiles_list):
         element = tiles_list.pop(0)
@@ -53,6 +51,7 @@ class ChineseGameState:
         self.game_status = "waiting"  # waiting, playing, finished
         self.action_tick = 0 # 操作帧
         self.current_round = 1 # 目前小局数 (max_round * 4)
+        self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
 
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
@@ -63,10 +62,11 @@ class ChineseGameState:
         self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
         # 行为 -> 优先级 用于在多人共通等待行为时判断是否需要等待更高优先级玩家的操作或直接结束更低优先级玩家的等待
         self.action_priority:Dict[str,int] = {
-        "hu": 3, "peng": 2, "gang": 2, 
-        "chi_left": 1, "chi_mid": 1, "chi_right": 1, 
-        "pass": 0,"buhua":0,"cut":0,
-        "angang":0,"jiagang":0,"deal":0}
+        "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
+        "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
+        "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
+        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
+        }
 
     
 
@@ -83,7 +83,31 @@ class ChineseGameState:
         else:
             return num + 1
 
-    def init_tiles(self):
+    def init_game_tiles(self):
+        # 标准牌堆
+        sth_tiles_set = {
+            11,12,13,14,15,16,17,18,19, # 万
+            21,22,23,24,25,26,27,28,29, # 饼
+            31,32,33,34,35,36,37,38,39, # 条
+            41,42,43,44, # 东南西北
+            45,46,47 # 中白发
+        }
+        # 花牌牌堆
+        hua_tiles_set = {51,52,53,54,55,56,57,58} # 春夏秋冬 梅兰竹菊
+        # 生成牌堆 tiles_list
+        self.tiles_list = []
+        for tile in sth_tiles_set:
+            self.tiles_list.extend([tile] * 4)
+        self.tiles_list.extend(hua_tiles_set)
+        random.shuffle(self.tiles_list)
+        # 分配每位玩家13张牌
+        for player in self.player_list:
+            for _ in range(13):
+                player.get_tile(self.tiles_list)
+        # 庄家额外摸一张
+        self.player_list[0].get_tile(self.tiles_list)
+
+    def init_text_tiles(self):
         # 标准牌堆
         sth_tiles_set = {
             11,12,13,14,15,16,17,18,19, # 万
@@ -101,13 +125,27 @@ class ChineseGameState:
         self.tiles_list.extend(hua_tiles_set)
         random.shuffle(self.tiles_list)
 
-    def init_deal_tiles(self):
-        # 分配每位玩家13张牌
+        # 使用测试牌例
+        self.player_list[0].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15,15]
+        self.player_list[1].hand_tiles = []
+        self.player_list[2].hand_tiles = []
+        self.player_list[3].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
+
+        # 删除牌山中测试牌例的卡牌
+        for tile in self.player_list[0].hand_tiles:
+            self.tiles_list.remove(tile)
+        for tile in self.player_list[1].hand_tiles:
+            self.tiles_list.remove(tile)
+        for tile in self.player_list[2].hand_tiles:
+            self.tiles_list.remove(tile)
+        for tile in self.player_list[3].hand_tiles:
+            self.tiles_list.remove(tile)
+
+        # 分配每位玩家13张牌        
         for player in self.player_list:
-            for _ in range(13):
-                player.get_tile(self.tiles_list)
-        # 庄家额外摸一张
-        self.player_list[0].get_tile(self.tiles_list)
+            if player.hand_tiles == []:
+                for _ in range(13):
+                    player.get_tile(self.tiles_list)
 
     def get_index_relative_position(self,self_index,other_index):
         if self_index == 0:
@@ -142,7 +180,10 @@ class ChineseGameState:
     async def game_loop_chinese(self):
 
         # 房间初始化 打乱玩家顺序
-        random.shuffle(self.player_list)
+
+        # 测试时不打乱玩家顺序
+        # random.shuffle(self.player_list)
+
         # 根据打乱的玩家顺序设置玩家索引
         for index, player in enumerate(self.player_list):
             player.player_index = index
@@ -150,8 +191,8 @@ class ChineseGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
-            self.init_tiles() # 初始化牌山
-            self.init_deal_tiles() # 初始化手牌
+            # self.init_game_tiles() # 初始化牌山和手牌
+            self.init_text_tiles() # 使用测试牌例建立初始实拍
             # 广播游戏开始
             await broadcast_game_start(self)
             
@@ -178,10 +219,11 @@ class ChineseGameState:
                     else:
                         action_anymore = False
 
-            # 游戏主循环
+            # 初始行为
             self.game_status = "waiting_hand_action" # 初始行动
             self.current_player_index = 0 # 初始玩家索引
             # 手动执行一次waiting_hand_action状态 因为庄家首次出牌不需要摸牌
+            check_waiting_tiles(self,self.current_player_index) # 检查手牌等待牌
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
             # 第一次不发牌
             for i in self.action_dict:
@@ -189,6 +231,7 @@ class ChineseGameState:
             await broadcast_ask_hand_action(self) # 广播手牌操作
             await self.wait_action() # 等待手牌操作
 
+            # 游戏主循环
             while self.game_status != "END":
                 match self.game_status:
                     
@@ -214,12 +257,54 @@ class ChineseGameState:
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
                         await self.wait_action()
 
-            while self.game_status == "END": # 胡牌后计分行为 由于可能有多人和的情况 所以需要循环
-                pass
-            if self.game_status == "count_point": # 计分行为
-                pass
+            # 卡牌摸完 或者有人和牌
+            hu_point = None
+            hu_fan = None
+            hepai_player_index = None
+            hu_class = self.result_dict[0]
+            # 自摸
+            if hu_class == "hu_self": # 自摸
+                hu_point, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
+                hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
+                self.player_list[hepai_player_index].point += hu_point*3 + 24 # 三倍和牌分与3*8基础分
+                self.result_dict = {}
+                for i in self.player_list: # 其他玩家扣除和牌分与8基础分
+                    if i != hepai_player_index:
+                        i.point -= hu_point + 8
+            
+            # 荣和
+            if hu_class in ["hu_first","hu_second","hu_third"]:
+                if hu_class == "hu_first": # 荣和上家
+                    hu_point, hu_fan = self.result_dict["hu_first"]
+                    hepai_player_index = self.next_current_num(self,self.current_player_index) # 获取当前玩家的下家索引
+                    self.player_list[hepai_player_index].point += hu_point + 8 # 和牌玩家增加和牌分与8基础分
+                    self.player_list[self.current_player_index].point -= hu_point # 当前玩家扣除和牌分
+                    self.result_dict = {}
+                elif hu_class == "hu_second":
+                    hu_point, hu_fan = self.result_dict["hu_second"]
+                    hepai_player_index = self.next_current_num(self,self.next_current_num(self,self.current_player_index)) # 获取下下家索引
+                    self.player_list[hepai_player_index].point += hu_point
+                    self.result_dict = {}
+                    self.player_list[hepai_player_index].point += hu_point + 8 # 和牌玩家增加和牌分与8基础分
+                    self.player_list[self.current_player_index].point -= hu_point # 当前玩家扣除和牌分
+                elif hu_class == "hu_third":
+                    hu_point, hu_fan = self.result_dict["hu_third"]
+                    hepai_player_index = self.next_current_num(self,self.next_current_num(self,self.next_current_num(self,self.current_player_index))) # 获取下下下家索引
+                    self.player_list[hepai_player_index].point += hu_point
+                    self.result_dict = {}
+                    self.player_list[hepai_player_index].point += hu_point + 8 # 和牌玩家增加和牌分与8基础分
+                    self.player_list[self.current_player_index].point -= hu_point # 当前玩家扣除和牌分
+                # 其他玩家扣除8基础分
+                for i in self.player_list: # 其他玩家扣除和牌分与8基础分
+                    if i != hepai_player_index:
+                        i.point -= 8
+            
+            # 广播结算结果
+            await broadcast_result(self,hepai_player_index,hu_point,hu_fan,hu_class)
+            self.current_round += 1 # 局数+1
+        
+        # 游戏结束所有局数
 
-            self.current_round += 1
 
 
 
@@ -389,8 +474,11 @@ class ChineseGameState:
                         await broadcast_do_action(self,action_list = ["buhua"],action_player = self.current_player_index,buhua_tile = max_tile) # 广播补花动画
                         # 补花属于循环行为 重新返回上层
                         return
-                    elif action_type == "hu": # 自摸
+                    elif action_type == "hu_self": # 自摸
                         ### 等待完成
+                        for i in self.result_dict:
+                            if i != action_type:
+                                self.result_dict.pop(i)
                         self.game_status = "END"
                         return
                     else:
@@ -452,8 +540,11 @@ class ChineseGameState:
                             combination_mask = [0,tile_id,0,tile_id,0,tile_id,1,tile_id]
                         elif relative_position == "top":
                             combination_mask = [0,tile_id,1,tile_id,0,tile_id,0,tile_id]
-                    elif action_type == "hu": # 终结行为 可能有多人胡的情况
+                    elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                         ### 等待完成
+                        for i in self.result_dict:
+                            if i != action_type:
+                                self.result_dict.pop(i)
                         self.game_status = "END"
                         return
                     # 如果发生吃碰杠而不是和牌 则发生转移行为
@@ -505,8 +596,11 @@ class ChineseGameState:
             # 在加杠以后的case当中只包含和牌和pass一个选项 如果超时或者pass则进行历时行为
             case "waiting_action_after_jiagang":
                 if action_data:
-                    if action_type == "hu": # 终结行为 可能有多人胡的情况
+                    if action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                         ### 等待完成
+                        for i in self.result_dict:
+                            if i != action_type:
+                                self.result_dict.pop(i)
                         self.game_status = "END"
                         return
                     elif action_type == "pass":
