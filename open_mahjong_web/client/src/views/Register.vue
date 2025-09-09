@@ -1,3 +1,4 @@
+<!-- 用户注册页面 -->
 <template>
   <div class="register-page">
     <div class="register-container">

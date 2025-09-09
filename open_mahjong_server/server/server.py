@@ -12,6 +12,7 @@ from room_manager import RoomManager
 
 import secrets,hashlib
 import subprocess,os,signal,sys
+import time
 
 # 0.0 原神启动
 app = FastAPI()
@@ -62,10 +63,32 @@ async def start_chat_server():
     
     # 保存秘钥到文件，供聊天服务器使用
     await save_secret_key_to_file(HASH_SALT)
+
+    # 停一下稳一点
+    await asyncio.sleep(2)
     
-    # 获取当前脚本所在目录
+    # 验证文件是否写入成功
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    executable_path = os.path.join(script_dir, 'chatserver', 'open_mahjong_chatServer.exe')
+    secret_file_path = os.path.join(script_dir, 'secret_key.txt')
+    
+    # 检查秘钥文件是否存在且不为空
+    if not os.path.exists(secret_file_path):
+        print(f"秘钥文件不存在: {secret_file_path}")
+        return
+        
+    # 读取并验证秘钥文件内容
+    try:
+        with open(secret_file_path, 'r') as f:
+            saved_key = f.read().strip()
+            if not saved_key or len(saved_key) < 10:
+                print(f"秘钥文件内容无效: {saved_key}")
+                return
+            print(f"秘钥文件验证成功: {saved_key[:20]}...")
+    except Exception as e:
+        print(f"读取秘钥文件失败: {e}")
+        return
+    
+    executable_path = os.path.join(script_dir, 'open_mahjong_chatServer.exe')
     
     try:
         # 检查可执行文件是否存在
@@ -98,22 +121,44 @@ async def save_secret_key_to_file(secret_key: str):
     try:
         # 获取当前脚本所在目录
         self_dir = os.path.dirname(os.path.abspath(__file__))
-        # 创建chatserver文件夹
-        chatserver_dir = os.path.join(self_dir, 'chatserver')
-        # 确保chatserver文件夹存在
-        os.makedirs(chatserver_dir, exist_ok=True)
-        # 如果chatserver文件夹存在secret_key.txt文件，则删除
-        secret_file_path = os.path.join(chatserver_dir, 'secret_key.txt')
+        # 秘钥文件直接保存在根目录
+        secret_file_path = os.path.join(self_dir, 'secret_key.txt')
+        
+        # 使用临时文件确保原子性写入
+        temp_file_path = secret_file_path + '.tmp'
+        
+        # 写入临时文件
+        with open(temp_file_path, 'w', encoding='utf-8') as f:
+            f.write(secret_key)
+            f.flush()  # 强制刷新缓冲区
+            os.fsync(f.fileno())  # 强制写入磁盘
+        
+        # 如果原文件存在，先删除
         if os.path.exists(secret_file_path):
             os.remove(secret_file_path)
-        # 保存新秘钥到新的secret_key.txt文件中
-        with open(secret_file_path, 'w') as f:
-            f.write(secret_key)
+            
+        # 原子性重命名
+        os.rename(temp_file_path, secret_file_path)
+        
+        # 验证文件写入是否成功
+        with open(secret_file_path, 'r', encoding='utf-8') as f:
+            saved_content = f.read().strip()
+            if saved_content != secret_key:
+                raise Exception(f"文件内容验证失败: 期望 {secret_key}, 实际 {saved_content}")
+        
         print(f"新秘钥已保存到 {secret_file_path}")
         print(f"秘钥: {secret_key[:20]}...")
+        print(f"文件大小: {os.path.getsize(secret_file_path)} 字节")
 
     except Exception as e:
         print(f"保存秘钥失败: {e}")
+        # 清理临时文件
+        temp_file_path = os.path.join(self_dir, 'secret_key.txt.tmp')
+        if os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except:
+                pass
         
 # 哈希用户名
 async def hash_username(username: str) -> str:

@@ -1,3 +1,4 @@
+<!-- 国标麻将牌型解算页面 -->
 <template>
   <div class="chinese-mahjong">
     <div class="page-header">

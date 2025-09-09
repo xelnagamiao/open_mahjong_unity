@@ -1,3 +1,4 @@
+<!-- 立直麻将牌型解算页面 -->
 <template>
   <div class="riichi-mahjong">
     <div class="page-header">

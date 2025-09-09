@@ -3,7 +3,7 @@
   <div class="home">
     <div class="hero-section">
       <h1 class="hero-title">欢迎访问Mahjong.fit</h1>
-      <p class="hero-subtitle">一个简易的麻将工具网站 欢迎加入QQ群906497522参与测试</p>
+      <p class="hero-subtitle">一个简易的麻将服务网站 欢迎加入QQ群906497522参与测试</p>
     </div>
     <!-- 功能 -->
     <div class="features-grid">
@@ -52,8 +52,8 @@ const features = ref([
     description: 'open_mahjong_unity是基于Unity开发的麻将对战平台,目前仅支持国标规则',
     icon: 'VideoPlay',
     color: '#007bff', /* 蓝色 */
-    type: 'external',
-    url: '/unity-game/index.html'
+    type: 'route',
+    route: '/unity-game'
   },
   {
     id: 2,
@@ -61,8 +61,8 @@ const features = ref([
     description: '查看开发文档,设计自定义的麻将规则',
     icon: 'Document',
     color: '#00b300', /* 绿色 */
-    type: 'external',
-    url: 'https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc# 《open》'
+    type: 'route',
+    route: '/docs'
   },
   {
     id: 3,
@@ -78,13 +78,13 @@ const features = ref([
     title: 'GitHub项目',
     description: '转至GitHub页面',
     icon: 'Link',
-    color: '#808080', /* 灰色 */ 
-    type: 'external',
-    url: 'https://github.com/xelnagamiao/open_mahjong_unity'
+    color: '#6699CC', /* 灰色 */ 
+    type: 'route',
+    route: '/github'
   },
   {
     id: 5,
-    title: '听牌待牌判断',
+    title: '听牌待牌判断(未启用)',
     description: '分析手牌是否听牌，以及听牌手牌的待牌',
     icon: 'DataAnalysis',
     color: '#4ECDC4',
@@ -93,7 +93,7 @@ const features = ref([
   },
   {
     id: 6,
-    title: '国标麻将牌型解算',
+    title: '国标麻将牌型解算(未启用)',
     description: '根据您输入的手牌、副露、花牌、和牌方式计算出可能的和牌构成与他家支付的点数',
     icon: 'Trophy',
     color: '#45B7D1',
@@ -102,7 +102,7 @@ const features = ref([
   },
   {
     id: 7,
-    title: '立直麻将牌型解算',
+    title: '立直麻将牌型解算(未启用)',
     description: '根据您输入的手牌、副露、宝牌、和牌方式计算出可能的和牌构成与他家支付的点数',
     icon: 'Star',
     color: '#FF8C42',
@@ -113,14 +113,21 @@ const features = ref([
 
 const handleFeatureClick = (feature) => {
   if (feature.type === 'route') {
-    router.push(feature.route)
+    // 检查是否为外部链接路由
+    if (feature.route === '/unity-game' || feature.route === '/docs' || feature.route === '/github') {
+      // 这些路由会在beforeEnter中处理，在新窗口打开
+      router.push(feature.route)
+    } else {
+      // 普通路由正常跳转
+      router.push(feature.route)
+    }
   } else if (feature.type === 'external') {
     if (feature.url.startsWith('http')) {
       // 外部链接，在新窗口打开
       window.open(feature.url, '_blank')
     } else {
-      // 内部静态页面 - 直接跳转，不使用Vue路由
-      window.location.href = feature.url
+      // 内部静态页面 - 在新窗口打开
+      window.open(feature.url, '_blank')
     }
   }
 }

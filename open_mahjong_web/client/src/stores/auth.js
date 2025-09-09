@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
   }
 
+  // 登录
   const login = async (username, password) => {
     try {
       const response = await axios.post('/api/auth/login', {
@@ -35,7 +36,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
   }
-
+  
+  // 注册
   const register = async (username, password) => {
     try {
       const response = await axios.post('/api/auth/register', {
@@ -59,6 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 登出
   const logout = () => {
     token.value = null
     user.value = null
@@ -66,6 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
     delete axios.defaults.headers.common['Authorization']
   }
 
+  // 获取用户信息
   const fetchProfile = async () => {
     try {
       const response = await axios.get('/api/auth/profile')
@@ -78,6 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 返回
   return {
     user,
     token,

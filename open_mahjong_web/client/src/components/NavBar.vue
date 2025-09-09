@@ -1,3 +1,4 @@
+<!-- 顶部导航栏 -->
 <template>
   <el-menu
     :default-active="activeIndex"
@@ -8,28 +9,51 @@
     text-color="#fff"
     active-text-color="#ffd04b"
   >
+  <!-- 导航栏左侧点选菜单 -->
     <div class="nav-container">
       <div class="nav-left">
         <el-menu-item index="/" class="logo">
           <el-icon><Grid /></el-icon>
           <span>Mahjong.fit</span>
         </el-menu-item>
+
+        <el-menu-item index="/unity-game">
+          <el-icon><VideoPlay /></el-icon>
+          <span>麻将对战平台</span>
+        </el-menu-item>
+
+        <el-menu-item index="/github">
+          <el-icon><Link /></el-icon>
+          <span>GitHub</span>
+        </el-menu-item>
+
+        <el-menu-item index="/docs">
+          <el-icon><Document /></el-icon>
+          <span>开发手册</span>
+        </el-menu-item>
         
         <el-menu-item index="/shanten">
           <el-icon><DataAnalysis /></el-icon>
-          <span>听牌判断</span>
+          <span>听牌判断(未启用)</span>
         </el-menu-item>
         
         <el-menu-item index="/chinese">
           <el-icon><Trophy /></el-icon>
-          <span>国标麻将</span>
+          <span>国标麻将判断(未启用)</span>
         </el-menu-item>
         
         <el-menu-item index="/riichi">
           <el-icon><Star /></el-icon>
-          <span>立直麻将</span>
+          <span>立直麻将判断(未启用)</span>
         </el-menu-item>
+
+        <el-menu-item index="/player-data">
+          <el-icon><User /></el-icon>
+          <span>玩家数据</span>
+        </el-menu-item>
+
       </div>
+
       
       <div class="nav-right">
         <template v-if="!isLoggedIn">
@@ -57,7 +81,7 @@
         </template>
       </div>
     </div>
-  </el-menu>
+    </el-menu>
 </template>
 
 <script setup>
@@ -71,7 +95,10 @@ import {
   Star,
   User,
   UserFilled,
-  SwitchButton
+  SwitchButton,
+  Link,
+  Document,
+  VideoPlay
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

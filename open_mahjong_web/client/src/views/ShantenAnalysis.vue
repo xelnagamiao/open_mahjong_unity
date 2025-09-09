@@ -1,3 +1,4 @@
+<!-- 听牌待牌判断页面 -->
 <template>
   <div class="shanten-analysis">
     <div class="page-header">

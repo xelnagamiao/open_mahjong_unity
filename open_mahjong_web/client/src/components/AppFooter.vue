@@ -1,29 +1,32 @@
+<!-- 底部 页脚 -->
 <template>
   <footer class="app-footer">
     <div class="footer-content">
       <div class="footer-section">
         <h3>Mahjong.fit</h3>
-        <p>专业的麻将分析工具</p>
+        <p>一个简易的麻将服务网站</p>
       </div>
       
       <div class="footer-section">
         <h4>联系我们</h4>
-        <p>QQ群：432372422</p>
+        <p>测试QQ群：906497522</p>
         <p>管理员：Q1448826180</p>
+        <p>立直麻雀研习社：432372422</p>
       </div>
-      
+
       <div class="footer-section">
-        <h4>功能特色</h4>
+        <h4>鸣谢</h4>
         <ul>
-          <li>听牌待牌判断</li>
-          <li>国标麻将牌型解算</li>
-          <li>立直麻将牌型解算</li>
+          <li>棋牌游戏研究院</li>
+          <li>国标麻将吧</li>
+          <li>雪枫XueFun9</li>
         </ul>
       </div>
+
     </div>
     
     <div class="footer-bottom">
-      <p>&copy; 2024 立直麻雀研习社. 保留所有权利.</p>
+      <p>&copy; 2025 立直麻雀研习社</p>
     </div>
   </footer>
 </template>
