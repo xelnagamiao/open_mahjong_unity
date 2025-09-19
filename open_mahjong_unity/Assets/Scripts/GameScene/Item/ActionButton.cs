@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Linq;
 
 
 public class ActionButton : MonoBehaviour
@@ -46,19 +47,45 @@ public class ActionButton : MonoBehaviour
                     case "chi_left": 
                         TipsCardsList.Add(lastCutTile-2);
                         TipsCardsList.Add(lastCutTile-1);
-                        CreateActionCards(TipsCardsList, actionType);
+                        CreateActionCards(TipsCardsList, actionType,0);
                         break;
                     case "chi_mid":
                         TipsCardsList.Clear();
                         TipsCardsList.Add(lastCutTile-1);
                         TipsCardsList.Add(lastCutTile+1);
-                        CreateActionCards(TipsCardsList, actionType);
+                        CreateActionCards(TipsCardsList, actionType,0);
                         break;
                     case "chi_right":
                         TipsCardsList.Clear();
                         TipsCardsList.Add(lastCutTile+1);
                         TipsCardsList.Add(lastCutTile+2);
-                        CreateActionCards(TipsCardsList, actionType);
+                        CreateActionCards(TipsCardsList, actionType,0);
+                        break;
+                    case "angang":
+                        // 遍历手牌 如果手牌有4张相同的牌 则添加到提示牌列表
+                        foreach (int tileID in GameSceneManager.Instance.handTiles){
+                            if (GameSceneManager.Instance.handTiles.Count(x => x == tileID) == 4){
+                                TipsCardsList.Clear();
+                                TipsCardsList.Add(tileID);
+                                TipsCardsList.Add(tileID);
+                                TipsCardsList.Add(tileID);
+                                TipsCardsList.Add(tileID);
+                                CreateActionCards(TipsCardsList, actionType,tileID);
+                            }
+                        }
+                        break;
+                    case "jiagang":
+                        // 遍历手牌 如果组合牌中有符合加杠的组合 则添加到提示牌列表
+                        foreach (int tileID in GameSceneManager.Instance.handTiles){
+                            if (GameSceneManager.Instance.selfCombinationList.Contains($"k{tileID}")){
+                                TipsCardsList.Clear();
+                                TipsCardsList.Add(tileID);
+                                TipsCardsList.Add(tileID);
+                                TipsCardsList.Add(tileID);
+                                TipsCardsList.Add(tileID);
+                                CreateActionCards(TipsCardsList, actionType,tileID);
+                            }
+                        }
                         break;
                     }
             }
@@ -66,11 +93,11 @@ public class ActionButton : MonoBehaviour
         // 如果动作列表小于等于1 发送行动
         else{
             Debug.Log($"选择了行动 {actionTypeList[0]}");
-            GameCanvas.Instance.ChooseAction(actionTypeList[0]);
+            GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
         }
     }
 
-    private void CreateActionCards(List<int> TipsCardsList,string actionType) {
+    private void CreateActionCards(List<int> TipsCardsList,string actionType,int targetTile) {
         // 清空现有提示牌
         foreach (Transform child in ActionBlockContenter)
         {
@@ -82,6 +109,9 @@ public class ActionButton : MonoBehaviour
         // 设置提示牌块的行动类型为actionType
         ActionBlock blockClick = containerBlockObj.GetComponent<ActionBlock>();
         blockClick.actionType = actionType;
+        if (targetTile != 0){
+            blockClick.targetTile = targetTile;
+        }
 
         // 在提示牌块中根据TipsCardsList创建提示牌
         foreach (int tile in TipsCardsList){

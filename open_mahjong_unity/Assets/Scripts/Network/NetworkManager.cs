@@ -172,7 +172,9 @@ public class NetworkManager : MonoBehaviour
                         doresponse.cut_class,
                         doresponse.deal_tile,
                         doresponse.buhua_tile,
-                        doresponse.combination_mask
+                        doresponse.combination_mask,
+                        doresponse.combination_target
+
                     );
                     break;
                 
@@ -301,13 +303,14 @@ public class NetworkManager : MonoBehaviour
         websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.8 发送吃碰杠回应
-    public void SendAction(string action)
+    public void SendAction(string action,int targetTile)
     {
         var request = new SendActionRequest
         {
             type = "send_action",
             room_id = Administrator.Instance.room_id,
-            action = action
+            action = action,
+            targetTile = targetTile
         };
         websocket.Send(JsonConvert.SerializeObject(request));
     }

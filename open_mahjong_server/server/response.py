@@ -53,11 +53,18 @@ class Do_action_info(BaseModel):
     deal_tile: Optional[int] = None # 在摸牌时广播摸牌
     buhua_tile: Optional[int] = None # 在补花时广播补花
     combination_mask: Optional[List[int]] = None # 在鸣牌时传递鸣牌形状
+    combination_target: Optional[str] = None # 在鸣牌时传递鸣牌目标
     action_tick: int # 用于同步操作时钟
 
 class Show_result_info(BaseModel):
-    action_player: int
-    result_hepai: List[str]
+    hepai_player_index: Optional[int] = None  # 和牌玩家索引
+    player_to_point: Optional[Dict[int, int]] = None  # 所有玩家分数
+    hu_point: Optional[int] = None  # 和牌分数
+    hu_fan: Optional[int] = None  # 和牌番种
+    hu_class: str  # 和牌类别
+    hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌
+    hepai_player_huapai: Optional[List[int]] = None  # 和牌玩家花牌列表
+    hepai_player_combinations_mask: Optional[List[int]] = None  # 和牌玩家组合掩码
     action_tick: int
 
 class Response(BaseModel):

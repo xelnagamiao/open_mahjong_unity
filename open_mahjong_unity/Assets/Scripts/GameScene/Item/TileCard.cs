@@ -63,7 +63,8 @@ public class TileCard : MonoBehaviour
                 cut_class:currentGetTile, // 切牌类型
                 deal_tile:null, // 摸牌id
                 buhua_tile:null, // 补花id
-                combination_mask:null // 组合牌掩码
+                combination_mask:null, // 组合牌掩码
+                combination_target:null // 组合牌目标牌
                 );
             // 停止计时器
             GameCanvas.Instance.StopTimeRunning();

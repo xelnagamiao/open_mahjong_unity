@@ -7,12 +7,13 @@ using UnityEngine.UI;
 public class ActionBlock : MonoBehaviour, IPointerClickHandler
 {
     public string actionType;
+    public int targetTile;
     
     // 当点击时调用
     public void OnPointerClick(PointerEventData eventData)
     {
         Debug.Log($"选择了行动 {actionType}");
-        GameCanvas.Instance.ChooseAction(actionType);
+        GameCanvas.Instance.ChooseAction(actionType,targetTile);
     }
 
 

@@ -109,6 +109,7 @@ public class GameCanvas : MonoBehaviour
     // 摸牌 手切区域
     public void GetCard(int tileId){
         // 在手牌区域添加手牌
+        GameSceneManager.Instance.handTiles.Add(tileId);
         GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer); // 实例化手牌
         TileCard tileCard = cardObj.GetComponent<TileCard>(); // 获取手牌组件
         tileCard.SetTile(tileId, true); // 设置手牌 牌id, 是否是刚摸到的牌 bool:true
@@ -119,8 +120,78 @@ public class GameCanvas : MonoBehaviour
         for (int i = 0; i < action_list.Count; i++){
             // 用于跟踪吃牌按钮
             ActionButton chiButton = null;
+            // 用于跟踪暗杠按钮
+            ActionButton angangButton = null;
+            // 用于跟踪加杠按钮
+            ActionButton jiagangButton = null;
+
             Debug.Log($"询问操作: {action_list[i]}");
-            if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
+
+            // 碰牌
+            if (action_list[i] == "peng"){
+                Debug.Log($"碰牌");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer); // 实例化按钮
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "碰"; // 设置按钮文本
+                Debug.Log($"碰牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]); // 添加按钮对应的行动
+            }
+            // 杠牌
+            else if (action_list[i] == "gang"){
+                Debug.Log($"杠牌");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "杠";
+                Debug.Log($"杠牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            // 胡牌
+            else if (action_list[i] == "hu_self" || action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
+                Debug.Log($"胡牌");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "胡";
+                Debug.Log($"胡牌按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            // 补花
+            else if (action_list[i] == "buhua"){
+                Debug.Log($"补花");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "补花";
+                Debug.Log($"补花按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            } 
+            // 暗杠加杠吃牌可能有多个选择的选项，将这些选项添加入单个按钮。
+            // 暗杠
+            else if (action_list[i] == "angang"){
+                if (angangButton == null)
+                {
+                    angangButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                    Text buttonText = angangButton.TextObject;
+                    buttonText.text = "暗杠";
+                    Debug.Log($"暗杠按钮: {angangButton}");
+                    angangButton.actionTypeList.Add(action_list[i]);
+                }
+                angangButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"添加暗杠选项: {action_list[i]}");
+            }
+            // 加杠
+            else if (action_list[i] == "jiagang"){
+                if (jiagangButton == null)
+                {
+                    jiagangButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                    Text buttonText = jiagangButton.TextObject;
+                    buttonText.text = "加杠";
+                    Debug.Log($"加杠按钮: {jiagangButton}");
+                    jiagangButton.actionTypeList.Add(action_list[i]);
+                }
+                jiagangButton.actionTypeList.Add(action_list[i]);
+                Debug.Log($"添加加杠选项: {action_list[i]}");
+            }
+            // 吃牌
+            else if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
                 if (chiButton == null)
                 {
                     // 第一次遇到吃牌选项时创建按钮
@@ -133,54 +204,7 @@ public class GameCanvas : MonoBehaviour
                 chiButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加吃牌选项: {action_list[i]}");
             }
-            else if (action_list[i] == "peng"){
-                Debug.Log($"碰牌");
-                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer); // 实例化按钮
-                Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "碰"; // 设置按钮文本
-                Debug.Log($"碰牌按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add(action_list[i]); // 添加按钮对应的行动
-            }
-            else if (action_list[i] == "gang"){
-                Debug.Log($"杠牌");
-                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "杠";
-                Debug.Log($"杠牌按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add(action_list[i]);
-            }
-            else if (action_list[i] == "hu_self" || action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
-                Debug.Log($"胡牌");
-                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "胡";
-                Debug.Log($"胡牌按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add(action_list[i]);
-            }
-            else if (action_list[i] == "buhua"){
-                Debug.Log($"补花");
-                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "补花";
-                Debug.Log($"补花按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add(action_list[i]);
-            } 
-            else if (action_list[i] == "angang"){
-                Debug.Log($"暗杠");
-                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "暗杠";
-                Debug.Log($"暗杠按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add(action_list[i]);
-            }
-            else if (action_list[i] == "jiagang"){
-                Debug.Log($"加杠");
-                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "加杠";
-                Debug.Log($"加杠按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add(action_list[i]);
-            }
+            // 取消
             else if (action_list[i] == "pass"){
                 Debug.Log($"取消");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
@@ -213,9 +237,9 @@ public class GameCanvas : MonoBehaviour
     }
 
     // 发送行动
-    public void ChooseAction(string actionType){
+    public void ChooseAction(string actionType,int targetTile){
         StopTimeRunning();
-        NetworkManager.Instance.SendAction(actionType);
+        NetworkManager.Instance.SendAction(actionType,targetTile);
     }
 
     public void RemoveCutCard(int tileId,bool cut_class){

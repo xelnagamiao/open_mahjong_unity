@@ -300,7 +300,7 @@ async def message_input(websocket: WebSocket, player_id: str):
         elif message["type"] == "send_action":
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-            await chinese_game_state.get_action(player_id, message["action"],cutClass=None,TileId=None)
+            await chinese_game_state.get_action(player_id, message["action"],cutClass=None,TileId=None,target_tile=message["targetTile"])
 
 async def player_login(username: str, password: str) -> Response:
     try:

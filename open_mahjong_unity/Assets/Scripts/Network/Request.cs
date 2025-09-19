@@ -55,6 +55,7 @@ public class SendActionRequest // 发送国标游戏操作请求
 {
     public string type; // 消息类型 "send_action"
     public string action; // 操作类型 "cut" "chi_left" "chi_mid" "chi_right" "peng" "gang" "angang" "hu" "buhua"
+    public int? targetTile; // 暗杠目标牌 加杠目标牌
     public bool? cutClass; // 切牌类型
     public int? TileId; // 切牌
     public string room_id;

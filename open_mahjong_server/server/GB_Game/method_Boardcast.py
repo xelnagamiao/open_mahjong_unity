@@ -1,5 +1,5 @@
 from response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info
-from typing import List
+from typing import List, Dict, Optional
 
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
@@ -152,6 +152,7 @@ async def broadcast_do_action(
     cut_class: bool = None,
     deal_tile: int = None,
     buhua_tile: int = None,
+    combination_target: str = None,
     combination_mask: List[int] = None
     ):
     
@@ -178,7 +179,8 @@ async def broadcast_do_action(
                 do_action_data["buhua_tile"] = buhua_tile
             if combination_mask is not None:
                 do_action_data["combination_mask"] = combination_mask
-            
+            if combination_target is not None:
+                do_action_data["combination_target"] = combination_target
             do_action_info = Do_action_info(**do_action_data)
             
             response = Response(
@@ -191,7 +193,15 @@ async def broadcast_do_action(
             print(f"已向玩家 {current_player.username} 广播操作信息{response.dict(exclude_none=True)}")
 
 # 广播结算结果
-async def broadcast_result(self,hepai_player_index,hu_point,hu_fan,hu_class):
+async def broadcast_result(self, 
+                          hepai_player_index: Optional[int] = None, 
+                          player_to_point: Optional[Dict[int, int]] = None, 
+                          hu_point: Optional[int] = None, 
+                          hu_fan: Optional[int] = None, 
+                          hu_class: str = None,
+                          hepai_player_hand: Optional[List[int]] = None,
+                          hepai_player_huapai: Optional[List[int]] = None,
+                          hepai_player_combinations_mask: Optional[List[int]] = None):
     self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -204,11 +214,26 @@ async def broadcast_result(self,hepai_player_index,hu_point,hu_fan,hu_class):
                 message="显示结算结果",
                 show_result_info=Show_result_info(
                     hepai_player_index=hepai_player_index, # 和牌玩家索引
-                    hepai_hand_tiles=self.player_list[hepai_player_index].hand_tiles, # 和牌玩家手牌
+                    player_to_point=player_to_point, # 所有玩家分数
                     hu_point=hu_point, # 和牌分数
-                    hu_fan=hu_fan, # 和牌番数
-                    hu_class=hu_class # 和牌类型
+                    hu_fan=hu_fan, # 和牌番种
+                    hu_class=hu_class, # 和牌类别
+                    hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
+                    hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
+                    hepai_player_combinations_mask=hepai_player_combinations_mask, # 和牌玩家组合掩码
+                    action_tick=self.action_tick
                 )
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播结算结果信息{response.dict(exclude_none=True)}")
+
+async def broadcast_game_end(self):
+    self.action_tick += 1
+    for i, current_player in enumerate(self.player_list):
+        if current_player.username in self.game_server.username_to_connection:
+            player_conn = self.game_server.username_to_connection[current_player.username]
+            response = Response(
+                type="game_end_GB",
+                success=True,
+                message="游戏结束",
+            )

@@ -24,6 +24,7 @@ public class GameSceneManager : MonoBehaviour
     public int selfRemainingTime; // 剩余时间
     public int remainTiles; // 剩余牌数
     public bool tips; // 提示
+    public List<int> handTiles = new List<int>(); // 手牌列表
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
@@ -130,7 +131,7 @@ public class GameSceneManager : MonoBehaviour
 
 
     // 执行操作
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target) {
         string GetCardPlayer = indexToPosition[action_player];
         foreach (string action in action_list) {
             Debug.Log($"执行DoAction操作: {action}");
@@ -139,6 +140,7 @@ public class GameSceneManager : MonoBehaviour
                     if (GetCardPlayer == "self"){
                         Debug.Log($"是自己");
                         if (allowActionList.Contains("cut")){
+                            handTiles.Remove(cut_tile.Value); // 删除手牌
                             selfDiscardslist.Add(cut_tile.Value); // 存储弃牌
                             Debug.Log($"重新排列手牌");
                             GameCanvas.Instance.ArrangeHandCards(); // 重新排列手牌
@@ -164,6 +166,7 @@ public class GameSceneManager : MonoBehaviour
                     int buhua_tile_id = buhua_tile.Value;
                     if (GetCardPlayer == "self"){
                         selfHuapaiList.Add(buhua_tile_id);
+                        handTiles.Remove(buhua_tile_id); // 删除手牌
                         GameCanvas.Instance.RemoveCutCard(buhua_tile_id,false); // 删除补花牌
                     }
                     else if (GetCardPlayer == "left"){leftHuapaiList.Add(buhua_tile_id);}
@@ -176,6 +179,18 @@ public class GameSceneManager : MonoBehaviour
                     break;
                 case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang":
                     Game3DManager.Instance.ActionAnimation(GetCardPlayer, action, combination_mask);
+                    if (GetCardPlayer == "self"){
+                        if (action == "jiagang"){
+                            // 删除combination_target的首字符
+                            string combination_target_str = combination_target.Substring(1);
+                            selfCombinationList.Add($"g{combination_target_str}");
+                            selfCombinationList.Remove(combination_target);
+                        }
+                        else{
+                            selfCombinationList.Add(combination_target);
+                        }
+
+                    }
                     break;
                 default:
                     Debug.Log($"未知操作: {action}");
@@ -210,6 +225,7 @@ public class GameSceneManager : MonoBehaviour
         roomRoundTime = gameInfo.round_time; // 存储局时
         tips = gameInfo.tips; // 存储是否提示
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
+        handTiles = gameInfo.self_hand_tiles.ToList(); // 存储手牌列表
         // 根据自身索引确定其他玩家位置
         if (selfIndex == 0)
         {

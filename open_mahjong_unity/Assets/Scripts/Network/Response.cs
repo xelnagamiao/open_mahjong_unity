@@ -1,5 +1,3 @@
-using System;
-
 // 5.Response 接收数据类型
 
 public class RoomInfo
@@ -61,6 +59,7 @@ public class DoActionInfo // 执行操作
     public bool? cut_class;         // 可空类型
     public int? deal_tile;          // 可空类型
     public int? buhua_tile;         // 可空类型
+    public string combination_target; // 可空类型
     public int[] combination_mask;  // 数组可以为null
 }
 

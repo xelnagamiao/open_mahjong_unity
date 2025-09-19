@@ -26,7 +26,8 @@ def check_action_after_cut(self,cut_tile):
         if item.hand_tiles.count(cut_tile) == 2:
             temp_action_dict[item.player_index].append("peng")
             if item.hand_tiles.count(cut_tile) == 3:
-                temp_action_dict[item.player_index].append("gang")
+                if self.tiles_list != []:
+                    temp_action_dict[item.player_index].append("gang")
 
     # 如果该牌是任意家的等待牌
     for item in self.player_list:
@@ -140,6 +141,9 @@ def check_action_jiagang(self,gang_tile):
         if i != []:
             temp_action_dict[i].append("pass")
 
+    # 不能抢自己的杠
+    temp_action_dict[self.current_player_index] = []
+
     return temp_action_dict
 
 # 开局检查补花操作 存储 补花buhua
@@ -157,23 +161,27 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
 
     # 如果手牌中有花牌 则可以补花
     if any(carditem >= 50 for carditem in player_item.hand_tiles):
-        temp_action_dict[player_index].append("buhua")
+        if self.tiles_list != []:
+            temp_action_dict[player_index].append("buhua")
 
     # 如果手牌中有4张相同的牌 则可以暗杠
-    if any(player_item.hand_tiles.count(carditem) == 4 for carditem in player_item.hand_tiles):
-        temp_action_dict[player_index].append("angang")
+    for carditem in player_item.hand_tiles:
+        if player_item.hand_tiles.count(carditem) == 4:
+            if self.tiles_list != []:
+                temp_action_dict[player_index].append("angang")
 
     # 如果组合牌中有加杠 则可以加杠
     for combination_tile in player_item.combination_tiles:
         if combination_tile[0] == "k":
             jiagang_index = int(combination_tile[1:])  # 提取所有数字
             if jiagang_index in player_item.hand_tiles:
-                temp_action_dict[player_index].append("jiagang")
+                if self.tiles_list != []:
+                    temp_action_dict[player_index].append("jiagang")
 
     # 摸牌后可以切牌
     temp_action_dict[player_index].append("cut")
 
-    # 给每个玩家广播这包含了一个摸牌行动
+    # 给每个玩家广播中包含了摸牌行动
     # deal 操作需要广播给所有玩家 因为deal操作是摸牌操作 需要让所有玩家都知道其他人摸牌了
     for i in temp_action_dict:
         temp_action_dict[i].append("deal")
@@ -232,8 +240,14 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
 
     return temp_action_dict
 
+# 检查吃碰后切牌操作 存储 吃碰后切牌cut
+def check_only_cut(self,player_index):
+    temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+    temp_action_dict[player_index].append("cut")
+    return temp_action_dict
+
 # 检查等待牌操作 用来在玩家手牌发生改变时检测监听的卡牌
-def check_waiting_tiles(self,player_index):
+def refresh_waiting_tiles(self,player_index):
     # 获取ChinesePlayer
     player_item = self.player_list[player_index]
     # 获取手牌

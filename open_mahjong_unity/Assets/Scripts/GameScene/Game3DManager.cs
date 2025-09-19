@@ -252,6 +252,27 @@ public class Game3DManager : MonoBehaviour
         else if (playerIndex == "right"){
             rightSetCombinationsPoint = TempSetPosition;
         }
+
+        // 根据actionType删除手牌
+        if (playerIndex == "self"){
+            // 暗杠在手牌中删除所有生成的卡牌
+            if (actionType == "angang"){
+                foreach (int tileID in SetTileList){
+                    GameSceneManager.Instance.handTiles.Remove(tileID);
+                }
+            }
+            // 加杠在手牌中删除生成的第一张卡牌
+            else if (actionType == "jiagang"){
+                GameSceneManager.Instance.handTiles.Remove(SetTileList[0]);
+            }
+            // 吃碰杠在手牌中先添加最后一张弃牌，再删除生成的所有卡牌
+            else if (actionType == "chi_left" || actionType == "chi_right" || actionType == "chi_mid" || actionType == "peng" || actionType == "gang"){
+                GameSceneManager.Instance.handTiles.Add(GameSceneManager.Instance.lastCutCardID);
+                foreach (int tileID in SetTileList){
+                    GameSceneManager.Instance.handTiles.Remove(tileID);
+                }
+            }
+        }
     }
 
 
