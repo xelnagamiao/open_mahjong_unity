@@ -37,7 +37,6 @@ public class AskHandActionGBInfo // 询问手牌操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余时间
     public int player_index; // 玩家索引
-    public int deal_tiles; // 摸牌
     public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
     public int action_tick;
 }

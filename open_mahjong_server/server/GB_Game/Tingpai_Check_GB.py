@@ -17,9 +17,15 @@ class Chinese_Tingpai_Check:
     yaojiu = {11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47}
     zipai = {41, 42, 43, 44, 45, 46, 47}
     
-    def __init__(self):
+    def __init__(self, debug=False):
         self.waiting_tiles = set()
         self.temp_waiting_tiles = set()
+        self.debug = debug  # 添加debug标志
+    
+    def debug_print(self, *args, **kwargs):
+        """只在debug模式下打印"""
+        if self.debug:
+            print(*args, **kwargs)
 
     def check_waiting_tiles(self, player_tiles: PlayerTiles):
         # 清空之前的结果
@@ -36,7 +42,7 @@ class Chinese_Tingpai_Check:
             
         self.normal_check(player_tiles) # 一般型检查
         
-        print(self.waiting_tiles)
+        self.debug_print(self.waiting_tiles)
 
         return self.waiting_tiles
 
@@ -103,7 +109,8 @@ class Chinese_Tingpai_Check:
                     for i in case:
                         if i not in player_tiles.hand_tiles:
                             need_tile_list.append(i)
-                    self.waiting_tiles = need_tile_list
+                    for i in need_tile_list:
+                        self.waiting_tiles.add(i)
                     return True
 
         elif hand_kind_set >= 8:
@@ -141,11 +148,11 @@ class Chinese_Tingpai_Check:
             return False
         # 获取所有的雀头可能以及没有雀头的情况
         
-        print(player_tiles.hand_tiles)
+        self.debug_print(player_tiles.hand_tiles)
         
         all_list = self.normal_check_traverse_quetou(player_tiles)
         end_list = []
-        print([i.hand_tiles for i in all_list])
+        self.debug_print([i.hand_tiles for i in all_list])
         # 345567
         count_count = 0
         while all_list:
@@ -156,24 +163,24 @@ class Chinese_Tingpai_Check:
             self.normal_check_traverse_dazi(temp_list, all_list)
             if temp_list.complete_step >= 11:
                 end_list.append(temp_list)
-        print("计算次数：",count_count)
+        self.debug_print("计算次数：",count_count)
         for i in end_list:
-            print("手牌",i.hand_tiles, "胡牌步数",i.complete_step, "胡牌组合",i.combination_list)
+            self.debug_print("手牌",i.hand_tiles, "胡牌步数",i.complete_step, "胡牌组合",i.combination_list)
 
         # 只保留complete_step大于等于11的列表
         end_list = [i for i in end_list if i.complete_step >= 11]
-        print("处理后的列表:", [i.hand_tiles for i in end_list])
-        print("列表长度:", len(end_list))
+        self.debug_print("处理后的列表:", [i.hand_tiles for i in end_list])
+        self.debug_print("列表长度:", len(end_list))
 
         # 剩余的手牌有五种组成方式 
         # 1.单吊听牌型(无雀头型)[n] 2.有雀头剩余对子型(对碰)[n,n] 3.剩余两面型[n,n+1] 4.剩余坎张型[n,n+2] 5.无效型[n,m] 特殊情况:组合龙型 complete_step == 14 [temp_waiting_tiles]
         if end_list:
             waiting_tiles = []
             for i in end_list:
-                print(i.hand_tiles, i.complete_step,i.combination_list)
+                self.debug_print(i.hand_tiles, i.complete_step,i.combination_list)
                 # 如果听牌步数是14 则代表缺的那张牌就是组合龙的缺张 直接返回缺张牌
                 if i.complete_step == 14:
-                    print("组合龙型")
+                    self.debug_print("组合龙型")
                     self.waiting_tiles = self.temp_waiting_tiles
                     return
 
@@ -189,8 +196,8 @@ class Chinese_Tingpai_Check:
                         waiting_tiles.append(i.hand_tiles[0] + 1) # 坎张型
             # 去重
             if waiting_tiles:
-                waiting_tiles = set(waiting_tiles)
-                self.waiting_tiles = waiting_tiles | self.waiting_tiles
+                for i in waiting_tiles:
+                    self.waiting_tiles.add(i)
         
     def normal_check_block(self,player_tiles: PlayerTiles):
         block_count = len(player_tiles.combination_list)
@@ -253,8 +260,8 @@ class Chinese_Tingpai_Check:
         test_tiles = PlayerTiles(hand_tile_list,combination_list,len(combination_list)*3)
         self.check_waiting_tiles(test_tiles)
         # 排除 10 20 30 40这四种集合成员
-        self.waiting_tiles = [i for i in self.waiting_tiles if i not in {10,20,30,40}]
-        return self.waiting_tiles
+        self.waiting_tiles = {i for i in self.waiting_tiles if i not in {10,20,30,40}}
+        return self.waiting_tiles  # 返回set格式
 
 # 测试
 if __name__ == "__main__":
@@ -365,10 +372,10 @@ if __name__ == "__main__":
     """
 
     # 手动指定牌组测试
-    Chinese_test_combination = Chinese_Tingpai_Check()
+    Chinese_test_combination = Chinese_Tingpai_Check(debug=True)  # 启用debug模式
     print("手动指定牌组")
     time_start = time()
-    tiles_list = [11,11,12,12,13,15,15,17,17,18,18,19,19]
+    tiles_list = [11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15]
     tile_combination_list = []
     return_set = Chinese_test_combination.tingpai_check(tiles_list,tile_combination_list)
     print("返回结果",return_set)

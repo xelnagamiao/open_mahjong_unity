@@ -2,27 +2,29 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class BoardCanvas : MonoBehaviour
 {
     [Header("游戏中心盘信息")]
-    [SerializeField] private Text remiansTilesText;      // 剩余牌数文本
+    [SerializeField] private TMP_Text remiansTilesText;      // 剩余牌数文本
+    [SerializeField] private TMP_Text CurrentRoundText;      // 当前回合文本
 
     [Header("玩家信息")]
-    [SerializeField] private Text player_self_score;       // 玩家分数文本
-    [SerializeField] private Text player_self_index;       // 玩家索引文本
+    [SerializeField] private TMP_Text player_self_score;       // 玩家分数文本
+    [SerializeField] private TMP_Text player_self_index;       // 玩家索引文本
     [SerializeField] private Image player_self_current_image;    // 玩家回合标记    
 
-    [SerializeField] private Text player_left_score;         // 玩家分数文本
-    [SerializeField] private Text player_left_index;         // 玩家索引文本
+    [SerializeField] private TMP_Text player_left_score;         // 玩家分数文本
+    [SerializeField] private TMP_Text player_left_index;         // 玩家索引文本
     [SerializeField] private Image player_left_current_image;      // 玩家回合标记
 
-    [SerializeField] private Text player_top_score;          // 玩家分数文本
-    [SerializeField] private Text player_top_index;          // 玩家索引文本
+    [SerializeField] private TMP_Text player_top_score;          // 玩家分数文本
+    [SerializeField] private TMP_Text player_top_index;          // 玩家索引文本
     [SerializeField] private Image player_top_current_image;       // 玩家回合标记
 
-    [SerializeField] private Text player_right_score;        // 玩家分数文本
-    [SerializeField] private Text player_right_index;        // 玩家索引文本
+    [SerializeField] private TMP_Text player_right_score;        // 玩家分数文本
+    [SerializeField] private TMP_Text player_right_index;        // 玩家索引文本
     [SerializeField] private Image player_right_current_image;     // 玩家回合标记
 
     private Dictionary<int, string> PositionToChineseCharacter = new Dictionary<int, string>(){
@@ -67,6 +69,40 @@ public class BoardCanvas : MonoBehaviour
                 player_right_current_image.gameObject.SetActive(false);
             }
             remiansTilesText.text = $"剩余牌数：{gameInfo.tile_count}"; // 设置剩余牌数
+            string current_round_str = "";
+            // 整除于4余1为东
+            if (gameInfo.current_round / 4 == 0){
+                current_round_str = "东";
+            }
+            // 整除于4余2为南
+            else if (gameInfo.current_round / 4 == 1){
+                current_round_str = "南";
+            }
+            // 整除于4余3为西
+            else if (gameInfo.current_round / 4 == 2){
+                current_round_str = "西";
+            }
+            // 整除于4余0为北
+            else if (gameInfo.current_round / 4 == 3){
+                current_round_str = "北";
+            }
+            // 整除4为1为东
+            if (gameInfo.current_round % 4 == 1){
+                current_round_str = current_round_str + "一局";
+            }
+            // 整除4为2为南
+            else if (gameInfo.current_round % 4 == 2){
+                current_round_str = current_round_str + "二局";
+            }
+            // 整除4为3为西
+            else if (gameInfo.current_round % 4 == 3){
+                current_round_str = current_round_str + "三局";
+            }
+            // 整除4为0为北
+            else if (gameInfo.current_round % 4 == 0){
+                current_round_str = current_round_str + "四局";
+            }
+            CurrentRoundText.text = $"{current_round_str}";
         }
     }
 

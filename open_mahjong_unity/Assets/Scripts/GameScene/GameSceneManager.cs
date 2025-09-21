@@ -78,9 +78,8 @@ public class GameSceneManager : MonoBehaviour
     }
 
     // 询问摸牌手牌操作 手牌操作包括 摸牌 切牌 补花 胡 暗杠 加杠
-    public void AskHandAction(int remaining_time,int deal_tile,int playerIndex,int remain_tiles,string[] action_list){
+    public void AskHandAction(int remaining_time,int playerIndex,int remain_tiles,string[] action_list){
         string GetCardPlayer = indexToPosition[playerIndex];
-        lastCutCardID = deal_tile;
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
@@ -97,15 +96,6 @@ public class GameSceneManager : MonoBehaviour
                 // 显示剩余时间
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             }
-            // 如果有摸牌行动
-            if (action_list.Contains("deal")){
-                GameCanvas.Instance.GetCard(deal_tile);
-            }
-        }
-        // 如果行动者是他人
-        else{
-            if (action_list.Contains("deal")){
-                Game3DManager.Instance.GetCard3D(GetCardPlayer);}
         }
         // 显示行动者
         BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
@@ -136,7 +126,17 @@ public class GameSceneManager : MonoBehaviour
         foreach (string action in action_list) {
             Debug.Log($"执行DoAction操作: {action}");
             switch (action) { // action_list 实际上只会包含一个操作
+                case "deal": // 摸牌
+                    if (GetCardPlayer == "self"){
+                        GameCanvas.Instance.GetCard(deal_tile.Value);
+                    }
+                    else{
+                        Game3DManager.Instance.GetCard3D(GetCardPlayer);
+                        BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
+                    }
+                    break;
                 case "cut": // 切牌
+                    lastCutCardID = cut_tile.Value; // 存储切牌ID
                     if (GetCardPlayer == "self"){
                         Debug.Log($"是自己");
                         if (allowActionList.Contains("cut")){

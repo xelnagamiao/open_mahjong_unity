@@ -32,7 +32,6 @@ class GameInfo(BaseModel):
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
     player_index: int
-    deal_tiles: int
     remain_tiles: int
     action_list: List[str]
     action_tick: int

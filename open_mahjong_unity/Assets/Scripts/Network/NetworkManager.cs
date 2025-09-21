@@ -147,7 +147,6 @@ public class NetworkManager : MonoBehaviour
                     AskHandActionGBInfo handresponse = response.ask_hand_action_info;
                     GameSceneManager.Instance.AskHandAction(
                         handresponse.remaining_time,
-                        handresponse.deal_tiles,
                         handresponse.player_index,
                         handresponse.remain_tiles,
                         handresponse.action_list

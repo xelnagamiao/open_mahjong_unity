@@ -7825,13 +7825,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 295409527}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.8, y: 0, z: -1.75}
+  m_LocalRotation: {x: -0, y: -0.70711225, z: -0, w: 0.7071013}
+  m_LocalPosition: {x: 1.8000001, y: 0, z: -1.75}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 789942949}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -90.001, z: 0}
 --- !u!1 &301126544
 GameObject:
   m_ObjectHideFlags: 0
@@ -8129,13 +8129,14 @@ GameObject:
   - component: {fileID: 316080948}
   - component: {fileID: 316080950}
   - component: {fileID: 316080949}
+  - component: {fileID: 316080951}
   m_Layer: 12
   m_Name: ENDPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &316080948
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8199,6 +8200,38 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 316080947}
   m_CullTransparentMesh: 1
+--- !u!114 &316080951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 316080947}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54cd03cf35664754885be15b329b1815, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  FanTex1: {fileID: 1749865026}
+  FanTex2: {fileID: 642178996}
+  FanTex3: {fileID: 360976230}
+  FanTex4: {fileID: 1207409702}
+  FanTex5: {fileID: 44354552}
+  FanTex6: {fileID: 1076467005}
+  FanTex7: {fileID: 302988620}
+  FanTex8: {fileID: 1370639142}
+  FanTex9: {fileID: 1768069888}
+  FanTex10: {fileID: 969610085}
+  FanTex11: {fileID: 1710119735}
+  FanTex12: {fileID: 1562069060}
+  SelfUserName: {fileID: 1793089058}
+  SelfPoint: {fileID: 2123584744}
+  LeftUserName: {fileID: 1985308838}
+  LeftPoint: {fileID: 779833895}
+  TopUserName: {fileID: 1189762169}
+  TopPoint: {fileID: 854905464}
+  RightUserName: {fileID: 165585585}
+  RightPoint: {fileID: 2089110260}
 --- !u!1 &325756687
 GameObject:
   m_ObjectHideFlags: 0
@@ -21353,7 +21386,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &985823872
 Transform:
   m_ObjectHideFlags: 0

@@ -74,7 +74,6 @@ async def broadcast_ask_hand_action(self):
                     ask_hand_action_info = Ask_hand_action_info(
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
-                        deal_tiles=self.player_list[i].hand_tiles[-1],
                         remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
                         action_tick=self.action_tick
@@ -93,7 +92,6 @@ async def broadcast_ask_hand_action(self):
                     ask_hand_action_info = Ask_hand_action_info(
                         remaining_time=current_player.remaining_time,
                         player_index= self.current_player_index,
-                        deal_tiles=0,
                         remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
                         action_tick=self.action_tick
@@ -162,32 +160,22 @@ async def broadcast_do_action(
         # 发送通用信息
         if current_player.username in self.game_server.username_to_connection:
             player_conn = self.game_server.username_to_connection[current_player.username]
-            # 只传递有值的参数
-            do_action_data = {
-                "action_list": action_list,
-                "action_player": action_player,
-                "action_tick": self.action_tick
-            }
-            
-            if cut_tile is not None:
-                do_action_data["cut_tile"] = cut_tile
-            if cut_class is not None:
-                do_action_data["cut_class"] = cut_class
-            if deal_tile is not None:
-                do_action_data["deal_tile"] = deal_tile
-            if buhua_tile is not None:
-                do_action_data["buhua_tile"] = buhua_tile
-            if combination_mask is not None:
-                do_action_data["combination_mask"] = combination_mask
-            if combination_target is not None:
-                do_action_data["combination_target"] = combination_target
-            do_action_info = Do_action_info(**do_action_data)
-            
+
             response = Response(
                 type="do_action_GB",
                 success=True,
                 message="返回操作内容",
-                do_action_info=do_action_info
+                do_action_info=Do_action_info(
+                    action_list=action_list,
+                    action_player=action_player,
+                    action_tick=self.action_tick,
+                    cut_tile=cut_tile,
+                    cut_class=cut_class,
+                    deal_tile=deal_tile,
+                    buhua_tile=buhua_tile,
+                    combination_mask=combination_mask,
+                    combination_target=combination_target
+                )
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播操作信息{response.dict(exclude_none=True)}")
@@ -237,3 +225,5 @@ async def broadcast_game_end(self):
                 success=True,
                 message="游戏结束",
             )
+            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            print(f"已向玩家 {current_player.username} 广播游戏结束信息{response.dict(exclude_none=True)}")

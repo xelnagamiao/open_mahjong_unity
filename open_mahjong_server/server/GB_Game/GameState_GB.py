@@ -131,7 +131,7 @@ class ChineseGameState:
         random.shuffle(self.tiles_list)
 
         # 使用测试牌例
-        self.player_list[0].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15,15]
+        self.player_list[0].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15,55]
         self.player_list[1].hand_tiles = []
         self.player_list[2].hand_tiles = []
         self.player_list[3].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
@@ -213,10 +213,14 @@ class ChineseGameState:
                         await broadcast_ask_hand_action(self) # 广播补花信息
                         # 如果玩家选择补花 则广播一次摸牌信息
                         if await self.wait_action():
-                            # deal 操作需要广播给所有玩家 因为deal操作是摸牌操作 需要让所有玩家都知道其他人摸牌了
-                            self.action_dict = {0:["deal"],1:["deal"],2:["deal"],3:["deal"]}
-                            await broadcast_ask_hand_action(self)
-                            self.action_dict = {0:[],1:[],2:[],3:[]}
+                            max_tile = max(self.player_list[self.current_player_index].hand_tiles) # 获取最大牌
+                            self.player_list[self.current_player_index].hand_tiles.remove(max_tile) # 从手牌中移除最大牌
+                            self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
+                            self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
+                            await broadcast_do_action(self,action_list = ["buhua","deal"],
+                                                      action_player = self.current_player_index,
+                                                      buhua_tile = max_tile,
+                                                      deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 如果玩家选择pass 则下一轮循环
                         else:
                             action_anymore = False
@@ -227,12 +231,9 @@ class ChineseGameState:
             # 初始行为
             self.game_status = "waiting_hand_action" # 初始行动
             self.current_player_index = 0 # 初始玩家索引
-            # 手动执行一次waiting_hand_action状态 因为庄家首次出牌不需要摸牌
+
             refresh_waiting_tiles(self,self.current_player_index) # 检查手牌等待牌
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
-            # 第一次不发牌
-            for i in self.action_dict:
-                self.action_dict[i].remove("deal")
             await broadcast_ask_hand_action(self) # 广播手牌操作
             await self.wait_action() # 等待手牌操作
 
@@ -248,6 +249,8 @@ class ChineseGameState:
                         self.next_current_index() # 切换到下一个玩家
                         refresh_waiting_tiles(self,self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
+                        # 广播摸牌操作
+                        await broadcast_do_action(self,action_list = ["deal"],action_player = self.current_player_index,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
@@ -255,6 +258,8 @@ class ChineseGameState:
                     case "deal_card_after_gang": # 杠后发牌历时行为
                         refresh_waiting_tiles(self,self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
+                        # 广播摸牌操作
+                        await broadcast_do_action(self,action_list = ["deal"],action_player = self.current_player_index,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         self.action_dict = check_action_hand_action(self,self.current_player_index,is_get_gang_tile=True) # 允许岭上
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
                     
@@ -266,10 +271,12 @@ class ChineseGameState:
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
                         self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                         # 广播补花操作
-                        await broadcast_do_action(self,action_list = ["buhua"],action_player = self.current_player_index,buhua_tile = max_tile)
+                        await broadcast_do_action(self,action_list = ["buhua","deal"],
+                                                  action_player = self.current_player_index,
+                                                  buhua_tile = max_tile,
+                                                  deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
-
                         
                     case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后行为
                         await broadcast_ask_hand_action(self) # 广播手牌操作
@@ -474,11 +481,6 @@ class ChineseGameState:
                     # 等待补花阶段的action_type只能是buhua
                     if action_type == "buhua": 
                         if action_data:
-                            max_tile = max(self.player_list[self.current_player_index].hand_tiles) # 获取最大牌（花牌数字永远最大）
-                            self.player_list[self.current_player_index].get_tile(self.tiles_list) # 随后摸牌 否则可能补花摸到的牌
-                            self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
-                            self.player_list[self.current_player_index].hand_tiles.remove(max_tile) # 从手牌中移除最大牌
-                            await broadcast_do_action(self,action_list = ["buhua"],action_player = self.current_player_index,buhua_tile = max_tile) # 广播补花动画
                             return True # 补花以后如果能够补花继续询问
                         elif action_type == "pass":
                             return False # 如果玩家选择pass则停止该玩家补花
@@ -574,7 +576,8 @@ class ChineseGameState:
                 else:
                     # 摸切 action_type == "cut"
                     cut_class = True # 模切
-                    tile_id = self.player_list[self.current_player_index].hand_tiles.pop(-1) # 最后一张手牌是最晚摸到的牌 获取最后一张手牌
+                    tile_id = self.player_list[self.current_player_index].hand_tiles[-1] # 最后一张手牌是最晚摸到的牌 获取最后一张手牌
+                    self.player_list[self.current_player_index].hand_tiles.remove(tile_id) # 从手牌中移除摸切牌
                     self.player_list[self.current_player_index].discard_tiles.append(tile_id) # 将摸切牌加入弃牌堆
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = cut_class) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
                     refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
@@ -591,7 +594,7 @@ class ChineseGameState:
                 tile_id = self.player_list[self.current_player_index].discard_tiles[-1] # 获取操作牌
                 combination_mask = []
                 if action_data:
-                    check_waiting_tiles(self,player_index) # 更新听牌
+                    refresh_waiting_tiles(self,player_index) # 更新听牌
                     if action_type == "chi_left": # [tile_id-2,tile_id-1,tile_id]
                         self.player_list[player_index].hand_tiles.remove(tile_id-1)
                         self.player_list[player_index].hand_tiles.remove(tile_id-2)
@@ -630,7 +633,7 @@ class ChineseGameState:
                             combination_mask = [0,tile_id,0,tile_id,0,tile_id,1,tile_id]
                         elif relative_position == "top":
                             combination_mask = [0,tile_id,1,tile_id,0,tile_id,0,tile_id]
-                        check_waiting_tiles(self,player_index) # 更新听牌
+                        refresh_waiting_tiles(self,player_index) # 更新听牌
 
                         #
                         #
@@ -670,7 +673,7 @@ class ChineseGameState:
                         # 广播切牌动画
                         await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = cut_class)
                         # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
-                        check_waiting_tiles(self,self.current_player_index) # 更新听牌
+                        refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
                         self.action_dict = check_action_after_cut(self,tile_id)
                         if any(self.action_dict[i] for i in self.action_dict):
                             self.game_status = "waiting_action_after_cut" # 转移行为
@@ -686,7 +689,7 @@ class ChineseGameState:
                     self.player_list[self.current_player_index].discard_tiles.append(tile_id) # 将摸切牌加入弃牌堆
                     # 广播摸切动画
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = cut_class)
-                    check_waiting_tiles(self,self.current_player_index) # 更新听牌
+                    refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
                     self.action_dict = check_action_after_cut(self,tile_id) # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_after_cut" # 转移行为

@@ -295,7 +295,7 @@ async def message_input(websocket: WebSocket, player_id: str):
         elif message["type"] == "CutTiles":
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-            await chinese_game_state.get_action(player_id, "cut",message["cutClass"], message["TileId"])
+            await chinese_game_state.get_action(player_id, "cut", message["cutClass"], message["TileId"], target_tile=message.get("targetTile", 0))
 
         elif message["type"] == "send_action":
             room_id = message["room_id"]

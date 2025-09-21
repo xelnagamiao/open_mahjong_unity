@@ -9,29 +9,31 @@ public class Game3DManager : MonoBehaviour
     [SerializeField] private GameObject tile3DPrefab;    // 3D预制体
     [Header("3D对象生成位置")]
     [SerializeField] private Transform leftCardsPosition; // 左家手牌位置
+    [SerializeField] private Transform leftDiscardsPosition; // 左家弃牌位置
+    [SerializeField] private Transform leftBuhuaPosition; // 左家补花位置
+    [SerializeField] private Transform leftCombinationsPosition; // 左家组合位置
+    
     [SerializeField] private Transform topCardsPosition; // 对家手牌位置
-    [SerializeField] private Transform rightCardsPosition; // 右家手牌位置
-    [SerializeField] private Transform selfDiscardsPosition; // 自家弃牌位置
-    [SerializeField] private Transform leftDiscardsPosition; // 上家弃牌位置
     [SerializeField] private Transform topDiscardsPosition; // 对家弃牌位置
-    [SerializeField] private Transform rightDiscardsPosition; // 下家弃牌位置
-    [SerializeField] private Transform selfCombinationsPosition; // 自家组合位置
-    [SerializeField] private Transform leftCombinationsPosition; // 上家组合位置
-    [SerializeField] private Transform topCombinationsPosition; // 对家组合位置
-    [SerializeField] private Transform rightCombinationsPosition; // 下家组合位置
-    [SerializeField] private Transform selfBuhuaPosition; // 自家补花位置
-    [SerializeField] private Transform leftBuhuaPosition; // 上家补花位置
     [SerializeField] private Transform topBuhuaPosition; // 对家补花位置
-    [SerializeField] private Transform rightBuhuaPosition; // 下家补花位置
+    [SerializeField] private Transform topCombinationsPosition; // 对家组合位置
+    
+    [SerializeField] private Transform rightCardsPosition; // 右家手牌位置
+    [SerializeField] private Transform rightDiscardsPosition; // 右家弃牌位置
+    [SerializeField] private Transform rightBuhuaPosition; // 右家补花位置
+    [SerializeField] private Transform rightCombinationsPosition; // 右家组合位置
 
-    private GameObject LastCutCard; // 最后一张弃牌
+    [SerializeField] private Transform selfCardsPosition; // 自家手牌位置
+    [SerializeField] private Transform selfDiscardsPosition; // 自家弃牌位置
+    [SerializeField] private Transform selfBuhuaPosition; // 自家补花位置
+    [SerializeField] private Transform selfCombinationsPosition; // 自家组合位置
 
     private Vector3 selfSetCombinationsPoint; // 组合指针用于存储各家组合牌生成位置
     private Vector3 leftSetCombinationsPoint;
     private Vector3 topSetCombinationsPoint;
     private Vector3 rightSetCombinationsPoint;
 
-    private GameObject lastCutTile; // 最后一张弃牌的3D对象
+    private GameObject lastCut3DObject; // 最后一张弃牌的3D对象
 
     private float cardWidth; // 卡片宽度
     private float cardHeight; // 卡片高度
@@ -62,44 +64,69 @@ public class Game3DManager : MonoBehaviour
     }
 
     // 出牌3D动画
-    private void DisCardAnimation(int tileId,Transform DiscardPosition,Vector3 widthdirection,Vector3 heightdirection,string PlayerPosition,int discardCount){
+    private void Set3DTile(int tileId,Transform SetPosition,string SetType ,string PlayerPosition,int TileCount){
 
-        // 计算放置位置
-        Vector3 currentPosition = DiscardPosition.position;
-        // 假设每行最多放 6 张牌
-        int cardsPerRow = 6;
+        // 获取放置位置
+        Vector3 currentPosition = SetPosition.position;
+        // 获取放置角度
+        Quaternion rotation = Quaternion.identity;
+
+        // 获取不同玩家的相对右侧和相对下侧
+        Vector3 widthdirection = Vector3.zero;
+        Vector3 heightdirection = Vector3.zero;
+        if (PlayerPosition == "self"){
+            widthdirection = new Vector3(1,0,0);
+            heightdirection = new Vector3(0,0,-1);
+            rotation = Quaternion.Euler(0, 0, -90);
+        }
+        else if (PlayerPosition == "left"){
+            widthdirection = new Vector3(0,0,-1);
+            heightdirection = new Vector3(-1,0,0);
+            rotation = Quaternion.Euler(0, 90, -90);
+        }
+        else if (PlayerPosition == "top"){
+            widthdirection = new Vector3(-1,0,0);
+            heightdirection = new Vector3(0,0,1);
+            rotation = Quaternion.Euler(0, 180, -90);
+        }
+        else if (PlayerPosition == "right"){
+            widthdirection = new Vector3(0,0,1);
+            heightdirection = new Vector3(1,0,0);
+            rotation = Quaternion.Euler(0, 270, -90);
+        }
+
+        // 获取每行最多放多少张牌
+        int cardsPerRow;
+        // 弃牌每行最多放 6 张牌
+        if (SetType == "discard"){
+            cardsPerRow = 6;
+        }
+        // 补花每行最多放 8 张牌
+        else if (SetType == "buhua"){
+            cardsPerRow = 8;
+        }
+        else{
+            Debug.LogError($"SetType {SetType} 错误");
+            return;
+        }
+    
         // 将 discardCount 映射到从 0 开始的索引（第1张是0，第6张是5，第7张是6 → 行1列0）
-        int index = discardCount - 1;
+        int index = TileCount - 1;
         // 计算当前是第几行、第几列
         int row = index / cardsPerRow;     // 整除：行号
         int col = index % cardsPerRow;     // 取余：列号
-        // 累加偏移
+
         currentPosition += widthdirection.normalized * widthSpacing * col;
         currentPosition += heightdirection.normalized * heightSpacing * row;
 
-        // 计算放置角度
-        Quaternion rotation = Quaternion.identity;
-        if (PlayerPosition == "self"){
-            rotation = Quaternion.Euler(0, 0, -90); // 自身位置
-        }
-        else if (PlayerPosition == "left"){
-            rotation = Quaternion.Euler(0, 90, -90); // 左侧玩家
-        }
-        else if (PlayerPosition == "top"){
-            rotation = Quaternion.Euler(0, 180, -90); // 上方玩家
-        }
-        else if (PlayerPosition == "right"){
-            rotation = Quaternion.Euler(0, 270, -90); // 右侧玩家
-        }
 
-        Debug.Log($"创建卡片 {discardCount}, 牌ID: {tileId}");
+        Debug.Log($"创建卡片 {TileCount}, 牌ID: {tileId}");
         // 创建麻将牌预制体
         GameObject cardObj = Instantiate(tile3DPrefab, currentPosition, rotation);
-        LastCutCard = cardObj;
-        
+        lastCut3DObject = cardObj;
         // 设置父对象
-        cardObj.transform.SetParent(DiscardPosition, worldPositionStays: true);
-        cardObj.name = $"Card_{discardCount}";
+        cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
+        cardObj.name = $"Card_{TileCount}";
         
         // 加载并应用材质
         ApplyCardTexture(cardObj, tileId);
@@ -109,21 +136,21 @@ public class Game3DManager : MonoBehaviour
     public void BuhuaAnimation(string GetCardPlayer,int deal_tiles){
         if (GetCardPlayer == "self"){
             int buhuaCount = GameSceneManager.Instance.selfHuapaiList.Count;
-            DisCardAnimation(deal_tiles,selfBuhuaPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",buhuaCount);
+            Set3DTile(deal_tiles,selfBuhuaPosition,"buhua","self",buhuaCount);
         }
         else if (GetCardPlayer == "left"){
             int buhuaCount = GameSceneManager.Instance.leftHuapaiList.Count;
-            DisCardAnimation(deal_tiles,leftBuhuaPosition,new Vector3(0,0,-1),new Vector3(-1,0,0),"left",buhuaCount);
+            Set3DTile(deal_tiles,leftBuhuaPosition,"buhua","left",buhuaCount);
             removeOtherHandCards(leftCardsPosition,false);
         }
         else if (GetCardPlayer == "top"){
             int buhuaCount = GameSceneManager.Instance.topHuapaiList.Count;
-            DisCardAnimation(deal_tiles,topBuhuaPosition,new Vector3(-1,0,0),new Vector3(0,0,1),"top",buhuaCount);
+            Set3DTile(deal_tiles,topBuhuaPosition,"buhua","top",buhuaCount);
             removeOtherHandCards(topCardsPosition,false);
         }
         else if (GetCardPlayer == "right"){
             int buhuaCount = GameSceneManager.Instance.rightHuapaiList.Count;
-            DisCardAnimation(deal_tiles,rightBuhuaPosition,new Vector3(0,0,1),new Vector3(1,0,0),"right",buhuaCount);
+            Set3DTile(deal_tiles,rightBuhuaPosition,"buhua","right",buhuaCount);
             removeOtherHandCards(rightCardsPosition,false);
         }
     }
@@ -158,18 +185,18 @@ public class Game3DManager : MonoBehaviour
             // 显示切牌
         if (playerIndex == "self"){
             // 生成3D弃牌
-            DisCardAnimation(tileId,selfDiscardsPosition,new Vector3(1,0,0),new Vector3(0,0,-1),"self",GameSceneManager.Instance.selfDiscardslist.Count);
+            Set3DTile(tileId,selfDiscardsPosition,"discard","self",GameSceneManager.Instance.selfDiscardslist.Count);
             }
         else if (playerIndex == "left"){
-            DisCardAnimation(tileId,rightDiscardsPosition,new Vector3(0,0,1),new Vector3(1,0,0),"right",GameSceneManager.Instance.rightDiscardslist.Count);
+            Set3DTile(tileId,leftDiscardsPosition,"discard","left",GameSceneManager.Instance.leftDiscardslist.Count);
             removeOtherHandCards(leftCardsPosition,cut_class); // 如果是他家操作则移除他家手牌
             }
         else if (playerIndex == "top"){
-            DisCardAnimation(tileId,leftDiscardsPosition,new Vector3(0,0,-1),new Vector3(-1,0,0),"left",GameSceneManager.Instance.leftDiscardslist.Count);
+            Set3DTile(tileId,topDiscardsPosition,"discard","top",GameSceneManager.Instance.topDiscardslist.Count);
             removeOtherHandCards(topCardsPosition,cut_class);
             }
         else if (playerIndex == "right"){
-            DisCardAnimation(tileId,topDiscardsPosition,new Vector3(-1,0,0),new Vector3(0,0,1),"top",GameSceneManager.Instance.topDiscardslist.Count);
+            Set3DTile(tileId,rightDiscardsPosition,"discard","right",GameSceneManager.Instance.rightDiscardslist.Count);
             removeOtherHandCards(rightCardsPosition,cut_class);
             }
         }
