@@ -235,7 +235,7 @@ class Chinese_Hepai_Check:
         player_tiles = PlayerTiles(hand_list,tiles_combination,complete_step)
 
 
-        print("手牌：",player_tiles.hand_tiles,"组合：",player_tiles.combination_list)
+        print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
         
         player_tiles_list = []
         if len(player_tiles.hand_tiles) == 14:

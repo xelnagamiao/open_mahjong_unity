@@ -106,7 +106,7 @@ public class GameSceneManager : MonoBehaviour
         // 如果列表中有服务器提供的可用操作，则显示倒计时
         if (action_list.Length > 0){
             // 1.存储全部可用行动
-            string[] AllowOtherActionCheck = new string[] {"chi_left", "chi_mid", "chi_right", "peng", "gang","hu_self","hu_first","hu_second","hu_third"};
+            string[] AllowOtherActionCheck = new string[] {"chi_left", "chi_mid", "chi_right", "peng", "gang","hu_self","hu_first","hu_second","hu_third","pass"};
             foreach (string action in action_list){
                 if (AllowOtherActionCheck.Contains(action)){
                     allowActionList.Add(action);

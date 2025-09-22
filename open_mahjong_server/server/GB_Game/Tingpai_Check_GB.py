@@ -261,7 +261,7 @@ class Chinese_Tingpai_Check:
         self.check_waiting_tiles(test_tiles)
         # 排除 10 20 30 40这四种集合成员
         self.waiting_tiles = {i for i in self.waiting_tiles if i not in {10,20,30,40}}
-        return self.waiting_tiles  # 返回set格式
+        return self.waiting_tiles.copy()  # 返回set的副本，避免引用问题
 
 # 测试
 if __name__ == "__main__":

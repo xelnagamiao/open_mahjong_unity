@@ -34,7 +34,7 @@ def check_action_after_cut(self,cut_tile):
         print(f"玩家{item.player_index}的等待牌为{item.waiting_tiles}")
         if cut_tile in item.waiting_tiles:
             # 如果满足和牌条件则可以胡
-            tiles_list = item.hand_tiles # 手牌列表
+            tiles_list = item.hand_tiles + [cut_tile] # 手牌列表 13+1张
             combination_tiles = item.combination_tiles # 组合牌列表
             way_to_hepai = ["点和","花牌"*len(item.huapai_list)]
             # 场风检查
@@ -67,6 +67,8 @@ def check_action_after_cut(self,cut_tile):
 
             hepai_tiles = cut_tile # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
+            print(f"玩家{item.player_index}的和牌结果为{result}")
+
             if result[0] >= 8:
                 if self.get_index_relative_position(self.current_player_index,item.player_index) == "left":
                     temp_action_dict[item.player_index].append("hu_first") # 上家切牌 最高优先级和牌
@@ -96,7 +98,7 @@ def check_action_jiagang(self,gang_tile):
     for item in self.player_list:
         if gang_tile in item.waiting_tiles:
             # 如果满足和牌条件则可以胡
-            tiles_list = item.hand_tiles # 手牌列表
+            tiles_list = item.hand_tiles + [gang_tile] # 手牌列表 13+1
             combination_tiles = item.combination_tiles # 组合牌列表
             way_to_hepai = ["抢杠和","花牌"*len(item.huapai_list)]
             # 场风检查
@@ -185,7 +187,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     # 如果手牌中有等待牌 则检测和牌
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
         temp_action_dict[player_index].append("hu_first")
-        tiles_list = player_item.hand_tiles # 手牌列表
+        tiles_list = player_item.hand_tiles # 手牌列表 14张
         combination_tiles = player_item.combination_tiles # 组合牌列表
         way_to_hepai = ["花牌"*len(player_item.huapai_list)] # 和牌方式
         # 场风检查
@@ -229,6 +231,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
         
         hepai_tiles = player_item.waiting_tiles[player_item.hand_tiles[-1]] # 和牌张
         result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
+        print(f"玩家{player_index}的和牌结果为{result}")
 
         if result[0] >= 8:
             temp_action_dict[player_index].append("hu_self") # 上家切牌 最高优先级和牌
@@ -258,6 +261,6 @@ def refresh_waiting_tiles(self,player_index):
         current_player_combination_tiles
     )
     # 更新等待牌
-    if current_player_waiting_tiles != player_item.waiting_tiles:
-        player_item.waiting_tiles = current_player_waiting_tiles
+    if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
+        self.player_list[player_index].waiting_tiles = current_player_waiting_tiles
         print(f"玩家{player_index}的等待牌更新为{current_player_waiting_tiles}")

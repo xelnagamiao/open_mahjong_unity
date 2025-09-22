@@ -4,6 +4,8 @@ from typing import Dict, List
 import time
 from .method_Action_Check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
+from .Hepai_Check_GB import Chinese_Hepai_Check
+from .Tingpai_Check_GB import Chinese_Tingpai_Check
 
 
 class ChinesePlayer:
@@ -38,8 +40,8 @@ class ChineseGameState:
     def __init__(self, game_server, room_data: dict):
         self.game_server = game_server # 游戏服务器
         self.player_list: List[ChinesePlayer] = [] # 玩家列表 包含chinesePlayer类
-        self.Chinese_Hepai_Check = self.game_server.room_manager.Chinese_Hepai_Check
-        self.Chinese_Tingpai_Check = self.game_server.room_manager.Chinese_Tingpai_Check
+        self.Chinese_Hepai_Check = Chinese_Hepai_Check()
+        self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
         for player in room_data["player_list"]:
             self.player_list.append(ChinesePlayer(player,[],room_data["round_timer"]))
 
@@ -233,6 +235,7 @@ class ChineseGameState:
             self.current_player_index = 0 # 初始玩家索引
 
             refresh_waiting_tiles(self,self.current_player_index) # 检查手牌等待牌
+            print(f"玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
             await broadcast_ask_hand_action(self) # 广播手牌操作
             await self.wait_action() # 等待手牌操作
@@ -643,12 +646,11 @@ class ChineseGameState:
 
 
                     elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
-                        ### 等待完成
-                        for i in self.result_dict:
-                            if i != action_type:
-                                self.result_dict.pop(i)
+                        # 和牌 （荣和）
+                        self.hu_class = action_type
                         self.game_status = "END"
                         return
+                    
                     # 如果发生吃碰杠而不是和牌 则发生转移行为
                     if action_type == "chi_left" or action_type == "chi_mid" or action_type == "chi_right" or action_type == "peng" or action_type == "gang":
                         self.player_list[self.current_player_index].discard_tiles.pop(-1) # 删除弃牌堆的最后一张

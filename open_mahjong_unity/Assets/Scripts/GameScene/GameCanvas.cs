@@ -211,7 +211,7 @@ public class GameCanvas : MonoBehaviour
                 Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "取消";
                 Debug.Log($"取消按钮: {ActionButtonObj}");
-                ActionButtonObj.actionTypeList.Add("pass");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
         }
     }
