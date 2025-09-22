@@ -298,7 +298,7 @@ class ChineseGameState:
                         await self.wait_action()
 
             # 卡牌摸完 或者有人和牌
-            hu_point = None
+            hu_score = None
             hu_fan = None
             hepai_player_index = None
             
@@ -306,81 +306,88 @@ class ChineseGameState:
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 # 自摸
                 if self.hu_class == "hu_self":
-                    hu_point, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
+                    hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
                     hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
-                    self.player_list[hepai_player_index].point += hu_point*3 + 24 # 三倍和牌分与3*8基础分
+                    self.player_list[hepai_player_index].score += hu_score*3 + 24 # 三倍和牌分与3*8基础分
                     self.result_dict = {}
                     for i in self.player_list: # 其他玩家扣除和牌分与8基础分
                         if i != hepai_player_index:
-                            i.point -= hu_point + 8  
+                            i.score -= hu_score + 8  
                 # 荣和他家
                 else:
                     # 荣和上家
                     if self.hu_class == "hu_first": 
-                        hu_point, hu_fan = self.result_dict["hu_first"]
-                        hepai_player_index = self.next_current_num(self,self.current_player_index) # 获取当前玩家的下家索引
-                        self.player_list[hepai_player_index].point += hu_point + 8 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].point -= hu_point # 当前玩家扣除和牌分
+                        hu_score, hu_fan = self.result_dict["hu_first"]
+                        hepai_player_index = self.next_current_num(self.current_player_index) # 获取当前玩家的下家索引
+                        print(f"和牌玩家索引{hepai_player_index}")
+                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
                         self.result_dict = {}
 
                     # 荣和对家
                     elif self.hu_class == "hu_second":
-                        hu_point, hu_fan = self.result_dict["hu_second"]
-                        hepai_player_index = self.next_current_num(self,self.next_current_num(self,self.current_player_index)) # 获取下下家索引
-                        self.player_list[hepai_player_index].point += hu_point
+                        hu_score, hu_fan = self.result_dict["hu_second"]
+                        hepai_player_index = self.next_current_num(self.current_player_index)
+                        hepai_player_index = self.next_current_num(hepai_player_index) # 获取下下家索引
+                        print(f"和牌玩家索引{hepai_player_index}")
+                        self.player_list[hepai_player_index].score += hu_score
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].point += hu_point + 8 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].point -= hu_point # 当前玩家扣除和牌分
+                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
 
                     # 荣和下家
                     elif self.hu_class == "hu_third":
-                        hu_point, hu_fan = self.result_dict["hu_third"]
-                        hepai_player_index = self.next_current_num(self,self.next_current_num(self,self.next_current_num(self,self.current_player_index))) # 获取下下下家索引
-                        self.player_list[hepai_player_index].point += hu_point
+                        hu_score, hu_fan = self.result_dict["hu_third"]
+                        hepai_player_index = self.next_current_num(self.current_player_index)
+                        hepai_player_index = self.next_current_num(hepai_player_index)
+                        hepai_player_index = self.next_current_num(hepai_player_index) # 获取下下下家索引
+                        print(f"和牌玩家索引{hepai_player_index}")
+                        self.player_list[hepai_player_index].score += hu_score
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].point += hu_point + 8 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].point -= hu_point # 当前玩家扣除和牌分
+                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
 
                     # 其他玩家扣除8基础分
                     for i in self.player_list: # 其他玩家扣除和牌分与8基础分
                         if i != hepai_player_index:
-                            i.point -= 8
+                            i.score -= 8
 
                 # 广播和牌结算结果
                 # 获取所有人分数
-                player_to_point = {}
+                player_to_score = {}
                 for i in self.player_list:
-                    player_to_point[i.player_index] = i.point
+                    player_to_score[i.player_index] = i.score
                 # 获取和牌显示中的 手牌 花牌 组合掩码
                 he_hand = self.player_list[hepai_player_index].hand_tiles
                 he_huapai = self.player_list[hepai_player_index].huapai_list
-                he_combinations_mask = self.player_list[hepai_player_index].combinations_mask
+                he_combination_mask = self.player_list[hepai_player_index].combination_mask
 
                 # 广播和牌结算结果
                 await broadcast_result(self,
                                        hepai_player_index = hepai_player_index, # 和牌玩家索引
-                                       player_to_point = player_to_point, # 所有玩家分数
-                                       hu_point = hu_point, # 和牌分数
+                                       player_to_score = player_to_score, # 所有玩家分数
+                                       hu_score = hu_score, # 和牌分数
                                        hu_fan = hu_fan, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别
                                        hepai_player_hand = he_hand, # 和牌玩家手牌
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
-                                       hepai_player_combinations_mask = he_combinations_mask # 和牌玩家组合掩码
+                                       hepai_player_combination_mask = he_combination_mask # 和牌玩家组合掩码
                                        )
             # 广播流局结算结果
             else:
                 self.hu_class = "liuju"
                 await broadcast_result(self,
                                        hepai_player_index = None, # 和牌玩家索引
-                                       player_to_point = None, # 所有玩家分数
-                                       hu_point = None, # 和牌分数
+                                       player_to_score = None, # 所有玩家分数
+                                       hu_score = None, # 和牌分数
                                        hu_fan = None, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别
                                        hepai_player_hand = None, # 和牌玩家手牌
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
-                                       hepai_player_combinations_mask = None # 和牌玩家组合掩码
+                                       hepai_player_combination_mask = None # 和牌玩家组合掩码
                                        )
             
+            await asyncio.sleep(len(hu_fan)*1 + 5) # 等待和牌番种时间与5秒后重新开始下一局
             self.current_round += 1 # 局数+1
             # ↑ 重新开始下一局循环
         
@@ -647,6 +654,7 @@ class ChineseGameState:
 
                     elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                         # 和牌 （荣和）
+                        self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                         self.hu_class = action_type
                         self.game_status = "END"
                         return

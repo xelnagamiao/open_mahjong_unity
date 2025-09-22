@@ -185,6 +185,8 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     temp_action_dict[player_index].append("cut")
 
     # 如果手牌中有等待牌 则检测和牌
+    print(f"玩家{player_index}的手牌为{player_item.hand_tiles}")
+    print(f"玩家{player_index}的等待牌为{player_item.waiting_tiles}")
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
         temp_action_dict[player_index].append("hu_first")
         tiles_list = player_item.hand_tiles # 手牌列表 14张

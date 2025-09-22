@@ -30,6 +30,20 @@ public class Response // 所有后端的返回数据都由Response类接收
     public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问摸牌后自己的操作
     public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问切牌后其他家或许有的操作
     public DoActionInfo do_action_info; // 国标游戏中执行操作
+    public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
+}
+
+public class ShowResultInfo // 显示结算结果
+{
+    public int hepai_player_index; // 和牌玩家索引
+    public int[] player_to_score; // 所有玩家分数
+    public int hu_score; // 和牌分数
+    public string hu_fan; // 和牌番种
+    public string hu_class; // 和牌类别
+    public int[] hepai_player_hand; // 和牌玩家手牌
+    public int[] hepai_player_huapai; // 和牌玩家花牌列表
+    public int[] hepai_player_combination_mask; // 和牌玩家组合掩码
+    public int action_tick;
 }
 
 public class AskHandActionGBInfo // 询问手牌操作

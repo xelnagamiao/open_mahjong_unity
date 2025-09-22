@@ -30,6 +30,15 @@ public class GameSceneManager : MonoBehaviour
     public int lastCutCardID; // 上一张切牌的ID
 
     // 玩家信息
+    public string selfUserName; // 用户名
+    public string leftUserName;
+    public string topUserName;
+    public string rightUserName;
+    public int selfScore; // 分数
+    public int leftScore;
+    public int topScore;
+    public int rightScore;
+
     public List<int> selfDiscardslist = new List<int>(); // 弃牌列表
     public List<int> leftDiscardslist = new List<int>();
     public List<int> topDiscardslist = new List<int>();
@@ -258,6 +267,8 @@ public class GameSceneManager : MonoBehaviour
         }
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
+                selfUserName = player.username; // 存储用户名
+                selfScore = player.score; // 存储分数
                 // 存储剩余时间
                 selfRemainingTime = player.remaining_time;
                 selfDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
@@ -265,16 +276,22 @@ public class GameSceneManager : MonoBehaviour
                 selfHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
             else if (indexToPosition[player.player_index] == "right"){
+                rightUserName = player.username; // 存储用户名
+                rightScore = player.score; // 存储分数
                 rightDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
                 rightCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
                 rightHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
             else if (indexToPosition[player.player_index] == "top"){
+                topUserName = player.username; // 存储用户名
+                topScore = player.score; // 存储分数
                 topDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
                 topCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
                 topHuapaiList = player.huapai_list.ToList(); // 存储花牌列表
             }
             else if (indexToPosition[player.player_index] == "left"){
+                leftUserName = player.username; // 存储用户名
+                leftScore = player.score; // 存储分数
                 leftDiscardslist = player.discard_tiles.ToList(); // 存储弃牌列表
                 leftCombinationList = player.combination_tiles.ToList(); // 存储组合牌列表
                 leftHuapaiList = player.huapai_list.ToList(); // 存储花牌列表

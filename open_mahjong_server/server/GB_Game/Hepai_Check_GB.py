@@ -192,6 +192,14 @@ class Chinese_Hepai_Check:
         "huapai":"花牌",
         "mingangang":"明暗杠"
     }
+    def __init__(self, debug=False):
+        self.debug = debug  # 添加debug标志
+    
+    def debug_print(self, *args, **kwargs):
+        """只在debug模式下打印"""
+        if self.debug:
+            print(*args, **kwargs)
+
     # 存储组合 => 手牌的映射
     combination_to_tiles_dict:Dict[str,List[int]] = {
         "s12": [11,12,13],"s13": [12,13,14],"s14": [13,14,15],"s15": [14,15,16],"s16": [15,16,17],"s17": [16,17,18],"s18": [17,18,19],
@@ -384,7 +392,7 @@ class Chinese_Hepai_Check:
             return False
 
     def normal_check(self, player_tiles: PlayerTiles,check_done_list:list[PlayerTiles]):
-        print("player_tiles:",player_tiles.hand_tiles,player_tiles.complete_step,player_tiles.combination_list)
+        self.debug_print("player_tiles:",player_tiles.hand_tiles,player_tiles.complete_step,player_tiles.combination_list)
         # 如果牌型已经和牌,说明有国士无双、七对子、全不靠、七星不靠、不进行一般型检测
         if player_tiles.complete_step == 14:
             check_done_list.append(player_tiles)
@@ -397,7 +405,7 @@ class Chinese_Hepai_Check:
         # 获取所有的雀头可能以及没有雀头的情况
         all_list = self.normal_check_traverse_quetou(player_tiles)
         end_list = []
-        print("所有雀头可能",[i.hand_tiles for i in all_list])
+        self.debug_print("所有雀头可能",[i.hand_tiles for i in all_list])
         # 345567
         count_count = 0
         while all_list:
@@ -409,7 +417,7 @@ class Chinese_Hepai_Check:
             if temp_list.complete_step == 14:
                 end_list.append(temp_list)
         
-        print("计算次数：",count_count)
+        self.debug_print("计算次数：",count_count)
         combination_class = None
         temp_list = []
         for i in end_list:
@@ -419,9 +427,9 @@ class Chinese_Hepai_Check:
                 temp_list.append(i)
         end_list = temp_list
 
-        print("和牌类型的数量:", len(end_list))
+        self.debug_print("和牌类型的数量:", len(end_list))
         for i in end_list:
-            print("手牌",i.hand_tiles, "胡牌步数",i.complete_step, "胡牌组合",i.combination_list)
+            self.debug_print("手牌",i.hand_tiles, "胡牌步数",i.complete_step, "胡牌组合",i.combination_list)
         
         check_done_list.extend(end_list)
 
@@ -452,7 +460,6 @@ class Chinese_Hepai_Check:
                 temp_list.combination_list.append(f"q{tile_id}")
                 all_list.append(temp_list)
                 quetou_id_pointer = tile_id
-                print(tile_id)
         temp_list = player_tiles.__deepcopy__(None)
         all_list.append(temp_list)
         return all_list
@@ -485,7 +492,7 @@ class Chinese_Hepai_Check:
                     same_tile_id = tile_id
     
     def fan_count_hand_check(self,player_tiles:PlayerTiles,hand_tiles_list,get_tile):
-        print("手牌",hand_tiles_list)
+        self.debug_print("手牌",hand_tiles_list)
         if hand_tiles_list == []:
             return
         # 对手牌映射查表 
@@ -497,13 +504,13 @@ class Chinese_Hepai_Check:
         if all(i in self.wan_set|self.zipai_set for i in hand_tiles_list) or all(i in self.bing_set|self.zipai_set for i in hand_tiles_list) or all(i in self.tiao_set|self.zipai_set for i in hand_tiles_list):
             if all(i in self.wan_set for i in hand_tiles_list) or all(i in self.bing_set for i in hand_tiles_list) or all(i in self.tiao_set for i in hand_tiles_list):
                 temp_tiles_list = hand_tiles_list.copy()
-                print("temp_tiles_list",temp_tiles_list)
+                self.debug_print("temp_tiles_list",temp_tiles_list)
                 temp_tiles_list.remove(get_tile)
                 save_list = []
                 for i in temp_tiles_list:
                     rank = i % 10
                     save_list.append(rank)
-                print(save_list)
+                self.debug_print(save_list)
                 if save_list == self.jiulianbaodeng_list:
                     player_tiles.fan_list.append("jiulianbaodeng") # 九莲宝灯
                 else:
@@ -662,8 +669,8 @@ class Chinese_Hepai_Check:
 
         save_dazi_sign.sort()
         save_kezi_sign.sort()
-        print("搭子标记：",save_dazi_sign)
-        print("刻子标记：",save_kezi_sign)
+        self.debug_print("搭子标记：",save_dazi_sign)
+        self.debug_print("刻子标记：",save_kezi_sign)
         
         # 顺子关系判断 包含一色三步高 一色四步高 一色三同顺 一色四同顺 三色三步高 三色三同顺 清龙 花龙 喜相逢 连六 老少副
         # 根据顺子标记的步进判断同色内顺子的连续性 检测一色三步高和一色四步高 以1为步长
@@ -769,7 +776,7 @@ class Chinese_Hepai_Check:
                     # 三色三步高判断
                     for i in suit_list[0]:
                         i = int(i)
-                        print(i)
+                        self.debug_print(i)
                         # 如果[i,i+1,i+2 或者 i,i+1,i-1] 则三色三步高
                         if str(i+1) in suit_list[1]:
                             if str(i+2) in suit_list[2]:
@@ -871,7 +878,7 @@ class Chinese_Hepai_Check:
                         player_tiles.fan_list.append("quanshuangke") # 全双刻
 
             already_count_list = []
-            print(all_list)
+            self.debug_print(all_list)
             for rank in all_list:
                 if all_list.count(rank) >= 2 and rank not in already_count_list:
                     already_count_list.append(rank)
@@ -879,7 +886,7 @@ class Chinese_Hepai_Check:
                         player_tiles.fan_list.append("santongke") # 三同刻
                     elif all_list.count(rank) == 2:
                         player_tiles.fan_list.append("shuangtongke") # 双同刻
-            print(wan_list,bing_list,tiao_list)
+            self.debug_print(wan_list,bing_list,tiao_list)
             for i in wan_list:
                 if str(int(i)+1) in bing_list:
                     if str(int(i)+2) in tiao_list:
@@ -976,7 +983,7 @@ class Chinese_Hepai_Check:
                 case "海底捞月":
                     player_tiles.fan_list.append("haidilaoyue") # 海底捞月
                 case "点和":
-                    print(player_tiles.combination_list)
+                    self.debug_print(player_tiles.combination_list)
                     if combination_str != "" and all(i not in ["S","K","G","z"] for i in combination_str) and "和单张" in way_to_hepai:
                         player_tiles.fan_list.append("quanqiuren") # 全求人
                     elif combination_str.count("s") + combination_str.count("k") + combination_str.count("g") == 0:
@@ -1046,16 +1053,16 @@ class Chinese_Hepai_Check:
                 else:
                     need_to_remove.append("yaojiuke")
 
-        print("全部被添加的番种",player_tiles.fan_list)
+        self.debug_print("全部被添加的番种",player_tiles.fan_list)
         # 按番大小排列
         player_tiles.fan_list.sort(key=lambda x: self.count_model_dict[x], reverse=True)
 
-        print("需要被阻挡的番种",need_to_remove)
+        self.debug_print("需要被阻挡的番种",need_to_remove)
 
         for i in need_to_remove:
             if i in player_tiles.fan_list:
                 player_tiles.fan_list.remove(i)
-        print("需要移除的幺九刻数量",max_yaojiuke_count)
+        self.debug_print("需要移除的幺九刻数量",max_yaojiuke_count)
         for i in range(max_yaojiuke_count):
             if "yaojiuke" in player_tiles.fan_list:
                 player_tiles.fan_list.remove("yaojiuke")
@@ -1072,7 +1079,7 @@ class Chinese_Hepai_Check:
             else:
                 origin_fan_list.append(i)
         
-        print("重复番种",repeatable_fan_list)
+        self.debug_print("重复番种",repeatable_fan_list)
 
         if len(repeatable_fan_list) > 0:
             # A.四顺子番种成立时，不得加计任何双顺子番种（一般高、喜相逢、连六、老少副）以下方法在拥有四顺子番种时剔除所有双顺番种即可
@@ -1119,7 +1126,7 @@ class Chinese_Hepai_Check:
                         origin_fan_list.append(repeatable_fan_list[i])
 
         player_tiles.fan_list = origin_fan_list
-        print("最终番种",player_tiles.fan_list)
+        self.debug_print("最终番种",player_tiles.fan_list)
 
 
 
@@ -1132,17 +1139,17 @@ class Chinese_Hepai_Check:
         for i in player_tiles.fan_list:
             if i not in fuji_set:
                 fan_count += self.count_model_dict[i]
-                print(f"添加番数{i},{self.count_model_dict[i]}")
+                self.debug_print(f"添加番数{i},{self.count_model_dict[i]}")
                 temp_fan_count_list.append(f"{self.eng_to_chinese_dict[i]}")
         for i in fuji_list:
             if i in player_tiles.fan_list:
                 fan_count += player_tiles.fan_list.count(i) * self.count_model_dict[i]
-                print(f"添加番数{i},{player_tiles.fan_list.count(i) * self.count_model_dict[i]}")
+                self.debug_print(f"添加番数{i},{player_tiles.fan_list.count(i) * self.count_model_dict[i]}")
                 temp_fan_count_list.append(f"{self.eng_to_chinese_dict[i]}*{player_tiles.fan_list.count(i)}")
 
         player_tiles.fan_count_list = temp_fan_count_list
-        print("和牌文本",player_tiles.fan_count_list)
-        print("和牌得分",fan_count)
+        self.debug_print("和牌文本",player_tiles.fan_count_list)
+        self.debug_print("和牌得分",fan_count)
         return fan_count,player_tiles.fan_count_list # 返回和牌得分 展示文本 int/list[str]
 
     def fan_count(self, player_tiles: PlayerTiles,get_tile,way_to_hepai):
@@ -1192,8 +1199,8 @@ class Chinese_Hepai_Check:
         # 七对子没有组合映射,全不靠和七星不靠没有手牌映射,正常型和组合龙正常建立组合映射和手牌映射
         for i in player_tiles.combination_list:
             combination_str += i
-        print("组合映射：",combination_str)
-        print("手牌映射：",hand_tiles_list)
+        self.debug_print("组合映射：",combination_str)
+        self.debug_print("手牌映射：",hand_tiles_list)
 
 
 
@@ -1216,7 +1223,7 @@ class Chinese_Hepai_Check:
         # 通过和牌关系计算 [嵌张 单吊将 边张 妙手回春 杠上开花 抢杠和 和绝张 花牌 海底捞月 全求人 门前清 不求人 自摸]
         self.fan_count_hepai_relationship_check(player_tiles,combination_str,get_tile,way_to_hepai)
             
-        print("现在存在的组合",player_tiles.combination_list)
+        self.debug_print("现在存在的组合",player_tiles.combination_list)
         # 通过番种列表清理阻挡番种 输出文本和得分
         result = self.fan_count_output(player_tiles,combination_str,zimo_or_not)
         return result # 元组(int,list[str])
@@ -1645,7 +1652,7 @@ if __name__ == "__main__":
     combination_list = test_save[0]
 
     # 开始测试
-    test_check = Chinese_Hepai_Check()
+    test_check = Chinese_Hepai_Check(debug=True)
     time_start = time()
     result = test_check.hepai_check(tiles_list,combination_list,way_to_hepai,hepai_tiles)
     print("最终结果(返回最大的牌型):",result)

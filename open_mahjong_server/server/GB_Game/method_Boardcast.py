@@ -183,13 +183,13 @@ async def broadcast_do_action(
 # 广播结算结果
 async def broadcast_result(self, 
                           hepai_player_index: Optional[int] = None, 
-                          player_to_point: Optional[Dict[int, int]] = None, 
-                          hu_point: Optional[int] = None, 
-                          hu_fan: Optional[int] = None, 
+                          player_to_score: Optional[Dict[int, int]] = None, 
+                          hu_score: Optional[int] = None, 
+                          hu_fan: Optional[List[str]] = None, 
                           hu_class: str = None,
                           hepai_player_hand: Optional[List[int]] = None,
                           hepai_player_huapai: Optional[List[int]] = None,
-                          hepai_player_combinations_mask: Optional[List[int]] = None):
+                          hepai_player_combination_mask: Optional[List[int]] = None):
     self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -199,16 +199,16 @@ async def broadcast_result(self,
             response = Response(
                 type="show_result_GB",
                 success=True,
-                message="显示结算结果",
+                message="显示结算结果", 
                 show_result_info=Show_result_info(
                     hepai_player_index=hepai_player_index, # 和牌玩家索引
-                    player_to_point=player_to_point, # 所有玩家分数
-                    hu_point=hu_point, # 和牌分数
+                    player_to_score=player_to_score, # 所有玩家分数
+                    hu_score=hu_score, # 和牌分数
                     hu_fan=hu_fan, # 和牌番种
                     hu_class=hu_class, # 和牌类别
                     hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
                     hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
-                    hepai_player_combinations_mask=hepai_player_combinations_mask, # 和牌玩家组合掩码
+                    hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
                     action_tick=self.action_tick
                 )
             )

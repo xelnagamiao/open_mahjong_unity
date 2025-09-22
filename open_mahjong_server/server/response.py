@@ -57,13 +57,13 @@ class Do_action_info(BaseModel):
 
 class Show_result_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
-    player_to_point: Optional[Dict[int, int]] = None  # 所有玩家分数
-    hu_point: Optional[int] = None  # 和牌分数
-    hu_fan: Optional[int] = None  # 和牌番种
+    player_to_score: Optional[Dict[int, int]] = None  # 所有玩家分数
+    hu_score: Optional[int] = None  # 和牌分数
+    hu_fan: Optional[List[str]] = None  # 和牌番种
     hu_class: str  # 和牌类别
     hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌
     hepai_player_huapai: Optional[List[int]] = None  # 和牌玩家花牌列表
-    hepai_player_combinations_mask: Optional[List[int]] = None  # 和牌玩家组合掩码
+    hepai_player_combination_mask: Optional[List[int]] = None  # 和牌玩家组合掩码
     action_tick: int
 
 class Response(BaseModel):
