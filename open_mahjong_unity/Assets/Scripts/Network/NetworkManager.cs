@@ -176,6 +176,22 @@ public class NetworkManager : MonoBehaviour
 
                     );
                     break;
+                case "show_result_GB":
+                    Debug.Log($"收到显示结算结果消息: {response.show_result_info}");
+                    ShowResultInfo showresponse = response.show_result_info;
+                    GameSceneManager.Instance.ShowResult(
+                        showresponse.hepai_player_index,
+                        showresponse.player_to_score,
+                        showresponse.hu_score,
+                        showresponse.hu_fan,
+                        showresponse.hu_class,
+                        showresponse.hepai_player_hand,
+                        showresponse.hepai_player_huapai,
+                        showresponse.hepai_player_combination_mask
+                    );
+                    break;
+                case "game_end_GB":
+                    break;
                 
                 default:
                     throw new Exception($"未知的消息类型: {response.type}");

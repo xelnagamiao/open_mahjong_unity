@@ -189,7 +189,7 @@ async def broadcast_result(self,
                           hu_class: str = None,
                           hepai_player_hand: Optional[List[int]] = None,
                           hepai_player_huapai: Optional[List[int]] = None,
-                          hepai_player_combination_mask: Optional[List[int]] = None):
+                          hepai_player_combination_mask: Optional[List[List[int]]] = None):
     self.action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):

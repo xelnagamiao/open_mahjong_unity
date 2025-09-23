@@ -33,7 +33,7 @@ public class TileCard : MonoBehaviour
         currentGetTile = isCurrentGetTile;
         
         // 不需要添加扩展名
-        string path = $"image/ChineseCard/{id}";
+        string path = $"image/CardFaceImage_xuefun/{id}";
         Sprite sprite = Resources.Load<Sprite>(path);
         
         if (sprite != null)

@@ -63,7 +63,7 @@ class Show_result_info(BaseModel):
     hu_class: str  # 和牌类别
     hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌
     hepai_player_huapai: Optional[List[int]] = None  # 和牌玩家花牌列表
-    hepai_player_combination_mask: Optional[List[int]] = None  # 和牌玩家组合掩码
+    hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
     action_tick: int
 
 class Response(BaseModel):

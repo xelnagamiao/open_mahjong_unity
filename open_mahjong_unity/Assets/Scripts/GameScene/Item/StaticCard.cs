@@ -20,7 +20,7 @@ public class StaticCard : MonoBehaviour
 
     public void SetTileOnlyImage(int tile)
     {
-        string path = $"image/CardFaceMaterial_xuefun/{tile}";
+        string path = $"image/CardFaceImage_xuefun/{tile}";
         Sprite sprite = Resources.Load<Sprite>(path);
         if (sprite != null)
         {

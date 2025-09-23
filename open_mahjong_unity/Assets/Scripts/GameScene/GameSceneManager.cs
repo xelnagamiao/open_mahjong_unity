@@ -10,6 +10,8 @@ using System.Linq;
 
 public class GameSceneManager : MonoBehaviour
 {
+    [SerializeField] private GameObject EndPanel;
+    
     public static GameSceneManager Instance { get; private set; }
 
     // 玩家位置信息 int[0,1,2,3] → string[self,left,top,right]
@@ -68,6 +70,7 @@ public class GameSceneManager : MonoBehaviour
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game");
+        EndPanel.SetActive(false);
         // 1.存储初始化信息
         InitializeSetInfo(gameInfo);
         // 2.初始化UI
@@ -218,6 +221,12 @@ public class GameSceneManager : MonoBehaviour
             // 清空允许操作列表
             allowActionList = new List<string>{}; 
         }
+    }
+
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+        // 显示结算结果
+        EndPanel.SetActive(true);
+        StartCoroutine(EndPanel.GetComponent<EndPanel>().ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask));
     }
 
     private void InitializeSetInfo(GameInfo gameInfo){

@@ -4710,7 +4710,7 @@ GameObject:
   - component: {fileID: 165585586}
   - component: {fileID: 165585585}
   m_Layer: 12
-  m_Name: Username
+  m_Name: RightUsername
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8256,7 +8256,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &316080948
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8345,13 +8345,16 @@ MonoBehaviour:
   FanTex11: {fileID: 1710119735}
   FanTex12: {fileID: 1562069060}
   SelfUserName: {fileID: 1793089058}
-  SelfPoint: {fileID: 2123584744}
+  SelfScore: {fileID: 2123584744}
   LeftUserName: {fileID: 1985308838}
-  LeftPoint: {fileID: 779833895}
+  LeftScore: {fileID: 779833895}
   TopUserName: {fileID: 1189762169}
-  TopPoint: {fileID: 854905464}
+  TopScore: {fileID: 854905464}
   RightUserName: {fileID: 165585585}
-  RightPoint: {fileID: 2089110260}
+  RightScore: {fileID: 2089110260}
+  EndTilescontainer: {fileID: 316080947}
+  StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
+  HideSplit: {fileID: 5325617167439541180, guid: 3bc98ab5603a49f40b548ca60021553c, type: 3}
 --- !u!1 &325756687
 GameObject:
   m_ObjectHideFlags: 0
@@ -10659,7 +10662,7 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 3
+  m_ChildAlignment: 4
   m_Spacing: 0
   m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 0
@@ -17033,7 +17036,7 @@ GameObject:
   - component: {fileID: 779833896}
   - component: {fileID: 779833895}
   m_Layer: 12
-  m_Name: Point
+  m_Name: LeftScore
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -18920,6 +18923,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3661a5cff06bfa429a00ecd24c4243e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EndPanel: {fileID: 316080947}
   roomId: 0
   selfIndex: 0
   currentIndex: 0
@@ -18931,6 +18935,14 @@ MonoBehaviour:
   handTiles: 
   allowActionList: []
   lastCutCardID: 0
+  selfUserName: 
+  leftUserName: 
+  topUserName: 
+  rightUserName: 
+  selfScore: 0
+  leftScore: 0
+  topScore: 0
+  rightScore: 0
   selfDiscardslist: 
   leftDiscardslist: 
   topDiscardslist: 
@@ -19019,7 +19031,7 @@ MonoBehaviour:
   ActionButtonPrefab: {fileID: 2631809785816465823, guid: f55338001e5b0884882afdfb83474c8d, type: 3}
   ActionBlockPrefab: {fileID: 3763865473911665470, guid: d2e40a710816b52409b56534a20ad37e, type: 3}
   StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
-  tileCardPrefab: {fileID: 4030565618160232667, guid: 81f9ef87ec91ba048a7e367edf7e3160, type: 3}
+  tileCardPrefab: {fileID: 4030565618160232667, guid: 85ecae9c1110d1242a85dd47719ce308, type: 3}
 --- !u!114 &833371390
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -19267,7 +19279,7 @@ GameObject:
   - component: {fileID: 854905465}
   - component: {fileID: 854905464}
   m_Layer: 12
-  m_Name: Point
+  m_Name: TopScore
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -25606,7 +25618,7 @@ GameObject:
   - component: {fileID: 1189762170}
   - component: {fileID: 1189762169}
   m_Layer: 12
-  m_Name: Username
+  m_Name: TopUsername
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -37650,7 +37662,7 @@ GameObject:
   - component: {fileID: 1793089059}
   - component: {fileID: 1793089058}
   m_Layer: 12
-  m_Name: Username
+  m_Name: SelfUsername
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -41936,7 +41948,7 @@ GameObject:
   - component: {fileID: 1985308839}
   - component: {fileID: 1985308838}
   m_Layer: 12
-  m_Name: Username
+  m_Name: LeftUsername
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -43182,7 +43194,7 @@ GameObject:
   - component: {fileID: 2089110261}
   - component: {fileID: 2089110260}
   m_Layer: 12
-  m_Name: Point
+  m_Name: RightScore
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -43980,7 +43992,7 @@ GameObject:
   - component: {fileID: 2123584745}
   - component: {fileID: 2123584744}
   m_Layer: 12
-  m_Name: Point
+  m_Name: SelfScore
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

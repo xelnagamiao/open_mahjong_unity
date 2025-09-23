@@ -14,7 +14,7 @@ class ChinesePlayer:
         self.hand_tiles = tiles                       # 手牌
         self.huapai_list = []                         # 花牌列表
         self.discard_tiles = []                       # 弃牌
-        self.discard_origin = set()                    # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
+        self.discard_origin = set()                   # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
         self.combination_tiles = []                   # 组合牌
         # combination_mask组合牌掩码 0代表竖 1代表横 2代表暗面 3代表上侧(加杠) 4代表空 因为普通的存储方式会造成掉线以后吃牌形状丢失 所以使用掩码存储
         # [1,13,0,11,0,12] = 吃上家 312m s12
@@ -451,8 +451,8 @@ class ChineseGameState:
                 else:
                     # 使用映射获取玩家索引
                     player_index = task_to_player[task]  
-                    action_data = await self.action_queues[player_index].get() # 获取操作数据
-                    action_type = action_data.get("action_type") # 获取操作类型
+                    temp_action_data = await self.action_queues[player_index].get() # 获取操作数据
+                    Temp_action_type = temp_action_data.get("action_type") # 获取操作类型
 
                     used_time += time_end - time_start # 服务器计算操作时间
                     used_int_time = int(used_time) # 变量整数时间
@@ -467,12 +467,22 @@ class ChineseGameState:
                     for temp_player_index in self.waiting_players_list:
                         for action in self.action_dict[temp_player_index]:
                             # 如果有其他更高优先级的操作，则继续等待
-                            if self.action_priority[action_type] < self.action_priority[action]:
+                            if self.action_priority[Temp_action_type] < self.action_priority[action]:
                                 do_interrupt = False
                     
+                    # 如果action_data为空，添加action_data
+                    if not action_data: 
+                        action_data = temp_action_data
+                        action_type = Temp_action_type
+                    # 如果操作类型优先级更高，则覆盖action_data
+                    elif self.action_priority[Temp_action_type] > self.action_priority[action_type]:
+                        action_data = temp_action_data
+                        action_type = Temp_action_type
+
                     # 如果是最高优先级，中断等待
                     if do_interrupt:
                         self.waiting_players_list = [] # 清空等待列表，强制结束循环
+
 
         # 等待行为结束,开始处理操作,pass,超时逻辑
         # 如果操作是最高优先级的直接结束循环

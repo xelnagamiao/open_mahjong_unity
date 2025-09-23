@@ -1,5 +1,7 @@
 // 5.Response 接收数据类型
 
+using System.Collections.Generic;
+
 public class RoomInfo
 {
     public string room_id;
@@ -36,13 +38,13 @@ public class Response // 所有后端的返回数据都由Response类接收
 public class ShowResultInfo // 显示结算结果
 {
     public int hepai_player_index; // 和牌玩家索引
-    public int[] player_to_score; // 所有玩家分数
+    public Dictionary<int, int> player_to_score; // 所有玩家分数
     public int hu_score; // 和牌分数
-    public string hu_fan; // 和牌番种
+    public string[] hu_fan; // 和牌番种
     public string hu_class; // 和牌类别
     public int[] hepai_player_hand; // 和牌玩家手牌
     public int[] hepai_player_huapai; // 和牌玩家花牌列表
-    public int[] hepai_player_combination_mask; // 和牌玩家组合掩码
+    public int[][] hepai_player_combination_mask; // 和牌玩家组合掩码
     public int action_tick;
 }
 
