@@ -24,7 +24,6 @@ public class ActionButton : MonoBehaviour
         }
     }
     
-    // Start is called before the first frame update
     void Start()
     {
         if (textObject == null)
@@ -36,6 +35,7 @@ public class ActionButton : MonoBehaviour
 
     // 按钮点击事件
     void OnClick(){
+        GameSceneManager.Instance.allowActionList.Clear();
         // 如果动作列表大于1 显示子级按钮
         if (actionTypeList.Count > 1){
             List<int> TipsCardsList = new List<int>();

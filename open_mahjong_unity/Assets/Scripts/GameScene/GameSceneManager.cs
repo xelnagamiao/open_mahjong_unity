@@ -70,6 +70,7 @@ public class GameSceneManager : MonoBehaviour
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game");
+        EndPanel.GetComponent<EndPanel>().ClearEndPanel();
         EndPanel.SetActive(false);
         // 1.存储初始化信息
         InitializeSetInfo(gameInfo);
