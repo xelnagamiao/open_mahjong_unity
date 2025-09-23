@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+websockets
+mysql-connector-python
+PyJWT
+cryptography 
