@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using System;
+using UnityEngine.UI;
 
 public class EndPanel : MonoBehaviour
 {
@@ -27,6 +28,9 @@ public class EndPanel : MonoBehaviour
     [SerializeField] private TextMeshProUGUI TopScore;
     [SerializeField] private TextMeshProUGUI RightUserName;
     [SerializeField] private TextMeshProUGUI RightScore;
+
+    [SerializeField] private TextMeshProUGUI EndButtonText;
+    [SerializeField] private Button EndButton;
 
     [SerializeField] private GameObject EndTilescontainer;
     [SerializeField] private GameObject StaticCardPrefab;
@@ -65,6 +69,10 @@ public class EndPanel : MonoBehaviour
 
     private void Awake()
     {
+        // 非激活状态按钮
+        EndButton.onClick.AddListener(ClearEndPanel);
+        EndButton.interactable = false;
+
         Instance = this;
         fanTexts = new TextMeshProUGUI[] {
             FanTex1, FanTex2, FanTex3, FanTex4, FanTex5, FanTex6,
@@ -188,7 +196,34 @@ public class EndPanel : MonoBehaviour
                     RightScore.text = player.Value.ToString();
                 }
             }
+
+            // 允许按钮点击
+            EndButton.interactable = true;
+            EndButtonText.text = "确定(8)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(7)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(6)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(5)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(4)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(3)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(2)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(1)";
+            yield return new WaitForSeconds(1);
+            EndButtonText.text = "确定(0)";
+            EndButton.interactable = false;
+
         }
+    }
+
+    // 按钮点击以后进入非激活状态
+    public void EndButtonClick(){
+        EndButton.interactable = false;
     }
 
     public void ClearEndPanel(){

@@ -3,6 +3,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -70,6 +71,7 @@ public class GameSceneManager : MonoBehaviour
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game");
+        Game3DManager.Instance.Clear3DTile();
         EndPanel.GetComponent<EndPanel>().ClearEndPanel();
         EndPanel.SetActive(false);
         // 1.存储初始化信息
@@ -132,8 +134,6 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
-
-    // 执行操作
     public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target) {
         string GetCardPlayer = indexToPosition[action_player];
         foreach (string action in action_list) {
@@ -159,7 +159,7 @@ public class GameSceneManager : MonoBehaviour
                             GameCanvas.Instance.ArrangeHandCards(); // 重新排列手牌
                             Debug.Log($"生成3D切牌");
                             Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
-                            GameCanvas.Instance.RemoveCutCard(cut_tile.Value,false); // 删除切牌
+                            GameCanvas.Instance.RemoveCanvasCard(cut_tile.Value,false); // 删除切牌
                         }
                     }
                     else if (GetCardPlayer == "left"){
@@ -180,15 +180,16 @@ public class GameSceneManager : MonoBehaviour
                     if (GetCardPlayer == "self"){
                         selfHuapaiList.Add(buhua_tile_id);
                         handTiles.Remove(buhua_tile_id); // 删除手牌
-                        GameCanvas.Instance.RemoveCutCard(buhua_tile_id,false); // 删除补花牌
+                        GameCanvas.Instance.RemoveCanvasCard(buhua_tile_id,false); // 删除补花牌
                     }
                     else if (GetCardPlayer == "left"){leftHuapaiList.Add(buhua_tile_id);}
                     else if (GetCardPlayer == "top"){topHuapaiList.Add(buhua_tile_id);}
-                    else if (GetCardPlayer == "right"){rightHuapaiList.Add(buhua_tile_id);}
+                    else if (GetCardPlayer == "right"){rightHuapaiList.Add(buhua_tile_id);
+                    }
                     Game3DManager.Instance.BuhuaAnimation(GetCardPlayer, buhua_tile_id);
                     break;
                 case "hu":
-                    // 
+                    // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
                     break;
                 case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang":
                     Game3DManager.Instance.ActionAnimation(GetCardPlayer, action, combination_mask);
@@ -202,7 +203,6 @@ public class GameSceneManager : MonoBehaviour
                         else{
                             selfCombinationList.Add(combination_target);
                         }
-
                     }
                     break;
                 default:

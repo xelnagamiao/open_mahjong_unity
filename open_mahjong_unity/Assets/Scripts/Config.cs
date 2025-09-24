@@ -15,10 +15,13 @@ using UnityEngine;
 
 public class Config : MonoBehaviour
 {
-    public static string webUrl = "https://mahjong.fit/443/web";
-    public static string gameUrl = "https://mahjong.fit/443/game";
-    public static string serverUrl = "https://mahjong.fit/server";
-    public static string chatUrl = "https://mahjong.fit/chat";
+    public static string webUrl = "https://mahjong.fit/443/web"; // 项目网页地址
+    public static string gameUrl = "https://mahjong.fit/443/game"; // 项目服务器地址
+    public static string chatUrl = "https://mahjong.fit/chat"; // 项目聊天服务器地址
+    public static string clientVersion = "0.0.16.2"; // 项目客户端版本
+    public static string platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 项目文档地址
+    public static string serverUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // github地址
+
     // Start is called before the first frame update
     void Start()
     {

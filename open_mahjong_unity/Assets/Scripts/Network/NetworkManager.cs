@@ -45,9 +45,18 @@ public class NetworkManager : MonoBehaviour
                 messageQueue.Enqueue(e.RawData);
             }
         };
-        websocket.OnOpen += (sender, e) => Debug.Log("WebSocket连接已打开"); // 定义websocket打开以后的通知
-        websocket.OnError += (sender, e) => Debug.LogError($"WebSocket错误: {e.Message}"); // 定义websocket错误以后的通知
-        websocket.OnClose += (sender, e) => Debug.Log($"WebSocket已关闭: {e.Code}"); // 定义websocket关闭以后的通知
+        websocket.OnOpen += (sender, e) => {
+            Debug.Log("WebSocket连接已打开");
+            isConnecting = false; // 重置连接状态
+        };
+        websocket.OnError += (sender, e) => {
+            Debug.LogError($"WebSocket错误: {e.Message}");
+            isConnecting = false; // 重置连接状态
+        };
+        websocket.OnClose += (sender, e) => {
+            Debug.Log($"WebSocket已关闭: {e.Code}");
+            // 根据需要处理关闭事件
+        };
     }
     // 2.Start方法用于连接到服务器
     private void Start()
@@ -60,15 +69,14 @@ public class NetworkManager : MonoBehaviour
             {
                 Debug.Log($"开始连接服务器，当前状态: {websocket.ReadyState}");
                 websocket.ConnectAsync();
-                Debug.Log($"连接完成，当前状态: {websocket.ReadyState}");
+                Debug.Log($"连接请求已发送，当前状态: {websocket.ReadyState}");
+                LoginPanel.Instance.ConnectOkText();
             }
             catch (Exception e)
             {
                 Debug.LogError($"连接错误: {e.Message}");
-            }
-            finally
-            {
-                isConnecting = false; // 连接失败，设置连接状态为false
+                isConnecting = false;
+                LoginPanel.Instance.ConnectErrorText(e.Message);
             }
         }
     }

@@ -126,7 +126,7 @@ def check_action_jiagang(self,gang_tile):
             if self.tiles_list.count(gang_tile) == 0:
                 way_to_hepai.append("和绝张")
 
-            hepai_tiles = item.waiting_tiles[gang_tile] # 和牌张
+            hepai_tiles = gang_tile # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
             if result[0] >= 8:
                 if self.get_index_relative_position(self.current_player_index,item.player_index) == "left":
@@ -231,7 +231,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
             elif "和绝张" in way_to_hepai:
                 way_to_hepai.remove("和绝张")
         
-        hepai_tiles = player_item.waiting_tiles[player_item.hand_tiles[-1]] # 和牌张
+        hepai_tiles = player_item.hand_tiles[-1] # 和牌张
         result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
         print(f"玩家{player_index}的和牌结果为{result}")
 

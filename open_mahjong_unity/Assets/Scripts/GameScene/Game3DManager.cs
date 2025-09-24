@@ -468,6 +468,57 @@ public class Game3DManager : MonoBehaviour
         }
     }
 
+    public void Clear3DTile(){
+        foreach (Transform child in leftCardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in topCardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in rightCardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in selfCardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in leftDiscardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in topDiscardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in rightDiscardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in selfDiscardsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in leftBuhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in topBuhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in rightBuhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in selfBuhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in leftCombinationsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in topCombinationsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in rightCombinationsPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in selfCombinationsPosition){
+            Destroy(child.gameObject);
+        }
+    }
+
 
 
 }

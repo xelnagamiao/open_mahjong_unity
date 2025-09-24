@@ -320,7 +320,7 @@ class ChineseGameState:
                         hu_score, hu_fan = self.result_dict["hu_first"]
                         hepai_player_index = self.next_current_num(self.current_player_index) # 获取当前玩家的下家索引
                         print(f"和牌玩家索引{hepai_player_index}")
-                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
                         self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
                         self.result_dict = {}
 
@@ -332,7 +332,7 @@ class ChineseGameState:
                         print(f"和牌玩家索引{hepai_player_index}")
                         self.player_list[hepai_player_index].score += hu_score
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
                         self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
 
                     # 荣和下家
@@ -344,7 +344,7 @@ class ChineseGameState:
                         print(f"和牌玩家索引{hepai_player_index}")
                         self.player_list[hepai_player_index].score += hu_score
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
                         self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
 
                     # 其他玩家扣除8基础分
@@ -387,7 +387,7 @@ class ChineseGameState:
                                        hepai_player_combination_mask = None # 和牌玩家组合掩码
                                        )
             
-            await asyncio.sleep(len(hu_fan)*1 + 5) # 等待和牌番种时间与5秒后重新开始下一局
+            await asyncio.sleep(len(hu_fan)*0.5 + 10) # 等待和牌番种时间与10秒后重新开始下一局
             self.current_round += 1 # 局数+1
             # ↑ 重新开始下一局循环
         

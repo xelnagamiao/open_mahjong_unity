@@ -117,13 +117,14 @@ public class GameCanvas : MonoBehaviour
 
     // 显示可用行动按钮
     public void SetActionButton(List<string> action_list){
+        // 用于跟踪吃牌按钮
+        ActionButton chiButton = null;
+        // 用于跟踪暗杠按钮
+        ActionButton angangButton = null;
+        // 用于跟踪加杠按钮
+        ActionButton jiagangButton = null;
+        
         for (int i = 0; i < action_list.Count; i++){
-            // 用于跟踪吃牌按钮
-            ActionButton chiButton = null;
-            // 用于跟踪暗杠按钮
-            ActionButton angangButton = null;
-            // 用于跟踪加杠按钮
-            ActionButton jiagangButton = null;
 
             Debug.Log($"询问操作: {action_list[i]}");
 
@@ -236,52 +237,61 @@ public class GameCanvas : MonoBehaviour
         }
     }
 
-    // 发送行动
+    // 选择行动
     public void ChooseAction(string actionType,int targetTile){
+        // 将摸牌区卡牌移动到手牌区
+        MoveAllGetCardsToHandCards();
+        // 停止倒计时
         StopTimeRunning();
+        // 发送行动
         NetworkManager.Instance.SendAction(actionType,targetTile);
     }
 
-    public void RemoveCutCard(int tileId,bool cut_class){
-        // 摸切则直接删除摸牌区卡牌
-        if (cut_class){ // 摸切有两种可能 手动则卡牌自动消除 超时则需要验证消除
-            if (GetCardsContainer.childCount > 0) {
+    public void RemoveCanvasCard(int tileId, bool cut_class)
+    {
+        // cut_class为true则代表摸切 直接删除摸牌区卡牌
+        if (cut_class){     
+            if (GetCardsContainer.childCount > 0)
+            {
                 GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
                 Destroy(GetCardObj);
             }
         }
-        // 手切或者补花 则先在手牌区删除tildId对应的卡牌 如果没找到则删除摸牌区卡牌
+        // cut_class为false则代表手切 先在手牌区删除tildId对应的卡牌 如果没找到则删除摸牌区卡牌
         else{
             // 删除手牌区tildId对应的卡牌
-            foreach (Transform child in handCardsContainer){
+            foreach (Transform child in handCardsContainer)
+            {
                 TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
-                if (needToRemoveTileCard.tileId == tileId){
+                if (needToRemoveTileCard.tileId == tileId)
+                {
                     Destroy(child.gameObject);
-                    return;
+                    break; // 找到并删除后退出循环
                 }
             }
             // 删除摸牌区tildId对应的卡牌
-            foreach (Transform child in GetCardsContainer){
+            foreach (Transform child in GetCardsContainer)
+            {
                 TileCard tileCard = child.GetComponent<TileCard>();
-                if (tileCard.tileId == tileId){
+                if (tileCard.tileId == tileId)
+                {
                     Destroy(child.gameObject);
-                    return;
+                    break; // 找到并删除后退出循环
                 }
             }
-            // 重新排列手牌
-            ArrangeHandCards();
         }
+        
+        // 重新排列手牌
+        ArrangeHandCards();
     }
 
+  // 协程
     public void MoveAllGetCardsToHandCards(){
-        // 使用协程跳过一帧执行，确保Destroy操作完全完成
         StartCoroutine(MoveAllGetCardsToHandCardsCoroutine());
     }
 
-    private IEnumerator MoveAllGetCardsToHandCardsCoroutine(){
-        // 跳过一帧，等待Destroy操作完成
+    public IEnumerator MoveAllGetCardsToHandCardsCoroutine(){
         yield return null;
-        
         // 先收集所有需要移动的卡牌信息，避免在循环中直接操作容器
         List<int> tileIdsToMove = new List<int>();
         List<GameObject> cardsToDestroy = new List<GameObject>();
