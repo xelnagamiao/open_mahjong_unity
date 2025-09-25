@@ -70,7 +70,7 @@ public class EndPanel : MonoBehaviour
     private void Awake()
     {
         // 非激活状态按钮
-        EndButton.onClick.AddListener(ClearEndPanel);
+        EndButton.onClick.AddListener(EndButtonClick);
         EndButton.interactable = false;
 
         Instance = this;
@@ -127,18 +127,6 @@ public class EndPanel : MonoBehaviour
         LastCard.transform.SetParent(EndTilescontainer.transform);
         LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
 
-
-
-        // 显示番数
-        for (int i = 0; i < hu_fan.Length; i++){
-            // 每半秒 显示一个番数
-            yield return new WaitForSeconds(0.5f);
-            fanTexts[i].text = FanToDescribe[hu_fan[i]];
-            if (i == 12){
-                Debug.Log("超出番数显示限制");
-                break;
-            }
-        }
         
         // 显示玩家分数变化
         foreach (var player in player_to_score){
@@ -196,29 +184,40 @@ public class EndPanel : MonoBehaviour
                     RightScore.text = player.Value.ToString();
                 }
             }
-
-            // 允许按钮点击
-            EndButton.interactable = true;
-            EndButtonText.text = "确定(8)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(7)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(6)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(5)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(4)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(3)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(2)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(1)";
-            yield return new WaitForSeconds(1);
-            EndButtonText.text = "确定(0)";
-            EndButton.interactable = false;
-
         }
+
+
+        // 显示番数
+        for (int i = 0; i < hu_fan.Length; i++){
+            // 每半秒 显示一个番数
+            yield return new WaitForSeconds(0.5f);
+            fanTexts[i].text = FanToDescribe[hu_fan[i]];
+            if (i == 12){
+                Debug.Log("超出番数显示限制");
+                break;
+            }
+        }
+        
+        // 允许按钮点击
+        EndButton.interactable = true;
+        EndButtonText.text = "确定(8)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(7)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(6)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(5)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(4)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(3)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(2)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(1)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(0)";
+        EndButton.interactable = false;
     }
 
     // 按钮点击以后进入非激活状态
