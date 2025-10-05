@@ -195,7 +195,7 @@ public class GameSceneManager : MonoBehaviour
                 case "hu":
                     // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
                     break;
-                case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang":
+                case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang": case "peng": case "gang":
                     Game3DManager.Instance.ActionAnimation(GetCardPlayer, action, combination_mask);
                     if (GetCardPlayer == "self"){
                         if (action == "jiagang"){

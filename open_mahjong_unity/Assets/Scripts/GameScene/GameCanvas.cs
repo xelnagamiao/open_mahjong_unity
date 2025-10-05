@@ -26,8 +26,8 @@ public class GameCanvas : MonoBehaviour
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
     [SerializeField] private Transform GetCardsContainer;  // 获得牌容器 (显示摸牌)
     [SerializeField] private Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
-    [SerializeField] private Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
-    [SerializeField] private Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
+    [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
+    [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
     [Header("预制体")]
     [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体[吃,碰,杠,胡,补花,抢杠]
@@ -47,6 +47,7 @@ public class GameCanvas : MonoBehaviour
     private bool isAutoCutCard = false; // 是否自动出牌
 
     public static GameCanvas Instance { get; private set; }
+    
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -85,14 +86,14 @@ public class GameCanvas : MonoBehaviour
     }
 
     // 手牌处理 
-    public void ChangeHandCards(string ChangeType,int tileId,int[] handTiles){
+    public void ChangeHandCards(string ChangeType,int tileId,int[] TilesList){
         // 初始化手牌 只初始化前13张
         if (ChangeType == "InitHandCards"){
             foreach (Transform child in handCardsContainer){
                 Destroy(child.gameObject);
             }
             int cardCount = 1;
-            foreach (int tile in handTiles){
+            foreach (int tile in TilesList){
                 if (cardCount == 14){break;}
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
@@ -143,7 +144,19 @@ public class GameCanvas : MonoBehaviour
                 }
             }
         }
-        // 如果删除手牌或补花牌，则将摸牌区手牌移动到手牌区
+        // 删除组合牌 在手牌中删除全部组合牌
+        else if (ChangeType == "RemoveCombinationCard"){
+            foreach (int tileToRemove in TilesList){
+                foreach (Transform child in handCardsContainer){
+                    TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                    if (needToRemoveTileCard.tileId == tileToRemove){
+                        Destroyer.Instance.AddToDestroyer(child);
+                    break;
+                    }
+                }
+            }
+        }
+        // 如果手切或者补花，则将摸牌区手牌移动到手牌区
         if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveBuhuaCard"){
             MoveAllGetCardsToHandCards();
         }

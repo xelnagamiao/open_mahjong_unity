@@ -21,13 +21,18 @@ def check_action_after_cut(self,cut_tile):
             if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
                 temp_action_dict[next_player_index].append("chi_right")
 
-    # 如果任意一家有C=2，则可以碰 如果C=3，则可以杠
+    # 如果任意一家有C=2，则可以碰
     for item in self.player_list:
-        if item.hand_tiles.count(cut_tile) == 2:
+        if item.hand_tiles.count(cut_tile) >= 2:
             temp_action_dict[item.player_index].append("peng")
-            if item.hand_tiles.count(cut_tile) == 3:
-                if self.tiles_list != []:
+            break
+    
+    # 检测杠牌：手牌中有3张相同的牌
+    for item in self.player_list:
+        if item.hand_tiles.count(cut_tile) == 3:
+            if self.tiles_list != []:
                     temp_action_dict[item.player_index].append("gang")
+                    break
 
     # 如果该牌是任意家的等待牌
     for item in self.player_list:

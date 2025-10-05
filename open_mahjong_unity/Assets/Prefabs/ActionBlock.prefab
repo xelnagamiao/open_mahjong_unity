@@ -76,3 +76,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   actionType: 
+  targetTile: 0
