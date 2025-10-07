@@ -34,6 +34,7 @@ public class Game3DManager : MonoBehaviour
     private Vector3 rightSetCombinationsPoint;
 
     private GameObject lastCut3DObject; // 最后一张弃牌的3D对象
+    private Dictionary<int,Vector3> pengToJiagangPosDict = new Dictionary<int,Vector3>(); // 碰牌的加杠预留指针
 
     private float cardWidth; // 卡片宽度
     private float cardHeight; // 卡片高度
@@ -59,8 +60,8 @@ public class Game3DManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         // 初始化配置
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
-        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片宽度（已包含缩放）
-        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片高度（已包含缩放）
+        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片宽度
+        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片高度
         this.widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
         this.heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
         // 初始化放置组合牌指针
@@ -210,29 +211,38 @@ public class Game3DManager : MonoBehaviour
     
 
     // 鸣牌3D动画
-    public void ActionAnimation(string playerIndex,string actionType,int[]combination_mask){
+    public void ActionAnimation(string playerIndex,string actionType,int[]combination_mask,string action,string combination_target){
         // 根据actionType执行动画
         Quaternion rotation = Quaternion.identity; // 卡牌旋转角度
         Vector3 SetDirection = Vector3.zero; // 放置方向
         Vector3 SetPositionpoint = Vector3.zero; // 放置位置
+        Vector3 JiagangDirection = Vector3.zero; // 加杠方向
+        Transform SetParent = null; // 设置父对象
         if (playerIndex == "self"){
             rotation = Quaternion.Euler(0, 0, -90); // 获取卡牌旋转角度 
             SetDirection = new Vector3(-1,0,0); // 获取放置方向 向左
+            JiagangDirection = new Vector3(0,0,1); // 自家加杠指针是向上
             SetPositionpoint = selfSetCombinationsPoint; // 获取放置指针
+            SetParent = selfCombinationsPosition;
         }
         else if (playerIndex == "left"){
             rotation =  Quaternion.Euler(0, 90, -90); // 左侧玩家
             SetDirection = new Vector3(0,0,1); // 向上
+            JiagangDirection = new Vector3(1,0,0); // 左侧玩家加杠指针是向右
             SetPositionpoint = leftSetCombinationsPoint;
+            SetParent = leftCombinationsPosition;
         }
         else if (playerIndex == "top"){
             rotation =  Quaternion.Euler(0, 180, -90); // 上方玩家
             SetDirection = new Vector3(1,0,0); // 向右
+            JiagangDirection = new Vector3(0,0,-1); // 上方玩家加杠指针是向下
             SetPositionpoint = topSetCombinationsPoint;
+            SetParent = topCombinationsPosition;
         }
         else if (playerIndex == "right"){
             rotation =  Quaternion.Euler(0, 270, -90); // 右侧玩家
             SetDirection = new Vector3(0,0,-1); // 向下
+            JiagangDirection = new Vector3(-1,0,0); // 右侧玩家加杠指针是向左
             SetPositionpoint = rightSetCombinationsPoint;
         }
         // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
@@ -251,46 +261,82 @@ public class Game3DManager : MonoBehaviour
         // 倒转SetTileList和SignDirectionList 因为卡牌的逻辑顺序是从左到右，但我们需要从右到左放置
         SetTileList.Reverse();
         SignDirectionList.Reverse();
+        Debug.Log($"SetTileList: {SetTileList}");
+        Debug.Log($"SignDirectionList: {SignDirectionList}");
 
         // 执行动画
-        for (int i = 0; i < SetTileList.Count; i++) {
-
-            GameObject cardObj;
-            // 0代表竖 1代表横 2代表暗面 3代表上侧(加杠) 4代表空
-            // 卡牌竖置 指针增加一个宽度单位
-            if (SignDirectionList[i] == 0){
-                SetPositionpoint += SetDirection * widthSpacing;
+        // 加杠
+        if (action == "jiagang"){
+             for (int i = 0; i < SetTileList.Count; i++) {
+                if (SignDirectionList[i] == 3){
+                    GameObject cardObj;
+                    Vector3 TempPositionpoint = pengToJiagangPosDict[SetTileList[i]]; // 获取加杠位置
+                    Quaternion TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
+                    TempPositionpoint += JiagangDirection * widthSpacing; // 加杠向上一个宽度单位
+                    cardObj = Instantiate(tile3DPrefab, TempPositionpoint, TempRotation);
+                    ApplyCardTexture(cardObj, SetTileList[i]);
+                    // 设置父对象
+                    cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+                }
             }
-            // 卡牌横置,放置角度叠加横置 指针增加一个高度单位
-            else if (SignDirectionList[i] == 1){
-                rotation = Quaternion.Euler(0,90,0) * rotation;
-                SetPositionpoint += SetDirection * heightSpacing;
-            }
-            // 卡牌暗面 指针增加一个宽度单位
-            else if (SignDirectionList[i] == 2){
-                rotation = Quaternion.Euler(0,0,-180) * rotation;
-                SetPositionpoint += SetDirection * widthSpacing;
+        }
+        // 正常放置卡牌
+        else{
+            for (int i = 0; i < SetTileList.Count; i++) {
+                GameObject cardObj;
+                Quaternion TempRotation = Quaternion.identity;
+                Vector3 TempPositionpoint = SetPositionpoint;
+                // 0代表竖 1代表横 2代表暗面 3代表上侧(加杠) 4代表空
+                // 卡牌竖置 指针增加一个宽度单位
+                if (SignDirectionList[i] == 0){
+                    TempRotation = rotation; // 竖
+                    TempPositionpoint += SetDirection * widthSpacing;
+                    SetPositionpoint += SetDirection * widthSpacing; // 吃碰的竖置牌每张牌向左一个宽度单位
+                }
+                // 卡牌横置,放置角度叠加横置 指针增加一个高度单位
+                else if (SignDirectionList[i] == 1){
+                    TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
+                    SetPositionpoint += SetDirection * heightSpacing;
+                    TempPositionpoint += SetDirection * heightSpacing; // 吃碰的横置牌向左一个高度单位
+                    if (action == "peng"){
+                        pengToJiagangPosDict.Add(SetTileList[i],SetPositionpoint); // 碰牌的加杠预留指针 保存在碰牌int id的横置位置
+                    }
+                }
+                // 卡牌暗面 指针增加一个宽度单位
+                else if (SignDirectionList[i] == 2){
+                    TempRotation = Quaternion.Euler(0,0,-180) * rotation; // 暗面
+                    SetPositionpoint += SetDirection * widthSpacing;
+                    TempPositionpoint += SetDirection * widthSpacing; // 暗杠每张牌向左一个宽度单位
+                }
+                // 卡牌加杠
+                else if (SignDirectionList[i] == 3){
+                    TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
+                    TempPositionpoint += JiagangDirection * widthSpacing; // 加杠向上一个宽度单位
+                }
+
+                // 创建卡牌
+                cardObj = Instantiate(tile3DPrefab, TempPositionpoint, TempRotation);
+                // 设置卡牌纹理
+                ApplyCardTexture(cardObj, SetTileList[i]);
+                // 设置父对象
+                cardObj.transform.SetParent(SetParent, worldPositionStays: true);
             }
 
-            // 创建卡牌
-            cardObj = Instantiate(tile3DPrefab, SetPositionpoint, rotation);
-            // 设置卡牌纹理
-            ApplyCardTexture(cardObj, SetTileList[i]);
+            // 将更新后的指针位置赋值给公共变量
+            if (playerIndex == "self"){
+                selfSetCombinationsPoint = SetPositionpoint;
+            }
+            else if (playerIndex == "left"){
+                leftSetCombinationsPoint = SetPositionpoint;
+            }
+            else if (playerIndex == "top"){
+                topSetCombinationsPoint = SetPositionpoint;
+            }
+            else if (playerIndex == "right"){
+                rightSetCombinationsPoint = SetPositionpoint;
+            }
         }
 
-        // 将更新后的指针位置赋值给公共变量
-        if (playerIndex == "self"){
-            selfSetCombinationsPoint = SetPositionpoint;
-        }
-        else if (playerIndex == "left"){
-            leftSetCombinationsPoint = SetPositionpoint;
-        }
-        else if (playerIndex == "top"){
-            topSetCombinationsPoint = SetPositionpoint;
-        }
-        else if (playerIndex == "right"){
-            rightSetCombinationsPoint = SetPositionpoint;
-        }
 
         // 根据actionType删除手牌
         if (playerIndex == "self"){
@@ -482,6 +528,13 @@ public class Game3DManager : MonoBehaviour
     }
 
     public void Clear3DTile(){
+        // 初始化配置
+        this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
+        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片宽度
+        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片高度
+        this.widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
+        this.heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
+        pengToJiagangPosDict.Clear();
         foreach (Transform child in leftCardsPosition){
             Destroy(child.gameObject);
         }
@@ -531,7 +584,5 @@ public class Game3DManager : MonoBehaviour
             Destroy(child.gameObject);
         }
     }
-
-
 
 }
