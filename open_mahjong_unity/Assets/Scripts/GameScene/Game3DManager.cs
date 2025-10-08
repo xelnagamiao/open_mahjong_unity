@@ -60,8 +60,8 @@ public class Game3DManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         // 初始化配置
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
-        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片宽度
-        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片高度
+        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度（绿色轴）
+        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片高度（蓝色轴）
         this.widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
         this.heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
         // 初始化放置组合牌指针
@@ -528,12 +528,6 @@ public class Game3DManager : MonoBehaviour
     }
 
     public void Clear3DTile(){
-        // 初始化配置
-        this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
-        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片宽度
-        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片高度
-        this.widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
-        this.heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
         pengToJiagangPosDict.Clear();
         foreach (Transform child in leftCardsPosition){
             Destroy(child.gameObject);
