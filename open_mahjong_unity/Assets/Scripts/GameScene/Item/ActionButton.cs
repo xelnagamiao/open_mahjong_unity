@@ -37,10 +37,18 @@ public class ActionButton : MonoBehaviour
 
     // 按钮点击事件
     void OnClick(){
-        GameSceneManager.Instance.allowActionList.Clear();
+
         // 如果动作列表大于1 显示子级按钮
         if (actionTypeList.Count > 1){
             int lastCutTile = GameSceneManager.Instance.lastCutCardID;
+
+            // 如果ActionBlockContenter 内有元素
+            if (ActionBlockContenter.childCount > 0){
+                // 删除所有子级按钮
+                foreach (Transform child in ActionBlockContenter){
+                    Destroy(child.gameObject);
+                }
+            }
 
             // 根据按钮里的多种吃牌情况创建分支块
             foreach (string actionType in actionTypeList){

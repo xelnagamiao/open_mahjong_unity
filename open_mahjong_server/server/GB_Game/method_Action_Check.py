@@ -194,7 +194,6 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     print(f"玩家{player_index}的手牌为{player_item.hand_tiles}")
     print(f"玩家{player_index}的等待牌为{player_item.waiting_tiles}")
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
-        temp_action_dict[player_index].append("hu_first")
         tiles_list = player_item.hand_tiles # 手牌列表 14张
         combination_tiles = player_item.combination_tiles # 组合牌列表
         way_to_hepai = ["花牌"*len(player_item.huapai_list)] # 和牌方式
