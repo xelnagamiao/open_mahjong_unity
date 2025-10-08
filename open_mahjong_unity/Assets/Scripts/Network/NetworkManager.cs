@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using WebSocketSharp;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using System.Collections;
 
 
 
@@ -24,13 +25,14 @@ public class NetworkManager : MonoBehaviour
     private Action<bool, string> currentLoginCallback; // 登录回调
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
+    
+    // 主线程调度器
+    private Queue<Action> mainThreadActions = new Queue<Action>();
 
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake(){
+        if (Instance != null && Instance != this){
             Debug.Log($"Destroying duplicate NetworkManager. Existing: {Instance}, New: {this}");
             Destroy(gameObject);
             return;
@@ -39,43 +41,72 @@ public class NetworkManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
         websocket = new WebSocket($"ws://localhost:8081/game/{playerId}"); // 初始化WebSocket
-        // websocket收到消息将消息放入update的消息队列
-        websocket.OnMessage += (sender, e) => {
-            lock(messageQueue) {
-                messageQueue.Enqueue(e.RawData);
-            }
-        };
-        websocket.OnOpen += (sender, e) => Debug.Log("WebSocket连接已打开"); // 定义websocket打开以后的通知
-        websocket.OnError += (sender, e) => Debug.LogError($"WebSocket错误: {e.Message}"); // 定义websocket错误以后的通知
-        websocket.OnClose += (sender, e) => Debug.Log($"WebSocket已关闭: {e.Code}"); // 定义websocket关闭以后的通知
+        
+        // 配置WebSocket事件处理器
+        websocket.OnMessage += OnWebSocketMessage;
+        websocket.OnOpen += OnWebSocketOpen;
+        websocket.OnError += OnWebSocketError;
+        websocket.OnClose += OnWebSocketClose;
     }
+
     // 2.Start方法用于连接到服务器
-    private void Start()
-    {
+    private void Start(){
         // 确保网络管理器唯一，并且没有在连接中
-        if (Instance == this && !isConnecting)
-        {
+        if (Instance == this && !isConnecting){
             isConnecting = true;
-            try
-            {
+            try{
                 Debug.Log($"开始连接服务器，当前状态: {websocket.ReadyState}");
                 websocket.ConnectAsync();
-                Debug.Log($"连接完成，当前状态: {websocket.ReadyState}");
+
             }
-            catch (Exception e)
-            {
+            catch (Exception e){
                 Debug.LogError($"连接错误: {e.Message}");
-            }
-            finally
-            {
-                isConnecting = false; // 连接失败，设置连接状态为false
+                isConnecting = false;
             }
         }
+    }
+
+    // 获取数据添加入消息队列
+    private void OnWebSocketMessage(object sender, MessageEventArgs e){
+        lock(messageQueue) {
+            messageQueue.Enqueue(e.RawData);
+        }
+    }
+
+    // 连接成功
+    private void OnWebSocketOpen(object sender, EventArgs e){
+        Debug.Log("WebSocket连接成功");
+        isConnecting = false;
+        // 使用主线程调度器执行UI操作
+        ExecuteOnMainThread(() => {
+            LoginPanel.Instance.ConnectOkText(); // 连接成功
+        });
+    } 
+
+    // 连接失败
+    private void OnWebSocketError(object sender, ErrorEventArgs e){
+        Debug.LogError($"WebSocket连接失败: {e.Message}");
+        isConnecting = false;
+        // 使用主线程调度器执行UI操作
+        ExecuteOnMainThread(() => {
+            LoginPanel.Instance.ConnectErrorText(e.Message); // 连接失败
+        });
+    }
+
+    // 连接关闭
+    private void OnWebSocketClose(object sender, CloseEventArgs e){
+        Debug.Log($"WebSocket已关闭: {e.Code} - {e.Reason}");
+        isConnecting = false;
+        // 使用主线程调度器执行UI操作
+        ExecuteOnMainThread(() => {
+            LoginPanel.Instance.ConnectErrorText(e.Reason); // 连接关闭
+        });
     }
 
     // 网络管理器实例在 Update 中处理消息队列
     private void Update()
     {
+        // 处理消息队列
         if (messageQueue.Count > 0)
         {
             byte[] message;
@@ -85,22 +116,46 @@ public class NetworkManager : MonoBehaviour
             }
             Get_Message(message);
         }
+        
+        // 处理主线程调度器
+        if (mainThreadActions.Count > 0)
+        {
+            Action action;
+            lock(mainThreadActions)
+            {
+                action = mainThreadActions.Dequeue();
+            }
+            action?.Invoke();
+        }
+    }
+
+    // 主线程调度器方法
+    private void ExecuteOnMainThread(Action action)
+    {
+        lock(mainThreadActions)
+        {
+            mainThreadActions.Enqueue(action);
+        }
+    }
+
+    // 主线程协程执行器（备用方案）
+    private IEnumerator ExecuteOnMainThreadCoroutine(Action action)
+    {
+        // 等待一帧，确保在主线程中执行
+        yield return null;
+        action?.Invoke();
     }
 
     // 3.Get_Message方法用于处理服务器返回的消息 
-    private void Get_Message(byte[] bytes)
-    {
-        try
-        {
+    private void Get_Message(byte[] bytes){
+        try{
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
             Debug.Log($"收到服务器消息: {jsonStr}");
             var response = JsonConvert.DeserializeObject<Response>(jsonStr);
 
-            switch (response.type)
-            {
+            switch (response.type){
                 case "login":
-                    if (response.success)
-                    {
+                    if (response.success){
                         Administrator.Instance.SetUserInfo(response.username,response.userkey);
                     }
                     currentLoginCallback?.Invoke(response.success, response.message);

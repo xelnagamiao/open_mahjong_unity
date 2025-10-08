@@ -24,10 +24,9 @@ public class GameCanvas : MonoBehaviour
 
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
-    [SerializeField] private Transform GetCardsContainer;  // 获得牌容器 (显示摸牌)
     [SerializeField] private Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
-    [SerializeField] private Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
-    [SerializeField] private Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
+    [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
+    [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
     [Header("预制体")]
     [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体[吃,碰,杠,胡,补花,抢杠]
@@ -41,12 +40,16 @@ public class GameCanvas : MonoBehaviour
     private int _currentCutTime;
 
     [Header("游戏配置模块")]
-    private bool isArrangeHandCards = true; // 是否排列手牌
-    private bool isDontDoAction = false; // 是否不吃碰杠
-    private bool isAutoHepai = false; // 是否自动胡牌
-    private bool isAutoCutCard = false; // 是否自动出牌
+    private bool isArrangeHandCards = true; // 是否自动排列手牌
+    private bool isArrangeed = false; // 是否已经排列过手牌
+    public bool isDontDoAction = false; // 是否不吃碰杠
+    public bool isAutoHepai = false; // 是否自动胡牌
+    public bool isAutoCutCard = false; // 是否自动出牌
+
+    private float tileCardWidth; // 手牌预制体宽度
 
     public static GameCanvas Instance { get; private set; }
+    
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -56,6 +59,8 @@ public class GameCanvas : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        // 获取tileCardPrefab的宽度 
+        tileCardWidth = tileCardPrefab.GetComponent<RectTransform>().rect.width;
     }
 
     // 初始化游戏UI
@@ -84,46 +89,146 @@ public class GameCanvas : MonoBehaviour
         RandomSeedText.text = $"随机种子：{gameInfo.random_seed}"; // 左上角显示随机种子
     }
 
-    // 初始化手牌区域 
-    public void InitializeHandCards(int[] handTiles){
-        // 清空现有手牌
-        foreach (Transform child in handCardsContainer)
-        {
-            Destroy(child.gameObject);
+    // 手牌处理 
+    public void ChangeHandCards(string ChangeType,int tileId,int[] TilesList){
+
+        // 初始化手牌 只初始化前13张
+        if (ChangeType == "InitHandCards"){
+            int cardCount = 0;
+            foreach (int tile in TilesList){
+                if (cardCount >= 13) break;
+                // 创建手牌
+                GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+                TileCard tileCard = cardObj.GetComponent<TileCard>();
+                tileCard.SetTile(tile, false);
+                // 设置位置：每张牌间隔一个宽度
+                RectTransform cardRect = cardObj.GetComponent<RectTransform>();
+                cardRect.anchoredPosition = new Vector2(cardCount * tileCardWidth, 0);
+                // 计数增加
+                cardCount++;
+            }
         }
-        // 实例化手牌 如果当前玩家是自己,则不实例化最后一张牌
-        int cardCount = 1;  // 从1开始计数
-        foreach (int tile in handTiles)
-        {
-            // 如果卡牌是第十四张,则不创建,因为手牌应当创建在摸牌区
-            if (cardCount == 14){break;}
-            // 创建牌进入手牌区
+
+        // 摸牌 添加摸牌区手牌
+        else if (ChangeType == "GetCard"){
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
-            tileCard.SetTile(tile, false);
-            cardCount++;
+            tileCard.SetTile(tileId, true);
+            // 设置位置：手牌区右侧，间隔半个宽度
+            RectTransform cardRect = cardObj.GetComponent<RectTransform>();
+            int handCardCount = handCardsContainer.childCount - 1; // 减去刚添加的这张
+            cardRect.anchoredPosition = new Vector2(handCardCount * tileCardWidth + tileCardWidth * 0.5f, 0);
         }
-        ArrangeHandCards();
+
+        // 摸切 删除摸牌区手牌
+        else if (ChangeType == "RemoveGetCard"){
+            // 删除最后添加的牌（摸牌区的牌）
+            Transform lastCard = handCardsContainer.GetChild(handCardsContainer.childCount - 1);
+            TileCard tileCard = lastCard.GetComponent<TileCard>();
+            if (tileCard.tileId == tileId){
+                Destroyer.Instance.AddToDestroyer(lastCard);
+            }
+        }
+
+        // 手切 删除手牌区手牌
+        else if (ChangeType == "RemoveHandCard"){
+            foreach (Transform child in handCardsContainer){
+                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                if (needToRemoveTileCard.tileId == tileId){
+                    Destroyer.Instance.AddToDestroyer(child);
+                }
+            }
+        }
+
+        // 补花 删除手牌区手牌
+        else if (ChangeType == "RemoveBuhuaCard"){
+            foreach (Transform child in handCardsContainer){
+                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                if (needToRemoveTileCard.tileId == tileId){
+                    Destroyer.Instance.AddToDestroyer(child);
+                }
+            }
+        }
+
+        // 删除组合牌 在手牌中删除全部组合牌
+        else if (ChangeType == "RemoveCombinationCard"){
+            foreach (int tileToRemove in TilesList){
+                foreach (Transform child in handCardsContainer){
+                    TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                    if (needToRemoveTileCard.tileId == tileToRemove){
+                        Destroyer.Instance.AddToDestroyer(child);
+                    }
+                }
+            }
+        }
+
+        // 在游戏开始时,会出现补花阶段结束不执行操作的情况 此时可以调用该方法使手牌恢复为非Getcard状态
+        else if (ChangeType == "BuhuaEnd"){
+            //
+        }
+        
+        // 重新排列手牌位置
+        if (ChangeType != "GetCard"){
+            RearrangeHandCards();
+        }
     }
     
-    // 摸牌 手切区域
-    public void GetCard(int tileId){
-        // 在手牌区域添加手牌
-        GameSceneManager.Instance.handTiles.Add(tileId);
-        GameObject cardObj = Instantiate(tileCardPrefab, GetCardsContainer); // 实例化手牌
-        TileCard tileCard = cardObj.GetComponent<TileCard>(); // 获取手牌组件
-        tileCard.SetTile(tileId, true); // 设置手牌 牌id, 是否是刚摸到的牌 bool:true
+    // 重新排列手牌位置
+    private void RearrangeHandCards(){
+
+        // 手牌恢复为非摸切状态
+        foreach (Transform child in handCardsContainer){
+            TileCard tileCard = child.GetComponent<TileCard>();
+            if (tileCard != null){
+                tileCard.SetTile(tileCard.tileId, false);
+            }
+        }
+
+        // 如果需要排序
+        if (isArrangeHandCards){
+            // 按 tileId 排序
+            List<TileCard> cards = new List<TileCard>();
+            foreach (Transform child in handCardsContainer) {
+                TileCard tileCard = child.GetComponent<TileCard>();
+                if (tileCard != null) {
+                    cards.Add(tileCard);
+                }
+            }
+            
+            // 按 tileId 排序
+            cards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
+            
+            // 重新设置位置和顺序
+            for (int i = 0; i < cards.Count; i++) {
+                // 设置层级顺序
+                cards[i].transform.SetSiblingIndex(i);
+                // 设置位置
+                RectTransform cardRect = cards[i].GetComponent<RectTransform>();
+                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
+            }
+        }
+        // 如果不排序
+        else{
+            for (int i = 0; i < handCardsContainer.childCount; i++){
+                Transform child = handCardsContainer.GetChild(i);
+                RectTransform cardRect = child.GetComponent<RectTransform>();
+                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
+            }
+        }
     }
+    
+
 
     // 显示可用行动按钮
     public void SetActionButton(List<string> action_list){
+        // 用于跟踪吃牌按钮
+        ActionButton chiButton = null;
+        // 用于跟踪暗杠按钮
+        ActionButton angangButton = null;
+        // 用于跟踪加杠按钮
+        ActionButton jiagangButton = null;
+        
         for (int i = 0; i < action_list.Count; i++){
-            // 用于跟踪吃牌按钮
-            ActionButton chiButton = null;
-            // 用于跟踪暗杠按钮
-            ActionButton angangButton = null;
-            // 用于跟踪加杠按钮
-            ActionButton jiagangButton = null;
 
             Debug.Log($"询问操作: {action_list[i]}");
 
@@ -216,106 +321,20 @@ public class GameCanvas : MonoBehaviour
         }
     }
 
-    // 自动排序
-    public void ArrangeHandCards() {
-        // 获取所有子对象并存入列表
-        if (isArrangeHandCards){
-            List<TileCard> cards = new List<TileCard>();
-            foreach (Transform child in handCardsContainer) {
-                TileCard tileCard = child.GetComponent<TileCard>();
-                if (tileCard != null) {
-                    cards.Add(tileCard);
-                }
-            }
-            // 直接按tileId排序
-            cards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
-            // 重新排列子对象
-            for (int i = 0; i < cards.Count; i++) {
-                cards[i].transform.SetSiblingIndex(i);
-            }
-        }
-    }
 
-    // 发送行动
+    // 选择行动
     public void ChooseAction(string actionType,int targetTile){
+        // 清空允许操作列表
+        GameSceneManager.Instance.allowActionList.Clear();
+        // 停止倒计时
         StopTimeRunning();
+        // 发送行动
         NetworkManager.Instance.SendAction(actionType,targetTile);
     }
 
-    public void RemoveCutCard(int tileId,bool cut_class){
-        // 摸切则直接删除摸牌区卡牌
-        if (cut_class){ // 摸切有两种可能 手动则卡牌自动消除 超时则需要验证消除
-            if (GetCardsContainer.childCount > 0) {
-                GameObject GetCardObj = GetCardsContainer.GetChild(0).gameObject;
-                Destroy(GetCardObj);
-            }
-        }
-        // 手切或者补花 则先在手牌区删除tildId对应的卡牌 如果没找到则删除摸牌区卡牌
-        else{
-            // 删除手牌区tildId对应的卡牌
-            foreach (Transform child in handCardsContainer){
-                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
-                if (needToRemoveTileCard.tileId == tileId){
-                    Destroy(child.gameObject);
-                    return;
-                }
-            }
-            // 删除摸牌区tildId对应的卡牌
-            foreach (Transform child in GetCardsContainer){
-                TileCard tileCard = child.GetComponent<TileCard>();
-                if (tileCard.tileId == tileId){
-                    Destroy(child.gameObject);
-                    return;
-                }
-            }
-            // 重新排列手牌
-            ArrangeHandCards();
-        }
-    }
 
-    public void MoveAllGetCardsToHandCards(){
-        // 使用协程跳过一帧执行，确保Destroy操作完全完成
-        StartCoroutine(MoveAllGetCardsToHandCardsCoroutine());
-    }
 
-    private IEnumerator MoveAllGetCardsToHandCardsCoroutine(){
-        // 跳过一帧，等待Destroy操作完成
-        yield return null;
-        
-        // 先收集所有需要移动的卡牌信息，避免在循环中直接操作容器
-        List<int> tileIdsToMove = new List<int>();
-        List<GameObject> cardsToDestroy = new List<GameObject>();
-        
-        // 收集所有卡牌信息
-        for (int i = 0; i < GetCardsContainer.childCount; i++) {
-            Transform child = GetCardsContainer.GetChild(i);
-            GameObject getCardObj = child.gameObject;
-            
-            // 获取卡牌信息
-            TileCard getTileCard = getCardObj.GetComponent<TileCard>();
-            if (getTileCard != null) {
-                tileIdsToMove.Add(getTileCard.tileId);
-                cardsToDestroy.Add(getCardObj);
-            }
-        }
-        
-        // 在HandCardsContainer中创建新的手牌
-        foreach (int tileId in tileIdsToMove) {
-            GameObject handCardObj = Instantiate(tileCardPrefab, handCardsContainer);
-            TileCard handTileCard = handCardObj.GetComponent<TileCard>();
-            handTileCard.SetTile(tileId, false);
-        }
-        
-        // 销毁GetCardsContainer中的原始卡牌
-        foreach (GameObject cardToDestroy in cardsToDestroy) {
-            if (cardToDestroy != null) {
-                Destroy(cardToDestroy);
-            }
-        }
-        
-        // 重新排列手牌
-        ArrangeHandCards();
-    }
+
 
 
 

@@ -3,6 +3,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -70,6 +71,7 @@ public class GameSceneManager : MonoBehaviour
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game");
+        Game3DManager.Instance.Clear3DTile();
         EndPanel.GetComponent<EndPanel>().ClearEndPanel();
         EndPanel.SetActive(false);
         // 1.存储初始化信息
@@ -79,12 +81,12 @@ public class GameSceneManager : MonoBehaviour
         // 3.初始化面板
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition);
         // 4.初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
-        GameCanvas.Instance.InitializeHandCards(gameInfo.self_hand_tiles);
+        GameCanvas.Instance.ChangeHandCards("InitHandCards",0,gameInfo.self_hand_tiles);
         // 5.初始化他人手牌区域
         Game3DManager.Instance.InitializeOtherCards(gameInfo.players_info);
         // 6.如果当前玩家是自己,说明自己是庄家,进行摸牌
         if (selfIndex == currentIndex){
-            GameCanvas.Instance.GetCard(gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1]);
+            GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null);
             // 在这里可以添加向服务器传递加载完成方法
             // 亲家与闲家完成配牌以后等待服务器传递补花行为
         }
@@ -132,8 +134,6 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
-
-    // 执行操作
     public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target) {
         string GetCardPlayer = indexToPosition[action_player];
         foreach (string action in action_list) {
@@ -141,7 +141,8 @@ public class GameSceneManager : MonoBehaviour
             switch (action) { // action_list 实际上只会包含一个操作
                 case "deal": // 摸牌
                     if (GetCardPlayer == "self"){
-                        GameCanvas.Instance.GetCard(deal_tile.Value);
+                        handTiles.Add(deal_tile.Value);
+                        GameCanvas.Instance.ChangeHandCards("GetCard",deal_tile.Value,null);
                     }
                     else{
                         Game3DManager.Instance.GetCard3D(GetCardPlayer);
@@ -155,11 +156,14 @@ public class GameSceneManager : MonoBehaviour
                         if (allowActionList.Contains("cut")){
                             handTiles.Remove(cut_tile.Value); // 删除手牌
                             selfDiscardslist.Add(cut_tile.Value); // 存储弃牌
-                            Debug.Log($"重新排列手牌");
-                            GameCanvas.Instance.ArrangeHandCards(); // 重新排列手牌
                             Debug.Log($"生成3D切牌");
                             Game3DManager.Instance.CutCards(GetCardPlayer, cut_tile.Value, cut_class.Value); // 生成3D切牌
-                            GameCanvas.Instance.RemoveCutCard(cut_tile.Value,false); // 删除切牌
+                            if (cut_class.Value){ // 如果是摸切则删除摸牌区手牌
+                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null);
+                            }
+                            else{ // 如果是手切则删除手牌区手牌
+                                GameCanvas.Instance.ChangeHandCards("RemoveHandCard",cut_tile.Value,null);
+                            }
                         }
                     }
                     else if (GetCardPlayer == "left"){
@@ -180,18 +184,19 @@ public class GameSceneManager : MonoBehaviour
                     if (GetCardPlayer == "self"){
                         selfHuapaiList.Add(buhua_tile_id);
                         handTiles.Remove(buhua_tile_id); // 删除手牌
-                        GameCanvas.Instance.RemoveCutCard(buhua_tile_id,false); // 删除补花牌
+                        GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard",buhua_tile_id,null); // 删除补花牌
                     }
                     else if (GetCardPlayer == "left"){leftHuapaiList.Add(buhua_tile_id);}
                     else if (GetCardPlayer == "top"){topHuapaiList.Add(buhua_tile_id);}
-                    else if (GetCardPlayer == "right"){rightHuapaiList.Add(buhua_tile_id);}
+                    else if (GetCardPlayer == "right"){rightHuapaiList.Add(buhua_tile_id);
+                    }
                     Game3DManager.Instance.BuhuaAnimation(GetCardPlayer, buhua_tile_id);
                     break;
                 case "hu":
-                    // 
+                    // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
                     break;
-                case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang":
-                    Game3DManager.Instance.ActionAnimation(GetCardPlayer, action, combination_mask);
+                case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang": case "peng": case "gang":
+                    Game3DManager.Instance.ActionAnimation(GetCardPlayer, action, combination_mask,action,combination_target);
                     if (GetCardPlayer == "self"){
                         if (action == "jiagang"){
                             // 删除combination_target的首字符
@@ -202,7 +207,6 @@ public class GameSceneManager : MonoBehaviour
                         else{
                             selfCombinationList.Add(combination_target);
                         }
-
                     }
                     break;
                 default:
@@ -212,11 +216,6 @@ public class GameSceneManager : MonoBehaviour
         }
         // 行动终止清理
         if (GetCardPlayer == "self"){
-            Debug.Log($"行动终止清理");
-            // 将摸牌区的卡牌加入手牌
-            if (allowActionList.Count > 0){
-                GameCanvas.Instance.MoveAllGetCardsToHandCards();
-            }
             // 停止计时器
             GameCanvas.Instance.StopTimeRunning();
             // 清空允许操作列表
@@ -231,6 +230,22 @@ public class GameSceneManager : MonoBehaviour
     }
 
     private void InitializeSetInfo(GameInfo gameInfo){
+        // 清空弃牌列表
+        selfDiscardslist = new List<int>();
+        leftDiscardslist = new List<int>();
+        topDiscardslist = new List<int>();
+        rightDiscardslist = new List<int>();
+        // 清空花牌列表
+        selfHuapaiList = new List<int>();
+        leftHuapaiList = new List<int>();
+        topHuapaiList = new List<int>();
+        rightHuapaiList = new List<int>();
+        // 清空组合牌列表
+        selfCombinationList = new List<string>();
+        leftCombinationList = new List<string>();
+        topCombinationList = new List<string>();
+        rightCombinationList = new List<string>();
+
         // 如果gameinfo.username等于自己的username，则设置自身索引为gameinfo.player_index
         foreach (var player in gameInfo.players_info){
             if (player.username == Administrator.Instance.Username){
