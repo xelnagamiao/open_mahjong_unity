@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 
 public class LoginPanel : MonoBehaviour
 {
@@ -9,9 +10,21 @@ public class LoginPanel : MonoBehaviour
     [SerializeField] private Button submitButton;
     [SerializeField] private TMP_Text statusText;
 
+    public static LoginPanel Instance { get; private set; }
+    private Coroutine serverConnectCoroutine;
+
     private void Start()
     {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
         submitButton.onClick.AddListener(LoginClick);
+        serverConnectCoroutine = StartCoroutine(ServerConnectCoroutine());
     }
 
     private void LoginClick()
@@ -42,5 +55,35 @@ public class LoginPanel : MonoBehaviour
 
         statusText.text = "登录成功";
         WindowsManager.Instance.SwitchWindow("main");
+    }
+
+    // 服务器连接协程
+    private IEnumerator ServerConnectCoroutine()
+    {
+        while (true)
+        {
+            statusText.text = "等待服务器连接.";
+            yield return new WaitForSeconds(0.5f);
+            statusText.text = "等待服务器连接..";
+            yield return new WaitForSeconds(0.5f);
+            statusText.text = "等待服务器连接...";
+            yield return new WaitForSeconds(0.5f);
+        }
+    }
+
+    // 设置状态文本
+    public void ConnectOkText()
+    {
+        // 终止协程
+        StopCoroutine(serverConnectCoroutine);
+        statusText.text = "连接成功";
+    }
+
+    // 设置状态文本
+    public void ConnectErrorText(string text)
+    {
+        // 终止协程
+        StopCoroutine(serverConnectCoroutine);
+        statusText.text = $"连接失败: {text} 请联系服务管理员q群906497522";
     }
 } 

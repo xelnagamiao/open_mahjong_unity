@@ -4,6 +4,7 @@ from typing import Dict, List
 import time
 from .method_Action_Check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
+from .method_Logic_Handle import get_index_relative_position
 from .Hepai_Check_GB import Chinese_Hepai_Check
 from .Tingpai_Check_GB import Chinese_Tingpai_Check
 
@@ -154,35 +155,7 @@ class ChineseGameState:
                 for _ in range(13):
                     player.get_tile(self.tiles_list)
 
-    def get_index_relative_position(self,self_index,other_index):
-        if self_index == 0:
-            if other_index == 1:
-                return "left"
-            elif other_index == 2:
-                return "top"
-            elif other_index == 3:
-                return "right"
-        elif self_index == 1:
-            if other_index == 0:
-                return "right"
-            elif other_index == 2:
-                return "left"
-            elif other_index == 3:
-                return "top"
-        elif self_index == 2:
-            if other_index == 0:
-                return "top"
-            elif other_index == 1:
-                return "right"
-            elif other_index == 3:
-                return "left"
-        elif self_index == 3:
-            if other_index == 0:
-                return "left"
-            elif other_index == 1:
-                return "top"
-            elif other_index == 2:
-                return "right"
+
 
     async def game_loop_chinese(self):
 
@@ -200,6 +173,7 @@ class ChineseGameState:
 
             # self.init_game_tiles() # 初始化牌山和手牌
             self.init_text_tiles() # 使用测试牌例建立初始实拍
+            self.current_player_index = 0 # 初始玩家索引
             # 广播游戏开始
             await broadcast_game_start(self)
             
@@ -234,7 +208,7 @@ class ChineseGameState:
             self.game_status = "waiting_hand_action" # 初始行动
             self.current_player_index = 0 # 初始玩家索引
 
-            refresh_waiting_tiles(self,self.current_player_index) # 检查手牌等待牌
+            refresh_waiting_tiles(self,self.current_player_index,is_first_action=True) # 检查手牌等待牌
             print(f"玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
             await broadcast_ask_hand_action(self) # 广播手牌操作
@@ -295,7 +269,7 @@ class ChineseGameState:
                     case "onlycut_afteraction": # 吃碰后切牌行为
                         self.action_dict = {0:[],1:[],2:[],3:[]}
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
-                        await self.wait_action()
+                        self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
             # 卡牌摸完 或者有人和牌
             hu_score = None
@@ -320,7 +294,7 @@ class ChineseGameState:
                         hu_score, hu_fan = self.result_dict["hu_first"]
                         hepai_player_index = self.next_current_num(self.current_player_index) # 获取当前玩家的下家索引
                         print(f"和牌玩家索引{hepai_player_index}")
-                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
                         self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
                         self.result_dict = {}
 
@@ -330,9 +304,8 @@ class ChineseGameState:
                         hepai_player_index = self.next_current_num(self.current_player_index)
                         hepai_player_index = self.next_current_num(hepai_player_index) # 获取下下家索引
                         print(f"和牌玩家索引{hepai_player_index}")
-                        self.player_list[hepai_player_index].score += hu_score
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
                         self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
 
                     # 荣和下家
@@ -342,9 +315,8 @@ class ChineseGameState:
                         hepai_player_index = self.next_current_num(hepai_player_index)
                         hepai_player_index = self.next_current_num(hepai_player_index) # 获取下下下家索引
                         print(f"和牌玩家索引{hepai_player_index}")
-                        self.player_list[hepai_player_index].score += hu_score
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += hu_score + 8 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
                         self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
 
                     # 其他玩家扣除8基础分
@@ -386,8 +358,15 @@ class ChineseGameState:
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = None # 和牌玩家组合掩码
                                        )
+                
+            # 清空花牌弃牌组合牌列表 重置时间
+            for i in self.player_list:
+                i.huapai_list = []
+                i.discard_tiles = []
+                i.combination_tiles = []
+                i.remaining_time = self.round_time
             
-            await asyncio.sleep(len(hu_fan)*1 + 5) # 等待和牌番种时间与5秒后重新开始下一局
+            await asyncio.sleep(len(hu_fan)*0.5 + 10) # 等待和牌番种时间与10秒后重新开始下一局
             self.current_round += 1 # 局数+1
             # ↑ 重新开始下一局循环
         
@@ -630,23 +609,25 @@ class ChineseGameState:
                         self.player_list[player_index].hand_tiles.remove(tile_id+2)
                         self.player_list[player_index].combination_tiles.append(f"s{tile_id+1}")
                         combination_mask = [1,tile_id,0,tile_id+1,0,tile_id+2]
+
                     elif action_type == "peng": # [tile_id',tile_id',tile_id]
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].combination_tiles.append(f"k{tile_id}")
-                        relative_position = self.get_index_relative_position(player_index,self.current_player_index) # 获取相对位置 (操作者,出牌者)
+                        relative_position = get_index_relative_position(self,player_index,self.current_player_index) # 获取相对位置 (操作者,出牌者)
                         if relative_position == "left":
                             combination_mask = [1,tile_id,0,tile_id,0,tile_id]
                         elif relative_position == "right":
                             combination_mask = [0,tile_id,0,tile_id,1,tile_id]
                         elif relative_position == "top":
                             combination_mask = [0,tile_id,1,tile_id,0,tile_id]
+
                     elif action_type == "gang": # [tile_id',tile_id,tile_id',tile_id]
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].combination_tiles.append(f"g{tile_id}")
-                        relative_position = self.get_index_relative_position(player_index,self.current_player_index)
+                        relative_position = get_index_relative_position(self,player_index,self.current_player_index)
                         if relative_position == "left":
                             combination_mask = [1,tile_id,0,tile_id,0,tile_id,0,tile_id]
                         elif relative_position == "right":
@@ -654,13 +635,6 @@ class ChineseGameState:
                         elif relative_position == "top":
                             combination_mask = [0,tile_id,1,tile_id,0,tile_id,0,tile_id]
                         refresh_waiting_tiles(self,player_index) # 更新听牌
-
-                        #
-                        #
-                        #
-                        #
-                        #
-
 
                     elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                         # 和牌 （荣和）
@@ -674,10 +648,14 @@ class ChineseGameState:
                         self.player_list[self.current_player_index].discard_tiles.pop(-1) # 删除弃牌堆的最后一张
                         self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                         self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
-                        self.game_status = "onlycut_afteraction" # 转移行为
                         # 广播吃碰杠动画
                         await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask)
+                        if action_type == "gang":
+                            self.game_status = "waiting_action_after_gang" # 转移行为
+                        else:
+                            self.game_status = "onlycut_afteraction" # 转移行为
                         return
+                    
                 # 如果不吃碰杠或者超时则进行历时行为 继续下一个玩家摸牌
                 self.game_status = "deal_card" # 历时行为
                 return
@@ -735,7 +713,6 @@ class ChineseGameState:
                 else:
                     self.game_status = "deal_card" # 历时行为
                     return
-
 
 
     # 获取玩家行动

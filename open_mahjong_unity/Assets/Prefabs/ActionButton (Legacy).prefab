@@ -134,6 +134,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27b77774675ab2b48b7d95f5e3749511, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ActionBlockPrefab: {fileID: 3763865473911665470, guid: d2e40a710816b52409b56534a20ad37e, type: 3}
+  StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
+  ActionBlockContenter: {fileID: 0}
   textObject: {fileID: 7728692493254005614}
   actionTypeList: []
 --- !u!1 &7802296358996465561
