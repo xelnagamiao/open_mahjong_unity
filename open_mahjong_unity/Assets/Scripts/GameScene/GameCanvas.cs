@@ -180,6 +180,10 @@ public class GameCanvas : MonoBehaviour
             foreach (Transform child in handCardsContainer){
                 TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
                 if (needToRemoveTileCard.tileId == tileId){
+                    // 如果补花牌是摸牌区手牌 设置ChangeType = "RemoveGetCard" 代表后续不用执行动画
+                    if (needToRemoveTileCard.currentGetTile){
+                        ChangeType = "RemoveBuhuaGetCard";
+                    }
                     Destroyer.Instance.AddToDestroyer(child);
                 }
             }
@@ -200,16 +204,24 @@ public class GameCanvas : MonoBehaviour
         else if (ChangeType == "ReSetHandCards"){
             // 标志回合结束 只在自己其他人回合开始时调用 用以在未排序的情况下排序手牌
             if (isArranged){yield break;} // 如果手牌已经排序过 则不进行排序
+            else{yield return new WaitForSeconds(0.2f);} // 如果手牌未排序过 则等待0.2秒 避免在补花轮中获得手牌的瞬间就进行排序
         }
 
         // isArrangeed 用于监测玩家这次行为是否已经排序 例如补花和摸牌以后还可以执行操作,但是摸切和手切以后就不能执行操作了
-        // 初始化手牌、摸牌、补花以后 手牌没有排序过, RemoveBuhuaCard以后固定会执行GetCard
+
+        // 初始化庄家手牌、摸牌、补花以后 均执行GetCard 重置排序状态
         if (ChangeType == "GetCard" ){
             isArranged = false;
         }
 
+        // 如果切牌是摸切或者补花摸牌张 则不需要排序
+        else if (ChangeType == "RemoveGetCard" || ChangeType == "RemoveBuhuaGetCard"){
+            isArranged = true;
+            yield break;
+        }
+
         // 初始化卡牌、摸切、手切、单次补花、吃碰杠以后 进行卡牌排序 
-        else if (ChangeType == "RemoveGetCard" || ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" || ChangeType == "InitHandCards"){
+        else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards"){
             isArranged = true;
             // 等待排序完成
             yield return StartCoroutine(RearrangeHandCardsWithAnimation());

@@ -636,6 +636,8 @@ class ChineseGameState:
                             combination_mask = [0,tile_id,1,tile_id,0,tile_id,0,tile_id]
                         refresh_waiting_tiles(self,player_index) # 更新听牌
 
+                        ####
+
                     elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                         # 和牌 （荣和）
                         self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
