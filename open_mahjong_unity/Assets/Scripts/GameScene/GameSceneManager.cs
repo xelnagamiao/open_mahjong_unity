@@ -112,11 +112,12 @@ public class GameSceneManager : MonoBehaviour
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             }
         }
+        else{
+            // 如果自己的回合结束并且手牌未排序 重置自身手牌
+            GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null);
+        }
         // 显示行动者
         BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
-
-        // 重置自身手牌
-        GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null);
     }
 
     // 出牌后他家反馈操作

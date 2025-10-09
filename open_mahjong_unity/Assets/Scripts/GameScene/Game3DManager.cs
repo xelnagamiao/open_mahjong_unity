@@ -244,6 +244,7 @@ public class Game3DManager : MonoBehaviour
             SetDirection = new Vector3(0,0,-1); // 向下
             JiagangDirection = new Vector3(-1,0,0); // 右侧玩家加杠指针是向左
             SetPositionpoint = rightSetCombinationsPoint;
+            SetParent = rightCombinationsPosition;
         }
         // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
         List<int> SetTileList = new List<int>();
@@ -272,7 +273,7 @@ public class Game3DManager : MonoBehaviour
                     GameObject cardObj;
                     Vector3 TempPositionpoint = pengToJiagangPosDict[SetTileList[i]]; // 获取加杠位置
                     Quaternion TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
-                    TempPositionpoint += JiagangDirection * widthSpacing; // 加杠向上一个宽度单位
+                    TempPositionpoint += JiagangDirection * cardWidth; // 加杠向上一个宽度单位
                     cardObj = Instantiate(tile3DPrefab, TempPositionpoint, TempRotation);
                     ApplyCardTexture(cardObj, SetTileList[i]);
                     // 设置父对象
@@ -290,14 +291,15 @@ public class Game3DManager : MonoBehaviour
                 // 卡牌竖置 指针增加一个宽度单位
                 if (SignDirectionList[i] == 0){
                     TempRotation = rotation; // 竖
-                    TempPositionpoint += SetDirection * widthSpacing;
-                    SetPositionpoint += SetDirection * widthSpacing; // 吃碰的竖置牌每张牌向左一个宽度单位
+                    TempPositionpoint += SetDirection * cardWidth;
+                    SetPositionpoint += SetDirection * cardWidth; // 吃碰的竖置牌每张牌向左一个宽度单位
                 }
                 // 卡牌横置,放置角度叠加横置 指针增加一个高度单位
                 else if (SignDirectionList[i] == 1){
                     TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
-                    SetPositionpoint += SetDirection * heightSpacing;
-                    TempPositionpoint += SetDirection * heightSpacing; // 吃碰的横置牌向左一个高度单位
+                    SetPositionpoint += SetDirection * cardHeight;
+                    TempPositionpoint += SetDirection * cardHeight; // 吃碰的横置牌向左一个高度单位
+                    TempPositionpoint += JiagangDirection * cardWidth * 0.4f; // 横置牌向上0.4个宽度单位
                     if (action == "peng"){
                         pengToJiagangPosDict.Add(SetTileList[i],SetPositionpoint); // 碰牌的加杠预留指针 保存在碰牌int id的横置位置
                     }
@@ -305,13 +307,13 @@ public class Game3DManager : MonoBehaviour
                 // 卡牌暗面 指针增加一个宽度单位
                 else if (SignDirectionList[i] == 2){
                     TempRotation = Quaternion.Euler(0,0,-180) * rotation; // 暗面
-                    SetPositionpoint += SetDirection * widthSpacing;
-                    TempPositionpoint += SetDirection * widthSpacing; // 暗杠每张牌向左一个宽度单位
+                    SetPositionpoint += SetDirection * cardWidth;
+                    TempPositionpoint += SetDirection * cardWidth; // 暗杠每张牌向左一个宽度单位
                 }
                 // 卡牌加杠
                 else if (SignDirectionList[i] == 3){
                     TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
-                    TempPositionpoint += JiagangDirection * widthSpacing; // 加杠向上一个宽度单位
+                    TempPositionpoint += JiagangDirection * cardWidth * 1.4f; // 加杠向上1.4个宽度单位
                 }
 
                 // 创建卡牌

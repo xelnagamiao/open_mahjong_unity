@@ -16,7 +16,7 @@ public class TileCard : MonoBehaviour
 
     // 将私有字段改为公共属性
     public int tileId { get; private set; }    // 牌的ID（如"11"表示一万）
-    private bool currentGetTile;   // 是否是当前摸到的牌
+    public bool currentGetTile;   // 是否是当前摸到的牌
 
     private void Start()
     {
@@ -39,7 +39,6 @@ public class TileCard : MonoBehaviour
         if (sprite != null)
         {
             tileImage.sprite = sprite;
-            Debug.Log($"成功加载图片: {path}");
         }
         else
         {

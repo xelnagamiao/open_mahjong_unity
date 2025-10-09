@@ -9616,7 +9616,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: V0.0.16.2    2025.9.24
+  m_text: V0.0.18.4    2025.10.10
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_sharedMaterial: {fileID: -228896018595606784, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
@@ -11755,7 +11755,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 470224379}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8b0a710f7e3e7a64488c8256611073d6, type: 3}
+  m_Script: {fileID: 11500000, guid: 02e1bd4dbc259df448e37ea9c872486b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &471403069
@@ -19325,6 +19325,10 @@ MonoBehaviour:
   ActionBlockPrefab: {fileID: 3763865473911665470, guid: d2e40a710816b52409b56534a20ad37e, type: 3}
   StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
   tileCardPrefab: {fileID: 4030565618160232667, guid: 85ecae9c1110d1242a85dd47719ce308, type: 3}
+  ActionBlockContainerState: None
+  isDontDoAction: 0
+  isAutoHepai: 0
+  isAutoCutCard: 0
 --- !u!114 &833371390
 MonoBehaviour:
   m_ObjectHideFlags: 0
