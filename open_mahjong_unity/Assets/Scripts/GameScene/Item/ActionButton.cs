@@ -42,11 +42,36 @@ public class ActionButton : MonoBehaviour
         if (actionTypeList.Count > 1){
             int lastCutTile = GameSceneManager.Instance.lastCutCardID;
 
-            // 如果ActionBlockContenter 内有元素
-            if (ActionBlockContenter.childCount > 0){
-                // 删除所有子级按钮
+            // 确定当前按钮类型
+            string currentButtonType = "None";
+            if (actionTypeList.Contains("chi_left") || actionTypeList.Contains("chi_right") || actionTypeList.Contains("chi_mid")){
+                currentButtonType = "chi";
+            }
+            else if (actionTypeList.Contains("angang")){
+                currentButtonType = "angang";
+            }
+            else if (actionTypeList.Contains("jiagang")){
+                currentButtonType = "jiagang";
+            }
+            
+            // 如果ActionBlockContenter的状态为空,点击则创建子级按钮
+            if (GameCanvas.Instance.ActionBlockContainerState == "None"){
+                GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
+            }
+            // 如果ActionBlockContenter的状态不为空
+            else if (GameCanvas.Instance.ActionBlockContainerState != "None"){
+                // 清空容器
                 foreach (Transform child in ActionBlockContenter){
                     Destroy(child.gameObject);
+                }
+                // 如果点击的是相同类型的按钮，则清空后直接返回
+                if (GameCanvas.Instance.ActionBlockContainerState == currentButtonType){
+                    GameCanvas.Instance.ActionBlockContainerState = "None";
+                    return;
+                }
+                // 如果点击的是不同类型的按钮，则切换状态继续执行
+                else{
+                    GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
                 }
             }
 

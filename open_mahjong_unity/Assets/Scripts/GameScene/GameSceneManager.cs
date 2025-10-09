@@ -114,6 +114,9 @@ public class GameSceneManager : MonoBehaviour
         }
         // 显示行动者
         BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
+
+        // 重置自身手牌
+        GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null);
     }
 
     // 出牌后他家反馈操作

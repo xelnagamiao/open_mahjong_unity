@@ -62,8 +62,8 @@ public class Game3DManager : MonoBehaviour
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
         this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度（绿色轴）
         this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片高度（蓝色轴）
-        this.widthSpacing = cardWidth * 1f; // 间距为卡片宽度的1倍
-        this.heightSpacing = cardHeight * 1f; // 间距为卡片高度的1倍
+        this.widthSpacing = cardWidth * 1.05f; // 间距为卡片宽度的1.05倍
+        this.heightSpacing = cardHeight * 1.05f; // 间距为卡片高度的1.05倍
         // 初始化放置组合牌指针
         selfSetCombinationsPoint = selfCombinationsPosition.position;
         leftSetCombinationsPoint = leftCombinationsPosition.position;

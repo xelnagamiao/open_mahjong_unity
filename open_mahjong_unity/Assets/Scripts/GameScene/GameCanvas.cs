@@ -41,7 +41,8 @@ public class GameCanvas : MonoBehaviour
 
     [Header("游戏配置模块")]
     private bool isArrangeHandCards = true; // 是否自动排列手牌
-    private bool isArrangeed = false; // 是否已经排列过手牌
+    private bool isArranged = false; // 是否已经排列过手牌
+    public string ActionBlockContainerState = "None"; // 操作块容器状态
     public bool isDontDoAction = false; // 是否不吃碰杠
     public bool isAutoHepai = false; // 是否自动胡牌
     public bool isAutoCutCard = false; // 是否自动出牌
@@ -145,7 +146,11 @@ public class GameCanvas : MonoBehaviour
             foreach (Transform child in handCardsContainer){
                 TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
                 if (needToRemoveTileCard.tileId == tileId){
+                    Debug.Log($"标记删除补花牌: {tileId}");
+                    Debug.Log($"删除前父对象: {child.parent.name}");
                     Destroyer.Instance.AddToDestroyer(child);
+                    Debug.Log($"删除后父对象: {child.parent.name}");
+                    Debug.Log($"删除后容器子对象数量: {handCardsContainer.childCount}");
                 }
             }
         }
@@ -162,9 +167,20 @@ public class GameCanvas : MonoBehaviour
             }
         }
 
-        // 在游戏开始时,会出现补花阶段结束不执行操作的情况 此时可以调用该方法使手牌恢复为非Getcard状态
-        else if (ChangeType == "BuhuaEnd"){
-            //
+        else if (ChangeType == "ReSetHandCards"){
+            // 标志回合结束
+        }
+
+        // isArrangeed 用于监测玩家这次行为是否已经排序 例如补花和摸牌以后还可以执行操作,但是摸切和手切以后就不能执行操作了
+
+        // 摸切、手切、单次补花、吃碰杠以后 手牌已经排序过了 如果是杠或者暗杠 在GetCard中会重新设置成未排序状态
+        if (ChangeType == "RemoveGetCard" || ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard"){
+            isArranged = true;
+        }
+
+        // 初始化手牌、摸牌、以后 手牌没有排序过, RemoveBuhuaCard以后固定会执行GetCard
+        else if (ChangeType == "InitHandCards" || ChangeType == "GetCard" ){
+            isArranged = false;
         }
         
         // 重新排列手牌位置
@@ -177,7 +193,10 @@ public class GameCanvas : MonoBehaviour
     private void RearrangeHandCards(){
 
         // 手牌恢复为非摸切状态
-        foreach (Transform child in handCardsContainer){
+        Debug.Log($"排序时容器子对象数量: {handCardsContainer.childCount}");
+        for (int i = 0; i < handCardsContainer.childCount; i++){
+            Transform child = handCardsContainer.GetChild(i);
+            Debug.Log($"处理子对象 {i}: {child.name}, 父对象: {child.parent.name}");
             TileCard tileCard = child.GetComponent<TileCard>();
             if (tileCard != null){
                 tileCard.SetTile(tileCard.tileId, false);
@@ -472,5 +491,7 @@ public class GameCanvas : MonoBehaviour
         foreach (Transform child in ActionButtonContainer){
             Destroy(child.gameObject);
         }
+        ActionBlockContainerState = "None";
+
     }
 }
