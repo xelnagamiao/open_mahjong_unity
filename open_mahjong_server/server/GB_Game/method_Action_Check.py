@@ -97,14 +97,14 @@ def check_action_after_cut(self,cut_tile):
     return temp_action_dict
 
 # 加杠检查操作 存储 抢杠
-def check_action_jiagang(self,gang_tile):
+def check_action_jiagang(self,jiagang_tile):
     # 如果该牌是任意家的等待牌，则可以抢杠和
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     # 如果该牌是任意家的等待牌
     for item in self.player_list:
-        if gang_tile in item.waiting_tiles:
+        if jiagang_tile in item.waiting_tiles:
             # 如果满足和牌条件则可以胡
-            tiles_list = item.hand_tiles + [gang_tile] # 手牌列表 13+1
+            tiles_list = item.hand_tiles + [jiagang_tile] # 手牌列表 13+1
             combination_tiles = item.combination_tiles # 组合牌列表
             way_to_hepai = ["抢杠和","花牌"*len(item.huapai_list)]
             # 场风检查
@@ -129,10 +129,10 @@ def check_action_jiagang(self,gang_tile):
             if len(item.waiting_tiles) == 1:
                 way_to_hepai.append("和单张")
             # 和绝张检查
-            if self.tiles_list.count(gang_tile) == 0:
+            if self.tiles_list.count(jiagang_tile) == 0:
                 way_to_hepai.append("和绝张")
 
-            hepai_tiles = gang_tile # 和牌张
+            hepai_tiles = jiagang_tile # 和牌张
             result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tiles)
             if result[0] >= 8:
                 if get_index_relative_position(self,item.player_index,self.current_player_index) == "left":

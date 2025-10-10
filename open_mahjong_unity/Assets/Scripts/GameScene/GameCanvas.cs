@@ -40,7 +40,7 @@ public class GameCanvas : MonoBehaviour
     private int _currentCutTime;
 
     [Header("游戏配置模块")]
-    private bool isArrangeHandCards = true; // 是否自动排列手牌
+    private bool isAutoArrangeHandCards = true; // 是否自动排列手牌
     private bool isArranged = false; // 是否已经排列过手牌
     
     // 手牌处理队列管理
@@ -204,7 +204,7 @@ public class GameCanvas : MonoBehaviour
         else if (ChangeType == "ReSetHandCards"){
             // 标志回合结束 只在自己其他人回合开始时调用 用以在未排序的情况下排序手牌
             if (isArranged){yield break;} // 如果手牌已经排序过 则不进行排序
-            else{yield return new WaitForSeconds(0.2f);} // 如果手牌未排序过 则等待0.2秒 避免在补花轮中获得手牌的瞬间就进行排序
+            else{yield return new WaitForSeconds(0.2f);} // 如果手牌未排序过 则等待0.2秒 避免在补花轮中获得手牌的瞬间就进行排序 未来需要添加摸牌动画
         }
 
         // isArrangeed 用于监测玩家这次行为是否已经排序 例如补花和摸牌以后还可以执行操作,但是摸切和手切以后就不能执行操作了
@@ -227,54 +227,7 @@ public class GameCanvas : MonoBehaviour
             yield return StartCoroutine(RearrangeHandCardsWithAnimation());
         }
     }
-    
-    // 重新排列手牌位置
-    private void RearrangeHandCards(){
-
-        // 手牌恢复为非摸切状态
-        Debug.Log($"排序时容器子对象数量: {handCardsContainer.childCount}");
-        for (int i = 0; i < handCardsContainer.childCount; i++){
-            Transform child = handCardsContainer.GetChild(i);
-            Debug.Log($"处理子对象 {i}: {child.name}, 父对象: {child.parent.name}");
-            TileCard tileCard = child.GetComponent<TileCard>();
-            if (tileCard != null){
-                tileCard.currentGetTile = false;
-            }
-        }
-
-        // 如果需要排序
-        if (isArrangeHandCards){
-            // 按 tileId 排序
-            List<TileCard> cards = new List<TileCard>();
-            foreach (Transform child in handCardsContainer) {
-                TileCard tileCard = child.GetComponent<TileCard>();
-                if (tileCard != null) {
-                    cards.Add(tileCard);
-                }
-            }
-            
-            // 按 tileId 排序
-            cards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
-            
-            // 重新设置位置和顺序
-            for (int i = 0; i < cards.Count; i++) {
-                // 设置层级顺序
-                cards[i].transform.SetSiblingIndex(i);
-                // 设置位置
-                RectTransform cardRect = cards[i].GetComponent<RectTransform>();
-                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
-            }
-        }
-        // 如果不排序
-        else{
-            for (int i = 0; i < handCardsContainer.childCount; i++){
-                Transform child = handCardsContainer.GetChild(i);
-                RectTransform cardRect = child.GetComponent<RectTransform>();
-                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
-            }
-        }
-    }
-    
+      
     // 带动画的手牌重新排列
     private System.Collections.IEnumerator RearrangeHandCardsWithAnimation(){
 
@@ -289,47 +242,68 @@ public class GameCanvas : MonoBehaviour
             }
         }
 
-        // 收集所有卡牌和它们的目标位置
-        List<RectTransform> cards = new List<RectTransform>();
-        List<Vector2> targetPositions = new List<Vector2>();
+        // 创建字典：手牌物体 -> 当前位置
+        Dictionary<RectTransform, Vector2> currentPositions = new Dictionary<RectTransform, Vector2>();
+        // 创建字典：手牌物体 -> 目标位置
+        Dictionary<RectTransform, Vector2> targetPositions = new Dictionary<RectTransform, Vector2>();
         
-        if (isArrangeHandCards){
-            // 按 tileId 排序
-            List<TileCard> tileCards = new List<TileCard>();
-            for (int i = 0; i < handCardsContainer.childCount; i++){
-                Transform child = handCardsContainer.GetChild(i);
-                TileCard tileCard = child.GetComponent<TileCard>();
-                if (tileCard != null) {
-                    tileCards.Add(tileCard);
-                }
+        // 收集所有手牌物体和当前位置
+        List<TileCard> tileCards = new List<TileCard>();
+        for (int i = 0; i < handCardsContainer.childCount; i++){
+            Transform child = handCardsContainer.GetChild(i);
+            TileCard tileCard = child.GetComponent<TileCard>();
+            if (tileCard != null) {
+                RectTransform cardRect = tileCard.GetComponent<RectTransform>();
+                tileCards.Add(tileCard);
+                currentPositions[cardRect] = cardRect.anchoredPosition;
             }
-            
-            // 按 tileId 排序
+        }
+
+        // 如果玩家选择了自动排序手牌，按tileId排序
+        if (isAutoArrangeHandCards){
             tileCards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
+        }
+        // 如果不勾选自动排序，保持原有顺序
+
+        // 根据手牌排序获取目标位置
+        for (int i = 0; i < tileCards.Count; i++) {
+            // 获取手牌对象
+            RectTransform cardRect = tileCards[i].GetComponent<RectTransform>();
+            // 根据手牌排序设置子对象层级排序
+            tileCards[i].transform.SetSiblingIndex(i);
+            // 根据手牌排序目标子对象位置
+            Vector2 targetPos = new Vector2(i * tileCardWidth, 0);
+            targetPositions[cardRect] = targetPos;
+        }
+        
+        // 检查是否需要动画：比较每个手牌的当前位置和目标位置
+        bool needsAnimation = false;
+        foreach (var kvp in currentPositions){
+            RectTransform cardRect = kvp.Key;
+            Vector2 currentPos = kvp.Value;
+            Vector2 targetPos = targetPositions[cardRect];
             
-            // 设置层级顺序并收集目标位置
-            for (int i = 0; i < tileCards.Count; i++) {
-                // 设置层级顺序
-                tileCards[i].transform.SetSiblingIndex(i);
-                // 收集卡牌和目标位置
-                cards.Add(tileCards[i].GetComponent<RectTransform>());
-                targetPositions.Add(new Vector2(i * tileCardWidth, 0));
+            if (Vector2.Distance(currentPos, targetPos) > 0.01f){
+                needsAnimation = true;
+                break;
             }
+        }
+        
+        if (!needsAnimation){
+            Debug.Log($"手牌位置无需调整，跳过动画");
+            yield break;
         }
         else{
-            // 不排序，直接收集当前位置和目标位置
-            for (int i = 0; i < handCardsContainer.childCount; i++){
-                Transform child = handCardsContainer.GetChild(i);
-                RectTransform cardRect = child.GetComponent<RectTransform>();
-                cards.Add(cardRect);
-                targetPositions.Add(new Vector2(i * tileCardWidth, 0));
+            // 执行动画
+            List<RectTransform> cards = new List<RectTransform>(currentPositions.Keys);
+            List<Vector2> targetPosList = new List<Vector2>();
+            foreach (RectTransform card in cards){
+                targetPosList.Add(targetPositions[card]);
             }
+            yield return StartCoroutine(AnimateCardsToPositions(cards, targetPosList));
         }
-        
-        // 执行动画
-        yield return StartCoroutine(AnimateCardsToPositions(cards, targetPositions));
     }
-    
+
     // 卡牌移动动画协程
     private System.Collections.IEnumerator AnimateCardsToPositions(List<RectTransform> cards, List<Vector2> targetPositions){
         float animationDuration = 0.3f; // 动画持续时间

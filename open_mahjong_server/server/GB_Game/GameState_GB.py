@@ -60,6 +60,8 @@ class ChineseGameState:
         self.current_round = 1 # 目前小局数 (max_round * 4)
         self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
         self.hu_class = None # 和牌玩家索引
+        self.jiagang_tile = None # 抢杠牌 每次加杠时存储 waiting_jiagang_action 以后删除
+        self.temp_fan = [] # 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
 
         # 用于玩家操作的事件和队列
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
@@ -554,7 +556,8 @@ class ChineseGameState:
                                                   combination_target = f"k{jiagang_tile}"
                                                   ) # 广播加杠动画
 
-                        self.action_dict = check_action_jiagang(self,self.current_player_index) # 检查是否有人可以抢杠
+                        self.jiagang_tile = jiagang_tile # 存储抢杠牌
+                        self.action_dict = check_action_jiagang(self,jiagang_tile) # 检查是否有人可以抢杠
                         if any(self.action_dict[i] for i in self.action_dict):
                             self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                         else:
@@ -634,9 +637,6 @@ class ChineseGameState:
                             combination_mask = [0,tile_id,0,tile_id,0,tile_id,1,tile_id]
                         elif relative_position == "top":
                             combination_mask = [0,tile_id,1,tile_id,0,tile_id,0,tile_id]
-                        refresh_waiting_tiles(self,player_index) # 更新听牌
-
-                        ####
 
                     elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                         # 和牌 （荣和）
@@ -653,7 +653,7 @@ class ChineseGameState:
                         # 广播吃碰杠动画
                         await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask)
                         if action_type == "gang":
-                            self.game_status = "waiting_action_after_gang" # 转移行为
+                            self.game_status = "deal_card_after_gang" # 转移行为
                         else:
                             self.game_status = "onlycut_afteraction" # 转移行为
                         return
@@ -698,13 +698,14 @@ class ChineseGameState:
                     return
                 
             # 在加杠以后的case当中只包含和牌和pass一个选项 如果超时或者pass则进行历时行为
-            case "waiting_action_after_jiagang":
+            case "waiting_action_qianggang":
+                temp_jiagang_tile = self.jiagang_tile # 存储抢杠牌
+                self.jiagang_tile = None # 删除抢杠牌
                 if action_data:
                     if action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
-                        ### 等待完成
-                        for i in self.result_dict:
-                            if i != action_type:
-                                self.result_dict.pop(i)
+                        # 和牌 （荣和）
+                        self.player_list[player_index].hand_tiles.append(temp_jiagang_tile) # 将和牌牌加入手牌最后一张
+                        self.hu_class = action_type
                         self.game_status = "END"
                         return
                     elif action_type == "pass":
@@ -712,6 +713,7 @@ class ChineseGameState:
                         return
                     else:
                         raise ValueError("抢杠和阶段action_type出现非hu和pass的值")
+                # 超时放弃抢杠
                 else:
                     self.game_status = "deal_card" # 历时行为
                     return
