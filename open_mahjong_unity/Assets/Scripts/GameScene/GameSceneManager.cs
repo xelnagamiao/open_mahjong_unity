@@ -98,7 +98,7 @@ public class GameSceneManager : MonoBehaviour
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_first", "hu_second", "hu_third", "angang", "jiagang","pass"};
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" ,"hu_first", "hu_second", "hu_third", "angang", "jiagang","pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);

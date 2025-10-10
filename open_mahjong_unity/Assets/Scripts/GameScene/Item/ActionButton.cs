@@ -117,8 +117,32 @@ public class ActionButton : MonoBehaviour
         }
         // 如果动作列表小于等于1 发送行动
         else{
-            Debug.Log($"选择了行动 {actionTypeList[0]}");
-            GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
+            if (actionTypeList[0] == "jiagang"){
+                Debug.Log($"选择了行动 {actionTypeList[0]}");
+                int targetTile = 0;
+                foreach (int tileID in GameSceneManager.Instance.handTiles){
+                    if (GameSceneManager.Instance.selfCombinationList.Contains($"k{tileID}")){
+                        targetTile = tileID;
+                        break;
+                    }
+                }
+                GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+            }
+            else if (actionTypeList[0] == "angang"){
+                Debug.Log($"选择了行动 {actionTypeList[0]}");
+                int targetTile = 0;
+                foreach (int tileID in GameSceneManager.Instance.handTiles){
+                    if (GameSceneManager.Instance.handTiles.Count(x => x == tileID) == 4){
+                        targetTile = tileID;
+                        break;
+                    }
+                }
+                GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+            }
+            else{
+                Debug.Log($"选择了行动 {actionTypeList[0]}");
+                GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
+            }
         }
     }
 

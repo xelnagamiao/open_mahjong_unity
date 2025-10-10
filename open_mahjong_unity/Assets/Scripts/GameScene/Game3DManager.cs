@@ -28,6 +28,11 @@ public class Game3DManager : MonoBehaviour
     [SerializeField] private Transform selfBuhuaPosition; // 自家补花位置
     [SerializeField] private Transform selfCombinationsPosition; // 自家组合位置
 
+    [SerializeField] private Transform[] selfCombination3DObjects = new Transform[4]; // 自家组合牌3D对象数组
+    [SerializeField] private Transform[] leftCombination3DObjects = new Transform[4]; // 左家组合牌3D对象数组
+    [SerializeField] private Transform[] topCombination3DObjects = new Transform[4]; // 对家组合牌3D对象数组
+    [SerializeField] private Transform[] rightCombination3DObjects = new Transform[4]; // 右家组合牌3D对象数组
+
     private Vector3 selfSetCombinationsPoint; // 组合指针用于存储各家组合牌生成位置
     private Vector3 leftSetCombinationsPoint;
     private Vector3 topSetCombinationsPoint;
@@ -355,10 +360,11 @@ public class Game3DManager : MonoBehaviour
             // 吃碰杠在手牌中先添加最后一张弃牌，再删除生成的所有卡牌
             else if (actionType == "chi_left" || actionType == "chi_right" || actionType == "chi_mid" || actionType == "peng" || actionType == "gang"){
                 GameSceneManager.Instance.handTiles.Add(GameSceneManager.Instance.lastCutCardID);
-                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,SetTileList.ToArray());
                 foreach (int tileID in SetTileList){
                     GameSceneManager.Instance.handTiles.Remove(tileID);
                 }
+                SetTileList.Remove(GameSceneManager.Instance.lastCutCardID);
+                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,SetTileList.ToArray());
             }
         }
     }

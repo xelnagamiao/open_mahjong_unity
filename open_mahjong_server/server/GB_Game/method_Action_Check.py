@@ -102,7 +102,7 @@ def check_action_jiagang(self,jiagang_tile):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     # 如果该牌是任意家的等待牌
     for item in self.player_list:
-        if jiagang_tile in item.waiting_tiles:
+        if jiagang_tile in item.waiting_tiles and item.player_index != self.current_player_index:
             # 如果满足和牌条件则可以胡
             tiles_list = item.hand_tiles + [jiagang_tile] # 手牌列表 13+1
             combination_tiles = item.combination_tiles # 组合牌列表
@@ -149,9 +149,6 @@ def check_action_jiagang(self,jiagang_tile):
     for i in temp_action_dict:
         if temp_action_dict[i] != []:
             temp_action_dict[i].append("pass")
-
-    # 不能抢自己的杠
-    temp_action_dict[self.current_player_index] = []
 
     return temp_action_dict
 

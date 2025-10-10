@@ -196,6 +196,7 @@ public class GameCanvas : MonoBehaviour
                     TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
                     if (needToRemoveTileCard.tileId == tileToRemove){
                         Destroyer.Instance.AddToDestroyer(child);
+                        break;
                     }
                 }
             }
@@ -413,7 +414,6 @@ public class GameCanvas : MonoBehaviour
                     Text buttonText = jiagangButton.TextObject;
                     buttonText.text = "加杠";
                     Debug.Log($"加杠按钮: {jiagangButton}");
-                    jiagangButton.actionTypeList.Add(action_list[i]);
                 }
                 jiagangButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加加杠选项: {action_list[i]}");

@@ -595,22 +595,26 @@ class ChineseGameState:
             case "waiting_action_after_cut":
                 tile_id = self.player_list[self.current_player_index].discard_tiles[-1] # 获取操作牌
                 combination_mask = []
+                combination_target = ""
                 if action_data:
                     refresh_waiting_tiles(self,player_index) # 更新听牌
                     if action_type == "chi_left": # [tile_id-2,tile_id-1,tile_id]
                         self.player_list[player_index].hand_tiles.remove(tile_id-1)
                         self.player_list[player_index].hand_tiles.remove(tile_id-2)
                         self.player_list[player_index].combination_tiles.append(f"s{tile_id-1}")
+                        combination_target = f"s{tile_id-1}"
                         combination_mask = [1,tile_id,0,tile_id-1,0,tile_id-2]
                     elif action_type == "chi_mid": # [tile_id-1,tile_id,tile_id+1]
                         self.player_list[player_index].hand_tiles.remove(tile_id-1)
                         self.player_list[player_index].hand_tiles.remove(tile_id+1)
                         self.player_list[player_index].combination_tiles.append(f"s{tile_id}")
+                        combination_target = f"s{tile_id}"
                         combination_mask = [1,tile_id,0,tile_id-1,0,tile_id+1]
                     elif action_type == "chi_right": # [tile_id,tile_id+1,tile_id+2]
                         self.player_list[player_index].hand_tiles.remove(tile_id+1)
                         self.player_list[player_index].hand_tiles.remove(tile_id+2)
                         self.player_list[player_index].combination_tiles.append(f"s{tile_id+1}")
+                        combination_target = f"s{tile_id+1}"
                         combination_mask = [1,tile_id,0,tile_id+1,0,tile_id+2]
 
                     elif action_type == "peng": # [tile_id',tile_id',tile_id]
@@ -618,6 +622,7 @@ class ChineseGameState:
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].combination_tiles.append(f"k{tile_id}")
                         relative_position = get_index_relative_position(self,player_index,self.current_player_index) # 获取相对位置 (操作者,出牌者)
+                        combination_target = f"k{tile_id}"
                         if relative_position == "left":
                             combination_mask = [1,tile_id,0,tile_id,0,tile_id]
                         elif relative_position == "right":
@@ -631,6 +636,7 @@ class ChineseGameState:
                         self.player_list[player_index].hand_tiles.remove(tile_id)
                         self.player_list[player_index].combination_tiles.append(f"g{tile_id}")
                         relative_position = get_index_relative_position(self,player_index,self.current_player_index)
+                        combination_target = f"g{tile_id}"
                         if relative_position == "left":
                             combination_mask = [1,tile_id,0,tile_id,0,tile_id,0,tile_id]
                         elif relative_position == "right":
@@ -651,7 +657,7 @@ class ChineseGameState:
                         self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                         self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
                         # 广播吃碰杠动画
-                        await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask)
+                        await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask,combination_target = combination_target)
                         if action_type == "gang":
                             self.game_status = "deal_card_after_gang" # 转移行为
                         else:
