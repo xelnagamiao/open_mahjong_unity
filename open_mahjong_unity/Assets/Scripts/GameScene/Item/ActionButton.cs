@@ -96,8 +96,8 @@ public class ActionButton : MonoBehaviour
                         break;
                     case "angang":
                         // 遍历手牌 如果手牌有4张相同的牌 则添加到提示牌列表
-                        foreach (int tileID in GameSceneManager.Instance.handTiles){
-                            if (GameSceneManager.Instance.handTiles.Count(x => x == tileID) == 4){
+                        foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                            if (GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
                                 List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(angangCards, actionType,tileID);
                             }
@@ -105,8 +105,8 @@ public class ActionButton : MonoBehaviour
                         break;
                     case "jiagang":
                         // 遍历手牌 如果组合牌中有符合加杠的组合 则添加到提示牌列表
-                        foreach (int tileID in GameSceneManager.Instance.handTiles){
-                            if (GameSceneManager.Instance.selfCombinationList.Contains($"k{tileID}")){
+                        foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                            if (GameSceneManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
                                 List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(jiagangCards, actionType,tileID);
                             }
@@ -120,8 +120,8 @@ public class ActionButton : MonoBehaviour
             if (actionTypeList[0] == "jiagang"){
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 int targetTile = 0;
-                foreach (int tileID in GameSceneManager.Instance.handTiles){
-                    if (GameSceneManager.Instance.selfCombinationList.Contains($"k{tileID}")){
+                foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                    if (GameSceneManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
                         targetTile = tileID;
                         break;
                     }
@@ -131,8 +131,8 @@ public class ActionButton : MonoBehaviour
             else if (actionTypeList[0] == "angang"){
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 int targetTile = 0;
-                foreach (int tileID in GameSceneManager.Instance.handTiles){
-                    if (GameSceneManager.Instance.handTiles.Count(x => x == tileID) == 4){
+                foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                    if (GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
                         targetTile = tileID;
                         break;
                     }

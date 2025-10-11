@@ -131,8 +131,8 @@ public class EndPanel : MonoBehaviour
         // 显示玩家分数变化
         foreach (var player in player_to_score){
             if (GameSceneManager.Instance.indexToPosition[player.Key] == "self"){
-                SelfUserName.text = GameSceneManager.Instance.selfUserName;
-                int SelfbeforeScore = GameSceneManager.Instance.selfScore;
+                SelfUserName.text = GameSceneManager.Instance.player_to_info["self"].username;
+                int SelfbeforeScore = GameSceneManager.Instance.player_to_info["self"].score;
                 if (SelfbeforeScore > player.Value){ 
                     // 自己分数减少 当前分数 - 减少的分数
                     SelfScore.text = player.Value.ToString() + "<color=red>-" + (SelfbeforeScore - player.Value) + "</color>";
@@ -146,8 +146,8 @@ public class EndPanel : MonoBehaviour
                 }
             }
             else if (GameSceneManager.Instance.indexToPosition[player.Key] == "left"){
-                LeftUserName.text = GameSceneManager.Instance.leftUserName;
-                int LeftbeforeScore = GameSceneManager.Instance.leftScore;
+                LeftUserName.text = GameSceneManager.Instance.player_to_info["left"].username;
+                int LeftbeforeScore = GameSceneManager.Instance.player_to_info["left"].score;
                 if (LeftbeforeScore > player.Value){ 
                     LeftScore.text = player.Value.ToString() + "<color=red>-" + (LeftbeforeScore - player.Value) + "</color>";
                 }
@@ -159,8 +159,8 @@ public class EndPanel : MonoBehaviour
                 }
             }
             else if (GameSceneManager.Instance.indexToPosition[player.Key] == "top"){
-                TopUserName.text = GameSceneManager.Instance.topUserName;
-                int TopbeforeScore = GameSceneManager.Instance.topScore;
+                TopUserName.text = GameSceneManager.Instance.player_to_info["top"].username;
+                int TopbeforeScore = GameSceneManager.Instance.player_to_info["top"].score;
                 if (TopbeforeScore > player.Value){ 
                     TopScore.text = player.Value.ToString() + "<color=red>-" + (TopbeforeScore - player.Value) + "</color>";
                 }
@@ -172,8 +172,8 @@ public class EndPanel : MonoBehaviour
                 }
             }
             else if (GameSceneManager.Instance.indexToPosition[player.Key] == "right"){
-                RightUserName.text = GameSceneManager.Instance.rightUserName;
-                int RightbeforeScore = GameSceneManager.Instance.rightScore;
+                RightUserName.text = GameSceneManager.Instance.player_to_info["right"].username;
+                int RightbeforeScore = GameSceneManager.Instance.player_to_info["right"].score;
                 if (RightbeforeScore > player.Value){ 
                     RightScore.text = player.Value.ToString() + "<color=red>-" + (RightbeforeScore - player.Value) + "</color>";
                 }

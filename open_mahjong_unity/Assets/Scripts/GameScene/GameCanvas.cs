@@ -107,7 +107,7 @@ public class GameCanvas : MonoBehaviour
     }
     
     // 处理手牌队列
-    private System.Collections.IEnumerator ProcessChangeHandCardQueue(){
+    private IEnumerator ProcessChangeHandCardQueue(){
         // 手牌处理运行
         isChangeHandCardProcessing = true;
         while (changeHandCardQueue.Count > 0){

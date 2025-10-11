@@ -174,7 +174,7 @@ class ChineseGameState:
         while self.current_round <= self.max_round * 4:
 
             # self.init_game_tiles() # 初始化牌山和手牌
-            self.init_text_tiles() # 使用测试牌例建立初始实拍
+            self.init_text_tiles() # 使用测试牌例建立初始手牌
             self.current_player_index = 0 # 初始玩家索引
             # 广播游戏开始
             await broadcast_game_start(self)
