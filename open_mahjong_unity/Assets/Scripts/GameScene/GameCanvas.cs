@@ -70,8 +70,9 @@ public class GameCanvas : MonoBehaviour
 
     // 初始化游戏UI
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
-        // 清空手牌容器
-        foreach (Transform child in handCardsContainer){
+        // 清空手牌容器 - 倒序遍历避免SetParent影响
+        for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
+            Transform child = handCardsContainer.GetChild(i);
             Destroyer.Instance.AddToDestroyer(child);
         }
         foreach (var player in gameInfo.players_info){

@@ -136,10 +136,12 @@ class ChineseGameState:
         random.shuffle(self.tiles_list)
 
         # 使用测试牌例
-        self.player_list[0].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15,55]
-        self.player_list[1].hand_tiles = []
+        self.player_list[0].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
+        self.player_list[1].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15]
         self.player_list[2].hand_tiles = []
-        self.player_list[3].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
+        self.player_list[3].hand_tiles = []
+
+        self.player_list[self.current_player_index].hand_tiles.append(55)
 
         # 删除牌山中测试牌例的卡牌
         for tile in self.player_list[0].hand_tiles:
@@ -157,7 +159,18 @@ class ChineseGameState:
                 for _ in range(13):
                     player.get_tile(self.tiles_list)
 
-
+    def next_game_round(self):
+        # 局数+1
+        self.current_round += 1 
+        # 清空花牌弃牌组合牌列表 重置时间
+        for i in self.player_list:
+            i.huapai_list = []
+            i.discard_tiles = []
+            i.combination_tiles = []
+            i.remaining_time = self.round_time
+            i.player_index = self.next_current_num(i.player_index)
+        # 按照player_index重新排列player_list
+        self.player_list.sort(key=lambda x: x.player_index)
 
     async def game_loop_chinese(self):
 
@@ -175,7 +188,7 @@ class ChineseGameState:
 
             # self.init_game_tiles() # 初始化牌山和手牌
             self.init_text_tiles() # 使用测试牌例建立初始手牌
-            self.current_player_index = 0 # 初始玩家索引
+            self.current_player_index = self.current_round % 4 - 1 # 初始玩家索引 = 整除4的余数 - 1
             # 广播游戏开始
             await broadcast_game_start(self)
             
@@ -360,16 +373,9 @@ class ChineseGameState:
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = None # 和牌玩家组合掩码
                                        )
-                
-            # 清空花牌弃牌组合牌列表 重置时间
-            for i in self.player_list:
-                i.huapai_list = []
-                i.discard_tiles = []
-                i.combination_tiles = []
-                i.remaining_time = self.round_time
-            
+            self.next_game_round()   # 开启下一局的准备工作
             await asyncio.sleep(len(hu_fan)*0.5 + 10) # 等待和牌番种时间与10秒后重新开始下一局
-            self.current_round += 1 # 局数+1
+
             # ↑ 重新开始下一局循环
         
         # 游戏结束所有局数

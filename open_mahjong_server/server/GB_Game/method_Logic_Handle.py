@@ -9,6 +9,8 @@ def get_index_relative_position(self,self_index,other_index):
             return "top"
         elif other_index == 3:
             return "left"
+        elif other_index == 0:
+            return "self"
     elif self_index == 1:
         if other_index == 0:
             return "left"
@@ -16,6 +18,8 @@ def get_index_relative_position(self,self_index,other_index):
             return "right"
         elif other_index == 3:
             return "top"
+        elif other_index == 1:
+            return "self"
     elif self_index == 2:
         if other_index == 0:
             return "top"
@@ -23,6 +27,8 @@ def get_index_relative_position(self,self_index,other_index):
             return "left"
         elif other_index == 3:
             return "right"
+        elif other_index == 2:
+            return "self"
     elif self_index == 3:
         if other_index == 0:
             return "right"
@@ -30,3 +36,5 @@ def get_index_relative_position(self,self_index,other_index):
             return "top"
         elif other_index == 2:
             return "left"
+        elif other_index == 3:
+            return "self"
