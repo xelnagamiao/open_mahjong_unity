@@ -162,6 +162,7 @@ class ChineseGameState:
     def next_game_round(self):
         # 局数+1
         self.current_round += 1 
+
         # 清空花牌弃牌组合牌列表 重置时间
         for i in self.player_list:
             i.huapai_list = []
@@ -171,6 +172,23 @@ class ChineseGameState:
             i.player_index = self.next_current_num(i.player_index)
         # 按照player_index重新排列player_list
         self.player_list.sort(key=lambda x: x.player_index)
+
+        # 1 2 3 4 => 5 6 7 8
+        if self.current_round == 5 or self.current_round == 13:
+            # 东位与南位互换，西位与北位互换
+            self.player_list[0],self.player_list[1] = self.player_list[1],self.player_list[0]
+            self.player_list[2],self.player_list[3] = self.player_list[2],self.player_list[3]
+        elif self.current_round == 9:
+            # 东位到西位，南位到北位，西位到南位，北位到东位
+            self.player_list[0],self.player_list[2] = self.player_list[2],self.player_list[0]
+            self.player_list[1],self.player_list[3] = self.player_list[3],self.player_list[1]
+
+        # 按照换位后的玩家顺序重新排列player_list
+        for index,player in enumerate(self.player_list):
+            player.player_index = index
+        
+        # 换位动画由客户端通过current_round固定显示
+
 
     async def game_loop_chinese(self):
 
@@ -368,13 +386,16 @@ class ChineseGameState:
                                        player_to_score = None, # 所有玩家分数
                                        hu_score = None, # 和牌分数
                                        hu_fan = None, # 和牌番种
-                                       hu_class = self.hu_class, # 和牌类别
+                                       hu_class = self.hu_class, # 和牌类别(流局)
                                        hepai_player_hand = None, # 和牌玩家手牌
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = None # 和牌玩家组合掩码
                                        )
             self.next_game_round()   # 开启下一局的准备工作
-            await asyncio.sleep(len(hu_fan)*0.5 + 10) # 等待和牌番种时间与10秒后重新开始下一局
+            if self.hu_class == "liuju":
+                await asyncio.sleep(3) # 等待3秒后重新开始下一局
+            else:
+                await asyncio.sleep(len(hu_fan)*0.5 + 10) # 等待和牌番种时间与10秒后重新开始下一局
 
             # ↑ 重新开始下一局循环
         
