@@ -6,7 +6,6 @@ using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.UI;
 
 
 
@@ -61,6 +60,7 @@ public class GameSceneManager : MonoBehaviour
         player_to_info["right"] = new PlayerInfo();
     }
 
+    // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game");
@@ -76,7 +76,7 @@ public class GameSceneManager : MonoBehaviour
         // 4.初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
         GameCanvas.Instance.ChangeHandCards("InitHandCards",0,gameInfo.self_hand_tiles);
         // 5.初始化他人手牌区域
-        Game3DManager.Instance.Change3DTile("InitHandCards",0,null,false,null);
+        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
         // 6.如果当前玩家是自己,说明自己是庄家,进行摸牌
         if (selfIndex == currentIndex){
             GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null);
@@ -85,7 +85,7 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
-    // 询问摸牌手牌操作 手牌操作包括 摸牌 切牌 补花 胡 暗杠 加杠
+    // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time,int playerIndex,int remain_tiles,string[] action_list){
         string GetCardPlayer = indexToPosition[playerIndex];
         // 如果行动者是自己
@@ -113,8 +113,8 @@ public class GameSceneManager : MonoBehaviour
         BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
     }
 
-    // 出牌后他家反馈操作
-    public void AskOtherAction(int remaining_time,string[] action_list,int cut_tile){
+    // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
+    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile){
         // 如果列表中有服务器提供的可用操作，则显示倒计时
         if (action_list.Length > 0){
             // 1.存储全部可用行动
@@ -133,75 +133,113 @@ public class GameSceneManager : MonoBehaviour
 
     // 执行行动
     public void DoAction(string[] action_list, int action_player, int? cut_tile, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target) {
-        string GetCardPlayer = indexToPosition[action_player];
+        string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         foreach (string action in action_list) {
             Debug.Log($"执行DoAction操作: {action}");
             switch (action) { // action_list 实际上只会包含一个操作
-                case "deal": // 摸牌
-                    if (GetCardPlayer == "self"){
+
+                // 摸牌
+                case "deal": 
+                    if (GetCardPlayer == "self"){     // 添加手牌 显示手牌
                         selfHandTiles.Add(deal_tile.Value);
                         GameCanvas.Instance.ChangeHandCards("GetCard",deal_tile.Value,null);
                     }
-                    else{
+                    else{                             // 增加手牌 显示3D手牌
                         player_to_info[GetCardPlayer].hand_tiles_count++;
-                        Game3DManager.Instance.Change3DTile("GetCard",deal_tile.Value,GetCardPlayer,false,null);
-                        BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
+                        Game3DManager.Instance.Change3DTile("GetCard",deal_tile.Value,0,GetCardPlayer,false,null);
                     }
                     break;
-                case "cut": // 切牌
-                    lastCutCardID = cut_tile.Value; // 存储切牌ID
+                
+                // 切牌
+                case "cut": 
+                    lastCutCardID = cut_tile.Value; // 存储上次切牌的ID
+                    player_to_info[GetCardPlayer].discard_tiles.Add(cut_tile.Value); // 存储弃牌
                     if (GetCardPlayer == "self"){
-                        Debug.Log($"是自己");
                         if (allowActionList.Contains("cut")){
                             selfHandTiles.Remove(cut_tile.Value); // 删除手牌
-                            player_to_info["self"].discard_tiles.Add(cut_tile.Value); // 存储弃牌
-                            Debug.Log($"生成3D切牌");
-                            Game3DManager.Instance.Change3DTile("CutCard",cut_tile.Value,GetCardPlayer,cut_class.Value,null); // 生成3D切牌
-                            if (cut_class.Value){ // 如果是摸切则删除摸牌区手牌
-                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null);
+                            Game3DManager.Instance.Change3DTile("Discard",cut_tile.Value,0,GetCardPlayer,cut_class.Value,null); // 3D切牌行为
+                            if (cut_class.Value){
+                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null); // 2D摸切行为
                             }
-                            else{ // 如果是手切则删除手牌区手牌
-                                GameCanvas.Instance.ChangeHandCards("RemoveHandCard",cut_tile.Value,null);
+                            else{
+                                GameCanvas.Instance.ChangeHandCards("RemoveHandCard",cut_tile.Value,null); // 2D手切行为
                             }
                         }
                     }
                     else{
-                        player_to_info[GetCardPlayer].hand_tiles_count--;
-                        player_to_info[GetCardPlayer].discard_tiles.Add(cut_tile.Value); // 存储弃牌
-                        Game3DManager.Instance.Change3DTile("CutCard",cut_tile.Value,GetCardPlayer,cut_class.Value,null); // 生成3D切牌
+                        player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                        Game3DManager.Instance.Change3DTile("Discard",cut_tile.Value,0,GetCardPlayer,cut_class.Value,null); // 3D切牌行为
                     } 
                     break;
+
+                // 补花
                 case "buhua":
                     int buhua_tile_id = buhua_tile.Value;
+                    player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id); // 存储花牌
                     if (GetCardPlayer == "self"){
-                        player_to_info["self"].huapai_list.Add(buhua_tile_id);
                         selfHandTiles.Remove(buhua_tile_id); // 删除手牌
-                        GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard",buhua_tile_id,null); // 删除补花牌
+                        GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard",buhua_tile_id,null); // 2D补花行为
                     }
                     else{
-                        player_to_info[GetCardPlayer].hand_tiles_count--;
-                        player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id);
+                        player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
                     }
-                    Game3DManager.Instance.Change3DTile("BuhuaCard",buhua_tile_id,GetCardPlayer,false,null);
+                    Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
                     break;
+
+                // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
                 case "hu":
-                    // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
                     break;
+
+                // 吃碰杠
                 case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang": case "peng": case "gang":
-                    Game3DManager.Instance.Change3DTile(action,0,GetCardPlayer,false,combination_mask);
                     if (action == "jiagang"){
-                        // 删除combination_target的首字符
+                        // 加杠情况下收到的combination_target是原本刻子的字符串
+                        // 替换combination_target的首字符改为加杠字符串
                         string combination_target_str = combination_target.Substring(1);
-                        player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}");
-                        player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target);
+                        player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}"); // 存储组合牌
+                        player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target); // 删除刻子组合牌
+                        int tile_id = int.Parse(combination_target_str);
+                        if (GetCardPlayer == "self"){
+                            selfHandTiles.Remove(tile_id); // 删除手牌
+                            GameCanvas.Instance.ChangeHandCards("RemoveHandCard",tile_id,null); // 2D手牌行为
+                        }
+                        else{
+                            player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                        }
+                        Game3DManager.Instance.Change3DTile("Jiagang",tile_id,1,GetCardPlayer,false,null); // 3D加杠行为
+                    }
+                    else if (action == "angang"){
+                        // 暗杠情况下需要删除完整手牌
+                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
+                        foreach (int tile_id in need_remove_list){
+                            if (GetCardPlayer == "self"){
+                                selfHandTiles.Remove(tile_id); // 删除手牌
+                                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray()); // 2D手牌行为
+                            }
+                            else{
+                                player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                            }
+                        }
+                        Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask); // 3D暗杠行为
                     }
                     else{
-                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target);
-
-
-
-                        
-                        // 等待添加手牌删减策略
+                        // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
+                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
+                        need_remove_list.Remove(lastCutCardID); // 剔除上次切牌的ID
+                        foreach (int tile_id in need_remove_list){
+                            if (GetCardPlayer == "self"){
+                                selfHandTiles.Remove(tile_id); // 删除手牌
+                            }
+                            else{
+                                player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                            }
+                        }
+                        if (GetCardPlayer == "self"){
+                            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray()); // 2D手牌行为
+                        }
+                        Game3DManager.Instance.Change3DTile(action,0,need_remove_list.Count,GetCardPlayer,false,combination_mask); // 3D吃碰杠行为
                     }
                     break;
                 default:
@@ -218,12 +256,14 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
+    // 回合结束
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
         // 显示结算结果
         EndPanel.SetActive(true);
         StartCoroutine(EndPanel.GetComponent<EndPanel>().ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask));
     }
 
+    // 设置游戏信息
     private void InitializeSetInfo(GameInfo gameInfo){
         // 清空弃牌列表
         player_to_info["self"].discard_tiles = new List<int>();

@@ -9651,7 +9651,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: V0.0.18.5    2025.10.10
+  m_text: V0.0.19.0    2025.10.11
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_sharedMaterial: {fileID: -228896018595606784, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
@@ -19339,29 +19339,9 @@ MonoBehaviour:
   selfRemainingTime: 0
   remainTiles: 0
   tips: 0
-  handTiles: 
   allowActionList: []
   lastCutCardID: 0
-  selfUserName: 
-  leftUserName: 
-  topUserName: 
-  rightUserName: 
-  selfScore: 0
-  leftScore: 0
-  topScore: 0
-  rightScore: 0
-  selfDiscardslist: 
-  leftDiscardslist: 
-  topDiscardslist: 
-  rightDiscardslist: 
-  selfHuapaiList: 
-  leftHuapaiList: 
-  topHuapaiList: 
-  rightHuapaiList: 
-  selfCombinationList: []
-  leftCombinationList: []
-  topCombinationList: []
-  rightCombinationList: []
+  selfHandTiles: 
 --- !u!4 &833371387
 Transform:
   m_ObjectHideFlags: 0

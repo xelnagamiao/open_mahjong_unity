@@ -205,7 +205,6 @@ public class GameCanvas : MonoBehaviour
         else if (ChangeType == "ReSetHandCards"){
             // 标志回合结束 只在自己其他人回合开始时调用 用以在未排序的情况下排序手牌
             if (isArranged){yield break;} // 如果手牌已经排序过 则不进行排序
-            else{yield return new WaitForSeconds(0.2f);} // 如果手牌未排序过 则等待0.2秒 避免在补花轮中获得手牌的瞬间就进行排序 未来需要添加摸牌动画
         }
 
         // isArrangeed 用于监测玩家这次行为是否已经排序 例如补花和摸牌以后还可以执行操作,但是摸切和手切以后就不能执行操作了

@@ -210,7 +210,7 @@ public class NetworkManager : MonoBehaviour
                 case "ask_other_action_GB":
                     Debug.Log($"收到询问弃牌后操作消息: {response.ask_other_action_info}");
                     AskOtherActionGBInfo askresponse = response.ask_other_action_info;
-                    GameSceneManager.Instance.AskOtherAction(
+                    GameSceneManager.Instance.AskMingPaiAction(
                         askresponse.remaining_time,
                         askresponse.action_list,
                         askresponse.cut_tile
