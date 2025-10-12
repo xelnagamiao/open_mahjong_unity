@@ -70,6 +70,10 @@ public class GameCanvas : MonoBehaviour
 
     // 初始化游戏UI
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
+        // 清空手牌容器
+        foreach (Transform child in handCardsContainer){
+            Destroyer.Instance.AddToDestroyer(child);
+        }
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
                 player_self_name.text = player.username; // 设置玩家名称

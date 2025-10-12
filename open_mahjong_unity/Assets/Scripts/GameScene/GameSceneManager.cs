@@ -206,7 +206,7 @@ public class GameSceneManager : MonoBehaviour
                         else{
                             player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
                         }
-                        Game3DManager.Instance.Change3DTile("Jiagang",tile_id,1,GetCardPlayer,false,null); // 3D加杠行为
+                        Game3DManager.Instance.Change3DTile("jiagang",tile_id,1,GetCardPlayer,false,combination_mask); // 3D加杠行为
                     }
                     else if (action == "angang"){
                         // 暗杠情况下需要删除完整手牌
