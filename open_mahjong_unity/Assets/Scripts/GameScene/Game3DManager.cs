@@ -511,9 +511,6 @@ public class Game3DManager : MonoBehaviour
                     
                     // 销毁卡牌对象
                     Destroy(cardToRemove.gameObject);
-                    
-                    // 添加延迟，让删除过程可见
-                    yield return new WaitForSeconds(0.1f);
                 }
             }
             Debug.Log($"组合删除完成: 已删除{removeCount}张卡牌");

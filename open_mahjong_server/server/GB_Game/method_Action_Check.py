@@ -82,11 +82,13 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
             temp_action_dict[player_index].append("buhua")
 
     # 如果手牌中有4张相同的牌 则可以暗杠
+    processed_cards = set()
     for carditem in player_item.hand_tiles:
-        if player_item.hand_tiles.count(carditem) == 4:
+        if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
             if self.tiles_list != []:
                 temp_action_dict[player_index].append("angang")
-
+                processed_cards.add(carditem)
+               
     # 如果组合牌中有加杠 则可以加杠
     for combination_tile in player_item.combination_tiles:
         if combination_tile[0] == "k":
