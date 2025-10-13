@@ -21,12 +21,16 @@ public class Config : MonoBehaviour
     public static string clientVersion = "0.0.16.2"; // 项目客户端版本
     public static string platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 项目文档地址
     public static string serverUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // github地址
+    public static string soundConfig = "Soundmale1_normal"; // 音效配置
+    public static float soundVolume = 1.0f; // 音量
 
     // Start is called before the first frame update
     void Start()
     {
         // 设置目标帧率为 60
         Application.targetFrameRate = 60;
+        // 设置音效选择
+
     }
 
     // Update is called once per frame

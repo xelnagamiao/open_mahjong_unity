@@ -184,6 +184,8 @@ public class GameSceneManager : MonoBehaviour
                         player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
                     }
                     Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
+                    GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "buhua"); // 显示操作文本
+                    SoundManager.Instance.PlayActionSound(GetCardPlayer, "buhua"); // 播放操作音效
                     break;
 
                 // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
@@ -207,6 +209,8 @@ public class GameSceneManager : MonoBehaviour
                             player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
                         }
                         Game3DManager.Instance.Change3DTile("jiagang",tile_id,1,GetCardPlayer,false,combination_mask); // 3D加杠行为
+                        GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "jiagang"); // 显示操作文本
+                        SoundManager.Instance.PlayActionSound(GetCardPlayer, "jiagang"); // 播放操作音效
                     }
                     else if (action == "angang"){
                         // 暗杠情况下需要删除完整手牌
@@ -222,6 +226,8 @@ public class GameSceneManager : MonoBehaviour
                             }
                         }
                         Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask); // 3D暗杠行为
+                        GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "angang"); // 显示操作文本
+                        SoundManager.Instance.PlayActionSound(GetCardPlayer, "angang"); // 播放操作音效
                     }
                     else{
                         // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
@@ -240,6 +246,8 @@ public class GameSceneManager : MonoBehaviour
                             GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray()); // 2D手牌行为
                         }
                         Game3DManager.Instance.Change3DTile(action,0,need_remove_list.Count,GetCardPlayer,false,combination_mask); // 3D吃碰杠行为
+                        GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, action); // 显示操作文本
+                        SoundManager.Instance.PlayActionSound(GetCardPlayer, action); // 播放操作音效
                     }
                     break;
                 default:
@@ -260,6 +268,8 @@ public class GameSceneManager : MonoBehaviour
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
         // 显示结算结果
         EndPanel.SetActive(true);
+        GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
+        SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
         StartCoroutine(EndPanel.GetComponent<EndPanel>().ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask));
     }
 
