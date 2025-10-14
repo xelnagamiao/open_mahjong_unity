@@ -169,19 +169,18 @@ class ChineseGameState:
             i.discard_tiles = []
             i.combination_tiles = []
             i.remaining_time = self.round_time
-            i.player_index = self.next_current_num(i.player_index)
+            i.player_index = self.next_current_num(i.player_index) # 前进玩家索引
         # 按照player_index重新排列player_list
         self.player_list.sort(key=lambda x: x.player_index)
 
         # 1 2 3 4 => 5 6 7 8
         if self.current_round == 5 or self.current_round == 13:
-            # 东位与南位互换，西位与北位互换
+            # 东位0与南位1互换，西位2与北位3互换
             self.player_list[0],self.player_list[1] = self.player_list[1],self.player_list[0]
             self.player_list[2],self.player_list[3] = self.player_list[2],self.player_list[3]
         elif self.current_round == 9:
-            # 东位到西位，南位到北位，西位到南位，北位到东位
-            self.player_list[0],self.player_list[2] = self.player_list[2],self.player_list[0]
-            self.player_list[1],self.player_list[3] = self.player_list[3],self.player_list[1]
+            # 东位0到西位2，南位1到北位3，西位2到南位1，北位3到东位0
+            self.player_list[0],self.player_list[1],self.player_list[2],self.player_list[3] = self.player_list[2],self.player_list[3],self.player_list[1],self.player_list[0]
 
         # 按照换位后的玩家顺序重新排列player_list
         for index,player in enumerate(self.player_list):

@@ -5,7 +5,7 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 
-public class EndPanel : MonoBehaviour
+public class EndResultPanel : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI FanTex1;
     [SerializeField] private TextMeshProUGUI FanTex2;
@@ -64,11 +64,17 @@ public class EndPanel : MonoBehaviour
     };
 
     private TextMeshProUGUI[] fanTexts;
-
-    public static EndPanel Instance { get; private set; }
+    public static EndResultPanel Instance { get; private set; }
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
         // 非激活状态按钮
         EndButton.onClick.AddListener(EndButtonClick);
         EndButton.interactable = false;
@@ -81,6 +87,8 @@ public class EndPanel : MonoBehaviour
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+
+        gameObject.SetActive(true);
 
         // 获取手牌列表最后一个int 并且删除最后一个int
         int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
@@ -225,7 +233,10 @@ public class EndPanel : MonoBehaviour
         EndButton.interactable = false;
     }
 
-    public void ClearEndPanel(){
+    public void ClearEndResultPanel(){
+
+        gameObject.SetActive(false);
+
         // 清空结算
         foreach (Transform child in EndTilescontainer.transform){
             Destroy(child.gameObject);

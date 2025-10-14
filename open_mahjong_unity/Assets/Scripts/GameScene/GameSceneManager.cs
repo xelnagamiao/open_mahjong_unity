@@ -11,8 +11,6 @@ using System.Linq;
 
 public class GameSceneManager : MonoBehaviour
 {
-    [SerializeField] private GameObject EndPanel;
-    
     public static GameSceneManager Instance { get; private set; }
 
     // 玩家位置信息 int[0,1,2,3] → string[self,left,top,right]
@@ -65,11 +63,16 @@ public class GameSceneManager : MonoBehaviour
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game");
         Game3DManager.Instance.Clear3DTile();
-        EndPanel.GetComponent<EndPanel>().ClearEndPanel();
-        EndPanel.SetActive(false);
+        EndResultPanel.Instance.ClearEndResultPanel();
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
+        EndLiujuPanel.Instance.ClearEndLiujuPanel();
         // 1.存储初始化信息
         InitializeSetInfo(gameInfo);
-        // 2.初始化UI
+        // 2 初始化UI
+        // 如果游戏局数为9，则显示换位动画
+        if (gameInfo.current_round == 5 || gameInfo.current_round == 9 || gameInfo.current_round == 13){
+            SwitchSeatPanel.Instance.ShowSwitchSeatPanel(gameInfo.current_round,indexToPosition);
+        }
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition);
         // 3.初始化面板
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition);
@@ -268,10 +271,15 @@ public class GameSceneManager : MonoBehaviour
     // 回合结束
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
         // 显示结算结果
-        EndPanel.SetActive(true);
-        GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
-        SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
-        StartCoroutine(EndPanel.GetComponent<EndPanel>().ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask));
+        if (hu_class != "liuju"){
+            GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
+            SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
+            StartCoroutine(EndResultPanel.Instance.ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask));
+        }
+        else{
+            // 流局情况下，显示流局文本
+            EndLiujuPanel.Instance.ShowLiujuPanel();
+        }
     }
 
     // 设置游戏信息
