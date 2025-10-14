@@ -140,6 +140,7 @@ public class GameSceneManager : MonoBehaviour
 
                 // 摸牌
                 case "deal": 
+                    remainTiles--; // 剩余牌数减少
                     if (GetCardPlayer == "self"){     // 添加手牌 显示手牌
                         selfHandTiles.Add(deal_tile.Value);
                         GameCanvas.Instance.ChangeHandCards("GetCard",deal_tile.Value,null);

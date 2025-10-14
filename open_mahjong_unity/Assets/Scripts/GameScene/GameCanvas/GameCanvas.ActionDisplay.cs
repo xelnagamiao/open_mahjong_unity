@@ -46,16 +46,22 @@ public partial class GameCanvas{
         }
         
         // 启动渐变消失协程
-        StartCoroutine(FadeOutActionDisplay(actionTextObj));
+        StartCoroutine(FadeOutActionDisplay(actionTextObj,displayPos));
     }
 
     // 渐变消失协程
-    private IEnumerator FadeOutActionDisplay(GameObject actionTextObj)
+    private IEnumerator FadeOutActionDisplay(GameObject actionTextObj,Transform displayPos)
     {
-        if (actionTextObj == null) yield break;
+        if (actionTextObj == null) {
+            Debug.LogWarning("actionTextObj is null");
+            yield break;
+        }
         
-        Text actionText = actionTextObj.GetComponent<Text>();
-        if (actionText == null) yield break;
+        TMP_Text actionText = actionTextObj.GetComponent<TMP_Text>();
+        if (actionText == null) {
+            Debug.LogWarning("actionText is null");
+            yield break;
+        }
         
         // 等待1秒
         yield return new WaitForSeconds(1f);
