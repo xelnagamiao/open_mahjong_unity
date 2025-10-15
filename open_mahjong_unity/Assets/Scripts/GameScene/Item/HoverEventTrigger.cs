@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 
 public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    private float hoverOffset = 80f;  // 上浮距离
+    private float hoverOffset = 50f;  // 上浮距离
 
     [Header("UI Components")]
     [SerializeField] private Image tileImage;    // 牌面图片组件

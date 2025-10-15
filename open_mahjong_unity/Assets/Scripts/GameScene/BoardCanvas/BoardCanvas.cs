@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class BoardCanvas : MonoBehaviour
+public partial class BoardCanvas : MonoBehaviour
 {
     [Header("游戏中心盘信息")]
     [SerializeField] private TMP_Text remiansTilesText;      // 剩余牌数文本
@@ -35,6 +35,8 @@ public class BoardCanvas : MonoBehaviour
     };
     
     public static BoardCanvas Instance { get; private set; }
+    private Coroutine flashCoroutine; // 闪烁协程
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -43,7 +45,6 @@ public class BoardCanvas : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
@@ -68,71 +69,43 @@ public class BoardCanvas : MonoBehaviour
                 player_right_index.text = PositionToChineseCharacter[player.player_index];
                 player_right_current_image.gameObject.SetActive(false);
             }
-            remiansTilesText.text = $"剩余牌数：{gameInfo.tile_count}"; // 设置剩余牌数
+            remiansTilesText.text = $"余：{gameInfo.tile_count}"; // 设置剩余牌数
             string current_round_str = "";
-            // 整除于4余1为东
-            if (gameInfo.current_round / 4 == 0){
+            // 整除于4为0为东
+            if (gameInfo.current_round-1 / 4 == 0){
                 current_round_str = "东";
             }
-            // 整除于4余2为南
-            else if (gameInfo.current_round / 4 == 1){
+            // 整除于4为1为南
+            else if (gameInfo.current_round-1 / 4 == 1){
                 current_round_str = "南";
             }
-            // 整除于4余3为西
-            else if (gameInfo.current_round / 4 == 2){
+            // 整除于4为2为西
+            else if (gameInfo.current_round-1 / 4 == 2){
                 current_round_str = "西";
             }
-            // 整除于4余0为北
-            else if (gameInfo.current_round / 4 == 3){
+            // 整除于4为3为北
+            else if (gameInfo.current_round-1 / 4 == 3){
                 current_round_str = "北";
             }
-            // 整除4为1为东
+            // 整除4取余1为东
             if (gameInfo.current_round % 4 == 1){
                 current_round_str = current_round_str + "一局";
             }
-            // 整除4为2为南
+            // 整除4取余2为南
             else if (gameInfo.current_round % 4 == 2){
                 current_round_str = current_round_str + "二局";
             }
-            // 整除4为3为西
+            // 整除4取余3为西
             else if (gameInfo.current_round % 4 == 3){
                 current_round_str = current_round_str + "三局";
             }
-            // 整除4为0为北
+            // 整除4取余0为北
             else if (gameInfo.current_round % 4 == 0){
                 current_round_str = current_round_str + "四局";
             }
             CurrentRoundText.text = $"{current_round_str}";
         }
     }
-
-    public void ShowCurrentPlayer(string currentPlayerIndex){
-        // 显示当前玩家
-        if (currentPlayerIndex == "self"){
-            player_self_current_image.gameObject.SetActive(true);
-            player_left_current_image.gameObject.SetActive(false);
-            player_top_current_image.gameObject.SetActive(false);
-            player_right_current_image.gameObject.SetActive(false);
-        }
-        else if (currentPlayerIndex == "left"){
-            player_self_current_image.gameObject.SetActive(false);
-            player_left_current_image.gameObject.SetActive(true);
-            player_top_current_image.gameObject.SetActive(false);
-            player_right_current_image.gameObject.SetActive(false);
-        }
-        else if (currentPlayerIndex == "top"){
-            player_self_current_image.gameObject.SetActive(false);
-            player_left_current_image.gameObject.SetActive(false);
-            player_top_current_image.gameObject.SetActive(true);
-            player_right_current_image.gameObject.SetActive(false);
-        }
-        else if (currentPlayerIndex == "right"){
-            player_self_current_image.gameObject.SetActive(false);
-            player_left_current_image.gameObject.SetActive(false);
-            player_top_current_image.gameObject.SetActive(false);
-            player_right_current_image.gameObject.SetActive(true);
-        }
-        remiansTilesText.text = $"剩余牌数：{GameSceneManager.Instance.remainTiles}"; // 设置剩余牌数
-    }
-
 }
+
+

@@ -42,11 +42,36 @@ public class ActionButton : MonoBehaviour
         if (actionTypeList.Count > 1){
             int lastCutTile = GameSceneManager.Instance.lastCutCardID;
 
-            // 如果ActionBlockContenter 内有元素
-            if (ActionBlockContenter.childCount > 0){
-                // 删除所有子级按钮
+            // 确定当前按钮类型
+            string currentButtonType = "None";
+            if (actionTypeList.Contains("chi_left") || actionTypeList.Contains("chi_right") || actionTypeList.Contains("chi_mid")){
+                currentButtonType = "chi";
+            }
+            else if (actionTypeList.Contains("angang")){
+                currentButtonType = "angang";
+            }
+            else if (actionTypeList.Contains("jiagang")){
+                currentButtonType = "jiagang";
+            }
+            
+            // 如果ActionBlockContenter的状态为空,点击则创建子级按钮
+            if (GameCanvas.Instance.ActionBlockContainerState == "None"){
+                GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
+            }
+            // 如果ActionBlockContenter的状态不为空
+            else if (GameCanvas.Instance.ActionBlockContainerState != "None"){
+                // 清空容器
                 foreach (Transform child in ActionBlockContenter){
                     Destroy(child.gameObject);
+                }
+                // 如果点击的是相同类型的按钮，则清空后直接返回
+                if (GameCanvas.Instance.ActionBlockContainerState == currentButtonType){
+                    GameCanvas.Instance.ActionBlockContainerState = "None";
+                    return;
+                }
+                // 如果点击的是不同类型的按钮，则切换状态继续执行
+                else{
+                    GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
                 }
             }
 
@@ -71,8 +96,8 @@ public class ActionButton : MonoBehaviour
                         break;
                     case "angang":
                         // 遍历手牌 如果手牌有4张相同的牌 则添加到提示牌列表
-                        foreach (int tileID in GameSceneManager.Instance.handTiles){
-                            if (GameSceneManager.Instance.handTiles.Count(x => x == tileID) == 4){
+                        foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                            if (GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
                                 List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(angangCards, actionType,tileID);
                             }
@@ -80,8 +105,8 @@ public class ActionButton : MonoBehaviour
                         break;
                     case "jiagang":
                         // 遍历手牌 如果组合牌中有符合加杠的组合 则添加到提示牌列表
-                        foreach (int tileID in GameSceneManager.Instance.handTiles){
-                            if (GameSceneManager.Instance.selfCombinationList.Contains($"k{tileID}")){
+                        foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                            if (GameSceneManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
                                 List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(jiagangCards, actionType,tileID);
                             }
@@ -92,8 +117,32 @@ public class ActionButton : MonoBehaviour
         }
         // 如果动作列表小于等于1 发送行动
         else{
-            Debug.Log($"选择了行动 {actionTypeList[0]}");
-            GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
+            if (actionTypeList[0] == "jiagang"){
+                Debug.Log($"选择了行动 {actionTypeList[0]}");
+                int targetTile = 0;
+                foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                    if (GameSceneManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
+                        targetTile = tileID;
+                        break;
+                    }
+                }
+                GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+            }
+            else if (actionTypeList[0] == "angang"){
+                Debug.Log($"选择了行动 {actionTypeList[0]}");
+                int targetTile = 0;
+                foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
+                    if (GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                        targetTile = tileID;
+                        break;
+                    }
+                }
+                GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+            }
+            else{
+                Debug.Log($"选择了行动 {actionTypeList[0]}");
+                GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
+            }
         }
     }
 

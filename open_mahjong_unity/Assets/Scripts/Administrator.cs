@@ -17,7 +17,6 @@ public class Administrator : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     // 设置用户信息

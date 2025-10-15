@@ -16,7 +16,7 @@ public class TileCard : MonoBehaviour
 
     // 将私有字段改为公共属性
     public int tileId { get; private set; }    // 牌的ID（如"11"表示一万）
-    private bool currentGetTile;   // 是否是当前摸到的牌
+    public bool currentGetTile;   // 是否是当前摸到的牌
 
     private void Start()
     {
@@ -39,7 +39,6 @@ public class TileCard : MonoBehaviour
         if (sprite != null)
         {
             tileImage.sprite = sprite;
-            Debug.Log($"成功加载图片: {path}");
         }
         else
         {
@@ -55,19 +54,19 @@ public class TileCard : MonoBehaviour
         if (GameSceneManager.Instance.allowActionList.Contains("cut")){
             NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,Administrator.Instance.room_id); // 发送切牌请求
             string[] action_list = {"cut"}; // 生成切牌操作
+            int cut_tile_index = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             // 执行切牌操作
             GameSceneManager.Instance.DoAction(
                 action_list:action_list, // 操作列表
                 action_player:GameSceneManager.Instance.selfIndex, // 自身操作玩家索引
                 cut_tile:tileId, // 切牌id
+                cut_tile_index:cut_tile_index, // 切牌索引
                 cut_class:currentGetTile, // 切牌类型
                 deal_tile:null, // 摸牌id
                 buhua_tile:null, // 补花id
                 combination_mask:null, // 组合牌掩码
                 combination_target:null // 组合牌目标牌
                 );
-            // 停止计时器
-            GameCanvas.Instance.StopTimeRunning();
             }
         else{
             Debug.Log("没有权限出牌");
