@@ -5,7 +5,7 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 
-public class EndPanel : MonoBehaviour
+public class EndResultPanel : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI FanTex1;
     [SerializeField] private TextMeshProUGUI FanTex2;
@@ -64,11 +64,16 @@ public class EndPanel : MonoBehaviour
     };
 
     private TextMeshProUGUI[] fanTexts;
-
-    public static EndPanel Instance { get; private set; }
+    public static EndResultPanel Instance { get; private set; }
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
         // 非激活状态按钮
         EndButton.onClick.AddListener(EndButtonClick);
         EndButton.interactable = false;
@@ -81,6 +86,8 @@ public class EndPanel : MonoBehaviour
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+
+        gameObject.SetActive(true);
 
         // 获取手牌列表最后一个int 并且删除最后一个int
         int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
@@ -131,8 +138,8 @@ public class EndPanel : MonoBehaviour
         // 显示玩家分数变化
         foreach (var player in player_to_score){
             if (GameSceneManager.Instance.indexToPosition[player.Key] == "self"){
-                SelfUserName.text = GameSceneManager.Instance.selfUserName;
-                int SelfbeforeScore = GameSceneManager.Instance.selfScore;
+                SelfUserName.text = GameSceneManager.Instance.player_to_info["self"].username;
+                int SelfbeforeScore = GameSceneManager.Instance.player_to_info["self"].score;
                 if (SelfbeforeScore > player.Value){ 
                     // 自己分数减少 当前分数 - 减少的分数
                     SelfScore.text = player.Value.ToString() + "<color=red>-" + (SelfbeforeScore - player.Value) + "</color>";
@@ -146,8 +153,8 @@ public class EndPanel : MonoBehaviour
                 }
             }
             else if (GameSceneManager.Instance.indexToPosition[player.Key] == "left"){
-                LeftUserName.text = GameSceneManager.Instance.leftUserName;
-                int LeftbeforeScore = GameSceneManager.Instance.leftScore;
+                LeftUserName.text = GameSceneManager.Instance.player_to_info["left"].username;
+                int LeftbeforeScore = GameSceneManager.Instance.player_to_info["left"].score;
                 if (LeftbeforeScore > player.Value){ 
                     LeftScore.text = player.Value.ToString() + "<color=red>-" + (LeftbeforeScore - player.Value) + "</color>";
                 }
@@ -159,8 +166,8 @@ public class EndPanel : MonoBehaviour
                 }
             }
             else if (GameSceneManager.Instance.indexToPosition[player.Key] == "top"){
-                TopUserName.text = GameSceneManager.Instance.topUserName;
-                int TopbeforeScore = GameSceneManager.Instance.topScore;
+                TopUserName.text = GameSceneManager.Instance.player_to_info["top"].username;
+                int TopbeforeScore = GameSceneManager.Instance.player_to_info["top"].score;
                 if (TopbeforeScore > player.Value){ 
                     TopScore.text = player.Value.ToString() + "<color=red>-" + (TopbeforeScore - player.Value) + "</color>";
                 }
@@ -172,8 +179,8 @@ public class EndPanel : MonoBehaviour
                 }
             }
             else if (GameSceneManager.Instance.indexToPosition[player.Key] == "right"){
-                RightUserName.text = GameSceneManager.Instance.rightUserName;
-                int RightbeforeScore = GameSceneManager.Instance.rightScore;
+                RightUserName.text = GameSceneManager.Instance.player_to_info["right"].username;
+                int RightbeforeScore = GameSceneManager.Instance.player_to_info["right"].score;
                 if (RightbeforeScore > player.Value){ 
                     RightScore.text = player.Value.ToString() + "<color=red>-" + (RightbeforeScore - player.Value) + "</color>";
                 }
@@ -225,7 +232,10 @@ public class EndPanel : MonoBehaviour
         EndButton.interactable = false;
     }
 
-    public void ClearEndPanel(){
+    public void ClearEndResultPanel(){
+
+        gameObject.SetActive(false);
+
         // 清空结算
         foreach (Transform child in EndTilescontainer.transform){
             Destroy(child.gameObject);

@@ -42,7 +42,6 @@ public class MahjongObjectPool : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
             // 初始化对象池
             poolDictionary = new Dictionary<int, Queue<GameObject>>();
         }

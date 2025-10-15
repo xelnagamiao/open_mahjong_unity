@@ -38,7 +38,6 @@ public class NetworkManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
         websocket = new WebSocket($"ws://localhost:8081/game/{playerId}"); // 初始化WebSocket
         
@@ -210,7 +209,7 @@ public class NetworkManager : MonoBehaviour
                 case "ask_other_action_GB":
                     Debug.Log($"收到询问弃牌后操作消息: {response.ask_other_action_info}");
                     AskOtherActionGBInfo askresponse = response.ask_other_action_info;
-                    GameSceneManager.Instance.AskOtherAction(
+                    GameSceneManager.Instance.AskMingPaiAction(
                         askresponse.remaining_time,
                         askresponse.action_list,
                         askresponse.cut_tile
@@ -223,6 +222,7 @@ public class NetworkManager : MonoBehaviour
                         doresponse.action_list,
                         doresponse.action_player,
                         doresponse.cut_tile,
+                        doresponse.cut_tile_index,
                         doresponse.cut_class,
                         doresponse.deal_tile,
                         doresponse.buhua_tile,
