@@ -35,8 +35,6 @@ public partial class BoardCanvas : MonoBehaviour
     };
     
     public static BoardCanvas Instance { get; private set; }
-    [SerializeField] private float flashDuration = 1.0f; // 单次完整明暗周期的时长
-    [SerializeField] private bool shouldLoop = true; // 是否循环闪烁
     private Coroutine flashCoroutine; // 闪烁协程
 
     private void Awake()
@@ -47,7 +45,6 @@ public partial class BoardCanvas : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
@@ -74,35 +71,35 @@ public partial class BoardCanvas : MonoBehaviour
             }
             remiansTilesText.text = $"余：{gameInfo.tile_count}"; // 设置剩余牌数
             string current_round_str = "";
-            // 整除于4余1为东
-            if (gameInfo.current_round / 4 == 0){
+            // 整除于4为0为东
+            if (gameInfo.current_round-1 / 4 == 0){
                 current_round_str = "东";
             }
-            // 整除于4余2为南
-            else if (gameInfo.current_round / 4 == 1){
+            // 整除于4为1为南
+            else if (gameInfo.current_round-1 / 4 == 1){
                 current_round_str = "南";
             }
-            // 整除于4余3为西
-            else if (gameInfo.current_round / 4 == 2){
+            // 整除于4为2为西
+            else if (gameInfo.current_round-1 / 4 == 2){
                 current_round_str = "西";
             }
-            // 整除于4余0为北
-            else if (gameInfo.current_round / 4 == 3){
+            // 整除于4为3为北
+            else if (gameInfo.current_round-1 / 4 == 3){
                 current_round_str = "北";
             }
-            // 整除4为1为东
+            // 整除4取余1为东
             if (gameInfo.current_round % 4 == 1){
                 current_round_str = current_round_str + "一局";
             }
-            // 整除4为2为南
+            // 整除4取余2为南
             else if (gameInfo.current_round % 4 == 2){
                 current_round_str = current_round_str + "二局";
             }
-            // 整除4为3为西
+            // 整除4取余3为西
             else if (gameInfo.current_round % 4 == 3){
                 current_round_str = current_round_str + "三局";
             }
-            // 整除4为0为北
+            // 整除4取余0为北
             else if (gameInfo.current_round % 4 == 0){
                 current_round_str = current_round_str + "四局";
             }

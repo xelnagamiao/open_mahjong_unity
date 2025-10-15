@@ -93,6 +93,12 @@ class ChineseGameState:
         else:
             return num + 1
 
+    def back_current_num(self,num):
+        if num == 0:
+            return 3
+        else:
+            return num - 1
+
     def init_game_tiles(self):
         # 标准牌堆
         sth_tiles_set = {
@@ -141,8 +147,6 @@ class ChineseGameState:
         self.player_list[2].hand_tiles = []
         self.player_list[3].hand_tiles = []
 
-        self.player_list[self.current_player_index].hand_tiles.append(55)
-
         # 删除牌山中测试牌例的卡牌
         for tile in self.player_list[0].hand_tiles:
             self.tiles_list.remove(tile)
@@ -158,18 +162,24 @@ class ChineseGameState:
             if player.hand_tiles == []:
                 for _ in range(13):
                     player.get_tile(self.tiles_list)
+        
+        self.player_list[self.current_player_index].hand_tiles.append(55)
 
     def next_game_round(self):
         # 局数+1
         self.current_round += 1 
+        self.current_player_index = 0
+        self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
 
         # 清空花牌弃牌组合牌列表 重置时间
+        self.hu_class = None
         for i in self.player_list:
             i.huapai_list = []
             i.discard_tiles = []
+            i.waiting_tiles = set()
             i.combination_tiles = []
             i.remaining_time = self.round_time
-            i.player_index = self.next_current_num(i.player_index) # 前进玩家索引
+            i.player_index = self.back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
         # 按照player_index重新排列player_list
         self.player_list.sort(key=lambda x: x.player_index)
 
@@ -241,7 +251,7 @@ class ChineseGameState:
             self.current_player_index = 0 # 初始玩家索引
 
             refresh_waiting_tiles(self,self.current_player_index,is_first_action=True) # 检查手牌等待牌
-            print(f"玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
+            print(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
             await broadcast_ask_hand_action(self) # 广播手牌操作
             await self.wait_action() # 等待手牌操作

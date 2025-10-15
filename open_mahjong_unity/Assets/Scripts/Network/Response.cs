@@ -71,6 +71,7 @@ public class DoActionInfo // 执行操作
     public int action_player;
     public int action_tick;
     public int? cut_tile;           // 可空类型
+    public int? cut_tile_index;     // 可空类型
     public bool? cut_class;         // 可空类型
     public int? deal_tile;          // 可空类型
     public int? buhua_tile;         // 可空类型

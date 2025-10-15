@@ -7,10 +7,10 @@ using UnityEngine;
 public partial class GameCanvas{
     
     // 手牌处理
-    public void ChangeHandCards(string ChangeType,int tileId,int[] TilesList){
+    public void ChangeHandCards(string ChangeType,int tileId,int[] TilesList,int? cut_tile_index){
         // 将手牌处理任务加入队列
         changeHandCardQueue.Enqueue(() => {
-            return StartCoroutine(ChangeHandCardsCoroutine(ChangeType,tileId,TilesList));
+            return StartCoroutine(ChangeHandCardsCoroutine(ChangeType,tileId,TilesList,cut_tile_index));
         });
         // 未启动执行队列则启动
         if (!isChangeHandCardProcessing){
@@ -35,7 +35,7 @@ public partial class GameCanvas{
     }
     
     // 手牌处理 
-    public IEnumerator ChangeHandCardsCoroutine(string ChangeType,int tileId,int[] TilesList){
+    public IEnumerator ChangeHandCardsCoroutine(string ChangeType,int tileId,int[] TilesList,int? cut_tile_index){
 
         Debug.Log($"手牌处理: {ChangeType}");
 
@@ -79,10 +79,20 @@ public partial class GameCanvas{
 
         // 手切 删除手牌区手牌
         else if (ChangeType == "RemoveHandCard"){
+            bool isRemove = false;
             foreach (Transform child in handCardsContainer){
+                if (child.GetSiblingIndex() == cut_tile_index.Value){
+                    Destroyer.Instance.AddToDestroyer(child);
+                    isRemove = true;
+                    break;
+                }
+            }
+            if (!isRemove){
+                foreach (Transform child in handCardsContainer){
                 TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
                 if (needToRemoveTileCard.tileId == tileId){
                     Destroyer.Instance.AddToDestroyer(child);
+                    }
                 }
             }
         }

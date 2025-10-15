@@ -73,7 +73,6 @@ public class Game3DManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         // 初始化配置
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
         this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度（绿色轴）

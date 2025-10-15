@@ -26,7 +26,6 @@ public class SwitchSeatPanel : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         
         // 存储原始Rect位置
         originalTopPosition = TopText.rectTransform.anchoredPosition;
@@ -36,7 +35,7 @@ public class SwitchSeatPanel : MonoBehaviour
     }
 
     // Start is called before the first frame update
-    public void ShowSwitchSeatPanel(int gameRound, Dictionary<int, string> indexToPosition){
+    public IEnumerator ShowSwitchSeatPanel(int gameRound, Dictionary<int, string> indexToPosition){
         int selfIndex = GameSceneManager.Instance.selfIndex;
         
         gameObject.SetActive(true);
@@ -105,8 +104,11 @@ public class SwitchSeatPanel : MonoBehaviour
                 LeftText.text = "南"; // 西 = 南
             }
         }
-        // 启动移动动画
-        StartCoroutine(SwitchSeatCoroutine(gameRound));
+        // 等待移动动画
+        yield return new WaitForSeconds(1f);
+        yield return StartCoroutine(SwitchSeatCoroutine(gameRound));
+        // 隐藏面板
+        gameObject.SetActive(false);
     }
 
     public void ClearSwitchSeatPanel(){

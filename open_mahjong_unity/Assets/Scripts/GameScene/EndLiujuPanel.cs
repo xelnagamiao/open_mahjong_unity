@@ -14,7 +14,6 @@ public class EndLiujuPanel : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     public void ShowLiujuPanel(){

@@ -59,31 +59,19 @@ public partial class GameCanvas : MonoBehaviour
                 remianTimeText.color = Color.white;
             }
             // 剩余时间为0 结束协程
-            if (_currentRemainingTime == 0){
+            if (_currentRemainingTime <= 0 && _currentCutTime <= 0){
                 remianTimeText.text = "";
+                GameSceneManager.Instance.SwitchCurrentPlayer("self","TimeOut",0);
                 break;
             }
         }
     }
 
     public void StopTimeRunning(){
-
-        // 停止倒计时
         if (_countdownCoroutine != null) {
             StopCoroutine(_countdownCoroutine);
             _countdownCoroutine = null; // 设置为null以避免重复停止
         }
         remianTimeText.text = $""; // 隐藏倒计时文本
-        Debug.Log("停止倒计时,删除所有操作按钮");
-
-        // 删除所有操作按钮
-        foreach (Transform child in ActionBlockContenter){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in ActionButtonContainer){
-            Destroy(child.gameObject);
-        }
-        ActionBlockContainerState = "None";
-
     }
 }

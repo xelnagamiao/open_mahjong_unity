@@ -107,10 +107,7 @@ public partial class GameCanvas : MonoBehaviour
 
     // 选择行动
     public void ChooseAction(string actionType,int targetTile){
-        // 清空允许操作列表
-        GameSceneManager.Instance.allowActionList.Clear();
-        // 停止倒计时
-        StopTimeRunning();
+        GameSceneManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
         // 发送行动
         NetworkManager.Instance.SendAction(actionType,targetTile);
     }

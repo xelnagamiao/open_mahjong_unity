@@ -71,7 +71,6 @@ public partial class GameCanvas : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         // 获取tileCardPrefab的宽度 
         tileCardWidth = tileCardPrefab.GetComponent<RectTransform>().rect.width;
     }
@@ -105,6 +104,16 @@ public partial class GameCanvas : MonoBehaviour
         roomRoundText.text = $"圈数：{gameInfo.current_round}"; // 左上角显示需要打的圈数
         roomNowRoundText.text = $"当前轮数：{gameInfo.current_round}"; // 左上角显示目前打的圈数
         RandomSeedText.text = $"随机种子：{gameInfo.random_seed}"; // 左上角显示随机种子
+    }
+
+    public void ClearActionButton(){
+        ActionBlockContainerState = "None";
+        foreach (Transform child in ActionBlockContenter){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in ActionButtonContainer){
+            Destroy(child.gameObject);
+        }
     }
 
 

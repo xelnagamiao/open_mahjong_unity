@@ -369,7 +369,7 @@ GameObject:
   - component: {fileID: 7002392}
   - component: {fileID: 7002391}
   m_Layer: 12
-  m_Name: "Width\u2192"
+  m_Name: RightDirection
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -391,8 +391,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 214, y: -123}
-  m_SizeDelta: {x: 313.1584, y: 130.8555}
+  m_AnchoredPosition: {x: 260, y: -123}
+  m_SizeDelta: {x: 101.2078, y: 88.4653}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &7002391
 MonoBehaviour:
@@ -8903,7 +8903,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 316080947}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 54cd03cf35664754885be15b329b1815, type: 3}
+  m_Script: {fileID: 11500000, guid: a8c113235e9abb748a56e6880ac020ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   FanTex1: {fileID: 1749865026}
@@ -8931,7 +8931,6 @@ MonoBehaviour:
   EndTilescontainer: {fileID: 656267163}
   StaticCardPrefab: {fileID: 4030565618160232667, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
   HideSplit: {fileID: 5325617167439541180, guid: 3bc98ab5603a49f40b548ca60021553c, type: 3}
-  fanTexts: []
 --- !u!1 &325756687
 GameObject:
   m_ObjectHideFlags: 0
@@ -11625,7 +11624,7 @@ GameObject:
   - component: {fileID: 443523040}
   - component: {fileID: 443523039}
   m_Layer: 12
-  m_Name: SwitchSeatTitle (1)
+  m_Name: NextRoundDescribe
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -21713,7 +21712,7 @@ GameObject:
   - component: {fileID: 926529466}
   - component: {fileID: 926529465}
   m_Layer: 12
-  m_Name: "Height\u2191"
+  m_Name: TopDirection
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -21735,8 +21734,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -20.000008, y: -95.04507}
-  m_SizeDelta: {x: 116.01, y: 236.7601}
+  m_AnchoredPosition: {x: -20.000008, y: -17.119}
+  m_SizeDelta: {x: 116.01, y: 80.907}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &926529465
 MonoBehaviour:
@@ -25985,7 +25984,7 @@ GameObject:
   - component: {fileID: 1134367334}
   - component: {fileID: 1134367333}
   m_Layer: 12
-  m_Name: "Height\u2193"
+  m_Name: SelfDirection
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -26007,8 +26006,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -20, y: -307.53}
-  m_SizeDelta: {x: 116.01, y: 238.2109}
+  m_AnchoredPosition: {x: -20, y: -234.31064}
+  m_SizeDelta: {x: 116.01, y: 91.7722}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1134367333
 MonoBehaviour:
@@ -35955,7 +35954,7 @@ GameObject:
   - component: {fileID: 1620121722}
   - component: {fileID: 1620121721}
   m_Layer: 12
-  m_Name: "Width\u2190"
+  m_Name: LeftDirection
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -35977,8 +35976,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -242, y: -123}
-  m_SizeDelta: {x: 313.1584, y: 130.8555}
+  m_AnchoredPosition: {x: -248, y: -123}
+  m_SizeDelta: {x: 101.2077, y: 88.4653}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1620121721
 MonoBehaviour:
@@ -38526,7 +38525,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 14, y: 4.5250854}
+  m_AnchoredPosition: {x: 14, y: 4.5250244}
   m_SizeDelta: {x: -886.2103, y: -410.51}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1732136374
@@ -38541,11 +38540,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77235e4ed54ac6748bd536c6cf07fd66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  NextRoundName: {fileID: 0}
-  TopText: {fileID: 0}
-  SelfText: {fileID: 0}
-  LeftText: {fileID: 0}
-  RightText: {fileID: 0}
+  NextRoundName: {fileID: 443523039}
+  TopText: {fileID: 926529465}
+  SelfText: {fileID: 1134367333}
+  LeftText: {fileID: 1620121721}
+  RightText: {fileID: 7002391}
 --- !u!114 &1732136375
 MonoBehaviour:
   m_ObjectHideFlags: 0

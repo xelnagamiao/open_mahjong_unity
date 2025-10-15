@@ -44,6 +44,9 @@ def check_action_after_cut(self,cut_tile):
     for i in temp_action_dict:
         if temp_action_dict[i] != []:
             temp_action_dict[i].append("pass")
+    
+    # 不能吃碰杠胡自己的牌
+    temp_action_dict[self.current_player_index] = []
 
     return temp_action_dict
 
@@ -123,8 +126,6 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
     # 调用听牌检查
-    print(f"玩家{player_index}的手牌为{current_player_hand_tiles}")
-    print(f"玩家{player_index}的组合牌为{current_player_combination_tiles}")
     current_player_waiting_tiles = self.Chinese_Tingpai_Check.tingpai_check(
         current_player_hand_tiles,
         current_player_combination_tiles
