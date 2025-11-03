@@ -2,11 +2,10 @@ import random
 import asyncio
 from typing import Dict, List
 import time
-from .method_Action_Check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
-from .method_Boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
-from .method_Logic_Handle import get_index_relative_position
-from .Hepai_Check_GB import Chinese_Hepai_Check
-from .Tingpai_Check_GB import Chinese_Tingpai_Check
+from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
+from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
+from .logic_handler import get_index_relative_position
+from ..game_calculation.game_calculation_service import GameCalculationService
 
 
 class ChinesePlayer:
@@ -38,11 +37,11 @@ class ChinesePlayer:
 
 class ChineseGameState:
     # chinesegamestate负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
-    def __init__(self, game_server, room_data: dict):
+    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService):
         self.game_server = game_server # 游戏服务器
         self.player_list: List[ChinesePlayer] = [] # 玩家列表 包含chinesePlayer类
-        self.Chinese_Hepai_Check = Chinese_Hepai_Check()
-        self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
+        # 使用全局计算服务，所有游戏房间共享，提供线程安全的计算功能
+        self.calculation_service = calculation_service
         for player in room_data["player_list"]:
             self.player_list.append(ChinesePlayer(player,[],room_data["round_timer"]))
 
@@ -363,7 +362,7 @@ class ChineseGameState:
 
                     # 其他玩家扣除8基础分
                     for i in self.player_list: # 其他玩家扣除和牌分与8基础分
-                        if i != hepai_player_index:
+                        if i.player_index != hepai_player_index:
                             i.score -= 8
 
                 # 广播和牌结算结果

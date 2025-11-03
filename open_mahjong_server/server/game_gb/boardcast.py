@@ -1,4 +1,4 @@
-from response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info
+from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info
 from typing import List, Dict, Optional
 
 # 广播游戏开始/重连 方法

@@ -1,6 +1,6 @@
 fastapi
 uvicorn
 websockets
-mysql-connector-python
+psycopg2-binary
 PyJWT
 cryptography 

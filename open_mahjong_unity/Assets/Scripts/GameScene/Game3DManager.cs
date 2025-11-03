@@ -594,6 +594,11 @@ public class Game3DManager : MonoBehaviour
 
     // 清除3D手牌
     public void Clear3DTile(){
+        // 重置组合牌指针
+        selfSetCombinationsPoint = selfCombinationsPosition.position;
+        leftSetCombinationsPoint = leftCombinationsPosition.position;
+        topSetCombinationsPoint = topCombinationsPosition.position;
+        rightSetCombinationsPoint = rightCombinationsPosition.position;
         pengToJiagangPosDict.Clear();
         foreach (Transform child in leftCardsPosition){
             Destroy(child.gameObject);

@@ -1,39 +1,42 @@
 from typing import Dict
-from .method_Logic_Handle import get_index_relative_position
+from .logic_handler import get_index_relative_position
 
 # 检查操作 返回 action_dict
 
 # 切牌后检查 存储 吃chi_left chi_mid chi_right 碰peng 杠gang 胡hu 操作
 def check_action_after_cut(self,cut_tile):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
-    # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
-    next_player_index = self.next_current_num(self.current_player_index)
-    if cut_tile <= 40:
-        # left 左侧吃牌 [a-2,a-1,a]
-        if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
-            if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-                temp_action_dict[next_player_index].append("chi_left")
-        # mid 中间吃牌 [a-1,a,a+1]
-        if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
-            if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
-                    temp_action_dict[next_player_index].append("chi_mid")
-        # right 右侧吃牌 [a,a+1,a+2]
-        if cut_tile+2 in self.player_list[next_player_index].hand_tiles:
-            if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
-                temp_action_dict[next_player_index].append("chi_right")
 
-    # 如果任意一家有C=2，则可以碰
-    for item in self.player_list:
-        if item.hand_tiles.count(cut_tile) >= 2:
-            temp_action_dict[item.player_index].append("peng")
-            break
-    
-    # 检测杠牌：手牌中有3张相同的牌
-    for item in self.player_list:
-        if item.hand_tiles.count(cut_tile) == 3:
-            if self.tiles_list != []:
-                    temp_action_dict[item.player_index].append("gang")
-                    break
+    # 如果牌堆内仍有牌则可以吃碰杠
+    if self.tiles_list != []:
+        # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
+        next_player_index = self.next_current_num(self.current_player_index)
+        if cut_tile <= 40:
+            # left 左侧吃牌 [a-2,a-1,a]
+            if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
+                if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
+                    temp_action_dict[next_player_index].append("chi_left")
+            # mid 中间吃牌 [a-1,a,a+1]
+            if cut_tile-1 in self.player_list[next_player_index].hand_tiles:
+                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
+                        temp_action_dict[next_player_index].append("chi_mid")
+            # right 右侧吃牌 [a,a+1,a+2]
+            if cut_tile+2 in self.player_list[next_player_index].hand_tiles:
+                if cut_tile+1 in self.player_list[next_player_index].hand_tiles:
+                    temp_action_dict[next_player_index].append("chi_right")
+
+        # 如果任意一家有C=2，则可以碰
+        for item in self.player_list:
+            if item.hand_tiles.count(cut_tile) >= 2:
+                temp_action_dict[item.player_index].append("peng")
+                break
+        
+        # 检测杠牌：手牌中有3张相同的牌
+        for item in self.player_list:
+            if item.hand_tiles.count(cut_tile) == 3:
+                if self.tiles_list != []:
+                        temp_action_dict[item.player_index].append("gang")
+                        break
 
     # 如果该牌是任意家的等待牌 且不是自己
     for item in self.player_list:
@@ -79,26 +82,28 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
     player_item = self.player_list[player_index]
 
-    # 如果手牌中有花牌 则可以补花
-    if any(carditem >= 50 for carditem in player_item.hand_tiles):
-        if self.tiles_list != []:
-            temp_action_dict[player_index].append("buhua")
-
-    # 如果手牌中有4张相同的牌 则可以暗杠
-    processed_cards = set()
-    for carditem in player_item.hand_tiles:
-        if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
+    # 如果牌堆内仍有牌则可以补花暗杠加杠
+    if self.tiles_list != []:
+        # 如果手牌中有花牌 则可以补花
+        if any(carditem >= 50 for carditem in player_item.hand_tiles):
             if self.tiles_list != []:
-                temp_action_dict[player_index].append("angang")
-                processed_cards.add(carditem)
-               
-    # 如果组合牌中有加杠 则可以加杠
-    for combination_tile in player_item.combination_tiles:
-        if combination_tile[0] == "k":
-            jiagang_index = int(combination_tile[1:])  # 提取所有数字
-            if jiagang_index in player_item.hand_tiles:
+                temp_action_dict[player_index].append("buhua")
+
+        # 如果手牌中有4张相同的牌 则可以暗杠
+        processed_cards = set()
+        for carditem in player_item.hand_tiles:
+            if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
                 if self.tiles_list != []:
-                    temp_action_dict[player_index].append("jiagang")
+                    temp_action_dict[player_index].append("angang")
+                    processed_cards.add(carditem)
+                
+        # 如果组合牌中有加杠 则可以加杠
+        for combination_tile in player_item.combination_tiles:
+            if combination_tile[0] == "k":
+                jiagang_index = int(combination_tile[1:])  # 提取所有数字
+                if jiagang_index in player_item.hand_tiles:
+                    if self.tiles_list != []:
+                        temp_action_dict[player_index].append("jiagang")
 
     # 摸牌后可以切牌
     temp_action_dict[player_index].append("cut")
@@ -125,8 +130,8 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
         current_player_hand_tiles = player_item.hand_tiles[:-1] # 第一轮行动时只计算前13张牌
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
-    # 调用听牌检查
-    current_player_waiting_tiles = self.Chinese_Tingpai_Check.tingpai_check(
+    # 调用听牌检查（使用计算服务类）
+    current_player_waiting_tiles = self.calculation_service.GB_tingpai_check(
         current_player_hand_tiles,
         current_player_combination_tiles
     )
@@ -193,7 +198,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         elif "和绝张" in way_to_hepai:
             way_to_hepai.remove("和绝张")
 
-    result = self.Chinese_Hepai_Check.hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+    # 使用计算服务类检查和牌
+    result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     if result[0] >= 8:
         if get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "self":
             temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌

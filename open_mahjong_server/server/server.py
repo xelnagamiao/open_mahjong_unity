@@ -3,169 +3,42 @@ from fastapi import FastAPI, WebSocket
 from typing import Dict, Optional, List
 from pydantic import BaseModel
 import json
-import mysql.connector
-from mysql.connector import Error
 import asyncio
-from response import Response
-from GB_Game.GameState_GB import ChineseGameState
-from room_manager import RoomManager
-
+from contextlib import asynccontextmanager
+from .response import Response
+from .game_gb.game_state import ChineseGameState
+from .room_manager import RoomManager
+from .database.db_manager import DatabaseManager
+from .chat_server.chat_server import ChatServer
+from .game_calculation.game_calculation_service import GameCalculationService
 import secrets,hashlib
 import subprocess,os,signal,sys
 import time
 
-# 0.0 原神启动
-app = FastAPI()
+# 创建数据库实例
+db_manager = DatabaseManager(
+    host='localhost',
+    user='postgres',
+    password='qwe123',
+    database='open_mahjong',
+    port=5432
+)
 
-# 0.1 连接数据库配置
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'qwe123',
-    'database': 'open_mahjong',
-    'port': 3306
-}
+# 创建聊天服务器实例
+chat_server = ChatServer()
 
-# 0.2 配置数据库
-def init_database():
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS open_mahjong (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-        cursor.execute(create_table_sql)
-        conn.commit()
-        print('数据表创建成功')
-    except Error as e:
-        print(f'数据表创建失败: {e}')
-    finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时执行
+    db_manager.init_database()
+    await chat_server.start_chat_server()
+    yield
+    # 关闭时执行（如果需要清理资源，在这里添加）
 
-# 0.3 初始化数据库
-@app.on_event("startup")
-async def startup_event():
-    init_database()
+# 创建游戏服务器实例
+app = FastAPI(lifespan=lifespan)
 
-# 0.4 启动聊天服务器
-@app.on_event("startup")
-async def start_chat_server():
-    global HASH_SALT
-    # 生成哈希用户名密钥,用于从用户名生成秘钥,用此秘钥可以在聊天服务器中注册
-    HASH_SALT = secrets.token_urlsafe(16)
-    
-    # 保存秘钥到文件，供聊天服务器使用
-    await save_secret_key_to_file(HASH_SALT)
-
-    # 停一下稳一点
-    await asyncio.sleep(2)
-    
-    # 验证文件是否写入成功
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    secret_file_path = os.path.join(script_dir, 'secret_key.txt')
-    
-    # 检查秘钥文件是否存在且不为空
-    if not os.path.exists(secret_file_path):
-        print(f"秘钥文件不存在: {secret_file_path}")
-        return
-        
-    # 读取并验证秘钥文件内容
-    try:
-        with open(secret_file_path, 'r') as f:
-            saved_key = f.read().strip()
-            if not saved_key or len(saved_key) < 10:
-                print(f"秘钥文件内容无效: {saved_key}")
-                return
-            print(f"秘钥文件验证成功: {saved_key[:20]}...")
-    except Exception as e:
-        print(f"读取秘钥文件失败: {e}")
-        return
-    
-    executable_path = os.path.join(script_dir, 'open_mahjong_chatServer.exe')
-    
-    try:
-        # 检查可执行文件是否存在
-        if not os.path.exists(executable_path):
-            print(f"聊天服务器可执行文件不存在: {executable_path}")
-            return
-            
-        # 调试环境使用命令行窗口显示日志信息
-        process = subprocess.Popen(
-        ['cmd.exe', '/k', 'cd /d', script_dir, '&&', executable_path],
-        creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
-        """
-        部署环境使用stdout/stderr捕获，避免日志输出到控制台
-        process = subprocess.Popen(
-            [executable_path],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        """
-        print(f"聊天服务器进程已启动，PID: {process.pid}")
-        
-    except Exception as e:
-        print(f"启动聊天服务器失败: {e}")
-        print(f"错误详情: {str(e)}")
-
-async def save_secret_key_to_file(secret_key: str):
-    """将秘钥保存到文件，供聊天服务器读取"""
-    try:
-        # 获取当前脚本所在目录
-        self_dir = os.path.dirname(os.path.abspath(__file__))
-        # 秘钥文件直接保存在根目录
-        secret_file_path = os.path.join(self_dir, 'secret_key.txt')
-        
-        # 使用临时文件确保原子性写入
-        temp_file_path = secret_file_path + '.tmp'
-        
-        # 写入临时文件
-        with open(temp_file_path, 'w', encoding='utf-8') as f:
-            f.write(secret_key)
-            f.flush()  # 强制刷新缓冲区
-            os.fsync(f.fileno())  # 强制写入磁盘
-        
-        # 如果原文件存在，先删除
-        if os.path.exists(secret_file_path):
-            os.remove(secret_file_path)
-            
-        # 原子性重命名
-        os.rename(temp_file_path, secret_file_path)
-        
-        # 验证文件写入是否成功
-        with open(secret_file_path, 'r', encoding='utf-8') as f:
-            saved_content = f.read().strip()
-            if saved_content != secret_key:
-                raise Exception(f"文件内容验证失败: 期望 {secret_key}, 实际 {saved_content}")
-        
-        print(f"新秘钥已保存到 {secret_file_path}")
-        print(f"秘钥: {secret_key[:20]}...")
-        print(f"文件大小: {os.path.getsize(secret_file_path)} 字节")
-
-    except Exception as e:
-        print(f"保存秘钥失败: {e}")
-        # 清理临时文件
-        temp_file_path = os.path.join(self_dir, 'secret_key.txt.tmp')
-        if os.path.exists(temp_file_path):
-            try:
-                os.remove(temp_file_path)
-            except:
-                pass
-        
-# 哈希用户名
-async def hash_username(username: str) -> str:
-    return hashlib.sha256((username + HASH_SALT).encode()).hexdigest()
-
-
-
+# 玩家连接对象
 class PlayerConnection:
     def __init__(self, websocket: WebSocket, player_id: str):
         self.websocket = websocket
@@ -173,9 +46,10 @@ class PlayerConnection:
         self.username = None
         self.current_room_id = None
 
+# 主服务器
 class GameServer:
     def __init__(self):
-        # 玩家连接集合保存websocket连接 uuid 用户名 当前房间id
+        # 玩家连接集合保存每个websocket连接的信息
         self.players: Dict[str, PlayerConnection] = {}
         # 用户名到玩家连接的映射
         self.username_to_connection: Dict[str, PlayerConnection] = {}
@@ -183,11 +57,13 @@ class GameServer:
         self.room_manager = RoomManager(self)
         # 房间id到游戏状态的映射
         self.room_id_to_ChineseGameState: Dict[str, ChineseGameState] = {}
+        # 全局计算服务
+        self.calculation_service = GameCalculationService()
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, player_id: str):
-        await websocket.accept()
-        self.players[player_id] = PlayerConnection(websocket, player_id)
+        await websocket.accept() # 接受玩家连接
+        self.players[player_id] = PlayerConnection(websocket, player_id) # 存储玩家连接
         print(f"玩家 {player_id} 已连接")
 
     # 玩家断开连接：
@@ -212,20 +88,25 @@ class GameServer:
             self.username_to_connection[username] = player
             print(f"已存储玩家 {username} 的会话数据")
 
+    # 创建国标房间
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
         return await self.room_manager.create_GB_room(player_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips)
 
+    # 获取房间列表
     def get_room_list(self) -> Response:
         return self.room_manager.get_room_list()
 
+    # 加入房间
     async def join_room(self, player_id: str, room_id: str, password: str):
         response = await self.room_manager.join_room(player_id, room_id, password)
         await self.players[player_id].websocket.send_json(response.dict(exclude_none=True))
 
+    # 离开房间
     async def leave_room(self, player_id: str, room_id: str):
         response = await self.room_manager.leave_room(player_id, room_id)
         await self.players[player_id].websocket.send_json(response.dict(exclude_none=True))
 
+    # 开始游戏
     async def start_game(self, player_id: str, room_id: str):
         # 检查房间是否存在
         if room_id not in self.room_manager.rooms:
@@ -244,7 +125,7 @@ class GameServer:
             
         # 创建游戏任务
         if room_data["room_type"] == "guobiao":
-            self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data)
+            self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data, self.calculation_service)
             asyncio.create_task(self.room_id_to_ChineseGameState[room_id].game_loop_chinese())
 
 game_server = GameServer()
@@ -303,42 +184,45 @@ async def message_input(websocket: WebSocket, player_id: str):
             await chinese_game_state.get_action(player_id, message["action"],cutClass=None,TileId=None,target_tile=message["targetTile"])
 
 async def player_login(username: str, password: str) -> Response:
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            "SELECT * FROM open_mahjong WHERE username = %s",
-            (username,)
-        )
-        player = cursor.fetchone()
-
-        if player:
-            if player['password'] == password:
-                # 生成用户秘钥
-                user_key = await hash_username(username)
-                print(f" 生成用户秘钥{user_key} ")
-                return Response(
-                    type="login",
-                    success=True,
-                    message="登录成功",
-                    username=username,
-                    userkey=user_key
-                )
-            else:
-                return Response(
-                    type="login",
-                    success=False,
-                    message="密码错误",
-                    username=username
-                )
-        else:
-            cursor.execute(
-                "INSERT INTO open_mahjong (username, password) VALUES (%s, %s)",
-                (username, password)
-            )
-            conn.commit()
+    """
+    玩家登录/注册功能
+    如果用户不存在则自动注册，存在则验证密码
+    
+    Args:
+        username: 用户名
+        password: 密码
+        
+    Returns:
+        Response 对象，包含登录结果和用户信息
+    """
+    # 检查用户是否存在
+    player = db_manager.get_user_by_username(username)
+    
+    if player:
+        # 用户存在，验证密码
+        if db_manager.verify_password(username, password):
             # 生成用户秘钥
-            user_key = await hash_username(username)
+            user_key = await chat_server.hash_username(username)
+            print(f" 生成用户秘钥{user_key} ")
+            return Response(
+                type="login",
+                success=True,
+                message="登录成功",
+                username=username,
+                userkey=user_key
+            )
+        else:
+            return Response(
+                type="login",
+                success=False,
+                message="密码错误",
+                username=username
+            )
+    else:
+        # 用户不存在，创建新用户
+        if db_manager.create_user(username, password):
+            # 生成用户秘钥
+            user_key = await chat_server.hash_username(username)
             print(f" 生成用户秘钥{user_key} ")
             return Response(
                 type="login",
@@ -347,10 +231,13 @@ async def player_login(username: str, password: str) -> Response:
                 username=username,
                 userkey=user_key
             )
-    finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+        else:
+            return Response(
+                type="login",
+                success=False,
+                message="注册失败",
+                username=username
+            )
 
 if __name__ == "__main__":
     import uvicorn

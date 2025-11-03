@@ -9906,7 +9906,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: V0.0.21.2    2025.10.13
+  m_text: V0.0.23.1    2025.10.15
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_sharedMaterial: {fileID: -228896018595606784, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
@@ -19944,7 +19944,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomId: 0
   selfIndex: 0
-  currentIndex: 0
   roomStepTime: 0
   roomRoundTime: 0
   selfRemainingTime: 0
@@ -20084,8 +20083,6 @@ MonoBehaviour:
   player_right_score: {fileID: 236339508}
   player_right_index: {fileID: 2007229790}
   player_right_current_image: {fileID: 1364374881}
-  flashDuration: 1
-  shouldLoop: 1
 --- !u!1 &835606577
 GameObject:
   m_ObjectHideFlags: 0

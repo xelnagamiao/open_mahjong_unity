@@ -1,9 +1,9 @@
 from typing import Dict, Any, Optional
-from room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
-from response import Response
-from GB_Game.GameState_GB import ChineseGameState
-from GB_Game.Hepai_Check_GB import Chinese_Hepai_Check
-from GB_Game.Tingpai_Check_GB import Chinese_Tingpai_Check
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
+from .response import Response
+from .game_gb.game_state import ChineseGameState
+from .game_calculation.game_calculation_service import Chinese_Hepai_Check
+from .game_calculation.game_calculation_service import Chinese_Tingpai_Check
 import json
 import asyncio
 
