@@ -22,7 +22,6 @@ public class SoundManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         
         // 如果没有AudioSource，自动添加一个
         if (audioSource == null)

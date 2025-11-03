@@ -39,7 +39,6 @@ public class ChatManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
         websocket = new WebSocket($"ws://localhost:8083/chat/{playerId}"); // 初始化WebSocket
         websocket.OnOpen += (sender, e) => Debug.Log("WebSocket To ChatServer连接已打开");
@@ -177,7 +176,7 @@ public class ChatManager : MonoBehaviour
         // 检查WebSocket连接状态
         if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            Debug.LogError("WebSocket连接未建立，无法发送登录消息");
+            Debug.Log("WebSocket连接未建立，无法发送登录消息");
             return;
         }
         

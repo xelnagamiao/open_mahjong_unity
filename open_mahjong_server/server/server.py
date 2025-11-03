@@ -199,8 +199,8 @@ async def player_login(username: str, password: str) -> Response:
     player = db_manager.get_user_by_username(username)
     
     if player:
-        # 用户存在，验证密码
-        if db_manager.verify_password(username, password):
+        # 用户存在，验证密码（传入已查询的用户数据，避免重复查询）
+        if db_manager.verify_password(username, password, user_data=player):
             # 生成用户秘钥
             user_key = await chat_server.hash_username(username)
             print(f" 生成用户秘钥{user_key} ")

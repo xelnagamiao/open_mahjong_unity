@@ -41,7 +41,7 @@ public class RoomListPanel : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject); // 保持实例不被销毁
+
         }
         else if (Instance != this)
         {

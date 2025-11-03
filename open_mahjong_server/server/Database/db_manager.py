@@ -5,8 +5,10 @@
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
+from psycopg2.pool import ThreadedConnectionPool, SimpleConnectionPool
 from typing import Optional, Dict, Any
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,7 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """PostgreSQL 数据库管理类"""
     
-    def __init__(self, host: str, user: str, password: str, database: str, port: int = 5432):
+    def __init__(self, host: str, user: str, password: str, database: str, port: int = 5432, minconn: int = 2, maxconn: int = 10):
         self.config = {
             'host': host,
             'user': user,
@@ -22,6 +24,31 @@ class DatabaseManager:
             'database': database,
             'port': port
         }
+        # 连接池（延迟初始化，在 init_database 之后创建）
+        self.pool: Optional[ThreadedConnectionPool] = None
+        self.pool_lock = threading.Lock()
+    
+    def _get_pool(self) -> ThreadedConnectionPool:
+        """获取或创建连接池（线程安全）"""
+        if self.pool is None:
+            with self.pool_lock:
+                if self.pool is None:
+                    self.pool = ThreadedConnectionPool(
+                        minconn=2,
+                        maxconn=10,
+                        **self.config
+                    )
+        return self.pool
+    
+    def _get_connection(self):
+        """从连接池获取连接"""
+        pool = self._get_pool()
+        return pool.getconn()
+    
+    def _put_connection(self, conn):
+        """将连接归还到连接池"""
+        if self.pool:
+            self.pool.putconn(conn)
     
     def init_database(self):
         # 初始化数据库表，如果表不存在则创建
@@ -43,6 +70,9 @@ class DatabaseManager:
             conn.commit()
             print('数据表创建成功')
             logger.info('数据表创建成功')
+            
+            # 表创建成功后，初始化连接池
+            self._get_pool()
         except Error as e:
             print(f'数据表创建失败: {e}')
             logger.error(f'数据表创建失败: {e}')
@@ -63,7 +93,7 @@ class DatabaseManager:
         """
         conn = None
         try:
-            conn = psycopg2.connect(**self.config)
+            conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 "SELECT * FROM users WHERE username = %s",
@@ -82,7 +112,7 @@ class DatabaseManager:
         finally:
             if conn:
                 cursor.close()
-                conn.close()
+                self._put_connection(conn)
     
     def create_user(self, username: str, password: str) -> bool:
         """
@@ -97,7 +127,7 @@ class DatabaseManager:
         """
         conn = None
         try:
-            conn = psycopg2.connect(**self.config)
+            conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO users (username, password) VALUES (%s, %s)",
@@ -114,19 +144,25 @@ class DatabaseManager:
         finally:
             if conn:
                 cursor.close()
-                conn.close()
+                self._put_connection(conn)
     
-    def verify_password(self, username: str, password: str) -> bool:
+    def verify_password(self, username: str, password: str, user_data: Optional[Dict[str, Any]] = None) -> bool:
         """
         验证用户密码
         
         Args:
             username: 用户名
             password: 密码
+            user_data: 可选的用户数据，避免重复查询（如果已查询过用户信息）
             
         Returns:
             密码正确返回 True，否则返回 False
         """
+        # 如果已经提供了用户数据，直接使用，避免重复查询
+        if user_data is not None:
+            return user_data.get('password') == password
+        
+        # 否则查询用户信息
         user = self.get_user_by_username(username)
         if user and user.get('password') == password:
             return True

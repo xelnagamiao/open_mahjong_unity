@@ -20,7 +20,6 @@ public class TipsManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     // 显示提示信息
