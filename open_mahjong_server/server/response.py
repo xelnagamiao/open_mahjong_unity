@@ -22,7 +22,7 @@ class GameInfo(BaseModel):
     action_tick: int
     max_round: int
     tile_count: int
-    random_seed: int
+    round_random_seed: Optional[int] = None
     current_round: int
     step_time: int
     round_time: int

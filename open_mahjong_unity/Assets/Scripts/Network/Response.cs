@@ -100,7 +100,7 @@ public class GameInfo // 游戏开始时传递房间信息
     public int action_tick;             // 操作帧
     public int max_round;               // 最大局数
     public int tile_count;              // 牌山剩余牌数
-    public int random_seed;             // 随机种子
+    public int round_random_seed;       // 局内随机种子
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时

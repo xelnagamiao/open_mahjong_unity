@@ -12,7 +12,7 @@ async def broadcast_game_start(self):
         "action_tick": self.action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
-        'random_seed': self.random_seed, # 随机种子
+        'round_random_seed': self.round_random_seed, # 单局随机种子
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
@@ -224,6 +224,7 @@ async def broadcast_game_end(self):
                 type="game_end_GB",
                 success=True,
                 message="游戏结束",
+                game_random_seed=self.whole_game_random_seed,  # 游戏结束时发送完整随机种子供验证
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播游戏结束信息{response.dict(exclude_none=True)}")

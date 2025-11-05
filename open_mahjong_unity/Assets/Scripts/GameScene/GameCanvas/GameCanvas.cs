@@ -103,7 +103,7 @@ public partial class GameCanvas : MonoBehaviour
         }
         roomRoundText.text = $"圈数：{gameInfo.current_round}"; // 左上角显示需要打的圈数
         roomNowRoundText.text = $"当前轮数：{gameInfo.current_round}"; // 左上角显示目前打的圈数
-        RandomSeedText.text = $"随机种子：{gameInfo.random_seed}"; // 左上角显示随机种子
+        RandomSeedText.text = $"随机种子：{gameInfo.round_random_seed}"; // 左上角显示随机种子
     }
 
     public void ClearActionButton(){

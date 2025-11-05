@@ -59,6 +59,10 @@ class GameServer:
         self.room_id_to_ChineseGameState: Dict[str, ChineseGameState] = {}
         # 全局计算服务
         self.calculation_service = GameCalculationService()
+        # 数据库管理器
+        self.db_manager = db_manager
+        # 聊天服务器
+        self.chat_server = chat_server
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, player_id: str):
@@ -125,7 +129,7 @@ class GameServer:
             
         # 创建游戏任务
         if room_data["room_type"] == "guobiao":
-            self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data, self.calculation_service)
+            self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data, self.calculation_service,self.db_manager)
             asyncio.create_task(self.room_id_to_ChineseGameState[room_id].game_loop_chinese())
 
 game_server = GameServer()

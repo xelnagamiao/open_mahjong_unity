@@ -1,12 +1,12 @@
 import random
 import asyncio
-from typing import Dict, List
+from typing import Any, Dict, List
 import time
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
 from .logic_handler import get_index_relative_position
 from ..game_calculation.game_calculation_service import GameCalculationService
-
+from ..database.db_manager import DatabaseManager
 
 class ChinesePlayer:
     def __init__(self, username: str, tiles: list, remaining_time: int):
@@ -14,7 +14,7 @@ class ChinesePlayer:
         self.hand_tiles = tiles                       # 手牌
         self.huapai_list = []                         # 花牌列表
         self.discard_tiles = []                       # 弃牌
-        self.discard_origin = set()                   # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
+        self.discard_origin = set[int]()                   # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
         self.combination_tiles = []                   # 组合牌
         # combination_mask组合牌掩码 0代表竖 1代表横 2代表暗面 3代表上侧(加杠) 4代表空 因为普通的存储方式会造成掉线以后吃牌形状丢失 所以使用掩码存储
         # [1,13,0,11,0,12] = 吃上家 312m s12
@@ -25,7 +25,7 @@ class ChinesePlayer:
         self.score = 0                                # 分数
         self.remaining_time = remaining_time          # 剩余时间 （局时）
         self.player_index = 0                         # 玩家索引 东南西北 0 1 2 3
-        self.waiting_tiles = set()                    # 听牌
+        self.waiting_tiles = set[int]()                    # 听牌
 
     def get_tile(self, tiles_list):
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌
@@ -37,11 +37,13 @@ class ChinesePlayer:
 
 class ChineseGameState:
     # chinesegamestate负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
-    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService):
+    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager):
         self.game_server = game_server # 游戏服务器
         self.player_list: List[ChinesePlayer] = [] # 玩家列表 包含chinesePlayer类
-        # 使用全局计算服务，所有游戏房间共享，提供线程安全的计算功能
+        # 传入全局计算服务
         self.calculation_service = calculation_service
+        # 传入数据库管理器
+        self.db_manager = db_manager
         for player in room_data["player_list"]:
             self.player_list.append(ChinesePlayer(player,[],room_data["round_timer"]))
 
@@ -53,10 +55,12 @@ class ChineseGameState:
 
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
-        self.random_seed = 0 # 随机种子
+        self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
+        self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
         self.game_status = "waiting"  # waiting, playing, finished
         self.action_tick = 0 # 操作帧
-        self.current_round = 1 # 目前小局数 (max_round * 4)
+        self.current_round = 1 # 游戏进程小局号(可能连庄)
+        self.round_index = 1 # 实际局数索引(连续递增，用于内部计算 国标不使用)
         self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
         self.hu_class = None # 和牌玩家索引
         self.jiagang_tile = None # 抢杠牌 每次加杠时存储 waiting_jiagang_action 以后删除
@@ -77,7 +81,40 @@ class ChineseGameState:
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
         }
 
-    
+# 牌谱记录
+class ChineseGameRecord:
+    GameTitle: dict[str,str] = dict[str, str]()  # 游戏Title标识可能的房间各种状态,包括规则,最大游戏局数,不同玩家的uid,名字等
+    GameRound: dict[int,any] = dict[int, any]()  # 游戏局数记录 包含游戏状态,玩家操作,游戏结果等
+    """
+                                           # 牌谱格式
+    {
+        "game_title": {                    # 游戏对局记录
+            "Rule":"GB",
+            "random_seed":"",
+            "tiles_list":int[],
+            "player_index0":"玩家1",
+            "player_index1":"玩家2",
+            "player_index2":"玩家3",
+            "player_index3":"玩家4",
+        }
+        "game_round": {                     # 游戏局内记录
+            "round_number":0,               # 显示局数编号(可能出现连庄，如"第1局"、"第1局(连庄)")
+            "round_index":0,                # 逻辑局数索引(连续递增，用于内部计算)
+            "action_tick_dict":{            # 操作帧记录
+                "0":{
+                    "action_type":"",
+                    "action_player":0,
+                },
+                "1":{
+                    "action_type":"",
+                    "action_player":1,
+                },
+                "2":{
+                    "action_end"             # 结束符
+                },
+            "game_result":"",                # 游戏结算结果
+    }
+    """
 
     # 获取下一个玩家索引 东 → 南 → 西 → 北 → 东 0 → 1 → 2 → 3 → 0
     def next_current_index(self):
@@ -107,14 +144,20 @@ class ChineseGameState:
             41,42,43,44, # 东南西北
             45,46,47 # 中白发
         }
-        # 花牌牌堆
-        hua_tiles_set = {51,52,53,54,55,56,57,58} # 春夏秋冬 梅兰竹菊
-        # 生成牌堆 tiles_list
+        # 生成主牌堆 tiles_list
         self.tiles_list = []
         for tile in sth_tiles_set:
             self.tiles_list.extend([tile] * 4)
+        # 添加花牌牌堆
+        hua_tiles_set = {51,52,53,54,55,56,57,58} # 春夏秋冬 梅兰竹菊
         self.tiles_list.extend(hua_tiles_set)
+
+        # 基于完整游戏随机种子生成小局随机种子
+        # 公式: (whole_game_random_seed * 1000 + current_round) % (2**32)
+        self.round_random_seed = (self.game_random_seed * 1000 + self.current_round) % (2**32)
+        random.seed(self.round_random_seed)
         random.shuffle(self.tiles_list)
+
         # 分配每位玩家13张牌
         for player in self.player_list:
             for _ in range(13):
@@ -133,11 +176,16 @@ class ChineseGameState:
         }
         # 花牌牌堆
         hua_tiles_set = {51,52,53,54,55,56,57,58} # 春夏秋冬 梅兰竹菊
-        # 生成牌堆 tiles_list
+        # 生成牌堆
         self.tiles_list = []
         for tile in sth_tiles_set:
             self.tiles_list.extend([tile] * 4)
         self.tiles_list.extend(hua_tiles_set)
+        
+        # 基于完整游戏随机种子和当前局数生成小局随机种子（与 init_game_tiles 保持一致）
+        # 公式: (whole_game_random_seed * 1000 + current_round) % (2**32)
+        self.round_random_seed = (self.game_random_seed * 1000 + self.current_round) % (2**32)
+        random.seed(self.round_random_seed)
         random.shuffle(self.tiles_list)
 
         # 使用测试牌例
@@ -201,6 +249,8 @@ class ChineseGameState:
     async def game_loop_chinese(self):
 
         # 房间初始化 打乱玩家顺序
+        # 生成完整游戏随机种子
+        self.game_random_seed = int(time.time() * 1000000) % (2**32)
 
         # 测试时不打乱玩家顺序
         # random.shuffle(self.player_list)
