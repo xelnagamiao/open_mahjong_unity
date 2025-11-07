@@ -8,9 +8,11 @@ from .logic_handler import get_index_relative_position
 from ..game_calculation.game_calculation_service import GameCalculationService
 from ..database.db_manager import DatabaseManager
 
+# 玩家类
 class ChinesePlayer:
-    def __init__(self, username: str, tiles: list, remaining_time: int):
-        self.username = username                      # 玩家名
+    def __init__(self, user_id: int, username: str, tiles: list, remaining_time: int):
+        self.user_id = user_id                        # 用户ID
+        self.username = username                      # 玩家名（用于显示）
         self.hand_tiles = tiles                       # 手牌
         self.huapai_list = []                         # 花牌列表
         self.discard_tiles = []                       # 弃牌
@@ -35,56 +37,11 @@ class ChinesePlayer:
         element = tiles_list.pop() # 从牌堆中获取最后一张牌
         self.hand_tiles.append(element)
 
-class ChineseGameState:
-    # chinesegamestate负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
-    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager):
-        self.game_server = game_server # 游戏服务器
-        self.player_list: List[ChinesePlayer] = [] # 玩家列表 包含chinesePlayer类
-        # 传入全局计算服务
-        self.calculation_service = calculation_service
-        # 传入数据库管理器
-        self.db_manager = db_manager
-        for player in room_data["player_list"]:
-            self.player_list.append(ChinesePlayer(player,[],room_data["round_timer"]))
-
-        self.room_id = room_data["room_id"] # 房间ID
-        self.tips = room_data["tips"] # 是否提示
-        self.max_round = room_data["game_round"] # 最大局数
-        self.step_time = room_data["step_timer"] # 步时
-        self.round_time = room_data["round_timer"] # 局时
-
-        self.tiles_list = [] # 牌堆
-        self.current_player_index = 0 # 目前轮到的玩家
-        self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
-        self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
-        self.game_status = "waiting"  # waiting, playing, finished
-        self.action_tick = 0 # 操作帧
-        self.current_round = 1 # 游戏进程小局号(可能连庄)
-        self.round_index = 1 # 实际局数索引(连续递增，用于内部计算 国标不使用)
-        self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
-        self.hu_class = None # 和牌玩家索引
-        self.jiagang_tile = None # 抢杠牌 每次加杠时存储 waiting_jiagang_action 以后删除
-        self.temp_fan = [] # 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
-
-        # 用于玩家操作的事件和队列
-        self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
-        self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
-        self.waiting_players_list = [] # 等待操作的玩家列表
-
-        # 所有check方法都返回action_dict字典
-        self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
-        # 行为 -> 优先级 用于在多人共通等待行为时判断是否需要等待更高优先级玩家的操作或直接结束更低优先级玩家的等待
-        self.action_priority:Dict[str,int] = {
-        "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
-        "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
-        "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
-        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
-        }
-
-# 牌谱记录
+# 牌谱记录类
 class ChineseGameRecord:
-    GameTitle: dict[str,str] = dict[str, str]()  # 游戏Title标识可能的房间各种状态,包括规则,最大游戏局数,不同玩家的uid,名字等
-    GameRound: dict[int,any] = dict[int, any]()  # 游戏局数记录 包含游戏状态,玩家操作,游戏结果等
+    def __init__(self):
+        GameTitle: dict[str,str] = dict[str, str]()  # 游戏Title标识可能的房间各种状态,包括规则,最大游戏局数,不同玩家的uid,名字等
+        GameRound: dict[int,any] = dict[int, any]()  # 游戏局数记录 包含游戏状态,玩家操作,游戏结果等
     """
                                            # 牌谱格式
     {
@@ -115,6 +72,62 @@ class ChineseGameRecord:
             "game_result":"",                # 游戏结算结果
     }
     """
+
+# 游戏进程类
+class ChineseGameState:
+    # chinesegamestate负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
+    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager):
+        # 传入游戏服务器
+        self.game_server = game_server # 游戏服务器
+        # 传入全局计算服务
+        self.calculation_service = calculation_service
+        # 传入数据库管理器 用于存储牌谱
+        self.db_manager = db_manager
+        # 创建牌谱管理器 用于存储牌谱
+        self.game_record = ChineseGameRecord()
+        # 创建玩家列表 包含chinesePlayer类
+        # room_data["player_list"] 现在是 user_id 列表
+        self.player_list: List[ChinesePlayer] = []
+        player_names = room_data.get("player_names", {})
+        for user_id in room_data["player_list"]:
+            username = player_names.get(user_id, f"用户{user_id}")
+            self.player_list.append(ChinesePlayer(user_id, username, [], room_data["round_timer"]))
+
+        # 初始化房间配置
+        self.room_id = room_data["room_id"] # 房间ID
+        self.tips = room_data["tips"] # 是否提示
+        self.max_round = room_data["game_round"] # 最大局数
+        self.step_time = room_data["step_timer"] # 步时
+        self.round_time = room_data["round_timer"] # 局时
+
+        # 初始化游戏状态
+        self.tiles_list = [] # 牌堆
+        self.current_player_index = 0 # 目前轮到的玩家
+        self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
+        self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
+        self.game_status = "waiting"  # waiting, playing, finished
+        self.action_tick = 0 # 操作帧
+        self.current_round = 1 # 游戏进程小局号(可能连庄)
+        self.round_index = 1 ###### 实际局数索引(连续递增，用于日麻连庄情况等的内部计算 国标不使用)
+        self.result_dict = {} # 结算结果 {hu_first:(int,list[str]),hu_second:(int,list[str]),hu_third:(int,list[str])}
+        self.hu_class = None # 和牌玩家索引
+        self.jiagang_tile = None # 抢杠牌 每次加杠时存储 waiting_jiagang_action 以后删除
+        self.temp_fan = [] ###### 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
+
+        # 用于玩家操作的事件和队列
+        self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
+        self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
+        self.waiting_players_list = [] # 等待操作的玩家列表
+
+        # 所有check方法都返回action_dict字典
+        self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
+        # 行为 -> 优先级 用于在多人共通等待行为时判断是否需要等待更高优先级玩家的操作或直接结束更低优先级玩家的等待
+        self.action_priority:Dict[str,int] = {
+        "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
+        "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
+        "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
+        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
+        }
 
     # 获取下一个玩家索引 东 → 南 → 西 → 北 → 东 0 → 1 → 2 → 3 → 0
     def next_current_index(self):
@@ -814,19 +827,22 @@ class ChineseGameRecord:
     async def get_action(self, player_id: str, action_type: str, cutClass: bool, TileId: int,target_tile: int):
         try:
             # 检测行动合法性
-            # 从游戏服务器的PlayerConnection中获取username
+            # 从游戏服务器的PlayerConnection中获取user_id
             player_conn = self.game_server.players[player_id]
-            username = player_conn.username
+            if not player_conn.user_id:
+                print(f"玩家未登录，无法执行操作")
+                return
+            user_id = player_conn.user_id
             # 查找对应的玩家和索引
             current_player = None
             player_index = -1
-            # 通过比对username获取玩家索引
+            # 通过比对user_id获取玩家索引
             for index, player in enumerate(self.player_list):
-                if player.username == username:
+                if player.user_id == user_id:
                     current_player = player
                     player_index = index
                     break
-            if current_player is None: # 未找到用户名
+            if current_player is None: # 未找到用户ID
                 print(f"当前玩家不存在当前房间玩家列表中,可能是玩家操作发送到了错误的房间")
             elif player_index not in self.waiting_players_list:
                 print(f"不是当前玩家的回合,可能是在错误的时间发送了消息")

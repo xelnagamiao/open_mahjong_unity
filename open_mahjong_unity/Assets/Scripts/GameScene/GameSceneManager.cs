@@ -34,6 +34,7 @@ public class GameSceneManager : MonoBehaviour
     public List<int> selfHandTiles = new List<int>(); // 手牌列表
     public class PlayerInfo{
         public string username;
+        public int userId;
         public int score;
         public int hand_tiles_count;
         public int[] hand_tiles;
@@ -386,6 +387,7 @@ public class GameSceneManager : MonoBehaviour
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
                 player_to_info["self"].username = player.username; // 存储用户名
+                player_to_info["self"].userId = player.user_id; // 存储uid
                 player_to_info["self"].score = player.score; // 存储分数
                 // 存储剩余时间
                 selfRemainingTime = player.remaining_time;
@@ -396,6 +398,7 @@ public class GameSceneManager : MonoBehaviour
             else if (indexToPosition[player.player_index] == "right"){
                 player_to_info["right"].username = player.username; // 存储用户名
                 player_to_info["right"].score = player.score; // 存储分数
+                player_to_info["right"].userId = player.user_id; // 存储uid
                 player_to_info["right"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["right"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["right"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
@@ -404,6 +407,7 @@ public class GameSceneManager : MonoBehaviour
             else if (indexToPosition[player.player_index] == "top"){
                 player_to_info["top"].username = player.username; // 存储用户名
                 player_to_info["top"].score = player.score; // 存储分数
+                player_to_info["top"].userId = player.user_id; // 存储uid
                 player_to_info["top"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["top"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["top"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
@@ -412,6 +416,7 @@ public class GameSceneManager : MonoBehaviour
             else if (indexToPosition[player.player_index] == "left"){
                 player_to_info["left"].username = player.username; // 存储用户名
                 player_to_info["left"].score = player.score; // 存储分数
+                player_to_info["left"].userId = player.user_id; // 存储uid
                 player_to_info["left"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["left"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["left"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表

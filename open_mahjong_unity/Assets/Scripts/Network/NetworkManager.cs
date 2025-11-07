@@ -155,7 +155,7 @@ public class NetworkManager : MonoBehaviour
             switch (response.type){
                 case "login":
                     if (response.success){
-                        Administrator.Instance.SetUserInfo(response.username,response.userkey);
+                        Administrator.Instance.SetUserInfo(response.username,response.userkey,response.user_id);
                     }
                     currentLoginCallback?.Invoke(response.success, response.message);
                     currentLoginCallback = null; // 清除回调

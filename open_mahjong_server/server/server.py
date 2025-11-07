@@ -1,6 +1,6 @@
 import debugpy
 from fastapi import FastAPI, WebSocket
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from pydantic import BaseModel
 import json
 import asyncio
@@ -40,22 +40,23 @@ app = FastAPI(lifespan=lifespan)
 
 # 玩家连接对象
 class PlayerConnection:
-    def __init__(self, websocket: WebSocket, player_id: str):
-        self.websocket = websocket
-        self.player_id = player_id
-        self.username = None
-        self.current_room_id = None
+    def __init__(self, websocket: WebSocket, Connect_id: str):
+        self.websocket = websocket # WebSocket 连接实例
+        self.Connect_id = Connect_id # 单次连接UUID
+        self.user_id: Optional[int] = None  # 用户UID（数据库主键）
+        self.username: Optional[str] = None  # 用户名
+        self.current_room_id = None # 所在房间ID
 
 # 主服务器
 class GameServer:
     def __init__(self):
         # 玩家连接集合保存每个websocket连接的信息
         self.players: Dict[str, PlayerConnection] = {}
-        # 用户名到玩家连接的映射
-        self.username_to_connection: Dict[str, PlayerConnection] = {}
+        # 用户ID到玩家连接的映射（用于游戏逻辑）
+        self.user_id_to_connection: Dict[int, PlayerConnection] = {}
         # 房间管理器
         self.room_manager = RoomManager(self)
-        # 房间id到游戏状态的映射
+        # 管理不同房间id到已启动的游戏服务的映射
         self.room_id_to_ChineseGameState: Dict[str, ChineseGameState] = {}
         # 全局计算服务
         self.calculation_service = GameCalculationService()
@@ -65,53 +66,55 @@ class GameServer:
         self.chat_server = chat_server
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
-    async def connect(self, websocket: WebSocket, player_id: str):
+    async def connect(self, websocket: WebSocket, Connect_id: str):
         await websocket.accept() # 接受玩家连接
-        self.players[player_id] = PlayerConnection(websocket, player_id) # 存储玩家连接
-        print(f"玩家 {player_id} 已连接")
+        self.players[Connect_id] = PlayerConnection(websocket, Connect_id) # 存储玩家连接
+        print(f"玩家 {Connect_id} 已连接")
 
     # 玩家断开连接：
-    def disconnect(self, player_id: str):
-        if player_id in self.players:
-            player = self.players[player_id]
-            # 删除用户名到玩家连接的映射
-            if player.username:
-                self.username_to_connection.pop(player.username, None)
+    def disconnect(self, Connect_id: str):
+        if Connect_id in self.players:
+            player = self.players[Connect_id]
+            # 删除用户ID到玩家连接的映射
+            if player.user_id:
+                self.user_id_to_connection.pop(player.user_id, None)
             # 帮助玩家自动离开房间
             if player.current_room_id:
-                asyncio.create_task(self.room_manager.leave_room(player_id, player.current_room_id))
+                asyncio.create_task(self.room_manager.leave_room(Connect_id, player.current_room_id))
+                player.current_room_id = None
             # 删除玩家连接
-            del self.players[player_id]
-            print(f"玩家 {player_id} 已断开连接")
+            del self.players[Connect_id]
+            print(f"玩家 {Connect_id} 已断开连接")
 
-    # 玩家登录：存储 [用户名,用户名到玩家连接的映射] : PlayerConnection[0,0,1,1]
-    def store_player_session(self, player_id: str, username: str):
-        if player_id in self.players:
-            player = self.players[player_id]
+    # 玩家登录：存储用户ID和用户名到玩家连接的映射
+    def store_player_session(self, Connect_id: str, user_id: int, username: str):
+        if Connect_id in self.players:
+            player = self.players[Connect_id]
+            player.user_id = user_id
             player.username = username
-            self.username_to_connection[username] = player
-            print(f"已存储玩家 {username} 的会话数据")
+            self.user_id_to_connection[user_id] = player # 存储用户ID到玩家连接的映射
+            print(f"已存储玩家 user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, player_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
-        return await self.room_manager.create_GB_room(player_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips)
 
     # 获取房间列表
     def get_room_list(self) -> Response:
         return self.room_manager.get_room_list()
 
     # 加入房间
-    async def join_room(self, player_id: str, room_id: str, password: str):
-        response = await self.room_manager.join_room(player_id, room_id, password)
-        await self.players[player_id].websocket.send_json(response.dict(exclude_none=True))
+    async def join_room(self, Connect_id: str, room_id: str, password: str):
+        response = await self.room_manager.join_room(Connect_id, room_id, password)
+        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 离开房间
-    async def leave_room(self, player_id: str, room_id: str):
-        response = await self.room_manager.leave_room(player_id, room_id)
-        await self.players[player_id].websocket.send_json(response.dict(exclude_none=True))
+    async def leave_room(self, Connect_id: str, room_id: str):
+        response = await self.room_manager.leave_room(Connect_id, room_id)
+        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 开始游戏
-    async def start_game(self, player_id: str, room_id: str):
+    async def start_game(self, Connect_id: str, room_id: str):
         # 检查房间是否存在
         if room_id not in self.room_manager.rooms:
             return Response(type="error_message", success=False, message="房间不存在")
@@ -119,8 +122,8 @@ class GameServer:
         room_data = self.room_manager.rooms[room_id]
         
         # 检查是否是房主
-        player = self.players[player_id]
-        if player.username != room_data["player_list"][0]:
+        player = self.players[Connect_id]
+        if player.user_id != room_data["player_list"][0]:
             return Response(type="error_message", success=False, message="只有房主能开始游戏")
             
         # 检查人数是否满足
@@ -134,11 +137,11 @@ class GameServer:
 
 game_server = GameServer()
 
-@app.websocket("/game/{player_id}")
-async def message_input(websocket: WebSocket, player_id: str):
-    print(f"收到新的连接请求: {player_id}")
-    await game_server.connect(websocket, player_id)
-    print(f"连接建立成功: {player_id}")
+@app.websocket("/game/{Connect_id}")
+async def message_input(websocket: WebSocket, Connect_id: str):
+    print(f"收到新的连接请求: {Connect_id}")
+    await game_server.connect(websocket, Connect_id)
+    print(f"连接建立成功: {Connect_id}")
 
     while True:
         message = await websocket.receive_json()
@@ -147,14 +150,14 @@ async def message_input(websocket: WebSocket, player_id: str):
         if message["type"] == "login":
             print(f"登录请求 - 用户名: {message['username']}, 密码: {message['password']}")
             response = await player_login(message["username"], message["password"])
-            if response.success:
-                game_server.store_player_session(player_id, message["username"])
+            if response.success and response.user_id:
+                game_server.store_player_session(Connect_id, response.user_id, message["username"])
             await websocket.send_json(response.dict(exclude_none=True))
 
         elif message["type"] == "create_GB_room":
-            print(f"创建房间请求 - 用户名: {player_id}")
+            print(f"创建房间请求 - 用户名: {Connect_id}")
             response = await game_server.create_GB_room(
-                player_id,
+                Connect_id,
                 message["roomname"],
                 message["gameround"],
                 message["password"],
@@ -169,49 +172,50 @@ async def message_input(websocket: WebSocket, player_id: str):
             await websocket.send_json(response.dict(exclude_none=True))
 
         elif message["type"] == "join_room":
-            await game_server.join_room(player_id, message["room_id"], message["password"])
+            await game_server.join_room(Connect_id, message["room_id"], message["password"])
 
         elif message["type"] == "leave_room":
-            await game_server.leave_room(player_id, message["room_id"])
+            await game_server.leave_room(Connect_id, message["room_id"])
 
         elif message["type"] == "start_game":
-            await game_server.start_game(player_id, message["room_id"])
+            await game_server.start_game(Connect_id, message["room_id"])
 
         elif message["type"] == "CutTiles":
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-            await chinese_game_state.get_action(player_id, "cut", message["cutClass"], message["TileId"], target_tile=message.get("targetTile", 0))
+            await chinese_game_state.get_action(Connect_id, "cut", message["cutClass"], message["TileId"], target_tile=message.get("targetTile", 0))
 
         elif message["type"] == "send_action":
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-            await chinese_game_state.get_action(player_id, message["action"],cutClass=None,TileId=None,target_tile=message["targetTile"])
+            await chinese_game_state.get_action(Connect_id, message["action"],cutClass=None,TileId=None,target_tile=message["targetTile"])
 
 async def player_login(username: str, password: str) -> Response:
     """
     玩家登录/注册功能
     如果用户不存在则自动注册，存在则验证密码
-    
     Args:
         username: 用户名
         password: 密码
-        
     Returns:
         Response 对象，包含登录结果和用户信息
     """
     # 检查用户是否存在
-    player = db_manager.get_user_by_username(username)
+    player:Optional[Dict[str, Any]] = db_manager.get_user_by_username(username)
     
-    if player:
-        # 用户存在，验证密码（传入已查询的用户数据，避免重复查询）
-        if db_manager.verify_password(username, password, user_data=player):
+    if player is not None:
+        # 用户存在，验证密码（直接使用已查询的用户数据）
+        stored_password_hash = player.get('password')
+        if stored_password_hash and db_manager.verify_password(password, stored_password_hash):
             # 生成用户秘钥
             user_key = await chat_server.hash_username(username)
+            user_id = player.get('user_id')
             print(f" 生成用户秘钥{user_key} ")
             return Response(
                 type="login",
                 success=True,
                 message="登录成功",
+                user_id=user_id,
                 username=username,
                 userkey=user_key
             )
@@ -224,7 +228,8 @@ async def player_login(username: str, password: str) -> Response:
             )
     else:
         # 用户不存在，创建新用户
-        if db_manager.create_user(username, password):
+        user_id = db_manager.create_user(username, password)
+        if user_id:
             # 生成用户秘钥
             user_key = await chat_server.hash_username(username)
             print(f" 生成用户秘钥{user_key} ")
@@ -232,6 +237,7 @@ async def player_login(username: str, password: str) -> Response:
                 type="login",
                 success=True,
                 message="注册并登录成功",
+                user_id=user_id,
                 username=username,
                 userkey=user_key
             )

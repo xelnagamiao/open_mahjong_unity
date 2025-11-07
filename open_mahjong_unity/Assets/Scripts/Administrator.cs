@@ -7,6 +7,7 @@ public class Administrator : MonoBehaviour
     // 用户信息
     public string Username { get; private set; }
     public string Userkey { get; private set; }
+    public int UserId { get; private set; }
     public string room_id;
 
     private void Awake()
@@ -20,10 +21,11 @@ public class Administrator : MonoBehaviour
     }
 
     // 设置用户信息
-    public void SetUserInfo(string username,string userkey)
+    public void SetUserInfo(string username,string userkey,int user_id)
     {
         Username = username;
         Userkey = userkey;
+        UserId = user_id;
         ChatManager.Instance.LoginChatServer(username, userkey);
     }
 

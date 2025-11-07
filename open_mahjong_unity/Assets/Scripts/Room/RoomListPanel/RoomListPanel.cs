@@ -108,7 +108,7 @@ public class RoomListPanel : MonoBehaviour
                 roomItemComponent.SetRoomListInfo(
                     roomId: roomData.room_id,
                     roomName: roomData.room_name,
-                    hostName: roomData.host_name,
+                    hostUserName: roomData.host_user_name,
                     playerCount: roomData.player_list.Length,
                     gameTime: roomData.game_round,
                     hasPassword: roomData.has_password,

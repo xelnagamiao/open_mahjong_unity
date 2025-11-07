@@ -9,6 +9,8 @@ from psycopg2.pool import ThreadedConnectionPool, SimpleConnectionPool
 from typing import Optional, Dict, Any
 import logging
 import threading
+import hashlib
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -51,31 +53,38 @@ class DatabaseManager:
             self.pool.putconn(conn)
     
     def init_database(self):
-        # 初始化数据库表，如果表不存在则创建
         conn = None
         try:
             conn = psycopg2.connect(**self.config)
             cursor = conn.cursor()
-            
-            # 创建用户表 users
-            create_table_sql = """
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-            cursor.execute(create_table_sql)
-            conn.commit()
-            print('数据表创建成功')
-            logger.info('数据表创建成功')
-            
-            # 表创建成功后，初始化连接池
+
+            # 创建表（如果不存在）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id BIGSERIAL PRIMARY KEY,
+                    username VARCHAR(255) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # 检查表是否为空
+            cursor.execute("SELECT COUNT(*) FROM users;")
+            user_count = cursor.fetchone()[0]
+
+            if user_count == 0:
+                # 表为空：重置序列，使第一个 user_id = 10000001
+                cursor.execute("SELECT setval('users_user_id_seq', 10000000, false);")
+            else:
+                print(f"用户表已有 {user_count} 个用户")
+
+            conn.commit() # 提交
+            print('数据表初始化成功')
             self._get_pool()
-        except Error as e:
-            print(f'数据表创建失败: {e}')
-            logger.error(f'数据表创建失败: {e}')
+
+        except Exception as e:
+            print(f'数据表初始化失败: {e}')
+            logger.error(f'数据表初始化失败: {e}', exc_info=True)
             if conn:
                 conn.rollback()
         finally:
@@ -100,6 +109,37 @@ class DatabaseManager:
                 (username,)
             )
             user = cursor.fetchone()
+            # 如果用户存在，返回用户信息
+            if user:
+                return dict[str, Any](user)
+            return None
+        except Error as e:
+            logger.error(f'查询用户失败: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def get_user_by_user_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        根据用户ID获取用户信息
+        Args:
+            user_id: 用户ID
+        Returns:
+            用户信息字典，如果不存在则返回 None
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM users WHERE user_id = %s",
+                (user_id,)
+            )
+            user = cursor.fetchone()
             
             if user:
                 return dict(user)
@@ -114,59 +154,54 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
-    def create_user(self, username: str, password: str) -> bool:
+    def create_user(self, username: str, password: str) -> Optional[int]:
         """
-        创建新用户
+        创建新用户（密码会自动哈希存储）
         
         Args:
             username: 用户名
-            password: 密码
+            password: 明文密码
             
         Returns:
-            创建成功返回 True，失败返回 False
+            创建成功返回 user_id，失败返回 None
         """
         conn = None
         try:
+            # 对密码进行哈希处理
+            password_hash = self._hash_password(password)
+            
             conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO users (username, password) VALUES (%s, %s)",
-                (username, password)
+                "INSERT INTO users (username, password) VALUES (%s, %s) RETURNING user_id",
+                (username, password_hash)
             )
+            user_id = cursor.fetchone()[0]
             conn.commit()
-            logger.info(f'用户 {username} 创建成功')
-            return True
+            logger.info(f'用户 {username} 创建成功，user_id: {user_id}')
+            return user_id
         except Error as e:
             logger.error(f'创建用户失败: {e}')
             if conn:
                 conn.rollback()
-            return False
+            return None
         finally:
             if conn:
                 cursor.close()
                 self._put_connection(conn)
     
-    def verify_password(self, username: str, password: str, user_data: Optional[Dict[str, Any]] = None) -> bool:
+    def verify_password(self, password: str, stored_hash: str) -> bool:
         """
-        验证用户密码
+        验证密码是否匹配存储的哈希值
         
         Args:
-            username: 用户名
-            password: 密码
-            user_data: 可选的用户数据，避免重复查询（如果已查询过用户信息）
+            password: 待验证的明文密码
+            stored_hash: 存储的密码哈希值（格式：salt:hash）
             
         Returns:
-            密码正确返回 True，否则返回 False
+            密码匹配返回 True，否则返回 False
         """
-        # 如果已经提供了用户数据，直接使用，避免重复查询
-        if user_data is not None:
-            return user_data.get('password') == password
-        
-        # 否则查询用户信息
-        user = self.get_user_by_username(username)
-        if user and user.get('password') == password:
-            return True
-        return False
+        return self._verify_password_hash(password, stored_hash)
     
     def user_exists(self, username: str) -> bool:
         """

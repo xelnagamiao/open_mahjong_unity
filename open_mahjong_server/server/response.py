@@ -6,7 +6,8 @@ from typing import Dict, Optional, List
 # 0.4 定义发送数据格式BaseModel系列 能够创建符合json定义的格式
 
 class PlayerInfo(BaseModel):
-    username: str
+    user_id: int  # 用户ID
+    username: str  # 用户名（用于显示）
     hand_tiles_count: int
     discard_tiles: List[int]
     combination_tiles: List[str]
@@ -71,6 +72,7 @@ class Response(BaseModel):
     success: bool
     message: str
     # 消息体
+    user_id: Optional[int] = None  # 用于在玩家登录时返回用户ID
     username: Optional[str] = None # 用于在玩家登录时返回玩家信息
     userkey: Optional[str] = None # 用于在玩家登录时返回用户名对应的秘钥
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据

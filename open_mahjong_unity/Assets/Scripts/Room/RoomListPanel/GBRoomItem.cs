@@ -28,13 +28,13 @@ public class GBRoomItem : MonoBehaviour
     private bool needPassword; // 是否有密码
 
     // SetRoomInfo 会在RoomPanel的HandleRoomListResponse中调用
-    public void SetRoomListInfo(string roomId,string roomName,string hostName,int playerCount,int gameTime,bool hasPassword,string room_type)
+    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type)
     {
         this.roomId = roomId; // 保存房间号,在JoinClick中返回上一级
         this.needPassword = hasPassword;
         this.roomID.text = $"房间号: {roomId}";
         this.roomName.text = $"房间名: {roomName}";
-        this.hostName.text = $"房主: {hostName}";
+        this.hostName.text = $"房主: {hostUserName}";
         this.playerCount.text = $"玩家数量{playerCount}/4";
         this.gameRound.text = $"圈数：{gameTime}";
         this.hasPassword.text = $"密码：{hasPassword}";

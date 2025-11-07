@@ -21,7 +21,8 @@ async def broadcast_game_start(self):
     # 为每个玩家准备信息
     for player in self.player_list: # 遍历玩家列表
         player_info = {
-            'username': player.username, # 用户名
+            'user_id': player.user_id, # 用户ID
+            'username': player.username, # 用户名（用于显示）
             'hand_tiles_count': len(player.hand_tiles), # 手牌数量
             'discard_tiles': player.discard_tiles, # 弃牌
             'combination_tiles': player.combination_tiles, # 组合
@@ -36,9 +37,9 @@ async def broadcast_game_start(self):
     # 为每个玩家发送消息
     for current_player in self.player_list:
         try:
-            # 如果player_list中有玩家在self.room.game_server.username_to_connection:
-            if current_player.username in self.game_server.username_to_connection:
-                player_conn = self.game_server.username_to_connection[current_player.username]
+            # 如果player_list中有玩家在self.game_server.user_id_to_connection:
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 
                 # 将游戏信息字典转换为 GameInfo 类 并添加 self_hand_tiles 字段
                 game_info = GameInfo(
@@ -65,8 +66,8 @@ async def broadcast_ask_hand_action(self):
     for i, current_player in enumerate(self.player_list):
         if i == self.current_player_index:
             # 对当前玩家发送包含摸牌信息的消息
-            if current_player.username in self.game_server.username_to_connection:
-                player_conn = self.game_server.username_to_connection[current_player.username]
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(
                     type="broadcast_hand_action_GB",
                     success=True,
@@ -83,8 +84,8 @@ async def broadcast_ask_hand_action(self):
                 print(f"已向玩家 {current_player.username} 广播手牌操作信息{response.dict(exclude_none=True)}")
         else:
             # 向其余玩家发送通用消息
-            if current_player.username in self.game_server.username_to_connection:
-                player_conn = self.game_server.username_to_connection[current_player.username]
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(
                     type="broadcast_hand_action_GB",
                     success=True,
@@ -108,8 +109,8 @@ async def broadcast_ask_other_action(self):
     for i, current_player in enumerate(self.player_list):
         if self.action_dict[i] != []:
             # 发送询问行动信息
-            if current_player.username in self.game_server.username_to_connection:
-                player_conn = self.game_server.username_to_connection[current_player.username]
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(
                     type="ask_other_action_GB",
                     success=True,
@@ -125,8 +126,8 @@ async def broadcast_ask_other_action(self):
                 print(f"已向玩家 {current_player.username} 广播询问操作信息{response.dict(exclude_none=True)}")
         else:
             # 发送通用信息
-            if current_player.username in self.game_server.username_to_connection:
-                player_conn = self.game_server.username_to_connection[current_player.username]
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(
                     type="ask_other_action_GB",
                     success=True,
@@ -158,8 +159,8 @@ async def broadcast_do_action(
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         # 发送通用信息
-        if current_player.username in self.game_server.username_to_connection:
-            player_conn = self.game_server.username_to_connection[current_player.username]
+        if current_player.username in self.game_server.user_id_to_connection:
+            player_conn = self.game_server.user_id_to_connection[current_player.username]
 
             response = Response(
                 type="do_action_GB",
@@ -218,13 +219,13 @@ async def broadcast_result(self,
 async def broadcast_game_end(self):
     self.action_tick += 1
     for i, current_player in enumerate(self.player_list):
-        if current_player.username in self.game_server.username_to_connection:
-            player_conn = self.game_server.username_to_connection[current_player.username]
+        if current_player.user_id in self.game_server.user_id_to_connection:
+            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
             response = Response(
                 type="game_end_GB",
                 success=True,
                 message="游戏结束",
-                game_random_seed=self.whole_game_random_seed,  # 游戏结束时发送完整随机种子供验证
+                game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            print(f"已向玩家 {current_player.username} 广播游戏结束信息{response.dict(exclude_none=True)}")
+            print(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息{response.dict(exclude_none=True)}")

@@ -7,10 +7,12 @@ public class RoomInfo
     public string room_id;
     public string room_type;
     public int max_player;
-    public string[] player_list;
+    public int[] player_list;
+    public Dictionary <int,string> player_names;
     public bool has_password;
     public bool tips;
-    public string host_name;
+    public string host_user_name;
+    public int host_user_id;
     public string room_name;
     public int game_round;
     public int round_timer;
@@ -26,6 +28,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     // 消息体
     public string username; // 登录用返回用户名
     public string userkey; // 登录用返回用户key
+    public int user_id; // 登录用返回用户ID
     public RoomInfo[] room_list; // 返回房间列表
     public RoomInfo room_info; // 返回单个房间信息
     public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
@@ -82,6 +85,7 @@ public class DoActionInfo // 执行操作
 public class PlayerInfo // 房间信息中单个玩家信息
 {
     public string username;             // 玩家名
+    public int user_id;                  // 玩家uid
     public int hand_tiles_count;        // 手牌数量
     public int[] discard_tiles;         // 弃牌 (改为int数组)
     public string[] combination_tiles;  // 组合牌
@@ -100,7 +104,7 @@ public class GameInfo // 游戏开始时传递房间信息
     public int action_tick;             // 操作帧
     public int max_round;               // 最大局数
     public int tile_count;              // 牌山剩余牌数
-    public int round_random_seed;       // 局内随机种子
+    public long round_random_seed;       // 局内随机种子
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时

@@ -17,6 +17,11 @@ public class RoomPanel : MonoBehaviour
     [SerializeField] private Button backButton; // 返回按钮
     [SerializeField] private Button startButton; // 开始按钮
 
+    int player1_id = 0;
+    int player2_id = 0;
+    int player3_id = 0;
+    int player4_id = 0;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -57,10 +62,10 @@ public class RoomPanel : MonoBehaviour
         {
             switch (i)
             {
-                case 0: player_1.text = roomInfo.player_list[i]; break;
-                case 1: player_2.text = roomInfo.player_list[i]; break;
-                case 2: player_3.text = roomInfo.player_list[i]; break;
-                case 3: player_4.text = roomInfo.player_list[i]; break;
+                case 0: player1_id = roomInfo.player_list[i]; player_1.text = roomInfo.player_names[player1_id]; break;
+                case 1: player2_id = roomInfo.player_list[i]; player_2.text = roomInfo.player_names[player2_id]; break;
+                case 2: player3_id = roomInfo.player_list[i]; player_3.text = roomInfo.player_names[player3_id]; break;
+                case 3: player4_id = roomInfo.player_list[i]; player_4.text = roomInfo.player_names[player4_id]; break;
             }
         }
 
