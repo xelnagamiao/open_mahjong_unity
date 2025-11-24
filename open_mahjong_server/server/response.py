@@ -50,6 +50,7 @@ class Do_action_info(BaseModel):
     action_player: int # 存储操作玩家索引
     cut_tile: Optional[int] = None # 在切牌时广播切牌
     cut_class: Optional[bool] = None # 在切牌时广播切牌手模切类型
+    cut_tile_index: Optional[int] = None # 在切牌时广播切牌位置
     deal_tile: Optional[int] = None # 在摸牌时广播摸牌
     buhua_tile: Optional[int] = None # 在补花时广播补花
     combination_mask: Optional[List[int]] = None # 在鸣牌时传递鸣牌形状

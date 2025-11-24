@@ -9,7 +9,7 @@ async def broadcast_game_start(self):
         'room_id': self.room_id, # 房间ID
         'tips': self.tips, # 是否提示
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
-        "action_tick": self.action_tick, # 操作帧
+        "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
         'round_random_seed': self.round_random_seed, # 单局随机种子
@@ -61,7 +61,7 @@ async def broadcast_game_start(self):
 
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
-    self.action_tick += 1
+    self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         if i == self.current_player_index:
@@ -77,7 +77,7 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
-                        action_tick=self.action_tick
+                        action_tick=self.server_action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -95,7 +95,7 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
-                        action_tick=self.action_tick
+                        action_tick=self.server_action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -104,7 +104,7 @@ async def broadcast_ask_hand_action(self):
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
-    self.action_tick += 1
+    self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         if self.action_dict[i] != []:
@@ -119,7 +119,7 @@ async def broadcast_ask_other_action(self):
                         remaining_time=current_player.remaining_time,
                         action_list=self.action_dict[i],
                         cut_tile=cut_tile,
-                        action_tick=self.action_tick
+                        action_tick=self.server_action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -136,7 +136,7 @@ async def broadcast_ask_other_action(self):
                         remaining_time=current_player.remaining_time,
                         action_list=[],
                         cut_tile=cut_tile,
-                        action_tick=self.action_tick
+                        action_tick=self.server_action_tick
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -149,18 +149,19 @@ async def broadcast_do_action(
     action_player: int,
     cut_tile: int = None,
     cut_class: bool = None,
+    cut_tile_index: int = None,
     deal_tile: int = None,
     buhua_tile: int = None,
     combination_target: str = None,
     combination_mask: List[int] = None
     ):
     
-    self.action_tick += 1
+    self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         # 发送通用信息
-        if current_player.username in self.game_server.user_id_to_connection:
-            player_conn = self.game_server.user_id_to_connection[current_player.username]
+        if current_player.user_id in self.game_server.user_id_to_connection:
+            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
             response = Response(
                 type="do_action_GB",
@@ -169,9 +170,10 @@ async def broadcast_do_action(
                 do_action_info=Do_action_info(
                     action_list=action_list,
                     action_player=action_player,
-                    action_tick=self.action_tick,
+                    action_tick=self.server_action_tick,
                     cut_tile=cut_tile,
                     cut_class=cut_class,
+                    cut_tile_index = cut_tile_index,
                     deal_tile=deal_tile,
                     buhua_tile=buhua_tile,
                     combination_mask=combination_mask,
@@ -191,11 +193,11 @@ async def broadcast_result(self,
                           hepai_player_hand: Optional[List[int]] = None,
                           hepai_player_huapai: Optional[List[int]] = None,
                           hepai_player_combination_mask: Optional[List[List[int]]] = None):
-    self.action_tick += 1
+    self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        if current_player.username in self.game_server.username_to_connection:
-            player_conn = self.game_server.username_to_connection[current_player.username]
+        if current_player.user_id in self.game_server.user_id_to_connection:
+            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
             
             response = Response(
                 type="show_result_GB",
@@ -210,22 +212,30 @@ async def broadcast_result(self,
                     hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
                     hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
                     hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
-                    action_tick=self.action_tick
+                    action_tick=self.server_action_tick
                 )
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 {current_player.username} 广播结算结果信息{response.dict(exclude_none=True)}")
 
 async def broadcast_game_end(self):
-    self.action_tick += 1
+    self.server_action_tick += 1
     for i, current_player in enumerate(self.player_list):
         if current_player.user_id in self.game_server.user_id_to_connection:
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+
+            # 玩家排名字典
+            player_rank = {}
+            for player in self.player_list:
+                player_rank[player.user_id] = player.record_counter.rank_result
+
             response = Response(
                 type="game_end_GB",
                 success=True,
                 message="游戏结束",
                 game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
+                player_rank=player_rank
             )
+            
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             print(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息{response.dict(exclude_none=True)}")

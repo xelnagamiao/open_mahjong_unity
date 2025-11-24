@@ -48,6 +48,7 @@ public class SendChineseGameTileRequest // 发送国标游戏牌请求
     public string type;
     public bool? cutClass;
     public int TileId;
+    public int cutIndex;
     public string room_id;
 }
 

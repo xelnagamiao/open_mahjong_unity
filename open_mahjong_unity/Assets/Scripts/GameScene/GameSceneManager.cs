@@ -285,7 +285,6 @@ public class GameSceneManager : MonoBehaviour
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
         else if (SwitchType == "askMingPaiAction"){
-            BoardCanvas.Instance.ShowCurrentPlayer("self"); // 显示当前玩家
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
         }
@@ -316,8 +315,6 @@ public class GameSceneManager : MonoBehaviour
         else if (SwitchType == "TimeOut"){
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();
-            // 清空允许操作列表
-            allowActionList.Clear();
         }
     }
 

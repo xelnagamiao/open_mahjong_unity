@@ -14,14 +14,15 @@ from .game_calculation.game_calculation_service import GameCalculationService
 import secrets,hashlib
 import subprocess,os,signal,sys
 import time
+from .config import host, user, password, database, port
 
 # 创建数据库实例
 db_manager = DatabaseManager(
-    host='localhost',
-    user='postgres',
-    password='qwe123',
-    database='open_mahjong',
-    port=5432
+    host = host,
+    user = user,
+    password = password,
+    database = database,
+    port = port
 )
 
 # 创建聊天服务器实例
@@ -183,12 +184,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
         elif message["type"] == "CutTiles":
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-            await chinese_game_state.get_action(Connect_id, "cut", message["cutClass"], message["TileId"], target_tile=message.get("targetTile", 0))
+            await chinese_game_state.get_action(Connect_id, "cut", message["cutClass"], message["TileId"], cutIndex = message["cutIndex"],target_tile=None)
 
         elif message["type"] == "send_action":
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-            await chinese_game_state.get_action(Connect_id, message["action"],cutClass=None,TileId=None,target_tile=message["targetTile"])
+            await chinese_game_state.get_action(Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
 
 async def player_login(username: str, password: str) -> Response:
     """

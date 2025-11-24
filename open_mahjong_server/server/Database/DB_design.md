@@ -43,8 +43,9 @@ skin 皮肤
 | win_count | INT | NOT NULL DEFAULT 0 | 和牌总次数 |
 | self_draw_count | INT | NOT NULL DEFAULT 0 | 自摸总次数 |
 | deal_in_count | INT | NOT NULL DEFAULT 0 | 放铳总次数 |
-| avg_fan | DECIMAL(10,7) | NOT NULL DEFAULT 0 | 平均番数 |
-| avg_win_turn | DECIMAL(10,7) | NOT NULL DEFAULT 0 | 平均和巡 |
+| total_fan_score | INT | NOT NULL DEFAULT 0 | 总和牌番数（用于计算平均番数：total_fan_score / win_count） |
+| total_win_turn | INT | NOT NULL DEFAULT 0 | 总和牌巡目（用于计算平均和巡：total_win_turn / win_count） |
+| total_fangchong_score | INT | NOT NULL DEFAULT 0 | 总放铳分数（铳点） |
 | first_place_count | INT | NOT NULL DEFAULT 0 | 一位次数 |
 | second_place_count | INT | NOT NULL DEFAULT 0 | 二位次数 |
 | third_place_count | INT | NOT NULL DEFAULT 0 | 三位次数 |

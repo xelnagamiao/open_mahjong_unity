@@ -362,12 +362,13 @@ public class NetworkManager : MonoBehaviour
     }
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
-    public void SendChineseGameTile(bool cutClass,int tileId,string roomId){
+    public void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
         var request = new SendChineseGameTileRequest
         {
             type = "CutTiles",
             cutClass = cutClass,
             TileId = tileId,
+            cutIndex = cutIndex,
             room_id = roomId
         };
         websocket.Send(JsonConvert.SerializeObject(request));
