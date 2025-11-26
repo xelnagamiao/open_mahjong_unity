@@ -119,74 +119,61 @@ def init_game_round(self):
         "current_round": self.current_round,
         "tiles_list": self.tiles_list,
         "round_index": self.round_index,
-        "action_ticks": {}
+        "action_ticks": []
     }
 
 # 牌谱记录补花
 def player_action_record_buhua(self,max_tile: int):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-        "action_type": "buhua",
-        "buhua_tile": max_tile
-    }
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["buhua",max_tile]
+    )
 
 # 牌谱记录摸牌
 def player_action_record_deal(self,deal_tile: int):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-        "action_type": "deal",
-        "deal_tile": deal_tile
-    }
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["deal",deal_tile]
+    )
 
 # 牌谱记录切牌
 def player_action_record_cut(self,
     cut_tile: int,
     is_moqie: bool = False):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-        "action_type": "cut",
-        "cut_tile": cut_tile,
-        "is_moqie": is_moqie
-    }
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["cut",cut_tile,is_moqie]
+    )
 
 # 牌谱记录暗杠
 def player_action_record_angang(self,angang_tile: int):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-        "action_type": "angang",
-        "angang_tile": angang_tile
-    }
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["angang",angang_tile]
+    )
 
 # 牌谱记录加杠
 def player_action_record_jiagang(self,jiagang_tile: int):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-        "action_type": "jiagang",
-        "jiagang_tile": jiagang_tile
-    }
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["jiagang",jiagang_tile]
+    )
 
 # 牌谱记录吃碰杠牌
-def player_action_record_chipenggang(self,action_type: str,chi_tile: int,action_player: int):
+def player_action_record_chipenggang(self,mingpai_tile: int,action_player: int):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-        "action_type": action_type,
-        "chi_tile": chi_tile,
-        "action_player": action_player
-    }
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["chipenggang",mingpai_tile,action_player]
+    )
 
 # 牌谱记录和牌
 def player_action_record_end(self,hu_class: str,hu_score: int,hu_fan: list,hepai_player_index: int):
     self.player_action_tick += 1
     if hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
-        self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-            "action_type": "end",
-            "hu_class": hu_class,
-            "hu_score": hu_score,
-            "hu_fan": hu_fan,
-            "hepai_player_index": hepai_player_index
-        }
+        self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+            [hu_class,hu_score,hu_fan,hepai_player_index]
+        )
     else:
-        self.game_record["game_round"][f"round_index_{self.round_index}"][f"{self.player_action_tick}"] = {
-            "action_type": "end",
-            "hu_class": "liuju",
-        }
+        self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+            ["liuju"]
+        )

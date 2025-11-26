@@ -145,6 +145,7 @@ GameObject:
   - component: {fileID: 3951932350744233465}
   - component: {fileID: 2346505175995490868}
   - component: {fileID: 58983520424694557}
+  - component: {fileID: -751230659157448028}
   m_Layer: 11
   m_Name: TipsWindows
   m_TagString: Untagged
@@ -210,3 +211,15 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &-751230659157448028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7909849220142529909}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10f71cb20f97365429248b72099b5fb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

@@ -372,7 +372,7 @@ class ChineseGameState:
                         await broadcast_ask_other_action(self) # 广播是否胡牌
 
                     # 等待手牌操作（仅切牌、吃碰后）：
-                    case "onlycut_afteraction": # 吃碰后切牌行为
+                    case "onlycut_after_action": # 吃碰后切牌行为
                         self.action_dict = {0:[],1:[],2:[],3:[]}
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
@@ -830,7 +830,7 @@ class ChineseGameState:
                         if action_type == "gang":
                             self.game_status = "deal_card_after_gang" # 转移行为
                         else:
-                            self.game_status = "onlycut_afteraction" # 转移行为
+                            self.game_status = "onlycut_after_action" # 转移行为
                         return
                     
                 # 如果不吃碰杠或者超时则进行历时行为 继续下一个玩家摸牌
@@ -838,7 +838,7 @@ class ChineseGameState:
                 return
             
             # 在转移行为以后只能进行切牌操作
-            case "onlycut_afteraction":
+            case "onlycut_after_action":
                 if action_data:
                     if action_type == "cut": # 切牌
                         is_moqie = action_data.get("cutClass")  # 获取手模切布尔值
