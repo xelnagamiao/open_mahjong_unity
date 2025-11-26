@@ -1,5 +1,4 @@
 using System.Threading;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -263,6 +262,14 @@ public class GameSceneManager : MonoBehaviour
             // 流局情况下，显示流局文本
             EndLiujuPanel.Instance.ShowLiujuPanel();
         }
+    }
+
+    // 游戏结束
+    public void GameEnd(long game_random_seed, Dictionary<int, Dictionary<string, object>> player_final_data){
+        // 重置自身命令
+        SwitchCurrentPlayer("None","ClearAction",0);
+        // 显示游戏结束结果
+        ENDGamePanel.Instance.ShowGameEndPanel(game_random_seed, player_final_data);
     }
 
     public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){

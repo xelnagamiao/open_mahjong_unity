@@ -68,6 +68,11 @@ class Show_result_info(BaseModel):
     hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
     action_tick: int
 
+class Game_end_info(BaseModel):
+    """游戏结束信息"""
+    game_random_seed: int  # 游戏随机种子（用于验证）
+    player_final_data: Dict[int, Dict[str, int]]  # 玩家最终数据 {user_id: {"rank": int, "score": int, "pt": int}}
+
 class Response(BaseModel):
     type: str
     success: bool
@@ -83,3 +88,4 @@ class Response(BaseModel):
     ask_other_action_info: Optional[Ask_other_action_info] = None # 用于询问切牌后其他家玩家操作 吃 碰 杠 胡
     do_action_info: Optional[Do_action_info] = None # 用于广播玩家操作
     show_result_info: Optional[Show_result_info] = None # 用于广播结算结果
+    game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息

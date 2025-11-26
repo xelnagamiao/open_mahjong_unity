@@ -516,7 +516,7 @@ class ChineseGameState:
         # 按分数排序玩家
         self.player_list.sort(key=lambda x: x.score, reverse=True)
         for i in self.player_list:
-            i.record_counter.rank_result = self.player_list.index(i)
+            i.record_counter.rank_result = self.player_list.index(i)+1
 
         # 发送游戏结算信息
         await broadcast_game_end(self) # 广播游戏结束信息

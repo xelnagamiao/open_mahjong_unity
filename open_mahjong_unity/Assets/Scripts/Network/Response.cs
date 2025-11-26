@@ -32,10 +32,17 @@ public class Response // 所有后端的返回数据都由Response类接收
     public RoomInfo[] room_list; // 返回房间列表
     public RoomInfo room_info; // 返回单个房间信息
     public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
-    public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问摸牌后自己的操作
-    public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问切牌后其他家或许有的操作
+    public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问切片补花暗杠自摸
+    public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问吃碰杠和
     public DoActionInfo do_action_info; // 国标游戏中执行操作
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
+    public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
+}
+
+public class GameEndInfo // 显示游戏结束结果
+{
+    public long game_random_seed; // 游戏随机种子
+    public Dictionary<int, Dictionary<string, object>> player_final_data; // endgame数据 {user_id: {"rank": int, "score": int, "pt": int, "username": string}}
 }
 
 public class ShowResultInfo // 显示结算结果

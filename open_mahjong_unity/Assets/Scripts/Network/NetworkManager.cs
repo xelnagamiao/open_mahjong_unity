@@ -246,6 +246,12 @@ public class NetworkManager : MonoBehaviour
                     );
                     break;
                 case "game_end_GB":
+                    Debug.Log($"收到游戏结束消息: {response.game_end_info}");
+                    GameEndInfo gameendresponse = response.game_end_info;
+                    GameSceneManager.Instance.GameEnd(
+                        gameendresponse.game_random_seed,
+                        gameendresponse.player_final_data
+                    );
                     break;
                 
                 default:

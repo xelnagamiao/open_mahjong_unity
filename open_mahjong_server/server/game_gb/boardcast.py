@@ -1,4 +1,4 @@
-from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info
+from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info
 from typing import List, Dict, Optional
 
 # 广播游戏开始/重连 方法
@@ -219,22 +219,33 @@ async def broadcast_result(self,
             print(f"已向玩家 {current_player.username} 广播结算结果信息{response.dict(exclude_none=True)}")
 
 async def broadcast_game_end(self):
+    """广播游戏结束信息"""
     self.server_action_tick += 1
-    for i, current_player in enumerate(self.player_list):
+    
+    # 构建玩家最终数据字典 {user_id: {"rank": int, "score": int, "pt": int}}
+    player_final_data = {}
+    for player in self.player_list:
+
+        player_final_data[player.user_id] = {
+            "rank": player.record_counter.rank_result,
+            "score": player.score,
+            "pt": 0,  # 默认0分
+            "username": player.username
+        }
+    
+    # 为每个玩家发送游戏结束信息
+    for current_player in self.player_list:
         if current_player.user_id in self.game_server.user_id_to_connection:
             player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-
-            # 玩家排名字典
-            player_rank = {}
-            for player in self.player_list:
-                player_rank[player.user_id] = player.record_counter.rank_result
-
+            
             response = Response(
                 type="game_end_GB",
                 success=True,
                 message="游戏结束",
-                game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
-                player_rank=player_rank
+                game_end_info=Game_end_info(
+                    game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
+                    player_final_data=player_final_data
+                )
             )
             
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
