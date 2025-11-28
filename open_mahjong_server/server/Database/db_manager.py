@@ -69,12 +69,26 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建牌谱记录表
+            # 创建对局记录表
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS game_record (
-                    record_id BIGSERIAL PRIMARY KEY,
-                    game_record JSONB NOT NULL,
+                CREATE TABLE IF NOT EXISTS game_records (
+                    game_id BIGSERIAL PRIMARY KEY,
+                    record JSONB NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # 创建玩家对局记录表（使用复合主键 (game_id, user_id)）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS game_player_records (
+                    game_id BIGINT NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    username VARCHAR(255) NOT NULL,
+                    score INT NOT NULL,
+                    rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
+                    rule VARCHAR(10) NOT NULL,
+                    character_used VARCHAR(255) NULL,
+                    PRIMARY KEY (game_id, user_id)
                 );
             """)
 
@@ -370,16 +384,40 @@ class DatabaseManager:
             conn = self._get_connection()
             cursor = conn.cursor()
             
-            # 1. 存储牌谱记录到 game_record 表
+            # 1. 存储牌谱记录到 game_records 表
             game_record_json = json.dumps(game_record, ensure_ascii=False, default=str)
             cursor.execute(
-                "INSERT INTO game_record (game_record) VALUES (%s) RETURNING record_id",
+                "INSERT INTO game_records (record) VALUES (%s) RETURNING game_id",
                 (game_record_json,)
             )
-            record_id = cursor.fetchone()[0]
-            logger.info(f'牌谱记录已保存，record_id: {record_id}')
+            game_id = cursor.fetchone()[0]
+            logger.info(f'牌谱记录已保存到 game_records 表，game_id: {game_id}')
             
-            # 2. 根据 max_round 确定存储到哪个表
+            # 2. 存储玩家对局记录到 game_player_records 表
+            game_title = game_record.get("game_title", {})
+            rule = game_title.get("rule", "GB")
+            
+            # 获取玩家排名（rank_result 是 1-4）
+            for player in player_list:
+                rank = player.record_counter.rank_result  # 1-4
+                character_used = getattr(player, 'character_used', None)  # 可能不存在，默认为 None
+                
+                cursor.execute("""
+                    INSERT INTO game_player_records (
+                        game_id, user_id, username, score, rank, rule, character_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    game_id,
+                    player.user_id,
+                    player.username,
+                    player.score,
+                    rank,
+                    rule,
+                    character_used
+                ))
+            logger.info(f'已为 {len(player_list)} 名玩家保存对局记录到 game_player_records 表')
+            
+            # 3. 根据 max_round 确定存储到哪个表
             max_round = game_record.get("game_title", {}).get("max_round", 4)
             table_suffix_map = {
                 1: "1_4_game",  # 东风战
@@ -390,10 +428,10 @@ class DatabaseManager:
             table_suffix = table_suffix_map.get(max_round, "4_4_game")
             record_table = f"gb_record_{table_suffix}"
             
-            # 3. 计算总回合数（从 game_round 中获取）
+            # 4. 计算总回合数（从 game_round 中获取）
             total_rounds = len(game_record.get("game_round", {}))
             
-            # 4. 更新每个玩家的统计数据
+            # 5. 更新每个玩家的统计数据
             for player in player_list:
                 user_id = player.user_id
                 counter = player.record_counter
@@ -401,12 +439,13 @@ class DatabaseManager:
                 # 计算和牌总次数
                 win_count = counter.zimo_times + counter.dianhe_times
                 
-                # 根据排名更新排名统计
+                # 根据排名更新排名统计（rank_result 是 1-4，转换为 0-3 用于索引）
+                rank_index = counter.rank_result - 1  # 转换为 0-3
                 rank_updates = {
-                    "first_place_count": 1 if counter.rank_result == 0 else 0,
-                    "second_place_count": 1 if counter.rank_result == 1 else 0,
-                    "third_place_count": 1 if counter.rank_result == 2 else 0,
-                    "fourth_place_count": 1 if counter.rank_result == 3 else 0
+                    "first_place_count": 1 if rank_index == 0 else 0,
+                    "second_place_count": 1 if rank_index == 1 else 0,
+                    "third_place_count": 1 if rank_index == 2 else 0,
+                    "fourth_place_count": 1 if rank_index == 3 else 0
                 }
                 
                 # 使用 INSERT ... ON CONFLICT 更新或插入记录
@@ -444,7 +483,7 @@ class DatabaseManager:
                     rank_updates["third_place_count"], rank_updates["fourth_place_count"]
                 ))
             
-            # 5. 更新番种统计
+            # 6. 更新番种统计
             # 番种名称到数据库字段的映射
             fan_name_to_field = {
                 "大四喜": "dasixi", "大三元": "dasanyuan", "绿一色": "lvyise",
@@ -527,7 +566,7 @@ class DatabaseManager:
                         """, values)
             
             conn.commit()
-            logger.info(f'游戏记录和统计数据已保存，record_id: {record_id}')
+            logger.info(f'游戏记录和统计数据已保存，game_id: {game_id}')
             
         except Error as e:
             logger.error(f'存储游戏记录失败: {e}', exc_info=True)

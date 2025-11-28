@@ -19,15 +19,31 @@ PostgreSQL
 
 ### user_config 用户设置
 voice 音量
-head image 头像
-calcopter 选择角色
-skin 皮肤
+profile image 头像
+character 选择角色
+voice_type 选择音色
 
-### game_record 牌谱记录表，用于存储牌谱id和牌谱内容
+
+
+### game_records 存储对局记录的牌谱
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-
+| game_id | BIGSERIAL | PRIMARY KEY | 对局唯一标识，自增 |
+| record | JSONB | NOT NULL | 完整的牌谱记录（包含 game_title 和 game_round） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+
+### game_player_records 牌谱记录表，用于存储玩家对局记录
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| game_id | BIGINT | PRIMARY KEY, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
+| user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
+| score | INT | NOT NULL | 玩家最终分数（可能为负数） |
+| rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
+| rule | VARCHAR(10) | NOT NULL | 规则类型（GB=国标，JP=日麻） |
+| character_used | VARCHAR(255) | NULL | 使用的角色（可为空） |
+
+
 
 ### 客户端在数据头部会显示国标麻将总数据 以下为子项
 ### gb_record_4/4_game 全庄

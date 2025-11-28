@@ -42,7 +42,7 @@ public class Response // 所有后端的返回数据都由Response类接收
 public class GameEndInfo // 显示游戏结束结果
 {
     public long game_random_seed; // 游戏随机种子
-    public Dictionary<int, Dictionary<string, object>> player_final_data; // endgame数据 {user_id: {"rank": int, "score": int, "pt": int, "username": string}}
+    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据 {user_id: {"rank": int, "score": int, "pt": int, "username": string}}
 }
 
 public class ShowResultInfo // 显示结算结果

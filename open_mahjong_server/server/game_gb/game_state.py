@@ -5,7 +5,7 @@ import time
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
 from .logic_handler import get_index_relative_position
-from .game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record
+from .game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
 from ..game_calculation.game_calculation_service import GameCalculationService
 from ..database.db_manager import DatabaseManager
 
@@ -655,6 +655,8 @@ class ChineseGameState:
                         # 广播切牌操作
                         if self.current_player_index == 0:
                             self.xunmu += 1
+                        player_action_record_nextxunmu(self)
+                            
                         await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index) # 广播切牌动画 切牌玩家索引 手模切 切牌id 操作帧
                         # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
                         refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
@@ -746,6 +748,8 @@ class ChineseGameState:
                     # 广播摸切操作
                     if self.current_player_index == 0:
                         self.xunmu += 1
+                    player_action_record_nextxunmu(self)
+                    
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
                     refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
 

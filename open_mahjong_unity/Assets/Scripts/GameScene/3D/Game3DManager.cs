@@ -636,17 +636,52 @@ public class Game3DManager : MonoBehaviour
         foreach (Transform child in selfBuhuaPosition){
             Destroy(child.gameObject);
         }
-        foreach (Transform child in leftCombinationsPosition){
-            Destroy(child.gameObject);
+        
+        // 删除组合牌3D对象数组中的子物体
+        foreach (Transform combinationObj in selfCombination3DObjects)
+        {
+            if (combinationObj != null)
+            {
+                foreach (Transform child in combinationObj){
+                    Destroy(child.gameObject);
+                }
+            }
         }
-        foreach (Transform child in topCombinationsPosition){
-            Destroy(child.gameObject);
+        
+        // 左家组合牌3D对象
+        foreach (Transform combinationObj in leftCombination3DObjects)
+        {
+            if (combinationObj != null)
+            {
+                foreach (Transform child in combinationObj)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
         }
-        foreach (Transform child in rightCombinationsPosition){
-            Destroy(child.gameObject);
+        
+        // 对家组合牌3D对象
+        foreach (Transform combinationObj in topCombination3DObjects)
+        {
+            if (combinationObj != null)
+            {
+                foreach (Transform child in combinationObj)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
         }
-        foreach (Transform child in selfCombinationsPosition){
-            Destroy(child.gameObject);
+        
+        // 右家组合牌3D对象
+        foreach (Transform combinationObj in rightCombination3DObjects)
+        {
+            if (combinationObj != null)
+            {
+                foreach (Transform child in combinationObj)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
         }
     }
 

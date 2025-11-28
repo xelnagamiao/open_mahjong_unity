@@ -18,6 +18,7 @@ public class WindowsManager : MonoBehaviour
     [SerializeField] private GameObject createRoomPanel; // 创建房间窗口
     [SerializeField] private GameObject gamePanel; // 游戏窗口
     [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
+    [SerializeField] private GameObject recordPanel; // 游戏记录窗口
 
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
@@ -56,6 +57,7 @@ public class WindowsManager : MonoBehaviour
                 roomPanel.SetActive(false);
                 createRoomPanel.SetActive(false);
                 gamePanel.SetActive(false);
+                recordPanel.SetActive(false);
                 break;
             // main 主界面 下属的窗口
             case "main": // 关闭登录界面 打开主界面
@@ -65,6 +67,7 @@ public class WindowsManager : MonoBehaviour
                 roomPanel.SetActive(false);
                 createRoomPanel.SetActive(false);
                 gamePanel.SetActive(false);
+                recordPanel.SetActive(false);
                 break;
             // 三个roomroot下属的窗口
             case "roomList": // 打开房间界面 关闭其他界面
@@ -74,6 +77,7 @@ public class WindowsManager : MonoBehaviour
                 roomPanel.SetActive(false);
                 createRoomPanel.SetActive(false);
                 gamePanel.SetActive(false);
+                recordPanel.SetActive(false);
                 break;
             case "room":
                 loginPanel.SetActive(false);
@@ -82,6 +86,7 @@ public class WindowsManager : MonoBehaviour
                 roomListPanel.SetActive(false); 
                 createRoomPanel.SetActive(false);
                 roomPanel.SetActive(true); // 房间界面
+                recordPanel.SetActive(false);
                 break;
             case "createRoom":
                 loginPanel.SetActive(false);
@@ -91,6 +96,7 @@ public class WindowsManager : MonoBehaviour
                 roomListPanel.SetActive(false); 
                 createRoomPanel.SetActive(true); // 创建房间界面
                 roomPanel.SetActive(false);
+                recordPanel.SetActive(false);
                 break;
             // game 游戏界面 下属的窗口
             case "game":
@@ -100,6 +106,16 @@ public class WindowsManager : MonoBehaviour
                 roomPanel.SetActive(false);
                 createRoomPanel.SetActive(false);
                 gamePanel.SetActive(true); // 游戏界面
+                recordPanel.SetActive(false);
+                break;
+            case "record":
+                loginPanel.SetActive(false);
+                mainPanel.SetActive(false);
+                roomListPanel.SetActive(false);
+                roomPanel.SetActive(false);
+                createRoomPanel.SetActive(false);
+                gamePanel.SetActive(false);
+                recordPanel.SetActive(true); // 游戏记录界面
                 break;
         }
     }

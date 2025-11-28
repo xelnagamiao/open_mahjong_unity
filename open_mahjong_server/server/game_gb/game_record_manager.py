@@ -3,91 +3,34 @@ from datetime import date, datetime
 
 """
 # 牌谱格式示例 牌谱记录方法一般在boardcast_do_action方法前执行
-game_record = {
-    "game_title": {
-        "rule": "GB",
-        "game_random_seed": 3702716784,
-        "tiles_list": [],
-        "player0_user_id": 10000000,
-        "player0_username": "1",
-        "player1_user_id": 10000001,
-        "player1_username": "2",
-        "player2_user_id": 10000002,
-        "player2_username": "3",
-        "player3_user_id": 10000003,
-        "player3_username": "4"
-    },
-    "game_round": {
-        "round_index_1": {
-            "round_random_seed": 454974849,
-            "current_round": 1,
-            "round_index": 1,
-            "action_ticks": {},
-            "1": {
-                "action_type": "buhua",
-                "buhua_tile": 55
-            },
-            "2": {
-                "action_type": "deal",
-                "deal_tile": 34
-            },
-            "3": {
-                "action_type": "buhua",
-                "buhua_tile": 57
-            },
-            "4": {
-                "action_type": "deal",
-                "deal_tile": 35
-            },
-            "5": {
-                "action_type": "buhua",
-                "buhua_tile": 56
-            },
-            "6": {
-                "action_type": "deal",
-                "deal_tile": 52
-            },
-            "7": {
-                "action_type": "buhua",
-                "buhua_tile": 52
-            },
-            "8": {
-                "action_type": "deal",
-                "deal_tile": 32
-            },
-            "9": {
-                "action_type": "buhua",
-                "buhua_tile": 54
-            },
-            "10": {
-                "action_type": "deal",
-                "deal_tile": 36
-            },
-            "11": {
-                "action_type": "cut",
-                "cut_tile": 34,
-                "is_moqie": False
-            },
-            "12": {
-                "action_type": "deal",
-                "deal_tile": 31
-            },
-            "13": {
-                "action_type": "cut",
-                "cut_tile": 13,
-                "is_moqie": False
-            },
-            "14": {
-                "action_type": "end",
-                "hu_class": "hu_third",
-                "hu_score": None,
-                "hu_fan": None,
-                "hepai_player_index": None
-            }
+{
+'game_title': 
+    {
+    'rule': 'GB',
+    'game_random_seed': 718078453, 
+    'max_round': 4, 
+    'start_time': datetime.datetime(2025, 11, 27, 4, 23, 19, 681525), 
+    'player0_user_id': 10000000, 
+    'player0_username': '1', 
+    'player1_user_id': 10000001, 
+    'player1_username': '2', 
+    'player2_user_id': 10000002, 
+    'player2_username': '3', 
+    'player3_user_id': 10000003, 
+    'player3_username': '4', 
+    'end_time': datetime.datetime(2025, 11, 27, 7, 18, 21, 660461)}, 
+    'game_round': {
+        'round_index_1': {
+            'round_random_seed': 818914569, 
+            'current_round': 1, 
+            'tiles_list': [], 
+            'round_index': 1, 'action_ticks': [
+            ['cut', 55, True], ['deal', 56], ['cut', 56, True], ['deal', 15], ['cut', 15, True], ['deal', 34], ['cut', 34, True], 
+            ['deal', 39], ['cut', 39, True], ['deal', 46], ['cut', 46, True], ['deal', 37], ['cut', 37, True], ['deal', 32], ['cut', 32, True], 
+            ['deal', 44], ['cut', 44, True],
         }
     }
 }
-
 """
 # 牌谱记录游戏头
 def init_game_record(self):
@@ -96,14 +39,14 @@ def init_game_record(self):
         "game_random_seed":self.game_random_seed,
         "max_round":self.max_round,
         "start_time": datetime.now(),
-        "player0_user_id":self.player_list[0].user_id,
-        "player0_username":self.player_list[0].username,
-        "player1_user_id":self.player_list[1].user_id,
-        "player1_username":self.player_list[1].username,
-        "player2_user_id":self.player_list[2].user_id,
-        "player2_username":self.player_list[2].username,
-        "player3_user_id":self.player_list[3].user_id,
-        "player3_username":self.player_list[3].username,
+        "p0_user_id":self.player_list[0].user_id,
+        "p0_username":self.player_list[0].username,
+        "p1_user_id":self.player_list[1].user_id,
+        "p1_username":self.player_list[1].username,
+        "p2_user_id":self.player_list[2].user_id,
+        "p2_username":self.player_list[2].username,
+        "p3_user_id":self.player_list[3].user_id,
+        "p3_username":self.player_list[3].username,
     }
     self.game_record["game_round"] = {}
 
@@ -117,7 +60,11 @@ def init_game_round(self):
     self.game_record["game_round"][f"round_index_{self.round_index}"] = {
         "round_random_seed": self.round_random_seed,
         "current_round": self.current_round,
-        "tiles_list": self.tiles_list,
+        "p0_tiles": self.player_list[0].hand_tiles.copy(),  # 记录初始手牌
+        "p1_tiles": self.player_list[1].hand_tiles.copy(),
+        "p2_tiles": self.player_list[2].hand_tiles.copy(),
+        "p3_tiles": self.player_list[3].hand_tiles.copy(),
+        "tiles_list": self.tiles_list.copy(),  # 记录初始牌堆（打乱后、分配手牌前的完整牌堆）
         "round_index": self.round_index,
         "action_ticks": []
     }
@@ -164,6 +111,12 @@ def player_action_record_chipenggang(self,mingpai_tile: int,action_player: int):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
         ["chipenggang",mingpai_tile,action_player]
+    )
+
+# 牌谱记录增加巡目
+def player_action_record_nextxunmu(self):
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["Next"]
     )
 
 # 牌谱记录和牌

@@ -59,31 +59,39 @@ public class GameSceneManager : MonoBehaviour
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
-        WindowsManager.Instance.SwitchWindow("game");
-        Game3DManager.Instance.Clear3DTile();
-        EndResultPanel.Instance.ClearEndResultPanel();
-        SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
-        EndLiujuPanel.Instance.ClearEndLiujuPanel();
-        // 1.存储初始化信息
-        InitializeSetInfo(gameInfo);
-        // 2 初始化UI
+        WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
+        
+        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
+        EndGamePanel.Instance.ClearEndGamePanel(); // 清空游戏结束面板
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
+        EndLiujuPanel.Instance.ClearEndLiujuPanel(); // 清空流局面板
+        StartGamePanel.Instance.ClearStartGamePanel(); // 清空开始游戏面板
+        GameRecordManager.Instance.HideGameRecord(); // 隐藏游戏记录
+
+        Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
+
+        InitializeSetInfo(gameInfo); // 初始化对局数据
+        GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
+        BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
+
+        
+
         // 如果游戏局数为9，则显示换位动画
         if (gameInfo.current_round == 5 || gameInfo.current_round == 9 || gameInfo.current_round == 13){
             StartCoroutine(SwitchSeatPanel.Instance.ShowSwitchSeatPanel(gameInfo.current_round,indexToPosition));
         }
-        GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition);
-        // 3.初始化面板
-        BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition);
-        // 4.初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
+
+        // 初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
         GameCanvas.Instance.ChangeHandCards("InitHandCards",0,gameInfo.self_hand_tiles,null);
-        // 5.初始化他人手牌区域
-        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
-        // 6.如果自己的手牌有14张，则摸最后一张牌
+        // 如果自己的手牌有14张，则摸最后一张牌
         if (gameInfo.self_hand_tiles.Length == 14){
             GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null,null);
             // 在这里可以添加向服务器传递加载完成方法
             // 亲家与闲家完成配牌以后等待服务器传递补花行为
         }
+
+        // 初始化他人手牌区域
+        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
     }
 
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
@@ -265,11 +273,11 @@ public class GameSceneManager : MonoBehaviour
     }
 
     // 游戏结束
-    public void GameEnd(long game_random_seed, Dictionary<int, Dictionary<string, object>> player_final_data){
+    public void GameEnd(long game_random_seed, Dictionary<string, Dictionary<string, object>> player_final_data){
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 显示游戏结束结果
-        ENDGamePanel.Instance.ShowGameEndPanel(game_random_seed, player_final_data);
+        EndGamePanel.Instance.ShowGameEndPanel(game_random_seed, player_final_data);
     }
 
     public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){

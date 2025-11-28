@@ -37,10 +37,8 @@ public partial class BoardCanvas : MonoBehaviour
     public static BoardCanvas Instance { get; private set; }
     private Coroutine flashCoroutine; // 闪烁协程
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake(){
+        if (Instance != null && Instance != this){
             Destroy(gameObject);
             return;
         }
@@ -48,6 +46,8 @@ public partial class BoardCanvas : MonoBehaviour
     }
 
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
+        // 初始化玩家信息
+        // 设置玩家位置、分数、索引(东南西北)、回合标记
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
                 player_self_score.text = player.score.ToString(); // 设置玩家分数
@@ -69,42 +69,62 @@ public partial class BoardCanvas : MonoBehaviour
                 player_right_index.text = PositionToChineseCharacter[player.player_index];
                 player_right_current_image.gameObject.SetActive(false);
             }
-            remiansTilesText.text = $"余：{gameInfo.tile_count}"; // 设置剩余牌数
-            string current_round_str = "";
-            // 整除于4为0为东
-            if (gameInfo.current_round-1 / 4 == 0){
-                current_round_str = "东";
-            }
-            // 整除于4为1为南
-            else if (gameInfo.current_round-1 / 4 == 1){
-                current_round_str = "南";
-            }
-            // 整除于4为2为西
-            else if (gameInfo.current_round-1 / 4 == 2){
-                current_round_str = "西";
-            }
-            // 整除于4为3为北
-            else if (gameInfo.current_round-1 / 4 == 3){
-                current_round_str = "北";
-            }
-            // 整除4取余1为东
-            if (gameInfo.current_round % 4 == 1){
-                current_round_str = current_round_str + "一局";
-            }
-            // 整除4取余2为南
-            else if (gameInfo.current_round % 4 == 2){
-                current_round_str = current_round_str + "二局";
-            }
-            // 整除4取余3为西
-            else if (gameInfo.current_round % 4 == 3){
-                current_round_str = current_round_str + "三局";
-            }
-            // 整除4取余0为北
-            else if (gameInfo.current_round % 4 == 0){
-                current_round_str = current_round_str + "四局";
-            }
-            CurrentRoundText.text = $"{current_round_str}";
         }
+
+        // 设置剩余牌数
+        remiansTilesText.text = $"余：{gameInfo.tile_count}"; 
+
+        // 设置当前回合
+        string current_round_str = "";
+        if (gameInfo.current_round == 1){
+            current_round_str = "东一局";
+        }
+        else if (gameInfo.current_round == 2){
+            current_round_str = "东二局";
+        }
+        else if (gameInfo.current_round == 3){
+            current_round_str = "东三局";
+        }
+        else if (gameInfo.current_round == 4){
+            current_round_str = "东四局";
+        }
+        else if (gameInfo.current_round == 5){
+            current_round_str = "南一局";
+        }
+        else if (gameInfo.current_round == 6){
+            current_round_str = "南二局";
+        }
+        else if (gameInfo.current_round == 7){
+            current_round_str = "南三局";
+        }
+        else if (gameInfo.current_round == 8){
+            current_round_str = "南四局";
+        }
+        else if (gameInfo.current_round == 9){
+            current_round_str = "西一局";
+        }
+        else if (gameInfo.current_round == 10){
+            current_round_str = "西二局";
+        }
+        else if (gameInfo.current_round == 11){
+            current_round_str = "西三局";
+        }
+        else if (gameInfo.current_round == 12){
+            current_round_str = "西四局";
+        }
+        else if (gameInfo.current_round == 13){
+            current_round_str = "北一局";
+        }
+        else if (gameInfo.current_round == 14){
+            current_round_str = "北二局";
+        }
+        else if (gameInfo.current_round == 15){
+            current_round_str = "北三局";
+        }
+        else if (gameInfo.current_round == 16){
+            current_round_str = "北四局";
+        }
+        CurrentRoundText.text = $"{current_round_str}";
     }
 }
 
