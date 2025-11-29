@@ -137,14 +137,6 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    // 主线程协程执行器（备用方案）
-    private IEnumerator ExecuteOnMainThreadCoroutine(Action action)
-    {
-        // 等待一帧，确保在主线程中执行
-        yield return null;
-        action?.Invoke();
-    }
-
     // 3.Get_Message方法用于处理服务器返回的消息 
     private void Get_Message(byte[] bytes){
         try{
@@ -155,14 +147,14 @@ public class NetworkManager : MonoBehaviour
             switch (response.type){
                 case "login":
                     if (response.success){
-                        Administrator.Instance.SetUserInfo(response.username,response.userkey,response.user_id);
+                        UserDataManager.Instance.SetUserInfo(response.username,response.userkey,response.user_id);
                     }
                     currentLoginCallback?.Invoke(response.success, response.message);
                     currentLoginCallback = null; // 清除回调
                     break;
                 case "create_room":
                     CreateRoomResponse.Invoke(response.success, response.message);
-                    Administrator.Instance.SetRoomId(response.room_info.room_id);
+                    UserDataManager.Instance.SetRoomId(response.room_info.room_id);
                     break;
                 case "get_room_list": // 获取room_list
                     RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
@@ -175,7 +167,7 @@ public class NetworkManager : MonoBehaviour
                         response.message, 
                         response.room_info
                     );
-                    Administrator.Instance.SetRoomId(response.room_info.room_id);
+                    UserDataManager.Instance.SetRoomId(response.room_info.room_id);
                     break;
                 case "error_message":
                     Debug.Log($"错误消息: {response.message}");
@@ -186,7 +178,7 @@ public class NetworkManager : MonoBehaviour
                     if (response.success)
                     {
                         WindowsManager.Instance.SwitchWindow("roomList");
-                        Administrator.Instance.SetRoomId("");
+                        UserDataManager.Instance.SetRoomId("");
                     }
                     break;
                 case "join_room":
@@ -252,6 +244,10 @@ public class NetworkManager : MonoBehaviour
                         gameendresponse.game_random_seed,
                         gameendresponse.player_final_data
                     );
+                    break;
+                case "get_record_list":
+                    Debug.Log($"收到游戏记录列表: {response.message}");
+                    RecordPanel.Instance.GetRecordListResponse(response.success, response.message, response.record_list);
                     break;
                 
                 default:
@@ -385,14 +381,22 @@ public class NetworkManager : MonoBehaviour
         var request = new SendActionRequest
         {
             type = "send_action",
-            room_id = Administrator.Instance.room_id,
+            room_id = UserDataManager.Instance.room_id,
             action = action,
             targetTile = targetTile
         };
         websocket.Send(JsonConvert.SerializeObject(request));
     }
 
-
+    // 4.9 获取游戏记录方法 GetRecordList 从mainpanel调用发送
+    public void GetRecordList()
+    {
+        var request = new GetRecordListRequest
+        {
+            type = "get_record_list"
+        };
+        websocket.Send(JsonConvert.SerializeObject(request));
+    }
 
 
 

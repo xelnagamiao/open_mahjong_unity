@@ -536,7 +536,7 @@ GameObject:
   - component: {fileID: 58983520424694557}
   - component: {fileID: 2018433459045971737}
   m_Layer: 11
-  m_Name: MessageWindows
+  m_Name: MessageItem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

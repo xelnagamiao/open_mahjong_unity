@@ -188,8 +188,12 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 和单张检查
     if len(self.player_list[player_index].waiting_tiles) == 1:
         way_to_hepai.append("和单张")
-    # 和绝张检查
-    if self.tiles_list.count(hepai_tile) == 0:
+    # 和绝张检查 牌堆中的该牌牌数 + 所有人的手牌中的该牌牌数-自己手牌中的该牌牌数 = 0
+    tiles_count = self.tiles_list.count(hepai_tile)
+    for player in self.player_list:
+        tiles_count += player.hand_tiles.count(hepai_tile)
+    tiles_count -= self.player_list[player_index].hand_tiles.count(hepai_tile)
+    if tiles_count == 0:
         way_to_hepai.append("和绝张")
     # 第一轮行动时移除独听番种
     if is_first_action:

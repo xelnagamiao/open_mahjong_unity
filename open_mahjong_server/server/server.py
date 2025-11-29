@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import json
 import asyncio
 from contextlib import asynccontextmanager
-from .response import Response
+from .response import Response, Record_info
 from .game_gb.game_state import ChineseGameState
 from .room_manager import RoomManager
 from .database.db_manager import DatabaseManager
@@ -189,6 +189,49 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             room_id = message["room_id"]
             chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
             await chinese_game_state.get_action(Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
+
+        elif message["type"] == "get_record_list":
+            # 获取当前登录用户的游戏记录列表
+            player = game_server.players.get(Connect_id)
+            if player and player.user_id:
+                records = game_server.db_manager.get_record_list(player.user_id, limit=20)
+                # 转换为 Record_info 列表
+                from .response import Record_info, Player_record_info
+                record_list = []
+                for game_record in records:
+                    # 将玩家信息转换为 Player_record_info 列表
+                    players_info = []
+                    for player_data in game_record['players']:
+                        players_info.append(Player_record_info(
+                            user_id=player_data['user_id'],
+                            username=player_data['username'],
+                            score=player_data['score'],
+                            rank=player_data['rank'],
+                            character_used=player_data.get('character_used')
+                        ))
+                    
+                    record_info = Record_info(
+                        game_id=game_record['game_id'],
+                        rule=game_record['rule'],
+                        record=game_record['record'],
+                        created_at=game_record['created_at'],
+                        players=players_info
+                    )
+                    record_list.append(record_info)
+                
+                response = Response(
+                    type="get_record_list",
+                    success=True,
+                    message=f"获取到 {len(record_list)} 局游戏记录",
+                    record_list=record_list
+                )
+            else:
+                response = Response(
+                    type="get_record_list",
+                    success=False,
+                    message="用户未登录"
+                )
+            await websocket.send_json(response.dict(exclude_none=True))
 
 async def player_login(username: str, password: str) -> Response:
     """

@@ -61,3 +61,8 @@ public class SendActionRequest // 发送国标游戏操作请求
     public int? TileId; // 切牌
     public string room_id;
 }
+
+public class GetRecordListRequest // 获取游戏记录请求
+{
+    public string type;
+}

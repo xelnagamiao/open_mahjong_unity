@@ -355,7 +355,7 @@ public class GameSceneManager : MonoBehaviour
 
         // 如果gameinfo.username等于自己的username，则设置自身索引为gameinfo.player_index
         foreach (var player in gameInfo.players_info){
-            if (player.username == Administrator.Instance.Username){
+            if (player.username == UserDataManager.Instance.Username){
                 selfIndex = player.player_index; // 存储自身索引
                 break;
             }

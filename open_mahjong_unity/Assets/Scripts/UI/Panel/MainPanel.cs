@@ -19,6 +19,7 @@ public class MainPanel : MonoBehaviour
 
     private void Record(){
         WindowsManager.Instance.SwitchWindow("record");
+        NetworkManager.Instance.GetRecordList();
     }
 
     // Update is called once per frame

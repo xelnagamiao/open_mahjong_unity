@@ -147,7 +147,7 @@ GameObject:
   - component: {fileID: 58983520424694557}
   - component: {fileID: -751230659157448028}
   m_Layer: 11
-  m_Name: TipsWindows
+  m_Name: TipItem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

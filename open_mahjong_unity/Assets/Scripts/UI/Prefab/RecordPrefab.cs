@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine.UI;
 
 
-public class RecordItem : MonoBehaviour
+public class RecordPrefab : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI Username1Text;
     [SerializeField] private TextMeshProUGUI Username2Text;

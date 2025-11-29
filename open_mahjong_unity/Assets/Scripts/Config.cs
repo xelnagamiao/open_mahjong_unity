@@ -24,6 +24,7 @@ public class Config : MonoBehaviour
     public static string soundConfig = "Soundmale1_normal"; // 音效配置
     public static float soundVolume = 1.0f; // 音量
 
+
     // Start is called before the first frame update
     void Start()
     {

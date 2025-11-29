@@ -4,7 +4,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.EventSystems;
 
-public class TipsWindows : MonoBehaviour
+public class TipsPrefab : MonoBehaviour
 {
     [Header("UI 组件")]
     [SerializeField] private TextMeshProUGUI messageText;

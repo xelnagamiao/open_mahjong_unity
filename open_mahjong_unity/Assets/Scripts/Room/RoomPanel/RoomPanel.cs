@@ -73,7 +73,7 @@ public class RoomPanel : MonoBehaviour
         startButton.interactable = roomInfo.player_list.Length == 4;
 
         // 如果玩家1不是自己 则禁用开始按钮
-        if (player_1.text != Administrator.Instance.Username)
+        if (player_1.text != UserDataManager.Instance.Username)
         {
             startButton.interactable = false;
         }
@@ -87,13 +87,13 @@ public class RoomPanel : MonoBehaviour
     private void BackButtonClicked()
     {
         WindowsManager.Instance.SwitchWindow("roomList");
-        NetworkManager.Instance.LeaveRoom(Administrator.Instance.room_id);
+        NetworkManager.Instance.LeaveRoom(UserDataManager.Instance.room_id);
 
     }
 
     private void StartButtonClicked()
     {
-        NetworkManager.Instance.StartGame(Administrator.Instance.room_id);
+        NetworkManager.Instance.StartGame(UserDataManager.Instance.room_id);
     }
 
 }

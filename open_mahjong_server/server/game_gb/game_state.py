@@ -40,6 +40,7 @@ class ChinesePlayer:
         self.score = 0                                # 分数
         self.remaining_time = remaining_time          # 剩余时间 （局时）
         self.player_index = 0                         # 玩家索引 东南西北 0 1 2 3
+        self.original_player_index = 0                # 原始玩家索引 东南西北 0 1 2 3
         self.waiting_tiles = set[int]()               # 听牌
         self.record_counter = RecordCounter
 
@@ -127,37 +128,8 @@ class ChineseGameState:
         else:
             return num - 1
 
+
     def init_game_tiles(self):
-        # 标准牌堆
-        sth_tiles_set = {
-            11,12,13,14,15,16,17,18,19, # 万
-            21,22,23,24,25,26,27,28,29, # 饼
-            31,32,33,34,35,36,37,38,39, # 条
-            41,42,43,44, # 东南西北
-            45,46,47 # 中白发
-        }
-        # 生成主牌堆 tiles_list
-        self.tiles_list = []
-        for tile in sth_tiles_set:
-            self.tiles_list.extend([tile] * 4)
-        # 添加花牌牌堆
-        hua_tiles_set = {51,52,53,54,55,56,57,58} # 春夏秋冬 梅兰竹菊
-        self.tiles_list.extend(hua_tiles_set)
-
-        # 基于完整游戏随机种子生成小局随机种子
-        # 公式: (whole_game_random_seed * 1000 + current_round) % (2**32)
-        self.round_random_seed = (self.game_random_seed * 1000 + self.current_round) % (2**32)
-        random.seed(self.round_random_seed)
-        random.shuffle(self.tiles_list)
-
-        # 分配每位玩家13张牌
-        for player in self.player_list:
-            for _ in range(13):
-                player.get_tile(self.tiles_list)
-        # 庄家额外摸一张
-        self.player_list[0].get_tile(self.tiles_list)
-
-    def init_text_tiles(self):
         # 标准牌堆
         sth_tiles_set = {
             11,12,13,14,15,16,17,18,19, # 万
@@ -180,29 +152,41 @@ class ChineseGameState:
         random.seed(self.round_random_seed)
         random.shuffle(self.tiles_list)
 
-        # 使用测试牌例
-        self.player_list[0].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
-        self.player_list[1].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15]
-        self.player_list[2].hand_tiles = []
-        self.player_list[3].hand_tiles = []
+        Text = True
+        if Text:
+            # 使用测试牌例
+            self.player_list[0].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
+            self.player_list[1].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15]
+            self.player_list[2].hand_tiles = []
+            self.player_list[3].hand_tiles = []
 
-        # 删除牌山中测试牌例的卡牌
-        for tile in self.player_list[0].hand_tiles:
-            self.tiles_list.remove(tile)
-        for tile in self.player_list[1].hand_tiles:
-            self.tiles_list.remove(tile)
-        for tile in self.player_list[2].hand_tiles:
-            self.tiles_list.remove(tile)
-        for tile in self.player_list[3].hand_tiles:
-            self.tiles_list.remove(tile)
+            # 删除牌山中测试牌例的卡牌
+            for tile in self.player_list[0].hand_tiles:
+                self.tiles_list.remove(tile)
+            for tile in self.player_list[1].hand_tiles:
+                self.tiles_list.remove(tile)
+            for tile in self.player_list[2].hand_tiles:
+                self.tiles_list.remove(tile)
+            for tile in self.player_list[3].hand_tiles:
+                self.tiles_list.remove(tile)
 
-        # 分配每位玩家13张牌        
-        for player in self.player_list:
-            if player.hand_tiles == []:
+            self.tiles_list.remove(55)
+
+            # 分配每位玩家13张牌        
+            for player in self.player_list:
+                if player.hand_tiles == []:
+                    for _ in range(13):
+                        player.get_tile(self.tiles_list)
+            
+            self.player_list[self.current_player_index].hand_tiles.append(55)
+
+        else:
+            # 分配每位玩家13张牌
+            for player in self.player_list:
                 for _ in range(13):
                     player.get_tile(self.tiles_list)
-        
-        self.player_list[self.current_player_index].hand_tiles.append(55)
+            # 庄家额外摸一张
+            self.player_list[0].get_tile(self.tiles_list)
 
     def next_game_round(self):
         # 局数+1
@@ -221,23 +205,46 @@ class ChineseGameState:
             i.combination_tiles = []
             i.remaining_time = self.round_time
             i.player_index = self.back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
-        # 按照player_index重新排列player_list
-        self.player_list.sort(key=lambda x: x.player_index)
 
-        # 1 2 3 4 => 5 6 7 8
-        if self.current_round == 5 or self.current_round == 13:
-            # 东位0与南位1互换，西位2与北位3互换
-            self.player_list[0],self.player_list[1] = self.player_list[1],self.player_list[0]
-            self.player_list[2],self.player_list[3] = self.player_list[2],self.player_list[3]
-        elif self.current_round == 9:
-            # 东位0到西位2，南位1到北位3，西位2到南位1，北位3到东位0
-            self.player_list[0],self.player_list[1],self.player_list[2],self.player_list[3] = self.player_list[2],self.player_list[3],self.player_list[1],self.player_list[0]
+        # 如果需要座位换位
+        if self.current_round in [5,9,13]:
+
+            if self.current_round == 5:
+                for i in self.player_list:
+                    if i.original_player_index == 0: # 东起：东[南]北西
+                        i.player_index = 1
+                    elif i.original_player_index == 1: # 南起：南[东]西北
+                        i.player_index = 0
+                    elif i.original_player_index == 2: # 西起：西[北]东南
+                        i.player_index = 3
+                    elif i.original_player_index == 3: # 北起：北[西]南东
+                        i.player_index = 2
+                
+            elif self.current_round == 9:
+                for i in self.player_list:
+                    if i.original_player_index == 0: # 东起：东南[北]西
+                        i.player_index = 3
+                    elif i.original_player_index == 1: # 南起：南东[西]北
+                        i.player_index = 2
+                    elif i.original_player_index == 2: # 西起：西北[东]南
+                        i.player_index = 0
+                    elif i.original_player_index == 3: # 北起：北西[南]东
+                        i.player_index = 1
+                
+            elif self.current_round == 13:
+                for i in self.player_list:
+                    if i.original_player_index == 0: # 东起：东南北[西]
+                        i.player_index = 2
+                    elif i.original_player_index == 1: # 南起：南东西[北]
+                        i.player_index = 3
+                    elif i.original_player_index == 2: # 西起：西北东[南]
+                        i.player_index = 1
+                    elif i.original_player_index == 3: # 北起：北西南[东]
+                        i.player_index = 0
 
         # 按照换位后的玩家顺序重新排列player_list
-        for index,player in enumerate(self.player_list):
+        for index,player in enumerate[ChinesePlayer](self.player_list):
             player.player_index = index
-        
-        # 换位动画由客户端通过current_round固定显示
 
     async def game_loop_chinese(self):
 
@@ -248,6 +255,7 @@ class ChineseGameState:
         # 根据打乱的玩家顺序设置玩家索引
         for index, player in enumerate(self.player_list):
             player.player_index = index
+            player.original_player_index = index
         # 生成完整游戏随机种子
         self.game_random_seed = int(time.time() * 1000000) % (2**32)
         # 牌谱记录游戏头
@@ -256,9 +264,8 @@ class ChineseGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
-            # self.init_game_tiles() # 初始化牌山和手牌
-            self.init_text_tiles() # 使用测试牌例建立初始手牌
-            self.current_player_index = self.current_round % 4 - 1 # 初始玩家索引 = 整除4的余数 - 1
+            self.init_game_tiles() # 初始化牌山和手牌
+
             # 广播游戏开始
             await broadcast_game_start(self)
             
@@ -515,8 +522,8 @@ class ChineseGameState:
 
         # 按分数排序玩家
         self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for i in self.player_list:
-            i.record_counter.rank_result = self.player_list.index(i)+1
+        for index, player in enumerate[ChinesePlayer](self.player_list):
+            player.record_counter.rank_result = index + 1
 
         # 发送游戏结算信息
         await broadcast_game_end(self) # 广播游戏结束信息
@@ -655,7 +662,7 @@ class ChineseGameState:
                         # 广播切牌操作
                         if self.current_player_index == 0:
                             self.xunmu += 1
-                        player_action_record_nextxunmu(self)
+                            player_action_record_nextxunmu(self)
                             
                         await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index) # 广播切牌动画 切牌玩家索引 手模切 切牌id 操作帧
                         # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
@@ -748,7 +755,7 @@ class ChineseGameState:
                     # 广播摸切操作
                     if self.current_player_index == 0:
                         self.xunmu += 1
-                    player_action_record_nextxunmu(self)
+                        player_action_record_nextxunmu(self)
                     
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
                     refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
@@ -907,11 +914,15 @@ class ChineseGameState:
         try:
             # 检测行动合法性
             # 从游戏服务器的PlayerConnection中获取user_id
-            player_conn = self.game_server.players[player_id]
+            player_conn = self.game_server.players.get(player_id)
+            if not player_conn:
+                print(f"玩家连接不存在: {player_id}")
+                return
             if not player_conn.user_id:
-                print(f"玩家未登录，无法执行操作")
+                print(f"玩家未登录，无法执行操作: {player_id}")
                 return
             user_id = player_conn.user_id
+            
             # 查找对应的玩家和索引
             current_player = None
             player_index = -1
@@ -921,14 +932,28 @@ class ChineseGameState:
                     current_player = player
                     player_index = index
                     break
-            if current_player is None: # 未找到用户ID
-                print(f"当前玩家不存在当前房间玩家列表中,可能是玩家操作发送到了错误的房间")
-            elif player_index not in self.waiting_players_list:
-                print(f"不是当前玩家的回合,可能是在错误的时间发送了消息")
-                if action_type not in self.action_dict[player_index]:
-                    print(f"不是该玩家的合法行动,可能是错误时间发送消息或者客户端程序出现错误")
+            
+            # 验证玩家是否在当前房间的玩家列表中
+            if current_player is None:
+                print(f"当前玩家不存在当前房间玩家列表中, user_id={user_id}, 可能是玩家操作发送到了错误的房间")
+                return
+            
+            # 验证玩家索引是否有效
+            if player_index not in [0, 1, 2, 3]:
+                print(f"无效的玩家索引: {player_index}")
+                return
+            
+            # 验证玩家是否在等待列表中（只有等待中的玩家才能执行操作）
+            if player_index not in self.waiting_players_list:
+                print(f"不是当前玩家的回合, player_index={player_index}, waiting_players_list={self.waiting_players_list}")
+                return
+            
+            # 验证操作是否合法（检查操作是否在允许的操作列表中）
+            if action_type not in self.action_dict.get(player_index, []):
+                print(f"不是该玩家的合法行动, player_index={player_index}, action_type={action_type}, allowed_actions={self.action_dict.get(player_index, [])}")
+                return
 
-            # 将操作数据放入队列
+            # 操作合法，将操作数据放入队列
             if action_type == "cut": # 切牌操作
                 await self.action_queues[player_index].put({
                     "action_type": action_type,
@@ -938,16 +963,14 @@ class ChineseGameState:
                 })
                 # 设置事件
                 self.action_events[player_index].set()
-            elif player_index in [0,1,2,3]: # 指令操作
+            else: # 其他指令操作（buhua, angang, jiagang, hu_self, chi_left, chi_mid, chi_right, peng, gang, hu_first, hu_second, hu_third, pass）
                 await self.action_queues[player_index].put({
                     "action_type": action_type,
                     "target_tile": target_tile
                 })
                 # 设置事件
                 self.action_events[player_index].set()
-            else:
-                raise Exception(f"操作错误: {player_index}")
             
         except Exception as e:
-            print(f"处理操作时发生错误: {e}")
-            raise  # 重新抛出异常，让调用者知道发生了错误
+            print(f"处理操作时发生错误: {e}", exc_info=True)
+            raise Exception(f"处理操作时发生错误: {e}") # 出现问题时中断游戏

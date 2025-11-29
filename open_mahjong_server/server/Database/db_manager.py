@@ -15,6 +15,95 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# 番种定义映射（用于统计）
+FAN_NAME_TO_FIELD = {
+    "大四喜": "dasixi",
+    "大三元": "dasanyuan",
+    "绿一色": "lvyise",
+    "九莲宝灯": "jiulianbaodeng",
+    "四杠": "sigang",
+    "三杠": "sangang",
+    "连七对": "lianqidui",
+    "十三幺": "shisanyao",
+    "清幺九": "qingyaojiu",
+    "小四喜": "xiaosixi",
+    "小三元": "xiaosanyuan",
+    "字一色": "ziyise",
+    "四暗刻": "sianke",
+    "一色双龙会": "yiseshuanglonghui",
+    "一色四同顺": "yisesitongshun",
+    "一色四节高": "yisesijiegao",
+    "一色四步高": "yisesibugao",
+    "混幺九": "hunyaojiu",
+    "七对子": "qiduizi",
+    "七星不靠": "qixingbukao",
+    "全双刻": "quanshuangke",
+    "清一色": "qingyise",
+    "一色三同顺": "yisesantongshun",
+    "一色三节高": "yisesanjiegao",
+    "全大": "quanda",
+    "全中": "quanzhong",
+    "全小": "quanxiao",
+    "清龙": "qinglong",
+    "三色双龙会": "sanseshuanglonghui",
+    "一色三步高": "yisesanbugao",
+    "全带五": "quandaiwu",
+    "三同刻": "santongke",
+    "三暗刻": "sananke",
+    "全不靠": "quanbukao",
+    "组合龙": "zuhelong",
+    "大于五": "dayuwu",
+    "小于五": "xiaoyuwu",
+    "三风刻": "sanfengke",
+    "花龙": "hualong",
+    "推不倒": "tuibudao",
+    "三色三同顺": "sansesantongshun",
+    "三色三节高": "sansesanjiegao",
+    "无番和": "wufanhe",
+    "妙手回春": "miaoshouhuichun",
+    "海底捞月": "haidilaoyue",
+    "杠上开花": "gangshangkaihua",
+    "抢杠和": "qiangganghe",
+    "碰碰和": "pengpenghe",
+    "混一色": "hunyise",
+    "三色三步高": "sansesanbugao",
+    "五门齐": "wumenqi",
+    "全求人": "quanqiuren",
+    "双暗杠": "shuangangang",
+    "双箭刻": "shuangjianke",
+    "全带幺": "quandaiyao",
+    "不求人": "buqiuren",
+    "双明杠": "shuangminggang",
+    "和绝张": "hejuezhang",
+    "箭刻": "jianke",
+    "圈风刻": "quanfengke",
+    "门风刻": "menfengke",
+    "门前清": "menqianqing",
+    "平和": "pinghe",
+    "四归一": "siguiyi",
+    "双同刻": "shuangtongke",
+    "双暗刻": "shuanganke",
+    "暗杠": "angang",
+    "断幺": "duanyao",
+    "一般高": "yibangao",
+    "喜相逢": "xixiangfeng",
+    "连六": "lianliu",
+    "老少副": "laoshaofu",
+    "幺九刻": "yaojiuke",
+    "明杠": "minggang",
+    "缺一门": "queyimen",
+    "无字": "wuzi",
+    "边张": "bianzhang",
+    "嵌张": "qianzhang",
+    "单钓将": "dandiaojiang",
+    "自摸": "zimo",
+    "花牌": "huapai",
+    "明暗杠": "mingangang"
+}
+
+STACKABLE_FANS = ["花牌", "四归一", "双同刻", "一般高", "喜相逢", "幺九刻", "连六"]
+FAN_FIELDS = list(dict.fromkeys(FAN_NAME_TO_FIELD.values()))
+
 
 class DatabaseManager:
     """PostgreSQL 数据库管理类"""
@@ -59,7 +148,7 @@ class DatabaseManager:
             conn = psycopg2.connect(**self.config)
             cursor = conn.cursor()
 
-            # 创建表（如果不存在）
+            # 创建表users（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     user_id BIGSERIAL PRIMARY KEY,
@@ -69,7 +158,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建对局记录表
+            # 创建表game_records（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_records (
                     game_id BIGSERIAL PRIMARY KEY,
@@ -78,7 +167,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建玩家对局记录表（使用复合主键 (game_id, user_id)）
+            # 创建表game_player_records（使用复合主键 (game_id, user_id)）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
                     game_id BIGINT NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
@@ -92,31 +181,24 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建国标记录表（根据局数）
-            for table_suffix in ['1_4_game', '2_4_game', '3_4_game', '4_4_game']:
-                cursor.execute(f"""
-                    CREATE TABLE IF NOT EXISTS gb_record_{table_suffix} (
-                        user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-                        total_games INT NOT NULL DEFAULT 0,
-                        total_rounds INT NOT NULL DEFAULT 0,
-                        win_count INT NOT NULL DEFAULT 0,
-                        self_draw_count INT NOT NULL DEFAULT 0,
-                        deal_in_count INT NOT NULL DEFAULT 0,
-                        total_fan_score INT NOT NULL DEFAULT 0,
-                        total_win_turn INT NOT NULL DEFAULT 0,
-                        total_fangchong_score INT NOT NULL DEFAULT 0,
-                        first_place_count INT NOT NULL DEFAULT 0,
-                        second_place_count INT NOT NULL DEFAULT 0,
-                        third_place_count INT NOT NULL DEFAULT 0,
-                        fourth_place_count INT NOT NULL DEFAULT 0,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-
-            # 创建番种统计表
+            # 创建表record_stats（如果不存在）
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS gb_record_fan_count (
-                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                CREATE TABLE IF NOT EXISTS record_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    total_games INT NOT NULL DEFAULT 0,
+                    total_rounds INT NOT NULL DEFAULT 0,
+                    win_count INT NOT NULL DEFAULT 0,
+                    self_draw_count INT NOT NULL DEFAULT 0,
+                    deal_in_count INT NOT NULL DEFAULT 0,
+                    total_fan_score INT NOT NULL DEFAULT 0,
+                    total_win_turn INT NOT NULL DEFAULT 0,
+                    total_fangchong_score INT NOT NULL DEFAULT 0,
+                    first_place_count INT NOT NULL DEFAULT 0,
+                    second_place_count INT NOT NULL DEFAULT 0,
+                    third_place_count INT NOT NULL DEFAULT 0,
+                    fourth_place_count INT NOT NULL DEFAULT 0,
                     dasixi INT NOT NULL DEFAULT 0,
                     dasanyuan INT NOT NULL DEFAULT 0,
                     lvyise INT NOT NULL DEFAULT 0,
@@ -199,7 +281,9 @@ class DatabaseManager:
                     zimo INT NOT NULL DEFAULT 0,
                     huapai INT NOT NULL DEFAULT 0,
                     mingangang INT NOT NULL DEFAULT 0,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
                 );
             """)
 
@@ -417,153 +501,102 @@ class DatabaseManager:
                 ))
             logger.info(f'已为 {len(player_list)} 名玩家保存对局记录到 game_player_records 表')
             
-            # 3. 根据 max_round 确定存储到哪个表
-            max_round = game_record.get("game_title", {}).get("max_round", 4)
-            table_suffix_map = {
-                1: "1_4_game",  # 东风战
-                2: "2_4_game",  # 南风战
-                3: "3_4_game",  # 西风战
-                4: "4_4_game"   # 全庄
-            }
-            table_suffix = table_suffix_map.get(max_round, "4_4_game")
-            record_table = f"gb_record_{table_suffix}"
-            
-            # 4. 计算总回合数（从 game_round 中获取）
+            # 3. 统计维度信息
+            game_title = game_record.get("game_title", {})
+            rule = game_title.get("rule", "GB")
+            max_round = game_title.get("max_round", 4)
+            mode = game_title.get("mode")
+            if not mode:
+                mode = f"{max_round}/4"
             total_rounds = len(game_record.get("game_round", {}))
             
-            # 5. 更新每个玩家的统计数据
+            stats_columns = [
+                "total_games",
+                "total_rounds",
+                "win_count",
+                "self_draw_count",
+                "deal_in_count",
+                "total_fan_score",
+                "total_win_turn",
+                "total_fangchong_score",
+                "first_place_count",
+                "second_place_count",
+                "third_place_count",
+                "fourth_place_count"
+            ]
+            increment_columns = stats_columns + FAN_FIELDS
+            
+            # 4. 更新每个玩家的统计数据（包含番种）
             for player in player_list:
                 user_id = player.user_id
                 counter = player.record_counter
-                
-                # 计算和牌总次数
                 win_count = counter.zimo_times + counter.dianhe_times
                 
-                # 根据排名更新排名统计（rank_result 是 1-4，转换为 0-3 用于索引）
-                rank_index = counter.rank_result - 1  # 转换为 0-3
-                rank_updates = {
-                    "first_place_count": 1 if rank_index == 0 else 0,
-                    "second_place_count": 1 if rank_index == 1 else 0,
-                    "third_place_count": 1 if rank_index == 2 else 0,
-                    "fourth_place_count": 1 if rank_index == 3 else 0
+                stats_increment = {
+                    "total_games": 1,
+                    "total_rounds": total_rounds,
+                    "win_count": win_count,
+                    "self_draw_count": counter.zimo_times,
+                    "deal_in_count": counter.fangchong_times,
+                    "total_fan_score": counter.win_score,
+                    "total_win_turn": counter.win_turn,
+                    "total_fangchong_score": counter.fangchong_score,
+                    "first_place_count": 1 if counter.rank_result == 1 else 0,
+                    "second_place_count": 1 if counter.rank_result == 2 else 0,
+                    "third_place_count": 1 if counter.rank_result == 3 else 0,
+                    "fourth_place_count": 1 if counter.rank_result == 4 else 0
                 }
                 
-                # 使用 INSERT ... ON CONFLICT 更新或插入记录
-                cursor.execute(f"""
-                    INSERT INTO {record_table} (
-                        user_id, total_games, total_rounds, win_count, 
-                        self_draw_count, deal_in_count, total_fan_score, total_win_turn, total_fangchong_score,
-                        first_place_count, second_place_count, third_place_count, fourth_place_count
-                    ) VALUES (
-                        %s, 1, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s
-                    )
-                    ON CONFLICT (user_id) DO UPDATE SET
-                        total_games = {record_table}.total_games + 1,
-                        total_rounds = {record_table}.total_rounds + %s,
-                        win_count = {record_table}.win_count + %s,
-                        self_draw_count = {record_table}.self_draw_count + %s,
-                        deal_in_count = {record_table}.deal_in_count + %s,
-                        total_fan_score = {record_table}.total_fan_score + %s,
-                        total_win_turn = {record_table}.total_win_turn + %s,
-                        total_fangchong_score = {record_table}.total_fangchong_score + %s,
-                        first_place_count = {record_table}.first_place_count + %s,
-                        second_place_count = {record_table}.second_place_count + %s,
-                        third_place_count = {record_table}.third_place_count + %s,
-                        fourth_place_count = {record_table}.fourth_place_count + %s,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (
-                    user_id, total_rounds, win_count, counter.zimo_times, counter.fangchong_times,
-                    counter.win_score, counter.win_turn, counter.fangchong_score,
-                    rank_updates["first_place_count"], rank_updates["second_place_count"],
-                    rank_updates["third_place_count"], rank_updates["fourth_place_count"],
-                    total_rounds, win_count, counter.zimo_times, counter.fangchong_times,
-                    counter.win_score, counter.win_turn, counter.fangchong_score,
-                    rank_updates["first_place_count"], rank_updates["second_place_count"],
-                    rank_updates["third_place_count"], rank_updates["fourth_place_count"]
-                ))
-            
-            # 6. 更新番种统计
-            # 番种名称到数据库字段的映射
-            fan_name_to_field = {
-                "大四喜": "dasixi", "大三元": "dasanyuan", "绿一色": "lvyise",
-                "九莲宝灯": "jiulianbaodeng", "四杠": "sigang", "三杠": "sangang",
-                "连七对": "lianqidui", "十三幺": "shisanyao", "清幺九": "qingyaojiu",
-                "小四喜": "xiaosixi", "小三元": "xiaosanyuan", "字一色": "ziyise",
-                "四暗刻": "sianke", "一色双龙会": "yiseshuanglonghui", "一色四同顺": "yisesitongshun",
-                "一色四节高": "yisesijiegao", "一色四步高": "yisesibugao", "混幺九": "hunyaojiu",
-                "七对子": "qiduizi", "七星不靠": "qixingbukao", "全双刻": "quanshuangke",
-                "清一色": "qingyise", "一色三同顺": "yisesantongshun", "一色三节高": "yisesanjiegao",
-                "全大": "quanda", "全中": "quanzhong", "全小": "quanxiao",
-                "清龙": "qinglong", "三色双龙会": "sanseshuanglonghui", "一色三步高": "yisesanbugao",
-                "全带五": "quandaiwu", "三同刻": "santongke", "三暗刻": "sananke",
-                "全不靠": "quanbukao", "组合龙": "zuhelong", "大于五": "dayuwu",
-                "小于五": "xiaoyuwu", "三风刻": "sanfengke", "花龙": "hualong",
-                "推不倒": "tuibudao", "三色三同顺": "sansesantongshun", "三色三节高": "sansesanjiegao",
-                "无番和": "wufanhe", "妙手回春": "miaoshouhuichun", "海底捞月": "haidilaoyue",
-                "杠上开花": "gangshangkaihua", "抢杠和": "qiangganghe", "碰碰和": "pengpenghe",
-                "混一色": "hunyise", "三色三步高": "sansesanbugao", "五门齐": "wumenqi",
-                "全求人": "quanqiuren", "双暗杠": "shuangangang", "双箭刻": "shuangjianke",
-                "全带幺": "quandaiyao", "不求人": "buqiuren", "双明杠": "shuangminggang",
-                "和绝张": "hejuezhang", "箭刻": "jianke", "圈风刻": "quanfengke",
-                "门风刻": "menfengke", "门前清": "menqianqing", "平和": "pinghe",
-                "四归一": "siguiyi", "双同刻": "shuangtongke", "双暗刻": "shuanganke",
-                "暗杠": "angang", "断幺": "duanyao", "一般高": "yibangao",
-                "喜相逢": "xixiangfeng", "连六": "lianliu", "老少副": "laoshaofu",
-                "幺九刻": "yaojiuke", "明杠": "minggang", "缺一门": "queyimen",
-                "无字": "wuzi", "边张": "bianzhang", "嵌张": "qianzhang",
-                "单钓将": "dandiaojiang", "自摸": "zimo", "花牌": "huapai",
-                "明暗杠": "mingangang"
-            }
-            
-            # 可叠加番种列表（这些番种以"番种名*数量"的形式出现）
-            stackable_fans = ["花牌", "四归一", "双同刻", "一般高", "喜相逢", "幺九刻", "连六"]
-            
-            # 统计每个玩家的番种
-            fan_counts = {}  # {user_id: {fan_field: count}}
-            for player in player_list:
-                user_id = player.user_id
-                if user_id not in fan_counts:
-                    fan_counts[user_id] = {}
-                
-                # 遍历玩家的所有和牌番种
-                for fan_list in player.record_counter.recorded_fans:
-                    if isinstance(fan_list, list):
-                        for fan_name in fan_list:
-                            # 处理可叠加番种（格式：番种名*数量）
-                            if "*" in fan_name:
-                                parts = fan_name.split("*")
-                                if len(parts) == 2:
-                                    base_fan_name = parts[0].strip()
-                                    try:
-                                        count = int(parts[1].strip())
-                                        if base_fan_name in stackable_fans and base_fan_name in fan_name_to_field:
-                                            field = fan_name_to_field[base_fan_name]
-                                            fan_counts[user_id][field] = fan_counts[user_id].get(field, 0) + count
-                                    except ValueError:
-                                        logger.warning(f'无法解析可叠加番种数量: {fan_name}')
-                            # 处理普通番种
-                            elif fan_name in fan_name_to_field:
-                                field = fan_name_to_field[fan_name]
-                                fan_counts[user_id][field] = fan_counts[user_id].get(field, 0) + 1
-            
-            # 更新番种统计表
-            for user_id, fan_dict in fan_counts.items():
-                if fan_dict:
-                    # 构建更新语句
-                    set_clauses = []
-                    values = [user_id]  # 先添加 user_id 用于 INSERT
-                    for field, count in fan_dict.items():
-                        set_clauses.append(f"{field} = gb_record_fan_count.{field} + %s")
-                        values.append(count)  # 添加字段值用于 UPDATE
+                fan_increment = {field: 0 for field in FAN_FIELDS}
+                recorded_fans = getattr(counter, "recorded_fans", [])
+                for fan_entry in recorded_fans:
+                    if isinstance(fan_entry, list):
+                        fan_iterable = fan_entry
+                    else:
+                        fan_iterable = [fan_entry]
                     
-                    if set_clauses:
-                        cursor.execute(f"""
-                            INSERT INTO gb_record_fan_count (user_id) VALUES (%s)
-                            ON CONFLICT (user_id) DO UPDATE SET
-                                {', '.join(set_clauses)},
-                                updated_at = CURRENT_TIMESTAMP
-                        """, values)
+                    for fan_name in fan_iterable:
+                        if not isinstance(fan_name, str):
+                            continue
+                        if "*" in fan_name:
+                            base_name, _, count_str = fan_name.partition("*")
+                            base_name = base_name.strip()
+                            if base_name in STACKABLE_FANS and base_name in FAN_NAME_TO_FIELD:
+                                try:
+                                    count_val = int(count_str.strip())
+                                except ValueError:
+                                    logger.warning(f"无法解析番种数量: {fan_name}")
+                                    continue
+                                field = FAN_NAME_TO_FIELD[base_name]
+                                fan_increment[field] += count_val
+                        elif fan_name in FAN_NAME_TO_FIELD:
+                            field = FAN_NAME_TO_FIELD[fan_name]
+                            fan_increment[field] += 1
+                
+                insert_columns = ["user_id", "rule", "mode"] + increment_columns
+                insert_values = [
+                    user_id,
+                    rule,
+                    mode,
+                    *[stats_increment.get(col, 0) for col in stats_columns],
+                    *[fan_increment.get(col, 0) for col in FAN_FIELDS]
+                ]
+                
+                update_clauses = ", ".join(
+                    f"{col} = record_stats.{col} + EXCLUDED.{col}"
+                    for col in increment_columns
+                )
+                
+                cursor.execute(f"""
+                    INSERT INTO record_stats (
+                        {', '.join(insert_columns)}
+                    ) VALUES (
+                        {', '.join(['%s'] * len(insert_columns))}
+                    )
+                    ON CONFLICT (user_id, rule, mode) DO UPDATE SET
+                        {update_clauses},
+                        updated_at = CURRENT_TIMESTAMP
+                """, insert_values)
             
             conn.commit()
             logger.info(f'游戏记录和统计数据已保存，game_id: {game_id}')
@@ -572,6 +605,108 @@ class DatabaseManager:
             logger.error(f'存储游戏记录失败: {e}', exc_info=True)
             if conn:
                 conn.rollback()
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def get_record_list(self, user_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        获取指定用户的最近N局游戏记录，按 game_id 分组打包
+        
+        注意：每个游戏在 game_player_records 表中有4条记录（对应4个玩家），
+        需要按 game_id 分组，将同一游戏的4个玩家记录打包在一起。
+        
+        Args:
+            user_id: 用户ID
+            limit: 返回游戏数量限制，默认20（每个游戏包含4个玩家）
+        
+        Returns:
+            游戏记录列表，每个记录包含：
+            - game_id: 游戏ID
+            - record: 完整的牌谱记录（JSONB）
+            - created_at: 创建时间
+            - players: 该游戏的4个玩家信息列表（按排名排序）
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # 第一步：获取用户参与的最近N个游戏的 game_id（去重）
+            cursor.execute("""
+                SELECT DISTINCT game_id
+                FROM game_player_records
+                WHERE user_id = %s
+                ORDER BY game_id DESC
+                LIMIT %s
+            """, (user_id, limit))
+            
+            game_ids = [row['game_id'] for row in cursor.fetchall()]
+            
+            if not game_ids:
+                logger.info(f'用户 {user_id} 没有游戏记录')
+                return []
+            
+            # 第二步：获取这些游戏的所有玩家记录和牌谱记录
+            placeholders = ','.join(['%s'] * len(game_ids))
+            cursor.execute(f"""
+                SELECT 
+                    gpr.game_id,
+                    gpr.user_id,
+                    gpr.username,
+                    gpr.score,
+                    gpr.rank,
+                    gpr.rule,
+                    gpr.character_used,
+                    gr.record,
+                    gr.created_at
+                FROM game_player_records gpr
+                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
+                WHERE gpr.game_id IN ({placeholders})
+                ORDER BY gpr.game_id DESC, gpr.rank
+            """, game_ids)
+            
+            # 第三步：按 game_id 分组打包
+            games_dict = {}  # {game_id: {game_info, players}}
+            
+            for row in cursor.fetchall():
+                game_id = row['game_id']
+                
+                # 初始化游戏记录（如果还没有）
+                if game_id not in games_dict:
+                    record_data = row['record']
+                    # 解析 JSONB record 字段
+                    if isinstance(record_data, str):
+                        record_data = json.loads(record_data)
+                    
+                    games_dict[game_id] = {
+                        'game_id': game_id,
+                        'record': record_data,
+                        'created_at': str(row['created_at']),
+                        'rule': row['rule'],
+                        'players': []
+                    }
+                
+                # 添加玩家信息到该游戏的玩家列表
+                games_dict[game_id]['players'].append({
+                    'user_id': row['user_id'],
+                    'username': row['username'],
+                    'score': row['score'],
+                    'rank': row['rank'],
+                    'character_used': row.get('character_used')
+                })
+            
+            # 转换为列表，按 game_id 降序排序（最新的在前）
+            records = list(games_dict.values())
+            records.sort(key=lambda x: x['game_id'], reverse=True)
+            
+            logger.info(f'获取用户 {user_id} 的 {len(records)} 局游戏记录（共 {sum(len(r["players"]) for r in records)} 条玩家记录）')
+            return records
+            
+        except Error as e:
+            logger.error(f'获取游戏记录列表失败: {e}', exc_info=True)
+            return []
         finally:
             if conn:
                 cursor.close()

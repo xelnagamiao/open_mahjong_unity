@@ -37,6 +37,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     public DoActionInfo do_action_info; // 国标游戏中执行操作
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
+    public RecordInfo[] record_list; // 返回游戏记录列表
 }
 
 public class GameEndInfo // 显示游戏结束结果
@@ -117,6 +118,24 @@ public class GameInfo // 游戏开始时传递房间信息
     public int round_time;              // 局时
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
+}
+
+public class PlayerRecordInfo // 玩家对局记录信息
+{
+    public int user_id;                 // 用户ID
+    public string username;            // 用户名
+    public int score;                   // 玩家分数
+    public int rank;                    // 排名（1-4）
+    public string character_used;      // 使用的角色（可为空）
+}
+
+public class RecordInfo // 游戏记录信息（按游戏分组，包含4个玩家）
+{
+    public int game_id;                 // 对局ID
+    public string rule;                 // 规则类型（GB/JP）
+    public Dictionary<string, object> record; // 完整的牌谱记录
+    public string created_at;           // 创建时间
+    public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
 }
 
 

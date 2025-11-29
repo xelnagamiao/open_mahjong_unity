@@ -1,15 +1,15 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class Administrator : MonoBehaviour
+public class UserDataManager : MonoBehaviour
 {
-    public static Administrator Instance { get; private set; }
+    public static UserDataManager Instance { get; private set; }
 
-    // 用户信息
     public string Username { get; private set; }
     public string Userkey { get; private set; }
     public int UserId { get; private set; }
     public string room_id;
-
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -43,5 +43,4 @@ public class Administrator : MonoBehaviour
             this.room_id = room_id;
         }
     }
-
 }
