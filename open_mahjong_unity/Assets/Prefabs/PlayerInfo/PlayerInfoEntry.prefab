@@ -147,7 +147,7 @@ GameObject:
   - component: {fileID: 2627386673414977943}
   - component: {fileID: -6430695561702077495}
   m_Layer: 11
-  m_Name: RecordEntry
+  m_Name: PlayerInfoEntry
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -221,9 +221,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 5752418860706894892}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e4c5ecec23e85d4439bf949374788fb1, type: 3}
+  m_Script: {fileID: 11500000, guid: c90eb67127fd8b94db790f2a1e5efb6c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  modeText: {fileID: 3384499880357415932}
+  expandButton: {fileID: 513566224227041008}
 --- !u!1 &6066962144128386209
 GameObject:
   m_ObjectHideFlags: 0

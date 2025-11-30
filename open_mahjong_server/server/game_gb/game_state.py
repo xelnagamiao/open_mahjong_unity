@@ -11,15 +11,16 @@ from ..database.db_manager import DatabaseManager
 
 # 牌谱记录类
 class RecordCounter:
-    fulu_times = 0 # 副露次数
-    recorded_fans = [] # 和了的番种列表
-    rank_result = 0 # 最终排名
-    zimo_times = 0 # 自摸次数
-    dianhe_times = 0 # 点和次数
-    fangchong_times = 0 # 放铳次数
-    fangchong_score = 0 # 总放铳番数
-    win_turn = 0 # 总和牌巡目
-    win_score = 0 # 总和牌番数
+    def __init__(self):
+        self.fulu_times = 0 # 副露次数
+        self.recorded_fans = [] # 和了的番种列表
+        self.rank_result = 0 # 最终排名
+        self.zimo_times = 0 # 自摸次数
+        self.dianhe_times = 0 # 点和次数
+        self.fangchong_times = 0 # 放铳次数
+        self.fangchong_score = 0 # 总放铳番数
+        self.win_turn = 0 # 总和牌巡目
+        self.win_score = 0 # 总和牌番数
 
 # 玩家类
 class ChinesePlayer:
@@ -42,7 +43,7 @@ class ChinesePlayer:
         self.player_index = 0                         # 玩家索引 东南西北 0 1 2 3
         self.original_player_index = 0                # 原始玩家索引 东南西北 0 1 2 3
         self.waiting_tiles = set[int]()               # 听牌
-        self.record_counter = RecordCounter
+        self.record_counter = RecordCounter()          # 创建独立的记录计数器实例
 
     def get_tile(self, tiles_list):
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌

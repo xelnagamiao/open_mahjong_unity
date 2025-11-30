@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import json
 import asyncio
 from contextlib import asynccontextmanager
-from .response import Response, Record_info
+from .response import Response
 from .game_gb.game_state import ChineseGameState
 from .room_manager import RoomManager
 from .database.db_manager import DatabaseManager
@@ -231,6 +231,117 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     success=False,
                     message="用户未登录"
                 )
+            await websocket.send_json(response.dict(exclude_none=True))
+
+        elif message["type"] == "get_player_info":
+            # 获取指定用户的统计信息
+            from .response import Player_info_response, Player_stats_info
+            try:
+                target_user_id = int(message.get("userid"))
+            except (ValueError, TypeError):
+                response = Response(
+                    type="get_player_info",
+                    success=False,
+                    message="无效的用户ID"
+                )
+                await websocket.send_json(response.dict(exclude_none=True))
+                return
+            
+            # 获取用户基本信息
+            user_info = game_server.db_manager.get_user_by_user_id(target_user_id)
+            if not user_info:
+                response = Response(
+                    type="get_player_info",
+                    success=False,
+                    message="用户不存在"
+                )
+                await websocket.send_json(response.dict(exclude_none=True))
+                return
+            
+            # 获取统计数据
+            stats_data = game_server.db_manager.get_player_stats(target_user_id)
+            
+            # 转换 GB 统计数据
+            gb_stats_list = []
+            for stats_row in stats_data['gb_stats']:
+                # 分离基础字段和番种字段
+                base_fields = {
+                    'rule': stats_row.get('rule'),
+                    'mode': stats_row.get('mode'),
+                    'total_games': stats_row.get('total_games'),
+                    'total_rounds': stats_row.get('total_rounds'),
+                    'win_count': stats_row.get('win_count'),
+                    'self_draw_count': stats_row.get('self_draw_count'),
+                    'deal_in_count': stats_row.get('deal_in_count'),
+                    'total_fan_score': stats_row.get('total_fan_score'),
+                    'total_win_turn': stats_row.get('total_win_turn'),
+                    'total_fangchong_score': stats_row.get('total_fangchong_score'),
+                    'first_place_count': stats_row.get('first_place_count'),
+                    'second_place_count': stats_row.get('second_place_count'),
+                    'third_place_count': stats_row.get('third_place_count'),
+                    'fourth_place_count': stats_row.get('fourth_place_count'),
+                }
+                
+                # 提取番种字段（排除基础字段和时间字段）
+                excluded_fields = {'user_id', 'rule', 'mode', 'total_games', 'total_rounds', 
+                                 'win_count', 'self_draw_count', 'deal_in_count', 'total_fan_score',
+                                 'total_win_turn', 'total_fangchong_score', 'first_place_count',
+                                 'second_place_count', 'third_place_count', 'fourth_place_count',
+                                 'created_at', 'updated_at'}
+                fan_stats = {k: v for k, v in stats_row.items() 
+                           if k not in excluded_fields and v is not None and v != 0}
+                
+                gb_stats_list.append(Player_stats_info(
+                    **base_fields,
+                    fan_stats=fan_stats if fan_stats else None
+                ))
+            
+            # 转换 JP 统计数据
+            jp_stats_list = []
+            for stats_row in stats_data['jp_stats']:
+                base_fields = {
+                    'rule': stats_row.get('rule'),
+                    'mode': stats_row.get('mode'),
+                    'total_games': stats_row.get('total_games'),
+                    'total_rounds': stats_row.get('total_rounds'),
+                    'win_count': stats_row.get('win_count'),
+                    'self_draw_count': stats_row.get('self_draw_count'),
+                    'deal_in_count': stats_row.get('deal_in_count'),
+                    'total_fan_score': stats_row.get('total_fan_score'),
+                    'total_win_turn': stats_row.get('total_win_turn'),
+                    'total_fangchong_score': stats_row.get('total_fangchong_score'),
+                    'first_place_count': stats_row.get('first_place_count'),
+                    'second_place_count': stats_row.get('second_place_count'),
+                    'third_place_count': stats_row.get('third_place_count'),
+                    'fourth_place_count': stats_row.get('fourth_place_count'),
+                }
+                
+                excluded_fields = {'user_id', 'rule', 'mode', 'total_games', 'total_rounds', 
+                                 'win_count', 'self_draw_count', 'deal_in_count', 'total_fan_score',
+                                 'total_win_turn', 'total_fangchong_score', 'first_place_count',
+                                 'second_place_count', 'third_place_count', 'fourth_place_count',
+                                 'created_at', 'updated_at'}
+                fan_stats = {k: v for k, v in stats_row.items() 
+                           if k not in excluded_fields and v is not None and v != 0}
+                
+                jp_stats_list.append(Player_stats_info(
+                    **base_fields,
+                    fan_stats=fan_stats if fan_stats else None
+                ))
+            
+            player_info_response = Player_info_response(
+                user_id=target_user_id,
+                username=user_info.get('username'),
+                gb_stats=gb_stats_list,
+                jp_stats=jp_stats_list
+            )
+            
+            response = Response(
+                type="get_player_info",
+                success=True,
+                message="获取玩家信息成功",
+                player_info=player_info_response
+            )
             await websocket.send_json(response.dict(exclude_none=True))
 
 async def player_login(username: str, password: str) -> Response:

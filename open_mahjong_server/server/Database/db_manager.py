@@ -181,9 +181,9 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建表record_stats（如果不存在）
+            # 创建表gb_record_stats（如果不存在）
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS record_stats (
+                CREATE TABLE IF NOT EXISTS gb_record_stats (
                     user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
                     rule VARCHAR(10) NOT NULL,
                     mode VARCHAR(20) NOT NULL,
@@ -281,6 +281,44 @@ class DatabaseManager:
                     zimo INT NOT NULL DEFAULT 0,
                     huapai INT NOT NULL DEFAULT 0,
                     mingangang INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
+            # 创建表user_config（如果不存在）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_config (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                    volume INT NOT NULL DEFAULT 100,
+                    title VARCHAR(255) NULL,
+                    profile_image_used VARCHAR(255) NULL,
+                    character_used VARCHAR(255) NULL,
+                    voice_used VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # 创建表jp_record_stats（如果不存在）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS jp_record_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    total_games INT NOT NULL DEFAULT 0,
+                    total_rounds INT NOT NULL DEFAULT 0,
+                    win_count INT NOT NULL DEFAULT 0,
+                    self_draw_count INT NOT NULL DEFAULT 0,
+                    deal_in_count INT NOT NULL DEFAULT 0,
+                    total_fan_score INT NOT NULL DEFAULT 0,
+                    total_win_turn INT NOT NULL DEFAULT 0,
+                    total_fangchong_score INT NOT NULL DEFAULT 0,
+                    first_place_count INT NOT NULL DEFAULT 0,
+                    second_place_count INT NOT NULL DEFAULT 0,
+                    third_place_count INT NOT NULL DEFAULT 0,
+                    fourth_place_count INT NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, rule, mode)
@@ -583,12 +621,12 @@ class DatabaseManager:
                 ]
                 
                 update_clauses = ", ".join(
-                    f"{col} = record_stats.{col} + EXCLUDED.{col}"
+                    f"{col} = gb_record_stats.{col} + EXCLUDED.{col}"
                     for col in increment_columns
                 )
                 
                 cursor.execute(f"""
-                    INSERT INTO record_stats (
+                    INSERT INTO gb_record_stats (
                         {', '.join(insert_columns)}
                     ) VALUES (
                         {', '.join(['%s'] * len(insert_columns))}
@@ -707,6 +745,65 @@ class DatabaseManager:
         except Error as e:
             logger.error(f'获取游戏记录列表失败: {e}', exc_info=True)
             return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def get_player_stats(self, user_id: int) -> Dict[str, Any]:
+        """
+        获取指定用户的所有统计数据（包括 gb_record_stats 和 jp_record_stats）
+        
+        Args:
+            user_id: 用户ID
+        
+        Returns:
+            包含所有统计数据的字典，格式：
+            {
+                'gb_stats': [{'rule': 'GB', 'mode': '1_4_game', ...}, ...],
+                'jp_stats': [{'rule': 'JP', 'mode': '1_4_game', ...}, ...]
+            }
+            如果某个规则没有数据，则返回空列表
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            result = {
+                'gb_stats': [],
+                'jp_stats': []
+            }
+            
+            # 查询 gb_record_stats
+            cursor.execute("""
+                SELECT * FROM gb_record_stats
+                WHERE user_id = %s
+                ORDER BY rule, mode
+            """, (user_id,))
+            
+            for row in cursor.fetchall():
+                stats_dict = dict(row)
+                # 将 None 值转换为 None（保持原样，后续在 response 中处理）
+                result['gb_stats'].append(stats_dict)
+            
+            # 查询 jp_record_stats
+            cursor.execute("""
+                SELECT * FROM jp_record_stats
+                WHERE user_id = %s
+                ORDER BY rule, mode
+            """, (user_id,))
+            
+            for row in cursor.fetchall():
+                stats_dict = dict(row)
+                result['jp_stats'].append(stats_dict)
+            
+            logger.info(f'获取用户 {user_id} 的统计数据：GB {len(result["gb_stats"])} 条，JP {len(result["jp_stats"])} 条')
+            return result
+            
+        except Error as e:
+            logger.error(f'获取玩家统计数据失败: {e}', exc_info=True)
+            return {'gb_stats': [], 'jp_stats': []}
         finally:
             if conn:
                 cursor.close()

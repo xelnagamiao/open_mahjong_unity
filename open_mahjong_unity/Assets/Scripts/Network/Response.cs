@@ -38,6 +38,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
     public RecordInfo[] record_list; // 返回游戏记录列表
+    public PlayerInfoResponse player_info; // 返回玩家信息
 }
 
 public class GameEndInfo // 显示游戏结束结果
@@ -136,6 +137,33 @@ public class RecordInfo // 游戏记录信息（按游戏分组，包含4个玩�
     public Dictionary<string, object> record; // 完整的牌谱记录
     public string created_at;           // 创建时间
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
+}
+
+public class PlayerStatsInfo // 玩家统计数据信息（单个规则和模式的统计）
+{
+    public string rule;                 // 规则标识（GB/JP）
+    public string mode;                // 数据模式
+    public int? total_games;           // 总对局数
+    public int? total_rounds;          // 累计回合数
+    public int? win_count;             // 和牌次数
+    public int? self_draw_count;       // 自摸次数
+    public int? deal_in_count;         // 放铳次数
+    public int? total_fan_score;       // 累计番数
+    public int? total_win_turn;       // 累计和巡
+    public int? total_fangchong_score; // 累计放铳分
+    public int? first_place_count;    // 一位次数
+    public int? second_place_count;    // 二位次数
+    public int? third_place_count;    // 三位次数
+    public int? fourth_place_count;    // 四位次数
+    public Dictionary<string, int> fan_stats; // 番种统计数据（字段名 -> 次数）
+}
+
+public class PlayerInfoResponse // 玩家信息响应（包含所有统计数据）
+{
+    public int user_id;                // 用户ID
+    public string username;             // 用户名
+    public PlayerStatsInfo[] gb_stats; // 国标麻将统计数据列表
+    public PlayerStatsInfo[] jp_stats; // 立直麻将统计数据列表
 }
 
 

@@ -12,6 +12,11 @@ public partial class GameCanvas : MonoBehaviour
         ActionButton angangButton = null;
         // 用于跟踪加杠按钮
         ActionButton jiagangButton = null;
+
+        // 清空按钮
+        foreach (Transform child in ActionButtonContainer){
+            Destroy(child.gameObject);
+        }
         
         for (int i = 0; i < action_list.Count; i++){
 

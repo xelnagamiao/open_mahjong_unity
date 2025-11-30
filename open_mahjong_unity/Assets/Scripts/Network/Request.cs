@@ -66,3 +66,9 @@ public class GetRecordListRequest // 获取游戏记录请求
 {
     public string type;
 }
+
+public class GetPlayerInfoRequest // 获取玩家信息请求
+{
+    public string type;
+    public string userid;
+}

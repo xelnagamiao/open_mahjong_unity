@@ -89,6 +89,32 @@ class Record_info(BaseModel):
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 
+class Player_stats_info(BaseModel):
+    """玩家统计数据信息（单个规则和模式的统计）"""
+    rule: str  # 规则标识（GB/JP）
+    mode: str  # 数据模式
+    total_games: Optional[int] = None
+    total_rounds: Optional[int] = None
+    win_count: Optional[int] = None
+    self_draw_count: Optional[int] = None
+    deal_in_count: Optional[int] = None
+    total_fan_score: Optional[int] = None
+    total_win_turn: Optional[int] = None
+    total_fangchong_score: Optional[int] = None
+    first_place_count: Optional[int] = None
+    second_place_count: Optional[int] = None
+    third_place_count: Optional[int] = None
+    fourth_place_count: Optional[int] = None
+    # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
+    fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
+
+class Player_info_response(BaseModel):
+    """玩家信息响应（包含所有统计数据）"""
+    user_id: int  # 用户ID
+    username: Optional[str] = None  # 用户名
+    gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
+    jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
+
 class Response(BaseModel):
     type: str
     success: bool
@@ -106,3 +132,4 @@ class Response(BaseModel):
     show_result_info: Optional[Show_result_info] = None # 用于广播结算结果
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
+    player_info: Optional[Player_info_response] = None # 用于返回玩家信息

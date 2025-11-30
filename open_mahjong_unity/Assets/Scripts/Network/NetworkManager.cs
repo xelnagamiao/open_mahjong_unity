@@ -249,6 +249,10 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"收到游戏记录列表: {response.message}");
                     RecordPanel.Instance.GetRecordListResponse(response.success, response.message, response.record_list);
                     break;
+                case "get_player_info":
+                    Debug.Log($"收到玩家信息: {response.message}");
+                    PlayerPanel.Instance.GetPlayerInfoResponse(response.success, response.message, response.player_info);
+                    break;
                 
                 default:
                     throw new Exception($"未知的消息类型: {response.type}");
@@ -398,6 +402,16 @@ public class NetworkManager : MonoBehaviour
         websocket.Send(JsonConvert.SerializeObject(request));
     }
 
+    // 4.10 查询玩家信息方法 GetPlayerInfo 从PlayerPanel发送
+    public void GetPlayerInfo(string userid)
+    {
+        var request = new GetPlayerInfoRequest
+        {
+            type = "get_player_info",
+            userid = userid
+        };
+        websocket.Send(JsonConvert.SerializeObject(request));
+    }
 
 
 

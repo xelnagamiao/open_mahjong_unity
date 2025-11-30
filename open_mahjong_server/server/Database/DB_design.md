@@ -17,11 +17,19 @@ PostgreSQL
 | password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 SHA256 哈希） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
-### user_config 用户设置
-voice 音量
-profile image 头像
-character 选择角色
-voice_type 选择音色
+### user_config 用户设置表
+存储用户的个性化设置信息，每个用户对应一条记录。
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| volume | INT | NOT NULL DEFAULT 100 | 音量设置（0-100） |
+| title | VARCHAR(255) | NULL | 称号（可为空） |
+| profile_image_used | VARCHAR(255) | NULL | 使用的头像（可为空） |
+| character_used | VARCHAR(255) | NULL | 选择的角色（可为空） |
+| voice_used | VARCHAR(255) | NULL | 选择的音色（可为空） |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
 
 
 
@@ -42,12 +50,13 @@ voice_type 选择音色
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
 | rule | VARCHAR(10) | NOT NULL | 规则类型（GB=国标，JP=日麻） |
 | character_used | VARCHAR(255) | NULL | 使用的角色（可为空） |
+voice_used 
 
 
 
-### record_stats 对局统计宽表
+### gb_record_stats 国标麻将对局统计宽表
 
-统一使用一张宽表记录所有规则的统计数据，按照 `rule`（规则，如 GB/JP）与 `mode`（模式，如 `1/4`、`2/4_rank` 等）区分不同维度。客户端展示排行榜/统计时只需按条件查询该表。
+专门用于国标麻将（GB）规则的统计数据，按照 `rule`（规则，如 GB）与 `mode`（模式，如 `1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等）区分不同维度。不同规则的番种统计字段不同，因此需要分开管理。客户端展示排行榜/统计时只需按条件查询该表。
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
@@ -72,7 +81,7 @@ voice_type 选择音色
 > 主键：`(user_id, rule, mode)`，支持一个玩家在不同规则/模式下分别累计数据。
 
 #### 番种统计（与主表合并存储）
-以下字段全部位于 `record_stats` 中，每列都以 `INT NOT NULL DEFAULT 0` 记录对应番种累计出现次数。示例：
+以下字段全部位于 `gb_record_stats` 中，每列都以 `INT NOT NULL DEFAULT 0` 记录对应番种累计出现次数。示例：
 
 | 字段名 | 说明 |
 |--------|------|
@@ -160,3 +169,32 @@ voice_type 选择音色
 | mingangang | 明暗杠次数 |
 
 
+
+
+### jp_record_stats 立直麻将对局统计宽表
+
+专门用于立直麻将（JP）规则的统计数据，按照 `rule`（规则，如 JP）与 `mode`（模式，如 `1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等）区分不同维度。不同规则的番种统计字段不同，因此需要分开管理。客户端展示排行榜/统计时只需按条件查询该表。
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| user_id | BIGINT | NOT NULL REFERENCES users(user_id) ON DELETE CASCADE | 用户 ID |
+| rule | VARCHAR(10) | NOT NULL | 规则标识（例如：GB、JP） |
+| mode | VARCHAR(20) | NOT NULL | 数据模式（`1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等） |
+| total_games | INT | NOT NULL DEFAULT 0 | 总对局数 |
+| total_rounds | INT | NOT NULL DEFAULT 0 | 累计回合数 |
+| win_count | INT | NOT NULL DEFAULT 0 | 和牌次数 |
+| self_draw_count | INT | NOT NULL DEFAULT 0 | 自摸次数 |
+| deal_in_count | INT | NOT NULL DEFAULT 0 | 放铳次数 |
+| total_fan_score | INT | NOT NULL DEFAULT 0 | 累计番数 |
+| total_win_turn | INT | NOT NULL DEFAULT 0 | 累计和巡（用于计算平均巡目） |
+| total_fangchong_score | INT | NOT NULL DEFAULT 0 | 累计放铳分 |
+| first_place_count | INT | NOT NULL DEFAULT 0 | 一位次数 |
+| second_place_count | INT | NOT NULL DEFAULT 0 | 二位次数 |
+| third_place_count | INT | NOT NULL DEFAULT 0 | 三位次数 |
+| fourth_place_count | INT | NOT NULL DEFAULT 0 | 四位次数 |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
+
+> 主键：`(user_id, rule, mode)`，支持一个玩家在不同规则/模式下分别累计数据。
+
+#### 等待添加番数统计

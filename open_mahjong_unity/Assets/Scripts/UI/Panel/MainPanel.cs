@@ -5,12 +5,14 @@ public class MainPanel : MonoBehaviour
 {
     [SerializeField] private Button chineseButton;
     [SerializeField] private Button RecordButton;
+    [SerializeField] private Button playerButton;
 
     // Start is called before the first frame update
     void Start()
     {
         chineseButton.onClick.AddListener(ChineseRoom);
         RecordButton.onClick.AddListener(Record);
+        playerButton.onClick.AddListener(PlayerInfo);
     }
     private void ChineseRoom(){
         WindowsManager.Instance.SwitchWindow("roomList");
@@ -20,6 +22,10 @@ public class MainPanel : MonoBehaviour
     private void Record(){
         WindowsManager.Instance.SwitchWindow("record");
         NetworkManager.Instance.GetRecordList();
+    }
+
+    private void PlayerInfo(){
+        WindowsManager.Instance.OpenPlayerInfoPanel();
     }
 
     // Update is called once per frame

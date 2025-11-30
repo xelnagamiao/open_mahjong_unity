@@ -39,6 +39,20 @@ public class WindowsManager : MonoBehaviour
             Destroy(gameObject);
         }
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
+        GameConfigPanel.Instance.gameObject.SetActive(false);
+        PlayerConfigPanel.Instance.gameObject.SetActive(false);
+    }
+
+    public void OpenPlayerInfoPanel()
+    {
+        PlayerPanel.Instance.gameObject.SetActive(true);
+        mainPanel.SetActive(false);
+    }
+
+    public void ClosePlayerInfoPanel()
+    {
+        PlayerPanel.Instance.gameObject.SetActive(false);
+        mainPanel.SetActive(true);
     }
 
 
