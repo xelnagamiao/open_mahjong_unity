@@ -10,7 +10,7 @@ public class WindowsManager : MonoBehaviour
     [Header("mainCanvas")]
     [SerializeField] private GameObject mainCanvas;
 
-    [Header("mainCanvas管理七个一级窗口")]
+    [Header("mainCanvas管理一级窗口")]
     [SerializeField] private GameObject loginPanel; // 登录窗口
     [SerializeField] private GameObject mainPanel; // 主界面窗口
     [SerializeField] private GameObject roomListPanel; // 房间列表窗口
@@ -19,6 +19,9 @@ public class WindowsManager : MonoBehaviour
     [SerializeField] private GameObject gamePanel; // 游戏窗口
     [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
     [SerializeField] private GameObject recordPanel; // 游戏记录窗口
+    [SerializeField] private GameObject playerPanel; // 玩家信息窗口
+    [SerializeField] private GameObject playerConfigPanel; // 玩家配置窗口
+    [SerializeField] private GameObject gameConfigPanel; // 游戏配置窗口
 
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
@@ -39,8 +42,9 @@ public class WindowsManager : MonoBehaviour
             Destroy(gameObject);
         }
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
-        GameConfigPanel.Instance.gameObject.SetActive(false);
-        PlayerConfigPanel.Instance.gameObject.SetActive(false);
+        playerPanel.SetActive(false);
+        gameConfigPanel.SetActive(false);
+        playerConfigPanel.SetActive(false);
     }
 
     public void OpenPlayerInfoPanel()
@@ -55,8 +59,6 @@ public class WindowsManager : MonoBehaviour
         mainPanel.SetActive(true);
     }
 
-
-
     // 切换窗口
     public void SwitchWindow(string targetWindow)
     {
@@ -65,6 +67,7 @@ public class WindowsManager : MonoBehaviour
         {
             // login 登录界面
             case "login":
+
                 loginPanel.SetActive(true);
                 mainPanel.SetActive(false);
                 roomListPanel.SetActive(false);

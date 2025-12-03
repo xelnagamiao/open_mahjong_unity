@@ -19,28 +19,6 @@ public class RoomInfo
     public int step_timer;
 }
 
-public class Response // 所有后端的返回数据都由Response类接收
-{
-    // 消息头
-    public string type; // 消息类型
-    public bool success; // 消息是否成功
-    public string message; // 消息内容
-    // 消息体
-    public string username; // 登录用返回用户名
-    public string userkey; // 登录用返回用户key
-    public int user_id; // 登录用返回用户ID
-    public RoomInfo[] room_list; // 返回房间列表
-    public RoomInfo room_info; // 返回单个房间信息
-    public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
-    public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问切片补花暗杠自摸
-    public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问吃碰杠和
-    public DoActionInfo do_action_info; // 国标游戏中执行操作
-    public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
-    public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
-    public RecordInfo[] record_list; // 返回游戏记录列表
-    public PlayerInfoResponse player_info; // 返回玩家信息
-}
-
 public class GameEndInfo // 显示游戏结束结果
 {
     public long game_random_seed; // 游戏随机种子
@@ -166,4 +144,50 @@ public class PlayerInfoResponse // 玩家信息响应（包含所有统计数据
     public PlayerStatsInfo[] jp_stats; // 立直麻将统计数据列表
 }
 
+public class UserSettings // 用户设置信息（称号、头像、角色、音色）
+{
+    public int user_id;                // 用户ID
+    public int title_id;              // 称号ID
+    public int profile_image_id;      // 使用的头像ID
+    public int character_id;          // 选择的角色ID
+    public int voice_id;              // 选择的音色ID
+}
+
+public class UserConfig // 用户游戏配置信息（音量等）
+{
+    public int user_id;                // 用户ID
+    public int volume;                 // 音量设置（0-100）
+}
+
+public class LoginInfo // 登录信息
+{
+    public int user_id;                // 用户ID
+    public string username;             // 用户名
+    public string userkey;              // 用户名对应的秘钥
+}
+
+public class Response // 所有后端的返回数据都由Response类接收
+{
+    // 消息头
+    public string type; // 消息类型
+    public bool success; // 消息是否成功
+    public string message; // 消息内容
+    // 消息体
+    public string username; // 登录用返回用户名（已废弃，使用 login_info）
+    public string userkey; // 登录用返回用户key（已废弃，使用 login_info）
+    public int user_id; // 登录用返回用户ID（已废弃，使用 login_info）
+    public RoomInfo[] room_list; // 返回房间列表
+    public RoomInfo room_info; // 返回单个房间信息
+    public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info
+    public AskHandActionGBInfo ask_hand_action_info; // 国标游戏中询问切片补花暗杠自摸
+    public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问吃碰杠和
+    public DoActionInfo do_action_info; // 国标游戏中执行操作
+    public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
+    public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
+    public RecordInfo[] record_list; // 返回游戏记录列表
+    public PlayerInfoResponse player_info; // 返回玩家信息
+    public LoginInfo login_info; // 返回登录信息
+    public UserSettings user_settings; // 返回用户设置信息
+    public UserConfig user_config; // 返回用户游戏配置信息
+}
 

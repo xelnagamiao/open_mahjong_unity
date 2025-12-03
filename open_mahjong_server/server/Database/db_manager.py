@@ -287,15 +287,24 @@ class DatabaseManager:
                 );
             """)
 
+            # 创建表user_settings（如果不存在）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                    title_id INT DEFAULT 1,
+                    profile_image_id INT DEFAULT 1,
+                    character_id INT DEFAULT 1,
+                    voice_id INT DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             # 创建表user_config（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_config (
                     user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
                     volume INT NOT NULL DEFAULT 100,
-                    title VARCHAR(255) NULL,
-                    profile_image_used VARCHAR(255) NULL,
-                    character_used VARCHAR(255) NULL,
-                    voice_used VARCHAR(255) NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
@@ -435,6 +444,19 @@ class DatabaseManager:
                 (username, password_hash)
             )
             user_id = cursor.fetchone()[0]
+            
+            # 初始化用户的 user_settings 记录
+            cursor.execute("""
+                INSERT INTO user_settings (user_id, title_id, profile_image_id, character_id, voice_id)
+                VALUES (%s, 1, 1, 1, 1)
+            """, (user_id,))
+            
+            # 初始化用户的 user_config 记录
+            cursor.execute("""
+                INSERT INTO user_config (user_id, volume)
+                VALUES (%s, 100)
+            """, (user_id,))
+            
             conn.commit()
             logger.info(f'用户 {username} 创建成功，user_id: {user_id}')
             return user_id
@@ -804,6 +826,72 @@ class DatabaseManager:
         except Error as e:
             logger.error(f'获取玩家统计数据失败: {e}', exc_info=True)
             return {'gb_stats': [], 'jp_stats': []}
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def get_user_settings(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        获取指定用户的设置信息（称号、头像、角色、音色）
+        
+        Args:
+            user_id: 用户ID
+        
+        Returns:
+            用户设置信息字典，如果不存在则返回 None
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM user_settings WHERE user_id = %s",
+                (user_id,)
+            )
+            settings = cursor.fetchone()
+            
+            if settings:
+                return dict(settings)
+            return None
+        except Error as e:
+            logger.error(f'获取用户设置失败: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def get_user_config(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        获取指定用户的游戏配置信息（音量等）
+        
+        Args:
+            user_id: 用户ID
+        
+        Returns:
+            游戏配置信息字典，如果不存在则返回 None
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM user_config WHERE user_id = %s",
+                (user_id,)
+            )
+            config = cursor.fetchone()
+            
+            if config:
+                return dict(config)
+            return None
+        except Error as e:
+            logger.error(f'获取游戏配置失败: {e}')
+            if conn:
+                conn.rollback()
+            return None
         finally:
             if conn:
                 cursor.close()

@@ -87,13 +87,13 @@ public class RoomPanel : MonoBehaviour
     private void BackButtonClicked()
     {
         WindowsManager.Instance.SwitchWindow("roomList");
-        NetworkManager.Instance.LeaveRoom(UserDataManager.Instance.room_id);
+        NetworkManager.Instance.LeaveRoom(UserDataManager.Instance.RoomId);
 
     }
 
     private void StartButtonClicked()
     {
-        NetworkManager.Instance.StartGame(UserDataManager.Instance.room_id);
+        NetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId);
     }
 
 }

@@ -150,8 +150,8 @@ async def message_input(websocket: WebSocket, Connect_id: str):
         if message["type"] == "login":
             print(f"登录请求 - 用户名: {message['username']}, 密码: {message['password']}")
             response = await player_login(message["username"], message["password"])
-            if response.success and response.user_id:
-                game_server.store_player_session(Connect_id, response.user_id, message["username"])
+            if response.success and response.login_info:
+                game_server.store_player_session(Connect_id, response.login_info.user_id, response.login_info.username)
             await websocket.send_json(response.dict(exclude_none=True))
 
         elif message["type"] == "create_GB_room":
@@ -365,20 +365,48 @@ async def player_login(username: str, password: str) -> Response:
             user_key = await chat_server.hash_username(username)
             user_id = player.get('user_id')
             print(f" 生成用户秘钥{user_key} ")
+            
+            # 获取用户设置和游戏配置信息
+            from .response import LoginInfo, UserSettings, UserConfig
+            user_settings_data = db_manager.get_user_settings(user_id)
+            user_config_data = db_manager.get_user_config(user_id)
+            
+            user_settings = None
+            if user_settings_data:
+                user_settings = UserSettings(
+                    user_id=user_settings_data.get('user_id'),
+                    title_id=user_settings_data.get('title_id'),
+                    profile_image_id=user_settings_data.get('profile_image_id'),
+                    character_id=user_settings_data.get('character_id'),
+                    voice_id=user_settings_data.get('voice_id')
+                )
+            
+            user_config = None
+            if user_config_data:
+                user_config = UserConfig(
+                    user_id=user_config_data.get('user_id'),
+                    volume=user_config_data.get('volume', 100)
+                )
+            
+            login_info = LoginInfo(
+                user_id=user_id,
+                username=username,
+                userkey=user_key
+            )
+            
             return Response(
                 type="login",
                 success=True,
                 message="登录成功",
-                user_id=user_id,
-                username=username,
-                userkey=user_key
+                login_info=login_info,
+                user_settings=user_settings,
+                user_config=user_config
             )
         else:
             return Response(
                 type="login",
                 success=False,
-                message="密码错误",
-                username=username
+                message="密码错误"
             )
     else:
         # 用户不存在，创建新用户
@@ -387,13 +415,42 @@ async def player_login(username: str, password: str) -> Response:
             # 生成用户秘钥
             user_key = await chat_server.hash_username(username)
             print(f" 生成用户秘钥{user_key} ")
+            
+            # 获取用户设置和游戏配置信息（新创建的用户应该有默认配置）
+            from .response import LoginInfo, UserSettings, UserConfig
+            user_settings_data = db_manager.get_user_settings(user_id)
+            user_config_data = db_manager.get_user_config(user_id)
+            
+            user_settings = None
+            if user_settings_data:
+                user_settings = UserSettings(
+                    user_id=user_settings_data.get('user_id'),
+                    title_id=user_settings_data.get('title_id'),
+                    profile_image_id=user_settings_data.get('profile_image_id'),
+                    character_id=user_settings_data.get('character_id'),
+                    voice_id=user_settings_data.get('voice_id')
+                )
+            
+            user_config = None
+            if user_config_data:
+                user_config = UserConfig(
+                    user_id=user_config_data.get('user_id'),
+                    volume=user_config_data.get('volume', 100)
+                )
+            
+            login_info = LoginInfo(
+                user_id=user_id,
+                username=username,
+                userkey=user_key
+            )
+            
             return Response(
                 type="login",
                 success=True,
                 message="注册并登录成功",
-                user_id=user_id,
-                username=username,
-                userkey=user_key
+                login_info=login_info,
+                user_settings=user_settings,
+                user_config=user_config
             )
         else:
             return Response(

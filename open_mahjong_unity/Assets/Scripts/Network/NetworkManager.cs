@@ -147,7 +147,27 @@ public class NetworkManager : MonoBehaviour
             switch (response.type){
                 case "login":
                     if (response.success){
-                        UserDataManager.Instance.SetUserInfo(response.username,response.userkey,response.user_id);
+                        if (response.login_info != null)
+                        {
+                            UserDataManager.Instance.SetUserInfo(
+                                response.login_info.username,
+                                response.login_info.userkey,
+                                response.login_info.user_id
+                            );
+                        }
+                        if (response.user_settings != null)
+                        {
+                            UserDataManager.Instance.SetUserSettings(
+                                response.user_settings.title_id,
+                                response.user_settings.profile_image_id,
+                                response.user_settings.character_id,
+                                response.user_settings.voice_id
+                            );
+                        }
+                        if (response.user_config != null)
+                        {
+                            ConfigManager.Instance.SetUserConfig(response.user_config.volume);
+                        }
                     }
                     currentLoginCallback?.Invoke(response.success, response.message);
                     currentLoginCallback = null; // 清除回调
@@ -385,7 +405,7 @@ public class NetworkManager : MonoBehaviour
         var request = new SendActionRequest
         {
             type = "send_action",
-            room_id = UserDataManager.Instance.room_id,
+            room_id = UserDataManager.Instance.RoomId,
             action = action,
             targetTile = targetTile
         };

@@ -17,21 +17,28 @@ PostgreSQL
 | password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 SHA256 哈希） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
-### user_config 用户设置表
-存储用户的个性化设置信息，每个用户对应一条记录。
+### user_settings 用户设置表
+存储用户的个性化设置信息（称号、头像、角色、音色），每个用户对应一条记录。
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| title_id | INT | DEFAULT 1 | 称号ID（默认值为1） |
+| profile_image_id | INT | DEFAULT 1 | 使用的头像ID（默认值为1） |
+| character_id | INT | DEFAULT 1 | 选择的角色ID（默认值为1） |
+| voice_id | INT | DEFAULT 1 | 选择的音色ID（默认值为1） |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
+
+### user_config 游戏配置表
+存储用户的游戏配置信息（音量等），每个用户对应一条记录。
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
 | user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
 | volume | INT | NOT NULL DEFAULT 100 | 音量设置（0-100） |
-| title | VARCHAR(255) | NULL | 称号（可为空） |
-| profile_image_used | VARCHAR(255) | NULL | 使用的头像（可为空） |
-| character_used | VARCHAR(255) | NULL | 选择的角色（可为空） |
-| voice_used | VARCHAR(255) | NULL | 选择的音色（可为空） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
-
-
 
 ### game_records 存储对局记录的牌谱
 | 字段名 | 类型 | 约束 | 说明 |

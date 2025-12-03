@@ -115,14 +115,30 @@ class Player_info_response(BaseModel):
     gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
     jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
 
+class UserSettings(BaseModel):
+    """用户设置信息（称号、头像、角色、音色）"""
+    user_id: int  # 用户ID
+    title_id: Optional[int] = 1  # 称号ID（默认值为1）
+    profile_image_id: Optional[int] = 1  # 使用的头像ID（默认值为1）
+    character_id: Optional[int] = 1  # 选择的角色ID（默认值为1）
+    voice_id: Optional[int] = 1  # 选择的音色ID（默认值为1）
+
+class UserConfig(BaseModel):
+    """用户游戏配置信息（音量等）"""
+    user_id: int  # 用户ID
+    volume: int  # 音量设置（0-100）
+
+class LoginInfo(BaseModel):
+    """登录信息"""
+    user_id: int  # 用户ID
+    username: str  # 用户名
+    userkey: str  # 用户名对应的秘钥
+
 class Response(BaseModel):
     type: str
     success: bool
     message: str
     # 消息体
-    user_id: Optional[int] = None  # 用于在玩家登录时返回用户ID
-    username: Optional[str] = None # 用于在玩家登录时返回玩家信息
-    userkey: Optional[str] = None # 用于在玩家登录时返回用户名对应的秘钥
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
     room_info: Optional[dict] = None # 用于在join_room和房间信息更新时广播单个房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息
@@ -133,3 +149,6 @@ class Response(BaseModel):
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
+    login_info: Optional[LoginInfo] = None # 用于返回登录信息
+    user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
+    user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息

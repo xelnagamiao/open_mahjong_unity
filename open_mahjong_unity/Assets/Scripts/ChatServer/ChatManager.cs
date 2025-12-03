@@ -212,8 +212,8 @@ public class ChatManager : MonoBehaviour
         }
         else if (SwitchSendTarget.value == 1)
         {
-            if (UserDataManager.Instance.room_id != ""){
-                targetRoomId = int.Parse(UserDataManager.Instance.room_id);  // 房间id
+            if (UserDataManager.Instance.RoomId != ""){
+                targetRoomId = int.Parse(UserDataManager.Instance.RoomId);  // 房间id
             }
             else{
                 DisplayChatMessage(new ChatResponse { responseType = "False", roomId = 0, content = "未进入房间,无法在房间中发送消息" });
