@@ -176,7 +176,10 @@ class DatabaseManager:
                     score INT NOT NULL,
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
                     rule VARCHAR(10) NOT NULL,
-                    character_used VARCHAR(255) NULL,
+                    title_used INT NULL,
+                    character_used INT NULL,
+                    profile_used INT NULL,
+                    voice_used INT NULL,
                     PRIMARY KEY (game_id, user_id)
                 );
             """)
@@ -544,12 +547,16 @@ class DatabaseManager:
             # 获取玩家排名（rank_result 是 1-4）
             for player in player_list:
                 rank = player.record_counter.rank_result  # 1-4
-                character_used = getattr(player, 'character_used', None)  # 可能不存在，默认为 None
+                # 从玩家对象获取使用的设置信息（对局时的设置）
+                title_used = getattr(player, 'title_used', None)
+                character_used = getattr(player, 'character_used', None)
+                profile_used = getattr(player, 'profile_used', None)
+                voice_used = getattr(player, 'voice_used', None)
                 
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, character_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     player.user_id,
@@ -557,7 +564,10 @@ class DatabaseManager:
                     player.score,
                     rank,
                     rule,
-                    character_used
+                    title_used,
+                    character_used,
+                    profile_used,
+                    voice_used
                 ))
             logger.info(f'已为 {len(player_list)} 名玩家保存对局记录到 game_player_records 表')
             
@@ -718,7 +728,10 @@ class DatabaseManager:
                     gpr.score,
                     gpr.rank,
                     gpr.rule,
+                    gpr.title_used,
                     gpr.character_used,
+                    gpr.profile_used,
+                    gpr.voice_used,
                     gr.record,
                     gr.created_at
                 FROM game_player_records gpr
@@ -754,7 +767,10 @@ class DatabaseManager:
                     'username': row['username'],
                     'score': row['score'],
                     'rank': row['rank'],
-                    'character_used': row.get('character_used')
+                    'title_used': row.get('title_used'),
+                    'character_used': row.get('character_used'),
+                    'profile_used': row.get('profile_used'),
+                    'voice_used': row.get('voice_used')
                 })
             
             # 转换为列表，按 game_id 降序排序（最新的在前）
@@ -833,22 +849,30 @@ class DatabaseManager:
     
     def get_user_settings(self, user_id: int) -> Optional[Dict[str, Any]]:
         """
-        获取指定用户的设置信息（称号、头像、角色、音色）
+        获取指定用户的设置信息（称号、头像、角色、音色），包含用户名
         
         Args:
             user_id: 用户ID
         
         Returns:
-            用户设置信息字典，如果不存在则返回 None
+            用户设置信息字典（包含 username），如果不存在则返回 None
         """
         conn = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute(
-                "SELECT * FROM user_settings WHERE user_id = %s",
-                (user_id,)
-            )
+            cursor.execute("""
+                SELECT 
+                    us.user_id,
+                    us.title_id,
+                    us.profile_image_id,
+                    us.character_id,
+                    us.voice_id,
+                    u.username
+                FROM user_settings us
+                INNER JOIN users u ON us.user_id = u.user_id
+                WHERE us.user_id = %s
+            """, (user_id,))
             settings = cursor.fetchone()
             
             if settings:

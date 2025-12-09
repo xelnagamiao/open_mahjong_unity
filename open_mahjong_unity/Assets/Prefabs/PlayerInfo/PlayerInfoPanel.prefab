@@ -1532,7 +1532,7 @@ MonoBehaviour:
   usernameText: {fileID: 2585625259490429155}
   useridText: {fileID: 3827480926236800241}
   titleText: {fileID: 7944535988875755940}
-  characterImage: {fileID: 3206787545334517906}
+  profileImage: {fileID: 3206787545334517906}
   copyUseridButton: {fileID: 2199227774496833779}
   ShowGBRuleButtom: {fileID: 2509537448529507521}
   ShowJPRuleButtom: {fileID: 6958745352146599939}

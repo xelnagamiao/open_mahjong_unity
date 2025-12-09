@@ -895,6 +895,7 @@ MonoBehaviour:
   playerPanel: {fileID: 1170960570}
   playerConfigPanel: {fileID: 2068864630}
   gameConfigPanel: {fileID: 326909351}
+  PlayerInfoPanelPrefab: {fileID: 4495607477642480015, guid: 47008ba968cc80d45acebbfb4a5e41ba, type: 3}
 --- !u!1 &19396781
 GameObject:
   m_ObjectHideFlags: 0
@@ -3954,6 +3955,7 @@ GameObject:
   - component: {fileID: 112501998}
   - component: {fileID: 112502000}
   - component: {fileID: 112502001}
+  - component: {fileID: 112502002}
   m_Layer: 12
   m_Name: LeftProfileImage
   m_TagString: Untagged
@@ -4018,6 +4020,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &112502002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 112501997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 690ed99ba18bbe348b91ca7453b8ab5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  user_id: 0
 --- !u!1 &115690983
 GameObject:
   m_ObjectHideFlags: 0
@@ -10075,7 +10090,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 59, y: 11.903015}
+  m_AnchoredPosition: {x: 59, y: 11.903076}
   m_SizeDelta: {x: -754.6269, y: -416.6144}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &326909353
@@ -11009,7 +11024,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.0006264707}
+  m_AnchoredPosition: {x: 0, y: 0.00016237874}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!1 &372707992
@@ -14497,6 +14512,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02e1bd4dbc259df448e37ea9c872486b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  soundVolume: 1
 --- !u!1 &471403069
 GameObject:
   m_ObjectHideFlags: 0
@@ -23392,6 +23408,7 @@ GameObject:
   - component: {fileID: 811874996}
   - component: {fileID: 811874998}
   - component: {fileID: 811874999}
+  - component: {fileID: 811875000}
   m_Layer: 12
   m_Name: SelfProfileImage
   m_TagString: Untagged
@@ -23456,6 +23473,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &811875000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 811874995}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 690ed99ba18bbe348b91ca7453b8ab5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  user_id: 0
 --- !u!1 &814195708
 GameObject:
   m_ObjectHideFlags: 0
@@ -29884,7 +29914,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f3179a0b27c41b4cac64f8bcc86880b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  room_id: 
 --- !u!1 &1098282666
 GameObject:
   m_ObjectHideFlags: 0
@@ -30356,6 +30385,7 @@ GameObject:
   - component: {fileID: 1109899027}
   - component: {fileID: 1109899029}
   - component: {fileID: 1109899030}
+  - component: {fileID: 1109899031}
   m_Layer: 12
   m_Name: RightProfileImage
   m_TagString: Untagged
@@ -30420,6 +30450,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1109899031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1109899026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 690ed99ba18bbe348b91ca7453b8ab5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  user_id: 0
 --- !u!1 &1110626015
 GameObject:
   m_ObjectHideFlags: 0
@@ -30588,6 +30631,7 @@ GameObject:
   - component: {fileID: 1112511305}
   - component: {fileID: 1112511307}
   - component: {fileID: 1112511308}
+  - component: {fileID: 1112511309}
   m_Layer: 12
   m_Name: TopProfileImage
   m_TagString: Untagged
@@ -30652,6 +30696,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1112511309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1112511304}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 690ed99ba18bbe348b91ca7453b8ab5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  user_id: 0
 --- !u!1 &1114040580
 GameObject:
   m_ObjectHideFlags: 0
@@ -32749,11 +32806,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26be4a4bb7d1af84b9dc52ac599182b8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  SetPlayerInfoPos: {fileID: 806429480}
   useridInputField: {fileID: 408309322}
   searchUseridButton: {fileID: 169750477}
   backButton: {fileID: 19396783}
-  PlayerInfoPanelPrefab: {fileID: 4495607477642480015, guid: 47008ba968cc80d45acebbfb4a5e41ba, type: 3}
 --- !u!114 &1170960573
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -40693,6 +40748,8 @@ MonoBehaviour:
   chineseButton: {fileID: 1147569610}
   RecordButton: {fileID: 1628286944}
   playerButton: {fileID: 1110626017}
+  usernameText: {fileID: 41728204}
+  profileImage: {fileID: 1956049851}
 --- !u!114 &1462778476
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -53686,6 +53743,7 @@ GameObject:
   - component: {fileID: 1956049850}
   - component: {fileID: 1956049852}
   - component: {fileID: 1956049851}
+  - component: {fileID: 1956049853}
   m_Layer: 12
   m_Name: SelfProfileImage
   m_TagString: Untagged
@@ -53750,6 +53808,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1956049849}
   m_CullTransparentMesh: 1
+--- !u!114 &1956049853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1956049849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 690ed99ba18bbe348b91ca7453b8ab5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  user_id: 0
 --- !u!1 &1966827526
 GameObject:
   m_ObjectHideFlags: 0

@@ -11,7 +11,7 @@ public class PlayerInfoPanel : MonoBehaviour
     [SerializeField] private TMP_Text usernameText; // 用户名
     [SerializeField] private TMP_Text useridText; // 用户ID
     [SerializeField] private TMP_Text titleText; // 头衔
-    [SerializeField] private Image characterImage; // 头像
+    [SerializeField] private Image profileImage; // 头像
     [SerializeField] private Button copyUseridButton; // 复制用户ID按钮
 
     // 切换规则按钮
@@ -55,10 +55,11 @@ public class PlayerInfoPanel : MonoBehaviour
         }
 
         // 显示用户名和用户ID
-        usernameText.text = playerInfo.username ?? "未知用户";
+        usernameText.text = playerInfo.user_settings.username ?? "未知用户";
         useridText.text = playerInfo.user_id.ToString();
-        // titleText.text = playerInfo.title;
-        // characterImage.sprite = playerInfo.characterImage;
+        titleText.text = playerInfo.user_settings.title_id.ToString();
+        profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{playerInfo.user_settings.profile_image_id}");
+
 
         // 保存规则数据
         GBstats = playerInfo.gb_stats;

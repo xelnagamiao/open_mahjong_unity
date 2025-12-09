@@ -207,7 +207,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             username=player_data['username'],
                             score=player_data['score'],
                             rank=player_data['rank'],
-                            character_used=player_data.get('character_used')
+                            title_used=player_data.get('title_used'),
+                            character_used=player_data.get('character_used'),
+                            profile_used=player_data.get('profile_used'),
+                            voice_used=player_data.get('voice_used')
                         ))
                     
                     record_info = Record_info(
@@ -247,9 +250,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 await websocket.send_json(response.dict(exclude_none=True))
                 return
             
-            # 获取用户基本信息
-            user_info = game_server.db_manager.get_user_by_user_id(target_user_id)
-            if not user_info:
+            # 获取用户设置信息（包含 username）
+            from .response import UserSettings
+            user_settings_data = db_manager.get_user_settings(target_user_id)
+            
+            # 如果用户设置不存在，说明用户不存在
+            if not user_settings_data:
                 response = Response(
                     type="get_player_info",
                     success=False,
@@ -328,12 +334,21 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     **base_fields,
                     fan_stats=fan_stats if fan_stats else None
                 ))
+
+            user_settings = UserSettings(
+                user_id=user_settings_data.get('user_id'),
+                username=user_settings_data.get('username'),
+                title_id=user_settings_data.get('title_id'),
+                profile_image_id=user_settings_data.get('profile_image_id'),
+                character_id=user_settings_data.get('character_id'),
+                voice_id=user_settings_data.get('voice_id')
+            )
             
             player_info_response = Player_info_response(
                 user_id=target_user_id,
-                username=user_info.get('username'),
+                user_settings=user_settings,
                 gb_stats=gb_stats_list,
-                jp_stats=jp_stats_list
+                jp_stats=jp_stats_list,
             )
             
             response = Response(
@@ -375,6 +390,7 @@ async def player_login(username: str, password: str) -> Response:
             if user_settings_data:
                 user_settings = UserSettings(
                     user_id=user_settings_data.get('user_id'),
+                    username=user_settings_data.get('username'),
                     title_id=user_settings_data.get('title_id'),
                     profile_image_id=user_settings_data.get('profile_image_id'),
                     character_id=user_settings_data.get('character_id'),
@@ -426,6 +442,7 @@ async def player_login(username: str, password: str) -> Response:
                 user_settings = UserSettings(
                     user_id=user_settings_data.get('user_id'),
                     title_id=user_settings_data.get('title_id'),
+                    username=user_settings_data.get('username'),
                     profile_image_id=user_settings_data.get('profile_image_id'),
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')

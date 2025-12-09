@@ -48,6 +48,15 @@ class RoomManager:
             host_user_id = player.user_id  # 获取房主ID
             host_name = player.username  # 获取房主名（用于显示）
 
+            # 获取房主的设置信息
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="获取用户设置失败"
+                )
+
             # 构建房间配置
             has_password = False
             if password == "":
@@ -83,7 +92,16 @@ class RoomManager:
                 "room_type": "guobiao", # 房间类型
                 "max_player": 4, # 最大玩家数
                 "player_list": [host_user_id], # 玩家列表（使用 user_id）
-                "player_names": {host_user_id: host_name},  # 玩家ID到用户名的映射（用于显示）
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },  # 玩家ID到设置信息的映射
                 "has_password": has_password, # 是否有密码
                 "tips": tips, # 是否开启提示
                 "host_user_id": host_user_id, # 房主ID
@@ -188,10 +206,31 @@ class RoomManager:
             
             # 更新房间信息
             room_data["player_list"].append(player.user_id)
-            # 更新玩家名称映射
-            if "player_names" not in room_data:
-                room_data["player_names"] = {}
-            room_data["player_names"][player.user_id] = player.username
+            # 更新玩家设置映射
+            if "player_settings" not in room_data:
+                room_data["player_settings"] = {}
+            
+            # 获取玩家的设置信息
+            player_settings = self.game_server.db_manager.get_user_settings(player.user_id)
+            if player_settings:
+                room_data["player_settings"][player.user_id] = {
+                    "user_id": player.user_id,
+                    "username": player_settings.get('username', player.username),
+                    "title_id": player_settings.get('title_id', 1),
+                    "profile_image_id": player_settings.get('profile_image_id', 1),
+                    "character_id": player_settings.get('character_id', 1),
+                    "voice_id": player_settings.get('voice_id', 1)
+                }
+            else:
+                # 如果获取失败，使用默认值
+                room_data["player_settings"][player.user_id] = {
+                    "user_id": player.user_id,
+                    "username": player.username,
+                    "title_id": 1,
+                    "profile_image_id": 1,
+                    "character_id": 1,
+                    "voice_id": 1
+                }
 
             # 更新玩家信息
             player.current_room_id = room_id
@@ -242,9 +281,9 @@ class RoomManager:
 
             # 更新房间信息
             room_data["player_list"].remove(player.user_id)
-            # 更新玩家名称映射
-            if "player_names" in room_data and player.user_id in room_data["player_names"]:
-                del room_data["player_names"][player.user_id]
+            # 更新玩家设置映射
+            if "player_settings" in room_data and player.user_id in room_data["player_settings"]:
+                del room_data["player_settings"][player.user_id]
 
             # 如果房间空了就删除
             if len(room_data["player_list"]) == 0:
@@ -294,7 +333,8 @@ class RoomManager:
             if user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[user_id]
                 try:
-                    username = room_data.get("player_names", {}).get(user_id, f"用户{user_id}")
+                    player_setting = room_data.get("player_settings", {}).get(user_id, {})
+                    username = player_setting.get("username", f"用户{user_id}")
                     print(f"正在广播给玩家 user_id={user_id}, username={username}")
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     print(f"广播成功")

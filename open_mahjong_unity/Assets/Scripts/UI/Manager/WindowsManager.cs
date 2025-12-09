@@ -22,6 +22,7 @@ public class WindowsManager : MonoBehaviour
     [SerializeField] private GameObject playerPanel; // 玩家信息窗口
     [SerializeField] private GameObject playerConfigPanel; // 玩家配置窗口
     [SerializeField] private GameObject gameConfigPanel; // 游戏配置窗口
+    [SerializeField] private GameObject PlayerInfoPanelPrefab; // 玩家信息面板预制体
 
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
@@ -136,5 +137,21 @@ public class WindowsManager : MonoBehaviour
                 break;
         }
     }
-}
 
+
+    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo)
+    {
+        if (success && playerInfo != null)
+        {
+            // 在 mainCanvas 下创建玩家信息面板
+            GameObject playerInfoPanelObject = Instantiate(PlayerInfoPanelPrefab, mainCanvas.transform);
+            PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
+            playerInfoPanel.ShowPlayerInfo(playerInfo);
+        }
+        else
+        {
+            Debug.LogError($"获取玩家信息失败: {message}");
+        }
+    }
+    
+}

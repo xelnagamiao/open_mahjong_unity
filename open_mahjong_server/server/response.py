@@ -15,6 +15,10 @@ class PlayerInfo(BaseModel):
     remaining_time: int
     player_index: int
     score: int
+    title_used: Optional[int] = None  # 使用的称号ID
+    character_used: Optional[int] = None  # 使用的角色ID
+    profile_used: Optional[int] = None  # 使用的头像ID
+    voice_used: Optional[int] = None  # 使用的音色ID
 
 class GameInfo(BaseModel):
     room_id: int
@@ -79,7 +83,10 @@ class Player_record_info(BaseModel):
     username: str  # 用户名
     score: int  # 玩家分数
     rank: int  # 排名（1-4）
-    character_used: Optional[str] = None  # 使用的角色
+    title_used: Optional[int] = None  # 使用的称号ID
+    character_used: Optional[int] = None  # 使用的角色ID
+    profile_used: Optional[int] = None  # 使用的头像ID
+    voice_used: Optional[int] = None  # 使用的音色ID
 
 class Record_info(BaseModel):
     """游戏记录信息（按游戏分组，包含4个玩家）"""
@@ -108,20 +115,22 @@ class Player_stats_info(BaseModel):
     # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
     fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
 
-class Player_info_response(BaseModel):
-    """玩家信息响应（包含所有统计数据）"""
-    user_id: int  # 用户ID
-    username: Optional[str] = None  # 用户名
-    gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
-    jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
-
 class UserSettings(BaseModel):
     """用户设置信息（称号、头像、角色、音色）"""
     user_id: int  # 用户ID
+    username: str  # 用户名
     title_id: Optional[int] = 1  # 称号ID（默认值为1）
     profile_image_id: Optional[int] = 1  # 使用的头像ID（默认值为1）
     character_id: Optional[int] = 1  # 选择的角色ID（默认值为1）
     voice_id: Optional[int] = 1  # 选择的音色ID（默认值为1）
+
+class Player_info_response(BaseModel):
+    """玩家信息响应（包含所有统计数据）"""
+    user_id: int  # 用户ID
+    username: Optional[str] = None  # 用户名
+    user_settings: Optional[UserSettings] = None  # 用户设置信息
+    gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
+    jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
 
 class UserConfig(BaseModel):
     """用户游戏配置信息（音量等）"""

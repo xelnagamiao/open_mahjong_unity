@@ -85,20 +85,24 @@ public partial class GameCanvas : MonoBehaviour
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
                 player_self_name.text = player.username; // 设置玩家名称
-                // 根据头像id设置头像
-                // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
+                player_self_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
+                player_self_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
+
             }
             else if (indexToPosition[player.player_index] == "right"){
                 player_right_name.text = player.username;
-                // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
+                player_right_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
+                player_right_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
             }
             else if (indexToPosition[player.player_index] == "top"){
                 player_top_name.text = player.username;
-                // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
+                player_top_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
+                player_top_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
             }
             else if (indexToPosition[player.player_index] == "left"){
                 player_left_name.text = player.username;
-                // player_self_profile_picture.sprite = Resources.Load<Sprite>($"HeadIcon/{player.head_icon}");
+                player_left_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
+                player_left_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
             }
         }
         roomRoundText.text = $"圈数：{gameInfo.current_round}"; // 左上角显示需要打的圈数

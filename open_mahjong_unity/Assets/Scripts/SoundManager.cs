@@ -35,11 +35,8 @@ public class SoundManager : MonoBehaviour
         {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
-        
-        // 设置AudioSource属性
-        audioSource.volume = ConfigManager.Instance.soundVolume;
-        audioSource.playOnAwake = false;
     }
+    
     
     // 播放操作音效的方法
     public void PlayActionSound(string playerPosition,string actionType)
@@ -84,8 +81,10 @@ public class SoundManager : MonoBehaviour
         AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + actionType);
         if (soundToPlay != null)
         {
-            audioSource.PlayOneShot(soundToPlay, ConfigManager.Instance.soundVolume);
-            Debug.Log($"播放物理音效: {actionType}");
+            // 使用 ConfigManager 的音量设置，如果未初始化则使用默认值
+            float volume = ConfigManager.Instance.soundVolume;
+            audioSource.PlayOneShot(soundToPlay, volume);
+            Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
         }
         else
         {

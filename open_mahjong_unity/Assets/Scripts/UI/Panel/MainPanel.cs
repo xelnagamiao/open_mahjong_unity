@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class MainPanel : MonoBehaviour
 {
@@ -7,6 +8,18 @@ public class MainPanel : MonoBehaviour
     [SerializeField] private Button RecordButton;
     [SerializeField] private Button playerButton;
 
+    [SerializeField] private TMP_Text usernameText;
+    [SerializeField] private Image profileImage;
+
+
+    public static MainPanel Instance { get; private set; }
+    private void Awake(){
+        if (Instance != null && Instance != this){
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
     // Start is called before the first frame update
     void Start()
     {
@@ -28,9 +41,10 @@ public class MainPanel : MonoBehaviour
         WindowsManager.Instance.OpenPlayerInfoPanel();
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+    public void ShowUserSettings(UserSettings userSettings){
+        usernameText.text = userSettings.username;
+        Debug.Log($"image/Profiles/{userSettings.profile_image_id}");
+        profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{userSettings.profile_image_id}");
+        profileImage.gameObject.GetComponent<ProfileOnClick>().user_id = userSettings.user_id;
     }
 }

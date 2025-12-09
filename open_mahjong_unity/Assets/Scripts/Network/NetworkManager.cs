@@ -22,7 +22,6 @@ public class NetworkManager : MonoBehaviour
     private string playerId; // 定义玩家ID
     private bool isConnecting = false; // 定义连接状态
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
-    private Action<bool, string> currentLoginCallback; // 登录回调
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
     
@@ -147,30 +146,21 @@ public class NetworkManager : MonoBehaviour
             switch (response.type){
                 case "login":
                     if (response.success){
-                        if (response.login_info != null)
-                        {
-                            UserDataManager.Instance.SetUserInfo(
-                                response.login_info.username,
-                                response.login_info.userkey,
-                                response.login_info.user_id
-                            );
-                        }
-                        if (response.user_settings != null)
-                        {
-                            UserDataManager.Instance.SetUserSettings(
-                                response.user_settings.title_id,
-                                response.user_settings.profile_image_id,
-                                response.user_settings.character_id,
-                                response.user_settings.voice_id
-                            );
-                        }
-                        if (response.user_config != null)
-                        {
-                            ConfigManager.Instance.SetUserConfig(response.user_config.volume);
-                        }
+                        WindowsManager.Instance.SwitchWindow("main");
+                        UserDataManager.Instance.SetUserInfo(
+                            response.login_info.username,
+                            response.login_info.userkey,
+                            response.login_info.user_id
+                        );
+                        UserDataManager.Instance.SetUserSettings(
+                            response.user_settings.title_id,
+                            response.user_settings.profile_image_id,
+                            response.user_settings.character_id,
+                            response.user_settings.voice_id
+                        );
+                        ConfigManager.Instance.SetUserConfig(response.user_config.volume);
+                        MainPanel.Instance.ShowUserSettings(response.user_settings);
                     }
-                    currentLoginCallback?.Invoke(response.success, response.message);
-                    currentLoginCallback = null; // 清除回调
                     break;
                 case "create_room":
                     CreateRoomResponse.Invoke(response.success, response.message);
@@ -271,7 +261,7 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
-                    PlayerPanel.Instance.GetPlayerInfoResponse(response.success, response.message, response.player_info);
+                    WindowsManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);
                     break;
                 
                 default:
@@ -286,16 +276,14 @@ public class NetworkManager : MonoBehaviour
     
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public void Login(string username, string password, Action<bool, string> callback)
+    public void Login(string username, string password)
     {
         try
         {
             if (websocket.ReadyState != WebSocketState.Open)
             {
-                callback?.Invoke(false, "网络未连接"); // 直接通过回调报告错误
                 return;
             }
-            currentLoginCallback = callback; // 存储回调
             // 3.2 如果网络连接成功，则发送登录消息
             var request = new LoginRequest
             {
@@ -308,8 +296,7 @@ public class NetworkManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            callback?.Invoke(false, e.Message); // 通过回调报告错误
-            currentLoginCallback = null; // 清除回调
+            Debug.LogError($"登录错误: {e.Message}");
         }
     }
 

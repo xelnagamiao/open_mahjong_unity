@@ -9,7 +9,7 @@ public class UserDataManager : MonoBehaviour
     public string Username { get; private set; }
     public string Userkey { get; private set; }
     public int UserId { get; private set; }
-    public string RoomId { get; private set; }
+    public string RoomId { get; private set; } = "";
     public int TitleId { get; private set; }
     public int ProfileImageId { get; private set; }
     public int CharacterId { get; private set; }
@@ -46,13 +46,15 @@ public class UserDataManager : MonoBehaviour
     // 设置房间ID
     public void SetRoomId(string room_id)
     {
+        Debug.Log("SetRoomId: " + room_id);
+        Debug.Log("Current RoomId: " + this.RoomId);
         // 如果房间ID发生变化
         if (this.RoomId != room_id){
             if (this.RoomId != ""){ // 如果房间本身不是空的,就说明房间变空了,需要退出房间聊天室
                 ChatManager.Instance.LeaveRoom(int.Parse(this.RoomId)); // 退出房间聊天室
             }
             else if (room_id != ""){ // 如果房间本身是空的,就说明房间变非空了,需要加入房间聊天室
-                ChatManager.Instance.JoinRoom(int.Parse(this.RoomId)); // 加入房间聊天室
+                ChatManager.Instance.JoinRoom(int.Parse(room_id)); // 加入房间聊天室
             }
             this.RoomId = room_id;
         }

@@ -8,10 +8,11 @@ public class RoomInfo
     public string room_type;
     public int max_player;
     public int[] player_list;
-    public Dictionary <int,string> player_names;
+    // key: user_id (string in JSON) -> setting
+    public Dictionary<string, UserSettings> player_settings;
     public bool has_password;
     public bool tips;
-    public string host_user_name;
+    public string host_name;
     public int host_user_id;
     public string room_name;
     public int game_round;
@@ -81,6 +82,10 @@ public class PlayerInfo // 房间信息中单个玩家信息
     public int player_index;            // 东南西北位置 (改为player_index)
     public int score;                   // 得分
     public int[] huapai_list;           // 花牌列表
+    public int title_used;              // 使用的称号ID
+    public int character_used;          // 使用的角色ID
+    public int profile_used;            // 使用的头像ID
+    public int voice_used;              // 使用的音色ID
 }
 
 public class GameInfo // 游戏开始时传递房间信息
@@ -105,7 +110,10 @@ public class PlayerRecordInfo // 玩家对局记录信息
     public string username;            // 用户名
     public int score;                   // 玩家分数
     public int rank;                    // 排名（1-4）
-    public string character_used;      // 使用的角色（可为空）
+    public int? title_used;             // 使用的称号ID（可为空）
+    public int? character_used;        // 使用的角色ID（可为空）
+    public int? profile_used;           // 使用的头像ID（可为空）
+    public int? voice_used;            // 使用的音色ID（可为空）
 }
 
 public class RecordInfo // 游戏记录信息（按游戏分组，包含4个玩家）
@@ -136,21 +144,22 @@ public class PlayerStatsInfo // 玩家统计数据信息（单个规则和模式
     public Dictionary<string, int> fan_stats; // 番种统计数据（字段名 -> 次数）
 }
 
-public class PlayerInfoResponse // 玩家信息响应（包含所有统计数据）
-{
-    public int user_id;                // 用户ID
-    public string username;             // 用户名
-    public PlayerStatsInfo[] gb_stats; // 国标麻将统计数据列表
-    public PlayerStatsInfo[] jp_stats; // 立直麻将统计数据列表
-}
-
 public class UserSettings // 用户设置信息（称号、头像、角色、音色）
 {
     public int user_id;                // 用户ID
+    public string username;            // 用户名
     public int title_id;              // 称号ID
     public int profile_image_id;      // 使用的头像ID
     public int character_id;          // 选择的角色ID
     public int voice_id;              // 选择的音色ID
+}
+
+public class PlayerInfoResponse // 玩家信息响应（包含所有统计数据）
+{
+    public int user_id;                // 用户ID
+    public UserSettings user_settings; // 用户设置信息
+    public PlayerStatsInfo[] gb_stats; // 国标麻将统计数据列表
+    public PlayerStatsInfo[] jp_stats; // 立直麻将统计数据列表
 }
 
 public class UserConfig // 用户游戏配置信息（音量等）

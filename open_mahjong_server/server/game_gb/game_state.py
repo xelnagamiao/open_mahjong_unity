@@ -1,6 +1,6 @@
 import random
 import asyncio
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import time
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
@@ -45,6 +45,11 @@ class ChinesePlayer:
         self.waiting_tiles = set[int]()               # 听牌
         self.record_counter = RecordCounter()          # 创建独立的记录计数器实例
 
+        self.title_used = 0 # 使用的称号ID
+        self.profile_used = 0 # 使用的头像ID
+        self.character_used = 0 # 使用的角色ID
+        self.voice_used = 0 # 使用的音色ID
+
     def get_tile(self, tiles_list):
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌
         self.hand_tiles.append(element)
@@ -67,10 +72,17 @@ class ChineseGameState:
         self.game_record = {}
         # 创建玩家列表 包含chinesePlayer类
         self.player_list: List[ChinesePlayer] = []
-        player_names = room_data.get("player_names", {})
+        player_settings = room_data.get("player_settings", {})
         for user_id in room_data["player_list"]:
-            username = player_names.get(user_id, f"用户{user_id}")
-            self.player_list.append(ChinesePlayer(user_id, username, [], room_data["round_timer"]))
+            player_setting = player_settings.get(user_id, {})
+            username = player_setting.get("username", f"用户{user_id}")
+            player = ChinesePlayer(user_id, username, [], room_data["round_timer"])
+            # 初始化玩家使用的设置数据
+            player.title_used = player_setting.get("title_id", 1)
+            player.profile_used = player_setting.get("profile_image_id", 1)
+            player.character_used = player_setting.get("character_id", 1)
+            player.voice_used = player_setting.get("voice_id", 1)
+            self.player_list.append(player)
 
         # 初始化房间配置
         self.room_id = room_data["room_id"] # 房间ID

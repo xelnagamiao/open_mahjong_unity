@@ -41,20 +41,7 @@ public class LoginPanel : MonoBehaviour
 
         submitButton.interactable = false; // 禁用按钮
         statusText.text = "登录中...";
-        NetworkManager.Instance.Login(userName, password, LoginCallback); // 发送登录请求
-    }
-
-    private void LoginCallback(bool success, string message) // 收到登录响应
-    {
-        submitButton.interactable = true; // 启用按钮
-        if (!success)
-        {
-            statusText.text = $"登录失败: {message}";
-            return;
-        }
-
-        statusText.text = "登录成功";
-        WindowsManager.Instance.SwitchWindow("main");
+        NetworkManager.Instance.Login(userName, password); // 发送登录请求
     }
 
     // 服务器连接协程

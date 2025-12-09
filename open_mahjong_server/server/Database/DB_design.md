@@ -56,10 +56,10 @@ PostgreSQL
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
 | rule | VARCHAR(10) | NOT NULL | 规则类型（GB=国标，JP=日麻） |
-| character_used | VARCHAR(255) | NULL | 使用的角色（可为空） |
-voice_used 
-
-
+| title_used | INT | NULL | 使用的称号ID（可为空） |
+| character_used | INT | NULL | 使用的角色ID（可为空） |
+| profile_used | INT | NULL | 使用的头像ID（可为空） |
+| voice_used | INT | NULL | 使用的音色ID（可为空） | 
 
 ### gb_record_stats 国标麻将对局统计宽表
 
