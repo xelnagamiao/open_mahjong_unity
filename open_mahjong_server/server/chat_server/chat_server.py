@@ -3,20 +3,33 @@ import subprocess
 import secrets
 import hashlib
 import asyncio
+import sys
 """
-聊天服务器类用于生成一份本地哈希，并且启动一个基于golang的聊天服务器，
+聊天服务器类用于生成一份本地哈希，供聊天服务器使用。
 在用户登录时发送根据本地哈希加密的秘钥给客户端，客户端使用此哈希值在聊天服务器中验证，即可使用聊天功能。
+
+设计原则：
+- Python 服务器只负责生成和保存秘钥文件
+- 聊天服务器由 supervisor/systemd 等进程管理工具独立管理
+- 这样可以避免 Python 服务器崩溃时导致聊天服务器成为孤儿进程
 """
+# 全局秘钥变量
+HASH_SALT = None
+
 class ChatServer:  
-    async def start_chat_server(self):
+    async def generate_secret_key(self):
+        """
+        生成并保存秘钥文件，供聊天服务器读取
+        这是唯一需要 Python 服务器执行的操作
+        """
+        global HASH_SALT
         
         # 生成密钥
-        global HASH_SALT
         HASH_SALT = secrets.token_urlsafe(16)
         
         # 保存秘钥到文件
         await self.save_secret_key_to_file(HASH_SALT)
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # 短暂等待确保文件写入完成
         
         # 验证文件是否写入成功
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,45 +37,56 @@ class ChatServer:
         
         # 如果不存在则报错
         if not os.path.exists(secret_file_path):
-            print(f"秘钥文件不存在: {secret_file_path}")
-            return
+            raise Exception(f"秘钥文件不存在: {secret_file_path}")
             
         # 验证文件内容是否有效
         try:
             with open(secret_file_path, 'r') as f:
                 saved_key = f.read().strip()
                 if not saved_key or len(saved_key) < 10:
-                    print(f"秘钥文件内容无效: {saved_key}")
-                    return
+                    raise Exception(f"秘钥文件内容无效: {saved_key}")
                 print(f"秘钥文件验证成功: {saved_key[:20]}...")
         except Exception as e:
             print(f"读取秘钥文件失败: {e}")
-            return
+            raise
+
+    async def start_chat_server(self):
+        """
+        测试环境启动聊天服务器
+        """
         
         # 聊天服务器可执行文件路径
-        executable_path = os.path.join(script_dir, 'open_mahjong_chatServer.exe')
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        if sys.platform == 'win32':
+            executable_path = os.path.join(script_dir, 'open_mahjong_chatServer.exe')
+        else:
+            executable_path = os.path.join(script_dir, 'open_mahjong_chatServer')
         
         try:
             # 检查可执行文件是否存在
             if not os.path.exists(executable_path):
-                print(f"聊天服务器可执行文件不存在: {executable_path}")
+                print(f"警告: 聊天服务器可执行文件不存在: {executable_path}")
+                print("提示: 在生产环境中，聊天服务器应由 supervisor/systemd 独立管理")
                 return
                 
-            # 调试环境使用命令行窗口显示日志信息
-            process = subprocess.Popen(
-            ['cmd.exe', '/k', 'cd /d', script_dir, '&&', executable_path],
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
-            """
-            部署环境使用stdout/stderr捕获，避免日志输出到控制台
-            process = subprocess.Popen(
-                [executable_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            """
+            # 调试环境使用命令行窗口显示日志信息（仅 Windows）
+            if sys.platform == 'win32':
+                process = subprocess.Popen(
+                    ['cmd.exe', '/k', 'cd /d', script_dir, '&&', executable_path],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                )
+            else:
+                # Linux/Mac 环境
+                process = subprocess.Popen(
+                    [executable_path],
+                    cwd=script_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            
             print(f"聊天服务器进程已启动，PID: {process.pid}")
+            print("警告: 在生产环境中，建议使用 supervisor/systemd 独立管理聊天服务器")
             
         except Exception as e:
             print(f"启动聊天服务器失败: {e}")

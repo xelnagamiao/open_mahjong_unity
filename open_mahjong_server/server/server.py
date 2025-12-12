@@ -13,7 +13,7 @@ from .game_calculation.game_calculation_service import GameCalculationService
 import secrets,hashlib
 import subprocess,os,signal,sys
 import time
-from .config import host, user, password, database, port
+from .config import host, user, password, database, port ,Debug
 
 # 创建数据库实例
 db_manager = DatabaseManager(
@@ -31,7 +31,12 @@ chat_server = ChatServer()
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
-    await chat_server.start_chat_server()
+    # 只生成秘钥文件，不启动聊天服务器
+    # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
+    await chat_server.generate_secret_key()
+    # 测试环境下启动聊天服务器
+    if Debug:
+        await chat_server.start_chat_server()
     yield
     # 关闭时执行（如果需要清理资源，在这里添加）
 
