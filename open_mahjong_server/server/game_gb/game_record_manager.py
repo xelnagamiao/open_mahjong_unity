@@ -107,10 +107,10 @@ def player_action_record_jiagang(self,jiagang_tile: int):
     )
 
 # 牌谱记录吃碰杠牌
-def player_action_record_chipenggang(self,mingpai_tile: int,action_player: int):
+def player_action_record_chipenggang(self,action_type: str,mingpai_tile: int,action_player: int):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["chipenggang",mingpai_tile,action_player]
+        [action_type,mingpai_tile,action_player]
     )
 
 # 牌谱记录增加巡目

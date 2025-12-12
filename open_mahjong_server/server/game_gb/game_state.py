@@ -848,7 +848,7 @@ class ChineseGameState:
                         self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                         self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
                         # 牌谱记录吃碰杠牌
-                        player_action_record_chipenggang(self,action_type = action_type,chi_tile = tile_id,action_player = player_index)
+                        player_action_record_chipenggang(self,action_type = action_type,mingpai_tile = tile_id,action_player = player_index)
                         # 广播吃碰杠动画
                         await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask,combination_target = combination_target)
                         if action_type == "gang":
