@@ -48,6 +48,7 @@ public class SendChineseGameTileRequest // 发送国标游戏牌请求
     public string type;
     public bool? cutClass;
     public int TileId;
+    public int cutIndex;
     public string room_id;
 }
 
@@ -59,4 +60,15 @@ public class SendActionRequest // 发送国标游戏操作请求
     public bool? cutClass; // 切牌类型
     public int? TileId; // 切牌
     public string room_id;
+}
+
+public class GetRecordListRequest // 获取游戏记录请求
+{
+    public string type;
+}
+
+public class GetPlayerInfoRequest // 获取玩家信息请求
+{
+    public string type;
+    public string userid;
 }

@@ -17,6 +17,11 @@ public class RoomPanel : MonoBehaviour
     [SerializeField] private Button backButton; // 返回按钮
     [SerializeField] private Button startButton; // 开始按钮
 
+    int player1_id = 0;
+    int player2_id = 0;
+    int player3_id = 0;
+    int player4_id = 0;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -55,12 +60,23 @@ public class RoomPanel : MonoBehaviour
         // 根据实际玩家数量设置文本
         for (int i = 0; i < roomInfo.player_list.Length && i < 4; i++)
         {
+            // 按照玩家列表的user_id获取用户设置
+            int userId = roomInfo.player_list[i];
+            string key = userId.ToString();
+
+            UserSettings userSettings = roomInfo.player_settings[key];
+            string username = userSettings.username;
+            int titleId = userSettings.title_id;
+            int profileImageId = userSettings.profile_image_id;
+            int characterId = userSettings.character_id;
+            int voiceId = userSettings.voice_id;
+
             switch (i)
             {
-                case 0: player_1.text = roomInfo.player_list[i]; break;
-                case 1: player_2.text = roomInfo.player_list[i]; break;
-                case 2: player_3.text = roomInfo.player_list[i]; break;
-                case 3: player_4.text = roomInfo.player_list[i]; break;
+                case 0: player1_id = userId; player_1.text = username; break;
+                case 1: player2_id = userId; player_2.text = username; break;
+                case 2: player3_id = userId; player_3.text = username; break;
+                case 3: player4_id = userId; player_4.text = username; break;
             }
         }
 
@@ -68,7 +84,7 @@ public class RoomPanel : MonoBehaviour
         startButton.interactable = roomInfo.player_list.Length == 4;
 
         // 如果玩家1不是自己 则禁用开始按钮
-        if (player_1.text != Administrator.Instance.Username)
+        if (player_1.text != UserDataManager.Instance.Username)
         {
             startButton.interactable = false;
         }
@@ -79,16 +95,17 @@ public class RoomPanel : MonoBehaviour
             gbRoomConfig.SetGBRoomConfig(roomInfo);
         }
     }
+
     private void BackButtonClicked()
     {
         WindowsManager.Instance.SwitchWindow("roomList");
-        NetworkManager.Instance.LeaveRoom(Administrator.Instance.room_id);
+        NetworkManager.Instance.LeaveRoom(UserDataManager.Instance.RoomId);
 
     }
 
     private void StartButtonClicked()
     {
-        NetworkManager.Instance.StartGame(Administrator.Instance.room_id);
+        NetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId);
     }
 
 }

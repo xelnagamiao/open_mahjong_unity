@@ -7,12 +7,19 @@ public class SoundManager : MonoBehaviour
     public static SoundManager Instance { get; private set; }
     
     [Header("音效配置")]
-    [SerializeField] private AudioSource audioSource; // 音效播放器
+    [SerializeField] private AudioSource audioSource; // 环境音效播放器
     [SerializeField] private AudioSource physicsAudio; // 物理音效播放器
     [SerializeField] private AudioSource selfAudio; // 自身位置音效播放器
     [SerializeField] private AudioSource leftAudio; // 左家位置音效播放器
     [SerializeField] private AudioSource rightAudio; // 右家位置音效播放器
     [SerializeField] private AudioSource topAudio; // 对家位置音效播放器
+    
+    // 音色ID到文件路径的映射字典
+    private Dictionary<int, string> voiceIdToPath = new Dictionary<int, string>
+    {
+        { 1, "ttsmaker_204_xiaoxiao" },
+        { 2, "ttsmaker_1513_qiuqiu" }
+    };
     
     private void Awake()
     {
@@ -22,18 +29,14 @@ public class SoundManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         
         // 如果没有AudioSource，自动添加一个
         if (audioSource == null)
         {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
-        
-        // 设置AudioSource属性
-        audioSource.volume = Config.soundVolume;
-        audioSource.playOnAwake = false;
     }
+    
     
     // 播放操作音效的方法
     public void PlayActionSound(string playerPosition,string actionType)
@@ -53,15 +56,24 @@ public class SoundManager : MonoBehaviour
             audioTarget = "gang";
         }
 
-        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/" + Config.soundConfig + "/" + audioTarget);
+        // 根据用户设置的音色ID获取对应的文件路径
+        int voiceId = UserDataManager.Instance != null ? UserDataManager.Instance.VoiceId : 1;
+        string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
+        
+        // 构建完整的资源路径
+        string soundPath = $"Sound/{voicePath}/{audioTarget}";
+        AudioClip soundToPlay = Resources.Load<AudioClip>(soundPath);
+        
         if (soundToPlay != null)
         {
-            audioSource.PlayOneShot(soundToPlay, Config.soundVolume);
-            Debug.Log($"播放音效: {playerPosition} {actionType}");
+            // 使用 ConfigManager 的音量设置
+            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.soundVolume : 1.0f;
+            audioSource.PlayOneShot(soundToPlay, volume);
+            Debug.Log($"播放音效: {playerPosition} {actionType}, 音色: {voicePath}, 音量: {volume}");
         }
         else
         {
-            Debug.Log($"未找到音效文件: {actionType}");
+            Debug.Log($"未找到音效文件: {soundPath}");
         }
     }
 
@@ -69,8 +81,10 @@ public class SoundManager : MonoBehaviour
         AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + actionType);
         if (soundToPlay != null)
         {
-            audioSource.PlayOneShot(soundToPlay, Config.soundVolume);
-            Debug.Log($"播放物理音效: {actionType}");
+            // 使用 ConfigManager 的音量设置，如果未初始化则使用默认值
+            float volume = ConfigManager.Instance.soundVolume;
+            audioSource.PlayOneShot(soundToPlay, volume);
+            Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
         }
         else
         {

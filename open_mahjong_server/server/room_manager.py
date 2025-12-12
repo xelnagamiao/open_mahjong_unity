@@ -1,9 +1,9 @@
 from typing import Dict, Any, Optional
-from room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
-from response import Response
-from GB_Game.GameState_GB import ChineseGameState
-from GB_Game.Hepai_Check_GB import Chinese_Hepai_Check
-from GB_Game.Tingpai_Check_GB import Chinese_Tingpai_Check
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
+from .response import Response
+from .game_gb.game_state import ChineseGameState
+from .game_calculation.game_calculation_service import Chinese_Hepai_Check
+from .game_calculation.game_calculation_service import Chinese_Tingpai_Check
 import json
 import asyncio
 
@@ -39,7 +39,23 @@ class RoomManager:
 
             # 获取玩家信息
             player = self.game_server.players[player_id] # 拿取 PlayerConnection
-            host_name = player.username # 获取房主名
+            if not player.user_id:
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="请先登录"
+                )
+            host_user_id = player.user_id  # 获取房主ID
+            host_name = player.username  # 获取房主名（用于显示）
+
+            # 获取房主的设置信息
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="获取用户设置失败"
+                )
 
             # 构建房间配置
             has_password = False
@@ -75,10 +91,21 @@ class RoomManager:
                 "room_id": room_id, # 房间ID
                 "room_type": "guobiao", # 房间类型
                 "max_player": 4, # 最大玩家数
-                "player_list": [host_name], # 玩家列表
+                "player_list": [host_user_id], # 玩家列表（使用 user_id）
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },  # 玩家ID到设置信息的映射
                 "has_password": has_password, # 是否有密码
                 "tips": tips, # 是否开启提示
-                "host_name": host_name, # 房主名
+                "host_user_id": host_user_id, # 房主ID
+                "host_name": host_name, # 房主名（用于显示）
             }
 
             # 将房间数据尾 添加到room_data中
@@ -154,9 +181,15 @@ class RoomManager:
 
             # 获取玩家信息
             player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="请先登录"
+                )
             
             # 检查玩家是否已经在房间中
-            if player.username in room_data["player_list"]:
+            if player.user_id in room_data["player_list"]:
                 return Response(
                     type="error_message",
                     success=False,
@@ -172,7 +205,32 @@ class RoomManager:
                 )
             
             # 更新房间信息
-            room_data["player_list"].append(player.username)
+            room_data["player_list"].append(player.user_id)
+            # 更新玩家设置映射
+            if "player_settings" not in room_data:
+                room_data["player_settings"] = {}
+            
+            # 获取玩家的设置信息
+            player_settings = self.game_server.db_manager.get_user_settings(player.user_id)
+            if player_settings:
+                room_data["player_settings"][player.user_id] = {
+                    "user_id": player.user_id,
+                    "username": player_settings.get('username', player.username),
+                    "title_id": player_settings.get('title_id', 1),
+                    "profile_image_id": player_settings.get('profile_image_id', 1),
+                    "character_id": player_settings.get('character_id', 1),
+                    "voice_id": player_settings.get('voice_id', 1)
+                }
+            else:
+                # 如果获取失败，使用默认值
+                room_data["player_settings"][player.user_id] = {
+                    "user_id": player.user_id,
+                    "username": player.username,
+                    "title_id": 1,
+                    "profile_image_id": 1,
+                    "character_id": 1,
+                    "voice_id": 1
+                }
 
             # 更新玩家信息
             player.current_room_id = room_id
@@ -193,7 +251,7 @@ class RoomManager:
                 message=f"加入房间失败: {str(e)}"
             )
 
-    async def leave_room(self, player_id: str, room_id: str) -> Response:
+    async def leave_room(self, Connect_id: str, room_id: str) -> Response:
         try:
             # 检查房间是否存在
             if room_id not in self.rooms:
@@ -204,10 +262,17 @@ class RoomManager:
                 )
 
             room_data = self.rooms[room_id]
-            player = self.game_server.players[player_id]
+            player = self.game_server.players[Connect_id]
+            
+            if not player.user_id:
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="请先登录"
+                )
 
             # 检查玩家是否在房间中
-            if player.username not in room_data["player_list"]:
+            if player.user_id not in room_data["player_list"]:
                 return Response(
                     type="error_message",
                     success=False,
@@ -215,10 +280,10 @@ class RoomManager:
                 )
 
             # 更新房间信息
-            room_data["player_list"].remove(player.username)
-
-            # 更新玩家信息
-            player.current_room_id = None
+            room_data["player_list"].remove(player.user_id)
+            # 更新玩家设置映射
+            if "player_settings" in room_data and player.user_id in room_data["player_settings"]:
+                del room_data["player_settings"][player.user_id]
 
             # 如果房间空了就删除
             if len(room_data["player_list"]) == 0:
@@ -264,12 +329,14 @@ class RoomManager:
             room_info = room_data
         )
 
-        for username in room_data["player_list"]:
-            if username in self.game_server.username_to_connection:
-                player_conn = self.game_server.username_to_connection[username]
+        for user_id in room_data["player_list"]:
+            if user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[user_id]
                 try:
-                    print(f"正在广播给玩家 {username}")
+                    player_setting = room_data.get("player_settings", {}).get(user_id, {})
+                    username = player_setting.get("username", f"用户{user_id}")
+                    print(f"正在广播给玩家 user_id={user_id}, username={username}")
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     print(f"广播成功")
                 except Exception as e:
-                    print(f"广播给玩家 {username} 失败: {e}") 
+                    print(f"广播给玩家 user_id={user_id} 失败: {e}") 
