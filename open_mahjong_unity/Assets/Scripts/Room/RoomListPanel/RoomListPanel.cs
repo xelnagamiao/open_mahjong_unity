@@ -41,7 +41,7 @@ public class RoomListPanel : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject); // 保持实例不被销毁
+
         }
         else if (Instance != this)
         {
@@ -108,7 +108,7 @@ public class RoomListPanel : MonoBehaviour
                 roomItemComponent.SetRoomListInfo(
                     roomId: roomData.room_id,
                     roomName: roomData.room_name,
-                    hostName: roomData.host_name,
+                    hostUserName: roomData.host_name,
                     playerCount: roomData.player_list.Length,
                     gameTime: roomData.game_round,
                     hasPassword: roomData.has_password,

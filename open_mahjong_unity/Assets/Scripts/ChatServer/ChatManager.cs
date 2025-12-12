@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using Unity.VisualScripting;
 
 public class ChatManager : MonoBehaviour
 {
@@ -39,7 +38,6 @@ public class ChatManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
         websocket = new WebSocket($"ws://localhost:8083/chat/{playerId}"); // 初始化WebSocket
         websocket.OnOpen += (sender, e) => Debug.Log("WebSocket To ChatServer连接已打开");
@@ -177,7 +175,7 @@ public class ChatManager : MonoBehaviour
         // 检查WebSocket连接状态
         if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            Debug.LogError("WebSocket连接未建立，无法发送登录消息");
+            Debug.Log("WebSocket连接未建立，无法发送登录消息");
             return;
         }
         
@@ -205,7 +203,7 @@ public class ChatManager : MonoBehaviour
             Debug.LogError("WebSocket连接未建立，无法发送聊天消息");
             return;
         }
-        // 根据SwitchSendTarget的值 选择发送目标房间id 0为大厅 1为administrator中存储的房间id 2为私聊(未启用)
+        // 根据SwitchSendTarget的值 选择发送目标房间id 0为大厅 1为UserDataManager中存储的房间id 2为私聊(未启用)
         int targetRoomId;
 
         if (SwitchSendTarget.value == 0)
@@ -214,8 +212,8 @@ public class ChatManager : MonoBehaviour
         }
         else if (SwitchSendTarget.value == 1)
         {
-            if (Administrator.Instance.room_id != ""){
-                targetRoomId = int.Parse(Administrator.Instance.room_id);  // 房间id
+            if (UserDataManager.Instance.RoomId != ""){
+                targetRoomId = int.Parse(UserDataManager.Instance.RoomId);  // 房间id
             }
             else{
                 DisplayChatMessage(new ChatResponse { responseType = "False", roomId = 0, content = "未进入房间,无法在房间中发送消息" });

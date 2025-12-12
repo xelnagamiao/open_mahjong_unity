@@ -22,7 +22,6 @@ public class NetworkManager : MonoBehaviour
     private string playerId; // 定义玩家ID
     private bool isConnecting = false; // 定义连接状态
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
-    private Action<bool, string> currentLoginCallback; // 登录回调
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
     
@@ -137,14 +136,6 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    // 主线程协程执行器（备用方案）
-    private IEnumerator ExecuteOnMainThreadCoroutine(Action action)
-    {
-        // 等待一帧，确保在主线程中执行
-        yield return null;
-        action?.Invoke();
-    }
-
     // 3.Get_Message方法用于处理服务器返回的消息 
     private void Get_Message(byte[] bytes){
         try{
@@ -155,14 +146,25 @@ public class NetworkManager : MonoBehaviour
             switch (response.type){
                 case "login":
                     if (response.success){
-                        Administrator.Instance.SetUserInfo(response.username,response.userkey);
+                        WindowsManager.Instance.SwitchWindow("main");
+                        UserDataManager.Instance.SetUserInfo(
+                            response.login_info.username,
+                            response.login_info.userkey,
+                            response.login_info.user_id
+                        );
+                        UserDataManager.Instance.SetUserSettings(
+                            response.user_settings.title_id,
+                            response.user_settings.profile_image_id,
+                            response.user_settings.character_id,
+                            response.user_settings.voice_id
+                        );
+                        ConfigManager.Instance.SetUserConfig(response.user_config.volume);
+                        MainPanel.Instance.ShowUserSettings(response.user_settings);
                     }
-                    currentLoginCallback?.Invoke(response.success, response.message);
-                    currentLoginCallback = null; // 清除回调
                     break;
                 case "create_room":
                     CreateRoomResponse.Invoke(response.success, response.message);
-                    Administrator.Instance.SetRoomId(response.room_info.room_id);
+                    UserDataManager.Instance.SetRoomId(response.room_info.room_id);
                     break;
                 case "get_room_list": // 获取room_list
                     RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
@@ -175,7 +177,7 @@ public class NetworkManager : MonoBehaviour
                         response.message, 
                         response.room_info
                     );
-                    Administrator.Instance.SetRoomId(response.room_info.room_id);
+                    UserDataManager.Instance.SetRoomId(response.room_info.room_id);
                     break;
                 case "error_message":
                     Debug.Log($"错误消息: {response.message}");
@@ -186,7 +188,7 @@ public class NetworkManager : MonoBehaviour
                     if (response.success)
                     {
                         WindowsManager.Instance.SwitchWindow("roomList");
-                        Administrator.Instance.SetRoomId("");
+                        UserDataManager.Instance.SetRoomId("");
                     }
                     break;
                 case "join_room":
@@ -246,6 +248,20 @@ public class NetworkManager : MonoBehaviour
                     );
                     break;
                 case "game_end_GB":
+                    Debug.Log($"收到游戏结束消息: {response.game_end_info}");
+                    GameEndInfo gameendresponse = response.game_end_info;
+                    GameSceneManager.Instance.GameEnd(
+                        gameendresponse.game_random_seed,
+                        gameendresponse.player_final_data
+                    );
+                    break;
+                case "get_record_list":
+                    Debug.Log($"收到游戏记录列表: {response.message}");
+                    RecordPanel.Instance.GetRecordListResponse(response.success, response.message, response.record_list);
+                    break;
+                case "get_player_info":
+                    Debug.Log($"收到玩家信息: {response.message}");
+                    WindowsManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);
                     break;
                 
                 default:
@@ -260,16 +276,14 @@ public class NetworkManager : MonoBehaviour
     
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public void Login(string username, string password, Action<bool, string> callback)
+    public void Login(string username, string password)
     {
         try
         {
             if (websocket.ReadyState != WebSocketState.Open)
             {
-                callback?.Invoke(false, "网络未连接"); // 直接通过回调报告错误
                 return;
             }
-            currentLoginCallback = callback; // 存储回调
             // 3.2 如果网络连接成功，则发送登录消息
             var request = new LoginRequest
             {
@@ -282,8 +296,7 @@ public class NetworkManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            callback?.Invoke(false, e.Message); // 通过回调报告错误
-            currentLoginCallback = null; // 清除回调
+            Debug.LogError($"登录错误: {e.Message}");
         }
     }
 
@@ -362,12 +375,13 @@ public class NetworkManager : MonoBehaviour
     }
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
-    public void SendChineseGameTile(bool cutClass,int tileId,string roomId){
+    public void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
         var request = new SendChineseGameTileRequest
         {
             type = "CutTiles",
             cutClass = cutClass,
             TileId = tileId,
+            cutIndex = cutIndex,
             room_id = roomId
         };
         websocket.Send(JsonConvert.SerializeObject(request));
@@ -378,15 +392,33 @@ public class NetworkManager : MonoBehaviour
         var request = new SendActionRequest
         {
             type = "send_action",
-            room_id = Administrator.Instance.room_id,
+            room_id = UserDataManager.Instance.RoomId,
             action = action,
             targetTile = targetTile
         };
         websocket.Send(JsonConvert.SerializeObject(request));
     }
 
+    // 4.9 获取游戏记录方法 GetRecordList 从mainpanel调用发送
+    public void GetRecordList()
+    {
+        var request = new GetRecordListRequest
+        {
+            type = "get_record_list"
+        };
+        websocket.Send(JsonConvert.SerializeObject(request));
+    }
 
-
+    // 4.10 查询玩家信息方法 GetPlayerInfo 从PlayerPanel发送
+    public void GetPlayerInfo(string userid)
+    {
+        var request = new GetPlayerInfoRequest
+        {
+            type = "get_player_info",
+            userid = userid
+        };
+        websocket.Send(JsonConvert.SerializeObject(request));
+    }
 
 
 

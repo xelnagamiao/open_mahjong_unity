@@ -11,6 +11,12 @@ open_mahjong_server/*
 open_mahjong_server/server/__pycache__/*
 open_mahjong_server/server/error_log/*
 
+open_mahjong_server/server/chat_server/__pycache__/*
+open_mahjong_server/server/game_calculation/__pycache__/*
+open_mahjong_server/server/game_gb/__pycache__/*
+open_mahjong_server/server/database/__pycache__/*
+open_mahjong_server/server/local_config.py
+
 # 聊天服务器项目：不忽略任何文件和目录
 !open_mahjong_server/server/chat_server/
 

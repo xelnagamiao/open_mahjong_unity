@@ -1,5 +1,4 @@
 using System.Threading;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -34,6 +33,7 @@ public class GameSceneManager : MonoBehaviour
     public List<int> selfHandTiles = new List<int>(); // 手牌列表
     public class PlayerInfo{
         public string username;
+        public int userId;
         public int score;
         public int hand_tiles_count;
         public int[] hand_tiles;
@@ -59,31 +59,39 @@ public class GameSceneManager : MonoBehaviour
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
-        WindowsManager.Instance.SwitchWindow("game");
-        Game3DManager.Instance.Clear3DTile();
-        EndResultPanel.Instance.ClearEndResultPanel();
-        SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
-        EndLiujuPanel.Instance.ClearEndLiujuPanel();
-        // 1.存储初始化信息
-        InitializeSetInfo(gameInfo);
-        // 2 初始化UI
+        WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
+        
+        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
+        EndGamePanel.Instance.ClearEndGamePanel(); // 清空游戏结束面板
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
+        EndLiujuPanel.Instance.ClearEndLiujuPanel(); // 清空流局面板
+        StartGamePanel.Instance.ClearStartGamePanel(); // 清空开始游戏面板
+        GameRecordManager.Instance.HideGameRecord(); // 隐藏游戏记录
+
+        Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
+
+        InitializeSetInfo(gameInfo); // 初始化对局数据
+        GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
+        BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
+
+        
+
         // 如果游戏局数为9，则显示换位动画
         if (gameInfo.current_round == 5 || gameInfo.current_round == 9 || gameInfo.current_round == 13){
             StartCoroutine(SwitchSeatPanel.Instance.ShowSwitchSeatPanel(gameInfo.current_round,indexToPosition));
         }
-        GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition);
-        // 3.初始化面板
-        BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition);
-        // 4.初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
+
+        // 初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
         GameCanvas.Instance.ChangeHandCards("InitHandCards",0,gameInfo.self_hand_tiles,null);
-        // 5.初始化他人手牌区域
-        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
-        // 6.如果自己的手牌有14张，则摸最后一张牌
+        // 如果自己的手牌有14张，则摸最后一张牌
         if (gameInfo.self_hand_tiles.Length == 14){
             GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null,null);
             // 在这里可以添加向服务器传递加载完成方法
             // 亲家与闲家完成配牌以后等待服务器传递补花行为
         }
+
+        // 初始化他人手牌区域
+        Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
     }
 
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
@@ -264,6 +272,14 @@ public class GameSceneManager : MonoBehaviour
         }
     }
 
+    // 游戏结束
+    public void GameEnd(long game_random_seed, Dictionary<string, Dictionary<string, object>> player_final_data){
+        // 重置自身命令
+        SwitchCurrentPlayer("None","ClearAction",0);
+        // 显示游戏结束结果
+        EndGamePanel.Instance.ShowGameEndPanel(game_random_seed, player_final_data);
+    }
+
     public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){
         
         // 询问手牌操作
@@ -284,7 +300,6 @@ public class GameSceneManager : MonoBehaviour
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
         else if (SwitchType == "askMingPaiAction"){
-            BoardCanvas.Instance.ShowCurrentPlayer("self"); // 显示当前玩家
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
         }
@@ -315,8 +330,6 @@ public class GameSceneManager : MonoBehaviour
         else if (SwitchType == "TimeOut"){
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();
-            // 清空允许操作列表
-            allowActionList.Clear();
         }
     }
 
@@ -342,7 +355,7 @@ public class GameSceneManager : MonoBehaviour
 
         // 如果gameinfo.username等于自己的username，则设置自身索引为gameinfo.player_index
         foreach (var player in gameInfo.players_info){
-            if (player.username == Administrator.Instance.Username){
+            if (player.username == UserDataManager.Instance.Username){
                 selfIndex = player.player_index; // 存储自身索引
                 break;
             }
@@ -386,6 +399,7 @@ public class GameSceneManager : MonoBehaviour
         foreach (var player in gameInfo.players_info){
             if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
                 player_to_info["self"].username = player.username; // 存储用户名
+                player_to_info["self"].userId = player.user_id; // 存储uid
                 player_to_info["self"].score = player.score; // 存储分数
                 // 存储剩余时间
                 selfRemainingTime = player.remaining_time;
@@ -396,6 +410,7 @@ public class GameSceneManager : MonoBehaviour
             else if (indexToPosition[player.player_index] == "right"){
                 player_to_info["right"].username = player.username; // 存储用户名
                 player_to_info["right"].score = player.score; // 存储分数
+                player_to_info["right"].userId = player.user_id; // 存储uid
                 player_to_info["right"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["right"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["right"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
@@ -404,6 +419,7 @@ public class GameSceneManager : MonoBehaviour
             else if (indexToPosition[player.player_index] == "top"){
                 player_to_info["top"].username = player.username; // 存储用户名
                 player_to_info["top"].score = player.score; // 存储分数
+                player_to_info["top"].userId = player.user_id; // 存储uid
                 player_to_info["top"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["top"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["top"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
@@ -412,6 +428,7 @@ public class GameSceneManager : MonoBehaviour
             else if (indexToPosition[player.player_index] == "left"){
                 player_to_info["left"].username = player.username; // 存储用户名
                 player_to_info["left"].score = player.score; // 存储分数
+                player_to_info["left"].userId = player.user_id; // 存储uid
                 player_to_info["left"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["left"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["left"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
