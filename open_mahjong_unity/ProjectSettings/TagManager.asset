@@ -16,10 +16,10 @@ TagManager:
   - 
   - 
   - 
-  - login
-  - MainScene
-  - GameScene
-  - BoardSight
+  - 
+  - 
+  - 
+  - 
   - 
   - 
   - 
@@ -42,9 +42,12 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
-  - name: MeunUI
+  - name: BoardUI
+    uniqueID: 1243528903
+    locked: 0
+  - name: PageUI
     uniqueID: 1379215237
     locked: 0
-  - name: GameUI
+  - name: OverlayUI
     uniqueID: 1843980331
     locked: 0

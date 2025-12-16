@@ -13,7 +13,7 @@ from .game_calculation.game_calculation_service import GameCalculationService
 import secrets,hashlib
 import subprocess,os,signal,sys
 import time
-from .config import host, user, password, database, port ,Debug
+from .config import host, user, password, database, port ,auto_create_chatserver
 
 # 创建数据库实例
 db_manager = DatabaseManager(
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
     await chat_server.generate_secret_key()
     # 测试环境下启动聊天服务器
-    if Debug:
+    if auto_create_chatserver:
         await chat_server.start_chat_server()
     yield
     # 关闭时执行（如果需要清理资源，在这里添加）
@@ -253,7 +253,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     message="无效的用户ID"
                 )
                 await websocket.send_json(response.dict(exclude_none=True))
-                return
+                continue
             
             # 获取用户设置信息（包含 username）
             from .response import UserSettings
@@ -267,7 +267,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     message="用户不存在"
                 )
                 await websocket.send_json(response.dict(exclude_none=True))
-                return
+                continue
             
             # 获取统计数据
             stats_data = game_server.db_manager.get_player_stats(target_user_id)
