@@ -53,7 +53,8 @@ public class RoomListPanel : MonoBehaviour
     // 1.点击创建房间按钮 打开房间面板
     private void OpenCreatePanel()
     {
-        WindowsManager.Instance.SwitchWindow("createRoom");
+        RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
+        WindowsManager.Instance.SwitchWindow("room");
     }
 
     // 3.刷新房间列表 调用NetworkManager的GetRoomList方法
@@ -70,7 +71,7 @@ public class RoomListPanel : MonoBehaviour
     // 返回主面板
     private void BackButtonClicked()
     {
-        WindowsManager.Instance.SwitchWindow("main");
+        WindowsManager.Instance.SwitchWindow("menu");
     }
     // 4.获取房间列表响应
     public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List)
