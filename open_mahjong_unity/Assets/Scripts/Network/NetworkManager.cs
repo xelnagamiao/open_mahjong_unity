@@ -146,7 +146,7 @@ public class NetworkManager : MonoBehaviour
             switch (response.type){
                 case "login":
                     if (response.success){
-                        WindowsManager.Instance.SwitchWindow("main");
+                        WindowsManager.Instance.SwitchWindow("menu");
                         UserDataManager.Instance.SetUserInfo(
                             response.login_info.username,
                             response.login_info.userkey,
@@ -159,7 +159,7 @@ public class NetworkManager : MonoBehaviour
                             response.user_settings.voice_id
                         );
                         ConfigManager.Instance.SetUserConfig(response.user_config.volume);
-                        MainPanel.Instance.ShowUserSettings(response.user_settings);
+                        MenuPanel.Instance.ShowUserSettings(response.user_settings);
                     }
                     break;
                 case "create_room":
@@ -172,6 +172,7 @@ public class NetworkManager : MonoBehaviour
                 case "get_room_info": // 获取room_info 更新房间面板
                     Debug.Log("处理房间信息更新");
                     WindowsManager.Instance.SwitchWindow("room");
+                    RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
                     RoomPanel.Instance.GetRoomInfoResponse(
                         response.success, 
                         response.message, 
@@ -187,7 +188,8 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
                     if (response.success)
                     {
-                        WindowsManager.Instance.SwitchWindow("roomList");
+                        WindowsManager.Instance.SwitchWindow("room");
+                        RoomWindowsManager.Instance.SwitchRoomWindow("roomList");
                         UserDataManager.Instance.SetRoomId("");
                     }
                     break;

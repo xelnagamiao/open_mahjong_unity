@@ -20,7 +20,7 @@ public class PlayerPanel : MonoBehaviour
     void Start()
     {
         searchUseridButton.onClick.AddListener(OnSearchUseridButtonClick);
-        backButton.onClick.AddListener(WindowsManager.Instance.ClosePlayerInfoPanel);
+        backButton.onClick.AddListener(() => WindowsManager.Instance.SwitchWindow("menu"));
     }
 
     // 查询玩家信息

@@ -63,7 +63,7 @@ public class EndGamePanel : MonoBehaviour
     private void OnGoHomeButtonClick()
     {
         gameObject.SetActive(false);
-        WindowsManager.Instance.SwitchWindow("main");
+        WindowsManager.Instance.SwitchWindow("menu");
     }
 
     public void ClearEndGamePanel(){

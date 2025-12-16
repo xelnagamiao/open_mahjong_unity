@@ -2,10 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GameConfigPanel : MonoBehaviour
+public class AppConfigPanel : MonoBehaviour
 {
 
-    public static GameConfigPanel Instance;
+    public static AppConfigPanel Instance;
     private void Awake()
     {
         Instance = this;

@@ -30,7 +30,7 @@ public class RecordPanel : MonoBehaviour
 
     private void BackMenu()
     {
-        WindowsManager.Instance.SwitchWindow("main");
+        WindowsManager.Instance.SwitchWindow("menu");
     }
 
     /// <summary>

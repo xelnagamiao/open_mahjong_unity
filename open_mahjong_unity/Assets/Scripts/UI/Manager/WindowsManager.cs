@@ -10,19 +10,27 @@ public class WindowsManager : MonoBehaviour
     [Header("mainCanvas")]
     [SerializeField] private GameObject mainCanvas;
 
-    [Header("mainCanvas管理一级窗口")]
-    [SerializeField] private GameObject loginPanel; // 登录窗口
-    [SerializeField] private GameObject mainPanel; // 主界面窗口
-    [SerializeField] private GameObject roomListPanel; // 房间列表窗口
-    [SerializeField] private GameObject roomPanel; // 房间窗口
-    [SerializeField] private GameObject createRoomPanel; // 创建房间窗口
-    [SerializeField] private GameObject gamePanel; // 游戏窗口
+    [Header("顶层窗口")]
+    [SerializeField] private GameObject headerPanel; // 
     [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
+    [SerializeField] private GameObject gamePanel; // 游戏窗口
+    
+    [Header("一级窗口")]
+    [SerializeField] private GameObject loginPanel; // 登录窗口
+    [SerializeField] private GameObject menuPanel; // 菜单界面窗口
     [SerializeField] private GameObject recordPanel; // 游戏记录窗口
     [SerializeField] private GameObject playerPanel; // 玩家信息窗口
-    [SerializeField] private GameObject playerConfigPanel; // 玩家配置窗口
-    [SerializeField] private GameObject gameConfigPanel; // 游戏配置窗口
-    [SerializeField] private GameObject PlayerInfoPanelPrefab; // 玩家信息面板预制体
+    [SerializeField] private GameObject configPanel; // 玩家配置窗口
+    [SerializeField] private GameObject noticePanel; // 公告窗口
+    [SerializeField] private GameObject aboutUsPanel; // 关于我们窗口
+    [SerializeField] private GameObject roomRoot; // 房间根窗口（包含房间列表、房间、创建房间等子窗口）
+    
+
+    [Header("二级窗口")]
+
+
+    [Header("窗口元素")]
+    [SerializeField] private GameObject playerInfoPanelPrefab; // 玩家信息面板预制体
 
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
@@ -43,97 +51,55 @@ public class WindowsManager : MonoBehaviour
             Destroy(gameObject);
         }
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
-        playerPanel.SetActive(false);
-        gameConfigPanel.SetActive(false);
-        playerConfigPanel.SetActive(false);
-    }
-
-    public void OpenPlayerInfoPanel()
-    {
-        PlayerPanel.Instance.gameObject.SetActive(true);
-        mainPanel.SetActive(false);
-    }
-
-    public void ClosePlayerInfoPanel()
-    {
-        PlayerPanel.Instance.gameObject.SetActive(false);
-        mainPanel.SetActive(true);
     }
 
     // 切换窗口
     public void SwitchWindow(string targetWindow)
     {
         Debug.Log($"切换到{targetWindow}窗口");
+
+        menuPanel.SetActive(false);
+        recordPanel.SetActive(false);
+        playerPanel.SetActive(false);
+        configPanel.SetActive(false);
+        noticePanel.SetActive(false);
+        aboutUsPanel.SetActive(false);
+        roomRoot.SetActive(false);
         switch (targetWindow)
         {
             // login 登录界面
             case "login":
-
+                gamePanel.SetActive(false);
                 loginPanel.SetActive(true);
-                mainPanel.SetActive(false);
-                roomListPanel.SetActive(false);
-                roomPanel.SetActive(false);
-                createRoomPanel.SetActive(false);
-                gamePanel.SetActive(false);
-                recordPanel.SetActive(false);
                 break;
-            // main 主界面 下属的窗口
-            case "main": // 关闭登录界面 打开主界面
+            // menu 主界面
+            case "menu": // 关闭登录界面 打开主界面
                 loginPanel.SetActive(false);
-                mainPanel.SetActive(true); // 主界面
-                roomListPanel.SetActive(false);
-                roomPanel.SetActive(false);
-                createRoomPanel.SetActive(false);
-                gamePanel.SetActive(false);
-                recordPanel.SetActive(false);
+                menuPanel.SetActive(true); // 主界面
                 break;
-            // 三个roomroot下属的窗口
-            case "roomList": // 打开房间界面 关闭其他界面
-                loginPanel.SetActive(false);
-                mainPanel.SetActive(false);
-                roomListPanel.SetActive(true); // 房间列表界面
-                roomPanel.SetActive(false);
-                createRoomPanel.SetActive(false);
-                gamePanel.SetActive(false);
-                recordPanel.SetActive(false);
-                break;
+            // room 房间界面
             case "room":
-                loginPanel.SetActive(false);
-                mainPanel.SetActive(false);
-                roomListPanel.SetActive(false);
-                roomListPanel.SetActive(false); 
-                createRoomPanel.SetActive(false);
-                roomPanel.SetActive(true); // 房间界面
-                recordPanel.SetActive(false);
-                break;
-            case "createRoom":
-                loginPanel.SetActive(false);
-                mainPanel.SetActive(false);
-                roomListPanel.SetActive(false);
-                roomPanel.SetActive(false);
-                roomListPanel.SetActive(false); 
-                createRoomPanel.SetActive(true); // 创建房间界面
-                roomPanel.SetActive(false);
-                recordPanel.SetActive(false);
+                roomRoot.SetActive(true);
                 break;
             // game 游戏界面 下属的窗口
             case "game":
-                loginPanel.SetActive(false);
-                mainPanel.SetActive(false);
-                roomListPanel.SetActive(false);
-                roomPanel.SetActive(false);
-                createRoomPanel.SetActive(false);
+                menuPanel.SetActive(false);
                 gamePanel.SetActive(true); // 游戏界面
-                recordPanel.SetActive(false);
                 break;
             case "record":
-                loginPanel.SetActive(false);
-                mainPanel.SetActive(false);
-                roomListPanel.SetActive(false);
-                roomPanel.SetActive(false);
-                createRoomPanel.SetActive(false);
-                gamePanel.SetActive(false);
                 recordPanel.SetActive(true); // 游戏记录界面
+                break;
+            case "notice":
+                noticePanel.SetActive(true); // 公告界面
+                break;
+            case "aboutUs":
+                aboutUsPanel.SetActive(true); // 关于我们界面
+                break;
+            case "player":
+                playerPanel.SetActive(true);
+                break;
+            case "config":
+                configPanel.SetActive(true);
                 break;
         }
     }
@@ -144,7 +110,7 @@ public class WindowsManager : MonoBehaviour
         if (success && playerInfo != null)
         {
             // 在 mainCanvas 下创建玩家信息面板
-            GameObject playerInfoPanelObject = Instantiate(PlayerInfoPanelPrefab, mainCanvas.transform);
+            GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, mainCanvas.transform);
             PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
             playerInfoPanel.ShowPlayerInfo(playerInfo);
         }
