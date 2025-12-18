@@ -14,14 +14,13 @@ public class RoomWindowsManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null)
+        if (Instance != null && Instance != this)
         {
-            Instance = this;
-        }
-        else
-        {
+            Debug.Log($"Destroying duplicate NotificationManager. Existing: {Instance}, New: {this}");
             Destroy(gameObject);
+            return;
         }
+        Instance = this;
         SwitchRoomWindow("roomList");
     }
 
