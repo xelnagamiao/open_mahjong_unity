@@ -601,16 +601,16 @@ public class Game3DManager : MonoBehaviour
         rightSetCombinationsPoint = rightCombinationsPosition.position;
         pengToJiagangPosDict.Clear();
         foreach (Transform child in leftCardsPosition){
-            Destroy(child.gameObject);
+            Destroyer.Instance.AddToDestroyer(child);
         }
         foreach (Transform child in topCardsPosition){
-            Destroy(child.gameObject);
+            Destroyer.Instance.AddToDestroyer(child);
         }
         foreach (Transform child in rightCardsPosition){
-            Destroy(child.gameObject);
+            Destroyer.Instance.AddToDestroyer(child);
         }
         foreach (Transform child in selfCardsPosition){
-            Destroy(child.gameObject);
+            Destroyer.Instance.AddToDestroyer(child);
         }
         foreach (Transform child in leftDiscardsPosition){
             Destroy(child.gameObject);

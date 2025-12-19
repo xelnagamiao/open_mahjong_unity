@@ -150,7 +150,8 @@ public class PlayerInfoPanel : MonoBehaviour
         // 显示用户名和用户ID
         usernameText.text = playerInfo.user_settings.username ?? "未知用户";
         useridText.text = playerInfo.user_id.ToString();
-        titleText.text = playerInfo.user_settings.title_id.ToString();
+        titleText.text = ConfigManager.GetTitleText(playerInfo.user_settings.title_id);
+        
         profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{playerInfo.user_settings.profile_image_id}");
 
 

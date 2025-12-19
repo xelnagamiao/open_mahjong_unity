@@ -21,7 +21,7 @@ public partial class GameCanvas : MonoBehaviour
 
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
-    [SerializeField] private Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
+    [SerializeField] private TMP_Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
     [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
