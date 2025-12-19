@@ -8,20 +8,16 @@ using TMPro;
 public partial class GameCanvas : MonoBehaviour
 {
     [Header("左上房间信息")]
-    [SerializeField] private Text roomRoundText; // 房间轮数文本
-    [SerializeField] private Text roomNowRoundText; // 当前轮数文本
-    [SerializeField] private Text RandomSeedText; // 随机种子文本
+    [SerializeField] private TMP_Text roomRoundText; // 房间轮数文本
+    [SerializeField] private TMP_Text roomNowRoundText; // 当前轮数文本
+    [SerializeField] private TMP_Text RandomSeedText; // 随机种子文本
     [SerializeField] private Button visibilityRandomSeedButton; // 显示随机种子按钮
 
-    [Header("玩家信息")]
-    [SerializeField] private Text player_self_name;        // 玩家名称文本
-    [SerializeField] private Image player_self_profile_picture;       // 玩家头像
-    [SerializeField] private Text player_left_name;          // 玩家名称文本
-    [SerializeField] private Image player_left_profile_picture;       // 玩家头像
-    [SerializeField] private Text player_top_name;           // 玩家名称文本
-    [SerializeField] private Image player_top_profile_picture;       // 玩家头像
-    [SerializeField] private Text player_right_name;         // 玩家名称文本
-    [SerializeField] private Image player_right_profile_picture;       // 玩家头像
+    [Header("玩家信息面板")]
+    [SerializeField] private GamePlayerPanel playerSelfPanel;    // 自己面板
+    [SerializeField] private GamePlayerPanel playerLeftPanel;    // 左边玩家面板
+    [SerializeField] private GamePlayerPanel playerTopPanel;     // 上边玩家面板
+    [SerializeField] private GamePlayerPanel playerRightPanel;   // 右边玩家面板
 
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
@@ -82,32 +78,52 @@ public partial class GameCanvas : MonoBehaviour
             Transform child = handCardsContainer.GetChild(i);
             Destroyer.Instance.AddToDestroyer(child);
         }
+        // 通过面板组件设置玩家信息
         foreach (var player in gameInfo.players_info){
-            if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
-                player_self_name.text = player.username; // 设置玩家名称
-                player_self_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
-                player_self_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
+            string position = indexToPosition[player.player_index];
+            GamePlayerPanel targetPanel = null;
+            // 根据位置获取对应的面板
+            switch (position)
+            {
+                case "self":
+                    targetPanel = playerSelfPanel;
+                    break;
+                case "right":
+                    targetPanel = playerRightPanel;
+                    break;
+                case "top":
+                    targetPanel = playerTopPanel;
+                    break;
+                case "left":
+                    targetPanel = playerLeftPanel;
+                    break;
+            }
 
+            // 调用面板的 SetPlayerInfo 方法
+            if (targetPanel != null)
+            {
+                targetPanel.SetPlayerInfo(player);
             }
-            else if (indexToPosition[player.player_index] == "right"){
-                player_right_name.text = player.username;
-                player_right_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
-                player_right_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
-            }
-            else if (indexToPosition[player.player_index] == "top"){
-                player_top_name.text = player.username;
-                player_top_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
-                player_top_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
-            }
-            else if (indexToPosition[player.player_index] == "left"){
-                player_left_name.text = player.username;
-                player_left_profile_picture.sprite = Resources.Load<Sprite>($"image/Profiles/{player.profile_used}");
-                player_left_profile_picture.gameObject.GetComponent<ProfileOnClick>().user_id = player.user_id;
+            else
+            {
+                Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
-        roomRoundText.text = $"圈数：{gameInfo.current_round}"; // 左上角显示需要打的圈数
         roomNowRoundText.text = $"当前轮数：{gameInfo.current_round}"; // 左上角显示目前打的圈数
         RandomSeedText.text = $"随机种子：{gameInfo.round_random_seed}"; // 左上角显示随机种子
+        if (gameInfo.max_round == 1){
+            roomRoundText.text = "东风战";
+        }
+        else if (gameInfo.max_round == 2){
+            roomRoundText.text = "东南战";
+        }
+        else if (gameInfo.max_round == 3){
+            roomRoundText.text = "西风战";
+        }
+        else if (gameInfo.max_round == 4){
+            roomRoundText.text = "全庄战";
+        }
+        else{Debug.LogError("最大轮数错误");}
     }
 
     public void ClearActionButton(){
