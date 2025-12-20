@@ -47,7 +47,7 @@ public partial class BoardCanvas{
         flashCoroutine = StartCoroutine(FlashImage(targetImage));
 
         // 5. 更新剩余牌数
-        remiansTilesText.text = $"余：{GameSceneManager.Instance.remainTiles}";
+        remiansTilesText.text = $"余:{GameSceneManager.Instance.remainTiles}";
     }
 
     private IEnumerator FlashImage(Image image)

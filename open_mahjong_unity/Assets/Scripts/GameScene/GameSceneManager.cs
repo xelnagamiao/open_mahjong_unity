@@ -313,6 +313,8 @@ public class GameSceneManager : MonoBehaviour
                 GameCanvas.Instance.StopTimeRunning();
                 // 清空允许操作列表
                 allowActionList.Clear();
+                // 清空按钮
+                GameCanvas.Instance.ClearActionButton();
             }
         }
 

@@ -600,36 +600,39 @@ class ChineseGameState:
                 # 玩家操作完成，获取玩家索引
                 else:
                     # 使用映射获取玩家索引
-                    player_index = task_to_player[task]  
-                    temp_action_data = await self.action_queues[player_index].get() # 获取操作数据
-                    Temp_action_type = temp_action_data.get("action_type") # 获取操作类型
+                    temp_player_index = task_to_player[task]
+                    temp_action_data = await self.action_queues[temp_player_index].get() # 获取操作数据
+                    temp_action_type = temp_action_data.get("action_type") # 获取操作类型
 
                     used_time += time_end - time_start # 服务器计算操作时间
                     used_int_time = int(used_time) # 变量整数时间
                     if used_int_time >= self.step_time: # 扣除玩家超出步时的时间
-                        self.player_list[player_index].remaining_time -= (used_int_time - self.step_time)
+                        self.player_list[temp_player_index].remaining_time -= (used_int_time - self.step_time)
                    
-                    self.action_dict[player_index] = [] # 从可执行操作列表中移除操作
-                    self.waiting_players_list.remove(player_index) # 从玩家等待列表中移除玩家
+                    self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
+                    self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
                     
                     # 检查当前操作是否是最高优先级的
                     do_interrupt = True
-                    for temp_player_index in self.waiting_players_list:
-                        for action in self.action_dict[temp_player_index]:
+                    for check_player_index in self.waiting_players_list:
+                        for action in self.action_dict[check_player_index]:
                             # 如果有其他更高优先级的操作，则继续等待
-                            if self.action_priority[Temp_action_type] < self.action_priority[action]:
+                            if self.action_priority[temp_action_type] < self.action_priority[action]:
                                 do_interrupt = False
                     
                     # 如果action_data为空，添加action_data
                     if not action_data: 
                         action_data = temp_action_data
-                        action_type = Temp_action_type
-                    # 如果操作类型优先级更高，则覆盖action_data
-                    elif self.action_priority[Temp_action_type] > self.action_priority[action_type]:
+                        action_type = temp_action_type
+                        player_index = temp_player_index  # 保存对应的玩家索引
+                    
+                    # 在有人进行操作时，如果操作类型优先级更高，则覆盖上一个玩家的action_data
+                    elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
                         action_data = temp_action_data
-                        action_type = Temp_action_type
+                        action_type = temp_action_type
+                        player_index = temp_player_index  # 更新为对应的玩家索引
 
-                    # 如果是最高优先级，中断等待
+                    # 如果是最高优先级，中断等待，执行操作
                     if do_interrupt:
                         self.waiting_players_list = [] # 清空等待列表，强制结束循环
 
@@ -642,6 +645,8 @@ class ChineseGameState:
         if self.waiting_players_list:
             for i in self.waiting_players_list:
                 self.player_list[i].remaining_time = 0
+
+        print(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[self.current_player_index].hand_tiles}")
         # 情形处理
         match self.game_status:
             # 补花轮特殊case 只有在游戏开始时启用

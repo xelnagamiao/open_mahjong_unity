@@ -360,28 +360,28 @@ public class Game3DManager : MonoBehaviour
             JiagangDirection = FrontDirection; // 自家加杠指针是向前
             SetPositionpoint = selfSetCombinationsPoint; // 获取放置指针
             // 获取父对象 父对象 = 玩家组合数 => 玩家组合父对象列表
-            SetParent = selfCombination3DObjects[GameSceneManager.Instance.player_to_info["self"].combination_tiles.Count];
+            SetParent = selfCombination3DObjects[GameSceneManager.Instance.player_to_info["self"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "left"){
             rotation =  Quaternion.Euler(0, 90, -90); // 左侧玩家
             SetDirection = FrontDirection; // 向前
             JiagangDirection = RightDirection; // 左侧玩家加杠指针是向右
             SetPositionpoint = leftSetCombinationsPoint;
-            SetParent = leftCombination3DObjects[GameSceneManager.Instance.player_to_info["left"].combination_tiles.Count];
+            SetParent = leftCombination3DObjects[GameSceneManager.Instance.player_to_info["left"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "top"){
             rotation =  Quaternion.Euler(0, 180, -90); // 上方玩家
             SetDirection = RightDirection; // 向右
             JiagangDirection = BackDirection; // 上方玩家加杠指针是向后
             SetPositionpoint = topSetCombinationsPoint;
-            SetParent = topCombination3DObjects[GameSceneManager.Instance.player_to_info["top"].combination_tiles.Count];
+            SetParent = topCombination3DObjects[GameSceneManager.Instance.player_to_info["top"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "right"){
             rotation =  Quaternion.Euler(0, 270, -90); // 右侧玩家
             SetDirection = BackDirection; // 向后
             JiagangDirection = LeftDirection; // 右侧玩家加杠指针是向左
             SetPositionpoint = rightSetCombinationsPoint;
-            SetParent = rightCombination3DObjects[GameSceneManager.Instance.player_to_info["right"].combination_tiles.Count];
+            SetParent = rightCombination3DObjects[GameSceneManager.Instance.player_to_info["right"].combination_tiles.Count - 1];
         }
         // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
         List<int> SetTileList = new List<int>();
