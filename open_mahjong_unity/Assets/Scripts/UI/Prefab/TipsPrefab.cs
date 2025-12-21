@@ -17,19 +17,6 @@ public class TipsPrefab : MonoBehaviour
     /// <param name="message">消息内容</param>
     public void ShowMessage(string type, bool success, string message)
     {
-        if (messageText == null)
-        {
-            Debug.LogError("TipsWindows: messageText 未设置！请在 Inspector 中拖拽 TextMeshProUGUI 组件。");
-            return;
-        }
-
         messageText.text = message;
-
-        if (success){
-            messageText.color = Color.green; // 成功显示绿色
-        }
-        else{
-            messageText.color = Color.red; // 失败显示红色
-        }
     }
 }

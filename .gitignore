@@ -2,13 +2,17 @@
 open_mahjong_unity/**
 # 但保留以下必要内容
 !open_mahjong_unity/Assets/
+!open_mahjong_unity/Assets/**
 !open_mahjong_unity/ProjectSettings/
+!open_mahjong_unity/ProjectSettings/**
 !open_mahjong_unity/Packages/
+!open_mahjong_unity/Packages/**
 # 保留 lock 文件
+!open_mahjong_unity/Packages/manifest.json
 !open_mahjong_unity/Packages/packages-lock.json
 # 忽略 Unity 自动生成的 IDE 和临时文件
-open_mahjong_unity/*.csproj
-open_mahjong_unity/*.sln
+# open_mahjong_unity/*.csproj
+# open_mahjong_unity/*.sln
 open_mahjong_unity/*.userprefs
 open_mahjong_unity/*.pidb
 open_mahjong_unity/*.booproj

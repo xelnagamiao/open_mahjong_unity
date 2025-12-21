@@ -7,31 +7,11 @@ using System.Threading.Tasks;
 public class Game3DManager : MonoBehaviour
 {
     [SerializeField] private GameObject tile3DPrefab;    // 3D预制体
-    [Header("3D对象生成位置")]
-    [SerializeField] private Transform leftCardsPosition; // 左家手牌位置
-    [SerializeField] private Transform leftDiscardsPosition; // 左家弃牌位置
-    [SerializeField] private Transform leftBuhuaPosition; // 左家补花位置
-    [SerializeField] private Transform leftCombinationsPosition; // 左家组合位置
-    
-    [SerializeField] private Transform topCardsPosition; // 对家手牌位置
-    [SerializeField] private Transform topDiscardsPosition; // 对家弃牌位置
-    [SerializeField] private Transform topBuhuaPosition; // 对家补花位置
-    [SerializeField] private Transform topCombinationsPosition; // 对家组合位置
-    
-    [SerializeField] private Transform rightCardsPosition; // 右家手牌位置
-    [SerializeField] private Transform rightDiscardsPosition; // 右家弃牌位置
-    [SerializeField] private Transform rightBuhuaPosition; // 右家补花位置
-    [SerializeField] private Transform rightCombinationsPosition; // 右家组合位置
-
-    [SerializeField] private Transform selfCardsPosition; // 自家手牌位置
-    [SerializeField] private Transform selfDiscardsPosition; // 自家弃牌位置
-    [SerializeField] private Transform selfBuhuaPosition; // 自家补花位置
-    [SerializeField] private Transform selfCombinationsPosition; // 自家组合位置
-
-    [SerializeField] private Transform[] selfCombination3DObjects = new Transform[4]; // 自家组合牌3D对象数组
-    [SerializeField] private Transform[] leftCombination3DObjects = new Transform[4]; // 左家组合牌3D对象数组
-    [SerializeField] private Transform[] topCombination3DObjects = new Transform[4]; // 对家组合牌3D对象数组
-    [SerializeField] private Transform[] rightCombination3DObjects = new Transform[4]; // 右家组合牌3D对象数组
+    [Header("3D位置面板")]
+    [SerializeField] private PosPanel3D selfPosPanel;    // 自家位置面板
+    [SerializeField] private PosPanel3D leftPosPanel;    // 左家位置面板
+    [SerializeField] private PosPanel3D topPosPanel;     // 对家位置面板
+    [SerializeField] private PosPanel3D rightPosPanel;    // 右家位置面板
 
     private Vector3 selfSetCombinationsPoint; // 组合指针用于存储各家组合牌生成位置
     private Vector3 leftSetCombinationsPoint;
@@ -80,10 +60,10 @@ public class Game3DManager : MonoBehaviour
         this.widthSpacing = cardWidth * 1.05f; // 间距为卡片宽度的1.05倍
         this.heightSpacing = cardHeight * 1.05f; // 间距为卡片高度的1.05倍
         // 初始化放置组合牌指针
-        selfSetCombinationsPoint = selfCombinationsPosition.position;
-        leftSetCombinationsPoint = leftCombinationsPosition.position;
-        topSetCombinationsPoint = topCombinationsPosition.position;
-        rightSetCombinationsPoint = rightCombinationsPosition.position;
+        selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
+        leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
+        topSetCombinationsPoint = topPosPanel.combinationsPosition.position;
+        rightSetCombinationsPoint = rightPosPanel.combinationsPosition.position;
         // 初始化世界位置
         RightDirection = new Vector3(1,0,0);
         LeftDirection = new Vector3(-1,0,0);
@@ -95,7 +75,7 @@ public class Game3DManager : MonoBehaviour
 
 
 
-    // 3D手牌处理入口
+    // 3D手牌处理入口 为了保证摸牌和打牌在未来添加动画以后不同时处理 所以使用队列管理
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask){
         // 将3D手牌处理任务加入队列
         change3DTileQueue.Enqueue(() => {
@@ -125,115 +105,67 @@ public class Game3DManager : MonoBehaviour
 
     // Change3DTile 管理3D手牌组的变更行为
     public IEnumerator Change3DTileCoroutine(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask){
-        // 初始化手牌
+        // Change3DTile 所有类型：
+        // InitHandCards 初始化手牌 => ClearHandCardsCoroutine => Get3DTile
+        // GetCard 摸牌 => Get3DTile
+        // Discard 弃牌 => Set3DTile(discard) => RemoveOtherHandCardsCoroutine
+        // Buhua 补花 => Set3DTile(buhua) => RemoveOtherHandCardsCoroutine // 其实补花也有摸打补花的说法，后续需要优化这种情况
+        // 吃碰杠 => ActionAnimation(chi_left) => if(PlayerPosition != "self") RemoveOtherHandCardsCoroutine
+
+        // 初始化手牌 
         if (actionType == "InitHandCards"){
+            // 先清除所有手牌，确保 childCount 正确
+            yield return StartCoroutine(ClearHandCardsCoroutine());
+            
+            // 然后初始化手牌
             for (int i = 0; i < GameSceneManager.Instance.player_to_info["left"].hand_tiles_count; i++){
-                Get3DTile("left","InitHandCards");
+                Get3DTile("left","init");
             }
             for (int i = 0; i < GameSceneManager.Instance.player_to_info["top"].hand_tiles_count; i++){
-                Get3DTile("top","InitHandCards");
+                Get3DTile("top","init");
             }
             for (int i = 0; i < GameSceneManager.Instance.player_to_info["right"].hand_tiles_count; i++){
-                Get3DTile("right","InitHandCards");
+                Get3DTile("right","init");
             }
         }
-        // 摸牌
+
+        // 摸牌 
         else if (actionType == "GetCard"){
-            Get3DTile(PlayerPosition,"GetCard");
+            Get3DTile(PlayerPosition,"get");
         }
+
         // 弃牌
         else if (actionType == "Discard"){
-            if (PlayerPosition == "self"){
-                Set3DTile(tileId,selfDiscardsPosition,"Discard","self");
-            }
-            else if (PlayerPosition == "left"){
-                Set3DTile(tileId,leftDiscardsPosition,"Discard","left");
-                StartCoroutine(RemoveOtherHandCardsCoroutine(leftCardsPosition,1,cut_class));
-            }
-            else if (PlayerPosition == "top"){
-                Set3DTile(tileId,topDiscardsPosition,"Discard","top");
-                StartCoroutine(RemoveOtherHandCardsCoroutine(topCardsPosition,1,cut_class));
-            }
-            else if (PlayerPosition == "right"){
-                Set3DTile(tileId,rightDiscardsPosition,"Discard","right");
-                StartCoroutine(RemoveOtherHandCardsCoroutine(rightCardsPosition,1,cut_class));
+            PosPanel3D panel = GetPosPanel(PlayerPosition);
+            Set3DTile(tileId, panel.discardsPosition, "Discard", PlayerPosition); // 弃牌区增加弃牌
+            if (PlayerPosition != "self"){
+                StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, cut_class)); // 手牌区删除手牌
             }
         }
+
         // 补花
         else if (actionType == "Buhua"){
-            if (PlayerPosition == "self"){
-                Set3DTile(tileId,selfBuhuaPosition,"Buhua","self");
-            }
-            else if (PlayerPosition == "left"){
-                Set3DTile(tileId,leftBuhuaPosition,"Buhua","left");
-                StartCoroutine(RemoveOtherHandCardsCoroutine(leftCardsPosition,1,false));
-            }
-            else if (PlayerPosition == "top"){
-                Set3DTile(tileId,topBuhuaPosition,"Buhua","top");
-                StartCoroutine(RemoveOtherHandCardsCoroutine(topCardsPosition,1,false));
-            }
-            else if (PlayerPosition == "right"){
-                Set3DTile(tileId,rightBuhuaPosition,"Buhua","right");
-                StartCoroutine(RemoveOtherHandCardsCoroutine(rightCardsPosition,1,false));
+            PosPanel3D panel = GetPosPanel(PlayerPosition);
+            Set3DTile(tileId, panel.buhuaPosition, "Buhua", PlayerPosition); // 补花区增加补花
+            if (PlayerPosition != "self"){
+                StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, false)); // 手牌区删除手牌
             }
         }
+
         // 吃碰杠
-        else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right" || actionType == "peng" || actionType == "gang" || actionType == "angang"){         
-            if (PlayerPosition == "self"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-            }
-            else if (PlayerPosition == "left"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(leftCardsPosition,removeCount,false));
-            }
-            else if (PlayerPosition == "top"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(topCardsPosition,removeCount,false));
-            }
-            else if (PlayerPosition == "right"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(rightCardsPosition,removeCount,false));
-            }
-        }
-        else if (actionType == "jiagang"){
-            if (PlayerPosition == "self"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-            }
-            else if (PlayerPosition == "left"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(leftCardsPosition,removeCount,false));
-            }
-            else if (PlayerPosition == "top"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(topCardsPosition,removeCount,false));
-            }
-            else if (PlayerPosition == "right"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(rightCardsPosition,removeCount,false));
-            }
-        }
-        else if (actionType == "angang"){
-            if (PlayerPosition == "self"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-            }
-            else if (PlayerPosition == "left"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(leftCardsPosition,removeCount,false));
-            }
-            else if (PlayerPosition == "top"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(topCardsPosition,removeCount,false));
-            }
-            else if (PlayerPosition == "right"){
-                ActionAnimation(PlayerPosition,actionType,combination_mask);
-                StartCoroutine(RemoveOtherHandCardsCoroutine(rightCardsPosition,removeCount,false));
+        else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right" ||
+                 actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){    
+            PosPanel3D panel = GetPosPanel(PlayerPosition);
+            ActionAnimation(PlayerPosition, actionType, combination_mask); // 放置组合牌
+            if (PlayerPosition != "self"){
+                StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, removeCount, false)); // 手牌区删除手牌
             }
         }
         
         yield break;
     }
 
-    // 出牌3D显示
+    // 放置3D卡牌 id-位置-类型-玩家位置
     private void Set3DTile(int tileId,Transform SetPosition,string SetType ,string PlayerPosition){
         Debug.Log($"Set3DTileCoroutine:{tileId} {SetType}, {PlayerPosition}");
 
@@ -304,45 +236,59 @@ public class Game3DManager : MonoBehaviour
     }
 
     // 摸牌3D显示
-    private void Get3DTile(string playerIndex,string ActionType){
-        // 如果玩家是其他玩家，则将牌添加到他人手牌中
-        string SetName = "None";
-        if (ActionType == "InitHandCards"){
-            if (playerIndex == "left"){
-                SetName = $"Card_{leftCardsPosition.childCount}";
-            }
-            else if (playerIndex == "top"){
-                SetName = $"Card_{topCardsPosition.childCount}";
-            }
-            else if (playerIndex == "right"){
-                SetName = $"Card_{rightCardsPosition.childCount}";
-            }
-        }
-        else if (ActionType == "GetCard"){
-            SetName = $"Card_Current";
-        }
+    private void Get3DTile(string playerIndex,string actionType){
 
+        PosPanel3D panel = GetPosPanel(playerIndex);
+        Transform cardsPosition = panel.cardsPosition; 
+        
+        // 根据玩家位置设置对应的旋转角度和方向
+        Quaternion rotation = Quaternion.identity;
+        Vector3 direction = Vector3.zero;
+        
         if (playerIndex == "left"){
-            Quaternion rotation = Quaternion.Euler(-90,0,0); // 面朝左侧
-            // 摸牌生成位置 = 玩家手牌起始点 + (3D卡牌数量+1)*宽度间距*后方向
-            Vector3 SetPosition = leftCardsPosition.position + (leftCardsPosition.childCount+1) * cardWidth * BackDirection;
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(leftCardsPosition, worldPositionStays: true);
-            cardObj.name = SetName;
+            rotation = Quaternion.Euler(-90, 0, 0); // 面朝左侧
+            direction = BackDirection; // 向后
         }
         else if (playerIndex == "top"){
-            Quaternion rotation = Quaternion.Euler(-90,0,90); // 面朝前侧
-            Vector3 SetPosition = topCardsPosition.position + (topCardsPosition.childCount+1) * cardWidth * LeftDirection;
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(topCardsPosition, worldPositionStays: true);
-            cardObj.name = SetName;
+            rotation = Quaternion.Euler(-90, 0, 90); // 面朝前侧
+            direction = LeftDirection; // 向左
         }
         else if (playerIndex == "right"){
-            Quaternion rotation = Quaternion.Euler(-90,0,180); // 面朝右侧
-            Vector3 SetPosition = rightCardsPosition.position + (rightCardsPosition.childCount+1) * cardWidth * FrontDirection;
-            GameObject cardObj = Instantiate(tile3DPrefab, SetPosition, rotation);
-            cardObj.transform.SetParent(rightCardsPosition, worldPositionStays: true);
-            cardObj.name = SetName;
+            rotation = Quaternion.Euler(-90, 0, 180); // 面朝右侧
+            direction = FrontDirection; // 向前
+        }
+        else{
+            Debug.LogWarning($"未知的玩家位置: {playerIndex}");
+            return;
+        }
+        
+        // 初始化牌生成位置 = 玩家手牌起始点 + (3D卡牌数量)*宽度间距*方向
+        Vector3 spawnPosition = Vector3.zero;
+        if (actionType == "init"){
+            spawnPosition = cardsPosition.position + (cardsPosition.childCount) * cardWidth * direction;
+        }
+        // 摸牌生成位置 = 玩家手牌起始点 + (3D卡牌数量+1)*宽度间距*方向
+        else if (actionType == "get"){
+            spawnPosition = cardsPosition.position + (cardsPosition.childCount + 1) * cardWidth * direction;
+        }
+        GameObject cardObj = Instantiate(tile3DPrefab, spawnPosition, rotation);
+        cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+    }
+    
+    // 根据玩家位置获取对应的位置面板
+    private PosPanel3D GetPosPanel(string playerPosition){
+        switch (playerPosition){
+            case "self":
+                return selfPosPanel;
+            case "left":
+                return leftPosPanel;
+            case "top":
+                return topPosPanel;
+            case "right":
+                return rightPosPanel;
+            default:
+                Debug.LogError($"未知的玩家位置: {playerPosition}");
+                return null;
         }
     }
 
@@ -354,34 +300,37 @@ public class Game3DManager : MonoBehaviour
         Vector3 SetPositionpoint = Vector3.zero; // 放置位置
         Vector3 JiagangDirection = Vector3.zero; // 加杠方向
         Transform SetParent = null; // 设置父对象
+        PosPanel3D panel = GetPosPanel(playerIndex);
+        if (panel == null) return;
+        
         if (playerIndex == "self"){
             rotation = Quaternion.Euler(0, 0, -90); // 获取卡牌旋转角度 
             SetDirection = LeftDirection; // 获取放置方向 向左
             JiagangDirection = FrontDirection; // 自家加杠指针是向前
             SetPositionpoint = selfSetCombinationsPoint; // 获取放置指针
             // 获取父对象 父对象 = 玩家组合数 => 玩家组合父对象列表
-            SetParent = selfCombination3DObjects[GameSceneManager.Instance.player_to_info["self"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["self"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "left"){
             rotation =  Quaternion.Euler(0, 90, -90); // 左侧玩家
             SetDirection = FrontDirection; // 向前
             JiagangDirection = RightDirection; // 左侧玩家加杠指针是向右
             SetPositionpoint = leftSetCombinationsPoint;
-            SetParent = leftCombination3DObjects[GameSceneManager.Instance.player_to_info["left"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["left"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "top"){
             rotation =  Quaternion.Euler(0, 180, -90); // 上方玩家
             SetDirection = RightDirection; // 向右
             JiagangDirection = BackDirection; // 上方玩家加杠指针是向后
             SetPositionpoint = topSetCombinationsPoint;
-            SetParent = topCombination3DObjects[GameSceneManager.Instance.player_to_info["top"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["top"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "right"){
             rotation =  Quaternion.Euler(0, 270, -90); // 右侧玩家
             SetDirection = BackDirection; // 向后
             JiagangDirection = LeftDirection; // 右侧玩家加杠指针是向左
             SetPositionpoint = rightSetCombinationsPoint;
-            SetParent = rightCombination3DObjects[GameSceneManager.Instance.player_to_info["right"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["right"].combination_tiles.Count - 1];
         }
         // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
         List<int> SetTileList = new List<int>();
@@ -516,15 +465,20 @@ public class Game3DManager : MonoBehaviour
         }
         // 如果removeCount <= 1 或为null，使用原始方法
         else{
-            // 如果摸切就直接删除摸到的牌
+            // 如果摸切就删除最后一张牌（倒数第一张）
             if (cut_class){
-                Transform cardTransform = cardPosition.Find("Card_Current");
-                if (cardTransform != null) {
-                    Debug.Log($"删除摸牌区卡牌: {cardTransform.name}");
-                    Destroy(cardTransform.gameObject);
+                int childCount = cardPosition.childCount;
+                if (childCount > 0){
+                    int lastIndex = childCount - 1;
+                    Transform lastCard = cardPosition.GetChild(lastIndex);
+                    Debug.Log($"删除最后一张卡牌: {lastCard.name} (索引: {lastIndex})");
+                    Destroy(lastCard.gameObject);
+                }
+                else{
+                    Debug.LogWarning($"摸切：无法删除最后一张牌");
                 }
             }
-            // 如果摸牌则随机删除一张主牌区的牌，将摸牌区的卡牌加入手牌区
+            // 如果手切则随机删除一张主牌区的牌，将摸牌区的卡牌加入手牌区
             else{
                 // 计算子物体数量，获取随机索引，随机删除选中的子物体
                 int childCount = cardPosition.childCount;
@@ -538,11 +492,11 @@ public class Game3DManager : MonoBehaviour
                         
                 // 确定方向向量 方向向量乘以spacing等于目标位置
                 Vector3 direction = Vector3.zero;
-                if (cardPosition == rightCardsPosition)
+                if (cardPosition == rightPosPanel.cardsPosition)
                     direction = new Vector3(0, 0, 1); // 向前
-                else if (cardPosition == leftCardsPosition)
+                else if (cardPosition == leftPosPanel.cardsPosition)
                     direction = new Vector3(0, 0, -1); // 向后
-                else if (cardPosition == topCardsPosition)
+                else if (cardPosition == topPosPanel.cardsPosition)
                     direction = new Vector3(-1, 0, 0); // 向左
                 
                 // 获取所有剩余子物体并按照名称索引排序[0,1,2,3,4,5,6,7,8,9,10,11,12]
@@ -592,94 +546,90 @@ public class Game3DManager : MonoBehaviour
         }
     }
 
+    // 清除手牌协程（用于在初始化前清除，确保 childCount 正确）
+    private IEnumerator ClearHandCardsCoroutine(){
+        // 使用倒序遍历，立即销毁所有手牌
+        // 左家手牌
+        for (int i = leftPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
+            Transform child = leftPosPanel.cardsPosition.GetChild(i);
+            if (child != null){
+                Destroy(child.gameObject);
+            }
+        }
+        // 对家手牌
+        for (int i = topPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
+            Transform child = topPosPanel.cardsPosition.GetChild(i);
+            if (child != null){
+                Destroy(child.gameObject);
+            }
+        }
+        // 右家手牌
+        for (int i = rightPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
+            Transform child = rightPosPanel.cardsPosition.GetChild(i);
+            if (child != null){
+                Destroy(child.gameObject);
+            }
+        }
+        // 自家手牌
+        for (int i = selfPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
+            Transform child = selfPosPanel.cardsPosition.GetChild(i);
+            if (child != null){
+                Destroy(child.gameObject);
+            }
+        }
+        
+        // 等待一帧，确保所有对象都被销毁，childCount 更新
+        yield return null;
+    }
+    
     // 清除3D手牌
     public void Clear3DTile(){
         // 重置组合牌指针
-        selfSetCombinationsPoint = selfCombinationsPosition.position;
-        leftSetCombinationsPoint = leftCombinationsPosition.position;
-        topSetCombinationsPoint = topCombinationsPosition.position;
-        rightSetCombinationsPoint = rightCombinationsPosition.position;
+        selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
+        leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
+        topSetCombinationsPoint = topPosPanel.combinationsPosition.position;
+        rightSetCombinationsPoint = rightPosPanel.combinationsPosition.position;
         pengToJiagangPosDict.Clear();
-        foreach (Transform child in leftCardsPosition){
-            Destroyer.Instance.AddToDestroyer(child);
-        }
-        foreach (Transform child in topCardsPosition){
-            Destroyer.Instance.AddToDestroyer(child);
-        }
-        foreach (Transform child in rightCardsPosition){
-            Destroyer.Instance.AddToDestroyer(child);
-        }
-        foreach (Transform child in selfCardsPosition){
-            Destroyer.Instance.AddToDestroyer(child);
-        }
-        foreach (Transform child in leftDiscardsPosition){
+        
+        // 清除所有面板的弃牌
+        foreach (Transform child in leftPosPanel.discardsPosition){
             Destroy(child.gameObject);
         }
-        foreach (Transform child in topDiscardsPosition){
+        foreach (Transform child in topPosPanel.discardsPosition){
             Destroy(child.gameObject);
         }
-        foreach (Transform child in rightDiscardsPosition){
+        foreach (Transform child in rightPosPanel.discardsPosition){
             Destroy(child.gameObject);
         }
-        foreach (Transform child in selfDiscardsPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in leftBuhuaPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in topBuhuaPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in rightBuhuaPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in selfBuhuaPosition){
+        foreach (Transform child in selfPosPanel.discardsPosition){
             Destroy(child.gameObject);
         }
         
-        // 删除组合牌3D对象数组中的子物体
-        foreach (Transform combinationObj in selfCombination3DObjects)
-        {
-            if (combinationObj != null)
-            {
-                foreach (Transform child in combinationObj){
-                    Destroy(child.gameObject);
-                }
-            }
+        // 清除所有面板的补花
+        foreach (Transform child in leftPosPanel.buhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in topPosPanel.buhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in rightPosPanel.buhuaPosition){
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in selfPosPanel.buhuaPosition){
+            Destroy(child.gameObject);
         }
         
-        // 左家组合牌3D对象
-        foreach (Transform combinationObj in leftCombination3DObjects)
+        // 删除所有面板的组合牌3D对象数组中的子物体
+        foreach (PosPanel3D panel in new[] { selfPosPanel, leftPosPanel, topPosPanel, rightPosPanel })
         {
-            if (combinationObj != null)
+            foreach (Transform combinationObj in panel.combination3DObjects)
             {
-                foreach (Transform child in combinationObj)
+                if (combinationObj != null)
                 {
-                    Destroy(child.gameObject);
-                }
-            }
-        }
-        
-        // 对家组合牌3D对象
-        foreach (Transform combinationObj in topCombination3DObjects)
-        {
-            if (combinationObj != null)
-            {
-                foreach (Transform child in combinationObj)
-                {
-                    Destroy(child.gameObject);
-                }
-            }
-        }
-        
-        // 右家组合牌3D对象
-        foreach (Transform combinationObj in rightCombination3DObjects)
-        {
-            if (combinationObj != null)
-            {
-                foreach (Transform child in combinationObj)
-                {
-                    Destroy(child.gameObject);
+                    foreach (Transform child in combinationObj)
+                    {
+                        Destroy(child.gameObject);
+                    }
                 }
             }
         }

@@ -547,7 +547,10 @@ class ChineseGameState:
         # 结束游戏生命周期
         if self.room_id in self.game_server.room_id_to_ChineseGameState:
             del self.game_server.room_id_to_ChineseGameState[self.room_id]
-            print(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
+        
+        # 销毁房间并广播离开房间消息
+        await self.game_server.room_manager.destroy_room(self.room_id)
+        print(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
 
     async def wait_action(self):

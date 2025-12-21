@@ -131,7 +131,9 @@ public class GameSceneManager : MonoBehaviour
     public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         foreach (string action in action_list) {
+
             Debug.Log($"执行DoAction操作: {action}");
+            SoundManager.Instance.PlayActionSound(GetCardPlayer, action); // 播放操作音效
             switch (action) { // action_list 实际上只会包含一个操作
 
                 // 摸牌
@@ -182,7 +184,6 @@ public class GameSceneManager : MonoBehaviour
                     }
                     Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
                     GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "buhua"); // 显示操作文本
-                    SoundManager.Instance.PlayActionSound(GetCardPlayer, "buhua"); // 播放操作音效
                     break;
 
                 // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
@@ -207,7 +208,6 @@ public class GameSceneManager : MonoBehaviour
                         }
                         Game3DManager.Instance.Change3DTile("jiagang",tile_id,1,GetCardPlayer,false,combination_mask); // 3D加杠行为
                         GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "jiagang"); // 显示操作文本
-                        SoundManager.Instance.PlayActionSound(GetCardPlayer, "jiagang"); // 播放操作音效
                     }
                     else if (action == "angang"){
                         // 暗杠情况下需要删除完整手牌
@@ -224,7 +224,6 @@ public class GameSceneManager : MonoBehaviour
                         }
                         Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask); // 3D暗杠行为
                         GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "angang"); // 显示操作文本
-                        SoundManager.Instance.PlayActionSound(GetCardPlayer, "angang"); // 播放操作音效
                     }
                     else{
                         // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
@@ -244,7 +243,6 @@ public class GameSceneManager : MonoBehaviour
                         }
                         Game3DManager.Instance.Change3DTile(action,0,need_remove_list.Count,GetCardPlayer,false,combination_mask); // 3D吃碰杠行为
                         GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, action); // 显示操作文本
-                        SoundManager.Instance.PlayActionSound(GetCardPlayer, action); // 播放操作音效
                     }
                     break;
                 default:
@@ -287,6 +285,7 @@ public class GameSceneManager : MonoBehaviour
             // 如果行动者是自己
             if (GetCardPlayer == "self"){
                 // 显示可用行动 开启倒计时
+                GameCanvas.Instance.ClearActionButton(); // 清空操作按钮 *有时候补花轮自己不补花，但是别人也不补，就出现两次按钮
                 GameCanvas.Instance.SetActionButton(allowActionList);
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             }

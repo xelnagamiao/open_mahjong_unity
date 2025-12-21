@@ -8,11 +8,6 @@ public class SoundManager : MonoBehaviour
     
     [Header("音效配置")]
     [SerializeField] private AudioSource audioSource; // 环境音效播放器
-    [SerializeField] private AudioSource physicsAudio; // 物理音效播放器
-    [SerializeField] private AudioSource selfAudio; // 自身位置音效播放器
-    [SerializeField] private AudioSource leftAudio; // 左家位置音效播放器
-    [SerializeField] private AudioSource rightAudio; // 右家位置音效播放器
-    [SerializeField] private AudioSource topAudio; // 对家位置音效播放器
     
     // 音色ID到文件路径的映射字典
     private Dictionary<int, string> voiceIdToPath = new Dictionary<int, string>
@@ -45,6 +40,9 @@ public class SoundManager : MonoBehaviour
 
         if (playerPosition == "hu_self"){
             audioTarget = "zimo";
+        }
+        else if (playerPosition == "buhua"){
+            audioTarget = "buhua";
         }
         else if (playerPosition == "hu_first" || playerPosition == "hu_second" || playerPosition == "hu_third"){
             audioTarget = "rong";

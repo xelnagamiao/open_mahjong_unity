@@ -161,6 +161,17 @@ public class NetworkManager : MonoBehaviour
                         ConfigManager.Instance.SetUserConfig(response.user_config.volume);
                         MenuPanel.Instance.ShowUserSettings(response.user_settings);
                     }
+                    else
+                    {
+                        // 登录失败时显示提示并重置按钮
+                        NotificationManager.Instance?.ShowTip("登录", false, response.message);
+                        LoginPanel.Instance?.ResetLoginButton();
+                    }
+                    break;
+                case "tips":
+                    // 服务端验证失败的提示并重置按钮
+                    NotificationManager.Instance.ShowTip("验证", false, response.message);
+                    LoginPanel.Instance.ResetLoginButton();
                     break;
                 case "create_room":
                     CreateRoomResponse.Invoke(response.success, response.message);
@@ -188,7 +199,6 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
                     if (response.success)
                     {
-                        WindowsManager.Instance.SwitchWindow("room");
                         RoomWindowsManager.Instance.SwitchRoomWindow("roomList");
                         UserDataManager.Instance.SetRoomId("");
                     }
