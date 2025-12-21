@@ -75,6 +75,7 @@ public class WindowsManager : MonoBehaviour
             // menu 主界面
             case "menu": // 关闭登录界面 打开主界面
                 loginPanel.SetActive(false);
+                headerPanel.SetActive(true);
                 menuPanel.SetActive(true); // 主界面
                 break;
             // room 房间界面
@@ -84,6 +85,7 @@ public class WindowsManager : MonoBehaviour
             // game 游戏界面 下属的窗口
             case "game":
                 menuPanel.SetActive(false);
+                headerPanel.SetActive(false);
                 gamePanel.SetActive(true); // 游戏界面
                 break;
             case "record":

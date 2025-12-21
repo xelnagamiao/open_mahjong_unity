@@ -72,7 +72,7 @@ public partial class BoardCanvas : MonoBehaviour
         }
 
         // 设置剩余牌数
-        remiansTilesText.text = $"余：{gameInfo.tile_count}"; 
+        remiansTilesText.text = $"余:{gameInfo.tile_count}"; 
 
         // 设置当前回合
         string current_round_str = "";

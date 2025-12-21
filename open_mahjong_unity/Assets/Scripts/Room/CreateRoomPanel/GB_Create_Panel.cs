@@ -43,7 +43,7 @@ public class GB_Create_Panel : MonoBehaviour
     // 关闭面板
     private void ClosePanel()
     {
-        WindowsManager.Instance.SwitchWindow("roomList");
+        RoomWindowsManager.Instance.SwitchRoomWindow("roomList");
     }
 
     // 创建房间

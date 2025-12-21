@@ -12,11 +12,11 @@ public class NotificationManager : MonoBehaviour
 
     // 显示面板
     [SerializeField] private GameObject tipsPosition;
-    [SerializeField] private GameObject messagePosition;
     [SerializeField] private TipsPrefab tipsPrefab;              // Tips 预制体（包含 TipsPrefab 脚本）
     [SerializeField] private float defaultTipDuration = 3f;      // Tips 默认显示时长
 
     [Header("Message 配置")]
+    [SerializeField] private GameObject messagePosition;
     [SerializeField] private MessagePrefab messagePrefab;        // Message 预制体
     
     private void Awake()
@@ -39,14 +39,9 @@ public class NotificationManager : MonoBehaviour
     /// <param name="duration">自定义显示时长，传入 &lt;=0 则使用默认值</param>
     public void ShowTip(string type, bool isSuccess, string message, float duration = -1f)
     {
-        if (tipsPrefab == null)
-        {
-            Debug.LogError("NotificationManager: TipsPrefab 未设置！");
-            return;
-        }
 
-        Transform parent = tipsPosition != null ? tipsPosition.transform : transform;
-        TipsPrefab tipInstance = Instantiate(tipsPrefab, parent);
+        Transform parent = tipsPosition.transform;
+        TipsPrefab tipInstance = Instantiate(tipsPrefab, parent.position, parent.rotation, parent);
         tipInstance.ShowMessage(type, isSuccess, message);
 
         float lifeTime = duration > 0f ? duration : defaultTipDuration;

@@ -17,6 +17,7 @@ public class GBRoomItem : MonoBehaviour
     [SerializeField] private Button joinButton; // 加入按钮
     [SerializeField] private TMP_Text hasPassword; // 是否有密码
     [SerializeField] private TMP_Text playRule; // 规则
+    [SerializeField] private TMP_Text gameStatus; // 游戏状态（是否正在运行）
 
     private void Start()
     {
@@ -28,7 +29,7 @@ public class GBRoomItem : MonoBehaviour
     private bool needPassword; // 是否有密码
 
     // SetRoomInfo 会在RoomPanel的HandleRoomListResponse中调用
-    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type)
+    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning)
     {
         this.roomId = roomId; // 保存房间号,在JoinClick中返回上一级
         this.needPassword = hasPassword;
@@ -38,10 +39,23 @@ public class GBRoomItem : MonoBehaviour
         this.playerCount.text = $"玩家数量{playerCount}/4";
         this.gameRound.text = $"圈数：{gameTime}";
         this.hasPassword.text = $"密码：{hasPassword}";
-        this.playRule.text = $"规则：{room_type}";
+        if (room_type == "guobiao"){
+            this.playRule.text = $"规则：国标麻将";
+        }
+        else{
+            this.playRule.text = $"规则：未知";
+        }
+        
+        // 显示游戏状态
+        if (isGameRunning){
+            this.gameStatus.text = "游戏中";
+        }
+        else{
+            this.gameStatus.text = "等待中";
+        }
 
-        // 如果房间已满，禁用加入按钮
-        joinButton.interactable = playerCount < 4;
+        // 如果房间已满或游戏正在运行，禁用加入按钮
+        joinButton.interactable = playerCount < 4 && !isGameRunning;
     }
     // 定义房间加入点击事件 JoinClicked 等待RoomListPanel订阅
     public event System.Action<string, bool> JoinClicked;  

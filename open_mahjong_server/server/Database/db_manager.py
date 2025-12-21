@@ -571,7 +571,7 @@ class DatabaseManager:
                 ))
             logger.info(f'已为 {len(player_list)} 名玩家保存对局记录到 game_player_records 表')
             
-            # 3. 统计维度信息
+            # 3. 统计维度信息到gb_record_stats和jp_record_stats表
             game_title = game_record.get("game_title", {})
             rule = game_title.get("rule", "GB")
             max_round = game_title.get("max_round", 4)

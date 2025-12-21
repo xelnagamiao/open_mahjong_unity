@@ -225,6 +225,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   modeText: {fileID: 3384499880357415932}
+  expandText: {fileID: 8384075133184570767}
   expandButton: {fileID: 513566224227041008}
 --- !u!1 &6066962144128386209
 GameObject:

@@ -1,9 +1,9 @@
 from typing import Dict, Any, Optional
 from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
-from .response import Response
-from .game_gb.game_state import ChineseGameState
-from .game_calculation.game_calculation_service import Chinese_Hepai_Check
-from .game_calculation.game_calculation_service import Chinese_Tingpai_Check
+from ..response import Response
+from ..game_gb.game_state import ChineseGameState
+from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
+from ..game_calculation.game_calculation_service import Chinese_Tingpai_Check
 import json
 import asyncio
 
@@ -23,8 +23,6 @@ class RoomManager:
         # 不同规则挂载的游戏验证器
         self.Chinese_Hepai_Check = Chinese_Hepai_Check()
         self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
-        # 房间游戏状态
-        self.room_game_states: Dict[str, ChineseGameState] = {}
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
                            password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
@@ -106,6 +104,7 @@ class RoomManager:
                 "tips": tips, # 是否开启提示
                 "host_user_id": host_user_id, # 房主ID
                 "host_name": host_name, # 房主名（用于显示）
+                "is_game_running": False, # 游戏是否正在运行
             }
 
             # 将房间数据尾 添加到room_data中
@@ -162,6 +161,14 @@ class RoomManager:
                 )
 
             room_data = self.rooms[room_id]
+            
+            # 检查游戏是否正在运行
+            if room_data.get("is_game_running", False):
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="游戏正在进行中，无法加入"
+                )
             
             # 检查密码
             if room_data["has_password"] and self.room_passwords.get(room_id) != password:
@@ -339,4 +346,49 @@ class RoomManager:
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     print(f"广播成功")
                 except Exception as e:
-                    print(f"广播给玩家 user_id={user_id} 失败: {e}") 
+                    print(f"广播给玩家 user_id={user_id} 失败: {e}")
+
+    async def destroy_room(self, room_id: str):
+        """销毁房间并广播离开房间消息给所有玩家"""
+        if room_id not in self.rooms:
+            print(f"房间 {room_id} 不存在，无需销毁")
+            return
+        
+        room_data = self.rooms[room_id]
+        
+        # 向所有房间内的玩家广播离开房间消息
+        leave_response = Response(
+            type="leave_room",
+            success=True,
+            message="房间已解散"
+        )
+        
+        # 获取所有玩家ID的副本，因为后面会删除房间
+        player_list_copy = room_data["player_list"].copy()
+        
+        # 向所有玩家广播离开房间消息并清除他们的房间ID
+        for user_id in player_list_copy:
+            if user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[user_id]
+                
+                # 清除玩家的房间ID
+                player_conn.current_room_id = None
+                
+                # 广播离开房间消息
+                try:
+                    player_setting = room_data.get("player_settings", {}).get(user_id, {})
+                    username = player_setting.get("username", f"用户{user_id}")
+                    print(f"正在向玩家 user_id={user_id}, username={username} 广播房间解散消息")
+                    await player_conn.websocket.send_json(leave_response.dict(exclude_none=True))
+                    print(f"房间解散消息广播成功")
+                except Exception as e:
+                    print(f"向玩家 user_id={user_id} 广播房间解散消息失败: {e}")
+        
+        # 删除房间和密码
+        del self.rooms[room_id]
+        if room_id in self.room_passwords:
+            del self.room_passwords[room_id]
+        
+        print(f"房间 {room_id} 已销毁") 
+
+

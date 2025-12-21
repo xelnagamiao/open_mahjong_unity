@@ -20,6 +20,23 @@ public class ConfigManager : MonoBehaviour
     public static string platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 项目文档地址
     public static string serverUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // github地址
 
+    // 头衔ID到文本的映射字典
+    private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>
+    {
+        { 1, "暂无头衔" }
+    };
+
+    // 获取头衔文本（公共方法）
+    public static string GetTitleText(int titleId)
+    {
+        if (titleDictionary.ContainsKey(titleId))
+        {
+            return titleDictionary[titleId];
+        }
+        // 如果找不到对应的头衔，返回默认值
+        return titleDictionary.ContainsKey(1) ? titleDictionary[1] : "暂无头衔";
+    }
+
     // 可变更的配置
     public float soundVolume = 1.0f; // 音量
     private int targetFrameRate = 60; // 目标帧率
