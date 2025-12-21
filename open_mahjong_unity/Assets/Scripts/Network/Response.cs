@@ -18,6 +18,7 @@ public class RoomInfo
     public int game_round;
     public int round_timer;
     public int step_timer;
+    public bool is_game_running; // 游戏是否正在运行
 }
 
 public class GameEndInfo // 显示游戏结束结果

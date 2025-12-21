@@ -113,7 +113,8 @@ public class RoomListPanel : MonoBehaviour
                     playerCount: roomData.player_list.Length,
                     gameTime: roomData.game_round,
                     hasPassword: roomData.has_password,
-                    room_type: roomData.room_type
+                    room_type: roomData.room_type,
+                    isGameRunning: roomData.is_game_running
                     );
                 }
             }

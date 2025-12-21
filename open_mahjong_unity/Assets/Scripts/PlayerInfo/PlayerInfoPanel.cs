@@ -7,12 +7,100 @@ using UnityEngine.UI;
 
 public class PlayerInfoPanel : MonoBehaviour
 {
+    // 番种英文到中文的翻译字典
+    private static Dictionary<string, string> fanTranslationDict = new Dictionary<string, string>
+    {
+        {"dasixi", "大四喜"},
+        {"dasanyuan", "大三元"},
+        {"lvyise", "绿一色"},
+        {"jiulianbaodeng", "九莲宝灯"},
+        {"sigang", "四杠"},
+        {"sangang", "三杠"},
+        {"lianqidui", "连七对"},
+        {"shisanyao", "十三幺"},
+        {"qingyaojiu", "清幺九"},
+        {"xiaosixi", "小四喜"},
+        {"xiaosanyuan", "小三元"},
+        {"ziyise", "字一色"},
+        {"sianke", "四暗刻"},
+        {"yiseshuanglonghui", "一色双龙会"},
+        {"yisesitongshun", "一色四同顺"},
+        {"yisesijiegao", "一色四节高"},
+        {"yisesibugao", "一色四步高"},
+        {"hunyaojiu", "混幺九"},
+        {"qiduizi", "七对子"},
+        {"qixingbukao", "七星不靠"},
+        {"quanshuangke", "全双刻"},
+        {"qingyise", "清一色"},
+        {"yisesantongshun", "一色三同顺"},
+        {"yisesanjiegao", "一色三节高"},
+        {"quanda", "全大"},
+        {"quanzhong", "全中"},
+        {"quanxiao", "全小"},
+        {"qinglong", "清龙"},
+        {"sanseshuanglonghui", "三色双龙会"},
+        {"yisesanbugao", "一色三步高"},
+        {"quandaiwu", "全带五"},
+        {"santongke", "三同刻"},
+        {"sananke", "三暗刻"},
+        {"quanbukao", "全不靠"},
+        {"zuhelong", "组合龙"},
+        {"dayuwu", "大于五"},
+        {"xiaoyuwu", "小于五"},
+        {"sanfengke", "三风刻"},
+        {"hualong", "花龙"},
+        {"tuibudao", "推不倒"},
+        {"sansesantongshun", "三色三同顺"},
+        {"sansesanjiegao", "三色三节高"},
+        {"wufanhe", "无番和"},
+        {"miaoshouhuichun", "妙手回春"},
+        {"haidilaoyue", "海底捞月"},
+        {"gangshangkaihua", "杠上开花"},
+        {"qiangganghe", "抢杠和"},
+        {"pengpenghe", "碰碰和"},
+        {"hunyise", "混一色"},
+        {"sansesanbugao", "三色三步高"},
+        {"wumenqi", "五门齐"},
+        {"quanqiuren", "全求人"},
+        {"shuangangang", "双暗杠"},
+        {"shuangjianke", "双箭刻"},
+        {"quandaiyao", "全带幺"},
+        {"buqiuren", "不求人"},
+        {"shuangminggang", "双明杠"},
+        {"hejuezhang", "和绝张"},
+        {"jianke", "箭刻"},
+        {"quanfengke", "圈风刻"},
+        {"menfengke", "门风刻"},
+        {"menqianqing", "门前清"},
+        {"pinghe", "平和"},
+        {"siguiyi", "四归一"},
+        {"shuangtongke", "双同刻"},
+        {"shuanganke", "双暗刻"},
+        {"angang", "暗杠"},
+        {"duanyao", "断幺"},
+        {"yibangao", "一般高"},
+        {"xixiangfeng", "喜相逢"},
+        {"lianliu", "连六"},
+        {"laoshaofu", "老少副"},
+        {"yaojiuke", "幺九刻"},
+        {"minggang", "明杠"},
+        {"queyimen", "缺一门"},
+        {"wuzi", "无字"},
+        {"bianzhang", "边张"},
+        {"qianzhang", "嵌张"},
+        {"dandiaojiang", "单钓将"},
+        {"zimo", "自摸"},
+        {"huapai", "花牌"},
+        {"mingangang", "明暗杠"}
+    };
+
     // 用户信息
     [SerializeField] private TMP_Text usernameText; // 用户名
     [SerializeField] private TMP_Text useridText; // 用户ID
     [SerializeField] private TMP_Text titleText; // 头衔
     [SerializeField] private Image profileImage; // 头像
     [SerializeField] private Button copyUseridButton; // 复制用户ID按钮
+    [SerializeField] private Button closeButton; // 关闭按钮
 
     // 切换规则按钮
     [SerializeField] private Button ShowGBRuleButtom;
@@ -38,6 +126,11 @@ public class PlayerInfoPanel : MonoBehaviour
     void Start()
     {
         copyUseridButton.onClick.AddListener(OnCopyUseridButtonClick);
+        
+        if (closeButton != null)
+        {
+            closeButton.onClick.AddListener(OnCloseButtonClick);
+        }
 
         ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("GB"));
         ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("JP"));
@@ -57,7 +150,8 @@ public class PlayerInfoPanel : MonoBehaviour
         // 显示用户名和用户ID
         usernameText.text = playerInfo.user_settings.username ?? "未知用户";
         useridText.text = playerInfo.user_id.ToString();
-        titleText.text = playerInfo.user_settings.title_id.ToString();
+        titleText.text = ConfigManager.GetTitleText(playerInfo.user_settings.title_id);
+        
         profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{playerInfo.user_settings.profile_image_id}");
 
 
@@ -133,7 +227,7 @@ public class PlayerInfoPanel : MonoBehaviour
         }
     }
     
-    // 创建汇总统计数据（将所有模式的番数相加）
+    // 创建汇总统计数据（将所有模式的统计数据相加）
     private PlayerStatsInfo CreateTotalStats(PlayerStatsInfo[] statsArray, string rule)
     {
         PlayerStatsInfo totalStats = new PlayerStatsInfo
@@ -201,6 +295,12 @@ public class PlayerInfoPanel : MonoBehaviour
         textEditor.Copy();
     }
 
+    // 关闭按钮点击事件
+    private void OnCloseButtonClick()
+    {
+        Destroy(gameObject);
+    }
+
     // 显示数据
     public void ShowStatsData(string statsCase, PlayerStatsInfo playerStatsInfo, Transform entryTransform)
     {
@@ -251,46 +351,159 @@ public class PlayerInfoPanel : MonoBehaviour
     {
         if (stats == null) return;
 
-        // 对局统计字段列表
-        List<KeyValuePair<string, int?>> gameStatsList = new List<KeyValuePair<string, int?>>
+        int? totalGames = stats.total_games ?? 0;
+        int? totalRounds = stats.total_rounds ?? 0;
+        int? winCount = stats.win_count ?? 0;
+        int? dealInCount = stats.deal_in_count ?? 0;
+
+        // 对局统计字段列表（包含计算后的率）
+        List<KeyValuePair<string, string>> gameStatsList = new List<KeyValuePair<string, string>>();
+
+        // 总对局数
+        if (stats.total_games.HasValue)
         {
-            new KeyValuePair<string, int?>("总对局数", stats.total_games),
-            new KeyValuePair<string, int?>("累计回合数", stats.total_rounds),
-            new KeyValuePair<string, int?>("和牌次数", stats.win_count),
-            new KeyValuePair<string, int?>("自摸次数", stats.self_draw_count),
-            new KeyValuePair<string, int?>("放铳次数", stats.deal_in_count),
-            new KeyValuePair<string, int?>("累计番数", stats.total_fan_score),
-            new KeyValuePair<string, int?>("累计和巡", stats.total_win_turn),
-            new KeyValuePair<string, int?>("累计放铳分", stats.total_fangchong_score),
-            new KeyValuePair<string, int?>("一位次数", stats.first_place_count),
-            new KeyValuePair<string, int?>("二位次数", stats.second_place_count),
-            new KeyValuePair<string, int?>("三位次数", stats.third_place_count),
-            new KeyValuePair<string, int?>("四位次数", stats.fourth_place_count)
-        };
+            gameStatsList.Add(new KeyValuePair<string, string>("总对局数", stats.total_games.Value.ToString()));
+        }
+
+        // 累计回合数
+        if (stats.total_rounds.HasValue)
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("累计回合数", stats.total_rounds.Value.ToString()));
+        }
+
+        // 和牌率（和牌次数 / 总小局数）
+        if (stats.win_count.HasValue && totalRounds > 0)
+        {
+            float winRate = (float)stats.win_count.Value / totalRounds.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("和牌率", $"{winRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("和牌率", "0.00%"));
+        }
+
+        // 自摸率（自摸次数 / 总小局数）
+        if (stats.self_draw_count.HasValue && totalRounds > 0)
+        {
+            float selfDrawRate = (float)stats.self_draw_count.Value / totalRounds.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("自摸率", $"{selfDrawRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("自摸率", "0.00%"));
+        }
+
+        // 放铳率（放铳次数 / 总小局数）
+        if (stats.deal_in_count.HasValue && totalRounds > 0)
+        {
+            float dealInRate = (float)stats.deal_in_count.Value / totalRounds.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("放铳率", $"{dealInRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("放铳率", "0.00%"));
+        }
+
+        // 平均和番（累计番数 / 和牌次数）
+        if (stats.total_fan_score.HasValue && winCount > 0)
+        {
+            float avgFanScore = (float)stats.total_fan_score.Value / winCount.Value;
+            gameStatsList.Add(new KeyValuePair<string, string>("平均和番", $"{avgFanScore:F2}"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("平均和番", "0.00"));
+        }
+
+        // 平均和巡（累计和巡 / 和牌次数）
+        if (stats.total_win_turn.HasValue && winCount > 0)
+        {
+            float avgWinTurn = (float)stats.total_win_turn.Value / winCount.Value;
+            gameStatsList.Add(new KeyValuePair<string, string>("平均和巡", $"{avgWinTurn:F2}"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("平均和巡", "0.00"));
+        }
+
+        // 平均铳番（累计放铳分 / 放铳次数）
+        if (stats.total_fangchong_score.HasValue && dealInCount > 0)
+        {
+            float avgFangchongScore = (float)stats.total_fangchong_score.Value / dealInCount.Value;
+            gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", $"{avgFangchongScore:F2}"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", "0.00"));
+        }
+
+        // 一位率（一位次数 / 总对局数）
+        if (stats.first_place_count.HasValue && totalGames > 0)
+        {
+            float firstPlaceRate = (float)stats.first_place_count.Value / totalGames.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("一位率", $"{firstPlaceRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("一位率", "0.00%"));
+        }
+
+        // 二位率（二位次数 / 总对局数）
+        if (stats.second_place_count.HasValue && totalGames > 0)
+        {
+            float secondPlaceRate = (float)stats.second_place_count.Value / totalGames.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("二位率", $"{secondPlaceRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("二位率", "0.00%"));
+        }
+
+        // 三位率（三位次数 / 总对局数）
+        if (stats.third_place_count.HasValue && totalGames > 0)
+        {
+            float thirdPlaceRate = (float)stats.third_place_count.Value / totalGames.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("三位率", $"{thirdPlaceRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("三位率", "0.00%"));
+        }
+
+        // 四位率（四位次数 / 总对局数）
+        if (stats.fourth_place_count.HasValue && totalGames > 0)
+        {
+            float fourthPlaceRate = (float)stats.fourth_place_count.Value / totalGames.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("四位率", $"{fourthPlaceRate:F2}%"));
+        }
+        else
+        {
+            gameStatsList.Add(new KeyValuePair<string, string>("四位率", "0.00%"));
+        }
 
         // 为每个统计项创建文本预制体
         foreach (var statPair in gameStatsList)
         {
-            if (statPair.Value.HasValue)
-            {
-                CreateDataText(parent, statPair.Key, statPair.Value.Value.ToString());
-            }
+            CreateDataText(parent, statPair.Key, statPair.Value);
         }
     }
 
     // 显示番数统计数据
     private void ShowFanStats(Transform parent, PlayerStatsInfo stats)
     {
-        if (stats == null || stats.fan_stats == null || stats.fan_stats.Count == 0)
+        // 显示所有番种，包括值为0的
+        foreach (var fanPair in fanTranslationDict)
         {
-            CreateDataText(parent, "暂无番种数据", "");
-            return;
-        }
-
-        // 为每个番种创建文本预制体
-        foreach (var fanPair in stats.fan_stats)
-        {
-            CreateDataText(parent, fanPair.Key, fanPair.Value.ToString());
+            string fanName = fanPair.Value; // 中文名称
+            int fanValue = 0;
+            
+            // 如果统计数据中有该番种，获取其值
+            if (stats != null && stats.fan_stats != null && stats.fan_stats.ContainsKey(fanPair.Key))
+            {
+                fanValue = stats.fan_stats[fanPair.Key];
+            }
+            
+            CreateDataText(parent, fanName, fanValue.ToString());
         }
     }
 
