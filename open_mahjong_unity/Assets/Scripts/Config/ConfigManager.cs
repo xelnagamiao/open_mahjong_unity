@@ -11,14 +11,43 @@ public class ConfigManager : MonoBehaviour
 {
     public static ConfigManager Instance { get; private set; }
 
+    public static bool Debug = true;
+    
     // 静态配置
-    public static string webUrl = "https://mahjong.fit/443/web"; // 项目网页地址
-    public static string gameUrl = "https://mahjong.fit/443/game"; // 项目服务器地址
-    public static string chatUrl = "https://mahjong.fit/chat"; // 项目聊天服务器地址
-    public static string clientVersion = "0.0.31.0"; // 项目客户端版本(仅保存)
-    public static int releaseVersion = 1; // 项目发布版本(服务器验证是否可以连接)
-    public static string platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 项目文档地址
-    public static string githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // github地址
+    public static string webUrl; // 项目网页地址
+    public static string gameUrl; // 项目服务器地址
+    public static string chatUrl; // 项目聊天服务器地址
+    public static string clientVersion; // 项目客户端版本(仅保存)
+    public static int releaseVersion; // 项目发布版本(服务器验证是否可以连接)
+    public static string platformUrl; // 项目文档地址
+    public static string githubUrl; // github地址
+
+    // 静态构造函数，根据 Debug 值初始化配置
+    static ConfigManager()
+    {
+        if (Debug)
+        {
+            // Debug 环境配置
+            webUrl = "http://localhost:8080/443/web";
+            gameUrl = "http://localhost:8081/game";
+            chatUrl = "http://localhost:8083/chat";
+            clientVersion = "0.0.31.2";
+            releaseVersion = 1;
+            platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#";
+            githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity";
+        }
+        else
+        {
+            // 生产环境配置
+            webUrl = "https://mahjong.fit/443/web";
+            gameUrl = "https://mahjong.fit/443/game";
+            chatUrl = "https://mahjong.fit/chat";
+            clientVersion = "0.0.31.0";
+            releaseVersion = 1;
+            platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#";
+            githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity";
+        }
+    }
 
     // 头衔ID到文本的映射字典
     private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>

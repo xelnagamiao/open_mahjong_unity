@@ -203,7 +203,7 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "join_room":
                     Debug.Log($"加入房间响应: {response.success}, {response.message}");
-                    NotificationManager.Instance.ShowMessage("加入房间成功",true,response.message);
+                    NotificationManager.Instance.ShowTip("加入房间成功",true,response.message);
                     break; // 只是打印一下 房间信息服务器从get_room_info中发送过来
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
