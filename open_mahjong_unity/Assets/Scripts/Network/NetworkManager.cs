@@ -79,6 +79,8 @@ public class NetworkManager : MonoBehaviour
         ExecuteOnMainThread(() => {
             LoginPanel.Instance.ConnectOkText(); // 连接成功
         });
+        // 发送发布版版本号
+        SendReleaseVersion();
     } 
 
     // 连接失败
@@ -152,26 +154,22 @@ public class NetworkManager : MonoBehaviour
                             response.login_info.userkey,
                             response.login_info.user_id
                         );
-                        UserDataManager.Instance.SetUserSettings(
-                            response.user_settings.title_id,
-                            response.user_settings.profile_image_id,
-                            response.user_settings.character_id,
-                            response.user_settings.voice_id
-                        );
-                        ConfigManager.Instance.SetUserConfig(response.user_config.volume);
+                        // 统一处理用户设置和配置（游客和正式用户都有）
+                        if (response.user_settings != null)
+                        {
+                            UserDataManager.Instance.SetUserSettings(
+                                response.user_settings.title_id,
+                                response.user_settings.profile_image_id,
+                                response.user_settings.character_id,
+                                response.user_settings.voice_id
+                            );
+                        }
+                        if (response.user_config != null)
+                        {
+                            ConfigManager.Instance.SetUserConfig(response.user_config.volume);
+                        }
                         MenuPanel.Instance.ShowUserSettings(response.user_settings);
                     }
-                    else
-                    {
-                        // 登录失败时显示提示并重置按钮
-                        NotificationManager.Instance?.ShowTip("登录", false, response.message);
-                        LoginPanel.Instance?.ResetLoginButton();
-                    }
-                    break;
-                case "tips":
-                    // 服务端验证失败的提示并重置按钮
-                    NotificationManager.Instance.ShowTip("验证", false, response.message);
-                    LoginPanel.Instance.ResetLoginButton();
                     break;
                 case "create_room":
                     CreateRoomResponse.Invoke(response.success, response.message);
@@ -205,6 +203,7 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "join_room":
                     Debug.Log($"加入房间响应: {response.success}, {response.message}");
+                    NotificationManager.Instance.ShowMessage("加入房间成功",true,response.message);
                     break; // 只是打印一下 房间信息服务器从get_room_info中发送过来
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
@@ -273,11 +272,32 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
-                    WindowsManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);
+                    NotificationManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);
+                    break;
+
+                case "tips":
+                    // 服务端验证失败的提示并重置按钮
+                    NotificationManager.Instance.ShowTip("验证", false, response.message);
+                    LoginPanel.Instance.ResetLoginButton();
+                    break;
+                case "message":
+                    // 处理服务端发送的消息（版本不匹配、账户被顶替等）
+                    if (response.message_info != null)
+                    {
+                        NotificationManager.Instance.ShowMessage(response.message_info.title, response.message_info.content);
+                    }
+                    else
+                    {
+                        // 兼容处理：如果没有 message_info，使用 message 作为内容
+                        NotificationManager.Instance.ShowMessage("系统提示", response.message);
+                    }
+                    LoginPanel.Instance.ResetLoginButton();
                     break;
                 
                 default:
+                    NotificationManager.Instance.ShowTip("未知的消息类型", false,"未知的消息类型");
                     throw new Exception($"未知的消息类型: {response.type}");
+                    break;
             }
         }
         catch (Exception e)
@@ -286,29 +306,54 @@ public class NetworkManager : MonoBehaviour
         }
     }
     
+
+    // 发送发布版版本号
+    public void SendReleaseVersion()
+    {
+        try
+        {
+            var request = new SendReleaseVersionRequest
+            {
+                type = "send_release_version",
+                release_version = ConfigManager.releaseVersion
+            };
+            Debug.Log($"发送发布版本号: {request.release_version}");
+            websocket.Send(JsonConvert.SerializeObject(request));
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"发送版本号失败: {e.Message}");
+        }
+    }
+
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public void Login(string username, string password)
+    public void Login(string username, string password, bool is_tourist = false)
     {
         try
         {
             if (websocket.ReadyState != WebSocketState.Open)
             {
+                NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
+                LoginPanel.Instance.ResetLoginButton();
                 return;
             }
-            // 3.2 如果网络连接成功，则发送登录消息
+            // 如果网络连接成功，则发送登录消息
             var request = new LoginRequest
             {
                 type = "login",
-                username = username,
-                password = password
+                username = is_tourist ? null : username,  // 游客登录时username为null
+                password = is_tourist ? null : password,  // 游客登录时password为null
+                is_tourist = is_tourist
             };
-            Debug.Log($"发送登录消息: {username}, {password}");
+            Debug.Log($"发送登录消息: username={(is_tourist ? "null" : username)}, password={(is_tourist ? "null" : "***")}, is_tourist={is_tourist}");
             websocket.Send(JsonConvert.SerializeObject(request));
         }
         catch (Exception e)
         {
-            Debug.LogError($"登录错误: {e.Message}");
+            Debug.LogError($"登录发送错误: {e.Message}");
+            NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
+            LoginPanel.Instance.ResetLoginButton();
         }
     }
 
@@ -430,6 +475,26 @@ public class NetworkManager : MonoBehaviour
             userid = userid
         };
         websocket.Send(JsonConvert.SerializeObject(request));
+    }
+
+    // 4.11 游客登录方法 TouristLogin 从LoginPanel发送
+    public void TouristLogin()
+    {
+        try
+        {
+            if (websocket.ReadyState != WebSocketState.Open)
+            {
+                NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
+                return;
+            }
+            // 游客登录 不传递用户名和密码
+            Login("", "", is_tourist: true);
+        }
+        catch (Exception e)
+        {
+            NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
+            LoginPanel.Instance.ResetLoginButton();
+        }
     }
 
 

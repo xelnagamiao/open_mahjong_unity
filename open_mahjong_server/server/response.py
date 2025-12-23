@@ -143,11 +143,17 @@ class LoginInfo(BaseModel):
     username: str  # 用户名
     userkey: str  # 用户名对应的秘钥
 
+class MessageInfo(BaseModel):
+    """消息信息"""
+    title: str  # 消息标题
+    content: str  # 消息内容
+
 class Response(BaseModel):
     type: str
     success: bool
     message: str
     # 消息体
+    message_info: Optional[MessageInfo] = None # 用于返回消息信息
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
     room_info: Optional[dict] = None # 用于在join_room和房间信息更新时广播单个房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息

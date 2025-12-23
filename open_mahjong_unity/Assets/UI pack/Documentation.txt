@@ -1,0 +1,7 @@
+This project contains one script.
+
+To use it you need to know what is what.
+
+FillValueNumber is a script that gets the fill amount of a image, it then converts it into a string and displays it as a number.
+
+Also, there is a small library of different colors that you can use for your buttons.

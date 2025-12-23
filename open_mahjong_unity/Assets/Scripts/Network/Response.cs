@@ -176,6 +176,12 @@ public class LoginInfo // 登录信息
     public string userkey;              // 用户名对应的秘钥
 }
 
+public class MessageInfo // 消息信息
+{
+    public string title;    // 消息标题
+    public string content;  // 消息内容
+}
+
 public class Response // 所有后端的返回数据都由Response类接收
 {
     // 消息头
@@ -183,9 +189,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     public bool success; // 消息是否成功
     public string message; // 消息内容
     // 消息体
-    public string username; // 登录用返回用户名（已废弃，使用 login_info）
-    public string userkey; // 登录用返回用户key（已废弃，使用 login_info）
-    public int user_id; // 登录用返回用户ID（已废弃，使用 login_info）
+    public MessageInfo message_info; // 用于返回消息信息
     public RoomInfo[] room_list; // 返回房间列表
     public RoomInfo room_info; // 返回单个房间信息
     public GameInfo game_info; // gameinfo用于开始游戏 其中包含player_info

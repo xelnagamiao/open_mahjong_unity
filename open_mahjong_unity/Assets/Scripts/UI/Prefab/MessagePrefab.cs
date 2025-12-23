@@ -8,12 +8,13 @@ public class MessagePrefab : MonoBehaviour
 {
     [SerializeField] private TMP_Text HeaderText;
     [SerializeField] private TMP_Text ContentText;
-    [SerializeField] private Button CancelButton;
+    [SerializeField] private Button YesButton;
+    [SerializeField] private Button BackButton;
 
     public void ShowMessage(string header, string content){
         HeaderText.text = header;
         ContentText.text = content;
-        CancelButton.onClick.AddListener(CloseMessage);
+        YesButton.onClick.AddListener(CloseMessage);
         gameObject.SetActive(true);
     }
 

@@ -19,6 +19,7 @@ public class CreatePanel : MonoBehaviour
     {
         // 订阅dropdown值改变事件
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
+        createRule.onClick.AddListener(OnCreateRoomButtonClicked);
         // 初始化面板显示
         InitializePanels();
     }
@@ -33,6 +34,15 @@ public class CreatePanel : MonoBehaviour
         MMC_RulePanel.SetActive(false);
         // 根据当前dropdown值显示对应面板
         OnRuleDropdownChanged(chooseRule.value);
+
+    }
+
+    /// <summary>
+    /// 处理创建房间按钮点击事件
+    /// </summary>
+    private void OnCreateRoomButtonClicked()
+    {
+        WindowsManager.Instance.SwitchWindow("aboutUs");
     }
 
     /// <summary>

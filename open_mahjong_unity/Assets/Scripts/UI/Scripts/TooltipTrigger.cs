@@ -38,8 +38,6 @@ public class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         }
     }
 
-    // 当鼠标移动时（可选，如果你希望悬浮窗跟随鼠标移动，取消注释下面的代码）
-    /* 
     void Update()
     {
         if (currentTooltip != null && Input.mousePresent)
@@ -47,7 +45,6 @@ public class TooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExitH
             UpdateTooltipPosition(Input.mousePosition);
         }
     }
-    */
 
     private void UpdateTooltipPosition(Vector2 mousePosition)
     {
