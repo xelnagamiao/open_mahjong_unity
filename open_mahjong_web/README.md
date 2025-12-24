@@ -1,4 +1,4 @@
-# Mahjong.fit - 麻将分析网站
+# salasasa.cn - 麻将分析网站
 
 基于 Node.js 和 Vue3 的现代化麻将分析工具，提供听牌判断、国标麻将和立直麻将牌型解算功能。
 
@@ -7,7 +7,7 @@
 - 🎯 **听牌待牌判断** - 分析手牌是否听牌，以及听牌手牌的待牌
 - 🏆 **国标麻将牌型解算** - 根据手牌、副露、花牌、和牌方式计算和牌构成与点数
 - ⭐ **立直麻将牌型解算** - 根据手牌、副露、宝牌、和牌方式计算和牌构成与点数
-- 👤 **用户系统** - 支持用户注册、登录和历史记录
+- 📊 **玩家数据统计** - 查询玩家统计数据和对局记录
 - 📱 **响应式设计** - 支持桌面端和移动端访问
 - 🎨 **现代化UI** - 基于 Element Plus 的美观界面
 
@@ -16,10 +16,8 @@
 ### 后端
 - **Node.js** - 运行环境
 - **Express** - Web框架
-- **MySQL** - 数据库
+- **PostgreSQL** - 数据库
 - **Socket.IO** - 实时通信
-- **JWT** - 用户认证
-- **bcryptjs** - 密码加密
 
 ### 前端
 - **Vue 3** - 前端框架
@@ -33,7 +31,7 @@
 
 ### 环境要求
 - Node.js 16+
-- MySQL 8.0+
+- PostgreSQL 12+
 - npm 或 yarn
 
 ### 安装依赖
@@ -49,21 +47,38 @@ npm install
 
 ### 数据库配置
 
-1. 创建MySQL数据库：
+1. 创建PostgreSQL数据库：
 ```sql
-CREATE DATABASE database_mj;
+CREATE DATABASE open_mahjong;
 ```
 
-2. 配置数据库连接（创建 `.env` 文件）：
+2. 配置数据库连接（推荐使用环境变量）：
+   
+   在项目根目录创建 `.env` 文件：
 ```env
+# 数据库配置
 DB_HOST=localhost
-DB_USER=root
+DB_USER=postgres
 DB_PASSWORD=your_password
-DB_NAME=database_mj
-DB_PORT=3306
-JWT_SECRET=your-secret-key
+DB_NAME=open_mahjong
+DB_PORT=5432
+
+# 应用配置
+NODE_ENV=production
+DEBUG=false
 PORT=3000
 ```
+
+   或者通过系统环境变量设置（适用于 Supervisor、PM2、systemd 等进程管理器）
+
+3. 默认值说明：
+   - 如果未设置环境变量，将使用以下默认值：
+     - `DB_HOST=localhost`
+     - `DB_USER=postgres`
+     - `DB_PASSWORD=qwe123`
+     - `DB_NAME=open_mahjong`
+     - `DB_PORT=5432`
+   - **生产环境请务必设置正确的环境变量，不要使用默认值**
 
 ### 启动项目
 
@@ -108,10 +123,9 @@ open_mahjong_web_now/
 
 ## API接口
 
-### 认证接口
-- `POST /api/auth/register` - 用户注册
-- `POST /api/auth/login` - 用户登录
-- `GET /api/auth/profile` - 获取用户信息
+### 玩家数据接口
+- `GET /api/player/info/:userid` - 获取玩家信息和统计数据
+- `GET /api/player/records/:userid` - 获取玩家对局记录
 
 ### 麻将分析接口
 - `POST /api/mahjong/count-hand` - 听牌判断

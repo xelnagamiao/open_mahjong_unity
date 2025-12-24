@@ -3,13 +3,13 @@
   <footer class="app-footer">
     <div class="footer-content">
       <div class="footer-section">
-        <h3>Mahjong.fit</h3>
+        <h3>OpemMahjong</h3>
         <p>一个简易的麻将服务网站</p>
       </div>
       
       <div class="footer-section">
         <h4>联系我们</h4>
-        <p>测试QQ群：906497522</p>
+        <p>玩家交流QQ群：906497522</p>
         <p>管理员：Q1448826180</p>
         <p>立直麻雀研习社：432372422</p>
       </div>
@@ -26,7 +26,7 @@
     </div>
     
     <div class="footer-bottom">
-      <p>&copy; 2025 立直麻雀研习社</p>
+      <p>&copy; 2026 立直麻雀研习社</p>
     </div>
   </footer>
 </template>

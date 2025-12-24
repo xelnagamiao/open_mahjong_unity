@@ -5,6 +5,9 @@ const http = require('http'); // 引入http 创建服务器
 const socketIo = require('socket.io'); // 引入socket.io 实现WebSocket通信
 require('dotenv').config(); // 引入dotenv 加载环境变量
 
+// 加载配置（从环境变量读取，支持 .env 文件）
+const config = require('./config/config');
+
 const app = express(); // 创建express应用
 const server = http.createServer(app); // 创建http服务器 将 Express 的 app 作为请求处理器传入
 const io = socketIo(server, { // 创建socket.io实例 将http服务器作为参数传入
@@ -24,10 +27,10 @@ const db = require('./config/database');
 
 // 路由
 const mahjongRoutes = require('./routes/mahjong'); // mahjongRoutes: 处理麻将游戏相关的 API（如创建房间、开始游戏等）
-const authRoutes = require('./routes/auth'); // authRoutes: 处理用户认证相关的 API（如登录、注册等）
+const playerRoutes = require('./routes/player'); // playerRoutes: 处理玩家数据查询相关的 API
 
 app.use('/api/mahjong', mahjongRoutes); // 将mahjongRoutes挂载到/api/mahjong路径下
-app.use('/api/auth', authRoutes); // 将authRoutes挂载到/api/auth路径下
+app.use('/api/player', playerRoutes); // 将playerRoutes挂载到/api/player路径下
 
 // WebSocket连接处理
 io.on('connection', (socket) => {

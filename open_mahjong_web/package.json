@@ -12,15 +12,13 @@
     "start": "node server/index.js"
   },
   "keywords": ["mahjong", "vue3", "nodejs", "express", "麻将"],
-  "author": "Mahjong.fit Team",
+  "author": "salasasa.cn Team",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "mysql2": "^3.6.5",
+    "pg": "^8.11.3",
     "dotenv": "^16.3.1",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.7.4",
     "multer": "^1.4.5-lts.1"
   },
