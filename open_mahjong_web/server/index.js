@@ -10,15 +10,15 @@ const config = require('./config/config');
 
 const app = express(); // 创建express应用
 const server = http.createServer(app); // 创建http服务器 将 Express 的 app 作为请求处理器传入
+
+// Socket.IO 配置（从统一配置模块读取）
 const io = socketIo(server, { // 创建socket.io实例 将http服务器作为参数传入
-  cors: {
-    origin: "http://localhost:5173", // Vue3开发服务器地址
-    methods: ["GET", "POST"]
-  }
+  cors: config.socket
 });
 
 // 中间件配置
-app.use(cors()); // 使用cors配置允许跨域
+// CORS 配置（从统一配置模块读取）
+app.use(cors(config.cors)); // 使用cors配置允许跨域
 app.use(express.json()); // 使用express.json解析JSON请求体
 app.use(express.urlencoded({ extended: true })); // 使用express.urlencoded解析URL编码的请求体
 
@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
 });
 
 // 开发模式下的前端路由处理
-if (process.env.NODE_ENV === 'production') {
+if (config.isProduction) {
   // 生产模式：提供静态文件
   app.use(express.static(path.join(__dirname, '../client/dist')));
   
@@ -69,17 +69,17 @@ if (process.env.NODE_ENV === 'production') {
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
+  console.error('错误详情:', err.stack);
+  
+  // 生产环境不暴露详细错误信息
+  res.status(err.status || 500).json({ 
     success: false, 
-    message: '服务器内部错误' 
+    message: config.isProduction ? '服务器内部错误' : err.message,
+    ...(config.isProduction ? {} : { stack: err.stack })
   });
 });
 
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log(`服务器运行在端口 ${PORT}`);
-  console.log(`前端地址: http://localhost:${PORT}`);
-  console.log(`API地址: http://localhost:${PORT}/api`);
+server.listen(config.app.port, () => {
+  console.log(`服务器运行在端口 ${config.app.port}`);
+  console.log(`API地址: http://localhost:${config.app.port}/api`);
 }); 

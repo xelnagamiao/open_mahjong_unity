@@ -79,3 +79,8 @@ public class SendReleaseVersionRequest // 发送发布版本号请求
     public string type;
     public int release_version;
 }
+
+public class GetServerStatsRequest // 获取服务器统计信息请求
+{
+    public string type;
+}

@@ -52,9 +52,15 @@ npm install
 CREATE DATABASE open_mahjong;
 ```
 
-2. 配置数据库连接（推荐使用环境变量）：
+2. 配置说明：
    
-   在项目根目录创建 `.env` 文件：
+   **所有配置统一在 `server/config/config.js` 中管理**
+   
+   - 配置通过环境变量设置，支持两种方式：
+     - **方式一（推荐开发环境）**：在项目根目录创建 `.env` 文件
+     - **方式二（推荐生产环境）**：通过系统环境变量或进程管理器设置
+   
+   **环境变量配置项：**
 ```env
 # 数据库配置
 DB_HOST=localhost
@@ -64,20 +70,28 @@ DB_NAME=open_mahjong
 DB_PORT=5432
 
 # 应用配置
-NODE_ENV=production
-DEBUG=false
-PORT=3000
+NODE_ENV=production    # 设置为 'production' 表示生产环境，其他值为开发环境
+DEBUG=false            # 调试模式开关
+PORT=3000              # 服务器端口
+
+# 前端和跨域配置（生产环境必需）
+FRONTEND_URL=https://salasasa.cn    # 前端访问地址
+CORS_ORIGIN=https://salasasa.cn     # CORS 允许的源（可选，默认使用 FRONTEND_URL）
+SOCKET_ORIGIN=https://salasasa.cn   # Socket.IO 允许的源（可选，默认使用 FRONTEND_URL）
 ```
 
-   或者通过系统环境变量设置（适用于 Supervisor、PM2、systemd 等进程管理器）
+3. **NODE_ENV 说明：**
+   - `NODE_ENV=production`：生产环境模式
+     - 提供静态文件服务（从 `client/dist` 目录）
+     - 不暴露详细错误堆栈信息
+     - 使用生产环境的 CORS 配置
+   - `NODE_ENV=development` 或未设置：开发环境模式
+     - 重定向到开发服务器（localhost:5173）
+     - 显示详细错误信息便于调试
+     - 使用开发环境的 CORS 配置
 
-3. 默认值说明：
-   - 如果未设置环境变量，将使用以下默认值：
-     - `DB_HOST=localhost`
-     - `DB_USER=postgres`
-     - `DB_PASSWORD=qwe123`
-     - `DB_NAME=open_mahjong`
-     - `DB_PORT=5432`
+4. 默认值说明：
+   - 如果未设置环境变量，将使用 `server/config/config.js` 中定义的默认值
    - **生产环境请务必设置正确的环境变量，不要使用默认值**
 
 ### 启动项目

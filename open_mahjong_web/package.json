@@ -9,7 +9,11 @@
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "install-all": "npm install && cd client && npm install",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "pm2:start": "pm2 start server/index.js --name salasasa-web",
+    "pm2:stop": "pm2 stop salasasa-web",
+    "pm2:restart": "pm2 restart salasasa-web",
+    "pm2:delete": "pm2 delete salasasa-web"
   },
   "keywords": ["mahjong", "vue3", "nodejs", "express", "麻将"],
   "author": "salasasa.cn Team",

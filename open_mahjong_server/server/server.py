@@ -181,6 +181,27 @@ class GameServer:
             self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data, self.calculation_service,self.db_manager)
             asyncio.create_task(self.room_id_to_ChineseGameState[room_id].game_loop_chinese())
 
+    def get_server_stats(self) -> Dict[str, int]:
+        """
+        获取服务器统计数据
+        返回：在线人数、等待房间数、进行房间数
+        """
+        # 在线人数：所有已连接的玩家
+        online_players = len(self.players)
+        
+        # 进行房间数：正在运行游戏的房间
+        playing_rooms = len(self.room_id_to_ChineseGameState)
+        
+        # 等待房间数：总房间数 - 进行房间数
+        total_rooms = len(self.room_manager.rooms)
+        waiting_rooms = total_rooms - playing_rooms
+        
+        return {
+            "online_players": online_players,
+            "waiting_rooms": waiting_rooms,
+            "playing_rooms": playing_rooms
+        }
+
 game_server = GameServer()
 
 @app.websocket("/game/{Connect_id}")
@@ -341,6 +362,23 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         success=False,
                         message="用户未登录"
                     )
+                await websocket.send_json(response.dict(exclude_none=True))
+
+            elif message["type"] == "get_server_stats":
+                # 获取服务器统计数据
+                from .response import ServerStatsInfo
+                stats = game_server.get_server_stats()
+                server_stats = ServerStatsInfo(
+                    online_players=stats["online_players"],
+                    waiting_rooms=stats["waiting_rooms"],
+                    playing_rooms=stats["playing_rooms"]
+                )
+                response = Response(
+                    type="get_server_stats",
+                    success=True,
+                    message="获取服务器统计成功",
+                    server_stats=server_stats
+                )
                 await websocket.send_json(response.dict(exclude_none=True))
 
             elif message["type"] == "get_player_info":

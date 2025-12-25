@@ -27,6 +27,8 @@ public class NetworkManager : MonoBehaviour
     
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
+    // 服务器统计信息协程控制
+    private Coroutine serverStatsCoroutine;
 
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
@@ -104,8 +106,7 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 网络管理器实例在 Update 中处理消息队列
-    private void Update()
-    {
+    private void Update(){
         // 处理消息队列
         if (messageQueue.Count > 0)
         {
@@ -130,11 +131,74 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 主线程调度器方法
-    private void ExecuteOnMainThread(Action action)
-    {
+    private void ExecuteOnMainThread(Action action){
         lock(mainThreadActions)
         {
             mainThreadActions.Enqueue(action);
+        }
+    }
+
+    // 处理登录响应
+    private void HandleLoginResponse(Response response){
+        if (response.success)
+        {
+            WindowsManager.Instance.SwitchWindow("menu");
+            // 设置用户信息
+            MeunPanel.Instance.SetUserInfo(
+                response.login_info.username,
+                response.login_info.userkey,
+                response.login_info.user_id
+            );
+            // 保存用户信息
+            if (response.user_settings != null)
+            {
+                UserDataManager.Instance.SetUserSettings(
+                    response.user_settings.title_id,
+                    response.user_settings.profile_image_id,
+                    response.user_settings.character_id,
+                    response.user_settings.voice_id
+                );
+            }
+            if (response.user_config != null)
+            {
+                ConfigManager.Instance.SetUserConfig(response.user_config.volume);
+            }
+            UserContainer.Instance.ShowUserSettings(response.user_settings);
+            // 启动服务器统计信息协程
+            StartServerStatsCoroutine();
+        }
+    }
+
+    // 启动服务器统计信息协程（每30秒获取一次）
+    private void StartServerStatsCoroutine()
+    {
+        // 如果已有协程在运行，先停止它
+        if (serverStatsCoroutine != null)
+        {
+            StopCoroutine(serverStatsCoroutine);
+        }
+        // 立即获取一次统计信息
+        GetServerStats();
+        // 启动协程每30秒获取一次
+        serverStatsCoroutine = StartCoroutine(ServerStatsUpdateCoroutine());
+    }
+
+    // 服务器统计信息更新协程
+    private IEnumerator ServerStatsUpdateCoroutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(30f); // 等待30秒
+            GetServerStats();
+        }
+    }
+
+    // 显示服务器统计信息（简化版，直接使用服务器返回的数据）
+    private void DisplayServerStats(ServerStatsInfo stats)
+    {
+        if (stats != null)
+        {
+            MeunPanel.Instance.DisplayServerStats(stats.online_players, stats.waiting_rooms, stats.playing_rooms);
         }
     }
 
@@ -147,36 +211,20 @@ public class NetworkManager : MonoBehaviour
 
             switch (response.type){
                 case "login":
-                    if (response.success){
-                        WindowsManager.Instance.SwitchWindow("menu");
-                        UserDataManager.Instance.SetUserInfo(
-                            response.login_info.username,
-                            response.login_info.userkey,
-                            response.login_info.user_id
-                        );
-                        // 统一处理用户设置和配置（游客和正式用户都有）
-                        if (response.user_settings != null)
-                        {
-                            UserDataManager.Instance.SetUserSettings(
-                                response.user_settings.title_id,
-                                response.user_settings.profile_image_id,
-                                response.user_settings.character_id,
-                                response.user_settings.voice_id
-                            );
-                        }
-                        if (response.user_config != null)
-                        {
-                            ConfigManager.Instance.SetUserConfig(response.user_config.volume);
-                        }
-                        MenuPanel.Instance.ShowUserSettings(response.user_settings);
-                    }
+                    HandleLoginResponse(response);
+                    NotificationManager.Instance.ShowTip("login",true,"登录成功");
                     break;
                 case "create_room":
                     CreateRoomResponse.Invoke(response.success, response.message);
                     UserDataManager.Instance.SetRoomId(response.room_info.room_id);
+                    NotificationManager.Instance.ShowTip("create_room",true,"创建房间成功");
                     break;
                 case "get_room_list": // 获取room_list
                     RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
+                    NotificationManager.Instance.ShowTip("get_room_list",true,"获取房间列表成功");
+                    break;
+                case "get_server_stats": // 获取服务器统计信息
+                    DisplayServerStats(response.server_stats);
                     break;
                 case "get_room_info": // 获取room_info 更新房间面板
                     Debug.Log("处理房间信息更新");
@@ -192,6 +240,7 @@ public class NetworkManager : MonoBehaviour
                 case "error_message":
                     Debug.Log($"错误消息: {response.message}");
                     ErrorResponse.Invoke(response.success, response.message);
+                    NotificationManager.Instance.ShowTip("error_message",false,response.message);
                     break;
                 case "leave_room":
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
@@ -199,11 +248,12 @@ public class NetworkManager : MonoBehaviour
                     {
                         RoomWindowsManager.Instance.SwitchRoomWindow("roomList");
                         UserDataManager.Instance.SetRoomId("");
+                        NotificationManager.Instance.ShowTip("leave_room",true,"离开房间成功");
                     }
                     break;
                 case "join_room":
                     Debug.Log($"加入房间响应: {response.success}, {response.message}");
-                    NotificationManager.Instance.ShowTip("加入房间成功",true,response.message);
+                    NotificationManager.Instance.ShowTip("join_room",true,"加入房间成功");
                     break; // 只是打印一下 房间信息服务器从get_room_info中发送过来
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
@@ -280,6 +330,7 @@ public class NetworkManager : MonoBehaviour
                     NotificationManager.Instance.ShowTip("验证", false, response.message);
                     LoginPanel.Instance.ResetLoginButton();
                     break;
+
                 case "message":
                     // 处理服务端发送的消息（版本不匹配、账户被顶替等）
                     if (response.message_info != null)
@@ -308,8 +359,7 @@ public class NetworkManager : MonoBehaviour
     
 
     // 发送发布版版本号
-    public void SendReleaseVersion()
-    {
+    public void SendReleaseVersion(){
         try
         {
             var request = new SendReleaseVersionRequest
@@ -323,13 +373,13 @@ public class NetworkManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"发送版本号失败: {e.Message}");
+            NotificationManager.Instance.ShowTip("send_release_version",false,"发送版本号失败,请检查网络连接");
         }
     }
 
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public void Login(string username, string password, bool is_tourist = false)
-    {
+    public void Login(string username, string password, bool is_tourist = false){
         try
         {
             if (websocket.ReadyState != WebSocketState.Open)
@@ -358,8 +408,7 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 4.2 创建房间方法 CreateRoom 从CreatePanel发送
-    public void Create_GB_Room(GB_Create_RoomConfig config)
-    {
+    public void Create_GB_Room(GB_Create_RoomConfig config){
         try
         {
             var request = new CreateGBRoomRequest
@@ -382,8 +431,7 @@ public class NetworkManager : MonoBehaviour
         }
     }   
     // 4.3 获取房间列表方法 get_room_list 从RoomPanel发送
-    public void GetRoomList()
-    {
+    public void GetRoomList(){
         try
         {
             var request = new GetRoomListRequest
@@ -411,8 +459,7 @@ public class NetworkManager : MonoBehaviour
         websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.5 离开房间方法 LeaveRoom 从RoomPanel发送
-    public void LeaveRoom(string roomId)
-    {
+    public void LeaveRoom(string roomId){
         var request = new LeaveRoomRequest
         {
             type = "leave_room",
@@ -421,8 +468,7 @@ public class NetworkManager : MonoBehaviour
         websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.6 开始游戏方法 StartGame 从RoomPanel发送
-    public void StartGame(string roomId)
-    {
+    public void StartGame(string roomId){
         var request = new StartGameRequest
         {
             type = "start_game",
@@ -497,10 +543,37 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
+    // 4.12 获取服务器统计信息方法 GetServerStats
+    public void GetServerStats()
+    {
+        try
+        {
+            if (websocket.ReadyState != WebSocketState.Open)
+            {
+                return; // 连接未建立时不发送请求
+            }
+            var request = new GetServerStatsRequest
+            {
+                type = "get_server_stats"
+            };
+            websocket.Send(JsonConvert.SerializeObject(request));
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"获取服务器统计信息失败: {e.Message}");
+        }
+    }
+
 
 
     private void OnApplicationQuit()
     {
+        // 停止服务器统计信息协程
+        if (serverStatsCoroutine != null)
+        {
+            StopCoroutine(serverStatsCoroutine);
+            serverStatsCoroutine = null;
+        }
         if (websocket != null && websocket.ReadyState == WebSocketState.Open)
             websocket.Close();
     }
