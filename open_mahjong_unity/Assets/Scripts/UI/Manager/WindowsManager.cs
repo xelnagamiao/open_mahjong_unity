@@ -77,10 +77,12 @@ public class WindowsManager : MonoBehaviour
                 loginPanel.SetActive(false);
                 headerPanel.SetActive(true);
                 menuPanel.SetActive(true); // 主界面
+                HeaderPanel.Instance.UpdateButtonState("menu");
                 break;
             // room 房间界面
             case "room":
                 roomRoot.SetActive(true);
+                HeaderPanel.Instance.UpdateButtonState("room");
                 break;
             // game 游戏界面 下属的窗口
             case "game":
@@ -90,18 +92,23 @@ public class WindowsManager : MonoBehaviour
                 break;
             case "record":
                 recordPanel.SetActive(true); // 游戏记录界面
+                HeaderPanel.Instance.UpdateButtonState("record");
                 break;
             case "notice":
                 noticePanel.SetActive(true); // 公告界面
+                HeaderPanel.Instance.UpdateButtonState("notice");
                 break;
             case "aboutUs":
                 aboutUsPanel.SetActive(true); // 关于我们界面
+                HeaderPanel.Instance.UpdateButtonState("aboutUs");
                 break;
             case "player":
                 playerPanel.SetActive(true);
+                HeaderPanel.Instance.UpdateButtonState("player");
                 break;
             case "config":
                 configPanel.SetActive(true);
+                HeaderPanel.Instance.UpdateButtonState("config");
                 break;
         }
     }

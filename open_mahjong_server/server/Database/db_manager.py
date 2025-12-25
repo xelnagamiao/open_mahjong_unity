@@ -154,8 +154,22 @@ class DatabaseManager:
                     user_id BIGSERIAL PRIMARY KEY,
                     username VARCHAR(255) UNIQUE NOT NULL,
                     password VARCHAR(255) NOT NULL,
+                    is_tourist BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+            """)
+            
+            # 如果表已存在但缺少 is_tourist 字段，则添加该字段
+            cursor.execute("""
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'users' AND column_name = 'is_tourist'
+                    ) THEN
+                        ALTER TABLE users ADD COLUMN is_tourist BOOLEAN DEFAULT FALSE;
+                    END IF;
+                END $$;
             """)
 
             # 创建表game_records（如果不存在）
@@ -345,14 +359,13 @@ class DatabaseManager:
                 # 表为空：重置序列，使第一个 user_id = 10000001
                 cursor.execute("SELECT setval('users_user_id_seq', 10000000, false);")
             else:
-                print(f"用户表已有 {user_count} 个用户")
+                logger.info(f"用户表已有 {user_count} 个用户")
 
             conn.commit() # 提交
-            print('数据表初始化成功')
+            logger.info('数据表初始化成功')
             self._get_pool()
 
         except Exception as e:
-            print(f'数据表初始化失败: {e}')
             logger.error(f'数据表初始化失败: {e}', exc_info=True)
             if conn:
                 conn.rollback()
@@ -424,13 +437,14 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
-    def create_user(self, username: str, password: str) -> Optional[int]:
+    def create_user(self, username: str, password: str, is_tourist: bool = False) -> Optional[int]:
         """
         创建新用户（密码会自动哈希存储）
         
         Args:
             username: 用户名
             password: 明文密码
+            is_tourist: 是否为游客账户
             
         Returns:
             创建成功返回 user_id，失败返回 None
@@ -442,9 +456,11 @@ class DatabaseManager:
             
             conn = self._get_connection()
             cursor = conn.cursor()
+            
+            # 插入用户（使用自动递增序列，同时保存 is_tourist 标记）
             cursor.execute(
-                "INSERT INTO users (username, password) VALUES (%s, %s) RETURNING user_id",
-                (username, password_hash)
+                "INSERT INTO users (username, password, is_tourist) VALUES (%s, %s, %s) RETURNING user_id",
+                (username, password_hash, is_tourist)
             )
             user_id = cursor.fetchone()[0]
             
@@ -461,7 +477,8 @@ class DatabaseManager:
             """, (user_id,))
             
             conn.commit()
-            logger.info(f'用户 {username} 创建成功，user_id: {user_id}')
+            account_type = "游客账户" if is_tourist else "用户"
+            logger.info(f'{account_type} {username} 创建成功，user_id: {user_id}')
             return user_id
         except Error as e:
             logger.error(f'创建用户失败: {e}')
@@ -471,6 +488,110 @@ class DatabaseManager:
         finally:
             if conn:
                 cursor.close()
+                self._put_connection(conn)
+    
+    def delete_tourist_user(self, user_id: int, username: str) -> bool:
+        """
+        删除游客账户及其相关数据（由于外键约束，会自动删除user_settings和user_config）
+        只有在用户名包含"游客"、is_tourist 为 True 且密码为空时才允许删除，防止误删正常用户
+        
+        Args:
+            user_id: 用户ID
+            username: 用户名
+            
+        Returns:
+            删除成功返回 True，失败返回 False
+        """
+        # 检查用户名是否包含"游客"
+        if "游客" not in username:
+            logger.warning(f'拒绝删除：用户名不包含"游客" user_id={user_id}, username={username}')
+            return False
+        
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # 先查询用户信息，确认 is_tourist 为 True 且密码为空
+            cursor.execute("SELECT is_tourist, password FROM users WHERE user_id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            if user is None:
+                logger.warning(f'用户不存在 user_id={user_id}')
+                return False
+            
+            # 检查 is_tourist 是否为 True
+            if not user.get('is_tourist', False):
+                logger.warning(f'拒绝删除：用户不是游客账户 user_id={user_id}, username={username}')
+                return False
+            
+            # 验证密码是否为空（游客账户密码应该为空字符串的哈希值）
+            stored_password = user.get('password', '')
+            # 空密码经过哈希后应该是一个有效的哈希格式，但我们可以通过验证空密码来确认
+            # 如果密码哈希为空字符串的哈希，则验证通过
+            if stored_password and not self.verify_password("", stored_password):
+                logger.warning(f'拒绝删除：游客账户密码不为空 user_id={user_id}, username={username}')
+                return False
+            
+            # 确认是游客账户且密码为空，执行删除
+            cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
+            conn.commit()
+            deleted_count = cursor.rowcount
+            cursor.close()
+            
+            if deleted_count > 0:
+                logger.info(f'游客账户删除成功 user_id={user_id}, username={username}')
+                return True
+            else:
+                logger.warning(f'游客账户删除失败 user_id={user_id}, username={username}')
+                return False
+        except Error as e:
+            logger.error(f'删除游客账户失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def delete_user(self, user_id: int) -> bool:
+        """
+        删除用户及其相关数据（由于外键约束，会自动删除user_settings和user_config）
+        只允许删除游客账户（user_id 在 9000000 到 10000000 之间），防止误删正常用户
+        
+        Args:
+            user_id: 用户ID
+            
+        Returns:
+            删除成功返回 True，失败返回 False
+        """
+        # 只允许删除游客账户（9000000 <= user_id <= 10000000）
+        if not (9000000 <= user_id <= 10000000):
+            logger.warning(f'拒绝删除非游客账户 user_id={user_id}，只允许删除 9000000-10000000 范围内的账户')
+            return False
+
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
+            conn.commit()
+            deleted_count = cursor.rowcount
+            cursor.close()
+            if deleted_count > 0:
+                logger.info(f'用户 {user_id} 删除成功')
+                return True
+            else:
+                logger.warning(f'用户 {user_id} 不存在，无法删除')
+                return False
+        except Error as e:
+            logger.error(f'删除用户失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
                 self._put_connection(conn)
     
     def _hash_password(self, password: str) -> str:

@@ -1,3 +1,6 @@
+# 忽略 VSCode 配置文件夹
+.vscode/
+
 # 忽略 Unity 项目目录下的所有内容
 open_mahjong_unity/**
 # 但保留以下必要内容

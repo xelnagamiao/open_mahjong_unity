@@ -9,11 +9,13 @@ public class RoomListPanel : MonoBehaviour
     public static RoomListPanel Instance { get; private set; }
 
     [Header("UI References")]
-    [SerializeField] private Button createButton;      // 创建房间按钮
-    [SerializeField] private Button refreshButton;     // 刷新按钮
     [SerializeField] private Transform roomListContent; // 房间列表容器
     [SerializeField] private GameObject roomItemPrefab; // 房间预制体
-    [SerializeField] private Button backButton; // 返回按钮
+    [SerializeField] private TMP_InputField RoomIdInput;        // 房间ID输入框
+    [SerializeField] private Button createButton;      // 创建房间按钮
+    [SerializeField] private Button refreshButton;     // 刷新按钮
+    [SerializeField] private Button JoinRoomButton;        // 加入房间按钮
+
 
     [Header("Password Input")]
     [SerializeField] private GameObject passwordInputPanel; // 密码输入面板
@@ -26,10 +28,10 @@ public class RoomListPanel : MonoBehaviour
     private string roomId;
     private void Start()
     {
-        // 初始化按钮监听 1.显示房间面板 2.刷新房间列表 3.返回主面板
+        // 初始化按钮监听 1.显示房间面板 2.刷新房间列表 3.加入房间
         createButton.onClick.AddListener(OpenCreatePanel);
         refreshButton.onClick.AddListener(RefreshRoomList);
-        backButton.onClick.AddListener(BackButtonClicked);
+        JoinRoomButton.onClick.AddListener(JoinRoom);
         // 订阅密码输入按钮
         passwordInputAdmit.onClick.AddListener(PasswordInputAdmit);
         passwordInputCancel.onClick.AddListener(PasswordInputCancel);
@@ -57,6 +59,19 @@ public class RoomListPanel : MonoBehaviour
         WindowsManager.Instance.SwitchWindow("room");
     }
 
+    // 2.点击加入房间按钮 加入房间
+    private void JoinRoom()
+    {
+        if (string.IsNullOrEmpty(RoomIdInput.text))
+        {
+            NotificationManager.Instance.ShowTip("tips",false,"房间ID不能为空");
+            return;
+        }
+        else{
+            NetworkManager.Instance.JoinRoom(RoomIdInput.text, RoomIdInput.text);
+        }
+    }
+
     // 3.刷新房间列表 调用NetworkManager的GetRoomList方法
     public void RefreshRoomList()
     {
@@ -68,14 +83,9 @@ public class RoomListPanel : MonoBehaviour
         // 请求新的房间列表
         NetworkManager.Instance.GetRoomList();
     }
-    // 返回主面板
-    private void BackButtonClicked()
-    {
-        WindowsManager.Instance.SwitchWindow("menu");
-    }
+
     // 4.获取房间列表响应
-    public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List)
-    {
+    public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List){
         if (!success)
         {
             Debug.LogError($"获取房间列表失败: {message}");
@@ -120,6 +130,7 @@ public class RoomListPanel : MonoBehaviour
             }
         }
     }
+
     // 接收到房间预制体的加入房间点击事件和预制体的roomid,needPassword
     // 如果需要密码 则打开密码输入面板 并保存roomId 否则直接调用joinRoom
     public void JoinClicked(string roomId, bool needPassword)
@@ -134,6 +145,9 @@ public class RoomListPanel : MonoBehaviour
             NetworkManager.Instance.JoinRoom(roomId, "");
         }
     }
+
+
+
     // 密码输入面板点击确认调用joinRoom
     private void PasswordInputAdmit()
     {

@@ -7,13 +7,19 @@ public class LoginPanel : MonoBehaviour
 {
     [SerializeField] private TMP_InputField inputUser;
     [SerializeField] private TMP_InputField inputPassword;
-    [SerializeField] private Button submitButton;
-    [SerializeField] private TMP_Text statusText;
+    [SerializeField] private Button loginButton;
+    [SerializeField] private Button touristButton;
+    [SerializeField] private TMP_Text connectStatusText;
+    [SerializeField] private Image loginPanel;
+    [SerializeField] private TMP_Text loginTipsText;
 
     public static LoginPanel Instance { get; private set; }
+    private string userNameTips = "用户名应当在2-32个字符之间，只能包含中文、数字、英文";
+    private string passwordTips = "密码应当在6-32个字符之间，只能包含英文、数字、特殊字符";
+
     private Coroutine serverConnectCoroutine;
 
-    private void Start()
+    private void Awake()
     {
         if (Instance == null)
         {
@@ -22,13 +28,21 @@ public class LoginPanel : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
         }
-        submitButton.onClick.AddListener(LoginClick);
+        
+        loginButton.onClick.AddListener(LoginClick);
+        touristButton.onClick.AddListener(TouristLoginClick);
+        
+        // 设置输入框选中事件
+        inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
+        inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
+        
+        // 直接启动连接协程
         serverConnectCoroutine = StartCoroutine(ServerConnectCoroutine());
     }
 
-    private void LoginClick()
-    {
+    private void LoginClick(){
         // 获取用户名和密码
         string userName = inputUser.text.Trim();
         string password = inputPassword.text.Trim();
@@ -49,16 +63,20 @@ public class LoginPanel : MonoBehaviour
             return;
         }
 
-        submitButton.interactable = false; // 禁用按钮
-        statusText.text = "登录中...";
+        loginButton.interactable = false; // 禁用按钮
         NetworkManager.Instance.Login(userName, password); // 发送登录请求
+    }
+
+    private void TouristLoginClick()
+    {
+        touristButton.interactable = false; // 禁用按钮
+        NetworkManager.Instance.TouristLogin(); // 发送游客登录请求
     }
 
     /// <summary>
     /// 验证用户名：中文=2，数字=1，英文=1，总长度>=4，不超过32字节
     /// </summary>
-    private string ValidateUsername(string username)
-    {
+    private string ValidateUsername(string username){
         if (string.IsNullOrEmpty(username))
             return "用户名不能为空";
 
@@ -85,8 +103,7 @@ public class LoginPanel : MonoBehaviour
     /// <summary>
     /// 验证密码：6-32个字符，只能包含英文、数字或特殊字符
     /// </summary>
-    private string ValidatePassword(string password)
-    {
+    private string ValidatePassword(string password){
         if (string.IsNullOrEmpty(password))
             return "密码不能为空";
 
@@ -114,41 +131,53 @@ public class LoginPanel : MonoBehaviour
     {
         while (true)
         {
-            statusText.text = "等待服务器连接.";
+            connectStatusText.text = "等待服务器连接.";
             yield return new WaitForSeconds(0.5f);
-            statusText.text = "等待服务器连接..";
+            connectStatusText.text = "等待服务器连接..";
             yield return new WaitForSeconds(0.5f);
-            statusText.text = "等待服务器连接...";
+            connectStatusText.text = "等待服务器连接...";
             yield return new WaitForSeconds(0.5f);
         }
     }
 
-    // 设置状态文本
+    // 显示提示文字
+    private void ShowTip(string tip)
+    {
+        if (loginTipsText != null)
+        {
+            loginTipsText.text = tip;
+        }
+    }
+
+    // 连接成功时调用
     public void ConnectOkText()
     {
         // 终止协程
         if (serverConnectCoroutine != null)
         {
             StopCoroutine(serverConnectCoroutine);
+            serverConnectCoroutine = null;
         }
-        statusText.text = "连接成功";
+        connectStatusText.text = "连接成功";
     }
 
-    // 设置状态文本
+    // 连接失败时调用
     public void ConnectErrorText(string text)
     {
         // 终止协程
         if (serverConnectCoroutine != null)
         {
             StopCoroutine(serverConnectCoroutine);
+            serverConnectCoroutine = null;
         }
-        statusText.text = $"连接失败: {text} 请联系服务管理员q群906497522";
+        connectStatusText.text = $"连接失败: {text} 请联系服务管理员q群906497522";
     }
 
     // 重置登录按钮状态（登录失败时调用）
     public void ResetLoginButton()
     {
-        submitButton.interactable = true;
-        statusText.text = "连接成功";
+        loginButton.interactable = true;
+        touristButton.interactable = true;
+        connectStatusText.text = "连接成功";
     }
 } 

@@ -15,6 +15,10 @@ public class NotificationManager : MonoBehaviour
     [SerializeField] private TipsPrefab tipsPrefab;              // Tips 预制体（包含 TipsPrefab 脚本）
     [SerializeField] private float defaultTipDuration = 3f;      // Tips 默认显示时长
 
+    [Header("PlayerInfo 配置")]
+    [SerializeField] private GameObject playerInfoPosition;
+    [SerializeField] private GameObject playerInfoPanelPrefab; // 玩家信息面板预制体
+
     [Header("Message 配置")]
     [SerializeField] private GameObject messagePosition;
     [SerializeField] private MessagePrefab messagePrefab;        // Message 预制体
@@ -66,6 +70,42 @@ public class NotificationManager : MonoBehaviour
         MessagePrefab messageInstance = Instantiate(messagePrefab, parent);
         messageInstance.ShowMessage(header, content);
         return messageInstance;
+    }
+
+    /// <summary>
+    /// 打开玩家信息面板
+    /// </summary>
+    /// <param name="success">是否成功获取玩家信息</param>
+    /// <param name="message">消息内容</param>
+    /// <param name="playerInfo">玩家信息响应数据</param>
+    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo)
+    {
+        if (playerInfoPanelPrefab == null)
+        {
+            Debug.LogError("NotificationManager: PlayerInfoPanelPrefab 未设置！");
+            return;
+        }
+
+        if (success && playerInfo != null)
+        {
+            // 在 playerInfoPosition 下创建玩家信息面板
+            Transform parent = playerInfoPosition != null ? playerInfoPosition.transform : transform;
+            GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
+            PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
+            if (playerInfoPanel != null)
+            {
+                playerInfoPanel.ShowPlayerInfo(playerInfo);
+            }
+            else
+            {
+                Debug.LogError("NotificationManager: PlayerInfoPanel 组件未找到！");
+            }
+        }
+        else
+        {
+            Debug.LogError($"获取玩家信息失败: {message}");
+            ShowTip("错误", false, $"获取玩家信息失败: {message}");
+        }
     }
     
     // tips销毁协程

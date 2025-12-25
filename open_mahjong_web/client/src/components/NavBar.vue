@@ -14,7 +14,7 @@
       <div class="nav-left">
         <el-menu-item index="/" class="logo">
           <el-icon><Grid /></el-icon>
-          <span>Mahjong.fit</span>
+          <span>salasasa.cn</span>
         </el-menu-item>
 
         <el-menu-item index="/unity-game">
@@ -22,16 +22,21 @@
           <span>麻将对战平台</span>
         </el-menu-item>
 
+        <el-menu-item index="/docs">
+          <el-icon><Document /></el-icon>
+          <span>开发手册</span>
+        </el-menu-item>
+
+        <el-menu-item index="/player-data">
+          <el-icon><User /></el-icon>
+          <span>玩家数据</span>
+        </el-menu-item>
+
         <el-menu-item index="/github">
           <el-icon><Link /></el-icon>
           <span>GitHub</span>
         </el-menu-item>
 
-        <el-menu-item index="/docs">
-          <el-icon><Document /></el-icon>
-          <span>开发手册</span>
-        </el-menu-item>
-        
         <el-menu-item index="/shanten">
           <el-icon><DataAnalysis /></el-icon>
           <span>听牌判断(未启用)</span>
@@ -47,72 +52,35 @@
           <span>立直麻将判断(未启用)</span>
         </el-menu-item>
 
-        <el-menu-item index="/player-data">
-          <el-icon><User /></el-icon>
-          <span>玩家数据</span>
-        </el-menu-item>
-
       </div>
 
       
       <div class="nav-right">
-        <template v-if="!isLoggedIn">
-          <el-menu-item index="/login">
-            <el-icon><User /></el-icon>
-            <span>登录</span>
-          </el-menu-item>
-          <el-menu-item index="/register">
-            <el-icon><UserFilled /></el-icon>
-            <span>注册</span>
-          </el-menu-item>
-        </template>
-        
-        <template v-else>
-          <el-sub-menu index="user">
-            <template #title>
-              <el-icon><User /></el-icon>
-              <span>{{ username }}</span>
-            </template>
-            <el-menu-item @click="logout">
-              <el-icon><SwitchButton /></el-icon>
-              <span>退出登录</span>
-            </el-menu-item>
-          </el-sub-menu>
-        </template>
+        <!-- 登录和注册功能暂不提供 -->
       </div>
     </div>
     </el-menu>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+// 导入Vue相关库
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   Grid,
   DataAnalysis,
   Trophy,
   Star,
   User,
-  UserFilled,
-  SwitchButton,
   Link,
   Document,
   VideoPlay
 } from '@element-plus/icons-vue'
 
+// 获取当前路由
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-
+// 计算当前激活的菜单项
 const activeIndex = computed(() => route.path)
-const isLoggedIn = computed(() => authStore.isLoggedIn)
-const username = computed(() => authStore.user?.username || '')
-
-const logout = () => {
-  authStore.logout()
-  router.push('/')
-}
 </script>
 
 <style scoped>

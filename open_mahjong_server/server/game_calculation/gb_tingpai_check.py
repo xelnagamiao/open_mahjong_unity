@@ -1,6 +1,9 @@
 from typing import Dict
 import random
 from time import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PlayerTiles:
     def __init__(self, tiles_list, combination_list,complete_step):
@@ -25,7 +28,7 @@ class Chinese_Tingpai_Check:
     def debug_print(self, *args, **kwargs):
         """只在debug模式下打印"""
         if self.debug:
-            print(*args, **kwargs)
+            logger.debug(*args, **kwargs)
 
     def check_waiting_tiles(self, player_tiles: PlayerTiles):
         # 清空之前的结果
@@ -366,24 +369,24 @@ if __name__ == "__main__":
         result = test_combination.check_waiting_tiles(test_tiles)
         test_list.append(result.copy())  # 使用copy()创建新的字典
     time_end = time()
-    print(time_end - time_start)
-    print(test_list)
-    print(test_list_copy)
+    logger.debug(time_end - time_start)
+    logger.debug(test_list)
+    logger.debug(test_list_copy)
     """
 
     # 手动指定牌组测试
     Chinese_test_combination = Chinese_Tingpai_Check(debug=True)  # 启用debug模式
-    print("手动指定牌组")
+    logger.debug("手动指定牌组")
     time_start = time()
     tiles_list = [11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15]
     tile_combination_list = []
     return_set = Chinese_test_combination.tingpai_check(tiles_list,tile_combination_list)
-    print("返回结果",return_set)
+    logger.debug("返回结果",return_set)
 
     time_end = time()
     # 时间使用0.001-0.005 按每次手牌都是一向听,并且最高时长0.005情况下每秒可以处理200次计算
     # 按100次计算进行估测 平均出牌时间3秒 相当于可以承担300桌玩家同时进行(1200人)那就先不改了
-    print("本次测试用时",time_end - time_start)
+    logger.debug("本次测试用时",time_end - time_start)
 
 
     

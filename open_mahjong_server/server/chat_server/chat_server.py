@@ -4,6 +4,7 @@ import secrets
 import hashlib
 import asyncio
 import sys
+import logging
 """
 聊天服务器类用于生成一份本地哈希，供聊天服务器使用。
 在用户登录时发送根据本地哈希加密的秘钥给客户端，客户端使用此哈希值在聊天服务器中验证，即可使用聊天功能。
@@ -15,6 +16,8 @@ import sys
 """
 # 全局秘钥变量
 HASH_SALT = None
+
+logger = logging.getLogger(__name__)
 
 class ChatServer:  
     async def generate_secret_key(self):
@@ -45,9 +48,9 @@ class ChatServer:
                 saved_key = f.read().strip()
                 if not saved_key or len(saved_key) < 10:
                     raise Exception(f"秘钥文件内容无效: {saved_key}")
-                print(f"秘钥文件验证成功: {saved_key[:20]}...")
+                logger.info(f"秘钥文件验证成功: {saved_key[:20]}...")
         except Exception as e:
-            print(f"读取秘钥文件失败: {e}")
+            logger.error(f"读取秘钥文件失败: {e}")
             raise
 
     async def start_chat_server(self):
@@ -65,8 +68,8 @@ class ChatServer:
         try:
             # 检查可执行文件是否存在
             if not os.path.exists(executable_path):
-                print(f"警告: 聊天服务器可执行文件不存在: {executable_path}")
-                print("提示: 在生产环境中，聊天服务器应由 supervisor/systemd 独立管理")
+                logger.warning(f"聊天服务器可执行文件不存在: {executable_path}")
+                logger.info("在生产环境中，聊天服务器应由 supervisor/systemd 独立管理")
                 return
                 
             # 调试环境使用命令行窗口显示日志信息（仅 Windows）
@@ -85,12 +88,11 @@ class ChatServer:
                     text=True
                 )
             
-            print(f"聊天服务器进程已启动，PID: {process.pid}")
-            print("警告: 在生产环境中，建议使用 supervisor/systemd 独立管理聊天服务器")
+            logger.info(f"聊天服务器进程已启动，PID: {process.pid}")
             
         except Exception as e:
-            print(f"启动聊天服务器失败: {e}")
-            print(f"错误详情: {str(e)}")
+            logger.error(f"启动聊天服务器失败: {e}")
+            logger.error(f"错误详情: {str(e)}")
 
     # 将秘钥保存到文件，供聊天服务器读取
     async def save_secret_key_to_file(self, secret_key: str):
@@ -123,12 +125,12 @@ class ChatServer:
                 if saved_content != secret_key:
                     raise Exception(f"文件内容验证失败: 期望 {secret_key}, 实际 {saved_content}")
             
-            print(f"新秘钥已保存到 {secret_file_path}")
-            print(f"秘钥: {secret_key[:20]}...")
-            print(f"文件大小: {os.path.getsize(secret_file_path)} 字节")
+            logger.info(f"新秘钥已保存到 {secret_file_path}")
+            logger.info(f"秘钥: {secret_key[:20]}...")
+            logger.info(f"文件大小: {os.path.getsize(secret_file_path)} 字节")
 
         except Exception as e:
-            print(f"保存秘钥失败: {e}")
+            logger.error(f"保存秘钥失败: {e}")
             # 清理临时文件
             temp_file_path = os.path.join(self_dir, 'secret_key.txt.tmp')
             if os.path.exists(temp_file_path):

@@ -5,17 +5,20 @@ const http = require('http'); // 引入http 创建服务器
 const socketIo = require('socket.io'); // 引入socket.io 实现WebSocket通信
 require('dotenv').config(); // 引入dotenv 加载环境变量
 
+// 加载配置（从环境变量读取，支持 .env 文件）
+const config = require('./config/config');
+
 const app = express(); // 创建express应用
 const server = http.createServer(app); // 创建http服务器 将 Express 的 app 作为请求处理器传入
+
+// Socket.IO 配置（从统一配置模块读取）
 const io = socketIo(server, { // 创建socket.io实例 将http服务器作为参数传入
-  cors: {
-    origin: "http://localhost:5173", // Vue3开发服务器地址
-    methods: ["GET", "POST"]
-  }
+  cors: config.socket
 });
 
 // 中间件配置
-app.use(cors()); // 使用cors配置允许跨域
+// CORS 配置（从统一配置模块读取）
+app.use(cors(config.cors)); // 使用cors配置允许跨域
 app.use(express.json()); // 使用express.json解析JSON请求体
 app.use(express.urlencoded({ extended: true })); // 使用express.urlencoded解析URL编码的请求体
 
@@ -24,10 +27,10 @@ const db = require('./config/database');
 
 // 路由
 const mahjongRoutes = require('./routes/mahjong'); // mahjongRoutes: 处理麻将游戏相关的 API（如创建房间、开始游戏等）
-const authRoutes = require('./routes/auth'); // authRoutes: 处理用户认证相关的 API（如登录、注册等）
+const playerRoutes = require('./routes/player'); // playerRoutes: 处理玩家数据查询相关的 API
 
 app.use('/api/mahjong', mahjongRoutes); // 将mahjongRoutes挂载到/api/mahjong路径下
-app.use('/api/auth', authRoutes); // 将authRoutes挂载到/api/auth路径下
+app.use('/api/player', playerRoutes); // 将playerRoutes挂载到/api/player路径下
 
 // WebSocket连接处理
 io.on('connection', (socket) => {
@@ -49,7 +52,7 @@ io.on('connection', (socket) => {
 });
 
 // 开发模式下的前端路由处理
-if (process.env.NODE_ENV === 'production') {
+if (config.isProduction) {
   // 生产模式：提供静态文件
   app.use(express.static(path.join(__dirname, '../client/dist')));
   
@@ -66,17 +69,17 @@ if (process.env.NODE_ENV === 'production') {
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
+  console.error('错误详情:', err.stack);
+  
+  // 生产环境不暴露详细错误信息
+  res.status(err.status || 500).json({ 
     success: false, 
-    message: '服务器内部错误' 
+    message: config.isProduction ? '服务器内部错误' : err.message,
+    ...(config.isProduction ? {} : { stack: err.stack })
   });
 });
 
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log(`服务器运行在端口 ${PORT}`);
-  console.log(`前端地址: http://localhost:${PORT}`);
-  console.log(`API地址: http://localhost:${PORT}/api`);
+server.listen(config.app.port, () => {
+  console.log(`服务器运行在端口 ${config.app.port}`);
+  console.log(`API地址: http://localhost:${config.app.port}/api`);
 }); 

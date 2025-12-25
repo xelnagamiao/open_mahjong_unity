@@ -6,7 +6,6 @@ using UnityEngine;
 public class RoomWindowsManager : MonoBehaviour
 {
     [Header("房间相关窗口")]
-    [SerializeField] private GameObject roomListPanel; // 房间列表窗口
     [SerializeField] private GameObject roomPanel; // 房间窗口
     [SerializeField] private GameObject createRoomPanel; // 创建房间窗口
 
@@ -21,7 +20,7 @@ public class RoomWindowsManager : MonoBehaviour
             return;
         }
         Instance = this;
-        SwitchRoomWindow("roomList");
+        SwitchRoomWindow("createRoom");
     }
 
     /// <summary>
@@ -33,16 +32,12 @@ public class RoomWindowsManager : MonoBehaviour
         Debug.Log($"切换到房间窗口: {targetWindow}");
         
         // 先关闭所有房间窗口
-        roomListPanel.SetActive(false);
         roomPanel.SetActive(false);
         createRoomPanel.SetActive(false);
 
         // 根据目标窗口打开对应窗口
         switch (targetWindow)
         {
-            case "roomList":
-                roomListPanel.SetActive(true);
-                break;
             case "roomInfo":
                 roomPanel.SetActive(true);
                 break;
@@ -60,7 +55,6 @@ public class RoomWindowsManager : MonoBehaviour
     /// </summary>
     public void CloseAllRoomWindows()
     {
-        roomListPanel.SetActive(false);
         roomPanel.SetActive(false);
         createRoomPanel.SetActive(false);
     }

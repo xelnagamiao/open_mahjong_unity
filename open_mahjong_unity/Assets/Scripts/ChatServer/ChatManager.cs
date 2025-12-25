@@ -31,7 +31,7 @@ public class ChatManager : MonoBehaviour
                 ConcurrentQueue.Enqueue(e.RawData);
             }
         };
-        websocket.OnError += (sender, e) => Debug.LogError($"WebSocket To ChatServer错误: {e.Message}");
+        websocket.OnError += (sender, e) => Debug.Log($"WebSocket To ChatServer错误: {e.Message}");
         websocket.OnClose += (sender, e) => Debug.Log($"WebSocket To ChatServer已关闭: {e.Code}");
     }
 
@@ -50,7 +50,8 @@ public class ChatManager : MonoBehaviour
             }
             catch (Exception e)
             {
-                Debug.LogError($"连接聊天服务器错误: {e.Message}");
+                Debug.Log($"连接聊天服务器错误: {e.Message}");
+                NotificationManager.Instance.ShowTip("WebSocket To ChatServer错误", false, e.Message);
             }
             finally
             {
@@ -70,7 +71,8 @@ public class ChatManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError($"解析聊天服务器消息错误: {e.Message}");
+            Debug.Log($"解析聊天服务器消息错误: {e.Message}");
+            NotificationManager.Instance.ShowTip("解析聊天服务器消息错误", false, e.Message);
         }
     }
 
@@ -98,7 +100,8 @@ public class ChatManager : MonoBehaviour
             ChatPanel.Instance.ShowChatMessage(response.responseType, response.roomId, response.content);
         }
         catch (Exception e){
-            Debug.LogError($"处理聊天消息错误: {e.Message}");
+            Debug.Log($"处理聊天消息错误: {e.Message}");
+            NotificationManager.Instance.ShowTip("处理聊天消息错误", false, e.Message);
         }
     }
 
@@ -135,7 +138,7 @@ public class ChatManager : MonoBehaviour
         // 检查WebSocket连接状态
         if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            Debug.LogError("WebSocket连接未建立，无法发送聊天消息");
+            Debug.Log("WebSocket连接未建立，无法发送聊天消息");
             return;
         }
 
@@ -158,7 +161,8 @@ public class ChatManager : MonoBehaviour
         // 检查WebSocket连接状态
         if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            Debug.LogError("WebSocket连接未建立，无法发送加入房间消息");
+            Debug.Log("WebSocket连接未建立，无法发送加入房间消息");
+            NotificationManager.Instance.ShowTip("WebSocket连接未建立，无法发送加入房间消息", false, "");
             return;
         }
         
@@ -180,7 +184,8 @@ public class ChatManager : MonoBehaviour
         // 检查WebSocket连接状态
         if (websocket == null || websocket.ReadyState != WebSocketState.Open)
         {
-            Debug.LogError("WebSocket连接未建立，无法发送离开房间消息");
+            Debug.Log("WebSocket连接未建立，无法发送离开房间消息");
+            NotificationManager.Instance.ShowTip("WebSocket连接未建立，无法发送离开房间消息", false, "");
             return;
         }
         
