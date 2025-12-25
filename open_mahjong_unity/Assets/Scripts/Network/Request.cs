@@ -5,6 +5,7 @@ public class LoginRequest // 登录请求
     public string type;
     public string username;
     public string password;
+    public bool is_tourist; // 是否为游客登录
 }
 
 public class CreateGBRoomRequest // 创建国标房间请求
@@ -71,4 +72,15 @@ public class GetPlayerInfoRequest // 获取玩家信息请求
 {
     public string type;
     public string userid;
+}
+
+public class SendReleaseVersionRequest // 发送发布版本号请求
+{
+    public string type;
+    public int release_version;
+}
+
+public class GetServerStatsRequest // 获取服务器统计信息请求
+{
+    public string type;
 }

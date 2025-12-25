@@ -1,5 +1,8 @@
 from typing import Dict,List
 from time import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PlayerTiles:
     def __init__(self, tiles_list, combination_list,complete_step):
@@ -198,7 +201,7 @@ class Chinese_Hepai_Check:
     def debug_print(self, *args, **kwargs):
         """只在debug模式下打印"""
         if self.debug:
-            print(*args, **kwargs)
+            logger.debug(*args, **kwargs)
 
     # 存储组合 => 手牌的映射
     combination_to_tiles_dict:Dict[str,List[int]] = {
@@ -276,11 +279,11 @@ class Chinese_Hepai_Check:
                 allow_list.append(self.fan_count(i,get_tile,way_to_hepai))
 
         fancount_time_end = time()
-        print(f"番种计算耗时：{fancount_time_end - fancount_time_start}秒")
+        logger.debug(f"番种计算耗时：{fancount_time_end - fancount_time_start}秒")
         
         # 对比返回元组的第一个元素，只返回第一个元素最大的元组
         allow_list = sorted(allow_list,key=lambda x:x[0],reverse=True)
-        print(f"允许的番种：{allow_list}")
+        logger.debug(f"允许的番种：{allow_list}")
         return allow_list[0]
     # 允许的番种：[(115, ['四暗刻', '一色四节高', '缺一门', '无字', '幺九刻*1']), (115, ['四暗刻', '一色四节高', '缺一门', '无字', '幺九刻*1']), (29, ['一色三同顺', '门前清', '缺一门', '无字', '幺九刻*1']), (29, ['一色三同顺', '门前清', '缺一门', '无字', '幺九刻*1']), (28, ['一色三同顺', '门前清
     #', '缺一门', '无字'])] 这里有重复判断 以后进行优化
@@ -1293,7 +1296,7 @@ if __name__ == "__main__":
             tiles_list = []
             combination_list = []
         
-    print("随机生成手牌：",tiles_list,"随机生成组合：",combination_list)
+    logger.debug("随机生成手牌：",tiles_list,"随机生成组合：",combination_list)
 
     # 手动指定
     # tiles_list = [11,11,11,12,12,12,13,13,13,14,14,14,15,15]
@@ -1318,7 +1321,7 @@ if __name__ == "__main__":
         if random.randint(0,100) < 50:
             way_to_hepai.append("花牌") # 4级传参 奖励番
 
-    print("随机生成和牌方式：",way_to_hepai)
+    logger.debug("随机生成和牌方式：",way_to_hepai)
     """
     # 手动指定和牌方式
 
@@ -1655,6 +1658,6 @@ if __name__ == "__main__":
     test_check = Chinese_Hepai_Check(debug=True)
     time_start = time()
     result = test_check.hepai_check(tiles_list,combination_list,way_to_hepai,hepai_tiles)
-    print("最终结果(返回最大的牌型):",result)
+    logger.debug("最终结果(返回最大的牌型):",result)
     time_end = time()
-    print("测试用时：",time_end - time_start,"秒")
+    logger.debug("测试用时：",time_end - time_start,"秒")

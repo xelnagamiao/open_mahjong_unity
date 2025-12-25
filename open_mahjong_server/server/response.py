@@ -137,17 +137,29 @@ class UserConfig(BaseModel):
     user_id: int  # 用户ID
     volume: int  # 音量设置（0-100）
 
+class ServerStatsInfo(BaseModel):
+    """服务器统计信息"""
+    online_players: int  # 在线人数
+    waiting_rooms: int  # 等待房间数
+    playing_rooms: int  # 进行房间数
+
 class LoginInfo(BaseModel):
     """登录信息"""
     user_id: int  # 用户ID
     username: str  # 用户名
     userkey: str  # 用户名对应的秘钥
 
+class MessageInfo(BaseModel):
+    """消息信息"""
+    title: str  # 消息标题
+    content: str  # 消息内容
+
 class Response(BaseModel):
     type: str
     success: bool
     message: str
     # 消息体
+    message_info: Optional[MessageInfo] = None # 用于返回消息信息
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
     room_info: Optional[dict] = None # 用于在join_room和房间信息更新时广播单个房间信息
     game_info: Optional[GameInfo] = None # 用于执行game_start_chinese时返回游戏信息
@@ -161,3 +173,4 @@ class Response(BaseModel):
     login_info: Optional[LoginInfo] = None # 用于返回登录信息
     user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息
+    server_stats: Optional[ServerStatsInfo] = None # 用于返回服务器统计信息

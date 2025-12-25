@@ -1,4 +1,4 @@
-# Mahjong.fit - 麻将分析网站
+# salasasa.cn - 麻将分析网站
 
 基于 Node.js 和 Vue3 的现代化麻将分析工具，提供听牌判断、国标麻将和立直麻将牌型解算功能。
 
@@ -7,7 +7,7 @@
 - 🎯 **听牌待牌判断** - 分析手牌是否听牌，以及听牌手牌的待牌
 - 🏆 **国标麻将牌型解算** - 根据手牌、副露、花牌、和牌方式计算和牌构成与点数
 - ⭐ **立直麻将牌型解算** - 根据手牌、副露、宝牌、和牌方式计算和牌构成与点数
-- 👤 **用户系统** - 支持用户注册、登录和历史记录
+- 📊 **玩家数据统计** - 查询玩家统计数据和对局记录
 - 📱 **响应式设计** - 支持桌面端和移动端访问
 - 🎨 **现代化UI** - 基于 Element Plus 的美观界面
 
@@ -16,10 +16,8 @@
 ### 后端
 - **Node.js** - 运行环境
 - **Express** - Web框架
-- **MySQL** - 数据库
+- **PostgreSQL** - 数据库
 - **Socket.IO** - 实时通信
-- **JWT** - 用户认证
-- **bcryptjs** - 密码加密
 
 ### 前端
 - **Vue 3** - 前端框架
@@ -33,7 +31,7 @@
 
 ### 环境要求
 - Node.js 16+
-- MySQL 8.0+
+- PostgreSQL 12+
 - npm 或 yarn
 
 ### 安装依赖
@@ -49,21 +47,52 @@ npm install
 
 ### 数据库配置
 
-1. 创建MySQL数据库：
+1. 创建PostgreSQL数据库：
 ```sql
-CREATE DATABASE database_mj;
+CREATE DATABASE open_mahjong;
 ```
 
-2. 配置数据库连接（创建 `.env` 文件）：
+2. 配置说明：
+   
+   **所有配置统一在 `server/config/config.js` 中管理**
+   
+   - 配置通过环境变量设置，支持两种方式：
+     - **方式一（推荐开发环境）**：在项目根目录创建 `.env` 文件
+     - **方式二（推荐生产环境）**：通过系统环境变量或进程管理器设置
+   
+   **环境变量配置项：**
 ```env
+# 数据库配置
 DB_HOST=localhost
-DB_USER=root
+DB_USER=postgres
 DB_PASSWORD=your_password
-DB_NAME=database_mj
-DB_PORT=3306
-JWT_SECRET=your-secret-key
-PORT=3000
+DB_NAME=open_mahjong
+DB_PORT=5432
+
+# 应用配置
+NODE_ENV=production    # 设置为 'production' 表示生产环境，其他值为开发环境
+DEBUG=false            # 调试模式开关
+PORT=3000              # 服务器端口
+
+# 前端和跨域配置（生产环境必需）
+FRONTEND_URL=https://salasasa.cn    # 前端访问地址
+CORS_ORIGIN=https://salasasa.cn     # CORS 允许的源（可选，默认使用 FRONTEND_URL）
+SOCKET_ORIGIN=https://salasasa.cn   # Socket.IO 允许的源（可选，默认使用 FRONTEND_URL）
 ```
+
+3. **NODE_ENV 说明：**
+   - `NODE_ENV=production`：生产环境模式
+     - 提供静态文件服务（从 `client/dist` 目录）
+     - 不暴露详细错误堆栈信息
+     - 使用生产环境的 CORS 配置
+   - `NODE_ENV=development` 或未设置：开发环境模式
+     - 重定向到开发服务器（localhost:5173）
+     - 显示详细错误信息便于调试
+     - 使用开发环境的 CORS 配置
+
+4. 默认值说明：
+   - 如果未设置环境变量，将使用 `server/config/config.js` 中定义的默认值
+   - **生产环境请务必设置正确的环境变量，不要使用默认值**
 
 ### 启动项目
 
@@ -108,10 +137,9 @@ open_mahjong_web_now/
 
 ## API接口
 
-### 认证接口
-- `POST /api/auth/register` - 用户注册
-- `POST /api/auth/login` - 用户登录
-- `GET /api/auth/profile` - 获取用户信息
+### 玩家数据接口
+- `GET /api/player/info/:userid` - 获取玩家信息和统计数据
+- `GET /api/player/records/:userid` - 获取玩家对局记录
 
 ### 麻将分析接口
 - `POST /api/mahjong/count-hand` - 听牌判断

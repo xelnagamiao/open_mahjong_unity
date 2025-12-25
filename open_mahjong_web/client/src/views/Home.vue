@@ -2,8 +2,8 @@
   <!-- 首页 欢迎词  -->
   <div class="home">
     <div class="hero-section">
-      <h1 class="hero-title">欢迎访问Mahjong.fit</h1>
-      <p class="hero-subtitle">一个简易的麻将服务网站 欢迎加入QQ群906497522参与测试</p>
+      <h1 class="hero-title">欢迎访问salasasa.cn</h1>
+      <p class="hero-subtitle">一个简易的麻将服务网站 欢迎加入玩家qq群906497522寻找雀友与交流</p>
     </div>
     <!-- 功能 -->
     <div class="features-grid">

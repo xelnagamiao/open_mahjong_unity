@@ -6,6 +6,9 @@ from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
 from ..game_calculation.game_calculation_service import Chinese_Tingpai_Check
 import json
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RoomManager:
     def __init__(self, game_server):
@@ -30,7 +33,7 @@ class RoomManager:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
                 return Response(
-                    type="error_message",
+                    type="tips",
                     success=False,
                     message="请先登录"
                 )
@@ -39,7 +42,7 @@ class RoomManager:
             player = self.game_server.players[player_id] # 拿取 PlayerConnection
             if not player.user_id:
                 return Response(
-                    type="error_message",
+                    type="tips",
                     success=False,
                     message="请先登录"
                 )
@@ -50,7 +53,7 @@ class RoomManager:
             host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
             if not host_settings:
                 return Response(
-                    type="error_message",
+                    type="tips",
                     success=False,
                     message="获取用户设置失败"
                 )
@@ -76,7 +79,7 @@ class RoomManager:
                 validated_config = validator_class(**room_config) # 解包room_config 调用验证器方法
             except ValueError as e:
                 return Response(
-                    type="error_message",
+                    type="tips",
                     success=False,
                     message=f"房间配置无效: {str(e)}"
                 )
@@ -114,6 +117,9 @@ class RoomManager:
             self.rooms[room_id] = room_data
             if has_password:
                 self.room_passwords[room_id] = password
+
+            # 更新玩家信息
+            player.current_room_id = room_id
 
             # 广播房间信息
             await self._broadcast_room_info(room_id)
@@ -288,6 +294,10 @@ class RoomManager:
 
             # 更新房间信息
             room_data["player_list"].remove(player.user_id)
+
+            # 更新玩家信息
+            player.current_room_id = None
+            
             # 更新玩家设置映射
             if "player_settings" in room_data and player.user_id in room_data["player_settings"]:
                 del room_data["player_settings"][player.user_id]
@@ -342,16 +352,16 @@ class RoomManager:
                 try:
                     player_setting = room_data.get("player_settings", {}).get(user_id, {})
                     username = player_setting.get("username", f"用户{user_id}")
-                    print(f"正在广播给玩家 user_id={user_id}, username={username}")
+                    logger.debug(f"正在广播给玩家 user_id={user_id}, username={username}")
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    print(f"广播成功")
+                    logger.debug(f"广播成功")
                 except Exception as e:
-                    print(f"广播给玩家 user_id={user_id} 失败: {e}")
+                    logger.error(f"广播给玩家 user_id={user_id} 失败: {e}")
 
     async def destroy_room(self, room_id: str):
         """销毁房间并广播离开房间消息给所有玩家"""
         if room_id not in self.rooms:
-            print(f"房间 {room_id} 不存在，无需销毁")
+            logger.warning(f"房间 {room_id} 不存在，无需销毁")
             return
         
         room_data = self.rooms[room_id]
@@ -378,17 +388,17 @@ class RoomManager:
                 try:
                     player_setting = room_data.get("player_settings", {}).get(user_id, {})
                     username = player_setting.get("username", f"用户{user_id}")
-                    print(f"正在向玩家 user_id={user_id}, username={username} 广播房间解散消息")
+                    logger.debug(f"正在向玩家 user_id={user_id}, username={username} 广播房间解散消息")
                     await player_conn.websocket.send_json(leave_response.dict(exclude_none=True))
-                    print(f"房间解散消息广播成功")
+                    logger.debug(f"房间解散消息广播成功")
                 except Exception as e:
-                    print(f"向玩家 user_id={user_id} 广播房间解散消息失败: {e}")
+                    logger.error(f"向玩家 user_id={user_id} 广播房间解散消息失败: {e}")
         
         # 删除房间和密码
         del self.rooms[room_id]
         if room_id in self.room_passwords:
             del self.room_passwords[room_id]
         
-        print(f"房间 {room_id} 已销毁") 
+        logger.info(f"房间 {room_id} 已销毁") 
 
 

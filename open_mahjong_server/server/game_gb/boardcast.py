@@ -1,5 +1,8 @@
 from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info
 from typing import List, Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
@@ -59,51 +62,62 @@ async def broadcast_game_start(self):
                 )
                 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 发送游戏开始信息{response.dict(exclude_none=True)}")
+                logger.debug(f"已向玩家 {current_player.username} 发送游戏开始信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
-            print(f"向玩家 {current_player.username} 发送消息失败: {e}")
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送消息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
 
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        if i == self.current_player_index:
-            # 对当前玩家发送包含摸牌信息的消息
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="broadcast_hand_action_GB",
-                    success=True,
-                    message="发牌，并询问手牌操作",
-                    ask_hand_action_info = Ask_hand_action_info(
-                        remaining_time=current_player.remaining_time,
-                        player_index= self.current_player_index,
-                        remain_tiles=len(self.tiles_list),
-                        action_list=self.action_dict[i],
-                        action_tick=self.server_action_tick
+        try:
+            if i == self.current_player_index:
+                # 对当前玩家发送包含摸牌信息的消息
+                if current_player.user_id in self.game_server.user_id_to_connection:
+                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                    response = Response(
+                        type="broadcast_hand_action_GB",
+                        success=True,
+                        message="发牌，并询问手牌操作",
+                        ask_hand_action_info = Ask_hand_action_info(
+                            remaining_time=current_player.remaining_time,
+                            player_index= self.current_player_index,
+                            remain_tiles=len(self.tiles_list),
+                            action_list=self.action_dict[i],
+                            action_tick=self.server_action_tick
+                        )
                     )
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播手牌操作信息{response.dict(exclude_none=True)}")
-        else:
-            # 向其余玩家发送通用消息
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="broadcast_hand_action_GB",
-                    success=True,
-                    message="发牌，并询问手牌操作",
-                    ask_hand_action_info = Ask_hand_action_info(
-                        remaining_time=current_player.remaining_time,
-                        player_index= self.current_player_index,
-                        remain_tiles=len(self.tiles_list),
-                        action_list=self.action_dict[i],
-                        action_tick=self.server_action_tick
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    logger.debug(f"已向玩家 {current_player.username} 广播手牌操作信息")
+                else:
+                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+            else:
+                # 向其余玩家发送通用消息
+                if current_player.user_id in self.game_server.user_id_to_connection:
+                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                    response = Response(
+                        type="broadcast_hand_action_GB",
+                        success=True,
+                        message="发牌，并询问手牌操作",
+                        ask_hand_action_info = Ask_hand_action_info(
+                            remaining_time=current_player.remaining_time,
+                            player_index= self.current_player_index,
+                            remain_tiles=len(self.tiles_list),
+                            action_list=self.action_dict[i],
+                            action_tick=self.server_action_tick
+                        )
                     )
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播手牌操作信息{response.dict(exclude_none=True)}")
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    logger.debug(f"已向玩家 {current_player.username} 广播手牌操作信息")
+                else:
+                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播手牌操作信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
 
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
@@ -111,40 +125,48 @@ async def broadcast_ask_other_action(self):
     self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        if self.action_dict[i] != []:
-            # 发送询问行动信息
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="ask_other_action_GB",
-                    success=True,
-                    message="询问操作",
-                    ask_other_action_info = Ask_other_action_info(
-                        remaining_time=current_player.remaining_time,
-                        action_list=self.action_dict[i],
-                        cut_tile=cut_tile,
-                        action_tick=self.server_action_tick
+        try:
+            if self.action_dict[i] != []:
+                # 发送询问行动信息
+                if current_player.user_id in self.game_server.user_id_to_connection:
+                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                    response = Response(
+                        type="ask_other_action_GB",
+                        success=True,
+                        message="询问操作",
+                        ask_other_action_info = Ask_other_action_info(
+                            remaining_time=current_player.remaining_time,
+                            action_list=self.action_dict[i],
+                            cut_tile=cut_tile,
+                            action_tick=self.server_action_tick
+                        )
                     )
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播询问操作信息{response.dict(exclude_none=True)}")
-        else:
-            # 发送通用信息
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="ask_other_action_GB",
-                    success=True,
-                    message="询问操作",
-                    ask_other_action_info = Ask_other_action_info(
-                        remaining_time=current_player.remaining_time,
-                        action_list=[],
-                        cut_tile=cut_tile,
-                        action_tick=self.server_action_tick
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    logger.debug(f"已向玩家 {current_player.username} 广播询问操作信息")
+                else:
+                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+            else:
+                # 发送通用信息
+                if current_player.user_id in self.game_server.user_id_to_connection:
+                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                    response = Response(
+                        type="ask_other_action_GB",
+                        success=True,
+                        message="询问操作",
+                        ask_other_action_info = Ask_other_action_info(
+                            remaining_time=current_player.remaining_time,
+                            action_list=[],
+                            cut_tile=cut_tile,
+                            action_tick=self.server_action_tick
+                        )
                     )
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                print(f"已向玩家 {current_player.username} 广播通用询问操作信息{response.dict(exclude_none=True)}")
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    logger.debug(f"已向玩家 {current_player.username} 广播通用询问操作信息")
+                else:
+                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播询问操作信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
 
 # 广播操作
 async def broadcast_do_action(
@@ -163,29 +185,35 @@ async def broadcast_do_action(
     self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        # 发送通用信息
-        if current_player.user_id in self.game_server.user_id_to_connection:
-            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+        try:
+            # 发送通用信息
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
-            response = Response(
-                type="do_action_GB",
-                success=True,
-                message="返回操作内容",
-                do_action_info=Do_action_info(
-                    action_list=action_list,
-                    action_player=action_player,
-                    action_tick=self.server_action_tick,
-                    cut_tile=cut_tile,
-                    cut_class=cut_class,
-                    cut_tile_index = cut_tile_index,
-                    deal_tile=deal_tile,
-                    buhua_tile=buhua_tile,
-                    combination_mask=combination_mask,
-                    combination_target=combination_target
+                response = Response(
+                    type="do_action_GB",
+                    success=True,
+                    message="返回操作内容",
+                    do_action_info=Do_action_info(
+                        action_list=action_list,
+                        action_player=action_player,
+                        action_tick=self.server_action_tick,
+                        cut_tile=cut_tile,
+                        cut_class=cut_class,
+                        cut_tile_index = cut_tile_index,
+                        deal_tile=deal_tile,
+                        buhua_tile=buhua_tile,
+                        combination_mask=combination_mask,
+                        combination_target=combination_target
+                    )
                 )
-            )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            print(f"已向玩家 {current_player.username} 广播操作信息{response.dict(exclude_none=True)}")
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.debug(f"已向玩家 {current_player.username} 广播操作信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播操作信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
 
 # 广播结算结果
 async def broadcast_result(self, 
@@ -200,27 +228,33 @@ async def broadcast_result(self,
     self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        if current_player.user_id in self.game_server.user_id_to_connection:
-            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-            
-            response = Response(
-                type="show_result_GB",
-                success=True,
-                message="显示结算结果", 
-                show_result_info=Show_result_info(
-                    hepai_player_index=hepai_player_index, # 和牌玩家索引
-                    player_to_score=player_to_score, # 所有玩家分数
-                    hu_score=hu_score, # 和牌分数
-                    hu_fan=hu_fan, # 和牌番种
-                    hu_class=hu_class, # 和牌类别
-                    hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
-                    hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
-                    hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
-                    action_tick=self.server_action_tick
+        try:
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+
+                response = Response(
+                    type="show_result_GB",
+                    success=True,
+                    message="显示结算结果",
+                    show_result_info=Show_result_info(
+                        hepai_player_index=hepai_player_index, # 和牌玩家索引
+                        player_to_score=player_to_score, # 所有玩家分数
+                        hu_score=hu_score, # 和牌分数
+                        hu_fan=hu_fan, # 和牌番种
+                        hu_class=hu_class, # 和牌类别
+                        hepai_player_hand=hepai_player_hand, # 和牌玩家手牌
+                        hepai_player_huapai=hepai_player_huapai, # 和牌玩家花牌列表
+                        hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
+                        action_tick=self.server_action_tick
+                    )
                 )
-            )
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            print(f"已向玩家 {current_player.username} 广播结算结果信息{response.dict(exclude_none=True)}")
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.debug(f"已向玩家 {current_player.username} 广播结算结果信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播结算结果信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
 
 async def broadcast_game_end(self):
     """广播游戏结束信息"""
@@ -239,18 +273,24 @@ async def broadcast_game_end(self):
     
     # 为每个玩家发送游戏结束信息
     for current_player in self.player_list:
-        if current_player.user_id in self.game_server.user_id_to_connection:
-            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-            
-            response = Response(
-                type="game_end_GB",
-                success=True,
-                message="游戏结束",
-                game_end_info=Game_end_info(
-                    game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
-                    player_final_data=player_final_data
+        try:
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+
+                response = Response(
+                    type="game_end_GB",
+                    success=True,
+                    message="游戏结束",
+                    game_end_info=Game_end_info(
+                        game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
+                        player_final_data=player_final_data
+                    )
                 )
-            )
-            
-            await player_conn.websocket.send_json(response.dict(exclude_none=True))
-            print(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息{response.dict(exclude_none=True)}")
+
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.debug(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播游戏结束信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播

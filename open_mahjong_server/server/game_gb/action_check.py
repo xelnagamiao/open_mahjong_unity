@@ -1,5 +1,8 @@
 from typing import Dict
+import logging
 from .logic_handler import get_index_relative_position
+
+logger = logging.getLogger(__name__)
 
 # 检查操作 返回 action_dict
 
@@ -138,7 +141,7 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     # 更新等待牌
     if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
         self.player_list[player_index].waiting_tiles = current_player_waiting_tiles
-        print(f"玩家{player_index}的等待牌更新为{current_player_waiting_tiles}")
+        logger.info(f"玩家{player_index}的等待牌更新为{current_player_waiting_tiles}")
 
 # 检查和牌操作
 def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_first_action=False,is_get_gang_tile=False):

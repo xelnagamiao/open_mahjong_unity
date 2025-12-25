@@ -47,11 +47,11 @@ router.post('/count-hand', async (req, res) => {
     // const output = xt_count(hand);
     const output = `听牌分析结果: ${hand}`; // 临时占位
 
-    // 保存到数据库
-    const [result] = await pool.execute(
-      'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES (?, ?, ?)',
-      [hand, output, true]
-    );
+    // 保存到数据库（如果表存在的话，这里暂时注释掉，因为可能没有这个表）
+    // const result = await pool.query(
+    //   'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES ($1, $2, $3) RETURNING id',
+    //   [hand, output, true]
+    // );
 
     res.json({
       success: true,
@@ -59,7 +59,7 @@ router.post('/count-hand', async (req, res) => {
       data: {
         input: hand,
         output: output,
-        id: result.insertId
+        id: null // result.rows[0].id
       }
     });
 
@@ -98,11 +98,11 @@ router.post('/count-riichi', async (req, res) => {
     // const output = mahjong_count(hand, fulu1, fulu2, fulu3, fulu4, wayToHepai, doraNum, deepDoraNum, positionSelect);
     const output = `立直麻将分析结果: ${hand}`; // 临时占位
 
-    // 保存到数据库
-    const [result] = await pool.execute(
-      'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES (?, ?, ?)',
-      [JSON.stringify(req.body), output, true]
-    );
+    // 保存到数据库（如果表存在的话，这里暂时注释掉，因为可能没有这个表）
+    // const result = await pool.query(
+    //   'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES ($1, $2, $3) RETURNING id',
+    //   [JSON.stringify(req.body), output, true]
+    // );
 
     res.json({
       success: true,
@@ -110,7 +110,7 @@ router.post('/count-riichi', async (req, res) => {
       data: {
         input: req.body,
         output: output,
-        id: result.insertId
+        id: null // result.rows[0].id
       }
     });
 
@@ -147,11 +147,11 @@ router.post('/count-chinese', async (req, res) => {
     // const output = chinese_mahjong_count(hand, fulu1, fulu2, fulu3, fulu4, wayToHepai, flowerTiles);
     const output = `国标麻将分析结果: ${hand}`; // 临时占位
 
-    // 保存到数据库
-    const [result] = await pool.execute(
-      'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES (?, ?, ?)',
-      [JSON.stringify(req.body), output, true]
-    );
+    // 保存到数据库（如果表存在的话，这里暂时注释掉，因为可能没有这个表）
+    // const result = await pool.query(
+    //   'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES ($1, $2, $3) RETURNING id',
+    //   [JSON.stringify(req.body), output, true]
+    // );
 
     res.json({
       success: true,
@@ -159,7 +159,7 @@ router.post('/count-chinese', async (req, res) => {
       data: {
         input: req.body,
         output: output,
-        id: result.insertId
+        id: null // result.rows[0].id
       }
     });
 
@@ -175,13 +175,14 @@ router.post('/count-chinese', async (req, res) => {
 // 获取历史记录
 router.get('/history', async (req, res) => {
   try {
-    const [rows] = await pool.execute(
+    // 如果表不存在，返回空数组
+    const result = await pool.query(
       'SELECT * FROM mahjong_results ORDER BY created_at DESC LIMIT 50'
-    );
+    ).catch(() => ({ rows: [] }));
 
     res.json({
       success: true,
-      data: rows
+      data: result.rows || []
     });
 
   } catch (error) {
