@@ -124,13 +124,13 @@ open_mahjong_unity/
 - **框架**: FastAPI
 - **语言**: Python 3.10+ Golang
 - **网络**: WebSocket, HTTP
-- **数据库**: PostgreSQL
+- **数据库**: PostgreSQL 12+
 - **部署**: supervisor
 
 ### Web 平台 (open_mahjong_web)
 - **前端**: Vue3
 - **后端**: Node.js
-- **数据库**: PostgreSQL
+- **数据库**: PostgreSQL 12+
 
 ### 4.交流
 - **测试/开发群号**: 906497522

@@ -32,15 +32,29 @@ public class GBRoomItem : MonoBehaviour
     public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning)
     {
         this.roomId = roomId; // 保存房间号,在JoinClick中返回上一级
-        this.needPassword = hasPassword;
-        this.roomID.text = $"房间号: {roomId}";
-        this.roomName.text = $"房间名: {roomName}";
-        this.hostName.text = $"房主: {hostUserName}";
+        
+        this.roomID.text = $"房间号:{roomId}";
+        this.roomName.text = $"房间名:{roomName}";
+        this.hostName.text = $"房主:{hostUserName}";
         this.playerCount.text = $"玩家数量{playerCount}/4";
-        this.gameRound.text = $"圈数：{gameTime}";
-        this.hasPassword.text = $"密码：{hasPassword}";
+        
+        // 显示游戏圈数
+        if (gameTime == 1){
+            this.gameRound.text = $"东风战";
+        }
+        else if(gameTime == 2){
+            this.gameRound.text = $"东南战";
+        }
+        else if(gameTime == 3){
+            this.gameRound.text = $"西南战";
+        }
+        else if(gameTime == 4){
+            this.gameRound.text = $"全庄战";
+        }
+        
+        // 显示规则
         if (room_type == "guobiao"){
-            this.playRule.text = $"规则：国标麻将";
+            this.playRule.text = $"规则：国标";
         }
         else{
             this.playRule.text = $"规则：未知";
@@ -52,6 +66,14 @@ public class GBRoomItem : MonoBehaviour
         }
         else{
             this.gameStatus.text = "等待中";
+        }
+
+        // 显示是否有密码
+        if(hasPassword){
+            this.hasPassword.text = $"密码：有";
+        }
+        else{
+            this.hasPassword.text = $"密码：无";
         }
 
         // 如果房间已满或游戏正在运行，禁用加入按钮
