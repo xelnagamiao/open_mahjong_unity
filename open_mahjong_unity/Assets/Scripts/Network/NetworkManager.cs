@@ -246,7 +246,6 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
                     if (response.success)
                     {
-                        RoomWindowsManager.Instance.SwitchRoomWindow("roomList");
                         UserDataManager.Instance.SetRoomId("");
                         NotificationManager.Instance.ShowTip("leave_room",true,"离开房间成功");
                     }

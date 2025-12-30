@@ -1,59 +1,60 @@
+using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;     // 如果是UGUI Image
-// using UnityEngine.UIElements;  // 如果你用的是UI Toolkit（很少见）
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
-public class HoverBrighten : MonoBehaviour
+public class HoverBrighten : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    [SerializeField]
-    [Tooltip("要变亮的图片组件")]
-    private Image targetImage;           // 拖入你的Image组件
-
-    [SerializeField]
-    [Range(1f, 2.5f)]
-    [Tooltip("鼠标悬停时的亮度倍率")]
-    private float brightnessMultiplier = 1.3f;
+    [SerializeField] private Image targetImage;
+    [SerializeField, Range(0f, 1f)] private float highlightAmount = 0.2f;
+    [SerializeField] private float transitionSpeed = 30f;
 
     private Color originalColor;
-    private bool isHovered = false;
+    private Coroutine transitionCoroutine;
 
-    void Start()
+    private void Awake()
     {
         if (targetImage == null)
-        {
             targetImage = GetComponent<Image>();
-            if (targetImage == null)
-            {
-                Debug.LogError("没有找到Image组件！请手动拖入或挂载在Image上", this);
-                enabled = false;
-                return;
-            }
-        }
 
-        originalColor = targetImage.color;
-    }
-
-    void OnMouseEnter()
-    {
-        isHovered = true;
-        UpdateBrightness();
-    }
-
-    void OnMouseExit()
-    {
-        isHovered = false;
-        UpdateBrightness();
-    }
-
-    private void UpdateBrightness()
-    {
-        if (isHovered)
-        {
-            targetImage.color = originalColor * brightnessMultiplier;
-        }
+        if (targetImage != null)
+            originalColor = targetImage.color;
         else
-        {
-            targetImage.color = originalColor;
-        }
+            enabled = false;
     }
 
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (targetImage == null) return;
+
+        if (transitionCoroutine != null)
+            StopCoroutine(transitionCoroutine);
+
+        Color targetColor = Color.Lerp(originalColor, Color.white, highlightAmount);
+        transitionCoroutine = StartCoroutine(TransitionColor(targetColor));
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (targetImage == null) return;
+
+        if (transitionCoroutine != null)
+            StopCoroutine(transitionCoroutine);
+
+        transitionCoroutine = StartCoroutine(TransitionColor(originalColor));
+    }
+
+    private IEnumerator TransitionColor(Color targetColor)
+    {
+        Color startColor = targetImage.color;
+
+        while (Vector4.Distance(targetImage.color, targetColor) > 0.01f)
+        {
+            targetImage.color = Color.Lerp(targetImage.color, targetColor, Time.deltaTime * transitionSpeed);
+            yield return null;
+        }
+
+        targetImage.color = targetColor;
+        transitionCoroutine = null;
+    }
 }
