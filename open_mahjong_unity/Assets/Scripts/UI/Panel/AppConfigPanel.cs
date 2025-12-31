@@ -24,16 +24,14 @@ public class AppConfigPanel : MonoBehaviour
         InitializeTableclothManager();
     }
 
-    private void InitializeVolumeManager()
-    {
+    private void InitializeVolumeManager(){
         masterVolumeSlider.Init();
         musicVolumeSlider.Init();
         soundEffectVolumeSlider.Init();
         voiceVolumeSlider.Init();
     }
 
-    private void InitializeTableclothManager()
-    {
+    private void InitializeTableclothManager(){
         configBoard.Init();
     }
 }
