@@ -64,8 +64,7 @@ public class SoundManager : MonoBehaviour
         
         if (soundToPlay != null)
         {
-            // 使用 ConfigManager 的音量设置
-            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.soundVolume : 1.0f;
+            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.MasterVolume / 100f : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
             Debug.Log($"播放音效: {playerPosition} {actionType}, 音色: {voicePath}, 音量: {volume}");
         }
@@ -79,8 +78,7 @@ public class SoundManager : MonoBehaviour
         AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + actionType);
         if (soundToPlay != null)
         {
-            // 使用 ConfigManager 的音量设置，如果未初始化则使用默认值
-            float volume = ConfigManager.Instance.soundVolume;
+            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.MasterVolume / 100f : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
             Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
         }

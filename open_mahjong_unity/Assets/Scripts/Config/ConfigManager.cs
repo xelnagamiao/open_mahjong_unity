@@ -1,11 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-// 内部配置文件 用于选择测试环境或者正式环境
-// web 路由 : mahjong.fit/443/web
-// 外部路由 : unity 静态路由地址 mahjong.fit/443/game
-// 服务器路由 : 服务器地址 mahjong.fit/server
-// 聊天服务器路由 : 聊天服务器地址 mahjong.fit/chat
 
 public class ConfigManager : MonoBehaviour
 {
@@ -13,62 +8,51 @@ public class ConfigManager : MonoBehaviour
 
     public static bool Debug = true;
     
-    // 静态配置
-    public static string webUrl; // 项目网页地址
-    public static string gameUrl; // 项目服务器地址
-    public static string chatUrl; // 项目聊天服务器地址
-    public static string clientVersion; // 项目客户端版本(仅保存)
-    public static int releaseVersion; // 项目发布版本(服务器验证是否可以连接)
-    public static string platformUrl; // 项目文档地址
-    public static string githubUrl; // github地址
+    public static string webUrl;
+    public static string gameUrl;
+    public static string chatUrl;
+    public static string clientVersion;
+    public static int releaseVersion;
+    public static string githubUrl;
+    public static string documentUrl;
 
-    // 静态构造函数，根据 Debug 值初始化配置
-    static ConfigManager()
-    {
+    static ConfigManager(){
         if (Debug)
         {
-            // Debug 环境配置
-            webUrl = "http://localhost:8080/443/web";
-            gameUrl = "http://localhost:8081/game";
-            chatUrl = "http://localhost:8083/chat";
-            clientVersion = "0.0.31.2";
-            releaseVersion = 1;
-            platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#";
-            githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity";
+            // 开发接口地址
+            gameUrl = "http://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
+            chatUrl = "http://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
+            releaseVersion = 1; // 发行版号(验证客户端-服务器版本是否一致)
         }
         else
         {
-            // 生产环境配置
-            webUrl = "https://mahjong.fit/443/web";
-            gameUrl = "https://mahjong.fit/443/game";
-            chatUrl = "https://mahjong.fit/chat";
-            clientVersion = "0.0.31.0";
+            // 开发环境接口地址
+            gameUrl = "https://salasasa.cn/443/game";
+            chatUrl = "https://salasasa.cn/443/chat";
             releaseVersion = 1;
-            platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#";
-            githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity";
         }
+        // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
+        clientVersion = "0.1.35.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        webUrl = "https://salasasa.cn"; // 访问转到
+        documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
+        githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
     }
 
-    // 头衔ID到文本的映射字典
-    private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>
-    {
+    // 头衔编号 => 头衔名称
+    private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>{
         { 1, "暂无头衔" }
     };
 
-    // 获取头衔文本（公共方法）
-    public static string GetTitleText(int titleId)
-    {
-        if (titleDictionary.ContainsKey(titleId))
-        {
-            return titleDictionary[titleId];
-        }
-        // 如果找不到对应的头衔，返回默认值
-        return titleDictionary.ContainsKey(1) ? titleDictionary[1] : "暂无头衔";
-    }
+    private const string KEY_MASTER_VOLUME = "MasterVolume";
+    private const string KEY_MUSIC_VOLUME = "MusicVolume";
+    private const string KEY_SOUND_EFFECT_VOLUME = "SoundEffectVolume";
+    private const string KEY_VOICE_VOLUME = "VoiceVolume";
+    private const int DEFAULT_VOLUME = 100;
 
-    // 可变更的配置
-    public float soundVolume = 1.0f; // 音量
-    private int targetFrameRate = 60; // 目标帧率
+    public int MasterVolume { get; private set; }
+    public int MusicVolume { get; private set; }
+    public int SoundEffectVolume { get; private set; }
+    public int VoiceVolume { get; private set; }
 
     private void Awake()
     {
@@ -80,14 +64,49 @@ public class ConfigManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         
+        MasterVolume = PlayerPrefs.GetInt(KEY_MASTER_VOLUME, DEFAULT_VOLUME);
+        MusicVolume = PlayerPrefs.GetInt(KEY_MUSIC_VOLUME, DEFAULT_VOLUME);
+        SoundEffectVolume = PlayerPrefs.GetInt(KEY_SOUND_EFFECT_VOLUME, DEFAULT_VOLUME);
+        VoiceVolume = PlayerPrefs.GetInt(KEY_VOICE_VOLUME, DEFAULT_VOLUME);
         
-        // 设置目标帧率为 60
-        Application.targetFrameRate = targetFrameRate;
+        Application.targetFrameRate = 60;
     }
 
     public void SetUserConfig(int volume)
     {
-        // 将音量从 0-100 转换为 0-1 范围
-        this.soundVolume = Mathf.Clamp01(volume / 100f);
+        MasterVolume = Mathf.Clamp(volume, 0, 100);
+    }
+
+    public void SetMasterVolume(int volume)
+    {
+        MasterVolume = Mathf.Clamp(volume, 0, 100);
+        PlayerPrefs.SetInt(KEY_MASTER_VOLUME, MasterVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetMusicVolume(int volume)
+    {
+        MusicVolume = Mathf.Clamp(volume, 0, 100);
+        PlayerPrefs.SetInt(KEY_MUSIC_VOLUME, MusicVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetSoundEffectVolume(int volume)
+    {
+        SoundEffectVolume = Mathf.Clamp(volume, 0, 100);
+        PlayerPrefs.SetInt(KEY_SOUND_EFFECT_VOLUME, SoundEffectVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetVoiceVolume(int volume)
+    {
+        VoiceVolume = Mathf.Clamp(volume, 0, 100);
+        PlayerPrefs.SetInt(KEY_VOICE_VOLUME, VoiceVolume);
+        PlayerPrefs.Save();
+    }
+
+    public static string GetTitleText(int titleId)
+    {
+        return titleDictionary.ContainsKey(titleId) ? titleDictionary[titleId] : titleDictionary[1];
     }
 }

@@ -143,6 +143,8 @@ public class NetworkManager : MonoBehaviour
         if (response.success)
         {
             WindowsManager.Instance.SwitchWindow("menu");
+            // 请求房间列表
+            GetRoomList();
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -246,7 +248,6 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
                     if (response.success)
                     {
-                        RoomWindowsManager.Instance.SwitchRoomWindow("roomList");
                         UserDataManager.Instance.SetRoomId("");
                         NotificationManager.Instance.ShowTip("leave_room",true,"离开房间成功");
                     }

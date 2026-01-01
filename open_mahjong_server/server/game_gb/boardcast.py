@@ -1,4 +1,4 @@
-from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info
+from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data
 from typing import List, Dict, Optional
 import logging
 
@@ -260,16 +260,15 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典 {user_id: {"rank": int, "score": int, "pt": int}}
+    # 构建玩家最终数据字典 {user_id: Player_final_data}
     player_final_data = {}
     for player in self.player_list:
-
-        player_final_data[player.user_id] = {
-            "rank": player.record_counter.rank_result,
-            "score": player.score,
-            "pt": 0,  # 默认0分
-            "username": player.username
-        }
+        player_final_data[player.user_id] = Player_final_data(
+            rank=player.record_counter.rank_result,
+            score=player.score,
+            pt=0,  # 默认0分
+            username=player.username
+        )
     
     # 为每个玩家发送游戏结束信息
     for current_player in self.player_list:

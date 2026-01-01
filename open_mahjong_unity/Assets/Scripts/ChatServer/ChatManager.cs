@@ -47,6 +47,7 @@ public class ChatManager : MonoBehaviour
                 Debug.Log($"开始连接聊天服务器，当前状态: {websocket.ReadyState}");
                 websocket.ConnectAsync();
                 Debug.Log($"连接聊天服务器完成，当前状态: {websocket.ReadyState}");
+                ChatPanel.Instance.ShowChatMessage("serverMessage", 0, "欢迎使用open_mahjong_unity，在聊天室请友善交流，切勿发送侮辱性用语或非法言论，目前我们无法对发送违规信息的用户进行禁言处理，如发现有违规情况，可能会删除账户、封禁IP处理，在游戏过程中如果发现任何问题或想提交任何建议，请联系网站管理员或在交流群进行咨询，祝您游戏愉快！");
             }
             catch (Exception e)
             {

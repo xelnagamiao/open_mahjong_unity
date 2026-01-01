@@ -284,6 +284,18 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
             elif message["type"] == "create_GB_room":
                 logging.info(f"创建房间请求 - 用户名: {Connect_id}")
+                # 检查玩家是否已经在房间中
+                if Connect_id in game_server.players:
+                    player = game_server.players[Connect_id]
+                    if player.current_room_id:
+                        response = Response(
+                            type="tips",
+                            success=False,
+                            message="已经处于一个房间中，请先退出房间再创建新房间"
+                        )
+                        await websocket.send_json(response.dict(exclude_none=True))
+                        continue
+                
                 response = await game_server.create_GB_room(
                     Connect_id,
                     message["roomname"],

@@ -72,10 +72,16 @@ class Show_result_info(BaseModel):
     hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
     action_tick: int
 
+class Player_final_data(BaseModel):
+    rank: int  # 排名（1-4）
+    score: int  # 玩家分数
+    pt: int  # 玩家分数
+    username: str  # 用户名
+
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[int, Dict[str, int]]  # 玩家最终数据 {user_id: {"rank": int, "score": int, "pt": int}}
+    player_final_data: Dict[int, Player_final_data]  # 玩家最终数据 {user_id: Player_final_data}
 
 class Player_record_info(BaseModel):
     """玩家对局记录信息"""
