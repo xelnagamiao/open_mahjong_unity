@@ -178,6 +178,13 @@ public class PlayerInfoPanel : MonoBehaviour
     // 切换规则
     private void OnSwitchRuleButtonClick(string rule)
     {
+        // 
+        if (rule == "Other"){
+            if (OtherTotalStats == null){
+                NotificationManager.Instance.ShowTip("emptyData",false,"其他番种数据为空");
+                return;
+            }
+        }
         CurrentShowRule = rule;
         
         // 清空容器
@@ -195,13 +202,17 @@ public class PlayerInfoPanel : MonoBehaviour
         }
         else{}
         
-        // 创建汇总统计数据
-        PlayerStatsInfo totalStats = CreateTotalStats(statsToShow, rule);
+        PlayerStatsInfo totalStats = null;
         
-        // 在头部添加汇总条目
-        GameObject totalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-        PlayerInfoEntry totalEntry = totalEntryObject.GetComponent<PlayerInfoEntry>();
-        totalEntry.SetPlayerInfoEntry("total", this, totalStats);
+        if (rule != "Other"){
+            // 创建汇总统计数据
+            totalStats = CreateTotalStats(statsToShow, rule);
+        
+            // 在头部添加汇总条目
+            GameObject totalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+            PlayerInfoEntry totalEntry = totalEntryObject.GetComponent<PlayerInfoEntry>();
+            totalEntry.SetPlayerInfoEntry("total", this, totalStats);
+        }
 
         // 显示分支模式条目
         foreach (var stat in statsToShow)
@@ -211,10 +222,12 @@ public class PlayerInfoPanel : MonoBehaviour
             playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
         }
 
-        // 在尾部添加番种条目
-        GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-        PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
-        fanStatsEntry.SetPlayerInfoEntry("fanStats", this, totalStats);
+        if (rule != "Other"){
+            // 在尾部显示总计条目中的番种条目
+            GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+            PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
+            fanStatsEntry.SetPlayerInfoEntry("fanStats", this, totalStats);
+        }
 
     }
     
@@ -250,8 +263,7 @@ public class PlayerInfoPanel : MonoBehaviour
         };
         
         // 汇总所有模式的基础统计数据
-        foreach (var stat in statsArray)
-        {
+        foreach (var stat in statsArray){
             if (stat == null) continue;
             
             totalStats.total_games = (totalStats.total_games ?? 0) + (stat.total_games ?? 0);

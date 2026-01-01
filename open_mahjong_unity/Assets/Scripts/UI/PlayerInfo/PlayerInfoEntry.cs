@@ -25,16 +25,24 @@ public class PlayerInfoEntry : MonoBehaviour
         }
     }
 
-    public void SetPlayerInfoEntry(string playerStatsCase,PlayerInfoPanel playerInfoPanel,PlayerStatsInfo playerStatsInfo)
-    {
+    public void SetPlayerInfoEntry(string playerStatsCase,PlayerInfoPanel playerInfoPanel,PlayerStatsInfo playerStatsInfo){
         this.playerStatsCase = playerStatsCase; // 保存数据类型
         this.playerStatsInfo = playerStatsInfo; // 保存数据
         this.playerInfoPanel = playerInfoPanel; // 保存父物体索引
         string ShowText = "规则: ";
         // 显示总计
         if (playerStatsCase == "total"){
-            ShowText = "国标麻将数据总计:";
+            if (playerStatsInfo.rule == "GB"){
+                ShowText = "国标麻将数据总计:";
+            }
+            else if (playerStatsInfo.rule == "JP"){
+                ShowText = "立直麻将数据总计:";
+            }
+            else{
+                ShowText = "其他麻将数据总计:";
+            }
         }
+
         // 显示分支规则
         else if (playerStatsCase == "mode"){
 
@@ -63,7 +71,15 @@ public class PlayerInfoEntry : MonoBehaviour
         }
         // 显示达成番数总计
         else if (playerStatsCase == "fanStats"){
-            ShowText = "国标麻将达成番种总计:";
+            if (playerStatsInfo.rule == "GB"){
+                ShowText = "国标麻将达成番种总计:";
+            }
+            else if (playerStatsInfo.rule == "JP"){
+                ShowText = "立直麻将达成番种总计:";
+            }
+            else{
+                    ShowText = "其他麻将达成番种总计:";
+            }
         }
 
         modeText.text = ShowText;

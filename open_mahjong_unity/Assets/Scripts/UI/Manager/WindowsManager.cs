@@ -40,6 +40,8 @@ public class WindowsManager : MonoBehaviour
 
     public static WindowsManager Instance { get; private set; } // 单例
     
+    private string currentWindow; // 当前所在窗口状态
+    
     private void Awake()
     {
         if (Instance == null)
@@ -56,6 +58,12 @@ public class WindowsManager : MonoBehaviour
     // 切换窗口
     public void SwitchWindow(string targetWindow)
     {
+        // 如果在game状态下收到切换到room的请求，直接返回
+        if (currentWindow == "game" && targetWindow == "room")
+        {
+            return;
+        }
+
         Debug.Log($"切换到{targetWindow}窗口");
 
         menuPanel.SetActive(false);
@@ -111,6 +119,9 @@ public class WindowsManager : MonoBehaviour
                 HeaderPanel.Instance.UpdateButtonState("config");
                 break;
         }
+        
+        // 更新当前窗口状态
+        currentWindow = targetWindow;
     }
 
 

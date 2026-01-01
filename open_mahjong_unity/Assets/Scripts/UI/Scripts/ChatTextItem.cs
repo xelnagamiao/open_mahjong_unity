@@ -6,12 +6,20 @@ using UnityEngine.UI;
 
 public class ChatTextItem : MonoBehaviour
 {
-    private const float FADE_DURATION = 10f; // 渐隐持续时间（秒）
+    private const float FADE_DURATION = 5; // 渐隐持续时间（秒）
     private Coroutine fadeCoroutine; // 渐隐协程引用
+    private CanvasGroup canvasGroup; // CanvasGroup 引用
 
-    // Start is called before the first frame update
-    void Start()
+    // Awake 在对象创建时立即调用
+    void Awake()
     {
+        // 获取或创建 CanvasGroup
+        canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        }
+        
         // 启动渐隐协程
         fadeCoroutine = StartCoroutine(FadeOutCoroutine());
     }
@@ -19,11 +27,14 @@ public class ChatTextItem : MonoBehaviour
     // 渐隐协程
     private IEnumerator FadeOutCoroutine()
     {
-        // 优先使用CanvasGroup控制透明度
-        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        // 确保 CanvasGroup 存在
         if (canvasGroup == null)
         {
-            canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            canvasGroup = GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+            {
+                canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            }
         }
 
         float elapsedTime = 0f;
@@ -31,14 +42,29 @@ public class ChatTextItem : MonoBehaviour
 
         while (elapsedTime < FADE_DURATION)
         {
+            // 检查透明度是否已被外部设置为0（比如通过 SetChildrenAlpha）
+            if (canvasGroup != null && canvasGroup.alpha <= 0f)
+            {
+                // 透明度已经为0，自然终止协程
+                yield break;
+            }
+
             elapsedTime += Time.deltaTime;
             float progress = elapsedTime / FADE_DURATION;
-            canvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, progress);
+            
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, progress);
+            }
+            
             yield return null;
         }
 
         // 确保最终透明度为0
-        canvasGroup.alpha = 0f;
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+        }
     }
 
     // 停止渐隐并设置透明度（供外部调用）
@@ -51,12 +77,17 @@ public class ChatTextItem : MonoBehaviour
             fadeCoroutine = null;
         }
 
-        // 直接设置透明度
-        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        // 确保 CanvasGroup 存在
         if (canvasGroup == null)
         {
-            canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            canvasGroup = GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+            {
+                canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            }
         }
+        
+        // 直接设置透明度
         canvasGroup.alpha = alpha;
     }
 }
