@@ -1,32 +1,30 @@
 using UnityEngine;
 using System.IO;
 
-public class MultiplyWithAlphaMask : MonoBehaviour
+public class TableclothOverlayController : MonoBehaviour
 {
-    [SerializeField] private Texture2D baseTexture; // 正片叠底的基础纹理
+    [SerializeField] private MeshRenderer meshRenderer; // 目标MeshRenderer组件
     [SerializeField] private Texture2D defaultTableclothTexture; // 默认桌布纹理
+    [SerializeField] private Texture2D overlayTexture; // 覆盖纹理（带透明通道的基础纹理）
 
     private const string TABLECLOTH_PATH_KEY = "CustomTableclothPath"; // 自定义桌布路径的PlayerPrefs键名
     private const string TABLECLOTH_DIR = "Tablecloths"; // 桌布保存目录名
 
-    private Material multiplyMaterial; // 正片叠底材质
-    private MeshRenderer targetMeshRenderer; // 目标MeshRenderer组件
-    private static Shader multiplyShader; // 正片叠底Shader
-    private static readonly int BlendTexProperty = Shader.PropertyToID("_BlendTex"); // 混合纹理属性ID
-    private static readonly int MainTexProperty = Shader.PropertyToID("_MainTex"); // 主纹理属性ID
+    private Material material; // 材质实例
+    
+    // Shader属性ID缓存
+    private static readonly int TableclothTexID = Shader.PropertyToID("_TableclothTex"); // 桌布纹理属性ID
+    private static readonly int OverlayTexID = Shader.PropertyToID("_OverlayTex"); // 覆盖纹理属性ID
 
     private void Awake()
     {
-        multiplyShader = Shader.Find("Custom/MultiplyBlend3D");
-        targetMeshRenderer = GetComponent<MeshRenderer>();
-        
-        multiplyMaterial = new Material(multiplyShader);
-        multiplyMaterial.SetTexture(MainTexProperty, baseTexture);
-        
-        Material[] materials = targetMeshRenderer.materials;
-        materials[0] = multiplyMaterial;
-        targetMeshRenderer.materials = materials;
+        if (meshRenderer == null)
+        {
+            meshRenderer = GetComponent<MeshRenderer>();
+        }
 
+        material = meshRenderer.material;
+        SetOverlayTexture(overlayTexture);
         LoadTablecloth();
     }
 
@@ -46,7 +44,7 @@ public class MultiplyWithAlphaMask : MonoBehaviour
             tableclothTexture = defaultTableclothTexture;
         }
 
-        multiplyMaterial.SetTexture(BlendTexProperty, tableclothTexture);
+        SetTablecloth(tableclothTexture);
     }
 
     // 从文件路径加载纹理
@@ -70,6 +68,20 @@ public class MultiplyWithAlphaMask : MonoBehaviour
             Debug.LogError($"加载纹理文件时出错: {filePath}, 错误: {e.Message}");
             return null;
         }
+    }
+
+    // 设置桌布纹理
+    public void SetTablecloth(Texture2D tableclothTexture)
+    {
+        if (tableclothTexture == null) return;
+        material.SetTexture(TableclothTexID, tableclothTexture);
+    }
+
+    // 设置覆盖纹理
+    public void SetOverlayTexture(Texture2D overlay)
+    {
+        if (overlay == null) return;
+        material.SetTexture(OverlayTexID, overlay);
     }
 
     // 获取桌布保存的完整目录路径
