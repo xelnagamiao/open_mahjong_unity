@@ -1,10 +1,8 @@
-// 着色器：将覆盖纹理叠加在桌布上方，使替换桌布后正确显示边框阴影并且保留线条。
-Shader "Custom/TableclothWithOverlayMultiply"
+Shader "Custom/TableclothWithOverlay"
 {
     Properties
     {
-        [MainTexture]
-        _TableclothTex ("桌布纹理", 2D) = "white" {}
+        [MainTexture] _TableclothTex ("桌布纹理", 2D) = "white" {}
         _OverlayTex ("覆盖纹理（带透明通道）", 2D) = "white" {}
     }
 
@@ -12,16 +10,13 @@ Shader "Custom/TableclothWithOverlayMultiply"
     {
         Tags 
         { 
-            "RenderType"="Transparent" 
-            "Queue"="Transparent" 
-            "IgnoreProjector"="True"
+            "RenderType"="Opaque" 
+            "Queue"="Geometry"      // ← 关键：改成 Geometry（不透明队列）
         }
 
         LOD 100
-        Cull Off
-        Lighting Off
-        ZWrite Off
-        Blend SrcAlpha OneMinusSrcAlpha
+        Cull Back
+        ZWrite On                   // ← 关键：开启深度写入
 
         Pass
         {
@@ -45,7 +40,6 @@ Shader "Custom/TableclothWithOverlayMultiply"
             sampler2D _TableclothTex;
             sampler2D _OverlayTex;
             float4 _TableclothTex_ST;
-            float4 _OverlayTex_ST;
 
             v2f vert (appdata v)
             {
@@ -57,19 +51,17 @@ Shader "Custom/TableclothWithOverlayMultiply"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                // 采样桌布纹理
                 fixed4 tablecloth = tex2D(_TableclothTex, i.uv);
-                
-                // 采样覆盖纹理（带透明通道）
-                fixed4 overlay = tex2D(_OverlayTex, i.uv);
-                
-                // Multiply混合：桌布RGB * 覆盖纹理RGB
-                fixed4 finalColor;
-                finalColor.rgb = tablecloth.rgb * overlay.rgb;
-                // 使用覆盖纹理的Alpha通道
-                finalColor.a = overlay.a;
-                
-                return finalColor;
+                fixed4 overlay    = tex2D(_OverlayTex, i.uv);
+
+                // 方式A：经典乘法叠加（阴影/暗边效果最好）
+                fixed3 finalRGB = tablecloth.rgb * overlay.rgb;
+
+                // 方式B：更柔和的叠加（如果想要白色 overlay 不影响）
+                // fixed3 finalRGB = lerp(tablecloth.rgb, tablecloth.rgb * overlay.rgb, overlay.a);
+
+                // 最终输出：始终保持不透明
+                return fixed4(finalRGB, 1.0);   // ← 关键！alpha 固定为1
             }
             ENDCG
         }

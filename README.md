@@ -137,5 +137,5 @@ open_mahjong_unity/
 - **项目地址**: https://github.com/xelnagamiao/open_mahjong_unity
 
 
-*最后更新：2025年12月13日 dev ver 0.0.27.0 *
+*最后更新：2026年1月2日 dev ver 0.1.35.0 *
 

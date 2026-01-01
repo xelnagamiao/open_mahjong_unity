@@ -143,6 +143,8 @@ public class NetworkManager : MonoBehaviour
         if (response.success)
         {
             WindowsManager.Instance.SwitchWindow("menu");
+            // 请求房间列表
+            GetRoomList();
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,

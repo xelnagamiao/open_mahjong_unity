@@ -13,32 +13,32 @@ public class ConfigManager : MonoBehaviour
     public static string chatUrl;
     public static string clientVersion;
     public static int releaseVersion;
-    public static string platformUrl;
     public static string githubUrl;
+    public static string documentUrl;
 
     static ConfigManager(){
         if (Debug)
         {
-            webUrl = "http://localhost:8080/443/web";
-            gameUrl = "http://localhost:8081/game";
-            chatUrl = "http://localhost:8083/chat";
-            clientVersion = "0.0.31.2";
-            releaseVersion = 1;
-            platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#";
-            githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity";
+            // 开发接口地址
+            gameUrl = "http://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
+            chatUrl = "http://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
+            releaseVersion = 1; // 发行版号(验证客户端-服务器版本是否一致)
         }
         else
         {
-            webUrl = "https://mahjong.fit/443/web";
-            gameUrl = "https://mahjong.fit/443/game";
-            chatUrl = "https://mahjong.fit/chat";
-            clientVersion = "0.0.31.0";
+            // 开发环境接口地址
+            gameUrl = "https://salasasa.cn/443/game";
+            chatUrl = "https://salasasa.cn/443/chat";
             releaseVersion = 1;
-            platformUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#";
-            githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity";
         }
+        // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
+        clientVersion = "0.1.35.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        webUrl = "https://salasasa.cn"; // 访问转到
+        documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
+        githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
     }
 
+    // 头衔编号 => 头衔名称
     private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>{
         { 1, "暂无头衔" }
     };
