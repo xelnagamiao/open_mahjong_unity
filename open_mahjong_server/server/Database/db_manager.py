@@ -555,45 +555,6 @@ class DatabaseManager:
                 cursor.close()
                 self._put_connection(conn)
     
-    def delete_user(self, user_id: int) -> bool:
-        """
-        删除用户及其相关数据（由于外键约束，会自动删除user_settings和user_config）
-        只允许删除游客账户（user_id 在 9000000 到 10000000 之间），防止误删正常用户
-        
-        Args:
-            user_id: 用户ID
-            
-        Returns:
-            删除成功返回 True，失败返回 False
-        """
-        # 只允许删除游客账户（9000000 <= user_id <= 10000000）
-        if not (9000000 <= user_id <= 10000000):
-            logger.warning(f'拒绝删除非游客账户 user_id={user_id}，只允许删除 9000000-10000000 范围内的账户')
-            return False
-
-        conn = None
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
-            conn.commit()
-            deleted_count = cursor.rowcount
-            cursor.close()
-            if deleted_count > 0:
-                logger.info(f'用户 {user_id} 删除成功')
-                return True
-            else:
-                logger.warning(f'用户 {user_id} 不存在，无法删除')
-                return False
-        except Error as e:
-            logger.error(f'删除用户失败: {e}')
-            if conn:
-                conn.rollback()
-            return False
-        finally:
-            if conn:
-                self._put_connection(conn)
-    
     def _hash_password(self, password: str) -> str:
         """
         使用 PBKDF2 + SHA256 和随机盐对密码进行哈希

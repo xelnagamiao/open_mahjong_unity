@@ -3,6 +3,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
+import hashlib
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
 from .logic_handler import get_index_relative_position
@@ -93,6 +94,7 @@ class ChineseGameState:
         self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
+        self.room_type = room_data["room_type"] # 房间类型
 
         # 初始化游戏状态
         self.tiles_list = [] # 牌堆
@@ -162,9 +164,11 @@ class ChineseGameState:
             self.tiles_list.extend([tile] * 4)
         self.tiles_list.extend(hua_tiles_set)
         
-        # 基于完整游戏随机种子和当前局数生成小局随机种子（与 init_game_tiles 保持一致）
-        # 公式: (whole_game_random_seed * 1000 + current_round) % (2**32)
-        self.round_random_seed = (self.game_random_seed * 1000 + self.current_round) % (2**32)
+        # 使用 MD5 哈希函数混合全局种子和局数
+        # 公式: MD5(game_random_seed + "_" + current_round) 的前8位十六进制转换为整数，再取模 2^32
+        combined = f"{self.game_random_seed}_{self.current_round}".encode('utf-8')
+        hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
+        self.round_random_seed = hash_value % (2**32)
         random.seed(self.round_random_seed)
         random.shuffle(self.tiles_list)
 
@@ -981,6 +985,11 @@ class ChineseGameState:
 
             # 操作合法，将操作数据放入队列
             if action_type == "cut": # 切牌操作
+                # 验证切牌的TileId是否在玩家手牌中
+                if TileId not in current_player.hand_tiles:
+                    logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, user_id={user_id}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
+                    return  # 丢弃命令
+                
                 await self.action_queues[player_index].put({
                     "action_type": action_type,
                     "cutClass": cutClass,

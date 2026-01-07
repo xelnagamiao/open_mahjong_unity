@@ -101,6 +101,7 @@ public class GameInfo // 游戏开始时传递房间信息
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时
+    public string room_type;            // 房间类型
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 }

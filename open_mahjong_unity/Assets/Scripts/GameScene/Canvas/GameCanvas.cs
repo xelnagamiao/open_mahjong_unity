@@ -8,7 +8,7 @@ using TMPro;
 public partial class GameCanvas : MonoBehaviour
 {
     [Header("左上房间信息")]
-    [SerializeField] private TMP_Text roomRoundText; // 房间轮数文本
+    [SerializeField] private TMP_Text ruleText; // 规则文本
     [SerializeField] private TMP_Text roomNowRoundText; // 当前轮数文本
     [SerializeField] private TMP_Text RandomSeedText; // 随机种子文本
     [SerializeField] private Button visibilityRandomSeedButton; // 显示随机种子按钮
@@ -44,16 +44,12 @@ public partial class GameCanvas : MonoBehaviour
     private int _currentCutTime;
 
     [Header("游戏配置模块")]
-    private bool isAutoArrangeHandCards = true; // 是否自动排列手牌
     private bool isArranged = false; // 是否已经排列过手牌
     
     // 手牌处理队列管理
     private Queue<System.Func<Coroutine>> changeHandCardQueue = new Queue<System.Func<Coroutine>>();
     private bool isChangeHandCardProcessing = false;
     public string ActionBlockContainerState = "None"; // 操作块容器状态
-    public bool isDontDoAction = false; // 是否不吃碰杠
-    public bool isAutoHepai = false; // 是否自动胡牌
-    public bool isAutoCutCard = false; // 是否自动出牌
 
     private float tileCardWidth; // 手牌预制体宽度
 
@@ -109,21 +105,85 @@ public partial class GameCanvas : MonoBehaviour
                 Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
-        roomNowRoundText.text = $"当前轮数：{gameInfo.current_round}"; // 左上角显示目前打的圈数
+
         RandomSeedText.text = $"随机种子：{gameInfo.round_random_seed}"; // 左上角显示随机种子
+
+        // 设置当前轮数文本
+        if (gameInfo.current_round == 1){
+            roomNowRoundText.text = "东一局";
+        }
+        else if (gameInfo.current_round == 2){
+            roomNowRoundText.text = "东二局";
+        }
+        else if (gameInfo.current_round == 3){
+            roomNowRoundText.text = "东三局";
+        }
+        else if (gameInfo.current_round == 4){
+            roomNowRoundText.text = "东四局";
+        }
+        else if (gameInfo.current_round == 5){
+            roomNowRoundText.text = "南一局";
+        }
+        else if (gameInfo.current_round == 6){
+            roomNowRoundText.text = "南二局";
+        }
+        else if (gameInfo.current_round == 7){
+            roomNowRoundText.text = "南三局";
+        }
+        else if (gameInfo.current_round == 8){
+            roomNowRoundText.text = "南四局";
+        }
+        else if (gameInfo.current_round == 9){
+            roomNowRoundText.text = "西一局";
+        }
+        else if (gameInfo.current_round == 10){
+            roomNowRoundText.text = "西二局";
+        }
+        else if (gameInfo.current_round == 11){
+            roomNowRoundText.text = "西三局";
+        }
+        else if (gameInfo.current_round == 12){
+            roomNowRoundText.text = "西四局";
+        }
+        else if (gameInfo.current_round == 13){
+            roomNowRoundText.text = "北一局";
+        }
+        else if (gameInfo.current_round == 14){
+            roomNowRoundText.text = "北二局";
+        }
+        else if (gameInfo.current_round == 15){
+            roomNowRoundText.text = "北三局";
+        }
+        else if (gameInfo.current_round == 16){
+            roomNowRoundText.text = "北四局";
+        }
+        else{
+            roomNowRoundText.text = "未知轮数";
+        }
+
+        // 设置规则文本
+        string roomRoundText = "";
+        if (gameInfo.room_type == "guobiao"){
+            roomRoundText += "国标麻将:";
+        }
+        else{
+            roomRoundText += "未知规则：";
+        }
         if (gameInfo.max_round == 1){
-            roomRoundText.text = "东风战";
+            roomRoundText += "东风战";
         }
         else if (gameInfo.max_round == 2){
-            roomRoundText.text = "东南战";
+            roomRoundText += "东南战";
         }
         else if (gameInfo.max_round == 3){
-            roomRoundText.text = "西风战";
+            roomRoundText += "西风战";
         }
         else if (gameInfo.max_round == 4){
-            roomRoundText.text = "全庄战";
+            roomRoundText += "全庄战";
         }
         else{Debug.LogError("最大轮数错误");}
+        ruleText.text = roomRoundText;
+
     }
 
     public void ClearActionButton(){
@@ -133,6 +193,63 @@ public partial class GameCanvas : MonoBehaviour
         }
         foreach (Transform child in ActionButtonContainer){
             Destroy(child.gameObject);
+        }
+    }
+
+    /// <summary>
+    /// 查找并触发指定 TileCard 的点击（用于自动出牌）
+    /// 优先查找摸切的牌（currentGetTile == true），如果没有则查找手切的牌
+    /// </summary>
+    /// <param name="tileId">要查找的牌ID</param>
+    /// <returns>是否成功找到并触发了点击</returns>
+    public bool TriggerTileCardClick(int tileId)
+    {
+        if (handCardsContainer == null)
+        {
+            Debug.LogWarning("手牌容器为空，无法触发自动出牌");
+            return false;
+        }
+
+        TileCard targetTileCard = null;
+
+        // 优先查找摸切的牌（currentGetTile == true 且 tileId 匹配）
+        for (int i = handCardsContainer.childCount - 1; i >= 0; i--)
+        {
+            Transform child = handCardsContainer.GetChild(i);
+            TileCard tileCard = child.GetComponent<TileCard>();
+            if (tileCard != null && tileCard.tileId == tileId && tileCard.currentGetTile)
+            {
+                targetTileCard = tileCard;
+                break;
+            }
+        }
+
+        // 如果没有找到摸切的牌，查找任意匹配 tileId 的牌（手切）
+        if (targetTileCard == null)
+        {
+            for (int i = handCardsContainer.childCount - 1; i >= 0; i--)
+            {
+                Transform child = handCardsContainer.GetChild(i);
+                TileCard tileCard = child.GetComponent<TileCard>();
+                if (tileCard != null && tileCard.tileId == tileId)
+                {
+                    targetTileCard = tileCard;
+                    break;
+                }
+            }
+        }
+
+        // 如果找到目标牌，触发点击
+        if (targetTileCard != null)
+        {
+            targetTileCard.TriggerClick();
+            Debug.Log($"自动出牌：触发牌ID {tileId} 的点击，摸切={targetTileCard.currentGetTile}");
+            return true;
+        }
+        else
+        {
+            Debug.LogWarning($"自动出牌失败：未找到牌ID {tileId} 的 TileCard");
+            return false;
         }
     }
 

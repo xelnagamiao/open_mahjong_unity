@@ -19,6 +19,7 @@ async def broadcast_game_start(self):
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
+        'room_type': self.room_type, # 房间类型
         'players_info': [] # ↓玩家信息
     }
     # 为每个玩家准备信息

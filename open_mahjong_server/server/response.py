@@ -31,6 +31,7 @@ class GameInfo(BaseModel):
     current_round: int
     step_time: int
     round_time: int
+    room_type: str
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
 

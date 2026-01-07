@@ -24,6 +24,13 @@ public class GameSceneManager : MonoBehaviour
     public int remainTiles; // 剩余牌数
     public bool tips; // 提示
 
+    [Header("自动操作配置")]
+
+    public bool isAutoArrangeHandCards = true; // 是否自动排列手牌
+    public bool isAutoHepai = false; // 是否自动胡牌
+    public bool isAutoCut = false; // 是否自动出牌
+    public bool isAutoPass = false; // 是否自动过牌
+
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
@@ -40,6 +47,10 @@ public class GameSceneManager : MonoBehaviour
         public List<int> discard_tiles;
         public List<string> combination_tiles;
         public List<int> huapai_list;
+        public int title_used;      // 使用的称号ID
+        public int profile_used;    // 使用的头像ID
+        public int character_used;  // 使用的角色ID
+        public int voice_used;      // 使用的音色ID
     }
 
     private void Awake()
@@ -100,7 +111,7 @@ public class GameSceneManager : MonoBehaviour
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" ,"hu_first", "hu_second", "hu_third", "angang", "jiagang","pass"};
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" , "angang", "jiagang","pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);
@@ -116,7 +127,7 @@ public class GameSceneManager : MonoBehaviour
         // 如果列表中有服务器提供的可用操作，则显示倒计时
         if (action_list.Length > 0){
             // 1.存储全部可用行动
-            string[] AllowOtherActionCheck = new string[] {"chi_left", "chi_mid", "chi_right", "peng", "gang","hu_self","hu_first","hu_second","hu_third","pass"};
+            string[] AllowOtherActionCheck = new string[] {"chi_left", "chi_mid", "chi_right", "peng", "gang","hu_first","hu_second","hu_third","pass"};
             foreach (string action in action_list){
                 if (AllowOtherActionCheck.Contains(action)){
                     allowActionList.Add(action);
@@ -134,6 +145,7 @@ public class GameSceneManager : MonoBehaviour
 
             Debug.Log($"执行DoAction操作: {action}");
             SoundManager.Instance.PlayActionSound(GetCardPlayer, action); // 播放操作音效
+            SoundManager.Instance.PlayPhysicsSound(action); // 播放物理音效
             switch (action) { // action_list 实际上只会包含一个操作
 
                 // 摸牌
@@ -288,6 +300,10 @@ public class GameSceneManager : MonoBehaviour
                 GameCanvas.Instance.ClearActionButton(); // 清空操作按钮 *有时候补花轮自己不补花，但是别人也不补，就出现两次按钮
                 GameCanvas.Instance.SetActionButton(allowActionList);
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
+                // 如果开启自动胡牌或者自动出牌，则启动协程
+                if (isAutoHepai || isAutoCut){
+                    StartCoroutine(WaitAutoAction("AutoHandAction"));
+                }
             }
             // 询问的不是自己的回合
             else{
@@ -301,6 +317,10 @@ public class GameSceneManager : MonoBehaviour
         else if (SwitchType == "askMingPaiAction"){
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
+            // 如果开启自动过牌和自动胡牌，则启动协程
+            if (isAutoPass && isAutoHepai){
+                StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
+            }
         }
 
         // 执行行动
@@ -331,6 +351,86 @@ public class GameSceneManager : MonoBehaviour
         else if (SwitchType == "TimeOut"){
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();
+        }
+    }
+
+    // 等待自动操作
+    private IEnumerator WaitAutoAction(string action){
+
+        // 鸣牌操作自动执行
+        if (action == "AutoMingPaiAction"){
+            // 和牌不属于不吃碰杠
+            List<string> allowHupaiAction = new List<string>{"hu_first","hu_second","hu_third"};
+
+            // 从允许操作列表中找到实际存在的和牌操作
+            string actualHupaiAction = allowActionList.FirstOrDefault(a => allowHupaiAction.Contains(a));
+
+            // 如果开启自动胡牌，则判断
+            if (isAutoHepai){
+                // 如果允许操作列表中有和牌，则执行自动胡牌
+                if (!string.IsNullOrEmpty(actualHupaiAction)){
+                    yield return new WaitForSeconds(0.3f);
+                    GameCanvas.Instance.ChooseAction(actualHupaiAction, 0);
+                    yield return null;
+                }
+            }
+            // 如果开启自动过牌，则执行自动过牌
+            if (isAutoPass){
+                yield return new WaitForSeconds(0.3f); // (如果玩家后悔了，希望玩家手速够快)
+                GameCanvas.Instance.ChooseAction("pass", 0);
+            }
+            yield return null;
+
+        }
+
+        // 手牌操作自动执行
+        else if (action == "AutoHandAction"){
+            // 如果允许操作列表有hu_self
+            if (allowActionList.Contains("hu_self")){
+                // 如果开启自动胡牌，则执行自动胡牌
+                if (isAutoHepai){
+                    yield return new WaitForSeconds(0.3f);
+                    GameCanvas.Instance.ChooseAction("hu_self", 0);
+                }
+                // 如果没有开启，转到玩家操作
+                else{
+                    yield return null;
+                }
+            }
+
+            List<string> allowActionWithoutCut = new List<string>{"angang","jiagang","hu_self","buhua"};
+            // 如果允许操作列表有除去cut的其他操作 则转到玩家操作
+            if (allowActionWithoutCut.Any(allowActionList.Contains)){
+                yield return null;
+            }
+            // 如果没有，则执行自动出牌
+            else{
+                if (isAutoCut){
+                    yield return new WaitForSeconds(0.3f);
+                    // 自动出牌 选择手牌中最近摸到的牌（列表的最后一张）
+                    if (selfHandTiles != null && selfHandTiles.Count > 0)
+                    {
+                        int lastTileId = selfHandTiles[selfHandTiles.Count - 1];
+                        // 查找对应的 TileCard 并触发点击（优先摸切，否则手切）
+                        bool success = GameCanvas.Instance.TriggerTileCardClick(lastTileId);
+                        if (!success)
+                        {
+                            Debug.LogWarning($"自动出牌失败：无法找到牌ID {lastTileId} 对应的 TileCard");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning("自动出牌失败：手牌列表为空");
+                    }
+                }
+                else{
+                    yield return null;
+                }
+            }
+        }
+
+        else{
+            Debug.LogWarning($"未知操作: {action}");
         }
     }
 
@@ -407,6 +507,10 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["self"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
                 player_to_info["self"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["self"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
+                player_to_info["self"].title_used = player.title_used; // 存储使用的称号ID
+                player_to_info["self"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["self"].character_used = player.character_used; // 存储使用的角色ID
+                player_to_info["self"].voice_used = player.voice_used; // 存储使用的音色ID
             }
             else if (indexToPosition[player.player_index] == "right"){
                 player_to_info["right"].username = player.username; // 存储用户名
@@ -416,6 +520,10 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["right"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["right"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["right"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
+                player_to_info["right"].title_used = player.title_used; // 存储使用的称号ID
+                player_to_info["right"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["right"].character_used = player.character_used; // 存储使用的角色ID
+                player_to_info["right"].voice_used = player.voice_used; // 存储使用的音色ID
             }
             else if (indexToPosition[player.player_index] == "top"){
                 player_to_info["top"].username = player.username; // 存储用户名
@@ -425,6 +533,10 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["top"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["top"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["top"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
+                player_to_info["top"].title_used = player.title_used; // 存储使用的称号ID
+                player_to_info["top"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["top"].character_used = player.character_used; // 存储使用的角色ID
+                player_to_info["top"].voice_used = player.voice_used; // 存储使用的音色ID
             }
             else if (indexToPosition[player.player_index] == "left"){
                 player_to_info["left"].username = player.username; // 存储用户名
@@ -434,6 +546,10 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["left"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["left"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["left"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
+                player_to_info["left"].title_used = player.title_used; // 存储使用的称号ID
+                player_to_info["left"].profile_used = player.profile_used; // 存储使用的头像ID
+                player_to_info["left"].character_used = player.character_used; // 存储使用的角色ID
+                player_to_info["left"].voice_used = player.voice_used; // 存储使用的音色ID
             }
         }
     }
