@@ -11,6 +11,7 @@ public class AutoAction : MonoBehaviour
     [SerializeField] private TMP_Text autoHepaiText; // 自动胡牌文本
     [SerializeField] private TMP_Text autoCutCardText; // 自动出牌文本
     [SerializeField] private TMP_Text autoPassText; // 自动过牌文本
+    [SerializeField] private TMP_Text autoBuhuaText; // 自动补花文本
 
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white; // false时的颜色（白色）
@@ -75,6 +76,7 @@ public class AutoAction : MonoBehaviour
         UpdateTextColor(autoHepaiText, false);
         UpdateTextColor(autoCutCardText, false);
         UpdateTextColor(autoPassText, false);
+        UpdateTextColor(autoBuhuaText, false);
     }
 
     // 为每个文本添加点击监听器
@@ -98,6 +100,11 @@ public class AutoAction : MonoBehaviour
         if (autoPassText != null)
         {
             AddClickListener(autoPassText, ToggleAutoPass);
+        }
+        
+        if (autoBuhuaText != null)
+        {
+            AddClickListener(autoBuhuaText, ToggleAutoBuhua);
         }
     }
 
@@ -157,6 +164,16 @@ public class AutoAction : MonoBehaviour
         }
     }
 
+    // 切换自动补花
+    private void ToggleAutoBuhua()
+    {
+        if (GameSceneManager.Instance != null)
+        {
+            GameSceneManager.Instance.isAutoBuhua = !GameSceneManager.Instance.isAutoBuhua;
+            UpdateTextColor(autoBuhuaText, GameSceneManager.Instance.isAutoBuhua);
+        }
+    }
+
     // 更新单个文本颜色
     private void UpdateTextColor(TMP_Text text, bool value)
     {
@@ -175,6 +192,7 @@ public class AutoAction : MonoBehaviour
         UpdateTextColor(autoHepaiText, GameSceneManager.Instance.isAutoHepai);
         UpdateTextColor(autoCutCardText, GameSceneManager.Instance.isAutoCut);
         UpdateTextColor(autoPassText, GameSceneManager.Instance.isAutoPass);
+        UpdateTextColor(autoBuhuaText, GameSceneManager.Instance.isAutoBuhua);
     }
 
     // 当GameSceneManager的值被外部修改时，可以调用此方法更新显示

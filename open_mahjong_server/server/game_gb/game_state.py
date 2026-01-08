@@ -172,8 +172,8 @@ class ChineseGameState:
         random.seed(self.round_random_seed)
         random.shuffle(self.tiles_list)
 
-        # 使用服务器的 Debug 配置
-        from ..server import Debug
+        # 固定起始牌的测试
+        Debug = False
         
         if Debug:
             # 使用测试牌例
@@ -221,6 +221,7 @@ class ChineseGameState:
         # 清空花牌弃牌组合牌列表 重置时间
         self.hu_class = None
         for i in self.player_list:
+            i.hand_tiles = []
             i.huapai_list = []
             i.discard_tiles = []
             i.waiting_tiles = set()
@@ -264,9 +265,8 @@ class ChineseGameState:
                     elif i.original_player_index == 3: # 北起：北西南[东]
                         i.player_index = 0
 
-        # 按照换位后的玩家顺序重新排列player_list
-        for index,player in enumerate[ChinesePlayer](self.player_list):
-            player.player_index = index
+        # 创建一个新的排序列表，按player_index从小到大排列
+        self.player_list.sort(key=lambda x: x.player_index)
 
     async def game_loop_chinese(self):
 
@@ -315,7 +315,6 @@ class ChineseGameState:
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                             # 广播补花操作
-                            logger.debug("buhua")
                             await broadcast_do_action(self,action_list = ["buhua","deal"],
                                                       action_player = self.current_player_index,
                                                       buhua_tile = max_tile,
@@ -590,7 +589,7 @@ class ChineseGameState:
             timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
             task_list.append(timer_task)
 
-            logger.debug(f"开始新一轮等待操作 waiting_players_list={self.waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
+            logger.info(f"开始新一轮等待操作 waiting_players_list={self.waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
             
             # 等待计时器完成1s等待或者任意玩家进行操作
             time_start = time.time()
@@ -658,7 +657,7 @@ class ChineseGameState:
             for i in self.waiting_players_list:
                 self.player_list[i].remaining_time = 0
 
-        logger.debug(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[self.current_player_index].hand_tiles}")
+        logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[self.current_player_index].hand_tiles}")
         # 情形处理
         match self.game_status:
             # 补花轮特殊case 只有在游戏开始时启用

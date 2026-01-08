@@ -30,6 +30,7 @@ public class GameSceneManager : MonoBehaviour
     public bool isAutoHepai = false; // 是否自动胡牌
     public bool isAutoCut = false; // 是否自动出牌
     public bool isAutoPass = false; // 是否自动过牌
+    public bool isAutoBuhua = false; // 是否自动补花
 
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
@@ -300,8 +301,8 @@ public class GameSceneManager : MonoBehaviour
                 GameCanvas.Instance.ClearActionButton(); // 清空操作按钮 *有时候补花轮自己不补花，但是别人也不补，就出现两次按钮
                 GameCanvas.Instance.SetActionButton(allowActionList);
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
-                // 如果开启自动胡牌或者自动出牌，则启动协程
-                if (isAutoHepai || isAutoCut){
+                // 如果开启自动胡牌、自动补花或者自动出牌，则启动协程
+                if (isAutoHepai || isAutoBuhua || isAutoCut){
                     StartCoroutine(WaitAutoAction("AutoHandAction"));
                 }
             }
@@ -391,6 +392,21 @@ public class GameSceneManager : MonoBehaviour
                 if (isAutoHepai){
                     yield return new WaitForSeconds(0.3f);
                     GameCanvas.Instance.ChooseAction("hu_self", 0);
+                    yield return null;
+                }
+                // 如果没有开启，转到玩家操作
+                else{
+                    yield return null;
+                }
+            }
+            
+            // 如果允许操作列表有buhua
+            if (allowActionList.Contains("buhua")){
+                // 如果开启自动补花，则执行自动补花
+                if (isAutoBuhua){
+                    yield return new WaitForSeconds(0.3f);
+                    GameCanvas.Instance.ChooseAction("buhua", 0);
+                    yield return null;
                 }
                 // 如果没有开启，转到玩家操作
                 else{
