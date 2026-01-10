@@ -151,7 +151,7 @@ public partial class GameCanvas{
     }
       
     // 带动画的手牌重新排列
-    private System.Collections.IEnumerator RearrangeHandCardsWithAnimation(){
+    private IEnumerator RearrangeHandCardsWithAnimation(){
 
         Debug.Log($"手牌重新排列");
 
@@ -182,7 +182,7 @@ public partial class GameCanvas{
         }
 
         // 如果玩家选择了自动排序手牌，按tileId排序
-        if (isAutoArrangeHandCards){
+        if (GameSceneManager.Instance != null && GameSceneManager.Instance.isAutoArrangeHandCards){
             tileCards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
         }
         // 如果不勾选自动排序，保持原有顺序

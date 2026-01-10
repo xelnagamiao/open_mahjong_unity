@@ -31,6 +31,7 @@ class GameInfo(BaseModel):
     current_round: int
     step_time: int
     round_time: int
+    room_type: str
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
 
@@ -82,6 +83,10 @@ class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
     player_final_data: Dict[int, Player_final_data]  # 玩家最终数据 {user_id: Player_final_data}
+
+class Switch_seat_info(BaseModel):
+    """换位信息"""
+    current_round: int  # 当前局数
 
 class Player_record_info(BaseModel):
     """玩家对局记录信息"""
@@ -174,6 +179,7 @@ class Response(BaseModel):
     do_action_info: Optional[Do_action_info] = None # 用于广播玩家操作
     show_result_info: Optional[Show_result_info] = None # 用于广播结算结果
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
+    switch_seat_info: Optional[Switch_seat_info] = None # 用于广播换位信息
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
     login_info: Optional[LoginInfo] = None # 用于返回登录信息

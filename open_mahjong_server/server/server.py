@@ -640,7 +640,7 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
             user_id = player.get('user_id')
         else:
             return Response(
-                type="login",
+                type="tips",
                 success=False,
                 message="密码错误"
             )
@@ -649,7 +649,7 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
         user_id = db_manager.create_user(username, password, is_tourist=is_tourist)
         if not user_id:
             return Response(
-                type="login",
+                type="tips",
                 success=False,
                 message="注册失败",
                 username=username

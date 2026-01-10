@@ -256,6 +256,10 @@ public class NetworkManager : MonoBehaviour
                     Debug.Log($"加入房间响应: {response.success}, {response.message}");
                     NotificationManager.Instance.ShowTip("join_room",true,"加入房间成功");
                     break; // 只是打印一下 房间信息服务器从get_room_info中发送过来
+                case "switch_seat":
+                    Debug.Log($"收到换位消息: {response.message}");
+                    GameSceneManager.Instance.HandleSwitchSeat(response.switch_seat_info.current_round);
+                    break;
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
                     GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);

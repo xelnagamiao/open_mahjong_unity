@@ -60,6 +60,14 @@ public class TileCard : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 公共方法：触发出牌（用于自动出牌功能）
+    /// </summary>
+    public void TriggerClick()
+    {
+        OnTileClick();
+    }
+
     private void OnDestroy()
     {
         tileButton.onClick.RemoveListener(OnTileClick);

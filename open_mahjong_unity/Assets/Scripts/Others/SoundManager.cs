@@ -36,56 +36,73 @@ public class SoundManager : MonoBehaviour
     // 播放操作音效的方法
     public void PlayActionSound(string playerPosition,string actionType)
     {
+        // 根据玩家位置获取对应玩家的音色ID
+        int voiceId = 1; // 默认音色ID
+        if (GameSceneManager.Instance != null && GameSceneManager.Instance.player_to_info.ContainsKey(playerPosition))
+        {
+            voiceId = GameSceneManager.Instance.player_to_info[playerPosition].voice_used;
+        }
+        else if (UserDataManager.Instance != null)
+        {
+            // 如果无法从GameSceneManager获取，则使用用户设置的音色ID作为后备
+            voiceId = UserDataManager.Instance.VoiceId;
+        }
+
+
+        string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
         string audioTarget = actionType;
 
-        if (playerPosition == "hu_self"){
-            audioTarget = "zimo";
+        if (actionType == "hu_self"){
+            audioTarget = $"Sound/{voicePath}/zimo";
         }
-        else if (playerPosition == "buhua"){
-            audioTarget = "buhua";
+        else if (actionType == "buhua"){
+            audioTarget = $"Sound/{voicePath}/buhua";
         }
-        else if (playerPosition == "hu_first" || playerPosition == "hu_second" || playerPosition == "hu_third"){
-            audioTarget = "rong";
+        else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
+            audioTarget = $"Sound/{voicePath}/dianhe";
         }
-        else if (playerPosition == "chi_left" || playerPosition == "chi_mid" || playerPosition == "chi_right"){
-            audioTarget = "chi";
+        else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
+            audioTarget = $"Sound/{voicePath}/chi";
         }
-        else if (playerPosition == "angang" || playerPosition == "jiagang" || playerPosition == "gang"){
-            audioTarget = "gang";
+        else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
+            audioTarget = $"Sound/{voicePath}/gang";
         }
-
-        // 根据用户设置的音色ID获取对应的文件路径
-        int voiceId = UserDataManager.Instance != null ? UserDataManager.Instance.VoiceId : 1;
-        string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
+        else {
+            Debug.LogWarning($"未找到音效文件: {actionType}");
+            return;
+        }
         
-        // 构建完整的资源路径
-        string soundPath = $"Sound/{voicePath}/{audioTarget}";
-        AudioClip soundToPlay = Resources.Load<AudioClip>(soundPath);
+        AudioClip soundToPlay = Resources.Load<AudioClip>(audioTarget);
         
         if (soundToPlay != null)
         {
-            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.MasterVolume / 100f : 1.0f;
+            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
-            Debug.Log($"播放音效: {playerPosition} {actionType}, 音色: {voicePath}, 音量: {volume}");
+            Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 音量: {volume}");
         }
         else
         {
-            Debug.Log($"未找到音效文件: {soundPath}");
+            Debug.LogWarning($"未找到音效文件: {audioTarget}");
         }
     }
 
     public void PlayPhysicsSound(/* Vector3 position, 物理音效发出位置 */string actionType){
+
+        if (actionType == "cut"){
+            actionType = "SFX_UI_Click_Organic_Plastic_Select_2";
+        }
+        else{
+            return;
+        }
         AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + actionType);
-        if (soundToPlay != null)
+        if (soundToPlay == null)
         {
-            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.MasterVolume / 100f : 1.0f;
-            audioSource.PlayOneShot(soundToPlay, volume);
-            Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
+            Debug.LogWarning($"未找到物理音效文件: {actionType}");
+            return;
         }
-        else
-        {
-            Debug.Log($"未找到物理音效文件: {actionType}");
-        }
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.SoundEffectVolume / 100f : 1.0f;
+        audioSource.PlayOneShot(soundToPlay, volume);
+        Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
     }
 }
 

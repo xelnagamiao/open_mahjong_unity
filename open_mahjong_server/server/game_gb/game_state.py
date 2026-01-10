@@ -3,8 +3,9 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
+import hashlib
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
-from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end
+from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end,broadcast_switch_seat
 from .logic_handler import get_index_relative_position
 from .game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
 from ..game_calculation.game_calculation_service import GameCalculationService
@@ -61,7 +62,7 @@ class ChinesePlayer:
         element = tiles_list.pop() # 从牌堆中获取最后一张牌
         self.hand_tiles.append(element)
 
-# 游戏进程类
+        # 游戏进程类
 class ChineseGameState:
     # chinesegamestate负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager):
@@ -93,6 +94,7 @@ class ChineseGameState:
         self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
+        self.room_type = room_data["room_type"] # 房间类型
 
         # 初始化游戏状态
         self.tiles_list = [] # 牌堆
@@ -162,14 +164,16 @@ class ChineseGameState:
             self.tiles_list.extend([tile] * 4)
         self.tiles_list.extend(hua_tiles_set)
         
-        # 基于完整游戏随机种子和当前局数生成小局随机种子（与 init_game_tiles 保持一致）
-        # 公式: (whole_game_random_seed * 1000 + current_round) % (2**32)
-        self.round_random_seed = (self.game_random_seed * 1000 + self.current_round) % (2**32)
+        # 使用 MD5 哈希函数混合全局种子和局数
+        # 公式: MD5(game_random_seed + "_" + current_round) 的前8位十六进制转换为整数，再取模 2^32
+        combined = f"{self.game_random_seed}_{self.current_round}".encode('utf-8')
+        hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
+        self.round_random_seed = hash_value % (2**32)
         random.seed(self.round_random_seed)
         random.shuffle(self.tiles_list)
 
-        # 使用服务器的 Debug 配置
-        from ..server import Debug
+        # 固定起始牌的测试
+        Debug = False
         
         if Debug:
             # 使用测试牌例
@@ -217,6 +221,7 @@ class ChineseGameState:
         # 清空花牌弃牌组合牌列表 重置时间
         self.hu_class = None
         for i in self.player_list:
+            i.hand_tiles = []
             i.huapai_list = []
             i.discard_tiles = []
             i.waiting_tiles = set()
@@ -260,9 +265,8 @@ class ChineseGameState:
                     elif i.original_player_index == 3: # 北起：北西南[东]
                         i.player_index = 0
 
-        # 按照换位后的玩家顺序重新排列player_list
-        for index,player in enumerate[ChinesePlayer](self.player_list):
-            player.player_index = index
+        # 创建一个新的排序列表，按player_index从小到大排列
+        self.player_list.sort(key=lambda x: x.player_index)
 
     async def game_loop_chinese(self):
 
@@ -311,7 +315,6 @@ class ChineseGameState:
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                             # 广播补花操作
-                            logger.debug("buhua")
                             await broadcast_do_action(self,action_list = ["buhua","deal"],
                                                       action_player = self.current_player_index,
                                                       buhua_tile = max_tile,
@@ -528,6 +531,12 @@ class ChineseGameState:
 
             # 开启下一局的准备工作
             self.next_game_round()   
+
+            # 换位
+            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+                await broadcast_switch_seat(self)
+                await asyncio.sleep(5)
+
             logger.info(f"重新开始下一局 game_record={self.game_record}")
             logger.info(f"牌谱：{self.game_record}")
 
@@ -559,9 +568,19 @@ class ChineseGameState:
 
 
     async def wait_action(self):
-        
+
         self.waiting_players_list = [] # [2,3]
         used_time = 0 # 已用时间
+
+        # 清空所有队列，防止上一轮残留的事件影响新一轮
+        for i in range(4):
+            while not self.action_queues[i].empty():
+                try:
+                    self.action_queues[i].get_nowait()
+                    logger.debug(f"清空玩家{i}队列中的残留事件")
+                except:
+                    break
+
         # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
         for player_index, action_list in self.action_dict.items():
             if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
@@ -586,7 +605,7 @@ class ChineseGameState:
             timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
             task_list.append(timer_task)
 
-            logger.debug(f"开始新一轮等待操作 waiting_players_list={self.waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
+            logger.info(f"开始新一轮等待操作 waiting_players_list={self.waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
             
             # 等待计时器完成1s等待或者任意玩家进行操作
             time_start = time.time()
@@ -612,6 +631,10 @@ class ChineseGameState:
                     temp_action_data = await self.action_queues[temp_player_index].get() # 获取操作数据
                     temp_action_type = temp_action_data.get("action_type") # 获取操作类型
 
+                    # 复制字典以避免引用问题
+                    temp_action_data = dict(temp_action_data)
+                    logger.info(f"复制后: temp_player_index={temp_player_index}, temp_action_data={temp_action_data}")
+
                     used_time += time_end - time_start # 服务器计算操作时间
                     used_int_time = int(used_time) # 变量整数时间
                     if used_int_time >= self.step_time: # 扣除玩家超出步时的时间
@@ -629,16 +652,18 @@ class ChineseGameState:
                                 do_interrupt = False
                     
                     # 如果action_data为空，添加action_data
-                    if not action_data: 
-                        action_data = temp_action_data
+                    if not action_data:
+                        action_data = dict(temp_action_data)  # 创建副本
                         action_type = temp_action_type
                         player_index = temp_player_index  # 保存对应的玩家索引
-                    
+                        logger.info(f"设置action_data: player_index={player_index}, action_data={action_data}")
+
                     # 在有人进行操作时，如果操作类型优先级更高，则覆盖上一个玩家的action_data
                     elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
-                        action_data = temp_action_data
+                        action_data = dict(temp_action_data)  # 创建副本
                         action_type = temp_action_type
                         player_index = temp_player_index  # 更新为对应的玩家索引
+                        logger.info(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
 
                     # 如果是最高优先级，中断等待，执行操作
                     if do_interrupt:
@@ -654,7 +679,7 @@ class ChineseGameState:
             for i in self.waiting_players_list:
                 self.player_list[i].remaining_time = 0
 
-        logger.debug(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[self.current_player_index].hand_tiles}")
+        logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[self.current_player_index].hand_tiles}")
         # 情形处理
         match self.game_status:
             # 补花轮特殊case 只有在游戏开始时启用
@@ -681,8 +706,15 @@ class ChineseGameState:
                         is_moqie = action_data.get("cutClass")  # 获取手模切布尔值
                         tile_id = action_data.get("TileId") # 获取切牌id
                         cut_tile_index = action_data.get("cutIndex") # 获取卡牌顺位
-                        self.player_list[self.current_player_index].hand_tiles.remove(tile_id) # 从手牌中移除切牌
-                        self.player_list[self.current_player_index].discard_tiles.append(tile_id) # 将切牌加入弃牌堆
+
+                        # 验证 tile_id 是否有效
+                        if tile_id not in self.player_list[player_index].hand_tiles:
+                            logger.error(f"严重错误：tile_id {tile_id} 不在玩家 {player_index} 的手牌中，action_data={action_data}, hand_tiles={self.player_list[player_index].hand_tiles}")
+                            # 数据污染严重，抛出异常中断游戏
+                            raise ValueError(f"数据污染：tile_id {tile_id} 无效，玩家 {player_index} 手牌: {self.player_list[player_index].hand_tiles}")
+
+                        self.player_list[player_index].hand_tiles.remove(tile_id) # 从手牌中移除切牌
+                        self.player_list[player_index].discard_tiles.append(tile_id) # 将切牌加入弃牌堆
                         # 牌谱记录切牌
                         player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                         # 广播切牌操作
@@ -973,6 +1005,11 @@ class ChineseGameState:
             if player_index not in self.waiting_players_list:
                 logger.warning(f"不是当前玩家的回合, player_index={player_index}, waiting_players_list={self.waiting_players_list}")
                 return
+
+            # 在 waiting_hand_action 状态下，只允许当前玩家操作
+            if self.game_status == "waiting_hand_action" and player_index != self.current_player_index:
+                logger.warning(f"waiting_hand_action 状态下只允许当前玩家操作, current_player_index={self.current_player_index}, player_index={player_index}")
+                return
             
             # 验证操作是否合法（检查操作是否在允许的操作列表中）
             if action_type not in self.action_dict.get(player_index, []):
@@ -981,12 +1018,19 @@ class ChineseGameState:
 
             # 操作合法，将操作数据放入队列
             if action_type == "cut": # 切牌操作
-                await self.action_queues[player_index].put({
+                # 验证切牌的TileId是否在玩家手牌中
+                if TileId not in current_player.hand_tiles:
+                    logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, user_id={user_id}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
+                    return  # 丢弃命令
+                
+                action_data_to_queue = {
                     "action_type": action_type,
                     "cutClass": cutClass,
                     "TileId": TileId,
                     "cutIndex": cutIndex
-                })
+                }
+                logger.info(f"放入队列: player_index={player_index}, action_data={action_data_to_queue}")
+                await self.action_queues[player_index].put(action_data_to_queue)
                 # 设置事件
                 self.action_events[player_index].set()
             else: # 其他指令操作（buhua, angang, jiagang, hu_self, chi_left, chi_mid, chi_right, peng, gang, hu_first, hu_second, hu_third, pass）

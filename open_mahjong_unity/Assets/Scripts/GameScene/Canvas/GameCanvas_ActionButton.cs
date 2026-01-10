@@ -67,7 +67,6 @@ public partial class GameCanvas : MonoBehaviour
                     Text buttonText = angangButton.TextObject;
                     buttonText.text = "暗杠";
                     Debug.Log($"暗杠按钮: {angangButton}");
-                    angangButton.actionTypeList.Add(action_list[i]);
                 }
                 angangButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加暗杠选项: {action_list[i]}");

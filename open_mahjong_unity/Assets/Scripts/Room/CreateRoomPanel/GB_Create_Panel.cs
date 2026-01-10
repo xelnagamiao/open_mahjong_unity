@@ -64,6 +64,7 @@ public class GB_Create_Panel : MonoBehaviour
         if (!config.Validate(out string error, passwordToggle.isOn))
         {
             Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
             return;
         }
 

@@ -1,12 +1,12 @@
 ## 随机种子
 
-为确保游戏的公平性，在每局游戏开始时，服务器都会生成一个全局随机种子（game_random_seed），这个种子贯穿整局游戏的所有小局。当每个小局开始时，系统会根据全局种子和当前局数相加计算出一个局内随机种子（round_random_seed），用于打乱该局的牌堆。
+为确保游戏的公平性，在每局游戏开始时，服务器都会生成一个全局随机种子（game_random_seed），这个种子贯穿整局游戏的所有小局。当每个小局开始时，系统会根据全局种子和当前局数的拼接、计算出一个哈希值取模作为局内随机种子（round_random_seed），用于打乱该局的牌堆。
 
-在进行游戏的过程中，您可以随时在房间显示局数的左上角处使用左键单击，用于查看本局游戏的局内随机种子；在游戏结束时，完整的全局随机种子会出现在结算界面的右下角，也可以在游戏结束以后在牌谱功能中找到该局游戏中的局内、全局的随机种子。
+在进行游戏的过程中，您可以随时在房间显示局数的左上角处使用左键单击，查看本局游戏的局内随机种子；在游戏结束时，完整的全局随机种子会出现在结算界面的右下角，也可以在游戏结束以后在牌谱功能中找到该局游戏中的局内、全局的随机种子。
 
-局内随机种子的计算公式如下：round_random_seed = (game_random_seed * 1000 + round_index) % 4294967296。例如，如果全局种子是1234567890，第1局的局内种子就是1234567890001，第2局就是1234567890002，以此类推。
+局内随机种子的计算公式如下：首先拼接(game_random_seed + "_" + current_round)，得到局内随机种子的原始值。例如，如果全局种子是1234567890，第一局的原始局内种子就是1234567890_1，第二局的原始局内种子就是1234567890_2，通过hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)得到哈希值，再通过self.round_random_seed = hash_value % (2**32)取模就可以得到服务器在对局时提供的种子哈希值。
 
-需要注意的是，在某些游戏过程中，游戏局数和游戏局数的实际索引并不相通，例如日麻东一局的一本场，round_index则为2，而不是1。
+需要注意的是，在某些规则的游戏过程中，游戏局数和游戏局数的实际索引并不相通，例如日麻东一局的一本场，round_index则为2，而不是1。
 
 牌堆的打乱过程使用了Python的random.shuffle()函数。这个函数的工作原理是：首先使用random.seed()设置随机种子，然后对牌堆列表进行Fisher-Yates洗牌算法。具体来说，算法会从后往前遍历牌堆，每次随机选择一个位置（基于种子生成的随机数），然后将当前位置的牌与随机位置的牌交换。这样就能确保相同种子产生相同的牌序，让洗牌过程完全可复现，您可以使用python的random库在以下代码中对随机种子进行验证：
 
@@ -29,7 +29,10 @@ for tile in sth_tiles_set:
     self.tiles_list.extend([tile] * 4)
 self.tiles_list.extend(hua_tiles_set)
 
-# 计算局内随机种子
-self.round_random_seed = (self.game_random_seed * 1000 + self.current_round) % (2**32)
+# 使用 MD5 哈希函数混合全局种子和局数
+# 公式: MD5(game_random_seed + "_" + current_round) 的前8位十六进制转换为整数，再取模 2^32
+combined = f"{self.game_random_seed}_{self.current_round}".encode('utf-8')
+hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
+self.round_random_seed = hash_value % (2**32)
 random.seed(self.round_random_seed)
 random.shuffle(self.tiles_list)
