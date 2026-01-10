@@ -68,6 +68,8 @@ public class GameSceneManager : MonoBehaviour
         player_to_info["right"] = new PlayerInfo();
     }
 
+
+
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         // 0.切换窗口
@@ -85,13 +87,6 @@ public class GameSceneManager : MonoBehaviour
         InitializeSetInfo(gameInfo); // 初始化对局数据
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
-
-        
-
-        // 如果游戏局数为9，则显示换位动画
-        if (gameInfo.current_round == 5 || gameInfo.current_round == 9 || gameInfo.current_round == 13){
-            StartCoroutine(SwitchSeatPanel.Instance.ShowSwitchSeatPanel(gameInfo.current_round,indexToPosition));
-        }
 
         // 初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
         GameCanvas.Instance.ChangeHandCards("InitHandCards",0,gameInfo.self_hand_tiles,null);
@@ -267,7 +262,7 @@ public class GameSceneManager : MonoBehaviour
         SwitchCurrentPlayer(GetCardPlayer,"doAction",0);
     }
 
-    // 回合结束
+    // 回合结束 和牌 流局
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
@@ -281,6 +276,12 @@ public class GameSceneManager : MonoBehaviour
             // 流局情况下，显示流局文本
             EndLiujuPanel.Instance.ShowLiujuPanel();
         }
+    }
+
+    // 执行换位
+    public void HandleSwitchSeat(int current_round){
+        // 显示换位动画
+        StartCoroutine(SwitchSeatPanel.Instance.ShowSwitchSeatPanel(current_round));
     }
 
     // 游戏结束
@@ -470,9 +471,9 @@ public class GameSceneManager : MonoBehaviour
         player_to_info["top"].combination_tiles = new List<string>();
         player_to_info["right"].combination_tiles = new List<string>();
 
-        // 如果gameinfo.username等于自己的username，则设置自身索引为gameinfo.player_index
+        // 如果gameinfo.user_id等于自己的user_id，则设置自身索引为gameinfo.player_index
         foreach (var player in gameInfo.players_info){
-            if (player.username == UserDataManager.Instance.Username){
+            if (player.user_id == UserDataManager.Instance.UserId){
                 selfIndex = player.player_index; // 存储自身索引
                 break;
             }
