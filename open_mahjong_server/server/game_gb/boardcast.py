@@ -1,4 +1,4 @@
-from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data
+from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info
 from typing import List, Dict, Optional
 import logging
 
@@ -19,6 +19,7 @@ async def broadcast_game_start(self):
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
+        'room_type': self.room_type, # 房间类型
         'players_info': [] # ↓玩家信息
     }
     # 为每个玩家准备信息
@@ -62,7 +63,7 @@ async def broadcast_game_start(self):
                 )
                 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                logger.debug(f"已向玩家 {current_player.username} 发送游戏开始信息")
+                logger.info(f"已向玩家 {current_player.username} 发送游戏开始信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -92,7 +93,7 @@ async def broadcast_ask_hand_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    logger.debug(f"已向玩家 {current_player.username} 广播手牌操作信息")
+                    logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
             else:
@@ -112,7 +113,7 @@ async def broadcast_ask_hand_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    logger.debug(f"已向玩家 {current_player.username} 广播手牌操作信息")
+                    logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -142,7 +143,7 @@ async def broadcast_ask_other_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    logger.debug(f"已向玩家 {current_player.username} 广播询问操作信息")
+                    logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
             else:
@@ -161,7 +162,7 @@ async def broadcast_ask_other_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    logger.debug(f"已向玩家 {current_player.username} 广播通用询问操作信息")
+                    logger.info(f"已向玩家 {current_player.username} 广播通用询问操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -208,7 +209,7 @@ async def broadcast_do_action(
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                logger.debug(f"已向玩家 {current_player.username} 广播操作信息")
+                logger.info(f"已向玩家 {current_player.username} 广播操作信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -249,7 +250,7 @@ async def broadcast_result(self,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                logger.debug(f"已向玩家 {current_player.username} 广播结算结果信息")
+                logger.info(f"已向玩家 {current_player.username} 广播结算结果信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -287,9 +288,37 @@ async def broadcast_game_end(self):
                 )
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                logger.debug(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
+                logger.info(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播游戏结束信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
+
+# 广播换位信息
+async def broadcast_switch_seat(self):
+    """广播换位信息"""
+    switch_seat_info = Switch_seat_info(
+        current_round=self.current_round
+    )
+
+    # 为每个玩家发送换位信息
+    for current_player in self.player_list:
+        try:
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+
+                response = Response(
+                    type="switch_seat",
+                    success=True,
+                    message="换位信息",
+                    switch_seat_info=switch_seat_info
+                )
+
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.info(f"已向玩家 {current_player.username} 发送换位信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送换位信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播

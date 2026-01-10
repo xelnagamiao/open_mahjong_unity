@@ -96,8 +96,11 @@ public class ActionButton : MonoBehaviour
                         break;
                     case "angang":
                         // 遍历手牌 如果手牌有4张相同的牌 则添加到提示牌列表
+                        // 使用 HashSet 确保每个 tileID 只处理一次
+                        HashSet<int> processedTileIDs = new HashSet<int>();
                         foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
-                            if (GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                            if (!processedTileIDs.Contains(tileID) && GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                                processedTileIDs.Add(tileID);
                                 List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(angangCards, actionType,tileID);
                             }

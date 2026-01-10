@@ -54,7 +54,7 @@ public class EndGamePanel : MonoBehaviour
             }
         }
         // 显示游戏随机种子
-        gameRandomSeed.text = game_random_seed.ToString();
+        gameRandomSeed.text = "游戏随机种子: " + game_random_seed.ToString();
         // 设置主页按钮点击事件
         goHomeButton.onClick.RemoveAllListeners();
         goHomeButton.onClick.AddListener(OnGoHomeButtonClick);

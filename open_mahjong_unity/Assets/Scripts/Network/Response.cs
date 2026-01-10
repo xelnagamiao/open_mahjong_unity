@@ -101,10 +101,15 @@ public class GameInfo // 游戏开始时传递房间信息
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时
+    public string room_type;            // 房间类型
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 }
 
+public class SwitchSeatInfo // 换位信息
+{
+    public int current_round;           // 当前局数
+}
 public class PlayerRecordInfo // 玩家对局记录信息
 {
     public int user_id;                 // 用户ID
@@ -205,6 +210,7 @@ public class Response // 所有后端的返回数据都由Response类接收
     public DoActionInfo do_action_info; // 国标游戏中执行操作
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
+    public SwitchSeatInfo switch_seat_info; // 国标游戏中换位信息
     public RecordInfo[] record_list; // 返回游戏记录列表
     public PlayerInfoResponse player_info; // 返回玩家信息
     public LoginInfo login_info; // 返回登录信息
