@@ -5,7 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 
 
-public partial class BoardCanvas{
+public partial class BoardCanvas {
     
     public void ShowCurrentPlayer(string currentPlayerIndex){
         // 1. 如果存在旧的闪烁动画，则停止它
@@ -24,16 +24,13 @@ public partial class BoardCanvas{
         if (currentPlayerIndex == "self"){
             player_self_current_image.gameObject.SetActive(true);
             targetImage = player_self_current_image;
-        }
-        else if (currentPlayerIndex == "left"){
+        } else if (currentPlayerIndex == "left"){
             player_left_current_image.gameObject.SetActive(true);
             targetImage = player_left_current_image;
-        }
-        else if (currentPlayerIndex == "top"){
+        } else if (currentPlayerIndex == "top"){
             player_top_current_image.gameObject.SetActive(true);
             targetImage = player_top_current_image;
-        }
-        else if (currentPlayerIndex == "right"){
+        } else if (currentPlayerIndex == "right"){
             player_right_current_image.gameObject.SetActive(true);
             targetImage = player_right_current_image;
         }
@@ -50,13 +47,11 @@ public partial class BoardCanvas{
         remiansTilesText.text = $"余:{GameSceneManager.Instance.remainTiles}";
     }
 
-    private IEnumerator FlashImage(Image image)
-    {
+    private IEnumerator FlashImage(Image image) {
         float cycleDuration = 2.0f; // 每个明暗循环的周期（2秒）
         float elapsedTime = 0f;
         
-        while (true)
-        {
+        while (true) {
             // 闪烁效果
             float progress = (elapsedTime % cycleDuration) / cycleDuration; // 0到1的循环进度
             float pingPongValue = Mathf.PingPong(progress * 2f, 1f); // 0到1之间来回振荡

@@ -5,8 +5,7 @@ using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
 
-public class WindowsManager : MonoBehaviour
-{
+public class WindowsManager : MonoBehaviour {
     [Header("mainCanvas")]
     [SerializeField] private GameObject mainCanvas;
 
@@ -42,25 +41,19 @@ public class WindowsManager : MonoBehaviour
     
     private string currentWindow; // 当前所在窗口状态
     
-    private void Awake()
-    {
-        if (Instance == null)
-        {
+    private void Awake() {
+        if (Instance == null) {
             Instance = this;
-        }
-        else
-        {
+        } else {
             Destroy(gameObject);
         }
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
     }
 
     // 切换窗口
-    public void SwitchWindow(string targetWindow)
-    {
+    public void SwitchWindow(string targetWindow) {
         // 如果在game状态下收到切换到room的请求，直接返回
-        if (currentWindow == "game" && targetWindow == "room")
-        {
+        if (currentWindow == "game" && targetWindow == "room") {
             return;
         }
 
@@ -73,8 +66,7 @@ public class WindowsManager : MonoBehaviour
         noticePanel.SetActive(false);
         aboutUsPanel.SetActive(false);
         roomRoot.SetActive(false);
-        switch (targetWindow)
-        {
+        switch (targetWindow) {
             // login 登录界面
             case "login":
                 gamePanel.SetActive(false);
@@ -125,17 +117,13 @@ public class WindowsManager : MonoBehaviour
     }
 
 
-    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo)
-    {
-        if (success && playerInfo != null)
-        {
+    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo) {
+        if (success && playerInfo != null) {
             // 在 mainCanvas 下创建玩家信息面板
             GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, mainCanvas.transform);
             PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
             playerInfoPanel.ShowPlayerInfo(playerInfo);
-        }
-        else
-        {
+        } else {
             Debug.LogError($"获取玩家信息失败: {message}");
         }
     }

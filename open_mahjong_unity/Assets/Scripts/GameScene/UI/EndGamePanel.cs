@@ -3,13 +3,11 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class EndGamePanel : MonoBehaviour
-{
+public class EndGamePanel : MonoBehaviour {
     [SerializeField] private RankDisplay[] rankDisplays;
 
     [System.Serializable]
-    public class RankDisplay
-    {
+    public class RankDisplay {
         public TextMeshProUGUI username;
         public TextMeshProUGUI score;
         public TextMeshProUGUI rank;
@@ -21,12 +19,10 @@ public class EndGamePanel : MonoBehaviour
 
     public static EndGamePanel Instance { get; private set; }
 
-    private void Awake()
-    {
+    private void Awake() {
         if (Instance == null){
             Instance = this;
-        }
-        else{
+        } else {
             Destroy(gameObject);
         }
     }
@@ -34,16 +30,13 @@ public class EndGamePanel : MonoBehaviour
     // ✅ 参数 key 为 string（用户ID），不排序，按字典当前顺序取前4
     public void ShowGameEndPanel(
         long game_random_seed,
-        Dictionary<string, Dictionary<string, object>> player_final_data)
-    {
+        Dictionary<string, Dictionary<string, object>> player_final_data) {
         gameObject.SetActive(true);
 
         // 直接按字典的枚举顺序取前4个玩家（假设服务器已排好序）
         var enumerator = player_final_data.GetEnumerator();
-        for (int i = 0; i < 4; i++)
-        {
-            if (i < rankDisplays.Length && enumerator.MoveNext())
-            {
+        for (int i = 0; i < 4; i++) {
+            if (i < rankDisplays.Length && enumerator.MoveNext()) {
                 var playerData = enumerator.Current.Value; // 获取当前玩家数据
                 var display = rankDisplays[i]; // 获取视窗列表中的第i个元素
 
@@ -60,8 +53,7 @@ public class EndGamePanel : MonoBehaviour
         goHomeButton.onClick.AddListener(OnGoHomeButtonClick);
     }
 
-    private void OnGoHomeButtonClick()
-    {
+    private void OnGoHomeButtonClick() {
         gameObject.SetActive(false);
         WindowsManager.Instance.SwitchWindow("menu");
     }

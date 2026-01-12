@@ -2,17 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GameRecordManager : MonoBehaviour
-{
+public class GameRecordManager : MonoBehaviour {
     // Start is called before the first frame update
     public static GameRecordManager Instance { get; private set; }
-    private void Awake()
-    {
-        if (Instance == null)
-        {
+    private void Awake(){
+        if (Instance == null) {
             Instance = this;
-        }
-    else{
+        } else {
             Destroy(gameObject);
         }
     }

@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class RoomListPanel : MonoBehaviour
-{
+public class RoomListPanel : MonoBehaviour {
     public static RoomListPanel Instance { get; private set; }
 
     [Header("UI References")]
@@ -26,8 +25,7 @@ public class RoomListPanel : MonoBehaviour
     // GameObject列表 存储当前房间列表 用于CreateRoomList和ClearRoomList
     private List<GameObject> currentRoomItems = new List<GameObject>();
     private string roomId;
-    private void Start()
-    {
+    private void Start() {
         // 初始化按钮监听 1.显示房间面板 2.刷新房间列表 3.加入房间
         createButton.onClick.AddListener(OpenCreatePanel);
         refreshButton.onClick.AddListener(RefreshRoomList);
@@ -37,47 +35,37 @@ public class RoomListPanel : MonoBehaviour
         passwordInputCancel.onClick.AddListener(PasswordInputCancel);
     }
 
-    private void Awake()
-    {
+    private void Awake() {
         // 单例模式 - 在Awake中初始化，确保在Start之前完成
-        if (Instance == null)
-        {
+        if (Instance == null) {
             Instance = this;
 
-        }
-        else if (Instance != this)
-        {
+        } else if (Instance != this) {
             Debug.LogWarning($"发现重复的RoomListPanel实例，销毁新实例: {gameObject.name}");
             Destroy(gameObject);
         }
     }
 
     // 1.点击创建房间按钮 打开房间面板
-    private void OpenCreatePanel()
-    {
+    private void OpenCreatePanel() {
         RoomWindowsManager.Instance.SwitchRoomWindow("createRoom");
         WindowsManager.Instance.SwitchWindow("room");
     }
 
     // 2.点击加入房间按钮 加入房间
-    private void JoinRoom()
-    {
-        if (string.IsNullOrEmpty(RoomIdInput.text))
-        {
+    private void JoinRoom() {
+        if (string.IsNullOrEmpty(RoomIdInput.text)) {
             NotificationManager.Instance.ShowTip("tips",false,"房间ID不能为空");
             return;
-        }
-        else{
+        } else {
             NetworkManager.Instance.JoinRoom(RoomIdInput.text, RoomIdInput.text);
         }
     }
 
     // 3.刷新房间列表 调用NetworkManager的GetRoomList方法
-    public void RefreshRoomList()
-    {
+    public void RefreshRoomList() {
         // ClearRoomList 清空当前列表
-        foreach (var item in currentRoomItems)
-        {
+        foreach (var item in currentRoomItems) {
             Destroy(item);
         }
         // 请求新的房间列表
@@ -86,26 +74,21 @@ public class RoomListPanel : MonoBehaviour
 
     // 4.获取房间列表响应
     public void GetRoomListResponse(bool success, string message, RoomInfo[] room_List){
-        if (!success)
-        {
+        if (!success) {
             Debug.LogError($"获取房间列表失败: {message}");
             return;
         }
 
         // 清理现有房间列表
-        foreach (var item in currentRoomItems)
-        {
+        foreach (var item in currentRoomItems) {
             Destroy(item);
         }
         currentRoomItems.Clear();
 
         // 直接使用 roomList 数组
-        if (room_List != null)
-        {
-            foreach (var roomData in room_List)
-            {
-                if (roomData.room_type == "guobiao")
-                {
+        if (room_List != null) {
+            foreach (var roomData in room_List) {
+                if (roomData.room_type == "guobiao") {
                 // instantiate 是python的实例化语法 将roomItemPrefab实例化 并添加到roomListContent下
                 GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
                 roomItem.SetActive(true);
@@ -133,15 +116,11 @@ public class RoomListPanel : MonoBehaviour
 
     // 接收到房间预制体的加入房间点击事件和预制体的roomid,needPassword
     // 如果需要密码 则打开密码输入面板 并保存roomId 否则直接调用joinRoom
-    public void JoinClicked(string roomId, bool needPassword)
-    {
-        if (needPassword)
-        {
+    public void JoinClicked(string roomId, bool needPassword) {
+        if (needPassword) {
             passwordInputPanel.SetActive(true);
             this.roomId = roomId;
-        }
-        else
-        {
+        } else {
             NetworkManager.Instance.JoinRoom(roomId, "");
         }
     }
@@ -149,10 +128,8 @@ public class RoomListPanel : MonoBehaviour
 
 
     // 密码输入面板点击确认调用joinRoom
-    private void PasswordInputAdmit()
-    {
-        if (string.IsNullOrEmpty(passwordInput.text))
-        {
+    private void PasswordInputAdmit() {
+        if (string.IsNullOrEmpty(passwordInput.text)) {
             Debug.LogError("密码不能为空");
             return;
         }
@@ -160,8 +137,7 @@ public class RoomListPanel : MonoBehaviour
         NetworkManager.Instance.JoinRoom(roomId, passwordInput.text);
     }
     // 密码输入面板点击取消关闭密码输入面板
-    private void PasswordInputCancel()
-    {
+    private void PasswordInputCancel() {
         passwordInputPanel.SetActive(false);
     }
 }

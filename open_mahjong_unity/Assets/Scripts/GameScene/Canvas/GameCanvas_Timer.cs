@@ -2,8 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
-public partial class GameCanvas : MonoBehaviour
-{
+public partial class GameCanvas : MonoBehaviour {
     // 显示倒计时
     public void LoadingRemianTime(int remainingTime, int cuttime){
         // 停止可能正在运行的倒计时协程
@@ -17,8 +16,7 @@ public partial class GameCanvas : MonoBehaviour
         // 设置倒计时初始值
         if (_currentCutTime > 0){
             remianTimeText.text = $"剩余时间: {_currentRemainingTime}+{_currentCutTime}";
-        }
-        else{
+        } else {
             remianTimeText.text = $"剩余时间: {_currentRemainingTime}";
         }
 
@@ -45,17 +43,13 @@ public partial class GameCanvas : MonoBehaviour
             // 更新文本内容
             if (_currentCutTime > 0){
                 remianTimeText.text = $"剩余时间: {_currentRemainingTime}+{_currentCutTime}";
-            }
-            else{
+            } else {
                 remianTimeText.text = $"剩余时间: {_currentRemainingTime}";
             }
             // 决定文本颜色 低于5秒时显示红色
-            if (_currentRemainingTime <= 5 && _currentCutTime <= 0)
-            {
+            if (_currentRemainingTime <= 5 && _currentCutTime <= 0) {
                 remianTimeText.color = Color.red;
-            }
-            else
-            {
+            } else {
                 remianTimeText.color = Color.white;
             }
             // 剩余时间为0 结束协程

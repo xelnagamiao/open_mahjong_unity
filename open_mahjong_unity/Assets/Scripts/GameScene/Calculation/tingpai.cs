@@ -2,11 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public class ChineseTingpaiCheck
-{
+public class ChineseTingpaiCheck {
     // 麻将牌定义：万11-19, 饼21-29, 条31-39, 字牌41-47
-    private static readonly HashSet<int> YaoJiu = new HashSet<int>
-    {
+    private static readonly HashSet<int> YaoJiu = new HashSet<int> {
         11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47
     };
 
@@ -16,8 +14,7 @@ public class ChineseTingpaiCheck
     /// <param name="handTileList">手牌列表，如 {11,11,12,12,13,15,...}</param>
     /// <param name="combinationList">已组成的顺子/刻子（可为空）</param>
     /// <returns>听牌集合（去重）</returns>
-    public static HashSet<int> TingpaiCheck(List<int> handTileList, List<string> combinationList = null)
-    {
+    public static HashSet<int> TingpaiCheck(List<int> handTileList, List<string> combinationList = null) {
         var waitingTiles = new HashSet<int>();
 
         if (combinationList == null)
@@ -28,8 +25,7 @@ public class ChineseTingpaiCheck
         handTiles.Sort();
 
         // 13张牌检查特殊牌型
-        if (handTiles.Count == 13)
-        {
+        if (handTiles.Count == 13) {
             // 国士无双
             GS_Check(handTiles, waitingTiles);
             // 七对子
@@ -48,13 +44,11 @@ public class ChineseTingpaiCheck
         return RemoveInvalidTiles(waitingTiles);
     }
 
-    private static void GS_Check(List<int> handTiles, HashSet<int> waitingTiles)
-    {
+    private static void GS_Check(List<int> handTiles, HashSet<int> waitingTiles) {
         var gsSet = new HashSet<int>();
         bool allYaojiu = true;
 
-        foreach (int tile in handTiles)
-        {
+        foreach (int tile in handTiles) {
             if (YaoJiu.Contains(tile))
                 gsSet.Add(tile);
             else
@@ -63,24 +57,19 @@ public class ChineseTingpaiCheck
 
         if (!allYaojiu) return;
 
-        if (gsSet.Count == 12)
-        {
+        if (gsSet.Count == 12) {
             foreach (int tile in YaoJiu)
                 if (!handTiles.Contains(tile))
                     waitingTiles.Add(tile);
-        }
-        else if (gsSet.Count == 13)
-        {
+        } else if (gsSet.Count == 13) {
             foreach (int tile in YaoJiu)
                 waitingTiles.Add(tile);
         }
     }
 
-    private static void QD_Check(List<int> handTiles, HashSet<int> waitingTiles)
-    {
+    private static void QD_Check(List<int> handTiles, HashSet<int> waitingTiles) {
         var countMap = new Dictionary<int, int>();
-        foreach (int tile in handTiles)
-        {
+        foreach (int tile in handTiles) {
             if (countMap.ContainsKey(tile))
                 countMap[tile]++;
             else
@@ -90,11 +79,9 @@ public class ChineseTingpaiCheck
         int singleCount = 0;
         int waitingTile = -1;
 
-        foreach (var kvp in countMap)
-        {
+        foreach (var kvp in countMap) {
             int count = kvp.Value;
-            if (count == 1 || count == 3)
-            {
+            if (count == 1 || count == 3) {
                 singleCount++;
                 waitingTile = kvp.Key;
             }

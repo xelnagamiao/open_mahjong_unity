@@ -1034,6 +1034,18 @@ class ChineseGameState:
                 # 设置事件
                 self.action_events[player_index].set()
             else: # 其他指令操作（buhua, angang, jiagang, hu_self, chi_left, chi_mid, chi_right, peng, gang, hu_first, hu_second, hu_third, pass）
+                # 验证特殊操作的条件
+                if action_type == "jiagang":
+                    # 加杠验证：要求组合牌中有碰牌形成的刻子
+                    if f"k{target_tile}" not in current_player.combination_tiles:
+                        logger.warning(f"加杠失败：玩家没有碰牌形成的刻子, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}")
+                        return  # 丢弃命令
+                elif action_type == "angang":
+                    # 暗杠验证：要求目标牌在自己手上有4张
+                    tile_count = current_player.hand_tiles.count(target_tile)
+                    if tile_count < 4:
+                        logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
+                        return  # 丢弃命令
                 await self.action_queues[player_index].put({
                     "action_type": action_type,
                     "target_tile": target_tile

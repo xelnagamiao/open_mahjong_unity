@@ -1,9 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public partial class GameCanvas : MonoBehaviour
-{
+public partial class GameCanvas : MonoBehaviour {
     // 显示可用行动按钮
     public void SetActionButton(List<string> action_list){
         // 用于跟踪吃牌按钮
@@ -61,8 +60,7 @@ public partial class GameCanvas : MonoBehaviour
             // 暗杠加杠吃牌可能有多个选择的选项，将这些选项添加入单个按钮。
             // 暗杠
             else if (action_list[i] == "angang"){
-                if (angangButton == null)
-                {
+                if (angangButton == null) {
                     angangButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                     Text buttonText = angangButton.TextObject;
                     buttonText.text = "暗杠";
@@ -73,8 +71,7 @@ public partial class GameCanvas : MonoBehaviour
             }
             // 加杠
             else if (action_list[i] == "jiagang"){
-                if (jiagangButton == null)
-                {
+                if (jiagangButton == null) {
                     jiagangButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                     Text buttonText = jiagangButton.TextObject;
                     buttonText.text = "加杠";
@@ -85,8 +82,7 @@ public partial class GameCanvas : MonoBehaviour
             }
             // 吃牌
             else if (action_list[i] == "chi_left" || action_list[i] == "chi_right" || action_list[i] == "chi_mid"){
-                if (chiButton == null)
-                {
+                if (chiButton == null) {
                     // 第一次遇到吃牌选项时创建按钮
                     chiButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                     Text buttonText = chiButton.TextObject;

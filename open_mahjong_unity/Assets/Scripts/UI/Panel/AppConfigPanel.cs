@@ -4,8 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.IO;
 
-public class AppConfigPanel : MonoBehaviour
-{
+public class AppConfigPanel : MonoBehaviour {
     public static AppConfigPanel Instance;
 
     [Header("音量设置")]
@@ -17,8 +16,7 @@ public class AppConfigPanel : MonoBehaviour
     [Header("桌布设置")]
     [SerializeField] private ConfigBoard configBoard;
 
-    private void Awake()
-    {
+    private void Awake() {
         Instance = this;
         InitializeVolumeManager();
         InitializeTableclothManager();

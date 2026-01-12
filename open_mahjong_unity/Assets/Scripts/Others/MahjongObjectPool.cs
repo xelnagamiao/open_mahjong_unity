@@ -7,8 +7,7 @@ using UnityEngine;
 */
 
 // 麻将牌数字枚举 标准库
-public enum MahjongTileType
-{
+public enum MahjongTileType {
     Wan1 = 11, Wan2 = 12, Wan3 = 13, Wan4 = 14, Wan5 = 15, Wan6 = 16, Wan7 = 17, Wan8 = 18, Wan9 = 19,
     Tiao1 = 21, Tiao2 = 22, Tiao3 = 23, Tiao4 = 24, Tiao5 = 25, Tiao6 = 26, Tiao7 = 27, Tiao8 = 28, Tiao9 = 29,
     Tong1 = 31, Tong2 = 32, Tong3 = 33, Tong4 = 34, Tong5 = 35, Tong6 = 36, Tong7 = 37, Tong8 = 38, Tong9 = 39,
@@ -17,50 +16,40 @@ public enum MahjongTileType
 }
 
 // 麻将牌数字枚举 国标拓展
-public enum MahjongTileType_extend_GB
-{
+public enum MahjongTileType_extend_GB {
     chun = 51, xia = 52, qiu = 53, dong = 54,
     mei = 55, lan = 56, zhu = 57, jian = 58,
 }
 
-public class MahjongObjectPool : MonoBehaviour
-{
+public class MahjongObjectPool : MonoBehaviour {
     public static MahjongObjectPool Instance;
 
     [SerializeField] GameObject tile3DPrefab;
 
     // 不同规则使用的牌面映射
-    public Dictionary<string, string> MahjongTileType_mapping = new Dictionary<string, string>
-    {
+    public Dictionary<string, string> MahjongTileType_mapping = new Dictionary<string, string> {
         {"GB","CardFaceMaterial_xuefun"},
     };
     // 对象池
     private Dictionary<int, Queue<GameObject>> poolDictionary;
 
-    private void Awake()
-    {
-        if (Instance == null)
-        {
+    private void Awake() {
+        if (Instance == null) {
             Instance = this;
             // 初始化对象池
             poolDictionary = new Dictionary<int, Queue<GameObject>>();
-        }
-        else
-        {
+        } else {
             Destroy(gameObject);
         }
     }
 
-    public void InitializePool(string rule)
-    {
+    public void InitializePool(string rule) {
         string useMaterial = MahjongTileType_mapping[rule];
-        foreach (MahjongTileType tile in System.Enum.GetValues(typeof(MahjongTileType)))
-        {
+        foreach (MahjongTileType tile in System.Enum.GetValues(typeof(MahjongTileType))) {
             // 初始化对象池
             int tileId = (int)tile;
             Queue<GameObject> objectPool = new Queue<GameObject>();
-            for (int i = 0; i < 4; i++)
-            {
+            for (int i = 0; i < 4; i++) {
                 GameObject obj = Instantiate(tile3DPrefab);
                 obj.SetActive(false);
                 obj.transform.SetParent(transform); // 作为子对象管理
@@ -68,8 +57,7 @@ public class MahjongObjectPool : MonoBehaviour
             }
             poolDictionary[tileId] = objectPool;
         }
-        foreach (MahjongTileType_extend_GB tile in System.Enum.GetValues(typeof(MahjongTileType_extend_GB)))
-        {
+        foreach (MahjongTileType_extend_GB tile in System.Enum.GetValues(typeof(MahjongTileType_extend_GB))) {
             int tileId = (int)tile;
             Queue<GameObject> objectPool = new Queue<GameObject>();
             GameObject obj = Instantiate(tile3DPrefab);
@@ -83,16 +71,13 @@ public class MahjongObjectPool : MonoBehaviour
     /// <summary>
     /// 从池中取出一张指定类型的牌
     /// </summary>
-    public GameObject Spawn(int type, Vector3 position, Quaternion rotation)
-    {
-        if (!poolDictionary.ContainsKey(type))
-        {
+    public GameObject Spawn(int type, Vector3 position, Quaternion rotation) {
+        if (!poolDictionary.ContainsKey(type)) {
             Debug.LogError("牌型不存在于对象池中: " + type);
             return null;
         }
 
-        if (poolDictionary[type].Count == 0)
-        {
+        if (poolDictionary[type].Count == 0) {
             Debug.LogWarning("牌池中已无可用对象，建议预加载更多或动态扩容: " + type);
             return null; // 可在此扩展：动态 Instantiate
         }
@@ -118,10 +103,8 @@ public class MahjongObjectPool : MonoBehaviour
     /// <summary>
     /// 将牌归还到池中
     /// </summary>
-    public void Return(int type, GameObject tile)
-    {
-        if (!poolDictionary.ContainsKey(type))
-        {
+    public void Return(int type, GameObject tile) {
+        if (!poolDictionary.ContainsKey(type)) {
             Debug.LogError("无法归还：牌型不存在于池中 " + type);
             Destroy(tile);
             return;

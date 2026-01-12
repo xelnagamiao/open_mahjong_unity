@@ -1,12 +1,11 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Linq;
 
 
-public class ActionButton : MonoBehaviour
-{
+public class ActionButton : MonoBehaviour {
     [SerializeField] private GameObject ActionBlockPrefab; // 次级按钮选择块
     [SerializeField] private GameObject StaticCardPrefab; // 静态牌预制体(包含在多种结果显示中的图像)
     // 通过 GameCanvas 单例获取 ActionBlockContenter，不再需要 SerializeField
@@ -16,18 +15,15 @@ public class ActionButton : MonoBehaviour
     
     public List<string> actionTypeList = new List<string>(); // 动作类型列表 同一个按钮可能有多个行动 例如 chi_left,chi_right,chi_mid
     
-    public Text TextObject
-    {
-        get
-        {
+    public Text TextObject {
+        get {
             if (textObject == null)
                 textObject = GetComponentInChildren<Text>();
             return textObject;
         }
     }
     
-    void Start()
-    {
+    void Start() {
         if (textObject == null)
             textObject = GetComponentInChildren<Text>();
         // 按钮点击事件
@@ -46,11 +42,9 @@ public class ActionButton : MonoBehaviour
             string currentButtonType = "None";
             if (actionTypeList.Contains("chi_left") || actionTypeList.Contains("chi_right") || actionTypeList.Contains("chi_mid")){
                 currentButtonType = "chi";
-            }
-            else if (actionTypeList.Contains("angang")){
+            } else if (actionTypeList.Contains("angang")){
                 currentButtonType = "angang";
-            }
-            else if (actionTypeList.Contains("jiagang")){
+            } else if (actionTypeList.Contains("jiagang")){
                 currentButtonType = "jiagang";
             }
             
@@ -70,7 +64,7 @@ public class ActionButton : MonoBehaviour
                     return;
                 }
                 // 如果点击的是不同类型的按钮，则切换状态继续执行
-                else{
+                else {
                     GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
                 }
             }
@@ -78,7 +72,7 @@ public class ActionButton : MonoBehaviour
             // 根据按钮里的多种吃牌情况创建分支块
             foreach (string actionType in actionTypeList){
                 List<int> TipsCardsList = new List<int>(); // 为每个case创建独立的列表
-                switch (actionType){
+                switch (actionType) {
                     case "chi_left": 
                         TipsCardsList.Add(lastCutTile-2);
                         TipsCardsList.Add(lastCutTile-1);
@@ -119,7 +113,7 @@ public class ActionButton : MonoBehaviour
             }
         }
         // 如果动作列表小于等于1 发送行动
-        else{
+        else {
             if (actionTypeList[0] == "jiagang"){
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 int targetTile = 0;
@@ -130,8 +124,7 @@ public class ActionButton : MonoBehaviour
                     }
                 }
                 GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
-            }
-            else if (actionTypeList[0] == "angang"){
+            } else if (actionTypeList[0] == "angang"){
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 int targetTile = 0;
                 foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
@@ -141,8 +134,7 @@ public class ActionButton : MonoBehaviour
                     }
                 }
                 GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
-            }
-            else{
+            } else {
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
             }

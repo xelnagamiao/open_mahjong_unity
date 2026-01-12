@@ -8,19 +8,15 @@ using TMPro;
 
 public partial class GameCanvas{
     // 显示操作文本
-    public void ShowActionDisplay(string playerPosition, string actionType)
-    {
+    public void ShowActionDisplay(string playerPosition, string actionType) {
         Transform displayPos = null;
         if (playerPosition == "self"){
             displayPos = SelfActionDisplayPos;
-        }
-        else if (playerPosition == "left"){
+        } else if (playerPosition == "left"){
             displayPos = LeftActionDisplayPos;
-        }
-        else if (playerPosition == "right"){
+        } else if (playerPosition == "right"){
             displayPos = RightActionDisplayPos;
-        }
-        else if (playerPosition == "top"){
+        } else if (playerPosition == "top"){
             displayPos = TopActionDisplayPos;
         }
         
@@ -31,17 +27,13 @@ public partial class GameCanvas{
         TMP_Text actionText = actionTextObj.GetComponent<TMP_Text>();
         if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             actionText.text = "吃";
-        }
-        else if (actionType == "peng"){
+        } else if (actionType == "peng"){
             actionText.text = "碰";
-        }
-        else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
+        } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
             actionText.text = "杠";
-        }
-        else if (actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
+        } else if (actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             actionText.text = "胡";
-        }
-        else if (actionType == "buhua"){
+        } else if (actionType == "buhua"){
             actionText.text = "补花";
         }
         
@@ -50,8 +42,7 @@ public partial class GameCanvas{
     }
 
     // 渐变消失协程
-    private IEnumerator FadeOutActionDisplay(GameObject actionTextObj,Transform displayPos)
-    {
+    private IEnumerator FadeOutActionDisplay(GameObject actionTextObj,Transform displayPos) {
         if (actionTextObj == null) {
             Debug.LogWarning("actionTextObj is null");
             yield break;
@@ -71,8 +62,7 @@ public partial class GameCanvas{
         float elapsedTime = 0f;
         Color originalColor = actionText.color;
         
-        while (elapsedTime < fadeTime)
-        {
+        while (elapsedTime < fadeTime) {
             if (actionTextObj == null) yield break;
             
             elapsedTime += Time.deltaTime;
@@ -82,8 +72,7 @@ public partial class GameCanvas{
         }
         
         // 销毁对象
-        if (actionTextObj != null)
-        {
+        if (actionTextObj != null) {
             Destroy(actionTextObj);
         }
     }

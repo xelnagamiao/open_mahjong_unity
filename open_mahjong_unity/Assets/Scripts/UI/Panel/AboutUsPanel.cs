@@ -4,11 +4,9 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class AboutUsPanel : MonoBehaviour
-{
+public class AboutUsPanel : MonoBehaviour {
 
-    private void Awake()
-    {
+    private void Awake() {
 
     }
 

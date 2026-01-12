@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class PlayerInfoEntry : MonoBehaviour
-{
+public class PlayerInfoEntry : MonoBehaviour{
 
     [SerializeField] private TMP_Text modeText;
     [SerializeField] private TMP_Text expandText; // 展开/收起文本
@@ -15,12 +14,10 @@ public class PlayerInfoEntry : MonoBehaviour
     private PlayerInfoPanel playerInfoPanel;
     private bool isExpanded = false; // 是否已展开
 
-    private void Start()
-    {
+    private void Start(){
         expandButton.onClick.AddListener(OnExpandButtonClick);
         // 初始化展开/收起文本
-        if (expandText != null)
-        {
+        if (expandText != null){
             expandText.text = "展开";
         }
     }
@@ -85,18 +82,15 @@ public class PlayerInfoEntry : MonoBehaviour
         modeText.text = ShowText;
     }
 
-    private void OnExpandButtonClick()
-    {
+    private void OnExpandButtonClick(){
         // 检查下一个子物体是否存在数据布局组
         int entryIndex = transform.GetSiblingIndex();
         Transform parent = transform.parent;
         bool hasDataLayout = false;
         
-        if (parent != null && entryIndex + 1 < parent.childCount)
-        {
+        if (parent != null && entryIndex + 1 < parent.childCount){
             Transform nextChild = parent.GetChild(entryIndex + 1);
-            if (nextChild.name.Contains("DataLayoutGroup"))
-            {
+            if (nextChild.name.Contains("DataLayoutGroup")){
                 hasDataLayout = true;
             }
         }
@@ -106,8 +100,7 @@ public class PlayerInfoEntry : MonoBehaviour
         
         // 更新展开/收起状态（如果之前有数据布局组，现在应该收起；否则应该展开）
         isExpanded = !hasDataLayout;
-        if (expandText != null)
-        {
+        if (expandText != null){
             expandText.text = isExpanded ? "收起" : "展开";
         }
     }

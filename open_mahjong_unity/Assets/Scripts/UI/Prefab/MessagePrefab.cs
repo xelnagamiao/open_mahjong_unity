@@ -4,8 +4,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class MessagePrefab : MonoBehaviour
-{
+public class MessagePrefab : MonoBehaviour {
     [SerializeField] private TMP_Text HeaderText;
     [SerializeField] private TMP_Text ContentText;
     [SerializeField] private Button YesButton;

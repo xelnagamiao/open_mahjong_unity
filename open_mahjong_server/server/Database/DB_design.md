@@ -7,14 +7,33 @@ PostgreSQL
 - 数据库名: open_mahjong
 - 默认用户: postgres
 
+## 用户ID序列设计
+
+系统使用两个独立的序列来管理用户ID：
+
+1. **tourist_user_id_seq**：游客用户序列
+   - 起始值：9000000
+   - 最大值：9900000
+   - 循环：是（达到最大值后重新开始）
+   - 用途：临时游客账户，可被删除和重用
+
+2. **registered_user_id_seq**：注册用户序列
+   - 起始值：10000001
+   - 递增：1
+   - 无上限
+   - 用途：永久注册账户，user_id 永不重用
+
+> **注意**：users 表的 user_id 默认使用 `registered_user_id_seq`。游客账户在创建时手动指定使用 `tourist_user_id_seq` 的 ID。
+
 ## 数据库表结构
 
 ### users 用户信息表 存储玩家账号信息
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| user_id | BIGSERIAL | PRIMARY KEY | 用户唯一标识，从 10000000 开始自增 |
+| user_id | BIGSERIAL | PRIMARY KEY | 用户唯一标识，注册用户从 10000001 开始自增，游客用户使用 9000000-9900000 范围 |
 | username | VARCHAR(255) | UNIQUE NOT NULL | 用户名，唯一 |
-| password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 SHA256 哈希） |
+| password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 PBKDF2+SHA256，100000 次迭代）。游客账户密码为空字符串 |
+| is_tourist | BOOLEAN | DEFAULT FALSE | 是否为游客账户（游客账户可被删除） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
 ### user_settings 用户设置表
@@ -50,8 +69,8 @@ PostgreSQL
 ### game_player_records 牌谱记录表，用于存储玩家对局记录
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| game_id | BIGINT | PRIMARY KEY, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
-| user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| game_id | BIGINT | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
+| user_id | BIGINT | NOT NULL, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
@@ -59,7 +78,13 @@ PostgreSQL
 | title_used | INT | NULL | 使用的称号ID（可为空） |
 | character_used | INT | NULL | 使用的角色ID（可为空） |
 | profile_used | INT | NULL | 使用的头像ID（可为空） |
-| voice_used | INT | NULL | 使用的音色ID（可为空） | 
+| voice_used | INT | NULL | 使用的音色ID（可为空） |
+| PRIMARY KEY | (game_id, user_id) | 复合主键 | 每个游戏每个玩家一条记录 |
+
+> **级联删除说明**：
+> - 删除 `users` 表中的用户记录时，会级联删除 `game_player_records` 中该用户的所有记录
+> - 删除 `game_records` 表中的牌谱记录时，会级联删除 `game_player_records` 中该游戏的所有玩家记录
+> - 不会删除牌谱数据
 
 ### gb_record_stats 国标麻将对局统计宽表
 
@@ -84,8 +109,6 @@ PostgreSQL
 | fourth_place_count | INT | NOT NULL DEFAULT 0 | 四位次数 |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
-
-> 主键：`(user_id, rule, mode)`，支持一个玩家在不同规则/模式下分别累计数据。
 
 #### 番种统计（与主表合并存储）
 以下字段全部位于 `gb_record_stats` 中，每列都以 `INT NOT NULL DEFAULT 0` 记录对应番种累计出现次数。示例：
@@ -176,9 +199,7 @@ PostgreSQL
 | mingangang | 明暗杠次数 |
 
 
-
-
-### jp_record_stats 立直麻将对局统计宽表
+### jp_record_stats 立直麻将对局统计表
 
 专门用于立直麻将（JP）规则的统计数据，按照 `rule`（规则，如 JP）与 `mode`（模式，如 `1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等）区分不同维度。不同规则的番种统计字段不同，因此需要分开管理。客户端展示排行榜/统计时只需按条件查询该表。
 
@@ -202,6 +223,12 @@ PostgreSQL
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
 
-> 主键：`(user_id, rule, mode)`，支持一个玩家在不同规则/模式下分别累计数据。
-
 #### 等待添加番数统计
+
+### 删除 users 表中的用户记录时，会级联删除以下表中的数据：
+
+1. **user_settings** - 该用户的设置记录
+2. **user_config** - 该用户的配置记录
+3. **gb_record_stats** - 该用户的国标麻将统计数据
+4. **jp_record_stats** - 该用户的立直麻将统计数据
+5. **game_player_records** - 该用户参与的所有对局记录

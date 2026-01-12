@@ -2,48 +2,39 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SoundManager : MonoBehaviour
-{
+public class SoundManager : MonoBehaviour {
     public static SoundManager Instance { get; private set; }
     
     [Header("音效配置")]
     [SerializeField] private AudioSource audioSource; // 环境音效播放器
     
     // 音色ID到文件路径的映射字典
-    private Dictionary<int, string> voiceIdToPath = new Dictionary<int, string>
-    {
+    private Dictionary<int, string> voiceIdToPath = new Dictionary<int, string> {
         { 1, "ttsmaker_204_xiaoxiao" },
         { 2, "ttsmaker_1513_qiuqiu" }
     };
     
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
         Instance = this;
         
         // 如果没有AudioSource，自动添加一个
-        if (audioSource == null)
-        {
+        if (audioSource == null) {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
     }
     
     
     // 播放操作音效的方法
-    public void PlayActionSound(string playerPosition,string actionType)
-    {
+    public void PlayActionSound(string playerPosition,string actionType) {
         // 根据玩家位置获取对应玩家的音色ID
         int voiceId = 1; // 默认音色ID
-        if (GameSceneManager.Instance != null && GameSceneManager.Instance.player_to_info.ContainsKey(playerPosition))
-        {
+        if (GameSceneManager.Instance != null && GameSceneManager.Instance.player_to_info.ContainsKey(playerPosition)) {
             voiceId = GameSceneManager.Instance.player_to_info[playerPosition].voice_used;
-        }
-        else if (UserDataManager.Instance != null)
-        {
+        } else if (UserDataManager.Instance != null) {
             // 如果无法从GameSceneManager获取，则使用用户设置的音色ID作为后备
             voiceId = UserDataManager.Instance.VoiceId;
         }
@@ -54,34 +45,26 @@ public class SoundManager : MonoBehaviour
 
         if (actionType == "hu_self"){
             audioTarget = $"Sound/{voicePath}/zimo";
-        }
-        else if (actionType == "buhua"){
+        } else if (actionType == "buhua"){
             audioTarget = $"Sound/{voicePath}/buhua";
-        }
-        else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
+        } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             audioTarget = $"Sound/{voicePath}/dianhe";
-        }
-        else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
+        } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             audioTarget = $"Sound/{voicePath}/chi";
-        }
-        else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
+        } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
             audioTarget = $"Sound/{voicePath}/gang";
-        }
-        else {
+        } else {
             Debug.LogWarning($"未找到音效文件: {actionType}");
             return;
         }
         
         AudioClip soundToPlay = Resources.Load<AudioClip>(audioTarget);
         
-        if (soundToPlay != null)
-        {
+        if (soundToPlay != null) {
             float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
             Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 音量: {volume}");
-        }
-        else
-        {
+        } else {
             Debug.LogWarning($"未找到音效文件: {audioTarget}");
         }
     }
@@ -90,13 +73,11 @@ public class SoundManager : MonoBehaviour
 
         if (actionType == "cut"){
             actionType = "SFX_UI_Click_Organic_Plastic_Select_2";
-        }
-        else{
+        } else {
             return;
         }
         AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + actionType);
-        if (soundToPlay == null)
-        {
+        if (soundToPlay == null) {
             Debug.LogWarning($"未找到物理音效文件: {actionType}");
             return;
         }

@@ -3,8 +3,7 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using TMPro;
 
-public class GB_Create_Panel : MonoBehaviour
-{
+public class GB_Create_Panel : MonoBehaviour {
     [Header("UI Elements")]
     [SerializeField] private Toggle gameTime1Button; // 打一圈
     [SerializeField] private Toggle gameTime2Button; // 打两圈
@@ -19,8 +18,7 @@ public class GB_Create_Panel : MonoBehaviour
     [SerializeField] private Button closeButton; // 关闭按钮
     [SerializeField] private Button createButton; // 创建按钮
 
-    private void Start()
-    {
+    private void Start() {
         // ClosePanel 方法关闭面板
         closeButton.onClick.AddListener(ClosePanel);
         // CreateRoom 方法创建房间
@@ -41,16 +39,13 @@ public class GB_Create_Panel : MonoBehaviour
     }
 
     // 关闭面板
-    private void ClosePanel()
-    {
+    private void ClosePanel() {
         WindowsManager.Instance.SwitchWindow("menu");
     }
 
     // 创建房间
-    private void CreateRoom()
-    {
-        var config = new GB_Create_RoomConfig
-        {
+    private void CreateRoom() {
+        var config = new GB_Create_RoomConfig {
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
@@ -61,8 +56,7 @@ public class GB_Create_Panel : MonoBehaviour
         };
 
         // 验证配置
-        if (!config.Validate(out string error, passwordToggle.isOn))
-        {
+        if (!config.Validate(out string error, passwordToggle.isOn)) {
             Debug.LogWarning(error);
             NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
             return;
@@ -72,8 +66,7 @@ public class GB_Create_Panel : MonoBehaviour
         NetworkManager.Instance.Create_GB_Room(config);
     }
 
-    private int GetSelectedGameTime()
-    {
+    private int GetSelectedGameTime() {
         if (gameTime1Button.isOn) return 1;
         if (gameTime2Button.isOn) return 2;
         if (gameTime3Button.isOn) return 3;
@@ -81,8 +74,7 @@ public class GB_Create_Panel : MonoBehaviour
         return 1; // 默认返回1
     }
 
-    private int GetSelectedRoundTimer()
-    {
+    private int GetSelectedRoundTimer() {
         switch (roundTimer.value){
             case 0: return 5;
             case 1: return 10;
@@ -105,14 +97,12 @@ public class GB_Create_Panel : MonoBehaviour
     }
 
     // 创建房间响应
-    private void CreateRoomResponse(bool success, string message)
-    {
+    private void CreateRoomResponse(bool success, string message) {
         Debug.Log($"创建房间响应: {success}, {message}");
     }
 
     // 处理密码开关状态改变
-    private void TogglePassword(bool isOn)
-    {
+    private void TogglePassword(bool isOn) {
         passwordInput.gameObject.SetActive(isOn);
     }
 }

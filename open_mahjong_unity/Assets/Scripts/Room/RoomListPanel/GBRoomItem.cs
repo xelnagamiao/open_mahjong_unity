@@ -6,8 +6,7 @@ using TMPro; // Added TMPro namespace
 // RoomItem 的作用是通过SetRoomInfo方法设置房间信息，并保存自己的房间号
 // 监听JoinClick的事件，如果发生事件返回RoomPanel包含自己房间id的joinRoom调用
 
-public class GBRoomItem : MonoBehaviour
-{
+public class GBRoomItem : MonoBehaviour {
 
     [SerializeField] private TMP_Text roomName; // 房间名
     [SerializeField] private TMP_Text hostName; // 房主名
@@ -19,8 +18,7 @@ public class GBRoomItem : MonoBehaviour
     [SerializeField] private TMP_Text playRule; // 规则
     [SerializeField] private TMP_Text gameStatus; // 游戏状态（是否正在运行）
 
-    private void Start()
-    {
+    private void Start() {
         // 监听房间元素的点击按钮事件
         joinButton.onClick.AddListener(JoinClick);
     }
@@ -29,8 +27,7 @@ public class GBRoomItem : MonoBehaviour
     private bool needPassword; // 是否有密码
 
     // SetRoomInfo 会在RoomPanel的HandleRoomListResponse中调用
-    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning)
-    {
+    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning) {
         this.roomId = roomId; // 保存房间号,在JoinClick中返回上一级
         
         this.roomID.text = $"房间号:{roomId}";
@@ -41,38 +38,32 @@ public class GBRoomItem : MonoBehaviour
         // 显示游戏圈数
         if (gameTime == 1){
             this.gameRound.text = $"东风战";
-        }
-        else if(gameTime == 2){
+        } else if(gameTime == 2){
             this.gameRound.text = $"东南战";
-        }
-        else if(gameTime == 3){
+        } else if(gameTime == 3){
             this.gameRound.text = $"西南战";
-        }
-        else if(gameTime == 4){
+        } else if(gameTime == 4){
             this.gameRound.text = $"全庄战";
         }
         
         // 显示规则
         if (room_type == "guobiao"){
             this.playRule.text = $"规则：国标";
-        }
-        else{
+        } else {
             this.playRule.text = $"规则：未知";
         }
         
         // 显示游戏状态
         if (isGameRunning){
             this.gameStatus.text = "游戏中";
-        }
-        else{
+        } else {
             this.gameStatus.text = "等待中";
         }
 
         // 显示是否有密码
         if(hasPassword){
             this.hasPassword.text = $"密码：有";
-        }
-        else{
+        } else {
             this.hasPassword.text = $"密码：无";
         }
 
@@ -83,8 +74,7 @@ public class GBRoomItem : MonoBehaviour
     public event System.Action<string, bool> JoinClicked;  
 
     // 点击加入按钮时，触发JoinClicked事件
-    private void JoinClick()
-    {
+    private void JoinClick() {
         JoinClicked?.Invoke(roomId, needPassword);  // 触发事件
     }
 

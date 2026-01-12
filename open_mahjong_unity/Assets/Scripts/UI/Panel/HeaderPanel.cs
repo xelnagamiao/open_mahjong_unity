@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class HeaderPanel : MonoBehaviour
-{
+public class HeaderPanel : MonoBehaviour {
     public static HeaderPanel Instance { get; private set; }
 
     [SerializeField] private Button MenuButton;
@@ -17,10 +16,8 @@ public class HeaderPanel : MonoBehaviour
 
     private Button currentSelectedButton; // 当前选中的按钮
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
@@ -28,8 +25,7 @@ public class HeaderPanel : MonoBehaviour
     }
 
     // Start is called before the first frame update
-    void Start()
-    {
+    void Start() {
         RoomButton.onClick.AddListener(Room);
         RecordButton.onClick.AddListener(Record);
         playerDataButton.onClick.AddListener(PlayerInfo);
@@ -69,18 +65,15 @@ public class HeaderPanel : MonoBehaviour
     }
 
     // 更新按钮选中状态
-    public void UpdateButtonState(string windowName)
-    {
+    public void UpdateButtonState(string windowName) {
         // 取消之前选中按钮的状态
-        if (currentSelectedButton != null)
-        {
+        if (currentSelectedButton != null) {
             currentSelectedButton.OnDeselect(null);
         }
 
         // 根据窗口名称选择对应的按钮
         Button targetButton = null;
-        switch (windowName)
-        {
+        switch (windowName) {
             case "menu":
                 targetButton = MenuButton;
                 break;
@@ -110,8 +103,7 @@ public class HeaderPanel : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update()
-    {
+    void Update() {
         
     }
 }
