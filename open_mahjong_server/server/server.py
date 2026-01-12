@@ -25,11 +25,14 @@ if Debug:
 else:
     from .local_config import Config
 
+# 确保 logs 目录存在
+os.makedirs("logs", exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        RotatingFileHandler("app.log", maxBytes=5*1024*1024, backupCount=25, encoding='utf-8'),
+        RotatingFileHandler("logs/app.log", maxBytes=5*1024*1024, backupCount=25, encoding='utf-8'),
         logging.StreamHandler() if Config.logging_do_stream_handler == True else None
     ]
 )
@@ -696,12 +699,3 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
         user_settings=user_settings,
         user_config=user_config
     )
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "server:app",
-        host="localhost",
-        port=8081,
-        reload= True
-    ) 
