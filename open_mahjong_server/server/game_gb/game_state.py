@@ -272,7 +272,7 @@ class ChineseGameState:
 
         # 房间初始化 打乱玩家顺序
         # 测试时不打乱玩家顺序
-        # random.shuffle(self.player_list)
+        random.shuffle(self.player_list)
 
         # 根据打乱的玩家顺序设置玩家索引
         for index, player in enumerate(self.player_list):

@@ -25,6 +25,10 @@ open_mahjong_unity/*.opendb
 
 # 服务器项目：只忽略不需要的文件和目录
 open_mahjong_server/* 
+# 保留依赖和配置文件
+!open_mahjong_server/requirements.txt
+
+# 保留 server 目录
 !open_mahjong_server/server/
 open_mahjong_server/server/__pycache__/*
 open_mahjong_server/server/error_log/*
