@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class ChatPanel : MonoBehaviour
-{
+public class ChatPanel : MonoBehaviour {
     [SerializeField] private GameObject ThisChatPanel; // 当前聊天面板
     [SerializeField] private Button SendButton; // 发送按钮
     [SerializeField] private TMP_InputField MessageInputField; // 输入框
@@ -31,8 +30,7 @@ public class ChatPanel : MonoBehaviour
         HideScrollbar();
         HideScrollView();
 
-        if (Instance != null && Instance != this)
-        {
+        if (Instance != null && Instance != this) {
             Debug.Log($"Destroying duplicate ChatPanel. Existing: {Instance}, New: {this}");
             Destroy(gameObject);
             return;
@@ -42,11 +40,9 @@ public class ChatPanel : MonoBehaviour
 
     private void Update(){
         // 检测鼠标左键点击
-        if (Input.GetMouseButtonDown(0) && isScrollbarVisible)
-        {
+        if (Input.GetMouseButtonDown(0) && isScrollbarVisible) {
             // 检查点击位置是否在面板外
-            if (!IsPointerOverPanel())
-            {
+            if (!IsPointerOverPanel()) {
                 HideScrollbar();
                 HideScrollView();
             }
@@ -69,8 +65,7 @@ public class ChatPanel : MonoBehaviour
 
     // 发送按钮点击事件
     private void OnSendButtonClick(){
-        if (MessageInputField != null && !string.IsNullOrEmpty(MessageInputField.text))
-        {
+        if (MessageInputField != null && !string.IsNullOrEmpty(MessageInputField.text)) {
             SendChatMessage(MessageInputField.text);
         }
     }
@@ -85,17 +80,14 @@ public class ChatPanel : MonoBehaviour
 
         if (SwitchSendTarget.value == 0){
             targetChannelId = 0; // 大厅id
-        }
-        else if (SwitchSendTarget.value == 1){
+        } else if (SwitchSendTarget.value == 1){
             if (UserDataManager.Instance != null && UserDataManager.Instance.RoomId != ""){
                 targetChannelId = int.Parse(UserDataManager.Instance.RoomId); // 房间id
-            }
-            else{
+            } else {
                 ShowChatMessage("False", 0, "未进入房间,无法在房间中发送消息");
                 return;
             }
-        }
-        else{
+        } else {
             Debug.LogError("未选择发送目标,无法发送消息");
             return;
         }
@@ -104,8 +96,7 @@ public class ChatPanel : MonoBehaviour
         ChatManager.Instance.SendChatMessage(message, targetChannelId);
         
         // 清空输入框并重新激活焦点，保持输入框选中状态
-        if (MessageInputField != null)
-        {
+        if (MessageInputField != null) {
             MessageInputField.text = "";
             // 延迟一帧后重新激活输入框，确保焦点保持
             StartCoroutine(ReactivateInputFieldCoroutine());
@@ -125,15 +116,15 @@ public class ChatPanel : MonoBehaviour
 
         if (responseType == "Chat"){ // 聊天消息
             color = Color.white;
-        }else if (responseType == "False"){ // 错误消息
+        } else if (responseType == "False"){ // 错误消息
             color = Color.red;
-        }else if (responseType == "Tips"){ // 提示消息
+        } else if (responseType == "Tips"){ // 提示消息
             color = Color.blue;
-        }else if (responseType == "Sercet"){ // 私聊消息
+        } else if (responseType == "Sercet"){ // 私聊消息
             color = Color.green;
-        }else if (responseType == "serverMessage"){ // 服务器消息
+        } else if (responseType == "serverMessage"){ // 服务器消息
             color = Color.magenta;
-        }else{ // 未知消息类型
+        } else { // 未知消息类型
             content = $"未知的消息类型: {responseType}";
             Debug.LogError($"未知的消息类型: {responseType}");
             color = Color.red;
@@ -141,17 +132,15 @@ public class ChatPanel : MonoBehaviour
 
         if (roomId == 0){
             title = "[大厅]";
-        }else{
+        } else {
             title = $"[房间{roomId}]";
         }
 
         // 检查消息数量，如果超过限制则删除最早的消息
-        if (ChatTextContainer.transform.childCount >= MAX_MESSAGE_COUNT)
-        {
+        if (ChatTextContainer.transform.childCount >= MAX_MESSAGE_COUNT) {
             // 删除最早的消息（第一个子对象）
             Transform firstChild = ChatTextContainer.transform.GetChild(0);
-            if (firstChild != null)
-            {
+            if (firstChild != null) {
                 Destroy(firstChild.gameObject);
             }
         }
@@ -171,16 +160,14 @@ public class ChatPanel : MonoBehaviour
         Canvas.ForceUpdateCanvases();
         yield return null; // 等待一帧，确保布局系统完成更新
         
-        if (ScrollRect != null)
-        {
+        if (ScrollRect != null) {
             ScrollRect.verticalNormalizedPosition = 0f;
         }
         
         // 再等待一帧，确保滚动已完成
         yield return null;
         // 再次设置以确保滚动到底部
-        if (ScrollRect != null)
-        {
+        if (ScrollRect != null) {
             ScrollRect.verticalNormalizedPosition = 0f;
         }
     }
@@ -188,8 +175,7 @@ public class ChatPanel : MonoBehaviour
     // 重新激活输入框焦点的协程
     private IEnumerator ReactivateInputFieldCoroutine(){
         yield return null; // 等待一帧
-        if (MessageInputField != null)
-        {
+        if (MessageInputField != null) {
             MessageInputField.ActivateInputField(); // 重新激活输入框焦点
         }
     }
@@ -246,33 +232,25 @@ public class ChatPanel : MonoBehaviour
     private void SetChildrenAlpha(float alpha){
         if (ChatTextContainer == null) return;
 
-        foreach (Transform child in ChatTextContainer.transform)
-        {
+        foreach (Transform child in ChatTextContainer.transform) {
             // 优先使用 ChatTextItem 的 SetAlpha 方法（如果存在）
             ChatTextItem chatTextItem = child.GetComponent<ChatTextItem>();
-            if (chatTextItem != null)
-            {
+            if (chatTextItem != null) {
                 // 使用 ChatTextItem 的 SetAlpha 方法，它会停止协程并设置透明度
                 chatTextItem.SetAlpha(alpha);
-            }
-            else
-            {
+            } else {
                 // 如果没有 ChatTextItem 组件，直接处理
                 // 停止所有协程（包括渐隐协程）
                 MonoBehaviour childMonoBehaviour = child.GetComponent<MonoBehaviour>();
-                if (childMonoBehaviour != null)
-                {
+                if (childMonoBehaviour != null) {
                     childMonoBehaviour.StopAllCoroutines();
                 }
 
                 // 直接设置CanvasGroup透明度
                 CanvasGroup canvasGroup = child.GetComponent<CanvasGroup>();
-                if (canvasGroup != null)
-                {
+                if (canvasGroup != null) {
                     canvasGroup.alpha = alpha;
-                }
-                else
-                {
+                } else {
                     // 如果没有CanvasGroup，添加一个
                     canvasGroup = child.gameObject.AddComponent<CanvasGroup>();
                     canvasGroup.alpha = alpha;

@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-public class RecordPanel : MonoBehaviour
-{
+public class RecordPanel : MonoBehaviour {
     // 单例模式
 
     public static RecordPanel Instance { get; private set; }
@@ -14,54 +13,43 @@ public class RecordPanel : MonoBehaviour
 
     [SerializeField] private Button BackMenuButton;
 
-    private void Awake()
-    {
-        if (Instance == null)
-        {
+    private void Awake() {
+        if (Instance == null) {
             Instance = this;
-        }
-        else
-        {
+        } else {
             Destroy(gameObject);
             return;
         }
         BackMenuButton.onClick.AddListener(BackMenu);
     }
 
-    private void BackMenu()
-    {
+    private void BackMenu() {
         WindowsManager.Instance.SwitchWindow("menu");
     }
 
     /// <summary>
     /// 处理获取记录列表的响应
     /// </summary>
-    public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList)
-    {
-        if (!success)
-        {
+    public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList) {
+        if (!success) {
             Debug.LogError($"获取记录列表失败: {message}");
             return;
         }
 
-        if (recordList == null || recordList.Length == 0)
-        {
+        if (recordList == null || recordList.Length == 0) {
             Debug.Log("没有游戏记录");
             return;
         }
 
         // 清空现有记录项
-        foreach (Transform child in dropdownContentTransform)
-        {
+        foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
         }
 
         // 为每条记录创建 RecordItem
-        foreach (var record in recordList)
-        {
+        foreach (var record in recordList) {
             // 检查玩家信息是否有效
-            if (record.players == null || record.players.Length == 0)
-            {
+            if (record.players == null || record.players.Length == 0) {
                 Debug.LogWarning($"游戏 {record.game_id} 没有玩家信息，跳过");
                 continue;
             }
@@ -114,16 +102,13 @@ public class RecordPanel : MonoBehaviour
     /// 加载游戏记录
     /// </summary>
     /// <param name="recordJson">游戏记录的 JSON 字符串</param>
-    public void LoadRecord(string recordJson)
-    {
-        if (string.IsNullOrEmpty(recordJson))
-        {
+    public void LoadRecord(string recordJson) {
+        if (string.IsNullOrEmpty(recordJson)) {
             Debug.LogError("游戏记录 JSON 字符串为空");
             return;
         }
 
-        try
-        {
+        try {
             // 解析 JSON 字符串
             // 注意：Unity 的 JsonUtility 不能直接解析 Dictionary<string, object>
             // 如果需要解析复杂结构，可以使用 SimpleJSON 或其他 JSON 库
@@ -132,9 +117,7 @@ public class RecordPanel : MonoBehaviour
             // TODO: 实现具体的记录加载逻辑
             // 例如：解析 JSON，恢复游戏状态，显示回放界面等
             
-        }
-        catch (System.Exception e)
-        {
+        } catch (System.Exception e) {
             Debug.LogError($"加载游戏记录失败: {e.Message}");
         }
     }

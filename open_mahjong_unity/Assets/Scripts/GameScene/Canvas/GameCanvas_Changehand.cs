@@ -214,8 +214,7 @@ public partial class GameCanvas{
         if (!needsAnimation){
             Debug.Log($"手牌位置无需调整，跳过动画");
             yield break;
-        }
-        else{
+        } else {
             // 执行动画
             List<RectTransform> cards = new List<RectTransform>(currentPositions.Keys);
             List<Vector2> targetPosList = new List<Vector2>();

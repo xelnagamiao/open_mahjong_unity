@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Threading.Tasks;
 
-public class Game3DManager : MonoBehaviour
-{
+public class Game3DManager : MonoBehaviour {
     [SerializeField] private GameObject tile3DPrefab;    // 3D预制体
     [Header("3D位置面板")]
     [SerializeField] private PosPanel3D selfPosPanel;    // 自家位置面板
@@ -45,10 +44,8 @@ public class Game3DManager : MonoBehaviour
     private bool isChange3DTileProcessing = false;
 
     public static Game3DManager Instance { get; private set; }
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }

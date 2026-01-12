@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -8,8 +8,7 @@ using System.Linq;
 
 
 
-public class GameSceneManager : MonoBehaviour
-{
+public class GameSceneManager : MonoBehaviour{
     public static GameSceneManager Instance { get; private set; }
 
     // 玩家位置信息 int[0,1,2,3] → string[self,left,top,right]
@@ -54,10 +53,8 @@ public class GameSceneManager : MonoBehaviour
         public int voice_used;      // 使用的音色ID
     }
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
@@ -99,6 +96,26 @@ public class GameSceneManager : MonoBehaviour
 
         // 初始化他人手牌区域
         Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
+
+        // 重置自动操作选项（保留自动切牌和自动理牌）
+        ResetAutoActionOptions();
+    }
+
+    // 重置自动操作选项（保留自动切牌和自动理牌）
+    private void ResetAutoActionOptions(){
+        // 重置除了自动切牌和自动理牌以外的选项
+        isAutoHepai = false;   // 自动胡牌
+        isAutoPass = false;    // 自动过牌
+        isAutoCut = false;   // 自动出牌
+
+        // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的当前值
+        // isAutoBuhua - 自动补花
+        // isAutoArrangeHandCards - 自动排列手牌
+
+        // 更新 AutoAction 显示
+        if (AutoAction.Instance != null){
+            AutoAction.Instance.RefreshDisplay();
+        }
     }
 
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
@@ -425,18 +442,14 @@ public class GameSceneManager : MonoBehaviour
                 if (isAutoCut){
                     yield return new WaitForSeconds(0.3f);
                     // 自动出牌 选择手牌中最近摸到的牌（列表的最后一张）
-                    if (selfHandTiles != null && selfHandTiles.Count > 0)
-                    {
+                    if (selfHandTiles != null && selfHandTiles.Count > 0) {
                         int lastTileId = selfHandTiles[selfHandTiles.Count - 1];
                         // 查找对应的 TileCard 并触发点击（优先摸切，否则手切）
                         bool success = GameCanvas.Instance.TriggerTileCardClick(lastTileId);
-                        if (!success)
-                        {
+                        if (!success) {
                             Debug.LogWarning($"自动出牌失败：无法找到牌ID {lastTileId} 对应的 TileCard");
                         }
-                    }
-                    else
-                    {
+                    } else {
                         Debug.LogWarning("自动出牌失败：手牌列表为空");
                     }
                 }
@@ -485,37 +498,30 @@ public class GameSceneManager : MonoBehaviour
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
         selfHandTiles = gameInfo.self_hand_tiles.ToList(); // 存储手牌列表
         // 根据自身索引确定其他玩家位置
-        if (selfIndex == 0)
-        {
+        if (selfIndex == 0) {
             indexToPosition[0] = "self";
             indexToPosition[1] = "right";
             indexToPosition[2] = "top";
             indexToPosition[3] = "left";
-        }
-        else if (selfIndex == 1)
-        {
+        } else if (selfIndex == 1) {
             indexToPosition[1] = "self";
             indexToPosition[2] = "right";
             indexToPosition[3] = "top";
             indexToPosition[0] = "left";
-        }
-        else if (selfIndex == 2)
-        {
+        } else if (selfIndex == 2) {
             indexToPosition[2] = "self";
             indexToPosition[3] = "right";
             indexToPosition[0] = "top";
             indexToPosition[1] = "left";
             
-        }
-        else if (selfIndex == 3)
-        {
+        } else if (selfIndex == 3) {
             indexToPosition[3] = "self";
             indexToPosition[0] = "right";
             indexToPosition[1] = "top";
             indexToPosition[2] = "left";
         }
         foreach (var player in gameInfo.players_info){
-            if (indexToPosition[player.player_index] == "self"){ // 通过player_index确定玩家位置
+            if (indexToPosition[player.player_index] == "self") { // 通过player_index确定玩家位置
                 player_to_info["self"].username = player.username; // 存储用户名
                 player_to_info["self"].userId = player.user_id; // 存储uid
                 player_to_info["self"].score = player.score; // 存储分数
@@ -528,8 +534,7 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["self"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["self"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["self"].voice_used = player.voice_used; // 存储使用的音色ID
-            }
-            else if (indexToPosition[player.player_index] == "right"){
+            } else if (indexToPosition[player.player_index] == "right") {
                 player_to_info["right"].username = player.username; // 存储用户名
                 player_to_info["right"].score = player.score; // 存储分数
                 player_to_info["right"].userId = player.user_id; // 存储uid
@@ -541,8 +546,7 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["right"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["right"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["right"].voice_used = player.voice_used; // 存储使用的音色ID
-            }
-            else if (indexToPosition[player.player_index] == "top"){
+            } else if (indexToPosition[player.player_index] == "top") {
                 player_to_info["top"].username = player.username; // 存储用户名
                 player_to_info["top"].score = player.score; // 存储分数
                 player_to_info["top"].userId = player.user_id; // 存储uid
@@ -554,8 +558,7 @@ public class GameSceneManager : MonoBehaviour
                 player_to_info["top"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["top"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["top"].voice_used = player.voice_used; // 存储使用的音色ID
-            }
-            else if (indexToPosition[player.player_index] == "left"){
+            } else if (indexToPosition[player.player_index] == "left") {
                 player_to_info["left"].username = player.username; // 存储用户名
                 player_to_info["left"].score = player.score; // 存储分数
                 player_to_info["left"].userId = player.user_id; // 存储uid

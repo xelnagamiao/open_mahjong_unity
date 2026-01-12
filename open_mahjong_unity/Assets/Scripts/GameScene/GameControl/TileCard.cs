@@ -8,8 +8,7 @@ using UnityEngine.UI;
 /// ├── TileImage (Image组件)
 /// └── TileButton (Button组件)
 /// </summary>
-public class TileCard : MonoBehaviour
-{
+public class TileCard : MonoBehaviour {
     [Header("UI Components")]
     [SerializeField] private Image tileImage;    // 牌面图片组件
     [SerializeField] private Button tileButton;  // 按钮组件
@@ -27,8 +26,7 @@ public class TileCard : MonoBehaviour
     /// <summary>
     /// 设置牌面图片
     /// </summary>
-    public void SetTile(int id,bool isCurrentGetTile)
-    {
+    public void SetTile(int id,bool isCurrentGetTile) {
         tileId = id;
         currentGetTile = isCurrentGetTile;
         
@@ -36,12 +34,9 @@ public class TileCard : MonoBehaviour
         string path = $"image/CardFaceImage_xuefun/{id}";
         Sprite sprite = Resources.Load<Sprite>(path);
         
-        if (sprite != null)
-        {
+        if (sprite != null) {
             tileImage.sprite = sprite;
-        }
-        else
-        {
+        } else {
             Debug.LogError($"找不到牌面图片: {path}");
         }
     }
@@ -54,8 +49,7 @@ public class TileCard : MonoBehaviour
         if (GameSceneManager.Instance.allowActionList.Contains("cut")){
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex,UserDataManager.Instance.RoomId); // 发送切牌请求
-            }
-        else{
+        } else {
             Debug.Log("没有权限出牌");
         }
     }
@@ -63,8 +57,7 @@ public class TileCard : MonoBehaviour
     /// <summary>
     /// 公共方法：触发出牌（用于自动出牌功能）
     /// </summary>
-    public void TriggerClick()
-    {
+    public void TriggerClick() {
         OnTileClick();
     }
 

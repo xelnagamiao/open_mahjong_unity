@@ -4,8 +4,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class NotificationManager : MonoBehaviour
-{
+public class NotificationManager : MonoBehaviour {
     public static NotificationManager Instance { get; private set; }
     
     [Header("Tips 配置")]
@@ -23,10 +22,8 @@ public class NotificationManager : MonoBehaviour
     [SerializeField] private GameObject messagePosition;
     [SerializeField] private MessagePrefab messagePrefab;        // Message 预制体
     
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Debug.Log($"Destroying duplicate NotificationManager. Existing: {Instance}, New: {this}");
             Destroy(gameObject);
             return;
@@ -41,8 +38,7 @@ public class NotificationManager : MonoBehaviour
     /// <param name="isSuccess">是否成功（决定颜色）</param>
     /// <param name="message">显示内容</param>
     /// <param name="duration">自定义显示时长，传入 &lt;=0 则使用默认值</param>
-    public void ShowTip(string type, bool isSuccess, string message, float duration = -1f)
-    {
+    public void ShowTip(string type, bool isSuccess, string message, float duration = -1f) {
 
         Transform parent = tipsPosition.transform;
         TipsPrefab tipInstance = Instantiate(tipsPrefab, parent.position, parent.rotation, parent);
@@ -58,10 +54,8 @@ public class NotificationManager : MonoBehaviour
     /// <param name="header">标题</param>
     /// <param name="content">内容</param>
     /// <returns>实例化的 MessagePrefab</returns>
-    public MessagePrefab ShowMessage(string header, string content)
-    {
-        if (messagePrefab == null)
-        {
+    public MessagePrefab ShowMessage(string header, string content) {
+        if (messagePrefab == null) {
             Debug.LogError("NotificationManager: MessagePrefab 未设置！");
             return null;
         }
@@ -78,42 +72,32 @@ public class NotificationManager : MonoBehaviour
     /// <param name="success">是否成功获取玩家信息</param>
     /// <param name="message">消息内容</param>
     /// <param name="playerInfo">玩家信息响应数据</param>
-    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo)
-    {
-        if (playerInfoPanelPrefab == null)
-        {
+    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo) {
+        if (playerInfoPanelPrefab == null) {
             Debug.LogError("NotificationManager: PlayerInfoPanelPrefab 未设置！");
             return;
         }
 
-        if (success && playerInfo != null)
-        {
+        if (success && playerInfo != null) {
             // 在 playerInfoPosition 下创建玩家信息面板
             Transform parent = playerInfoPosition != null ? playerInfoPosition.transform : transform;
             GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
             PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
-            if (playerInfoPanel != null)
-            {
+            if (playerInfoPanel != null) {
                 playerInfoPanel.ShowPlayerInfo(playerInfo);
-            }
-            else
-            {
+            } else {
                 Debug.LogError("NotificationManager: PlayerInfoPanel 组件未找到！");
             }
-        }
-        else
-        {
+        } else {
             Debug.LogError($"获取玩家信息失败: {message}");
             ShowTip("错误", false, $"获取玩家信息失败: {message}");
         }
     }
     
     // tips销毁协程
-    private IEnumerator DestroyTipAfterDelay(GameObject tipInstance, float delay)
-    {
+    private IEnumerator DestroyTipAfterDelay(GameObject tipInstance, float delay) {
         yield return new WaitForSeconds(delay);
-        if (tipInstance != null)
-        {
+        if (tipInstance != null) {
             Destroy(tipInstance);
         }
     }

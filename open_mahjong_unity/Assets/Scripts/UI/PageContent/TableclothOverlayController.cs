@@ -1,8 +1,7 @@
 using UnityEngine;
 using System.IO;
 
-public class TableclothOverlayController : MonoBehaviour
-{
+public class TableclothOverlayController : MonoBehaviour {
     [SerializeField] private MeshRenderer meshRenderer; // 目标MeshRenderer组件
     [SerializeField] private Texture2D defaultTableclothTexture; // 默认桌布纹理
     [SerializeField] private Texture2D overlayTexture; // 覆盖纹理（带透明通道的基础纹理）
@@ -16,8 +15,7 @@ public class TableclothOverlayController : MonoBehaviour
     private static readonly int TableclothTexID = Shader.PropertyToID("_TableclothTex"); // 桌布纹理属性ID
     private static readonly int OverlayTexID = Shader.PropertyToID("_OverlayTex"); // 覆盖纹理属性ID
 
-    private void Awake()
-    {
+    private void Awake() {
         RefreshTablecloth(); // 刷新桌布
         Debug.Log("桌布渲染成功");
     }
@@ -34,11 +32,9 @@ public class TableclothOverlayController : MonoBehaviour
         string customPath = PlayerPrefs.GetString(TABLECLOTH_PATH_KEY, "");
         if (!string.IsNullOrEmpty(customPath) && File.Exists(customPath)){
             tableclothTexture = LoadTextureFromFile(customPath);
-        }
-        else if (defaultTableclothTexture != null){
+        } else if (defaultTableclothTexture != null){
             tableclothTexture = defaultTableclothTexture;
-        }
-        else{
+        } else {
             Debug.LogError("没有找到桌布纹理");
             return;
         }
@@ -53,24 +49,20 @@ public class TableclothOverlayController : MonoBehaviour
             byte[] fileData = File.ReadAllBytes(filePath);
             Texture2D texture = new Texture2D(2, 2);
             
-            if (ImageConversion.LoadImage(texture, fileData))
-            {
+            if (ImageConversion.LoadImage(texture, fileData)) {
                 return texture;
             }
             
             Destroy(texture);
             return null;
-        }
-        catch (System.Exception e)
-        {
+        } catch (System.Exception e) {
             Debug.LogError($"加载纹理文件时出错: {filePath}, 错误: {e.Message}");
             return null;
         }
     }
 
     // 获取桌布保存的完整目录路径
-    public static string GetTableclothDirectory()
-    {
+    public static string GetTableclothDirectory() {
         return Path.Combine(Application.persistentDataPath, TABLECLOTH_DIR);
     }
 }

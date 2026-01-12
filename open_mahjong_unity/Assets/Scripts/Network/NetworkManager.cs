@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Events;
 using System;
 using System.Threading.Tasks;
@@ -14,8 +14,7 @@ using System.Collections;
 [Serializable]
 public class GameEvent : UnityEvent<bool, string> {} // 标准通知类
 
-public class NetworkManager : MonoBehaviour
-{
+public class NetworkManager : MonoBehaviour {
 
     public static NetworkManager Instance { get; private set; }
     private WebSocket websocket; // 定义websocket
@@ -108,22 +107,18 @@ public class NetworkManager : MonoBehaviour
     // 网络管理器实例在 Update 中处理消息队列
     private void Update(){
         // 处理消息队列
-        if (messageQueue.Count > 0)
-        {
+        if (messageQueue.Count > 0) {
             byte[] message;
-            lock(messageQueue)
-            {
+            lock(messageQueue) {
                 message = messageQueue.Dequeue();
             }
             Get_Message(message);
         }
         
         // 处理主线程调度器
-        if (mainThreadActions.Count > 0)
-        {
+        if (mainThreadActions.Count > 0) {
             Action action;
-            lock(mainThreadActions)
-            {
+            lock(mainThreadActions) {
                 action = mainThreadActions.Dequeue();
             }
             action?.Invoke();
@@ -132,16 +127,14 @@ public class NetworkManager : MonoBehaviour
 
     // 主线程调度器方法
     private void ExecuteOnMainThread(Action action){
-        lock(mainThreadActions)
-        {
+        lock(mainThreadActions) {
             mainThreadActions.Enqueue(action);
         }
     }
 
     // 处理登录响应
     private void HandleLoginResponse(Response response){
-        if (response.success)
-        {
+        if (response.success) {
             WindowsManager.Instance.SwitchWindow("menu");
             // 请求房间列表
             GetRoomList();
@@ -152,8 +145,7 @@ public class NetworkManager : MonoBehaviour
                 response.login_info.user_id
             );
             // 保存用户信息
-            if (response.user_settings != null)
-            {
+            if (response.user_settings != null) {
                 UserDataManager.Instance.SetUserSettings(
                     response.user_settings.title_id,
                     response.user_settings.profile_image_id,
@@ -161,8 +153,7 @@ public class NetworkManager : MonoBehaviour
                     response.user_settings.voice_id
                 );
             }
-            if (response.user_config != null)
-            {
+            if (response.user_config != null) {
                 ConfigManager.Instance.SetUserConfig(response.user_config.volume);
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
@@ -172,11 +163,9 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 启动服务器统计信息协程（每30秒获取一次）
-    private void StartServerStatsCoroutine()
-    {
+    private void StartServerStatsCoroutine() {
         // 如果已有协程在运行，先停止它
-        if (serverStatsCoroutine != null)
-        {
+        if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
         }
         // 立即获取一次统计信息
@@ -186,20 +175,16 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 服务器统计信息更新协程
-    private IEnumerator ServerStatsUpdateCoroutine()
-    {
-        while (true)
-        {
+    private IEnumerator ServerStatsUpdateCoroutine() {
+        while (true) {
             yield return new WaitForSeconds(30f); // 等待30秒
             GetServerStats();
         }
     }
 
     // 显示服务器统计信息（简化版，直接使用服务器返回的数据）
-    private void DisplayServerStats(ServerStatsInfo stats)
-    {
-        if (stats != null)
-        {
+    private void DisplayServerStats(ServerStatsInfo stats) {
+        if (stats != null) {
             MeunPanel.Instance.DisplayServerStats(stats.online_players, stats.waiting_rooms, stats.playing_rooms);
         }
     }
@@ -246,8 +231,7 @@ public class NetworkManager : MonoBehaviour
                     break;
                 case "leave_room":
                     Debug.Log($"离开房间响应: {response.success}, {response.message}");
-                    if (response.success)
-                    {
+                    if (response.success) {
                         UserDataManager.Instance.SetRoomId("");
                         NotificationManager.Instance.ShowTip("leave_room",true,"离开房间成功");
                     }
@@ -338,12 +322,9 @@ public class NetworkManager : MonoBehaviour
 
                 case "message":
                     // 处理服务端发送的消息（版本不匹配、账户被顶替等）
-                    if (response.message_info != null)
-                    {
+                    if (response.message_info != null) {
                         NotificationManager.Instance.ShowMessage(response.message_info.title, response.message_info.content);
-                    }
-                    else
-                    {
+                    } else {
                         // 兼容处理：如果没有 message_info，使用 message 作为内容
                         NotificationManager.Instance.ShowMessage("系统提示", response.message);
                     }
@@ -365,10 +346,8 @@ public class NetworkManager : MonoBehaviour
 
     // 发送发布版版本号
     public void SendReleaseVersion(){
-        try
-        {
-            var request = new SendReleaseVersionRequest
-            {
+        try {
+            var request = new SendReleaseVersionRequest {
                 type = "send_release_version",
                 release_version = ConfigManager.releaseVersion
             };
@@ -385,17 +364,14 @@ public class NetworkManager : MonoBehaviour
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
     public void Login(string username, string password, bool is_tourist = false){
-        try
-        {
-            if (websocket.ReadyState != WebSocketState.Open)
-            {
+        try {
+            if (websocket.ReadyState != WebSocketState.Open) {
                 NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
                 LoginPanel.Instance.ResetLoginButton();
                 return;
             }
             // 如果网络连接成功，则发送登录消息
-            var request = new LoginRequest
-            {
+            var request = new LoginRequest {
                 type = "login",
                 username = is_tourist ? null : username,  // 游客登录时username为null
                 password = is_tourist ? null : password,  // 游客登录时password为null
@@ -403,9 +379,7 @@ public class NetworkManager : MonoBehaviour
             };
             Debug.Log($"发送登录消息: username={(is_tourist ? "null" : username)}, password={(is_tourist ? "null" : "***")}, is_tourist={is_tourist}");
             websocket.Send(JsonConvert.SerializeObject(request));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             Debug.LogError($"登录发送错误: {e.Message}");
             NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
             LoginPanel.Instance.ResetLoginButton();
@@ -414,10 +388,8 @@ public class NetworkManager : MonoBehaviour
 
     // 4.2 创建房间方法 CreateRoom 从CreatePanel发送
     public void Create_GB_Room(GB_Create_RoomConfig config){
-        try
-        {
-            var request = new CreateGBRoomRequest
-            {
+        try {
+            var request = new CreateGBRoomRequest {
                 type = "create_GB_room",
                 rule = config.Rule,
                 roomname = config.RoomName,
@@ -429,33 +401,25 @@ public class NetworkManager : MonoBehaviour
             };
             Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}");
             websocket.Send(JsonConvert.SerializeObject(request));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             CreateRoomResponse.Invoke(false, e.Message);
         }
     }   
     // 4.3 获取房间列表方法 get_room_list 从RoomPanel发送
     public void GetRoomList(){
-        try
-        {
-            var request = new GetRoomListRequest
-            {
+        try {
+            var request = new GetRoomListRequest {
                 type = "get_room_list"
             };
             Debug.Log($"发送获取房间列表消息{request.type}");
             websocket.Send(JsonConvert.SerializeObject(request));
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             RoomListPanel.Instance.GetRoomListResponse(false, e.Message, null);
         }
     }
     // 4.4 加入房间方法 JoinRoom 从RoomItem发送
-    public void JoinRoom(string roomId, string password)
-    {
-        var request = new JoinRoomRequest
-        {
+    public void JoinRoom(string roomId, string password) {
+        var request = new JoinRoomRequest {
             type = "join_room",
             room_id = roomId,
             password = password
@@ -465,8 +429,7 @@ public class NetworkManager : MonoBehaviour
     }
     // 4.5 离开房间方法 LeaveRoom 从RoomPanel发送
     public void LeaveRoom(string roomId){
-        var request = new LeaveRoomRequest
-        {
+        var request = new LeaveRoomRequest {
             type = "leave_room",
             room_id = roomId
         };
@@ -474,8 +437,7 @@ public class NetworkManager : MonoBehaviour
     }
     // 4.6 开始游戏方法 StartGame 从RoomPanel发送
     public void StartGame(string roomId){
-        var request = new StartGameRequest
-        {
+        var request = new StartGameRequest {
             type = "start_game",
             room_id = roomId
         };
@@ -484,8 +446,7 @@ public class NetworkManager : MonoBehaviour
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
     public void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
-        var request = new SendChineseGameTileRequest
-        {
+        var request = new SendChineseGameTileRequest {
             type = "CutTiles",
             cutClass = cutClass,
             TileId = tileId,
@@ -495,10 +456,8 @@ public class NetworkManager : MonoBehaviour
         websocket.Send(JsonConvert.SerializeObject(request));
     }
     // 4.8 发送吃碰杠回应
-    public void SendAction(string action,int targetTile)
-    {
-        var request = new SendActionRequest
-        {
+    public void SendAction(string action,int targetTile) {
+        var request = new SendActionRequest {
             type = "send_action",
             room_id = UserDataManager.Instance.RoomId,
             action = action,
@@ -508,20 +467,16 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 4.9 获取游戏记录方法 GetRecordList 从mainpanel调用发送
-    public void GetRecordList()
-    {
-        var request = new GetRecordListRequest
-        {
+    public void GetRecordList() {
+        var request = new GetRecordListRequest {
             type = "get_record_list"
         };
         websocket.Send(JsonConvert.SerializeObject(request));
     }
 
     // 4.10 查询玩家信息方法 GetPlayerInfo 从PlayerPanel发送
-    public void GetPlayerInfo(string userid)
-    {
-        var request = new GetPlayerInfoRequest
-        {
+    public void GetPlayerInfo(string userid) {
+        var request = new GetPlayerInfoRequest {
             type = "get_player_info",
             userid = userid
         };
@@ -529,12 +484,9 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 4.11 游客登录方法 TouristLogin 从LoginPanel发送
-    public void TouristLogin()
-    {
-        try
-        {
-            if (websocket.ReadyState != WebSocketState.Open)
-            {
+    public void TouristLogin() {
+        try {
+            if (websocket.ReadyState != WebSocketState.Open) {
                 NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
                 return;
             }
@@ -549,12 +501,9 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 4.12 获取服务器统计信息方法 GetServerStats
-    public void GetServerStats()
-    {
-        try
-        {
-            if (websocket.ReadyState != WebSocketState.Open)
-            {
+    public void GetServerStats() {
+        try {
+            if (websocket.ReadyState != WebSocketState.Open) {
                 return; // 连接未建立时不发送请求
             }
             var request = new GetServerStatsRequest
@@ -571,11 +520,9 @@ public class NetworkManager : MonoBehaviour
 
 
 
-    private void OnApplicationQuit()
-    {
+    private void OnApplicationQuit() {
         // 停止服务器统计信息协程
-        if (serverStatsCoroutine != null)
-        {
+        if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
             serverStatsCoroutine = null;
         }

@@ -515,26 +515,26 @@ class DatabaseManager:
             cursor = conn.cursor()
 
             # 检查用户是否存在且为游客账户
-            cursor.execute("SELECT is_tourist FROM users WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT is_tourist, password FROM users WHERE user_id = %s", (user_id,))
             user = cursor.fetchone()
 
+            # 检查用户是否存在
             if user is None:
                 logger.warning(f'用户不存在 user_id={user_id}')
                 return False
 
-            if not user[0]:  # is_tourist 为 False
+            # 检查用户是否游客
+            is_tourist, stored_password = user
+            if not is_tourist:  # is_tourist 为 False
                 logger.warning(f'拒绝删除：用户不是游客账户 user_id={user_id}, username={username}')
                 return False
-            
-            # 验证密码是否为空（游客账户密码应该为空字符串的哈希值）
-            stored_password = user.get('password', '')
-            # 空密码经过哈希后应该是一个有效的哈希格式，但我们可以通过验证空密码来确认
-            # 如果密码哈希为空字符串的哈希，则验证通过
+
+            # 如果密码哈希为空字符串，则可以删除
             if stored_password and not self.verify_password("", stored_password):
                 logger.warning(f'拒绝删除：游客账户密码不为空 user_id={user_id}, username={username}')
                 return False
             
-            # 确认是游客账户且密码为空，执行删除
+            # 执行删除
             cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
             conn.commit()
             deleted_count = cursor.rowcount

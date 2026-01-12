@@ -5,11 +5,9 @@ using TMPro;
 using UnityEngine.UI;
 
 
-public class PlayerInfoPanel : MonoBehaviour
-{
+public class PlayerInfoPanel : MonoBehaviour{
     // 番种英文到中文的翻译字典
-    private static Dictionary<string, string> fanTranslationDict = new Dictionary<string, string>
-    {
+    private static Dictionary<string, string> fanTranslationDict = new Dictionary<string, string>{
         {"dasixi", "大四喜"},
         {"dasanyuan", "大三元"},
         {"lvyise", "绿一色"},
@@ -123,12 +121,10 @@ public class PlayerInfoPanel : MonoBehaviour
     private PlayerStatsInfo OtherTotalStats;
 
     // Start is called before the first frame update
-    void Start()
-    {
+    void Start(){
         copyUseridButton.onClick.AddListener(OnCopyUseridButtonClick);
         
-        if (closeButton != null)
-        {
+        if (closeButton != null){
             closeButton.onClick.AddListener(OnCloseButtonClick);
         }
 
@@ -139,10 +135,8 @@ public class PlayerInfoPanel : MonoBehaviour
 
 
     // 显示玩家信息
-    public void ShowPlayerInfo(PlayerInfoResponse playerInfo)
-    {
-        if (playerInfo == null)
-        {
+    public void ShowPlayerInfo(PlayerInfoResponse playerInfo){
+        if (playerInfo == null){
             Debug.LogError("PlayerInfoResponse 为 null");
             return;
         }
@@ -176,8 +170,7 @@ public class PlayerInfoPanel : MonoBehaviour
     }
 
     // 切换规则
-    private void OnSwitchRuleButtonClick(string rule)
-    {
+    private void OnSwitchRuleButtonClick(string rule){
         // 
         if (rule == "Other"){
             if (OtherTotalStats == null){
@@ -215,8 +208,7 @@ public class PlayerInfoPanel : MonoBehaviour
         }
 
         // 显示分支模式条目
-        foreach (var stat in statsToShow)
-        {
+        foreach (var stat in statsToShow){
             GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
             PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
             playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
@@ -232,19 +224,15 @@ public class PlayerInfoPanel : MonoBehaviour
     }
     
     // 清空容器
-    private void ClearRecordEntryContainer()
-    {
-        foreach (Transform child in RecordEntryContainer)
-        {
+    private void ClearRecordEntryContainer(){
+        foreach (Transform child in RecordEntryContainer){
             Destroy(child.gameObject);
         }
     }
     
     // 创建汇总统计数据（将所有模式的统计数据相加）
-    private PlayerStatsInfo CreateTotalStats(PlayerStatsInfo[] statsArray, string rule)
-    {
-        PlayerStatsInfo totalStats = new PlayerStatsInfo
-        {
+    private PlayerStatsInfo CreateTotalStats(PlayerStatsInfo[] statsArray, string rule){
+        PlayerStatsInfo totalStats = new PlayerStatsInfo{
             rule = rule,
             mode = "总计",
             total_games = 0,
@@ -280,16 +268,12 @@ public class PlayerInfoPanel : MonoBehaviour
             totalStats.fourth_place_count = (totalStats.fourth_place_count ?? 0) + (stat.fourth_place_count ?? 0);
             
             // 汇总番种统计数据
-            if (stat.fan_stats != null)
-            {
-                foreach (var fanPair in stat.fan_stats)
-                {
-                    if (totalStats.fan_stats.ContainsKey(fanPair.Key))
-                    {
+            if (stat.fan_stats != null){
+                foreach (var fanPair in stat.fan_stats){
+                    if (totalStats.fan_stats.ContainsKey(fanPair.Key)){
                         totalStats.fan_stats[fanPair.Key] += fanPair.Value;
                     }
-                    else
-                    {
+                    else{
                         totalStats.fan_stats[fanPair.Key] = fanPair.Value;
                     }
                 }
@@ -308,24 +292,20 @@ public class PlayerInfoPanel : MonoBehaviour
     }
 
     // 关闭按钮点击事件
-    private void OnCloseButtonClick()
-    {
+    private void OnCloseButtonClick(){
         Destroy(gameObject);
     }
 
     // 显示数据
-    public void ShowStatsData(string statsCase, PlayerStatsInfo playerStatsInfo, Transform entryTransform)
-    {
-        if (playerStatsInfo == null || entryTransform == null)
-        {
+    public void ShowStatsData(string statsCase, PlayerStatsInfo playerStatsInfo, Transform entryTransform){
+        if (playerStatsInfo == null || entryTransform == null){
             Debug.LogError("ShowStatsData: playerStatsInfo 或 entryTransform 为 null");
             return;
         }
 
         // 检查是否已经存在数据布局组（避免重复创建）
         int entryIndex = entryTransform.GetSiblingIndex();
-        if (entryIndex + 1 < RecordEntryContainer.childCount)
-        {
+        if (entryIndex + 1 < RecordEntryContainer.childCount){
             Transform nextChild = RecordEntryContainer.GetChild(entryIndex + 1);
             Debug.Log("entryIndex: " + entryIndex);
             Debug.Log("nextChild: " + nextChild.name);
@@ -346,21 +326,18 @@ public class PlayerInfoPanel : MonoBehaviour
         Transform layoutGroupTransform = layoutGroupObject.transform;
         
         // 根据数据类型显示不同的内容
-        if (statsCase == "total" || statsCase == "mode")
-        {
+        if (statsCase == "total" || statsCase == "mode"){
             // 显示对局统计
             ShowGameStats(layoutGroupTransform, playerStatsInfo);
         }
-        else if (statsCase == "fanStats")
-        {
+        else if (statsCase == "fanStats"){
             // 显示番数统计
             ShowFanStats(layoutGroupTransform, playerStatsInfo);
         }
     }
 
     // 显示对局统计数据
-    private void ShowGameStats(Transform parent, PlayerStatsInfo stats)
-    {
+    private void ShowGameStats(Transform parent, PlayerStatsInfo stats){
         if (stats == null) return;
 
         int? totalGames = stats.total_games ?? 0;
@@ -372,146 +349,120 @@ public class PlayerInfoPanel : MonoBehaviour
         List<KeyValuePair<string, string>> gameStatsList = new List<KeyValuePair<string, string>>();
 
         // 总对局数
-        if (stats.total_games.HasValue)
-        {
+        if (stats.total_games.HasValue){
             gameStatsList.Add(new KeyValuePair<string, string>("总对局数", stats.total_games.Value.ToString()));
         }
 
         // 累计回合数
-        if (stats.total_rounds.HasValue)
-        {
+        if (stats.total_rounds.HasValue){
             gameStatsList.Add(new KeyValuePair<string, string>("累计回合数", stats.total_rounds.Value.ToString()));
         }
 
         // 和牌率（和牌次数 / 总小局数）
-        if (stats.win_count.HasValue && totalRounds > 0)
-        {
+        if (stats.win_count.HasValue && totalRounds > 0){
             float winRate = (float)stats.win_count.Value / totalRounds.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("和牌率", $"{winRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("和牌率", "0.00%"));
         }
 
         // 自摸率（自摸次数 / 总小局数）
-        if (stats.self_draw_count.HasValue && totalRounds > 0)
-        {
+        if (stats.self_draw_count.HasValue && totalRounds > 0){
             float selfDrawRate = (float)stats.self_draw_count.Value / totalRounds.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("自摸率", $"{selfDrawRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("自摸率", "0.00%"));
         }
 
         // 放铳率（放铳次数 / 总小局数）
-        if (stats.deal_in_count.HasValue && totalRounds > 0)
-        {
+        if (stats.deal_in_count.HasValue && totalRounds > 0){
             float dealInRate = (float)stats.deal_in_count.Value / totalRounds.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("放铳率", $"{dealInRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("放铳率", "0.00%"));
         }
 
         // 平均和番（累计番数 / 和牌次数）
-        if (stats.total_fan_score.HasValue && winCount > 0)
-        {
+        if (stats.total_fan_score.HasValue && winCount > 0){
             float avgFanScore = (float)stats.total_fan_score.Value / winCount.Value;
             gameStatsList.Add(new KeyValuePair<string, string>("平均和番", $"{avgFanScore:F2}"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("平均和番", "0.00"));
         }
 
         // 平均和巡（累计和巡 / 和牌次数）
-        if (stats.total_win_turn.HasValue && winCount > 0)
-        {
+        if (stats.total_win_turn.HasValue && winCount > 0){
             float avgWinTurn = (float)stats.total_win_turn.Value / winCount.Value;
             gameStatsList.Add(new KeyValuePair<string, string>("平均和巡", $"{avgWinTurn:F2}"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("平均和巡", "0.00"));
         }
 
         // 平均铳番（累计放铳分 / 放铳次数）
-        if (stats.total_fangchong_score.HasValue && dealInCount > 0)
-        {
+        if (stats.total_fangchong_score.HasValue && dealInCount > 0){
             float avgFangchongScore = (float)stats.total_fangchong_score.Value / dealInCount.Value;
             gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", $"{avgFangchongScore:F2}"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", "0.00"));
         }
 
         // 一位率（一位次数 / 总对局数）
-        if (stats.first_place_count.HasValue && totalGames > 0)
-        {
+        if (stats.first_place_count.HasValue && totalGames > 0){
             float firstPlaceRate = (float)stats.first_place_count.Value / totalGames.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("一位率", $"{firstPlaceRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("一位率", "0.00%"));
         }
 
         // 二位率（二位次数 / 总对局数）
-        if (stats.second_place_count.HasValue && totalGames > 0)
-        {
+        if (stats.second_place_count.HasValue && totalGames > 0){
             float secondPlaceRate = (float)stats.second_place_count.Value / totalGames.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("二位率", $"{secondPlaceRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("二位率", "0.00%"));
         }
 
         // 三位率（三位次数 / 总对局数）
-        if (stats.third_place_count.HasValue && totalGames > 0)
-        {
+        if (stats.third_place_count.HasValue && totalGames > 0){
             float thirdPlaceRate = (float)stats.third_place_count.Value / totalGames.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("三位率", $"{thirdPlaceRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("三位率", "0.00%"));
         }
 
         // 四位率（四位次数 / 总对局数）
-        if (stats.fourth_place_count.HasValue && totalGames > 0)
-        {
+        if (stats.fourth_place_count.HasValue && totalGames > 0){
             float fourthPlaceRate = (float)stats.fourth_place_count.Value / totalGames.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("四位率", $"{fourthPlaceRate:F2}%"));
         }
-        else
-        {
+        else{
             gameStatsList.Add(new KeyValuePair<string, string>("四位率", "0.00%"));
         }
 
         // 为每个统计项创建文本预制体
-        foreach (var statPair in gameStatsList)
-        {
+        foreach (var statPair in gameStatsList){
             CreateDataText(parent, statPair.Key, statPair.Value);
         }
     }
 
     // 显示番数统计数据
-    private void ShowFanStats(Transform parent, PlayerStatsInfo stats)
-    {
+    private void ShowFanStats(Transform parent, PlayerStatsInfo stats){
         // 显示所有番种，包括值为0的
-        foreach (var fanPair in fanTranslationDict)
-        {
+        foreach (var fanPair in fanTranslationDict){
             string fanName = fanPair.Value; // 中文名称
             int fanValue = 0;
             
             // 如果统计数据中有该番种，获取其值
-            if (stats != null && stats.fan_stats != null && stats.fan_stats.ContainsKey(fanPair.Key))
-            {
+            if (stats != null && stats.fan_stats != null && stats.fan_stats.ContainsKey(fanPair.Key)){
                 fanValue = stats.fan_stats[fanPair.Key];
             }
             
