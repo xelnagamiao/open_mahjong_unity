@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
-public class SwitchSeatPanel : MonoBehaviour
-{
+public class SwitchSeatPanel : MonoBehaviour {
     public static SwitchSeatPanel Instance { get; private set; }
     [SerializeField] private TMP_Text NextRoundName;
     [SerializeField] private GameObject SelfPos;
@@ -18,10 +17,8 @@ public class SwitchSeatPanel : MonoBehaviour
     [SerializeField] private TMP_Text TopName;
     [SerializeField] private TMP_Text LeftName;
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
@@ -31,8 +28,7 @@ public class SwitchSeatPanel : MonoBehaviour
     private int BackCurrentNum(int num){
         if (num == 0){
             return 3;
-        }
-        else{
+        } else {
             return num - 1;
         }
     }
@@ -59,20 +55,17 @@ public class SwitchSeatPanel : MonoBehaviour
             indexToOriginalPosition[1] = "right";
             indexToOriginalPosition[2] = "top";
             indexToOriginalPosition[3] = "left";
-        }
-        else if (selfNum == 1){
+        } else if (selfNum == 1){
             indexToOriginalPosition[0] = "left";
             indexToOriginalPosition[1] = "self";
             indexToOriginalPosition[2] = "right";
             indexToOriginalPosition[3] = "top";
-        }
-        else if (selfNum == 2){
+        } else if (selfNum == 2){
             indexToOriginalPosition[0] = "top";
             indexToOriginalPosition[1] = "left";
             indexToOriginalPosition[2] = "self";
             indexToOriginalPosition[3] = "right";
-        }
-        else if (selfNum == 3){
+        } else if (selfNum == 3){
             indexToOriginalPosition[0] = "right";
             indexToOriginalPosition[1] = "top";
             indexToOriginalPosition[2] = "left";
@@ -88,8 +81,7 @@ public class SwitchSeatPanel : MonoBehaviour
             indexMapping[1] = 0; // 南->东
             indexMapping[2] = 3; // 西->北
             indexMapping[3] = 2; // 北->西
-        }
-        else if (gameRound == 9){
+        } else if (gameRound == 9){
             // 东位(0)到西位(2)，南位(1)到北位(3)，西位(2)到南位(1)，北位(3)到东位(0)
             indexMapping[0] = 2; // 东->西
             indexMapping[1] = 3; // 南->北
@@ -100,8 +92,7 @@ public class SwitchSeatPanel : MonoBehaviour
         // 计算位置映射：从当前位置到目标位置
         // 这个映射用于告诉动画系统每个UI位置的文本应该移动到哪里
         Dictionary<string, string> positionMapping = new Dictionary<string, string>();
-        foreach (var kvp in indexToOriginalPosition)
-        {
+        foreach (var kvp in indexToOriginalPosition) {
             // indexToOriginalPosition: 原始玩家索引 -> 当前在UI上显示的位置("self", "right", "top", "left")
             int originalIndex = kvp.Key;          // 原始玩家索引(0=东,1=南,2=西,3=北)
             string currentPosition = kvp.Value;   // 当前在UI上显示的位置
@@ -122,11 +113,9 @@ public class SwitchSeatPanel : MonoBehaviour
 
         if (gameRound == 5){
             NextRoundName.text = "东圈=>南圈";
-        }
-        else if (gameRound == 9){
+        } else if (gameRound == 9){
             NextRoundName.text = "南圈=>西圈";
-        }
-        else if (gameRound == 13){
+        } else if (gameRound == 13){
             NextRoundName.text = "西圈=>北圈";
         }
 
@@ -142,13 +131,11 @@ public class SwitchSeatPanel : MonoBehaviour
     }
 
     // 执行换位动画
-    private IEnumerator PerformSwitchAnimation(Dictionary<string, string> positionMapping)
-    {
+    private IEnumerator PerformSwitchAnimation(Dictionary<string, string> positionMapping) {
         // 收集所有需要移动的文本和它们的目标位置
         Dictionary<TMP_Text, Vector3> textToTargetPos = new Dictionary<TMP_Text, Vector3>();
 
-        foreach (var kvp in positionMapping)
-        {
+        foreach (var kvp in positionMapping) {
             string fromPosition = kvp.Key;
             string toPosition = kvp.Value;
 
@@ -164,21 +151,18 @@ public class SwitchSeatPanel : MonoBehaviour
 
         // 记录起始位置
         Dictionary<TMP_Text, Vector3> textToStartPos = new Dictionary<TMP_Text, Vector3>();
-        foreach (var kvp in textToTargetPos)
-        {
+        foreach (var kvp in textToTargetPos) {
             TMP_Text text = kvp.Key;
             textToStartPos[text] = text.rectTransform.anchoredPosition;
         }
 
         // 动画循环
-        while (elapsedTime < duration)
-        {
+        while (elapsedTime < duration) {
             elapsedTime += Time.deltaTime;
             float progress = elapsedTime / duration;
             float easedProgress = Mathf.SmoothStep(0f, 1f, progress);
 
-            foreach (var kvp in textToTargetPos)
-            {
+            foreach (var kvp in textToTargetPos) {
                 TMP_Text text = kvp.Key;
                 Vector3 startPos = textToStartPos[text];
                 Vector3 targetPos = kvp.Value;
@@ -190,8 +174,7 @@ public class SwitchSeatPanel : MonoBehaviour
         }
 
         // 确保最终位置正确
-        foreach (var kvp in textToTargetPos)
-        {
+        foreach (var kvp in textToTargetPos) {
             TMP_Text text = kvp.Key;
             Vector3 targetPos = kvp.Value;
             text.rectTransform.anchoredPosition = targetPos;
@@ -199,10 +182,8 @@ public class SwitchSeatPanel : MonoBehaviour
     }
 
     // 获取目标位置的anchoredPosition
-    private Vector3 GetTargetPosition(string positionName)
-    {
-        switch (positionName)
-        {
+    private Vector3 GetTargetPosition(string positionName) {
+        switch (positionName) {
             case "self": return SelfPos.GetComponent<RectTransform>().anchoredPosition;
             case "right": return RightPos.GetComponent<RectTransform>().anchoredPosition;
             case "top": return TopPos.GetComponent<RectTransform>().anchoredPosition;
@@ -212,10 +193,8 @@ public class SwitchSeatPanel : MonoBehaviour
     }
 
     // 根据位置名称获取对应的文本组件
-    private TMP_Text GetTextByPosition(string position)
-    {
-        switch (position)
-        {
+    private TMP_Text GetTextByPosition(string position) {
+        switch (position) {
             case "self": return SelfName;
             case "right": return RightName;
             case "top": return TopName;
@@ -225,8 +204,7 @@ public class SwitchSeatPanel : MonoBehaviour
     }
 
     // 重置文本位置到初始固定位置
-    private void ResetTextPositions()
-    {
+    private void ResetTextPositions() {
         SelfName.rectTransform.anchoredPosition = SelfPos.GetComponent<RectTransform>().anchoredPosition;
         RightName.rectTransform.anchoredPosition = RightPos.GetComponent<RectTransform>().anchoredPosition;
         TopName.rectTransform.anchoredPosition = TopPos.GetComponent<RectTransform>().anchoredPosition;
@@ -235,8 +213,7 @@ public class SwitchSeatPanel : MonoBehaviour
 
 
     // 清空换位面板，清理临时对象
-    public void ClearSwitchSeatPanel()
-    {
+    public void ClearSwitchSeatPanel() {
         // 清除文本内容
         if (NextRoundName != null) NextRoundName.text = "";
         if (SelfName != null) SelfName.text = "";

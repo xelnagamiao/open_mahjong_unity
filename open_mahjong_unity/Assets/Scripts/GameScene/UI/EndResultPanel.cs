@@ -5,8 +5,7 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 
-public class EndResultPanel : MonoBehaviour
-{
+public class EndResultPanel : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI FanTex1;
     [SerializeField] private TextMeshProUGUI FanTex2;
     [SerializeField] private TextMeshProUGUI FanTex3;
@@ -37,8 +36,7 @@ public class EndResultPanel : MonoBehaviour
     [SerializeField] private GameObject HideSplit;
 
     // 番数和分数的对应表
-    private Dictionary<string, string> FanToDescribe = new Dictionary<string, string>
-    {
+    private Dictionary<string, string> FanToDescribe = new Dictionary<string, string> {
         {"大四喜", "大四喜:88番"}, {"大三元", "大三元:88番"}, {"绿一色", "绿一色:88番"}, {"九莲宝灯", "九莲宝灯:88番"}, {"四杠", "四杠:88番"},
         {"连七对", "连七对:88番"}, {"十三幺", "十三幺:88番"},
         {"清幺九", "清幺九:64番"}, {"小四喜", "小四喜:64番"}, {"小三元", "小三元:64番"}, {"字一色", "字一色:64番"}, {"四暗刻", "四暗刻:64番"}, {"一色双龙会", "一色双龙会:64番"},
@@ -66,10 +64,8 @@ public class EndResultPanel : MonoBehaviour
     private TextMeshProUGUI[] fanTexts;
     public static EndResultPanel Instance { get; private set; }
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
@@ -140,54 +136,43 @@ public class EndResultPanel : MonoBehaviour
             if (GameSceneManager.Instance.indexToPosition[player.Key] == "self"){
                 SelfUserName.text = GameSceneManager.Instance.player_to_info["self"].username;
                 int SelfbeforeScore = GameSceneManager.Instance.player_to_info["self"].score;
-                if (SelfbeforeScore > player.Value){ 
+                if (SelfbeforeScore > player.Value) { 
                     // 自己分数减少 当前分数 - 减少的分数
                     SelfScore.text = player.Value.ToString() + "<color=red>-" + (SelfbeforeScore - player.Value) + "</color>";
-                }
-                else if (SelfbeforeScore < player.Value){
+                } else if (SelfbeforeScore < player.Value) {
                     // 自己分数增加 当前分数 + 增加的分数
                     SelfScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - SelfbeforeScore) + "</color>";
-                }
-                else{
+                } else {
                     SelfScore.text = player.Value.ToString();
                 }
-            }
-            else if (GameSceneManager.Instance.indexToPosition[player.Key] == "left"){
+            } else if (GameSceneManager.Instance.indexToPosition[player.Key] == "left") {
                 LeftUserName.text = GameSceneManager.Instance.player_to_info["left"].username;
                 int LeftbeforeScore = GameSceneManager.Instance.player_to_info["left"].score;
-                if (LeftbeforeScore > player.Value){ 
+                if (LeftbeforeScore > player.Value) { 
                     LeftScore.text = player.Value.ToString() + "<color=red>-" + (LeftbeforeScore - player.Value) + "</color>";
-                }
-                else if (LeftbeforeScore < player.Value){
+                } else if (LeftbeforeScore < player.Value) {
                     LeftScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - LeftbeforeScore) + "</color>";
-                }
-                else{
+                } else {
                     LeftScore.text = player.Value.ToString();
                 }
-            }
-            else if (GameSceneManager.Instance.indexToPosition[player.Key] == "top"){
+            } else if (GameSceneManager.Instance.indexToPosition[player.Key] == "top") {
                 TopUserName.text = GameSceneManager.Instance.player_to_info["top"].username;
                 int TopbeforeScore = GameSceneManager.Instance.player_to_info["top"].score;
-                if (TopbeforeScore > player.Value){ 
+                if (TopbeforeScore > player.Value) { 
                     TopScore.text = player.Value.ToString() + "<color=red>-" + (TopbeforeScore - player.Value) + "</color>";
-                }
-                else if (TopbeforeScore < player.Value){
+                } else if (TopbeforeScore < player.Value) {
                     TopScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - TopbeforeScore) + "</color>";
-                }
-                else{
+                } else {
                     TopScore.text = player.Value.ToString();
                 }
-            }
-            else if (GameSceneManager.Instance.indexToPosition[player.Key] == "right"){
+            } else if (GameSceneManager.Instance.indexToPosition[player.Key] == "right") {
                 RightUserName.text = GameSceneManager.Instance.player_to_info["right"].username;
                 int RightbeforeScore = GameSceneManager.Instance.player_to_info["right"].score;
-                if (RightbeforeScore > player.Value){ 
+                if (RightbeforeScore > player.Value) { 
                     RightScore.text = player.Value.ToString() + "<color=red>-" + (RightbeforeScore - player.Value) + "</color>";
-                }
-                else if (RightbeforeScore < player.Value){
+                } else if (RightbeforeScore < player.Value) {
                     RightScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - RightbeforeScore) + "</color>";
-                }
-                else{
+                } else {
                     RightScore.text = player.Value.ToString();
                 }
             }

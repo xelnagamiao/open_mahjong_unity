@@ -3,8 +3,7 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using TMPro;
 
-public class CreatePanel : MonoBehaviour
-{
+public class CreatePanel : MonoBehaviour {
     [Header("UI Elements")]
     [SerializeField] private TMP_Dropdown chooseRule; // 规则选择下拉框
     [SerializeField] private Button createRule; // 创建规则按钮
@@ -15,8 +14,7 @@ public class CreatePanel : MonoBehaviour
     [Header("Panel Settings")]
     [SerializeField] private GameObject[] rulePanels; // 所有规则面板数组
 
-    private void Start()
-    {
+    private void Start() {
         // 订阅dropdown值改变事件
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         createRule.onClick.AddListener(OnCreateRoomButtonClicked);
@@ -40,8 +38,7 @@ public class CreatePanel : MonoBehaviour
     /// <summary>
     /// 处理创建房间按钮点击事件
     /// </summary>
-    private void OnCreateRoomButtonClicked()
-    {
+    private void OnCreateRoomButtonClicked() {
         WindowsManager.Instance.SwitchWindow("aboutUs");
     }
 
@@ -56,8 +53,7 @@ public class CreatePanel : MonoBehaviour
         RC_RulePanel.SetActive(false);
         MMC_RulePanel.SetActive(false);
         // 根据选择的索引显示对应面板
-        switch (selectedIndex)
-        {
+        switch (selectedIndex) {
             case 0: // 国标规则
                 GB_RulePanel.SetActive(true);
                 Debug.Log("显示国标规则面板");

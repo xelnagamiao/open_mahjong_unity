@@ -1,9 +1,8 @@
-// 5.Response 接收数据类型
+﻿// 5.Response 接收数据类型
 
 using System.Collections.Generic;
 
-public class RoomInfo
-{
+public class RoomInfo {
     public string room_id;
     public string room_type;
     public int max_player;
@@ -21,14 +20,12 @@ public class RoomInfo
     public bool is_game_running; // 游戏是否正在运行
 }
 
-public class GameEndInfo // 显示游戏结束结果
-{
+public class GameEndInfo { // 显示游戏结束结果
     public long game_random_seed; // 游戏随机种子
     public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据 {user_id: {"rank": int, "score": int, "pt": int, "username": string}}
 }
 
-public class ShowResultInfo // 显示结算结果
-{
+public class ShowResultInfo { // 显示结算结果
     public int hepai_player_index; // 和牌玩家索引
     public Dictionary<int, int> player_to_score; // 所有玩家分数
     public int hu_score; // 和牌分数
@@ -40,8 +37,7 @@ public class ShowResultInfo // 显示结算结果
     public int action_tick;
 }
 
-public class AskHandActionGBInfo // 询问手牌操作
-{
+public class AskHandActionGBInfo { // 询问手牌操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余时间
     public int player_index; // 玩家索引
@@ -49,16 +45,14 @@ public class AskHandActionGBInfo // 询问手牌操作
     public int action_tick;
 }
 
-public class AskOtherActionGBInfo // 询问切牌后操作
-{
+public class AskOtherActionGBInfo { // 询问切牌后操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余时间
     public int cut_tile; // 切牌
     public int action_tick;
 }
 
-public class DoActionInfo // 执行操作
-{
+public class DoActionInfo { // 执行操作
     public string[] action_list;
     public int action_player;
     public int action_tick;
@@ -71,8 +65,7 @@ public class DoActionInfo // 执行操作
     public int[] combination_mask;  // 数组可以为null
 }
 
-public class PlayerInfo // 房间信息中单个玩家信息
-{
+public class PlayerInfo { // 房间信息中单个玩家信息
     public string username;             // 玩家名
     public int user_id;                  // 玩家uid
     public int hand_tiles_count;        // 手牌数量
@@ -89,8 +82,7 @@ public class PlayerInfo // 房间信息中单个玩家信息
     public int voice_used;              // 使用的音色ID
 }
 
-public class GameInfo // 游戏开始时传递房间信息
-{
+public class GameInfo { // 游戏开始时传递房间信息
     public int room_id;                 // 房间ID
     public bool tips;                   // 是否提示
     public int current_player_index;    // 当前玩家索引
@@ -106,12 +98,10 @@ public class GameInfo // 游戏开始时传递房间信息
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 }
 
-public class SwitchSeatInfo // 换位信息
-{
+public class SwitchSeatInfo { // 换位信息
     public int current_round;           // 当前局数
 }
-public class PlayerRecordInfo // 玩家对局记录信息
-{
+public class PlayerRecordInfo { // 玩家对局记录信息
     public int user_id;                 // 用户ID
     public string username;            // 用户名
     public int score;                   // 玩家分数
@@ -122,8 +112,7 @@ public class PlayerRecordInfo // 玩家对局记录信息
     public int? voice_used;            // 使用的音色ID（可为空）
 }
 
-public class RecordInfo // 游戏记录信息（按游戏分组，包含4个玩家）
-{
+public class RecordInfo { // 游戏记录信息（按游戏分组，包含4个玩家）
     public int game_id;                 // 对局ID
     public string rule;                 // 规则类型（GB/JP）
     public Dictionary<string, object> record; // 完整的牌谱记录
@@ -131,8 +120,7 @@ public class RecordInfo // 游戏记录信息（按游戏分组，包含4个玩�
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
 }
 
-public class PlayerStatsInfo // 玩家统计数据信息（单个规则和模式的统计）
-{
+public class PlayerStatsInfo { // 玩家统计数据信息（单个规则和模式的统计）
     public string rule;                 // 规则标识（GB/JP）
     public string mode;                // 数据模式
     public int? total_games;           // 总对局数
@@ -150,8 +138,7 @@ public class PlayerStatsInfo // 玩家统计数据信息（单个规则和模式
     public Dictionary<string, int> fan_stats; // 番种统计数据（字段名 -> 次数）
 }
 
-public class UserSettings // 用户设置信息（称号、头像、角色、音色）
-{
+public class UserSettings { // 用户设置信息（称号、头像、角色、音色）
     public int user_id;                // 用户ID
     public string username;            // 用户名
     public int title_id;              // 称号ID
@@ -160,42 +147,36 @@ public class UserSettings // 用户设置信息（称号、头像、角色、音
     public int voice_id;              // 选择的音色ID
 }
 
-public class PlayerInfoResponse // 玩家信息响应（包含所有统计数据）
-{
+public class PlayerInfoResponse { // 玩家信息响应（包含所有统计数据）
     public int user_id;                // 用户ID
     public UserSettings user_settings; // 用户设置信息
     public PlayerStatsInfo[] gb_stats; // 国标麻将统计数据列表
     public PlayerStatsInfo[] jp_stats; // 立直麻将统计数据列表
 }
 
-public class UserConfig // 用户游戏配置信息（音量等）
-{
+public class UserConfig { // 用户游戏配置信息（音量等）
     public int user_id;                // 用户ID
     public int volume;                 // 音量设置（0-100）
 }
 
-public class LoginInfo // 登录信息
-{
+public class LoginInfo { // 登录信息
     public int user_id;                // 用户ID
     public string username;             // 用户名
     public string userkey;              // 用户名对应的秘钥
 }
 
-public class MessageInfo // 消息信息
-{
+public class MessageInfo { // 消息信息
     public string title;    // 消息标题
     public string content;  // 消息内容
 }
 
-public class ServerStatsInfo // 服务器统计信息
-{
+public class ServerStatsInfo { // 服务器统计信息
     public int online_players;  // 在线人数
     public int waiting_rooms;   // 等待房间数
     public int playing_rooms;   // 进行房间数
 }
 
-public class Response // 所有后端的返回数据都由Response类接收
-{
+public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
     public bool success; // 消息是否成功

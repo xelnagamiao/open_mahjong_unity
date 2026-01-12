@@ -2,8 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PosPanel3D : MonoBehaviour
-{
+public class PosPanel3D : MonoBehaviour {
     [Header("手牌位置")]
     [SerializeField] public Transform cardsPosition; // 手牌位置
     

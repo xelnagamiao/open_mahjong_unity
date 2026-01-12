@@ -3,8 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 
-public class LoginPanel : MonoBehaviour
-{
+public class LoginPanel : MonoBehaviour {
     [SerializeField] private TMP_InputField inputUser;
     [SerializeField] private TMP_InputField inputPassword;
     [SerializeField] private Button loginButton;
@@ -19,14 +18,10 @@ public class LoginPanel : MonoBehaviour
 
     private Coroutine serverConnectCoroutine;
 
-    private void Awake()
-    {
-        if (Instance == null)
-        {
+    private void Awake() {
+        if (Instance == null) {
             Instance = this;
-        }
-        else
-        {
+        } else {
             Destroy(gameObject);
             return;
         }
@@ -49,16 +44,14 @@ public class LoginPanel : MonoBehaviour
 
         // 验证用户名
         string usernameError = ValidateUsername(userName);
-        if (!string.IsNullOrEmpty(usernameError))
-        {
+        if (!string.IsNullOrEmpty(usernameError)) {
             NotificationManager.Instance?.ShowTip("登录", false, usernameError);
             return;
         }
 
         // 验证密码
         string passwordError = ValidatePassword(password);
-        if (!string.IsNullOrEmpty(passwordError))
-        {
+        if (!string.IsNullOrEmpty(passwordError)) {
             NotificationManager.Instance?.ShowTip("登录", false, passwordError);
             return;
         }
@@ -67,8 +60,7 @@ public class LoginPanel : MonoBehaviour
         NetworkManager.Instance.Login(userName, password); // 发送登录请求
     }
 
-    private void TouristLoginClick()
-    {
+    private void TouristLoginClick() {
         touristButton.interactable = false; // 禁用按钮
         NetworkManager.Instance.TouristLogin(); // 发送游客登录请求
     }
@@ -84,8 +76,7 @@ public class LoginPanel : MonoBehaviour
             return "用户名不能超过32个字节";
 
         int length = 0;
-        foreach (char c in username)
-        {
+        foreach (char c in username) {
             if (c >= 0x4E00 && c <= 0x9FFF)
                 length += 2;  // 中文=2
             else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
@@ -113,8 +104,7 @@ public class LoginPanel : MonoBehaviour
         if (System.Text.Encoding.UTF8.GetByteCount(password) > 32)
             return "密码不能超过32个字符";
 
-        foreach (char c in password)
-        {
+        foreach (char c in password) {
             bool isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
             bool isDigit = c >= '0' && c <= '9';
             bool isSpecial = c >= 33 && c <= 126 && !char.IsLetterOrDigit(c);
@@ -127,10 +117,8 @@ public class LoginPanel : MonoBehaviour
     }
 
     // 服务器连接协程
-    private IEnumerator ServerConnectCoroutine()
-    {
-        while (true)
-        {
+    private IEnumerator ServerConnectCoroutine() {
+        while (true) {
             connectStatusText.text = "等待服务器连接.";
             yield return new WaitForSeconds(0.5f);
             connectStatusText.text = "等待服务器连接..";
@@ -141,20 +129,16 @@ public class LoginPanel : MonoBehaviour
     }
 
     // 显示提示文字
-    private void ShowTip(string tip)
-    {
-        if (loginTipsText != null)
-        {
+    private void ShowTip(string tip) {
+        if (loginTipsText != null) {
             loginTipsText.text = tip;
         }
     }
 
     // 连接成功时调用
-    public void ConnectOkText()
-    {
+    public void ConnectOkText() {
         // 终止协程
-        if (serverConnectCoroutine != null)
-        {
+        if (serverConnectCoroutine != null) {
             StopCoroutine(serverConnectCoroutine);
             serverConnectCoroutine = null;
         }
@@ -162,11 +146,9 @@ public class LoginPanel : MonoBehaviour
     }
 
     // 连接失败时调用
-    public void ConnectErrorText(string text)
-    {
+    public void ConnectErrorText(string text) {
         // 终止协程
-        if (serverConnectCoroutine != null)
-        {
+        if (serverConnectCoroutine != null) {
             StopCoroutine(serverConnectCoroutine);
             serverConnectCoroutine = null;
         }
@@ -174,8 +156,7 @@ public class LoginPanel : MonoBehaviour
     }
 
     // 重置登录按钮状态（登录失败时调用）
-    public void ResetLoginButton()
-    {
+    public void ResetLoginButton() {
         loginButton.interactable = true;
         touristButton.interactable = true;
         connectStatusText.text = "连接成功";

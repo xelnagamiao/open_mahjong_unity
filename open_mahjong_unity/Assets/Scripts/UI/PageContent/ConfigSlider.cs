@@ -2,23 +2,20 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public enum VolumeType
-{
+public enum VolumeType {
     Master,
     Music,
     SoundEffect,
     Voice
 }
 
-public class ConfigSlider : MonoBehaviour
-{
+public class ConfigSlider : MonoBehaviour {
     [SerializeField] private Slider slider;
     [SerializeField] private TMP_Text valueText;
     [SerializeField] private VolumeType volumeType;
 
     // 初始化滑动条
-    public void Init()
-    {
+    public void Init() {
         slider.minValue = 0;
         slider.maxValue = 100;
         slider.wholeNumbers = true;
@@ -31,10 +28,8 @@ public class ConfigSlider : MonoBehaviour
     }
 
     // 获取当前音量
-    private int GetVolume()
-    {
-        switch (volumeType)
-        {
+    private int GetVolume() {
+        switch (volumeType) {
             case VolumeType.Master:
                 return ConfigManager.Instance.MasterVolume;
             case VolumeType.Music:
@@ -49,8 +44,7 @@ public class ConfigSlider : MonoBehaviour
     }
 
     private void SetVolume(int value){
-        switch (volumeType)
-        {
+        switch (volumeType) {
             case VolumeType.Master:
                 ConfigManager.Instance.SetMasterVolume(value);
                 break;
