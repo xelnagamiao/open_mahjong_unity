@@ -7,8 +7,8 @@ import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run(
-        "server:app",  # 服务器导入路径
+        "server.server:app",
         host="localhost",
         port=8081,
-        reload=True
+        reload=False
     )

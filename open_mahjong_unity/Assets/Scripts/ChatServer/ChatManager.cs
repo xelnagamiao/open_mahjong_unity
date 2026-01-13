@@ -21,7 +21,7 @@ public class ChatManager : MonoBehaviour {
         }
         Instance = this;
         connectId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的连接id
-        websocket = new WebSocket($"ws://localhost:8083/chat/{connectId}"); // 初始化WebSocket
+        websocket = new WebSocket($"{ConfigManager.chatUrl}/{connectId}"); // 初始化WebSocket
         websocket.OnOpen += (sender, e) => Debug.Log("WebSocket To ChatServer连接已打开");
         websocket.OnMessage += (sender, e) => {
             lock(ConcurrentQueue) {
