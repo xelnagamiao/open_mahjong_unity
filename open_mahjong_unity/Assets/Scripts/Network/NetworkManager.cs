@@ -6,6 +6,8 @@ using WebSocketSharp;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Collections;
+using System.Net;
+using System.Net.Sockets;
 
 
 
@@ -28,6 +30,7 @@ public class NetworkManager : MonoBehaviour {
     private Queue<Action> mainThreadActions = new Queue<Action>();
     // 服务器统计信息协程控制
     private Coroutine serverStatsCoroutine;
+    // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
     // 1.Awake方法用于实例化单例进入DontDestroyOnLoad，并配置WebSocket基础的方法
@@ -39,7 +42,7 @@ public class NetworkManager : MonoBehaviour {
         }
         Instance = this;
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
-        websocket = new WebSocket($"ws://localhost:8081/game/{playerId}"); // 初始化WebSocket
+        websocket = new WebSocket($"{ConfigManager.gameUrl}/{playerId}"); // 初始化WebSocket
         
         // 配置WebSocket事件处理器
         websocket.OnMessage += OnWebSocketMessage;
@@ -56,7 +59,6 @@ public class NetworkManager : MonoBehaviour {
             try{
                 Debug.Log($"开始连接服务器，当前状态: {websocket.ReadyState}");
                 websocket.ConnectAsync();
-
             }
             catch (Exception e){
                 Debug.LogError($"连接错误: {e.Message}");
@@ -334,7 +336,6 @@ public class NetworkManager : MonoBehaviour {
                 default:
                     NotificationManager.Instance.ShowTip("未知的消息类型", false,"未知的消息类型");
                     throw new Exception($"未知的消息类型: {response.type}");
-                    break;
             }
         }
         catch (Exception e)
@@ -493,7 +494,7 @@ public class NetworkManager : MonoBehaviour {
             // 游客登录 不传递用户名和密码
             Login("", "", is_tourist: true);
         }
-        catch (Exception e)
+        catch (Exception)
         {
             NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
             LoginPanel.Instance.ResetLoginButton();
