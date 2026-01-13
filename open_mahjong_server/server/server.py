@@ -25,16 +25,27 @@ if Debug:
 else:
     from .local_config import Config
 
-# 确保 logs 目录存在
-os.makedirs("logs", exist_ok=True)
+# 获取当前文件所在目录
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
 
+# 构建绝对路径的日志文件
+log_file_path = os.path.join(LOG_DIR, "app.log")
+
+# 构建 handlers
+handlers = [
+    RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=25, encoding='utf-8')
+]
+
+if Config.logging_do_stream_handler:
+    handlers.append(logging.StreamHandler())
+
+# 配置 logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        RotatingFileHandler("logs/app.log", maxBytes=5*1024*1024, backupCount=25, encoding='utf-8'),
-        logging.StreamHandler() if Config.logging_do_stream_handler == True else None
-    ]
+    handlers=handlers
 )
 
 logger = logging.getLogger(__name__)

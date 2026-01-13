@@ -5,7 +5,7 @@ using UnityEngine;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = true;
+    public static bool Debug = false;
     
     public static string webUrl;
     public static string gameUrl;
@@ -18,13 +18,13 @@ public class ConfigManager : MonoBehaviour {
     static ConfigManager() {
         if (Debug) {
             // 开发接口地址
-            gameUrl = "http://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
-            chatUrl = "http://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
+            gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
+            chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
             releaseVersion = 1; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
-            // 开发环境接口地址
-            gameUrl = "https://salasasa.cn/443/game";
-            chatUrl = "https://salasasa.cn/443/chat";
+            // 生产环境接口地址
+            gameUrl = "wss://salasasa.cn/game";
+            chatUrl = "wss://salasasa.cn/chat";
             releaseVersion = 1;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）

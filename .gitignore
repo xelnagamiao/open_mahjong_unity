@@ -27,6 +27,8 @@ open_mahjong_unity/*.opendb
 open_mahjong_server/* 
 # 保留依赖和配置文件
 !open_mahjong_server/requirements.txt
+!open_mahjong_server/main.py
+!open_mahjong_server/start_server.bat
 
 # 保留 server 目录
 !open_mahjong_server/server/
