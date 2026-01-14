@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | open_mahjong_web</title>
+    <title>Unity WebGL Player | open_mahjong_unity</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
-      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <canvas id="unity-canvas" width=1280 height=720 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
         <div id="unity-logo"></div>
         <div id="unity-progress-bar-empty">
@@ -20,7 +20,7 @@
       <div id="unity-footer">
         <div id="unity-webgl-logo"></div>
         <div id="unity-fullscreen-button"></div>
-        <div id="unity-build-title">open_mahjong_web</div>
+        <div id="unity-build-title">open_mahjong_unity</div>
       </div>
     </div>
     <script>
@@ -64,8 +64,8 @@
         codeUrl: buildUrl + "/webbuild.wasm.gz",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
-        productName: "open_mahjong_web",
-        productVersion: "0.01",
+        productName: "open_mahjong_unity",
+        productVersion: "0.0.31.0",
         showBanner: unityShowBanner,
       };
 
@@ -75,6 +75,15 @@
       // happening inside the engine, and you would instead like to size up
       // the canvas DOM size and WebGL render target sizes yourself.
       // config.matchWebGLToCanvasSize = false;
+
+      // If you would like all file writes inside Unity Application.persistentDataPath
+      // directory to automatically persist so that the contents are remembered when
+      // the user revisits the site the next time, uncomment the following line:
+      // config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
 
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         // Mobile device style: fill the whole browser client area with the game canvas:
@@ -92,27 +101,10 @@
 
 
       } else {
-        // Desktop style: 自适应容器大小，保持16:9比例
-        function resizeCanvas() {
-          var containerWidth = container.clientWidth;
-          var containerHeight = container.clientHeight;
-          var aspectRatio = 16 / 9;
-          
-          // 保持16:9比例
-          if (containerWidth / containerHeight > aspectRatio) {
-            canvas.style.height = containerHeight + "px";
-            canvas.style.width = (containerHeight * aspectRatio) + "px";
-          } else {
-            canvas.style.width = containerWidth + "px";
-            canvas.style.height = (containerWidth / aspectRatio) + "px";
-          }
-        }
-        
-        // 初始设置
-        resizeCanvas();
-        
-        // 监听窗口大小变化
-        window.addEventListener('resize', resizeCanvas);
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
+
+        canvas.style.width = "1280px";
+        canvas.style.height = "720px";
       }
 
       loadingBar.style.display = "block";

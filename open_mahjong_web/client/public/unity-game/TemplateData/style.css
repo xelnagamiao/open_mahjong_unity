@@ -1,6 +1,6 @@
-body { padding: 0; margin: 0; width: 100%; height: 100%; overflow: hidden }
-#unity-container { position: absolute; width: 100%; height: 100%; top: 0; left: 0 }
-#unity-container.unity-desktop { transform: none }
+body { padding: 0; margin: 0 }
+#unity-container { position: absolute }
+#unity-container.unity-desktop { left: 50%; top: 50%; transform: translate(-50%, -50%) }
 #unity-container.unity-mobile { position: fixed; width: 100%; height: 100% }
 #unity-canvas { background: #231F20 }
 .unity-mobile #unity-canvas { width: 100%; height: 100% }
