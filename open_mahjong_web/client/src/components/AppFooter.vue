@@ -26,7 +26,7 @@
     </div>
     
     <div class="footer-bottom">
-      <p>&copy; 2026 立直麻雀研习社</p>
+      <p>&copy; 2026 立直麻雀研习社 苏ICP备2026002546号</p>
     </div>
   </footer>
 </template>

@@ -5,7 +5,6 @@ using TMPro;
 using UnityEngine.UI;
 
 public class NotificationManager : MonoBehaviour {
-    public static NotificationManager Instance { get; private set; }
     
     [Header("Tips 配置")]
 
@@ -21,6 +20,8 @@ public class NotificationManager : MonoBehaviour {
     [Header("Message 配置")]
     [SerializeField] private GameObject messagePosition;
     [SerializeField] private MessagePrefab messagePrefab;        // Message 预制体
+
+    public static NotificationManager Instance { get; private set; }
     
     private void Awake() {
         if (Instance != null && Instance != this) {
