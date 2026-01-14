@@ -2,7 +2,7 @@
 using UnityEngine.Events;
 using System;
 using System.Threading.Tasks;
-using WebSocketSharp;
+using NativeWebSocket;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Collections;
@@ -45,20 +45,50 @@ public class NetworkManager : MonoBehaviour {
         websocket = new WebSocket($"{ConfigManager.gameUrl}/{playerId}"); // 初始化WebSocket
         
         // 配置WebSocket事件处理器
-        websocket.OnMessage += OnWebSocketMessage;
-        websocket.OnOpen += OnWebSocketOpen;
-        websocket.OnError += OnWebSocketError;
-        websocket.OnClose += OnWebSocketClose;
+        websocket.OnMessage += (bytes) => {
+            lock(messageQueue) {
+                messageQueue.Enqueue(bytes);
+            }
+        };
+        
+        websocket.OnOpen += () => {
+            Debug.Log("WebSocket连接成功");
+            isConnecting = false;
+            // 使用主线程调度器执行UI操作
+            ExecuteOnMainThread(() => {
+                LoginPanel.Instance.ConnectOkText(); // 连接成功
+            });
+            // 发送发布版版本号
+            SendReleaseVersion();
+        };
+        
+        websocket.OnError += (errorMsg) => {
+            Debug.LogError($"WebSocket连接失败: {errorMsg}");
+            isConnecting = false;
+            // 使用主线程调度器执行UI操作
+            ExecuteOnMainThread(() => {
+                LoginPanel.Instance.ConnectErrorText(errorMsg); // 连接失败
+            });
+        };
+        
+        websocket.OnClose += (code) => {
+            Debug.Log($"WebSocket已关闭: {code}");
+            isConnecting = false;
+            // 使用主线程调度器执行UI操作
+            ExecuteOnMainThread(() => {
+                LoginPanel.Instance.ConnectErrorText("连接已关闭"); // 连接关闭
+            });
+        };
     }
 
     // 2.Start方法用于连接到服务器
-    private void Start(){
+    private async void Start(){
         // 确保网络管理器唯一，并且没有在连接中
         if (Instance == this && !isConnecting){
             isConnecting = true;
             try{
-                Debug.Log($"开始连接服务器，当前状态: {websocket.ReadyState}");
-                websocket.ConnectAsync();
+                Debug.Log($"开始连接服务器，当前状态: {websocket.State}");
+                await websocket.Connect();
             }
             catch (Exception e){
                 Debug.LogError($"连接错误: {e.Message}");
@@ -67,47 +97,14 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
-    // 获取数据添加入消息队列
-    private void OnWebSocketMessage(object sender, MessageEventArgs e){
-        lock(messageQueue) {
-            messageQueue.Enqueue(e.RawData);
-        }
-    }
-
-    // 连接成功
-    private void OnWebSocketOpen(object sender, EventArgs e){
-        Debug.Log("WebSocket连接成功");
-        isConnecting = false;
-        // 使用主线程调度器执行UI操作
-        ExecuteOnMainThread(() => {
-            LoginPanel.Instance.ConnectOkText(); // 连接成功
-        });
-        // 发送发布版版本号
-        SendReleaseVersion();
-    } 
-
-    // 连接失败
-    private void OnWebSocketError(object sender, ErrorEventArgs e){
-        Debug.LogError($"WebSocket连接失败: {e.Message}");
-        isConnecting = false;
-        // 使用主线程调度器执行UI操作
-        ExecuteOnMainThread(() => {
-            LoginPanel.Instance.ConnectErrorText(e.Message); // 连接失败
-        });
-    }
-
-    // 连接关闭
-    private void OnWebSocketClose(object sender, CloseEventArgs e){
-        Debug.Log($"WebSocket已关闭: {e.Code} - {e.Reason}");
-        isConnecting = false;
-        // 使用主线程调度器执行UI操作
-        ExecuteOnMainThread(() => {
-            LoginPanel.Instance.ConnectErrorText(e.Reason); // 连接关闭
-        });
-    }
 
     // 网络管理器实例在 Update 中处理消息队列
     private void Update(){
+        // 非WebGL平台需要调用DispatchMessageQueue来处理WebSocket消息
+        #if !UNITY_WEBGL || UNITY_EDITOR
+        websocket?.DispatchMessageQueue();
+        #endif
+        
         // 处理消息队列
         if (messageQueue.Count > 0) {
             byte[] message;
@@ -346,14 +343,14 @@ public class NetworkManager : MonoBehaviour {
     
 
     // 发送发布版版本号
-    public void SendReleaseVersion(){
+    public async void SendReleaseVersion(){
         try {
             var request = new SendReleaseVersionRequest {
                 type = "send_release_version",
                 release_version = ConfigManager.releaseVersion
             };
             Debug.Log($"发送发布版本号: {request.release_version}");
-            websocket.Send(JsonConvert.SerializeObject(request));
+            await websocket.SendText(JsonConvert.SerializeObject(request));
         }
         catch (Exception e)
         {
@@ -364,9 +361,9 @@ public class NetworkManager : MonoBehaviour {
 
     // 4.以下是所有定义的消息发送类型 客户端所有消息发送都通过以下列表
     // 4.1 登录方法 login 从LoginPanel发送
-    public void Login(string username, string password, bool is_tourist = false){
+    public async void Login(string username, string password, bool is_tourist = false){
         try {
-            if (websocket.ReadyState != WebSocketState.Open) {
+            if (websocket.State != WebSocketState.Open) {
                 NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
                 LoginPanel.Instance.ResetLoginButton();
                 return;
@@ -379,7 +376,7 @@ public class NetworkManager : MonoBehaviour {
                 is_tourist = is_tourist
             };
             Debug.Log($"发送登录消息: username={(is_tourist ? "null" : username)}, password={(is_tourist ? "null" : "***")}, is_tourist={is_tourist}");
-            websocket.Send(JsonConvert.SerializeObject(request));
+            await websocket.SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"登录发送错误: {e.Message}");
             NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
@@ -388,7 +385,7 @@ public class NetworkManager : MonoBehaviour {
     }
 
     // 4.2 创建房间方法 CreateRoom 从CreatePanel发送
-    public void Create_GB_Room(GB_Create_RoomConfig config){
+    public async void Create_GB_Room(GB_Create_RoomConfig config){
         try {
             var request = new CreateGBRoomRequest {
                 type = "create_GB_room",
@@ -401,52 +398,52 @@ public class NetworkManager : MonoBehaviour {
                 password = config.Password
             };
             Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}");
-            websocket.Send(JsonConvert.SerializeObject(request));
+            await websocket.SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             CreateRoomResponse.Invoke(false, e.Message);
         }
     }   
     // 4.3 获取房间列表方法 get_room_list 从RoomPanel发送
-    public void GetRoomList(){
+    public async void GetRoomList(){
         try {
             var request = new GetRoomListRequest {
                 type = "get_room_list"
             };
             Debug.Log($"发送获取房间列表消息{request.type}");
-            websocket.Send(JsonConvert.SerializeObject(request));
+            await websocket.SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             RoomListPanel.Instance.GetRoomListResponse(false, e.Message, null);
         }
     }
     // 4.4 加入房间方法 JoinRoom 从RoomItem发送
-    public void JoinRoom(string roomId, string password) {
+    public async void JoinRoom(string roomId, string password) {
         var request = new JoinRoomRequest {
             type = "join_room",
             room_id = roomId,
             password = password
         };
         Debug.Log($"发送加入房间消息: {roomId}, {password}");
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
     // 4.5 离开房间方法 LeaveRoom 从RoomPanel发送
-    public void LeaveRoom(string roomId){
+    public async void LeaveRoom(string roomId){
         var request = new LeaveRoomRequest {
             type = "leave_room",
             room_id = roomId
         };
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
     // 4.6 开始游戏方法 StartGame 从RoomPanel发送
-    public void StartGame(string roomId){
+    public async void StartGame(string roomId){
         var request = new StartGameRequest {
             type = "start_game",
             room_id = roomId
         };
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
-    public void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
+    public async void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
         var request = new SendChineseGameTileRequest {
             type = "CutTiles",
             cutClass = cutClass,
@@ -454,40 +451,40 @@ public class NetworkManager : MonoBehaviour {
             cutIndex = cutIndex,
             room_id = roomId
         };
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
     // 4.8 发送吃碰杠回应
-    public void SendAction(string action,int targetTile) {
+    public async void SendAction(string action,int targetTile) {
         var request = new SendActionRequest {
             type = "send_action",
             room_id = UserDataManager.Instance.RoomId,
             action = action,
             targetTile = targetTile
         };
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
     // 4.9 获取游戏记录方法 GetRecordList 从mainpanel调用发送
-    public void GetRecordList() {
+    public async void GetRecordList() {
         var request = new GetRecordListRequest {
             type = "get_record_list"
         };
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
     // 4.10 查询玩家信息方法 GetPlayerInfo 从PlayerPanel发送
-    public void GetPlayerInfo(string userid) {
+    public async void GetPlayerInfo(string userid) {
         var request = new GetPlayerInfoRequest {
             type = "get_player_info",
             userid = userid
         };
-        websocket.Send(JsonConvert.SerializeObject(request));
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
     // 4.11 游客登录方法 TouristLogin 从LoginPanel发送
     public void TouristLogin() {
         try {
-            if (websocket.ReadyState != WebSocketState.Open) {
+            if (websocket.State != WebSocketState.Open) {
                 NotificationManager.Instance.ShowTip("登录", false, "尚未连接至OMU服务器");
                 return;
             }
@@ -502,16 +499,16 @@ public class NetworkManager : MonoBehaviour {
     }
 
     // 4.12 获取服务器统计信息方法 GetServerStats
-    public void GetServerStats() {
+    public async void GetServerStats() {
         try {
-            if (websocket.ReadyState != WebSocketState.Open) {
+            if (websocket.State != WebSocketState.Open) {
                 return; // 连接未建立时不发送请求
             }
             var request = new GetServerStatsRequest
             {
                 type = "get_server_stats"
             };
-            websocket.Send(JsonConvert.SerializeObject(request));
+            await websocket.SendText(JsonConvert.SerializeObject(request));
         }
         catch (Exception e)
         {
@@ -521,13 +518,13 @@ public class NetworkManager : MonoBehaviour {
 
 
 
-    private void OnApplicationQuit() {
+    private async void OnApplicationQuit() {
         // 停止服务器统计信息协程
         if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
             serverStatsCoroutine = null;
         }
-        if (websocket != null && websocket.ReadyState == WebSocketState.Open)
-            websocket.Close();
+        if (websocket != null && websocket.State == WebSocketState.Open)
+            await websocket.Close();
     }
 }
