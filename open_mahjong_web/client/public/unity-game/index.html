@@ -57,11 +57,11 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/buildweb.loader.js";
+      var loaderUrl = buildUrl + "/webbuild.loader.js";
       var config = {
-        dataUrl: buildUrl + "/buildweb.data.gz",
-        frameworkUrl: buildUrl + "/buildweb.framework.js.gz",
-        codeUrl: buildUrl + "/buildweb.wasm.gz",
+        dataUrl: buildUrl + "/webbuild.data.gz",
+        frameworkUrl: buildUrl + "/webbuild.framework.js.gz",
+        codeUrl: buildUrl + "/webbuild.wasm.gz",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "open_mahjong_web",
@@ -92,10 +92,27 @@
 
 
       } else {
-        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-
-        canvas.style.width = "960px";
-        canvas.style.height = "600px";
+        // Desktop style: 自适应容器大小，保持16:9比例
+        function resizeCanvas() {
+          var containerWidth = container.clientWidth;
+          var containerHeight = container.clientHeight;
+          var aspectRatio = 16 / 9;
+          
+          // 保持16:9比例
+          if (containerWidth / containerHeight > aspectRatio) {
+            canvas.style.height = containerHeight + "px";
+            canvas.style.width = (containerHeight * aspectRatio) + "px";
+          } else {
+            canvas.style.width = containerWidth + "px";
+            canvas.style.height = (containerWidth / aspectRatio) + "px";
+          }
+        }
+        
+        // 初始设置
+        resizeCanvas();
+        
+        // 监听窗口大小变化
+        window.addEventListener('resize', resizeCanvas);
       }
 
       loadingBar.style.display = "block";
