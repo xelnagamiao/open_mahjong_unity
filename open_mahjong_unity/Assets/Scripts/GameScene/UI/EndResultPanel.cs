@@ -6,18 +6,8 @@ using System;
 using UnityEngine.UI;
 
 public class EndResultPanel : MonoBehaviour {
-    [SerializeField] private TextMeshProUGUI FanTex1;
-    [SerializeField] private TextMeshProUGUI FanTex2;
-    [SerializeField] private TextMeshProUGUI FanTex3;
-    [SerializeField] private TextMeshProUGUI FanTex4;
-    [SerializeField] private TextMeshProUGUI FanTex5;
-    [SerializeField] private TextMeshProUGUI FanTex6;
-    [SerializeField] private TextMeshProUGUI FanTex7;
-    [SerializeField] private TextMeshProUGUI FanTex8;
-    [SerializeField] private TextMeshProUGUI FanTex9;
-    [SerializeField] private TextMeshProUGUI FanTex10;
-    [SerializeField] private TextMeshProUGUI FanTex11;
-    [SerializeField] private TextMeshProUGUI FanTex12;
+    [SerializeField] private GameObject FanCountPrefab;
+    [SerializeField] private Transform FanCountContainer;
 
     [SerializeField] private TextMeshProUGUI SelfUserName;
     [SerializeField] private TextMeshProUGUI SelfScore;
@@ -35,33 +25,31 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private GameObject StaticCardPrefab;
     [SerializeField] private GameObject HideSplit;
 
-    // 番数和分数的对应表
-    private Dictionary<string, string> FanToDescribe = new Dictionary<string, string> {
-        {"大四喜", "大四喜:88番"}, {"大三元", "大三元:88番"}, {"绿一色", "绿一色:88番"}, {"九莲宝灯", "九莲宝灯:88番"}, {"四杠", "四杠:88番"},
-        {"连七对", "连七对:88番"}, {"十三幺", "十三幺:88番"},
-        {"清幺九", "清幺九:64番"}, {"小四喜", "小四喜:64番"}, {"小三元", "小三元:64番"}, {"字一色", "字一色:64番"}, {"四暗刻", "四暗刻:64番"}, {"一色双龙会", "一色双龙会:64番"},
-        {"一色四同顺", "一色四同顺:48番"}, {"一色四节高", "一色四节高:48番"}, {"一色四步高", "一色四步高:32番"}, {"三杠", "三杠:32番"}, {"混幺九", "混幺九:32番"},
-        {"七对子", "七对子:24番"}, {"七星不靠", "七星不靠:24番"}, {"全双刻", "全双刻:24番"},
-        {"清一色", "清一色:24番"}, {"一色三同顺", "一色三同顺:24番"}, {"一色三节高", "一色三节高:24番"}, {"全大", "全大:24番"}, {"全中", "全中:24番"}, {"全小", "全小:24番"},
-        {"清龙", "清龙:16番"}, {"三色双龙会", "三色双龙会:16番"}, {"一色三步高", "一色三步高:16番"}, {"全带五", "全带五:16番"}, {"三同刻", "三同刻:16番"}, {"三暗刻", "三暗刻:16番"},
-        {"全不靠", "全不靠:12番"}, {"组合龙", "组合龙:12番"}, {"大于五", "大于五:12番"}, {"小于五", "小于五:12番"}, {"三风刻", "三风刻:12番"},
-        {"花龙", "8番"}, {"推不倒", "8番"}, {"三色三同顺", "8番"}, {"三色三节高", "8番"}, {"无番和", "8番"}, {"妙手回春", "8番"}, {"海底捞月", "8番"},
-        {"杠上开花", "杠上开花:8番"}, {"抢杠和", "抢杠和:8番"}, {"碰碰和", "碰碰和:6番"}, {"混一色", "混一色:6番"}, {"三色三步高", "三色三步高:6番"}, {"五门齐", "五门齐:6番"}, {"全求人", "全求人:6番"}, {"双暗杠", "双暗杠:6番"}, {"双箭刻", "双箭刻:6番"},
-        {"全带幺", "全带幺:4番"}, {"不求人", "不求人:4番"}, {"双明杠", "双明杠:4番"}, {"和绝张", "和绝张:4番"}, {"箭刻", "箭刻:2番"}, {"圈风刻", "圈风刻:2番"}, {"门风刻", "门风刻:2番"}, {"门前清", "门前清:2番"},
-        {"平和", "平和:2番"}, {"双暗刻", "双暗刻:2番"}, {"暗杠", "暗杠:2番"}, {"断幺", "断幺:2番"},
-        {"老少副", "老少副:1番"}, {"明杠", "明杠:1番"}, {"缺一门", "缺一门:1番"}, {"无字", "无字:1番"}, {"边张", "边张:1番"},
-        {"嵌张", "嵌张:1番"}, {"单钓将", "单钓将:1番"}, {"自摸", "自摸:1番"},{"明暗杠", "明暗杠:5番"},
+    // 番数和分数的对应表（存储番数值）
+    private Dictionary<string, int> FanToValue = new Dictionary<string, int> {
+        {"大四喜", 88}, {"大三元", 88}, {"绿一色", 88}, {"九莲宝灯", 88}, {"四杠", 88},
+        {"连七对", 88}, {"十三幺", 88},
+        {"清幺九", 64}, {"小四喜", 64}, {"小三元", 64}, {"字一色", 64}, {"四暗刻", 64}, {"一色双龙会", 64},
+        {"一色四同顺", 48}, {"一色四节高", 48}, {"一色四步高", 32}, {"三杠", 32}, {"混幺九", 32},
+        {"七对子", 24}, {"七星不靠", 24}, {"全双刻", 24},
+        {"清一色", 24}, {"一色三同顺", 24}, {"一色三节高", 24}, {"全大", 24}, {"全中", 24}, {"全小", 24},
+        {"清龙", 16}, {"三色双龙会", 16}, {"一色三步高", 16}, {"全带五", 16}, {"三同刻", 16}, {"三暗刻", 16},
+        {"全不靠", 12}, {"组合龙", 12}, {"大于五", 12}, {"小于五", 12}, {"三风刻", 12},
+        {"花龙", 8}, {"推不倒", 8}, {"三色三同顺", 8}, {"三色三节高", 8}, {"无番和", 8}, {"妙手回春", 8}, {"海底捞月", 8},
+        {"杠上开花", 8}, {"抢杠和", 8}, {"碰碰和", 6}, {"混一色", 6}, {"三色三步高", 6}, {"五门齐", 6}, {"全求人", 6}, {"双暗杠", 6}, {"双箭刻", 6},
+        {"全带幺", 4}, {"不求人", 4}, {"双明杠", 4}, {"和绝张", 4}, {"箭刻", 2}, {"圈风刻", 2}, {"门风刻", 2}, {"门前清", 2},
+        {"平和", 2}, {"双暗刻", 2}, {"暗杠", 2}, {"断幺", 2},
+        {"老少副", 1}, {"明杠", 1}, {"缺一门", 1}, {"无字", 1}, {"边张", 1},
+        {"嵌张", 1}, {"单钓将", 1}, {"自摸", 1}, {"明暗杠", 5},
         // 可叠加番数 四归一、双同刻、一般高、喜相逢、连六、幺九刻、花牌七个番种允许复计。
-         {"花牌*1", "花牌*1:1番"}, {"花牌*2", "花牌*2:2番"}, {"花牌*3", "花牌*3:3番"}, {"花牌*4", "花牌*4:4番"}, {"花牌*5", "花牌*5:5番"},{"花牌*6", "花牌*6:6番"}, {"花牌*7", "花牌*7:7番"}, {"花牌*8", "花牌*8:8番"},
-         {"四归一*1", "四归一*1:2番"}, {"四归一*2", "四归一*2:4番"}, {"四归一*3", "四归一*3:6番"}, {"四归一*4", "四归一*4:8番"},
-         {"双同刻*1", "双同刻*1:2番"}, {"双同刻*2", "双同刻*2:4番"}, {"双同刻*3", "双同刻*3:6番"}, {"双同刻*4", "双同刻*4:8番"},
-         {"一般高*1", "一般高*1:1番"}, {"一般高*2", "一般高*2:2番"}, {"一般高*3", "一般高*3:3番"}, {"一般高*4", "一般高*4:4番"},
-         {"喜相逢*1", "喜相逢*1:1番"}, {"喜相逢*2", "喜相逢*2:2番"}, {"喜相逢*3", "喜相逢*3:3番"}, {"喜相逢*4", "喜相逢*4:4番"},
-         {"幺九刻*1", "幺九刻*1:1番"}, {"幺九刻*2", "幺九刻*2:2番"}, {"幺九刻*3", "幺九刻*3:3番"}, {"幺九刻*4", "幺九刻*4:4番"},
-         {"连六*1", "连六*1:1番"}, {"连六*2", "连六*2:2番"}, {"连六*3", "连六*3:3番"}, {"连六*4", "连六*4:4番"},
+        {"花牌*1", 1}, {"花牌*2", 2}, {"花牌*3", 3}, {"花牌*4", 4}, {"花牌*5", 5}, {"花牌*6", 6}, {"花牌*7", 7}, {"花牌*8", 8},
+        {"四归一*1", 2}, {"四归一*2", 4}, {"四归一*3", 6}, {"四归一*4", 8},
+        {"双同刻*1", 2}, {"双同刻*2", 4}, {"双同刻*3", 6}, {"双同刻*4", 8},
+        {"一般高*1", 1}, {"一般高*2", 2}, {"一般高*3", 3}, {"一般高*4", 4},
+        {"喜相逢*1", 1}, {"喜相逢*2", 2}, {"喜相逢*3", 3}, {"喜相逢*4", 4},
+        {"幺九刻*1", 1}, {"幺九刻*2", 2}, {"幺九刻*3", 3}, {"幺九刻*4", 4},
+        {"连六*1", 1}, {"连六*2", 2}, {"连六*3", 3}, {"连六*4", 4},
     };
-
-    private TextMeshProUGUI[] fanTexts;
     public static EndResultPanel Instance { get; private set; }
 
     private void Awake() {
@@ -75,10 +63,7 @@ public class EndResultPanel : MonoBehaviour {
         EndButton.interactable = false;
 
         Instance = this;
-        fanTexts = new TextMeshProUGUI[] {
-            FanTex1, FanTex2, FanTex3, FanTex4, FanTex5, FanTex6,
-            FanTex7, FanTex8, FanTex9, FanTex10, FanTex11, FanTex12
-        };
+
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
@@ -183,10 +168,20 @@ public class EndResultPanel : MonoBehaviour {
         for (int i = 0; i < hu_fan.Length; i++){
             // 每半秒 显示一个番数
             yield return new WaitForSeconds(0.5f);
-            fanTexts[i].text = FanToDescribe[hu_fan[i]];
-            if (i == 12){
-                Debug.Log("超出番数显示限制");
-                break;
+            
+            // 获取番数名称和值
+            string fanName = hu_fan[i];
+            int fanValue = FanToValue.ContainsKey(fanName) ? FanToValue[fanName] : 0;
+            
+            // 实例化 FanCountPrefab
+            GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
+            
+            // 调用 SetFanCount 方法
+            FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
+            if (fanCount != null) {
+                fanCount.SetFanCount(fanName, fanValue);
+            } else {
+                Debug.LogWarning($"FanCountPrefab 上未找到 FanCount 组件");
             }
         }
         
@@ -225,6 +220,12 @@ public class EndResultPanel : MonoBehaviour {
         foreach (Transform child in EndTilescontainer.transform){
             Destroy(child.gameObject);
         }
+        
+        // 清空番数容器
+        foreach (Transform child in FanCountContainer){
+            Destroy(child.gameObject);
+        }
+        
         // 清空分数
         SelfUserName.text = "";
         SelfScore.text = "";
@@ -234,9 +235,5 @@ public class EndResultPanel : MonoBehaviour {
         TopScore.text = "";
         RightUserName.text = "";
         RightScore.text = "";
-        // 清空番数
-        foreach (var fanText in fanTexts){
-            fanText.text = "";
-        }
     }
 }

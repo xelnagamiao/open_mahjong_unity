@@ -5,7 +5,7 @@ using UnityEngine;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = false;
+    public static bool Debug = true;
     
     public static string webUrl;
     public static string gameUrl;

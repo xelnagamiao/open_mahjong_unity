@@ -14,11 +14,13 @@ class PlayerInfo(BaseModel):
     huapai_list: List[int]
     remaining_time: int
     player_index: int
+    original_player_index: int  # 原始玩家索引 东南西北 0 1 2 3
     score: int
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID
     voice_used: Optional[int] = None  # 使用的音色ID
+    score_history: Optional[List[str]] = None  # 分数历史变化列表，每局记录 +？、-？ 或 0
 
 class GameInfo(BaseModel):
     room_id: int

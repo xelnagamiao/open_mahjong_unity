@@ -33,6 +33,26 @@ public partial class BoardCanvas : MonoBehaviour {
         {2, "西"},
         {3, "北"}
     };
+
+    private static readonly Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
+        {1, "东风东"},
+        {2, "东风南"},
+        {3, "东风西"},
+        {4, "东风北"},
+        {5, "南风东"},
+        {6, "南风南"},
+        {7, "南风西"},
+        {8, "南风北"},
+        {9, "西风东"},
+        {10, "西风南"},
+        {11, "西风西"},
+        {12, "西风北"},
+        {13, "北风东"},
+        {14, "北风南"},
+        {15, "北风西"},
+        {16, "北风北"},
+    };
+
     
     public static BoardCanvas Instance { get; private set; }
     private Coroutine flashCoroutine; // 闪烁协程
@@ -74,41 +94,18 @@ public partial class BoardCanvas : MonoBehaviour {
         remiansTilesText.text = $"余:{gameInfo.tile_count}"; 
 
         // 设置当前回合
-        string current_round_str = "";
-        if (gameInfo.current_round == 1){
-            current_round_str = "东一局";
-        } else if (gameInfo.current_round == 2){
-            current_round_str = "东二局";
-        } else if (gameInfo.current_round == 3){
-            current_round_str = "东三局";
-        } else if (gameInfo.current_round == 4){
-            current_round_str = "东四局";
-        } else if (gameInfo.current_round == 5){
-            current_round_str = "南一局";
-        } else if (gameInfo.current_round == 6){
-            current_round_str = "南二局";
-        } else if (gameInfo.current_round == 7){
-            current_round_str = "南三局";
-        } else if (gameInfo.current_round == 8){
-            current_round_str = "南四局";
-        } else if (gameInfo.current_round == 9){
-            current_round_str = "西一局";
-        } else if (gameInfo.current_round == 10){
-            current_round_str = "西二局";
-        } else if (gameInfo.current_round == 11){
-            current_round_str = "西三局";
-        } else if (gameInfo.current_round == 12){
-            current_round_str = "西四局";
-        } else if (gameInfo.current_round == 13){
-            current_round_str = "北一局";
-        } else if (gameInfo.current_round == 14){
-            current_round_str = "北二局";
-        } else if (gameInfo.current_round == 15){
-            current_round_str = "北三局";
-        } else if (gameInfo.current_round == 16){
-            current_round_str = "北四局";
+        string roomType = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : gameInfo.room_type;
+        Dictionary<int, string> roundMap = null;
+        if (roomType == "guobiao") {
+            roundMap = CurrentRoundTextGB;
         }
-        CurrentRoundText.text = $"{current_round_str}";
+
+        if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {
+            CurrentRoundText.text = currentRoundStr;
+        } else {
+            CurrentRoundText.text = "";
+        }
+
     }
 
     // 显示玩家分数分差

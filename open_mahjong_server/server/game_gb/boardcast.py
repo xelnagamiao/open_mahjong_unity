@@ -34,11 +34,13 @@ async def broadcast_game_start(self):
             "huapai_list": player.huapai_list, # 花牌列表
             'remaining_time': player.remaining_time, # 剩余局时
             'player_index': player.player_index, # 东南西北位置
+            'original_player_index': player.original_player_index, # 原始玩家索引 东南西北 0 1 2 3
             'score': player.score, # 分数
             "title_used": player.title_used, # 称号ID
             'profile_used': player.profile_used, # 使用的头像ID
             'character_used': player.character_used, # 使用的角色ID
             'voice_used': player.voice_used, # 使用的音色ID
+            'score_history': player.score_history, # 分数历史变化列表
         }
         base_game_info['players_info'].append(player_info) # 将字典添加到列表中
 

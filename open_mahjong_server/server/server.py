@@ -539,7 +539,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
 def validate_username(username: str) -> Optional[str]:
     """
-    验证用户名：中文=2，数字=1，英文=1，总长度>=4，不超过32字节
+    验证用户名：不超过16个字符，中文=2，数字=1，英文=1，总长度>=2，不超过20
     Returns:
         如果验证失败返回错误消息，否则返回None
     """
@@ -548,9 +548,11 @@ def validate_username(username: str) -> Optional[str]:
     
     username = username.strip()
     
-    if len(username.encode('utf-8')) > 32:
-        return "用户名不能超过32个字节"
+    # 检查字符数（不超过16个字符）
+    if len(username) > 16:
+        return "用户名不能超过16个字符"
     
+    # 计算长度（中文=2，英文=1，数字=1）
     length = 0
     for char in username:
         if '\u4e00' <= char <= '\u9fff':
@@ -562,6 +564,8 @@ def validate_username(username: str) -> Optional[str]:
     
     if length < 2:
         return "用户名长度至少需要2（中文=2，数字=1，英文=1）"
+    if length > 20:
+        return "用户名不能超过20"
     
     return None
 

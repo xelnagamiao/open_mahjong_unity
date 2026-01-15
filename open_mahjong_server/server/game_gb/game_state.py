@@ -46,8 +46,10 @@ class ChinesePlayer:
         self.remaining_time = remaining_time          # 剩余时间 （局时）
         self.player_index = 0                         # 玩家索引 东南西北 0 1 2 3
         self.original_player_index = 0                # 原始玩家索引 东南西北 0 1 2 3
+        
         self.waiting_tiles = set[int]()               # 听牌
         self.record_counter = RecordCounter()          # 创建独立的记录计数器实例
+        self.score_history = []                        # 分数历史变化列表，每局记录 +？、-？ 或 0
 
         self.title_used = 0 # 使用的称号ID
         self.profile_used = 0 # 使用的头像ID
@@ -410,7 +412,8 @@ class ChineseGameState:
             hu_fan = None
             hepai_player_index = None
 
-            
+            # 记录结算前的分数（用于计算本局分数变化）
+            scores_before = {player.original_player_index: player.score for player in self.player_list}
             
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
@@ -520,6 +523,19 @@ class ChineseGameState:
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = None # 和牌玩家组合掩码
                                        )
+
+            # 记录分数变更到每个玩家的 score_history
+            # 计算每个玩家本局的分数变化并记录
+            for player in self.player_list:
+                score_change = player.score - scores_before[player.original_player_index]
+                # 格式化为 +00、-00 或 0
+                if score_change > 0:
+                    score_change_str = f"+{score_change:02d}"
+                elif score_change < 0:
+                    score_change_str = f"-{abs(score_change):02d}"  # 负数如 -05
+                else:
+                    score_change_str = "0"
+                player.score_history.append(score_change_str)
 
             # 牌谱记录和牌
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)

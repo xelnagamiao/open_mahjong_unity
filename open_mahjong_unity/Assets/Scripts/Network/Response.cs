@@ -74,12 +74,14 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int[] conbination_mask;      // 组合牌掩码
     public int remaining_time;          // 剩余时间
     public int player_index;            // 东南西北位置 (改为player_index)
+    public int original_player_index;   // 原始玩家索引 东南西北 0 1 2 3
     public int score;                   // 得分
     public int[] huapai_list;           // 花牌列表
     public int title_used;              // 使用的称号ID
     public int character_used;          // 使用的角色ID
     public int profile_used;            // 使用的头像ID
     public int voice_used;              // 使用的音色ID
+    public string[] score_history;      // 分数历史变化列表，每局记录 +？、-？ 或 0
 }
 
 public class GameInfo { // 游戏开始时传递房间信息

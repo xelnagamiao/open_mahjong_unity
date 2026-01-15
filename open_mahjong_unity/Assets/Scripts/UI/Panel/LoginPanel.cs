@@ -13,7 +13,7 @@ public class LoginPanel : MonoBehaviour {
     [SerializeField] private TMP_Text loginTipsText;
 
     public static LoginPanel Instance { get; private set; }
-    private string userNameTips = "用户名应当在2-32个字符之间，只能包含中文、数字、英文";
+    private string userNameTips = "用户名应当在2-20个字符之间，只能包含中文、数字、英文";
     private string passwordTips = "密码应当在6-32个字符之间，只能包含英文、数字、特殊字符";
 
     private Coroutine serverConnectCoroutine;
@@ -66,15 +66,17 @@ public class LoginPanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 验证用户名：中文=2，数字=1，英文=1，总长度>=4，不超过32字节
+    /// 验证用户名：不超过16个字符，中文=2，数字=1，英文=1，总长度>=2，不超过20
     /// </summary>
     private string ValidateUsername(string username){
         if (string.IsNullOrEmpty(username))
             return "用户名不能为空";
 
-        if (System.Text.Encoding.UTF8.GetByteCount(username) > 32)
-            return "用户名不能超过32个字节";
+        // 检查字符数（不超过16个字符）
+        if (username.Length > 16)
+            return "用户名不能超过16个字符";
 
+        // 计算长度（中文=2，英文=1，数字=1）
         int length = 0;
         foreach (char c in username) {
             if (c >= 0x4E00 && c <= 0x9FFF)
@@ -87,6 +89,9 @@ public class LoginPanel : MonoBehaviour {
 
         if (length < 2)
             return "用户名长度至少需要2（中文=2，数字=1，英文=1）";
+        
+        if (length > 20)
+            return "用户名长度不能超过20字节";
 
         return null;
     }
