@@ -75,7 +75,7 @@
     #=========================Vue前端配置===========================
     # 路由回退规则
     location / {
-        try_files $uri $uri/ /index.html;   # ← 这行就是路由回退规则
+        try_files $uri $uri/ /index.html;
     }
 
     # 静态资源缓存）

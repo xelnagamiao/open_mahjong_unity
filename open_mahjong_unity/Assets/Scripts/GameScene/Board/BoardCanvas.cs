@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -35,6 +36,8 @@ public partial class BoardCanvas : MonoBehaviour {
     
     public static BoardCanvas Instance { get; private set; }
     private Coroutine flashCoroutine; // 闪烁协程
+    private Coroutine scoreDifferenceCoroutine; // 分差显示协程
+    private Dictionary<TMP_Text, string> originalScores = new Dictionary<TMP_Text, string>(); // 保存原始分数文本
 
     private void Awake(){
         if (Instance != null && Instance != this){
@@ -106,6 +109,68 @@ public partial class BoardCanvas : MonoBehaviour {
             current_round_str = "北四局";
         }
         CurrentRoundText.text = $"{current_round_str}";
+    }
+
+    // 显示玩家分数分差
+    public void ShowScoreDifference() {
+        // 如果已有分差显示协程在运行，先停止它
+        if (scoreDifferenceCoroutine != null) {
+            StopCoroutine(scoreDifferenceCoroutine);
+        }
+        // 启动显示分差的协程，重置时间
+        scoreDifferenceCoroutine = StartCoroutine(ShowScoreDifferenceCoroutine());
+    }
+
+    private IEnumerator ShowScoreDifferenceCoroutine() {
+        // 保存原始分数文本
+        originalScores.Clear();
+        originalScores[player_self_score] = player_self_score.text;
+        originalScores[player_left_score] = player_left_score.text;
+        originalScores[player_top_score] = player_top_score.text;
+        originalScores[player_right_score] = player_right_score.text;
+        // 解析分数
+        int selfScore = ParseScore(player_self_score.text);
+        int leftScore = ParseScore(player_left_score.text);
+        int topScore = ParseScore(player_top_score.text);
+        int rightScore = ParseScore(player_right_score.text);
+        // 计算分差（玩家分数 - 其他玩家分数）
+        int leftDiff = selfScore - leftScore;
+        int topDiff = selfScore - topScore;
+        int rightDiff = selfScore - rightScore;
+        // 显示分差（玩家自己的分数显示为原始分数，其他位置显示分差）
+        player_self_score.text = originalScores[player_self_score];
+        player_left_score.text = FormatScoreDifference(leftDiff);
+        player_top_score.text = FormatScoreDifference(topDiff);
+        player_right_score.text = FormatScoreDifference(rightDiff);
+        // 等待3秒
+        yield return new WaitForSeconds(3f);
+        // 恢复原始分数文本
+        player_self_score.text = originalScores[player_self_score];
+        player_left_score.text = originalScores[player_left_score];
+        player_top_score.text = originalScores[player_top_score];
+        player_right_score.text = originalScores[player_right_score];
+        scoreDifferenceCoroutine = null; // 协程结束，清空引用
+    }
+
+    // 解析分数文本（处理可能的非数字字符）
+    private int ParseScore(string scoreText) {
+        // 移除所有非数字字符（除了负号）
+        string cleanText = Regex.Replace(scoreText, @"[^\d-]", "");
+        if (int.TryParse(cleanText, out int score)) {
+            return score;
+        }
+        return 0;
+    }
+
+    // 格式化分差显示（正数绿色+xx，负数红色-xx）
+    private string FormatScoreDifference(int difference) {
+        if (difference > 0) {
+            return $"<color=#00ff00>+{difference}</color>"; // 正数显示绿色
+        } else if (difference < 0) {
+            return $"<color=#ff0000>{difference}</color>"; // 负数显示红色
+        } else {
+            return "<color=#ffffff>0</color>"; // 零显示白色
+        }
     }
 }
 

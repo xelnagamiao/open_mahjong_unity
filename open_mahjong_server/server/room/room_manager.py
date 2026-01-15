@@ -302,6 +302,8 @@ class RoomManager:
             if "player_settings" in room_data and player.user_id in room_data["player_settings"]:
                 del room_data["player_settings"][player.user_id]
 
+
+
             # 如果房间空了就删除
             if len(room_data["player_list"]) == 0:
                 del self.rooms[room_id]
@@ -365,6 +367,12 @@ class RoomManager:
             return
         
         room_data = self.rooms[room_id]
+        
+        # 如果游戏正在运行，清理gamestate
+        if room_data.get("is_game_running", False):
+            if room_id in self.game_server.room_id_to_ChineseGameState:
+                del self.game_server.room_id_to_ChineseGameState[room_id]
+                logger.info(f"销毁房间时清理游戏状态，room_id: {room_id}")
         
         # 向所有房间内的玩家广播离开房间消息
         leave_response = Response(
