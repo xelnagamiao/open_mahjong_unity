@@ -1,0 +1,88 @@
+    #=======================open_mahjong_unity ngnix配置==============
+    # 网站名 / vue静态文件目录 / 入口文件
+    server_name salasasa.cn;
+    root /www/wwwroot/salasasa.cn/dist;
+    index index.html;
+    
+    #=======================游戏服务器==============================
+    # 游戏服务器 WebSocket salasasa:cn/game -> localhost:8081
+    
+    location ^~ /game/ {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Origin "";
+        proxy_read_timeout 86400s;
+
+    }
+    
+    #=======================聊天服务器==============================
+    # 聊天服务器 WebSocket salasasa:cn/chat -> localhost:8083
+    location ^~ /chat/ {
+        proxy_pass http://127.0.0.1:8083;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Origin "";
+        proxy_read_timeout 86400s;
+    }
+    
+    #=======================node.js 路由==============================
+    # node.js 服务 WebSocket salasasa:cn/api -> localhost:8082
+    location ^~ /api/ {
+        proxy_pass http://127.0.0.1:8082/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    #=======================Unity压缩配置==============================
+    # .wasm.gz 给压缩文件配备消息头
+    location ~ \.wasm\.gz$ {
+        gzip off;                               
+        add_header Content-Encoding gzip always; 
+        default_type application/wasm;          
+        types { application/wasm .wasm.gz; }    
+    }
+    
+    # .js.gz （wasm）
+    location ~ \.js\.gz$ {
+        gzip off;
+        add_header Content-Encoding gzip always;
+        default_type application/javascript;
+    }
+    
+    # .data.gz 
+    location ~ \.(data|symbols\.json)\.gz$ {
+        gzip off;
+        add_header Content-Encoding gzip always;
+        default_type application/octet-stream;
+    }
+    
+    # 启用 gzip_static
+    gzip_static on;
+    
+    #=========================Vue前端配置===========================
+    # 路由回退规则
+    location / {
+        try_files $uri $uri/ /index.html;   # ← 这行就是路由回退规则
+    }
+
+    # 静态资源缓存）
+    location ~* \.(?:ico|css|js|gif|jpe?g|png|svg|woff2?|ttf|eot)$ {
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public";
+    }
+    
+    #======================open_mahjong_unity ngnix配置结束============
