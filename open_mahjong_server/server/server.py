@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from .response import Response
 from .game_gb.game_state import ChineseGameState
+from .game_gb.get_action import get_action
 from .room.room_manager import RoomManager
 from .database.db_manager import DatabaseManager
 from .chat_server.chat_server import ChatServer
@@ -149,8 +150,8 @@ class GameServer:
 
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe)
 
     # 获取房间列表
     def get_room_list(self) -> Response:
@@ -317,7 +318,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     message["password"],
                     message["roundTimerValue"],
                     message["stepTimerValue"],
-                    message["tips"]
+                    message["tips"],
+                    message["random_seed"],
+                    message["open_cuohe"]
                 )
                 await websocket.send_json(response.dict(exclude_none=True))
 
@@ -337,12 +340,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             elif message["type"] == "CutTiles":
                 room_id = message["room_id"]
                 chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-                await chinese_game_state.get_action(Connect_id, "cut", message["cutClass"], message["TileId"], cutIndex = message["cutIndex"],target_tile=None)
+                await get_action(chinese_game_state, Connect_id, "cut", message["cutClass"], message["TileId"], cutIndex = message["cutIndex"],target_tile=None)
 
             elif message["type"] == "send_action":
                 room_id = message["room_id"]
                 chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-                await chinese_game_state.get_action(Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
+                await get_action(chinese_game_state, Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
 
             elif message["type"] == "get_record_list":
                 # 获取当前登录用户的游戏记录列表

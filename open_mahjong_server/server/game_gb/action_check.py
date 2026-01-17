@@ -1,6 +1,6 @@
 from typing import Dict
 import logging
-from .logic_handler import get_index_relative_position
+from .logic_handler import get_index_relative_position, next_current_num
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ def check_action_after_cut(self,cut_tile):
     # 如果牌堆内仍有牌则可以吃碰杠
     if self.tiles_list != []:
         # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
-        next_player_index = self.next_current_num(self.current_player_index)
+        next_player_index = next_current_num(self.current_player_index)
         if cut_tile <= 40:
             # left 左侧吃牌 [a-2,a-1,a]
             if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
@@ -114,6 +114,7 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     # 如果手牌中有等待牌 则检测和牌
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
         check_hepai(self,temp_action_dict,player_item.hand_tiles[-1],player_index,"handgot",is_first_action,is_get_gang_tile)
+    
 
     return temp_action_dict
 
@@ -220,3 +221,18 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "right":
             temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
             self.result_dict["hu_third"] = result # 保存结算结果
+    else:
+        # 如果开启错和，不满足8番的和牌也进行保存(嘻嘻)
+        if self.open_cuohe:
+            if get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "self":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
+                self.result_dict["hu_self"] = result # 保存结算结果
+            elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "left":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
+                self.result_dict["hu_first"] = result # 保存结算结果
+            elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "top":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
+                self.result_dict["hu_second"] = result # 保存结算结果
+            elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "right":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
+                self.result_dict["hu_third"] = result # 保存结算结果

@@ -20,6 +20,8 @@ async def broadcast_game_start(self):
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
         'room_type': self.room_type, # 房间类型
+        'open_cuohe': self.open_cuohe, # 是否开启错和
+        'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
     # 为每个玩家准备信息
@@ -41,6 +43,7 @@ async def broadcast_game_start(self):
             'character_used': player.character_used, # 使用的角色ID
             'voice_used': player.voice_used, # 使用的音色ID
             'score_history': player.score_history, # 分数历史变化列表
+            'tag_list': player.tag_list, # 标签列表
         }
         base_game_info['players_info'].append(player_info) # 将字典添加到列表中
 

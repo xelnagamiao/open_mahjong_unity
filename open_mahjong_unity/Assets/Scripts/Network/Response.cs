@@ -82,6 +82,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int profile_used;            // 使用的头像ID
     public int voice_used;              // 使用的音色ID
     public string[] score_history;      // 分数历史变化列表，每局记录 +？、-？ 或 0
+    public string[] tag_list;           // 标签列表
 }
 
 public class GameInfo { // 游戏开始时传递房间信息
@@ -96,6 +97,8 @@ public class GameInfo { // 游戏开始时传递房间信息
     public int step_time;               // 步时
     public int round_time;              // 局时
     public string room_type;            // 房间类型
+    public bool open_cuohe;             // 是否开启错和
+    public bool isPlayerSetRandomSeed;  // 是否设置随机种子
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 }

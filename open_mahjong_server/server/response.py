@@ -21,6 +21,7 @@ class PlayerInfo(BaseModel):
     profile_used: Optional[int] = None  # 使用的头像ID
     voice_used: Optional[int] = None  # 使用的音色ID
     score_history: Optional[List[str]] = None  # 分数历史变化列表，每局记录 +？、-？ 或 0
+    tag_list: Optional[List[str]] = None  # 标签列表
 
 class GameInfo(BaseModel):
     room_id: int
@@ -34,6 +35,8 @@ class GameInfo(BaseModel):
     step_time: int
     round_time: int
     room_type: str
+    open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
+    isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
 

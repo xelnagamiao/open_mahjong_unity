@@ -9,8 +9,10 @@ public class LoginPanel : MonoBehaviour {
     [SerializeField] private Button loginButton;
     [SerializeField] private Button touristButton;
     [SerializeField] private TMP_Text connectStatusText;
-    [SerializeField] private Image loginPanel;
     [SerializeField] private TMP_Text loginTipsText;
+    [SerializeField] private Button ShowTestPanelButton;
+    [SerializeField] private TMP_Text TestPanelStateText;
+    [SerializeField] private GameObject TestPanel;
 
     public static LoginPanel Instance { get; private set; }
     private string userNameTips = "用户名应当在2-20个字符之间，只能包含中文、数字、英文";
@@ -28,13 +30,28 @@ public class LoginPanel : MonoBehaviour {
         
         loginButton.onClick.AddListener(LoginClick);
         touristButton.onClick.AddListener(TouristLoginClick);
-        
+        ShowTestPanelButton.onClick.AddListener(ShowTestPanel);
         // 设置输入框选中事件
         inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
         inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
         
         // 直接启动连接协程
         serverConnectCoroutine = StartCoroutine(ServerConnectCoroutine());
+    }
+
+    private void ShowTestPanel()
+    {
+        if (TestPanel.activeSelf)
+        {
+            TestPanel.SetActive(false);
+            TestPanelStateText.text = "开启测试台";
+            return;
+        }
+        else
+        {
+            TestPanel.SetActive(true);
+            TestPanelStateText.text = "关闭测试台";
+        }
     }
 
     private void LoginClick(){

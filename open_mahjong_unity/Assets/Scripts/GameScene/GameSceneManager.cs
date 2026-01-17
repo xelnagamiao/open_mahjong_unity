@@ -1,10 +1,12 @@
 ﻿using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+
 
 
 
@@ -23,6 +25,9 @@ public class GameSceneManager : MonoBehaviour{
     public int selfRemainingTime; // 剩余时间
     public int remainTiles; // 剩余牌数
     public bool tips; // 提示
+    public bool isOpenCuoHe; // 是否开启错和
+
+    public bool isSetRandomSeed; // 是否设置随机种子
 
     [Header("自动操作配置")]
 
@@ -54,6 +59,8 @@ public class GameSceneManager : MonoBehaviour{
         public int voice_used;      // 使用的音色ID
         public List<string> score_history;  // 分数历史变化列表，每局记录 +？、-？ 或 0
         public int original_player_index;   // 原始玩家索引 东南西北 0 1 2 3
+        public string[] tag_list; // 标签列表
+        
     }
 
     private void Awake() {
@@ -67,8 +74,6 @@ public class GameSceneManager : MonoBehaviour{
         player_to_info["top"] = new PlayerInfo();
         player_to_info["right"] = new PlayerInfo();
     }
-
-
 
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
@@ -465,6 +470,28 @@ public class GameSceneManager : MonoBehaviour{
         }
     }
 
+
+    // 提示计算
+    private async void WaitShowTips(){
+        // 在后台线程执行计算
+        HashSet<int> waitingTiles = await Task.Run(() => {
+            try {
+                return GBtingpai.TingpaiCheck(selfHandTiles, player_to_info["self"].combination_tiles, false);
+            } catch (System.Exception e) {
+                Debug.LogError($"计算听牌时出错: {e.Message}");
+                return new HashSet<int>();
+            }
+        });
+        // 如果听牌列表不为空，则显示提示
+        if (waitingTiles.Count > 0) {
+
+        }
+
+        
+    }
+
+
+
     // 设置游戏信息
     private void InitializeSetInfo(GameInfo gameInfo){
         // 清空操作列表
@@ -496,9 +523,24 @@ public class GameSceneManager : MonoBehaviour{
         roomType = gameInfo.room_type; // 存储房间规则类型
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
-        tips = gameInfo.tips; // 存储是否提示
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
         selfHandTiles = gameInfo.self_hand_tiles.ToList(); // 存储手牌列表
+
+        tips = gameInfo.tips; // 存储是否提示
+        isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和
+        isSetRandomSeed = gameInfo.isPlayerSetRandomSeed; // 存储是否设置随机种子
+        if (isOpenCuoHe){
+            Debug.Log("开启错和");
+        }
+        else{
+            Debug.Log("关闭错和");
+        }
+        if (isSetRandomSeed){
+            Debug.Log("设置随机种子");
+        }
+        else{
+            Debug.Log("未设置随机种子");
+        }
         // 根据自身索引确定其他玩家位置
         if (selfIndex == 0) {
             indexToPosition[0] = "self";
@@ -536,8 +578,9 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["self"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["self"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["self"].voice_used = player.voice_used; // 存储使用的音色ID
-                player_to_info["self"].score_history = player.score_history != null ? player.score_history.ToList() : new List<string>();
+                player_to_info["self"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
                 player_to_info["self"].original_player_index = player.original_player_index; // 存储原始玩家索引
+                player_to_info["self"].tag_list = player.tag_list; // 存储标签列表
             } else if (indexToPosition[player.player_index] == "right") {
                 player_to_info["right"].username = player.username; // 存储用户名
                 player_to_info["right"].score = player.score; // 存储分数
@@ -550,8 +593,9 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["right"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["right"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["right"].voice_used = player.voice_used; // 存储使用的音色ID
-                player_to_info["right"].score_history = player.score_history != null ? player.score_history.ToList() : new List<string>();
+                player_to_info["right"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
                 player_to_info["right"].original_player_index = player.original_player_index; // 存储原始玩家索引
+                player_to_info["right"].tag_list = player.tag_list; // 存储标签列表
             } else if (indexToPosition[player.player_index] == "top") {
                 player_to_info["top"].username = player.username; // 存储用户名
                 player_to_info["top"].score = player.score; // 存储分数
@@ -564,8 +608,9 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["top"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["top"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["top"].voice_used = player.voice_used; // 存储使用的音色ID
-                player_to_info["top"].score_history = player.score_history != null ? player.score_history.ToList() : new List<string>();
+                player_to_info["top"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
                 player_to_info["top"].original_player_index = player.original_player_index; // 存储原始玩家索引
+                player_to_info["top"].tag_list = player.tag_list; // 存储标签列表
             } else if (indexToPosition[player.player_index] == "left") {
                 player_to_info["left"].username = player.username; // 存储用户名
                 player_to_info["left"].score = player.score; // 存储分数
@@ -578,8 +623,9 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["left"].profile_used = player.profile_used; // 存储使用的头像ID
                 player_to_info["left"].character_used = player.character_used; // 存储使用的角色ID
                 player_to_info["left"].voice_used = player.voice_used; // 存储使用的音色ID
-                player_to_info["left"].score_history = player.score_history != null ? player.score_history.ToList() : new List<string>();
+                player_to_info["left"].score_history = player.score_history.ToList(); // 存储分数历史变化列表
                 player_to_info["left"].original_player_index = player.original_player_index; // 存储原始玩家索引
+                player_to_info["left"].tag_list = player.tag_list; // 存储标签列表
             }
         }
     }

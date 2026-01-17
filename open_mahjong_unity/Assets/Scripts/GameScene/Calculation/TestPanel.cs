@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class TestGBhepai : MonoBehaviour
+public class TestPanel : MonoBehaviour
 {
     [Header("UI 组件")]
     [Tooltip("输入框：输入 Python 风格的测试数据，例如：[[\"k39\"],[32,32,32,33,33,33,34,34,34,41,41],33,[\"点和\"]]")]
@@ -18,11 +18,20 @@ public class TestGBhepai : MonoBehaviour
     [Tooltip("结果显示文本")]
     public TMP_Text resultText;
 
-    private void Start(){
-        testButton.onClick.AddListener(TestHepaiCheck);
-    }
+    public TMP_Dropdown testDropdown;
+    public TMP_Text testDropdownText;
+    public List<string> testDataList = new List<string>{
+        "国标和牌测试请输入[['g44','G28'],[12,12,12,13,13,35,35,35],13,['点和','场风西','自风南']] 测试集请查看server文件夹的calculaion目录",
+        "国标听牌测试请输入[['k39'],[32,32,32,33,33,33,34,34,34,41]]"
+    };
 
-    [ContextMenu("Test Hepai Check (Parse Input)")]
+    private void Awake(){
+        testButton.onClick.AddListener(TestButtonClick);
+        testDropdown.onValueChanged.AddListener(OnTestDropdownChanged);
+        gameObject.SetActive(false);
+        testDropdownText.text = testDataList[0];
+    }
+    // 测试用例1
     public void TestHepaiCheck()
     {
         string inputText = "";
@@ -225,4 +234,158 @@ public class TestGBhepai : MonoBehaviour
 
         return result;
     }
+
+
+    private void OnTestDropdownChanged(int index)
+    {
+        string testData = testDataList[index];
+        testDropdownText.text = testData;
+    }
+
+    /// <summary>
+    /// 测试用例2：听牌检查
+    /// </summary>
+    public void TestTingCheck()
+    {
+        string inputText = "";
+        
+        // 如果有输入框，使用输入框的内容
+        if (testInputField != null && !string.IsNullOrWhiteSpace(testInputField.text))
+        {
+            inputText = testInputField.text.Trim();
+        }
+        else
+        {
+            // 否则使用默认测试数据
+            inputText = "[[\"k39\"],[32,32,32,33,33,33,34,34,34,41]]";
+            Debug.LogWarning("没有输入数据，使用默认测试数据");
+        }
+
+        try
+        {
+            var (combinationList, tilesList) = ParseTingpaiTestData(inputText);
+            
+            Debug.Log($"解析结果:");
+            Debug.Log($"  组合列表: [{string.Join(", ", combinationList)}]");
+            Debug.Log($"  手牌列表: [{string.Join(", ", tilesList)}]");
+
+            // 调用 GBtingpai 的静态方法进行听牌检查
+            var waitingTiles = GBtingpai.TingpaiCheck(tilesList, combinationList, debug: true);
+
+            // 测试脚本负责显示结果在 TMP Text 上
+            string resultMessage = $"听牌检查结果:\n等待牌: {string.Join(", ", waitingTiles.OrderBy(x => x))}\n等待牌数量: {waitingTiles.Count}";
+            
+            if (resultText != null)
+            {
+                resultText.text = resultMessage;
+            }
+            else
+            {
+                Debug.Log(resultMessage);
+            }
+        }
+        catch (Exception e)
+        {
+            string errorMessage = $"解析或测试失败:\n{e.Message}\n\n{e.StackTrace}";
+            
+            if (resultText != null)
+            {
+                resultText.text = errorMessage;
+            }
+            else
+            {
+                Debug.LogError(errorMessage);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 解析听牌测试数据字符串
+    /// 格式: [[组合列表], [手牌列表]]
+    /// 例如: [[\"k39\"],[32,32,32,33,33,33,34,34,34,41]]
+    /// </summary>
+    private (List<string> combinationList, List<int> tilesList) ParseTingpaiTestData(string input)
+    {
+        // 移除首尾空白字符
+        input = input.Trim();
+        
+        // 移除首尾的方括号
+        if (input.StartsWith("[") && input.EndsWith("]"))
+        {
+            input = input.Substring(1, input.Length - 2).Trim();
+        }
+
+        // 使用正则表达式或手动解析来提取2个元素
+        var elements = new List<string>();
+        int bracketDepth = 0;
+        int startIndex = 0;
+        bool inString = false;
+        char stringChar = '\0';
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = input[i];
+            
+            // 处理字符串
+            if ((c == '"' || c == '\'') && (i == 0 || input[i - 1] != '\\'))
+            {
+                if (!inString)
+                {
+                    inString = true;
+                    stringChar = c;
+                }
+                else if (c == stringChar)
+                {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (!inString)
+            {
+                if (c == '[')
+                    bracketDepth++;
+                else if (c == ']')
+                    bracketDepth--;
+                else if (c == ',' && bracketDepth == 0)
+                {
+                    elements.Add(input.Substring(startIndex, i - startIndex).Trim());
+                    startIndex = i + 1;
+                }
+            }
+        }
+        
+        // 添加最后一个元素
+        if (startIndex < input.Length)
+        {
+            elements.Add(input.Substring(startIndex).Trim());
+        }
+
+        if (elements.Count != 2)
+        {
+            throw new ArgumentException($"期望2个元素，但得到 {elements.Count} 个: {string.Join(" | ", elements)}");
+        }
+
+        // 解析组合列表（第一个元素）
+        List<string> combinationList = ParseStringList(elements[0]);
+        
+        // 解析手牌列表（第二个元素）
+        List<int> tilesList = ParseIntList(elements[1]);
+
+        return (combinationList, tilesList);
+    }
+
+    private void TestButtonClick()
+    {
+        if (testDropdown.value == 0)
+        {
+            TestHepaiCheck();
+        }
+        else
+        {
+            TestTingCheck();
+        }
+
+    }
+
 }
