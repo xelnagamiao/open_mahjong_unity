@@ -24,6 +24,7 @@ public class GameSceneManager : MonoBehaviour{
     public int roomRoundTime; // 局时
     public int selfRemainingTime; // 剩余时间
     public int remainTiles; // 剩余牌数
+    public int currentRound; // 当前轮数
     public bool tips; // 提示
     public bool isOpenCuoHe; // 是否开启错和
 
@@ -41,6 +42,8 @@ public class GameSceneManager : MonoBehaviour{
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
 
+    public string CurrentPlayer; // 当前玩家字符串
+
     // 玩家信息
     public Dictionary<string,PlayerInfo> player_to_info = new Dictionary<string,PlayerInfo>(); // 玩家信息
     public List<int> selfHandTiles = new List<int>(); // 手牌列表
@@ -51,6 +54,7 @@ public class GameSceneManager : MonoBehaviour{
         public int hand_tiles_count;
         public int[] hand_tiles;
         public List<int> discard_tiles;
+        public List<int> discard_origin_tiles;  // 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
         public List<string> combination_tiles;
         public List<int> huapai_list;
         public int title_used;      // 使用的称号ID
@@ -233,7 +237,7 @@ public class GameSceneManager : MonoBehaviour{
                             GameCanvas.Instance.ChangeHandCards("RemoveHandCard",tile_id,null,null); // 2D手牌行为
                         }
                         else{
-                            player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                            player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
                         }
                         Game3DManager.Instance.Change3DTile("jiagang",tile_id,1,GetCardPlayer,false,combination_mask); // 3D加杠行为
                         GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "jiagang"); // 显示操作文本
@@ -248,7 +252,7 @@ public class GameSceneManager : MonoBehaviour{
                                 GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray(),null); // 2D手牌行为
                             }
                             else{
-                                player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                                player_to_info[GetCardPlayer].hand_tiles_count -= 4; // 减少手牌
                             }
                         }
                         Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask); // 3D暗杠行为
@@ -256,6 +260,9 @@ public class GameSceneManager : MonoBehaviour{
                     }
                     else{
                         // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
+                        player_to_info[CurrentPlayer].discard_tiles.Remove(lastCutCardID); // 剔除上次切牌的ID
+                        player_to_info[CurrentPlayer].discard_origin_tiles.Add(lastCutCardID); // 添加上次切牌的理论弃牌
+
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
                         List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
                         need_remove_list.Remove(lastCutCardID); // 剔除上次切牌的ID
@@ -264,7 +271,7 @@ public class GameSceneManager : MonoBehaviour{
                                 selfHandTiles.Remove(tile_id); // 删除手牌
                             }
                             else{
-                                player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                                player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
                             }
                         }
                         if (GetCardPlayer == "self"){
@@ -335,7 +342,12 @@ public class GameSceneManager : MonoBehaviour{
                 GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null,null); // 重置手牌
                 SwitchCurrentPlayer(GetCardPlayer,"ClearAction",0); // 重置自身命令
             }
+            // 只有askHandAction才会转移玩家位置
             BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer); // 显示当前玩家
+            CurrentPlayer = GetCardPlayer; // 存储当前玩家
+
+            // 当回合变为自己的时候可以在这里添加出牌预测提示
+            WaitShowTips("CountCutTips");
         }
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
@@ -359,6 +371,8 @@ public class GameSceneManager : MonoBehaviour{
                 allowActionList.Clear();
                 // 清空按钮
                 GameCanvas.Instance.ClearActionButton();
+                // 在自己执行操作以后重新计算提示
+                WaitShowTips("CountTips");
             }
         }
 
@@ -472,22 +486,32 @@ public class GameSceneManager : MonoBehaviour{
 
 
     // 提示计算
-    private async void WaitShowTips(){
-        // 在后台线程执行计算
-        HashSet<int> waitingTiles = await Task.Run(() => {
-            try {
-                return GBtingpai.TingpaiCheck(selfHandTiles, player_to_info["self"].combination_tiles, false);
-            } catch (System.Exception e) {
-                Debug.LogError($"计算听牌时出错: {e.Message}");
-                return new HashSet<int>();
-            }
-        });
-        // 如果听牌列表不为空，则显示提示
-        if (waitingTiles.Count > 0) {
-
+    private async void WaitShowTips(string ShowState){
+        HashSet<int> waitingTiles = new HashSet<int>();
+        
+        if (ShowState == "CountTips"){
+            // 在后台线程执行计算
+            waitingTiles = await Task.Run(() => {
+                try {
+                    return GBtingpai.TingpaiCheck(selfHandTiles, player_to_info["self"].combination_tiles, false);
+                } catch (System.Exception e) {
+                    Debug.LogError($"计算听牌时出错: {e.Message}");
+                    return new HashSet<int>();
+                }
+            });
+        }
+        else if (ShowState == "CountCutTips"){
+            // 暂时不提供切牌提示
         }
 
-        
+        // 如果听牌列表不为空，则显示提示
+        if (waitingTiles.Count > 0) {
+            TipsContainer.Instance.SetTips(waitingTiles.ToList());
+            GameSceneUIManager.Instance.ShowTips.SetActive(true);
+        }
+        else{
+            GameSceneUIManager.Instance.ShowTips.SetActive(false);
+        }
     }
 
 
@@ -501,6 +525,11 @@ public class GameSceneManager : MonoBehaviour{
         player_to_info["left"].discard_tiles = new List<int>();
         player_to_info["top"].discard_tiles = new List<int>();
         player_to_info["right"].discard_tiles = new List<int>();
+        // 清空理论弃牌列表
+        player_to_info["self"].discard_origin_tiles = new List<int>();
+        player_to_info["left"].discard_origin_tiles = new List<int>();
+        player_to_info["top"].discard_origin_tiles = new List<int>();
+        player_to_info["right"].discard_origin_tiles = new List<int>();
         // 清空花牌列表
         player_to_info["self"].huapai_list = new List<int>();
         player_to_info["left"].huapai_list = new List<int>();
@@ -524,6 +553,7 @@ public class GameSceneManager : MonoBehaviour{
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
+        currentRound = gameInfo.current_round; // 存储当前轮数
         selfHandTiles = gameInfo.self_hand_tiles.ToList(); // 存储手牌列表
 
         tips = gameInfo.tips; // 存储是否提示
@@ -572,6 +602,7 @@ public class GameSceneManager : MonoBehaviour{
                 // 存储剩余时间
                 selfRemainingTime = player.remaining_time;
                 player_to_info["self"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
+                player_to_info["self"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["self"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["self"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["self"].title_used = player.title_used; // 存储使用的称号ID
@@ -586,6 +617,7 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["right"].score = player.score; // 存储分数
                 player_to_info["right"].userId = player.user_id; // 存储uid
                 player_to_info["right"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
+                player_to_info["right"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["right"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["right"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["right"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
@@ -601,6 +633,7 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["top"].score = player.score; // 存储分数
                 player_to_info["top"].userId = player.user_id; // 存储uid
                 player_to_info["top"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
+                player_to_info["top"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["top"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["top"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["top"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
@@ -616,6 +649,7 @@ public class GameSceneManager : MonoBehaviour{
                 player_to_info["left"].score = player.score; // 存储分数
                 player_to_info["left"].userId = player.user_id; // 存储uid
                 player_to_info["left"].discard_tiles = player.discard_tiles.ToList(); // 存储弃牌列表
+                player_to_info["left"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["left"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
                 player_to_info["left"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["left"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量

@@ -10,6 +10,7 @@ class PlayerInfo(BaseModel):
     username: str  # 用户名（用于显示）
     hand_tiles_count: int
     discard_tiles: List[int]
+    discard_origin_tiles: Optional[List[int]] = None  # 理论弃牌
     combination_tiles: List[str]
     huapai_list: List[int]
     remaining_time: int

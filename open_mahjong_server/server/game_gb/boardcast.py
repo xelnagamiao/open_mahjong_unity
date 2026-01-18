@@ -31,6 +31,7 @@ async def broadcast_game_start(self):
             'username': player.username, # 用户名（用于显示）
             'hand_tiles_count': len(player.hand_tiles), # 手牌数量
             'discard_tiles': player.discard_tiles, # 弃牌
+            'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
             'combination_tiles': player.combination_tiles, # 组合
             "combination_mask": player.combination_mask, # 组合形状
             "huapai_list": player.huapai_list, # 花牌列表

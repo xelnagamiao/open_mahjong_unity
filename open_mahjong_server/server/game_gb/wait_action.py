@@ -333,8 +333,8 @@ async def wait_action(self):
                 
                 # 如果发生吃碰杠而不是和牌 则发生转移行为
                 if action_type == "chi_left" or action_type == "chi_mid" or action_type == "chi_right" or action_type == "peng" or action_type == "gang":
-
                     self.player_list[self.current_player_index].discard_tiles.pop(-1) # 删除弃牌堆的最后一张
+                    self.player_list[self.current_player_index].discard_origin_tiles.append(tile_id) # 添加弃牌理论弃牌
                     self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                     self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
                     # 牌谱记录吃碰杠牌

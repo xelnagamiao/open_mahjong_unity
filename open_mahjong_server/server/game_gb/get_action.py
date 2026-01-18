@@ -1,11 +1,10 @@
 # 玩家操作处理
 import logging
-from .game_state import ChineseGameState
 
 logger = logging.getLogger(__name__)
 
 # 获取玩家行动
-async def get_action(game_state: ChineseGameState, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int):
+async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int):
     try:
         # 检测行动合法性
         # 从游戏服务器的PlayerConnection中获取user_id

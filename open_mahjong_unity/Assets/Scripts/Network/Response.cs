@@ -70,6 +70,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int user_id;                  // 玩家uid
     public int hand_tiles_count;        // 手牌数量
     public int[] discard_tiles;         // 弃牌 (改为int数组)
+    public int[] discard_origin_tiles;        // 理论弃牌
     public string[] combination_tiles;  // 组合牌
     public int[] conbination_mask;      // 组合牌掩码
     public int remaining_time;          // 剩余时间

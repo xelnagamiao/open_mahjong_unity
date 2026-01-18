@@ -35,7 +35,7 @@ class ChinesePlayer:
         self.hand_tiles = tiles                       # 手牌
         self.huapai_list = []                         # 花牌列表
         self.discard_tiles = []                       # 弃牌
-        self.discard_origin = set[int]()              # 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
+        self.discard_origin_tiles = []                # 理论弃牌
         self.combination_tiles = []                   # 组合牌 g明杠 k明刻 s吃顺 G暗杠
         # combination_mask组合牌掩码 0代表竖 1代表横 2代表暗面 3代表上侧(加杠) 4代表空 因为普通的存储方式会造成掉线以后吃牌形状丢失 所以使用掩码存储
         # [1,13,0,11,0,12] = 吃上家 312m s12

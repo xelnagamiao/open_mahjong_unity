@@ -9,17 +9,24 @@ public class GamePlayerPanel : MonoBehaviour {
     [SerializeField] private TMP_Text playerNameText;        // 玩家名称文本
     [SerializeField] private TMP_Text playerTitleText;       // 玩家头衔文本
     [SerializeField] private Image playerProfilePicture;     // 玩家头像
+    [SerializeField] private Image playerProfileEdgePicture;   // 玩家头像边框
+    [SerializeField] private Image playerIslossconnPicture; // 玩家是否掉线图片
+    [SerializeField] private GameObject playerIsPeidaPicture; // 玩家是否陪打图片
+
+    private void Awake() {
+        playerIslossconnPicture.gameObject.SetActive(false);
+        playerIsPeidaPicture.gameObject.SetActive(false);
+    }
+
 
     // 设置玩家信息
     public void SetPlayerInfo(PlayerInfo playerInfo) {
-        if (playerNameText != null) {
-            playerNameText.text = playerInfo.username;
-        }
 
+        // 设置玩家名称
+        playerNameText.text = playerInfo.username;
         // 设置头衔
-        if (playerTitleText != null) {
-            playerTitleText.text = ConfigManager.GetTitleText(playerInfo.title_used);
-        }
+        playerTitleText.text = ConfigManager.GetTitleText(playerInfo.title_used);
+
 
         if (playerProfilePicture != null) {
             // 加载头像
@@ -32,6 +39,15 @@ public class GamePlayerPanel : MonoBehaviour {
             ProfileOnClick profileOnClick = playerProfilePicture.gameObject.GetComponent<ProfileOnClick>();
             if (profileOnClick != null) {
                 profileOnClick.user_id = playerInfo.user_id;
+            }
+        }
+
+        foreach(var item in playerInfo.tag_list) {
+            if (item == "lossconn") {
+                playerIslossconnPicture.gameObject.SetActive(true);
+            }
+            if (item == "peida") {
+                playerIsPeidaPicture.gameObject.SetActive(true);
             }
         }
     }

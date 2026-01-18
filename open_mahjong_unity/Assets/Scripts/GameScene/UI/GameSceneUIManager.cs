@@ -6,6 +6,8 @@ using System;
 public class GameSceneUIManager : MonoBehaviour
 {
     public static GameSceneUIManager Instance { get; private set; }
+    
+    [SerializeField] public GameObject ShowTips;
 
     private void Awake()
     {
@@ -30,7 +32,8 @@ public class GameSceneUIManager : MonoBehaviour
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
         GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
-        GameCanvas.Instance.SetScoreRecordOpen(false);    // 同步 GameCanvas 按钮状态/文案
+        GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
+        ShowTips.SetActive(false); // 隐藏提示面板
     }
 
     /// <summary>
@@ -75,4 +78,5 @@ public class GameSceneUIManager : MonoBehaviour
             GameScoreRecord.Instance.UpdateScoreRecord();
         }
     }
+
 }

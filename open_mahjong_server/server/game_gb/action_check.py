@@ -64,12 +64,12 @@ def check_action_jiagang(self,jiagang_tile):
     for item in self.player_list:
         if jiagang_tile in item.waiting_tiles and item.player_index != self.current_player_index:
             check_hepai(self,temp_action_dict,jiagang_tile,item.player_index,"qianggang")
-
+    
     # 如果玩家有操作 则添加pass
     for i in temp_action_dict:
         if temp_action_dict[i] != []:
             temp_action_dict[i].append("pass")
-
+    
     return temp_action_dict
 
 # 开局检查补花操作 存储 补花buhua
@@ -192,13 +192,28 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 和单张检查
     if len(self.player_list[player_index].waiting_tiles) == 1:
         way_to_hepai.append("和单张")
-    # 和绝张检查 牌堆中的该牌牌数 + 所有人的手牌中的该牌牌数-自己手牌中的该牌牌数 = 0
-    tiles_count = self.tiles_list.count(hepai_tile)
-    for player in self.player_list:
-        tiles_count += player.hand_tiles.count(hepai_tile)
-    tiles_count -= self.player_list[player_index].hand_tiles.count(hepai_tile)
-    if tiles_count == 0:
+
+    # 和绝张检查 弃牌+1 有顺子+1 有刻+2
+    show_tiles_count = 0
+    now_combinations = []
+    for i in self.player_list:
+        show_tiles_count += i.discard_tiles.count(hepai_tile)
+        now_combinations.extend(i.combination_tiles)
+    for i in now_combinations:
+        if f"k{hepai_tile}" in i:
+            show_tiles_count += 2
+        if f"s{hepai_tile-1}" in i:
+            show_tiles_count += 1
+        if f"s{hepai_tile}" in i:
+            show_tiles_count += 1
+        if f"s{hepai_tile+1}" in i:
+            show_tiles_count += 1
+    if show_tiles_count == 4:
         way_to_hepai.append("和绝张")
+    elif show_tiles_count == 3:
+        if "自摸" in way_to_hepai:
+            way_to_hepai.append("和绝张")
+
     # 第一轮行动时移除独听番种
     if is_first_action:
         if "和单张" in way_to_hepai:
