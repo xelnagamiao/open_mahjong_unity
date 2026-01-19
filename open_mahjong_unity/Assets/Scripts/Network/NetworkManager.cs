@@ -243,6 +243,11 @@ public class NetworkManager : MonoBehaviour {
                     Debug.Log($"收到换位消息: {response.message}");
                     GameSceneManager.Instance.HandleSwitchSeat(response.switch_seat_info.current_round);
                     break;
+                case "refresh_player_tag_list":
+                    Debug.Log($"收到刷新玩家标签列表消息: {response.message}");
+                    RefreshPlayerTagListInfo tagInfo = response.refresh_player_tag_list_info;
+                    GameSceneManager.Instance.RefreshPlayerTagList(tagInfo.player_to_tag_list);
+                    break;
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
                     GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);
@@ -387,6 +392,14 @@ public class NetworkManager : MonoBehaviour {
     // 4.2 创建房间方法 CreateRoom 从CreatePanel发送
     public async void Create_GB_Room(GB_Create_RoomConfig config){
         try {
+            // 将字符串格式的随机种子转换为整数
+            int randomSeed = 0;
+            if (!string.IsNullOrEmpty(config.RandomSeed)) {
+                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
+                    randomSeed = 0;
+                }
+            }
+            
             var request = new CreateGBRoomRequest {
                 type = "create_GB_room",
                 rule = config.Rule,
@@ -395,9 +408,11 @@ public class NetworkManager : MonoBehaviour {
                 roundTimerValue = config.RoundTimer,
                 stepTimerValue = config.StepTimer,
                 tips = config.Tips,
-                password = config.Password
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = config.CuoHe
             };
-            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}");
+            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}");
             await websocket.SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             CreateRoomResponse.Invoke(false, e.Message);

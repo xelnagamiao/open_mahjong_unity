@@ -11,6 +11,8 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private TMP_Text roomNowRoundText; // 当前轮数文本
     [SerializeField] private TMP_Text RandomSeedText; // 随机种子文本
     [SerializeField] private Button visibilityRandomSeedButton; // 显示随机种子按钮
+    [SerializeField] private Button openScoreRecordPanelButton; // 点击打开计分板的面板/按钮
+    [SerializeField] private TMP_Text openScoreRecordButtonText; // 按钮文本（可不填：会自动从按钮子节点找）
 
     [Header("玩家信息面板")]
     [SerializeField] private GamePlayerPanel playerSelfPanel;    // 自己面板
@@ -42,6 +44,26 @@ public partial class GameCanvas : MonoBehaviour {
     private int _currentRemainingTime;
     private int _currentCutTime;
 
+    private static readonly Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
+        {1, "东风东"},
+        {2, "东风南"},
+        {3, "东风西"},
+        {4, "东风北"},
+        {5, "南风东"},
+        {6, "南风南"},
+        {7, "南风西"},
+        {8, "南风北"},
+        {9, "西风东"},
+        {10, "西风南"},
+        {11, "西风西"},
+        {12, "西风北"},
+        {13, "北风东"},
+        {14, "北风南"},
+        {15, "北风西"},
+        {16, "北风北"},
+    };
+
+
     [Header("游戏配置模块")]
     private bool isArranged = false; // 是否已经排列过手牌
     
@@ -53,6 +75,7 @@ public partial class GameCanvas : MonoBehaviour {
     private float tileCardWidth; // 手牌预制体宽度
 
     public static GameCanvas Instance { get; private set; }
+    private bool _isScoreRecordOpen;
     
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -62,7 +85,20 @@ public partial class GameCanvas : MonoBehaviour {
         Instance = this;
         // 获取tileCardPrefab的宽度 
         tileCardWidth = tileCardPrefab.GetComponent<RectTransform>().rect.width;
+
+        // 计分板开关按钮：点击切换打开/关闭，并同步按钮文本
+        if (openScoreRecordButtonText == null) openScoreRecordButtonText = openScoreRecordPanelButton.GetComponentInChildren<TMP_Text>(true);
+        openScoreRecordPanelButton.onClick.RemoveAllListeners();
+        openScoreRecordPanelButton.onClick.AddListener(() => {
+            SetScoreRecordOpen(!_isScoreRecordOpen); // 切换状态
+            if (_isScoreRecordOpen) { GameScoreRecord.Instance.gameObject.SetActive(true); GameScoreRecord.Instance.UpdateScoreRecord(); } // 打开并刷新
+            else { GameScoreRecord.Instance.Close(); } // 关闭并清理
+        });
+        SetScoreRecordOpen(false); // 初始化按钮文字与状态
     }
+
+    // 计分板被外部关闭时调整
+    public void SetScoreRecordOpen(bool open) { _isScoreRecordOpen = open; openScoreRecordButtonText.text = _isScoreRecordOpen ? "关闭计分板" : "打开计分板"; }
 
     // 初始化游戏UI
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
@@ -103,46 +139,22 @@ public partial class GameCanvas : MonoBehaviour {
 
         RandomSeedText.text = $"随机种子：{gameInfo.round_random_seed}"; // 左上角显示随机种子
 
-        // 设置当前轮数文本
-        if (gameInfo.current_round == 1){
-            roomNowRoundText.text = "东一局";
-        } else if (gameInfo.current_round == 2){
-            roomNowRoundText.text = "东二局";
-        } else if (gameInfo.current_round == 3){
-            roomNowRoundText.text = "东三局";
-        } else if (gameInfo.current_round == 4){
-            roomNowRoundText.text = "东四局";
-        } else if (gameInfo.current_round == 5){
-            roomNowRoundText.text = "南一局";
-        } else if (gameInfo.current_round == 6){
-            roomNowRoundText.text = "南二局";
-        } else if (gameInfo.current_round == 7){
-            roomNowRoundText.text = "南三局";
-        } else if (gameInfo.current_round == 8){
-            roomNowRoundText.text = "南四局";
-        } else if (gameInfo.current_round == 9){
-            roomNowRoundText.text = "西一局";
-        } else if (gameInfo.current_round == 10){
-            roomNowRoundText.text = "西二局";
-        } else if (gameInfo.current_round == 11){
-            roomNowRoundText.text = "西三局";
-        } else if (gameInfo.current_round == 12){
-            roomNowRoundText.text = "西四局";
-        } else if (gameInfo.current_round == 13){
-            roomNowRoundText.text = "北一局";
-        } else if (gameInfo.current_round == 14){
-            roomNowRoundText.text = "北二局";
-        } else if (gameInfo.current_round == 15){
-            roomNowRoundText.text = "北三局";
-        } else if (gameInfo.current_round == 16){
-            roomNowRoundText.text = "北四局";
+        // 设置当前轮数文本（按规则匹配字典）
+        string roomType = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : gameInfo.room_type;
+        Dictionary<int, string> roundMap = null;
+        if (roomType == "guobiao") {
+            roundMap = CurrentRoundTextGB;
+        }
+
+        if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
+            roomNowRoundText.text = roundText;
         } else {
             roomNowRoundText.text = "未知轮数";
         }
 
         // 设置规则文本
         string roomRoundText = "";
-        if (gameInfo.room_type == "guobiao"){
+        if (roomType == "guobiao"){
             roomRoundText += "国标麻将:";
         } else {
             roomRoundText += "未知规则：";
@@ -158,6 +170,41 @@ public partial class GameCanvas : MonoBehaviour {
         } else {Debug.LogError("最大轮数错误");}
         ruleText.text = roomRoundText;
 
+    }
+
+    // 更新玩家标签列表
+    public void UpdatePlayerTagList(Dictionary<int, string[]> player_to_tag_list) {
+        foreach (var kvp in player_to_tag_list) {
+            int player_index = kvp.Key;
+            string[] tag_list = kvp.Value;
+            
+            // 根据 player_index 找到对应的玩家位置和面板
+            if (GameSceneManager.Instance != null && GameSceneManager.Instance.indexToPosition.ContainsKey(player_index)) {
+                string position = GameSceneManager.Instance.indexToPosition[player_index];
+                GamePlayerPanel targetPanel = null;
+                
+                // 根据位置获取对应的面板
+                switch (position) {
+                    case "self":
+                        targetPanel = playerSelfPanel;
+                        break;
+                    case "right":
+                        targetPanel = playerRightPanel;
+                        break;
+                    case "top":
+                        targetPanel = playerTopPanel;
+                        break;
+                    case "left":
+                        targetPanel = playerLeftPanel;
+                        break;
+                }
+                
+                // 更新面板的标签列表
+                if (targetPanel != null) {
+                    targetPanel.UpdateTagList(tag_list);
+                }
+            }
+        }
     }
 
     public void ClearActionButton(){

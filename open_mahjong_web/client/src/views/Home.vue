@@ -70,8 +70,8 @@ const features = ref([
     description: '查询玩家的胜率、得分、对战次数等数据',
     icon: 'Link',
     color: '#ff0000', /* 红色 */ 
-    type: 'external',
-    url: '/player-data'
+    type: 'route',
+    route: '/player-data'
   },
   {
     id: 4,

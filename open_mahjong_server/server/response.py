@@ -10,15 +10,19 @@ class PlayerInfo(BaseModel):
     username: str  # 用户名（用于显示）
     hand_tiles_count: int
     discard_tiles: List[int]
+    discard_origin_tiles: Optional[List[int]] = None  # 理论弃牌
     combination_tiles: List[str]
     huapai_list: List[int]
     remaining_time: int
     player_index: int
+    original_player_index: int  # 原始玩家索引 东南西北 0 1 2 3
     score: int
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID
     voice_used: Optional[int] = None  # 使用的音色ID
+    score_history: Optional[List[str]] = None  # 分数历史变化列表，每局记录 +？、-？ 或 0
+    tag_list: Optional[List[str]] = None  # 标签列表
 
 class GameInfo(BaseModel):
     room_id: int
@@ -32,6 +36,8 @@ class GameInfo(BaseModel):
     step_time: int
     round_time: int
     room_type: str
+    open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
+    isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
 
@@ -87,6 +93,10 @@ class Game_end_info(BaseModel):
 class Switch_seat_info(BaseModel):
     """换位信息"""
     current_round: int  # 当前局数
+
+class Refresh_player_tag_list_info(BaseModel):
+    """刷新玩家标签列表信息"""
+    player_to_tag_list: Dict[int, List[str]]  # 玩家索引到标签列表的映射 {player_index: tag_list}
 
 class Player_record_info(BaseModel):
     """玩家对局记录信息"""
@@ -180,6 +190,7 @@ class Response(BaseModel):
     show_result_info: Optional[Show_result_info] = None # 用于广播结算结果
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
     switch_seat_info: Optional[Switch_seat_info] = None # 用于广播换位信息
+    refresh_player_tag_list_info: Optional[Refresh_player_tag_list_info] = None # 用于广播刷新玩家标签列表
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
     login_info: Optional[LoginInfo] = None # 用于返回登录信息

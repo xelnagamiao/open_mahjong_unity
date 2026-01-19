@@ -96,7 +96,6 @@ public class RoomListPanel : MonoBehaviour {
 
                 // 获取RoomItem组件 订阅RoomItem的JoinClicked事件
                 var roomItemComponent = roomItem.GetComponent<GBRoomItem>();
-                roomItemComponent.JoinClicked += JoinClicked;
 
                 // 初始化房间信息
                 roomItemComponent.SetRoomListInfo(
@@ -107,7 +106,10 @@ public class RoomListPanel : MonoBehaviour {
                     gameTime: roomData.game_round,
                     hasPassword: roomData.has_password,
                     room_type: roomData.room_type,
-                    isGameRunning: roomData.is_game_running
+                    isGameRunning: roomData.is_game_running,
+                    randomSeed: roomData.random_seed,
+                    tips: roomData.tips,
+                    openCuohe: roomData.open_cuohe
                     );
                 }
             }

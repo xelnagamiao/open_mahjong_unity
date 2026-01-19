@@ -9,7 +9,9 @@ public class GB_RoomConfig : MonoBehaviour {
     [SerializeField] private TMP_Text round; // 圈数
     [SerializeField] private TMP_Text roundTime; // 局时
     [SerializeField] private TMP_Text stepTime; // 步时
-    [SerializeField] private TMP_Text tips; // 提示
+    [SerializeField] private TMP_Text fushiText; // 复式
+    [SerializeField] private TMP_Text tipsText; // 提示
+    [SerializeField] private TMP_Text cuoheText; // 错和
     [SerializeField] private TMP_Text password; // 密码
 
     // 单例模式
@@ -28,7 +30,9 @@ public class GB_RoomConfig : MonoBehaviour {
         round.text = GetMaxRoundText(roomInfo.game_round); // 圈数
         roundTime.text = roomInfo.round_timer.ToString(); // 局时
         stepTime.text = roomInfo.step_timer.ToString(); // 步时
-        tips.text = roomInfo.tips ? "有" : "无"; // 提示
+        fushiText.text = roomInfo.random_seed == 0 ? "复式:关" : "复式:开"; // 复式
+        tipsText.text = roomInfo.tips ? "提示:开" : "提示:关"; // 提示
+        cuoheText.text = roomInfo.open_cuohe ? "错和:开" : "错和:关"; // 错和
         password.text = roomInfo.has_password ? "有" : "无"; // 密码
     }
 

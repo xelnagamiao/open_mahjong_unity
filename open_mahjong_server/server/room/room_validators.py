@@ -6,6 +6,8 @@ class GBRoomValidator(BaseModel):
     game_round: int
     round_timer: int
     step_timer: int
+    random_seed: int
+    open_cuohe: bool = False
     
     @validator('room_name')
     def validate_room_name(cls, v):
@@ -29,6 +31,12 @@ class GBRoomValidator(BaseModel):
     def validate_step_timer(cls, v):
         if v < 0 or v > 100:
             raise ValueError('步时不能小于0或大于100')
+        return v
+    
+    @validator('random_seed')
+    def validate_random_seed(cls, v):
+        if v < 0 or v > 4294967295:
+            raise ValueError('随机种子必须在0-4294967295之间')
         return v
 
 class RiichiRoomValidator(BaseModel):

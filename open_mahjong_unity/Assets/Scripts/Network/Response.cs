@@ -18,6 +18,8 @@ public class RoomInfo {
     public int round_timer;
     public int step_timer;
     public bool is_game_running; // 游戏是否正在运行
+    public int random_seed; // 随机种子
+    public bool open_cuohe; // 是否开启错和
 }
 
 public class GameEndInfo { // 显示游戏结束结果
@@ -70,16 +72,20 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int user_id;                  // 玩家uid
     public int hand_tiles_count;        // 手牌数量
     public int[] discard_tiles;         // 弃牌 (改为int数组)
+    public int[] discard_origin_tiles;        // 理论弃牌
     public string[] combination_tiles;  // 组合牌
     public int[] conbination_mask;      // 组合牌掩码
     public int remaining_time;          // 剩余时间
     public int player_index;            // 东南西北位置 (改为player_index)
+    public int original_player_index;   // 原始玩家索引 东南西北 0 1 2 3
     public int score;                   // 得分
     public int[] huapai_list;           // 花牌列表
     public int title_used;              // 使用的称号ID
     public int character_used;          // 使用的角色ID
     public int profile_used;            // 使用的头像ID
     public int voice_used;              // 使用的音色ID
+    public string[] score_history;      // 分数历史变化列表，每局记录 +？、-？ 或 0
+    public string[] tag_list;           // 标签列表
 }
 
 public class GameInfo { // 游戏开始时传递房间信息
@@ -94,12 +100,18 @@ public class GameInfo { // 游戏开始时传递房间信息
     public int step_time;               // 步时
     public int round_time;              // 局时
     public string room_type;            // 房间类型
+    public bool open_cuohe;             // 是否开启错和
+    public bool isPlayerSetRandomSeed;  // 是否设置随机种子
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 }
 
 public class SwitchSeatInfo { // 换位信息
     public int current_round;           // 当前局数
+}
+
+public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
+    public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
 }
 public class PlayerRecordInfo { // 玩家对局记录信息
     public int user_id;                 // 用户ID
@@ -192,6 +204,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
     public SwitchSeatInfo switch_seat_info; // 国标游戏中换位信息
+    public RefreshPlayerTagListInfo refresh_player_tag_list_info; // 刷新玩家标签列表信息
     public RecordInfo[] record_list; // 返回游戏记录列表
     public PlayerInfoResponse player_info; // 返回玩家信息
     public LoginInfo login_info; // 返回登录信息

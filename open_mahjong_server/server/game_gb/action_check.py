@@ -1,6 +1,6 @@
 from typing import Dict
 import logging
-from .logic_handler import get_index_relative_position
+from .logic_handler import get_index_relative_position, next_current_num
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ def check_action_after_cut(self,cut_tile):
     # 如果牌堆内仍有牌则可以吃碰杠
     if self.tiles_list != []:
         # 如果切牌是万 饼 条 且下家有C+1和C-1 则可以吃
-        next_player_index = self.next_current_num(self.current_player_index)
+        next_player_index = next_current_num(self.current_player_index)
         if cut_tile <= 40:
             # left 左侧吃牌 [a-2,a-1,a]
             if cut_tile-2 in self.player_list[next_player_index].hand_tiles:
@@ -54,6 +54,11 @@ def check_action_after_cut(self,cut_tile):
     # 不能吃碰杠胡自己的牌
     temp_action_dict[self.current_player_index] = []
 
+    # 陪打玩家不能完成鸣牌操作
+    for item in self.player_list:
+        if "peida" in item.tag_list:
+            temp_action_dict[item.player_index] = []
+
     return temp_action_dict
 
 # 加杠检查操作 存储 抢杠
@@ -64,12 +69,17 @@ def check_action_jiagang(self,jiagang_tile):
     for item in self.player_list:
         if jiagang_tile in item.waiting_tiles and item.player_index != self.current_player_index:
             check_hepai(self,temp_action_dict,jiagang_tile,item.player_index,"qianggang")
-
+    
     # 如果玩家有操作 则添加pass
     for i in temp_action_dict:
         if temp_action_dict[i] != []:
             temp_action_dict[i].append("pass")
 
+    # 陪打玩家不能抢杠操作
+    for item in self.player_list:
+        if "peida" in item.tag_list:
+            temp_action_dict[item.player_index] = []
+    
     return temp_action_dict
 
 # 开局检查补花操作 存储 补花buhua
@@ -114,6 +124,11 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     # 如果手牌中有等待牌 则检测和牌
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
         check_hepai(self,temp_action_dict,player_item.hand_tiles[-1],player_index,"handgot",is_first_action,is_get_gang_tile)
+
+    # 如果玩家陪打，只允许加杠、暗杠、补花和切牌
+    if "peida" in player_item.tag_list:
+        allowed_actions = {"jiagang", "angang", "buhua", "cut"}
+        temp_action_dict[player_index] = [action for action in temp_action_dict[player_index] if action in allowed_actions]
 
     return temp_action_dict
 
@@ -191,13 +206,28 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 和单张检查
     if len(self.player_list[player_index].waiting_tiles) == 1:
         way_to_hepai.append("和单张")
-    # 和绝张检查 牌堆中的该牌牌数 + 所有人的手牌中的该牌牌数-自己手牌中的该牌牌数 = 0
-    tiles_count = self.tiles_list.count(hepai_tile)
-    for player in self.player_list:
-        tiles_count += player.hand_tiles.count(hepai_tile)
-    tiles_count -= self.player_list[player_index].hand_tiles.count(hepai_tile)
-    if tiles_count == 0:
+
+    # 和绝张检查 弃牌+1 有顺子+1 有刻+2
+    show_tiles_count = 0
+    now_combinations = []
+    for i in self.player_list:
+        show_tiles_count += i.discard_tiles.count(hepai_tile)
+        now_combinations.extend(i.combination_tiles)
+    for i in now_combinations:
+        if f"k{hepai_tile}" in i:
+            show_tiles_count += 2
+        if f"s{hepai_tile-1}" in i:
+            show_tiles_count += 1
+        if f"s{hepai_tile}" in i:
+            show_tiles_count += 1
+        if f"s{hepai_tile+1}" in i:
+            show_tiles_count += 1
+    if show_tiles_count == 4:
         way_to_hepai.append("和绝张")
+    elif show_tiles_count == 3:
+        if "自摸" in way_to_hepai:
+            way_to_hepai.append("和绝张")
+
     # 第一轮行动时移除独听番种
     if is_first_action:
         if "和单张" in way_to_hepai:
@@ -207,7 +237,11 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
     # 使用计算服务类检查和牌
     result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
-    if result[0] >= 8:
+
+   
+    # 判断是否足够8番，减去花牌的数量
+    huapai_count = way_to_hepai.count("花牌")
+    if result[0] - huapai_count >= 8:
         if get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "self":
             temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
             self.result_dict["hu_self"] = result # 保存结算结果
@@ -220,3 +254,18 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "right":
             temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
             self.result_dict["hu_third"] = result # 保存结算结果
+    else:
+        # 如果开启错和，不满足8番的和牌也进行保存(嘻嘻)
+        if self.open_cuohe:
+            if get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "self":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
+                self.result_dict["hu_self"] = result # 保存结算结果
+            elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "left":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
+                self.result_dict["hu_first"] = result # 保存结算结果
+            elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "top":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
+                self.result_dict["hu_second"] = result # 保存结算结果
+            elif get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "right":
+                temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
+                self.result_dict["hu_third"] = result # 保存结算结果
