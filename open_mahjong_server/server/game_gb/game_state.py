@@ -336,7 +336,7 @@ class ChineseGameState:
                             self.player_list[hepai_player_index].tag_list.append("peida")
                             await broadcast_refresh_player_tag_list(self)
                             
-                            self.action_dict = check_action_hand_action(self,hepai_player_index)
+                            self.action_dict = check_action_hand_action(self,self.current_player_index)
                             self.game_status = "waiting_hand_action"
 
 

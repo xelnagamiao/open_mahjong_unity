@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8922456385330577584}
   - component: {fileID: 1642047345585929887}
   m_Layer: 12
-  m_Name: Text (TMP) (1)
+  m_Name: FanName
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -220,6 +220,7 @@ GameObject:
   - component: {fileID: 3994163637232039604}
   - component: {fileID: 4800387762651923289}
   - component: {fileID: 6259093763661906468}
+  - component: {fileID: 6611677628388829593}
   m_Layer: 12
   m_Name: FanCount
   m_TagString: Untagged
@@ -287,6 +288,20 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6611677628388829593
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3868189479869188487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a491a9d8880ff684aab4f2a3b597a2af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  FanName: {fileID: 1642047345585929887}
+  FanValue: {fileID: 9050327367405986889}
 --- !u!1 &7020908814059698061
 GameObject:
   m_ObjectHideFlags: 0
@@ -299,7 +314,7 @@ GameObject:
   - component: {fileID: 6169928900102437636}
   - component: {fileID: 9050327367405986889}
   m_Layer: 12
-  m_Name: Text (TMP)
+  m_Name: FanCount
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

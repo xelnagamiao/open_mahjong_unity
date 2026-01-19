@@ -304,13 +304,10 @@ class RoomManager:
             if "player_settings" in room_data and player.user_id in room_data["player_settings"]:
                 del room_data["player_settings"][player.user_id]
 
-
-
             # 如果房间空了就删除
             if len(room_data["player_list"]) == 0:
-                del self.rooms[room_id]
-                if room_id in self.room_passwords:
-                    del self.room_passwords[room_id]
+                # 调用 destroy_room 方法进行房间清理
+                await self.destroy_room(room_id)
                 return Response(
                     type="leave_room",
                     success=True,
