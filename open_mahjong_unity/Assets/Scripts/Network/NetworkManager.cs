@@ -243,6 +243,11 @@ public class NetworkManager : MonoBehaviour {
                     Debug.Log($"收到换位消息: {response.message}");
                     GameSceneManager.Instance.HandleSwitchSeat(response.switch_seat_info.current_round);
                     break;
+                case "refresh_player_tag_list":
+                    Debug.Log($"收到刷新玩家标签列表消息: {response.message}");
+                    RefreshPlayerTagListInfo tagInfo = response.refresh_player_tag_list_info;
+                    GameSceneManager.Instance.RefreshPlayerTagList(tagInfo.player_to_tag_list);
+                    break;
                 case "game_start_GB":
                     Debug.Log($"游戏开始: {response.message}");
                     GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);

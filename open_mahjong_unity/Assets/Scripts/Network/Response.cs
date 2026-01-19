@@ -107,6 +107,10 @@ public class GameInfo { // 游戏开始时传递房间信息
 public class SwitchSeatInfo { // 换位信息
     public int current_round;           // 当前局数
 }
+
+public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
+    public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
+}
 public class PlayerRecordInfo { // 玩家对局记录信息
     public int user_id;                 // 用户ID
     public string username;            // 用户名
@@ -198,6 +202,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
     public SwitchSeatInfo switch_seat_info; // 国标游戏中换位信息
+    public RefreshPlayerTagListInfo refresh_player_tag_list_info; // 刷新玩家标签列表信息
     public RecordInfo[] record_list; // 返回游戏记录列表
     public PlayerInfoResponse player_info; // 返回玩家信息
     public LoginInfo login_info; // 返回登录信息

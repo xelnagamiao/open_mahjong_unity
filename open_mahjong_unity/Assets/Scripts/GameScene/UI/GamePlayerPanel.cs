@@ -42,12 +42,24 @@ public class GamePlayerPanel : MonoBehaviour {
             }
         }
 
-        foreach(var item in playerInfo.tag_list) {
-            if (item == "lossconn") {
-                playerIslossconnPicture.gameObject.SetActive(true);
-            }
-            if (item == "peida") {
-                playerIsPeidaPicture.gameObject.SetActive(true);
+        UpdateTagList(playerInfo.tag_list);
+    }
+
+    // 更新标签列表显示
+    public void UpdateTagList(string[] tag_list) {
+        // 先隐藏所有标签
+        playerIslossconnPicture.gameObject.SetActive(false);
+        playerIsPeidaPicture.gameObject.SetActive(false);
+        
+        // 根据标签列表显示对应的标签
+        if (tag_list != null) {
+            foreach(var item in tag_list) {
+                if (item == "lossconn") {
+                    playerIslossconnPicture.gameObject.SetActive(true);
+                }
+                if (item == "peida") {
+                    playerIsPeidaPicture.gameObject.SetActive(true);
+                }
             }
         }
     }

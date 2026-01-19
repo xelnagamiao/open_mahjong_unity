@@ -41,6 +41,7 @@ public class EndResultPanel : MonoBehaviour {
         {"平和", 2}, {"双暗刻", 2}, {"暗杠", 2}, {"断幺", 2},
         {"老少副", 1}, {"明杠", 1}, {"缺一门", 1}, {"无字", 1}, {"边张", 1},
         {"嵌张", 1}, {"单钓将", 1}, {"自摸", 1}, {"明暗杠", 5},
+        {"错和", 0}, // 错和番，价值0番
         // 可叠加番数 四归一、双同刻、一般高、喜相逢、连六、幺九刻、花牌七个番种允许复计。
         {"花牌*1", 1}, {"花牌*2", 2}, {"花牌*3", 3}, {"花牌*4", 4}, {"花牌*5", 5}, {"花牌*6", 6}, {"花牌*7", 7}, {"花牌*8", 8},
         {"四归一*1", 2}, {"四归一*2", 4}, {"四归一*3", 6}, {"四归一*4", 8},
@@ -187,12 +188,6 @@ public class EndResultPanel : MonoBehaviour {
         
         // 允许按钮点击
         EndButton.interactable = true;
-        EndButtonText.text = "确定(8)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(7)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(6)";
-        yield return new WaitForSeconds(1);
         EndButtonText.text = "确定(5)";
         yield return new WaitForSeconds(1);
         EndButtonText.text = "确定(4)";
@@ -205,6 +200,7 @@ public class EndResultPanel : MonoBehaviour {
         yield return new WaitForSeconds(1);
         EndButtonText.text = "确定(0)";
         EndButton.interactable = false;
+        gameObject.SetActive(false);
     }
 
     // 按钮点击以后进入非激活状态

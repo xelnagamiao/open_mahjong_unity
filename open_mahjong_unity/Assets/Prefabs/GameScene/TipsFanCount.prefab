@@ -194,7 +194,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.90943396, g: 0.31212538, b: 0.21105725, a: 1}
+  m_Color: {r: 0.10196079, g: 0.6156863, b: 0.2784314, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -224,3 +224,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tipsFanCountText: {fileID: 865745372577114369}
+  backgroundImage: {fileID: 6772264901763572328}
+  dianheColor: {r: 0.10096828, g: 0.6150943, b: 0.2769965, a: 1}
+  zimoColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  wuyiColor: {r: 1, g: 0.647, b: 0, a: 1}

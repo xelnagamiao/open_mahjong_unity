@@ -309,7 +309,11 @@ public class GameSceneManager : MonoBehaviour{
 
         }
         else if(hu_class == "cuohe"){
-            // 错和情况下，显示错和
+            GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
+            SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
+            // 在 hu_fan 中添加"错和"番（0番）
+            string[] newHuFan = hu_fan.Concat(new string[] { "错和" }).ToArray();
+            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, newHuFan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask);
         }
         else{
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
@@ -324,6 +328,27 @@ public class GameSceneManager : MonoBehaviour{
     public void HandleSwitchSeat(int current_round){
         // 显示换位动画
         GameSceneUIManager.Instance.ShowSwitchSeat(current_round);
+    }
+
+    // 刷新玩家标签列表 更新掉线,陪打等状态
+    public void RefreshPlayerTagList(Dictionary<int, string[]> player_to_tag_list){
+        // 更新所有玩家的标签列表
+        foreach (var kvp in player_to_tag_list){
+            int player_index = kvp.Key;
+            string[] tag_list = kvp.Value;
+            
+            // 根据 player_index 找到对应的玩家位置
+            if (indexToPosition.ContainsKey(player_index)){
+                string position = indexToPosition[player_index];
+                if (player_to_info.ContainsKey(position)){
+                    player_to_info[position].tag_list = tag_list;
+                    Debug.Log($"更新玩家 {position} (索引 {player_index}) 的标签列表: {string.Join(", ", tag_list)}");
+                }
+            }
+        }
+        
+        // 更新 GameCanvas 中的玩家面板显示
+        GameCanvas.Instance.UpdatePlayerTagList(player_to_tag_list);
     }
 
     // 游戏结束
@@ -495,7 +520,6 @@ public class GameSceneManager : MonoBehaviour{
         }
     }
 
-
     // 提示计算
     private async void WaitShowTips(string ShowState){
         if (tips == true){
@@ -534,7 +558,6 @@ public class GameSceneManager : MonoBehaviour{
             return;
         }
     }
-
 
 
     // 设置游戏信息

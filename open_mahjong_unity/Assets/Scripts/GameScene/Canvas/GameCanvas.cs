@@ -172,6 +172,41 @@ public partial class GameCanvas : MonoBehaviour {
 
     }
 
+    // 更新玩家标签列表
+    public void UpdatePlayerTagList(Dictionary<int, string[]> player_to_tag_list) {
+        foreach (var kvp in player_to_tag_list) {
+            int player_index = kvp.Key;
+            string[] tag_list = kvp.Value;
+            
+            // 根据 player_index 找到对应的玩家位置和面板
+            if (GameSceneManager.Instance != null && GameSceneManager.Instance.indexToPosition.ContainsKey(player_index)) {
+                string position = GameSceneManager.Instance.indexToPosition[player_index];
+                GamePlayerPanel targetPanel = null;
+                
+                // 根据位置获取对应的面板
+                switch (position) {
+                    case "self":
+                        targetPanel = playerSelfPanel;
+                        break;
+                    case "right":
+                        targetPanel = playerRightPanel;
+                        break;
+                    case "top":
+                        targetPanel = playerTopPanel;
+                        break;
+                    case "left":
+                        targetPanel = playerLeftPanel;
+                        break;
+                }
+                
+                // 更新面板的标签列表
+                if (targetPanel != null) {
+                    targetPanel.UpdateTagList(tag_list);
+                }
+            }
+        }
+    }
+
     public void ClearActionButton(){
         ActionBlockContainerState = "None";
         foreach (Transform child in ActionBlockContenter){

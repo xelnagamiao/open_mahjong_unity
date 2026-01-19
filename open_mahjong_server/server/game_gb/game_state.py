@@ -6,7 +6,7 @@ import logging
 import hashlib
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .wait_action import wait_action
-from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end,broadcast_switch_seat
+from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end,broadcast_switch_seat,broadcast_refresh_player_tag_list
 from .logic_handler import get_index_relative_position, next_current_index, next_current_num, back_current_num, init_game_tiles, next_game_round
 from .game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
 from ..game_calculation.game_calculation_service import GameCalculationService
@@ -287,9 +287,13 @@ class ChineseGameState:
                     # 玩家和牌操作
                     case "check_hepai":
                          # 自摸玩家和牌，如果和牌分数大于8番则结束游戏，重新发送广播摸牌信息
-                        hu_score, hu_fan = self.result_dict[hu_class] # 获取和牌分数和番数 ——应该使用特地的case
-                        # 正确和牌则执行end程序
-                        if hu_score >= 8:
+                        hu_score, hu_fan = self.result_dict[self.hu_class] # 获取和牌分数和番数
+
+                        # 从 hu_fan 中获取花牌数量
+                        huapai_count = sum(int(fan.split("*")[1]) for fan in hu_fan if fan.startswith("花牌*"))
+                        
+                        # 正确和牌则执行end程序（判断时减去花牌数量）
+                        if hu_score - huapai_count >= 8:
                             self.game_status = "END"
                             return
                         # 错和则执行错和程序
@@ -327,10 +331,11 @@ class ChineseGameState:
                                                 hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
                                                 )
                             # 等待5秒
-                            await asyncio.sleep(len(hu_fan)*0.5 + 5) # 等待和牌番种时间与5秒后重新开始出牌
+                            await asyncio.sleep(len(hu_fan)*0.5 + 5 + 0.5) # 等待和牌番种时间与5秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
                             # 给错和玩家添加peida tag
-
-                            self.player_list[hepai_player_index].tag.append("peida")
+                            self.player_list[hepai_player_index].tag_list.append("peida")
+                            await broadcast_refresh_player_tag_list(self)
+                            
                             self.action_dict = check_action_hand_action(self,hepai_player_index)
                             self.game_status = "waiting_hand_action"
 
@@ -354,7 +359,6 @@ class ChineseGameState:
                     for i in self.player_list: # 其他玩家扣除和牌分与8基础分
                         if i != hepai_player_index:
                             i.score -= hu_score + 8  
-
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1 # 增加自摸次数
@@ -471,7 +475,7 @@ class ChineseGameState:
             if self.hu_class == "liuju":
                 await asyncio.sleep(3) # 等待3秒后重新开始下一局
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 10) # 等待和牌番种时间与10秒后重新开始下一局
+                await asyncio.sleep(len(hu_fan)*0.5 + 6) # 等待和牌番种时间与10秒后重新开始下一局
 
             # 开启下一局的准备工作
             next_game_round(self)   

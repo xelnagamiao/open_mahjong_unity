@@ -54,6 +54,11 @@ def check_action_after_cut(self,cut_tile):
     # 不能吃碰杠胡自己的牌
     temp_action_dict[self.current_player_index] = []
 
+    # 陪打玩家不能完成鸣牌操作
+    for item in self.player_list:
+        if "peida" in item.tag_list:
+            temp_action_dict[item.player_index] = []
+
     return temp_action_dict
 
 # 加杠检查操作 存储 抢杠
@@ -69,6 +74,11 @@ def check_action_jiagang(self,jiagang_tile):
     for i in temp_action_dict:
         if temp_action_dict[i] != []:
             temp_action_dict[i].append("pass")
+
+    # 陪打玩家不能抢杠操作
+    for item in self.player_list:
+        if "peida" in item.tag_list:
+            temp_action_dict[item.player_index] = []
     
     return temp_action_dict
 
@@ -114,7 +124,11 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
     # 如果手牌中有等待牌 则检测和牌
     if player_item.hand_tiles[-1] in player_item.waiting_tiles:
         check_hepai(self,temp_action_dict,player_item.hand_tiles[-1],player_index,"handgot",is_first_action,is_get_gang_tile)
-    
+
+    # 如果玩家陪打，只允许加杠、暗杠、补花和切牌
+    if "peida" in player_item.tag_list:
+        allowed_actions = {"jiagang", "angang", "buhua", "cut"}
+        temp_action_dict[player_index] = [action for action in temp_action_dict[player_index] if action in allowed_actions]
 
     return temp_action_dict
 
@@ -223,7 +237,11 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
     # 使用计算服务类检查和牌
     result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
-    if result[0] >= 8:
+
+   
+    # 判断是否足够8番，减去花牌的数量
+    huapai_count = way_to_hepai.count("花牌")
+    if result[0] - huapai_count >= 8:
         if get_index_relative_position(self,self.player_list[player_index].player_index,self.current_player_index) == "self":
             temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
             self.result_dict["hu_self"] = result # 保存结算结果

@@ -147,8 +147,9 @@ public class TipsContainer : MonoBehaviour
             // 计算点和的番数
             var dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
             int dianheFan = dianheResult.Item1;
-            
-            if (dianheFan >= 8) {
+
+            int huapaiCount = gameManager.player_to_info["self"].huapai_list.Count;
+            if (dianheFan - huapaiCount >= 8) {
                 // 如果番数大于等于8，显示卡牌和番数
                 GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
@@ -165,7 +166,7 @@ public class TipsContainer : MonoBehaviour
                 var zimoResult = GBhepai.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
                 int zimoFan = zimoResult.Item1;
                 
-                if (zimoFan >= 8) {
+                if (zimoFan - huapaiCount >= 8) {
                     // 自摸大于等于8，显示"仅自摸"
                     GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                     tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);

@@ -1,4 +1,4 @@
-from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info
+from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
 from typing import List, Dict, Optional
 import logging
 
@@ -327,4 +327,36 @@ async def broadcast_switch_seat(self):
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送换位信息失败: {e}")
+
+# 广播刷新玩家标签列表
+async def broadcast_refresh_player_tag_list(self):
+    """广播刷新所有玩家标签列表信息"""
+    # 构建所有玩家的标签列表映射
+    player_to_tag_list = {}
+    for player in self.player_list:
+        player_to_tag_list[player.player_index] = player.tag_list
+    
+    refresh_tag_info = Refresh_player_tag_list_info(
+        player_to_tag_list=player_to_tag_list
+    )
+
+    # 为每个玩家发送刷新标签列表信息
+    for current_player in self.player_list:
+        try:
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+
+                response = Response(
+                    type="refresh_player_tag_list",
+                    success=True,
+                    message="刷新玩家标签列表",
+                    refresh_player_tag_list_info=refresh_tag_info
+                )
+
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.info(f"已向玩家 {current_player.username} 发送刷新玩家标签列表信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送刷新玩家标签列表信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
