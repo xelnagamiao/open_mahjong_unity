@@ -287,7 +287,7 @@ class ChineseGameState:
                     # 玩家和牌操作
                     case "check_hepai":
                          # 自摸玩家和牌，如果和牌分数大于8番则结束游戏，重新发送广播摸牌信息
-                        hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
+                        hu_score, hu_fan = self.result_dict[hu_class] # 获取和牌分数和番数 ——应该使用特地的case
                         # 正确和牌则执行end程序
                         if hu_score >= 8:
                             self.game_status = "END"

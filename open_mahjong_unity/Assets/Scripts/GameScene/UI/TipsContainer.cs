@@ -10,6 +10,7 @@ public class TipsContainer : MonoBehaviour
     [SerializeField] private GameObject FanPrefab;
     [SerializeField] private GameObject FanContainer;
     public static TipsContainer Instance { get; private set; }
+    public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
 
     private void Awake()
@@ -143,7 +144,6 @@ public class TipsContainer : MonoBehaviour
             handList.Add(hepaiTile);
             List<string> combinationList = new List<string>(gameManager.player_to_info["self"].combination_tiles ?? new List<string>());
             
-            
             // 计算点和的番数
             var dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
             int dianheFan = dianheResult.Item1;
@@ -154,7 +154,7 @@ public class TipsContainer : MonoBehaviour
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount($"{dianheFan}番");
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount($"{dianheFan}番", "dianhe");
             } else {
                 // 如果番数小于8，改为"自摸"重新计算
                 List<string> zimoWayToHepai = new List<string>(wayToHepai);
@@ -171,16 +171,17 @@ public class TipsContainer : MonoBehaviour
                     tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                     
                     GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                    fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("仅自摸");
+                    fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("仅自摸", "zimo");
                 } else {
                     // 仍然小于8，显示"无役"
                     GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                     tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                     
                     GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                    fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役");
+                    fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役", "wuyi");
                 }
             }
+            Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
         }
     }
 }

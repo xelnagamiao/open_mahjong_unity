@@ -19240,7 +19240,7 @@ GameObject:
   - component: {fileID: 515586981}
   - component: {fileID: 515586982}
   m_Layer: 12
-  m_Name: ShowTips
+  m_Name: TipsBlock
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -19254,7 +19254,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 515586979}
   m_LocalRotation: {x: -0, y: -0, z: 0.38268343, w: 0.92387956}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 89}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -19265,7 +19265,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 45}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 691, y: -250}
+  m_AnchoredPosition: {x: 739, y: -202}
   m_SizeDelta: {x: 50, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &515586981
@@ -19285,7 +19285,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 515586979}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6d9ea217754a32543b278519bf6152fb, type: 3}
+  m_Script: {fileID: 11500000, guid: d05dc3420641bf54081f6887824a0826, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &516107239
@@ -21694,7 +21694,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -0.000061035156}
   m_SizeDelta: {x: 0.00012207, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &582432582
@@ -29109,7 +29109,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 217.20998}
+  m_AnchoredPosition: {x: 0, y: 217.20975}
   m_SizeDelta: {x: 569, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &795248721
@@ -30750,6 +30750,7 @@ MonoBehaviour:
   lastCutCardID: 0
   CurrentPlayer: 
   selfHandTiles: 
+  playerInfoList: []
 --- !u!4 &833371387
 Transform:
   m_ObjectHideFlags: 0
@@ -31199,7 +31200,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd3a753c54d2c71439f7a6d756559622, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTips: {fileID: 515586979}
 --- !u!1 &847738068
 GameObject:
   m_ObjectHideFlags: 0
@@ -48059,7 +48059,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1787573812}
   m_HandleRect: {fileID: 1787573811}
   m_Direction: 2
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -59662,6 +59662,7 @@ MonoBehaviour:
   TilePrefab: {fileID: 1871040073054492541, guid: 6cf99458463721442b1e283cdb74224e, type: 3}
   FanPrefab: {fileID: 6742214342068500940, guid: 3f3c7868cbad4a048af1eff497ba7768, type: 3}
   FanContainer: {fileID: 584997059}
+  hasTips: 0
   waitingTiles: 
 --- !u!114 &1702149022
 MonoBehaviour:

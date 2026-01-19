@@ -7,8 +7,6 @@ public class GameSceneUIManager : MonoBehaviour
 {
     public static GameSceneUIManager Instance { get; private set; }
     
-    [SerializeField] public GameObject ShowTips;
-
     private void Awake()
     {
         if (Instance == null)
@@ -33,7 +31,7 @@ public class GameSceneUIManager : MonoBehaviour
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
         GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
-        ShowTips.SetActive(false); // 隐藏提示面板
+        TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
     }
 
     /// <summary>

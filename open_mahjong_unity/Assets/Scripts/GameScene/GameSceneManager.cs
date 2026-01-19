@@ -7,7 +7,26 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-
+[System.Serializable]
+public class PlayerInfoClass
+{
+    public string username;
+    public int userId;
+    public int score;
+    public int hand_tiles_count;
+    public int[] hand_tiles;
+    public List<int> discard_tiles;
+    public List<int> discard_origin_tiles;
+    public List<string> combination_tiles;
+    public List<int> huapai_list;
+    public int title_used;
+    public int profile_used;
+    public int character_used;
+    public int voice_used;
+    public List<string> score_history;
+    public int original_player_index;
+    public string[] tag_list;
+}
 
 
 public class GameSceneManager : MonoBehaviour{
@@ -41,31 +60,15 @@ public class GameSceneManager : MonoBehaviour{
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
-
     public string CurrentPlayer; // 当前玩家字符串
+    public List<int> selfHandTiles = new List<int>(); // 手牌列表
 
     // 玩家信息
-    public Dictionary<string,PlayerInfo> player_to_info = new Dictionary<string,PlayerInfo>(); // 玩家信息
-    public List<int> selfHandTiles = new List<int>(); // 手牌列表
-    public class PlayerInfo{
-        public string username;
-        public int userId;
-        public int score;
-        public int hand_tiles_count;
-        public int[] hand_tiles;
-        public List<int> discard_tiles;
-        public List<int> discard_origin_tiles;  // 理论弃牌 (日麻中启用,避免在弃牌中吃碰卡牌以后的不准确)
-        public List<string> combination_tiles;
-        public List<int> huapai_list;
-        public int title_used;      // 使用的称号ID
-        public int profile_used;    // 使用的头像ID
-        public int character_used;  // 使用的角色ID
-        public int voice_used;      // 使用的音色ID
-        public List<string> score_history;  // 分数历史变化列表，每局记录 +？、-？ 或 0
-        public int original_player_index;   // 原始玩家索引 东南西北 0 1 2 3
-        public string[] tag_list; // 标签列表
-        
-    }
+    public Dictionary<string,PlayerInfoClass> player_to_info = new Dictionary<string,PlayerInfoClass>(); // 玩家信息
+
+    // 调试用 于编辑器显示玩家信息列表
+    [SerializeField]
+    public List<PlayerInfoClass> playerInfoList = new List<PlayerInfoClass>(); // 玩家信息列表
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -73,10 +76,15 @@ public class GameSceneManager : MonoBehaviour{
             return;
         }
         Instance = this;
-        player_to_info["self"] = new PlayerInfo();
-        player_to_info["left"] = new PlayerInfo();
-        player_to_info["top"] = new PlayerInfo();
-        player_to_info["right"] = new PlayerInfo();
+        player_to_info["self"] = new PlayerInfoClass();
+        player_to_info["left"] = new PlayerInfoClass();
+        player_to_info["top"] = new PlayerInfoClass();
+        player_to_info["right"] = new PlayerInfoClass();
+        // 调试用 显示玩家信息列表
+        playerInfoList.Add(player_to_info["self"]);
+        playerInfoList.Add(player_to_info["left"]);
+        playerInfoList.Add(player_to_info["top"]);
+        playerInfoList.Add(player_to_info["right"]);
     }
 
     // 初始化游戏
@@ -295,14 +303,18 @@ public class GameSceneManager : MonoBehaviour{
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 显示结算结果
-        if (hu_class != "liuju"){
+        if (hu_class == "liuju"){
+            // 流局情况下，显示流局
+            GameSceneUIManager.Instance.ShowEndLiuju();
+
+        }
+        else if(hu_class == "cuohe"){
+            // 错和情况下，显示错和
+        }
+        else{
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
             SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
             GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask);
-        }
-        else{
-            // 流局情况下，显示流局文本
-            GameSceneUIManager.Instance.ShowEndLiuju();
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
@@ -336,6 +348,8 @@ public class GameSceneManager : MonoBehaviour{
                 if (isAutoHepai || isAutoBuhua || isAutoCut){
                     StartCoroutine(WaitAutoAction("AutoHandAction"));
                 }
+                // 当回合变为自己的时候可以在这里添加出牌预测提示
+                WaitShowTips("CountHandTips");
             }
             // 询问的不是自己的回合
             else{
@@ -345,9 +359,6 @@ public class GameSceneManager : MonoBehaviour{
             // 只有askHandAction才会转移玩家位置
             BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer); // 显示当前玩家
             CurrentPlayer = GetCardPlayer; // 存储当前玩家
-
-            // 当回合变为自己的时候可以在这里添加出牌预测提示
-            WaitShowTips("CountCutTips");
         }
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
@@ -487,30 +498,40 @@ public class GameSceneManager : MonoBehaviour{
 
     // 提示计算
     private async void WaitShowTips(string ShowState){
-        HashSet<int> waitingTiles = new HashSet<int>();
-        
-        if (ShowState == "CountTips"){
-            // 在后台线程执行计算
-            waitingTiles = await Task.Run(() => {
-                try {
-                    return GBtingpai.TingpaiCheck(selfHandTiles, player_to_info["self"].combination_tiles, false);
-                } catch (System.Exception e) {
-                    Debug.LogError($"计算听牌时出错: {e.Message}");
-                    return new HashSet<int>();
-                }
-            });
-        }
-        else if (ShowState == "CountCutTips"){
-            // 暂时不提供切牌提示
-        }
+        if (tips == true){
+            HashSet<int> waitingTiles = new HashSet<int>();
+            
+            if (ShowState == "CountTips"){
+                // 在后台线程执行计算
+                waitingTiles = await Task.Run(() => {
+                    try {
+                        return GBtingpai.TingpaiCheck(selfHandTiles, player_to_info["self"].combination_tiles, false);
+                    } catch (System.Exception e) {
+                        Debug.LogError($"计算听牌时出错: {e.Message}");
+                        return new HashSet<int>();
+                    }
+                });
+            }
+            else if (ShowState == "CountCutTips"){
+                // 暂时不提供切牌提示
+                return;
+            }
 
-        // 如果听牌列表不为空，则显示提示
-        if (waitingTiles.Count > 0) {
-            TipsContainer.Instance.SetTips(waitingTiles.ToList());
-            GameSceneUIManager.Instance.ShowTips.SetActive(true);
+            // 如果听牌列表不为空，则显示提示
+            if (waitingTiles.Count > 0) {
+                Debug.Log($"显示提示，听牌列表数量：{waitingTiles.Count}");
+                TipsContainer.Instance.SetTips(waitingTiles.ToList());
+                TipsContainer.Instance.hasTips = true;
+                TipsBlock.Instance.ShowTipsBlock();
+            }
+            else{
+                Debug.Log($"隐藏提示，听牌列表数量：{waitingTiles.Count}");
+                TipsContainer.Instance.hasTips = false;
+                TipsBlock.Instance.HideTipsBlock();
+            }
         }
         else{
-            GameSceneUIManager.Instance.ShowTips.SetActive(false);
+            return;
         }
     }
 
