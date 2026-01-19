@@ -16,6 +16,8 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public int stepTimerValue; // 服务器期望的字段名
     public bool tips;
     public string password;
+    public int random_seed; // 随机种子
+    public bool open_cuohe; // 是否开启错和
 }
 
 public class GetRoomListRequest { // 获取房间列表请求

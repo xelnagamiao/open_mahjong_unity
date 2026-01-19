@@ -28,7 +28,7 @@ class RoomManager:
         self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -71,6 +71,8 @@ class RoomManager:
                 "game_round": gameround, # 最大局数
                 "round_timer": roundTimerValue, # 局时
                 "step_timer": stepTimerValue, # 步时
+                "random_seed": random_seed, # 随机种子
+                "open_cuohe": open_cuohe, # 是否开启错和
             }
 
             # 拿取国标麻将验证器 使用验证器验证room_config
@@ -87,7 +89,7 @@ class RoomManager:
             # 生成房间ID
             room_id = self._generate_room_id()
 
-            # 创建房间数据头 固定的参数
+            # 创建房间数据头
             room_data = {
                 "room_id": room_id, # 房间ID
                 "room_type": "guobiao", # 房间类型
@@ -304,9 +306,8 @@ class RoomManager:
 
             # 如果房间空了就删除
             if len(room_data["player_list"]) == 0:
-                del self.rooms[room_id]
-                if room_id in self.room_passwords:
-                    del self.room_passwords[room_id]
+                # 调用 destroy_room 方法进行房间清理
+                await self.destroy_room(room_id)
                 return Response(
                     type="leave_room",
                     success=True,
@@ -365,6 +366,12 @@ class RoomManager:
             return
         
         room_data = self.rooms[room_id]
+        
+        # 如果游戏正在运行，清理gamestate
+        if room_data.get("is_game_running", False):
+            if room_id in self.game_server.room_id_to_ChineseGameState:
+                del self.game_server.room_id_to_ChineseGameState[room_id]
+                logger.info(f"销毁房间时清理游戏状态，room_id: {room_id}")
         
         # 向所有房间内的玩家广播离开房间消息
         leave_response = Response(

@@ -10,4 +10,4 @@ class Config:
     auto_create_chatserver = True
     # 是否输出日志到控制台
     logging_do_stream_handler = True
-    release_version = 1
+    release_version = 2

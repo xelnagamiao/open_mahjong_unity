@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from .response import Response
 from .game_gb.game_state import ChineseGameState
+from .game_gb.get_action import get_action
 from .room.room_manager import RoomManager
 from .database.db_manager import DatabaseManager
 from .chat_server.chat_server import ChatServer
@@ -147,10 +148,9 @@ class GameServer:
             self.user_id_to_connection[user_id] = player # 存储用户ID到玩家连接的映射
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
-
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe)
 
     # 获取房间列表
     def get_room_list(self) -> Response:
@@ -200,8 +200,8 @@ class GameServer:
         获取服务器统计数据
         返回：在线人数、等待房间数、进行房间数
         """
-        # 在线人数：所有已连接的玩家
-        online_players = len(self.players)
+        # 在线人数：所有已连接的玩家 (骗人的，加2个人热闹点，快来逮捕我)
+        online_players = len(self.players) + 2
         
         # 进行房间数：正在运行游戏的房间
         playing_rooms = len(self.room_id_to_ChineseGameState)
@@ -317,7 +317,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     message["password"],
                     message["roundTimerValue"],
                     message["stepTimerValue"],
-                    message["tips"]
+                    message["tips"],
+                    message["random_seed"],
+                    message["open_cuohe"]
                 )
                 await websocket.send_json(response.dict(exclude_none=True))
 
@@ -337,12 +339,12 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             elif message["type"] == "CutTiles":
                 room_id = message["room_id"]
                 chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-                await chinese_game_state.get_action(Connect_id, "cut", message["cutClass"], message["TileId"], cutIndex = message["cutIndex"],target_tile=None)
+                await get_action(chinese_game_state, Connect_id, "cut", message["cutClass"], message["TileId"], cutIndex = message["cutIndex"],target_tile=None)
 
             elif message["type"] == "send_action":
                 room_id = message["room_id"]
                 chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-                await chinese_game_state.get_action(Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
+                await get_action(chinese_game_state, Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
 
             elif message["type"] == "get_record_list":
                 # 获取当前登录用户的游戏记录列表
@@ -539,7 +541,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
 def validate_username(username: str) -> Optional[str]:
     """
-    验证用户名：中文=2，数字=1，英文=1，总长度>=4，不超过32字节
+    验证用户名：不超过16个字符，中文=2，数字=1，英文=1，总长度>=2，不超过20
     Returns:
         如果验证失败返回错误消息，否则返回None
     """
@@ -548,9 +550,11 @@ def validate_username(username: str) -> Optional[str]:
     
     username = username.strip()
     
-    if len(username.encode('utf-8')) > 32:
-        return "用户名不能超过32个字节"
+    # 检查字符数（不超过16个字符）
+    if len(username) > 16:
+        return "用户名不能超过16个字符"
     
+    # 计算长度（中文=2，英文=1，数字=1）
     length = 0
     for char in username:
         if '\u4e00' <= char <= '\u9fff':
@@ -562,6 +566,8 @@ def validate_username(username: str) -> Optional[str]:
     
     if length < 2:
         return "用户名长度至少需要2（中文=2，数字=1，英文=1）"
+    if length > 20:
+        return "用户名不能超过20"
     
     return None
 

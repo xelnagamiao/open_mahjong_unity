@@ -630,7 +630,12 @@ class DatabaseManager:
             rule = game_title.get("rule", "GB")
             
             # 获取玩家排名（rank_result 是 1-4）
+            saved_count = 0
             for player in player_list:
+                # 跳过游客账户（user_id < 10000000）
+                if player.user_id < 10000000:
+                    continue
+                    
                 rank = player.record_counter.rank_result  # 1-4
                 # 从玩家对象获取使用的设置信息（对局时的设置）
                 title_used = getattr(player, 'title_used', None)
@@ -638,23 +643,27 @@ class DatabaseManager:
                 profile_used = getattr(player, 'profile_used', None)
                 voice_used = getattr(player, 'voice_used', None)
                 
-                cursor.execute("""
-                    INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    game_id,
-                    player.user_id,
-                    player.username,
-                    player.score,
-                    rank,
-                    rule,
-                    title_used,
-                    character_used,
-                    profile_used,
-                    voice_used
-                ))
-            logger.info(f'已为 {len(player_list)} 名玩家保存对局记录到 game_player_records 表')
+                try:
+                    cursor.execute("""
+                        INSERT INTO game_player_records (
+                            game_id, user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        game_id,
+                        player.user_id,
+                        player.username,
+                        player.score,
+                        rank,
+                        rule,
+                        title_used,
+                        character_used,
+                        profile_used,
+                        voice_used
+                    ))
+                    saved_count += 1
+                except Error as e:
+                    logger.warning(f'跳过玩家对局记录存储（用户不存在）: user_id={player.user_id}, username={player.username}, error={e}')
+            logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
             
             # 3. 统计维度信息到gb_record_stats和jp_record_stats表
             game_title = game_record.get("game_title", {})
@@ -683,6 +692,10 @@ class DatabaseManager:
             
             # 4. 更新每个玩家的统计数据（包含番种）
             for player in player_list:
+                # 跳过游客账户（user_id < 10000000）
+                if player.user_id < 10000000:
+                    continue
+                    
                 user_id = player.user_id
                 counter = player.record_counter
                 win_count = counter.zimo_times + counter.dianhe_times

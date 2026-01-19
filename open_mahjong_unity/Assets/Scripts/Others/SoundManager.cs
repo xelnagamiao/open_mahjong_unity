@@ -53,6 +53,8 @@ public class SoundManager : MonoBehaviour {
             audioTarget = $"Sound/{voicePath}/chi";
         } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
             audioTarget = $"Sound/{voicePath}/gang";
+        } else if (actionType == "peng"){
+            audioTarget = $"Sound/{voicePath}/peng";
         } else {
             Debug.LogWarning($"未找到音效文件: {actionType}");
             return;

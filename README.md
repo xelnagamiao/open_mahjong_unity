@@ -2,7 +2,7 @@
 
 ## 概述
 
-欢迎使用 open_mahjong_unity！
+欢迎使用 open_mahjong_unity！ 测试网址salasasa.cn
 
 ## 项目简介
 
@@ -196,7 +196,7 @@ open_mahjong_unity/
 ### 游戏客户端 (open_mahjong_unity)
 - **引擎**: Unity 2022.3 LTS (2022.3.62f3c1)
 - **语言**: C#
-- **网络**: WebSocket (websocket-sharp)
+- **网络**: WebSocket (Nativewebsocket)
 - **平台**: PC/Web/Android/iOS
 
 ### 游戏服务器 (open_mahjong_server、open_mahjong_chat_server)
@@ -217,5 +217,5 @@ open_mahjong_unity/
 - **语雀文档(未完成)**: https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#
 - **开发进度表**: https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2
 
-*最后更新：2026年1月13日 dev ver 0.1.36.1 *
+*最后更新：2026年1月17日 dev ver 0.2.40.0 *
 

@@ -1,4 +1,4 @@
-from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info
+from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
 from typing import List, Dict, Optional
 import logging
 
@@ -20,6 +20,8 @@ async def broadcast_game_start(self):
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
         'room_type': self.room_type, # 房间类型
+        'open_cuohe': self.open_cuohe, # 是否开启错和
+        'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
     # 为每个玩家准备信息
@@ -29,16 +31,20 @@ async def broadcast_game_start(self):
             'username': player.username, # 用户名（用于显示）
             'hand_tiles_count': len(player.hand_tiles), # 手牌数量
             'discard_tiles': player.discard_tiles, # 弃牌
+            'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
             'combination_tiles': player.combination_tiles, # 组合
             "combination_mask": player.combination_mask, # 组合形状
             "huapai_list": player.huapai_list, # 花牌列表
             'remaining_time': player.remaining_time, # 剩余局时
             'player_index': player.player_index, # 东南西北位置
+            'original_player_index': player.original_player_index, # 原始玩家索引 东南西北 0 1 2 3
             'score': player.score, # 分数
             "title_used": player.title_used, # 称号ID
             'profile_used': player.profile_used, # 使用的头像ID
             'character_used': player.character_used, # 使用的角色ID
             'voice_used': player.voice_used, # 使用的音色ID
+            'score_history': player.score_history, # 分数历史变化列表
+            'tag_list': player.tag_list, # 标签列表
         }
         base_game_info['players_info'].append(player_info) # 将字典添加到列表中
 
@@ -321,4 +327,36 @@ async def broadcast_switch_seat(self):
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送换位信息失败: {e}")
+
+# 广播刷新玩家标签列表
+async def broadcast_refresh_player_tag_list(self):
+    """广播刷新所有玩家标签列表信息"""
+    # 构建所有玩家的标签列表映射
+    player_to_tag_list = {}
+    for player in self.player_list:
+        player_to_tag_list[player.player_index] = player.tag_list
+    
+    refresh_tag_info = Refresh_player_tag_list_info(
+        player_to_tag_list=player_to_tag_list
+    )
+
+    # 为每个玩家发送刷新标签列表信息
+    for current_player in self.player_list:
+        try:
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+
+                response = Response(
+                    type="refresh_player_tag_list",
+                    success=True,
+                    message="刷新玩家标签列表",
+                    refresh_player_tag_list_info=refresh_tag_info
+                )
+
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.info(f"已向玩家 {current_player.username} 发送刷新玩家标签列表信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送刷新玩家标签列表信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播

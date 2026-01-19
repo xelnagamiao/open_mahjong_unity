@@ -17,6 +17,9 @@ public class GBRoomItem : MonoBehaviour {
     [SerializeField] private TMP_Text hasPassword; // 是否有密码
     [SerializeField] private TMP_Text playRule; // 规则
     [SerializeField] private TMP_Text gameStatus; // 游戏状态（是否正在运行）
+    [SerializeField] private TMP_Text fushiText; // 复式
+    [SerializeField] private TMP_Text tipsText; // 提示
+    [SerializeField] private TMP_Text cuoheText; // 错和
 
     private void Start() {
         // 监听房间元素的点击按钮事件
@@ -27,13 +30,14 @@ public class GBRoomItem : MonoBehaviour {
     private bool needPassword; // 是否有密码
 
     // SetRoomInfo 会在RoomPanel的HandleRoomListResponse中调用
-    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning) {
+    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning,int randomSeed,bool tips,bool openCuohe) {
         this.roomId = roomId; // 保存房间号,在JoinClick中返回上一级
+        this.needPassword = hasPassword; // 保存是否需要密码
         
         this.roomID.text = $"房间号:{roomId}";
         this.roomName.text = $"房间名:{roomName}";
         this.hostName.text = $"房主:{hostUserName}";
-        this.playerCount.text = $"玩家数量{playerCount}/4";
+        this.playerCount.text = $"玩家数{playerCount}/4";
         
         // 显示游戏圈数
         if (gameTime == 1){
@@ -48,9 +52,9 @@ public class GBRoomItem : MonoBehaviour {
         
         // 显示规则
         if (room_type == "guobiao"){
-            this.playRule.text = $"规则：国标";
+            this.playRule.text = $"国标";
         } else {
-            this.playRule.text = $"规则：未知";
+            this.playRule.text = $"规则:未知";
         }
         
         // 显示游戏状态
@@ -62,20 +66,22 @@ public class GBRoomItem : MonoBehaviour {
 
         // 显示是否有密码
         if(hasPassword){
-            this.hasPassword.text = $"密码：有";
+            this.hasPassword.text = $"密码:有";
         } else {
-            this.hasPassword.text = $"密码：无";
+            this.hasPassword.text = $"密码:无";
         }
 
+        // 显示复式、提示、错和
+        fushiText.text = randomSeed == 0 ? "复式:关" : "复式:开";
+        tipsText.text = tips ? "提示:开" : "提示:关";
+        cuoheText.text = openCuohe ? "错和:开" : "错和:关";
+        
         // 如果房间已满或游戏正在运行，禁用加入按钮
         joinButton.interactable = playerCount < 4 && !isGameRunning;
     }
-    // 定义房间加入点击事件 JoinClicked 等待RoomListPanel订阅
-    public event System.Action<string, bool> JoinClicked;  
-
-    // 点击加入按钮时，触发JoinClicked事件
+    // 点击加入按钮时，直接调用密码面板
     private void JoinClick() {
-        JoinClicked?.Invoke(roomId, needPassword);  // 触发事件
+        RoomListPanel.Instance.JoinClicked(roomId, needPassword);
     }
 
 

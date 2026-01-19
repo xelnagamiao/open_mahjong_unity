@@ -35,18 +35,21 @@ from datetime import date, datetime
 # 牌谱记录游戏头
 def init_game_record(self):
     self.game_record["game_title"] = {
-        "rule":"GB",
-        "game_random_seed":self.game_random_seed,
-        "max_round":self.max_round,
-        "start_time": datetime.now(),
-        "p0_user_id":self.player_list[0].user_id,
-        "p0_username":self.player_list[0].username,
-        "p1_user_id":self.player_list[1].user_id,
-        "p1_username":self.player_list[1].username,
-        "p2_user_id":self.player_list[2].user_id,
-        "p2_username":self.player_list[2].username,
-        "p3_user_id":self.player_list[3].user_id,
-        "p3_username":self.player_list[3].username,
+        "rule":"GB", # 规则
+        "game_random_seed":self.game_random_seed, # 随机种子
+        "max_round":self.max_round, # 最大局数
+        "start_time": datetime.now(), # 开始时间
+        "open_cuohe":self.open_cuohe, # 是否开启错和
+        "tips":self.tips, # 是否开启提示
+        "is_player_set_random_seed":self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
+        "p0_user_id":self.player_list[0].user_id, # 玩家0用户ID
+        "p0_username":self.player_list[0].username, # 玩家0用户名
+        "p1_user_id":self.player_list[1].user_id, # 玩家1用户ID
+        "p1_username":self.player_list[1].username, # 玩家1用户名
+        "p2_user_id":self.player_list[2].user_id, # 玩家2用户ID
+        "p2_username":self.player_list[2].username, # 玩家2用户名
+        "p3_user_id":self.player_list[3].user_id, # 玩家3用户ID
+        "p3_username":self.player_list[3].username, # 玩家3用户名
     }
     self.game_record["game_round"] = {}
 

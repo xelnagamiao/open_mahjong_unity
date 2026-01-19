@@ -373,20 +373,22 @@ if __name__ == "__main__":
     logger.debug(test_list)
     logger.debug(test_list_copy)
     """
+    
+    test_save = [["k39"],[32,32,32,33,33,33,34,34,34,41]] 
 
     # 手动指定牌组测试
     Chinese_test_combination = Chinese_Tingpai_Check(debug=True)  # 启用debug模式
-    logger.debug("手动指定牌组")
+    print("手动指定牌组")
     time_start = time()
-    tiles_list = [11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15]
-    tile_combination_list = []
+    tiles_list = test_save[1]
+    tile_combination_list = test_save[0]
     return_set = Chinese_test_combination.tingpai_check(tiles_list,tile_combination_list)
-    logger.debug("返回结果",return_set)
+    print("返回结果",return_set)
 
     time_end = time()
     # 时间使用0.001-0.005 按每次手牌都是一向听,并且最高时长0.005情况下每秒可以处理200次计算
     # 按100次计算进行估测 平均出牌时间3秒 相当于可以承担300桌玩家同时进行(1200人)那就先不改了
-    logger.debug("本次测试用时",time_end - time_start)
+    print("本次测试用时",time_end - time_start)
 
 
     
