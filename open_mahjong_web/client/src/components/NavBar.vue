@@ -17,7 +17,7 @@
           <span>salasasa.cn</span>
         </el-menu-item>
 
-        <el-menu-item index="/unity-game">
+        <el-menu-item index="/game-unity">
           <el-icon><VideoPlay /></el-icon>
           <span>麻将对战平台</span>
         </el-menu-item>
