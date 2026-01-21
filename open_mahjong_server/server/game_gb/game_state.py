@@ -287,6 +287,7 @@ class ChineseGameState:
                     # 玩家和牌操作
                     case "check_hepai":
                          # 自摸玩家和牌，如果和牌分数大于8番则结束游戏，重新发送广播摸牌信息
+                        logger.info(f"进入check_hepai case: hu_class={self.hu_class}, result_dict keys={list(self.result_dict.keys())}")
                         hu_score, hu_fan = self.result_dict[self.hu_class] # 获取和牌分数和番数
 
                         # 从 hu_fan 中获取花牌数量
@@ -295,7 +296,7 @@ class ChineseGameState:
                         # 正确和牌则执行end程序（判断时减去花牌数量）
                         if hu_score - huapai_count >= 8:
                             self.game_status = "END"
-                            return
+                            break
                         # 错和则执行错和程序
                         else:
                             hepai_player_index = None
@@ -332,12 +333,29 @@ class ChineseGameState:
                                                 )
                             # 等待5秒
                             await asyncio.sleep(len(hu_fan)*0.5 + 5 + 0.5) # 等待和牌番种时间与5秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
+
+                            # 错和尾处理
                             # 给错和玩家添加peida tag
                             self.player_list[hepai_player_index].tag_list.append("peida")
+                            # 删除和牌类型
+                            self.hu_class = ""
                             await broadcast_refresh_player_tag_list(self)
-                            
-                            self.action_dict = check_action_hand_action(self,self.current_player_index)
-                            self.game_status = "waiting_hand_action"
+                            # 如果是和他人出牌，对手牌进行倒带，删除手牌中最后一张牌
+                            if self.hu_class in ["hu_first","hu_second","hu_third"]:
+                                self.player_list[self.current_player_index].hand_tiles.pop(-1)
+                            # 如果是自摸和牌，重新等待当前玩家出牌
+                            if self.hu_class == "hu_self":
+                                self.action_dict = check_action_hand_action(self,self.current_player_index)
+                                self.game_status = "waiting_hand_action"
+                            # 如果是他人和牌，重新检测出牌方法出牌
+                            elif self.hu_class in ["hu_first","hu_second","hu_third"]:
+                                self.action_dict = check_action_after_cut(self,tile_id)
+                                if any(self.action_dict[i] for i in self.action_dict):
+                                    self.game_status = "waiting_action_after_cut" # 转移行为
+                                else:
+                                    self.game_status = "deal_card" # 历时行为
+
+
 
 
             # 卡牌摸完 或者有人和牌
