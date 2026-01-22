@@ -41,14 +41,15 @@ public class SoundManager : MonoBehaviour {
 
 
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
-        string audioTarget = actionType;
+        string audioTarget;
 
         if (actionType == "hu_self"){
             audioTarget = $"Sound/{voicePath}/zimo";
-        } else if (actionType == "buhua"){
-            audioTarget = $"Sound/{voicePath}/buhua";
         } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             audioTarget = $"Sound/{voicePath}/dianhe";
+        
+        } else if (actionType == "buhua"){
+            audioTarget = $"Sound/{voicePath}/buhua";
         } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             audioTarget = $"Sound/{voicePath}/chi";
         } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){

@@ -13,6 +13,7 @@ public class HeaderPanel : MonoBehaviour {
     [SerializeField] private Button ConfigButton;
     [SerializeField] private Button AboutUsButton;
     [SerializeField] private Button NoticeButton;
+    [SerializeField] private Button SceneConfigButton;
 
     private Button currentSelectedButton; // 当前选中的按钮
 
@@ -33,6 +34,10 @@ public class HeaderPanel : MonoBehaviour {
         AboutUsButton.onClick.AddListener(AboutUs);
         NoticeButton.onClick.AddListener(Notice);
         MenuButton.onClick.AddListener(Menu);
+        SceneConfigButton.onClick.AddListener(SceneConfig);
+    }
+    private void SceneConfig(){
+        WindowsManager.Instance.SwitchWindow("sceneConfig");
     }
 
     private void Menu(){
@@ -94,6 +99,9 @@ public class HeaderPanel : MonoBehaviour {
                 break;
             case "notice":
                 targetButton = NoticeButton;
+                break;
+            case "sceneConfig":
+                targetButton = SceneConfigButton;
                 break;
         }
 

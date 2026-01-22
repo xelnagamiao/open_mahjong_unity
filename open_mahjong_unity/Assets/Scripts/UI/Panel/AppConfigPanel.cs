@@ -13,13 +13,9 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private ConfigSlider soundEffectVolumeSlider;
     [SerializeField] private ConfigSlider voiceVolumeSlider;
 
-    [Header("桌布设置")]
-    [SerializeField] private ConfigBoard configBoard;
-
     private void Awake() {
         Instance = this;
         InitializeVolumeManager();
-        InitializeTableclothManager();
     }
 
     private void InitializeVolumeManager(){
@@ -29,7 +25,5 @@ public class AppConfigPanel : MonoBehaviour {
         voiceVolumeSlider.Init();
     }
 
-    private void InitializeTableclothManager(){
-        configBoard.Init();
-    }
+
 }

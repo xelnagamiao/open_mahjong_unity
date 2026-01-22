@@ -306,14 +306,6 @@ public class GameSceneManager : MonoBehaviour{
         if (hu_class == "liuju"){
             // 流局情况下，显示流局
             GameSceneUIManager.Instance.ShowEndLiuju();
-
-        }
-        else if(hu_class == "cuohe"){
-            GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
-            SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
-            // 在 hu_fan 中添加"错和"番（0番）
-            string[] newHuFan = hu_fan.Concat(new string[] { "错和" }).ToArray();
-            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, newHuFan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask);
         }
         else{
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本

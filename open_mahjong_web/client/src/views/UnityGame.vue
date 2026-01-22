@@ -24,19 +24,31 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const unityCanvas = ref(null)
 let unityInstance = null
 
-// Unity 配置
-const buildUrl = '/unity-game/Build'
-const loaderUrl = buildUrl + '/webbuild.loader.js'
-
-const config = {
-  dataUrl: buildUrl + '/webbuild.data.gz',
-  frameworkUrl: buildUrl + '/webbuild.framework.js.gz',
-  codeUrl: buildUrl + '/webbuild.wasm.gz',
-  streamingAssetsUrl: '/unity-game/StreamingAssets',
-  companyName: 'DefaultCompany',
-  productName: 'open_mahjong_unity',
-  productVersion: '0.0.31.0',
-  showBanner: unityShowBanner
+// 从Unity的index.html中解析文件名
+async function parseUnityConfig() {
+  try {
+    const response = await fetch('/unity-game/index.html')
+    const html = await response.text()
+    
+    // 解析loaderUrl
+    const loaderMatch = html.match(/var\s+loaderUrl\s*=\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
+    // 解析config对象中的文件名
+    const dataMatch = html.match(/dataUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
+    const frameworkMatch = html.match(/frameworkUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
+    const codeMatch = html.match(/codeUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
+    
+    const buildUrl = '/unity-game/Build'
+    
+    return {
+      loaderUrl: loaderMatch ? buildUrl + '/' + loaderMatch[1] : null,
+      dataUrl: dataMatch ? buildUrl + '/' + dataMatch[1] : null,
+      frameworkUrl: frameworkMatch ? buildUrl + '/' + frameworkMatch[1] : null,
+      codeUrl: codeMatch ? buildUrl + '/' + codeMatch[1] : null
+    }
+  } catch (error) {
+    console.error('解析Unity配置失败:', error)
+    return null
+  }
 }
 
 // 显示警告横幅
@@ -68,26 +80,21 @@ function unityShowBanner(msg, type) {
 function adjustUnityContainer() {
   const container = document.querySelector('#unity-container')
   const canvas = document.querySelector('#unity-canvas')
-  if (!container || !canvas) return
-
-  const containerParent = container.parentElement
-  if (!containerParent) return
+  const containerParent = document.querySelector('.unity-game-container')
+  if (!container || !canvas || !containerParent) return
 
   const parentWidth = containerParent.clientWidth
   const parentHeight = containerParent.clientHeight
-
-  // 计算 16:9 宽高比
+  
   const aspectRatio = 16 / 9
   let width = parentWidth
   let height = width / aspectRatio
-
-  // 如果高度超出父容器，则以高度为准
+  
   if (height > parentHeight) {
     height = parentHeight
     width = height * aspectRatio
   }
-
-  // 设置容器尺寸
+  
   container.style.width = width + 'px'
   container.style.height = height + 'px'
   canvas.style.width = width + 'px'
@@ -95,7 +102,7 @@ function adjustUnityContainer() {
 }
 
 // 加载 Unity 游戏
-function loadUnityGame() {
+async function loadUnityGame() {
   const canvas = unityCanvas.value
   if (!canvas) return
 
@@ -107,9 +114,31 @@ function loadUnityGame() {
     loadingBar.style.display = 'block'
   }
 
+  // 先从Unity的index.html中解析文件名
+  const fileConfig = await parseUnityConfig()
+  if (!fileConfig || !fileConfig.loaderUrl) {
+    console.error('无法解析Unity配置文件')
+    alert('无法加载Unity游戏配置，请检查Unity构建文件是否存在')
+    if (loadingBar) {
+      loadingBar.style.display = 'none'
+    }
+    return
+  }
+
+  const config = {
+    dataUrl: fileConfig.dataUrl,
+    frameworkUrl: fileConfig.frameworkUrl,
+    codeUrl: fileConfig.codeUrl,
+    streamingAssetsUrl: '/unity-game/StreamingAssets',
+    companyName: 'DefaultCompany',
+    productName: 'open_mahjong_unity',
+    productVersion: '0.0.31.0',
+    showBanner: unityShowBanner
+  }
+
   // 加载 Unity loader
   const script = document.createElement('script')
-  script.src = loaderUrl
+  script.src = fileConfig.loaderUrl
   script.onload = () => {
     if (typeof createUnityInstance === 'function') {
       createUnityInstance(canvas, config, (progress) => {
@@ -139,6 +168,9 @@ function loadUnityGame() {
   script.onerror = () => {
     console.error('无法加载 Unity loader')
     alert('无法加载 Unity 游戏文件')
+    if (loadingBar) {
+      loadingBar.style.display = 'none'
+    }
   }
   document.body.appendChild(script)
 }
@@ -147,8 +179,12 @@ onMounted(() => {
   // 初始调整大小
   adjustUnityContainer()
 
-  // 监听窗口大小变化
+  // 监听窗口大小变化和屏幕方向变化
   window.addEventListener('resize', adjustUnityContainer)
+  window.addEventListener('orientationchange', () => {
+    // 方向改变后延迟一点时间再调整，确保尺寸已更新
+    setTimeout(adjustUnityContainer, 100)
+  })
 
   // 加载 Unity 游戏
   loadUnityGame()
@@ -157,6 +193,7 @@ onMounted(() => {
 onUnmounted(() => {
   // 清理事件监听
   window.removeEventListener('resize', adjustUnityContainer)
+  window.removeEventListener('orientationchange', adjustUnityContainer)
   
   // 清理 Unity 实例
   if (unityInstance) {
@@ -181,6 +218,7 @@ onUnmounted(() => {
   overflow: hidden;
   position: relative;
 }
+
 
 .unity-container {
   position: relative;

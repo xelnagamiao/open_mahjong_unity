@@ -23,6 +23,7 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private GameObject noticePanel; // 公告窗口
     [SerializeField] private GameObject aboutUsPanel; // 关于我们窗口
     [SerializeField] private GameObject roomRoot; // 房间根窗口（包含房间列表、房间、创建房间等子窗口）
+    [SerializeField] private GameObject sceneConfigPanel; // 场景配置窗口
     
 
     [Header("二级窗口")]
@@ -66,6 +67,7 @@ public class WindowsManager : MonoBehaviour {
         noticePanel.SetActive(false);
         aboutUsPanel.SetActive(false);
         roomRoot.SetActive(false);
+        sceneConfigPanel.SetActive(false);
         switch (targetWindow) {
             // login 登录界面
             case "login":
@@ -109,6 +111,10 @@ public class WindowsManager : MonoBehaviour {
             case "config":
                 configPanel.SetActive(true);
                 HeaderPanel.Instance.UpdateButtonState("config");
+                break;
+            case "sceneConfig":
+                sceneConfigPanel.SetActive(true);
+                HeaderPanel.Instance.UpdateButtonState("sceneConfig");
                 break;
         }
         

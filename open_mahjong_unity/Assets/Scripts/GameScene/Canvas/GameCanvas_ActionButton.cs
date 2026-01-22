@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public partial class GameCanvas : MonoBehaviour {
     // 显示可用行动按钮
@@ -25,7 +26,7 @@ public partial class GameCanvas : MonoBehaviour {
             if (action_list[i] == "peng"){
                 Debug.Log($"碰牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer); // 实例化按钮
-                Text buttonText = ActionButtonObj.TextObject;
+                TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "碰"; // 设置按钮文本
                 Debug.Log($"碰牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]); // 添加按钮对应的行动
@@ -34,7 +35,7 @@ public partial class GameCanvas : MonoBehaviour {
             else if (action_list[i] == "gang"){
                 Debug.Log($"杠牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
+                TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "杠";
                 Debug.Log($"杠牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
@@ -43,7 +44,7 @@ public partial class GameCanvas : MonoBehaviour {
             else if (action_list[i] == "hu_self" || action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
                 Debug.Log($"胡牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
+                TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "胡";
                 Debug.Log($"胡牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
@@ -52,7 +53,7 @@ public partial class GameCanvas : MonoBehaviour {
             else if (action_list[i] == "buhua"){
                 Debug.Log($"补花");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
+                TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "补花";
                 Debug.Log($"补花按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
@@ -62,7 +63,7 @@ public partial class GameCanvas : MonoBehaviour {
             else if (action_list[i] == "angang"){
                 if (angangButton == null) {
                     angangButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                    Text buttonText = angangButton.TextObject;
+                    TMP_Text buttonText = angangButton.TextObject;
                     buttonText.text = "暗杠";
                     Debug.Log($"暗杠按钮: {angangButton}");
                 }
@@ -73,7 +74,7 @@ public partial class GameCanvas : MonoBehaviour {
             else if (action_list[i] == "jiagang"){
                 if (jiagangButton == null) {
                     jiagangButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                    Text buttonText = jiagangButton.TextObject;
+                    TMP_Text buttonText = jiagangButton.TextObject;
                     buttonText.text = "加杠";
                     Debug.Log($"加杠按钮: {jiagangButton}");
                 }
@@ -85,7 +86,7 @@ public partial class GameCanvas : MonoBehaviour {
                 if (chiButton == null) {
                     // 第一次遇到吃牌选项时创建按钮
                     chiButton = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                    Text buttonText = chiButton.TextObject;
+                    TMP_Text buttonText = chiButton.TextObject;
                     buttonText.text = "吃";
                     Debug.Log($"创建吃牌按钮: {chiButton}");
                 }
@@ -97,7 +98,7 @@ public partial class GameCanvas : MonoBehaviour {
             else if (action_list[i] == "pass"){
                 Debug.Log($"取消");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
-                Text buttonText = ActionButtonObj.TextObject;
+                TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "取消";
                 Debug.Log($"取消按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
