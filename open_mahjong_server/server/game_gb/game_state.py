@@ -321,12 +321,14 @@ class ChineseGameState:
                             player_to_score = {}
                             for i in self.player_list:
                                 player_to_score[i.player_index] = i.score
+                            # 在 hu_fan 中添加"错和"番
+                            cuohe_hu_fan = hu_fan + ["错和"]
                             await broadcast_result(self,
                                                 hepai_player_index = self.current_player_index, # 自摸错和是当前玩家
                                                 player_to_score = player_to_score,
                                                 hu_score = hu_score,
-                                                hu_fan = hu_fan,
-                                                hu_class = "cuohe",
+                                                hu_fan = cuohe_hu_fan,
+                                                hu_class = self.hu_class,  # 使用原本的hu_class
                                                 hepai_player_hand = self.player_list[self.current_player_index].hand_tiles,
                                                 hepai_player_huapai = self.player_list[self.current_player_index].huapai_list,
                                                 hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask

@@ -9,7 +9,7 @@ public class ConfigBoard : MonoBehaviour {
     [SerializeField] private Button uploadTableclothButton; // 上传桌布按钮
     [SerializeField] private Button resetTableclothButton; // 重置桌布按钮
     [SerializeField] private TMP_Text tableclothStatusText; // 桌布状态文本
-    [SerializeField] private TableclothOverlayController tableclothRenderer; // 桌布渲染控制器
+    [SerializeField] private Desktop tableclothRenderer; // 桌布渲染控制器
     [SerializeField] private Image tableclothPreviewImage; // 桌布预览图片
     [SerializeField] private Texture2D defaultTableclothImage; // 默认桌布图片
 
@@ -144,7 +144,7 @@ public class ConfigBoard : MonoBehaviour {
         }
 
         try {
-            string tableclothDir = TableclothOverlayController.GetTableclothDirectory();
+            string tableclothDir = Desktop.GetTableclothDirectory();
             if (!Directory.Exists(tableclothDir)) {
                 Directory.CreateDirectory(tableclothDir);
             }

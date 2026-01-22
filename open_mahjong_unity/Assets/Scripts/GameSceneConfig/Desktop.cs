@@ -1,32 +1,33 @@
 using UnityEngine;
 using System.IO;
 
-public class TableclothOverlayController : MonoBehaviour {
+public class Desktop : MonoBehaviour {
     [SerializeField] private MeshRenderer meshRenderer; // 目标MeshRenderer组件
     [SerializeField] private Texture2D defaultTableclothTexture; // 默认桌布纹理
-    [SerializeField] private Texture2D overlayTexture; // 覆盖纹理（带透明通道的基础纹理）
 
     private const string TABLECLOTH_PATH_KEY = "CustomTableclothPath"; // 自定义桌布路径的PlayerPrefs键名
     private const string TABLECLOTH_DIR = "Tablecloths"; // 桌布保存目录名
 
-    private Material material; // 材质实例
-    
-    // Shader属性ID缓存
-    private static readonly int TableclothTexID = Shader.PropertyToID("_TableclothTex"); // 桌布纹理属性ID
-    private static readonly int OverlayTexID = Shader.PropertyToID("_OverlayTex"); // 覆盖纹理属性ID
+    private Material tableclothMaterial; // 桌布材质（元素0）
+    private Material edgeMaterial; // 边框材质（元素1）
 
     private void Awake() {
         RefreshTablecloth(); // 刷新桌布
-        Debug.Log("桌布渲染成功");
+        RefreshEdge(); // 刷新边框
+        Debug.Log("桌布和边框渲染成功");
     }
 
-    // 刷新桌布功能（合并加载桌布和设置覆盖纹理的逻辑）
+    // 刷新桌布功能
     public void RefreshTablecloth(){
-        // 获取MeshRenderer组件的第一个材质
+        // 获取MeshRenderer组件的材质
         meshRenderer = GetComponent<MeshRenderer>();
-        material = meshRenderer.materials[0];
+        Material[] materials = meshRenderer.materials;
 
-        // 加载桌布（优先加载玩家自定义的，如果没有则使用默认纹理）
+        if (materials.Length > 0) {
+            tableclothMaterial = materials[0];
+        }
+
+        // 加载桌布（使用默认纹理）
         Texture2D tableclothTexture = null;
 
         string customPath = PlayerPrefs.GetString(TABLECLOTH_PATH_KEY, "");
@@ -39,20 +40,35 @@ public class TableclothOverlayController : MonoBehaviour {
             return;
         }
 
-        material.SetTexture(TableclothTexID, tableclothTexture); // 更新桌布纹理
-        material.SetTexture(OverlayTexID, overlayTexture); // 更新覆盖纹理
+        if (tableclothMaterial != null) {
+            tableclothMaterial.mainTexture = tableclothTexture; // 设置主纹理
+        }
     }
+
+    // 刷新边框功能
+    public void RefreshEdge(){
+        // 获取MeshRenderer组件的材质
+        meshRenderer = GetComponent<MeshRenderer>();
+        Material[] materials = meshRenderer.materials;
+
+        if (materials.Length > 1) {
+            edgeMaterial = materials[1];
+        }
+
+        // 边框功能已移除，不加载任何纹理
+    }
+
 
     // 从文件路径加载纹理
     private Texture2D LoadTextureFromFile(string filePath){
         try{
             byte[] fileData = File.ReadAllBytes(filePath);
             Texture2D texture = new Texture2D(2, 2);
-            
+
             if (ImageConversion.LoadImage(texture, fileData)) {
                 return texture;
             }
-            
+
             Destroy(texture);
             return null;
         } catch (System.Exception e) {
