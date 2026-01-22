@@ -40,22 +40,21 @@ public class RoundPanel : MonoBehaviour {
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
 
         // 设置规则文本
-        string roomRoundText = "";
         if (roomType == "guobiao") {
-            ruleText.text = roomRoundText;
+            ruleText.text = "国标麻将";
         } else {
             ruleText.text = "未知规则：";
         }
 
         // 设置游戏轮数文本
         if (gameInfo.max_round == 1) {
-            GameRoundText.text += "东风战";
+            GameRoundText.text = "东风战";
         } else if (gameInfo.max_round == 2) {
-            GameRoundText.text += "东南战";
+            GameRoundText.text = "东南战";
         } else if (gameInfo.max_round == 3) {
-            GameRoundText.text += "西风战";
+            GameRoundText.text = "西风战";
         } else if (gameInfo.max_round == 4) {
-            GameRoundText.text += "全庄战";
+            GameRoundText.text = "全庄战";
         } else {
             GameRoundText.text = "未知轮数";
         }

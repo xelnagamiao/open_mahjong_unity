@@ -337,23 +337,26 @@ class ChineseGameState:
                             # 错和尾处理
                             # 给错和玩家添加peida tag
                             self.player_list[hepai_player_index].tag_list.append("peida")
-                            # 删除和牌类型
-                            self.hu_class = ""
+                            # 广播玩家标签列表
                             await broadcast_refresh_player_tag_list(self)
-                            # 如果是和他人出牌，对手牌进行倒带，删除手牌中最后一张牌
-                            if self.hu_class in ["hu_first","hu_second","hu_third"]:
-                                self.player_list[self.current_player_index].hand_tiles.pop(-1)
-                            # 如果是自摸和牌，重新等待当前玩家出牌
+
+                            # 根据和牌类型进行状态转移
                             if self.hu_class == "hu_self":
+                                # 自摸和牌，重新等待当前玩家出牌
                                 self.action_dict = check_action_hand_action(self,self.current_player_index)
                                 self.game_status = "waiting_hand_action"
-                            # 如果是他人和牌，重新检测出牌方法出牌
                             elif self.hu_class in ["hu_first","hu_second","hu_third"]:
+                                # 他人和牌，倒带手牌并重新检测出牌操作
+                                tile_id = self.player_list[self.current_player_index].hand_tiles[-1]  # 获取最后一张牌（和牌牌）
+                                self.player_list[self.current_player_index].hand_tiles.pop(-1)  # 删除手牌中最后一张牌
                                 self.action_dict = check_action_after_cut(self,tile_id)
                                 if any(self.action_dict[i] for i in self.action_dict):
                                     self.game_status = "waiting_action_after_cut" # 转移行为
                                 else:
                                     self.game_status = "deal_card" # 历时行为
+
+                            # 删除和牌类型
+                            self.hu_class = ""
 
 
 
