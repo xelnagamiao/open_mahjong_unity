@@ -53,7 +53,7 @@ const features = ref([
     icon: 'VideoPlay',
     color: '#007bff', /* 蓝色 */
     type: 'route',
-    route: '/unity-game'
+    route: '/game-unity'
   },
   {
     id: 2,
@@ -114,7 +114,7 @@ const features = ref([
 const handleFeatureClick = (feature) => {
   if (feature.type === 'route') {
     // 检查是否为外部链接路由
-    if (feature.route === '/unity-game' || feature.route === '/docs' || feature.route === '/github') {
+    if (feature.route === '/game-unity' || feature.route === '/docs' || feature.route === '/github') {
       // 这些路由会在beforeEnter中处理，在新窗口打开
       router.push(feature.route)
     } else {

@@ -48,7 +48,7 @@ const routes = [
   },
   // 无布局的路由（纯黑全屏页面）
   {
-    path: '/unity-game',
+    path: '/game-unity',
     name: 'UnityGame',
     component: UnityGame,
     meta: { title: '麻将对战平台 - salasasa.cn' }

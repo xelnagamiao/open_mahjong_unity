@@ -287,6 +287,7 @@ class ChineseGameState:
                     # 玩家和牌操作
                     case "check_hepai":
                          # 自摸玩家和牌，如果和牌分数大于8番则结束游戏，重新发送广播摸牌信息
+                        logger.info(f"进入check_hepai case: hu_class={self.hu_class}, result_dict keys={list(self.result_dict.keys())}")
                         hu_score, hu_fan = self.result_dict[self.hu_class] # 获取和牌分数和番数
 
                         # 从 hu_fan 中获取花牌数量
@@ -295,7 +296,7 @@ class ChineseGameState:
                         # 正确和牌则执行end程序（判断时减去花牌数量）
                         if hu_score - huapai_count >= 8:
                             self.game_status = "END"
-                            return
+                            break
                         # 错和则执行错和程序
                         else:
                             hepai_player_index = None
@@ -320,24 +321,46 @@ class ChineseGameState:
                             player_to_score = {}
                             for i in self.player_list:
                                 player_to_score[i.player_index] = i.score
+                            # 在 hu_fan 中添加"错和"番
+                            cuohe_hu_fan = hu_fan + ["错和"]
                             await broadcast_result(self,
                                                 hepai_player_index = self.current_player_index, # 自摸错和是当前玩家
                                                 player_to_score = player_to_score,
                                                 hu_score = hu_score,
-                                                hu_fan = hu_fan,
-                                                hu_class = "cuohe",
+                                                hu_fan = cuohe_hu_fan,
+                                                hu_class = self.hu_class,  # 使用原本的hu_class
                                                 hepai_player_hand = self.player_list[self.current_player_index].hand_tiles,
                                                 hepai_player_huapai = self.player_list[self.current_player_index].huapai_list,
                                                 hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
                                                 )
                             # 等待5秒
                             await asyncio.sleep(len(hu_fan)*0.5 + 5 + 0.5) # 等待和牌番种时间与5秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
+
+                            # 错和尾处理
                             # 给错和玩家添加peida tag
                             self.player_list[hepai_player_index].tag_list.append("peida")
+                            # 广播玩家标签列表
                             await broadcast_refresh_player_tag_list(self)
-                            
-                            self.action_dict = check_action_hand_action(self,self.current_player_index)
-                            self.game_status = "waiting_hand_action"
+
+                            # 根据和牌类型进行状态转移
+                            if self.hu_class == "hu_self":
+                                # 自摸和牌，重新等待当前玩家出牌
+                                self.action_dict = check_action_hand_action(self,self.current_player_index)
+                                self.game_status = "waiting_hand_action"
+                            elif self.hu_class in ["hu_first","hu_second","hu_third"]:
+                                # 他人和牌，倒带手牌并重新检测出牌操作
+                                tile_id = self.player_list[self.current_player_index].hand_tiles[-1]  # 获取最后一张牌（和牌牌）
+                                self.player_list[self.current_player_index].hand_tiles.pop(-1)  # 删除手牌中最后一张牌
+                                self.action_dict = check_action_after_cut(self,tile_id)
+                                if any(self.action_dict[i] for i in self.action_dict):
+                                    self.game_status = "waiting_action_after_cut" # 转移行为
+                                else:
+                                    self.game_status = "deal_card" # 历时行为
+
+                            # 删除和牌类型
+                            self.hu_class = ""
+
+
 
 
             # 卡牌摸完 或者有人和牌

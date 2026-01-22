@@ -329,6 +329,7 @@ async def wait_action(self):
                     self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type
                     self.game_status = "check_hepai"
+                    logger.info(f"处理和牌操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}, tile_id={tile_id}")
                     return
                 
                 # 如果发生吃碰杠而不是和牌 则发生转移行为

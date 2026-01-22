@@ -7,12 +7,9 @@ using TMPro;
 
 public partial class GameCanvas : MonoBehaviour {
     [Header("左上房间信息")]
-    [SerializeField] private TMP_Text ruleText; // 规则文本
-    [SerializeField] private TMP_Text roomNowRoundText; // 当前轮数文本
-    [SerializeField] private TMP_Text RandomSeedText; // 随机种子文本
-    [SerializeField] private Button visibilityRandomSeedButton; // 显示随机种子按钮
     [SerializeField] private Button openScoreRecordPanelButton; // 点击打开计分板的面板/按钮
     [SerializeField] private TMP_Text openScoreRecordButtonText; // 按钮文本（可不填：会自动从按钮子节点找）
+    [SerializeField] private RoundPanel roundPanel; // 轮数面板引用
 
     [Header("玩家信息面板")]
     [SerializeField] private GamePlayerPanel playerSelfPanel;    // 自己面板
@@ -44,24 +41,6 @@ public partial class GameCanvas : MonoBehaviour {
     private int _currentRemainingTime;
     private int _currentCutTime;
 
-    private static readonly Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
-        {1, "东风东"},
-        {2, "东风南"},
-        {3, "东风西"},
-        {4, "东风北"},
-        {5, "南风东"},
-        {6, "南风南"},
-        {7, "南风西"},
-        {8, "南风北"},
-        {9, "西风东"},
-        {10, "西风南"},
-        {11, "西风西"},
-        {12, "西风北"},
-        {13, "北风东"},
-        {14, "北风南"},
-        {15, "北风西"},
-        {16, "北风北"},
-    };
 
 
     [Header("游戏配置模块")]
@@ -137,38 +116,13 @@ public partial class GameCanvas : MonoBehaviour {
             }
         }
 
-        RandomSeedText.text = $"随机种子：{gameInfo.round_random_seed}"; // 左上角显示随机种子
-
-        // 设置当前轮数文本（按规则匹配字典）
-        string roomType = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : gameInfo.room_type;
-        Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao") {
-            roundMap = CurrentRoundTextGB;
-        }
-
-        if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
-            roomNowRoundText.text = roundText;
+        // 更新轮数面板信息
+        if (roundPanel != null) {
+            string roomType = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : gameInfo.room_type;
+            roundPanel.UpdateRoomInfo(gameInfo, roomType);
         } else {
-            roomNowRoundText.text = "未知轮数";
+            Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
-
-        // 设置规则文本
-        string roomRoundText = "";
-        if (roomType == "guobiao"){
-            roomRoundText += "国标麻将:";
-        } else {
-            roomRoundText += "未知规则：";
-        }
-        if (gameInfo.max_round == 1){
-            roomRoundText += "东风战";
-        } else if (gameInfo.max_round == 2){
-            roomRoundText += "东南战";
-        } else if (gameInfo.max_round == 3){
-            roomRoundText += "西风战";
-        } else if (gameInfo.max_round == 4){
-            roomRoundText += "全庄战";
-        } else {Debug.LogError("最大轮数错误");}
-        ruleText.text = roomRoundText;
 
     }
 

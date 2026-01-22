@@ -57,6 +57,7 @@ public class ConfigManager : MonoBehaviour {
         }
         Instance = this;
         
+        // 加载用户配置
         MasterVolume = PlayerPrefs.GetInt(KEY_MASTER_VOLUME, DEFAULT_VOLUME);
         MusicVolume = PlayerPrefs.GetInt(KEY_MUSIC_VOLUME, DEFAULT_VOLUME);
         SoundEffectVolume = PlayerPrefs.GetInt(KEY_SOUND_EFFECT_VOLUME, DEFAULT_VOLUME);
@@ -91,6 +92,34 @@ public class ConfigManager : MonoBehaviour {
         VoiceVolume = Mathf.Clamp(volume, 0, 100);
         PlayerPrefs.SetInt(KEY_VOICE_VOLUME, VoiceVolume);
         PlayerPrefs.Save();
+    }
+
+    // 保存桌布选择
+    public void SetSelectedTableCloth(string path, bool isCustom) {
+        PlayerPrefs.SetString("SelectedTableClothPath", path);
+        PlayerPrefs.SetInt("SelectedTableClothIsCustom", isCustom ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    // 保存桌边选择
+    public void SetSelectedTableEdge(string path, bool isCustom) {
+        PlayerPrefs.SetString("SelectedTableEdgePath", path);
+        PlayerPrefs.SetInt("SelectedTableEdgeIsCustom", isCustom ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    // 获取桌布选择
+    public (string path, bool isCustom) GetSelectedTableCloth() {
+        string path = PlayerPrefs.GetString("SelectedTableClothPath", "");
+        bool isCustom = PlayerPrefs.GetInt("SelectedTableClothIsCustom", 0) == 1;
+        return (path, isCustom);
+    }
+
+    // 获取桌边选择
+    public (string path, bool isCustom) GetSelectedTableEdge() {
+        string path = PlayerPrefs.GetString("SelectedTableEdgePath", "");
+        bool isCustom = PlayerPrefs.GetInt("SelectedTableEdgeIsCustom", 0) == 1;
+        return (path, isCustom);
     }
 
     public static string GetTitleText(int titleId) {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using System.Linq;
 
 
@@ -11,23 +12,30 @@ public class ActionButton : MonoBehaviour {
     // 通过 GameCanvas 单例获取 ActionBlockContenter，不再需要 SerializeField
     private Transform ActionBlockContenter => GameCanvas.Instance.ActionBlockContenter;
 
-    [SerializeField] private Text textObject; // 按钮文本
-    
+    [SerializeField] private TMP_Text textObject; // 按钮文本
+
     public List<string> actionTypeList = new List<string>(); // 动作类型列表 同一个按钮可能有多个行动 例如 chi_left,chi_right,chi_mid
-    
-    public Text TextObject {
+
+    public TMP_Text TextObject {
         get {
-            if (textObject == null)
-                textObject = GetComponentInChildren<Text>();
             return textObject;
         }
     }
     
     void Start() {
+        // 验证TMP_Text组件是否已赋值
         if (textObject == null)
-            textObject = GetComponentInChildren<Text>();
+        {
+            Debug.LogError("ActionButton: TMP_Text component is not assigned in Inspector!");
+        }
+
         // 按钮点击事件
         Button button = GetComponent<Button>();
+        if (button == null)
+        {
+            Debug.LogError("ActionButton: Button component not found!");
+            return;
+        }
         button.onClick.AddListener(OnClick);
     }
 
