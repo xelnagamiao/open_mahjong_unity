@@ -6,7 +6,7 @@ var TableclothUploadPlugin = {
     // gameObjectNamePtr: Unity GameObject 名称，用于回调
     // methodNamePtr: Unity 回调方法名称
     // filterPtr: 文件过滤器，例如 "image/png,image/jpeg,image/jpg"
-    UploadTablecloth: function(gameObjectNamePtr, methodNamePtr, filterPtr) {
+    UploadFileJS: function(gameObjectNamePtr, methodNamePtr, filterPtr) {
         var gameObjectName = UTF8ToString(gameObjectNamePtr);
         var methodName = UTF8ToString(methodNamePtr);
         var filter = UTF8ToString(filterPtr);
