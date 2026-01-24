@@ -74,7 +74,8 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int[] discard_tiles;         // 弃牌 (改为int数组)
     public int[] discard_origin_tiles;        // 理论弃牌
     public string[] combination_tiles;  // 组合牌
-    public int[] conbination_mask;      // 组合牌掩码
+    public int[][] combination_mask;   // 组合牌掩码（二维数组，每个副露的掩码是一个子数组）
+    
     public int remaining_time;          // 剩余时间
     public int player_index;            // 东南西北位置 (改为player_index)
     public int original_player_index;   // 原始玩家索引 东南西北 0 1 2 3

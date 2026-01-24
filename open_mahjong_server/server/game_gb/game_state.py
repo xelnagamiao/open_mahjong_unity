@@ -78,6 +78,8 @@ class ChineseGameState:
         self.db_manager = db_manager
         # 创建牌谱管理器 用于存储牌谱
         self.game_record = {}
+        # game_loop_chinese循环任务引用
+        self.game_task: Optional[asyncio.Task] = None 
         # 创建玩家列表 包含chinesePlayer类
         self.player_list: List[ChinesePlayer] = []
         player_settings = room_data.get("player_settings", {})
@@ -134,8 +136,113 @@ class ChineseGameState:
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
         }
 
-        self.Debug = False
+        self.Debug = True
 
+
+    async def player_disconnect(self, user_id: int):
+        """玩家掉线：增加 offline 标签并广播"""
+        for p in self.player_list:
+            if p.user_id == user_id:
+                if "offline" not in p.tag_list:
+                    p.tag_list.append("offline")
+                    await broadcast_refresh_player_tag_list(self)
+                break
+
+    async def player_reconnect(self, user_id: int):
+        """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
+        for p in self.player_list:
+            if p.user_id == user_id:
+                if "offline" in p.tag_list:
+                    p.tag_list.remove("offline")
+                    await broadcast_refresh_player_tag_list(self)
+                
+                # 向重连的玩家单独发送游戏开始信息
+                if user_id in self.game_server.user_id_to_connection:
+                    from ..response import Response, GameInfo
+                    player_conn = self.game_server.user_id_to_connection[user_id]
+                    
+                    # 构建游戏信息
+                    base_game_info = {
+                        'room_id': self.room_id,
+                        'tips': self.tips,
+                        'current_player_index': self.current_player_index,
+                        "action_tick": self.server_action_tick,
+                        'max_round': self.max_round,
+                        'tile_count': len(self.tiles_list),
+                        'round_random_seed': self.round_random_seed,
+                        'current_round': self.current_round,
+                        'step_time': self.step_time,
+                        'round_time': self.round_time,
+                        'room_type': self.room_type,
+                        'open_cuohe': self.open_cuohe,
+                        'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
+                        'players_info': []
+                    }
+                    
+                    # 构建玩家信息列表
+                    for player in self.player_list:
+                        player_info = {
+                            'user_id': player.user_id,
+                            'username': player.username,
+                            'hand_tiles_count': len(player.hand_tiles),
+                            'discard_tiles': player.discard_tiles,
+                            'discard_origin_tiles': player.discard_origin_tiles,
+                            'combination_tiles': player.combination_tiles,
+                            "combination_mask": player.combination_mask,
+                            "huapai_list": player.huapai_list,
+                            'remaining_time': player.remaining_time,
+                            'player_index': player.player_index,
+                            'original_player_index': player.original_player_index,
+                            'score': player.score,
+                            "title_used": player.title_used,
+                            'profile_used': player.profile_used,
+                            'character_used': player.character_used,
+                            'voice_used': player.voice_used,
+                            'score_history': player.score_history,
+                            'tag_list': player.tag_list,
+                        }
+                        base_game_info['players_info'].append(player_info)
+                    
+                    # 添加重连玩家的手牌
+                    game_info = GameInfo(
+                        **base_game_info,
+                        self_hand_tiles=p.hand_tiles
+                    )
+                    
+                    response = Response(
+                        type="game_start_GB",
+                        success=True,
+                        message="重连成功，游戏继续",
+                        game_info=game_info
+                    )
+                    
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
+                break
+
+    async def cleanup_game_state(self):
+        """清理游戏状态：移除所有映射关系，用于房间销毁时调用"""
+        # 取消游戏循环任务
+        if self.game_task and not self.game_task.done():
+            self.game_task.cancel()
+            try:
+                await self.game_task
+            except asyncio.CancelledError:
+                logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
+            except Exception as e:
+                logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
+        
+        # 清理玩家 ID 到游戏状态的映射（重连索引）
+        # 从 player_list 获取所有玩家的 user_id，确保即使房间数据为空也能清理
+        for player in self.player_list:
+            if player.user_id in self.game_server.user_id_to_game_state:
+                del self.game_server.user_id_to_game_state[player.user_id]
+                logger.debug(f"清理玩家重连索引: user_id={player.user_id}")
+        
+        # 清理房间到游戏状态的映射
+        if self.room_id in self.game_server.room_id_to_ChineseGameState:
+            del self.game_server.room_id_to_ChineseGameState[self.room_id]
+            logger.info(f"清理游戏状态映射，room_id: {self.room_id}")
 
     async def game_loop_chinese(self):
 
@@ -159,9 +266,18 @@ class ChineseGameState:
             for index, player in enumerate[ChinesePlayer](self.player_list):
                 player.player_index = index
                 player.original_player_index = index
+
+        else:
+            # 测试
+            self.isPlayerSetRandomSeed = False
+            self.game_random_seed = int(time.time() * 1000000) % (2**32)
+            # 测试时不打乱玩家顺序
+            for index, player in enumerate[ChinesePlayer](self.player_list):
+                player.player_index = index
+                player.original_player_index = index
+
         # 牌谱记录游戏头
         init_game_record(self)
-
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
@@ -361,8 +477,6 @@ class ChineseGameState:
                             self.hu_class = ""
 
 
-
-
             # 卡牌摸完 或者有人和牌
             hu_score = None
             hu_fan = None
@@ -533,6 +647,13 @@ class ChineseGameState:
         if self.room_id in self.game_server.room_id_to_ChineseGameState:
             del self.game_server.room_id_to_ChineseGameState[self.room_id]
         
+        # 移除玩家到游戏状态的映射
+        for player_id in self.room_data["player_list"]:
+            if player_id in self.game_server.user_id_to_game_state:
+                del self.game_server.user_id_to_game_state[player_id]
+        
         # 销毁房间并广播离开房间消息
         await self.game_server.room_manager.destroy_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
+
+

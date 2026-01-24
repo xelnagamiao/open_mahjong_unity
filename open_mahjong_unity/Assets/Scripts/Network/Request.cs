@@ -74,3 +74,8 @@ public class SendReleaseVersionRequest { // 发送发布版本号请求
 public class GetServerStatsRequest { // 获取服务器统计信息请求
     public string type;
 }
+
+public class ReconnectRequest { // 重连请求
+    public string type;
+    public bool reconnect;
+}

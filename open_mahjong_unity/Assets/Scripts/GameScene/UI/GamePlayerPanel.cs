@@ -54,7 +54,7 @@ public class GamePlayerPanel : MonoBehaviour {
         // 根据标签列表显示对应的标签
         if (tag_list != null) {
             foreach(var item in tag_list) {
-                if (item == "lossconn") {
+                if (item == "offline") {
                     playerIslossconnPicture.gameObject.SetActive(true);
                 }
                 if (item == "peida") {

@@ -12,6 +12,7 @@ class PlayerInfo(BaseModel):
     discard_tiles: List[int]
     discard_origin_tiles: Optional[List[int]] = None  # 理论弃牌
     combination_tiles: List[str]
+    combination_mask: Optional[List[List[int]]] = None  # 组合牌掩码（二维数组，每个副露的掩码是一个子列表）
     huapai_list: List[int]
     remaining_time: int
     player_index: int

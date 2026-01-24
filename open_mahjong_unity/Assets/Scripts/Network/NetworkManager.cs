@@ -325,13 +325,14 @@ public class NetworkManager : MonoBehaviour {
                     break;
 
                 case "message":
-                    // 处理服务端发送的消息（版本不匹配、账户被顶替等）
-                    if (response.message_info != null) {
-                        NotificationManager.Instance.ShowMessage(response.message_info.title, response.message_info.content);
-                    } else {
-                        // 兼容处理：如果没有 message_info，使用 message 作为内容
-                        NotificationManager.Instance.ShowMessage("系统提示", response.message);
-                    }
+                    // 处理服务端发送的消息（版本不匹配、账户被顶替、重连提示等）
+                    // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
+                    MessagePrefab messageInstance = NotificationManager.Instance.ShowMessage(
+                        response.message_info.title, 
+                        response.message_info.content, 
+                        response.message
+                    );
+
                     LoginPanel.Instance.ResetLoginButton();
                     break;
                 
@@ -531,6 +532,14 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
+    // 4.13 放弃重连方法 GiveUpReconnect
+    public async void ReconnectResponse(bool reconnect) {
+        var request = new ReconnectRequest {
+            type = "reconnect_response",
+            reconnect = reconnect
+        };
+        await websocket.SendText(JsonConvert.SerializeObject(request));
+    }
 
 
     private async void OnApplicationQuit() {

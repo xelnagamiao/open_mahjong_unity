@@ -51,6 +51,11 @@ async def broadcast_game_start(self):
     # 为每个玩家发送消息
     for current_player in self.player_list:
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             # 如果player_list中有玩家在self.game_server.user_id_to_connection:
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -82,6 +87,11 @@ async def broadcast_ask_hand_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             if i == self.current_player_index:
                 # 对当前玩家发送包含摸牌信息的消息
                 if current_player.user_id in self.game_server.user_id_to_connection:
@@ -133,6 +143,11 @@ async def broadcast_ask_other_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             if self.action_dict[i] != []:
                 # 发送询问行动信息
                 if current_player.user_id in self.game_server.user_id_to_connection:
@@ -193,6 +208,11 @@ async def broadcast_do_action(
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             # 发送通用信息
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -236,6 +256,11 @@ async def broadcast_result(self,
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
@@ -280,6 +305,11 @@ async def broadcast_game_end(self):
     # 为每个玩家发送游戏结束信息
     for current_player in self.player_list:
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
@@ -311,6 +341,11 @@ async def broadcast_switch_seat(self):
     # 为每个玩家发送换位信息
     for current_player in self.player_list:
         try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
@@ -343,6 +378,12 @@ async def broadcast_refresh_player_tag_list(self):
     # 为每个玩家发送刷新标签列表信息
     for current_player in self.player_list:
         try:
+
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 

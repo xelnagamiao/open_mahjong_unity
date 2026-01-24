@@ -89,6 +89,8 @@ public class GameSceneManager : MonoBehaviour{
 
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
+        // 保存room_id
+        UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
         
@@ -115,6 +117,10 @@ public class GameSceneManager : MonoBehaviour{
 
         // 重置自动操作选项（保留自动切牌和自动理牌）
         ResetAutoActionOptions();
+
+        // 根据对局信息生成他家已有的3D卡牌（弃牌、副露、花牌）
+        GenerateOtherPlayers3DTiles(gameInfo);
+
     }
 
     // 重置自动操作选项（保留自动切牌和自动理牌）
@@ -242,7 +248,7 @@ public class GameSceneManager : MonoBehaviour{
                         int tile_id = int.Parse(combination_target_str);
                         if (GetCardPlayer == "self"){
                             selfHandTiles.Remove(tile_id); // 删除手牌
-                            GameCanvas.Instance.ChangeHandCards("RemoveHandCard",tile_id,null,null); // 2D手牌行为
+                            GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard",tile_id,null,null); // 2D加杠行为
                         }
                         else{
                             player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
@@ -509,6 +515,48 @@ public class GameSceneManager : MonoBehaviour{
 
         else{
             Debug.LogWarning($"未知操作: {action}");
+        }
+    }
+
+    // 生成其他玩家的3D卡牌（弃牌、副露、花牌）
+    private void GenerateOtherPlayers3DTiles(GameInfo gameInfo){
+        // 遍历所有玩家
+        foreach (var player in gameInfo.players_info){
+            if (!indexToPosition.ContainsKey(player.player_index)) continue;
+            string position = indexToPosition[player.player_index];
+            
+            // 1. 生成弃牌
+            if (player.discard_tiles != null && player.discard_tiles.Length > 0){
+                foreach (int tileId in player.discard_tiles){
+                    Game3DManager.Instance.Change3DTile("Discard", tileId, 0, position, false, null);
+                }
+            }
+            
+            // 2. 生成花牌
+            if (player.huapai_list != null && player.huapai_list.Length > 0){
+                foreach (int tileId in player.huapai_list){
+                    Game3DManager.Instance.Change3DTile("Buhua", tileId, 0, position, false, null);
+                }
+            }
+            
+            // 3. 生成副露（组合牌）
+            // 直接遍历副露列表和掩码，调用 ActionAnimation 显示
+            // 手牌数量已经反映了副露消耗，不需要再做移除操作
+            if (player.combination_tiles != null && player.combination_tiles.Length > 0 &&
+                player.combination_mask != null && player.combination_mask.Length > 0){
+                
+                // 遍历每个副露组合，直接使用二维数组中的每个子数组
+                for (int i = 0; i < player.combination_tiles.Length && i < player.combination_mask.Length; i++){
+                    string combinationStr = player.combination_tiles[i];
+                    if (string.IsNullOrEmpty(combinationStr) || combinationStr.Length < 2) continue;
+                    
+                    int[] combinationMask = player.combination_mask[i];
+                    if (combinationMask == null || combinationMask.Length == 0) continue;
+                    
+                    // 直接调用 ActionAnimation 显示副露（actionType 参数在这里不影响显示，由掩码决定）
+                    Game3DManager.Instance.ActionAnimation(position, "None", combinationMask);
+                }
+            }
         }
     }
 

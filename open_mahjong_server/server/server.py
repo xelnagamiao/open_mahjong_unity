@@ -101,6 +101,8 @@ class GameServer:
         self.room_manager = RoomManager(self)
         # 管理不同房间id到已启动的游戏服务的映射
         self.room_id_to_ChineseGameState: Dict[str, ChineseGameState] = {}
+        # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
+        self.user_id_to_game_state: Dict[int, Any] = {} 
         # 全局计算服务
         self.calculation_service = GameCalculationService()
         # 数据库管理器
@@ -123,17 +125,22 @@ class GameServer:
                 await self.room_manager.leave_room(Connect_id, player.current_room_id)
                 logging.info(f"玩家 {Connect_id} 已离开房间 {player.current_room_id}")
             
-
             # 如果是游客账户，尝试删除（只有在用户名包含"游客"且 is_tourist 为 True 时才删除）
             if player.user_id and player.is_tourist:
                 if db_manager.delete_tourist_user(player.user_id, player.username):
                     logging.info(f"已删除游客账户 user_id={player.user_id}, username={player.username}")
                 else:
                     logging.warning(f"删除游客账户失败 user_id={player.user_id}, username={player.username}")
+
+            # 如果玩家在游戏中，则断开游戏连接
+            if player.user_id in self.user_id_to_game_state:
+                game_state = self.user_id_to_game_state[player.user_id]
+                await game_state.player_disconnect(player.user_id)
             
             # 删除用户ID到玩家连接的映射
             if player.user_id:
                 self.user_id_to_connection.pop(player.user_id, None)
+                
             # 删除玩家连接并更新玩家信息
             del self.players[Connect_id]
             logging.info(f"玩家 {Connect_id} 已断开连接")
@@ -192,8 +199,41 @@ class GameServer:
         
         # 创建游戏任务
         if room_data["room_type"] == "guobiao":
-            self.room_id_to_ChineseGameState[room_id] = ChineseGameState(self, room_data, self.calculation_service,self.db_manager)
-            asyncio.create_task(self.room_id_to_ChineseGameState[room_id].game_loop_chinese())
+            game_state = ChineseGameState(self, room_data, self.calculation_service,self.db_manager)
+            self.room_id_to_ChineseGameState[room_id] = game_state
+            
+            # 建立用户ID到游戏状态的映射
+            for player_id in room_data["player_list"]:
+                self.user_id_to_game_state[player_id] = game_state
+            
+            # 创建并保存游戏循环任务引用
+            game_state.game_task = asyncio.create_task(game_state.game_loop_chinese())
+
+    async def check_player_reconnect(self, Connect_id: str, user_id: int):
+        """检查玩家是否需要重连并发送提示"""
+        if user_id in self.user_id_to_game_state:
+            game_state = self.user_id_to_game_state[user_id]
+            
+            
+            from .response import MessageInfo
+            reconnect_message = Response(
+                type="message",
+                success=True,
+                message="reconnect_ask",
+                message_info=MessageInfo(
+                    title="对局重连",
+                    content=f"检测到您有一场正在进行的游戏，是否返回游戏？"
+                )
+            )
+            
+            # 在响应中添加额外字段方便客户端处理逻辑
+            response_dict = reconnect_message.dict(exclude_none=True)
+            
+            if Connect_id in self.players:
+                await self.players[Connect_id].websocket.send_json(response_dict)
+
+                room_id = game_state.room_id
+                logging.info(f"已向玩家 {user_id} 发送重连请求，房间 ID: {room_id}")
 
     def get_server_stats(self) -> Dict[str, int]:
         """
@@ -236,7 +276,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     response = Response(
                         type="message",
                         success=False,
-                        message="版本不匹配",
+                        message="error_version",
                         message_info=MessageInfo(
                             title="版本检查失败",
                             content="您的客户端版本与服务器版本不匹配，请更新客户端到最新版本后再试。"
@@ -277,10 +317,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                             kickout_message = Response(
                                 type="message",
                                 success=False,
-                                message="账户被顶替",
+                                message="login_kickout",
                                 message_info=MessageInfo(
-                                    title="账户登录提醒",
-                                    content=f"您的账户已于{current_time}在其他地方登录。如果不是您的行为，可能账户已被他人使用，请及时修改密码以确保账户安全。"
+                                    title="账户于其他地方登陆",
+                                    content=f"您的账户已于{current_time}在其他地方登录。如果不是您的行为，可能账户已被他人冒用，请及时修改密码以确保账户安全。"
                                 )
                             )
                             await old_player.websocket.send_json(kickout_message.dict(exclude_none=True))
@@ -294,6 +334,14 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     
                     # 存储新登录的会话
                     game_server.store_player_session(Connect_id, user_id, response.login_info.username, is_tourist=is_tourist)
+                    
+                    # 发送登录成功的响应
+                    await websocket.send_json(response.dict(exclude_none=True))
+                    
+                    # 检测玩家是否需要重连并发送 message 类型的通知
+                    await game_server.check_player_reconnect(Connect_id, user_id)
+                    continue
+                
                 await websocket.send_json(response.dict(exclude_none=True))
 
             elif message["type"] == "create_GB_room":
@@ -531,6 +579,32 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                     player_info=player_info_response
                 )
                 await websocket.send_json(response.dict(exclude_none=True))
+
+            elif message["type"] == "reconnect_response":
+                player = game_server.players.get(Connect_id)
+                if player and player.user_id in game_server.user_id_to_game_state:
+                    user_id = player.user_id
+                    game_state = game_server.user_id_to_game_state[user_id]
+                    room_id = game_state.room_id
+                    if message.get("reconnect"):
+                        # 玩家重新连接
+                        await game_state.player_reconnect(user_id)
+                        
+                        # 发送房间信息给玩家
+                        room_data = game_server.room_manager.rooms.get(room_id)
+                        if room_data:
+                            response = Response(
+                                type="tips",
+                                success=True,
+                                message="重连成功，返回游戏",
+                            )
+                            await player.websocket.send_json(response.dict(exclude_none=True))
+                            logging.info(f"玩家 {user_id} 重连成功，房间 ID: {room_id}")
+                    else:
+                        # 玩家放弃重连
+                        del game_server.user_id_to_game_state[user_id]
+                        logging.info(f"玩家 {user_id} 放弃重连，已清理索引")
+                
     
     except Exception as e:
         # WebSocket 连接断开或其他异常

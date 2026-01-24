@@ -369,9 +369,12 @@ class RoomManager:
         
         # 如果游戏正在运行，清理gamestate
         if room_data.get("is_game_running", False):
+            # 从 game_state 中获取所有玩家的 user_id（因为 player_list 可能已经为空）
+            game_state = None
             if room_id in self.game_server.room_id_to_ChineseGameState:
-                del self.game_server.room_id_to_ChineseGameState[room_id]
-                logger.info(f"销毁房间时清理游戏状态，room_id: {room_id}")
+                game_state = self.game_server.room_id_to_ChineseGameState[room_id]
+                # 调用游戏状态的清理方法
+                await game_state.cleanup_game_state()
         
         # 向所有房间内的玩家广播离开房间消息
         leave_response = Response(
