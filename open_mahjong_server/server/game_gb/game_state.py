@@ -32,6 +32,7 @@ class ChinesePlayer:
     def __init__(self, user_id: int, username: str, tiles: list, remaining_time: int):
         self.user_id = user_id                        # 用户UID
         self.username = username                      # 玩家名（用于显示）
+        self.is_bot = True if user_id <= 10 else False # 是否是机器人
         self.hand_tiles = tiles                       # 手牌
         self.huapai_list = []                         # 花牌列表
         self.discard_tiles = []                       # 弃牌

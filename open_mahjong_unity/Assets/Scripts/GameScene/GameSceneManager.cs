@@ -357,6 +357,7 @@ public class GameSceneManager : MonoBehaviour{
         GameSceneUIManager.Instance.ShowEndGame(game_random_seed, player_final_data);
     }
 
+    // 切换玩家状态
     public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){
         
         // 询问手牌操作
@@ -553,8 +554,30 @@ public class GameSceneManager : MonoBehaviour{
                     int[] combinationMask = player.combination_mask[i];
                     if (combinationMask == null || combinationMask.Length == 0) continue;
                     
-                    // 直接调用 ActionAnimation 显示副露（actionType 参数在这里不影响显示，由掩码决定）
-                    Game3DManager.Instance.ActionAnimation(position, "None", combinationMask);
+                    // 统计掩码中加杠牌（值为3）的数量
+                    int jiagangCount = 0;
+                    foreach (int value in combinationMask){
+                        if (value == 3){
+                            jiagangCount++;
+                        }
+                    }
+                    
+                    // 如果 combination_tiles 的字符串有 "k"（刻子/碰），传入 "peng"
+                    if (combinationStr.Contains("k")){
+                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                    }
+                    // 如果 combination_mask 中有 "3"（加杠），说明是碰后加杠的情况
+                    // 需要先调用 "peng" 再调用 "jiagang"，确保 pengToJiagangPosDict 正确缓存
+                    else if (jiagangCount > 0){
+                        // 先调用 peng，创建碰牌并缓存横置位置
+                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                        // 再调用 jiagang，在缓存的位置上添加加杠牌
+                        Game3DManager.Instance.ActionAnimation(position, "jiagang", combinationMask,false);
+                    }
+                    else{
+                        // 其他情况直接调用 ActionAnimation
+                        Game3DManager.Instance.ActionAnimation(position, "None",  combinationMask,false);
+                    }
                 }
             }
         }

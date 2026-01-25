@@ -38,11 +38,11 @@ async def wait_action(self):
         task_list = []  # 任务列表
         task_to_player = {}  # 任务与玩家的映射
         
-        for player_index in self.waiting_players_list:
+        for waiting_player_index in self.waiting_players_list:
             # 为可以行动的玩家添加行动任务
-            action_task = asyncio.create_task(self.action_events[player_index].wait())
+            action_task = asyncio.create_task(self.action_events[waiting_player_index].wait())
             task_list.append(action_task)
-            task_to_player[action_task] = player_index  # 建立映射 行动任务 → 玩家索引
+            task_to_player[action_task] = waiting_player_index  # 建立映射 行动任务 → 玩家索引
         # 添加计时器任务
         timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
         task_list.append(timer_task)

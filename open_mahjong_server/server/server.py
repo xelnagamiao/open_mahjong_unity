@@ -173,6 +173,11 @@ class GameServer:
         response = await self.room_manager.leave_room(Connect_id, room_id)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
+    # 添加机器人到房间
+    async def add_bot_to_room(self, Connect_id: str, room_id: str):
+        response = await self.room_manager.add_bot_to_room(Connect_id, room_id)
+        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+
     # 开始游戏
     async def start_game(self, Connect_id: str, room_id: str):
         # 检查房间是否存在
@@ -383,6 +388,9 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
             elif message["type"] == "start_game":
                 await game_server.start_game(Connect_id, message["room_id"])
+
+            elif message["type"] == "add_bot_to_room":
+                await game_server.add_bot_to_room(Connect_id, message["room_id"])
 
             elif message["type"] == "CutTiles":
                 room_id = message["room_id"]

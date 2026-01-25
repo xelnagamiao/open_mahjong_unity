@@ -67,7 +67,13 @@ public class NetworkManager : MonoBehaviour {
             isConnecting = false;
             // 使用主线程调度器执行UI操作
             ExecuteOnMainThread(() => {
-                LoginPanel.Instance.ConnectErrorText(errorMsg); // 连接失败
+                LoginPanel.Instance.ConnectErrorText(errorMsg); 
+                // 连接失败
+                // NotificationManager.Instance.ShowMessage(
+                //     "连接错误",
+                //     $"与服务器连接失败：{errorMsg}",
+                //     "disconnect"
+                // );
             });
         };
         
@@ -77,6 +83,12 @@ public class NetworkManager : MonoBehaviour {
             // 使用主线程调度器执行UI操作
             ExecuteOnMainThread(() => {
                 LoginPanel.Instance.ConnectErrorText("连接已关闭"); // 连接关闭
+                // 连接断开
+                NotificationManager.Instance.ShowMessage(
+                    "连接已断开",
+                    "与服务器的连接已断开，如正处于一场游戏对局中，重新启动客户端可进行重新连接",
+                    "disconnect"
+                );
             });
         };
     }
@@ -550,5 +562,13 @@ public class NetworkManager : MonoBehaviour {
         }
         if (websocket != null && websocket.State == WebSocketState.Open)
             await websocket.Close();
+    }
+    // 4.14 添加机器人方法 AddBotToRoom 从RoomPanel发送
+    public async void AddBotToRoom(string roomId){
+        var request = new AddBotToRoomRequest {
+            type = "add_bot_to_room",
+            room_id = roomId
+        };
+        await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 }

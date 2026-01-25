@@ -1,6 +1,8 @@
 from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
 from typing import List, Dict, Optional
 import logging
+import asyncio
+from .guobiao_ai import bot_auto_action
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,10 @@ async def broadcast_game_start(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
+                continue
+            
             # 如果player_list中有玩家在self.game_server.user_id_to_connection:
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -91,6 +97,12 @@ async def broadcast_ask_hand_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
+            
+            # 如果是机器人，启动自动操作并跳过广播
+            if current_player.user_id == 0:
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(bot_auto_action(self, i, self.action_dict[i], self.game_status))
+                continue  # 机器人不需要接收广播
             
             if i == self.current_player_index:
                 # 对当前玩家发送包含摸牌信息的消息
@@ -147,6 +159,12 @@ async def broadcast_ask_other_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
+            
+            # 如果是机器人，启动自动操作并跳过广播
+            if current_player.user_id == 0:
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(bot_auto_action(self, i, self.action_dict[i], self.game_status))
+                continue  # 机器人不需要接收广播
             
             if self.action_dict[i] != []:
                 # 发送询问行动信息
@@ -213,6 +231,10 @@ async def broadcast_do_action(
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
+                continue
+            
             # 发送通用信息
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -259,6 +281,10 @@ async def broadcast_result(self,
             # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -310,6 +336,10 @@ async def broadcast_game_end(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
+                continue
+            
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
@@ -344,6 +374,10 @@ async def broadcast_switch_seat(self):
             # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -382,6 +416,10 @@ async def broadcast_refresh_player_tag_list(self):
             # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:

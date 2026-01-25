@@ -33,6 +33,12 @@ public class MessagePrefab : MonoBehaviour {
             YesButton.onClick.AddListener(CloseMessage);
             BackButton.onClick.AddListener(CloseMessage);
         }
+        else if (type == "disconnect") {
+            YesButtonText.text = "好的";
+            BackButtonText.text = "关闭";
+            YesButton.onClick.AddListener(CloseMessage);
+            BackButton.onClick.AddListener(CloseMessage);
+        }
     }
 
     public void CloseMessage(){

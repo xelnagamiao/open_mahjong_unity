@@ -15,6 +15,7 @@ public class RoomPanel : MonoBehaviour {
     [SerializeField] private TMP_Text player_4; // 玩家4
     [SerializeField] private Button backButton; // 返回按钮
     [SerializeField] private Button startButton; // 开始按钮
+    [SerializeField] private Button addBotButton; // 离开房间按钮
 
     int player1_id = 0;
     int player2_id = 0;
@@ -25,6 +26,7 @@ public class RoomPanel : MonoBehaviour {
     void Start() {
         backButton.onClick.AddListener(BackButtonClicked);
         startButton.onClick.AddListener(StartButtonClicked);
+        addBotButton.onClick.AddListener(AddBotButtonClicked);
     }
 
     private void Awake() {
@@ -92,6 +94,10 @@ public class RoomPanel : MonoBehaviour {
 
     private void StartButtonClicked() {
         NetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId);
+    }
+
+    private void AddBotButtonClicked() {
+        NetworkManager.Instance.AddBotToRoom(UserDataManager.Instance.RoomId);
     }
 
 }

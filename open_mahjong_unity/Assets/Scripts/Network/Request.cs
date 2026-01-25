@@ -79,3 +79,8 @@ public class ReconnectRequest { // 重连请求
     public string type;
     public bool reconnect;
 }
+
+public class AddBotToRoomRequest { // 添加机器人请求
+    public string type;
+    public string room_id;
+}

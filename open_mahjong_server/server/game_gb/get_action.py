@@ -3,6 +3,86 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# 获取机器人AI行动（直接使用玩家索引，只检测逻辑合法性）
+async def get_ai_action(game_state, player_index: int, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int):
+    """
+    机器人AI操作处理
+    直接使用玩家索引，只检测逻辑相关的合法性
+    
+    Args:
+        game_state: 游戏状态对象
+        player_index: 玩家索引（0-3）
+        action_type: 操作类型
+        cutClass: 切牌类型（仅用于cut操作）
+        TileId: 切牌ID（仅用于cut操作）
+        cutIndex: 切牌索引（仅用于cut操作）
+        target_tile: 目标牌（用于angang、jiagang等操作）
+    """
+    try:
+        # 验证玩家索引是否有效
+        if player_index not in [0, 1, 2, 3]:
+            logger.error(f"无效的玩家索引: {player_index}")
+            return
+        
+        # 获取玩家对象
+        current_player = game_state.player_list[player_index]
+        
+        # 验证玩家是否在等待列表中（只有等待中的玩家才能执行操作）
+        if player_index not in game_state.waiting_players_list:
+            logger.warning(f"不是当前玩家的回合, player_index={player_index}, waiting_players_list={game_state.waiting_players_list}")
+            return
+
+        # 在 waiting_hand_action 状态下，只允许当前玩家操作
+        if game_state.game_status == "waiting_hand_action" and player_index != game_state.current_player_index:
+            logger.warning(f"waiting_hand_action 状态下只允许当前玩家操作, current_player_index={game_state.current_player_index}, player_index={player_index}")
+            return
+        
+        # 验证操作是否合法（检查操作是否在允许的操作列表中）
+        if action_type not in game_state.action_dict.get(player_index, []):
+            logger.warning(f"不是该玩家的合法行动, player_index={player_index}, action_type={action_type}, allowed_actions={game_state.action_dict.get(player_index, [])}")
+            return
+
+        # 操作合法，将操作数据放入队列
+        if action_type == "cut": # 切牌操作
+            # 验证切牌的TileId是否在玩家手牌中
+            if TileId not in current_player.hand_tiles:
+                logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
+                return  # 丢弃命令
+            
+            action_data_to_queue = {
+                "action_type": action_type,
+                "cutClass": cutClass,
+                "TileId": TileId,
+                "cutIndex": cutIndex
+            }
+            logger.info(f"机器人放入队列: player_index={player_index}, action_data={action_data_to_queue}")
+            await game_state.action_queues[player_index].put(action_data_to_queue)
+            # 设置事件
+            game_state.action_events[player_index].set()
+        else: # 其他指令操作（buhua, angang, jiagang, hu_self, chi_left, chi_mid, chi_right, peng, gang, hu_first, hu_second, hu_third, pass）
+            # 验证特殊操作的条件
+            if action_type == "jiagang":
+                # 加杠验证：要求组合牌中有碰牌形成的刻子
+                if f"k{target_tile}" not in current_player.combination_tiles:
+                    logger.warning(f"加杠失败：玩家没有碰牌形成的刻子, player_index={player_index}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}")
+                    return  # 丢弃命令
+            elif action_type == "angang":
+                # 暗杠验证：要求目标牌在自己手上有4张
+                tile_count = current_player.hand_tiles.count(target_tile)
+                if tile_count < 4:
+                    logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
+                    return  # 丢弃命令
+            await game_state.action_queues[player_index].put({
+                "action_type": action_type,
+                "target_tile": target_tile
+            })
+            # 设置事件
+            game_state.action_events[player_index].set()
+        
+    except Exception as e:
+        logger.error(f"处理机器人操作时发生错误: {e}", exc_info=True)
+        raise Exception(f"处理机器人操作时发生错误: {e}") # 出现问题时中断游戏
+
 # 获取玩家行动
 async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int):
     try:
