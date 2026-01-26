@@ -58,20 +58,30 @@ public class DataNetworkManager : MonoBehaviour {
     /// 处理获取国标统计数据响应
     /// </summary>
     private void HandleGetGuobiaoStatsResponse(Response response) {
-        Debug.Log($"收到国标统计数据: {response.message}");
-        if (PlayerInfoPanel.Instance != null) {
-            PlayerInfoPanel.Instance.OnGuobiaoStatsReceived(response.success, response.message, response.rule_stats);
+        if (PlayerInfoPanel.Instance == null) return;
+        
+        // 如果响应中包含玩家信息，先显示玩家信息
+        if (response.player_info != null) {
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
         }
+        
+        // 处理统计数据
+        PlayerInfoPanel.Instance.OnGuobiaoStatsReceived(response.success, response.message, response.rule_stats);
     }
     
     /// <summary>
     /// 处理获取立直统计数据响应
     /// </summary>
     private void HandleGetRiichiStatsResponse(Response response) {
-        Debug.Log($"收到立直统计数据: {response.message}");
-        if (PlayerInfoPanel.Instance != null) {
-            PlayerInfoPanel.Instance.OnRiichiStatsReceived(response.success, response.message, response.rule_stats);
+        if (PlayerInfoPanel.Instance == null) return;
+        
+        // 如果响应中包含玩家信息，先显示玩家信息
+        if (response.player_info != null) {
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
         }
+        
+        // 处理统计数据
+        PlayerInfoPanel.Instance.OnRiichiStatsReceived(response.success, response.message, response.rule_stats);
     }
     
     // ========== 数据相关的发送方法 ==========
@@ -95,38 +105,34 @@ public class DataNetworkManager : MonoBehaviour {
     /// <summary>
     /// 获取国标统计数据
     /// </summary>
-    public async void GetGuobiaoStats(string userid) {
+    public async void GetGuobiaoStats(string userid, bool need_player_info = false) {
         try {
             var request = new GetGuobiaoStatsRequest {
                 type = "data/get_guobiao_stats",
-                userid = userid
+                userid = userid,
+                need_player_info = need_player_info
             };
-            Debug.Log($"发送获取国标统计数据消息: {request.type}, userid: {userid}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取国标统计数据失败: {e.Message}");
-            if (PlayerInfoPanel.Instance != null) {
-                PlayerInfoPanel.Instance.OnGuobiaoStatsReceived(false, e.Message, null);
-            }
+            PlayerInfoPanel.Instance?.OnGuobiaoStatsReceived(false, e.Message, null);
         }
     }
-    
+
     /// <summary>
     /// 获取立直统计数据
     /// </summary>
-    public async void GetRiichiStats(string userid) {
+    public async void GetRiichiStats(string userid, bool need_player_info = false) {
         try {
             var request = new GetRiichiStatsRequest {
                 type = "data/get_riichi_stats",
-                userid = userid
+                userid = userid,
+                need_player_info = need_player_info
             };
-            Debug.Log($"发送获取立直统计数据消息: {request.type}, userid: {userid}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取立直统计数据失败: {e.Message}");
-            if (PlayerInfoPanel.Instance != null) {
-                PlayerInfoPanel.Instance.OnRiichiStatsReceived(false, e.Message, null);
-            }
+            PlayerInfoPanel.Instance?.OnRiichiStatsReceived(false, e.Message, null);
         }
     }
 }

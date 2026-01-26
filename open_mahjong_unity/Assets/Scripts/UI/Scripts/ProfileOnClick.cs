@@ -12,7 +12,8 @@ public class ProfileOnClick : MonoBehaviour, IPointerClickHandler
     {
         if (NetworkManager.Instance != null && user_id >= 10)
         {
-            DataNetworkManager.Instance.GetGuobiaoStats(user_id.ToString());
+            // 第一次加载需要玩家信息
+            DataNetworkManager.Instance.GetGuobiaoStats(user_id.ToString(), need_player_info: true);
         }
     }
 }

@@ -26,63 +26,77 @@ public class PlayerInfoEntry : MonoBehaviour{
         this.playerStatsCase = playerStatsCase; // 保存数据类型
         this.playerStatsInfo = playerStatsInfo; // 保存数据
         this.playerInfoPanel = playerInfoPanel; // 保存父物体索引
-        string ShowText = "规则: ";
-        // 显示总计
-        if (playerStatsCase == "total"){
-            if (playerStatsInfo.rule == "GB"){
-                ShowText = "国标麻将数据总计:";
-            }
-            else if (playerStatsInfo.rule == "JP"){
-                ShowText = "立直麻将数据总计:";
-            }
-            else{
-                ShowText = "其他麻将数据总计:";
-            }
-        }
+        string ShowText = "";
 
         // 显示分支规则
-        else if (playerStatsCase == "mode"){
+        if (playerStatsCase == "mode"){
 
-            if (playerStatsInfo.rule == "GB"){
-                ShowText += "国标";
+            if (playerStatsInfo.rule == "guobiao"){
+                ShowText = "国标麻将";
+                
+                if (playerStatsInfo.mode == "4/4"){
+                    ShowText += "全庄战";
+                }
+                else if (playerStatsInfo.mode == "3/4"){
+                    ShowText += "西风战";
+                }
+                else if (playerStatsInfo.mode == "2/4"){
+                    ShowText += "南风战";
+                }
+                else if (playerStatsInfo.mode == "1/4"){
+                    ShowText += "东风战";
+                }
             }
-            else if (playerStatsInfo.rule == "JP"){
-                ShowText += "立直";
+            else if (playerStatsInfo.rule == "riichi"){
+                ShowText = "立直麻将";
+                
+                if (playerStatsInfo.mode == "2/4"){
+                    ShowText += "南风战";
+                }
+                else if (playerStatsInfo.mode == "1/4"){
+                    ShowText += "东风战";
+                }
             }
             else{
                 ShowText += "其他";
-            }
-
-            if (playerStatsInfo.mode == "4/4"){
-                ShowText += " 全庄战";
-            }
-            else if (playerStatsInfo.mode == "3/4"){
-                ShowText += " 东西战";
-            }
-            else if (playerStatsInfo.mode == "2/4"){
-                ShowText += " 东南战";
-            }
-            else if (playerStatsInfo.mode == "1/4"){
-                ShowText += " 东风战";
+                
+                if (playerStatsInfo.mode == "4/4"){
+                    ShowText += " 全庄战";
+                }
+                else if (playerStatsInfo.mode == "3/4"){
+                    ShowText += " 东西战";
+                }
+                else if (playerStatsInfo.mode == "2/4"){
+                    ShowText += " 东南战";
+                }
+                else if (playerStatsInfo.mode == "1/4"){
+                    ShowText += " 东风战";
+                }
             }
         }
         // 显示达成番数总计
         else if (playerStatsCase == "fanStats"){
-            if (playerStatsInfo.rule == "GB"){
-                ShowText = "国标麻将达成番种总计:";
+            if (playerStatsInfo.rule == "guobiao"){
+                ShowText = "国标番数总计";
             }
-            else if (playerStatsInfo.rule == "JP"){
-                ShowText = "立直麻将达成番种总计:";
+            else if (playerStatsInfo.rule == "riichi"){
+                ShowText = "日麻番数总计";
             }
             else{
-                    ShowText = "其他麻将达成番种总计:";
+                ShowText = "其他麻将达成番种总计:";
             }
         }
 
-        modeText.text = ShowText;
+        if (modeText != null){
+            modeText.text = ShowText;
+        }
     }
 
     private void OnExpandButtonClick(){
+        if (playerInfoPanel == null || playerStatsInfo == null){
+            return;
+        }
+        
         // 检查下一个子物体是否存在数据布局组
         int entryIndex = transform.GetSiblingIndex();
         Transform parent = transform.parent;
@@ -90,7 +104,7 @@ public class PlayerInfoEntry : MonoBehaviour{
         
         if (parent != null && entryIndex + 1 < parent.childCount){
             Transform nextChild = parent.GetChild(entryIndex + 1);
-            if (nextChild.name.Contains("DataLayoutGroup")){
+            if (nextChild != null && nextChild.name.Contains("DataLayoutGroup")){
                 hasDataLayout = true;
             }
         }

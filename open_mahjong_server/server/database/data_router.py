@@ -1,6 +1,6 @@
 # 数据路由处理器
 import logging
-from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Player_record_info
+from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Player_record_info, Player_info_response, UserSettings
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
 
 async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, websocket):
     """处理获取国标统计数据请求"""
-    from ..database.guobiao.get_guobiao_stats import get_guobiao_history_stats, get_guobiao_fan_stats_total
+    from .guobiao.get_guobiao_stats import get_guobiao_history_stats, get_guobiao_fan_stats_total
     try:
         target_user_id = int(message.get("userid"))
     except (ValueError, TypeError):
@@ -84,6 +84,28 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
         )
         await websocket.send_json(response.dict(exclude_none=True))
         return
+    
+    # 检查是否需要玩家信息
+    need_player_info = message.get("need_player_info", False)
+    player_info = None
+    
+    if need_player_info:
+        # 获取玩家信息
+        user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
+        if user_settings_data:
+            player_info = Player_info_response(
+                user_id=target_user_id,
+                user_settings=UserSettings(
+                    user_id=user_settings_data.get('user_id'),
+                    username=user_settings_data.get('username'),
+                    title_id=user_settings_data.get('title_id'),
+                    profile_image_id=user_settings_data.get('profile_image_id'),
+                    character_id=user_settings_data.get('character_id'),
+                    voice_id=user_settings_data.get('voice_id')
+                ),
+                gb_stats=[],  # 不需要在这里填充统计数据
+                jp_stats=[]   # 不需要在这里填充统计数据
+            )
     
     # 获取国标历史统计数据
     history_stats_rows = get_guobiao_history_stats(game_server.db_manager, target_user_id)
@@ -122,7 +144,8 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
         type="data/get_guobiao_stats",
         success=True,
         message="获取国标统计数据成功",
-        rule_stats=rule_stats_response
+        rule_stats=rule_stats_response,
+        player_info=player_info
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -139,6 +162,28 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
         await websocket.send_json(response.dict(exclude_none=True))
         return
     
+    # 检查是否需要玩家信息
+    need_player_info = message.get("need_player_info", False)
+    player_info = None
+    
+    if need_player_info:
+        # 获取玩家信息
+        user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
+        if user_settings_data:
+            player_info = Player_info_response(
+                user_id=target_user_id,
+                user_settings=UserSettings(
+                    user_id=user_settings_data.get('user_id'),
+                    username=user_settings_data.get('username'),
+                    title_id=user_settings_data.get('title_id'),
+                    profile_image_id=user_settings_data.get('profile_image_id'),
+                    character_id=user_settings_data.get('character_id'),
+                    voice_id=user_settings_data.get('voice_id')
+                ),
+                gb_stats=[],  # 不需要在这里填充统计数据
+                jp_stats=[]   # 不需要在这里填充统计数据
+            )
+    
     # TODO: 实现立直统计数据获取
     rule_stats_response = Rule_stats_response(
         rule="riichi",
@@ -150,7 +195,8 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
         type="data/get_riichi_stats",
         success=True,
         message="获取立直统计数据成功",
-        rule_stats=rule_stats_response
+        rule_stats=rule_stats_response,
+        player_info=player_info
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

@@ -69,11 +69,13 @@ public class GetPlayerInfoRequest { // 获取玩家信息请求
 public class GetGuobiaoStatsRequest { // 获取国标统计数据请求
     public string type;
     public string userid;
+    public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
 }
 
 public class GetRiichiStatsRequest { // 获取立直统计数据请求
     public string type;
     public string userid;
+    public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
 }
 
 public class SendReleaseVersionRequest { // 发送发布版本号请求
