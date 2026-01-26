@@ -6,11 +6,22 @@ import logging
 import hashlib
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .wait_action import wait_action
-from .boardcast import broadcast_game_start,broadcast_ask_hand_action,broadcast_ask_other_action,broadcast_do_action,broadcast_result,broadcast_game_end,broadcast_switch_seat,broadcast_refresh_player_tag_list
-from .logic_handler import get_index_relative_position, next_current_index, next_current_num, back_current_num, init_game_tiles, next_game_round
-from .game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
-from ..game_calculation.game_calculation_service import GameCalculationService
-from ..database.db_manager import DatabaseManager
+from .boardcast import (
+    broadcast_game_start,
+    broadcast_ask_hand_action,
+    broadcast_ask_other_action,
+    broadcast_do_action,
+    broadcast_result,
+    broadcast_game_end,
+    broadcast_switch_seat,
+    broadcast_refresh_player_tag_list,
+)
+from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
+from .init_game_tiles import init_game_tiles
+from .next_game_round import next_game_round
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
+from ...game_calculation.game_calculation_service import GameCalculationService
+from ...database.db_manager import DatabaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +39,7 @@ class RecordCounter:
         self.win_score = 0 # 总和牌番数
 
 # 玩家类
-class ChinesePlayer:
+class GuobiaoPlayer:
     def __init__(self, user_id: int, username: str, tiles: list, remaining_time: int):
         self.user_id = user_id                        # 用户UID
         self.username = username                      # 玩家名（用于显示）
@@ -68,8 +79,8 @@ class ChinesePlayer:
         self.hand_tiles.append(element)
 
         # 游戏进程类
-class ChineseGameState:
-    # chinesegamestate负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
+class GuobiaoGameState:
+    # GuobiaoGameState负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager):
         # 传入游戏服务器
         self.game_server = game_server # 游戏服务器
@@ -81,13 +92,13 @@ class ChineseGameState:
         self.game_record = {}
         # game_loop_chinese循环任务引用
         self.game_task: Optional[asyncio.Task] = None 
-        # 创建玩家列表 包含chinesePlayer类
-        self.player_list: List[ChinesePlayer] = []
+        # 创建玩家列表 包含GuobiaoPlayer类
+        self.player_list: List[GuobiaoPlayer] = []
         player_settings = room_data.get("player_settings", {})
         for user_id in room_data["player_list"]:
             player_setting = player_settings.get(user_id, {})
             username = player_setting.get("username", f"用户{user_id}")
-            player = ChinesePlayer(user_id, username, [], room_data["round_timer"])
+            player = GuobiaoPlayer(user_id, username, [], room_data["round_timer"])
             # 初始化玩家使用的设置数据
             player.title_used = player_setting.get("title_id", 1)
             player.profile_used = player_setting.get("profile_image_id", 1)
@@ -101,9 +112,10 @@ class ChineseGameState:
         self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
-        self.room_type = room_data["room_type"] # 房间类型
+        self.room_type = room_data["room_type"] # 房间规则
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
+        
         self.isPlayerSetRandomSeed = False # 是否玩家设置了随机种子
 
         # 初始化游戏状态
@@ -137,7 +149,8 @@ class ChineseGameState:
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
         }
 
-        self.Debug = True
+        # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
+        self.Debug = False
 
 
     async def player_disconnect(self, user_id: int):
@@ -159,7 +172,7 @@ class ChineseGameState:
                 
                 # 向重连的玩家单独发送游戏开始信息
                 if user_id in self.game_server.user_id_to_connection:
-                    from ..response import Response, GameInfo
+                    from ...response import Response, GameInfo
                     player_conn = self.game_server.user_id_to_connection[user_id]
                     
                     # 构建游戏信息
@@ -236,14 +249,10 @@ class ChineseGameState:
         # 清理玩家 ID 到游戏状态的映射（重连索引）
         # 从 player_list 获取所有玩家的 user_id，确保即使房间数据为空也能清理
         for player in self.player_list:
-            if player.user_id in self.game_server.user_id_to_game_state:
-                del self.game_server.user_id_to_game_state[player.user_id]
-                logger.debug(f"清理玩家重连索引: user_id={player.user_id}")
+            self.game_server.gamestate_manager.remove_player_from_game_state(player.user_id)
         
         # 清理房间到游戏状态的映射
-        if self.room_id in self.game_server.room_id_to_ChineseGameState:
-            del self.game_server.room_id_to_ChineseGameState[self.room_id]
-            logger.info(f"清理游戏状态映射，room_id: {self.room_id}")
+        self.game_server.gamestate_manager.remove_game_state_by_room_id(self.room_id)
 
     async def game_loop_chinese(self):
 
@@ -264,7 +273,7 @@ class ChineseGameState:
             rng.shuffle(self.player_list)
 
             # 根据打乱的玩家顺序设置玩家索引
-            for index, player in enumerate[ChinesePlayer](self.player_list):
+            for index, player in enumerate[GuobiaoPlayer](self.player_list):
                 player.player_index = index
                 player.original_player_index = index
 
@@ -273,7 +282,7 @@ class ChineseGameState:
             self.isPlayerSetRandomSeed = False
             self.game_random_seed = int(time.time() * 1000000) % (2**32)
             # 测试时不打乱玩家顺序
-            for index, player in enumerate[ChinesePlayer](self.player_list):
+            for index, player in enumerate[GuobiaoPlayer](self.player_list):
                 player.player_index = index
                 player.original_player_index = index
 
@@ -285,7 +294,7 @@ class ChineseGameState:
             init_game_tiles(self) # 初始化牌山和手牌
 
             # 广播游戏开始
-            await broadcast_game_start(self)
+            await self.broadcast_game_start()
             
             # 牌谱记录对局头
             init_game_round(self)
@@ -299,9 +308,9 @@ class ChineseGameState:
                     self.action_dict = check_action_buhua(self, i)
                     # 检测是否可以补花 如果可以补花
                     if self.action_dict[i] != []: 
-                        await broadcast_ask_hand_action(self) # 广播补花信息
+                        await self.broadcast_ask_hand_action() # 广播补花信息
                         # 如果玩家选择补花 则广播一次摸牌信息
-                        if await wait_action(self):
+                        if await self.wait_action():
                             max_tile = max(self.player_list[self.current_player_index].hand_tiles) # 获取最大牌
                             self.player_list[self.current_player_index].hand_tiles.remove(max_tile) # 从手牌中移除最大牌
                             self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
@@ -311,10 +320,12 @@ class ChineseGameState:
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                             # 广播补花操作
-                            await broadcast_do_action(self,action_list = ["buhua","deal"],
-                                                      action_player = self.current_player_index,
-                                                      buhua_tile = max_tile,
-                                                      deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                            await self.broadcast_do_action(
+                                action_list = ["buhua","deal"],
+                                action_player = self.current_player_index,
+                                buhua_tile = max_tile,
+                                deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
+                            )
                         # 如果玩家选择pass 则下一轮循环
                         else:
                             action_anymore = False
@@ -326,11 +337,11 @@ class ChineseGameState:
             self.game_status = "waiting_hand_action" # 初始行动
             self.current_player_index = 0 # 初始玩家索引
 
-            refresh_waiting_tiles(self,self.current_player_index,is_first_action=True) # 检查手牌等待牌
+            self.refresh_waiting_tiles(self.current_player_index, is_first_action=True) # 检查手牌等待牌
             logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
-            await broadcast_ask_hand_action(self) # 广播手牌操作
-            await wait_action(self) # 等待手牌操作
+            await self.broadcast_ask_hand_action() # 广播手牌操作
+            await self.wait_action() # 等待手牌操作
 
             # 游戏主循环
             while self.game_status != "END":
@@ -341,24 +352,32 @@ class ChineseGameState:
                         if self.tiles_list == []: # 牌山已空
                             self.game_status = "END" # 结束游戏
                             break
-                        next_current_index(self) # 切换到下一个玩家
-                        refresh_waiting_tiles(self,self.current_player_index) # 摸牌前更新听牌
+                        self.next_current_index() # 切换到下一个玩家
+                        self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播摸牌操作
-                        await broadcast_do_action(self,action_list = ["deal"],action_player = self.current_player_index,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                        await self.broadcast_do_action(
+                            action_list = ["deal"],
+                            action_player = self.current_player_index,
+                            deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
+                        )
                         self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
                     # 杠后摸牌操作：当前玩家进行摸牌
                     case "deal_card_after_gang": # 杠后发牌历时行为
-                        refresh_waiting_tiles(self,self.current_player_index) # 摸牌前更新听牌
+                        self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播摸牌操作
-                        await broadcast_do_action(self,action_list = ["deal"],action_player = self.current_player_index,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                        await self.broadcast_do_action(
+                            action_list = ["deal"],
+                            action_player = self.current_player_index,
+                            deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
+                        )
                         self.action_dict = check_action_hand_action(self,self.current_player_index,is_get_gang_tile=True) # 允许岭上
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
                     
@@ -366,7 +385,7 @@ class ChineseGameState:
                     case "deal_card_after_buhua": # 补花后发牌历时行为
                         max_tile = max(self.player_list[self.current_player_index].hand_tiles) # 获取最大牌（花牌数字永远最大）
                         self.player_list[self.current_player_index].hand_tiles.remove(max_tile) # 从手牌中移除最大牌
-                        refresh_waiting_tiles(self,self.current_player_index) # 摸牌前更新听牌
+                        self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
                         self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                         # 牌谱记录补花
@@ -374,29 +393,32 @@ class ChineseGameState:
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播补花操作
-                        await broadcast_do_action(self,action_list = ["buhua","deal"],
-                                                  action_player = self.current_player_index,
-                                                  buhua_tile = max_tile,
-                                                  deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                        await self.broadcast_do_action(
+                            action_list = ["buhua","deal"],
+                            action_player = self.current_player_index,
+                            buhua_tile = max_tile,
+                            deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
+                        )
                         self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
                         
                     # 等待手牌操作：
                     case "waiting_hand_action": # 摸牌,加杠,暗杠,补花后行为
-                        await broadcast_ask_hand_action(self) # 广播手牌操作
-                        await wait_action(self) # 等待手牌操作
+                        await self.broadcast_ask_hand_action() # 广播手牌操作
+                        await self.wait_action() # 等待手牌操作
 
                     # 等待鸣牌操作：
                     case "waiting_action_after_cut": # 出牌后询问吃碰杠和行为
-                        await broadcast_ask_other_action(self) # 广播是否吃碰杠和
-                        await wait_action(self) # 等待吃碰杠和操作
+                        await self.broadcast_ask_other_action() # 广播是否吃碰杠和
+                        await self.wait_action() # 等待吃碰杠和操作
 
                     # 等待加杠操作：
                     case "waiting_action_qianggang": # 加杠后询问胡牌行为
-                        await broadcast_ask_other_action(self) # 广播是否胡牌
+                        await self.broadcast_ask_other_action() # 广播是否胡牌
 
                     # 等待手牌操作（仅切牌、吃碰后）：
                     case "onlycut_after_action": # 吃碰后切牌行为
+                        print("onlycut_after_action")
                         self.action_dict = {0:[],1:[],2:[],3:[]}
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
@@ -440,7 +462,7 @@ class ChineseGameState:
                                 player_to_score[i.player_index] = i.score
                             # 在 hu_fan 中添加"错和"番
                             cuohe_hu_fan = hu_fan + ["错和"]
-                            await broadcast_result(self,
+                            await self.broadcast_result(
                                                 hepai_player_index = self.current_player_index, # 自摸错和是当前玩家
                                                 player_to_score = player_to_score,
                                                 hu_score = hu_score,
@@ -457,7 +479,7 @@ class ChineseGameState:
                             # 给错和玩家添加peida tag
                             self.player_list[hepai_player_index].tag_list.append("peida")
                             # 广播玩家标签列表
-                            await broadcast_refresh_player_tag_list(self)
+                            await self.broadcast_refresh_player_tag_list()
 
                             # 根据和牌类型进行状态转移
                             if self.hu_class == "hu_self":
@@ -623,9 +645,7 @@ class ChineseGameState:
                 await broadcast_switch_seat(self)
                 await asyncio.sleep(5)
 
-            logger.info(f"重新开始下一局 game_record={self.game_record}")
-            logger.info(f"牌谱：{self.game_record}")
-
+            logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
         
         # 游戏结束所有局数
@@ -635,26 +655,65 @@ class ChineseGameState:
 
         # 按分数排序玩家
         self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for index, player in enumerate[ChinesePlayer](self.player_list):
+        for index, player in enumerate[GuobiaoPlayer](self.player_list):
             player.record_counter.rank_result = index + 1
 
         # 发送游戏结算信息
-        await broadcast_game_end(self) # 广播游戏结束信息
+        await self.broadcast_game_end() # 广播游戏结束信息
 
-        # 存储游戏记录
-        self.db_manager.store_game_record(self.game_record,self.player_list)
+        # 存储游戏牌谱
+        game_id = self.db_manager.store_guobiao_game_record(
+            self.game_record,
+            self.player_list,
+            self.room_type
+        )
+        
+        # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据
+        has_ai_player = any(player.user_id <= 10 for player in self.player_list)
+        if not has_ai_player and game_id:
+            total_rounds = len(self.game_record.get("game_round", {}))
+            # 存储基础统计数据
+            self.db_manager.store_guobiao_game_stats(
+                game_id,
+                self.player_list,
+                self.room_type,
+                self.max_round,
+                total_rounds
+            )
+            # 存储番种统计数据
+            self.db_manager.store_guobiao_fan_stats(
+                game_id,
+                self.player_list,
+                self.room_type,
+                self.max_round
+            )
+        elif has_ai_player:
+            logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
 
         # 结束游戏生命周期
-        if self.room_id in self.game_server.room_id_to_ChineseGameState:
-            del self.game_server.room_id_to_ChineseGameState[self.room_id]
+        self.game_server.gamestate_manager.remove_game_state_by_room_id(self.room_id)
         
         # 移除玩家到游戏状态的映射
         for player_id in self.room_data["player_list"]:
-            if player_id in self.game_server.user_id_to_game_state:
-                del self.game_server.user_id_to_game_state[player_id]
+            self.game_server.gamestate_manager.remove_player_from_game_state(player_id)
         
         # 销毁房间并广播离开房间消息
         await self.game_server.room_manager.destroy_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
+
+# 挂载广播方法于GuobiaoGameState实例
+GuobiaoGameState.wait_action = wait_action
+GuobiaoGameState.broadcast_game_start = broadcast_game_start
+GuobiaoGameState.broadcast_ask_hand_action = broadcast_ask_hand_action
+GuobiaoGameState.broadcast_ask_other_action = broadcast_ask_other_action
+GuobiaoGameState.broadcast_do_action = broadcast_do_action
+GuobiaoGameState.broadcast_result = broadcast_result
+GuobiaoGameState.broadcast_game_end = broadcast_game_end
+GuobiaoGameState.broadcast_switch_seat = broadcast_switch_seat
+GuobiaoGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
+
+# 挂载功能函数于GuobiaoGameState实例
+GuobiaoGameState.next_current_index = next_current_index
+GuobiaoGameState.refresh_waiting_tiles = refresh_waiting_tiles
 

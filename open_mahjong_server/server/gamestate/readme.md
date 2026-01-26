@@ -1,0 +1,12 @@
+每个文件夹管理一个单独的gamestate，有且也仅有gamestate允许与外部通信
+
+gamestatemanager有
+room_id_to_GuobiaoGameState 
+user_id_to_game_state
+两个类，负责gamestate的生命周期管理
+
+gamestate_router管理玩家 => room_id => gamestate 的操作路由
+
+public存储不同规则gamestate可能需要的方法，不同规则的gamestate内部可以随意进行定义
+
+在gamestate结束以后可以由dbmanager进行后处理

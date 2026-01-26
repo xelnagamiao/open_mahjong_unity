@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
 from ..response import Response
-from ..game_gb.game_state import ChineseGameState
+from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
 from ..game_calculation.game_calculation_service import Chinese_Tingpai_Check
 import json
@@ -127,7 +127,7 @@ class RoomManager:
             await self._broadcast_room_info(room_id)
 
             return Response(
-                type = "create_room",
+                type = "room/create_room_done",
                 success = True,
                 message = "房间创建成功",
                 room_info = room_data
@@ -146,7 +146,7 @@ class RoomManager:
             for room_id, room_data in self.rooms.items():
                 room_list.append(room_data)
             return Response(
-                type="get_room_list",
+                type="room/get_room_list",
                 success=True,
                 message="获取房间列表成功",
                 room_list=room_list
@@ -254,7 +254,7 @@ class RoomManager:
             await self._broadcast_room_info(room_id)
 
             return Response(
-                type="join_room",
+                type="room/join_room_done",
                 success=True,
                 message="加入房间成功"
             )
@@ -309,7 +309,7 @@ class RoomManager:
                 # 调用 destroy_room 方法进行房间清理
                 await self.destroy_room(room_id)
                 return Response(
-                    type="leave_room",
+                    type="room/leave_room_done",
                     success=True,
                     message="房间已解散"
                 )
@@ -320,7 +320,7 @@ class RoomManager:
                 # 如果剩下的玩家都是机器人，也销毁房间
                 await self.destroy_room(room_id)
                 return Response(
-                    type="leave_room",
+                    type="room/leave_room_done",
                     success=True,
                     message="房间已解散（仅剩机器人）"
                 )
@@ -328,10 +328,10 @@ class RoomManager:
             # 广播房间信息
             await self._broadcast_room_info(room_id)
             return Response(
-                type="leave_room",
+                type="room/leave_room_done",
                 success=True,
-                message="离开房间成功"
-            )
+                    message="离开房间成功"
+                )
 
         except Exception as e:
             return Response(
@@ -417,7 +417,7 @@ class RoomManager:
         room_data = self.rooms[room_id]
         
         response = Response(
-            type = "get_room_info",
+            type = "room/refresh_room_info",
             success = True,
             message = "房间信息更新",
             room_info = room_data
@@ -445,16 +445,11 @@ class RoomManager:
         
         # 如果游戏正在运行，清理gamestate
         if room_data.get("is_game_running", False):
-            # 从 game_state 中获取所有玩家的 user_id（因为 player_list 可能已经为空）
-            game_state = None
-            if room_id in self.game_server.room_id_to_ChineseGameState:
-                game_state = self.game_server.room_id_to_ChineseGameState[room_id]
-                # 调用游戏状态的清理方法
-                await game_state.cleanup_game_state()
+            await self.game_server.gamestate_manager.cleanup_game_state_by_room_id(room_id)
         
         # 向所有房间内的玩家广播离开房间消息
         leave_response = Response(
-            type="leave_room",
+            type="room/leave_room_done",
             success=True,
             message="房间已解散"
         )

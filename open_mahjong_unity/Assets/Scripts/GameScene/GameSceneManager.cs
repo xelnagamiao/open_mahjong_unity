@@ -55,7 +55,7 @@ public class GameSceneManager : MonoBehaviour{
     public bool isAutoHepai = false; // 是否自动胡牌
     public bool isAutoCut = false; // 是否自动出牌
     public bool isAutoPass = false; // 是否自动过牌
-    public bool isAutoBuhua = false; // 是否自动补花
+    public bool isAutoBuhua = true; // 是否自动补花
 
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
@@ -389,8 +389,8 @@ public class GameSceneManager : MonoBehaviour{
         else if (SwitchType == "askMingPaiAction"){
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
-            // 如果开启自动过牌和自动胡牌，则启动协程
-            if (isAutoPass && isAutoHepai){
+            // 如果开启自动过牌或自动胡牌，则启动协程
+            if (isAutoPass || isAutoHepai){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
         }

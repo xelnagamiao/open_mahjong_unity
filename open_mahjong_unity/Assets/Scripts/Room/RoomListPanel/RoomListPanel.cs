@@ -58,7 +58,9 @@ public class RoomListPanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("tips",false,"房间ID不能为空");
             return;
         } else {
-            NetworkManager.Instance.JoinRoom(RoomIdInput.text, RoomIdInput.text);
+            if (RoomNetworkManager.Instance != null) {
+                RoomNetworkManager.Instance.JoinRoom(RoomIdInput.text, RoomIdInput.text);
+            }
         }
     }
 
@@ -69,7 +71,7 @@ public class RoomListPanel : MonoBehaviour {
             Destroy(item);
         }
         // 请求新的房间列表
-        NetworkManager.Instance.GetRoomList();
+        RoomNetworkManager.Instance.GetRoomList();
     }
 
     // 4.获取房间列表响应
@@ -123,7 +125,7 @@ public class RoomListPanel : MonoBehaviour {
             passwordInputPanel.SetActive(true);
             this.roomId = roomId;
         } else {
-            NetworkManager.Instance.JoinRoom(roomId, "");
+            RoomNetworkManager.Instance.JoinRoom(roomId, "");
         }
     }
 
@@ -136,7 +138,7 @@ public class RoomListPanel : MonoBehaviour {
             return;
         }
         passwordInputPanel.SetActive(false);
-        NetworkManager.Instance.JoinRoom(roomId, passwordInput.text);
+        RoomNetworkManager.Instance.JoinRoom(roomId, passwordInput.text);
     }
     // 密码输入面板点击取消关闭密码输入面板
     private void PasswordInputCancel() {

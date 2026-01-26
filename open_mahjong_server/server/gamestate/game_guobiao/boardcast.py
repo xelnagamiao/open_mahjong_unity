@@ -1,4 +1,4 @@
-from ..response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
+from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
 from typing import List, Dict, Optional
 import logging
 import asyncio
@@ -225,6 +225,7 @@ async def broadcast_do_action(
     self.server_action_tick += 1
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
+        print(f"广播操作: action_list={action_list}, action_player={action_player}, cut_tile={cut_tile}, cut_class={cut_class}, cut_tile_index={cut_tile_index}, deal_tile={deal_tile}, buhua_tile={buhua_tile}, combination_target={combination_target}, combination_mask={combination_mask}")
         try:
             # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:

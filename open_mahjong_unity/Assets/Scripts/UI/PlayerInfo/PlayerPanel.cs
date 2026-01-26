@@ -27,6 +27,6 @@ public class PlayerPanel : MonoBehaviour{
             return;
         }
         // 发送查询id请求
-        NetworkManager.Instance.GetPlayerInfo(userid);
+        DataNetworkManager.Instance.GetGuobiaoStats(userid);
     }
 }

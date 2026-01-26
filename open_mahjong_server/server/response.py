@@ -146,6 +146,12 @@ class UserSettings(BaseModel):
     character_id: Optional[int] = 1  # 选择的角色ID（默认值为1）
     voice_id: Optional[int] = 1  # 选择的音色ID（默认值为1）
 
+class Rule_stats_response(BaseModel):
+    """单个规则的统计数据响应"""
+    rule: str  # 规则标识（guobiao/riichi）
+    history_stats: List[Player_stats_info]  # 历史统计数据列表（按模式分组）
+    total_fan_stats: Optional[Dict[str, int]] = None  # 汇总番种统计数据（所有模式的总和）
+
 class Player_info_response(BaseModel):
     """玩家信息响应（包含所有统计数据）"""
     user_id: int  # 用户ID
@@ -194,6 +200,7 @@ class Response(BaseModel):
     refresh_player_tag_list_info: Optional[Refresh_player_tag_list_info] = None # 用于广播刷新玩家标签列表
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
+    rule_stats: Optional[Rule_stats_response] = None # 用于返回单个规则的统计数据
     login_info: Optional[LoginInfo] = None # 用于返回登录信息
     user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息

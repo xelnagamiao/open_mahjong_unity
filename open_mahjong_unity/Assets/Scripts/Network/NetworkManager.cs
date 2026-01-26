@@ -20,6 +20,13 @@ public class NetworkManager : MonoBehaviour {
 
     public static NetworkManager Instance { get; private set; }
     private WebSocket websocket; // 定义websocket
+    
+    /// <summary>
+    /// 获取 websocket 连接（供其他管理器使用）
+    /// </summary>
+    public WebSocket GetWebSocket() {
+        return websocket;
+    }
     private string playerId; // 定义玩家ID
     private bool isConnecting = false; // 定义连接状态
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
@@ -86,7 +93,7 @@ public class NetworkManager : MonoBehaviour {
                 // 连接断开
                 NotificationManager.Instance.ShowMessage(
                     "连接已断开",
-                    "与服务器的连接已断开，如正处于一场游戏对局中，重新启动客户端可进行重新连接",
+                    "与服务器的连接已断开，如正处于一场游戏对局中，重新启动客户端可进行重新连接，游客无法重连至游戏",
                     "disconnect"
                 );
             });
@@ -148,7 +155,7 @@ public class NetworkManager : MonoBehaviour {
         if (response.success) {
             WindowsManager.Instance.SwitchWindow("menu");
             // 请求房间列表
-            GetRoomList();
+            RoomNetworkManager.Instance?.GetRoomList();
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -212,45 +219,28 @@ public class NetworkManager : MonoBehaviour {
                     HandleLoginResponse(response);
                     NotificationManager.Instance.ShowTip("login",true,"登录成功");
                     break;
-                case "create_room":
-                    CreateRoomResponse.Invoke(response.success, response.message);
-                    UserDataManager.Instance.SetRoomId(response.room_info.room_id);
-                    NotificationManager.Instance.ShowTip("create_room",true,"创建房间成功");
-                    break;
-                case "get_room_list": // 获取room_list
-                    RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
-                    NotificationManager.Instance.ShowTip("get_room_list",true,"获取房间列表成功");
-                    break;
                 case "get_server_stats": // 获取服务器统计信息
                     DisplayServerStats(response.server_stats);
-                    break;
-                case "get_room_info": // 获取room_info 更新房间面板
-                    Debug.Log("处理房间信息更新");
-                    WindowsManager.Instance.SwitchWindow("room");
-                    RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
-                    RoomPanel.Instance.GetRoomInfoResponse(
-                        response.success, 
-                        response.message, 
-                        response.room_info
-                    );
-                    UserDataManager.Instance.SetRoomId(response.room_info.room_id);
                     break;
                 case "error_message":
                     Debug.Log($"错误消息: {response.message}");
                     ErrorResponse.Invoke(response.success, response.message);
                     NotificationManager.Instance.ShowTip("error_message",false,response.message);
                     break;
-                case "leave_room":
-                    Debug.Log($"离开房间响应: {response.success}, {response.message}");
-                    if (response.success) {
-                        UserDataManager.Instance.SetRoomId("");
-                        NotificationManager.Instance.ShowTip("leave_room",true,"离开房间成功");
-                    }
+                // 房间相关消息交由 RoomNetworkManager 处理
+                case "room/create_room_done":
+                case "room/get_room_list":
+                case "room/refresh_room_info":
+                case "room/join_room_done":
+                case "room/leave_room_done":
+                    RoomNetworkManager.Instance?.HandleRoomMessage(response);
                     break;
-                case "join_room":
-                    Debug.Log($"加入房间响应: {response.success}, {response.message}");
-                    NotificationManager.Instance.ShowTip("join_room",true,"加入房间成功");
-                    break; // 只是打印一下 房间信息服务器从get_room_info中发送过来
+                // 数据相关消息交由 DataNetworkManager 处理
+                case "data/get_record_list":
+                case "data/get_guobiao_stats":
+                case "data/get_riichi_stats":
+                    DataNetworkManager.Instance?.HandleDataMessage(response);
+                    break;
                 case "switch_seat":
                     Debug.Log($"收到换位消息: {response.message}");
                     GameSceneManager.Instance.HandleSwitchSeat(response.switch_seat_info.current_round);
@@ -320,10 +310,6 @@ public class NetworkManager : MonoBehaviour {
                         gameendresponse.game_random_seed,
                         gameendresponse.player_final_data
                     );
-                    break;
-                case "get_record_list":
-                    Debug.Log($"收到游戏记录列表: {response.message}");
-                    RecordPanel.Instance.GetRecordListResponse(response.success, response.message, response.record_list);
                     break;
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
@@ -402,78 +388,12 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
-    // 4.2 创建房间方法 CreateRoom 从CreatePanel发送
-    public async void Create_GB_Room(GB_Create_RoomConfig config){
-        try {
-            // 将字符串格式的随机种子转换为整数
-            int randomSeed = 0;
-            if (!string.IsNullOrEmpty(config.RandomSeed)) {
-                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
-                    randomSeed = 0;
-                }
-            }
-            
-            var request = new CreateGBRoomRequest {
-                type = "create_GB_room",
-                rule = config.Rule,
-                roomname = config.RoomName,
-                gameround = config.GameRound,
-                roundTimerValue = config.RoundTimer,
-                stepTimerValue = config.StepTimer,
-                tips = config.Tips,
-                password = config.Password,
-                random_seed = randomSeed,
-                open_cuohe = config.CuoHe
-            };
-            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}");
-            await websocket.SendText(JsonConvert.SerializeObject(request));
-        } catch (Exception e) {
-            CreateRoomResponse.Invoke(false, e.Message);
-        }
-    }   
-    // 4.3 获取房间列表方法 get_room_list 从RoomPanel发送
-    public async void GetRoomList(){
-        try {
-            var request = new GetRoomListRequest {
-                type = "get_room_list"
-            };
-            Debug.Log($"发送获取房间列表消息{request.type}");
-            await websocket.SendText(JsonConvert.SerializeObject(request));
-        } catch (Exception e) {
-            RoomListPanel.Instance.GetRoomListResponse(false, e.Message, null);
-        }
-    }
-    // 4.4 加入房间方法 JoinRoom 从RoomItem发送
-    public async void JoinRoom(string roomId, string password) {
-        var request = new JoinRoomRequest {
-            type = "join_room",
-            room_id = roomId,
-            password = password
-        };
-        Debug.Log($"发送加入房间消息: {roomId}, {password}");
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
-    // 4.5 离开房间方法 LeaveRoom 从RoomPanel发送
-    public async void LeaveRoom(string roomId){
-        var request = new LeaveRoomRequest {
-            type = "leave_room",
-            room_id = roomId
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
-    // 4.6 开始游戏方法 StartGame 从RoomPanel发送
-    public async void StartGame(string roomId){
-        var request = new StartGameRequest {
-            type = "start_game",
-            room_id = roomId
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
+    // 房间相关方法已移至 RoomNetworkManager
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
     public async void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
         var request = new SendChineseGameTileRequest {
-            type = "CutTiles",
+            type = "gamestate/GB/cut_tile",
             cutClass = cutClass,
             TileId = tileId,
             cutIndex = cutIndex,
@@ -484,7 +404,7 @@ public class NetworkManager : MonoBehaviour {
     // 4.8 发送吃碰杠回应
     public async void SendAction(string action,int targetTile) {
         var request = new SendActionRequest {
-            type = "send_action",
+            type = "gamestate/GB/send_action",
             room_id = UserDataManager.Instance.RoomId,
             action = action,
             targetTile = targetTile
@@ -492,22 +412,6 @@ public class NetworkManager : MonoBehaviour {
         await websocket.SendText(JsonConvert.SerializeObject(request));
     }
 
-    // 4.9 获取游戏记录方法 GetRecordList 从mainpanel调用发送
-    public async void GetRecordList() {
-        var request = new GetRecordListRequest {
-            type = "get_record_list"
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
-
-    // 4.10 查询玩家信息方法 GetPlayerInfo 从PlayerPanel发送
-    public async void GetPlayerInfo(string userid) {
-        var request = new GetPlayerInfoRequest {
-            type = "get_player_info",
-            userid = userid
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
 
     // 4.11 游客登录方法 TouristLogin 从LoginPanel发送
     public void TouristLogin() {
@@ -563,12 +467,5 @@ public class NetworkManager : MonoBehaviour {
         if (websocket != null && websocket.State == WebSocketState.Open)
             await websocket.Close();
     }
-    // 4.14 添加机器人方法 AddBotToRoom 从RoomPanel发送
-    public async void AddBotToRoom(string roomId){
-        var request = new AddBotToRoomRequest {
-            type = "add_bot_to_room",
-            room_id = roomId
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
+    // 添加机器人方法已移至 RoomNetworkManager
 }

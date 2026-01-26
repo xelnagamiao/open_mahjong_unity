@@ -89,15 +89,21 @@ public class RoomPanel : MonoBehaviour {
 
     private void BackButtonClicked() {
         WindowsManager.Instance.SwitchWindow("menu");
-        NetworkManager.Instance.LeaveRoom(UserDataManager.Instance.RoomId);
+        if (RoomNetworkManager.Instance != null) {
+            RoomNetworkManager.Instance.LeaveRoom(UserDataManager.Instance.RoomId);
+        }
     }
 
     private void StartButtonClicked() {
-        NetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId);
+        if (RoomNetworkManager.Instance != null) {
+            RoomNetworkManager.Instance.StartGame(UserDataManager.Instance.RoomId);
+        }
     }
 
     private void AddBotButtonClicked() {
-        NetworkManager.Instance.AddBotToRoom(UserDataManager.Instance.RoomId);
+        if (RoomNetworkManager.Instance != null) {
+            RoomNetworkManager.Instance.AddBotToRoom(UserDataManager.Instance.RoomId);
+        }
     }
 
 }

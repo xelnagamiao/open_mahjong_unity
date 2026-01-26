@@ -110,36 +110,53 @@ public class PlayerInfoPanel : MonoBehaviour{
     [SerializeField] private GameObject PlayerInfoDataTextPrefab;
     [SerializeField] private GameObject PlayerInfoDataLayoutGroupPrefab;
 
-    private string CurrentShowRule = "GB";
-    private PlayerStatsInfo[] GBstats;
-    private PlayerStatsInfo[] JPstats;
-    private PlayerStatsInfo[] Otherstats;
+    public static PlayerInfoPanel Instance { get; private set; }
+    
+    private string CurrentShowRule = "guobiao";
+    private int currentUserId; // 当前显示的用户ID
+    private PlayerStatsInfo[] guobiaoStats;
+    private PlayerStatsInfo[] riichiStats;
     
     // 保存每个规则的汇总统计数据
-    private PlayerStatsInfo GBTotalStats;
-    private PlayerStatsInfo JPTotalStats;
-    private PlayerStatsInfo OtherTotalStats;
+    private PlayerStatsInfo guobiaoTotalStats;
+    private PlayerStatsInfo riichiTotalStats;
+    
+    // 保存汇总番种统计数据（由服务器返回）
+    private Dictionary<string, int> guobiaoTotalFanStats;
+    private Dictionary<string, int> riichiTotalFanStats;
 
     // Start is called before the first frame update
     void Start(){
+        Instance = this;
         copyUseridButton.onClick.AddListener(OnCopyUseridButtonClick);
         
         if (closeButton != null){
             closeButton.onClick.AddListener(OnCloseButtonClick);
         }
 
-        ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("GB"));
-        ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("JP"));
+        ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("guobiao"));
+        ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("riichi"));
         ShowOtherRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("Other"));
+
+        gameObject.SetActive(false);
+    }
+
+    void OnDestroy(){
+        if (Instance == this){
+            Instance = null;
+        }
     }
 
 
-    // 显示玩家信息
+    // 显示玩家信息（仅显示用户信息，默认加载国标数据）
     public void ShowPlayerInfo(PlayerInfoResponse playerInfo){
         if (playerInfo == null){
             Debug.LogError("PlayerInfoResponse 为 null");
             return;
         }
+
+        // 保存当前用户ID
+        currentUserId = playerInfo.user_id;
 
         // 显示用户名和用户ID
         usernameText.text = playerInfo.user_settings.username ?? "未知用户";
@@ -148,59 +165,145 @@ public class PlayerInfoPanel : MonoBehaviour{
         
         profileImage.sprite = Resources.Load<Sprite>($"image/Profiles/{playerInfo.user_settings.profile_image_id}");
 
+        // 清空之前的数据
+        guobiaoStats = null;
+        riichiStats = null;
+        guobiaoTotalStats = null;
+        riichiTotalStats = null;
+        guobiaoTotalFanStats = null;
+        riichiTotalFanStats = null;
 
-        // 保存规则数据
-        GBstats = playerInfo.gb_stats;
-        JPstats = playerInfo.jp_stats;
-        Otherstats = null;
+        // 默认加载国标数据
+        CurrentShowRule = "guobiao";
+        ClearRecordEntryContainer();
+        DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
+    }
 
-        // 保存汇总数据
-        if (GBstats != null && GBstats.Length > 0){
-            GBTotalStats = CreateTotalStats(GBstats, "GB");
-        }
-        if (JPstats != null && JPstats.Length > 0){
-            JPTotalStats = CreateTotalStats(JPstats, "JP");
-        }
-        if (Otherstats != null && Otherstats.Length > 0){
-            OtherTotalStats = CreateTotalStats(Otherstats, "Other");
+    // 接收国标统计数据
+    public void OnGuobiaoStatsReceived(bool success, string message, RuleStatsResponse ruleStats){
+        if (!success || ruleStats == null){
+            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取国标统计数据失败");
+            return;
         }
 
-        // 显示当前规则的统计数据
-        OnSwitchRuleButtonClick(CurrentShowRule);
+        // 确保面板处于显示状态
+        if (!gameObject.activeSelf){
+            gameObject.SetActive(true);
+        }
+
+        // 保存国标数据
+        guobiaoStats = ruleStats.history_stats;
+        guobiaoTotalFanStats = ruleStats.total_fan_stats;
+
+        // 创建汇总统计数据（不包含番种，番种由服务器返回）
+        if (guobiaoStats != null && guobiaoStats.Length > 0){
+            guobiaoTotalStats = CreateTotalStatsWithoutFan(guobiaoStats, "guobiao");
+            // 将服务器返回的汇总番种数据添加到总计统计中
+            if (guobiaoTotalStats != null && guobiaoTotalFanStats != null){
+                guobiaoTotalStats.fan_stats = guobiaoTotalFanStats;
+            }
+        }
+        else{
+            // 即使没有历史统计数据，也确保 guobiaoStats 不为 null（设置为空数组）
+            guobiaoStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
+        }
+
+        // 如果当前显示的是国标，则刷新显示
+        if (CurrentShowRule == "guobiao"){
+            RefreshCurrentRuleDisplay();
+        }
+    }
+
+    // 接收立直统计数据
+    public void OnRiichiStatsReceived(bool success, string message, RuleStatsResponse ruleStats){
+        if (!success || ruleStats == null){
+            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取立直统计数据失败");
+            return;
+        }
+
+        // 确保面板处于显示状态
+        if (!gameObject.activeSelf){
+            gameObject.SetActive(true);
+        }
+
+        // 保存立直数据
+        riichiStats = ruleStats.history_stats;
+        riichiTotalFanStats = ruleStats.total_fan_stats;
+
+        // 创建汇总统计数据（不包含番种，番种由服务器返回）
+        if (riichiStats != null && riichiStats.Length > 0){
+            riichiTotalStats = CreateTotalStatsWithoutFan(riichiStats, "riichi");
+            // 将服务器返回的汇总番种数据添加到总计统计中
+            if (riichiTotalStats != null && riichiTotalFanStats != null){
+                riichiTotalStats.fan_stats = riichiTotalFanStats;
+            }
+        }
+        else{
+            // 即使没有历史统计数据，也确保 riichiStats 不为 null（设置为空数组）
+            riichiStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
+        }
+
+        // 如果当前显示的是立直，则刷新显示
+        if (CurrentShowRule == "riichi"){
+            RefreshCurrentRuleDisplay();
+        }
     }
 
     // 切换规则
     private void OnSwitchRuleButtonClick(string rule){
-        // 
-        if (rule == "Other"){
-            if (OtherTotalStats == null){
-                NotificationManager.Instance.ShowTip("emptyData",false,"其他番种数据为空");
-                return;
-            }
-        }
         CurrentShowRule = rule;
         
+        // 如果数据不存在，则请求数据
+        if (rule == "guobiao" && guobiaoStats == null){
+            DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
+            return;
+        }
+        else if (rule == "riichi" && riichiStats == null){
+            DataNetworkManager.Instance?.GetRiichiStats(currentUserId.ToString());
+            return;
+        }
+        
+        // 刷新显示
+        RefreshCurrentRuleDisplay();
+    }
+
+    // 刷新当前规则的显示
+    private void RefreshCurrentRuleDisplay(){
         // 清空容器
         ClearRecordEntryContainer();
         
         PlayerStatsInfo[] statsToShow = null;
-        if (rule == "GB" && GBstats != null){
-            statsToShow = GBstats;
-        }
-        else if (rule == "JP" && JPstats != null){
-            statsToShow = JPstats;
-        }
-        else if (rule == "Other" && Otherstats != null){
-            statsToShow = Otherstats;
-        }
-        else{}
-        
         PlayerStatsInfo totalStats = null;
+        Dictionary<string, int> totalFanStats = null;
         
-        if (rule != "Other"){
-            // 创建汇总统计数据
-            totalStats = CreateTotalStats(statsToShow, rule);
+        if (CurrentShowRule == "guobiao" && guobiaoStats != null){
+            statsToShow = guobiaoStats;
+            totalStats = guobiaoTotalStats;
+            totalFanStats = guobiaoTotalFanStats;
+        }
+        else if (CurrentShowRule == "riichi" && riichiStats != null){
+            statsToShow = riichiStats;
+            totalStats = riichiTotalStats;
+            totalFanStats = riichiTotalFanStats;
+        }
         
+        // 如果数据为空，显示提示信息
+        if (statsToShow == null || statsToShow.Length == 0){
+            // 即使没有历史统计数据，如果有番种统计数据，也显示番种统计
+            if (totalFanStats != null && totalFanStats.Count > 0){
+                PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
+                    rule = CurrentShowRule,
+                    mode = "总计",
+                    fan_stats = totalFanStats
+                };
+                GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+                PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
+                fanStatsEntry.SetPlayerInfoEntry("fanStats", this, fanStatsInfo);
+            }
+            return;
+        }
+        
+        if (CurrentShowRule != "Other" && totalStats != null){
             // 在头部添加汇总条目
             GameObject totalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
             PlayerInfoEntry totalEntry = totalEntryObject.GetComponent<PlayerInfoEntry>();
@@ -214,13 +317,17 @@ public class PlayerInfoPanel : MonoBehaviour{
             playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
         }
 
-        if (rule != "Other"){
-            // 在尾部显示总计条目中的番种条目
+        if (totalStats != null && totalFanStats != null){
+            // 在尾部显示总计条目中的番种条目（使用服务器返回的汇总番种数据）
+            PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
+                rule = CurrentShowRule,
+                mode = "总计",
+                fan_stats = totalFanStats
+            };
             GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
             PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
-            fanStatsEntry.SetPlayerInfoEntry("fanStats", this, totalStats);
+            fanStatsEntry.SetPlayerInfoEntry("fanStats", this, fanStatsInfo);
         }
-
     }
     
     // 清空容器
@@ -230,8 +337,8 @@ public class PlayerInfoPanel : MonoBehaviour{
         }
     }
     
-    // 创建汇总统计数据（将所有模式的统计数据相加）
-    private PlayerStatsInfo CreateTotalStats(PlayerStatsInfo[] statsArray, string rule){
+    // 创建汇总统计数据（将所有模式的统计数据相加，不包含番种）
+    private PlayerStatsInfo CreateTotalStatsWithoutFan(PlayerStatsInfo[] statsArray, string rule){
         PlayerStatsInfo totalStats = new PlayerStatsInfo{
             rule = rule,
             mode = "总计",
@@ -267,8 +374,21 @@ public class PlayerInfoPanel : MonoBehaviour{
             totalStats.third_place_count = (totalStats.third_place_count ?? 0) + (stat.third_place_count ?? 0);
             totalStats.fourth_place_count = (totalStats.fourth_place_count ?? 0) + (stat.fourth_place_count ?? 0);
             
-            // 汇总番种统计数据
-            if (stat.fan_stats != null){
+            // 不汇总番种统计数据（由服务器返回）
+        }
+        
+        return totalStats;
+    }
+
+    // 创建汇总统计数据（将所有模式的统计数据相加，包含番种）- 已废弃，保留用于兼容
+    private PlayerStatsInfo CreateTotalStats(PlayerStatsInfo[] statsArray, string rule){
+        PlayerStatsInfo totalStats = CreateTotalStatsWithoutFan(statsArray, rule);
+        
+        // 汇总番种统计数据（如果存在）
+        if (totalStats != null){
+            totalStats.fan_stats = new Dictionary<string, int>();
+            foreach (var stat in statsArray){
+                if (stat == null || stat.fan_stats == null) continue;
                 foreach (var fanPair in stat.fan_stats){
                     if (totalStats.fan_stats.ContainsKey(fanPair.Key)){
                         totalStats.fan_stats[fanPair.Key] += fanPair.Value;
@@ -293,7 +413,8 @@ public class PlayerInfoPanel : MonoBehaviour{
 
     // 关闭按钮点击事件
     private void OnCloseButtonClick(){
-        Destroy(gameObject);
+        // 仅隐藏面板，不销毁对象，便于下次再次显示
+        gameObject.SetActive(false);
     }
 
     // 显示数据

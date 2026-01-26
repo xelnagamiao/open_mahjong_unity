@@ -47,13 +47,14 @@ public class SoundManager : MonoBehaviour {
             audioTarget = $"Sound/{voicePath}/zimo";
         } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             audioTarget = $"Sound/{voicePath}/dianhe";
-        
         } else if (actionType == "buhua"){
             audioTarget = $"Sound/{voicePath}/buhua";
         } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             audioTarget = $"Sound/{voicePath}/chi";
-        } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
+        } else if (actionType == "angang" || actionType == "gang"){
             audioTarget = $"Sound/{voicePath}/gang";
+        } else if (actionType == "jiagang"){
+            audioTarget = $"Sound/{voicePath}/jiagang";
         } else if (actionType == "peng"){
             audioTarget = $"Sound/{voicePath}/peng";
         } else {

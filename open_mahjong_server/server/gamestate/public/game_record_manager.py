@@ -6,7 +6,7 @@ from datetime import date, datetime
 {
 'game_title': 
     {
-    'rule': 'GB',
+    'rule': 'guobiao',
     'game_random_seed': 718078453, 
     'max_round': 4, 
     'start_time': datetime.datetime(2025, 11, 27, 4, 23, 19, 681525), 
@@ -35,7 +35,7 @@ from datetime import date, datetime
 # 牌谱记录游戏头
 def init_game_record(self):
     self.game_record["game_title"] = {
-        "rule":"GB", # 规则
+        "rule":self.room_type, # 规则
         "game_random_seed":self.game_random_seed, # 随机种子
         "max_round":self.max_round, # 最大局数
         "start_time": datetime.now(), # 开始时间
@@ -87,9 +87,7 @@ def player_action_record_deal(self,deal_tile: int):
     )
 
 # 牌谱记录切牌
-def player_action_record_cut(self,
-    cut_tile: int,
-    is_moqie: bool = False):
+def player_action_record_cut(self, cut_tile: int,is_moqie: bool = False):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
         ["cut",cut_tile,is_moqie]

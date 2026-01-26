@@ -8,9 +8,11 @@ from logging.handlers import RotatingFileHandler
 from contextlib import asynccontextmanager
 from datetime import datetime
 from .response import Response
-from .game_gb.game_state import ChineseGameState
-from .game_gb.get_action import get_action
 from .room.room_manager import RoomManager
+from .room.room_router import handle_room_message
+from .gamestate.gamestate_router import handle_gamestate_message
+from .data.data_router import handle_data_message
+from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
 from .chat_server.chat_server import ChatServer
 from .game_calculation.game_calculation_service import GameCalculationService
@@ -99,10 +101,8 @@ class GameServer:
         self.user_id_to_connection: Dict[int, PlayerConnection] = {}
         # 房间管理器
         self.room_manager = RoomManager(self)
-        # 管理不同房间id到已启动的游戏服务的映射
-        self.room_id_to_ChineseGameState: Dict[str, ChineseGameState] = {}
-        # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
-        self.user_id_to_game_state: Dict[int, Any] = {} 
+        # 游戏状态管理器
+        self.gamestate_manager = GameStateManager(self)
         # 全局计算服务
         self.calculation_service = GameCalculationService()
         # 数据库管理器
@@ -133,9 +133,8 @@ class GameServer:
                     logging.warning(f"删除游客账户失败 user_id={player.user_id}, username={player.username}")
 
             # 如果玩家在游戏中，则断开游戏连接
-            if player.user_id in self.user_id_to_game_state:
-                game_state = self.user_id_to_game_state[player.user_id]
-                await game_state.player_disconnect(player.user_id)
+            if player.user_id:
+                await self.gamestate_manager.player_disconnect(player.user_id)
             
             # 删除用户ID到玩家连接的映射
             if player.user_id:
@@ -180,65 +179,14 @@ class GameServer:
 
     # 开始游戏
     async def start_game(self, Connect_id: str, room_id: str):
-        # 检查房间是否存在
-        if room_id not in self.room_manager.rooms:
-            return Response(type="error_message", success=False, message="房间不存在")
-            
-        room_data = self.room_manager.rooms[room_id]
-        
-        # 检查是否是房主
-        player = self.players[Connect_id]
-        if player.user_id != room_data["player_list"][0]:
-            return Response(type="error_message", success=False, message="只有房主能开始游戏")
-            
-        # 检查人数是否满足
-        if len(room_data["player_list"]) != 4:
-            return Response(type="error_message", success=False, message="人数不足")
-        
-        # 检查游戏是否已经在运行
-        if room_data.get("is_game_running", False):
-            return Response(type="error_message", success=False, message="游戏已在进行中")
-            
-        # 设置游戏运行状态
-        room_data["is_game_running"] = True
-        
-        # 创建游戏任务
-        if room_data["room_type"] == "guobiao":
-            game_state = ChineseGameState(self, room_data, self.calculation_service,self.db_manager)
-            self.room_id_to_ChineseGameState[room_id] = game_state
-            
-            # 建立用户ID到游戏状态的映射
-            for player_id in room_data["player_list"]:
-                self.user_id_to_game_state[player_id] = game_state
-            
-            # 创建并保存游戏循环任务引用
-            game_state.game_task = asyncio.create_task(game_state.game_loop_chinese())
+        """开始游戏（委托给游戏状态管理器）"""
+        response = await self.gamestate_manager.start_GB_game(Connect_id, room_id)
+        if response:
+            await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     async def check_player_reconnect(self, Connect_id: str, user_id: int):
-        """检查玩家是否需要重连并发送提示"""
-        if user_id in self.user_id_to_game_state:
-            game_state = self.user_id_to_game_state[user_id]
-            
-            
-            from .response import MessageInfo
-            reconnect_message = Response(
-                type="message",
-                success=True,
-                message="reconnect_ask",
-                message_info=MessageInfo(
-                    title="对局重连",
-                    content=f"检测到您有一场正在进行的游戏，是否返回游戏？"
-                )
-            )
-            
-            # 在响应中添加额外字段方便客户端处理逻辑
-            response_dict = reconnect_message.dict(exclude_none=True)
-            
-            if Connect_id in self.players:
-                await self.players[Connect_id].websocket.send_json(response_dict)
-
-                room_id = game_state.room_id
-                logging.info(f"已向玩家 {user_id} 发送重连请求，房间 ID: {room_id}")
+        """检查玩家是否需要重连并发送提示（委托给游戏状态管理器）"""
+        await self.gamestate_manager.check_player_reconnect(Connect_id, user_id)
 
     def get_server_stats(self) -> Dict[str, int]:
         """
@@ -249,7 +197,7 @@ class GameServer:
         online_players = len(self.players) + 2
         
         # 进行房间数：正在运行游戏的房间
-        playing_rooms = len(self.room_id_to_ChineseGameState)
+        playing_rooms = self.gamestate_manager.get_playing_rooms_count()
         
         # 等待房间数：总房间数 - 进行房间数
         total_rooms = len(self.room_manager.rooms)
@@ -349,104 +297,20 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 
                 await websocket.send_json(response.dict(exclude_none=True))
 
-            elif message["type"] == "create_GB_room":
-                logging.info(f"创建房间请求 - 用户名: {Connect_id}")
-                # 检查玩家是否已经在房间中
-                if Connect_id in game_server.players:
-                    player = game_server.players[Connect_id]
-                    if player.current_room_id:
-                        response = Response(
-                            type="tips",
-                            success=False,
-                            message="已经处于一个房间中，请先退出房间再创建新房间"
-                        )
-                        await websocket.send_json(response.dict(exclude_none=True))
-                        continue
-                
-                response = await game_server.create_GB_room(
-                    Connect_id,
-                    message["roomname"],
-                    message["gameround"],
-                    message["password"],
-                    message["roundTimerValue"],
-                    message["stepTimerValue"],
-                    message["tips"],
-                    message["random_seed"],
-                    message["open_cuohe"]
-                )
-                await websocket.send_json(response.dict(exclude_none=True))
+            # 检查是否是房间相关消息（type 字段以 "room/" 开头）
+            elif message.get("type", "").startswith("room/"):
+                # 房间相关消息，交由房间路由处理器处理
+                await handle_room_message(game_server, Connect_id, message, websocket)
 
-            elif message["type"] == "get_room_list":
-                response = game_server.get_room_list()
-                await websocket.send_json(response.dict(exclude_none=True))
+            # 检查是否是游戏状态相关消息（type 字段以 "gamestate/" 开头）
+            elif message.get("type", "").startswith("gamestate/"):
+                # 游戏状态相关消息，交由游戏状态路由处理器处理
+                await handle_gamestate_message(game_server, Connect_id, message, websocket)
 
-            elif message["type"] == "join_room":
-                await game_server.join_room(Connect_id, message["room_id"], message["password"])
-
-            elif message["type"] == "leave_room":
-                await game_server.leave_room(Connect_id, message["room_id"])
-
-            elif message["type"] == "start_game":
-                await game_server.start_game(Connect_id, message["room_id"])
-
-            elif message["type"] == "add_bot_to_room":
-                await game_server.add_bot_to_room(Connect_id, message["room_id"])
-
-            elif message["type"] == "CutTiles":
-                room_id = message["room_id"]
-                chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-                await get_action(chinese_game_state, Connect_id, "cut", message["cutClass"], message["TileId"], cutIndex = message["cutIndex"],target_tile=None)
-
-            elif message["type"] == "send_action":
-                room_id = message["room_id"]
-                chinese_game_state = game_server.room_id_to_ChineseGameState[room_id]
-                await get_action(chinese_game_state, Connect_id, message["action"],cutClass=None,TileId=None,cutIndex = None,target_tile=message["targetTile"])
-
-            elif message["type"] == "get_record_list":
-                # 获取当前登录用户的游戏记录列表
-                player = game_server.players.get(Connect_id)
-                if player and player.user_id:
-                    records = game_server.db_manager.get_record_list(player.user_id, limit=20)
-                    # 转换为 Record_info 列表
-                    from .response import Record_info, Player_record_info
-                    record_list = []
-                    for game_record in records:
-                        # 将玩家信息转换为 Player_record_info 列表
-                        players_info = []
-                        for player_data in game_record['players']:
-                            players_info.append(Player_record_info(
-                                user_id=player_data['user_id'],
-                                username=player_data['username'],
-                                score=player_data['score'],
-                                rank=player_data['rank'],
-                                title_used=player_data.get('title_used'),
-                                character_used=player_data.get('character_used'),
-                                profile_used=player_data.get('profile_used'),
-                                voice_used=player_data.get('voice_used')
-                            ))
-                        
-                        record_info = Record_info(
-                            game_id=game_record['game_id'],
-                            rule=game_record['rule'],
-                            record=game_record['record'],
-                            created_at=game_record['created_at'],
-                            players=players_info
-                        )
-                        record_list.append(record_info)
-                    
-                    response = Response(
-                        type="get_record_list",
-                        success=True,
-                        message=f"获取到 {len(record_list)} 局游戏记录",
-                        record_list=record_list
-                    )
-                else:
-                    response = Response(
-                        type="get_record_list",
-                        success=False,
-                        message="用户未登录"
-                    )
-                await websocket.send_json(response.dict(exclude_none=True))
+            # 检查是否是数据相关消息（type 字段以 "data/" 开头）
+            elif message.get("type", "").startswith("data/"):
+                # 数据相关消息，交由数据路由处理器处理
+                await handle_data_message(game_server, Connect_id, message, websocket)
 
             elif message["type"] == "get_server_stats":
                 # 获取服务器统计数据
@@ -465,155 +329,32 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 )
                 await websocket.send_json(response.dict(exclude_none=True))
 
-            elif message["type"] == "get_player_info":
-                # 获取指定用户的统计信息
-                from .response import Player_info_response, Player_stats_info
-                try:
-                    target_user_id = int(message.get("userid"))
-                except (ValueError, TypeError):
-                    response = Response(
-                        type="get_player_info",
-                        success=False,
-                        message="无效的用户ID"
-                    )
-                    await websocket.send_json(response.dict(exclude_none=True))
-                    continue
-                
-                # 获取用户设置信息（包含 username）
-                from .response import UserSettings
-                user_settings_data = db_manager.get_user_settings(target_user_id)
-                
-                # 如果用户设置不存在，说明用户不存在
-                if not user_settings_data:
-                    response = Response(
-                        type="get_player_info",
-                        success=False,
-                        message="用户不存在"
-                    )
-                    await websocket.send_json(response.dict(exclude_none=True))
-                    continue
-                
-                # 获取统计数据
-                stats_data = game_server.db_manager.get_player_stats(target_user_id)
-                
-                # 转换 GB 统计数据
-                gb_stats_list = []
-                for stats_row in stats_data['gb_stats']:
-                    # 分离基础字段和番种字段
-                    base_fields = {
-                        'rule': stats_row.get('rule'),
-                        'mode': stats_row.get('mode'),
-                        'total_games': stats_row.get('total_games'),
-                        'total_rounds': stats_row.get('total_rounds'),
-                        'win_count': stats_row.get('win_count'),
-                        'self_draw_count': stats_row.get('self_draw_count'),
-                        'deal_in_count': stats_row.get('deal_in_count'),
-                        'total_fan_score': stats_row.get('total_fan_score'),
-                        'total_win_turn': stats_row.get('total_win_turn'),
-                        'total_fangchong_score': stats_row.get('total_fangchong_score'),
-                        'first_place_count': stats_row.get('first_place_count'),
-                        'second_place_count': stats_row.get('second_place_count'),
-                        'third_place_count': stats_row.get('third_place_count'),
-                        'fourth_place_count': stats_row.get('fourth_place_count'),
-                    }
-                    
-                    # 提取番种字段（排除基础字段和时间字段）
-                    excluded_fields = {'user_id', 'rule', 'mode', 'total_games', 'total_rounds', 
-                                    'win_count', 'self_draw_count', 'deal_in_count', 'total_fan_score',
-                                    'total_win_turn', 'total_fangchong_score', 'first_place_count',
-                                    'second_place_count', 'third_place_count', 'fourth_place_count',
-                                    'created_at', 'updated_at'}
-                    fan_stats = {k: v for k, v in stats_row.items() 
-                            if k not in excluded_fields and v is not None and v != 0}
-                    
-                    gb_stats_list.append(Player_stats_info(
-                        **base_fields,
-                        fan_stats=fan_stats if fan_stats else None
-                    ))
-                
-                # 转换 JP 统计数据
-                jp_stats_list = []
-                for stats_row in stats_data['jp_stats']:
-                    base_fields = {
-                        'rule': stats_row.get('rule'),
-                        'mode': stats_row.get('mode'),
-                        'total_games': stats_row.get('total_games'),
-                        'total_rounds': stats_row.get('total_rounds'),
-                        'win_count': stats_row.get('win_count'),
-                        'self_draw_count': stats_row.get('self_draw_count'),
-                        'deal_in_count': stats_row.get('deal_in_count'),
-                        'total_fan_score': stats_row.get('total_fan_score'),
-                        'total_win_turn': stats_row.get('total_win_turn'),
-                        'total_fangchong_score': stats_row.get('total_fangchong_score'),
-                        'first_place_count': stats_row.get('first_place_count'),
-                        'second_place_count': stats_row.get('second_place_count'),
-                        'third_place_count': stats_row.get('third_place_count'),
-                        'fourth_place_count': stats_row.get('fourth_place_count'),
-                    }
-                    
-                    excluded_fields = {'user_id', 'rule', 'mode', 'total_games', 'total_rounds', 
-                                    'win_count', 'self_draw_count', 'deal_in_count', 'total_fan_score',
-                                    'total_win_turn', 'total_fangchong_score', 'first_place_count',
-                                    'second_place_count', 'third_place_count', 'fourth_place_count',
-                                    'created_at', 'updated_at'}
-                    fan_stats = {k: v for k, v in stats_row.items() 
-                            if k not in excluded_fields and v is not None and v != 0}
-                    
-                    jp_stats_list.append(Player_stats_info(
-                        **base_fields,
-                        fan_stats=fan_stats if fan_stats else None
-                    ))
-
-                user_settings = UserSettings(
-                    user_id=user_settings_data.get('user_id'),
-                    username=user_settings_data.get('username'),
-                    title_id=user_settings_data.get('title_id'),
-                    profile_image_id=user_settings_data.get('profile_image_id'),
-                    character_id=user_settings_data.get('character_id'),
-                    voice_id=user_settings_data.get('voice_id')
-                )
-                
-                player_info_response = Player_info_response(
-                    user_id=target_user_id,
-                    user_settings=user_settings,
-                    gb_stats=gb_stats_list,
-                    jp_stats=jp_stats_list,
-                )
-                
-                response = Response(
-                    type="get_player_info",
-                    success=True,
-                    message="获取玩家信息成功",
-                    player_info=player_info_response
-                )
-                await websocket.send_json(response.dict(exclude_none=True))
-
             elif message["type"] == "reconnect_response":
                 player = game_server.players.get(Connect_id)
-                if player and player.user_id in game_server.user_id_to_game_state:
+                if player and player.user_id:
                     user_id = player.user_id
-                    game_state = game_server.user_id_to_game_state[user_id]
-                    room_id = game_state.room_id
-                    if message.get("reconnect"):
-                        # 玩家重新连接
-                        await game_state.player_reconnect(user_id)
-                        
-                        # 发送房间信息给玩家
-                        room_data = game_server.room_manager.rooms.get(room_id)
-                        if room_data:
-                            response = Response(
-                                type="tips",
-                                success=True,
-                                message="重连成功，返回游戏",
-                            )
-                            await player.websocket.send_json(response.dict(exclude_none=True))
-                            logging.info(f"玩家 {user_id} 重连成功，房间 ID: {room_id}")
-                    else:
-                        # 玩家放弃重连
-                        del game_server.user_id_to_game_state[user_id]
-                        logging.info(f"玩家 {user_id} 放弃重连，已清理索引")
-                
-    
+                    game_state = game_server.gamestate_manager.get_game_state_by_user_id(user_id)
+                    if game_state:
+                        room_id = game_state.room_id
+                        if message.get("reconnect"):
+                            # 玩家重新连接
+                            await game_server.gamestate_manager.player_reconnect(user_id)
+
+                            # 发送房间信息给玩家
+                            room_data = game_server.room_manager.rooms.get(room_id)
+                            if room_data:
+                                response = Response(
+                                    type="tips",
+                                    success=True,
+                                    message="重连成功，返回游戏",
+                                )
+                                await player.websocket.send_json(response.dict(exclude_none=True))
+                                logging.info(f"玩家 {user_id} 重连成功，房间 ID: {room_id}")
+                        else:
+                            # 玩家放弃重连
+                            game_server.gamestate_manager.remove_player_from_game_state(user_id)
+                            logging.info(f"玩家 {user_id} 放弃重连，已清理索引")
+
     except Exception as e:
         # WebSocket 连接断开或其他异常
         logging.error(f"WebSocket 连接异常: {Connect_id}, 错误: {e}")
