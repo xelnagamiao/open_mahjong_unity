@@ -54,16 +54,16 @@ public class NotificationManager : MonoBehaviour {
     /// </summary>
     /// <param name="header">标题</param>
     /// <param name="content">内容</param>
+    /// <param name="type">消息类型</param>
     /// <returns>实例化的 MessagePrefab</returns>
-    public MessagePrefab ShowMessage(string header, string content) {
+    public MessagePrefab ShowMessage(string header, string content, string type = "") {
         if (messagePrefab == null) {
             Debug.LogError("NotificationManager: MessagePrefab 未设置！");
             return null;
         }
-
         Transform parent = messagePosition != null ? messagePosition.transform : transform;
         MessagePrefab messageInstance = Instantiate(messagePrefab, parent);
-        messageInstance.ShowMessage(header, content);
+        messageInstance.ShowMessage(header, content, type);
         return messageInstance;
     }
 

@@ -9,6 +9,7 @@ public class UserDataManager : MonoBehaviour {
     public string Userkey { get; private set; }
     public int UserId { get; private set; }
     public string RoomId { get; private set; } = "";
+    public string GamestateId { get; private set; } = ""; // 当前游戏状态ID（用于游戏内操作）
     public int TitleId { get; private set; }
     public int ProfileImageId { get; private set; }
     public int CharacterId { get; private set; }
@@ -52,5 +53,10 @@ public class UserDataManager : MonoBehaviour {
             }
             this.RoomId = room_id;
         }
+    }
+
+    // 设置当前游戏状态ID
+    public void SetGamestateId(string gamestate_id) {
+        GamestateId = gamestate_id;
     }
 }

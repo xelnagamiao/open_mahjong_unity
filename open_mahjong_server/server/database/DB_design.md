@@ -74,7 +74,7 @@ PostgreSQL
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
-| rule | VARCHAR(10) | NOT NULL | 规则类型（GB=国标，JP=日麻） |
+| rule | VARCHAR(10) | NOT NULL | 规则类型（guobiao=国标，riichi=立直） |
 | title_used | INT | NULL | 使用的称号ID（可为空） |
 | character_used | INT | NULL | 使用的角色ID（可为空） |
 | profile_used | INT | NULL | 使用的头像ID（可为空） |
@@ -86,149 +86,24 @@ PostgreSQL
 > - 删除 `game_records` 表中的牌谱记录时，会级联删除 `game_player_records` 中该游戏的所有玩家记录
 > - 不会删除牌谱数据
 
-### gb_record_stats 国标麻将对局统计宽表
+### 规则特定统计表
 
-专门用于国标麻将（GB）规则的统计数据，按照 `rule`（规则，如 GB）与 `mode`（模式，如 `1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等）区分不同维度。不同规则的番种统计字段不同，因此需要分开管理。客户端展示排行榜/统计时只需按条件查询该表。
+不同规则的统计表设计已移至各自文件夹下的 `db_design.md` 文件：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|--------|------|------|------|
-| user_id | BIGINT | NOT NULL REFERENCES users(user_id) ON DELETE CASCADE | 用户 ID |
-| rule | VARCHAR(10) | NOT NULL | 规则标识（例如：GB、JP） |
-| mode | VARCHAR(20) | NOT NULL | 数据模式（`1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等） |
-| total_games | INT | NOT NULL DEFAULT 0 | 总对局数 |
-| total_rounds | INT | NOT NULL DEFAULT 0 | 累计回合数 |
-| win_count | INT | NOT NULL DEFAULT 0 | 和牌次数 |
-| self_draw_count | INT | NOT NULL DEFAULT 0 | 自摸次数 |
-| deal_in_count | INT | NOT NULL DEFAULT 0 | 放铳次数 |
-| total_fan_score | INT | NOT NULL DEFAULT 0 | 累计番数 |
-| total_win_turn | INT | NOT NULL DEFAULT 0 | 累计和巡（用于计算平均巡目） |
-| total_fangchong_score | INT | NOT NULL DEFAULT 0 | 累计放铳分 |
-| first_place_count | INT | NOT NULL DEFAULT 0 | 一位次数 |
-| second_place_count | INT | NOT NULL DEFAULT 0 | 二位次数 |
-| third_place_count | INT | NOT NULL DEFAULT 0 | 三位次数 |
-| fourth_place_count | INT | NOT NULL DEFAULT 0 | 四位次数 |
-| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
+- **国标麻将**：`database/guobiao/db_design.md`
+  - `guobiao_history_stats` - 基础统计数据
+  - `guobiao_fan_stats` - 番种统计数据
 
-#### 番种统计（与主表合并存储）
-以下字段全部位于 `gb_record_stats` 中，每列都以 `INT NOT NULL DEFAULT 0` 记录对应番种累计出现次数。示例：
-
-| 字段名 | 说明 |
-|--------|------|
-| dasixi | 大四喜次数 |
-| dasanyuan | 大三元次数 |
-| lvyise | 绿一色次数 |
-| jiulianbaodeng | 九莲宝灯次数 |
-| sigang | 四杠次数 |
-| sangang | 三杠次数 |
-| lianqidui | 连七对次数 |
-| shisanyao | 十三幺次数 |
-| qingyaojiu | 清幺九次数 |
-| xiaosixi | 小四喜次数 |
-| xiaosanyuan | 小三元次数 |
-| ziyise | 字一色次数 |
-| sianke | 四暗刻次数 |
-| yiseshuanglonghui | 一色双龙会次数 |
-| yisesitongshun | 一色四同顺次数 |
-| yisesijiegao | 一色四节高次数 |
-| yisesibugao | 一色四步高次数 |
-| hunyaojiu | 混幺九次数 |
-| qiduizi | 七对子次数 |
-| qixingbukao | 七星不靠次数 |
-| quanshuangke | 全双刻次数 |
-| qingyise | 清一色次数 |
-| yisesantongshun | 一色三同顺次数 |
-| yisesanjiegao | 一色三节高次数 |
-| quanda | 全大次数 |
-| quanzhong | 全中次数 |
-| quanxiao | 全小次数 |
-| qinglong | 清龙次数 |
-| sanseshuanglonghui | 三色双龙会次数 |
-| yisesanbugao | 一色三步高次数 |
-| quandaiwu | 全带五次数 |
-| santongke | 三同刻次数 |
-| sananke | 三暗刻次数 |
-| quanbukao | 全不靠次数 |
-| zuhelong | 组合龙次数 |
-| dayuwu | 大于五次数 |
-| xiaoyuwu | 小于五次数 |
-| sanfengke | 三风刻次数 |
-| hualong | 花龙次数 |
-| tuibudao | 推不倒次数 |
-| sansesantongshun | 三色三同顺次数 |
-| sansesanjiegao | 三色三节高次数 |
-| wufanhe | 无番和次数 |
-| miaoshouhuichun | 妙手回春次数 |
-| haidilaoyue | 海底捞月次数 |
-| gangshangkaihua | 杠上开花次数 |
-| qiangganghe | 抢杠和次数 |
-| pengpenghe | 碰碰和次数 |
-| hunyise | 混一色次数 |
-| sansesanbugao | 三色三步高次数 |
-| wumenqi | 五门齐次数 |
-| quanqiuren | 全求人次数 |
-| shuangangang | 双暗杠次数 |
-| shuangjianke | 双箭刻次数 |
-| quandaiyao | 全带幺次数 |
-| buqiuren | 不求人次数 |
-| shuangminggang | 双明杠次数 |
-| hejuezhang | 和绝张次数 |
-| jianke | 箭刻次数 |
-| quanfengke | 圈风刻次数 |
-| menfengke | 门风刻次数 |
-| menqianqing | 门前清次数 |
-| pinghe | 平和次数 |
-| siguiyi | 四归一次数 |
-| shuangtongke | 双同刻次数 |
-| shuanganke | 双暗刻次数 |
-| angang | 暗杠次数 |
-| duanyao | 断幺次数 |
-| yibangao | 一般高次数 |
-| xixiangfeng | 喜相逢次数 |
-| lianliu | 连六次数 |
-| laoshaofu | 老少副次数 |
-| yaojiuke | 幺九刻次数 |
-| minggang | 明杠次数 |
-| queyimen | 缺一门次数 |
-| wuzi | 无字次数 |
-| bianzhang | 边张次数 |
-| qianzhang | 嵌张次数 |
-| dandiaojiang | 单钓将次数 |
-| zimo | 自摸次数 |
-| huapai | 花牌次数 |
-| mingangang | 明暗杠次数 |
-
-
-### jp_record_stats 立直麻将对局统计表
-
-专门用于立直麻将（JP）规则的统计数据，按照 `rule`（规则，如 JP）与 `mode`（模式，如 `1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等）区分不同维度。不同规则的番种统计字段不同，因此需要分开管理。客户端展示排行榜/统计时只需按条件查询该表。
-
-| 字段名 | 类型 | 约束 | 说明 |
-|--------|------|------|------|
-| user_id | BIGINT | NOT NULL REFERENCES users(user_id) ON DELETE CASCADE | 用户 ID |
-| rule | VARCHAR(10) | NOT NULL | 规则标识（例如：GB、JP） |
-| mode | VARCHAR(20) | NOT NULL | 数据模式（`1/4`、`2/4`、`3/4`、`4/4`、`1/4_rank` 等） |
-| total_games | INT | NOT NULL DEFAULT 0 | 总对局数 |
-| total_rounds | INT | NOT NULL DEFAULT 0 | 累计回合数 |
-| win_count | INT | NOT NULL DEFAULT 0 | 和牌次数 |
-| self_draw_count | INT | NOT NULL DEFAULT 0 | 自摸次数 |
-| deal_in_count | INT | NOT NULL DEFAULT 0 | 放铳次数 |
-| total_fan_score | INT | NOT NULL DEFAULT 0 | 累计番数 |
-| total_win_turn | INT | NOT NULL DEFAULT 0 | 累计和巡（用于计算平均巡目） |
-| total_fangchong_score | INT | NOT NULL DEFAULT 0 | 累计放铳分 |
-| first_place_count | INT | NOT NULL DEFAULT 0 | 一位次数 |
-| second_place_count | INT | NOT NULL DEFAULT 0 | 二位次数 |
-| third_place_count | INT | NOT NULL DEFAULT 0 | 三位次数 |
-| fourth_place_count | INT | NOT NULL DEFAULT 0 | 四位次数 |
-| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
-
-#### 等待添加番数统计
+- **立直麻将**：`database/riichi/db_design.md`
+  - `riichi_history_stats` - 基础统计数据
+  - `riichi_fan_stats` - 番种统计数据（待定义）
 
 ### 删除 users 表中的用户记录时，会级联删除以下表中的数据：
 
 1. **user_settings** - 该用户的设置记录
 2. **user_config** - 该用户的配置记录
-3. **gb_record_stats** - 该用户的国标麻将统计数据
-4. **jp_record_stats** - 该用户的立直麻将统计数据
-5. **game_player_records** - 该用户参与的所有对局记录
+3. **guobiao_history_stats** - 该用户的国标麻将基础统计数据
+4. **guobiao_fan_stats** - 该用户的国标麻将番种统计数据
+5. **riichi_history_stats** - 该用户的立直麻将基础统计数据
+6. **riichi_fan_stats** - 该用户的立直麻将番种统计数据
+7. **game_player_records** - 该用户参与的所有对局记录

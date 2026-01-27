@@ -740,7 +740,9 @@ MonoBehaviour:
   HeaderText: {fileID: 3130735675559696782}
   ContentText: {fileID: 2370735498884002011}
   YesButton: {fileID: 5341393690488033629}
+  YesButtonText: {fileID: 9215031972164200520}
   BackButton: {fileID: 1873682970633815381}
+  BackButtonText: {fileID: 6905170407102028716}
 --- !u!1 &7884025162835913148
 GameObject:
   m_ObjectHideFlags: 0
