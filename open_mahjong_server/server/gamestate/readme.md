@@ -7,6 +7,6 @@ user_id_to_game_state
 
 gamestate_router管理玩家 => room_id => gamestate 的操作路由
 
-public存储不同规则gamestate可能需要的方法，不同规则的gamestate内部可以随意进行定义
+public存储不同规则gamestate可能需要的方法，规则制定者无权更改，不同规则的gamestate内部可以随意进行定义
 
 在gamestate结束以后可以由dbmanager进行后处理

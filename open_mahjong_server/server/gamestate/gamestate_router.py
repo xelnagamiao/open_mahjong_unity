@@ -27,14 +27,14 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
 async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket):
     """处理切牌请求"""
     try:
-        room_id = message.get("room_id")
-        if not room_id:
-            logger.warning(f"切牌请求缺少 room_id: {message}")
+        gamestate_id = message.get("gamestate_id")
+        if not gamestate_id:
+            logger.warning(f"切牌请求缺少 gamestate_id: {message}")
             return
         
-        guobiao_game_state = game_server.gamestate_manager.get_game_state_by_room_id(room_id)
+        guobiao_game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
         if not guobiao_game_state:
-            logger.warning(f"房间 {room_id} 的游戏状态不存在")
+            logger.warning(f"gamestate_id {gamestate_id} 的游戏状态不存在")
             return
         await get_action(
             guobiao_game_state, 
@@ -51,14 +51,14 @@ async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket
 async def handle_send_action(game_server, Connect_id: str, message: dict, websocket):
     """处理发送操作请求"""
     try:
-        room_id = message.get("room_id")
-        if not room_id:
-            logger.warning(f"发送操作请求缺少 room_id: {message}")
+        gamestate_id = message.get("gamestate_id")
+        if not gamestate_id:
+            logger.warning(f"发送操作请求缺少 gamestate_id: {message}")
             return
         
-        guobiao_game_state = game_server.gamestate_manager.get_game_state_by_room_id(room_id)
+        guobiao_game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
         if not guobiao_game_state:
-            logger.warning(f"房间 {room_id} 的游戏状态不存在")
+            logger.warning(f"gamestate_id {gamestate_id} 的游戏状态不存在")
             return
         await get_action(
             guobiao_game_state, 
@@ -66,7 +66,7 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
             message.get("action"), 
             cutClass=None, 
             TileId=None, 
-            cutIndex=None, 
+            cutIndex=None,
             target_tile=message.get("targetTile")
         )
     except Exception as e:

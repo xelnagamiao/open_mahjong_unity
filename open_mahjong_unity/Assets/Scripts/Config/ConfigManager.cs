@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Runtime.InteropServices;
 
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
@@ -50,12 +51,22 @@ public class ConfigManager : MonoBehaviour {
     public int SoundEffectVolume { get; private set; }
     public int VoiceVolume { get; private set; }
 
+    private const int ForegroundFrameRate = 60;
+    private const int BackgroundFrameRate = 10;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern void PageVisibility_Setup();
+#endif
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        // 供 WebGL 的 JS 插件 SendMessage 定位用
+        gameObject.name = "GlobalConfig";
         
         // 加载用户配置
         MasterVolume = PlayerPrefs.GetInt(KEY_MASTER_VOLUME, DEFAULT_VOLUME);
@@ -63,7 +74,17 @@ public class ConfigManager : MonoBehaviour {
         SoundEffectVolume = PlayerPrefs.GetInt(KEY_SOUND_EFFECT_VOLUME, DEFAULT_VOLUME);
         VoiceVolume = PlayerPrefs.GetInt(KEY_VOICE_VOLUME, DEFAULT_VOLUME);
         
-        Application.targetFrameRate = 60;
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = ForegroundFrameRate;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        PageVisibility_Setup();
+#endif
+    }
+
+    // WebGL: 由 Assets/Plugins/PageVisibility.jslib 调用
+    public void OnApplicationVisibilityChanged(int isVisible) {
+        Application.targetFrameRate = (isVisible == 1) ? ForegroundFrameRate : BackgroundFrameRate;
     }
 
     public void SetUserConfig(int volume) {

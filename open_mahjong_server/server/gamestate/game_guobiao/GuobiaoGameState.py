@@ -81,13 +81,15 @@ class GuobiaoPlayer:
         # 游戏进程类
 class GuobiaoGameState:
     # GuobiaoGameState负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
-    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager):
+    def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager, gamestate_id: str):
         # 传入游戏服务器
         self.game_server = game_server # 游戏服务器
         # 传入全局计算服务
         self.calculation_service = calculation_service
         # 传入数据库管理器 用于存储牌谱
         self.db_manager = db_manager
+        # gamestate_id（游戏状态唯一标识）
+        self.gamestate_id = gamestate_id
         # 创建牌谱管理器 用于存储牌谱
         self.game_record = {}
         # game_loop_chinese循环任务引用
@@ -97,7 +99,10 @@ class GuobiaoGameState:
         player_settings = room_data.get("player_settings", {})
         for user_id in room_data["player_list"]:
             player_setting = player_settings.get(user_id, {})
-            username = player_setting.get("username", f"用户{user_id}")
+            if user_id == 0:
+                username = "麻雀罗伯特"
+            else:
+                username = player_setting.get("username", f"用户{user_id}")
             player = GuobiaoPlayer(user_id, username, [], room_data["round_timer"])
             # 初始化玩家使用的设置数据
             player.title_used = player_setting.get("title_id", 1)
@@ -178,6 +183,7 @@ class GuobiaoGameState:
                     # 构建游戏信息
                     base_game_info = {
                         'room_id': self.room_id,
+                        'gamestate_id': self.gamestate_id,
                         'tips': self.tips,
                         'current_player_index': self.current_player_index,
                         "action_tick": self.server_action_tick,
@@ -252,7 +258,7 @@ class GuobiaoGameState:
             self.game_server.gamestate_manager.remove_player_from_game_state(player.user_id)
         
         # 清理房间到游戏状态的映射
-        self.game_server.gamestate_manager.remove_game_state_by_room_id(self.room_id)
+        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
 
     async def game_loop_chinese(self):
 
@@ -415,6 +421,7 @@ class GuobiaoGameState:
                     # 等待加杠操作：
                     case "waiting_action_qianggang": # 加杠后询问胡牌行为
                         await self.broadcast_ask_other_action() # 广播是否胡牌
+                        await self.wait_action() # 等待抢杠操作
 
                     # 等待手牌操作（仅切牌、吃碰后）：
                     case "onlycut_after_action": # 吃碰后切牌行为
@@ -499,6 +506,9 @@ class GuobiaoGameState:
                             # 删除和牌类型
                             self.hu_class = ""
 
+                    # 如果没有匹配到
+                    case _:
+                        logger.error(f"没有匹配到游戏状态: {self.game_status}")
 
             # 卡牌摸完 或者有人和牌
             hu_score = None
@@ -691,7 +701,7 @@ class GuobiaoGameState:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
 
         # 结束游戏生命周期
-        self.game_server.gamestate_manager.remove_game_state_by_room_id(self.room_id)
+        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
         
         # 移除玩家到游戏状态的映射
         for player_id in self.room_data["player_list"]:

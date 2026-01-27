@@ -224,8 +224,8 @@ public class PlayerInfoPanel : MonoBehaviour{
         // 如果数据不存在（null 或未初始化），则请求数据
         if (rule == "guobiao" && guobiaoStats == null){
             DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
-            return;
-        }
+                return;
+            }
         else if (rule == "riichi" && riichiStats == null){
             DataNetworkManager.Instance?.GetRiichiStats(currentUserId.ToString());
             return;
@@ -252,7 +252,7 @@ public class PlayerInfoPanel : MonoBehaviour{
                 foreach (var stat in guobiaoStats){
                     if (stat?.mode != null){
                         statsDict[stat.mode] = stat;
-                    }
+        }
                 }
             }
             
@@ -260,7 +260,7 @@ public class PlayerInfoPanel : MonoBehaviour{
             for (int i = 0; i < guobiaoModes.Length; i++){
                 string mode = guobiaoModes[i];
                 statsDict.TryGetValue(mode, out PlayerStatsInfo stat);
-                
+        
                 // 如果没有数据，创建空数据
                 if (stat == null){
                     stat = new PlayerStatsInfo{
@@ -281,11 +281,11 @@ public class PlayerInfoPanel : MonoBehaviour{
                     };
                 }
                 
-                GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-                PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
-                playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
-            }
-            
+            GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+            PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
+            playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
+        }
+
             totalFanStats = guobiaoTotalFanStats;
         }
         else if (CurrentShowRule == "riichi"){
@@ -298,10 +298,10 @@ public class PlayerInfoPanel : MonoBehaviour{
                 foreach (var stat in riichiStats){
                     if (stat?.mode != null){
                         statsDict[stat.mode] = stat;
-                    }
+        }
                 }
-            }
-            
+    }
+    
             // 按固定顺序显示所有模式
             for (int i = 0; i < riichiModes.Length; i++){
                 string mode = riichiModes[i];
@@ -312,17 +312,17 @@ public class PlayerInfoPanel : MonoBehaviour{
                     stat = new PlayerStatsInfo{
                         rule = "riichi",
                         mode = mode,
-                        total_games = 0,
-                        total_rounds = 0,
-                        win_count = 0,
-                        self_draw_count = 0,
-                        deal_in_count = 0,
-                        total_fan_score = 0,
-                        total_win_turn = 0,
-                        total_fangchong_score = 0,
-                        first_place_count = 0,
-                        second_place_count = 0,
-                        third_place_count = 0,
+            total_games = 0,
+            total_rounds = 0,
+            win_count = 0,
+            self_draw_count = 0,
+            deal_in_count = 0,
+            total_fan_score = 0,
+            total_win_turn = 0,
+            total_fangchong_score = 0,
+            first_place_count = 0,
+            second_place_count = 0,
+            third_place_count = 0,
                         fourth_place_count = 0
                     };
                 }
@@ -352,8 +352,8 @@ public class PlayerInfoPanel : MonoBehaviour{
     private void ClearRecordEntryContainer(){
         foreach (Transform child in RecordEntryContainer){
             Destroy(child.gameObject);
-        }
-    }
+                    }
+                }
     
 
     // 复制 Userid

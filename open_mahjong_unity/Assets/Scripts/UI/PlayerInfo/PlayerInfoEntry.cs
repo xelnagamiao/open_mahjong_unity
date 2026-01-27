@@ -59,18 +59,18 @@ public class PlayerInfoEntry : MonoBehaviour{
             }
             else{
                 ShowText += "其他";
-                
-                if (playerStatsInfo.mode == "4/4"){
-                    ShowText += " 全庄战";
-                }
-                else if (playerStatsInfo.mode == "3/4"){
-                    ShowText += " 东西战";
-                }
-                else if (playerStatsInfo.mode == "2/4"){
-                    ShowText += " 东南战";
-                }
-                else if (playerStatsInfo.mode == "1/4"){
-                    ShowText += " 东风战";
+
+            if (playerStatsInfo.mode == "4/4"){
+                ShowText += " 全庄战";
+            }
+            else if (playerStatsInfo.mode == "3/4"){
+                ShowText += " 东西战";
+            }
+            else if (playerStatsInfo.mode == "2/4"){
+                ShowText += " 东南战";
+            }
+            else if (playerStatsInfo.mode == "1/4"){
+                ShowText += " 东风战";
                 }
             }
         }
@@ -83,12 +83,12 @@ public class PlayerInfoEntry : MonoBehaviour{
                 ShowText = "日麻番数总计";
             }
             else{
-                ShowText = "其他麻将达成番种总计:";
+                    ShowText = "其他麻将达成番种总计:";
             }
         }
 
         if (modeText != null){
-            modeText.text = ShowText;
+        modeText.text = ShowText;
         }
     }
 

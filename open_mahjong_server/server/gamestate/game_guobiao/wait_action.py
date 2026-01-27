@@ -33,7 +33,13 @@ async def wait_action(self):
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)
     action_data = None # 保存操作数据
     action_type = None # 保存操作类型
+
     while self.waiting_players_list and any(self.player_list[i].remaining_time + self.step_time > used_time for i in self.waiting_players_list):
+
+        for i in self.player_list:
+            print(f"玩家{i.user_id}剩余时间: {i.remaining_time}")
+            print(used_time)
+        
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
         task_to_player = {}  # 任务与玩家的映射
@@ -111,7 +117,6 @@ async def wait_action(self):
                 if do_interrupt:
                     self.waiting_players_list = [] # 清空等待列表，强制结束循环
 
-
     # 等待行为结束,开始处理操作,pass,超时逻辑
     # 如果操作是最高优先级的直接结束循环
     # 如果操作并非最高优先级的,在最高优先级取消或者超时后结束循环
@@ -121,7 +126,11 @@ async def wait_action(self):
         for i in self.waiting_players_list:
             self.player_list[i].remaining_time = 0
 
-    logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
+    if action_data:
+        logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
+    else:
+        logger.info(f"操作超时")
+        
     # 情形处理
     match self.game_status:
         # 补花轮特殊case 只有在游戏开始时启用

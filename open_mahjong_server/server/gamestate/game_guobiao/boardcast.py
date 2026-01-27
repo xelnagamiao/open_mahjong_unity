@@ -12,6 +12,7 @@ async def broadcast_game_start(self):
     # 基础游戏信息
     base_game_info = {
         'room_id': self.room_id, # 房间ID
+        'gamestate_id': self.gamestate_id, # 游戏状态ID
         'tips': self.tips, # 是否提示
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
         "action_tick": self.server_action_tick, # 操作帧

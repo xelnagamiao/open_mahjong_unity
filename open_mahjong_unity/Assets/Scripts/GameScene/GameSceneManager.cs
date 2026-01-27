@@ -37,6 +37,7 @@ public class GameSceneManager : MonoBehaviour{
 
     // 房间信息
     public int roomId; // 房间ID
+    public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
     public string roomType; // 房间规则类型（服务器下发的 room_type，如 "guobiao"/"jp"）
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
@@ -52,10 +53,11 @@ public class GameSceneManager : MonoBehaviour{
     [Header("自动操作配置")]
 
     public bool isAutoArrangeHandCards = true; // 是否自动排列手牌
+    public bool isAutoBuhua = true; // 是否自动补花
     public bool isAutoHepai = false; // 是否自动胡牌
     public bool isAutoCut = false; // 是否自动出牌
     public bool isAutoPass = false; // 是否自动过牌
-    public bool isAutoBuhua = true; // 是否自动补花
+
 
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
@@ -89,8 +91,12 @@ public class GameSceneManager : MonoBehaviour{
 
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
-        // 保存room_id
+        // 保存room_id（用于房间相关操作）
         UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
+        // 保存gamestate_id
+        UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
+
+        gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
         
@@ -109,7 +115,7 @@ public class GameSceneManager : MonoBehaviour{
         if (gameInfo.self_hand_tiles.Length == 14){
             GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null,null);
             // 在这里可以添加向服务器传递加载完成方法
-            // 亲家与闲家完成配牌以后等待服务器传递补花行为
+            // 
         }
 
         // 初始化他人手牌区域

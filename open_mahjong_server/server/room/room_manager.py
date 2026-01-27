@@ -381,7 +381,7 @@ class RoomManager:
             # 设置机器人信息
             room_data["player_settings"][bot_user_id] = {
                 "user_id": bot_user_id,
-                "username": "机器人",
+                "username": "麻雀罗伯特",
                 "title_id": 1,
                 "profile_image_id": 1,
                 "character_id": 1,
@@ -394,7 +394,7 @@ class RoomManager:
             return Response(
                 type="tips",
                 success=True,
-                message="机器人已添加到房间"
+                message="罗伯特已添加到房间"
             )
             
         except Exception as e:

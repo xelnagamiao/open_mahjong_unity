@@ -391,13 +391,13 @@ public class NetworkManager : MonoBehaviour {
     // 房间相关方法已移至 RoomNetworkManager
     // GameScene Case
     // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
-    public async void SendChineseGameTile(bool cutClass,int tileId,int cutIndex,string roomId){
+    public async void SendChineseGameTile(bool cutClass,int tileId,int cutIndex){
         var request = new SendChineseGameTileRequest {
             type = "gamestate/GB/cut_tile",
             cutClass = cutClass,
             TileId = tileId,
             cutIndex = cutIndex,
-            room_id = roomId
+            gamestate_id = UserDataManager.Instance.GamestateId
         };
         await websocket.SendText(JsonConvert.SerializeObject(request));
     }
@@ -405,7 +405,7 @@ public class NetworkManager : MonoBehaviour {
     public async void SendAction(string action,int targetTile) {
         var request = new SendActionRequest {
             type = "gamestate/GB/send_action",
-            room_id = UserDataManager.Instance.RoomId,
+            gamestate_id = UserDataManager.Instance.GamestateId,
             action = action,
             targetTile = targetTile
         };

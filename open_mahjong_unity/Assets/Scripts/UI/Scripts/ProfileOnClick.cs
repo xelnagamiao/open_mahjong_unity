@@ -15,5 +15,8 @@ public class ProfileOnClick : MonoBehaviour, IPointerClickHandler
             // 第一次加载需要玩家信息
             DataNetworkManager.Instance.GetGuobiaoStats(user_id.ToString(), need_player_info: true);
         }
+        else{
+            NotificationManager.Instance.ShowTip("error",false,"麻雀罗伯特没有数据看哦");
+        }
     }
 }

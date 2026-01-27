@@ -27,6 +27,7 @@ class PlayerInfo(BaseModel):
 
 class GameInfo(BaseModel):
     room_id: int
+    gamestate_id: str  # 游戏状态ID（用于客户端发送游戏操作请求）
     tips: bool
     current_player_index: int
     action_tick: int

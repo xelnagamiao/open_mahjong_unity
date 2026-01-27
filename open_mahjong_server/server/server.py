@@ -334,25 +334,35 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 if player and player.user_id:
                     user_id = player.user_id
                     game_state = game_server.gamestate_manager.get_game_state_by_user_id(user_id)
-                    if game_state:
-                    room_id = game_state.room_id
+                    if not game_state:
+                        response = Response(
+                            type="tips",
+                            success=False,
+                            message="当前没有可重连的对局"
+                        )
+                        await player.websocket.send_json(response.dict(exclude_none=True))
+                        logging.info(f"玩家 {user_id} 请求重连，但未找到对应 game_state")
+                        continue
+
                     if message.get("reconnect"):
-                        # 玩家重新连接
-                            await game_server.gamestate_manager.player_reconnect(user_id)
-                        
-                        # 发送房间信息给玩家
-                        room_data = game_server.room_manager.rooms.get(room_id)
-                        if room_data:
-                            response = Response(
-                                type="tips",
-                                success=True,
-                                message="重连成功，返回游戏",
-                            )
-                            await player.websocket.send_json(response.dict(exclude_none=True))
-                            logging.info(f"玩家 {user_id} 重连成功，房间 ID: {room_id}")
+                        # 玩家确认重连：由 game_state.player_reconnect 向该玩家推送 game_start_GB（含当前对局状态）
+                        await game_server.gamestate_manager.player_reconnect(user_id)
+                        response = Response(
+                            type="tips",
+                            success=True,
+                            message="重连成功，返回游戏"
+                        )
+                        await player.websocket.send_json(response.dict(exclude_none=True))
+                        logging.info(f"玩家 {user_id} 重连成功")
                     else:
-                        # 玩家放弃重连
-                            game_server.gamestate_manager.remove_player_from_game_state(user_id)
+                        # 玩家放弃重连：仅清理 user_id -> game_state 映射
+                        game_server.gamestate_manager.remove_player_from_game_state(user_id)
+                        response = Response(
+                            type="tips",
+                            success=True,
+                            message="已放弃重连"
+                        )
+                        await player.websocket.send_json(response.dict(exclude_none=True))
                         logging.info(f"玩家 {user_id} 放弃重连，已清理索引")
     
     except Exception as e:

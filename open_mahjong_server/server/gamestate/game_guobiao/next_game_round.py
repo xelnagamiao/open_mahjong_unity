@@ -18,6 +18,7 @@ def next_game_round(self):
         i.discard_tiles = []
         i.waiting_tiles = set()
         i.combination_tiles = []
+        i.combination_mask = []
         i.remaining_time = self.round_time
         if "peida" in i.tag_list:
             i.tag_list.remove("peida")

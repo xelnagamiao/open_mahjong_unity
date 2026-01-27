@@ -1,6 +1,7 @@
 # 游戏状态管理器
 import logging
 import asyncio
+import uuid
 from typing import Dict, Any, Optional
 from .game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..response import Response, MessageInfo
@@ -18,8 +19,10 @@ class GameStateManager:
             game_server: 游戏服务器实例
         """
         self.game_server = game_server
-        # 管理不同房间id到已启动的游戏服务的映射
+        # 管理不同房间id到已启动的游戏服务的映射（仅用于开始游戏时检查，之后不再使用）
         self.room_id_to_GuobiaoGameState: Dict[str, GuobiaoGameState] = {}
+        # gamestate_id 到游戏状态的映射（主要管理方式）
+        self.gamestate_id_to_game_state: Dict[str, GuobiaoGameState] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
         self.user_id_to_game_state: Dict[int, Any] = {}
     
@@ -58,21 +61,39 @@ class GameStateManager:
         
         # 创建游戏任务
         if room_data["room_type"] == "guobiao":
-            game_state = GuobiaoGameState(
-                self.game_server, 
-                room_data, 
-                self.game_server.calculation_service,
-                self.game_server.db_manager
-            )
-            self.room_id_to_GuobiaoGameState[room_id] = game_state
-            
-            # 建立用户ID到游戏状态的映射
-            for player_id in room_data["player_list"]:
-                self.user_id_to_game_state[player_id] = game_state
-            
-            # 创建并保存游戏循环任务引用
-            game_state.game_task = asyncio.create_task(game_state.game_loop_chinese())
-            logger.info(f"房间 {room_id} 的游戏已启动")
+            try:
+                # 生成 gamestate_id
+                gamestate_id = str(uuid.uuid4())
+                
+                game_state = GuobiaoGameState(
+                    self.game_server, 
+                    room_data, 
+                    self.game_server.calculation_service,
+                    self.game_server.db_manager,
+                    gamestate_id
+                )
+                self.room_id_to_GuobiaoGameState[room_id] = game_state
+                self.gamestate_id_to_game_state[gamestate_id] = game_state
+                
+                # 建立用户ID到游戏状态的映射
+                for player_id in room_data["player_list"]:
+                    self.user_id_to_game_state[player_id] = game_state
+                
+                # 创建并保存游戏循环任务引用
+                game_state.game_task = asyncio.create_task(game_state.game_loop_chinese())
+                logger.info(f"房间 {room_id} 的游戏已启动，gamestate_id: {gamestate_id}")
+            except Exception as e:
+                logger.error(f"创建游戏任务时发生异常，room_id: {room_id}, 错误: {e}", exc_info=True)
+                # 重置游戏运行状态
+                room_data["is_game_running"] = False
+                # 清理已创建的游戏状态（如果已创建）
+                if room_id in self.room_id_to_GuobiaoGameState:
+                    game_state = self.room_id_to_GuobiaoGameState[room_id]
+                    # 同时从 gamestate_id 映射中移除
+                    if hasattr(game_state, 'gamestate_id') and game_state.gamestate_id in self.gamestate_id_to_game_state:
+                        del self.gamestate_id_to_game_state[game_state.gamestate_id]
+                    del self.room_id_to_GuobiaoGameState[room_id]
+                return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
         
         return None
     
@@ -141,18 +162,37 @@ class GameStateManager:
     
     def remove_game_state_by_room_id(self, room_id: str):
         """
-        根据房间ID移除游戏状态映射
+        根据房间ID移除游戏状态映射（仅用于开始游戏时检查，之后不再使用）
         
         Args:
             room_id: 房间ID
         """
         if room_id in self.room_id_to_GuobiaoGameState:
+            game_state = self.room_id_to_GuobiaoGameState[room_id]
+            # 同时从 gamestate_id 映射中移除
+            if game_state.gamestate_id in self.gamestate_id_to_game_state:
+                del self.gamestate_id_to_game_state[game_state.gamestate_id]
             del self.room_id_to_GuobiaoGameState[room_id]
             logger.info(f"已移除房间 {room_id} 的游戏状态映射")
     
+    def remove_game_state_by_gamestate_id(self, gamestate_id: str):
+        """
+        根据 gamestate_id 移除游戏状态映射
+        
+        Args:
+            gamestate_id: 游戏状态ID
+        """
+        if gamestate_id in self.gamestate_id_to_game_state:
+            game_state = self.gamestate_id_to_game_state[gamestate_id]
+            # 同时从 room_id 映射中移除（如果存在）
+            if game_state.room_id in self.room_id_to_GuobiaoGameState:
+                del self.room_id_to_GuobiaoGameState[game_state.room_id]
+            del self.gamestate_id_to_game_state[gamestate_id]
+            logger.info(f"已移除 gamestate_id {gamestate_id} 的游戏状态映射")
+    
     def get_game_state_by_room_id(self, room_id: str) -> Optional[GuobiaoGameState]:
         """
-        根据房间ID获取游戏状态
+        根据房间ID获取游戏状态（仅用于开始游戏时检查，之后不再使用）
         
         Args:
             room_id: 房间ID
@@ -161,6 +201,18 @@ class GameStateManager:
             游戏状态对象，如果不存在返回None
         """
         return self.room_id_to_GuobiaoGameState.get(room_id)
+    
+    def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[GuobiaoGameState]:
+        """
+        根据 gamestate_id 获取游戏状态
+        
+        Args:
+            gamestate_id: 游戏状态ID
+            
+        Returns:
+            游戏状态对象，如果不存在返回None
+        """
+        return self.gamestate_id_to_game_state.get(gamestate_id)
     
     def get_game_state_by_user_id(self, user_id: int) -> Optional[Any]:
         """
@@ -181,7 +233,7 @@ class GameStateManager:
         Returns:
             正在进行的游戏房间数量
         """
-        return len(self.room_id_to_GuobiaoGameState)
+        return len(self.gamestate_id_to_game_state)
     
     async def cleanup_game_state_by_room_id(self, room_id: str):
         """
@@ -195,4 +247,17 @@ class GameStateManager:
             # 调用游戏状态的清理方法
             await game_state.cleanup_game_state()
             logger.info(f"已清理房间 {room_id} 的游戏状态")
+    
+    async def cleanup_game_state_by_gamestate_id(self, gamestate_id: str):
+        """
+        根据 gamestate_id 清理游戏状态
+        
+        Args:
+            gamestate_id: 游戏状态ID
+        """
+        game_state = self.get_game_state_by_gamestate_id(gamestate_id)
+        if game_state:
+            # 调用游戏状态的清理方法
+            await game_state.cleanup_game_state()
+            logger.info(f"已清理 gamestate_id {gamestate_id} 的游戏状态")
 

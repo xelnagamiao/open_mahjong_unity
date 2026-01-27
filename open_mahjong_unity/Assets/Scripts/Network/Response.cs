@@ -91,6 +91,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
 
 public class GameInfo { // 游戏开始时传递房间信息
     public int room_id;                 // 房间ID
+    public string gamestate_id;         // 游戏状态ID（用于发送游戏操作请求）
     public bool tips;                   // 是否提示
     public int current_player_index;    // 当前玩家索引
     public int action_tick;             // 操作帧
