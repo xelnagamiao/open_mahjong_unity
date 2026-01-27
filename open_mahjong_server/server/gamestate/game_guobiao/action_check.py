@@ -215,7 +215,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         now_combinations.extend(i.combination_tiles)
     for i in now_combinations:
         if f"k{hepai_tile}" in i:
-            show_tiles_count += 2
+            show_tiles_count += 3
         if f"s{hepai_tile-1}" in i:
             show_tiles_count += 1
         if f"s{hepai_tile}" in i:

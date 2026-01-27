@@ -1012,7 +1012,7 @@ class Chinese_Hepai_Check:
                     else:
                         player_tiles.fan_list.append("zimo") # 自摸
 
-    def fan_count_output(self,player_tiles:PlayerTiles,combination_str,zimo_or_not):
+    def fan_count_output(self, player_tiles:PlayerTiles, combination_str, zimo_or_not, way_to_hepai):
         if not player_tiles.fan_list:
             player_tiles.fan_list.append("wufanhe") # 无番和
 
@@ -1058,9 +1058,8 @@ class Chinese_Hepai_Check:
             if "quanfengke" in player_tiles.fan_list:
                 need_to_remove.append("yaojiuke")
             if "menfengke" in player_tiles.fan_list:
-                if "门风圈风相同" in way_to_hepai:
-                    pass
-                else:
+                # 当门风刻存在时，仅在“门风圈风相同”不成立的情况下，保留一次幺九刻
+                if "门风圈风相同" not in way_to_hepai:
                     need_to_remove.append("yaojiuke")
 
         self.debug_print("全部被添加的番种",player_tiles.fan_list)
@@ -1235,7 +1234,7 @@ class Chinese_Hepai_Check:
             
         self.debug_print("现在存在的组合",player_tiles.combination_list)
         # 通过番种列表清理阻挡番种 输出文本和得分
-        result = self.fan_count_output(player_tiles,combination_str,zimo_or_not)
+        result = self.fan_count_output(player_tiles, combination_str, zimo_or_not, way_to_hepai)
         return result # 元组(int,list[str])
 
 # 测试
@@ -1441,9 +1440,9 @@ if __name__ == "__main__":
     # 1 test_save = [["s12","s12"],[11,12,13,17,18,19,42,42],11,["点和"]] 35
     # 2 test_save = [[],[15,15,15,16,17,25,25,25,26,26,26,27,27,27],17,["自摸"]] 48
     # 一色三节高
-    # 1 test_save = [["k39"],[32,32,32,33,33,33,34,34,34,41,41],33,["点和"]] 39
-    # 2 test_save = [["k14","k13"],[15,15,15,31,31,22,23,24],24,["点和"]] 25
-    # 3 test_save = [["k29","g27","k28"],[17,18,19,19,19],19,["自摸"]] 52
+    # test_save = [["k39"],[32,32,32,33,33,33,34,34,34,41,41],33,["点和"]] #39
+    # test_save = [["k14","k13"],[15,15,15,31,31,22,23,24],24,["点和"]] #25
+    # 3 test_save = [["k29","g27","k28"],[17,18,19,19,19],19,["自摸"]] #52
     # 全大
     # 1 test_save = [["k19","g27"],[18,18,37,37,38,38,39,39],18,["点和","和单张"]] 28
     # 2 test_save = [[],[17,17,18,18,19,19,38,38,39,39,28,28,29,29],39,["自摸","和单张"]] 49
@@ -1528,9 +1527,9 @@ if __name__ == "__main__":
     # 2 test_save = [[],[12,13,14,15,16,17,18,18,35,36,37,25,26,27],27,["点和"]] 15
     # 3 test_save = [["s34"],[12,13,13,14,14,15,23,24,25,47,47],27,["点和"]] 8
     # 三色三节高
-    # 1 test_save = [["k47","g39","k27"],[18,18,18,43,43],18,["自摸"]] 25
-    # 2 test_save = [["k26","k17","k38"],[21,21,27,28,29],21,["点和","和单张"]] 10
-    # 3 test_save = [["k24","k16"],[31,32,33,35,35,35,41,41],41,["点和"]] 8
+    # test_save = [["k47","g39","k27"],[18,18,18,43,43],18,["自摸"]] # 25
+    # test_save = [["k26","k17","k38"],[21,21,27,28,29],21,["点和","和单张"]] #10
+    # 3 test_save = [["k24","k16"],[31,32,33,35,35,35,41,41],41,["点和"]] #8
     # 无番和
     # 1 test_save = [["k28","s13"],[13,14,15,35,36,37,42,42],15,["点和"]] 8
     # 2 test_save = [["s22","s16","s27"],[32,33,34,44,44],32,["点和"]] 8

@@ -17,6 +17,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
 
     public void ShowTipsBlock(){
         gameObject.SetActive(true);
+        
     }
 
     public void HideTipsBlock(){

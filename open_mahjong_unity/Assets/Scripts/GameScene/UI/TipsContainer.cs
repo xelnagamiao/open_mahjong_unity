@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class TipsContainer : MonoBehaviour
 {
@@ -89,14 +90,14 @@ public class TipsContainer : MonoBehaviour
 
         // 遍历每一张和牌张
         foreach (int hepaiTile in waitingTiles) {
-        // 和绝张检查 弃牌+1 有顺子+1 有刻+2
+            // 和绝张检查 弃牌+1 有顺子+1 有刻+2
             int showTilesCount = 0;
             List<string> singleTilewayToHepai = new List<string>();
             List<string> nowCombinations = new List<string>();
             
             // 统计所有玩家的弃牌和组合牌
             foreach (var playerInfo in gameManager.player_to_info.Values) {
-                // 统计弃牌中的该牌数量（包括理论弃牌）
+                // 统计弃牌中的该牌数量
                 if (playerInfo.discard_tiles != null) {
                     showTilesCount += playerInfo.discard_tiles.Count(t => t == hepaiTile);
                 }
@@ -110,7 +111,7 @@ public class TipsContainer : MonoBehaviour
             foreach (string combination in nowCombinations) {
                 // 检查刻子 k{牌号}
                 if (combination.Contains($"k{hepaiTile}")) {
-                    showTilesCount += 2;
+                    showTilesCount += 3;
                 }
                 // 检查顺子 s{牌号-1}, s{牌号}, s{牌号+1}
                 if (combination.Contains($"s{hepaiTile - 1}")) {
@@ -183,6 +184,21 @@ public class TipsContainer : MonoBehaviour
                 }
             }
             Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
+            ForceRefreshLayout();
+        }
+    }
+
+    // 强制刷新提示容器的布局（适配 WebGL 等平台的动态内容）
+    private void ForceRefreshLayout()
+    {
+        Canvas.ForceUpdateCanvases();
+        if (TileContainer != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(TileContainer.transform as RectTransform);
+        }
+        if (FanContainer != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(FanContainer.transform as RectTransform);
         }
     }
 }

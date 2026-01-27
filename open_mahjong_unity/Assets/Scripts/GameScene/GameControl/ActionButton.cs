@@ -165,6 +165,10 @@ public class ActionButton : MonoBehaviour {
             GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
             cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
         }
+
+        // 强制刷新布局，使 ActionBlockContenter 根据子块重新计算大小
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(ActionBlockContenter as RectTransform);
     }
 
 }

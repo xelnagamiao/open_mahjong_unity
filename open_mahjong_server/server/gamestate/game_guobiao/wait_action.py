@@ -35,7 +35,7 @@ async def wait_action(self):
     action_type = None # 保存操作类型
 
     while self.waiting_players_list and any(self.player_list[i].remaining_time + self.step_time > used_time for i in self.waiting_players_list):
-         
+
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
         task_to_player = {}  # 任务与玩家的映射
@@ -184,6 +184,9 @@ async def wait_action(self):
                     # 暗杠
                     angang_tile = action_data.get("target_tile") # 获取暗杠牌
                     self.player_list[self.current_player_index].hand_tiles.remove(angang_tile) # 从手牌中移除暗杠牌
+                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile)
+                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile)
+                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile)
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{angang_tile}") # 将暗杠牌加入组合牌
                     add_combination_mask = [2,angang_tile,2,angang_tile,2,angang_tile,2,angang_tile] # 组合掩码
                     self.player_list[self.current_player_index].combination_mask.append(add_combination_mask) # 添加组合掩码
