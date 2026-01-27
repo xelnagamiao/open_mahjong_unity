@@ -260,6 +260,33 @@ class GuobiaoGameState:
         # 清理房间到游戏状态的映射
         self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
 
+    async def run_game_loop(self):
+        """
+        顶层游戏循环包装：
+        - 负责运行实际的 game_loop_chinese
+        - 捕获未处理异常并进行统一日志和清理
+        """
+        try:
+            await self.game_loop_chinese()
+        except asyncio.CancelledError:
+            # 任务被外部正常取消（例如房间销毁），不视为错误
+            logger.info(f"游戏循环被取消，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
+            raise
+        except Exception as e:
+            # 捕获所有未处理异常，避免任务静默失败
+            logger.error(
+                f"游戏循环发生未捕获异常，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}, 错误: {e}",
+                exc_info=True
+            )
+            try:
+                # 出错时尝试执行清理逻辑
+                await self.cleanup_game_state()
+            except Exception as cleanup_err:
+                logger.error(
+                    f"清理游戏状态时出错，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}, 错误: {cleanup_err}",
+                    exc_info=True
+                )
+
     async def game_loop_chinese(self):
 
         if not self.Debug:
@@ -643,7 +670,7 @@ class GuobiaoGameState:
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
             
             if self.hu_class == "liuju":
-                await asyncio.sleep(3) # 等待3秒后重新开始下一局
+                await asyncio.sleep(2) # 等待2秒后重新开始下一局
             else:
                 await asyncio.sleep(len(hu_fan)*0.5 + 6) # 等待和牌番种时间与10秒后重新开始下一局
 

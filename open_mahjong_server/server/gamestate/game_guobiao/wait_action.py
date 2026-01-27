@@ -35,11 +35,7 @@ async def wait_action(self):
     action_type = None # 保存操作类型
 
     while self.waiting_players_list and any(self.player_list[i].remaining_time + self.step_time > used_time for i in self.waiting_players_list):
-
-        for i in self.player_list:
-            print(f"玩家{i.user_id}剩余时间: {i.remaining_time}")
-            print(used_time)
-        
+         
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
         task_to_player = {}  # 任务与玩家的映射

@@ -30,9 +30,9 @@ public class GB_RoomConfig : MonoBehaviour {
         round.text = GetMaxRoundText(roomInfo.game_round); // 圈数
         roundTime.text = roomInfo.round_timer.ToString(); // 局时
         stepTime.text = roomInfo.step_timer.ToString(); // 步时
-        fushiText.text = roomInfo.random_seed == 0 ? "复式:关" : "复式:开"; // 复式
-        tipsText.text = roomInfo.tips ? "提示:开" : "提示:关"; // 提示
-        cuoheText.text = roomInfo.open_cuohe ? "错和:开" : "错和:关"; // 错和
+        fushiText.text = roomInfo.random_seed == 0 ? "关" : "开"; // 复式
+        tipsText.text = roomInfo.tips ? "开" : "关"; // 提示
+        cuoheText.text = roomInfo.open_cuohe ? "开" : "关"; // 错和
         password.text = roomInfo.has_password ? "有" : "无"; // 密码
     }
 

@@ -326,6 +326,8 @@ public class GameSceneManager : MonoBehaviour{
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
+        // 隐藏提示按钮
+        TipsBlock.Instance.HideTipsBlock();
     }
 
     // 执行换位
@@ -449,14 +451,14 @@ public class GameSceneManager : MonoBehaviour{
             if (isAutoHepai){
                 // 如果允许操作列表中有和牌，则执行自动胡牌
                 if (!string.IsNullOrEmpty(actualHupaiAction)){
-                    yield return new WaitForSeconds(0.3f);
+                    yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction(actualHupaiAction, 0);
                     yield return null;
                 }
             }
             // 如果开启自动过牌，则执行自动过牌
             if (isAutoPass){
-                yield return new WaitForSeconds(0.3f); // (如果玩家后悔了，希望玩家手速够快)
+                yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)
                 GameCanvas.Instance.ChooseAction("pass", 0);
             }
             yield return null;
@@ -469,7 +471,7 @@ public class GameSceneManager : MonoBehaviour{
             if (allowActionList.Contains("hu_self")){
                 // 如果开启自动胡牌，则执行自动胡牌
                 if (isAutoHepai){
-                    yield return new WaitForSeconds(0.3f);
+                    yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction("hu_self", 0);
                     yield return null;
                 }
@@ -483,7 +485,7 @@ public class GameSceneManager : MonoBehaviour{
             if (allowActionList.Contains("buhua")){
                 // 如果开启自动补花，则执行自动补花
                 if (isAutoBuhua){
-                    yield return new WaitForSeconds(0.3f);
+                    yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction("buhua", 0);
                     yield return null;
                 }
@@ -501,7 +503,7 @@ public class GameSceneManager : MonoBehaviour{
             // 如果没有，则执行自动出牌
             else{
                 if (isAutoCut){
-                    yield return new WaitForSeconds(0.3f);
+                    yield return new WaitForSeconds(0.2f);
                     // 自动出牌 选择手牌中最近摸到的牌（列表的最后一张）
                     if (selfHandTiles != null && selfHandTiles.Count > 0) {
                         int lastTileId = selfHandTiles[selfHandTiles.Count - 1];
@@ -700,7 +702,6 @@ public class GameSceneManager : MonoBehaviour{
             indexToPosition[3] = "right";
             indexToPosition[0] = "top";
             indexToPosition[1] = "left";
-            
         } else if (selfIndex == 3) {
             indexToPosition[3] = "self";
             indexToPosition[0] = "right";

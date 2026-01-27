@@ -76,6 +76,10 @@ public class EndResultPanel : MonoBehaviour {
         Array.Resize(ref hepai_player_hand, hepai_player_hand.Length - 1);
 
         // 显示手牌
+
+        // 对剩余手牌排序
+        Array.Sort(hepai_player_hand);
+        
         Debug.Log("hepai_player_hand: " + hepai_player_hand.Length);
         for (int i = 0; i < hepai_player_hand.Length; i++){
             GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
@@ -99,7 +103,8 @@ public class EndResultPanel : MonoBehaviour {
         GameObject hideSplitInstance2 = Instantiate(HideSplit, EndTilescontainer.transform); // 分割
         hideSplitInstance2.transform.SetParent(EndTilescontainer.transform);
 
-        // 显示花牌
+        // 显示花牌 未来将花牌单独放在一个容器显示，目前先注释。
+        /*
         Debug.Log("hepai_player_huapai: " + hepai_player_huapai.Length);
         for (int i = 0; i < hepai_player_huapai.Length; i++){
             GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
@@ -109,6 +114,7 @@ public class EndResultPanel : MonoBehaviour {
 
         GameObject hideSplitInstance3 = Instantiate(HideSplit, EndTilescontainer.transform); // 分割
         hideSplitInstance3.transform.SetParent(EndTilescontainer.transform);
+        */
 
         // 显示和牌张
         Debug.Log("lastCard: " + lastCard);

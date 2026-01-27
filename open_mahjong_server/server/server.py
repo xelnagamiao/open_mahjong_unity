@@ -177,6 +177,11 @@ class GameServer:
         response = await self.room_manager.add_bot_to_room(Connect_id, room_id)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
+    # 房主移除玩家
+    async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int):
+        response = await self.room_manager.kick_player_from_room(Connect_id, room_id, target_user_id)
+        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+
     # 开始游戏
     async def start_game(self, Connect_id: str, room_id: str):
         """开始游戏（委托给游戏状态管理器）"""

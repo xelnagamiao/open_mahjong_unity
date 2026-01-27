@@ -198,5 +198,23 @@ public class RoomNetworkManager : MonoBehaviour {
         };
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
+
+    /// <summary>
+    /// 从房间移除玩家（仅房主可用）
+    /// </summary>
+    public async void KickPlayerFromRoom(string roomId, int targetUserId) {
+        try {
+            var request = new KickPlayerFromRoomRequest {
+                type = "room/kick_player",
+                room_id = roomId,
+                target_user_id = targetUserId
+            };
+            Debug.Log($"发送移除玩家消息: roomId={roomId}, targetUserId={targetUserId}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送移除玩家请求失败: {e.Message}");
+            NotificationManager.Instance.ShowTip("kick_player", false, "移除玩家失败");
+        }
+    }
 }
 

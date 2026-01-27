@@ -405,6 +405,101 @@ class RoomManager:
                 message=f"添加机器人失败: {str(e)}"
             )
 
+    async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int) -> Response:
+        """
+        房主移除房间中的指定玩家
+        """
+        try:
+            # 检查房间是否存在
+            if room_id not in self.rooms:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="房间不存在"
+                )
+
+            room_data = self.rooms[room_id]
+
+            # 检查请求者是否为房主
+            host_user_id = room_data.get("host_user_id")
+            requester = self.game_server.players.get(Connect_id)
+            if not requester or requester.user_id != host_user_id:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="只有房主可以移除玩家"
+                )
+
+            # 不能移除房主自己
+            if target_user_id == host_user_id:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="不能移除房主自己"
+                )
+
+            # 检查目标玩家是否在房间中
+            if target_user_id not in room_data["player_list"]:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="目标玩家不在房间中"
+                )
+
+            # 从房间玩家列表中移除
+            room_data["player_list"].remove(target_user_id)
+
+            # 更新房间中的玩家设置信息
+            # 普通玩家：直接删除其设置信息
+            # 机器人（user_id == 0）：只有当房间中已经没有任何 0 时才删除设置，避免多机器人共享同一配置被提前删掉
+            if "player_settings" in room_data and target_user_id in room_data["player_settings"]:
+                if target_user_id == 0:
+                    # 如果 player_list 中已经没有机器人了，再删设置
+                    if 0 not in room_data["player_list"]:
+                        del room_data["player_settings"][target_user_id]
+                else:
+                    del room_data["player_settings"][target_user_id]
+
+            # 更新目标玩家的房间信息并通知其被移除
+            target_conn = self.game_server.user_id_to_connection.get(target_user_id)
+            if target_conn:
+                target_conn.current_room_id = None
+                kick_response = Response(
+                    type="room/leave_room_done",
+                    success=True,
+                    message="您已被房主移出房间"
+                )
+                try:
+                    await target_conn.websocket.send_json(kick_response.dict(exclude_none=True))
+                except Exception as e:
+                    logger.error(f"向被移除玩家 user_id={target_user_id} 发送消息失败: {e}")
+
+            # 如果房间空了就销毁
+            if len(room_data["player_list"]) == 0:
+                await self.destroy_room(room_id)
+                return Response(
+                    type="tips",
+                    success=True,
+                    message="玩家已移除，房间已解散"
+                )
+
+            # 广播房间信息更新
+            await self._broadcast_room_info(room_id)
+
+            return Response(
+                type="tips",
+                success=True,
+                message="玩家已被移出房间"
+            )
+
+        except Exception as e:
+            logger.error(f"移除玩家失败: {e}", exc_info=True)
+            return Response(
+                type="tips",
+                success=False,
+                message=f"移除玩家失败: {str(e)}"
+            )
+
     def _generate_room_id(self) -> str:
         """生成房间ID"""
         for i in range(1, 9999):

@@ -79,8 +79,8 @@ class GameStateManager:
                 for player_id in room_data["player_list"]:
                     self.user_id_to_game_state[player_id] = game_state
                 
-                # 创建并保存游戏循环任务引用
-                game_state.game_task = asyncio.create_task(game_state.game_loop_chinese())
+                # 创建并保存游戏循环任务引用（使用带顶层异常捕获的包装方法）
+                game_state.game_task = asyncio.create_task(game_state.run_game_loop())
                 logger.info(f"房间 {room_id} 的游戏已启动，gamestate_id: {gamestate_id}")
             except Exception as e:
                 logger.error(f"创建游戏任务时发生异常，room_id: {room_id}, 错误: {e}", exc_info=True)

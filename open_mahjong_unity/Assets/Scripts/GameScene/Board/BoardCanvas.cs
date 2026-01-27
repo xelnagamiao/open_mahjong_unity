@@ -94,7 +94,7 @@ public partial class BoardCanvas : MonoBehaviour {
         remiansTilesText.text = $"余:{gameInfo.tile_count}"; 
 
         // 设置当前回合
-        string roomType = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : gameInfo.room_type;
+        string roomType = gameInfo.room_type;
         Dictionary<int, string> roundMap = null;
         if (roomType == "guobiao") {
             roundMap = CurrentRoundTextGB;
@@ -105,7 +105,6 @@ public partial class BoardCanvas : MonoBehaviour {
         } else {
             CurrentRoundText.text = "";
         }
-
     }
 
     // 显示玩家分数分差
