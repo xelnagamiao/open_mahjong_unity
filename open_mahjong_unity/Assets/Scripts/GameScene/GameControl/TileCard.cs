@@ -89,7 +89,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     /// <summary>
     /// 检测切牌后的听牌提示
     /// </summary>
-    private async void CheckCutTileTips()
+    private void CheckCutTileTips()
     {
         // 检查是否开启了提示功能
         if (!GameSceneManager.Instance.tips){
@@ -105,23 +105,21 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         List<int> tempHandTiles = new List<int>(GameSceneManager.Instance.selfHandTiles);
         tempHandTiles.Remove(tileId);
         
-        // 在后台线程执行听牌检测
-        HashSet<int> waitingTiles = await Task.Run(() =>
+        // 直接在主线程执行听牌检测（避免 WebGL 平台 Task.Run 线程问题）
+        HashSet<int> waitingTiles;
+        try
         {
-            try
-            {
-                return GBtingpai.TingpaiCheck(
-                    tempHandTiles,
-                    GameSceneManager.Instance.player_to_info["self"].combination_tiles,
-                    false
-                );
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"检测切牌提示时出错: {e.Message}");
-                return new HashSet<int>();
-            }
-        });
+            waitingTiles = GBtingpai.TingpaiCheck(
+                tempHandTiles,
+                GameSceneManager.Instance.player_to_info["self"].combination_tiles,
+                false
+            );
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"检测切牌提示时出错: {e.Message}");
+            waitingTiles = new HashSet<int>();
+        }
         
         // 检查是否还在悬停状态（避免异步返回时已经离开）
         if (!isHovering)

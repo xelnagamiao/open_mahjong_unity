@@ -26,8 +26,8 @@ public class PlayerRoomPanel : MonoBehaviour {
     public void SetPlayer(string username, int userId, bool canRemove) {
         UserId = userId;
         playerName.text = username ?? string.Empty;
-        // 机器人(userId <= 10)没有详细数据
-        playerinfoButton.interactable = userId > 10;
+        // 玩家信息按钮始终可点击（是否有数据由点击回调内部判断）
+        playerinfoButton.interactable = true;
         removePlayerButton.gameObject.SetActive(canRemove);
         removePlayerButton.interactable = canRemove;
     }

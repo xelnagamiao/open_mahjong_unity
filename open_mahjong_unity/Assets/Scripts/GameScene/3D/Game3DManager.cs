@@ -152,9 +152,18 @@ public class Game3DManager : MonoBehaviour {
 
         // 吃碰杠
         else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right" ||
-                 actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){    
+                 actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){   
+            // 删除上一张3D卡牌
+            if (lastCut3DObject != null){
+                Destroy(lastCut3DObject);
+            }
+            else{
+                Debug.LogWarning("上一张3D卡牌为空");
+            }
+
             PosPanel3D panel = GetPosPanel(PlayerPosition);
-            ActionAnimation(PlayerPosition, actionType, combination_mask,true); // 放置组合牌
+            // 放置组合牌
+            ActionAnimation(PlayerPosition, actionType, combination_mask,true);
             if (PlayerPosition != "self"){
                 StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, removeCount, false)); // 手牌区删除手牌
             }
@@ -202,9 +211,9 @@ public class Game3DManager : MonoBehaviour {
         if (SetType == "Discard"){
             cardsPerRow = 6;
         }
-        // 补花每行最多放 8 张牌
+        // 补花每行最多放 4 张牌
         else if (SetType == "Buhua"){
-            cardsPerRow = 8;
+            cardsPerRow = 4;
         }
         else{
             Debug.LogError($"SetType {SetType} 错误");
@@ -430,7 +439,6 @@ public class Game3DManager : MonoBehaviour {
                 StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth));
             }
         }
-
     }
 
     // 卡牌移动动画：将物体移动鸣牌预备位左侧，然后线性移回原位

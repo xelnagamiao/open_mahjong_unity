@@ -592,41 +592,42 @@ public class GameSceneManager : MonoBehaviour{
     }
 
     // 提示计算
-    private async void WaitShowTips(string ShowState){
-        if (tips == true){
-            HashSet<int> waitingTiles = new HashSet<int>();
-            
-            if (ShowState == "CountTips"){
-                // 在后台线程执行计算
-                waitingTiles = await Task.Run(() => {
-                    try {
-                        return GBtingpai.TingpaiCheck(selfHandTiles, player_to_info["self"].combination_tiles, false);
-                    } catch (System.Exception e) {
-                        Debug.LogError($"计算听牌时出错: {e.Message}");
-                        return new HashSet<int>();
-                    }
-                });
-            }
-            else if (ShowState == "CountCutTips"){
-                // 暂时不提供切牌提示
-                return;
-            }
+    private void WaitShowTips(string ShowState){
+        if (!tips){
+            return;
+        }
 
-            // 如果听牌列表不为空，则显示提示
-            if (waitingTiles.Count > 0) {
-                Debug.Log($"显示提示，听牌列表数量：{waitingTiles.Count}");
-                TipsContainer.Instance.SetTips(waitingTiles.ToList());
-                TipsContainer.Instance.hasTips = true;
-                TipsBlock.Instance.ShowTipsBlock();
-            }
-            else{
-                Debug.Log($"隐藏提示，听牌列表数量：{waitingTiles.Count}");
-                TipsContainer.Instance.hasTips = false;
-                TipsBlock.Instance.HideTipsBlock();
+        HashSet<int> waitingTiles = new HashSet<int>();
+
+        if (ShowState == "CountTips"){
+            try {
+                // 直接在主线程同步计算听牌
+                waitingTiles = GBtingpai.TingpaiCheck(
+                    selfHandTiles,
+                    player_to_info["self"].combination_tiles,
+                    false
+                );
+            } catch (System.Exception e) {
+                Debug.LogError($"计算听牌时出错: {e.Message}");
+                waitingTiles = new HashSet<int>();
             }
         }
-        else{
+        else if (ShowState == "CountCutTips"){
+            // 暂时不提供切牌提示
             return;
+        }
+
+        // 如果听牌列表不为空，则显示提示
+        if (waitingTiles.Count > 0) {
+            Debug.Log($"显示提示，听牌列表数量：{waitingTiles.Count}");
+            TipsContainer.Instance.SetTips(waitingTiles.ToList());
+            TipsContainer.Instance.hasTips = true;
+            TipsBlock.Instance.ShowTipsBlock();
+        }
+        else{
+            Debug.Log($"隐藏提示，听牌列表数量：{waitingTiles.Count}");
+            TipsContainer.Instance.hasTips = false;
+            TipsBlock.Instance.HideTipsBlock();
         }
     }
 
