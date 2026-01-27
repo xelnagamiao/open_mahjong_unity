@@ -53,7 +53,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         // 如果切牌在允许操作列表中
         if (GameSceneManager.Instance.allowActionList.Contains("cut")){
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
-            NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex,UserDataManager.Instance.RoomId); // 发送切牌请求
+            NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {
             Debug.Log("没有权限出牌");
         }

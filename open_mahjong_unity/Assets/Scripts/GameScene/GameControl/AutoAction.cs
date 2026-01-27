@@ -19,6 +19,7 @@ public class AutoAction : MonoBehaviour{
 
     // 默认值定义（与GameSceneManager保持一致，用于确保初始化正确）
     private const bool DEFAULT_AUTO_ARRANGE_HAND_CARDS = true; // 默认自动排列手牌开启
+    private const bool DEFAULT_AUTO_BUHUA = true; // 默认自动补花开启
 
     private void Awake(){
         if (Instance == null){
@@ -60,10 +61,10 @@ public class AutoAction : MonoBehaviour{
     // 使用默认值更新所有文本颜色（当 GameSceneManager 不可用时）
     private void UpdateAllTextColorsWithDefaults(){
         UpdateTextColor(arrangeHandCardsText, DEFAULT_AUTO_ARRANGE_HAND_CARDS);
+        UpdateTextColor(autoBuhuaText, DEFAULT_AUTO_BUHUA);
         UpdateTextColor(autoHepaiText, false);
         UpdateTextColor(autoCutCardText, false);
         UpdateTextColor(autoPassText, false);
-        UpdateTextColor(autoBuhuaText, false);
     }
 
     // 为每个文本添加点击监听器

@@ -74,7 +74,8 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int[] discard_tiles;         // 弃牌 (改为int数组)
     public int[] discard_origin_tiles;        // 理论弃牌
     public string[] combination_tiles;  // 组合牌
-    public int[] conbination_mask;      // 组合牌掩码
+    public int[][] combination_mask;   // 组合牌掩码（二维数组，每个副露的掩码是一个子数组）
+    
     public int remaining_time;          // 剩余时间
     public int player_index;            // 东南西北位置 (改为player_index)
     public int original_player_index;   // 原始玩家索引 东南西北 0 1 2 3
@@ -90,6 +91,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
 
 public class GameInfo { // 游戏开始时传递房间信息
     public int room_id;                 // 房间ID
+    public string gamestate_id;         // 游戏状态ID（用于发送游戏操作请求）
     public bool tips;                   // 是否提示
     public int current_player_index;    // 当前玩家索引
     public int action_tick;             // 操作帧
@@ -159,6 +161,12 @@ public class UserSettings { // 用户设置信息（称号、头像、角色、�
     public int voice_id;              // 选择的音色ID
 }
 
+public class RuleStatsResponse { // 单个规则的统计数据响应
+    public string rule;                    // 规则标识（guobiao/riichi）
+    public PlayerStatsInfo[] history_stats; // 历史统计数据列表（按模式分组）
+    public Dictionary<string, int> total_fan_stats; // 汇总番种统计数据（所有模式的总和）
+}
+
 public class PlayerInfoResponse { // 玩家信息响应（包含所有统计数据）
     public int user_id;                // 用户ID
     public UserSettings user_settings; // 用户设置信息
@@ -207,6 +215,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public RefreshPlayerTagListInfo refresh_player_tag_list_info; // 刷新玩家标签列表信息
     public RecordInfo[] record_list; // 返回游戏记录列表
     public PlayerInfoResponse player_info; // 返回玩家信息
+    public RuleStatsResponse rule_stats; // 返回单个规则的统计数据
     public LoginInfo login_info; // 返回登录信息
     public UserSettings user_settings; // 返回用户设置信息
     public UserConfig user_config; // 返回用户游戏配置信息

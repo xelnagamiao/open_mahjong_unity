@@ -62,7 +62,7 @@ public class HeaderPanel : MonoBehaviour {
 
     private void Record(){
         WindowsManager.Instance.SwitchWindow("record");
-        NetworkManager.Instance.GetRecordList(); // 获取游戏记录
+        DataNetworkManager.Instance?.GetRecordList(); // 获取游戏记录
     }
 
     private void PlayerInfo(){

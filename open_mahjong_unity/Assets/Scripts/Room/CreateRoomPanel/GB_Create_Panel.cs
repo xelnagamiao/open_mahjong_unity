@@ -75,7 +75,9 @@ public class GB_Create_Panel : MonoBehaviour {
         }
 
         // 发送创建房间请求
-        NetworkManager.Instance.Create_GB_Room(config);
+        if (RoomNetworkManager.Instance != null) {
+            RoomNetworkManager.Instance.Create_GB_Room(config);
+        }
     }
 
     private int GetSelectedGameTime() {

@@ -72,7 +72,8 @@ public class Game3DManager : MonoBehaviour {
 
 
 
-    // 3D手牌处理入口 为了保证摸牌和打牌在未来添加动画以后不同时处理 所以使用队列管理
+    // 3D手牌处理入口 为了保证摸牌和打牌在未来添加动画以后不同时处理 所以使用队列管理 
+    // 本方法管理所有来自GameSceneManager的3D手牌处理请求 除了Clear3DTile清空面板 ActionAnimation和牌谱直接调用子方法
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask){
         // 将3D手牌处理任务加入队列
         change3DTileQueue.Enqueue(() => {
@@ -153,7 +154,7 @@ public class Game3DManager : MonoBehaviour {
         else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right" ||
                  actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){    
             PosPanel3D panel = GetPosPanel(PlayerPosition);
-            ActionAnimation(PlayerPosition, actionType, combination_mask); // 放置组合牌
+            ActionAnimation(PlayerPosition, actionType, combination_mask,true); // 放置组合牌
             if (PlayerPosition != "self"){
                 StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, removeCount, false)); // 手牌区删除手牌
             }
@@ -290,7 +291,7 @@ public class Game3DManager : MonoBehaviour {
     }
 
     // 鸣牌3D显示
-    public void ActionAnimation(string playerIndex,string actionType,int[]combination_mask){
+    public void ActionAnimation(string playerIndex,string actionType,int[]combination_mask,bool doAnimation = false){
         // 根据actionType执行动画
         Quaternion rotation = Quaternion.identity; // 卡牌旋转角度
         Vector3 SetDirection = Vector3.zero; // 放置方向
@@ -345,8 +346,7 @@ public class Game3DManager : MonoBehaviour {
         // 倒转SetTileList和SignDirectionList 因为卡牌的逻辑顺序是从左到右，但我们需要从右到左放置
         SetTileList.Reverse();
         SignDirectionList.Reverse();
-        Debug.Log($"SetTileList: {SetTileList}");
-        Debug.Log($"SignDirectionList: {SignDirectionList}");
+        Debug.Log($"actionType: {actionType}, combination_mask: {combination_mask}, SetTileList: {SetTileList}, SignDirectionList: {SignDirectionList}");
 
         // 执行动画
         // 加杠
@@ -361,6 +361,10 @@ public class Game3DManager : MonoBehaviour {
                     ApplyCardTexture(cardObj, SetTileList[i]);
                     // 设置父对象
                     cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+                    // 加杠动画：将加杠牌移动到3个卡牌宽度以左，然后移回原位
+                    if (doAnimation){
+                        StartCoroutine(MoveCardAnimation(cardObj, SetDirection, cardWidth));
+                    }
                 }
             }
         }
@@ -395,9 +399,8 @@ public class Game3DManager : MonoBehaviour {
                 }
                 // 卡牌加杠
                 else if (SignDirectionList[i] == 3){
-                    TempRotation = Quaternion.Euler(0,90,0) * rotation; // 横
-                    TempPositionpoint += JiagangDirection * cardWidth * 1.4f; // 加杠向上1.4个宽度单位
-                    SetPositionpoint += SetDirection * cardWidth; // 更新指针为下一张牌的位置
+                    // 加杠牌在加杠中单独处理，如果生成加杠牌，则调用一次peng一次jiagang即可，掩码操作会自动互相屏蔽
+                    continue;
                 }
 
                 // 创建卡牌
@@ -421,7 +424,48 @@ public class Game3DManager : MonoBehaviour {
             else if (playerIndex == "right"){
                 rightSetCombinationsPoint = SetPositionpoint;
             }
+            
+            // 组合牌动画：将父物体移动到3个卡牌宽度以左，然后移回原位
+            if (doAnimation){
+                StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth));
+            }
         }
+
+    }
+
+    // 卡牌移动动画：将物体移动鸣牌预备位左侧，然后线性移回原位
+    private IEnumerator MoveCardAnimation(GameObject targetObj, Vector3 direction, float cardWidth){
+        if (targetObj == null) yield break;
+        
+        // 左方向
+        Vector3 leftDirection = direction;
+        
+        // 计算目标位置（3个卡牌宽度以左）
+        Vector3 originalPosition = targetObj.transform.position;
+        Vector3 targetPosition = originalPosition + leftDirection * (cardWidth * 3f);
+        
+        // 先移动到左侧位置
+        targetObj.transform.position = targetPosition;
+        
+        // 等待一帧，确保卡牌已创建
+        yield return null;
+        
+        // 在原地停顿0.1秒
+        yield return new WaitForSeconds(0.1f);
+        
+        // 在0.15秒内线性移回原位
+        float duration = 0.15f;
+        float elapsed = 0f;
+        
+        while (elapsed < duration){
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            targetObj.transform.position = Vector3.Lerp(targetPosition, originalPosition, t);
+            yield return null;
+        }
+        
+        // 确保最终位置准确
+        targetObj.transform.position = originalPosition;
     }
 
     // 移除3D手牌显示

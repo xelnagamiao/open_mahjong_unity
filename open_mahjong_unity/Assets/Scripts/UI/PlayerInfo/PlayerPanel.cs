@@ -26,7 +26,7 @@ public class PlayerPanel : MonoBehaviour{
         if (string.IsNullOrEmpty(userid)){
             return;
         }
-        // 发送查询id请求
-        NetworkManager.Instance.GetPlayerInfo(userid);
+        // 发送查询id请求，第一次加载需要玩家信息
+        DataNetworkManager.Instance.GetGuobiaoStats(userid, need_player_info: true);
     }
 }

@@ -45,7 +45,7 @@ public class SendChineseGameTileRequest { // 发送国标游戏牌请求
     public bool? cutClass;
     public int TileId;
     public int cutIndex;
-    public string room_id;
+    public string gamestate_id; // 游戏状态ID
 }
 
 public class SendActionRequest { // 发送国标游戏操作请求
@@ -54,7 +54,7 @@ public class SendActionRequest { // 发送国标游戏操作请求
     public int? targetTile; // 暗杠目标牌 加杠目标牌
     public bool? cutClass; // 切牌类型
     public int? TileId; // 切牌
-    public string room_id;
+    public string gamestate_id; // 游戏状态ID
 }
 
 public class GetRecordListRequest { // 获取游戏记录请求
@@ -66,6 +66,18 @@ public class GetPlayerInfoRequest { // 获取玩家信息请求
     public string userid;
 }
 
+public class GetGuobiaoStatsRequest { // 获取国标统计数据请求
+    public string type;
+    public string userid;
+    public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
+}
+
+public class GetRiichiStatsRequest { // 获取立直统计数据请求
+    public string type;
+    public string userid;
+    public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
+}
+
 public class SendReleaseVersionRequest { // 发送发布版本号请求
     public string type;
     public int release_version;
@@ -73,4 +85,14 @@ public class SendReleaseVersionRequest { // 发送发布版本号请求
 
 public class GetServerStatsRequest { // 获取服务器统计信息请求
     public string type;
+}
+
+public class ReconnectRequest { // 重连请求
+    public string type;
+    public bool reconnect;
+}
+
+public class AddBotToRoomRequest { // 添加机器人请求
+    public string type;
+    public string room_id;
 }

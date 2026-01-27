@@ -37,6 +37,7 @@ public class GameSceneManager : MonoBehaviour{
 
     // 房间信息
     public int roomId; // 房间ID
+    public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
     public string roomType; // 房间规则类型（服务器下发的 room_type，如 "guobiao"/"jp"）
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
@@ -52,10 +53,11 @@ public class GameSceneManager : MonoBehaviour{
     [Header("自动操作配置")]
 
     public bool isAutoArrangeHandCards = true; // 是否自动排列手牌
+    public bool isAutoBuhua = true; // 是否自动补花
     public bool isAutoHepai = false; // 是否自动胡牌
     public bool isAutoCut = false; // 是否自动出牌
     public bool isAutoPass = false; // 是否自动过牌
-    public bool isAutoBuhua = false; // 是否自动补花
+
 
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
@@ -89,6 +91,12 @@ public class GameSceneManager : MonoBehaviour{
 
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
+        // 保存room_id（用于房间相关操作）
+        UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
+        // 保存gamestate_id
+        UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
+
+        gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
         
@@ -107,7 +115,7 @@ public class GameSceneManager : MonoBehaviour{
         if (gameInfo.self_hand_tiles.Length == 14){
             GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null,null);
             // 在这里可以添加向服务器传递加载完成方法
-            // 亲家与闲家完成配牌以后等待服务器传递补花行为
+            // 
         }
 
         // 初始化他人手牌区域
@@ -115,6 +123,10 @@ public class GameSceneManager : MonoBehaviour{
 
         // 重置自动操作选项（保留自动切牌和自动理牌）
         ResetAutoActionOptions();
+
+        // 根据对局信息生成他家已有的3D卡牌（弃牌、副露、花牌）
+        GenerateOtherPlayers3DTiles(gameInfo);
+
     }
 
     // 重置自动操作选项（保留自动切牌和自动理牌）
@@ -242,7 +254,7 @@ public class GameSceneManager : MonoBehaviour{
                         int tile_id = int.Parse(combination_target_str);
                         if (GetCardPlayer == "self"){
                             selfHandTiles.Remove(tile_id); // 删除手牌
-                            GameCanvas.Instance.ChangeHandCards("RemoveHandCard",tile_id,null,null); // 2D手牌行为
+                            GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard",tile_id,null,null); // 2D加杠行为
                         }
                         else{
                             player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
@@ -351,6 +363,7 @@ public class GameSceneManager : MonoBehaviour{
         GameSceneUIManager.Instance.ShowEndGame(game_random_seed, player_final_data);
     }
 
+    // 切换玩家状态
     public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){
         
         // 询问手牌操作
@@ -382,8 +395,8 @@ public class GameSceneManager : MonoBehaviour{
         else if (SwitchType == "askMingPaiAction"){
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
-            // 如果开启自动过牌和自动胡牌，则启动协程
-            if (isAutoPass && isAutoHepai){
+            // 如果开启自动过牌或自动胡牌，则启动协程
+            if (isAutoPass || isAutoHepai){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
         }
@@ -509,6 +522,70 @@ public class GameSceneManager : MonoBehaviour{
 
         else{
             Debug.LogWarning($"未知操作: {action}");
+        }
+    }
+
+    // 生成其他玩家的3D卡牌（弃牌、副露、花牌）
+    private void GenerateOtherPlayers3DTiles(GameInfo gameInfo){
+        // 遍历所有玩家
+        foreach (var player in gameInfo.players_info){
+            if (!indexToPosition.ContainsKey(player.player_index)) continue;
+            string position = indexToPosition[player.player_index];
+            
+            // 1. 生成弃牌
+            if (player.discard_tiles != null && player.discard_tiles.Length > 0){
+                foreach (int tileId in player.discard_tiles){
+                    Game3DManager.Instance.Change3DTile("Discard", tileId, 0, position, false, null);
+                }
+            }
+            
+            // 2. 生成花牌
+            if (player.huapai_list != null && player.huapai_list.Length > 0){
+                foreach (int tileId in player.huapai_list){
+                    Game3DManager.Instance.Change3DTile("Buhua", tileId, 0, position, false, null);
+                }
+            }
+            
+            // 3. 生成副露（组合牌）
+            // 直接遍历副露列表和掩码，调用 ActionAnimation 显示
+            // 手牌数量已经反映了副露消耗，不需要再做移除操作
+            if (player.combination_tiles != null && player.combination_tiles.Length > 0 &&
+                player.combination_mask != null && player.combination_mask.Length > 0){
+                
+                // 遍历每个副露组合，直接使用二维数组中的每个子数组
+                for (int i = 0; i < player.combination_tiles.Length && i < player.combination_mask.Length; i++){
+                    string combinationStr = player.combination_tiles[i];
+                    if (string.IsNullOrEmpty(combinationStr) || combinationStr.Length < 2) continue;
+                    
+                    int[] combinationMask = player.combination_mask[i];
+                    if (combinationMask == null || combinationMask.Length == 0) continue;
+                    
+                    // 统计掩码中加杠牌（值为3）的数量
+                    int jiagangCount = 0;
+                    foreach (int value in combinationMask){
+                        if (value == 3){
+                            jiagangCount++;
+                        }
+                    }
+                    
+                    // 如果 combination_tiles 的字符串有 "k"（刻子/碰），传入 "peng"
+                    if (combinationStr.Contains("k")){
+                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                    }
+                    // 如果 combination_mask 中有 "3"（加杠），说明是碰后加杠的情况
+                    // 需要先调用 "peng" 再调用 "jiagang"，确保 pengToJiagangPosDict 正确缓存
+                    else if (jiagangCount > 0){
+                        // 先调用 peng，创建碰牌并缓存横置位置
+                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                        // 再调用 jiagang，在缓存的位置上添加加杠牌
+                        Game3DManager.Instance.ActionAnimation(position, "jiagang", combinationMask,false);
+                    }
+                    else{
+                        // 其他情况直接调用 ActionAnimation
+                        Game3DManager.Instance.ActionAnimation(position, "None",  combinationMask,false);
+                    }
+                }
+            }
         }
     }
 

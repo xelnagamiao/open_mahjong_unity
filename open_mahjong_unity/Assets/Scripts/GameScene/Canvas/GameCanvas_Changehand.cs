@@ -111,6 +111,16 @@ public partial class GameCanvas{
             }
         }
 
+        // 加杠 删除手牌区手牌
+        else if (ChangeType == "RemoveJiagangCard"){
+            foreach (Transform child in handCardsContainer){
+                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                if (needToRemoveTileCard.tileId == tileId){
+                    Destroyer.Instance.AddToDestroyer(child);
+                }
+            }
+        }
+
         // 删除组合牌 在手牌中删除全部组合牌
         else if (ChangeType == "RemoveCombinationCard"){
             foreach (int tileToRemove in TilesList){
@@ -143,7 +153,7 @@ public partial class GameCanvas{
         }
 
         // 初始化卡牌、摸切、手切、单次补花、吃碰杠以后 进行卡牌排序 
-        else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards"){
+        else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" || ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards"){
             isArranged = true;
             // 等待排序完成
             yield return StartCoroutine(RearrangeHandCardsWithAnimation());

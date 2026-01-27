@@ -21,7 +21,7 @@ public class TestPanel : MonoBehaviour
     public TMP_Dropdown testDropdown;
     public TMP_Text testDropdownText;
     public List<string> testDataList = new List<string>{
-        "国标和牌测试请输入[['g44','G28'],[12,12,12,13,13,35,35,35],13,['点和','场风西','自风南']] 测试集请查看server文件夹的calculaion目录",
+        "国标和牌测试请输入[['g44','G28'],[12,12,12,13,13,35,35,35],13,['点和','场风西','自风南']] 测试集请查看open_mahjong_server文件夹的calculation目录",
         "国标听牌测试请输入[['k39'],[32,32,32,33,33,33,34,34,34,41]]"
     };
 

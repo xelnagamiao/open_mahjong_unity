@@ -10,9 +10,13 @@ public class ProfileOnClick : MonoBehaviour, IPointerClickHandler
     // 当物体被点击时调用
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (NetworkManager.Instance != null && user_id > 0)
+        if (NetworkManager.Instance != null && user_id >= 10)
         {
-            NetworkManager.Instance.GetPlayerInfo(user_id.ToString());
+            // 第一次加载需要玩家信息
+            DataNetworkManager.Instance.GetGuobiaoStats(user_id.ToString(), need_player_info: true);
+        }
+        else{
+            NotificationManager.Instance.ShowTip("error",false,"麻雀罗伯特没有数据看哦");
         }
     }
 }
