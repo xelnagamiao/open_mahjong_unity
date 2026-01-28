@@ -143,6 +143,7 @@ public class TipsContainer : MonoBehaviour
                 if (wayToHepai.Contains("自摸")) {
                     singleTilewayToHepai.Add("和绝张");
                 }
+                // 如果
             }
 
             // 将singleTilewayToHepai和wayToHepai合并，加上"点和"计算每一张和牌卡牌的番数

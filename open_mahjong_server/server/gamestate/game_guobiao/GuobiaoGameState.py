@@ -151,11 +151,11 @@ class GuobiaoGameState:
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
-        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
+        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
-        self.Debug = True
+        self.Debug = False
 
 
     async def player_disconnect(self, user_id: int):
@@ -352,9 +352,9 @@ class GuobiaoGameState:
                             player_action_record_buhua(self,max_tile = max_tile)
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
-                            # 广播补花操作
+                            # 广播补花操作（使用 deal_buhua_tile 作为补花摸牌标识）
                             await self.broadcast_do_action(
-                                action_list = ["buhua","deal"],
+                                action_list = ["buhua","deal_buhua_tile"],
                                 action_player = self.current_player_index,
                                 buhua_tile = max_tile,
                                 deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
@@ -392,7 +392,7 @@ class GuobiaoGameState:
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播摸牌操作
                         await self.broadcast_do_action(
-                            action_list = ["deal"],
+                            action_list = ["deal_tile"],
                             action_player = self.current_player_index,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
                         )
@@ -407,7 +407,7 @@ class GuobiaoGameState:
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播摸牌操作
                         await self.broadcast_do_action(
-                            action_list = ["deal"],
+                            action_list = ["deal_gang_tile"],
                             action_player = self.current_player_index,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
                         )
@@ -427,7 +427,7 @@ class GuobiaoGameState:
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播补花操作
                         await self.broadcast_do_action(
-                            action_list = ["buhua","deal"],
+                            action_list = ["buhua","deal_buhua_tile"],
                             action_player = self.current_player_index,
                             buhua_tile = max_tile,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],

@@ -22,6 +22,7 @@ public class Game3DManager : MonoBehaviour {
 
     private float cardWidth; // 卡片宽度 组合牌 3D手牌使用
     private float cardHeight; // 卡片高度
+    private float cardThickness; // 卡片厚度（红色轴），用于暗杠抬高修正
     private float cardScale; // 卡片缩放
     private float widthSpacing; // 间距为卡片宽度的1.05倍 弃牌 补花 使用
     private float heightSpacing; // 间距为卡片高度的1.05倍
@@ -54,6 +55,7 @@ public class Game3DManager : MonoBehaviour {
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
         this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片宽度（绿色轴）
         this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片高度（蓝色轴）
+        this.cardThickness = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片厚度（红色轴）
         this.widthSpacing = cardWidth * 1.05f; // 间距为卡片宽度的1.05倍
         this.heightSpacing = cardHeight * 1.05f; // 间距为卡片高度的1.05倍
         // 初始化放置组合牌指针
@@ -402,7 +404,9 @@ public class Game3DManager : MonoBehaviour {
                 }
                 // 卡牌暗面 指针增加一个宽度单位
                 else if (SignDirectionList[i] == 2){
-                    TempRotation = Quaternion.Euler(0,0,-180) * rotation; // 暗面
+                    // 暗面：不要用 Z 轴翻转（会影响布局视觉对齐）
+                    // 保持和竖牌一致的朝向，后续仅在自身 Y 轴翻面显示暗面
+                    TempRotation = rotation;
                     SetPositionpoint += SetDirection * cardWidth;
                     TempPositionpoint += SetDirection * cardWidth; // 暗杠每张牌向左一个宽度单位
                 }
@@ -418,6 +422,26 @@ public class Game3DManager : MonoBehaviour {
                 ApplyCardTexture(cardObj, SetTileList[i]);
                 // 设置父对象
                 cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+
+                // 暗面翻转：仅翻面不改变位置（避免位置浮动）
+                if (SignDirectionList[i] == 2)
+                {
+                    // 仅翻转渲染子节点，不改父物体的世界位姿，避免位置偏移
+                    Transform mesh = cardObj.transform;
+                    // 如果预制有子节点，优先翻子节点
+                    if (cardObj.transform.childCount > 0)
+                    {
+                        mesh = cardObj.transform.GetChild(0);
+                    }
+                    var localEuler = mesh.localEulerAngles;
+                    localEuler.z += 180f; // 绕Z轴翻面
+                    mesh.localEulerAngles = localEuler;
+
+                    // 暗杠抬高：沿世界上方向抬高 0.8 个厚度，修正翻面造成的视觉浮动/穿插
+                    cardObj.transform.position += UpDirection * (cardThickness * 0.6f);
+                    // 暗杠向右偏移 0.1 个宽度单位
+                    cardObj.transform.position += RightDirection * (cardWidth * 0.25f);
+                }
             }
 
             // 将更新后的指针位置赋值给公共变量

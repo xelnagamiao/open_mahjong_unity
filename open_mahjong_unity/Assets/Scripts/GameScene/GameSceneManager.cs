@@ -47,7 +47,6 @@ public class GameSceneManager : MonoBehaviour{
     public int currentRound; // 当前轮数
     public bool tips; // 提示
     public bool isOpenCuoHe; // 是否开启错和
-
     public bool isSetRandomSeed; // 是否设置随机种子
 
     [Header("自动操作配置")]
@@ -58,8 +57,6 @@ public class GameSceneManager : MonoBehaviour{
     public bool isAutoCut = false; // 是否自动出牌
     public bool isAutoPass = false; // 是否自动过牌
 
-
-
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
     public string CurrentPlayer; // 当前玩家字符串
@@ -67,6 +64,9 @@ public class GameSceneManager : MonoBehaviour{
 
     // 玩家信息
     public Dictionary<string,PlayerInfoClass> player_to_info = new Dictionary<string,PlayerInfoClass>(); // 玩家信息
+
+    // 上次摸牌类型
+    public string lastDealTileType; // 上次摸牌类型
 
     // 调试用 于编辑器显示玩家信息列表
     [SerializeField]
@@ -189,16 +189,19 @@ public class GameSceneManager : MonoBehaviour{
             SoundManager.Instance.PlayPhysicsSound(action); // 播放物理音效
             switch (action) { // action_list 实际上只会包含一个操作
 
-                // 摸牌
-                case "deal": 
+                // 摸牌（普通摸牌 / 杠后摸牌 / 补花后摸牌）
+                case "deal_tile":
+                case "deal_gang_tile":
+                case "deal_buhua_tile":
+                    lastDealTileType = action;
                     remainTiles--; // 剩余牌数减少
                     if (GetCardPlayer == "self"){     // 添加手牌 显示手牌
                         selfHandTiles.Add(deal_tile.Value);
-                        GameCanvas.Instance.ChangeHandCards("GetCard",deal_tile.Value,null,null);
+                        GameCanvas.Instance.ChangeHandCards("GetCard", deal_tile.Value, null, null);
                     }
                     else{                             // 增加手牌 显示3D手牌
                         player_to_info[GetCardPlayer].hand_tiles_count++;
-                        Game3DManager.Instance.Change3DTile("GetCard",deal_tile.Value,0,GetCardPlayer,false,null);
+                        Game3DManager.Instance.Change3DTile("GetCard", deal_tile.Value, 0, GetCardPlayer, false, null);
                     }
                     break;
                 
@@ -456,17 +459,26 @@ public class GameSceneManager : MonoBehaviour{
                     yield return null;
                 }
             }
-            // 如果开启自动过牌，则执行自动过牌
-            if (isAutoPass){
-                yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)
-                GameCanvas.Instance.ChooseAction("pass", 0);
-            }
-            yield return null;
 
+            // 如果和牌列表是空
+            if (allowHupaiAction.Count == 0){
+                // 如果开启自动过牌，则执行自动过牌
+                if (isAutoPass){
+                    yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)
+                    GameCanvas.Instance.ChooseAction("pass", 0);
+                    yield return null;
+                }
+            }
+
+            yield return null;
         }
 
         // 手牌操作自动执行
         else if (action == "AutoHandAction"){
+            // 如果上次摸牌类型是杠牌，不执行任何自动操作
+            if (lastDealTileType == "deal_gang_tile"){
+                yield return null;
+            }
             // 如果允许操作列表有hu_self
             if (allowActionList.Contains("hu_self")){
                 // 如果开启自动胡牌，则执行自动胡牌

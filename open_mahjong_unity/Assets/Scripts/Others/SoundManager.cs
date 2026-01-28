@@ -44,7 +44,7 @@ public class SoundManager : MonoBehaviour {
         string audioTarget;
 
         if (actionType == "hu_self"){
-            audioTarget = $"Sound/{voicePath}/hu";
+            audioTarget = $"Sound/{voicePath}/zimo";
         } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             audioTarget = $"Sound/{voicePath}/hu";
         } else if (actionType == "buhua"){

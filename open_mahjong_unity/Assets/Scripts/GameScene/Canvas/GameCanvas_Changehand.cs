@@ -293,7 +293,7 @@ public partial class GameCanvas{
     private IEnumerator AnimateGetCard(RectTransform cardRect, Vector2 targetPosition)
     {
         // 计算初始位置（上方2个宽度）
-        Vector2 startPosition = targetPosition + new Vector2(0, 2 * tileCardWidth);
+        Vector2 startPosition = targetPosition + new Vector2(0, 1.0f * tileCardWidth);
         
         // 设置初始位置和透明度
         cardRect.anchoredPosition = startPosition;
@@ -307,7 +307,7 @@ public partial class GameCanvas{
         canvasGroup.alpha = 0.0f; // 初始透明度100%
         
         // 动画参数
-        float animationDuration = 0.1f;
+        float animationDuration = 0.2f;
         float elapsedTime = 0f;
         
         // 动画循环

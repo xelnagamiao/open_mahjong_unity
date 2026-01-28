@@ -33,8 +33,8 @@ def init_game_tiles(self):
     # 固定起始牌的测试
     if self.Debug:
         # 使用测试牌例
-        self.player_list[0].hand_tiles = [11,11,11,12,12,12,13,13,13,14,14,14,15]
-        self.player_list[1].hand_tiles = [11,12,13,14,15,21,21,21,22,22,22,23,23]
+        self.player_list[0].hand_tiles = [11,11,12,12,12,12,13,13,13,14,14,14,15]
+        self.player_list[1].hand_tiles = [11,11,13,14,15,21,21,21,22,22,22,23,23]
         self.player_list[2].hand_tiles = []
         self.player_list[3].hand_tiles = []
 

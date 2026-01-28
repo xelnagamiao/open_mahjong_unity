@@ -41,7 +41,15 @@ public partial class GameCanvas : MonoBehaviour {
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 胡牌
-            else if (action_list[i] == "hu_self" || action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
+            else if (action_list[i] == "hu_self"){
+                Debug.Log($"自摸");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                TMP_Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "自摸";
+                Debug.Log($"自摸按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
                 Debug.Log($"胡牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 TMP_Text buttonText = ActionButtonObj.TextObject;

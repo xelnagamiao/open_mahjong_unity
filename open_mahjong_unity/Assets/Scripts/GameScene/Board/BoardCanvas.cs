@@ -57,7 +57,12 @@ public partial class BoardCanvas : MonoBehaviour {
     public static BoardCanvas Instance { get; private set; }
     private Coroutine flashCoroutine; // 闪烁协程
     private Coroutine scoreDifferenceCoroutine; // 分差显示协程
-    private Dictionary<TMP_Text, string> originalScores = new Dictionary<TMP_Text, string>(); // 保存原始分数文本
+    private Dictionary<TMP_Text, string> originalScores = new Dictionary<TMP_Text, string>(); // 运行时临时还原用（每次展示前由 baseline 复制）
+
+    // 基准分数（永远保存“真实分数”，不允许被分差文本污染）
+    private readonly Dictionary<TMP_Text, string> baselineScores = new Dictionary<TMP_Text, string>();
+
+    private bool isShowingScoreDifference = false;
 
     private void Awake(){
         if (Instance != null && Instance != this){
@@ -109,26 +114,35 @@ public partial class BoardCanvas : MonoBehaviour {
 
     // 显示玩家分数分差
     public void ShowScoreDifference() {
-        // 如果已有分差显示协程在运行，先停止它
+        // 如果当前正在显示分差，先强制恢复到基准分数，避免“分差文本”被当作原始分数保存
         if (scoreDifferenceCoroutine != null) {
             StopCoroutine(scoreDifferenceCoroutine);
+            scoreDifferenceCoroutine = null;
         }
-        // 启动显示分差的协程，重置时间
+        RestoreBaselineScores();
+
+        // 启动显示分差的协程（每次点击都重置 3 秒计时）
         scoreDifferenceCoroutine = StartCoroutine(ShowScoreDifferenceCoroutine());
     }
 
     private IEnumerator ShowScoreDifferenceCoroutine() {
-        // 保存原始分数文本
+        isShowingScoreDifference = true;
+
+        // 1) 确保 baseline 已初始化（只在“正常分数显示状态”下更新）
+        EnsureBaselineScores();
+
+        // 2) 复制 baseline 到 originalScores（本次展示结束后用于恢复）
         originalScores.Clear();
-        originalScores[player_self_score] = player_self_score.text;
-        originalScores[player_left_score] = player_left_score.text;
-        originalScores[player_top_score] = player_top_score.text;
-        originalScores[player_right_score] = player_right_score.text;
-        // 解析分数
-        int selfScore = ParseScore(player_self_score.text);
-        int leftScore = ParseScore(player_left_score.text);
-        int topScore = ParseScore(player_top_score.text);
-        int rightScore = ParseScore(player_right_score.text);
+        originalScores[player_self_score] = baselineScores[player_self_score];
+        originalScores[player_left_score] = baselineScores[player_left_score];
+        originalScores[player_top_score] = baselineScores[player_top_score];
+        originalScores[player_right_score] = baselineScores[player_right_score];
+
+        // 3) 基于 baseline 解析分数（避免解析到彩色标签/分差文本）
+        int selfScore = ParseScore(originalScores[player_self_score]);
+        int leftScore = ParseScore(originalScores[player_left_score]);
+        int topScore = ParseScore(originalScores[player_top_score]);
+        int rightScore = ParseScore(originalScores[player_right_score]);
         // 计算分差（玩家分数 - 其他玩家分数）
         int leftDiff = selfScore - leftScore;
         int topDiff = selfScore - topScore;
@@ -140,12 +154,39 @@ public partial class BoardCanvas : MonoBehaviour {
         player_right_score.text = FormatScoreDifference(rightDiff);
         // 等待3秒
         yield return new WaitForSeconds(3f);
-        // 恢复原始分数文本
-        player_self_score.text = originalScores[player_self_score];
-        player_left_score.text = originalScores[player_left_score];
-        player_top_score.text = originalScores[player_top_score];
-        player_right_score.text = originalScores[player_right_score];
+        // 恢复基准分数文本
+        RestoreBaselineScores();
+        isShowingScoreDifference = false;
         scoreDifferenceCoroutine = null; // 协程结束，清空引用
+    }
+
+    private void EnsureBaselineScores()
+    {
+        // 如果 baseline 为空，直接用当前文本初始化（此时应当是“真实分数”）
+        if (!baselineScores.ContainsKey(player_self_score)) baselineScores[player_self_score] = player_self_score.text;
+        if (!baselineScores.ContainsKey(player_left_score)) baselineScores[player_left_score] = player_left_score.text;
+        if (!baselineScores.ContainsKey(player_top_score)) baselineScores[player_top_score] = player_top_score.text;
+        if (!baselineScores.ContainsKey(player_right_score)) baselineScores[player_right_score] = player_right_score.text;
+
+        // 如果当前不在展示分差，则允许刷新 baseline（例如服务器更新了分数）
+        if (!isShowingScoreDifference)
+        {
+            baselineScores[player_self_score] = player_self_score.text;
+            baselineScores[player_left_score] = player_left_score.text;
+            baselineScores[player_top_score] = player_top_score.text;
+            baselineScores[player_right_score] = player_right_score.text;
+        }
+    }
+
+    private void RestoreBaselineScores()
+    {
+        // 如果 baseline 未初始化就先初始化
+        EnsureBaselineScores();
+
+        player_self_score.text = baselineScores[player_self_score];
+        player_left_score.text = baselineScores[player_left_score];
+        player_top_score.text = baselineScores[player_top_score];
+        player_right_score.text = baselineScores[player_right_score];
     }
 
     // 解析分数文本（处理可能的非数字字符）
