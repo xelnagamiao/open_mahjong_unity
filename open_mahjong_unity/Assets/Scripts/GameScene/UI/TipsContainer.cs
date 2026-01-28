@@ -279,17 +279,6 @@ public class TipsContainer : MonoBehaviour
         gameObject.SetActive(true);
     }
 
-    /// <summary>
-    /// 隐藏提示容器
-    /// 在隐藏前先清空内容，避免布局残留
-    /// </summary>
-    public void HideTips()
-    {
-        ClearTips();
-        gameObject.SetActive(false);
-        ForceRefreshLayout();
-    }
-
     public void HideTipsTemp()
     {
         gameObject.SetActive(false);

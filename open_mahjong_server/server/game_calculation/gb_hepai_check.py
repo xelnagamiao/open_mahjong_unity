@@ -1013,7 +1013,9 @@ class Chinese_Hepai_Check:
                         player_tiles.fan_list.append("zimo") # 自摸
 
     def fan_count_output(self, player_tiles:PlayerTiles, combination_str, zimo_or_not, way_to_hepai):
-        if not player_tiles.fan_list:
+        
+        # 无番和判定
+        if not any(fan for fan in player_tiles.fan_list if fan != "huapai"):
             player_tiles.fan_list.append("wufanhe") # 无番和
 
 
@@ -1531,7 +1533,7 @@ if __name__ == "__main__":
     # test_save = [["k26","k17","k38"],[21,21,27,28,29],21,["点和","和单张"]] #10
     # 3 test_save = [["k24","k16"],[31,32,33,35,35,35,41,41],41,["点和"]] #8
     # 无番和
-    # 1 test_save = [["k28","s13"],[13,14,15,35,36,37,42,42],15,["点和"]] 8
+    test_save = [["k28","s13"],[13,14,15,35,36,37,42,42],15,["点和"]] # 8
     # 2 test_save = [["s22","s16","s27"],[32,33,34,44,44],32,["点和"]] 8
     # 3 test_save = [["k37"],[12,12,12,17,18,19,23,23,23,45,45],23,["点和"]] 8
     # 妙手回春 海底捞月 杠上开花 抢杠和 花牌

@@ -90,7 +90,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         isHovering = false;
         // 直接隐藏提示容器（内部会先清空内容）
-        TipsContainer.Instance.HideTips();
+        TipsContainer.Instance.HideTipsTemp();
     }
     
     /// <summary>
@@ -112,7 +112,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         List<int> tempHandTiles = new List<int>(GameSceneManager.Instance.selfHandTiles);
         tempHandTiles.Remove(tileId);
         
-        // 直接在主线程执行听牌检测（避免 WebGL 平台 Task.Run 线程问题）
+        // 执行听牌检测
         HashSet<int> waitingTiles;
         try
         {

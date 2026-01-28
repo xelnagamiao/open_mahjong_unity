@@ -155,7 +155,7 @@ class GuobiaoGameState:
         }
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
-        self.Debug = False
+        self.Debug = True
 
 
     async def player_disconnect(self, user_id: int):
@@ -552,9 +552,10 @@ class GuobiaoGameState:
                 if self.hu_class == "hu_self":
                     hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
                     hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
-                    self.player_list[hepai_player_index].score += hu_score*4 + 24 # 三倍和牌分与3*8基础分
                     self.result_dict = {}
-                    for i in self.player_list: # 其他玩家扣除和牌分与8基础分
+                    for i in self.player_list: # 所有玩家扣除和牌分与8基础分
+                        if i == hepai_player_index:
+                            i.score += hu_score*3 + 24 # 自摸玩家增加和牌分与3*8基础分
                         if i != hepai_player_index:
                             i.score -= hu_score + 8  
 

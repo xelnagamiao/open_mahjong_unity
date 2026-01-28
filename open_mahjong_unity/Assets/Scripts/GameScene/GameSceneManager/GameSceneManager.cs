@@ -460,8 +460,8 @@ public class GameSceneManager : MonoBehaviour{
                 }
             }
 
-            // 如果和牌列表是空
-            if (allowHupaiAction.Count == 0){
+            // 如果和牌列表为空（没有可用的和牌操作）
+            if (string.IsNullOrEmpty(actualHupaiAction)){
                 // 如果开启自动过牌，则执行自动过牌
                 if (isAutoPass){
                     yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)

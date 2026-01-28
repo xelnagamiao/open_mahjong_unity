@@ -143,10 +143,10 @@ public partial class BoardCanvas : MonoBehaviour {
         int leftScore = ParseScore(originalScores[player_left_score]);
         int topScore = ParseScore(originalScores[player_top_score]);
         int rightScore = ParseScore(originalScores[player_right_score]);
-        // 计算分差（玩家分数 - 其他玩家分数）
-        int leftDiff = selfScore - leftScore;
-        int topDiff = selfScore - topScore;
-        int rightDiff = selfScore - rightScore;
+        // 计算分差（其他玩家分数 - 玩家分数）
+        int leftDiff = leftScore - selfScore;
+        int topDiff = topScore - selfScore;
+        int rightDiff = rightScore - selfScore;
         // 显示分差（玩家自己的分数显示为原始分数，其他位置显示分差）
         player_self_score.text = originalScores[player_self_score];
         player_left_score.text = FormatScoreDifference(leftDiff);

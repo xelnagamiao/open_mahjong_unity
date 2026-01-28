@@ -157,7 +157,9 @@ public class Game3DManager : MonoBehaviour {
                  actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){   
             // 删除上一张3D卡牌
             if (lastCut3DObject != null){
-                Destroy(lastCut3DObject);
+                if (actionType != "jiagang"){
+                    Destroy(lastCut3DObject);
+                }
             }
             else{
                 Debug.LogWarning("上一张3D卡牌为空");
