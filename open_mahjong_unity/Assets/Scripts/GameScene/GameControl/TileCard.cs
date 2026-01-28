@@ -23,6 +23,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     
     private bool isHovering = false; // 是否正在悬停
 
+    private void OnEnable()
+    {
+        // Unity 的 EventSystem 在“物体出现在鼠标下方”时不会自动触发 OnPointerEnter。
+        // 这里做一次主动检测，确保提示能立刻出现。
+        StartCoroutine(CheckHoverOnEnableNextFrame());
+    }
+
     private void Start(){
         // 添加按钮点击监听
         tileButton.onClick.AddListener(OnTileClick);
@@ -82,8 +89,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovering = false;
-        // 直接隐藏提示容器
-        TipsContainer.Instance.gameObject.SetActive(false);
+        // 直接隐藏提示容器（内部会先清空内容）
+        TipsContainer.Instance.HideTips();
     }
     
     /// <summary>
@@ -133,19 +140,49 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             Debug.Log($"显示切牌提示，听牌列表数量：{waitingTiles.Count}");
             TipsContainer.Instance.SetTips(waitingTiles.ToList());
             TipsContainer.Instance.hasTips = true;
-            TipsContainer.Instance.gameObject.SetActive(true);
+            TipsContainer.Instance.ShowTips();
         }
         else
         {
             Debug.Log($"切牌后无听牌");
             TipsContainer.Instance.hasTips = false;
-            TipsContainer.Instance.gameObject.SetActive(false);
+            TipsContainer.Instance.HideTipsTemp();
+        }
+    }
+
+    private System.Collections.IEnumerator CheckHoverOnEnableNextFrame()
+    {
+        // 等一帧，保证 UI 布局/RectTransform 已就绪，否则射线检测可能拿到旧位置
+        yield return null;
+
+        if (!isActiveAndEnabled) yield break;
+        if (EventSystem.current == null) yield break;
+
+        // 构造一次 PointerEventData，进行 UI Raycast
+        PointerEventData pointerData = new PointerEventData(EventSystem.current)
+        {
+            position = Input.mousePosition
+        };
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointerData, results);
+
+        // 找到射线命中的第一个 TileCard 是否就是自己（或自己的子物体）
+        foreach (var r in results)
+        {
+            if (r.gameObject == null) continue;
+            if (r.gameObject == gameObject || r.gameObject.transform.IsChildOf(transform))
+            {
+                isHovering = true;
+                CheckCutTileTips();
+                break;
+            }
         }
     }
 
     private void OnDestroy()
     {
         tileButton.onClick.RemoveListener(OnTileClick);
-        TipsContainer.Instance.gameObject.SetActive(false);
+        TipsContainer.Instance.HideTipsTemp();
     }
 } 

@@ -194,6 +194,12 @@ public class EndResultPanel : MonoBehaviour {
         
         // 允许按钮点击
         EndButton.interactable = true;
+        EndButtonText.text = "确定(8)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(7)";
+        yield return new WaitForSeconds(1);
+        EndButtonText.text = "确定(6)";
+        yield return new WaitForSeconds(1);
         EndButtonText.text = "确定(5)";
         yield return new WaitForSeconds(1);
         EndButtonText.text = "确定(4)";

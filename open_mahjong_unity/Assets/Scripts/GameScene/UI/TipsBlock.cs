@@ -22,20 +22,20 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
 
     public void HideTipsBlock(){
         gameObject.SetActive(false);
-        TipsContainer.Instance.gameObject.SetActive(false);
+        TipsContainer.Instance.HideTipsTemp();
     }
 
     public void OnPointerEnter(PointerEventData eventData){
         Debug.Log("鼠标指向提示棱形");
         // 鼠标指向时显示TipsContainer
         if (TipsContainer.Instance.hasTips == true){
-            TipsContainer.Instance.gameObject.SetActive(true);
+            TipsContainer.Instance.ShowTips();
         }
     }
 
     public void OnPointerExit(PointerEventData eventData){
         Debug.Log("鼠标离开提示棱形");
-        // 鼠标离开时隐藏TipsContainer
-        TipsContainer.Instance.gameObject.SetActive(false);
+        // 鼠标离开时隐藏TipsContainer（内部会先清空内容）
+        TipsContainer.Instance.HideTipsTemp();
     }
 }

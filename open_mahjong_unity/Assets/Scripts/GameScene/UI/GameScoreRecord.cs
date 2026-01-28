@@ -194,21 +194,31 @@ public class GameScoreRecord : MonoBehaviour
                 }
                 
                 // 在RoundScoreContainer中显示分数变化（带颜色）
+                // 显示时去掉前导 0：例如 "-08" -> "-8"
+                string displayScoreChange = scoreChange;
+                if (scoreChange.StartsWith("+") || scoreChange.StartsWith("-"))
+                {
+                    // 保留符号，数值部分按 int 解析再转回字符串，自动去掉前导 0
+                    if (int.TryParse(scoreChange.Substring(1), out int absValue))
+                    {
+                        displayScoreChange = (scoreChange.StartsWith("+") ? "+" : "-") + absValue.ToString();
+                    }
+                }
                 GameObject roundScoreObj = Instantiate(Tmp_Text_Prefab, player.roundScoreContainer.transform);
                 TMP_Text roundScoreText = roundScoreObj.GetComponent<TMP_Text>();
                 if (roundScoreText != null)
                 {
                     if (scoreValue > 0)
                     {
-                        roundScoreText.text = $"<color=green>{scoreChange}</color>";
+                        roundScoreText.text = $"<color=green>{displayScoreChange}</color>";
                     }
                     else if (scoreValue < 0)
                     {
-                        roundScoreText.text = $"<color=red>{scoreChange}</color>";
+                        roundScoreText.text = $"<color=red>{displayScoreChange}</color>";
                     }
                     else
                     {
-                        roundScoreText.text = scoreChange;
+                        roundScoreText.text = displayScoreChange;
                     }
                 }
                 

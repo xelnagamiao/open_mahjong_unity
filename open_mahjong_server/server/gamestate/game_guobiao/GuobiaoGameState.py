@@ -155,7 +155,7 @@ class GuobiaoGameState:
         }
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
-        self.Debug = False
+        self.Debug = True
 
 
     async def player_disconnect(self, user_id: int):
@@ -507,7 +507,7 @@ class GuobiaoGameState:
                                                 hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
                                                 )
                             # 等待5秒
-                            await asyncio.sleep(len(hu_fan)*0.5 + 5 + 0.5) # 等待和牌番种时间与5秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
+                            await asyncio.sleep(len(hu_fan)*0.5 + 8 + 0.5) # 等待和牌番种时间与8秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
 
                             # 错和尾处理
                             # 给错和玩家添加peida tag
@@ -544,6 +544,7 @@ class GuobiaoGameState:
 
             # 记录结算前的分数（用于计算本局分数变化）
             scores_before = {player.original_player_index: player.score for player in self.player_list}
+
             
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
@@ -630,6 +631,11 @@ class GuobiaoGameState:
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = he_combination_mask # 和牌玩家组合掩码
                                        )
+                # 显示和牌传参
+                print(f"hu_class: {self.hu_class}, result_dict: {self.result_dict}")
+                print(f"player_list_hand_tiles: {self.player_list[hepai_player_index].hand_tiles}")
+                print(f"player_list_huapai_list: {self.player_list[hepai_player_index].huapai_list}")
+                print(f"player_list_combination_mask: {self.player_list[hepai_player_index].combination_mask}")
                 
                 # 记录玩家副露率
                 for i in self.player_list:
@@ -672,7 +678,7 @@ class GuobiaoGameState:
             if self.hu_class == "liuju":
                 await asyncio.sleep(2) # 等待2秒后重新开始下一局
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 6) # 等待和牌番种时间与10秒后重新开始下一局
+                await asyncio.sleep(len(hu_fan)*0.5 + 8) # 等待和牌番种时间与8秒后重新开始下一局
 
             # 开启下一局的准备工作
             next_game_round(self)   

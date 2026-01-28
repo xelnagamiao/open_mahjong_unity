@@ -24,16 +24,26 @@ public class TipsContainer : MonoBehaviour
 
     /// <summary>
     /// 清空提示容器
+    /// 先让对象脱离父物体，避免布局系统在刷新时仍看到旧对象
     /// </summary>
     public void ClearTips()
     {
-        // 清空提示牌
+        // 先收集所有子对象，然后脱离父物体，最后加入销毁队列
+        List<Transform> toDestroy = new List<Transform>();
+        
+        // 收集提示牌
         foreach (Transform child in TileContainer.transform) {
-            Destroy(child.gameObject);
+            toDestroy.Add(child);
         }
-        // 清空提示番
+        // 收集提示番
         foreach (Transform child in FanContainer.transform) {
-            Destroy(child.gameObject);
+            toDestroy.Add(child);
+        }
+        
+        // 先脱离父物体，让布局系统立即看不到它们
+        foreach (Transform child in toDestroy) {
+            child.SetParent(null);
+            Destroyer.Instance.AddToDestroyer(child);
         }
     }
 
@@ -97,7 +107,7 @@ public class TipsContainer : MonoBehaviour
             
             // 统计所有玩家的弃牌和组合牌
             foreach (var playerInfo in gameManager.player_to_info.Values) {
-                // 统计弃牌中的该牌数量
+                // 统计弃牌中的该牌数量（包括理论弃牌）
                 if (playerInfo.discard_tiles != null) {
                     showTilesCount += playerInfo.discard_tiles.Count(t => t == hepaiTile);
                 }
@@ -111,7 +121,7 @@ public class TipsContainer : MonoBehaviour
             foreach (string combination in nowCombinations) {
                 // 检查刻子 k{牌号}
                 if (combination.Contains($"k{hepaiTile}")) {
-                    showTilesCount += 3;
+                    showTilesCount += 2;
                 }
                 // 检查顺子 s{牌号-1}, s{牌号}, s{牌号+1}
                 if (combination.Contains($"s{hepaiTile - 1}")) {
@@ -184,14 +194,18 @@ public class TipsContainer : MonoBehaviour
                 }
             }
             Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
-            ForceRefreshLayout();
         }
+        
+        // 所有新对象创建完成后，强制刷新布局
+        // 此时旧对象已脱离父物体，布局系统只会计算新对象的尺寸
+        ForceRefreshLayout();
     }
 
-    // 强制刷新提示容器的布局（适配 WebGL 等平台的动态内容）
+    /// <summary>
+    /// 强制刷新提示容器的布局（适配 WebGL 等平台的动态内容）
+    /// </summary>
     private void ForceRefreshLayout()
     {
-        Canvas.ForceUpdateCanvases();
         if (TileContainer != null)
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(TileContainer.transform as RectTransform);
@@ -200,5 +214,85 @@ public class TipsContainer : MonoBehaviour
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(FanContainer.transform as RectTransform);
         }
+        Canvas.ForceUpdateCanvases();
+        
+        // 手动计算并设置 TipsContainer 的大小（上下左右边框各 20）
+        UpdateContainerSize();
+    }
+
+    /// <summary>
+    /// 手动计算并设置 TipsContainer 的大小
+    /// 边框：上下左右各 20
+    /// </summary>
+    private void UpdateContainerSize()
+    {
+        RectTransform containerRect = transform as RectTransform;
+        if (containerRect == null) return;
+
+        float contentWidth = 0f;
+        float contentHeight = 0f;
+
+        // 计算 TileContainer 的尺寸
+        if (TileContainer != null)
+        {
+            RectTransform tileRect = TileContainer.transform as RectTransform;
+            if (tileRect != null)
+            {
+                contentWidth += tileRect.rect.width;
+                contentHeight = Mathf.Max(contentHeight, tileRect.rect.height);
+            }
+        }
+
+        // 计算 FanContainer 的尺寸（如果存在，可能是并排的）
+        if (FanContainer != null)
+        {
+            RectTransform fanRect = FanContainer.transform as RectTransform;
+            if (fanRect != null)
+            {
+                // 假设 TileContainer 和 FanContainer 是水平排列的，宽度相加
+                contentWidth += fanRect.rect.width;
+                contentHeight = Mathf.Max(contentHeight, fanRect.rect.height);
+            }
+        }
+
+        // 如果内容为空，设置最小尺寸
+        if (contentWidth <= 0) contentWidth = 0;
+        if (contentHeight <= 0) contentHeight = 0;
+
+        // 边框：上下左右各 20
+        const float padding = 20f;
+        float totalWidth = contentWidth + padding * 2;  // 左 + 右
+        float totalHeight = contentHeight + padding * 2; // 上 + 下
+
+        // 设置 TipsContainer 的大小
+        containerRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, totalWidth);
+        containerRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, totalHeight);
+    }
+
+    /// <summary>
+    /// 显示提示容器
+    /// </summary>
+    public void ShowTips()
+    {
+        ForceRefreshLayout();
+        gameObject.SetActive(true);
+    }
+
+    /// <summary>
+    /// 隐藏提示容器
+    /// 在隐藏前先清空内容，避免布局残留
+    /// </summary>
+    public void HideTips()
+    {
+        ClearTips();
+        gameObject.SetActive(false);
+        ForceRefreshLayout();
+    }
+
+    public void HideTipsTemp()
+    {
+        gameObject.SetActive(false);
+        ForceRefreshLayout();
     }
 }
+

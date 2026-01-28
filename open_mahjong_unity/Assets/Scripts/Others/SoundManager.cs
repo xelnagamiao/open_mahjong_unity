@@ -44,9 +44,9 @@ public class SoundManager : MonoBehaviour {
         string audioTarget;
 
         if (actionType == "hu_self"){
-            audioTarget = $"Sound/{voicePath}/zimo";
+            audioTarget = $"Sound/{voicePath}/hu";
         } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
-            audioTarget = $"Sound/{voicePath}/dianhe";
+            audioTarget = $"Sound/{voicePath}/hu";
         } else if (actionType == "buhua"){
             audioTarget = $"Sound/{voicePath}/buhua";
         } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
@@ -54,7 +54,7 @@ public class SoundManager : MonoBehaviour {
         } else if (actionType == "angang" || actionType == "gang"){
             audioTarget = $"Sound/{voicePath}/gang";
         } else if (actionType == "jiagang"){
-            audioTarget = $"Sound/{voicePath}/jiagang";
+            audioTarget = $"Sound/{voicePath}/gang";
         } else if (actionType == "peng"){
             audioTarget = $"Sound/{voicePath}/peng";
         } else {
