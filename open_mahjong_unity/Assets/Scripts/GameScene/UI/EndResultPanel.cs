@@ -26,7 +26,7 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private GameObject HideSplit;
 
     // 番数和分数的对应表（存储番数值）
-    private Dictionary<string, int> FanToValue = new Dictionary<string, int> {
+    private Dictionary<string, int> FanToValueGuobiao = new Dictionary<string, int> {
         {"大四喜", 88}, {"大三元", 88}, {"绿一色", 88}, {"九莲宝灯", 88}, {"四杠", 88},
         {"连七对", 88}, {"十三幺", 88},
         {"清幺九", 64}, {"小四喜", 64}, {"小三元", 64}, {"字一色", 64}, {"四暗刻", 64}, {"一色双龙会", 64},
@@ -50,6 +50,30 @@ public class EndResultPanel : MonoBehaviour {
         {"喜相逢*1", 1}, {"喜相逢*2", 2}, {"喜相逢*3", 3}, {"喜相逢*4", 4},
         {"幺九刻*1", 1}, {"幺九刻*2", 2}, {"幺九刻*3", 3}, {"幺九刻*4", 4},
         {"连六*1", 1}, {"连六*2", 2}, {"连六*3", 3}, {"连六*4", 4},
+    };
+
+
+    private Dictionary<string, int> FanToValueQingque = new Dictionary<string, int> {
+        {"和牌", 0},{"天和", 0},{"地和", 0},{"岭上开花", 0},{"海底捞月", 0},
+        {"河底捞鱼", 0},{"抢杠", 0},{"七对", 0},{"门前清", 0},{"四暗杠", 0},
+        {"三暗杠", 0},{"双暗杠", 0},{"暗杠", 0},{"四杠", 0},{"三杠", 0},
+        {"双杠", 0},{"四暗刻", 0},
+        {"三暗刻", 0},{"对对和", 0},{"十二归", 0},{"八归", 0},{"三叠对", 0},
+        {"二叠对", 0},{"叠对", 0},{"字一色", 0},{"大四喜", 0},{"小四喜", 0},{"四喜对", 0},
+        {"风牌三刻", 0},{"风牌七对", 0},{"风牌六对", 0},{"风牌五对", 0},
+        {"风牌四对", 0},{"大三元", 0},{"小三元", 0}, {"三元六对", 0},{"三元对", 0},
+        {"番牌四刻", 0},{"番牌三刻", 0},{"番牌二刻", 0},{"番牌刻", 0},
+        {"番牌七对", 0},{"番牌六对", 0},{"番牌五对", 0},{"番牌四副", 0},
+        {"番牌三副", 0},{"番牌二副", 0},{"番牌", 0},{"清幺九", 0},{"混幺九", 0},
+        {"清带幺", 0},{"混带幺", 0},{"九莲宝灯", 0},{"清一色", 0},
+        {"混一色", 0},{"五门齐", 0},{"混一数", 0},{"二数", 0},
+        {"二聚", 0},{"三聚", 0},{"四聚", 0},{"连数", 0},{"间数", 0},
+        {"镜数", 0},{"映数", 0},{"满庭芳", 0},{"四同顺", 0},
+        {"三同顺", 0},{"二般高", 0},{"一般高", 0},{"四连刻", 0},{"三连刻", 0}, 
+        {"四步高", 0},{"三步高", 0},{"四连环", 0},{"三连环", 0},{"一气贯通", 0},{"七连对", 0},
+        {"六连对", 0},{"五连对", 0},{"四连对", 0},{"三色同刻", 0},
+        {"三色同顺", 0},{"三色二对", 0},{"三色同对", 0},{"三色连刻", 0},{"三色贯通", 0},
+        {"镜同", 0},{"镜同三对", 0},{"镜同二对", 0},{"双龙会", 0},
     };
     public static EndResultPanel Instance { get; private set; }
 
@@ -178,7 +202,15 @@ public class EndResultPanel : MonoBehaviour {
             
             // 获取番数名称和值
             string fanName = hu_fan[i];
-            int fanValue = FanToValue.ContainsKey(fanName) ? FanToValue[fanName] : 0;
+            int fanValue = 0;
+            if (NormalGameStateManager.Instance.roomType == "guobiao") {
+                fanValue = FanToValueGuobiao.ContainsKey(fanName) ? FanToValueGuobiao[fanName] : 0;
+            } else if (NormalGameStateManager.Instance.roomType == "qingque") {
+                fanValue = FanToValueQingque.ContainsKey(fanName) ? FanToValueQingque[fanName] : 0;
+            } else {
+                Debug.LogError("未知的规则类型: " + NormalGameStateManager.Instance.roomType);
+                continue;
+            }
             
             // 实例化 FanCountPrefab
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);

@@ -19,12 +19,20 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     public void ShowTipsBlock(List<int> selfHandTiles, List<string> combinationTiles){
         HashSet<int> waitingTiles = new HashSet<int>();
         try {
-            // 计算听牌列表
-            waitingTiles = GBtingpai.TingpaiCheck(
-                selfHandTiles,
-                combinationTiles,
-                false
-            );
+            if (NormalGameStateManager.Instance.roomType == "guobiao"){
+                waitingTiles = GBtingpai.TingpaiCheck(
+                    selfHandTiles,
+                    combinationTiles,
+                    false
+                );
+            }
+            else if (NormalGameStateManager.Instance.roomType == "qingque"){
+                waitingTiles = Qingque13External.TingpaiCheck(selfHandTiles, combinationTiles, false);
+            }
+            else{
+                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomType}");
+                waitingTiles = new HashSet<int>();
+            }
         } catch (System.Exception e) {
             Debug.LogError($"计算听牌列表时出错: {e.Message}");
         }

@@ -3,6 +3,7 @@ Qingque13 C# 程序集桥接模块
 处理 pythonnet 的导入、DLL 加载和类型绑定
 """
 import os
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -32,16 +33,26 @@ except Exception:
 Qingque13Hepai: Optional[type] = None
 Qingque13Tingpai: Optional[type] = None
 _qingque13_loaded = False
+_load_lock = threading.Lock()  # 保护 DLL 加载过程的线程锁
 
 
 def _ensure_qingque13_loaded() -> None:
     """
     使用 pythonnet 加载 Qingque13 程序集，并绑定 Qingque13Hepai / Qingque13Tingpai。
     优先使用环境变量 QINGQUE13_DLL_PATH，其次尝试相对路径和程序集名称。
+    线程安全：使用锁确保多线程环境下只加载一次。
     """
     global _qingque13_loaded, Qingque13Hepai, Qingque13Tingpai
+    
+    # 快速路径：如果已加载，直接返回（避免每次调用都获取锁）
     if _qingque13_loaded:
         return
+    
+    # 使用锁保护加载过程，确保多线程环境下只加载一次
+    with _load_lock:
+        # 双重检查：获取锁后再次检查，避免多个线程同时通过第一次检查
+        if _qingque13_loaded:
+            return
 
     if not _PYTHONNET_AVAILABLE or clr is None:
         raise RuntimeError(

@@ -402,82 +402,6 @@ class QingqueGameState:
                         self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
-                    # 玩家和牌操作
-                    case "check_hepai":
-                         # 自摸玩家和牌，如果和牌分数大于8番则结束游戏，重新发送广播摸牌信息
-                        logger.info(f"进入check_hepai case: hu_class={self.hu_class}, result_dict keys={list(self.result_dict.keys())}")
-                        hu_score, hu_fan = self.result_dict[self.hu_class] # 获取和牌分数和番数
-
-                        # 从 hu_fan 中获取花牌数量
-                        huapai_count = sum(int(fan.split("*")[1]) for fan in hu_fan if fan.startswith("花牌*"))
-                        
-                        # 正确和牌则执行end程序（判断时减去花牌数量）
-                        if hu_score - huapai_count >= 8:
-                            self.game_status = "END"
-                            break
-                        # 错和则执行错和程序
-                        else:
-                            hepai_player_index = None
-                            if self.hu_class == "hu_self":
-                                hepai_player_index = self.current_player_index
-                            elif self.hu_class == "hu_first":
-                                hepai_player_index = next_current_num(self.current_player_index)
-                            elif self.hu_class == "hu_second":
-                                hepai_player_index = next_current_num(self.current_player_index)
-                                hepai_player_index = next_current_num(hepai_player_index)
-                            elif self.hu_class == "hu_third":
-                                hepai_player_index = next_current_num(self.current_player_index)
-                                hepai_player_index = next_current_num(hepai_player_index)
-                                hepai_player_index = next_current_num(hepai_player_index)
-                            for i in self.player_list:
-                                if i.player_index == hepai_player_index:
-                                    i.score -= 30
-                                else:
-                                    i.score += 10
-
-                            # 广播错和结算结果
-                            player_to_score = {}
-                            for i in self.player_list:
-                                player_to_score[i.player_index] = i.score
-                            # 在 hu_fan 中添加"错和"番
-                            cuohe_hu_fan = hu_fan + ["错和"]
-                            await self.broadcast_result(
-                                                hepai_player_index = self.current_player_index, # 自摸错和是当前玩家
-                                                player_to_score = player_to_score,
-                                                hu_score = hu_score,
-                                                hu_fan = cuohe_hu_fan,
-                                                hu_class = self.hu_class,  # 使用原本的hu_class
-                                                hepai_player_hand = self.player_list[self.current_player_index].hand_tiles,
-                                                hepai_player_huapai = self.player_list[self.current_player_index].huapai_list,
-                                                hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
-                                                )
-                            # 等待5秒
-                            await asyncio.sleep(len(hu_fan)*0.5 + 8 + 0.5) # 等待和牌番种时间与8秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
-
-                            # 错和尾处理
-                            # 给错和玩家添加peida tag
-                            self.player_list[hepai_player_index].tag_list.append("peida")
-                            # 广播玩家标签列表
-                            await self.broadcast_refresh_player_tag_list()
-
-                            # 根据和牌类型进行状态转移
-                            if self.hu_class == "hu_self":
-                                # 自摸和牌，重新等待当前玩家出牌
-                                self.action_dict = check_action_hand_action(self,self.current_player_index)
-                                self.game_status = "waiting_hand_action"
-                            elif self.hu_class in ["hu_first","hu_second","hu_third"]:
-                                # 他人和牌，倒带手牌并重新检测出牌操作
-                                tile_id = self.player_list[self.current_player_index].hand_tiles[-1]  # 获取最后一张牌（和牌牌）
-                                self.player_list[self.current_player_index].hand_tiles.pop(-1)  # 删除手牌中最后一张牌
-                                self.action_dict = check_action_after_cut(self,tile_id)
-                                if any(self.action_dict[i] for i in self.action_dict):
-                                    self.game_status = "waiting_action_after_cut" # 转移行为
-                                else:
-                                    self.game_status = "deal_card" # 历时行为
-
-                            # 删除和牌类型
-                            self.hu_class = ""
-
                     # 如果没有匹配到
                     case _:
                         logger.error(f"没有匹配到游戏状态: {self.game_status}")
@@ -497,10 +421,11 @@ class QingqueGameState:
                 if self.hu_class == "hu_self":
                     hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
                     hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
+                    base_point = self.calculation_service.GetBasePoint(hu_score)
                     self.result_dict = {}
-                    self.player_list[hepai_player_index].score += hu_score*4 + 32 # 三倍和牌分与3*8基础分
-                    for i in self.player_list: # 其他玩家扣除和牌分与8基础分
-                        i.score -= hu_score + 8  
+                    self.player_list[hepai_player_index].score += base_point*4 # 三倍和牌分
+                    for i in self.player_list: # 其他玩家扣除和牌分
+                        i.score -= base_point  
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1 # 增加自摸次数
@@ -515,8 +440,9 @@ class QingqueGameState:
                         hu_score, hu_fan = self.result_dict["hu_first"]
                         hepai_player_index = next_current_num(self.current_player_index) # 获取当前玩家的下家索引
                         logger.info(f"和牌玩家索引{hepai_player_index}")
-                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
+                        base_point = self.calculation_service.GetBasePoint(hu_score)
+                        self.player_list[hepai_player_index].score += base_point*3 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= base_point*3 # 当前玩家扣除和牌分
                         self.result_dict = {}
 
                     # 荣和对家
@@ -525,9 +451,10 @@ class QingqueGameState:
                         hepai_player_index = next_current_num(self.current_player_index)
                         hepai_player_index = next_current_num(hepai_player_index) # 获取下下家索引
                         logger.info(f"和牌玩家索引{hepai_player_index}")
+                        base_point = self.calculation_service.GetBasePoint(hu_score)
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
+                        self.player_list[hepai_player_index].score += base_point*3 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= base_point*3 # 当前玩家扣除和牌分
 
                     # 荣和下家
                     else: # self.hu_class == "hu_third":
@@ -537,8 +464,9 @@ class QingqueGameState:
                         hepai_player_index = next_current_num(hepai_player_index) # 获取下下下家索引
                         logger.info(f"和牌玩家索引{hepai_player_index}")
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += hu_score + 24 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].score -= hu_score # 当前玩家扣除和牌分
+                        base_point = self.calculation_service.GetBasePoint(hu_score)
+                        self.player_list[hepai_player_index].score += base_point*3 # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= base_point*3 # 当前玩家扣除和牌分
                     
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1 # 增加点和次数
@@ -547,12 +475,7 @@ class QingqueGameState:
                     self.player_list[hepai_player_index].record_counter.win_turn += self.xunmu # 增加和牌总巡目
 
                     self.player_list[self.current_player_index].record_counter.fangchong_times += 1 # 增加放铳次数
-                    self.player_list[self.current_player_index].record_counter.fangchong_score += hu_score # 增加放铳总番数
-
-                    # 其他玩家扣除8基础分
-                    for i in self.player_list: # 其他玩家扣除和牌分与8基础分
-                        if i.player_index != hepai_player_index:
-                            i.score -= 8
+                    self.player_list[self.current_player_index].record_counter.fangchong_score += base_point*3 # 增加放铳总番数
 
                 # 广播和牌结算结果
                 # 获取所有人分数
@@ -568,7 +491,7 @@ class QingqueGameState:
                 await broadcast_result(self,
                                        hepai_player_index = hepai_player_index, # 和牌玩家索引
                                        player_to_score = player_to_score, # 所有玩家分数
-                                       hu_score = hu_score, # 和牌分数
+                                       hu_score = int(hu_score), # 和牌分数
                                        hu_fan = hu_fan, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别
                                        hepai_player_hand = he_hand, # 和牌玩家手牌
@@ -595,7 +518,7 @@ class QingqueGameState:
                 await broadcast_result(self,
                                        hepai_player_index = None, # 和牌玩家索引
                                        player_to_score = None, # 所有玩家分数
-                                       hu_score = None, # 和牌分数
+                                       hu_score = int(hu_score), # 和牌分数
                                        hu_fan = None, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别(流局)
                                        hepai_player_hand = None, # 和牌玩家手牌
@@ -648,6 +571,7 @@ class QingqueGameState:
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
 
+        """
         # 存储游戏牌谱
         game_id = self.db_manager.store_guobiao_game_record(
             self.game_record,
@@ -676,6 +600,7 @@ class QingqueGameState:
             )
         elif has_ai_player:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
+        """
 
         # 结束游戏生命周期
         self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)

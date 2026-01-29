@@ -34,7 +34,7 @@ public partial class BoardCanvas : MonoBehaviour {
         {3, "北"}
     };
 
-    private static readonly Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
+    public static Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
         {1, "东风东"},
         {2, "东风南"},
         {3, "东风西"},
@@ -53,7 +53,44 @@ public partial class BoardCanvas : MonoBehaviour {
         {16, "北风北"},
     };
 
-    
+    public static Dictionary<int, string> CurrentRoundTextQingque = new Dictionary<int, string>() {
+        {1, "东一局"},
+        {2, "东二局"},
+        {3, "东三局"},
+        {4, "东四局"},
+        {5, "南一局"},
+        {6, "南二局"},
+        {7, "南三局"},
+        {8, "南四局"},
+        {9, "西一局"},
+        {10, "西二局"},
+        {11, "西三局"},
+        {12, "西四局"},
+        {13, "北一局"},
+        {14, "北二局"},
+        {15, "北三局"},
+        {16, "北四局"},
+    };
+
+    public static Dictionary<int, string> CurrentRoundTextRiichi = new Dictionary<int, string>() {
+        {1, "东一局"},
+        {2, "东二局"},
+        {3, "东三局"},
+        {4, "东四局"},
+        {5, "南一局"},
+        {6, "南二局"},
+        {7, "南三局"},
+        {8, "南四局"},
+        {9, "西一局"},
+        {10, "西二局"},
+        {11, "西三局"},
+        {12, "西四局"},
+        {13, "北一局"},
+        {14, "北二局"},
+        {15, "北三局"},
+        {16, "北四局"},
+    };
+
     public static BoardCanvas Instance { get; private set; }
     private Coroutine flashCoroutine; // 闪烁协程
     private Coroutine scoreDifferenceCoroutine; // 分差显示协程
@@ -103,6 +140,10 @@ public partial class BoardCanvas : MonoBehaviour {
         Dictionary<int, string> roundMap = null;
         if (roomType == "guobiao") {
             roundMap = CurrentRoundTextGB;
+        } else if (roomType == "qingque") {
+            roundMap = CurrentRoundTextQingque;
+        } else if (roomType == "riichi") {
+            roundMap = CurrentRoundTextRiichi;
         }
 
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {

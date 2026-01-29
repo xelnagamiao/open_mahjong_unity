@@ -256,7 +256,7 @@ class RoomManager:
                 type="error_message",
                 success=False,
                 message=f"创建房间失败: {str(e)}"
-            )
+        )
 
     def get_room_list(self) -> Response:
         try:

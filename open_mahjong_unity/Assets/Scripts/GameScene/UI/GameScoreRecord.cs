@@ -29,6 +29,16 @@ public class GameScoreRecord : MonoBehaviour
         {"guobiao", new List<string>{"东风东","东风南","东风西","东风北","南风东","南风南","南风西","南风北","西风东","西风南","西风西","西风北","北风东","北风南","北风西","北风北"}},
     };
 
+    private Dictionary<string, List<string>> ruleRoundIndexDictQingque = new Dictionary<string, List<string>>
+    {
+        {"qingque", new List<string>{"东一局","东二局","东三局","东四局","南一局","南二局","南三局","南四局","西一局","西二局","西三局","西四局","北一局","北二局","北三局","北四局"}},
+    };
+
+    private Dictionary<string, List<string>> ruleRoundIndexDictRiichi = new Dictionary<string, List<string>>
+    {
+        {"riichi", new List<string>{"东一局","东二局","东三局","东四局","南一局","南二局","南三局","南四局","西一局","西二局","西三局","西四局","北一局","北二局","北三局","北四局"}},
+    };
+
     private void Awake()
     {
         if (Instance == null)
@@ -125,13 +135,20 @@ public class GameScoreRecord : MonoBehaviour
         }
         
         // 根据规则获取局数标签列表
-        if (!ruleRoundIndexDict.ContainsKey(rule))
+        if (!ruleRoundIndexDict.ContainsKey(rule) && !ruleRoundIndexDictQingque.ContainsKey(rule) && !ruleRoundIndexDictRiichi.ContainsKey(rule))
         {
             Debug.LogError($"未知的规则类型: {rule}");
             return;
         }
         
-        List<string> roundIndexList = ruleRoundIndexDict[rule];
+        List<string> roundIndexList;
+        if (rule == "qingque") {
+            roundIndexList = ruleRoundIndexDictQingque[rule];
+        } else if (rule == "riichi") {
+            roundIndexList = ruleRoundIndexDictRiichi[rule];
+        } else {
+            roundIndexList = ruleRoundIndexDict[rule];
+        }
         
         // 在RoundIndexContainer中生成局数标签文本
         foreach (string roundIndex in roundIndexList)

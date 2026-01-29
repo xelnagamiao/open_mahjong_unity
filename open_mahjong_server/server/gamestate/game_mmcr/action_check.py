@@ -149,10 +149,13 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
     # 调用听牌检查（使用计算服务类）
+    print("refresh_waiting_tiles")
+    print(current_player_hand_tiles,current_player_combination_tiles)
     current_player_waiting_tiles = self.calculation_service.Qingque_tingpai_check(
         current_player_hand_tiles,
         current_player_combination_tiles
     )
+    print("current_player_waiting_tiles")
     # 更新等待牌
     if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
         self.player_list[player_index].waiting_tiles = current_player_waiting_tiles
@@ -161,13 +164,21 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
 # 检查和牌操作
 def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_first_action=False,is_get_gang_tile=False):
     # 和牌操作
-    tiles_list = self.player_list[player_index].hand_tiles + [hepai_tile]
+    # 构建手牌列表：Qingque_hepai_check 需要 hand_list 包含和牌（内部会自动移除）
+    # 自摸时：手牌已经包含和牌；点和时：手牌不包含和牌，需要添加
+    if hepai_type == "handgot":
+        # 自摸：手牌已经包含和牌
+        tiles_list = self.player_list[player_index].hand_tiles.copy()
+    else:
+        # 点和/抢杠和：手牌不包含和牌，需要添加
+        tiles_list = self.player_list[player_index].hand_tiles + [hepai_tile]
+    
     combination_tiles = self.player_list[player_index].combination_tiles
-    way_to_hepai = ["花牌"] * len(self.player_list[player_index].huapai_list)
+    way_to_hepai = []
 
     # 抢杠和
     if hepai_type == "qianggang":
-        temp_action_dict[player_index].append("抢杠和")
+        way_to_hepai.append("抢杠")
 
     # 荣和
     elif hepai_type == "dianhe":
@@ -177,9 +188,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
     # 自摸 岭上开花
     elif hepai_type == "handgot":
-        tiles_list = tiles_list[:-1] # 删除最后一张牌
         if is_get_gang_tile:
-            way_to_hepai.append("杠上开花")
+            way_to_hepai.append("岭上开花")
         else:
             way_to_hepai.append("自摸")
         if len(self.tiles_list) == 0:
@@ -235,40 +245,23 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         elif "和绝张" in way_to_hepai:
             way_to_hepai.remove("和绝张")
 
-    # 使用计算服务类检查和牌
-    result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+    # 使用计算服务类检查和牌（青雀版本）
+    result = self.calculation_service.Qingque_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 
    
-    # 判断是否足够8番，减去花牌的数量
-    huapai_count = way_to_hepai.count("花牌")
-    if result[0] - huapai_count >= 8:
-        if get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "self":
-            temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
-            self.result_dict["hu_self"] = result # 保存结算结果
-        elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "left":
-            temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
-            self.result_dict["hu_first"] = result # 保存结算结果
-        elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "top":
-            temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
-            self.result_dict["hu_second"] = result # 保存结算结果
-        elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "right":
-            temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
-            self.result_dict["hu_third"] = result # 保存结算结果
-    else:
-        # 如果开启错和，不满足8番的和牌也进行保存(嘻嘻)
-        if self.open_cuohe:
-            if get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "self":
-                temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
-                self.result_dict["hu_self"] = result # 保存结算结果
-            elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "left":
-                temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
-                self.result_dict["hu_first"] = result # 保存结算结果
-            elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "top":
-                temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
-                self.result_dict["hu_second"] = result # 保存结算结果
-            elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "right":
-                temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
-                self.result_dict["hu_third"] = result # 保存结算结果
+
+    if get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "self":
+        temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
+        self.result_dict["hu_self"] = result # 保存结算结果
+    elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "left":
+        temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
+        self.result_dict["hu_first"] = result # 保存结算结果
+    elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "top":
+        temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
+        self.result_dict["hu_second"] = result # 保存结算结果
+    elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "right":
+        temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
+        self.result_dict["hu_third"] = result # 保存结算结果
 
 
 # 检查吃后碰杠胡操作 存储 吃后碰杠胡

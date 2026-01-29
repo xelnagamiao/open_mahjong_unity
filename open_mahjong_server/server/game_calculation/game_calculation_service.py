@@ -34,8 +34,8 @@ class GameCalculationService:
     游戏计算服务类
     
     提供以下接口：
-    - hepai_check: 青雀13张麻将和牌检查
-    - tingpai_check: 青雀13张麻将听牌检查
+    - hepai_check: 青雀和牌检查
+    - tingpai_check: 青雀听牌检查
     - GetBasePoint: 根据番数计算基础分数
     """
     
@@ -55,7 +55,7 @@ class GameCalculationService:
         debug: bool = False,
     ) -> Tuple[float, List[str]]:
         """
-        青雀 13 张麻将 和牌检查
+        青雀和牌检查
         
         Args:
             hand_list: 手牌列表（C# 中为 List<int>）
@@ -74,9 +74,10 @@ class GameCalculationService:
             )
         
         with self._lock:
-            # hand_list 是 Python 的 List[int]，get_tile 是单个 int，需要先包装成列表再拼接
-            hand_with_tile = hand_list + [get_tile]
-            return call_hepai_check(hand_with_tile, tiles_combination, way_to_hepai, get_tile, debug)
+            # 从 hand_list 中移除 get_tile（创建副本以避免修改原列表）
+            hand_without_tile = hand_list.copy()
+            hand_without_tile.remove(get_tile)
+            return call_hepai_check(hand_without_tile, tiles_combination, way_to_hepai, get_tile, debug)
 
     def Qingque_tingpai_check(
         self,
@@ -85,8 +86,7 @@ class GameCalculationService:
         debug: bool = False,
     ) -> Set[int]:
         """
-        青雀 13 张麻将 听牌检查
-        
+        青雀听牌检查
         Args:
             hand_tile_list: 手牌列表（List[int]）
             combination_list: 已完成组合列表（List[str]）
@@ -153,7 +153,8 @@ class GameCalculationService:
 
 if __name__ == "__main__":
     # 测试代码
-    test_save = [["G21", "g18"], [32, 32, 32, 25, 26, 27, 27], 27, ["自摸"]]  # 10
+    # [16, 45, 34, 16, 47, 21, 31, 38, 22, 31, 39, 24, 23]
+    test_save = [['s35', 's12', 's26'],[18, 45, 45, 19,17], 17, ["自摸"]]  # 10
 
     way_to_hepai = test_save[3]
     hepai_tiles = test_save[2]
@@ -164,7 +165,7 @@ if __name__ == "__main__":
     for i in range(10):
         check_service = GameCalculationService()
         time_start = time()
-        result = check_service.hepai_check(tiles_list, combination_list, way_to_hepai, hepai_tiles)
+        result = check_service.Qingque_hepai_check(tiles_list, combination_list,way_to_hepai,hepai_tiles)
         print("最终结果(返回最大的牌型):", result)
         time_end = time()
         print("测试用时：", time_end - time_start, "秒")

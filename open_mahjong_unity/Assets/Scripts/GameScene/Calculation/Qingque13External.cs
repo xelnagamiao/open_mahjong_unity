@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Qingque13;
 
 /// <summary>
-/// 青雀13张麻将对外统一接口（封装 Qingque13 命名空间内部实现）。
+/// 青雀对外统一接口（封装 Qingque13 命名空间内部实现）。
 /// 不修改 Qingque13 命名空间，只在 Calculation 目录提供调用入口。
 /// </summary>
 public static class Qingque13External
@@ -11,7 +11,7 @@ public static class Qingque13External
     /// <summary>
     /// 和牌检查封装。直接转调 Qingque13.Qingque13Hepai.HepaiCheck。
     /// </summary>
-    /// <param name="hand_list">手牌列表</param>
+    /// <param name="hand_list">手牌列表（应包含和牌张）</param>
     /// <param name="tiles_combination">已组成的组合列表</param>
     /// <param name="way_to_hepai">和牌方式列表（自摸、海底、岭上等关键字）</param>
     /// <param name="get_tile">和牌张 ID</param>
@@ -24,8 +24,12 @@ public static class Qingque13External
         int get_tile,
         bool debug = false)
     {
+        // 创建手牌列表副本，并移除和牌张（避免修改原列表）
+        List<int> handListWithoutTile = new List<int>(hand_list);
+        handListWithoutTile.Remove(get_tile);
+        
         return Qingque13Hepai.HepaiCheck(
-            hand_list,
+            handListWithoutTile,
             tiles_combination,
             way_to_hepai,
             get_tile,
