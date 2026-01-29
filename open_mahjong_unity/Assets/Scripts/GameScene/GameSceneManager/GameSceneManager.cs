@@ -329,8 +329,6 @@ public class GameSceneManager : MonoBehaviour{
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
-        // 隐藏提示按钮
-        TipsBlock.Instance.HideTipsBlock();
     }
 
     // 执行换位
@@ -383,8 +381,6 @@ public class GameSceneManager : MonoBehaviour{
                 if (isAutoHepai || isAutoBuhua || isAutoCut){
                     StartCoroutine(WaitAutoAction("AutoHandAction"));
                 }
-                // 当回合变为自己的时候可以在这里添加出牌预测提示
-                WaitShowTips("CountHandTips");
             }
             // 询问的不是自己的回合
             else{
@@ -394,6 +390,8 @@ public class GameSceneManager : MonoBehaviour{
             // 只有askHandAction才会转移玩家位置
             BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer); // 显示当前玩家
             CurrentPlayer = GetCardPlayer; // 存储当前玩家
+            // 询问操作时隐藏提示块
+            TipsBlock.Instance.HideTipsBlock();
         }
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
@@ -417,8 +415,8 @@ public class GameSceneManager : MonoBehaviour{
                 allowActionList.Clear();
                 // 清空按钮
                 GameCanvas.Instance.ClearActionButton();
-                // 在自己执行操作以后重新计算提示
-                WaitShowTips("CountTips");
+                // 在自己执行操作以后计算听牌提示，如果有提示就显示右侧提示块
+                TipsBlock.Instance.ShowTipsBlock(selfHandTiles, player_to_info["self"].combination_tiles);
             }
         }
 
@@ -602,47 +600,6 @@ public class GameSceneManager : MonoBehaviour{
             }
         }
     }
-
-    // 提示计算
-    private void WaitShowTips(string ShowState){
-        if (!tips){
-            return;
-        }
-
-        HashSet<int> waitingTiles = new HashSet<int>();
-
-        if (ShowState == "CountTips"){
-            try {
-                // 直接在主线程同步计算听牌
-                waitingTiles = GBtingpai.TingpaiCheck(
-                    selfHandTiles,
-                    player_to_info["self"].combination_tiles,
-                    false
-                );
-            } catch (System.Exception e) {
-                Debug.LogError($"计算听牌时出错: {e.Message}");
-                waitingTiles = new HashSet<int>();
-            }
-        }
-        else if (ShowState == "CountCutTips"){
-            // 暂时不提供切牌提示
-            return;
-        }
-
-        // 如果听牌列表不为空，则显示提示
-        if (waitingTiles.Count > 0) {
-            Debug.Log($"显示提示，听牌列表数量：{waitingTiles.Count}");
-            TipsContainer.Instance.SetTips(waitingTiles.ToList());
-            TipsContainer.Instance.hasTips = true;
-            TipsBlock.Instance.ShowTipsBlock();
-        }
-        else{
-            Debug.Log($"隐藏提示，听牌列表数量：{waitingTiles.Count}");
-            TipsContainer.Instance.hasTips = false;
-            TipsBlock.Instance.HideTipsBlock();
-        }
-    }
-
 
     // 设置游戏信息
     private void InitializeSetInfo(GameInfo gameInfo){

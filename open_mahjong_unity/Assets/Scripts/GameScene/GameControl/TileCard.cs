@@ -90,7 +90,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         isHovering = false;
         // 直接隐藏提示容器（内部会先清空内容）
-        TipsContainer.Instance.HideTipsTemp();
+        TipsContainer.Instance.HideTips();
     }
     
     /// <summary>
@@ -138,7 +138,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         if (waitingTiles.Count > 0)
         {
             Debug.Log($"显示切牌提示，听牌列表数量：{waitingTiles.Count}");
-            TipsContainer.Instance.SetTips(waitingTiles.ToList());
+            // 这里传入“切掉当前牌后的手牌”tempHandTiles，避免多算一张牌
+            TipsContainer.Instance.SetTipsWithHand(tempHandTiles, waitingTiles.ToList());
             TipsContainer.Instance.hasTips = true;
             TipsContainer.Instance.ShowTips();
         }
@@ -146,7 +147,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             Debug.Log($"切牌后无听牌");
             TipsContainer.Instance.hasTips = false;
-            TipsContainer.Instance.HideTipsTemp();
+            TipsContainer.Instance.HideTips();
         }
     }
 
@@ -183,6 +184,6 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void OnDestroy()
     {
         tileButton.onClick.RemoveListener(OnTileClick);
-        TipsContainer.Instance.HideTipsTemp();
+        TipsContainer.Instance.HideTips();
     }
 } 

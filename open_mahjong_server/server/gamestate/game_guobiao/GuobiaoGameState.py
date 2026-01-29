@@ -553,11 +553,9 @@ class GuobiaoGameState:
                     hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
                     hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
                     self.result_dict = {}
-                    for i in self.player_list: # 所有玩家扣除和牌分与8基础分
-                        if i == hepai_player_index:
-                            i.score += hu_score*3 + 24 # 自摸玩家增加和牌分与3*8基础分
-                        if i != hepai_player_index:
-                            i.score -= hu_score + 8  
+                    self.player_list[hepai_player_index].score += hu_score*4 + 32 # 三倍和牌分与3*8基础分
+                    for i in self.player_list: # 其他玩家扣除和牌分与8基础分
+                        i.score -= hu_score + 8  
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1 # 增加自摸次数

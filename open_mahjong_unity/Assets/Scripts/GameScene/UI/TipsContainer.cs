@@ -23,43 +23,39 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
-    /// 清空提示容器
-    /// 先让对象脱离父物体，避免布局系统在刷新时仍看到旧对象
-    /// </summary>
-    public void ClearTips()
-    {
-        // 先收集所有子对象，然后脱离父物体，最后加入销毁队列
-        List<Transform> toDestroy = new List<Transform>();
-        
-        // 收集提示牌
-        foreach (Transform child in TileContainer.transform) {
-            toDestroy.Add(child);
-        }
-        // 收集提示番
-        foreach (Transform child in FanContainer.transform) {
-            toDestroy.Add(child);
-        }
-        
-        // 先脱离父物体，让布局系统立即看不到它们
-        foreach (Transform child in toDestroy) {
-            child.SetParent(null);
-            Destroyer.Instance.AddToDestroyer(child);
-        }
-    }
-
-    /// <summary>
-    /// 设置提示内容
+    /// 使用当前 selfHandTiles 计算并显示提示（原有入口）
     /// </summary>
     public void SetTips(List<int> waitingTiles)
     {
-        // 先清空旧内容
-        ClearTips();
+        GameSceneManager gameManager = GameSceneManager.Instance;
+        if (gameManager == null) return;
+        SetTipsWithHand(gameManager.selfHandTiles, waitingTiles);
+    }
+
+    /// <summary>
+    /// 新入口：外部显式传入“当前手牌列表” + waitingTiles，用于切牌提示等场景
+    /// handTiles: 作为和牌基础的手牌（比如已经移除将要切掉的那一张）
+    /// waitingTiles: 听牌后的所有和牌张
+    /// </summary>
+    public void SetTipsWithHand(List<int> handTiles, List<int> waitingTiles)
+    {
+
+        // 收集子对象
+        List<Transform> toDestroy = new List<Transform>();
+        foreach (Transform child in TileContainer.transform){
+            toDestroy.Add(child);
+        }
+        foreach (Transform child in FanContainer.transform){
+            toDestroy.Add(child);
+        }
+
+        // 销毁子对象
+        foreach (Transform child in toDestroy){
+            Destroyer.Instance.AddToDestroyer(child);
+        }
 
         // 获取游戏管理器实例
         GameSceneManager gameManager = GameSceneManager.Instance;
-        if (gameManager == null) {
-            return;
-        }
 
         // 构建和牌条件
         List<string> wayToHepai = new List<string>();
@@ -97,10 +93,11 @@ public class TipsContainer : MonoBehaviour
         if (waitingTiles.Count == 1) {
             wayToHepai.Add("和单张");
         }
-
+        // 排序
+        waitingTiles.Sort();
         // 遍历每一张和牌张
         foreach (int hepaiTile in waitingTiles) {
-            // 和绝张检查 弃牌+1 有顺子+1 有刻+2
+            // 和绝张检查 弃牌+1 有顺子+1 有刻+3
             int showTilesCount = 0;
             List<string> singleTilewayToHepai = new List<string>();
             List<string> nowCombinations = new List<string>();
@@ -121,7 +118,7 @@ public class TipsContainer : MonoBehaviour
             foreach (string combination in nowCombinations) {
                 // 检查刻子 k{牌号}
                 if (combination.Contains($"k{hepaiTile}")) {
-                    showTilesCount += 2;
+                    showTilesCount += 3;
                 }
                 // 检查顺子 s{牌号-1}, s{牌号}, s{牌号+1}
                 if (combination.Contains($"s{hepaiTile - 1}")) {
@@ -143,7 +140,6 @@ public class TipsContainer : MonoBehaviour
                 if (wayToHepai.Contains("自摸")) {
                     singleTilewayToHepai.Add("和绝张");
                 }
-                // 如果
             }
 
             // 将singleTilewayToHepai和wayToHepai合并，加上"点和"计算每一张和牌卡牌的番数
@@ -151,8 +147,8 @@ public class TipsContainer : MonoBehaviour
             mergedWayToHepai.AddRange(singleTilewayToHepai);
             mergedWayToHepai.Add("点和"); // 添加"点和"
             
-            // 获取手牌和组合牌信息
-            List<int> handList = new List<int>(gameManager.selfHandTiles);
+            // 获取手牌和组合牌信息（这里用传入的 handTiles，而不是 selfHandTiles）
+            List<int> handList = new List<int>(handTiles);
             handList.Add(hepaiTile);
             List<string> combinationList = new List<string>(gameManager.player_to_info["self"].combination_tiles ?? new List<string>());
             
@@ -196,29 +192,15 @@ public class TipsContainer : MonoBehaviour
             }
             Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
         }
-        
-        // 所有新对象创建完成后，强制刷新布局
-        // 此时旧对象已脱离父物体，布局系统只会计算新对象的尺寸
-        ForceRefreshLayout();
     }
 
-    /// <summary>
-    /// 强制刷新提示容器的布局（适配 WebGL 等平台的动态内容）
-    /// </summary>
-    private void ForceRefreshLayout()
-    {
-        if (TileContainer != null)
-        {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(TileContainer.transform as RectTransform);
-        }
-        if (FanContainer != null)
-        {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(FanContainer.transform as RectTransform);
-        }
-        Canvas.ForceUpdateCanvases();
-        
-        // 手动计算并设置 TipsContainer 的大小（上下左右边框各 20）
+    public void HideTips(){
+        gameObject.SetActive(false);
+    }
+
+    public void ShowTips(){
         UpdateContainerSize();
+        gameObject.SetActive(true);
     }
 
     /// <summary>
@@ -270,19 +252,5 @@ public class TipsContainer : MonoBehaviour
         containerRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, totalHeight);
     }
 
-    /// <summary>
-    /// 显示提示容器
-    /// </summary>
-    public void ShowTips()
-    {
-        ForceRefreshLayout();
-        gameObject.SetActive(true);
-    }
-
-    public void HideTipsTemp()
-    {
-        gameObject.SetActive(false);
-        ForceRefreshLayout();
-    }
 }
 
