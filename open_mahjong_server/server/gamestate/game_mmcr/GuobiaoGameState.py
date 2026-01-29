@@ -79,7 +79,7 @@ class GuobiaoPlayer:
         self.hand_tiles.append(element)
 
         # 游戏进程类
-class GuobiaoGameState:
+class QingqueGameState:
     # GuobiaoGameState负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager, gamestate_id: str):
         # 传入游戏服务器
