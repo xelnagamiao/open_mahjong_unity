@@ -58,9 +58,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
         // 如果切牌在允许操作列表中
-        if (GameSceneManager.Instance.allowActionList.Contains("cut")){
+        if (NormalGameStateManager.Instance.allowActionList.Contains("cut")){
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
-            NetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
+            GameStateNetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {
             Debug.Log("没有权限出牌");
         }
@@ -99,17 +99,17 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void CheckCutTileTips()
     {
         // 检查是否开启了提示功能
-        if (!GameSceneManager.Instance.tips){
+        if (!NormalGameStateManager.Instance.tips){
             return;
         }
         
         // 检查是否有切牌权限
-        if (!GameSceneManager.Instance.allowActionList.Contains("cut")){
+        if (!NormalGameStateManager.Instance.allowActionList.Contains("cut")){
             return;
         }
         
         // 临时移除当前牌，进行听牌检测
-        List<int> tempHandTiles = new List<int>(GameSceneManager.Instance.selfHandTiles);
+        List<int> tempHandTiles = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
         tempHandTiles.Remove(tileId);
         
         // 执行听牌检测
@@ -118,7 +118,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             waitingTiles = GBtingpai.TingpaiCheck(
                 tempHandTiles,
-                GameSceneManager.Instance.player_to_info["self"].combination_tiles,
+                NormalGameStateManager.Instance.player_to_info["self"].combination_tiles,
                 false
             );
         }

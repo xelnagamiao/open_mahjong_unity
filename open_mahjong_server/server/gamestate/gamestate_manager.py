@@ -5,7 +5,7 @@ import uuid
 from typing import Dict, Any, Optional
 from .game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..response import Response, MessageInfo
-
+from .game_mmcr.QingqueGameState import QingqueGameState
 logger = logging.getLogger(__name__)
 
 class GameStateManager:
@@ -21,14 +21,15 @@ class GameStateManager:
         self.game_server = game_server
         # 管理不同房间id到已启动的游戏服务的映射（仅用于开始游戏时检查，之后不再使用）
         self.room_id_to_GuobiaoGameState: Dict[str, GuobiaoGameState] = {}
+        self.room_id_to_QingqueGameState: Dict[str, QingqueGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
-        self.gamestate_id_to_game_state: Dict[str, GuobiaoGameState] = {}
+        self.gamestate_id_to_game_state: Dict[str, Any] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
         self.user_id_to_game_state: Dict[int, Any] = {}
     
-    async def start_GB_game(self, Connect_id: str, room_id: str) -> Optional[Response]:
+    async def start_game(self, Connect_id: str, room_id: str) -> Optional[Response]:
         """
-        开始国标游戏
+        开始游戏
         
         Args:
             Connect_id: 连接ID
@@ -94,7 +95,42 @@ class GameStateManager:
                         del self.gamestate_id_to_game_state[game_state.gamestate_id]
                     del self.room_id_to_GuobiaoGameState[room_id]
                 return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
-        
+        elif room_data["room_type"] == "qingque":
+            try:
+                # 生成 gamestate_id
+                gamestate_id = str(uuid.uuid4())
+                
+                game_state = QingqueGameState(
+                    self.game_server, 
+                    room_data, 
+                    self.game_server.calculation_service,
+                    self.game_server.db_manager,
+                    gamestate_id
+                )
+                self.room_id_to_QingqueGameState[room_id] = game_state
+                self.gamestate_id_to_game_state[gamestate_id] = game_state
+                
+                # 建立用户ID到游戏状态的映射
+                for player_id in room_data["player_list"]:
+                    self.user_id_to_game_state[player_id] = game_state
+                
+                # 创建并保存游戏循环任务引用（使用带顶层异常捕获的包装方法）
+                game_state.game_task = asyncio.create_task(game_state.run_game_loop())
+                logger.info(f"房间 {room_id} 的游戏已启动，gamestate_id: {gamestate_id}")
+            except Exception as e:
+                logger.error(f"创建游戏任务时发生异常，room_id: {room_id}, 错误: {e}", exc_info=True)
+                # 重置游戏运行状态
+                room_data["is_game_running"] = False
+                # 清理已创建的游戏状态（如果已创建）
+                if room_id in self.room_id_to_QingqueGameState:
+                    game_state = self.room_id_to_QingqueGameState[room_id]
+                    # 同时从 gamestate_id 映射中移除
+                    if hasattr(game_state, 'gamestate_id') and game_state.gamestate_id in self.gamestate_id_to_game_state:
+                        del self.gamestate_id_to_game_state[game_state.gamestate_id]
+                    del self.room_id_to_QingqueGameState[room_id]
+                return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
+        else:
+            return Response(type="error_message", success=False, message="房间类型不支持")
         return None
     
     async def check_player_reconnect(self, Connect_id: str, user_id: int):
@@ -173,6 +209,13 @@ class GameStateManager:
             if game_state.gamestate_id in self.gamestate_id_to_game_state:
                 del self.gamestate_id_to_game_state[game_state.gamestate_id]
             del self.room_id_to_GuobiaoGameState[room_id]
+            logger.info(f"已移除房间 {room_id} 的游戏状态映射")
+        elif room_id in self.room_id_to_QingqueGameState:
+            game_state = self.room_id_to_QingqueGameState[room_id]
+            # 同时从 gamestate_id 映射中移除
+            if game_state.gamestate_id in self.gamestate_id_to_game_state:
+                del self.gamestate_id_to_game_state[game_state.gamestate_id]
+            del self.room_id_to_QingqueGameState[room_id]
             logger.info(f"已移除房间 {room_id} 的游戏状态映射")
     
     def remove_game_state_by_gamestate_id(self, gamestate_id: str):

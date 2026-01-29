@@ -5,7 +5,13 @@ import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action
 from ..public.logic_common import get_index_relative_position
-from ..public.game_record_manager import player_action_record_cut, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_nextxunmu
+from ..public.game_record_manager import (
+    player_action_record_cut,
+    player_action_record_angang,
+    player_action_record_jiagang,
+    player_action_record_chipenggang,
+    player_action_record_nextxunmu,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,24 +135,8 @@ async def wait_action(self):
         
     # 情形处理
     match self.game_status:
-        # 补花轮特殊case 只有在游戏开始时启用
-        case "waiting_buhua_round":
-            # 如果有操作
-            if action_data:
-                # 等待补花阶段的action_type只能是buhua
-                if action_type == "buhua": 
-                    if action_data:
-                        return True # 补花以后如果能够补花继续询问
-                    elif action_type == "pass":
-                        return False # 如果玩家选择pass则停止该玩家补花
-                    else: # 报错
-                        raise ValueError("补花阶段action_data出现非buhua和pass的值")
-            # 如果无操作结束补花 由于补花阶段是按索引进行循环补花的
-            # 如果玩家不补花需要返回False 否则就无法同时处理 玩家同时需要补花2张和玩家拒绝补花的情况
-            else:
-                return False
-            
-        # 摸牌后手牌case 包含 切牌cut 暗杠gang 加杠jiagang 自摸hu 补花buhua 其中自摸是终结条件 补花 加杠 暗杠是循环行为 切牌是转移/历时行为
+        # 摸牌后手牌case 包含 切牌cut 暗杠gang 加杠jiagang 自摸hu
+        # 青雀规则：不包含补花逻辑
         case "waiting_hand_action":
             if action_data:
                 if action_type == "cut": # 切牌
@@ -239,11 +229,6 @@ async def wait_action(self):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                     else:
                         self.game_status = "deal_card_after_gang" # 历时行为
-                    return
-                
-                elif action_type == "buhua": 
-                    # 补花
-                    self.game_status = "deal_card_after_buhua"
                     return
                 
                 elif action_type == "hu_self": # 自摸

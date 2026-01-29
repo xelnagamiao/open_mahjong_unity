@@ -16,6 +16,7 @@ public class RoomPanel : MonoBehaviour {
     [SerializeField] private Button backButton; // 返回按钮
     [SerializeField] private Button startButton; // 开始按钮
     [SerializeField] private Button addBotButton; // 离开房间按钮
+    [SerializeField] private RoomConfigContainer roomConfigContainer; // 房间设置容器
 
     int player1_id = 0;
     int player2_id = 0;
@@ -97,10 +98,9 @@ public class RoomPanel : MonoBehaviour {
         // 只有房主可以添加机器人
         addBotButton.interactable = isHost;
 
-        if (roomInfo.room_type == "guobiao") { // 显示房间右侧的设置栏
-            GB_RoomConfig gbRoomConfig = GB_RoomConfig.Instance;
-            gbRoomConfig.SetGBRoomConfig(roomInfo);
-        }
+
+        this.roomConfigContainer.SetRoomConfig(roomInfo);
+
     }
 
     private void BackButtonClicked() {

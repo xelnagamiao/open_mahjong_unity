@@ -241,75 +241,22 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_riichi_stats":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
+                // 游戏状态相关消息交由 GameStateNetworkManager 处理
+                case "gamestate/guobiao/game_start":
+                case "gamestate/qingque/game_start":
+                case "gamestate/guobiao/broadcast_hand_action":
+                case "gamestate/qingque/broadcast_hand_action":
+                case "gamestate/guobiao/ask_other_action":
+                case "gamestate/qingque/ask_other_action":
+                case "gamestate/guobiao/do_action":
+                case "gamestate/qingque/do_action":
+                case "gamestate/guobiao/show_result":
+                case "gamestate/qingque/show_result":
+                case "gamestate/guobiao/game_end":
+                case "gamestate/qingque/game_end":
                 case "switch_seat":
-                    Debug.Log($"收到换位消息: {response.message}");
-                    GameSceneManager.Instance.HandleSwitchSeat(response.switch_seat_info.current_round);
-                    break;
                 case "refresh_player_tag_list":
-                    Debug.Log($"收到刷新玩家标签列表消息: {response.message}");
-                    RefreshPlayerTagListInfo tagInfo = response.refresh_player_tag_list_info;
-                    GameSceneManager.Instance.RefreshPlayerTagList(tagInfo.player_to_tag_list);
-                    break;
-                case "game_start_GB":
-                    Debug.Log($"游戏开始: {response.message}");
-                    GameSceneManager.Instance.InitializeGame(response.success, response.message, response.game_info);
-                    break;
-                case "broadcast_hand_action_GB":
-                    Debug.Log($"收到手牌轮操作信息: {response.ask_hand_action_info}");
-                    AskHandActionGBInfo handresponse = response.ask_hand_action_info;
-                    GameSceneManager.Instance.AskHandAction(
-                        handresponse.remaining_time,
-                        handresponse.player_index,
-                        handresponse.remain_tiles,
-                        handresponse.action_list
-                    );
-                    break;
-                case "ask_other_action_GB":
-                    Debug.Log($"收到询问弃牌后操作消息: {response.ask_other_action_info}");
-                    AskOtherActionGBInfo askresponse = response.ask_other_action_info;
-                    GameSceneManager.Instance.AskMingPaiAction(
-                        askresponse.remaining_time,
-                        askresponse.action_list,
-                        askresponse.cut_tile
-                    );
-                    break;
-                case "do_action_GB":
-                    Debug.Log($"收到执行操作消息: {response.do_action_info}");
-                    DoActionInfo doresponse = response.do_action_info;
-                    GameSceneManager.Instance.DoAction(
-                        doresponse.action_list,
-                        doresponse.action_player,
-                        doresponse.cut_tile,
-                        doresponse.cut_tile_index,
-                        doresponse.cut_class,
-                        doresponse.deal_tile,
-                        doresponse.buhua_tile,
-                        doresponse.combination_mask,
-                        doresponse.combination_target
-
-                    );
-                    break;
-                case "show_result_GB":
-                    Debug.Log($"收到显示结算结果消息: {response.show_result_info}");
-                    ShowResultInfo showresponse = response.show_result_info;
-                    GameSceneManager.Instance.ShowResult(
-                        showresponse.hepai_player_index,
-                        showresponse.player_to_score,
-                        showresponse.hu_score,
-                        showresponse.hu_fan,
-                        showresponse.hu_class,
-                        showresponse.hepai_player_hand,
-                        showresponse.hepai_player_huapai,
-                        showresponse.hepai_player_combination_mask
-                    );
-                    break;
-                case "game_end_GB":
-                    Debug.Log($"收到游戏结束消息: {response.game_end_info}");
-                    GameEndInfo gameendresponse = response.game_end_info;
-                    GameSceneManager.Instance.GameEnd(
-                        gameendresponse.game_random_seed,
-                        gameendresponse.player_final_data
-                    );
+                    GameStateNetworkManager.Instance?.HandleGameStateMessage(response);
                     break;
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
@@ -389,28 +336,7 @@ public class NetworkManager : MonoBehaviour {
     }
 
     // 房间相关方法已移至 RoomNetworkManager
-    // GameScene Case
-    // 4.7 发送国标卡牌方法 SendChineseGameTile 从GameScene与其下属 发送    
-    public async void SendChineseGameTile(bool cutClass,int tileId,int cutIndex){
-        var request = new SendChineseGameTileRequest {
-            type = "gamestate/GB/cut_tile",
-            cutClass = cutClass,
-            TileId = tileId,
-            cutIndex = cutIndex,
-            gamestate_id = UserDataManager.Instance.GamestateId
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
-    // 4.8 发送吃碰杠回应
-    public async void SendAction(string action,int targetTile) {
-        var request = new SendActionRequest {
-            type = "gamestate/GB/send_action",
-            gamestate_id = UserDataManager.Instance.GamestateId,
-            action = action,
-            targetTile = targetTile
-        };
-        await websocket.SendText(JsonConvert.SerializeObject(request));
-    }
+    // 游戏状态相关方法已移至 GameStateNetworkManager
 
 
     // 4.11 游客登录方法 TouristLogin 从LoginPanel发送

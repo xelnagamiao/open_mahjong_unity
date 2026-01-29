@@ -158,6 +158,11 @@ class GameServer:
     async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
         return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe)
 
+    # 创建青雀房间（目前沿用国标房间逻辑，仅固定不开放错和）
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0) -> Response:
+        # 这里直接复用 create_GB_room 的实现，open_cuohe 固定为 False
+        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False)
+
     # 获取房间列表
     def get_room_list(self) -> Response:
         return self.room_manager.get_room_list()
@@ -185,7 +190,7 @@ class GameServer:
     # 开始游戏
     async def start_game(self, Connect_id: str, room_id: str):
         """开始游戏（委托给游戏状态管理器）"""
-        response = await self.gamestate_manager.start_GB_game(Connect_id, room_id)
+        response = await self.gamestate_manager.start_game(Connect_id, room_id)
         if response:
             await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 

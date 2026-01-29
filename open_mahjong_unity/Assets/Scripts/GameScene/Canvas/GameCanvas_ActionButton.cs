@@ -116,8 +116,8 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 选择行动
     public void ChooseAction(string actionType,int targetTile){
-        GameSceneManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
+        NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
         // 发送行动
-        NetworkManager.Instance.SendAction(actionType,targetTile);
+        GameStateNetworkManager.Instance.SendAction(actionType,targetTile);
     }
 }

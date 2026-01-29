@@ -32,10 +32,10 @@ public class SoundManager : MonoBehaviour {
     public void PlayActionSound(string playerPosition,string actionType) {
         // 根据玩家位置获取对应玩家的音色ID
         int voiceId = 1; // 默认音色ID
-        if (GameSceneManager.Instance != null && GameSceneManager.Instance.player_to_info.ContainsKey(playerPosition)) {
-            voiceId = GameSceneManager.Instance.player_to_info[playerPosition].voice_used;
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
+            voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
         } else if (UserDataManager.Instance != null) {
-            // 如果无法从GameSceneManager获取，则使用用户设置的音色ID作为后备
+            // 如果无法从NormalGameStateManager获取，则使用用户设置的音色ID作为后备
             voiceId = UserDataManager.Instance.VoiceId;
         }
 

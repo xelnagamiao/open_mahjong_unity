@@ -2,7 +2,7 @@ from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_
 from typing import List, Dict, Optional
 import logging
 import asyncio
-from .guobiao_ai import bot_auto_action
+from ..public.auto_cut_ai import auto_cut_action
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ async def broadcast_game_start(self):
                 )
 
                 response = Response(
-                    type="game_start_GB",
+                    type="gamestate/guobiao/game_start",
                     success=True,
                     message="游戏开始",
                     game_info=game_info
@@ -102,7 +102,7 @@ async def broadcast_ask_hand_action(self):
             # 如果是机器人，启动自动操作并跳过广播
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(bot_auto_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue  # 机器人不需要接收广播
             
             if i == self.current_player_index:
@@ -110,7 +110,7 @@ async def broadcast_ask_hand_action(self):
                 if current_player.user_id in self.game_server.user_id_to_connection:
                     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                     response = Response(
-                        type="broadcast_hand_action_GB",
+                        type="gamestate/guobiao/broadcast_hand_action",
                         success=True,
                         message="发牌，并询问手牌操作",
                         ask_hand_action_info = Ask_hand_action_info(
@@ -130,7 +130,7 @@ async def broadcast_ask_hand_action(self):
                 if current_player.user_id in self.game_server.user_id_to_connection:
                     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                     response = Response(
-                        type="broadcast_hand_action_GB",
+                        type="gamestate/guobiao/broadcast_hand_action",
                         success=True,
                         message="发牌，并询问手牌操作",
                         ask_hand_action_info = Ask_hand_action_info(
@@ -164,7 +164,7 @@ async def broadcast_ask_other_action(self):
             # 如果是机器人，启动自动操作并跳过广播
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(bot_auto_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue  # 机器人不需要接收广播
             
             if self.action_dict[i] != []:
@@ -172,7 +172,7 @@ async def broadcast_ask_other_action(self):
                 if current_player.user_id in self.game_server.user_id_to_connection:
                     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                     response = Response(
-                        type="ask_other_action_GB",
+                        type="gamestate/guobiao/ask_other_action",
                         success=True,
                         message="询问操作",
                         ask_other_action_info = Ask_other_action_info(
@@ -191,7 +191,7 @@ async def broadcast_ask_other_action(self):
                 if current_player.user_id in self.game_server.user_id_to_connection:
                     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                     response = Response(
-                        type="ask_other_action_GB",
+                        type="gamestate/guobiao/ask_other_action",
                         success=True,
                         message="询问操作",
                         ask_other_action_info = Ask_other_action_info(
@@ -242,7 +242,7 @@ async def broadcast_do_action(
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
                 response = Response(
-                    type="do_action_GB",
+                    type="gamestate/guobiao/do_action",
                     success=True,
                     message="返回操作内容",
                     do_action_info=Do_action_info(
@@ -293,7 +293,7 @@ async def broadcast_result(self,
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
                 response = Response(
-                    type="show_result_GB",
+                    type="gamestate/guobiao/show_result",
                     success=True,
                     message="显示结算结果",
                     show_result_info=Show_result_info(
@@ -346,7 +346,7 @@ async def broadcast_game_end(self):
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
                 response = Response(
-                    type="game_end_GB",
+                    type="gamestate/guobiao/game_end",
                     success=True,
                     message="游戏结束",
                     game_end_info=Game_end_info(

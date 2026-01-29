@@ -140,7 +140,7 @@ def check_only_cut(self,player_index):
 
 # 检查等待牌操作 用来在玩家手牌发生改变时检测监听的卡牌
 def refresh_waiting_tiles(self,player_index,is_first_action=False):
-    # 获取GuobiaoPlayer
+    # 获取QingquePlayer
     player_item = self.player_list[player_index]
     # 获取手牌
     current_player_hand_tiles = player_item.hand_tiles
@@ -149,7 +149,7 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
     # 调用听牌检查（使用计算服务类）
-    current_player_waiting_tiles = self.calculation_service.GB_tingpai_check(
+    current_player_waiting_tiles = self.calculation_service.Qingque_tingpai_check(
         current_player_hand_tiles,
         current_player_combination_tiles
     )

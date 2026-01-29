@@ -688,7 +688,7 @@ GameObject:
   - component: {fileID: 1256537591370408949}
   - component: {fileID: 6961916754911433406}
   m_Layer: 5
-  m_Name: GameState
+  m_Name: GameStatus
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1880,7 +1880,7 @@ GameObject:
   - component: {fileID: 8636451915139974838}
   - component: {fileID: 8595567573508178259}
   - component: {fileID: 1482793051482933502}
-  - component: {fileID: 3370361247218989536}
+  - component: {fileID: 5749598254687890258}
   m_Layer: 5
   m_Name: RoomItem
   m_TagString: Untagged
@@ -1949,7 +1949,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &3370361247218989536
+--- !u!114 &5749598254687890258
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1958,7 +1958,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 8586463362019297553}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ca0abed97eebd442820773502023b2d, type: 3}
+  m_Script: {fileID: 11500000, guid: ccc834d49e5eebe4a9fac4fb6af79bb7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   roomName: {fileID: 5868659160354275669}

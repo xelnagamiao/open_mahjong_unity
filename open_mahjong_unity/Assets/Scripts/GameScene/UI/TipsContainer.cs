@@ -27,7 +27,7 @@ public class TipsContainer : MonoBehaviour
     /// </summary>
     public void SetTips(List<int> waitingTiles)
     {
-        GameSceneManager gameManager = GameSceneManager.Instance;
+        NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null) return;
         SetTipsWithHand(gameManager.selfHandTiles, waitingTiles);
     }
@@ -55,7 +55,7 @@ public class TipsContainer : MonoBehaviour
         }
 
         // 获取游戏管理器实例
-        GameSceneManager gameManager = GameSceneManager.Instance;
+        NormalGameStateManager gameManager = NormalGameStateManager.Instance;
 
         // 构建和牌条件
         List<string> wayToHepai = new List<string>();

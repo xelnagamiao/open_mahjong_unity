@@ -137,6 +137,39 @@ public class RoomNetworkManager : MonoBehaviour {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
         }
     }
+
+    /// <summary>
+    /// 创建青雀房间（规则字符串使用 qingque13，去掉错和配置，其他与国标类似）
+    /// </summary>
+    public async void Create_Qingque_Room(Qingque_Create_RoomConfig config) {
+        try {
+            int randomSeed = 0;
+            if (!string.IsNullOrEmpty(config.RandomSeed)) {
+                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
+                    randomSeed = 0;
+                }
+            }
+
+            // 复用与国标相同的请求结构，仅 type 与 rule 区分
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Qingque_room",
+                rule = config.Rule,
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                // 青雀规则不支持错和，这里固定为 false
+                open_cuohe = false
+            };
+            Debug.Log($"发送创建青雀房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
     
     /// <summary>
     /// 获取房间列表

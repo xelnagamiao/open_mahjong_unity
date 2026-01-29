@@ -206,7 +206,7 @@ public partial class GameCanvas{
         }
 
         // 如果玩家选择了自动排序手牌，按tileId排序
-        if (GameSceneManager.Instance != null && GameSceneManager.Instance.isAutoArrangeHandCards){
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.isAutoArrangeHandCards){
             tileCards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
         }
         // 如果不勾选自动排序，保持原有顺序

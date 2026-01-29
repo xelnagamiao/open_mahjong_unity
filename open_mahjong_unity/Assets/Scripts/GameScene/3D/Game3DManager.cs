@@ -118,13 +118,13 @@ public class Game3DManager : MonoBehaviour {
             yield return StartCoroutine(ClearHandCardsCoroutine());
             
             // 然后初始化手牌
-            for (int i = 0; i < GameSceneManager.Instance.player_to_info["left"].hand_tiles_count; i++){
+            for (int i = 0; i < NormalGameStateManager.Instance.player_to_info["left"].hand_tiles_count; i++){
                 Get3DTile("left","init");
             }
-            for (int i = 0; i < GameSceneManager.Instance.player_to_info["top"].hand_tiles_count; i++){
+            for (int i = 0; i < NormalGameStateManager.Instance.player_to_info["top"].hand_tiles_count; i++){
                 Get3DTile("top","init");
             }
-            for (int i = 0; i < GameSceneManager.Instance.player_to_info["right"].hand_tiles_count; i++){
+            for (int i = 0; i < NormalGameStateManager.Instance.player_to_info["right"].hand_tiles_count; i++){
                 Get3DTile("right","init");
             }
         }
@@ -320,28 +320,28 @@ public class Game3DManager : MonoBehaviour {
             JiagangDirection = FrontDirection; // 自家加杠指针是向前
             SetPositionpoint = selfSetCombinationsPoint; // 获取放置指针
             // 获取父对象 父对象 = 玩家组合数 => 玩家组合父对象列表
-            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["self"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "left"){
             rotation =  Quaternion.Euler(0, 90, -90); // 左侧玩家
             SetDirection = FrontDirection; // 向前
             JiagangDirection = RightDirection; // 左侧玩家加杠指针是向右
             SetPositionpoint = leftSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["left"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["left"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "top"){
             rotation =  Quaternion.Euler(0, 180, -90); // 上方玩家
             SetDirection = RightDirection; // 向右
             JiagangDirection = BackDirection; // 上方玩家加杠指针是向后
             SetPositionpoint = topSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["top"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["top"].combination_tiles.Count - 1];
         }
         else if (playerIndex == "right"){
             rotation =  Quaternion.Euler(0, 270, -90); // 右侧玩家
             SetDirection = BackDirection; // 向后
             JiagangDirection = LeftDirection; // 右侧玩家加杠指针是向左
             SetPositionpoint = rightSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[GameSceneManager.Instance.player_to_info["right"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["right"].combination_tiles.Count - 1];
         }
         // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
         List<int> SetTileList = new List<int>();

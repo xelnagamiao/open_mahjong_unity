@@ -71,7 +71,7 @@ public class GameScoreRecord : MonoBehaviour
     public void UpdateScoreRecord()
     {
         // 从 GameSceneManager.Instance.player_to_info 中获取数据
-        var playerInfos = GameSceneManager.Instance.player_to_info;
+        var playerInfos = NormalGameStateManager.Instance.player_to_info;
         
         // 按照 original_player_index 排序获取玩家信息
         var sortedPlayers = new List<(int originalIndex, string username, List<string> scoreHistory)>();
@@ -85,7 +85,7 @@ public class GameScoreRecord : MonoBehaviour
         sortedPlayers.Sort((a, b) => a.originalIndex.CompareTo(b.originalIndex));
         
         // 获取规则（从 GameSceneManager 获取）
-        string rule = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : "UNKNOWN";
+        string rule = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomType : "UNKNOWN";
         
         // 调用初始化方法
         InitializeScoreRecord(rule, 

@@ -17,8 +17,8 @@ from .boardcast import (
     broadcast_refresh_player_tag_list,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
-from .init_game_tiles import init_game_tiles
-from .next_game_round import next_game_round
+from ..public.init_game_tiles import init_guobiao_tiles
+from ..public.next_game_round import next_game_round
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -230,7 +230,7 @@ class GuobiaoGameState:
                     )
                     
                     response = Response(
-                        type="game_start_GB",
+                        type="gamestate/guobiao/game_start",
                         success=True,
                         message="重连成功，游戏继续",
                         game_info=game_info
@@ -324,7 +324,7 @@ class GuobiaoGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
-            init_game_tiles(self) # 初始化牌山和手牌
+            init_guobiao_tiles(self) # 初始化牌山和手牌
 
             # 广播游戏开始
             await self.broadcast_game_start()

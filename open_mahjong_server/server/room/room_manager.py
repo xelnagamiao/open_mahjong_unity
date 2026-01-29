@@ -140,6 +140,124 @@ class RoomManager:
                 message=f"创建房间失败: {str(e)}"
             )
 
+    async def create_Qingque_room(self, player_id: str, room_name: str, gameround: int,
+                                  password: str, roundTimerValue: int, stepTimerValue: int,
+                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
+        """
+        创建青雀房间。
+        青雀规则不支持错和，open_cuohe 参数会被忽略，统一按 False 处理。
+        """
+        try:
+            # 检查玩家是否存在
+            if player_id not in self.game_server.players:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="请先登录"
+                )
+
+            # 获取玩家信息
+            player = self.game_server.players[player_id] # 拿取 PlayerConnection
+            if not player.user_id:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="请先登录"
+                )
+            host_user_id = player.user_id  # 获取房主ID
+            host_name = player.username  # 获取房主名（用于显示）
+
+            # 获取房主的设置信息
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message="获取用户设置失败"
+                )
+
+            # 构建房间配置
+            has_password = False
+            if password == "":
+                has_password = False
+            else:
+                has_password = True
+            
+            # 传参配置 传入的参数（青雀规则不支持错和，强制为 False）
+            room_config = {
+                "room_name": room_name, # 房间名
+                "game_round": gameround, # 最大局数
+                "round_timer": roundTimerValue, # 局时
+                "step_timer": stepTimerValue, # 步时
+                "random_seed": random_seed, # 随机种子
+                "open_cuohe": False, # 青雀规则不支持错和，固定为 False
+            }
+
+            # 拿取国标麻将验证器（青雀规则与国标类似，复用验证器）
+            try:
+                validator_class = self.room_validators["guobiao"]
+                validated_config = validator_class(**room_config) # 解包room_config 调用验证器方法
+            except ValueError as e:
+                return Response(
+                    type="tips",
+                    success=False,
+                    message=f"房间配置无效: {str(e)}"
+                )
+
+            # 生成房间ID
+            room_id = self._generate_room_id()
+
+            # 创建房间数据头
+            room_data = {
+                "room_id": room_id, # 房间ID
+                "room_type": "qingque", # 房间类型（青雀）
+                "max_player": 4, # 最大玩家数
+                "player_list": [host_user_id], # 玩家列表（使用 user_id）
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },  # 玩家ID到设置信息的映射
+                "has_password": has_password, # 是否有密码
+                "tips": tips, # 是否开启提示
+                "host_user_id": host_user_id, # 房主ID
+                "host_name": host_name, # 房主名（用于显示）
+                "is_game_running": False, # 游戏是否正在运行
+            }
+
+            # 将房间数据尾 添加到room_data中
+            room_data.update(validated_config.dict())
+
+            # 存储room_data到房间字典中 如果有密码保存密码
+            self.rooms[room_id] = room_data
+            if has_password:
+                self.room_passwords[room_id] = password
+
+            # 更新玩家信息
+            player.current_room_id = room_id
+
+            # 广播房间信息
+            await self._broadcast_room_info(room_id)
+
+            return Response(
+                type = "room/create_room_done",
+                success = True,
+                message = "房间创建成功",
+                room_info = room_data
+            )
+
+        except Exception as e:
+            return Response(
+                type="error_message",
+                success=False,
+                message=f"创建房间失败: {str(e)}"
+            )
+
     def get_room_list(self) -> Response:
         try:
             room_list = []

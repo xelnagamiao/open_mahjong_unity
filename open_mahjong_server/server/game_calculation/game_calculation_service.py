@@ -7,12 +7,13 @@ from typing import List, Set, Tuple
 from time import time
 
 # 传统国标 Python 实现
-if __name__ == "__main__":
-    from gb_hepai_check import Chinese_Hepai_Check
-    from gb_tingpai_check import Chinese_Tingpai_Check
-else:
-    from .gb_hepai_check import Chinese_Hepai_Check
+# 先尝试包内相对导入，失败时退回到本地绝对导入（便于单文件测试）
+try:
+    from .gb_hepai_check import Chinese_Hepai_Check, PlayerTiles
     from .gb_tingpai_check import Chinese_Tingpai_Check
+except ImportError:
+    from gb_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
+    from gb_tingpai_check import Chinese_Tingpai_Check          # type: ignore
 
 # Qingque13 C# 桥接模块
 try:
@@ -45,7 +46,7 @@ class GameCalculationService:
         self._hepai_check = Chinese_Hepai_Check()
         self._tingpai_check = Chinese_Tingpai_Check()
 
-    def hepai_check(
+    def Qingque_hepai_check(
         self,
         hand_list: List[int],
         tiles_combination: List[str],
@@ -73,9 +74,11 @@ class GameCalculationService:
             )
         
         with self._lock:
-            return call_hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile, debug)
+            # hand_list 是 Python 的 List[int]，get_tile 是单个 int，需要先包装成列表再拼接
+            hand_with_tile = hand_list + [get_tile]
+            return call_hepai_check(hand_with_tile, tiles_combination, way_to_hepai, get_tile, debug)
 
-    def tingpai_check(
+    def Qingque_tingpai_check(
         self,
         hand_tile_list: List[int],
         combination_list: List[str],
@@ -119,6 +122,33 @@ class GameCalculationService:
         
         with self._lock:
             return call_get_base_point(fan)
+
+    def GB_hepai_check(self, hand_list: List[int], tiles_combination: List, 
+                   way_to_hepai: List[str], get_tile: int) -> Tuple[int, List[str]]:
+        """
+        检查和牌
+        Args:
+            hand_list: 手牌列表
+            tiles_combination: 组合牌列表
+            way_to_hepai: 和牌方式列表
+            get_tile: 获得的牌
+        Returns:
+            (分数, 番种列表) 元组
+        """
+        with self._lock:
+            return self._hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+    
+    def GB_tingpai_check(self, hand_tile_list: List[int], combination_list: List) -> Set[int]:
+        """
+        检查听牌
+        Args:
+            hand_tile_list: 手牌列表
+            combination_list: 组合牌列表
+        Returns:
+            等待牌的集合
+        """
+        with self._lock:
+            return self._tingpai_check.tingpai_check(hand_tile_list, combination_list)
 
 
 if __name__ == "__main__":
