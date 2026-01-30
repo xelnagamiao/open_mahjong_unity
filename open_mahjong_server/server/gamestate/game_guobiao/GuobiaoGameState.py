@@ -17,8 +17,8 @@ from .boardcast import (
     broadcast_refresh_player_tag_list,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
-from .init_game_tiles import init_game_tiles
-from .next_game_round import next_game_round
+from ..public.init_game_tiles import init_guobiao_tiles
+from ..public.next_game_round import next_game_round
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -151,7 +151,7 @@ class GuobiaoGameState:
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
-        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal":0 # 其他优先级 最低优先级
+        "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
@@ -230,7 +230,7 @@ class GuobiaoGameState:
                     )
                     
                     response = Response(
-                        type="game_start_GB",
+                        type="gamestate/guobiao/game_start",
                         success=True,
                         message="重连成功，游戏继续",
                         game_info=game_info
@@ -259,6 +259,33 @@ class GuobiaoGameState:
         
         # 清理房间到游戏状态的映射
         self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
+
+    async def run_game_loop(self):
+        """
+        顶层游戏循环包装：
+        - 负责运行实际的 game_loop_chinese
+        - 捕获未处理异常并进行统一日志和清理
+        """
+        try:
+            await self.game_loop_chinese()
+        except asyncio.CancelledError:
+            # 任务被外部正常取消（例如房间销毁），不视为错误
+            logger.info(f"游戏循环被取消，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
+            raise
+        except Exception as e:
+            # 捕获所有未处理异常，避免任务静默失败
+            logger.error(
+                f"游戏循环发生未捕获异常，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}, 错误: {e}",
+                exc_info=True
+            )
+            try:
+                # 出错时尝试执行清理逻辑
+                await self.cleanup_game_state()
+            except Exception as cleanup_err:
+                logger.error(
+                    f"清理游戏状态时出错，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}, 错误: {cleanup_err}",
+                    exc_info=True
+                )
 
     async def game_loop_chinese(self):
 
@@ -297,7 +324,7 @@ class GuobiaoGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
-            init_game_tiles(self) # 初始化牌山和手牌
+            init_guobiao_tiles(self) # 初始化牌山和手牌
 
             # 广播游戏开始
             await self.broadcast_game_start()
@@ -325,9 +352,9 @@ class GuobiaoGameState:
                             player_action_record_buhua(self,max_tile = max_tile)
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
-                            # 广播补花操作
+                            # 广播补花操作（使用 deal_buhua_tile 作为补花摸牌标识）
                             await self.broadcast_do_action(
-                                action_list = ["buhua","deal"],
+                                action_list = ["buhua","deal_buhua_tile"],
                                 action_player = self.current_player_index,
                                 buhua_tile = max_tile,
                                 deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
@@ -365,7 +392,7 @@ class GuobiaoGameState:
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播摸牌操作
                         await self.broadcast_do_action(
-                            action_list = ["deal"],
+                            action_list = ["deal_tile"],
                             action_player = self.current_player_index,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
                         )
@@ -380,7 +407,7 @@ class GuobiaoGameState:
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播摸牌操作
                         await self.broadcast_do_action(
-                            action_list = ["deal"],
+                            action_list = ["deal_gang_tile"],
                             action_player = self.current_player_index,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
                         )
@@ -400,7 +427,7 @@ class GuobiaoGameState:
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播补花操作
                         await self.broadcast_do_action(
-                            action_list = ["buhua","deal"],
+                            action_list = ["buhua","deal_buhua_tile"],
                             action_player = self.current_player_index,
                             buhua_tile = max_tile,
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
@@ -480,7 +507,7 @@ class GuobiaoGameState:
                                                 hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
                                                 )
                             # 等待5秒
-                            await asyncio.sleep(len(hu_fan)*0.5 + 5 + 0.5) # 等待和牌番种时间与5秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
+                            await asyncio.sleep(len(hu_fan)*0.5 + 8 + 0.5) # 等待和牌番种时间与8秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
 
                             # 错和尾处理
                             # 给错和玩家添加peida tag
@@ -517,6 +544,7 @@ class GuobiaoGameState:
 
             # 记录结算前的分数（用于计算本局分数变化）
             scores_before = {player.original_player_index: player.score for player in self.player_list}
+
             
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
@@ -524,11 +552,10 @@ class GuobiaoGameState:
                 if self.hu_class == "hu_self":
                     hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
                     hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
-                    self.player_list[hepai_player_index].score += hu_score*3 + 24 # 三倍和牌分与3*8基础分
                     self.result_dict = {}
+                    self.player_list[hepai_player_index].score += hu_score*4 + 32 # 三倍和牌分与3*8基础分
                     for i in self.player_list: # 其他玩家扣除和牌分与8基础分
-                        if i != hepai_player_index:
-                            i.score -= hu_score + 8  
+                        i.score -= hu_score + 8  
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1 # 增加自摸次数
@@ -603,6 +630,11 @@ class GuobiaoGameState:
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = he_combination_mask # 和牌玩家组合掩码
                                        )
+                # 显示和牌传参
+                print(f"hu_class: {self.hu_class}, result_dict: {self.result_dict}")
+                print(f"player_list_hand_tiles: {self.player_list[hepai_player_index].hand_tiles}")
+                print(f"player_list_huapai_list: {self.player_list[hepai_player_index].huapai_list}")
+                print(f"player_list_combination_mask: {self.player_list[hepai_player_index].combination_mask}")
                 
                 # 记录玩家副露率
                 for i in self.player_list:
@@ -643,9 +675,9 @@ class GuobiaoGameState:
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
             
             if self.hu_class == "liuju":
-                await asyncio.sleep(3) # 等待3秒后重新开始下一局
+                await asyncio.sleep(2) # 等待2秒后重新开始下一局
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 6) # 等待和牌番种时间与10秒后重新开始下一局
+                await asyncio.sleep(len(hu_fan)*0.5 + 8) # 等待和牌番种时间与8秒后重新开始下一局
 
             # 开启下一局的准备工作
             next_game_round(self)   

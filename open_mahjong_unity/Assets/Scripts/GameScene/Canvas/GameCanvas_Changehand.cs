@@ -64,6 +64,20 @@ public partial class GameCanvas{
             // 设置位置：手牌区右侧，间隔半个宽度
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
             int handCardCount = handCardsContainer.childCount - 1; // 减去刚添加的这张
+            Vector2 targetPosition = new Vector2(handCardCount * tileCardWidth + tileCardWidth * 0.5f, 0);
+            
+            // 摸牌动画：先移动到上方2个宽度，然后向下滑动到原始位置，同时透明度从100到0
+            yield return StartCoroutine(AnimateGetCard(cardRect, targetPosition));
+        }
+
+            // 摸牌 添加摸牌区手牌
+        else if (ChangeType == "GetCardNoAnimation"){
+            GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+            TileCard tileCard = cardObj.GetComponent<TileCard>();
+            tileCard.SetTile(tileId, true);
+            // 设置位置：手牌区右侧，间隔半个宽度
+            RectTransform cardRect = cardObj.GetComponent<RectTransform>();
+            int handCardCount = handCardsContainer.childCount - 1; // 减去刚添加的这张
             cardRect.anchoredPosition = new Vector2(handCardCount * tileCardWidth + tileCardWidth * 0.5f, 0);
         }
 
@@ -192,7 +206,7 @@ public partial class GameCanvas{
         }
 
         // 如果玩家选择了自动排序手牌，按tileId排序
-        if (GameSceneManager.Instance != null && GameSceneManager.Instance.isAutoArrangeHandCards){
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.isAutoArrangeHandCards){
             tileCards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
         }
         // 如果不勾选自动排序，保持原有顺序
@@ -271,5 +285,48 @@ public partial class GameCanvas{
                 cards[i].anchoredPosition = targetPositions[i];
             }
         }
+    }
+
+    /// <summary>
+    /// 摸牌动画：从上方2个宽度向下滑动到原始位置，同时透明度从100到0
+    /// </summary>
+    private IEnumerator AnimateGetCard(RectTransform cardRect, Vector2 targetPosition)
+    {
+        // 计算初始位置（上方2个宽度）
+        Vector2 startPosition = targetPosition + new Vector2(0, 1.0f * tileCardWidth);
+        
+        // 设置初始位置和透明度
+        cardRect.anchoredPosition = startPosition;
+        
+        // 获取CanvasGroup组件控制透明度（如果没有则添加）
+        CanvasGroup canvasGroup = cardRect.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = cardRect.gameObject.AddComponent<CanvasGroup>();
+        }
+        canvasGroup.alpha = 0.0f; // 初始透明度100%
+        
+        // 动画参数
+        float animationDuration = 0.2f;
+        float elapsedTime = 0f;
+        
+        // 动画循环
+        while (elapsedTime < animationDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsedTime / animationDuration);
+            
+            // 位置插值：从上方滑动到目标位置
+            cardRect.anchoredPosition = Vector2.Lerp(startPosition, targetPosition, progress);
+            
+            // 透明度插值：从100%到0%
+            canvasGroup.alpha = Mathf.Lerp(0.0f, 1.0f, progress);
+            
+            yield return null; // 等待下一帧
+        }
+        
+        // 确保最终位置和透明度准确
+        cardRect.anchoredPosition = targetPosition;
+        canvasGroup.alpha = 1.0f;
     }
 }

@@ -91,13 +91,13 @@ public class RoomListPanel : MonoBehaviour {
         if (room_List != null) {
             foreach (var roomData in room_List) {
                 if (roomData.room_type == "guobiao") {
-                // instantiate 是python的实例化语法 将roomItemPrefab实例化 并添加到roomListContent下
+                // 创建房间预制体
                 GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
                 roomItem.SetActive(true);
                 currentRoomItems.Add(roomItem);
 
                 // 获取RoomItem组件 订阅RoomItem的JoinClicked事件
-                var roomItemComponent = roomItem.GetComponent<GBRoomItem>();
+                var roomItemComponent = roomItem.GetComponent<RoomItem>();
 
                 // 初始化房间信息
                 roomItemComponent.SetRoomListInfo(

@@ -39,13 +39,13 @@ public class AutoAction : MonoBehaviour{
         private IEnumerator InitializeWhenReady() {
         // 等待 GameSceneManager.Instance 可用（最多等待1秒，避免无限等待）
         float waitTime = 0f;
-        while (GameSceneManager.Instance == null && waitTime < 1f) {
+        while (NormalGameStateManager.Instance == null && waitTime < 1f) {
             yield return null;
             waitTime += Time.deltaTime;
         }
 
         // 如果 GameSceneManager 仍然不可用，记录警告但继续初始化（使用默认值）
-        if (GameSceneManager.Instance == null){
+        if (NormalGameStateManager.Instance == null){
             Debug.LogWarning("AutoAction: GameSceneManager.Instance 未找到，将使用默认值");
             // 使用默认值初始化显示
             UpdateAllTextColorsWithDefaults();
@@ -91,7 +91,7 @@ public class AutoAction : MonoBehaviour{
 
     // 通用切换方法
     private void ToggleAutoOption(ref bool option, TMP_Text text){
-        if (GameSceneManager.Instance != null){
+        if (NormalGameStateManager.Instance != null){
             option = !option;
             UpdateTextColor(text, option);
         }
@@ -99,27 +99,27 @@ public class AutoAction : MonoBehaviour{
 
     // 切换自动排列手牌
     private void ToggleArrangeHandCards(){
-        ToggleAutoOption(ref GameSceneManager.Instance.isAutoArrangeHandCards, arrangeHandCardsText);
+        ToggleAutoOption(ref NormalGameStateManager.Instance.isAutoArrangeHandCards, arrangeHandCardsText);
     }
 
     // 切换自动胡牌
     private void ToggleAutoHepai(){
-        ToggleAutoOption(ref GameSceneManager.Instance.isAutoHepai, autoHepaiText);
+        ToggleAutoOption(ref NormalGameStateManager.Instance.isAutoHepai, autoHepaiText);
     }
 
     // 切换自动出牌
     private void ToggleAutoCutCard(){
-        ToggleAutoOption(ref GameSceneManager.Instance.isAutoCut, autoCutCardText);
+        ToggleAutoOption(ref NormalGameStateManager.Instance.isAutoCut, autoCutCardText);
     }
 
     // 切换自动过牌
     private void ToggleAutoPass(){
-        ToggleAutoOption(ref GameSceneManager.Instance.isAutoPass, autoPassText);
+        ToggleAutoOption(ref NormalGameStateManager.Instance.isAutoPass, autoPassText);
     }
 
     // 切换自动补花
     private void ToggleAutoBuhua(){
-        ToggleAutoOption(ref GameSceneManager.Instance.isAutoBuhua, autoBuhuaText);
+        ToggleAutoOption(ref NormalGameStateManager.Instance.isAutoBuhua, autoBuhuaText);
     }
 
     // 更新单个文本颜色
@@ -131,13 +131,13 @@ public class AutoAction : MonoBehaviour{
 
     // 更新所有文本颜色
     private void UpdateAllTextColors(){
-        if (GameSceneManager.Instance == null) return;
+        if (NormalGameStateManager.Instance == null) return;
 
-        UpdateTextColor(arrangeHandCardsText, GameSceneManager.Instance.isAutoArrangeHandCards);
-        UpdateTextColor(autoHepaiText, GameSceneManager.Instance.isAutoHepai);
-        UpdateTextColor(autoCutCardText, GameSceneManager.Instance.isAutoCut);
-        UpdateTextColor(autoPassText, GameSceneManager.Instance.isAutoPass);
-        UpdateTextColor(autoBuhuaText, GameSceneManager.Instance.isAutoBuhua);
+        UpdateTextColor(arrangeHandCardsText, NormalGameStateManager.Instance.isAutoArrangeHandCards);
+        UpdateTextColor(autoHepaiText, NormalGameStateManager.Instance.isAutoHepai);
+        UpdateTextColor(autoCutCardText, NormalGameStateManager.Instance.isAutoCut);
+        UpdateTextColor(autoPassText, NormalGameStateManager.Instance.isAutoPass);
+        UpdateTextColor(autoBuhuaText, NormalGameStateManager.Instance.isAutoBuhua);
     }
 
     // 当GameSceneManager的值被外部修改时，可以调用此方法更新显示

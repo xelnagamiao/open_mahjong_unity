@@ -34,8 +34,17 @@ public class LoginPanel : MonoBehaviour {
         // 设置输入框选中事件
         inputUser.onSelect.AddListener((text) => ShowTip(userNameTips));
         inputPassword.onSelect.AddListener((text) => ShowTip(passwordTips));
-        
-        // 直接启动连接协程
+
+
+    }
+
+    private void Start() {
+        // 在 Start 中从 UserDataManager 加载上次输入的账号密码，
+        // 确保 UserDataManager.Awake 已经执行过
+        inputUser.text = UserDataManager.Instance.SavedLoginUsername ?? "";
+        inputPassword.text = UserDataManager.Instance.SavedLoginPassword ?? "";
+
+        // 启动连接显示协程
         serverConnectCoroutine = StartCoroutine(ServerConnectCoroutine());
     }
 
@@ -59,21 +68,9 @@ public class LoginPanel : MonoBehaviour {
         string userName = inputUser.text.Trim();
         string password = inputPassword.text.Trim();
 
-        // 验证用户名
-        string usernameError = ValidateUsername(userName);
-        if (!string.IsNullOrEmpty(usernameError)) {
-            NotificationManager.Instance?.ShowTip("登录", false, usernameError);
-            return;
-        }
-
-        // 验证密码
-        string passwordError = ValidatePassword(password);
-        if (!string.IsNullOrEmpty(passwordError)) {
-            NotificationManager.Instance?.ShowTip("登录", false, passwordError);
-            return;
-        }
-
         loginButton.interactable = false; // 禁用按钮
+        // 直接缓存本次输入的账号密码（假定 UserDataManager 一定存在）
+        UserDataManager.Instance.SetLoginCache(userName, password);
         NetworkManager.Instance.Login(userName, password); // 发送登录请求
     }
 

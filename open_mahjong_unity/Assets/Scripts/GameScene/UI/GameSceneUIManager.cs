@@ -76,5 +76,4 @@ public class GameSceneUIManager : MonoBehaviour
             GameScoreRecord.Instance.UpdateScoreRecord();
         }
     }
-
 }

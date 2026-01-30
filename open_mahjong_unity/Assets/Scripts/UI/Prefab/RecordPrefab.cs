@@ -49,8 +49,7 @@ public class RecordPrefab : MonoBehaviour{
     }
 
     private void LoadRecord(){
-        // 直接传递 JSON 字符串，由 LoadRecord 方法处理解析
-        // 如果 LoadRecord 需要 Dictionary，可以在 GameRecordManager 中使用 SimpleJSON 或其他 JSON 库解析
+        WindowsManager.Instance.SwitchWindow("recordscene");
         GameRecordManager.Instance.LoadRecord(record_data_json);
     }
 }

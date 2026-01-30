@@ -14,25 +14,6 @@ public class RoundPanel : MonoBehaviour {
     [SerializeField] private TMP_Text isTipsOpenText; // 是否有提示文本
     [SerializeField] private TMP_Text isSetRandomSeedText; // 是否是复式文本
 
-    // 轮数映射字典
-    private static readonly Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
-        {1, "东风东"},
-        {2, "东风南"},
-        {3, "东风西"},
-        {4, "东风北"},
-        {5, "南风东"},
-        {6, "南风南"},
-        {7, "南风西"},
-        {8, "南风北"},
-        {9, "西风东"},
-        {10, "西风南"},
-        {11, "西风西"},
-        {12, "西风北"},
-        {13, "北风东"},
-        {14, "北风南"},
-        {15, "北风西"},
-        {16, "北风北"}
-    };
 
 
 
@@ -42,8 +23,12 @@ public class RoundPanel : MonoBehaviour {
         // 设置规则文本
         if (roomType == "guobiao") {
             ruleText.text = "国标麻将";
+        } else if (roomType == "qingque") {
+            ruleText.text = "青雀";
+        } else if (roomType == "riichi") {
+            ruleText.text = "立直麻将";
         } else {
-            ruleText.text = "未知规则：";
+            ruleText.text = "未知规则";
         }
 
         // 设置游戏轮数文本
@@ -62,7 +47,11 @@ public class RoundPanel : MonoBehaviour {
         // 设置当前轮数文本（按规则匹配字典）
         Dictionary<int, string> roundMap = null;
         if (roomType == "guobiao") {
-            roundMap = CurrentRoundTextGB;
+            roundMap = BoardCanvas.CurrentRoundTextGB;
+        }else if (roomType == "qingque") {
+            roundMap = BoardCanvas.CurrentRoundTextQingque;
+        } else if (roomType == "riichi") {
+            roundMap = BoardCanvas.CurrentRoundTextRiichi;
         }
         if (roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
             roomNowRoundText.text = roundText;

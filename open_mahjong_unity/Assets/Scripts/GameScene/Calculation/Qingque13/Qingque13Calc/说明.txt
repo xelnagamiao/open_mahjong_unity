@@ -1,0 +1,5 @@
+1. 和牌方式："自摸", "天和", "地和", "岭上开花", "海底捞月", "河底捞鱼", "抢杠", "自风东", "自风南", "自风西", "自风北".
+
+2. 请把 fan_cache.json 放到 open_mahjong_unity/Assets/Resources/Qingque13/ 里.
+
+3. Qingque13Hepai 里面的 HepaiCheck() 方法返回的是 Tuple<番数, 番种列表>; 可以通过 GetBasePoint() 方法获取基础点数 (和牌点数是基础点数 x3).

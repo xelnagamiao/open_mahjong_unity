@@ -55,7 +55,7 @@ public partial class GameCanvas : MonoBehaviour {
             // 剩余时间为0 结束协程
             if (_currentRemainingTime <= 0 && _currentCutTime <= 0){
                 remianTimeText.text = "";
-                GameSceneManager.Instance.SwitchCurrentPlayer("self","TimeOut",0);
+                NormalGameStateManager.Instance.SwitchCurrentPlayer("self","TimeOut",0);
                 break;
             }
         }

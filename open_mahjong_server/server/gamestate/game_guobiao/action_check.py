@@ -215,7 +215,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         now_combinations.extend(i.combination_tiles)
     for i in now_combinations:
         if f"k{hepai_tile}" in i:
-            show_tiles_count += 2
+            show_tiles_count += 3
         if f"s{hepai_tile-1}" in i:
             show_tiles_count += 1
         if f"s{hepai_tile}" in i:
@@ -269,3 +269,6 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
             elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "right":
                 temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
                 self.result_dict["hu_third"] = result # 保存结算结果
+
+
+# 检查吃后碰杠胡操作 存储 吃后碰杠胡

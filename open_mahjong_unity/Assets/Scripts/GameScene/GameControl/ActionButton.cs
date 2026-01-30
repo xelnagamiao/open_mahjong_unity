@@ -44,7 +44,7 @@ public class ActionButton : MonoBehaviour {
 
         // 如果动作列表大于1 显示子级按钮
         if (actionTypeList.Count > 1){
-            int lastCutTile = GameSceneManager.Instance.lastCutCardID;
+            int lastCutTile = NormalGameStateManager.Instance.lastCutCardID;
 
             // 确定当前按钮类型
             string currentButtonType = "None";
@@ -100,8 +100,8 @@ public class ActionButton : MonoBehaviour {
                         // 遍历手牌 如果手牌有4张相同的牌 则添加到提示牌列表
                         // 使用 HashSet 确保每个 tileID 只处理一次
                         HashSet<int> processedTileIDs = new HashSet<int>();
-                        foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
-                            if (!processedTileIDs.Contains(tileID) && GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                        foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                            if (!processedTileIDs.Contains(tileID) && NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
                                 processedTileIDs.Add(tileID);
                                 List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(angangCards, actionType,tileID);
@@ -110,8 +110,8 @@ public class ActionButton : MonoBehaviour {
                         break;
                     case "jiagang":
                         // 遍历手牌 如果组合牌中有符合加杠的组合 则添加到提示牌列表
-                        foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
-                            if (GameSceneManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
+                        foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                            if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
                                 List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
                                 CreateActionCards(jiagangCards, actionType,tileID);
                             }
@@ -125,8 +125,8 @@ public class ActionButton : MonoBehaviour {
             if (actionTypeList[0] == "jiagang"){
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 int targetTile = 0;
-                foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
-                    if (GameSceneManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
+                foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                    if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
                         targetTile = tileID;
                         break;
                     }
@@ -135,8 +135,8 @@ public class ActionButton : MonoBehaviour {
             } else if (actionTypeList[0] == "angang"){
                 Debug.Log($"选择了行动 {actionTypeList[0]}");
                 int targetTile = 0;
-                foreach (int tileID in GameSceneManager.Instance.selfHandTiles){
-                    if (GameSceneManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                    if (NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
                         targetTile = tileID;
                         break;
                     }
@@ -165,6 +165,10 @@ public class ActionButton : MonoBehaviour {
             GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
             cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
         }
+
+        // 强制刷新布局，使 ActionBlockContenter 根据子块重新计算大小
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(ActionBlockContenter as RectTransform);
     }
 
 }

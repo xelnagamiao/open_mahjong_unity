@@ -1407,7 +1407,8 @@ public class Chinese_Hepai_Check {
 
         // 番种输出和得分计算
         private Tuple<int, List<string>> FanCountOutput(PlayerTiles player_tiles, string combination_str, bool zimo_or_not, List<string> way_to_hepai) {
-            if (player_tiles.fan_list.Count == 0)
+            
+            if (player_tiles.fan_list.Count == 0 || player_tiles.fan_list.All(f => f == "huapai"))
                 player_tiles.fan_list.Add("wufanhe"); // 无番和
 
             // 根据规定原则排除阻挡番种

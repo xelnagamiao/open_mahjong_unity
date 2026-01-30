@@ -118,7 +118,7 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 更新轮数面板信息
         if (roundPanel != null) {
-            string roomType = GameSceneManager.Instance != null ? GameSceneManager.Instance.roomType : gameInfo.room_type;
+            string roomType = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomType : gameInfo.room_type;
             roundPanel.UpdateRoomInfo(gameInfo, roomType);
         } else {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
@@ -133,8 +133,8 @@ public partial class GameCanvas : MonoBehaviour {
             string[] tag_list = kvp.Value;
             
             // 根据 player_index 找到对应的玩家位置和面板
-            if (GameSceneManager.Instance != null && GameSceneManager.Instance.indexToPosition.ContainsKey(player_index)) {
-                string position = GameSceneManager.Instance.indexToPosition[player_index];
+            if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.indexToPosition.ContainsKey(player_index)) {
+                string position = NormalGameStateManager.Instance.indexToPosition[player_index];
                 GamePlayerPanel targetPanel = null;
                 
                 // 根据位置获取对应的面板
