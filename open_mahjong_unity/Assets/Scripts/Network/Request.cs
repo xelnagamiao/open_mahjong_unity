@@ -96,3 +96,9 @@ public class AddBotToRoomRequest { // 添加机器人请求
     public string type;
     public string room_id;
 }
+
+public class KickPlayerFromRoomRequest { // 房主移除玩家请求
+    public string type;
+    public string room_id;
+    public int target_user_id;
+}

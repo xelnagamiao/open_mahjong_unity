@@ -32,10 +32,10 @@ public class SoundManager : MonoBehaviour {
     public void PlayActionSound(string playerPosition,string actionType) {
         // 根据玩家位置获取对应玩家的音色ID
         int voiceId = 1; // 默认音色ID
-        if (GameSceneManager.Instance != null && GameSceneManager.Instance.player_to_info.ContainsKey(playerPosition)) {
-            voiceId = GameSceneManager.Instance.player_to_info[playerPosition].voice_used;
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
+            voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
         } else if (UserDataManager.Instance != null) {
-            // 如果无法从GameSceneManager获取，则使用用户设置的音色ID作为后备
+            // 如果无法从NormalGameStateManager获取，则使用用户设置的音色ID作为后备
             voiceId = UserDataManager.Instance.VoiceId;
         }
 
@@ -46,7 +46,7 @@ public class SoundManager : MonoBehaviour {
         if (actionType == "hu_self"){
             audioTarget = $"Sound/{voicePath}/zimo";
         } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
-            audioTarget = $"Sound/{voicePath}/dianhe";
+            audioTarget = $"Sound/{voicePath}/hu";
         } else if (actionType == "buhua"){
             audioTarget = $"Sound/{voicePath}/buhua";
         } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
@@ -54,7 +54,7 @@ public class SoundManager : MonoBehaviour {
         } else if (actionType == "angang" || actionType == "gang"){
             audioTarget = $"Sound/{voicePath}/gang";
         } else if (actionType == "jiagang"){
-            audioTarget = $"Sound/{voicePath}/jiagang";
+            audioTarget = $"Sound/{voicePath}/gang";
         } else if (actionType == "peng"){
             audioTarget = $"Sound/{voicePath}/peng";
         } else {

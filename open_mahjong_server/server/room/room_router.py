@@ -19,6 +19,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
     # 根据完整路径分发
     if message_type == "room/create_GB_room":
         await handle_create_GB_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/create_Qingque_room":
+        await handle_create_Qingque_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/get_room_list":
         await handle_get_room_list(game_server, Connect_id, message, websocket)
     elif message_type == "room/join_room":
@@ -29,6 +31,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_start_game(game_server, Connect_id, message, websocket)
     elif message_type == "room/add_bot":
         await handle_add_bot_to_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/kick_player":
+        await handle_kick_player_from_room(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的房间消息路径: {message_type}")
 
@@ -46,7 +50,7 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
             )
             await websocket.send_json(response.dict(exclude_none=True))
             return
-    
+
     response = await game_server.create_GB_room(
         Connect_id,
         message["roomname"],
@@ -57,6 +61,33 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         message["tips"],
         message["random_seed"],
         message["open_cuohe"]
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict, websocket):
+    """处理创建青雀房间请求"""
+    logging.info(f"创建青雀房间请求 - 用户名: {Connect_id}")
+    # 与国标相同：先检查是否已经在房间中
+    if Connect_id in game_server.players:
+        player = game_server.players[Connect_id]
+        if player.current_room_id:
+            response = Response(
+                type="tips",
+                success=False,
+                message="已经处于一个房间中，请先退出房间再创建新房间"
+            )
+            await websocket.send_json(response.dict(exclude_none=True))
+            return
+
+    response = await game_server.create_Qingque_room(
+        Connect_id,
+        message["roomname"],
+        message["gameround"],
+        message["password"],
+        message["roundTimerValue"],
+        message["stepTimerValue"],
+        message["tips"],
+        message["random_seed"]
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -80,4 +111,8 @@ async def handle_start_game(game_server, Connect_id: str, message: dict, websock
 async def handle_add_bot_to_room(game_server, Connect_id: str, message: dict, websocket):
     """处理添加机器人到房间请求"""
     await game_server.add_bot_to_room(Connect_id, message["room_id"])
+
+async def handle_kick_player_from_room(game_server, Connect_id: str, message: dict, websocket):
+    """处理房主移除玩家请求"""
+    await game_server.kick_player_from_room(Connect_id, message["room_id"], message["target_user_id"])
 

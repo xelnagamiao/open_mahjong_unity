@@ -472,7 +472,7 @@ public static class GBtingpai
     public static HashSet<int> TingpaiCheck(
         List<int> hand_tile_list,
         List<string> combination_list,
-        bool debug = false)
+        bool debug = true)
     {
         var checker = new Chinese_Tingpai_Check(debug);
         return checker.TingpaiCheck(hand_tile_list, combination_list);

@@ -15,12 +15,23 @@ public class UserDataManager : MonoBehaviour {
     public int CharacterId { get; private set; }
     public int VoiceId { get; private set; }
 
+    // 登录时输入的账号密码缓存（用于下次启动自动填充）
+    public string SavedLoginUsername { get; private set; }
+    public string SavedLoginPassword { get; private set; }
+
+    private const string KEY_LOGIN_USERNAME = "Login_Username";
+    private const string KEY_LOGIN_PASSWORD = "Login_Password";
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
         Instance = this;
+
+        // 启动时从本地加载上次的登录输入
+        SavedLoginUsername = PlayerPrefs.GetString(KEY_LOGIN_USERNAME, "");
+        SavedLoginPassword = PlayerPrefs.GetString(KEY_LOGIN_PASSWORD, "");
     }
 
     // 设置用户信息
@@ -58,5 +69,14 @@ public class UserDataManager : MonoBehaviour {
     // 设置当前游戏状态ID
     public void SetGamestateId(string gamestate_id) {
         GamestateId = gamestate_id;
+    }
+
+    // 缓存登录输入并持久化
+    public void SetLoginCache(string username, string password) {
+        SavedLoginUsername = username ?? "";
+        SavedLoginPassword = password ?? "";
+        PlayerPrefs.SetString(KEY_LOGIN_USERNAME, SavedLoginUsername);
+        PlayerPrefs.SetString(KEY_LOGIN_PASSWORD, SavedLoginPassword);
+        PlayerPrefs.Save();
     }
 }

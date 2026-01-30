@@ -44,15 +44,15 @@ public class SwitchSeatPanel : MonoBehaviour {
         // 重置面板位置到初始位置
         ResetPanelPositions();
         // 获取自身索引
-        int selfIndex = GameSceneManager.Instance.selfIndex;
+        int selfIndex = NormalGameStateManager.Instance.selfIndex;
         // 获取自身索引进1的索引(东南西北=>东 也就是上轮换位后的初始位)
         int selfNum = BackCurrentNum(selfIndex);
 
         // 获取四个方向的用户名
-        SelfName.text = GameSceneManager.Instance.player_to_info["self"].username;
-        RightName.text = GameSceneManager.Instance.player_to_info["right"].username;
-        TopName.text = GameSceneManager.Instance.player_to_info["top"].username;
-        LeftName.text = GameSceneManager.Instance.player_to_info["left"].username;
+        SelfName.text = NormalGameStateManager.Instance.player_to_info["self"].username;
+        RightName.text = NormalGameStateManager.Instance.player_to_info["right"].username;
+        TopName.text = NormalGameStateManager.Instance.player_to_info["top"].username;
+        LeftName.text = NormalGameStateManager.Instance.player_to_info["left"].username;
 
         Dictionary<int, string> indexToOriginalPosition = new Dictionary<int, string>();
         // 获取所有人的原始初始位

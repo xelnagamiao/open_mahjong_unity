@@ -9,13 +9,14 @@ public class RoomPanel : MonoBehaviour {
     
     [SerializeField] private TMP_Text roomIdText; // 房间号
     [SerializeField] private TMP_Text roomnameText; // 房间名
-    [SerializeField] private TMP_Text player_1; // 玩家1
-    [SerializeField] private TMP_Text player_2; // 玩家2
-    [SerializeField] private TMP_Text player_3; // 玩家3
-    [SerializeField] private TMP_Text player_4; // 玩家4
+    [SerializeField] private PlayerRoomPanel playerPanel1; // 玩家1 面板
+    [SerializeField] private PlayerRoomPanel playerPanel2; // 玩家2 面板
+    [SerializeField] private PlayerRoomPanel playerPanel3; // 玩家3 面板
+    [SerializeField] private PlayerRoomPanel playerPanel4; // 玩家4 面板
     [SerializeField] private Button backButton; // 返回按钮
     [SerializeField] private Button startButton; // 开始按钮
     [SerializeField] private Button addBotButton; // 离开房间按钮
+    [SerializeField] private RoomConfigContainer roomConfigContainer; // 房间设置容器
 
     int player1_id = 0;
     int player2_id = 0;
@@ -46,13 +47,16 @@ public class RoomPanel : MonoBehaviour {
         roomIdText.text = $"房间号: {roomInfo.room_id}";
         roomnameText.text = $"房间名: {roomInfo.room_name}";
 
-        // 清空文本
-        player_1.text = "";
-        player_2.text = "";
-        player_3.text = "";
-        player_4.text = "";
+        // 清空玩家面板
+        playerPanel1.Clear();
+        playerPanel2.Clear();
+        playerPanel3.Clear();
+        playerPanel4.Clear();
 
-        // 根据实际玩家数量设置文本
+        // 判断当前玩家是否为房主（房主为 player_list[0]）
+        bool isHost = roomInfo.player_list.Length > 0 && roomInfo.player_list[0] == UserDataManager.Instance.UserId;
+
+        // 根据实际玩家数量设置面板
         for (int i = 0; i < roomInfo.player_list.Length && i < 4; i++) {
             // 按照玩家列表的user_id获取用户设置
             int userId = roomInfo.player_list[i];
@@ -65,26 +69,38 @@ public class RoomPanel : MonoBehaviour {
             int characterId = userSettings.character_id;
             int voiceId = userSettings.voice_id;
 
+            // 房主可以移除除自己外的玩家（包括机器人）
+            bool canRemove = isHost && userId != UserDataManager.Instance.UserId;
+
             switch (i) {
-                case 0: player1_id = userId; player_1.text = username; break;
-                case 1: player2_id = userId; player_2.text = username; break;
-                case 2: player3_id = userId; player_3.text = username; break;
-                case 3: player4_id = userId; player_4.text = username; break;
+                case 0:
+                    player1_id = userId;
+                    playerPanel1.SetPlayer(username, userId, canRemove: false); // 房主面板不显示移除按钮
+                    break;
+                case 1:
+                    player2_id = userId;
+                    playerPanel2.SetPlayer(username, userId, canRemove);
+                    break;
+                case 2:
+                    player3_id = userId;
+                    playerPanel3.SetPlayer(username, userId, canRemove);
+                    break;
+                case 3:
+                    player4_id = userId;
+                    playerPanel4.SetPlayer(username, userId, canRemove);
+                    break;
             }
         }
 
-        // 如果不满4人 则禁用开始按钮
-        startButton.interactable = roomInfo.player_list.Length == 4;
+        // 只有房主且房间人数为4时才能开始游戏
+        startButton.interactable = isHost && roomInfo.player_list.Length == 4;
 
-        // 如果玩家1不是自己 则禁用开始按钮
-        if (player_1.text != UserDataManager.Instance.Username) {
-            startButton.interactable = false;
-        }
+        // 只有房主可以添加机器人
+        addBotButton.interactable = isHost;
 
-        if (roomInfo.room_type == "guobiao") { // 显示房间右侧的设置栏
-            GB_RoomConfig gbRoomConfig = GB_RoomConfig.Instance;
-            gbRoomConfig.SetGBRoomConfig(roomInfo);
-        }
+
+        this.roomConfigContainer.SetRoomConfig(roomInfo);
+
     }
 
     private void BackButtonClicked() {

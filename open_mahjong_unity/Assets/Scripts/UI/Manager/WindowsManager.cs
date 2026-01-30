@@ -94,7 +94,11 @@ public class WindowsManager : MonoBehaviour {
                 break;
             case "record":
                 recordPanel.SetActive(true); // 游戏记录界面
-                HeaderPanel.Instance.UpdateButtonState("record");
+                break;
+            case "recordscene":
+                recordPanel.SetActive(false);
+                headerPanel.SetActive(false);
+                gamePanel.SetActive(true); // 游戏界面
                 break;
             case "notice":
                 noticePanel.SetActive(true); // 公告界面

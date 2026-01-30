@@ -22,6 +22,6 @@ public class FanCount : MonoBehaviour
 
     public void SetFanCount(string name, int value){
         FanName.text = name;
-        FanValue.text = value.ToString();
+        FanValue.text = $"{value}番";
     }
 }
