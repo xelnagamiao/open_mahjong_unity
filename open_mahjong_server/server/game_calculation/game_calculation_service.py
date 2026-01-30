@@ -154,7 +154,7 @@ class GameCalculationService:
 if __name__ == "__main__":
     # 测试代码
     # [16, 45, 34, 16, 47, 21, 31, 38, 22, 31, 39, 24, 23]
-    test_save = [['s35', 's12', 's26'],[18, 45, 45, 19,17], 17, ["自摸"]]  # 10
+    test_save = [["k31","s22","s22"],[44,44,44,45], 45, ["自摸"]]  # 10
 
     way_to_hepai = test_save[3]
     hepai_tiles = test_save[2]
@@ -165,7 +165,8 @@ if __name__ == "__main__":
     for i in range(10):
         check_service = GameCalculationService()
         time_start = time()
-        result = check_service.Qingque_hepai_check(tiles_list, combination_list,way_to_hepai,hepai_tiles)
+        # result = check_service.Qingque_hepai_check(tiles_list, combination_list,way_to_hepai,hepai_tiles)
+        result = check_service.Qingque_tingpai_check(tiles_list, combination_list)
         print("最终结果(返回最大的牌型):", result)
         time_end = time()
         print("测试用时：", time_end - time_start, "秒")

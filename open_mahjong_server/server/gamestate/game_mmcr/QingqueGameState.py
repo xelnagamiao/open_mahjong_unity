@@ -422,10 +422,13 @@ class QingqueGameState:
                     hu_score, hu_fan = self.result_dict["hu_self"] # 获取和牌分数和番数
                     hepai_player_index = self.current_player_index # 和牌玩家等于当前玩家
                     base_point = self.calculation_service.GetBasePoint(hu_score)
+                    base_point = int(base_point)
+                    actual_hu_score = base_point * 4  # 自摸：基础分数 × 4
                     self.result_dict = {}
-                    self.player_list[hepai_player_index].score += base_point*4 # 三倍和牌分
+                    self.player_list[hepai_player_index].score += actual_hu_score # 三倍和牌分
+                    actual_hu_score -= base_point
                     for i in self.player_list: # 其他玩家扣除和牌分
-                        i.score -= base_point  
+                        i.score -= base_point
 
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1 # 增加自摸次数
@@ -441,8 +444,10 @@ class QingqueGameState:
                         hepai_player_index = next_current_num(self.current_player_index) # 获取当前玩家的下家索引
                         logger.info(f"和牌玩家索引{hepai_player_index}")
                         base_point = self.calculation_service.GetBasePoint(hu_score)
-                        self.player_list[hepai_player_index].score += base_point*3 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].score -= base_point*3 # 当前玩家扣除和牌分
+                        base_point = int(base_point)
+                        actual_hu_score = base_point * 3  # 点和：基础分数 × 3
+                        self.player_list[hepai_player_index].score += actual_hu_score # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= actual_hu_score # 当前玩家扣除和牌分
                         self.result_dict = {}
 
                     # 荣和对家
@@ -452,9 +457,11 @@ class QingqueGameState:
                         hepai_player_index = next_current_num(hepai_player_index) # 获取下下家索引
                         logger.info(f"和牌玩家索引{hepai_player_index}")
                         base_point = self.calculation_service.GetBasePoint(hu_score)
+                        base_point = int(base_point)
+                        actual_hu_score = base_point * 3  # 点和：基础分数 × 3
                         self.result_dict = {}
-                        self.player_list[hepai_player_index].score += base_point*3 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].score -= base_point*3 # 当前玩家扣除和牌分
+                        self.player_list[hepai_player_index].score += actual_hu_score # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= actual_hu_score # 当前玩家扣除和牌分
 
                     # 荣和下家
                     else: # self.hu_class == "hu_third":
@@ -465,8 +472,10 @@ class QingqueGameState:
                         logger.info(f"和牌玩家索引{hepai_player_index}")
                         self.result_dict = {}
                         base_point = self.calculation_service.GetBasePoint(hu_score)
-                        self.player_list[hepai_player_index].score += base_point*3 # 和牌玩家增加和牌分与8基础分
-                        self.player_list[self.current_player_index].score -= base_point*3 # 当前玩家扣除和牌分
+                        base_point = int(base_point)
+                        actual_hu_score = base_point * 3  # 点和：基础分数 × 3
+                        self.player_list[hepai_player_index].score += actual_hu_score # 和牌玩家增加和牌分与8基础分
+                        self.player_list[self.current_player_index].score -= actual_hu_score # 当前玩家扣除和牌分
                     
                     # 记录玩家数据
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1 # 增加点和次数
@@ -475,7 +484,7 @@ class QingqueGameState:
                     self.player_list[hepai_player_index].record_counter.win_turn += self.xunmu # 增加和牌总巡目
 
                     self.player_list[self.current_player_index].record_counter.fangchong_times += 1 # 增加放铳次数
-                    self.player_list[self.current_player_index].record_counter.fangchong_score += base_point*3 # 增加放铳总番数
+                    self.player_list[self.current_player_index].record_counter.fangchong_score += actual_hu_score # 增加放铳总番数
 
                 # 广播和牌结算结果
                 # 获取所有人分数
@@ -487,11 +496,11 @@ class QingqueGameState:
                 he_huapai = self.player_list[hepai_player_index].huapai_list
                 he_combination_mask = self.player_list[hepai_player_index].combination_mask
 
-                # 广播和牌结算结果
+                # 广播和牌结算结果（使用实际和牌分数，而不是番数）
                 await broadcast_result(self,
                                        hepai_player_index = hepai_player_index, # 和牌玩家索引
                                        player_to_score = player_to_score, # 所有玩家分数
-                                       hu_score = int(hu_score), # 和牌分数
+                                       hu_score = actual_hu_score, # 和牌分数（整数）
                                        hu_fan = hu_fan, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别
                                        hepai_player_hand = he_hand, # 和牌玩家手牌
@@ -518,7 +527,7 @@ class QingqueGameState:
                 await broadcast_result(self,
                                        hepai_player_index = None, # 和牌玩家索引
                                        player_to_score = None, # 所有玩家分数
-                                       hu_score = int(hu_score), # 和牌分数
+                                       hu_score = hu_score, # 和牌分数
                                        hu_fan = None, # 和牌番种
                                        hu_class = self.hu_class, # 和牌类别(流局)
                                        hepai_player_hand = None, # 和牌玩家手牌

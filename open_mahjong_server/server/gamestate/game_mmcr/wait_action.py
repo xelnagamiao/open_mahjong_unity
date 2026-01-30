@@ -235,7 +235,7 @@ async def wait_action(self):
                     # 和牌 (自摸)
                     self.hu_class = "hu_self"
                     self.game_status = "END"
-                    logger.info(f"处理自摸操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}, tile_id={tile_id}")
+                    logger.info(f"处理自摸操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}")
                     return
                 else:
                     logger.error(f"摸牌后手牌阶段action_type出现非cut,angang,jiagang,buhua,hu_self的值: {action_type}")

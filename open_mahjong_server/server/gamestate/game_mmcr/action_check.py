@@ -248,20 +248,20 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 使用计算服务类检查和牌（青雀版本）
     result = self.calculation_service.Qingque_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 
-   
-
-    if get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "self":
-        temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
-        self.result_dict["hu_self"] = result # 保存结算结果
-    elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "left":
-        temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
-        self.result_dict["hu_first"] = result # 保存结算结果
-    elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "top":
-        temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
-        self.result_dict["hu_second"] = result # 保存结算结果
-    elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "right":
-        temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
-        self.result_dict["hu_third"] = result # 保存结算结果
+    
+    if result[0] >= 1:
+        if get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "self":
+            temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
+            self.result_dict["hu_self"] = result # 保存结算结果
+        elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "left":
+            temp_action_dict[self.player_list[player_index].player_index].append("hu_first") # 上家切牌 最高优先级和牌
+            self.result_dict["hu_first"] = result # 保存结算结果
+        elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "top":
+            temp_action_dict[self.player_list[player_index].player_index].append("hu_second") # 对家切牌 次高优先级和牌
+            self.result_dict["hu_second"] = result # 保存结算结果
+        elif get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "right":
+            temp_action_dict[self.player_list[player_index].player_index].append("hu_third") # 下家切牌 最低优先级和牌
+            self.result_dict["hu_third"] = result # 保存结算结果
 
 
 # 检查吃后碰杠胡操作 存储 吃后碰杠胡
