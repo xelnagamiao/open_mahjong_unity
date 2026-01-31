@@ -196,44 +196,7 @@ class GameStateManager:
             del self.user_id_to_game_state[user_id]
             logger.info(f"已从游戏状态映射中移除玩家 {user_id}")
     
-    def remove_game_state_by_room_id(self, room_id: str):
-        """
-        根据房间ID移除游戏状态映射（仅用于开始游戏时检查，之后不再使用）
-        
-        Args:
-            room_id: 房间ID
-        """
-        if room_id in self.room_id_to_GuobiaoGameState:
-            game_state = self.room_id_to_GuobiaoGameState[room_id]
-            # 同时从 gamestate_id 映射中移除
-            if game_state.gamestate_id in self.gamestate_id_to_game_state:
-                del self.gamestate_id_to_game_state[game_state.gamestate_id]
-            del self.room_id_to_GuobiaoGameState[room_id]
-            logger.info(f"已移除房间 {room_id} 的游戏状态映射")
-        elif room_id in self.room_id_to_QingqueGameState:
-            game_state = self.room_id_to_QingqueGameState[room_id]
-            # 同时从 gamestate_id 映射中移除
-            if game_state.gamestate_id in self.gamestate_id_to_game_state:
-                del self.gamestate_id_to_game_state[game_state.gamestate_id]
-            del self.room_id_to_QingqueGameState[room_id]
-            logger.info(f"已移除房间 {room_id} 的游戏状态映射")
-    
-    def remove_game_state_by_gamestate_id(self, gamestate_id: str):
-        """
-        根据 gamestate_id 移除游戏状态映射
-        
-        Args:
-            gamestate_id: 游戏状态ID
-        """
-        if gamestate_id in self.gamestate_id_to_game_state:
-            game_state = self.gamestate_id_to_game_state[gamestate_id]
-            # 同时从 room_id 映射中移除（如果存在）
-            if game_state.room_id in self.room_id_to_GuobiaoGameState:
-                del self.room_id_to_GuobiaoGameState[game_state.room_id]
-            del self.gamestate_id_to_game_state[gamestate_id]
-            logger.info(f"已移除 gamestate_id {gamestate_id} 的游戏状态映射")
-    
-    def get_game_state_by_room_id(self, room_id: str) -> Optional[GuobiaoGameState]:
+    def get_game_state_by_room_id(self, room_id: str) -> Optional[Any]:
         """
         根据房间ID获取游戏状态（仅用于开始游戏时检查，之后不再使用）
         
@@ -243,9 +206,13 @@ class GameStateManager:
         Returns:
             游戏状态对象，如果不存在返回None
         """
-        return self.room_id_to_GuobiaoGameState.get(room_id)
+        if room_id in self.room_id_to_GuobiaoGameState:
+            return self.room_id_to_GuobiaoGameState.get(room_id)
+        elif room_id in self.room_id_to_QingqueGameState:
+            return self.room_id_to_QingqueGameState.get(room_id)
+        return None
     
-    def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[GuobiaoGameState]:
+    def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[Any]:
         """
         根据 gamestate_id 获取游戏状态
         
@@ -278,29 +245,48 @@ class GameStateManager:
         """
         return len(self.gamestate_id_to_game_state)
     
-    async def cleanup_game_state_by_room_id(self, room_id: str):
+    async def cleanup_game_state_complete(self, gamestate_id: str = None, room_id: str = None):
         """
-        根据房间ID清理游戏状态（用于房间销毁时调用）
+        统一清理游戏状态：先清理所有映射关系，再调用游戏状态的清理方法取消协程
         
         Args:
-            room_id: 房间ID
+            gamestate_id: 游戏状态ID（优先使用）
+            room_id: 房间ID（如果未提供 gamestate_id）
         """
-        game_state = self.get_game_state_by_room_id(room_id)
-        if game_state:
-            # 调用游戏状态的清理方法
-            await game_state.cleanup_game_state()
-            logger.info(f"已清理房间 {room_id} 的游戏状态")
-    
-    async def cleanup_game_state_by_gamestate_id(self, gamestate_id: str):
-        """
-        根据 gamestate_id 清理游戏状态
+        # 获取游戏状态
+        game_state = None
+        if gamestate_id:
+            game_state = self.get_game_state_by_gamestate_id(gamestate_id)
+        elif room_id:
+            game_state = self.get_game_state_by_room_id(room_id)
+            # 如果通过 room_id 找到，获取其 gamestate_id
+            if game_state:
+                gamestate_id = game_state.gamestate_id
         
-        Args:
-            gamestate_id: 游戏状态ID
-        """
-        game_state = self.get_game_state_by_gamestate_id(gamestate_id)
-        if game_state:
-            # 调用游戏状态的清理方法
-            await game_state.cleanup_game_state()
-            logger.info(f"已清理 gamestate_id {gamestate_id} 的游戏状态")
+        if not game_state:
+            logger.warning(f"未找到游戏状态，gamestate_id: {gamestate_id}, room_id: {room_id}")
+            return
+        
+        # 先清理所有映射关系
+        # 1. 清理玩家 ID 到游戏状态的映射
+        for player in game_state.player_list:
+            if player.user_id in self.user_id_to_game_state:
+                del self.user_id_to_game_state[player.user_id]
+                logger.debug(f"已从游戏状态映射中移除玩家 {player.user_id}")
+        
+        # 2. 清理房间到游戏状态的映射
+        if game_state.room_id in self.room_id_to_GuobiaoGameState:
+            del self.room_id_to_GuobiaoGameState[game_state.room_id]
+        elif game_state.room_id in self.room_id_to_QingqueGameState:
+            del self.room_id_to_QingqueGameState[game_state.room_id]
+        
+        # 3. 清理 gamestate_id 到游戏状态的映射
+        if gamestate_id and gamestate_id in self.gamestate_id_to_game_state:
+            del self.gamestate_id_to_game_state[gamestate_id]
+        
+        logger.info(f"已清理所有映射关系，gamestate_id: {gamestate_id}, room_id: {game_state.room_id}")
+        
+        # 然后调用游戏状态的清理方法（取消协程）
+        await game_state.cleanup_game_state()
+        logger.info(f"已清理游戏状态协程，gamestate_id: {gamestate_id}, room_id: {game_state.room_id}")
 

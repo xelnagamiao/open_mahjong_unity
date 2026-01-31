@@ -90,7 +90,8 @@ public class RoomListPanel : MonoBehaviour {
         // 直接使用 roomList 数组
         if (room_List != null) {
             foreach (var roomData in room_List) {
-                if (roomData.room_type == "guobiao") {
+                // 显示国标和青雀房间
+                if (roomData.room_type == "guobiao" || roomData.room_type == "qingque") {
                 // 创建房间预制体
                 GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
                 roomItem.SetActive(true);

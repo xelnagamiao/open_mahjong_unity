@@ -155,7 +155,7 @@ class QingqueGameState:
         }
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
-        self.Debug = False
+        self.Debug = True
 
 
     async def player_disconnect(self, user_id: int):
@@ -241,7 +241,7 @@ class QingqueGameState:
                 break
 
     async def cleanup_game_state(self):
-        """清理游戏状态：移除所有映射关系，用于房间销毁时调用"""
+        """清理游戏状态协程：取消游戏循环任务（映射关系由 gamestate_manager 统一清理）"""
         # 取消游戏循环任务
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()
@@ -251,14 +251,6 @@ class QingqueGameState:
                 logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
             except Exception as e:
                 logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
-        
-        # 清理玩家 ID 到游戏状态的映射（重连索引）
-        # 从 player_list 获取所有玩家的 user_id，确保即使房间数据为空也能清理
-        for player in self.player_list:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player.user_id)
-        
-        # 清理房间到游戏状态的映射
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
 
     async def run_game_loop(self):
         """
@@ -560,9 +552,10 @@ class QingqueGameState:
             next_game_round(self)   
 
             # 换位
-            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                await broadcast_switch_seat(self)
-                await asyncio.sleep(5)
+            if self.current_round >= self.max_round*4:
+                if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+                    await broadcast_switch_seat(self)
+                    await asyncio.sleep(5)
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
@@ -611,12 +604,8 @@ class QingqueGameState:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
         """
 
-        # 结束游戏生命周期
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
-        
-        # 移除玩家到游戏状态的映射
-        for player_id in self.room_data["player_list"]:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player_id)
+        # 结束游戏生命周期：使用统一的清理方法
+        await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         
         # 销毁房间并广播离开房间消息
         await self.game_server.room_manager.destroy_room(self.room_id)

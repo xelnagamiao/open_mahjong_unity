@@ -32,6 +32,7 @@ public class GameSceneUIManager : MonoBehaviour
         GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
+        TipsContainer.Instance.HideTips(); // 隐藏提示容器
     }
 
     /// <summary>

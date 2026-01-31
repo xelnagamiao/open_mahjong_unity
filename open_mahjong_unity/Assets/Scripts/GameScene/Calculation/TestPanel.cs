@@ -20,9 +20,11 @@ public class TestPanel : MonoBehaviour
 
     public TMP_Dropdown testDropdown;
     public TMP_Text testDropdownText;
-    public List<string> testDataList = new List<string>{
+    private List<string> testDataList = new List<string>{
         "国标和牌测试请输入[['g44','G28'],[12,12,12,13,13,35,35,35],13,['点和','场风西','自风南']] 测试集请查看open_mahjong_server文件夹的calculation目录",
-        "国标听牌测试请输入[['k39'],[32,32,32,33,33,33,34,34,34,41]]"
+        "国标听牌测试请输入[['k39'],[32,32,32,33,33,33,34,34,34,41]]",
+        "青雀和牌测试请输入[[],[11,11,12,12,13,13,15,15,16,16,19,19,17,17],17,['自摸']]",
+        "青雀听牌测试请输入[[],[16,16,21,22,23,24,31,31,34,38,39,45,47]]"
     };
 
     private void Awake(){
@@ -375,17 +377,142 @@ public class TestPanel : MonoBehaviour
         return (combinationList, tilesList);
     }
 
-    private void TestButtonClick()
+    /// <summary>
+    /// 测试用例3：青雀和牌检查
+    /// </summary>
+    public void TestQingqueHepaiCheck()
     {
-        if (testDropdown.value == 0)
+        string inputText = "";
+        
+        // 如果有输入框，使用输入框的内容
+        if (testInputField != null && !string.IsNullOrWhiteSpace(testInputField.text))
         {
-            TestHepaiCheck();
+            inputText = testInputField.text.Trim();
         }
         else
         {
-            TestTingCheck();
+            // 否则使用默认测试数据
+            inputText = "[[],[11,11,12,12,13,13,15,15,16,16,19,19,17,17],17,['自摸']]";
+            Debug.LogWarning("没有输入数据，使用默认测试数据");
         }
 
+        try
+        {
+            var (combinationList, tilesList, hepaiTile, wayToHepai) = ParseTestData(inputText);
+            
+            Debug.Log($"解析结果:");
+            Debug.Log($"  组合列表: [{string.Join(", ", combinationList)}]");
+            Debug.Log($"  手牌列表: [{string.Join(", ", tilesList)}]");
+            Debug.Log($"  和牌张: {hepaiTile}");
+            Debug.Log($"  和牌方式: [{string.Join(", ", wayToHepai)}]");
+
+            // 调用 Qingque13External 的静态方法进行和牌检查
+            var result = Qingque13External.HepaiCheck(tilesList, combinationList, wayToHepai, hepaiTile, debug: true);
+
+            // 测试脚本负责显示结果在 TMP Text 上
+            string resultMessage = $"青雀和牌检查结果:\n番数: {result.Item1}\n番种: {string.Join(", ", result.Item2)}";
+            
+            if (resultText != null)
+            {
+                resultText.text = resultMessage;
+            }
+            else
+            {
+                Debug.Log(resultMessage);
+            }
+        }
+        catch (Exception e)
+        {
+            string errorMessage = $"解析或测试失败:\n{e.Message}\n\n{e.StackTrace}";
+            
+            if (resultText != null)
+            {
+                resultText.text = errorMessage;
+            }
+            else
+            {
+                Debug.LogError(errorMessage);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 测试用例4：青雀听牌检查
+    /// </summary>
+    public void TestQingqueTingCheck()
+    {
+        string inputText = "";
+        
+        // 如果有输入框，使用输入框的内容
+        if (testInputField != null && !string.IsNullOrWhiteSpace(testInputField.text))
+        {
+            inputText = testInputField.text.Trim();
+        }
+        else
+        {
+            // 否则使用默认测试数据
+            inputText = "[[],[16,16,21,22,23,24,31,31,34,38,39,45,47]]";
+            Debug.LogWarning("没有输入数据，使用默认测试数据");
+        }
+
+        try
+        {
+            var (combinationList, tilesList) = ParseTingpaiTestData(inputText);
+            
+            Debug.Log($"解析结果:");
+            Debug.Log($"  组合列表: [{string.Join(", ", combinationList)}]");
+            Debug.Log($"  手牌列表: [{string.Join(", ", tilesList)}]");
+
+            // 调用 Qingque13External 的静态方法进行听牌检查
+            var waitingTiles = Qingque13External.TingpaiCheck(tilesList, combinationList, debug: true);
+
+            // 测试脚本负责显示结果在 TMP Text 上
+            string resultMessage = $"青雀听牌检查结果:\n等待牌: {string.Join(", ", waitingTiles.OrderBy(x => x))}\n等待牌数量: {waitingTiles.Count}";
+            
+            if (resultText != null)
+            {
+                resultText.text = resultMessage;
+            }
+            else
+            {
+                Debug.Log(resultMessage);
+            }
+        }
+        catch (Exception e)
+        {
+            string errorMessage = $"解析或测试失败:\n{e.Message}\n\n{e.StackTrace}";
+            
+            if (resultText != null)
+            {
+                resultText.text = errorMessage;
+            }
+            else
+            {
+                Debug.LogError(errorMessage);
+            }
+        }
+    }
+
+    private void TestButtonClick()
+    {
+        switch (testDropdown.value)
+        {
+            case 0:
+                TestHepaiCheck();
+                break;
+            case 1:
+                TestTingCheck();
+                break;
+            case 2:
+                TestQingqueHepaiCheck();
+                break;
+            case 3:
+                TestQingqueTingCheck();
+                break;
+            default:
+                Debug.LogWarning($"未知的测试项索引: {testDropdown.value}");
+                break;
+        }
     }
 
 }

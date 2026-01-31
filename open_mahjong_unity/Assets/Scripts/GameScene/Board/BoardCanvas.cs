@@ -250,6 +250,51 @@ public partial class BoardCanvas : MonoBehaviour {
             return "<color=#ffffff>0</color>"; // 零显示白色
         }
     }
+
+    // 更新玩家分数（用于结算后更新计分板）
+    public void UpdatePlayerScores(Dictionary<int, int> player_to_score, Dictionary<int, string> indexToPosition) {
+        // 如果正在显示分差，先恢复到基准分数
+        if (isShowingScoreDifference && scoreDifferenceCoroutine != null) {
+            StopCoroutine(scoreDifferenceCoroutine);
+            scoreDifferenceCoroutine = null;
+            RestoreBaselineScores();
+            isShowingScoreDifference = false;
+        }
+
+        // 更新每个玩家的分数
+        foreach (var player in player_to_score) {
+            int playerIndex = player.Key;
+            int newScore = player.Value;
+
+            if (indexToPosition.ContainsKey(playerIndex)) {
+                string position = indexToPosition[playerIndex];
+                TMP_Text scoreText = null;
+
+                // 根据位置获取对应的分数文本组件
+                switch (position) {
+                    case "self":
+                        scoreText = player_self_score;
+                        break;
+                    case "left":
+                        scoreText = player_left_score;
+                        break;
+                    case "top":
+                        scoreText = player_top_score;
+                        break;
+                    case "right":
+                        scoreText = player_right_score;
+                        break;
+                }
+
+                // 更新分数文本
+                if (scoreText != null) {
+                    scoreText.text = newScore.ToString();
+                    // 同时更新基准分数
+                    baselineScores[scoreText] = newScore.ToString();
+                }
+            }
+        }
+    }
 }
 
 

@@ -83,11 +83,28 @@ public partial class GameCanvas{
 
         // 摸切 删除摸牌区手牌
         else if (ChangeType == "RemoveGetCard"){
-            // 删除最后添加的牌（摸牌区的牌）
-            Transform lastCard = handCardsContainer.GetChild(handCardsContainer.childCount - 1);
-            TileCard tileCard = lastCard.GetComponent<TileCard>();
-            if (tileCard.tileId == tileId){
-                Destroyer.Instance.AddToDestroyer(lastCard);
+            bool isRemoved = false;
+            
+            // 优先检查最后一张牌（摸牌区的牌）
+            if (handCardsContainer.childCount > 0){
+                Transform lastCard = handCardsContainer.GetChild(handCardsContainer.childCount - 1);
+                TileCard tileCard = lastCard.GetComponent<TileCard>();
+                if (tileCard != null && tileCard.tileId == tileId && tileCard.currentGetTile){
+                    Destroyer.Instance.AddToDestroyer(lastCard);
+                    isRemoved = true;
+                }
+            }
+            
+            // 如果摸牌区没找到，从手牌区寻找(如果吃碰杠以后超时)
+            if (!isRemoved){
+                foreach (Transform child in handCardsContainer){
+                    TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
+                    if (needToRemoveTileCard != null && needToRemoveTileCard.tileId == tileId){
+                        Destroyer.Instance.AddToDestroyer(child);
+                        isRemoved = true;
+                        break;
+                    }
+                }
             }
         }
 

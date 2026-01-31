@@ -18,6 +18,7 @@ public class Game3DManager : MonoBehaviour {
     private Vector3 rightSetCombinationsPoint;
 
     private GameObject lastCut3DObject; // 最后一张弃牌的3D对象
+    private Vector3 lastRemove3DPosition; // 最后一张删除的3D对象
     private Dictionary<int,Vector3> pengToJiagangPosDict = new Dictionary<int,Vector3>(); // 碰牌的加杠预留指针
 
     private float cardWidth; // 卡片宽度 组合牌 3D手牌使用
@@ -137,19 +138,20 @@ public class Game3DManager : MonoBehaviour {
         // 弃牌
         else if (actionType == "Discard"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
-            Set3DTile(tileId, panel.discardsPosition, "Discard", PlayerPosition); // 弃牌区增加弃牌
             if (PlayerPosition != "self"){
                 StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, cut_class)); // 手牌区删除手牌
             }
+            Set3DTile(tileId, panel.discardsPosition, "Discard", PlayerPosition); // 弃牌区增加弃牌
+
         }
 
         // 补花
         else if (actionType == "Buhua"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
-            Set3DTile(tileId, panel.buhuaPosition, "Buhua", PlayerPosition); // 补花区增加补花
             if (PlayerPosition != "self"){
                 StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, false)); // 手牌区删除手牌
             }
+            Set3DTile(tileId, panel.buhuaPosition, "Buhua", PlayerPosition); // 补花区增加补花
         }
 
         // 吃碰杠
@@ -164,13 +166,12 @@ public class Game3DManager : MonoBehaviour {
             else{
                 Debug.LogWarning("上一张3D卡牌为空");
             }
-
             PosPanel3D panel = GetPosPanel(PlayerPosition);
             // 放置组合牌
-            ActionAnimation(PlayerPosition, actionType, combination_mask,true);
             if (PlayerPosition != "self"){
                 StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, removeCount, false)); // 手牌区删除手牌
             }
+            ActionAnimation(PlayerPosition, actionType, combination_mask,true);
         }
         
         yield break;
@@ -244,7 +245,46 @@ public class Game3DManager : MonoBehaviour {
         
         // 加载并应用材质
         ApplyCardTexture(cardObj, tileId);
+        
+        // 启动移动动画：先移动到最后删除的位置，然后移动到目标位置
+        // 如果手牌者是自己，使用selfPosPanel的cardsPosition容器本身的位置
+        Vector3 startPosition = lastRemove3DPosition;
+        if (PlayerPosition == "self"){
+            startPosition = selfPosPanel.cardsPosition.position;
+        }
+        StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
     }
+
+    // 卡牌从删除位置移动到目标位置的动画
+    private IEnumerator MoveCardFromRemovePosition(GameObject cardObj, Vector3 targetPosition, Vector3 startPosition){
+        // 如果起始位置未设置，直接跳过动画
+        if (startPosition == Vector3.zero){
+            yield break;
+        }
+        
+        // 先将卡牌移动到起始位置
+        cardObj.transform.position = startPosition;
+        
+        // 等待一帧
+        yield return null;
+        
+        // 从起始位置移动到目标位置的动画
+        float duration = 0.3f;
+        float elapsed = 0f;
+        
+        while (elapsed < duration){
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            // 使用平滑插值
+            float smoothT = 1f - Mathf.Pow(1f - t, 3f);
+            cardObj.transform.position = Vector3.Lerp(startPosition, targetPosition, smoothT);
+            yield return null;
+        }
+        
+        // 确保最终位置准确
+        cardObj.transform.position = targetPosition;
+    }
+
 
     // 摸牌3D显示
     private void Get3DTile(string playerIndex,string actionType){
@@ -478,6 +518,9 @@ public class Game3DManager : MonoBehaviour {
         Vector3 originalPosition = targetObj.transform.position;
         Vector3 targetPosition = originalPosition + leftDirection * (cardWidth * 3f);
         
+        // 保存最后一张删牌的位置
+        lastRemove3DPosition = originalPosition;
+        
         // 先移动到左侧位置
         targetObj.transform.position = targetPosition;
         
@@ -532,11 +575,17 @@ public class Game3DManager : MonoBehaviour {
                     Transform cardToRemove = cardPosition.GetChild(cardIndex);
                     Debug.Log($"删除卡牌: {cardToRemove.name} (索引: {cardIndex})");
                     
+                    // 保存最后一张删牌的位置
+                    lastRemove3DPosition = cardToRemove.position;
+                    
                     // 销毁卡牌对象
                     Destroy(cardToRemove.gameObject);
                 }
             }
             Debug.Log($"组合删除完成: 已删除{removeCount}张卡牌");
+            
+            // 重新排列动画
+            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
         }
         // 如果removeCount <= 1 或为null，使用原始方法
         else{
@@ -547,46 +596,146 @@ public class Game3DManager : MonoBehaviour {
                     int lastIndex = childCount - 1;
                     Transform lastCard = cardPosition.GetChild(lastIndex);
                     Debug.Log($"删除最后一张卡牌: {lastCard.name} (索引: {lastIndex})");
+                    
+                    // 保存最后一张删牌的位置
+                    lastRemove3DPosition = lastCard.position;
+                    
                     Destroy(lastCard.gameObject);
                 }
                 else{
                     Debug.LogWarning($"摸切：无法删除最后一张牌");
                 }
             }
-            // 如果手切则随机删除一张主牌区的牌，将摸牌区的卡牌加入手牌区
+            // 如果手切则随机删除一张主牌区的牌
             else{
                 // 计算子物体数量，获取随机索引，随机删除选中的子物体
                 int childCount = cardPosition.childCount;
                 int randomIndex = UnityEngine.Random.Range(0, childCount);
                 Transform randomChild = cardPosition.GetChild(randomIndex);
                 Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
-                Destroy(randomChild.gameObject);
-
-                // 等待1秒 模拟玩家将摸牌区卡牌放入手牌区
-                yield return new WaitForSeconds(1f);
-                        
-                // 确定方向向量 方向向量乘以spacing等于目标位置
-                Vector3 direction = Vector3.zero;
-                if (cardPosition == rightPosPanel.cardsPosition)
-                    direction = new Vector3(0, 0, 1); // 向前
-                else if (cardPosition == leftPosPanel.cardsPosition)
-                    direction = new Vector3(0, 0, -1); // 向后
-                else if (cardPosition == topPosPanel.cardsPosition)
-                    direction = new Vector3(-1, 0, 0); // 向左
                 
-                // 获取所有剩余子物体并按照名称索引排序[0,1,2,3,4,5,6,7,8,9,10,11,12]
-                List<Transform> remainingCards = new List<Transform>();
-                int cardCount = cardPosition.childCount;
-                for (int i = 0; i < cardCount; i++) {
-                    remainingCards.Add(cardPosition.GetChild(i));
+                // 保存最后一张删牌的位置
+                lastRemove3DPosition = randomChild.position;
+                
+                Destroy(randomChild.gameObject);
+            }
+            
+            // 重新排列动画
+            // 停顿一帧
+            yield return null;
+            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+        }
+    }
+
+    // 带动画的3D手牌重新排列
+    private IEnumerator Rearrange3DCardsWithAnimation(Transform cardPosition){
+        Debug.Log($"3D手牌重新排列");
+
+        // 确定方向向量
+        Vector3 direction = Vector3.zero;
+        if (cardPosition == rightPosPanel.cardsPosition){
+            direction = FrontDirection; // 向前
+        } else if (cardPosition == leftPosPanel.cardsPosition){
+            direction = BackDirection; // 向后
+        } else if (cardPosition == topPosPanel.cardsPosition){
+            direction = LeftDirection; // 向左
+        }
+
+        // 收集所有手牌物体和当前位置
+        List<Transform> cards = new List<Transform>();
+        Dictionary<Transform, Vector3> currentPositions = new Dictionary<Transform, Vector3>();
+        
+        int cardCount = cardPosition.childCount;
+        for (int i = 0; i < cardCount; i++){
+            Transform child = cardPosition.GetChild(i);
+            cards.Add(child);
+            currentPositions[child] = child.position;
+        }
+
+        // 按实际位置排序手牌（沿方向向量的投影距离）
+        // 这样可以确保手牌按照实际位置顺序排列，而不是删除后的索引顺序
+        Vector3 startPosition = cardPosition.position;
+        cards.Sort((a, b) => {
+            Vector3 posA = a.position - startPosition;
+            Vector3 posB = b.position - startPosition;
+            float distA = Vector3.Dot(posA, direction);
+            float distB = Vector3.Dot(posB, direction);
+            return distA.CompareTo(distB);
+        });
+
+        // 计算目标位置（按排序后的顺序）
+        Dictionary<Transform, Vector3> targetPositions = new Dictionary<Transform, Vector3>();
+        for (int i = 0; i < cardCount; i++){
+            Vector3 targetPos = startPosition + direction * cardWidth * i;
+            targetPositions[cards[i]] = targetPos;
+            cards[i].name = $"ReSeTCard_{i}";
+        }
+        
+        // 检查是否需要动画：比较每个手牌的当前位置和目标位置
+        bool needsAnimation = false;
+        foreach (var kvp in currentPositions){
+            Transform card = kvp.Key;
+            Vector3 currentPos = kvp.Value;
+            Vector3 targetPos = targetPositions[card];
+            
+            if (Vector3.Distance(currentPos, targetPos) > 0.01f){
+                needsAnimation = true;
+                break;
+            }
+        }
+        
+        if (!needsAnimation){
+            Debug.Log($"3D手牌位置无需调整，跳过动画");
+            yield break;
+        } else {
+            // 执行动画
+            List<Transform> cardList = new List<Transform>(currentPositions.Keys);
+            List<Vector3> targetPosList = new List<Vector3>();
+            foreach (Transform card in cardList){
+                targetPosList.Add(targetPositions[card]);
+            }
+            yield return StartCoroutine(Animate3DCardsToPositions(cardList, targetPosList));
+        }
+    }
+
+    // 3D卡牌移动动画协程
+    private IEnumerator Animate3DCardsToPositions(List<Transform> cards, List<Vector3> targetPositions){
+        float animationDuration = 0.3f; // 动画持续时间
+        float elapsedTime = 0f;
+        
+        // 记录起始位置
+        List<Vector3> startPositions = new List<Vector3>();
+        for (int i = 0; i < cards.Count; i++){
+            if (cards[i] != null){
+                startPositions.Add(cards[i].position);
+            } else {
+                startPositions.Add(Vector3.zero);
+            }
+        }
+        
+        // 动画循环
+        while (elapsedTime < animationDuration){
+            elapsedTime += Time.deltaTime;
+            float progress = elapsedTime / animationDuration;
+            
+            // 使用平滑插值函数（easeOutCubic）
+            float smoothProgress = 1f - Mathf.Pow(1f - progress, 3f);
+            
+            // 更新每张卡牌的位置
+            for (int i = 0; i < cards.Count; i++){
+                if (cards[i] != null){
+                    Vector3 currentPos = Vector3.Lerp(startPositions[i], targetPositions[i], smoothProgress);
+                    cards[i].position = currentPos;
                 }
-                // 拿取手牌初始位置，遍历卡牌乘以spacing移动到目标位置
-                Vector3 startPosition = cardPosition.position;
-                for (int i = 0; i < cardCount; i++) {
-                    Vector3 newPosition = startPosition + direction * cardWidth * (i + 0);
-                    remainingCards[i].position = newPosition;
-                    remainingCards[i].name = $"ReSeTCard_{i}";
-                }
+            }
+            
+            yield return null; // 等待下一帧
+        }
+        
+        // 确保最终位置准确
+        for (int i = 0; i < cards.Count; i++){
+            if (cards[i] != null){
+                cards[i].position = targetPositions[i];
             }
         }
     }

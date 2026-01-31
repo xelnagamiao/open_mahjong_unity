@@ -658,7 +658,7 @@ class RoomManager:
         
         # 如果游戏正在运行，清理gamestate
         if room_data.get("is_game_running", False):
-            await self.game_server.gamestate_manager.cleanup_game_state_by_room_id(room_id)
+            await self.game_server.gamestate_manager.cleanup_game_state_complete(room_id=room_id)
         
         # 向所有房间内的玩家广播离开房间消息
         leave_response = Response(

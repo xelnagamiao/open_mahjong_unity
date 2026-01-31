@@ -154,11 +154,12 @@ public class TipsContainer : MonoBehaviour
             int huapaiCount = gameManager.player_to_info["self"].huapai_list.Count;
             
             // 根据规则类型调用不同的处理方法
-            bool isQingque = gameManager.roomType == "qingque" || gameManager.roomType == "mmcr";
-            if (isQingque) {
+            if (gameManager.roomType == "qingque") {
                 ProcessQingqueTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
-            } else {
+            } else if (gameManager.roomType == "guobiao") {
                 ProcessGuobiaoTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
+            } else {
+                Debug.LogWarning($"未知的规则类型: {gameManager.roomType}");
             }
         }
     }
@@ -228,16 +229,19 @@ public class TipsContainer : MonoBehaviour
         int huapaiCount)
     {
         // 计算点和的番数
+        Debug.Log($"handList: {handList}, combinationList: {combinationList}, mergedWayToHepai: {mergedWayToHepai}, hepaiTile: {hepaiTile}");
         var dianheResult = Qingque13External.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
-        int dianheFan = (int)dianheResult.Item1; // 转换为 int
+        double dianheFan = dianheResult.Item1; // 保持为 double 类型
 
         if (dianheFan - huapaiCount >= 1) {
             // 如果番数大于等于1，显示卡牌和番数
             GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
             tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
             
+            // 格式化浮点数：如果是整数则显示整数，否则显示最多2位小数（去除末尾的0）
+            string fanDisplay = System.Math.Abs(dianheFan % 1) < 0.0001 ? $"{dianheFan:F0}番" : $"{dianheFan:F2}番".TrimEnd('0').TrimEnd('.');
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount($"{dianheFan}番", "dianhe");
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(fanDisplay, "dianhe");
         } else {
             // 如果番数小于1，改为"自摸"重新计算
             List<string> zimoWayToHepai = new List<string>(wayToHepai);
@@ -246,17 +250,19 @@ public class TipsContainer : MonoBehaviour
 
             // 计算自摸的番数
             var zimoResult = Qingque13External.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
-            int zimoFan = (int)zimoResult.Item1; // 转换为 int
+            double zimoFan = zimoResult.Item1; // 保持为 double 类型
             
             if (zimoFan - huapaiCount >= 1) {
-                // 自摸大于等于1，显示"仅自摸"
+                // 自摸大于等于1，显示"仅自摸"或番数
                 GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 
+                // 格式化浮点数：如果是整数则显示整数，否则显示最多2位小数（去除末尾的0）
+                string fanDisplay = System.Math.Abs(zimoFan % 1) < 0.0001 ? $"{zimoFan:F0}番" : $"{zimoFan:F2}番".TrimEnd('0').TrimEnd('.');
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("仅自摸", "zimo");
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(fanDisplay, "zimo");
             } else {
-                // 仍然小于8，显示"无役"
+                // 仍然小于1，显示"无役"
                 GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 

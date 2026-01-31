@@ -381,6 +381,8 @@ public class NormalGameStateManager : MonoBehaviour{
                 if (isAutoHepai || isAutoBuhua || isAutoCut){
                     StartCoroutine(WaitAutoAction("AutoHandAction"));
                 }
+                // 询问操作时隐藏提示块
+                TipsBlock.Instance.HideTipsBlock();
             }
             // 询问的不是自己的回合
             else{
@@ -390,8 +392,6 @@ public class NormalGameStateManager : MonoBehaviour{
             // 只有askHandAction才会转移玩家位置
             BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer); // 显示当前玩家
             CurrentPlayer = GetCardPlayer; // 存储当前玩家
-            // 询问操作时隐藏提示块
-            TipsBlock.Instance.HideTipsBlock();
         }
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
@@ -416,7 +416,9 @@ public class NormalGameStateManager : MonoBehaviour{
                 // 清空按钮
                 GameCanvas.Instance.ClearActionButton();
                 // 在自己执行操作以后计算听牌提示，如果有提示就显示右侧提示块
-                TipsBlock.Instance.ShowTipsBlock(selfHandTiles, player_to_info["self"].combination_tiles);
+                if (tips){
+                    TipsBlock.Instance.ShowTipsBlock(selfHandTiles, player_to_info["self"].combination_tiles);
+                }
             }
         }
 

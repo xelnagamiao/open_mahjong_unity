@@ -22,12 +22,17 @@ def _shuffle_and_deal(self) -> None:
     random.shuffle(self.tiles_list)
 
     # 固定起始牌的测试
-    if self.Debug:
+    # 安全获取 Debug 属性，如果不存在则默认为 False
+    debug_mode = getattr(self, 'Debug', False)
+    if debug_mode:
         # 使用测试牌例（共通调试用牌例）
-        self.player_list[0].hand_tiles = [12, 12, 15, 15, 18, 18, 22, 22, 27, 27, 29, 29, 31]
+        self.player_list[0].hand_tiles = [17,18,19,24,25,33,33,12]
+        self.player_list[0].combination_tiles = ["k47","s36"]
+        self.player_list[0].combination_mask = [[0,47,0,47,0,47],[0,36,1,36,0,36]]
         self.player_list[1].hand_tiles = []
         self.player_list[2].hand_tiles = []
         self.player_list[3].hand_tiles = []
+
 
         # 删除牌山中测试牌例的卡牌
         for tile in self.player_list[0].hand_tiles:
@@ -39,9 +44,6 @@ def _shuffle_and_deal(self) -> None:
         for tile in self.player_list[3].hand_tiles:
             self.tiles_list.remove(tile)
 
-        # 固定第一张自摸牌（55：示例花牌/特定牌）
-        if 55 in self.tiles_list:
-            self.tiles_list.remove(55)
 
         # 分配每位玩家13张牌
         for player in self.player_list:
@@ -49,8 +51,6 @@ def _shuffle_and_deal(self) -> None:
                 for _ in range(13):
                     player.get_tile(self.tiles_list)
 
-        # 当前玩家额外摸一张预设牌
-        self.player_list[self.current_player_index].hand_tiles.append(55)
 
     else:
         # 分配每位玩家13张牌

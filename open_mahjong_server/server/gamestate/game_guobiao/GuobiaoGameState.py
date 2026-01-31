@@ -241,7 +241,7 @@ class GuobiaoGameState:
                 break
 
     async def cleanup_game_state(self):
-        """清理游戏状态：移除所有映射关系，用于房间销毁时调用"""
+        """清理游戏状态协程：取消游戏循环任务（映射关系由 gamestate_manager 统一清理）"""
         # 取消游戏循环任务
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()
@@ -251,14 +251,6 @@ class GuobiaoGameState:
                 logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
             except Exception as e:
                 logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
-        
-        # 清理玩家 ID 到游戏状态的映射（重连索引）
-        # 从 player_list 获取所有玩家的 user_id，确保即使房间数据为空也能清理
-        for player in self.player_list:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player.user_id)
-        
-        # 清理房间到游戏状态的映射
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
 
     async def run_game_loop(self):
         """
@@ -323,6 +315,9 @@ class GuobiaoGameState:
         init_game_record(self)
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
+
+            # 记录结算前的分数（用于计算本局分数变化）
+            scores_before = {player.original_player_index: player.score for player in self.player_list}
 
             init_guobiao_tiles(self) # 初始化牌山和手牌
 
@@ -497,14 +492,14 @@ class GuobiaoGameState:
                             # 在 hu_fan 中添加"错和"番
                             cuohe_hu_fan = hu_fan + ["错和"]
                             await self.broadcast_result(
-                                                hepai_player_index = self.current_player_index, # 自摸错和是当前玩家
+                                                hepai_player_index = self.hepai_player_index,
                                                 player_to_score = player_to_score,
                                                 hu_score = hu_score,
                                                 hu_fan = cuohe_hu_fan,
-                                                hu_class = self.hu_class,  # 使用原本的hu_class
-                                                hepai_player_hand = self.player_list[self.current_player_index].hand_tiles,
-                                                hepai_player_huapai = self.player_list[self.current_player_index].huapai_list,
-                                                hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
+                                                hu_class = self.hu_class,
+                                                hepai_player_hand = self.player_list[self.hepai_player_index].hand_tiles,
+                                                hepai_player_huapai = self.player_list[self.hepai_player_index].huapai_list,
+                                                hepai_player_combination_mask = self.player_list[self.hepai_player_index].combination_mask
                                                 )
                             # 等待5秒
                             await asyncio.sleep(len(hu_fan)*0.5 + 8 + 0.5) # 等待和牌番种时间与8秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
@@ -532,6 +527,8 @@ class GuobiaoGameState:
 
                             # 删除和牌类型
                             self.hu_class = ""
+                            # 清空和牌判断
+                            self.result_dict = {}
 
                     # 如果没有匹配到
                     case _:
@@ -542,10 +539,6 @@ class GuobiaoGameState:
             hu_fan = None
             hepai_player_index = None
 
-            # 记录结算前的分数（用于计算本局分数变化）
-            scores_before = {player.original_player_index: player.score for player in self.player_list}
-
-            
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 # 自摸
@@ -683,9 +676,10 @@ class GuobiaoGameState:
             next_game_round(self)   
 
             # 换位
-            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                await broadcast_switch_seat(self)
-                await asyncio.sleep(5)
+            if self.current_round >= self.max_round*4:
+                if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+                    await broadcast_switch_seat(self)
+                    await asyncio.sleep(5)
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
@@ -732,12 +726,8 @@ class GuobiaoGameState:
         elif has_ai_player:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
 
-        # 结束游戏生命周期
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
-        
-        # 移除玩家到游戏状态的映射
-        for player_id in self.room_data["player_list"]:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player_id)
+        # 结束游戏生命周期：使用统一的清理方法
+        await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         
         # 销毁房间并广播离开房间消息
         await self.game_server.room_manager.destroy_room(self.room_id)

@@ -21075,10 +21075,6 @@ MonoBehaviour:
   resultText: {fileID: 1146561930}
   testDropdown: {fileID: 1647445249}
   testDropdownText: {fileID: 1082223022}
-  testDataList:
-  - "\u56FD\u6807\u548C\u724C\u6D4B\u8BD5\u8BF7\u8F93\u5165[['g44','G28'],[12,12,12,13,13,35,35,35],13,['\u70B9\u548C','\u573A\u98CE\u897F','\u81EA\u98CE\u5357']]
-    \u6D4B\u8BD5\u96C6\u8BF7\u67E5\u770Bserver\u6587\u4EF6\u5939\u7684calculaion\u76EE\u5F55"
-  - "\u56FD\u6807\u542C\u724C\u6D4B\u8BD5"
 --- !u!1 &552748465
 GameObject:
   m_ObjectHideFlags: 0
@@ -22618,7 +22614,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.00012207031}
+  m_AnchoredPosition: {x: 0, y: 0.000061035156}
   m_SizeDelta: {x: 0.00012207, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &582432582
@@ -31155,7 +31151,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 217.20993}
+  m_AnchoredPosition: {x: 0, y: 217.20964}
   m_SizeDelta: {x: 569, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &795248721
@@ -54725,7 +54721,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1787573812}
   m_HandleRect: {fileID: 1787573811}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -58698,7 +58694,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1586217847}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.99881953
+  m_Size: 0.99830693
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -67296,6 +67292,10 @@ MonoBehaviour:
     - m_Text: "\u56FD\u6807\u548C\u724C\u6D4B\u8BD5"
       m_Image: {fileID: 0}
     - m_Text: "\u56FD\u6807\u542C\u724C\u6D4B\u8BD5"
+      m_Image: {fileID: 0}
+    - m_Text: "\u9752\u96C0\u548C\u724C\u6D4B\u8BD5"
+      m_Image: {fileID: 0}
+    - m_Text: "\u9752\u96C0\u542C\u724C\u6D4B\u8BD5"
       m_Image: {fileID: 0}
   m_OnValueChanged:
     m_PersistentCalls:
