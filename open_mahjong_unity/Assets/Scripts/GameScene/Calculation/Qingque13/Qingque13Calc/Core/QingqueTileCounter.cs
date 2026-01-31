@@ -55,13 +55,13 @@ namespace Qingque13.Core
             if ((tile.Value & 0b10000000) != 0)
             {
                 // s or z suit
-                int shift = (tile.Value & 0b00100000) + 3 * (tile.Value & 0b00001111);
+                int shift = (int)(tile.Value & 0b00100000) + (int)(3 * (tile.Value & 0b00001111));
                 szCount += (ulong)count << shift;
             }
             else
             {
                 // m or p suit
-                int shift = (tile.Value & 0b00100000) + 3 * (tile.Value & 0b00001111);
+                int shift = (int)(tile.Value & 0b00100000) + (int)(3 * (tile.Value & 0b00001111));
                 mpCount += (ulong)count << shift;
             }
         }
@@ -99,13 +99,13 @@ namespace Qingque13.Core
             if ((tile.Value & 0b10000000) != 0)
             {
                 // s or z suit
-                int shift = (tile.Value & 0b00100000) + 3 * (tile.Value & 0b00001111);
+                int shift = (int)(tile.Value & 0b00100000) + (int)(3 * (tile.Value & 0b00001111));
                 return (byte)((szCount >> shift) & 0b111);
             }
             else
             {
                 // m or p suit
-                int shift = (tile.Value & 0b00100000) + 3 * (tile.Value & 0b00001111);
+                int shift = (int)(tile.Value & 0b00100000) + (int)(3 * (tile.Value & 0b00001111));
                 return (byte)((mpCount >> shift) & 0b111);
             }
         }
@@ -192,7 +192,10 @@ namespace Qingque13.Core
 
         public static QingqueTileCounter operator -(QingqueTileCounter a, QingqueTileCounter b)
         {
-            return new QingqueTileCounter(a.mpCount - b.mpCount, a.szCount - b.szCount);
+            // Ensure no underflow in ulong subtraction (platform-specific for WebGL/IL2CPP)
+            ulong mpResult = a.mpCount >= b.mpCount ? a.mpCount - b.mpCount : 0;
+            ulong szResult = a.szCount >= b.szCount ? a.szCount - b.szCount : 0;
+            return new QingqueTileCounter(mpResult, szResult);
         }
 
         public static QingqueTileCounter operator -(QingqueTileCounter counter, QingqueTile tile)

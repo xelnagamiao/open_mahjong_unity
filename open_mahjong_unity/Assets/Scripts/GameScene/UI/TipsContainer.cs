@@ -229,7 +229,7 @@ public class TipsContainer : MonoBehaviour
         int huapaiCount)
     {
         // 计算点和的番数
-        Debug.Log($"handList: {handList}, combinationList: {combinationList}, mergedWayToHepai: {mergedWayToHepai}, hepaiTile: {hepaiTile}");
+        Debug.Log($"handList: [{string.Join(", ", handList)}], combinationList: [{string.Join(", ", combinationList)}], mergedWayToHepai: [{string.Join(", ", mergedWayToHepai)}], hepaiTile: {hepaiTile}");
         var dianheResult = Qingque13External.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         double dianheFan = dianheResult.Item1; // 保持为 double 类型
 
@@ -251,6 +251,13 @@ public class TipsContainer : MonoBehaviour
             // 计算自摸的番数
             var zimoResult = Qingque13External.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
             double zimoFan = zimoResult.Item1; // 保持为 double 类型
+            List<string> zimoFanNames = zimoResult.Item2; // 番种名称列表
+            
+            // 打印所有返回值
+            Debug.Log($"[TipsContainer] HepaiCheck 返回结果:");
+            Debug.Log($"[TipsContainer] 番数: {zimoFan}");
+            Debug.Log($"[TipsContainer] 番种数量: {zimoFanNames.Count}");
+            Debug.Log($"[TipsContainer] 番种列表: {string.Join(", ", zimoFanNames)}");
             
             if (zimoFan - huapaiCount >= 1) {
                 // 自摸大于等于1，显示"仅自摸"或番数
