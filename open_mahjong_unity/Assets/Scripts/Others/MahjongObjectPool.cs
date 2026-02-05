@@ -128,20 +128,21 @@ public class MahjongObjectPool : MonoBehaviour {
         // 获取预制体的渲染器
         Renderer renderer = cardObj.GetComponent<Renderer>();
         
-        // 通过材质名称找到SetImage材质
-        int setImageMaterialIndex = -1;
+        // 查找使用ThreeDTiles着色器的材质
+        Material targetMaterial = null;
         for (int i = 0; i < renderer.materials.Length; i++) {
-            if (renderer.materials[i].name.Contains("SetImage")) {
-                setImageMaterialIndex = i;
+            if (renderer.materials[i].shader.name == "Custom/ThreeDTiles") {
+                targetMaterial = renderer.materials[i];
                 break;
             }
         }
         
-        if (setImageMaterialIndex != -1) {
-            renderer.materials[setImageMaterialIndex].mainTexture = texture;
-            Debug.Log($"应用纹理到卡片 {tileId} 的SetImage材质完成");
+        if (targetMaterial != null) {
+            // 设置_FrontTex属性，图片将覆盖在uv_FrontTex UV通道上
+            targetMaterial.SetTexture("_FrontTex", texture);
+            Debug.Log($"应用纹理到卡片 {tileId} 的_FrontTex属性完成");
         } else {
-            Debug.LogError($"未找到SetImage材质，材质列表: {string.Join(", ", System.Array.ConvertAll(renderer.materials, m => m.name))}");
+            Debug.LogError($"未找到ThreeDTiles着色器材质，材质列表: {string.Join(", ", System.Array.ConvertAll(renderer.materials, m => m.shader.name))}");
         }
     }
 }

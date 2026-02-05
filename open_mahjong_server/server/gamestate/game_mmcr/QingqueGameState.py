@@ -126,7 +126,7 @@ class QingqueGameState:
         # 初始化游戏状态
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
-        self.xunmu = 0 # 巡目
+        self.xunmu = 1 # 巡目
         self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
         self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
         self.game_status = "waiting"  # waiting, playing, finished
@@ -155,17 +155,25 @@ class QingqueGameState:
         }
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
-        self.Debug = True
+        self.Debug = False
 
 
     async def player_disconnect(self, user_id: int):
-        """玩家掉线：增加 offline 标签并广播"""
+        """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
         for p in self.player_list:
             if p.user_id == user_id:
                 if "offline" not in p.tag_list:
                     p.tag_list.append("offline")
                     await broadcast_refresh_player_tag_list(self)
                 break
+        
+        # 检查所有非AI玩家（user_id >= 10）是否都offline
+        non_ai_players = [p for p in self.player_list if p.user_id >= 10]
+        if non_ai_players:  # 如果有非AI玩家
+            all_offline = all("offline" in p.tag_list for p in non_ai_players)
+            if all_offline:
+                logger.info(f"所有非AI玩家都已掉线，开始清理gamestate，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
     async def player_reconnect(self, user_id: int):
         """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
@@ -230,7 +238,7 @@ class QingqueGameState:
                     )
                     
                     response = Response(
-                        type="game_start_GB",
+                        type="gamestate/qingque/game_start",
                         success=True,
                         message="重连成功，游戏继续",
                         game_info=game_info

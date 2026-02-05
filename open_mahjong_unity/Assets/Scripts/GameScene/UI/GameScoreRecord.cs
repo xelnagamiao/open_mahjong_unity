@@ -239,7 +239,7 @@ public class GameScoreRecord : MonoBehaviour
                     }
                 }
                 
-                // 累计分数并显示在GameScoreContainer中
+                // 累计分数并显示在GameScoreContainer中（总计栏目一律使用白色）
                 cumulativeScore += scoreValue;
                 GameObject gameScoreObj = Instantiate(Tmp_Text_Prefab, player.gameScoreContainer.transform);
                 TMP_Text gameScoreText = gameScoreObj.GetComponent<TMP_Text>();
@@ -247,11 +247,11 @@ public class GameScoreRecord : MonoBehaviour
                 {
                     if (cumulativeScore > 0)
                     {
-                        gameScoreText.text = $"<color=green>+{cumulativeScore}</color>";
+                        gameScoreText.text = $"+{cumulativeScore}";
                     }
                     else if (cumulativeScore < 0)
                     {
-                        gameScoreText.text = $"<color=red>{cumulativeScore}</color>";
+                        gameScoreText.text = cumulativeScore.ToString();
                     }
                     else
                     {

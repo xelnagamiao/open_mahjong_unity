@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = false;
+    public static bool Debug = true;
     
     public static string webUrl;
     public static string gameUrl;
@@ -52,8 +52,6 @@ public class ConfigManager : MonoBehaviour {
     public int VoiceVolume { get; private set; }
 
     private const int ForegroundFrameRate = 60;
-    private const int BackgroundFrameRate = 10;
-
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
     private static extern void PageVisibility_Setup();
@@ -76,15 +74,11 @@ public class ConfigManager : MonoBehaviour {
         
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = ForegroundFrameRate;
+        Application.runInBackground = true;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         PageVisibility_Setup();
 #endif
-    }
-
-    // WebGL: 由 Assets/Plugins/PageVisibility.jslib 调用
-    public void OnApplicationVisibilityChanged(int isVisible) {
-        Application.targetFrameRate = (isVisible == 1) ? ForegroundFrameRate : BackgroundFrameRate;
     }
 
     public void SetUserConfig(int volume) {

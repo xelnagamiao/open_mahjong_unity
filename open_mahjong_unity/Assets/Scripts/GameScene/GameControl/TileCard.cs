@@ -74,23 +74,33 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
     
     /// <summary>
-    /// 鼠标进入时检测切牌后的听牌
+    /// 鼠标进入时检测切牌后的听牌，并高亮所有相同tileId的3D卡牌
     /// </summary>
     public void OnPointerEnter(PointerEventData eventData)
     {
         isHovering = true;
         // 异步检测切牌后的听牌
         CheckCutTileTips();
+        // 高亮所有相同tileId的3D卡牌
+        if (tileId != -1 && Card3DHoverManager.Instance != null)
+        {
+            Card3DHoverManager.Instance.OnCardHover(tileId);
+        }
     }
     
     /// <summary>
-    /// 鼠标离开时隐藏提示
+    /// 鼠标离开时隐藏提示，并恢复所有3D卡牌
     /// </summary>
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovering = false;
         // 直接隐藏提示容器（内部会先清空内容）
         TipsContainer.Instance.HideTips();
+        // 恢复所有3D卡牌
+        if (Card3DHoverManager.Instance != null)
+        {
+            Card3DHoverManager.Instance.OnCardExit();
+        }
     }
     
     /// <summary>

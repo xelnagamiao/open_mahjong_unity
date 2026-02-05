@@ -166,7 +166,7 @@ if __name__ == "__main__":
         check_service = GameCalculationService()
         time_start = time()
         result = check_service.Qingque_hepai_check(tiles_list, combination_list,way_to_hepai,hepai_tiles)
-        # result = check_service.Qingque_tingpai_check(tiles_list, combination_list)
+        result = check_service.Qingque_tingpai_check(tiles_list, combination_list)
         print("最终结果(返回最大的牌型):", result)
         time_end = time()
         print("测试用时：", time_end - time_start, "秒")

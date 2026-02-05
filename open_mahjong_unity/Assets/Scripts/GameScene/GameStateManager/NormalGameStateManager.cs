@@ -210,15 +210,13 @@ public class NormalGameStateManager : MonoBehaviour{
                     lastCutCardID = cut_tile.Value; // 存储上次切牌的ID
                     player_to_info[GetCardPlayer].discard_tiles.Add(cut_tile.Value); // 存储弃牌
                     if (GetCardPlayer == "self"){
-                        if (allowActionList.Contains("cut")){
-                            selfHandTiles.Remove(cut_tile.Value); // 删除手牌
-                            Game3DManager.Instance.Change3DTile("Discard",cut_tile.Value,0,GetCardPlayer,cut_class.Value,null); // 3D切牌行为
-                            if (cut_class.Value){
-                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null,null); // 2D摸切行为
-                            }
-                            else{
-                                GameCanvas.Instance.ChangeHandCards("RemoveHandCard",cut_tile.Value,null,cut_tile_index.Value); // 2D手切行为
-                            }
+                        selfHandTiles.Remove(cut_tile.Value); // 删除手牌
+                        Game3DManager.Instance.Change3DTile("Discard",cut_tile.Value,0,GetCardPlayer,cut_class.Value,null); // 3D切牌行为
+                        if (cut_class.Value){
+                            GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null,null); // 2D摸切行为
+                        }
+                        else{
+                            GameCanvas.Instance.ChangeHandCards("RemoveHandCard",cut_tile.Value,null,cut_tile_index.Value); // 2D手切行为
                         }
                     }
                     else{
@@ -549,14 +547,14 @@ public class NormalGameStateManager : MonoBehaviour{
             // 1. 生成弃牌
             if (player.discard_tiles != null && player.discard_tiles.Length > 0){
                 foreach (int tileId in player.discard_tiles){
-                    Game3DManager.Instance.Change3DTile("Discard", tileId, 0, position, false, null);
+                    Game3DManager.Instance.Change3DTile("SetDiscardWithoutAnimation", tileId, 0, position, false, null);
                 }
             }
             
             // 2. 生成花牌
             if (player.huapai_list != null && player.huapai_list.Length > 0){
                 foreach (int tileId in player.huapai_list){
-                    Game3DManager.Instance.Change3DTile("Buhua", tileId, 0, position, false, null);
+                    Game3DManager.Instance.Change3DTile("SetBuhuacardWithoutAnimation", tileId, 0, position, false, null);
                 }
             }
             
