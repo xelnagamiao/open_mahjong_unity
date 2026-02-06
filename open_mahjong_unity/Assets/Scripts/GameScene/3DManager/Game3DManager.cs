@@ -125,7 +125,7 @@ public partial class Game3DManager : MonoBehaviour {
 
         // 摸牌 
         else if (actionType == "GetCard"){
-            Get3DTile(PlayerPosition,"get");
+            yield return StartCoroutine(Get3DTileCoroutine(PlayerPosition,"get"));
         }
 
         // 仅设置弃牌但不删除玩家手牌且无动画的牌谱转移和重连方法
@@ -138,33 +138,37 @@ public partial class Game3DManager : MonoBehaviour {
         else if (actionType == "Discard"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
             if (PlayerPosition != "self"){
-                StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, cut_class)); // 手牌区删除手牌
+                // 等待删除手牌完成，避免同时执行造成帧抖动
+                yield return StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, cut_class));
             }
-            Set3DTile(tileId, panel.discardsPosition, "Discard", PlayerPosition); // 弃牌区增加弃牌
+            // 删除完成后再创建弃牌
+            yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition));
         }
 
         // 仅设置补花但不删除玩家手牌且无动画的牌谱转移和重连方法
         else if (actionType == "SetBuhuacardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
-            Set3DTile(tileId, panel.buhuaPosition, "Buhua", PlayerPosition); // 补花区增加补花
+            yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition)); // 补花区增加补花
         }
 
         // 补花
         else if (actionType == "Buhua"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
             if (PlayerPosition != "self"){
-                StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, false)); // 手牌区删除手牌
+                // 等待删除手牌完成，避免同时执行造成帧抖动
+                yield return StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, false));
             }
-            Set3DTile(tileId, panel.buhuaPosition, "Buhua", PlayerPosition); // 补花区增加补花
+            // 删除完成后再创建补花
+            yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition));
         }
 
         // 吃碰杠
         else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right" ||
                  actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){   
-            // 删除上一张3D卡牌
+            // 删除上一张3D卡牌，归还到对象池
             if (lastCut3DObject != null){
                 if (actionType != "jiagang"){
-                    Destroy(lastCut3DObject);
+                    MahjongObjectPool.Instance.Return(-1, lastCut3DObject);
                 }
             }
             else{
@@ -173,9 +177,10 @@ public partial class Game3DManager : MonoBehaviour {
             PosPanel3D panel = GetPosPanel(PlayerPosition);
             // 放置组合牌
             if (PlayerPosition != "self"){
-                StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, removeCount, false)); // 手牌区删除手牌
+                // 等待删除手牌完成，避免同时执行造成帧抖动
+                yield return StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, removeCount, false));
             }
-            ActionAnimation(PlayerPosition, actionType, combination_mask,true);
+            yield return StartCoroutine(ActionAnimationCoroutine(PlayerPosition, actionType, combination_mask,true));
         }
         
         yield break;
@@ -222,37 +227,25 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 清除手牌协程（用于在初始化前清除，确保 childCount 正确）
     private IEnumerator ClearHandCardsCoroutine(){
-        // 使用倒序遍历，立即销毁所有手牌
-        // 左家手牌
-        for (int i = leftPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
-            Transform child = leftPosPanel.cardsPosition.GetChild(i);
-            if (child != null){
-                Destroy(child.gameObject);
-            }
-        }
-        // 对家手牌
-        for (int i = topPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
-            Transform child = topPosPanel.cardsPosition.GetChild(i);
-            if (child != null){
-                Destroy(child.gameObject);
-            }
-        }
-        // 右家手牌
-        for (int i = rightPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
-            Transform child = rightPosPanel.cardsPosition.GetChild(i);
-            if (child != null){
-                Destroy(child.gameObject);
-            }
-        }
-        // 自家手牌
-        for (int i = selfPosPanel.cardsPosition.childCount - 1; i >= 0; i--){
-            Transform child = selfPosPanel.cardsPosition.GetChild(i);
-            if (child != null){
-                Destroy(child.gameObject);
+        // 先收集所有要归还的手牌对象，避免在遍历时修改集合
+        List<GameObject> objectsToReturn = new List<GameObject>();
+        
+        // 收集所有手牌
+        CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(topPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(selfPosPanel.cardsPosition, objectsToReturn);
+        
+        // 统一归还所有收集到的对象
+        foreach (GameObject obj in objectsToReturn)
+        {
+            if (obj != null)
+            {
+                MahjongObjectPool.Instance.Return(-1, obj);
             }
         }
         
-        // 等待一帧，确保所有对象都被销毁，childCount 更新
+        // 等待一帧，确保所有对象都被归还，childCount 更新
         yield return null;
     }
     
@@ -265,46 +258,57 @@ public partial class Game3DManager : MonoBehaviour {
         rightSetCombinationsPoint = rightPosPanel.combinationsPosition.position;
         pengToJiagangPosDict.Clear();
         
-        // 清除所有面板的弃牌
-        foreach (Transform child in leftPosPanel.discardsPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in topPosPanel.discardsPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in rightPosPanel.discardsPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in selfPosPanel.discardsPosition){
-            Destroy(child.gameObject);
-        }
+        // 先收集所有要归还的对象，避免在遍历时修改集合导致跳过元素
+        List<GameObject> objectsToReturn = new List<GameObject>();
         
-        // 清除所有面板的补花
-        foreach (Transform child in leftPosPanel.buhuaPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in topPosPanel.buhuaPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in rightPosPanel.buhuaPosition){
-            Destroy(child.gameObject);
-        }
-        foreach (Transform child in selfPosPanel.buhuaPosition){
-            Destroy(child.gameObject);
-        }
+        // 收集所有面板的弃牌
+        CollectChildren(leftPosPanel.discardsPosition, objectsToReturn);
+        CollectChildren(topPosPanel.discardsPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.discardsPosition, objectsToReturn);
+        CollectChildren(selfPosPanel.discardsPosition, objectsToReturn);
         
-        // 删除所有面板的组合牌3D对象数组中的子物体
+        // 收集所有面板的补花
+        CollectChildren(leftPosPanel.buhuaPosition, objectsToReturn);
+        CollectChildren(topPosPanel.buhuaPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.buhuaPosition, objectsToReturn);
+        CollectChildren(selfPosPanel.buhuaPosition, objectsToReturn);
+        
+        // 收集所有面板的组合牌3D对象数组中的子物体
         foreach (PosPanel3D panel in new[] { selfPosPanel, leftPosPanel, topPosPanel, rightPosPanel })
         {
             foreach (Transform combinationObj in panel.combination3DObjects)
             {
                 if (combinationObj != null)
                 {
-                    foreach (Transform child in combinationObj)
-                    {
-                        Destroy(child.gameObject);
-                    }
+                    CollectChildren(combinationObj, objectsToReturn);
                 }
+            }
+        }
+        
+        // 统一归还所有收集到的对象
+        foreach (GameObject obj in objectsToReturn)
+        {
+            if (obj != null)
+            {
+                MahjongObjectPool.Instance.Return(-1, obj);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 收集 Transform 的所有子对象到列表中（避免在遍历时修改集合）
+    /// </summary>
+    private void CollectChildren(Transform parent, List<GameObject> collection)
+    {
+        if (parent == null) return;
+        
+        // 使用倒序遍历，避免索引变化问题
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            Transform child = parent.GetChild(i);
+            if (child != null)
+            {
+                collection.Add(child.gameObject);
             }
         }
     }

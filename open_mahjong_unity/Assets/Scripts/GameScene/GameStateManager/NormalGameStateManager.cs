@@ -548,6 +548,7 @@ public class NormalGameStateManager : MonoBehaviour{
             if (player.discard_tiles != null && player.discard_tiles.Length > 0){
                 foreach (int tileId in player.discard_tiles){
                     Game3DManager.Instance.Change3DTile("SetDiscardWithoutAnimation", tileId, 0, position, false, null);
+                    Debug.Log($"生成弃牌: {tileId}");
                 }
             }
             

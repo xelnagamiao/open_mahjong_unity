@@ -1,10 +1,11 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public partial class Game3DManager : MonoBehaviour
 {
     // 鸣牌3D显示
-    public void ActionAnimation(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false)
+    public IEnumerator ActionAnimationCoroutine(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false)
     {
         // 根据actionType执行动画
         Quaternion rotation = Quaternion.identity; // 卡牌旋转角度
@@ -13,7 +14,7 @@ public partial class Game3DManager : MonoBehaviour
         Vector3 JiagangDirection = Vector3.zero; // 加杠方向
         Transform SetParent = null; // 设置父对象
         PosPanel3D panel = GetPosPanel(playerIndex);
-        if (panel == null) return;
+        if (panel == null) yield break;
         
         if (playerIndex == "self")
         {
@@ -70,6 +71,9 @@ public partial class Game3DManager : MonoBehaviour
         SignDirectionList.Reverse();
         Debug.Log($"actionType: {actionType}, combination_mask: {combination_mask}, SetTileList: {SetTileList}, SignDirectionList: {SignDirectionList}");
 
+        // 等待一帧，避免与其他操作在同一帧执行
+        yield return null;
+
         // 执行动画
         // 加杠
         if (actionType == "jiagang")
@@ -95,6 +99,12 @@ public partial class Game3DManager : MonoBehaviour
                     if (doAnimation)
                     {
                         StartCoroutine(MoveCardAnimation(cardObj, SetDirection, cardWidth));
+                    }
+                    
+                    // 每创建一张卡牌等待一帧，避免单帧创建太多对象
+                    if (i < SetTileList.Count - 1)
+                    {
+                        yield return null;
                     }
                 }
             }
@@ -176,6 +186,12 @@ public partial class Game3DManager : MonoBehaviour
                     // 暗杠向右偏移 0.1 个宽度单位
                     cardObj.transform.position += RightDirection * (cardWidth * 0.25f);
                 }
+                
+                // 每创建一张卡牌等待一帧，避免单帧创建太多对象
+                if (i < SetTileList.Count - 1)
+                {
+                    yield return null;
+                }
             }
 
             // 将更新后的指针位置赋值给公共变量
@@ -202,6 +218,12 @@ public partial class Game3DManager : MonoBehaviour
                 StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth));
             }
         }
+    }
+    
+    // 鸣牌3D显示（同步版本，用于向后兼容）
+    public void ActionAnimation(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false)
+    {
+        StartCoroutine(ActionAnimationCoroutine(playerIndex, actionType, combination_mask, doAnimation));
     }
 }
 

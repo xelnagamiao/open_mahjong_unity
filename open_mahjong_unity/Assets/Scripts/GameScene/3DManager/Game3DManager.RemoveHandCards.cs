@@ -42,14 +42,14 @@ public partial class Game3DManager : MonoBehaviour
                     // 保存最后一张删牌的位置
                     lastRemove3DPosition = cardToRemove.position;
 
-                    // 销毁卡牌对象
-                    Destroy(cardToRemove.gameObject);
+                    // 将卡牌归还到对象池
+                    MahjongObjectPool.Instance.Return(-1, cardToRemove.gameObject);
                 }
             }
             Debug.Log($"组合删除完成: 已删除{removeCount}张卡牌");
 
             // 重新排列动画
-            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
         }
         // 如果removeCount <= 1 或为null，使用原始方法
         else
@@ -67,7 +67,8 @@ public partial class Game3DManager : MonoBehaviour
                     // 保存最后一张删牌的位置
                     lastRemove3DPosition = lastCard.position;
 
-                    Destroy(lastCard.gameObject);
+                    // 将卡牌归还到对象池
+                    MahjongObjectPool.Instance.Return(-1, lastCard.gameObject);
                 }
                 else
                 {
@@ -86,13 +87,15 @@ public partial class Game3DManager : MonoBehaviour
                 // 保存最后一张删牌的位置
                 lastRemove3DPosition = randomChild.position;
 
-                Destroy(randomChild.gameObject);
+                // 将卡牌归还到对象池
+                MahjongObjectPool.Instance.Return(-1, randomChild.gameObject);
             }
 
-            // 重新排列动画
-            // 停顿一帧
+            // 等待一帧，确保删除操作完成
             yield return null;
-            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            
+            // 重新排列动画
+            StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
         }
     }
 

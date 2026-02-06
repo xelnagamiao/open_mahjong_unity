@@ -8,30 +8,83 @@ public class OutlineNormalsCalculator : MonoBehaviour
     [SerializeField] private float _cospatialVertexDistanceThreshold = 0.01f;
 
     [Tooltip("Whether to recalculate normals every time the script is enabled (useful for dynamic meshes)")]
-    [SerializeField] private bool _recalculateOnEnable = true;
+    [SerializeField] private bool _recalculateOnEnable = false;
+
+    [Tooltip("Skip recalculation if normals are already calculated (optimized for object pooling)")]
+    [SerializeField] private bool _skipIfAlreadyCalculated = true;
 
     private Mesh _mesh;
     private Vector3[] _originalVertices;
     private Vector3[] _originalNormals;
+    private bool _hasCalculated = false;
 
     private void Awake()
     {
         GetMesh();
         if (_mesh == null) return;
 
+        // 检查 UV1 是否已经有数据（避免重复计算）
+        if (_skipIfAlreadyCalculated && HasUV1Data())
+        {
+            _hasCalculated = true;
+            return;
+        }
+
         // Store original data in case we need to reset
         _originalVertices = _mesh.vertices;
         _originalNormals = _mesh.normals;
-
-        CalculateAndApplySmoothNormals();
+        
+        // 如果 UV1 没有数据，计算平滑法线
+        // 注意：对象池初始化时会主动调用计算，这里作为后备
+        if (!HasUV1Data())
+        {
+            CalculateAndApplySmoothNormals(true);
+        }
+        else
+        {
+            _hasCalculated = true;
+        }
     }
 
     private void OnEnable()
     {
+        // 如果已经计算过且设置了跳过选项，则不再重新计算
+        if (_skipIfAlreadyCalculated && _hasCalculated)
+        {
+            return;
+        }
+
         if (_recalculateOnEnable)
         {
             CalculateAndApplySmoothNormals();
+            _hasCalculated = true;
         }
+    }
+
+    /// <summary>
+    /// 检查 UV1 是否已经有数据（用于判断是否已经计算过平滑法线）
+    /// </summary>
+    private bool HasUV1Data()
+    {
+        if (_mesh == null) return false;
+
+        var uv1 = new List<Vector4>();
+        _mesh.GetUVs(1, uv1);
+        
+        // 如果 UV1 有数据且不是全零，说明已经计算过
+        if (uv1.Count > 0)
+        {
+            // 检查是否至少有一个非零值
+            foreach (var uv in uv1)
+            {
+                if (uv.sqrMagnitude > 0.0001f)
+                {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     private void GetMesh()
@@ -50,13 +103,36 @@ public class OutlineNormalsCalculator : MonoBehaviour
         }
     }
 
-    [ContextMenu("Calculate and Apply Smooth Normals")]
-    public void CalculateAndApplySmoothNormals()
+    /// <summary>
+    /// 强制计算平滑法线（用于对象池初始化时预计算）
+    /// </summary>
+    /// <param name="force">是否强制计算，即使 UV1 已有数据</param>
+    public void CalculateAndApplySmoothNormals(bool force = false)
     {
         if (_mesh == null)
         {
             GetMesh();
             if (_mesh == null) return;
+        }
+        
+        // 如果不强制计算且已有数据，则跳过
+        if (!force && _skipIfAlreadyCalculated && HasUV1Data())
+        {
+            _hasCalculated = true;
+            return;
+        }
+        
+        // 确保使用实例化的 mesh，避免修改 sharedMesh 影响其他对象
+        if (_mesh.name.Contains("(Clone)") == false)
+        {
+            // 如果使用的是 sharedMesh，创建实例
+            var meshFilter = GetComponent<MeshFilter>();
+            if (meshFilter != null && meshFilter.sharedMesh == _mesh)
+            {
+                _mesh = Instantiate(_mesh);
+                _mesh.name = _mesh.name + " (Instance)";
+                meshFilter.sharedMesh = _mesh;
+            }
         }
 
         // Get triangles and vertices
@@ -154,7 +230,21 @@ public class OutlineNormalsCalculator : MonoBehaviour
         }
         _mesh.SetUVs(1, uv1List);
 
-        Debug.Log($"Smooth normals calculated and applied to UV1 for {gameObject.name}. Vertex count: {vertices.Length}");
+        _hasCalculated = true;
+        
+        // 只在编辑器模式下或首次计算时输出日志，避免对象池激活时的日志刷屏
+        #if UNITY_EDITOR
+        if (force)
+        {
+            Debug.Log($"Smooth normals calculated and applied to UV1 for {gameObject.name}. Vertex count: {vertices.Length}");
+        }
+        #endif
+    }
+    
+    [ContextMenu("Calculate and Apply Smooth Normals")]
+    private void CalculateAndApplySmoothNormalsContextMenu()
+    {
+        CalculateAndApplySmoothNormals(true);
     }
 
     // Optional: Reset to original normals (for debugging)

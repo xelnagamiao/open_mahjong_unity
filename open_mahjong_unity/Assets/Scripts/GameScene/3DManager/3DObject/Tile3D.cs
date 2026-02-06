@@ -46,7 +46,8 @@ public class Tile3D : MonoBehaviour
     /// 设置牌面纹理
     /// </summary>
     /// <param name="tileId">牌的ID</param>
-    public void SetCardTexture(int tileId)
+    /// <param name="texture">预加载的纹理（可选，如果提供则直接使用，避免 Resources.Load）</param>
+    public void SetCardTexture(int tileId, Texture2D texture = null)
     {
         if (targetMaterial == null)
         {
@@ -56,17 +57,24 @@ public class Tile3D : MonoBehaviour
 
         currentTileId = tileId;
 
-        // 从Resources加载对应ID的图片
-        Texture2D texture = Resources.Load<Texture2D>($"image/CardFaceMaterial_xuefun/{tileId}");
+        // 如果传入了纹理，直接使用；否则从 Resources 加载
         if (texture == null)
         {
-            Debug.LogError($"Tile3D: 无法加载纹理: image/CardFaceMaterial_xuefun/{tileId}");
-            return;
+            texture = Resources.Load<Texture2D>($"image/CardFaceMaterial_xuefun/{tileId}");
+            if (texture == null)
+            {
+                Debug.LogError($"Tile3D: 无法加载纹理: image/CardFaceMaterial_xuefun/{tileId}");
+                return;
+            }
         }
 
         // 设置_FrontTex属性，图片将覆盖在uv_FrontTex UV通道上
         targetMaterial.SetTexture("_FrontTex", texture);
+        
+        // 只在编辑器模式下输出日志，避免运行时日志刷屏
+        #if UNITY_EDITOR
         Debug.Log($"Tile3D: 应用纹理到卡片 {tileId} 的_FrontTex属性完成");
+        #endif
     }
 
     /// <summary>
