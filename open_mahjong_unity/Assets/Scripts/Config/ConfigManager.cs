@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = true;
+    public static bool Debug = false;
     
     public static string webUrl;
     public static string gameUrl;
@@ -51,11 +51,7 @@ public class ConfigManager : MonoBehaviour {
     public int SoundEffectVolume { get; private set; }
     public int VoiceVolume { get; private set; }
 
-    private const int ForegroundFrameRate = 60;
-#if UNITY_WEBGL && !UNITY_EDITOR
-    [DllImport("__Internal")]
-    private static extern void PageVisibility_Setup();
-#endif
+    private const int ForegroundFrameRate = 120;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -75,10 +71,6 @@ public class ConfigManager : MonoBehaviour {
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = ForegroundFrameRate;
         Application.runInBackground = true;
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-        PageVisibility_Setup();
-#endif
     }
 
     public void SetUserConfig(int volume) {

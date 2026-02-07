@@ -279,6 +279,23 @@ public class NormalGameStateManager : MonoBehaviour{
                         Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask); // 3D暗杠行为
                         GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "angang"); // 显示操作文本
                     }
+                    else if (action == "gang"){
+                        // 杠情况下需要删除3张手牌（相对于暗杠少删一张）
+                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
+                        need_remove_list.RemoveAt(need_remove_list.Count - 1); // 删除一张牌（杠相对于暗杠少删一张）
+                        foreach (int tile_id in need_remove_list){
+                            if (GetCardPlayer == "self"){
+                                selfHandTiles.Remove(tile_id); // 删除手牌
+                                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray(),null); // 2D手牌行为
+                            }
+                            else{
+                                player_to_info[GetCardPlayer].hand_tiles_count -= 3; // 减少手牌（3张）
+                            }
+                        }
+                        Game3DManager.Instance.Change3DTile(action,0,3,GetCardPlayer,false,combination_mask); // 3D杠行为
+                        GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "gang"); // 显示操作文本
+                    }
                     else{
                         // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
                         player_to_info[CurrentPlayer].discard_tiles.Remove(lastCutCardID); // 剔除上次切牌的ID

@@ -208,6 +208,12 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void OnDestroy()
     {
         tileButton.onClick.RemoveListener(OnTileClick);
+        // 隐藏提示（参照tips的设计模式）
         TipsContainer.Instance.HideTips();
+        // 清除3D卡牌高亮效果（如果正在悬停）
+        if (isHovering && Card3DHoverManager.Instance != null)
+        {
+            Card3DHoverManager.Instance.OnCardExit();
+        }
     }
 } 

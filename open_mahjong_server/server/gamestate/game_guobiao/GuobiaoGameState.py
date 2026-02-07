@@ -157,7 +157,6 @@ class GuobiaoGameState:
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
 
-
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
         for p in self.player_list:

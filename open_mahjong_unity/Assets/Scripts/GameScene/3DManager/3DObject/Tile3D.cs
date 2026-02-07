@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.U2D;
 
 /// <summary>
 /// 3D麻将牌组件
@@ -11,85 +12,88 @@ public class Tile3D : MonoBehaviour
     private Renderer cardRenderer;
     private Material targetMaterial;
     private int currentTileId = -1;
+    private MaterialPropertyBlock propBlock;
 
-    private void Awake()
-    {
-        // 设置游戏对象到图层 10 (outline)
+    private void Awake() {
+        InitializeComponents();
+    }
+    
+    /// <summary>
+    /// 初始化组件（可在Awake或需要时手动调用，用于处理SetActive(false)的对象）
+    /// </summary>
+    private void InitializeComponents() {
+        if (targetMaterial != null && cardRenderer != null && propBlock != null) {
+            return;
+        }
+        
         const int outlineLayer = 10;
         gameObject.layer = outlineLayer;
 
-        // 获取渲染器组件
         cardRenderer = GetComponent<Renderer>();
-        if (cardRenderer == null)
-        {
-            Debug.LogError("Tile3D: 未找到Renderer组件");
-            return;
-        }
-
-        // 查找使用ThreeDTiles着色器的材质
-        for (int i = 0; i < cardRenderer.materials.Length; i++)
-        {
-            if (cardRenderer.materials[i].shader.name == "Custom/ThreeDTiles")
-            {
+        for (int i = 0; i < cardRenderer.materials.Length; i++) {
+            if (cardRenderer.materials[i].shader.name == "Custom/ThreeDTiles") {
                 targetMaterial = cardRenderer.materials[i];
                 break;
             }
         }
 
-        if (targetMaterial == null)
-        {
-            Debug.LogError($"Tile3D: 未找到ThreeDTiles着色器材质，材质列表: {string.Join(", ", System.Array.ConvertAll(cardRenderer.materials, m => m.shader.name))}");
+        if (propBlock == null) {
+            propBlock = new MaterialPropertyBlock();
         }
     }
 
-    /// <summary>
-    /// 设置牌面纹理
-    /// </summary>
-    /// <param name="tileId">牌的ID</param>
-    /// <param name="texture">预加载的纹理（可选，如果提供则直接使用，避免 Resources.Load）</param>
-    public void SetCardTexture(int tileId, Texture2D texture = null)
-    {
-        if (targetMaterial == null)
-        {
-            Debug.LogError("Tile3D: 目标材质为空，无法设置纹理");
-            return;
-        }
+/// <summary>
+/// 设置牌面纹理（使用缓存的Sprite）
+/// 额外做 90° 顺时针旋转补偿，抵消向左旋转 90° 的问题
+/// </summary>
+/// <summary>
+/// 设置牌面纹理（使用缓存的Sprite）
+/// 额外做 90° 逆时针旋转补偿（向左旋转 90°）
+/// </summary>
+public void SetCardSprite(int tileId, Sprite sprite)
+{
+    InitializeComponents();
+    
+    currentTileId = tileId;
+    Texture2D atlasTexture = sprite.texture;
+    targetMaterial.SetTexture("_FrontTex", atlasTexture);
 
-        currentTileId = tileId;
+    Rect uvRect = sprite.textureRect;
 
-        // 如果传入了纹理，直接使用；否则从 Resources 加载
-        if (texture == null)
-        {
-            texture = Resources.Load<Texture2D>($"image/CardFaceMaterial_xuefun/{tileId}");
-            if (texture == null)
-            {
-                Debug.LogError($"Tile3D: 无法加载纹理: image/CardFaceMaterial_xuefun/{tileId}");
-                return;
-            }
-        }
+    // 原计算：tiling 和 offset
+    float tilingX = uvRect.width / atlasTexture.width;
+    float tilingY = uvRect.height / atlasTexture.height;
+    float offsetX = uvRect.x / atlasTexture.width;
+    float offsetY = uvRect.y / atlasTexture.height;
 
-        // 设置_FrontTex属性，图片将覆盖在uv_FrontTex UV通道上
-        targetMaterial.SetTexture("_FrontTex", texture);
-        
-        // 只在编辑器模式下输出日志，避免运行时日志刷屏
-        #if UNITY_EDITOR
-        Debug.Log($"Tile3D: 应用纹理到卡片 {tileId} 的_FrontTex属性完成");
-        #endif
-    }
+    // 为了让纹理向左旋转 90°（逆时针），对 UV 坐标做变换：
+    // 原始 UV -> 旋转后 UV = (1 - v, u)
+    // 对应 tiling 和 offset 的变换：
+    float newTilingX = tilingY;
+    float newTilingY = tilingX;
+    float newOffsetX = 1f - (offsetY + tilingY);
+    float newOffsetY = offsetX;
+
+    // 写入 PropertyBlock
+    propBlock.SetVector("_FrontTilingOffset", new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY));
+
+    cardRenderer.SetPropertyBlock(propBlock);
+
+    // 可选：调试日志，方便确认
+    // Debug.Log($"[Tile {tileId}] 逆时针90° tiling: {newTilingX:F4}, {newTilingY:F4} | offset: {newOffsetX:F4}, {newOffsetY:F4}");
+}
 
     /// <summary>
     /// 获取当前牌的ID
     /// </summary>
-    public int GetTileId()
-    {
+    public int GetTileId() {
         return currentTileId;
     }
 
     /// <summary>
     /// 获取目标材质（用于Card3DHoverManager访问材质属性）
     /// </summary>
-    public Material GetMaterial()
-    {
+    public Material GetMaterial() {
         return targetMaterial;
     }
 }

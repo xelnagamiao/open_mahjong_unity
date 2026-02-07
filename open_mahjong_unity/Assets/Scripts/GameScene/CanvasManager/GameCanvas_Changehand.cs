@@ -178,13 +178,14 @@ public partial class GameCanvas{
         }
 
         // 如果切牌是摸切或者补花摸牌张 则不需要排序
-        else if (ChangeType == "RemoveGetCard" || ChangeType == "RemoveBuhuaGetCard"){
+        else if (ChangeType == "RemoveBuhuaGetCard"){
             isArranged = true;
             yield break;
         }
 
         // 初始化卡牌、摸切、手切、单次补花、吃碰杠以后 进行卡牌排序 
-        else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" || ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards"){
+        else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" ||
+         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard"){
             isArranged = true;
             // 等待排序完成
             yield return StartCoroutine(RearrangeHandCardsWithAnimation());

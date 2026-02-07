@@ -47,11 +47,11 @@ public partial class Game3DManager : MonoBehaviour {
         Instance = this;
         // 初始化配置
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
-        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x; // 卡片宽度（红色轴）
-        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y; // 卡片高度（绿色轴）
+        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x * 1.06f; // 卡片宽度（红色轴）
+        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y * 1.04f; // 卡片高度（绿色轴）
         this.cardThickness = tile3DPrefab.GetComponent<Renderer>().bounds.size.z; // 卡片厚度（蓝色轴）
-        this.widthSpacing = cardWidth * 1.1f; // 间距为卡片宽度的1.1倍
-        this.heightSpacing = cardHeight * 1.1f; // 间距为卡片高度的1.1倍
+        this.widthSpacing = cardWidth * 1.05f; // 间距为卡片宽度的1.1倍
+        this.heightSpacing = cardHeight * 1.05f; // 间距为卡片高度的1.1倍
         // 初始化放置组合牌指针
         selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
         leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
@@ -167,7 +167,8 @@ public partial class Game3DManager : MonoBehaviour {
                  actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){   
             // 删除上一张3D卡牌，归还到对象池
             if (lastCut3DObject != null){
-                if (actionType != "jiagang"){
+                // 加杠和暗杠不需要删除上一张3D卡牌
+                if (actionType != "jiagang" || actionType != "angang"){
                     MahjongObjectPool.Instance.Return(-1, lastCut3DObject);
                 }
             }
@@ -201,27 +202,6 @@ public partial class Game3DManager : MonoBehaviour {
             default:
                 Debug.LogError($"未知的玩家位置: {playerPosition}");
                 return null;
-        }
-    }
-
-    // 应用牌面纹理（通过Tile3D组件）
-    private void ApplyCardTexture(GameObject cardObj, int tileId) {
-        // 获取或添加Tile3D组件
-        Tile3D tile3D = cardObj.GetComponent<Tile3D>();
-        if (tile3D == null)
-        {
-            // 如果预制体上没有Tile3D组件，则添加一个
-            tile3D = cardObj.AddComponent<Tile3D>();
-        }
-
-        // 通过Tile3D组件设置纹理
-        if (tile3D != null)
-        {
-            tile3D.SetCardTexture(tileId);
-        }
-        else
-        {
-            Debug.LogError($"无法获取或创建Tile3D组件，无法设置纹理: {tileId}");
         }
     }
 

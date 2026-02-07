@@ -71,9 +71,6 @@ public partial class Game3DManager : MonoBehaviour
         SignDirectionList.Reverse();
         Debug.Log($"actionType: {actionType}, combination_mask: {combination_mask}, SetTileList: {SetTileList}, SignDirectionList: {SignDirectionList}");
 
-        // 等待一帧，避免与其他操作在同一帧执行
-        yield return null;
-
         // 执行动画
         // 加杠
         if (actionType == "jiagang")
@@ -86,8 +83,13 @@ public partial class Game3DManager : MonoBehaviour
                     Vector3 TempPositionpoint = pengToJiagangPosDict[SetTileList[i]]; // 获取加杠位置
                     Quaternion TempRotation = Quaternion.Euler(0, 90, 0) * rotation; // 横
                     TempPositionpoint += JiagangDirection * cardWidth; // 加杠向上一个宽度单位
-                    cardObj = Instantiate(tile3DPrefab, TempPositionpoint, TempRotation);
-                    ApplyCardTexture(cardObj, SetTileList[i]);
+                    // 从对象池获取麻将牌
+                    cardObj = MahjongObjectPool.Instance.Spawn(SetTileList[i], TempPositionpoint, TempRotation);
+                    if (cardObj == null)
+                    {
+                        Debug.LogError($"无法从对象池获取牌: {SetTileList[i]}");
+                        continue;
+                    }
                     // 注册到悬停管理器
                     if (Card3DHoverManager.Instance != null)
                     {
@@ -122,18 +124,18 @@ public partial class Game3DManager : MonoBehaviour
                 if (SignDirectionList[i] == 0)
                 {
                     TempRotation = rotation; // 竖
-                    TempPositionpoint += SetDirection * cardWidth;
+                    TempPositionpoint += SetDirection * cardWidth ;
                     SetPositionpoint += SetDirection * cardWidth; // 吃碰的竖置牌每张牌向左一个宽度单位
                 }
                 // 卡牌横置,放置角度叠加横置 指针增加一个高度单位
                 else if (SignDirectionList[i] == 1)
                 {
                     TempRotation = Quaternion.Euler(0, 90, 0) * rotation; // 横
-                    SetPositionpoint += SetDirection * cardHeight; // 指针移动
+                    SetPositionpoint += SetDirection * cardHeight * 1.08f; // 指针移动
                     TempPositionpoint += SetDirection; // 保存当前放置位置（基础偏移）
                     // 沿 SetDirection 反向偏移 0.4 高度，沿 JiagangDirection 反向偏移 0.5 宽度
-                    TempPositionpoint += (-SetDirection) * 0.4f * cardHeight;
-                    TempPositionpoint += (-JiagangDirection) * 0.5f * cardWidth;
+                    TempPositionpoint += (SetDirection) * 1.15f * cardWidth;
+                    TempPositionpoint += (-JiagangDirection) * 0.2f * cardWidth;
                     if (actionType == "peng")
                     {
                         pengToJiagangPosDict.Add(SetTileList[i], TempPositionpoint); // 碰牌的加杠预留指针 保存在碰牌int id的横置位置
@@ -155,10 +157,13 @@ public partial class Game3DManager : MonoBehaviour
                     continue;
                 }
 
-                // 创建卡牌
-                cardObj = Instantiate(tile3DPrefab, TempPositionpoint, TempRotation);
-                // 设置卡牌纹理
-                ApplyCardTexture(cardObj, SetTileList[i]);
+                // 从对象池获取麻将牌
+                cardObj = MahjongObjectPool.Instance.Spawn(SetTileList[i], TempPositionpoint, TempRotation);
+                if (cardObj == null)
+                {
+                    Debug.LogError($"无法从对象池获取牌: {SetTileList[i]}");
+                    continue;
+                }
                 // 注册到悬停管理器
                 if (Card3DHoverManager.Instance != null)
                 {
@@ -178,19 +183,13 @@ public partial class Game3DManager : MonoBehaviour
                         mesh = cardObj.transform.GetChild(0);
                     }
                     var localEuler = mesh.localEulerAngles;
-                    localEuler.z += 180f; // 绕Z轴翻面
+                    localEuler.x += 180f; // 绕Z轴翻面
                     mesh.localEulerAngles = localEuler;
 
                     // 暗杠抬高：沿世界上方向抬高 0.8 个厚度，修正翻面造成的视觉浮动/穿插
-                    cardObj.transform.position += UpDirection * (cardThickness * 0.6f);
+                    // cardObj.transform.position += UpDirection * (cardThickness * 0.6f);
                     // 暗杠向右偏移 0.1 个宽度单位
-                    cardObj.transform.position += RightDirection * (cardWidth * 0.25f);
-                }
-                
-                // 每创建一张卡牌等待一帧，避免单帧创建太多对象
-                if (i < SetTileList.Count - 1)
-                {
-                    yield return null;
+                    // cardObj.transform.position += RightDirection * (cardWidth * 0.25f);
                 }
             }
 
