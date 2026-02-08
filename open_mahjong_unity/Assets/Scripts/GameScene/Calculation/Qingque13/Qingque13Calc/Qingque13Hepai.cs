@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Qingque13.Core;
+using UnityEngine;
 
 namespace Qingque13
 {
@@ -13,20 +14,12 @@ namespace Qingque13
     {
         private static void Log(string message)
         {
-#if UNITY_2017_1_OR_NEWER
-            UnityEngine.Debug.Log(message);
-#else
-            Console.WriteLine(message);
-#endif
+            Debug.Log(message);
         }
 
         private static void LogError(string message)
         {
-#if UNITY_2017_1_OR_NEWER
-            UnityEngine.Debug.LogError(message);
-#else
-            Console.WriteLine($"ERROR: {message}");
-#endif
+            Debug.LogError(message);
         }
 
         public static int GetBasePoint(double fan)
@@ -99,7 +92,9 @@ namespace Qingque13
                 }
 
                 // Calculate max fan score using ORIGINAL fans (with Trivial) for cache lookup
-                var (fanScore, bestFans) = QingqueScoring.GetMaxFan(allFans);
+                var maxFanResult = QingqueScoring.GetMaxFan(allFans);
+                double fanScore = maxFanResult.fan;
+                var bestFans = maxFanResult.bestFans;
 
                 if (debug)
                 {
@@ -154,14 +149,19 @@ namespace Qingque13
             int suit = tileId / 10;
             int num = tileId % 10;
 
-            return suit switch
+            switch (suit)
             {
-                1 => QingqueTile.Literals.M((byte)num),
-                2 => QingqueTile.Literals.P((byte)num),
-                3 => QingqueTile.Literals.S((byte)num),
-                4 => QingqueTile.Literals.Z((byte)num),
-                _ => new QingqueTile(0)
-            };
+                case 1:
+                    return QingqueTile.Literals.M((byte)num);
+                case 2:
+                    return QingqueTile.Literals.P((byte)num);
+                case 3:
+                    return QingqueTile.Literals.S((byte)num);
+                case 4:
+                    return QingqueTile.Literals.Z((byte)num);
+                default:
+                    return new QingqueTile(0);
+            }
         }
 
         /// <summary>

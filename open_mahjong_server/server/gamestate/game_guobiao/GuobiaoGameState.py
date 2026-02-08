@@ -19,7 +19,7 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -78,7 +78,7 @@ class GuobiaoPlayer:
         element = tiles_list.pop() # 从牌堆中获取最后一张牌
         self.hand_tiles.append(element)
 
-        # 游戏进程类
+    # 游戏进程类
 class GuobiaoGameState:
     # GuobiaoGameState负责一个国标麻将对局进程，init属性包含游戏房间状态 player_list 包含玩家数据
     def __init__(self, game_server, room_data: dict, calculation_service: GameCalculationService, db_manager: DatabaseManager, gamestate_id: str):
@@ -126,7 +126,7 @@ class GuobiaoGameState:
         # 初始化游戏状态
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
-        self.xunmu = 0 # 巡目
+        self.xunmu = 1 # 巡目
         self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
         self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
         self.game_status = "waiting"  # waiting, playing, finished
@@ -157,15 +157,26 @@ class GuobiaoGameState:
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
 
+        # 观战系统相关 - 使用专门的观战管理器
+        from .spectator_manager import SpectatorManager
+        self.spectator_manager = SpectatorManager(self, delay=180.0, max_cache_size=10000)
 
     async def player_disconnect(self, user_id: int):
-        """玩家掉线：增加 offline 标签并广播"""
+        """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
         for p in self.player_list:
             if p.user_id == user_id:
                 if "offline" not in p.tag_list:
                     p.tag_list.append("offline")
                     await broadcast_refresh_player_tag_list(self)
                 break
+        
+        # 检查所有非AI玩家（user_id >= 10）是否都offline
+        non_ai_players = [p for p in self.player_list if p.user_id >= 10]
+        if non_ai_players:  # 如果有非AI玩家
+            all_offline = all("offline" in p.tag_list for p in non_ai_players)
+            if all_offline:
+                logger.info(f"所有非AI玩家都已掉线，开始清理gamestate，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
     async def player_reconnect(self, user_id: int):
         """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
@@ -241,7 +252,10 @@ class GuobiaoGameState:
                 break
 
     async def cleanup_game_state(self):
-        """清理游戏状态：移除所有映射关系，用于房间销毁时调用"""
+        """清理游戏状态协程：取消游戏循环任务（映射关系由 gamestate_manager 统一清理）"""
+        # 清理观战管理器
+        await self.spectator_manager.cleanup()
+        
         # 取消游戏循环任务
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()
@@ -251,14 +265,6 @@ class GuobiaoGameState:
                 logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
             except Exception as e:
                 logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
-        
-        # 清理玩家 ID 到游戏状态的映射（重连索引）
-        # 从 player_list 获取所有玩家的 user_id，确保即使房间数据为空也能清理
-        for player in self.player_list:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player.user_id)
-        
-        # 清理房间到游戏状态的映射
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
 
     async def run_game_loop(self):
         """
@@ -323,6 +329,9 @@ class GuobiaoGameState:
         init_game_record(self)
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
+
+            # 记录结算前的分数（用于计算本局分数变化）
+            scores_before = {player.original_player_index: player.score for player in self.player_list}
 
             init_guobiao_tiles(self) # 初始化牌山和手牌
 
@@ -497,14 +506,14 @@ class GuobiaoGameState:
                             # 在 hu_fan 中添加"错和"番
                             cuohe_hu_fan = hu_fan + ["错和"]
                             await self.broadcast_result(
-                                                hepai_player_index = self.current_player_index, # 自摸错和是当前玩家
+                                                hepai_player_index = hepai_player_index,
                                                 player_to_score = player_to_score,
                                                 hu_score = hu_score,
                                                 hu_fan = cuohe_hu_fan,
-                                                hu_class = self.hu_class,  # 使用原本的hu_class
-                                                hepai_player_hand = self.player_list[self.current_player_index].hand_tiles,
-                                                hepai_player_huapai = self.player_list[self.current_player_index].huapai_list,
-                                                hepai_player_combination_mask = self.player_list[self.current_player_index].combination_mask
+                                                hu_class = self.hu_class,
+                                                hepai_player_hand = self.player_list[hepai_player_index].hand_tiles,
+                                                hepai_player_huapai = self.player_list[hepai_player_index].huapai_list,
+                                                hepai_player_combination_mask = self.player_list[hepai_player_index].combination_mask
                                                 )
                             # 等待5秒
                             await asyncio.sleep(len(hu_fan)*0.5 + 8 + 0.5) # 等待和牌番种时间与8秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
@@ -532,6 +541,8 @@ class GuobiaoGameState:
 
                             # 删除和牌类型
                             self.hu_class = ""
+                            # 清空和牌判断
+                            self.result_dict = {}
 
                     # 如果没有匹配到
                     case _:
@@ -542,10 +553,6 @@ class GuobiaoGameState:
             hu_fan = None
             hepai_player_index = None
 
-            # 记录结算前的分数（用于计算本局分数变化）
-            scores_before = {player.original_player_index: player.score for player in self.player_list}
-
-            
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 # 自摸
@@ -702,6 +709,10 @@ class GuobiaoGameState:
 
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
+        
+        # 向所有观战玩家发送完整的游戏记录
+        if hasattr(self, 'spectator_manager'):
+            await self.spectator_manager.send_full_game_record_to_spectators(self.game_record)
 
         # 存储游戏牌谱
         game_id = self.db_manager.store_guobiao_game_record(
@@ -732,16 +743,22 @@ class GuobiaoGameState:
         elif has_ai_player:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
 
-        # 结束游戏生命周期
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
-        
-        # 移除玩家到游戏状态的映射
-        for player_id in self.room_data["player_list"]:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player_id)
+        # 结束游戏生命周期：使用统一的清理方法
+        await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         
         # 销毁房间并广播离开房间消息
         await self.game_server.room_manager.destroy_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
+
+    # ========== 观战系统方法（委托给观战管理器） ==========
+    
+    async def add_spectator(self, user_id: int, connection: Any):
+        """添加观战玩家"""
+        await self.spectator_manager.add_spectator(user_id, connection)
+    
+    async def remove_spectator(self, user_id: int):
+        """移除观战玩家"""
+        await self.spectator_manager.remove_spectator(user_id)
 
 
 # 挂载广播方法于GuobiaoGameState实例

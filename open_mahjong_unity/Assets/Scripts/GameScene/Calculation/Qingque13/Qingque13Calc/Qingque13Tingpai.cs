@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+#if UNITY_5_3_OR_NEWER
 using UnityEngine;
+#endif
 
 namespace Qingque13
 {
@@ -30,7 +32,7 @@ namespace Qingque13
         }
     }
 
-    // 青雀麻将听牌检查类（去除 全不靠、组合龙、十三幺）
+    // 中国麻将听牌检查类
     public class Qingque_Tingpai_Check
     {
         private HashSet<int> waiting_tiles;
@@ -46,7 +48,11 @@ namespace Qingque13
         {
             if (debug)
             {
+#if UNITY_5_3_OR_NEWER
                 Debug.Log(string.Format(message, args));
+#else
+                Console.WriteLine(string.Format(message, args));
+#endif
             }
         }
 
@@ -55,7 +61,6 @@ namespace Qingque13
             // 清空之前的结果
             waiting_tiles.Clear();
 
-            // 13张牌检查特殊牌型（仅保留七对子）
             if (player_tiles.hand_tiles.Count == 13)
             {
                 QD_check(player_tiles.hand_tiles);  // 七对子检查
@@ -172,18 +177,37 @@ namespace Qingque13
                     }
                     else if (i.hand_tiles.Count == 2)
                     {
-                        if (i.hand_tiles[0] == i.hand_tiles[1])
+                        int tile1 = i.hand_tiles[0];
+                        int tile2 = i.hand_tiles[1];
+                        
+                        if (tile1 == tile2)
                         {
-                            waiting_tiles_list.Add(i.hand_tiles[0]); // 对碰型
+                            waiting_tiles_list.Add(tile1); // 对碰型
                         }
-                        else if (i.hand_tiles[0] == i.hand_tiles[1] - 1)
+                        // Only suit tiles can form sequences (11-39), not honor tiles (41-47)
+                        else if (tile1 <= 39 && tile2 <= 39)
                         {
-                            waiting_tiles_list.Add(i.hand_tiles[0] - 1);
-                            waiting_tiles_list.Add(i.hand_tiles[0] + 2); // 两面型
-                        }
-                        else if (i.hand_tiles[0] == i.hand_tiles[1] - 2)
-                        {
-                            waiting_tiles_list.Add(i.hand_tiles[0] + 1); // 坎张型
+                            if (tile1 == tile2 - 1)
+                            {
+                                // 两面型 - but check boundaries
+                                int suit1 = tile1 / 10;
+                                int suit2 = tile2 / 10;
+                                if (suit1 == suit2) // Same suit
+                                {
+                                    waiting_tiles_list.Add(tile1 - 1);
+                                    waiting_tiles_list.Add(tile1 + 2);
+                                }
+                            }
+                            else if (tile1 == tile2 - 2)
+                            {
+                                // 坎张型 - but check they're in same suit
+                                int suit1 = tile1 / 10;
+                                int suit2 = tile2 / 10;
+                                if (suit1 == suit2) // Same suit
+                                {
+                                    waiting_tiles_list.Add(tile1 + 1);
+                                }
+                            }
                         }
                     }
                 }
@@ -272,10 +296,12 @@ namespace Qingque13
             int same_tile_id = 0;
             foreach (int tile_id in player_tiles.hand_tiles)
             {
-                if (tile_id <= 40)
+                // Only suit tiles (11-19, 21-29, 31-39) can form sequences
+                // Ensure tile_id+2 doesn't exceed x9 boundary (19, 29, 39) or reach honor tiles (40+)
+                if (tile_id <= 37 && (tile_id % 10) <= 7)
                 {
-                    if (player_tiles.hand_tiles.Contains(tile_id + 1) &&
-                        player_tiles.hand_tiles.Contains(tile_id + 2) &&
+                    if (player_tiles.hand_tiles.Contains(tile_id + 1) && 
+                        player_tiles.hand_tiles.Contains(tile_id + 2) && 
                         tile_id != same_tile_id)
                     {
                         PlayerTilesTingpai temp_list = player_tiles.DeepCopy();

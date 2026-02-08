@@ -18,8 +18,8 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
         game_status: 游戏状态
     """
     try:
-        # 等待0.1秒
-        await asyncio.sleep(0.1)
+        # 等待0.4秒
+        await asyncio.sleep(0.4)
         # 通过传入的玩家索引获得玩家对象的数据
         current_player = game_state.player_list[player_index]
         

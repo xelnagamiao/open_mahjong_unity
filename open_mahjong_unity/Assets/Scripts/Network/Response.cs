@@ -71,6 +71,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public string username;             // 玩家名
     public int user_id;                  // 玩家uid
     public int hand_tiles_count;        // 手牌数量
+    public int[] hand_tiles;            // 手牌
     public int[] discard_tiles;         // 弃牌 (改为int数组)
     public int[] discard_origin_tiles;        // 理论弃牌
     public string[] combination_tiles;  // 组合牌
@@ -196,6 +197,15 @@ public class ServerStatsInfo { // 服务器统计信息
     public int playing_rooms;   // 进行房间数
 }
 
+public class SpectatorInfo { // 观战信息
+    public string rule;         // 规则类型（guobiao/qingque）
+    public int player1_id;       // 玩家1 ID
+    public int player2_id;        // 玩家2 ID
+    public int player3_id;        // 玩家3 ID
+    public int player4_id;        // 玩家4 ID
+    public string gamestate_id;   // 游戏状态ID
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
@@ -220,5 +230,6 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public UserSettings user_settings; // 返回用户设置信息
     public UserConfig user_config; // 返回用户游戏配置信息
     public ServerStatsInfo server_stats; // 返回服务器统计信息
+    public SpectatorInfo[] spectator_list; // 返回观战列表
 }
 

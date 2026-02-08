@@ -24,13 +24,7 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private GameObject aboutUsPanel; // 关于我们窗口
     [SerializeField] private GameObject roomRoot; // 房间根窗口（包含房间列表、房间、创建房间等子窗口）
     [SerializeField] private GameObject sceneConfigPanel; // 场景配置窗口
-    
-
-    [Header("二级窗口")]
-
-
-    [Header("窗口元素")]
-    [SerializeField] private GameObject playerInfoPanelPrefab; // 玩家信息面板预制体
+    [SerializeField] private GameObject spectatorPanel; // 观战窗口
 
     /*
     windowsmanager管理所有的一级窗口 所有mainCanvas的一级窗口都应在windowsmanager中管理
@@ -68,6 +62,7 @@ public class WindowsManager : MonoBehaviour {
         aboutUsPanel.SetActive(false);
         roomRoot.SetActive(false);
         sceneConfigPanel.SetActive(false);
+        spectatorPanel.SetActive(false);
         switch (targetWindow) {
             // login 登录界面
             case "login":
@@ -120,22 +115,14 @@ public class WindowsManager : MonoBehaviour {
                 sceneConfigPanel.SetActive(true);
                 HeaderPanel.Instance.UpdateButtonState("sceneConfig");
                 break;
+            case "spectator":
+                spectatorPanel.SetActive(true);
+                HeaderPanel.Instance.UpdateButtonState("spectator");
+                break;
         }
         
         // 更新当前窗口状态
         currentWindow = targetWindow;
-    }
-
-
-    public void OpenPlayerInfoPanel(bool success, string message, PlayerInfoResponse playerInfo) {
-        if (success && playerInfo != null) {
-            // 在 mainCanvas 下创建玩家信息面板
-            GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, mainCanvas.transform);
-            PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
-            playerInfoPanel.ShowPlayerInfo(playerInfo);
-        } else {
-            Debug.LogError($"获取玩家信息失败: {message}");
-        }
     }
     
 }

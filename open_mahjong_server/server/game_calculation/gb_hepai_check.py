@@ -130,7 +130,7 @@ class Chinese_Hepai_Check:
         "yisesijiegao":"一色四节高",
         "yisesibugao":"一色四步高",
         "hunyaojiu":"混幺九",
-        "qiduizi":"七对子",
+        "qiduizi":"七对",
         "qixingbukao":"七星不靠",
         "quanshuangke":"全双刻",
         "qingyise":"清一色",

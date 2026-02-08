@@ -84,6 +84,14 @@ public class DataNetworkManager : MonoBehaviour {
         PlayerInfoPanel.Instance.OnRiichiStatsReceived(response.success, response.message, response.rule_stats);
     }
     
+    /// <summary>
+    /// 处理获取观战列表响应
+    /// </summary>
+    private void HandleGetSpectatorListResponse(Response response) {
+        Debug.Log($"收到观战列表: {response.message}");
+        SpectatorPanel.Instance?.GetSpectatorListResponse(response.success, response.message, response.spectator_list);
+    }
+    
     // ========== 数据相关的发送方法 ==========
     
     /// <summary>
@@ -132,7 +140,7 @@ public class DataNetworkManager : MonoBehaviour {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取立直统计数据失败: {e.Message}");
-            PlayerInfoPanel.Instance?.OnRiichiStatsReceived(false, e.Message, null);
+            PlayerInfoPanel.Instance.OnRiichiStatsReceived(false, e.Message, null);
         }
     }
 }

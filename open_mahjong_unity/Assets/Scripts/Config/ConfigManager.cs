@@ -51,13 +51,7 @@ public class ConfigManager : MonoBehaviour {
     public int SoundEffectVolume { get; private set; }
     public int VoiceVolume { get; private set; }
 
-    private const int ForegroundFrameRate = 60;
-    private const int BackgroundFrameRate = 10;
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-    [DllImport("__Internal")]
-    private static extern void PageVisibility_Setup();
-#endif
+    private const int ForegroundFrameRate = 120;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -76,15 +70,7 @@ public class ConfigManager : MonoBehaviour {
         
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = ForegroundFrameRate;
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-        PageVisibility_Setup();
-#endif
-    }
-
-    // WebGL: 由 Assets/Plugins/PageVisibility.jslib 调用
-    public void OnApplicationVisibilityChanged(int isVisible) {
-        Application.targetFrameRate = (isVisible == 1) ? ForegroundFrameRate : BackgroundFrameRate;
+        Application.runInBackground = true;
     }
 
     public void SetUserConfig(int volume) {

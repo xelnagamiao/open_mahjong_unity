@@ -193,10 +193,15 @@ class Chinese_Tingpai_Check:
                     if i.hand_tiles[0] == i.hand_tiles[1]:
                         waiting_tiles.append(i.hand_tiles[0]) # 对碰型
                     elif i.hand_tiles[0] == i.hand_tiles[1] - 1:
-                        waiting_tiles.append(i.hand_tiles[0] - 1) 
-                        waiting_tiles.append(i.hand_tiles[0] + 2) # 两面型
+                        # 两面型：只有非字牌（<40）才能组成顺子
+                        if i.hand_tiles[0] - 1 < 40:
+                            waiting_tiles.append(i.hand_tiles[0] - 1)
+                        if i.hand_tiles[0] + 2 < 40:
+                            waiting_tiles.append(i.hand_tiles[0] + 2)
                     elif i.hand_tiles[0] == i.hand_tiles[1] - 2:
-                        waiting_tiles.append(i.hand_tiles[0] + 1) # 坎张型
+                        # 坎张型：只有非字牌（<40）才能组成顺子
+                        if i.hand_tiles[0] + 1 < 40:
+                            waiting_tiles.append(i.hand_tiles[0] + 1)
             # 去重
             if waiting_tiles:
                 for i in waiting_tiles:

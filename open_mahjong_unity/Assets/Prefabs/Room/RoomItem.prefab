@@ -1880,7 +1880,7 @@ GameObject:
   - component: {fileID: 8636451915139974838}
   - component: {fileID: 8595567573508178259}
   - component: {fileID: 1482793051482933502}
-  - component: {fileID: 5749598254687890258}
+  - component: {fileID: 454767717106079866}
   m_Layer: 5
   m_Name: RoomItem
   m_TagString: Untagged
@@ -1949,7 +1949,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &5749598254687890258
+--- !u!114 &454767717106079866
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

@@ -75,7 +75,7 @@ namespace Qingque13.Core
         /// </summary>
         public QingqueSuit Suit(bool distinctDragons = false)
         {
-            return (QingqueSuit)(value & (byte)(0b11100000 + (distinctDragons ? 1 << 4 : 0)));
+            return (QingqueSuit)(value & (byte)(0b11100000 + (distinctDragons ? (byte)(1 << 4) : (byte)0)));
         }
 
         /// <summary>
