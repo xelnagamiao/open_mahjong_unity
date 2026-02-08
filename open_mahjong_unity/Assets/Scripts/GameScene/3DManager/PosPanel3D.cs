@@ -5,6 +5,9 @@ using UnityEngine;
 public class PosPanel3D : MonoBehaviour {
     [Header("手牌位置")]
     [SerializeField] public Transform cardsPosition; // 手牌位置
+
+    [Header("展示手牌位置")]
+    [SerializeField] public Transform ShowCardsPosition; // 展示手牌位置
     
     [Header("弃牌位置")]
     [SerializeField] public Transform discardsPosition; // 弃牌位置

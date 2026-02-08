@@ -61,6 +61,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "refresh_player_tag_list":
                 HandleRefreshPlayerTagList(response);
                 break;
+            case "gamestate/get_spectator_list":
+                HandleGetSpectatorListResponse(response);
+                break;
             default:
                 Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");
                 break;
@@ -168,6 +171,14 @@ public class GameStateNetworkManager : MonoBehaviour {
         NormalGameStateManager.Instance.RefreshPlayerTagList(tagInfo.player_to_tag_list);
     }
     
+    /// <summary>
+    /// 处理获取观战列表响应
+    /// </summary>
+    private void HandleGetSpectatorListResponse(Response response) {
+        Debug.Log($"收到观战列表: {response.message}");
+        SpectatorPanel.Instance?.GetSpectatorListResponse(response.success, response.message, response.spectator_list);
+    }
+    
     // ========== 游戏状态相关的发送方法 ==========
     
     /// <summary>
@@ -202,6 +213,55 @@ public class GameStateNetworkManager : MonoBehaviour {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"发送操作消息失败: {e.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 获取观战列表
+    /// </summary>
+    public async void GetSpectatorList() {
+        try {
+            var request = new GetSpectatorListRequest {
+                type = "gamestate/get_spectator_list"
+            };
+            Debug.Log($"发送获取观战列表消息: {request.type}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取观战列表失败: {e.Message}");
+            SpectatorPanel.Instance.GetSpectatorListResponse(false, e.Message, null);
+        }
+    }
+    
+    /// <summary>
+    /// 添加观战
+    /// </summary>
+    public async void AddSpectator(string gamestate_id) {
+        try {
+            var request = new AddSpectatorRequest {
+                type = "gamestate/GB/add_spectator",
+                gamestate_id = gamestate_id
+            };
+            Debug.Log($"发送添加观战消息: {request.type}, gamestate_id: {gamestate_id}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"添加观战失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("观战", false, $"添加观战失败: {e.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 移除观战
+    /// </summary>
+    public async void RemoveSpectator(string gamestate_id) {
+        try {
+            var request = new RemoveSpectatorRequest {
+                type = "gamestate/GB/remove_spectator",
+                gamestate_id = gamestate_id
+            };
+            Debug.Log($"发送移除观战消息: {request.type}, gamestate_id: {gamestate_id}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"移除观战失败: {e.Message}");
         }
     }
 }

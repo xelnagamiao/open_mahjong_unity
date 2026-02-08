@@ -102,3 +102,17 @@ public class KickPlayerFromRoomRequest { // 房主移除玩家请求
     public string room_id;
     public int target_user_id;
 }
+
+public class GetSpectatorListRequest { // 获取观战列表请求
+    public string type;
+}
+
+public class AddSpectatorRequest { // 添加观战请求
+    public string type;
+    public string gamestate_id;
+}
+
+public class RemoveSpectatorRequest { // 移除观战请求
+    public string type;
+    public string gamestate_id;
+}

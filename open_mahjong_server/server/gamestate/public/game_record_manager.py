@@ -114,12 +114,6 @@ def player_action_record_chipenggang(self,action_type: str,mingpai_tile: int,act
         [action_type,mingpai_tile,action_player]
     )
 
-# 牌谱记录增加巡目
-def player_action_record_nextxunmu(self):
-    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["Next"]
-    )
-
 # 牌谱记录和牌
 def player_action_record_end(self,hu_class: str,hu_score: int,hu_fan: list,hepai_player_index: int):
     self.player_action_tick += 1

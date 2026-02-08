@@ -109,11 +109,15 @@ public class NormalGameStateManager : MonoBehaviour{
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
 
+        // 获取自己的手牌信息（从 PlayerInfo 中获取）
+        PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
+        int[] selfHandTilesArray = selfPlayerInfo.hand_tiles;
+        
         // 初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
-        GameCanvas.Instance.ChangeHandCards("InitHandCards",0,gameInfo.self_hand_tiles,null);
+        GameCanvas.Instance.ChangeHandCards("InitHandCards",0,selfHandTilesArray,null);
         // 如果自己的手牌有14张，则摸最后一张牌
-        if (gameInfo.self_hand_tiles.Length == 14){
-            GameCanvas.Instance.ChangeHandCards("GetCard",gameInfo.self_hand_tiles[gameInfo.self_hand_tiles.Length - 1],null,null);
+        if (selfHandTilesArray.Length == 14){
+            GameCanvas.Instance.ChangeHandCards("GetCard",selfHandTilesArray[selfHandTilesArray.Length - 1],null,null);
             // 在这里可以添加向服务器传递加载完成方法
             // 
         }
@@ -657,7 +661,14 @@ public class NormalGameStateManager : MonoBehaviour{
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
         currentRound = gameInfo.current_round; // 存储当前轮数
-        selfHandTiles = gameInfo.self_hand_tiles.ToList(); // 存储手牌列表
+        
+        // 获取自己的手牌信息（从 PlayerInfo 中获取）
+        PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
+        if (selfPlayerInfo != null && selfPlayerInfo.hand_tiles != null){
+            selfHandTiles = selfPlayerInfo.hand_tiles.ToList(); // 从 PlayerInfo 中获取手牌列表
+        } else {
+            selfHandTiles = new List<int>(); // 如果为空，初始化为空列表
+        }
 
         tips = gameInfo.tips; // 存储是否提示
         isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和
@@ -764,6 +775,19 @@ public class NormalGameStateManager : MonoBehaviour{
                 player_to_info["left"].tag_list = player.tag_list; // 存储标签列表
             }
         }
+    }
+
+    // 获取自己的 PlayerInfo
+    private PlayerInfo GetSelfPlayerInfo(GameInfo gameInfo){
+        if (gameInfo.players_info == null) return null;
+        
+        int selfUserId = UserDataManager.Instance.UserId;
+        foreach (var player in gameInfo.players_info){
+            if (player.user_id == selfUserId){
+                return player;
+            }
+        }
+        return null;
     }
 }
 

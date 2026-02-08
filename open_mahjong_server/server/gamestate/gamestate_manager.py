@@ -245,6 +245,46 @@ class GameStateManager:
         """
         return len(self.gamestate_id_to_game_state)
     
+    def get_spectator_list(self) -> list:
+        """
+        获取所有正在进行的游戏的观战列表
+        
+        Returns:
+            观战信息列表，每个元素包含规则、4个玩家ID和gamestate_id
+        """
+        from ..response import SpectatorInfo
+        spectator_list = []
+        
+        # 遍历所有游戏状态
+        for gamestate_id, game_state in self.gamestate_id_to_game_state.items():
+            # 确保游戏状态有玩家列表且至少有4个玩家
+            if hasattr(game_state, 'player_list') and len(game_state.player_list) >= 4:
+                # 获取规则类型
+                room_type = getattr(game_state, 'room_type', 'guobiao')
+                
+                # 根据房间类型映射到规则标识符
+                # guobiao -> guobiao, qingque -> qingque, riichi -> riichi
+                rule = room_type
+                
+                # 获取4个玩家的ID
+                player1_id = game_state.player_list[0].user_id
+                player2_id = game_state.player_list[1].user_id
+                player3_id = game_state.player_list[2].user_id
+                player4_id = game_state.player_list[3].user_id
+                
+                # 创建观战信息
+                spectator_info = SpectatorInfo(
+                    rule=rule,
+                    player1_id=player1_id,
+                    player2_id=player2_id,
+                    player3_id=player3_id,
+                    player4_id=player4_id,
+                    gamestate_id=gamestate_id
+                )
+                spectator_list.append(spectator_info)
+        
+        return spectator_list
+    
     async def cleanup_game_state_complete(self, gamestate_id: str = None, room_id: str = None):
         """
         统一清理游戏状态：先清理所有映射关系，再调用游戏状态的清理方法取消协程
