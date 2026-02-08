@@ -152,7 +152,9 @@ namespace Qingque13.Core
                 }
 
                 // Try to form triplets
-                for (byte i = (byte)((index + 1) / 2); i < 34; i++)
+                // Platform-specific: explicit int arithmetic to ensure consistent evaluation in WebGL/IL2CPP
+                int tripletStart = ((int)index + 1) / 2;
+                for (byte i = (byte)tripletStart; i < 34; i++)
                 {
                     var tile = QingqueTile.AllTiles[i];
                     if (counter.Count(tile) >= 3)
@@ -161,12 +163,15 @@ namespace Qingque13.Core
                                        tile != winTile || 
                                        closedCounter.Count(tile) == 4;
                         var triplet = new QingqueMeld(tile, QingqueMeldType.Triplet, concealed, false);
-                        queue.Enqueue((new QingqueDecomposition(front, triplet), (byte)(i * 2)));
+                        int nextIndex = (int)i * 2;
+                        queue.Enqueue((new QingqueDecomposition(front, triplet), (byte)nextIndex));
                     }
                 }
 
                 // Try to form sequences (only for numbered tiles)
-                for (byte i = (byte)(index / 2); i < 27; i++)
+                // Platform-specific: explicit int arithmetic to ensure consistent evaluation in WebGL/IL2CPP
+                int sequenceStart = (int)index / 2;
+                for (byte i = (byte)sequenceStart; i < 27; i++)
                 {
                     var tile = QingqueTile.NumberedTiles[i];
                     var tile1 = new QingqueTile((byte)(tile.Value - 1));
@@ -177,7 +182,8 @@ namespace Qingque13.Core
                         counter.Count(tile2) > 0)
                     {
                         var sequence = new QingqueMeld(tile, QingqueMeldType.Sequence, false, false);
-                        queue.Enqueue((new QingqueDecomposition(front, sequence), (byte)(i * 2 + 1)));
+                        int nextIndex = (int)i * 2 + 1;
+                        queue.Enqueue((new QingqueDecomposition(front, sequence), (byte)nextIndex));
                     }
                 }
             }

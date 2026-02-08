@@ -14,6 +14,7 @@ public class HeaderPanel : MonoBehaviour {
     [SerializeField] private Button AboutUsButton;
     [SerializeField] private Button NoticeButton;
     [SerializeField] private Button SceneConfigButton;
+    [SerializeField] private Button SpectatorButton;
 
     private Button currentSelectedButton; // 当前选中的按钮
 
@@ -35,6 +36,7 @@ public class HeaderPanel : MonoBehaviour {
         NoticeButton.onClick.AddListener(Notice);
         MenuButton.onClick.AddListener(Menu);
         SceneConfigButton.onClick.AddListener(SceneConfig);
+        SpectatorButton.onClick.AddListener(Spectator);
     }
     private void SceneConfig(){
         WindowsManager.Instance.SwitchWindow("sceneConfig");
@@ -67,6 +69,10 @@ public class HeaderPanel : MonoBehaviour {
 
     private void PlayerInfo(){
         WindowsManager.Instance.SwitchWindow("player");
+    }
+
+    private void Spectator(){
+        WindowsManager.Instance.SwitchWindow("spectator");
     }
 
     // 更新按钮选中状态
@@ -102,6 +108,9 @@ public class HeaderPanel : MonoBehaviour {
                 break;
             case "sceneConfig":
                 targetButton = SceneConfigButton;
+                break;
+            case "spectator":
+                targetButton = SpectatorButton;
                 break;
         }
 

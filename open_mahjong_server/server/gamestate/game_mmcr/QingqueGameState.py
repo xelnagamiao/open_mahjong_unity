@@ -19,7 +19,7 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record,player_action_record_nextxunmu
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -126,7 +126,7 @@ class QingqueGameState:
         # 初始化游戏状态
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
-        self.xunmu = 0 # 巡目
+        self.xunmu = 1 # 巡目
         self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
         self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
         self.game_status = "waiting"  # waiting, playing, finished
@@ -159,13 +159,21 @@ class QingqueGameState:
 
 
     async def player_disconnect(self, user_id: int):
-        """玩家掉线：增加 offline 标签并广播"""
+        """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
         for p in self.player_list:
             if p.user_id == user_id:
                 if "offline" not in p.tag_list:
                     p.tag_list.append("offline")
                     await broadcast_refresh_player_tag_list(self)
                 break
+        
+        # 检查所有非AI玩家（user_id >= 10）是否都offline
+        non_ai_players = [p for p in self.player_list if p.user_id >= 10]
+        if non_ai_players:  # 如果有非AI玩家
+            all_offline = all("offline" in p.tag_list for p in non_ai_players)
+            if all_offline:
+                logger.info(f"所有非AI玩家都已掉线，开始清理gamestate，room_id: {self.room_id}, gamestate_id: {self.gamestate_id}")
+                await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
 
     async def player_reconnect(self, user_id: int):
         """玩家重连：移除 offline 标签并广播，然后向该玩家发送游戏状态"""
@@ -230,7 +238,7 @@ class QingqueGameState:
                     )
                     
                     response = Response(
-                        type="game_start_GB",
+                        type="gamestate/qingque/game_start",
                         success=True,
                         message="重连成功，游戏继续",
                         game_info=game_info
@@ -241,7 +249,7 @@ class QingqueGameState:
                 break
 
     async def cleanup_game_state(self):
-        """清理游戏状态：移除所有映射关系，用于房间销毁时调用"""
+        """清理游戏状态协程：取消游戏循环任务（映射关系由 gamestate_manager 统一清理）"""
         # 取消游戏循环任务
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()
@@ -251,14 +259,6 @@ class QingqueGameState:
                 logger.info(f"已取消游戏循环任务，room_id: {self.room_id}")
             except Exception as e:
                 logger.error(f"取消游戏循环任务时出错，room_id: {self.room_id}, 错误: {e}")
-        
-        # 清理玩家 ID 到游戏状态的映射（重连索引）
-        # 从 player_list 获取所有玩家的 user_id，确保即使房间数据为空也能清理
-        for player in self.player_list:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player.user_id)
-        
-        # 清理房间到游戏状态的映射
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
 
     async def run_game_loop(self):
         """
@@ -560,9 +560,10 @@ class QingqueGameState:
             next_game_round(self)   
 
             # 换位
-            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                await broadcast_switch_seat(self)
-                await asyncio.sleep(5)
+            if self.current_round >= self.max_round*4:
+                if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+                    await broadcast_switch_seat(self)
+                    await asyncio.sleep(5)
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
@@ -611,12 +612,8 @@ class QingqueGameState:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
         """
 
-        # 结束游戏生命周期
-        self.game_server.gamestate_manager.remove_game_state_by_gamestate_id(self.gamestate_id)
-        
-        # 移除玩家到游戏状态的映射
-        for player_id in self.room_data["player_list"]:
-            self.game_server.gamestate_manager.remove_player_from_game_state(player_id)
+        # 结束游戏生命周期：使用统一的清理方法
+        await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         
         # 销毁房间并广播离开房间消息
         await self.game_server.room_manager.destroy_room(self.room_id)

@@ -55,7 +55,7 @@ public static class Qingque13External
     public static HashSet<int> TingpaiCheck(
         List<int> hand_tile_list,
         List<string> combination_list,
-        bool debug = true)
+        bool debug = false)
     {
         return Qingque13Tingpai.TingpaiCheck(
             hand_tile_list,

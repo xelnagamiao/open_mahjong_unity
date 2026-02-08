@@ -234,7 +234,7 @@ public class Chinese_Hepai_Check {
             { "qingyaojiu", "清幺九" }, { "xiaosixi", "小四喜" }, { "xiaosanyuan", "小三元" }, { "ziyise", "字一色" },
             { "sianke", "四暗刻" }, { "yiseshuanglonghui", "一色双龙会" }, { "yisesitongshun", "一色四同顺" },
             { "yisesijiegao", "一色四节高" }, { "yisesibugao", "一色四步高" }, { "hunyaojiu", "混幺九" },
-            { "qiduizi", "七对子" }, { "qixingbukao", "七星不靠" }, { "quanshuangke", "全双刻" },
+            { "qiduizi", "七对" }, { "qixingbukao", "七星不靠" }, { "quanshuangke", "全双刻" },
             { "qingyise", "清一色" }, { "yisesantongshun", "一色三同顺" }, { "yisesanjiegao", "一色三节高" },
             { "quanda", "全大" }, { "quanzhong", "全中" }, { "quanxiao", "全小" },
             { "qinglong", "清龙" }, { "sanseshuanglonghui", "三色双龙会" }, { "yisesanbugao", "一色三步高" },

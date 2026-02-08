@@ -32,7 +32,12 @@ namespace Qingque13.Core
 
         public QingqueMeld(QingqueTile tile, QingqueMeldType type, bool concealed = true, bool fixedMeld = true)
         {
-            this.value = (ushort)(tile.Value | (ushort)type | (concealed ? 1 << 10 : 0) | (fixedMeld ? 1 << 11 : 0));
+            // Platform-specific: explicit ushort conversion for bitwise operations to ensure correct behavior in WebGL/IL2CPP
+            ushort tileValue = tile.Value;
+            ushort typeValue = (ushort)type;
+            ushort concealedBit = concealed ? (ushort)(1 << 10) : (ushort)0;
+            ushort fixedBit = fixedMeld ? (ushort)(1 << 11) : (ushort)0;
+            this.value = (ushort)(tileValue | typeValue | concealedBit | fixedBit);
         }
 
         public ushort Value => value;
@@ -84,7 +89,7 @@ namespace Qingque13.Core
 
             if (Type == QingqueMeldType.Sequence)
             {
-                return (Tile.Value + 1 == tile.Value || Tile.Value - 1 == tile.Value);
+                return ((int)Tile.Value + 1 == (int)tile.Value || (int)Tile.Value - 1 == (int)tile.Value);
             }
 
             return false;
@@ -111,12 +116,16 @@ namespace Qingque13.Core
             switch (Type)
             {
                 case QingqueMeldType.Sequence:
-                    return new QingqueTile[] 
-                    { 
-                        new QingqueTile((byte)(Tile.Value - 1)), 
-                        Tile, 
-                        new QingqueTile((byte)(Tile.Value + 1)) 
-                    };
+                    // Platform-specific: use int arithmetic then convert to byte to prevent underflow/overflow in WebGL
+                    {
+                        int baseValue = (int)Tile.Value;
+                        return new QingqueTile[] 
+                        { 
+                            new QingqueTile((byte)(baseValue - 1)), 
+                            Tile, 
+                            new QingqueTile((byte)(baseValue + 1)) 
+                        };
+                    }
                 
                 case QingqueMeldType.Triplet:
                     return new QingqueTile[] { Tile, Tile, Tile };
@@ -135,8 +144,10 @@ namespace Qingque13.Core
             {
                 case QingqueMeldType.Sequence:
                     {
-                        byte num = Tile.Num();
-                        char suit = "__mp__s"[(int)Tile.Suit() >> 5];
+                        // Platform-specific: use int arithmetic to prevent byte underflow in WebGL
+                        int num = (int)Tile.Num();
+                        int suitIndex = (int)Tile.Suit() >> 5;
+                        char suit = "__mp__s"[suitIndex];
                         return $"{num - 1}{num}{num + 1}{suit}";
                     }
 

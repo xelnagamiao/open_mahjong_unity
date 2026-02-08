@@ -9,6 +9,7 @@ class PlayerInfo(BaseModel):
     user_id: int  # 用户ID
     username: str  # 用户名（用于显示）
     hand_tiles_count: int
+    hand_tiles: Optional[List[int]] = None  # 手牌（可选，观战玩家可以看到所有手牌，普通玩家只能看到自己的）
     discard_tiles: List[int]
     discard_origin_tiles: Optional[List[int]] = None  # 理论弃牌
     combination_tiles: List[str]
@@ -172,6 +173,15 @@ class ServerStatsInfo(BaseModel):
     waiting_rooms: int  # 等待房间数
     playing_rooms: int  # 进行房间数
 
+class SpectatorInfo(BaseModel):
+    """观战信息"""
+    rule: str  # 规则类型（guobiao/qingque）
+    player1_id: int  # 玩家1 ID
+    player2_id: int  # 玩家2 ID
+    player3_id: int  # 玩家3 ID
+    player4_id: int  # 玩家4 ID
+    gamestate_id: str  # 游戏状态ID
+
 class LoginInfo(BaseModel):
     """登录信息"""
     user_id: int  # 用户ID
@@ -206,3 +216,4 @@ class Response(BaseModel):
     user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息
     server_stats: Optional[ServerStatsInfo] = None # 用于返回服务器统计信息
+    spectator_list: Optional[List[SpectatorInfo]] = None # 用于返回观战列表

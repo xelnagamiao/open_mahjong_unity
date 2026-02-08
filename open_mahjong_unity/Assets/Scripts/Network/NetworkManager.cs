@@ -241,7 +241,29 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_riichi_stats":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
+                // 观战相关消息交由 SpectatorGameStateManager 处理
+                case "spectator/guobiao/game_start":
+                case "spectator/qingque/game_start":
+                case "spectator/guobiao/broadcast_hand_action":
+                case "spectator/qingque/broadcast_hand_action":
+                case "spectator/guobiao/ask_other_action":
+                case "spectator/qingque/ask_other_action":
+                case "spectator/guobiao/do_action":
+                case "spectator/qingque/do_action":
+                case "spectator/guobiao/show_result":
+                case "spectator/qingque/show_result":
+                case "spectator/guobiao/game_end":
+                case "spectator/qingque/game_end":
+                case "spectator/guobiao/full_game_record":
+                case "spectator/qingque/full_game_record":
+                case "spectator/switch_seat":
+                case "spectator/refresh_player_tag_list":
+                case "spectator/add_spectator":
+                case "spectator/remove_spectator":
+                    SpectatorGameStateManager.Instance.HandleSpectatorMessage(response);
+                    break;
                 // 游戏状态相关消息交由 GameStateNetworkManager 处理
+                case "gamestate/get_spectator_list":
                 case "gamestate/guobiao/game_start":
                 case "gamestate/qingque/game_start":
                 case "gamestate/guobiao/broadcast_hand_action":

@@ -16,142 +16,117 @@ namespace Qingque13
 
         public QingqueFanEvaluator()
         {
-            // Register all criteria
+            // Register all criteria in enum order (matching QingqueFan.cs)
             criteria = new List<IQingqueCriterion>
             {
-                // Basic
+                // 0: Trivial
                 new TrivialCriterion(),
-                
-                // Special hands
+                // 1-7: Win conditions
                 new HeavenlyHandCriterion(),
                 new EarthlyHandCriterion(),
+                new OutWithReplacementTileCriterion(),
+                new LastTileDrawCriterion(),
+                new LastTileClaimCriterion(),
+                new RobbingTheKongCriterion(),
+                // 8-9: Special hands & concealed
                 new SevenPairsCriterion(),
-                new NineGatesCriterion(),
-                
-                // Concealed patterns
                 new ConcealedHandCriterion(),
+                // 10-16: Kong patterns
+                new FourConcealedKongsCriterion(),
+                new ThreeConcealedKongsCriterion(),
+                new TwoConcealedKongsCriterion(),
+                new ConcealedKongCriterion(),
+                new FourKongsCriterion(),
+                new ThreeKongsCriterion(),
+                new TwoKongsCriterion(),
+                // 17-19: Triplet patterns
                 new FourConcealedTripletsCriterion(),
                 new ThreeConcealedTripletsCriterion(),
-                new ConcealedKongCriterion(),
-                new TwoConcealedKongsCriterion(),
-                new ThreeConcealedKongsCriterion(),
-                new FourConcealedKongsCriterion(),
-                
-                // Kongs
-                new TwoKongsCriterion(),
-                new ThreeKongsCriterion(),
-                new FourKongsCriterion(),
-                
-                // Triplets and sequences
                 new AllTripletsCriterion(),
-                new DoubleSequenceCriterion(),
-                new TwoDoubleSequencesCriterion(),
-                new TripleSequenceCriterion(),
-                new QuadrupleSequenceCriterion(),
-                
-                // Shifted patterns
-                new ThreeShiftedSequencesCriterion(),
-                new FourShiftedSequencesCriterion(),
-                new ThreeShiftedTripletsCriterion(),
-                new FourShiftedTripletsCriterion(),
-                new MixedShiftedTripletsCriterion(),
-                
-                // Chained patterns
-                new ThreeChainedSequencesCriterion(),
-                new FourChainedSequencesCriterion(),
-                new PureStraightCriterion(),
-                new MixedStraightCriterion(),
-                
-                // Mixed patterns
-                new MixedTripleSequenceCriterion(),
-                new MixedTripleTripletCriterion(),
-                
-                // Flush patterns
-                new FullFlushCriterion(),
-                new HalfFlushCriterion(),
-                
-                // Terminal patterns
+                // 20-24: Hog & double pairs
+                new TwelveHogCriterion(),
+                new EightHogCriterion(),
+                new ThreeDoublePairsCriterion(),
+                new TwoDoublePairsCriterion(),
+                new DoublePairCriterion(),
+                // 25-37: Honor tiles
+                new AllHonoursCriterion(),
+                new BigFourWindsCriterion(),
+                new LittleFourWindsCriterion(),
+                new FourWindPairsCriterion(),
+                new ThreeWindTripletsCriterion(),
+                new SevenWindPairsCriterion(),
+                new SixWindPairsCriterion(),
+                new FiveWindPairsCriterion(),
+                new FourWindPairs2Criterion(),
+                new BigThreeDragonsCriterion(),
+                new LittleThreeDragonsCriterion(),
+                new SixDragonPairsCriterion(),
+                new ThreeDragonPairsCriterion(),
+                // 38-48: Fan tiles
+                new FanTile4TCriterion(),
+                new FanTile3TCriterion(),
+                new FanTile2TCriterion(),
+                new FanTile1TCriterion(),
+                new FanTile7PCriterion(),
+                new FanTile6PCriterion(),
+                new FanTile5PCriterion(),
+                new FanTile4PCriterion(),
+                new FanTile3PCriterion(),
+                new FanTile2PCriterion(),
+                new FanTile1PCriterion(),
+                // 49-52: Terminal patterns
                 new AllTerminalsCriterion(),
                 new AllTerminalsAndHonoursCriterion(),
                 new PureOutsideHandCriterion(),
                 new MixedOutsideHandCriterion(),
-                
-                // Honour patterns
-                new AllHonoursCriterion(),
+                // 53-55: Flush patterns
+                new NineGatesCriterion(),
+                new FullFlushCriterion(),
+                new HalfFlushCriterion(),
+                // 56-66: Number patterns
                 new AllTypesCriterion(),
-                new BigThreeDragonsCriterion(),
-                new LittleThreeDragonsCriterion(),
-                new BigFourWindsCriterion(),
-                new LittleFourWindsCriterion(),
-                new ThreeWindTripletsCriterion(),
-                
-                // Fan tiles (triplets)
-                new FanTile1TCriterion(),
-                new FanTile2TCriterion(),
-                new FanTile3TCriterion(),
-                new FanTile4TCriterion(),
-                
-                // Fan tiles (pairs)
-                new FanTile1PCriterion(),
-                new FanTile2PCriterion(),
-                new FanTile3PCriterion(),
-                new FanTile4PCriterion(),
-                new FanTile5PCriterion(),
-                new FanTile6PCriterion(),
-                new FanTile7PCriterion(),
-                
-                // Wind pairs (seven pairs)
-                new FourWindPairsCriterion(),
-                new FourWindPairs2Criterion(),
-                new FiveWindPairsCriterion(),
-                new SixWindPairsCriterion(),
-                new SevenWindPairsCriterion(),
-                
-                // Dragon pairs (seven pairs)
-                new ThreeDragonPairsCriterion(),
-                new SixDragonPairsCriterion(),
-                
-                // Shifted pairs (seven pairs)
-                new FourShiftedPairsCriterion(),
-                new FiveShiftedPairsCriterion(),
-                new SixShiftedPairsCriterion(),
-                new SevenShiftedPairsCriterion(),
-                
-                // Mirrored patterns
-                new MirroredHandCriterion(),
-                new ReflectedHandCriterion(),
-                new ReflectedHand2Criterion(),
-                new TwoMirroredPairsCriterion(),
-                new ThreeMirroredPairsCriterion(),
-                
-                // Triple pairs
-                new MixedTriplePairCriterion(),
-                new TwoTriplePairsCriterion(),
-                
-                // Double pairs
-                new DoublePairCriterion(),
-                new TwoDoublePairsCriterion(),
-                new ThreeDoublePairsCriterion(),
-                
-                // Hog patterns
-                new EightHogCriterion(),
-                new TwelveHogCriterion(),
-                
-                // Number patterns
-                new CommonNumberCriterion(),
                 new MixedOneNumberCriterion(),
                 new TwoNumbersCriterion(),
                 new TwoConsecutiveNumbersCriterion(),
                 new ThreeConsecutiveNumbersCriterion(),
                 new FourConsecutiveNumbersCriterion(),
-                new GappedNumbersCriterion(),
                 new ConnectedNumbersCriterion(),
-                
-                // Win condition fans
-                new LastTileDrawCriterion(),
-                new LastTileClaimCriterion(),
-                new OutWithReplacementTileCriterion(),
-                new RobbingTheKongCriterion(),
+                new GappedNumbersCriterion(),
+                new ReflectedHandCriterion(),
+                new ReflectedHand2Criterion(),
+                new CommonNumberCriterion(),
+                // 67-71: Sequence patterns
+                new QuadrupleSequenceCriterion(),
+                new TripleSequenceCriterion(),
+                new TwoDoubleSequencesCriterion(),
+                new DoubleSequenceCriterion(),
+                // 72-75: Shifted triplets
+                new FourShiftedTripletsCriterion(),
+                new ThreeShiftedTripletsCriterion(),
+                // 76-79: Shifted sequences
+                new FourShiftedSequencesCriterion(),
+                new ThreeShiftedSequencesCriterion(),
+                // 80-82: Chained patterns
+                new FourChainedSequencesCriterion(),
+                new ThreeChainedSequencesCriterion(),
+                new PureStraightCriterion(),
+                // 83-86: Shifted pairs
+                new SevenShiftedPairsCriterion(),
+                new SixShiftedPairsCriterion(),
+                new FiveShiftedPairsCriterion(),
+                new FourShiftedPairsCriterion(),
+                // 87-92: Mixed patterns
+                new MixedTripleTripletCriterion(),
+                new MixedTripleSequenceCriterion(),
+                new TwoTriplePairsCriterion(),
+                new MixedTriplePairCriterion(),
+                new MixedShiftedTripletsCriterion(),
+                new MixedStraightCriterion(),
+                new MirroredHandCriterion(),
+                new ThreeMirroredPairsCriterion(),
+                new TwoMirroredPairsCriterion(),
+                new TwoShortStraightsCriterion(),
             };
         }
 
