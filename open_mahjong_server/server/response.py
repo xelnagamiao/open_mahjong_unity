@@ -101,6 +101,10 @@ class Refresh_player_tag_list_info(BaseModel):
     """刷新玩家标签列表信息"""
     player_to_tag_list: Dict[int, List[str]]  # 玩家索引到标签列表的映射 {player_index: tag_list}
 
+class Ready_status_info(BaseModel):
+    """准备状态信息"""
+    player_to_ready: Dict[int, bool]  # 玩家索引到准备状态的映射 {player_index: ready}
+
 class Player_record_info(BaseModel):
     """玩家对局记录信息"""
     user_id: int  # 用户ID
@@ -210,6 +214,7 @@ class Response(BaseModel):
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
     switch_seat_info: Optional[Switch_seat_info] = None # 用于广播换位信息
     refresh_player_tag_list_info: Optional[Refresh_player_tag_list_info] = None # 用于广播刷新玩家标签列表
+    ready_status_info: Optional[Ready_status_info] = None # 用于广播准备状态
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
     rule_stats: Optional[Rule_stats_response] = None # 用于返回单个规则的统计数据

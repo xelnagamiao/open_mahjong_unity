@@ -274,6 +274,32 @@ class DatabaseManager:
             logger.info('用户ID序列初始化完成')
             print('用户ID序列初始化完成')
 
+            # 创建占位符用户（用于机器人和已删除游客）
+            # user_id = -1: 已删除用户占位符
+            cursor.execute("""
+                INSERT INTO users (user_id, username, password, is_tourist)
+                VALUES (-1, '已删除用户', '', TRUE)
+                ON CONFLICT (user_id) DO NOTHING;
+            """)
+            
+            # user_id = -2: 游客占位符
+            cursor.execute("""
+                INSERT INTO users (user_id, username, password, is_tourist)
+                VALUES (-2, '游客', '', TRUE)
+                ON CONFLICT (user_id) DO NOTHING;
+            """)
+            
+            # user_id = -10 到 -15: 机器人占位符（用于同一局游戏中的多个机器人）
+            for bot_id in range(-10, -16, -1):
+                bot_index = abs(bot_id) - 10  # -10 -> 0, -11 -> 1, ..., -15 -> 5
+                cursor.execute("""
+                    INSERT INTO users (user_id, username, password, is_tourist)
+                    VALUES (%s, %s, '', FALSE)
+                    ON CONFLICT (user_id) DO NOTHING;
+                """, (bot_id, f'系统机器人{bot_index + 1}'))
+            
+            logger.info('占位符用户初始化完成')
+
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')

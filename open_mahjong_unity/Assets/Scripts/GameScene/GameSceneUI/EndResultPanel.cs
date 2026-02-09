@@ -11,12 +11,16 @@ public class EndResultPanel : MonoBehaviour {
 
     [SerializeField] private TextMeshProUGUI SelfUserName;
     [SerializeField] private TextMeshProUGUI SelfScore;
+    [SerializeField] private Image SelfReady;
     [SerializeField] private TextMeshProUGUI LeftUserName;
     [SerializeField] private TextMeshProUGUI LeftScore;
+    [SerializeField] private Image LeftReady;
     [SerializeField] private TextMeshProUGUI TopUserName;
     [SerializeField] private TextMeshProUGUI TopScore;
+    [SerializeField] private Image TopReady;
     [SerializeField] private TextMeshProUGUI RightUserName;
     [SerializeField] private TextMeshProUGUI RightScore;
+    [SerializeField] private Image RightReady;
 
     [SerializeField] private TextMeshProUGUI EndButtonText;
     [SerializeField] private Button EndButton;
@@ -94,6 +98,12 @@ public class EndResultPanel : MonoBehaviour {
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
 
         gameObject.SetActive(true);
+
+        // 显示玩家准备状态
+        SelfReady.gameObject.SetActive(false);
+        LeftReady.gameObject.SetActive(false);
+        TopReady.gameObject.SetActive(false);
+        RightReady.gameObject.SetActive(false);
 
         // 获取手牌列表最后一个int 并且删除最后一个int
         int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
@@ -249,9 +259,34 @@ public class EndResultPanel : MonoBehaviour {
         gameObject.SetActive(false);
     }
 
-    // 按钮点击以后进入非激活状态
+    // 按钮点击以后发送准备消息
     public void EndButtonClick(){
         EndButton.interactable = false;
+        // 发送准备消息到服务器
+        GameStateNetworkManager.Instance.SendAction("ready", 0);
+    }
+    
+    // 更新准备状态显示
+    public void UpdateReadyStatus(Dictionary<int, bool> playerToReady) {
+        foreach (var kvp in playerToReady) {
+            int playerIndex = kvp.Key;
+            bool isReady = kvp.Value;
+            
+            // 根据玩家索引找到对应的位置
+            string position = NormalGameStateManager.Instance.indexToPosition.ContainsKey(playerIndex) 
+                ? NormalGameStateManager.Instance.indexToPosition[playerIndex] 
+                : null;
+            
+            if (position == "self") {
+                SelfReady.gameObject.SetActive(isReady);
+            } else if (position == "left") {
+                LeftReady.gameObject.SetActive(isReady);
+            } else if (position == "top") {
+                TopReady.gameObject.SetActive(isReady);
+            } else if (position == "right") {
+                RightReady.gameObject.SetActive(isReady);
+            }
+        }
     }
 
     public void ClearEndResultPanel(){
@@ -277,5 +312,11 @@ public class EndResultPanel : MonoBehaviour {
         TopScore.text = "";
         RightUserName.text = "";
         RightScore.text = "";
+        
+        // 隐藏所有准备状态
+        SelfReady.gameObject.SetActive(false);
+        LeftReady.gameObject.SetActive(false);
+        TopReady.gameObject.SetActive(false);
+        RightReady.gameObject.SetActive(false);
     }
 }

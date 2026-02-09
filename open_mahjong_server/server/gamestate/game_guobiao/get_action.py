@@ -149,6 +149,19 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             await game_state.action_queues[player_index].put(action_data_to_queue)
             # 设置事件
             game_state.action_events[player_index].set()
+        elif action_type == "ready":  # 准备操作
+            # 检查是否在等待准备状态
+            if game_state.game_status != "waiting_ready":
+                logger.warning(f"当前不在等待准备状态，无法准备，game_status={game_state.game_status}")
+                return
+            
+            action_data_to_queue = {
+                "action_type": "ready"
+            }
+            logger.info(f"放入队列: player_index={player_index}, action_data={action_data_to_queue}")
+            await game_state.action_queues[player_index].put(action_data_to_queue)
+            # 设置事件
+            game_state.action_events[player_index].set()
         else: # 其他指令操作（buhua, angang, jiagang, hu_self, chi_left, chi_mid, chi_right, peng, gang, hu_first, hu_second, hu_third, pass）
             # 验证特殊操作的条件
             if action_type == "jiagang":

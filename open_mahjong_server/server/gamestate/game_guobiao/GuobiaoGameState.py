@@ -15,6 +15,7 @@ from .boardcast import (
     broadcast_game_end,
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
+    broadcast_ready_status,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_guobiao_tiles
@@ -143,7 +144,7 @@ class GuobiaoGameState:
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
         self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
         self.waiting_players_list = [] # 等待操作的玩家列表
-
+        
         # 所有check方法都返回action_dict字典
         self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
         # 行为 -> 优先级 用于在多人共通等待行为时判断是否需要等待更高优先级玩家的操作或直接结束更低优先级玩家的等待
@@ -151,6 +152,7 @@ class GuobiaoGameState:
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
+        "ready": 0,  # 准备操作优先级 最低优先级
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
@@ -686,10 +688,31 @@ class GuobiaoGameState:
             # 牌谱记录和牌
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
             
+            # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
-                await asyncio.sleep(2) # 等待2秒后重新开始下一局
+                # 流局：等待2秒后重新开始下一局（保持原有逻辑）
+                await asyncio.sleep(2)
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 8) # 等待和牌番种时间与8秒后重新开始下一局
+                # 和牌进行等待协程
+                fan_count = len(hu_fan) if hu_fan else 0
+                wait_time = fan_count * 0.5 + 8
+                
+                # 为所有玩家设置准备操作和剩余时间
+                self.action_dict = {}
+                for player in self.player_list:
+                    # 所有玩家都可以准备
+                    self.action_dict[player.player_index] = ["ready"]
+                    # 设置剩余时间为等待时间（转换为秒）
+                    player.remaining_time = int(wait_time)
+                
+                # 设置游戏状态为等待准备
+                self.game_status = "waiting_ready"
+                
+                # 使用 wait_action 等待所有玩家准备
+                await wait_action(self)
+                
+                # wait_action 返回后，重置状态
+                self.game_status = "ready_completed"
 
             # 开启下一局的准备工作
             next_game_round(self)   

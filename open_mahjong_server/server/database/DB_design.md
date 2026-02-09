@@ -70,7 +70,7 @@ PostgreSQL
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
 | game_id | BIGINT | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
-| user_id | BIGINT | NOT NULL, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| user_id | BIGINT | NOT NULL, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users（占位符：-10~-15=机器人，-1=已删除用户，-2=游客） |
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
@@ -81,10 +81,13 @@ PostgreSQL
 | voice_used | INT | NULL | 使用的音色ID（可为空） |
 | PRIMARY KEY | (game_id, user_id) | 复合主键 | 每个游戏每个玩家一条记录 |
 
-> **级联删除说明**：
+> **占位符用户说明**：
+> - `user_id = -10 到 -15`：系统机器人占位符，用于机器人玩家（user_id <= 10），同一局游戏中的多个机器人使用不同的占位符
+> - `user_id = -1`：已删除用户占位符，用于已删除的注册用户
+> - `user_id = -2`：游客占位符，用于游客账户（10 < user_id <= 10000000）
+> - 这些占位符用户在 `users` 表中预先创建，确保外键约束正常
 > - 删除 `users` 表中的用户记录时，会级联删除 `game_player_records` 中该用户的所有记录
 > - 删除 `game_records` 表中的牌谱记录时，会级联删除 `game_player_records` 中该游戏的所有玩家记录
-> - 不会删除牌谱数据
 
 ### 规则特定统计表
 
@@ -107,3 +110,5 @@ PostgreSQL
 5. **riichi_history_stats** - 该用户的立直麻将基础统计数据
 6. **riichi_fan_stats** - 该用户的立直麻将番种统计数据
 7. **game_player_records** - 该用户参与的所有对局记录
+
+> **注意**：占位符用户（user_id = -10~-15、-1 和 -2）不会被删除，用于保留机器人、已删除用户和游客的对局记录。

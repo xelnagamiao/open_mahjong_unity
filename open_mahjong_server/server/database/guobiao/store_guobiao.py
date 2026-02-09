@@ -130,6 +130,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         
         # 获取玩家排名（rank_result 是 1-4）
         saved_count = 0
+        bot_counter = 0  # 用于为同一局游戏中的多个机器人分配不同的占位符
         for player in player_list:
             rank = player.record_counter.rank_result  # 1-4
             # 从玩家对象获取使用的设置信息（对局时的设置）
@@ -138,6 +139,25 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             profile_used = getattr(player, 'profile_used', None)
             voice_used = getattr(player, 'voice_used', None)
             
+            # 区分机器人和游客，使用不同的占位符
+            user_id = player.user_id
+            if user_id <= 10:
+                # 机器人使用占位符 -10 到 -15（为同一局游戏中的多个机器人分配不同的 ID）
+                actual_user_id = -10 - bot_counter
+                bot_counter += 1
+            elif user_id <= 10000000:
+                # 游客使用占位符 user_id = -2
+                actual_user_id = -2
+            else:
+                # 注册用户：检查用户是否存在
+                cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+                if cursor.fetchone() is None:
+                    # 用户不存在（可能是已删除的注册用户）：使用已删除用户占位符
+                    actual_user_id = -1
+                    logger.info(f'用户不存在，使用占位符保存对局记录: user_id={user_id}, username={player.username}')
+                else:
+                    actual_user_id = user_id
+            
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
@@ -145,7 +165,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
-                    player.user_id,
+                    actual_user_id,  # 可能为 NULL
                     player.username,
                     player.score,
                     rank,
@@ -157,7 +177,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                 ))
                 saved_count += 1
             except Error as e:
-                logger.warning(f'跳过玩家对局记录存储（用户不存在）: user_id={player.user_id}, username={player.username}, error={e}')
+                logger.warning(f'跳过玩家对局记录存储: user_id={player.user_id}, username={player.username}, error={e}')
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
         
         conn.commit()
@@ -213,6 +233,16 @@ def store_guobiao_game_stats(db_manager, game_id: int, player_list: list, room_t
         # 更新每个玩家的基础统计数据
         for player in player_list:
             user_id = player.user_id
+            
+            # 跳过游客、机器人和占位符用户（user_id <= 10000000 或占位符 <= 0）
+            if user_id <= 10000000 or user_id <= 0:
+                continue
+            
+            # 检查用户是否存在
+            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                continue
+            
             counter = player.record_counter
             win_count = counter.zimo_times + counter.dianhe_times
             
@@ -290,6 +320,16 @@ def store_guobiao_fan_stats(db_manager, game_id: int, player_list: list, room_ty
         # 更新每个玩家的番种统计数据
         for player in player_list:
             user_id = player.user_id
+            
+            # 跳过游客、机器人和占位符用户（user_id <= 10000000 或占位符 <= 0）
+            if user_id <= 10000000 or user_id <= 0:
+                continue
+            
+            # 检查用户是否存在
+            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                continue
+            
             counter = player.record_counter
             
             fan_increment = {field: 0 for field in FAN_FIELDS}

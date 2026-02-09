@@ -15,6 +15,7 @@ from .boardcast import (
     broadcast_game_end,
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
+    broadcast_ready_status,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_qingque_tiles
@@ -151,6 +152,7 @@ class QingqueGameState:
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
+        "ready": 0,  # 准备操作优先级 最低优先级
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
@@ -551,19 +553,34 @@ class QingqueGameState:
             # 牌谱记录和牌
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
             
+            # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
-                await asyncio.sleep(2) # 等待2秒后重新开始下一局
+                # 流局：等待2秒后重新开始下一局（保持原有逻辑）
+                await asyncio.sleep(2)
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 8) # 等待和牌番种时间与8秒后重新开始下一局
+                # 和牌进行等待协程
+                fan_count = len(hu_fan) if hu_fan else 0
+                wait_time = fan_count * 0.5 + 8
+                
+                # 为所有玩家设置准备操作和剩余时间
+                self.action_dict = {}
+                for player in self.player_list:
+                    # 所有玩家都可以准备
+                    self.action_dict[player.player_index] = ["ready"]
+                    # 设置剩余时间为等待时间（转换为秒）
+                    player.remaining_time = int(wait_time)
+                
+                # 设置游戏状态为等待准备
+                self.game_status = "waiting_ready"
+                
+                # 使用 wait_action 等待所有玩家准备
+                await wait_action(self)
+                
+                # wait_action 返回后，重置状态
+                self.game_status = "ready_completed"
 
             # 开启下一局的准备工作
             next_game_round(self)   
-
-            # 换位
-            if self.current_round >= self.max_round*4:
-                if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                    await broadcast_switch_seat(self)
-                    await asyncio.sleep(5)
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
