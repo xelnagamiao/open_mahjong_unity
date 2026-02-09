@@ -49,14 +49,6 @@ public class NormalGameStateManager : MonoBehaviour{
     public bool isOpenCuoHe; // 是否开启错和
     public bool isSetRandomSeed; // 是否设置随机种子
 
-    [Header("自动操作配置")]
-
-    public bool isAutoArrangeHandCards = true; // 是否自动排列手牌
-    public bool isAutoBuhua = true; // 是否自动补花
-    public bool isAutoHepai = false; // 是否自动胡牌
-    public bool isAutoCut = false; // 是否自动出牌
-    public bool isAutoPass = false; // 是否自动过牌
-
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
     public string CurrentPlayer; // 当前玩家字符串
@@ -99,9 +91,6 @@ public class NormalGameStateManager : MonoBehaviour{
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
-        
-        // 使用UI管理器清空临时面板
-        GameSceneUIManager.Instance.ClearTemporaryPanels();
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
@@ -125,30 +114,14 @@ public class NormalGameStateManager : MonoBehaviour{
         // 初始化他人手牌区域
         Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
 
-        // 重置自动操作选项（保留自动切牌和自动理牌）
-        ResetAutoActionOptions();
+        // 初始化游戏开始UI（包括自动行为组件）
+        GameSceneUIManager.Instance.InitGameStart();
 
         // 根据对局信息生成他家已有的3D卡牌（弃牌、副露、花牌）
         GenerateOtherPlayers3DTiles(gameInfo);
 
     }
 
-    // 重置自动操作选项（保留自动切牌和自动理牌）
-    private void ResetAutoActionOptions(){
-        // 重置除了自动切牌和自动理牌以外的选项
-        isAutoHepai = false;   // 自动胡牌
-        isAutoPass = false;    // 自动过牌
-        isAutoCut = false;   // 自动出牌
-
-        // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的当前值
-        // isAutoBuhua - 自动补花
-        // isAutoArrangeHandCards - 自动排列手牌
-
-        // 更新 AutoAction 显示
-        if (AutoAction.Instance != null){
-            AutoAction.Instance.RefreshDisplay();
-        }
-    }
 
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time,int playerIndex,int remain_tiles,string[] action_list){
@@ -336,6 +309,8 @@ public class NormalGameStateManager : MonoBehaviour{
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
+        // 隐藏和牌提示
+        TipsBlock.Instance.HideTipsBlock();
         // 显示结算结果
         if (hu_class == "liuju"){
             // 流局情况下，显示流局
@@ -390,6 +365,8 @@ public class NormalGameStateManager : MonoBehaviour{
         
         // 询问手牌操作
         if (SwitchType == "askHandAction"){
+            // 如果有人3d卡牌未排列 则排列 (仅在国标补花轮之后可能出现这样的问题)
+            Game3DManager.Instance.CheckAndRearrangeAllPlayersHandCards();
             // 如果行动者是自己
             if (GetCardPlayer == "self"){
                 // 显示可用行动 开启倒计时
@@ -397,7 +374,7 @@ public class NormalGameStateManager : MonoBehaviour{
                 GameCanvas.Instance.SetActionButton(allowActionList);
                 GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
                 // 如果开启自动胡牌、自动补花或者自动出牌，则启动协程
-                if (isAutoHepai || isAutoBuhua || isAutoCut){
+                if (AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut){
                     StartCoroutine(WaitAutoAction("AutoHandAction"));
                 }
                 // 询问操作时隐藏提示块
@@ -418,7 +395,7 @@ public class NormalGameStateManager : MonoBehaviour{
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             // 如果开启自动过牌或自动胡牌，则启动协程
-            if (isAutoPass || isAutoHepai){
+            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
         }
@@ -470,7 +447,7 @@ public class NormalGameStateManager : MonoBehaviour{
             string actualHupaiAction = allowActionList.FirstOrDefault(a => allowHupaiAction.Contains(a));
 
             // 如果开启自动胡牌，则判断
-            if (isAutoHepai){
+            if (AutoAction.Instance.IsAutoHepai){
                 // 如果允许操作列表中有和牌，则执行自动胡牌
                 if (!string.IsNullOrEmpty(actualHupaiAction)){
                     yield return new WaitForSeconds(0.2f);
@@ -482,7 +459,7 @@ public class NormalGameStateManager : MonoBehaviour{
             // 如果和牌列表为空（没有可用的和牌操作）
             if (string.IsNullOrEmpty(actualHupaiAction)){
                 // 如果开启自动过牌，则执行自动过牌
-                if (isAutoPass){
+                if (AutoAction.Instance.IsAutoPass){
                     yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)
                     GameCanvas.Instance.ChooseAction("pass", 0);
                     yield return null;
@@ -501,7 +478,7 @@ public class NormalGameStateManager : MonoBehaviour{
             // 如果允许操作列表有hu_self
             if (allowActionList.Contains("hu_self")){
                 // 如果开启自动胡牌，则执行自动胡牌
-                if (isAutoHepai){
+                if (AutoAction.Instance.IsAutoHepai){
                     yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction("hu_self", 0);
                     yield return null;
@@ -515,7 +492,7 @@ public class NormalGameStateManager : MonoBehaviour{
             // 如果允许操作列表有buhua
             if (allowActionList.Contains("buhua")){
                 // 如果开启自动补花，则执行自动补花
-                if (isAutoBuhua){
+                if (AutoAction.Instance.IsAutoBuhua){
                     yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction("buhua", 0);
                     yield return null;
@@ -533,7 +510,7 @@ public class NormalGameStateManager : MonoBehaviour{
             }
             // 如果没有，则执行自动出牌
             else{
-                if (isAutoCut){
+                if (AutoAction.Instance.IsAutoCut){
                     yield return new WaitForSeconds(0.2f);
                     // 自动出牌 选择手牌中最近摸到的牌（列表的最后一张）
                     if (selfHandTiles != null && selfHandTiles.Count > 0) {

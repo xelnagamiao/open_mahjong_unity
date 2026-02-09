@@ -91,7 +91,7 @@ class Player_final_data(BaseModel):
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[int, Player_final_data]  # 玩家最终数据 {user_id: Player_final_data}
+    player_final_data: Dict[int, Player_final_data]  # 玩家最终数据 {rank: Player_final_data}
 
 class Switch_seat_info(BaseModel):
     """换位信息"""
@@ -117,6 +117,7 @@ class Record_info(BaseModel):
     game_id: int  # 对局ID
     rule: str  # 规则类型（GB/JP）
     record: Dict  # 完整的牌谱记录（JSONB）
+    
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 

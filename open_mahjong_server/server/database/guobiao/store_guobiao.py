@@ -131,10 +131,6 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         # 获取玩家排名（rank_result 是 1-4）
         saved_count = 0
         for player in player_list:
-            # 跳过游客账户（user_id < 10000000）
-            if player.user_id < 10000000:
-                continue
-                
             rank = player.record_counter.rank_result  # 1-4
             # 从玩家对象获取使用的设置信息（对局时的设置）
             title_used = getattr(player, 'title_used', None)
@@ -216,10 +212,6 @@ def store_guobiao_game_stats(db_manager, game_id: int, player_list: list, room_t
         
         # 更新每个玩家的基础统计数据
         for player in player_list:
-            # 跳过游客账户（user_id < 10000000）
-            if player.user_id < 10000000:
-                continue
-                
             user_id = player.user_id
             counter = player.record_counter
             win_count = counter.zimo_times + counter.dianhe_times
@@ -297,10 +289,6 @@ def store_guobiao_fan_stats(db_manager, game_id: int, player_list: list, room_ty
         
         # 更新每个玩家的番种统计数据
         for player in player_list:
-            # 跳过游客账户（user_id < 10000000）
-            if player.user_id < 10000000:
-                continue
-                
             user_id = player.user_id
             counter = player.record_counter
             

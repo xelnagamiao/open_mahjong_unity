@@ -27,18 +27,18 @@ public class EndGamePanel : MonoBehaviour {
         }
     }
 
-    // ✅ 参数 key 为 string（用户ID），不排序，按字典当前顺序取前4
+    // ✅ 参数 key 为 string（排名rank），按照rank顺序（1,2,3,4）显示
     public void ShowGameEndPanel(
         long game_random_seed,
         Dictionary<string, Dictionary<string, object>> player_final_data) {
         gameObject.SetActive(true);
 
-        // 直接按字典的枚举顺序取前4个玩家（假设服务器已排好序）
-        var enumerator = player_final_data.GetEnumerator();
-        for (int i = 0; i < 4; i++) {
-            if (i < rankDisplays.Length && enumerator.MoveNext()) {
-                var playerData = enumerator.Current.Value; // 获取当前玩家数据
-                var display = rankDisplays[i]; // 获取视窗列表中的第i个元素
+        // 按照rank顺序（1,2,3,4）获取和显示玩家数据
+        for (int rank = 1; rank <= 4; rank++) {
+            string rankKey = rank.ToString();
+            if (player_final_data.ContainsKey(rankKey) && (rank - 1) < rankDisplays.Length) {
+                var playerData = player_final_data[rankKey]; // 获取当前排名玩家数据
+                var display = rankDisplays[rank - 1]; // 获取视窗列表中的第(rank-1)个元素
 
                 display.username.text = playerData["username"].ToString();
                 display.score.text = playerData["score"].ToString();

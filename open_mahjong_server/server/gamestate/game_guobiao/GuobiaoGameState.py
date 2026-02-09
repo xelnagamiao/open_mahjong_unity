@@ -330,6 +330,11 @@ class GuobiaoGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
+            # 换位
+            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+                await broadcast_switch_seat(self)
+                await asyncio.sleep(5)
+
             # 记录结算前的分数（用于计算本局分数变化）
             scores_before = {player.original_player_index: player.score for player in self.player_list}
 
@@ -688,11 +693,6 @@ class GuobiaoGameState:
 
             # 开启下一局的准备工作
             next_game_round(self)   
-
-            # 换位
-            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                await broadcast_switch_seat(self)
-                await asyncio.sleep(5)
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
