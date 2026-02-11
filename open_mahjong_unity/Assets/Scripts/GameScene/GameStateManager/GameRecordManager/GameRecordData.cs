@@ -22,6 +22,10 @@ public class Round {
     public int roundIndex;
     public long roundRandomSeed;
     public int currentRound;
+    public int p0UserId;
+    public int p1UserId;
+    public int p2UserId;
+    public int p3UserId;
     public List<int> p0Tiles;
     public List<int> p1Tiles;
     public List<int> p2Tiles;
@@ -30,12 +34,9 @@ public class Round {
     public List<List<string>> actionTicks;
 
     [SerializeField] private List<ActionTickDisplay> _actionTicksDisplay;
-    public Dictionary<int, int> xunmuToActionIndex;
 
     public void UpdateActionTicksDisplay() {
-        if (_actionTicksDisplay == null) {
-            _actionTicksDisplay = new List<ActionTickDisplay>();
-        }
+        _actionTicksDisplay = new List<ActionTickDisplay>();
         _actionTicksDisplay.Clear();
         foreach (var action in actionTicks) {
             _actionTicksDisplay.Add(new ActionTickDisplay(action));
@@ -43,13 +44,15 @@ public class Round {
     }
 
     public Round() {
+        roundIndex = 0;
+        roundRandomSeed = 0;
+        currentRound = 0;
         p0Tiles = new List<int>();
         p1Tiles = new List<int>();
         p2Tiles = new List<int>();
         p3Tiles = new List<int>();
         tilesList = new List<int>();
         actionTicks = new List<List<string>>();
-        xunmuToActionIndex = new Dictionary<int, int>();
     }
 }
 

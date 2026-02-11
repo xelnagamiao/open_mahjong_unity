@@ -121,7 +121,6 @@ class Record_info(BaseModel):
     game_id: int  # 对局ID
     rule: str  # 规则类型（GB/JP）
     record: Dict  # 完整的牌谱记录（JSONB）
-    
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 

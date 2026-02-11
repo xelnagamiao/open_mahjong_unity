@@ -126,6 +126,66 @@ public partial class GameCanvas : MonoBehaviour {
 
     }
 
+    // 从牌谱记录初始化游戏UI
+    public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
+        // 清空手牌容器 - 倒序遍历避免SetParent影响
+        for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
+            Transform child = handCardsContainer.GetChild(i);
+            Destroyer.Instance.AddToDestroyer(child);
+        }
+        // 通过面板组件设置玩家信息
+        foreach (var recordPlayer in recordPlayerList){
+            string position = indexToPosition[recordPlayer.playerIndex];
+            GamePlayerPanel targetPanel = null;
+            // 根据位置获取对应的面板
+            switch (position) {
+                case "self":
+                    targetPanel = playerSelfPanel;
+                    break;
+                case "right":
+                    targetPanel = playerRightPanel;
+                    break;
+                case "top":
+                    targetPanel = playerTopPanel;
+                    break;
+                case "left":
+                    targetPanel = playerLeftPanel;
+                    break;
+            }
+
+            // 调用面板的 SetPlayerInfo 方法
+            if (targetPanel != null) {
+                // 将 RecordPlayer 转换为 PlayerInfo
+                PlayerInfo playerInfo = new PlayerInfo {
+                    user_id = recordPlayer.userId,
+                    username = userIdToUsername.ContainsKey(recordPlayer.userId) ? userIdToUsername[recordPlayer.userId] : $"玩家{recordPlayer.userId}",
+                    player_index = recordPlayer.playerIndex,
+                    original_player_index = recordPlayer.originalPlayerIndex,
+                    title_used = recordPlayer.title_used,
+                    profile_used = recordPlayer.profile_used,
+                    character_used = recordPlayer.character_used,
+                    voice_used = recordPlayer.voice_used,
+                    hand_tiles_count = recordPlayer.tileList != null ? recordPlayer.tileList.Count : 0,
+                    hand_tiles = recordPlayer.tileList != null ? recordPlayer.tileList.ToArray() : new int[0],
+                    discard_tiles = new int[0],
+                    discard_origin_tiles = new int[0],
+                    combination_tiles = new string[0],
+                    combination_mask = new int[0][],
+                    huapai_list = new int[0],
+                    remaining_time = 0,
+                    score = 0,
+                    score_history = new string[0],
+                    tag_list = new string[0]
+                };
+                targetPanel.SetPlayerInfo(playerInfo);
+            }
+            else
+            {
+                Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
+            }
+        }
+    }
+
     // 更新玩家标签列表
     public void UpdatePlayerTagList(Dictionary<int, string[]> player_to_tag_list) {
         foreach (var kvp in player_to_tag_list) {

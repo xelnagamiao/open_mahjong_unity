@@ -91,7 +91,8 @@ public class RecordPanel : MonoBehaviour {
                 username1, username2, username3, username4,
                 score1, score2, score3, score4,
                 hasRecord, mainRule, subRule, recordedTime,
-                recordJson
+                recordJson,
+                record.players
             );
         }
 

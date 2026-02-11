@@ -28,6 +28,23 @@ public static class GameRecordJsonDecoder {
                 throw new Exception("未找到 game_round 节点");
             }
 
+            // 从 game_title 中提取玩家 userid
+            Dictionary<int, int> playerUserIds = new Dictionary<int, int>();
+            if (gameRecord.gameTitle != null) {
+                if (gameRecord.gameTitle.ContainsKey("p0_user_id") && gameRecord.gameTitle["p0_user_id"] != null) {
+                    playerUserIds[0] = Convert.ToInt32(gameRecord.gameTitle["p0_user_id"]);
+                }
+                if (gameRecord.gameTitle.ContainsKey("p1_user_id") && gameRecord.gameTitle["p1_user_id"] != null) {
+                    playerUserIds[1] = Convert.ToInt32(gameRecord.gameTitle["p1_user_id"]);
+                }
+                if (gameRecord.gameTitle.ContainsKey("p2_user_id") && gameRecord.gameTitle["p2_user_id"] != null) {
+                    playerUserIds[2] = Convert.ToInt32(gameRecord.gameTitle["p2_user_id"]);
+                }
+                if (gameRecord.gameTitle.ContainsKey("p3_user_id") && gameRecord.gameTitle["p3_user_id"] != null) {
+                    playerUserIds[3] = Convert.ToInt32(gameRecord.gameTitle["p3_user_id"]);
+                }
+            }
+
             int roundIndex = 1;
             while (true) {
                 string roundKey = $"round_index_{roundIndex}";
@@ -36,7 +53,7 @@ public static class GameRecordJsonDecoder {
                     break;
                 }
 
-                Round round = ParseRound(roundData, roundIndex);
+                Round round = ParseRound(roundData, roundIndex, playerUserIds);
                 gameRecord.gameRound.rounds[roundIndex] = round;
                 roundIndex++;
             }
@@ -51,17 +68,41 @@ public static class GameRecordJsonDecoder {
     /// <summary>
     /// 解析单个 round_index_x 的数据
     /// </summary>
-    private static Round ParseRound(JObject roundData, int roundIndex) {
-        Round round = new Round {
-            roundIndex = roundIndex
-        };
+    private static Round ParseRound(JObject roundData, int roundIndex, Dictionary<int, int> playerUserIds) {
+        Round round = new Round();
 
+        // 解析 round_index（如果存在，优先使用 JSON 中的值，否则使用传入的参数）
+        if (roundData["round_index"] != null) {
+            round.roundIndex = roundData["round_index"].Value<int>();
+        } else {
+            round.roundIndex = roundIndex;
+        }
+
+        // 设置玩家 userid
+        if (playerUserIds.ContainsKey(0)) {
+            round.p0UserId = playerUserIds[0];
+        }
+        if (playerUserIds.ContainsKey(1)) {
+            round.p1UserId = playerUserIds[1];
+        }
+        if (playerUserIds.ContainsKey(2)) {
+            round.p2UserId = playerUserIds[2];
+        }
+        if (playerUserIds.ContainsKey(3)) {
+            round.p3UserId = playerUserIds[3];
+        }
+
+        // 解析 round_random_seed
         if (roundData["round_random_seed"] != null) {
             round.roundRandomSeed = roundData["round_random_seed"].Value<long>();
         }
+
+        // 解析 current_round
         if (roundData["current_round"] != null) {
             round.currentRound = roundData["current_round"].Value<int>();
         }
+
+        // 解析各玩家的手牌
         if (roundData["p0_tiles"] != null) {
             round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>();
         }
@@ -74,89 +115,18 @@ public static class GameRecordJsonDecoder {
         if (roundData["p3_tiles"] != null) {
             round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>();
         }
+
+        // 解析 tiles_list（牌堆列表）
         if (roundData["tiles_list"] != null) {
             round.tilesList = roundData["tiles_list"].ToObject<List<int>>();
         }
 
+        // 解析 action_ticks（操作记录）
         JArray actionTicks = roundData["action_ticks"] as JArray;
         if (actionTicks != null) {
-            ParseActionTicks(actionTicks, round);
+            round.actionTicks = actionTicks.ToObject<List<List<string>>>() ?? new List<List<string>>();
         }
 
         return round;
-    }
-
-    /// <summary>
-    /// 解析 action_ticks 数组，填充到 Round 对象中
-    /// </summary>
-    private static void ParseActionTicks(JArray actionTicks, Round round) {
-        int currentXunmu = 0;
-        bool hasActionInCurrentXunmu = false;
-
-        foreach (JToken actionToken in actionTicks) {
-            JArray actionArray = actionToken as JArray;
-            if (actionArray == null || actionArray.Count == 0) {
-                continue;
-            }
-
-            string actionTypeStr = actionArray[0]?.ToString();
-            if (string.IsNullOrEmpty(actionTypeStr)) {
-                continue;
-            }
-
-            if (actionTypeStr == "Next") {
-                if (hasActionInCurrentXunmu) {
-                    currentXunmu++;
-                    hasActionInCurrentXunmu = false;
-                } else {
-                    currentXunmu++;
-                }
-                continue;
-            }
-
-            List<string> actionList = new List<string>();
-            foreach (JToken token in actionArray) {
-                if (token.Type == JTokenType.String) {
-                    actionList.Add(token.Value<string>());
-                } else if (token.Type == JTokenType.Integer) {
-                    actionList.Add(token.Value<int>().ToString());
-                } else if (token.Type == JTokenType.Boolean) {
-                    actionList.Add(token.Value<bool>().ToString().ToLower());
-                } else if (token.Type == JTokenType.Array) {
-                    actionList.Add(token.ToString(Newtonsoft.Json.Formatting.None));
-                } else {
-                    actionList.Add(token.ToString());
-                }
-            }
-
-            if (!hasActionInCurrentXunmu) {
-                round.xunmuToActionIndex[currentXunmu] = round.actionTicks.Count;
-                hasActionInCurrentXunmu = true;
-            }
-
-            round.actionTicks.Add(actionList);
-        }
-    }
-
-    /// <summary>
-    /// 兼容旧接口：解析为原始格式（用于向后兼容）
-    /// </summary>
-    [Obsolete("请使用 ParseGameRecord 方法获取结构化的 GameRecord 对象")]
-    public static void ParseAllRoundsFromJson(
-        string recordJson,
-        List<List<List<string>>> allRoundActionNodes,
-        List<Dictionary<int, int>> allRoundXunmuToAction
-    ) {
-        if (allRoundActionNodes == null) throw new ArgumentNullException(nameof(allRoundActionNodes));
-        if (allRoundXunmuToAction == null) throw new ArgumentNullException(nameof(allRoundXunmuToAction));
-
-        allRoundActionNodes.Clear();
-        allRoundXunmuToAction.Clear();
-
-        GameRecord gameRecord = ParseGameRecord(recordJson);
-        foreach (var round in gameRecord.gameRound.GetRoundsList()) {
-            allRoundActionNodes.Add(round.actionTicks);
-            allRoundXunmuToAction.Add(round.xunmuToActionIndex);
-        }
     }
 }
