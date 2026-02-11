@@ -598,13 +598,14 @@ class QingqueGameState:
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
 
-        """
         # 存储游戏牌谱
         game_id = self.db_manager.store_guobiao_game_record(
             self.game_record,
             self.player_list,
             self.room_type
         )
+
+        """
         
         # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)

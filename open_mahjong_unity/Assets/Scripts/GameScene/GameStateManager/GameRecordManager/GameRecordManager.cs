@@ -31,15 +31,17 @@ public class GameRecordManager : MonoBehaviour {
     public Dictionary<string, RecordPlayer> recordPlayer_to_info { get; private set; } = new Dictionary<string, RecordPlayer>();
     // 5.当前操作节点
     public int currentNode;
-    List<RecordPlayer> recordPlayerList = new List<RecordPlayer>();
+    
+    [SerializeField] private List<RecordPlayer> recordPlayerList = new List<RecordPlayer>();
     // 6.用户ID到用户名的映射
     private Dictionary<int, string> userIdToUsername = new Dictionary<int, string>();
 
+    [Serializable]
     public class RecordPlayer {
         public int userId;
         public int originalPlayerIndex;
         public int playerIndex;
-        public List<int> tileList;
+        public List<int> tileList = new List<int>();
         public int title_used;
         public int profile_used;
         public int character_used;
@@ -186,10 +188,11 @@ public class GameRecordManager : MonoBehaviour {
         recordPlayerList.Add(new RecordPlayer{userId = Convert.ToInt32(gameRecord.gameTitle["p3_user_id"]), originalPlayerIndex = 3});
 
         // 根据规则和回合数确定玩家初始位置
+        string rawRule = gameRecord?.gameTitle?["rule"]?.ToString() ?? "";
+        string rule = rawRule.Trim().Trim('"').Trim().ToLowerInvariant();
+        Debug.Log($"规则值: [{rule}]");
         foreach (var recordPlayer in recordPlayerList){
-            string rule = Convert.ToString(gameRecord.gameTitle["rule"]).Trim('"');
-            Debug.Log($"规则值: [{rule}]");
-            if (rule == "guobiao" || rule == "qingque") {
+            if (rule == "guobiao") {
                 if (roundIndex >= 13) {
                     if (recordPlayer.originalPlayerIndex == 0) {
                         recordPlayer.playerIndex = 2;
@@ -231,6 +234,7 @@ public class GameRecordManager : MonoBehaviour {
                     else if (recordPlayer.originalPlayerIndex == 3) {
                         recordPlayer.playerIndex = 2;
                     }
+                }
                 else {
                     if (recordPlayer.originalPlayerIndex == 0) {
                         recordPlayer.playerIndex = 0;
@@ -246,11 +250,24 @@ public class GameRecordManager : MonoBehaviour {
                     }
                 }
             }
+            else if (rule == "qingque"){
+                if (recordPlayer.originalPlayerIndex == 0) {
+                    recordPlayer.playerIndex = 0;
+                }
+                else if (recordPlayer.originalPlayerIndex == 1) {
+                    recordPlayer.playerIndex = 1;
+                }
+                else if (recordPlayer.originalPlayerIndex == 2) {
+                    recordPlayer.playerIndex = 2;
+                }
+                else if (recordPlayer.originalPlayerIndex == 3) {
+                    recordPlayer.playerIndex = 3;
+                }
+            }
             else {
                 Debug.LogError("规则错误");
             }
-        }
-
+        
         int moveIndex = roundIndex% 4 - 1;
         if (moveIndex == 0) {
             recordPlayer.playerIndex = recordPlayer.originalPlayerIndex;
@@ -270,7 +287,7 @@ public class GameRecordManager : MonoBehaviour {
     }
 
         refreshSelectNode();
-    }
+        }
 
     private void refreshSelectNode(){
 

@@ -1,7 +1,7 @@
 from typing import Dict
 from ..public.logic_common import back_current_num
 
-def next_game_round(self):
+def next_game_round_switchseat(self):
     """进入下一局游戏"""
     # 局数+1
     self.current_round += 1
@@ -63,3 +63,28 @@ def next_game_round(self):
     # 创建一个新的排序列表，按player_index从小到大排列
     self.player_list.sort(key=lambda x: x.player_index)
 
+def next_game_round(self):
+    """进入下一局游戏"""
+    # 局数+1
+    self.current_round += 1
+    self.round_index += 1 
+    self.current_player_index = 0
+    self.xunmu = 1
+    self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+
+    # 清空花牌弃牌组合牌列表 重置时间
+    self.hu_class = None
+    for i in self.player_list:
+        i.hand_tiles = []
+        i.huapai_list = []
+        i.discard_tiles = []
+        i.waiting_tiles = set()
+        i.combination_tiles = []
+        i.combination_mask = []
+        i.remaining_time = self.round_time
+        if "peida" in i.tag_list:
+            i.tag_list.remove("peida")
+        i.player_index = back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
+
+    # 创建一个新的排序列表，按player_index从小到大排列
+    self.player_list.sort(key=lambda x: x.player_index)

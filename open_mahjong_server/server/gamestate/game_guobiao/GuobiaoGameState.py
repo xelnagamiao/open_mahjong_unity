@@ -19,7 +19,7 @@ from .boardcast import (
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_guobiao_tiles
-from ..public.next_game_round import next_game_round
+from ..public.next_game_round import next_game_round_switchseat
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -715,7 +715,7 @@ class GuobiaoGameState:
                 self.game_status = "ready_completed"
 
             # 开启下一局的准备工作
-            next_game_round(self)   
+            next_game_round_switchseat(self)   
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
