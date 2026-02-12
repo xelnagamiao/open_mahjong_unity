@@ -19,6 +19,10 @@ public class GameSceneUIManager : MonoBehaviour
         }
     }
 
+    private void Start(){
+        ClearTemporaryPanels();
+    }
+
     /// <summary>
     /// 清空所有临时面板
     /// </summary>
@@ -83,7 +87,32 @@ public class GameSceneUIManager : MonoBehaviour
     /// 初始化游戏开始（清空临时面板并显示自动行为组件）
     /// </summary>
     public void InitGameStart() {
-        ClearTemporaryPanels();
-        AutoAction.Instance.Initialize();
+        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
+        EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
+        EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
+        StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
+        GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
+        GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
+        TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
+        TipsContainer.Instance.HideTips(); // 隐藏提示容器
+        GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
+        AutoAction.Instance.gameObject.SetActive(true);
+        AutoAction.Instance.Initialize(); // 初始化自动行为组件
+    }
+
+    public void InitGameRecord() {
+        EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
+        EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
+        EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
+        StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
+        GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
+        GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
+        TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
+        TipsContainer.Instance.HideTips(); // 隐藏提示容器
+        AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
+        GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
+        GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
     }
 }

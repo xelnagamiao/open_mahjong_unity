@@ -311,6 +311,7 @@ public class NormalGameStateManager : MonoBehaviour{
         SwitchCurrentPlayer("None","ClearAction",0);
         // 隐藏和牌提示
         TipsBlock.Instance.HideTipsBlock();
+        TipsContainer.Instance.HideTips();
         // 显示结算结果
         if (hu_class == "liuju"){
             // 流局情况下，显示流局
@@ -379,6 +380,7 @@ public class NormalGameStateManager : MonoBehaviour{
                 }
                 // 询问操作时隐藏提示块
                 TipsBlock.Instance.HideTipsBlock();
+                TipsContainer.Instance.HideTips();
             }
             // 询问的不是自己的回合
             else{

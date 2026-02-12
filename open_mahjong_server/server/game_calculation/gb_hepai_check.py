@@ -685,6 +685,8 @@ class Chinese_Hepai_Check:
                 if int(sign) == sign_pointer + 1:
                     sign_count += 1
                     sign_pointer = int(sign)
+                elif int(sign) == sign_pointer:
+                    pass
                 else: # 如果顺子标记的步进不连续 则重新开始计数
                     if sign_count <= 2:
                         sign_count = 1
@@ -702,6 +704,8 @@ class Chinese_Hepai_Check:
                 if int(sign) == sign_pointer + 2:
                     sign_count += 1
                     sign_pointer = int(sign)
+                elif int(sign) == sign_pointer:
+                    pass
                 else:
                     if sign_count <= 2:
                         sign_count = 1
@@ -1673,6 +1677,8 @@ if __name__ == "__main__":
     # 41东,42南,43西,44北,
     # 45中,46白,47发 
 
+
+    test_save = [["s37"],[11,14,17,23,26,29,32,35,38,39,39],39,[]]
 
     
 

@@ -116,7 +116,7 @@ public class GameRecordManager : MonoBehaviour {
     // 加载牌谱
     public void LoadRecord(string recordJson, PlayerRecordInfo[] players_info = null) {
         // 清空临时面板
-        GameSceneUIManager.Instance.ClearTemporaryPanels();
+        GameSceneUIManager.Instance.InitGameRecord();
 
         // 初始化selfPlayerId，如果selectedPlayerUserid没有值，后续使用selfPlayerId作为显示玩家的默认值
         selfPlayerId = 0;

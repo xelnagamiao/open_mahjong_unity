@@ -458,55 +458,19 @@ async def wait_action(self):
             else:
                 self.game_status = "deal_card" # 历时行为
                 return
-        
-        # 等待准备阶段
         case "waiting_ready":
-            # 检查所有机器人玩家（user_id <= 10），自动执行准备操作
-            bot_ready_list = []
-            for bot_player_index in list(self.waiting_players_list):  # 使用 list 副本避免修改时迭代错误
-                if self.player_list[bot_player_index].user_id <= 10:
-                    # 机器人自动准备
-                    bot_action_data = {
-                        "action_type": "ready"
-                    }
-                    await self.action_queues[bot_player_index].put(bot_action_data)
-                    self.action_events[bot_player_index].set()
-                    bot_ready_list.append(bot_player_index)
-                    logger.info(f"机器人玩家 {bot_player_index} (user_id={self.player_list[bot_player_index].user_id}) 自动准备")
-            
-            # 处理机器人准备：从等待列表中移除
-            for bot_index in bot_ready_list:
-                if bot_index in self.waiting_players_list:
-                    self.waiting_players_list.remove(bot_index)
-            
-            # 如果有机器人准备，广播状态更新
-            if bot_ready_list:
-                await broadcast_ready_status(self)
-                # 检查是否所有玩家都准备好了（等待列表为空）
-                if not self.waiting_players_list:
-                    logger.info("所有玩家已准备（包含机器人），立即开始下一局")
-                    return
-            
-            # 准备阶段：所有玩家都需要准备
+            # 准备阶段按“单次处理 + 上层循环”的方式执行
             if action_data:
-                # 有玩家准备
                 if action_type == "ready":
-                    # 从等待列表中移除该玩家
-                    if player_index in self.waiting_players_list:
-                        self.waiting_players_list.remove(player_index)
-                        logger.info(f"玩家 {player_index} 已准备，剩余等待: {len(self.waiting_players_list)}")
-                        
-                        # 广播准备状态更新
-                        await broadcast_ready_status(self)
-                        
-                        # 检查是否所有玩家都准备好了（等待列表为空）
-                        if not self.waiting_players_list:
-                            logger.info("所有玩家已准备，立即开始下一局")
-                            return
-            else:
-                # 超时：所有未准备的玩家视为超时
-                logger.info("准备阶段超时，开始下一局")
-                # 清空等待列表，结束等待
-                self.waiting_players_list = []
-                return
+                    # 主循环里已将该玩家 action_dict 清空，这里广播最新准备状态
+                    await broadcast_ready_status(self)
+                    return True
+                logger.error(f"等待准备阶段出现非ready的操作类型: {action_type}")
+                return False
 
+            # 超时：将仍未准备玩家视为放弃本轮准备，避免上层循环卡死
+            for wait_player_index, wait_actions in self.action_dict.items():
+                if "ready" in wait_actions:
+                    self.action_dict[wait_player_index] = []
+            await broadcast_ready_status(self)
+            return False

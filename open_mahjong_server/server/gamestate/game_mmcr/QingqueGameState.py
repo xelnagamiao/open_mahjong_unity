@@ -565,19 +565,24 @@ class QingqueGameState:
                 # 为所有玩家设置准备操作和剩余时间
                 self.action_dict = {}
                 for player in self.player_list:
-                    # 所有玩家都可以准备
-                    self.action_dict[player.player_index] = ["ready"]
-                    # 设置剩余时间为等待时间（转换为秒）
-                    player.remaining_time = int(wait_time)
+                    # 机器人默认准备，人类玩家需要准备
+                    if player.user_id <= 10:
+                        self.action_dict[player.player_index] = []
+                    else:
+                        self.action_dict[player.player_index] = ["ready"]
+                        # 准备阶段直接使用玩家 remaining_time 作为等待上限
+                        player.remaining_time = int(wait_time)
                 
                 # 设置游戏状态为等待准备
                 self.game_status = "waiting_ready"
+                # 广播初始准备状态
+                await broadcast_ready_status(self)
                 
-                # 使用 wait_action 等待所有玩家准备
-                await wait_action(self)
-                
-                # wait_action 返回后，重置状态
-                self.game_status = "ready_completed"
+                # 参考补花轮设计：由上层循环驱动，wait_action 每次只处理一次准备
+                while any(self.action_dict[i] for i in self.action_dict):
+                    # 返回 False 代表超时或异常，直接结束准备阶段
+                    if await wait_action(self) is False:
+                        break
 
             # 开启下一局的准备工作
             next_game_round(self)   

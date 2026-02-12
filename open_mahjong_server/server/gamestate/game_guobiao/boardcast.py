@@ -511,8 +511,13 @@ async def broadcast_ready_status(self):
     # 判断准备状态
     player_to_ready = {}
     for player in self.player_list:
-        # 如果玩家不在等待列表中，说明已准备
-        player_to_ready[player.player_index] = player.player_index not in self.waiting_players_list
+        # 如果玩家仍在等待准备，说明未准备
+        # 使用.get()方法安全访问，如果键不存在或值为空列表，说明已准备
+        action_list = self.action_dict.get(player.player_index, [])
+        if action_list and "ready" in action_list:
+            player_to_ready[player.player_index] = False
+        else:
+            player_to_ready[player.player_index] = True
     
     ready_info = Ready_status_info(
         player_to_ready=player_to_ready
