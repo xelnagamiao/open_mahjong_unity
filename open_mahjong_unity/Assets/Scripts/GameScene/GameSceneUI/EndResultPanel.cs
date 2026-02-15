@@ -90,9 +90,6 @@ public class EndResultPanel : MonoBehaviour {
         // 非激活状态按钮
         EndButton.onClick.AddListener(EndButtonClick);
         EndButton.interactable = false;
-
-        Instance = this;
-
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){

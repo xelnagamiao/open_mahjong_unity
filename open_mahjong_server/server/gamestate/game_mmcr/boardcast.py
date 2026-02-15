@@ -27,29 +27,6 @@ async def broadcast_game_start(self):
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
-    # 为每个玩家准备信息
-    for player in self.player_list: # 遍历玩家列表
-        player_info = {
-            'user_id': player.user_id, # 用户ID
-            'username': player.username, # 用户名（用于显示）
-            'hand_tiles_count': len(player.hand_tiles), # 手牌数量
-            'discard_tiles': player.discard_tiles, # 弃牌
-            'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
-            'combination_tiles': player.combination_tiles, # 组合
-            "combination_mask": player.combination_mask, # 组合形状
-            "huapai_list": player.huapai_list, # 花牌列表
-            'remaining_time': player.remaining_time, # 剩余局时
-            'player_index': player.player_index, # 东南西北位置
-            'original_player_index': player.original_player_index, # 原始玩家索引 东南西北 0 1 2 3
-            'score': player.score, # 分数
-            "title_used": player.title_used, # 称号ID
-            'profile_used': player.profile_used, # 使用的头像ID
-            'character_used': player.character_used, # 使用的角色ID
-            'voice_used': player.voice_used, # 使用的音色ID
-            'score_history': player.score_history, # 分数历史变化列表
-            'tag_list': player.tag_list, # 标签列表
-        }
-        base_game_info['players_info'].append(player_info) # 将字典添加到列表中
 
     # 为每个玩家发送消息
     for current_player in self.player_list:
@@ -66,12 +43,41 @@ async def broadcast_game_start(self):
             # 如果player_list中有玩家在self.game_server.user_id_to_connection:
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                
-                # 将游戏信息字典转换为 GameInfo 类 并添加 self_hand_tiles 字段
-                game_info = GameInfo(
+
+                # 为当前玩家构建玩家信息列表（当前玩家看到自己的手牌，其他人看不到）
+                players_info_for_current = []
+                for player in self.player_list:
+                    player_info = {
+                        'user_id': player.user_id, # 用户ID
+                        'username': player.username, # 用户名（用于显示）
+                        'hand_tiles_count': len(player.hand_tiles), # 手牌数量
+                        'hand_tiles': player.hand_tiles if player.user_id == current_player.user_id else None,  # 只有自己的手牌
+                        'discard_tiles': player.discard_tiles, # 弃牌
+                        'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
+                        'combination_tiles': player.combination_tiles, # 组合
+                        "combination_mask": player.combination_mask, # 组合形状
+                        "huapai_list": player.huapai_list, # 花牌列表
+                        'remaining_time': player.remaining_time, # 剩余局时
+                        'player_index': player.player_index, # 东南西北位置
+                        'original_player_index': player.original_player_index, # 原始玩家索引 东南西北 0 1 2 3
+                        'score': player.score, # 分数
+                        "title_used": player.title_used, # 称号ID
+                        'profile_used': player.profile_used, # 使用的头像ID
+                        'character_used': player.character_used, # 使用的角色ID
+                        'voice_used': player.voice_used, # 使用的音色ID
+                        'score_history': player.score_history, # 分数历史变化列表
+                        'tag_list': player.tag_list, # 标签列表
+                    }
+                    players_info_for_current.append(player_info)
+
+                # 构建当前玩家的游戏信息（手牌在 PlayerInfo 中，不再使用 self_hand_tiles）
+                game_info_for_current = {
                     **base_game_info,
-                    self_hand_tiles=current_player.hand_tiles  # 只包含当前玩家的手牌
-                )
+                    'players_info': players_info_for_current,
+                    'self_hand_tiles': None
+                }
+
+                game_info = GameInfo(**game_info_for_current)
 
                 response = Response(
                     type="gamestate/qingque/game_start",

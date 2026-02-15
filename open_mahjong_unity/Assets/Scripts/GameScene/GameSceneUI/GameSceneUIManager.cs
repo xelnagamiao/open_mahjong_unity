@@ -20,7 +20,7 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     private void Start(){
-        ClearTemporaryPanels();
+        // ClearTemporaryPanels();
     }
 
     /// <summary>
