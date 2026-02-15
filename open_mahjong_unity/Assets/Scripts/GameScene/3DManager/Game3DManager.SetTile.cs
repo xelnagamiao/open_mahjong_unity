@@ -41,10 +41,14 @@ public partial class Game3DManager : MonoBehaviour
             rotation = Quaternion.Euler(90, 0, 270);
         }
 
+        bool isRecordSet = SetType == "Record";
         // 添加随机的 z 轴旋转（正负3度），模拟手牌排列的自然效果
-        Vector3 euler = rotation.eulerAngles;
-        euler.z += Random.Range(-3f, 3f);
-        rotation = Quaternion.Euler(euler);
+        if (!isRecordSet)
+        {
+            Vector3 euler = rotation.eulerAngles;
+            euler.z += Random.Range(-3f, 3f);
+            rotation = Quaternion.Euler(euler);
+        }
 
         // 获取每行最多放多少张牌
         int cardsPerRow;
@@ -141,10 +145,14 @@ public partial class Game3DManager : MonoBehaviour
             rotation = Quaternion.Euler(90, 0, 270);
         }
 
+        bool isRecordSet = SetType == "Record";
         // 添加随机的 z 轴旋转（正负3度），模拟手牌排列的自然效果
-        Vector3 euler = rotation.eulerAngles;
-        euler.z += Random.Range(-3f, 3f);
-        rotation = Quaternion.Euler(euler);
+        if (!isRecordSet)
+        {
+            Vector3 euler = rotation.eulerAngles;
+            euler.z += Random.Range(-3f, 3f);
+            rotation = Quaternion.Euler(euler);
+        }
 
         // 获取每行最多放多少张牌
         int cardsPerRow;
@@ -157,6 +165,10 @@ public partial class Game3DManager : MonoBehaviour
         else if (SetType == "Buhua")
         {
             cardsPerRow = 4;
+        }
+        else if (SetType == "Record")
+        {
+            cardsPerRow = 14;
         }
         else
         {
@@ -189,6 +201,12 @@ public partial class Game3DManager : MonoBehaviour
         if (Card3DHoverManager.Instance != null)
         {
             Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
+        }
+
+        if (isRecordSet)
+        {
+            cardObj.transform.position = currentPosition;
+            return;
         }
 
         // 启动移动动画：先移动到最后删除的位置，然后移动到目标位置

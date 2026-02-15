@@ -123,8 +123,19 @@ public partial class Game3DManager : MonoBehaviour {
             }
         }
 
+        if (actionType == "InitHandCardsFromRecord"){
+            yield return StartCoroutine(ClearRecordHandCardsCoroutine());
+            RenderRecordPlayerHand("left");
+            RenderRecordPlayerHand("top");
+            RenderRecordPlayerHand("right");
+        }
+
         // 摸牌 
         else if (actionType == "GetCard"){
+            if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
+                RenderRecordPlayerHand(PlayerPosition);
+                yield break;
+            }
             yield return StartCoroutine(Get3DTileCoroutine(PlayerPosition,"get"));
         }
 
@@ -137,6 +148,12 @@ public partial class Game3DManager : MonoBehaviour {
         // 弃牌
         else if (actionType == "Discard"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
+            if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
+                yield return StartCoroutine(RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, cut_class));
+                yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition));
+                RenderRecordPlayerHand(PlayerPosition);
+                yield break;
+            }
             if (PlayerPosition != "self"){
                 // 等待删除手牌完成，避免同时执行造成帧抖动
                 yield return StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, cut_class));
@@ -154,6 +171,12 @@ public partial class Game3DManager : MonoBehaviour {
         // 补花
         else if (actionType == "Buhua"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
+            if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
+                yield return StartCoroutine(RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, false));
+                yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition));
+                RenderRecordPlayerHand(PlayerPosition);
+                yield break;
+            }
             if (PlayerPosition != "self"){
                 // 等待删除手牌完成，避免同时执行造成帧抖动
                 yield return StartCoroutine(RemoveOtherHandCardsCoroutine(panel.cardsPosition, 1, false));
@@ -226,6 +249,94 @@ public partial class Game3DManager : MonoBehaviour {
         }
         
         // 等待一帧，确保所有对象都被归还，childCount 更新
+        yield return null;
+    }
+
+    private IEnumerator ClearRecordHandCardsCoroutine(){
+        List<GameObject> objectsToReturn = new List<GameObject>();
+        CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(topPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(leftPosPanel.ShowCardsPosition, objectsToReturn);
+        CollectChildren(topPosPanel.ShowCardsPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.ShowCardsPosition, objectsToReturn);
+        foreach (GameObject obj in objectsToReturn) {
+            MahjongObjectPool.Instance.Return(-1, obj);
+        }
+        yield return null;
+    }
+
+    public void RefreshRecordHandDisplay(){
+        Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
+    }
+
+    private void RenderRecordPlayerHand(string playerPosition){
+        List<int> handTiles = GameRecordManager.Instance.recordPlayer_to_info[playerPosition].tileList;
+        PosPanel3D panel = GetPosPanel(playerPosition);
+        ClearPlayerRecordHandObjects(panel);
+        bool isShowCardsMode = RecordSetting.Instance.IsShowCardsMode;
+        Transform target = isShowCardsMode ? panel.ShowCardsPosition : panel.cardsPosition;
+        if (isShowCardsMode){
+            List<int> sortedTiles = new List<int>(handTiles);
+            sortedTiles.Sort();
+            for (int i = 0; i < sortedTiles.Count; i++){
+                Set3DTile(sortedTiles[i], target, "Record", playerPosition);
+            }
+            return;
+        }
+        for (int i = 0; i < handTiles.Count; i++){
+            Get3DTile(playerPosition,"init");
+        }
+    }
+
+    private bool IsRecordShowCardsModeActive(){
+        return RecordSetting.Instance != null &&
+               RecordSetting.Instance.IsShowCardsMode &&
+               GameRecordManager.Instance != null &&
+               GameRecordManager.Instance.gameObject.activeSelf;
+    }
+
+    private void ClearPlayerRecordHandObjects(PosPanel3D panel){
+        List<GameObject> objectsToReturn = new List<GameObject>();
+        CollectChildren(panel.cardsPosition, objectsToReturn);
+        CollectChildren(panel.ShowCardsPosition, objectsToReturn);
+        foreach (GameObject obj in objectsToReturn){
+            MahjongObjectPool.Instance.Return(-1, obj);
+        }
+    }
+
+    private IEnumerator RemoveRecordShowHandCardCoroutine(Transform showCardsPosition, int tileId, bool cutClass){
+        if (showCardsPosition.childCount == 0) {
+            yield break;
+        }
+
+        Transform targetCard = null;
+        if (cutClass) {
+            for (int i = showCardsPosition.childCount - 1; i >= 0; i--) {
+                Transform child = showCardsPosition.GetChild(i);
+                Tile3D tile3D = child.GetComponent<Tile3D>();
+                if (tile3D != null && tile3D.GetTileId() == tileId) {
+                    targetCard = child;
+                    break;
+                }
+            }
+        } else {
+            for (int i = 0; i < showCardsPosition.childCount; i++) {
+                Transform child = showCardsPosition.GetChild(i);
+                Tile3D tile3D = child.GetComponent<Tile3D>();
+                if (tile3D != null && tile3D.GetTileId() == tileId) {
+                    targetCard = child;
+                    break;
+                }
+            }
+        }
+
+        if (targetCard == null) {
+            targetCard = showCardsPosition.GetChild(showCardsPosition.childCount - 1);
+        }
+
+        lastRemove3DPosition = targetCard.position;
+        MahjongObjectPool.Instance.Return(-1, targetCard.gameObject);
         yield return null;
     }
     

@@ -186,6 +186,72 @@ public partial class GameCanvas : MonoBehaviour {
         }
     }
 
+    // 从牌谱记录更新左上房间信息
+    public void UpdateRoomInfoFromRecord(GameRecord gameRecord, int currentRoundIndex) {
+        string roomType = ReadStringValue(gameRecord.gameTitle, "rule", "guobiao");
+        int maxRound = ReadIntValue(gameRecord.gameTitle, "max_round", 0);
+        if (maxRound <= 0) {
+            int roundCount = gameRecord.gameRound.rounds.Count;
+            maxRound = Mathf.Clamp((roundCount + 3) / 4, 1, 4);
+        }
+
+        int currentRound = currentRoundIndex;
+        long roundRandomSeed = 0;
+        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
+            if (roundData.currentRound > 0) {
+                currentRound = roundData.currentRound;
+            }
+            roundRandomSeed = roundData.roundRandomSeed;
+        }
+
+        GameInfo gameInfo = new GameInfo {
+            room_type = roomType,
+            max_round = maxRound,
+            current_round = currentRound,
+            round_random_seed = roundRandomSeed,
+            open_cuohe = ReadBoolValue(gameRecord.gameTitle, "open_cuohe", false),
+            tips = ReadBoolValue(gameRecord.gameTitle, "tips", false),
+            isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
+        };
+        roundPanel.UpdateRoomInfo(gameInfo, roomType);
+    }
+
+    private static string ReadStringValue(Dictionary<string, object> source, string key, string defaultValue) {
+        if (source == null || !source.TryGetValue(key, out object value) || value == null) {
+            return defaultValue;
+        }
+        string text = value.ToString().Trim().Trim('"');
+        return string.IsNullOrEmpty(text) ? defaultValue : text.ToLowerInvariant();
+    }
+
+    private static int ReadIntValue(Dictionary<string, object> source, string key, int defaultValue) {
+        if (source == null || !source.TryGetValue(key, out object value) || value == null) {
+            return defaultValue;
+        }
+        if (value is int directInt) {
+            return directInt;
+        }
+        return int.TryParse(value.ToString(), out int parsed) ? parsed : defaultValue;
+    }
+
+    private static bool ReadBoolValue(Dictionary<string, object> source, string key, bool defaultValue) {
+        if (source == null || !source.TryGetValue(key, out object value) || value == null) {
+            return defaultValue;
+        }
+        if (value is bool directBool) {
+            return directBool;
+        }
+
+        string text = value.ToString().Trim().Trim('"');
+        if (bool.TryParse(text, out bool parsedBool)) {
+            return parsedBool;
+        }
+        if (int.TryParse(text, out int parsedInt)) {
+            return parsedInt != 0;
+        }
+        return defaultValue;
+    }
+
     // 更新玩家标签列表
     public void UpdatePlayerTagList(Dictionary<int, string[]> player_to_tag_list) {
         foreach (var kvp in player_to_tag_list) {

@@ -37,6 +37,7 @@ public class GameSceneUIManager : MonoBehaviour
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
+        RecordSetting.Instance.gameObject.SetActive(false); // 隐藏牌谱设置组件
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
     }
 
@@ -99,6 +100,7 @@ public class GameSceneUIManager : MonoBehaviour
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         AutoAction.Instance.gameObject.SetActive(true);
         AutoAction.Instance.Initialize(); // 初始化自动行为组件
+        RecordSetting.Instance.gameObject.SetActive(false);
     }
 
     public void InitGameRecord() {
@@ -112,6 +114,8 @@ public class GameSceneUIManager : MonoBehaviour
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
+        RecordSetting.Instance.gameObject.SetActive(true);
+        RecordSetting.Instance.Initialize();
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
     }

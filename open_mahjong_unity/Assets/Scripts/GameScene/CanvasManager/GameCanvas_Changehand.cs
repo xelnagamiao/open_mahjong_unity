@@ -56,6 +56,20 @@ public partial class GameCanvas{
             }
         }
 
+        else if (ChangeType == "InitHandCardsFromRecord"){
+            for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
+                Transform child = handCardsContainer.GetChild(i);
+                Destroyer.Instance.AddToDestroyer(child);
+            }
+            for (int i = 0; i < TilesList.Length; i++){
+                GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+                TileCard tileCard = cardObj.GetComponent<TileCard>();
+                tileCard.SetTile(TilesList[i], false);
+                RectTransform cardRect = cardObj.GetComponent<RectTransform>();
+                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
+            }
+        }
+
         // 摸牌 添加摸牌区手牌
         else if (ChangeType == "GetCard"){
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
@@ -185,7 +199,7 @@ public partial class GameCanvas{
 
         // 初始化卡牌、摸切、手切、单次补花、吃碰杠以后 进行卡牌排序 
         else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" ||
-         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard"){
+         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "InitHandCardsFromRecord" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard"){
             isArranged = true;
             // 等待排序完成
             yield return StartCoroutine(RearrangeHandCardsWithAnimation());

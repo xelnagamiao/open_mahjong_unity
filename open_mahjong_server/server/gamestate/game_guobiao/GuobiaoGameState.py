@@ -365,7 +365,7 @@ class GuobiaoGameState:
                             self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                             self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                             # 牌谱记录补花
-                            player_action_record_buhua(self,max_tile = max_tile)
+                            player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                             # 广播补花操作（使用 deal_buhua_tile 作为补花摸牌标识）
@@ -438,7 +438,7 @@ class GuobiaoGameState:
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
                         self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                         # 牌谱记录补花
-                        player_action_record_buhua(self,max_tile = max_tile)
+                        player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播补花操作

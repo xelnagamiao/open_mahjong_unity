@@ -31,10 +31,15 @@ public class GameRecordManager : MonoBehaviour {
     public Dictionary<string, RecordPlayer> recordPlayer_to_info { get; private set; } = new Dictionary<string, RecordPlayer>();
     // 5.当前操作节点
     public int currentNode;
+    public int currentPlayerIndex;
+    // 5.当前局数
+    public int currentRoundIndex;
     
     [SerializeField] private List<RecordPlayer> recordPlayerList = new List<RecordPlayer>();
     // 6.用户ID到用户名的映射
     private Dictionary<int, string> userIdToUsername = new Dictionary<int, string>();
+    // 7.用户ID到分数的映射（牌谱初始化中心盘使用）
+    private Dictionary<int, int> userIdToScore = new Dictionary<int, int>();
 
     [Serializable]
     public class RecordPlayer {
@@ -125,7 +130,7 @@ public class GameRecordManager : MonoBehaviour {
         }
         selectedPlayerUserid = 0;
         currentNode = 0;
-
+        currentRoundIndex = 1;
         // 解析牌谱
         // 显示牌谱管理器
         gameObject.SetActive(true);
@@ -141,6 +146,7 @@ public class GameRecordManager : MonoBehaviour {
         // 解析玩家信息
         playersSettings.Clear();
         userIdToUsername.Clear();
+        userIdToScore.Clear();
         if (players_info != null && players_info.Length > 0) {
             // 解析玩家信息
             foreach (var player in players_info) {
@@ -154,6 +160,7 @@ public class GameRecordManager : MonoBehaviour {
                 playersSettings.Add(setting);
                 // 保存用户ID到用户名的映射
                 userIdToUsername[player.user_id] = player.username;
+                userIdToScore[player.user_id] = player.score;
             }
             // 根据玩家信息确定玩家原始位置
             foreach (var PlayerSetting in playersSettings){
@@ -173,10 +180,10 @@ public class GameRecordManager : MonoBehaviour {
         }
 
         // 初始化默认数据
-        InitGameRound(1);
+        InitGameRound();
     }
 
-    private void InitGameRound(int roundIndex) {
+    private void InitGameRound() {
         // 重置局内行动节点
         currentNode = 0;
 
@@ -193,7 +200,7 @@ public class GameRecordManager : MonoBehaviour {
         Debug.Log($"规则值: [{rule}]");
         foreach (var recordPlayer in recordPlayerList){
             if (rule == "guobiao") {
-                if (roundIndex >= 13) {
+                if (currentRoundIndex >= 13) {
                     if (recordPlayer.originalPlayerIndex == 0) {
                         recordPlayer.playerIndex = 2;
                     }
@@ -207,7 +214,7 @@ public class GameRecordManager : MonoBehaviour {
                         recordPlayer.playerIndex = 0;
                     }
                 }
-                else if (roundIndex >= 9) {
+                else if (currentRoundIndex >= 9) {
                     if (recordPlayer.originalPlayerIndex == 0) {
                         recordPlayer.playerIndex = 3;
                     }
@@ -221,7 +228,7 @@ public class GameRecordManager : MonoBehaviour {
                         recordPlayer.playerIndex = 1;
                     }
                 }
-                else if (roundIndex >= 5) {
+                else if (currentRoundIndex >= 5) {
                     if (recordPlayer.originalPlayerIndex == 0) {
                         recordPlayer.playerIndex = 1;
                     }
@@ -268,7 +275,7 @@ public class GameRecordManager : MonoBehaviour {
                 Debug.LogError("规则错误");
             }
         
-        int moveIndex = roundIndex% 4 - 1;
+        int moveIndex = currentRoundIndex % 4 - 1;
         if (moveIndex == 0) {
             recordPlayer.playerIndex = recordPlayer.originalPlayerIndex;
         }
@@ -284,10 +291,9 @@ public class GameRecordManager : MonoBehaviour {
         else {
             Debug.LogError("移动索引错误");
         }
-    }
-
-        refreshSelectNode();
         }
+    refreshSelectNode();
+    }
 
     private void refreshSelectNode(){
 
@@ -352,10 +358,49 @@ public class GameRecordManager : MonoBehaviour {
             }
         }
 
-        // 初始化玩家UI
-        if (GameCanvas.Instance != null) {
-            GameCanvas.Instance.InitializeUIInfoFromRecord(recordPlayerList, indexToPosition, userIdToUsername);
+        // 给玩家设置初始手牌
+        foreach (var recordPlayer in recordPlayerList){
+            if (recordPlayer.originalPlayerIndex == 0){
+                recordPlayer.tileList = gameRecord.gameRound.rounds[currentRoundIndex].p0Tiles;
+            }
+            else if (recordPlayer.originalPlayerIndex == 1){
+                recordPlayer.tileList = gameRecord.gameRound.rounds[currentRoundIndex].p1Tiles;
+            }
+            else if (recordPlayer.originalPlayerIndex == 2){
+                recordPlayer.tileList = gameRecord.gameRound.rounds[currentRoundIndex].p2Tiles;
+            }
+            else if (recordPlayer.originalPlayerIndex == 3){
+                recordPlayer.tileList = gameRecord.gameRound.rounds[currentRoundIndex].p3Tiles;
+            }
         }
+
+        // 初始化玩家UI
+        GameCanvas.Instance.InitializeUIInfoFromRecord(recordPlayerList, indexToPosition, userIdToUsername);
+
+        // 初始化中心操作盘Controlpanel
+        int remainTiles = 0;
+        int displayRound = currentRoundIndex;
+        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round currentRoundData)) {
+            remainTiles = currentRoundData.tilesList != null ? currentRoundData.tilesList.Count : 0;
+            if (currentRoundData.currentRound > 0) {
+                displayRound = currentRoundData.currentRound;
+            }
+        }
+        string roomType = gameRecord.gameTitle["rule"].ToString().Trim().Trim('"').ToLowerInvariant();
+        BoardCanvas.Instance.InitializeBoardInfoFromRecord(recordPlayerList, indexToPosition, userIdToScore, roomType, displayRound, remainTiles);
+
+        // 初始化左上局数面板RoundPanel
+        GameCanvas.Instance.UpdateRoomInfoFromRecord(gameRecord, currentRoundIndex);
+
+        // 初始化手牌
+        GameCanvas.Instance.ChangeHandCards("InitHandCardsFromRecord",0,recordPlayer_to_info["self"].tileList.ToArray(),null);
+        Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
+
+        // 初始化当前action位置
+        currentPlayerIndex = 0;
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex]);
+
+
 
 
         
@@ -366,7 +411,106 @@ public class GameRecordManager : MonoBehaviour {
     
     
     
-    
+    private void NextAction() {
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
+            return;
+        }
+        if (roundData.actionTicks == null || currentNode >= roundData.actionTicks.Count) {
+            return;
+        }
+
+        List<string> tick = roundData.actionTicks[currentNode];
+        if (tick == null || tick.Count == 0) {
+            currentNode++;
+            return;
+        }
+
+        string action = tick[0];
+        string currentPlayerPosition = indexToPosition[currentPlayerIndex];
+        RecordPlayer currentRecordPlayer = recordPlayer_to_info[currentPlayerPosition];
+
+        if (action == "deal") {
+            int dealTile = ParseTickInt(tick, 1);
+            currentRecordPlayer.tileList.Add(dealTile);
+            if (currentPlayerPosition == "self") {
+                GameCanvas.Instance.ChangeHandCards("GetCard", dealTile, null, null);
+            } else {
+                Game3DManager.Instance.Change3DTile("GetCard", dealTile, 0, currentPlayerPosition, false, null);
+            }
+        }
+        else if (action == "cut") {
+            int cutTile = ParseTickInt(tick, 1);
+            bool isMoqie = ParseTickBool(tick, 2);
+            int cutIndex = RemoveTileForCut(currentRecordPlayer.tileList, cutTile, isMoqie);
+
+            if (currentPlayerPosition == "self") {
+                if (isMoqie) {
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", cutTile, null, null);
+                } else {
+                    GameCanvas.Instance.ChangeHandCards("RemoveHandCard", cutTile, null, cutIndex);
+                }
+            }
+            Game3DManager.Instance.Change3DTile("Discard", cutTile, 0, currentPlayerPosition, isMoqie, null);
+            currentPlayerIndex = (currentPlayerIndex + 1) % 4;
+        }
+        else if (action == "buhua") {
+            int buhuaTile = ParseTickInt(tick, 1);
+            if (tick.Count >= 3) {
+                currentPlayerIndex = ParseTickInt(tick, 2);
+                currentPlayerPosition = indexToPosition[currentPlayerIndex];
+                currentRecordPlayer = recordPlayer_to_info[currentPlayerPosition];
+            }
+            RemoveOneTile(currentRecordPlayer.tileList, buhuaTile);
+            if (currentPlayerPosition == "self") {
+                GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhuaTile, null, null);
+            }
+            Game3DManager.Instance.Change3DTile("Buhua", buhuaTile, 0, currentPlayerPosition, false, null);
+            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "buhua");
+        }
+        else if (action == "angang") {
+            int angangTile = ParseTickInt(tick, 1);
+            RemoveNTiles(currentRecordPlayer.tileList, angangTile, 4);
+            if (currentPlayerPosition == "self") {
+                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
+            }
+            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
+        }
+        else if (action == "jiagang") {
+            int jiagangTile = ParseTickInt(tick, 1);
+            RemoveNTiles(currentRecordPlayer.tileList, jiagangTile, 1);
+            if (currentPlayerPosition == "self") {
+                GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
+            }
+            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
+        }
+        else if (action == "chi_left" || action == "chi_mid" || action == "chi_right" || action == "peng" || action == "gang") {
+            int mingpaiTile = ParseTickInt(tick, 1);
+            int actionPlayerIndex = ParseTickInt(tick, 2);
+            string actionPlayerPosition = indexToPosition[actionPlayerIndex];
+            RecordPlayer actionRecordPlayer = recordPlayer_to_info[actionPlayerPosition];
+
+            int removeCount = 2;
+            if (action == "gang") {
+                removeCount = 3;
+            }
+            RemoveNTiles(actionRecordPlayer.tileList, mingpaiTile, removeCount);
+            if (actionPlayerPosition == "self") {
+                int[] removeTiles = new int[removeCount];
+                for (int i = 0; i < removeCount; i++) {
+                    removeTiles[i] = mingpaiTile;
+                }
+                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, removeTiles, null);
+            }
+            GameCanvas.Instance.ShowActionDisplay(actionPlayerPosition, action);
+            currentPlayerIndex = actionPlayerIndex;
+        }
+        else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "liuju") {
+            // 和牌/流局由后续面板逻辑接管，这里仅步进节点
+        }
+
+        currentNode++;
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex]);
+    }
     
     
     
@@ -417,7 +561,7 @@ public class GameRecordManager : MonoBehaviour {
     }
 
     private void NextStep() {
-        //gameRecord.NextStep();
+        NextAction();
     }
 
     private void BackStep() {
@@ -442,5 +586,47 @@ public class GameRecordManager : MonoBehaviour {
 
     private void ShowRoundInfo() {
         //gameRecord.ShowRoundInfo();
+    }
+
+    private int ParseTickInt(List<string> tick, int index) {
+        if (index >= tick.Count) return 0;
+        return int.Parse(tick[index]);
+    }
+
+    private bool ParseTickBool(List<string> tick, int index) {
+        if (index >= tick.Count) return false;
+        return tick[index].ToLowerInvariant() == "true";
+    }
+
+    private int RemoveTileForCut(List<int> tileList, int tileId, bool isMoqie) {
+        if (tileList.Count == 0) return 0;
+        if (isMoqie) {
+            int lastIndex = tileList.Count - 1;
+            if (tileList[lastIndex] == tileId) {
+                tileList.RemoveAt(lastIndex);
+                return lastIndex;
+            }
+        }
+        int index = tileList.IndexOf(tileId);
+        if (index < 0) {
+            return 0;
+        }
+        tileList.RemoveAt(index);
+        return index;
+    }
+
+    private void RemoveOneTile(List<int> tileList, int tileId) {
+        int index = tileList.IndexOf(tileId);
+        if (index >= 0) {
+            tileList.RemoveAt(index);
+        }
+    }
+
+    private void RemoveNTiles(List<int> tileList, int tileId, int count) {
+        for (int i = 0; i < count; i++) {
+            int index = tileList.IndexOf(tileId);
+            if (index < 0) break;
+            tileList.RemoveAt(index);
+        }
     }
 }
