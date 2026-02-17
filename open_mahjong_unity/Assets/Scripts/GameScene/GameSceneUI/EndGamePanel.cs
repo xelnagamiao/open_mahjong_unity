@@ -56,6 +56,7 @@ public class EndGamePanel : MonoBehaviour {
     private void OnGoHomeButtonClick() {
         gameObject.SetActive(false);
         WindowsManager.Instance.SwitchWindow("menu");
+        Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
     }
 
     public void ClearEndGamePanel(){

@@ -18,6 +18,9 @@ public class GameRecordManager : MonoBehaviour {
     [SerializeField] private Button showTileListButton;
     [SerializeField] private Button showGameInfoButton;
     [SerializeField] private Button showRoundInfoButton;
+    [SerializeField] private GameObject recordNodeItemPrefab;
+    [SerializeField] private Transform recordXunmuItemContainer;
+    [SerializeField] private Transform recordRoundItemContainer;
 
     public static GameRecordManager Instance { get; private set; }
     // 1.自身玩家id 用来确定默认的选中玩家
@@ -134,6 +137,8 @@ public class GameRecordManager : MonoBehaviour {
         // 解析牌谱
         // 显示牌谱管理器
         gameObject.SetActive(true);
+        recordXunmuItemContainer.gameObject.SetActive(false);
+        recordRoundItemContainer.gameObject.SetActive(false);
         // 解析牌谱头
         gameRecord = GameRecordJsonDecoder.ParseGameRecord(recordJson);
         _gameRecordInspector = gameRecord;
