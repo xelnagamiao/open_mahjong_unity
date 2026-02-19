@@ -215,6 +215,7 @@ class QingqueGameState:
                             'user_id': player.user_id,
                             'username': player.username,
                             'hand_tiles_count': len(player.hand_tiles),
+                            'hand_tiles': player.hand_tiles if player.user_id == user_id else None,  # 只有自己可见手牌
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
                             'combination_tiles': player.combination_tiles,
@@ -233,10 +234,10 @@ class QingqueGameState:
                         }
                         base_game_info['players_info'].append(player_info)
                     
-                    # 添加重连玩家的手牌
+                    # 与 broadcast_game_start 保持一致：手牌通过 players_info[].hand_tiles 传递
                     game_info = GameInfo(
                         **base_game_info,
-                        self_hand_tiles=p.hand_tiles
+                        self_hand_tiles=None
                     )
                     
                     response = Response(

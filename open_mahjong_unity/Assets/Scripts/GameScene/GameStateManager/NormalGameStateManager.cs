@@ -102,14 +102,8 @@ public class NormalGameStateManager : MonoBehaviour{
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);
         int[] selfHandTilesArray = selfPlayerInfo.hand_tiles;
         
-        // 初始化手牌区域 由于手牌信息必定是单独发送的，所以这里直接初始化
+        // 初始化手牌区域
         GameCanvas.Instance.ChangeHandCards("InitHandCards",0,selfHandTilesArray,null);
-        // 如果自己的手牌有14张，则摸最后一张牌
-        if (selfHandTilesArray.Length == 14){
-            GameCanvas.Instance.ChangeHandCards("GetCard",selfHandTilesArray[selfHandTilesArray.Length - 1],null,null);
-            // 在这里可以添加向服务器传递加载完成方法
-            // 
-        }
 
         // 初始化他人手牌区域
         Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);

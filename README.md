@@ -215,8 +215,8 @@ open_mahjong_unity/
 │       │   ├── game_calculation_service.py # 游戏计算服务
 │       │   ├── gb_hepai_check.py           # 国标和牌检查
 │       │   ├── gb_tingpai_check.py         # 国标听牌检查
-│       │   ├── qingque13_bridge.py         # 清雀13计算桥接
-│       │   └── Qingque13Calc/              # 清雀13计算模块
+│       │   ├── qingque13_bridge.py         # 青雀计算桥接
+│       │   └── Qingque13Calc/              # 青雀计算模块
 │       ├── gamestate/         # 游戏状态管理
 │       │   ├── gamestate_manager.py    # 游戏状态管理器
 │       │   ├── gamestate_router.py     # 游戏状态路由处理
@@ -227,8 +227,8 @@ open_mahjong_unity/
 │       │   │   ├── wait_action.py      # 等待操作
 │       │   │   ├── action_check.py     # 动作检查
 │       │   │   └── spectator_manager.py # 观战管理器
-│       │   ├── game_mmcr/              # 清雀麻将游戏逻辑
-│       │   │   ├── QingqueGameState.py # 清雀游戏状态
+│       │   ├── game_mmcr/              # 青雀麻将游戏逻辑
+│       │   │   ├── QingqueGameState.py # 青雀游戏状态
 │       │   │   ├── boardcast.py        # 广播处理
 │       │   │   ├── get_action.py       # 获取操作
 │       │   │   ├── wait_action.py      # 等待操作

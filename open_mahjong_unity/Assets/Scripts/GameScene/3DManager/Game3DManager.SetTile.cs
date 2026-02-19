@@ -85,7 +85,9 @@ public partial class Game3DManager : MonoBehaviour
             Debug.LogError($"无法从对象池获取牌: {tileId}");
             yield break;
         }
-        lastCut3DObject = cardObj;
+        if (SetType == "Discard") {
+            lastCut3DObject = cardObj;
+        }
         // 设置父对象
         cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
@@ -157,12 +159,12 @@ public partial class Game3DManager : MonoBehaviour
         // 获取每行最多放多少张牌
         int cardsPerRow;
         // 弃牌每行最多放 6 张牌
-        if (SetType == "Discard")
+        if (SetType == "Discard" || SetType == "DiscardWithoutAnimation")
         {
             cardsPerRow = 6;
         }
         // 补花每行最多放 4 张牌
-        else if (SetType == "Buhua")
+        else if (SetType == "Buhua" || SetType == "BuhuaWithoutAnimation")
         {
             cardsPerRow = 4;
         }
@@ -192,7 +194,9 @@ public partial class Game3DManager : MonoBehaviour
             Debug.LogError($"无法从对象池获取牌: {tileId}");
             return;
         }
-        lastCut3DObject = cardObj;
+        if (SetType == "Discard") {
+            lastCut3DObject = cardObj;
+        }
         // 设置父对象
         cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
@@ -216,10 +220,13 @@ public partial class Game3DManager : MonoBehaviour
         {
             startPosition = selfPosPanel.cardsPosition.position;
         }
+        if (SetType == "DiscardWithoutAnimation" || SetType == "BuhuaWithoutAnimation")
+        {
+            return;
+        }
+        else{
+            StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
+        }
 
-        StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
     }
-
 }
-
-

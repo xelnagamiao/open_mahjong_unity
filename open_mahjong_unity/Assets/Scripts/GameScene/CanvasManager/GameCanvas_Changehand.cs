@@ -39,20 +39,24 @@ public partial class GameCanvas{
 
         Debug.Log($"手牌处理: {ChangeType}");
 
-        // 初始化手牌 只初始化前13张
+        // 初始化手牌（先初始化前13张，若有第14张则使用 GetCard 设置）
         if (ChangeType == "InitHandCards"){
-            int cardCount = 0;
-            foreach (int tile in TilesList){
-                if (cardCount >= 13) break;
+            if (TilesList == null){
+                yield break;
+            }
+            int initCount = Mathf.Min(13, TilesList.Length);
+            for (int i = 0; i < initCount; i++){
                 // 创建手牌
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(tile, false);
+                tileCard.SetTile(TilesList[i], false);
                 // 设置位置：每张牌间隔一个宽度
                 RectTransform cardRect = cardObj.GetComponent<RectTransform>();
-                cardRect.anchoredPosition = new Vector2(cardCount * tileCardWidth, 0);
-                // 计数增加
-                cardCount++;
+                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
+            }
+            // 第14张牌使用摸牌设置 确保手牌美观
+            if (TilesList.Length >= 14){
+                yield return StartCoroutine(ChangeHandCardsCoroutine("GetCard", TilesList[13], null, null));
             }
         }
 
@@ -192,7 +196,7 @@ public partial class GameCanvas{
         }
 
         // 如果切牌是摸切或者补花摸牌张 则不需要排序
-        else if (ChangeType == "RemoveBuhuaGetCard"){
+        else if (ChangeType == "RemoveBuhuaGetCard" || ChangeType == "InitHandCardsFromRecord"){
             isArranged = true;
             yield break;
         }

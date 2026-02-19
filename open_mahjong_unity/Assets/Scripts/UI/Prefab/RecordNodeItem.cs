@@ -1,18 +1,23 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
 
 public class RecordNodeItem : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
+    [SerializeField] private TMP_Text nodeText;
+    [SerializeField] private Button nodeButton;
+    private int targetNodeIndex;
+
+    public void Initialize(int xunmuIndex, int nodeIndex) {
+        nodeText.text = $"第{xunmuIndex}巡";
+        targetNodeIndex = nodeIndex;
+        nodeButton.onClick.RemoveAllListeners();
+        nodeButton.onClick.AddListener(OnClickNode);
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+    private void OnClickNode() {
+        GameRecordManager.Instance.GotoSelectNode(targetNodeIndex);
     }
 }
