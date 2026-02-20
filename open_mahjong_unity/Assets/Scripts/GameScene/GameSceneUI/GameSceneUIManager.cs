@@ -74,14 +74,23 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 更新分数记录显示
+    /// 更新分数记录显示：牌谱模式由 GameRecordManager 传入数据，对局模式由 NormalGameStateManager 传入 player_to_info。
     /// </summary>
     public void UpdateScoreRecord()
     {
-        if (GameScoreRecord.Instance != null)
+        if (GameScoreRecord.Instance == null) return;
+
+        if (GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf && GameRecordManager.Instance.gameRecord != null)
         {
-            GameScoreRecord.Instance.UpdateScoreRecord();
+            GameRecordManager.Instance.RefreshRecordScoreTable();
+            return;
         }
+
+        var player_to_info = NormalGameStateManager.Instance?.player_to_info;
+        if (player_to_info == null || player_to_info.Count < 4) return;
+
+        string rule = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomType : "UNKNOWN";
+        GameScoreRecord.Instance.UpdateScoreRecord(rule, player_to_info);
     }
 
     /// <summary>

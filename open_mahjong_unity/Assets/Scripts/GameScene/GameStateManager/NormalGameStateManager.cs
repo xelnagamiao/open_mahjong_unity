@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -382,7 +382,7 @@ public class NormalGameStateManager : MonoBehaviour{
                 SwitchCurrentPlayer(GetCardPlayer,"ClearAction",0); // 重置自身命令
             }
             // 只有askHandAction才会转移玩家位置
-            BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer); // 显示当前玩家
+            BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer, remainTiles); // 显示当前玩家
             CurrentPlayer = GetCardPlayer; // 存储当前玩家
         }
 

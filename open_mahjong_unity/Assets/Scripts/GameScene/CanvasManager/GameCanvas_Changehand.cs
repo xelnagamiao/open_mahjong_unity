@@ -61,6 +61,10 @@ public partial class GameCanvas{
         }
 
         else if (ChangeType == "InitHandCardsFromRecord"){
+            if (TilesList == null){
+                Debug.LogWarning("ChangeHandCards InitHandCardsFromRecord: TilesList 为空，跳过初始化。");
+                yield break;
+            }
             for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
                 Transform child = handCardsContainer.GetChild(i);
                 Destroyer.Instance.AddToDestroyer(child);
@@ -172,6 +176,10 @@ public partial class GameCanvas{
 
         // 删除组合牌 在手牌中删除全部组合牌
         else if (ChangeType == "RemoveCombinationCard"){
+            if (TilesList == null){
+                Debug.LogWarning("ChangeHandCards RemoveCombinationCard: TilesList 为空，跳过处理。");
+                yield break;
+            }
             foreach (int tileToRemove in TilesList){
                 foreach (Transform child in handCardsContainer){
                     TileCard needToRemoveTileCard = child.GetComponent<TileCard>();

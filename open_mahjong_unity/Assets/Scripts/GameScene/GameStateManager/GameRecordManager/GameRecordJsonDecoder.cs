@@ -127,6 +127,15 @@ public static class GameRecordJsonDecoder {
             round.actionTicks = actionTicks.ToObject<List<List<string>>>() ?? new List<List<string>>();
         }
 
+        // 解析每局结算分数 score_changes：[p0变化, p1变化, p2变化, p3变化]，用于计分表
+        JArray scoreChangesArr = roundData["score_changes"] as JArray;
+        if (scoreChangesArr != null && scoreChangesArr.Count >= 4) {
+            round.scoreChanges = new List<int>();
+            for (int i = 0; i < 4; i++) {
+                round.scoreChanges.Add(scoreChangesArr[i].Value<int>());
+            }
+        }
+
         return round;
     }
 }

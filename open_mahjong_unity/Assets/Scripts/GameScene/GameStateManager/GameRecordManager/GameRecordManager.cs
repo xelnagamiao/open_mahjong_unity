@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
+using TMPro;
 
 /// <summary>
 /// 极简牌谱管理器：
@@ -24,6 +25,13 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private Transform recordXunmuItemContainer;
     [SerializeField] private ScrollRect roundScrollView;
     [SerializeField] private Transform recordRoundItemContainer;
+    [SerializeField] private Transform tileListContainer;
+    [SerializeField] private GameObject tileListView;
+    [SerializeField] private GameObject staticCardPrefab;
+    [SerializeField] private GameObject gameInfoView;
+    [SerializeField] private TMP_Text gameInfoText;
+    [SerializeField] private GameObject roundInfoView;
+    [SerializeField] private TMP_Text roundInfoText;
 
     public static GameRecordManager Instance { get; private set; }
     // 1.自身玩家id 用来确定默认的选中玩家
@@ -51,6 +59,14 @@ public partial class GameRecordManager : MonoBehaviour {
     private List<int> xunmuNodeList = new List<int>();
 
     private int startIndex = -1;
+    
+    // 牌山管理：当前牌山列表（动态变化）和原始牌山列表（不变）
+    private List<int> currentTilesList = new List<int>();
+    private List<int> originalTilesList = new List<int>();
+    private string lastActionBeforeDeal = ""; // 记录 deal 之前的操作类型
+    private int consumedFromFront = 0;  // 已从牌山头部摸走的张数
+    private int consumedFromBack = 0;   // 已从牌山尾部摸走的张数（杠后补牌）
+    private List<StaticCard> tileListCards = new List<StaticCard>(); // 牌山视图中的卡牌组件引用
 
     [Serializable]
     public class RecordPlayer {
@@ -151,6 +167,9 @@ public partial class GameRecordManager : MonoBehaviour {
         gameObject.SetActive(true);
         xunmuScrollView.gameObject.SetActive(false);
         roundScrollView.gameObject.SetActive(false);
+        tileListView.SetActive(false);
+        gameInfoView.SetActive(false);
+        roundInfoView.SetActive(false);
         // 解析牌谱头
         gameRecord = GameRecordJsonDecoder.ParseGameRecord(recordJson);
         _gameRecordInspector = gameRecord;
@@ -315,6 +334,23 @@ public partial class GameRecordManager : MonoBehaviour {
             Debug.LogError("移动索引错误");
         }
         }
+        
+        // 初始化牌山列表（当前牌山和原始牌山）
+        if (gameRecord.gameRound.rounds.TryGetValue(roundIndex, out Round roundData)) {
+            originalTilesList = roundData.tilesList != null ? new List<int>(roundData.tilesList) : new List<int>();
+            currentTilesList = new List<int>(originalTilesList);
+            lastActionBeforeDeal = "";
+            consumedFromFront = 0;
+            consumedFromBack = 0;
+        } else {
+            originalTilesList = new List<int>();
+            currentTilesList = new List<int>();
+            lastActionBeforeDeal = "";
+            consumedFromFront = 0;
+            consumedFromBack = 0;
+        }
+        BuildTileListInContainer();
+        
         GotoSelectPlayer();
         InferAndMarkStartIndex();
         BuildXunmuToNodeAndCreateItems();
@@ -408,16 +444,16 @@ public partial class GameRecordManager : MonoBehaviour {
             GameCanvas.Instance.InitializeUIInfoFromRecord(recordPlayerList, indexToPosition, userIdToUsername);
 
             // 初始化中心操作盘Controlpanel
-            int remainTiles = 0;
+            int startRemainTiles = 0;
             int displayRound = currentRoundIndex;
             if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round currentRoundData)) {
-                remainTiles = currentRoundData.tilesList != null ? currentRoundData.tilesList.Count : 0;
+                startRemainTiles = currentRoundData.tilesList != null ? currentRoundData.tilesList.Count : 0;
                 if (currentRoundData.currentRound > 0) {
                     displayRound = currentRoundData.currentRound;
                 }
             }
             string roomType = gameRecord.gameTitle["rule"].ToString().Trim().Trim('"').ToLowerInvariant();
-            BoardCanvas.Instance.InitializeBoardInfoFromRecord(recordPlayerList, indexToPosition, userIdToScore, roomType, displayRound, remainTiles);
+            BoardCanvas.Instance.InitializeBoardInfoFromRecord(recordPlayerList, indexToPosition, userIdToScore, roomType, displayRound, startRemainTiles);
 
             // 初始化左上局数面板RoundPanel
             GameCanvas.Instance.UpdateRoomInfoFromRecord(gameRecord, currentRoundIndex);
@@ -430,7 +466,7 @@ public partial class GameRecordManager : MonoBehaviour {
         // 初始化当前action位置
         currentPlayerIndex = 0;
         lastDiscardPlayerIndex = -1;
-        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex]);    
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);    
     }
     
     // 选择选中巡目
@@ -472,7 +508,7 @@ public partial class GameRecordManager : MonoBehaviour {
         string action = tick[0];
         if (currentNode == startIndex) {
             currentPlayerIndex = 0;
-            BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex]);
+            BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         }
         int previousPlayerIndex = currentPlayerIndex;
         int actingPlayerIndex = currentPlayerIndex;
@@ -491,6 +527,23 @@ public partial class GameRecordManager : MonoBehaviour {
         if (action == "deal") {
             int dealTile = ParseTickInt(tick, 1);
             currentRecordPlayer.tileList.Add(dealTile);
+            
+            // 处理牌山：根据前一个操作决定删除第一张还是最后一张
+            if (currentTilesList.Count > 0) {
+                if (lastActionBeforeDeal == "gang" || lastActionBeforeDeal == "angang" || lastActionBeforeDeal == "jiagang") {
+                    // 杠后摸牌：删除最后一张
+                    currentTilesList.RemoveAt(currentTilesList.Count - 1);
+                    consumedFromBack++;
+                } else {
+                    // 普通摸牌：删除第一张
+                    currentTilesList.RemoveAt(0);
+                    consumedFromFront++;
+                }
+            }
+            
+            // 重置前一个操作标记
+            lastActionBeforeDeal = "";
+            
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("GetCard", dealTile, null, null);
             } else {
@@ -532,6 +585,7 @@ public partial class GameRecordManager : MonoBehaviour {
             int[] combinationMask = new int[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
             currentRecordPlayer.combinationTiles.Add($"G{angangTile}");
             currentRecordPlayer.combinationMasks.Add(combinationMask);
+            lastActionBeforeDeal = "angang"; // 记录暗杠操作，下次摸牌时删除最后一张
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
             }
@@ -543,6 +597,7 @@ public partial class GameRecordManager : MonoBehaviour {
             int jiagangTile = ParseTickInt(tick, 1);
             RemoveNTiles(currentRecordPlayer.tileList, jiagangTile, 1);
             int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile);
+            lastActionBeforeDeal = "jiagang"; // 记录加杠操作，下次摸牌时删除最后一张
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
             }
@@ -564,6 +619,12 @@ public partial class GameRecordManager : MonoBehaviour {
             int[] combinationMask = BuildMingpaiMask(action, mingpaiTile, actingPlayerIndex, discardPlayerIndex);
             currentRecordPlayer.combinationTiles.Add(BuildCombinationTarget(action, mingpaiTile));
             currentRecordPlayer.combinationMasks.Add(combinationMask);
+            if (action == "gang") {
+                lastActionBeforeDeal = "gang"; // 记录明杠操作，下次摸牌时删除最后一张
+            } else {
+                // 吃、碰操作重置标记（因为它们不是杠操作）
+                lastActionBeforeDeal = "";
+            }
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, removedTiles.ToArray(), null);
             }
@@ -573,11 +634,13 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "liuju") {
             // 和牌/流局由后续面板逻辑接管，这里仅步进节点
+            lastActionBeforeDeal = ""; // 和牌/流局重置标记
         }
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
-        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex]);
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+        RefreshTileListViewIfVisible();
     }
 
     
@@ -652,19 +715,186 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    // 显示牌山
+    // 显示/隐藏牌山视图（点击按钮切换）
     private void ShowTileList() {
-        //gameRecord.ShowTileList();
-        // 直接获取全部牌山，按剩余卡牌数量计算多少卡牌需要变灰就行了
+        if (tileListView == null) return;
+        bool shouldShow = !tileListView.activeSelf;
+        if (shouldShow) {
+            UpdateTileListOpacity();
+            tileListView.SetActive(true);
+        } else {
+            tileListView.SetActive(false);
+        }
     }
 
-    // 显示游戏信息
-    private void ShowGameInfo() {
-        //gameRecord.ShowGameInfo();
+    /// <summary>
+    /// 在 tileListContainer 中根据 originalTilesList 生成所有牌山卡牌（GameInit/InitGameRound 时调用）
+    /// </summary>
+    private void BuildTileListInContainer() {
+        if (tileListContainer == null || staticCardPrefab == null) return;
+        tileListCards.Clear();
+        for (int i = tileListContainer.childCount - 1; i >= 0; i--) {
+            Destroy(tileListContainer.GetChild(i).gameObject);
+        }
+        for (int i = 0; i < originalTilesList.Count; i++) {
+            GameObject cardObj = Instantiate(staticCardPrefab, tileListContainer);
+            StaticCard sc = cardObj.GetComponent<StaticCard>();
+            if (sc != null) {
+                sc.SetTileOnlyImage(originalTilesList[i]);
+                tileListCards.Add(sc);
+            }
+        }
+        UpdateTileListOpacity();
     }
-    // 显示局数信息
+
+    /// <summary>
+    /// 根据已摸走的头部/尾部张数，对牌山视图中的卡牌设置不透明度（已摸走的变灰）
+    /// </summary>
+    private void UpdateTileListOpacity() {
+        const float dimmedAlpha = 0.4f;
+        for (int i = 0; i < tileListCards.Count; i++) {
+            bool isConsumedFromFront = i < consumedFromFront;
+            bool isConsumedFromBack = i >= originalTilesList.Count - consumedFromBack && consumedFromBack > 0;
+            float alpha = (isConsumedFromFront || isConsumedFromBack) ? dimmedAlpha : 1f;
+            tileListCards[i].SetOpacity(alpha);
+        }
+    }
+
+    /// <summary>
+    /// 若牌山视图当前显示，则刷新不透明度（步进/回退后调用）
+    /// </summary>
+    private void RefreshTileListViewIfVisible() {
+        if (tileListView != null && tileListView.activeSelf) {
+            UpdateTileListOpacity();
+        }
+    }
+
+    // 显示/隐藏游戏信息（与局数信息互斥，点击按钮切换）
+    private void ShowGameInfo() {
+        if (gameInfoView == null) return;
+        bool shouldShow = !gameInfoView.activeSelf;
+        if (shouldShow) {
+            if (roundInfoView != null) roundInfoView.SetActive(false);
+            if (gameInfoText != null) {
+                gameInfoText.text = BuildGameInfoString();
+            }
+            gameInfoView.SetActive(true);
+        } else {
+            gameInfoView.SetActive(false);
+        }
+    }
+
+    // 显示/隐藏局数信息（与游戏信息互斥，点击按钮切换）
     private void ShowRoundInfo() {
-        //gameRecord.ShowRoundInfo();
+        if (roundInfoView == null) return;
+        bool shouldShow = !roundInfoView.activeSelf;
+        if (shouldShow) {
+            if (gameInfoView != null) gameInfoView.SetActive(false);
+            if (roundInfoText != null) {
+                roundInfoText.text = BuildRoundInfoString();
+            }
+            roundInfoView.SetActive(true);
+        } else {
+            roundInfoView.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 从 gameTitle 字典读取字符串
+    /// </summary>
+    private static string ReadGameTitleString(Dictionary<string, object> gameTitle, string key, string defaultValue = "") {
+        if (gameTitle == null || !gameTitle.TryGetValue(key, out object value) || value == null)
+            return defaultValue;
+        return value.ToString().Trim().Trim('"');
+    }
+
+    /// <summary>
+    /// 从 gameTitle 字典读取整数
+    /// </summary>
+    private static int ReadGameTitleInt(Dictionary<string, object> gameTitle, string key, int defaultValue = 0) {
+        if (gameTitle == null || !gameTitle.TryGetValue(key, out object value) || value == null)
+            return defaultValue;
+        return int.TryParse(value.ToString(), out int v) ? v : defaultValue;
+    }
+
+    /// <summary>
+    /// 从 gameTitle 字典读取布尔
+    /// </summary>
+    private static bool ReadGameTitleBool(Dictionary<string, object> gameTitle, string key, bool defaultValue = false) {
+        if (gameTitle == null || !gameTitle.TryGetValue(key, out object value) || value == null)
+            return defaultValue;
+        string s = value.ToString().Trim().Trim('"').ToLowerInvariant();
+        return s == "true" || s == "1";
+    }
+
+    /// <summary>
+    /// 生成游戏信息文案（规则、局数、玩家ID、选项等）
+    /// </summary>
+    private string BuildGameInfoString() {
+        if (gameRecord?.gameTitle == null) return "暂无游戏信息";
+        var gt = gameRecord.gameTitle;
+        string rule = "未知规则";
+        if (!string.IsNullOrEmpty(ReadGameTitleString(gt, "rule", "guobiao"))) {
+            rule = "国标";
+        } else if (!string.IsNullOrEmpty(ReadGameTitleString(gt, "rule", "qingque"))) {
+            rule = "青雀";
+        } else if (!string.IsNullOrEmpty(ReadGameTitleString(gt, "rule", "riichi"))) {
+            rule = "立直";
+        } else {
+            rule = "未知规则";
+        }
+        int maxRound = ReadGameTitleInt(gt, "max_round", 0);
+        if (maxRound <= 0 && gameRecord.gameRound != null) {
+            maxRound = Mathf.Max(1, gameRecord.gameRound.rounds?.Count ?? 0);
+        }
+        int p0 = ReadGameTitleInt(gt, "p0_user_id", 0);
+        int p1 = ReadGameTitleInt(gt, "p1_user_id", 0);
+        int p2 = ReadGameTitleInt(gt, "p2_user_id", 0);
+        int p3 = ReadGameTitleInt(gt, "p3_user_id", 0);
+        bool openCuohe = ReadGameTitleBool(gt, "open_cuohe", false);
+        bool tips = ReadGameTitleBool(gt, "tips", false);
+        bool isPlayerSetRandomSeed = ReadGameTitleBool(gt, "isPlayerSetRandomSeed", false);
+        string p0Name = userIdToUsername.TryGetValue(p0, out string n0) ? n0 : p0.ToString();
+        string p1Name = userIdToUsername.TryGetValue(p1, out string n1) ? n1 : p1.ToString();
+        string p2Name = userIdToUsername.TryGetValue(p2, out string n2) ? n2 : p2.ToString();
+        string p3Name = userIdToUsername.TryGetValue(p3, out string n3) ? n3 : p3.ToString();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("【游戏信息】");
+        sb.AppendLine($"规则: {rule}");
+        sb.AppendLine($"最大局数: {maxRound}局");
+        sb.AppendLine($"玩家0: {p0Name} (ID:{p0})");
+        sb.AppendLine($"玩家1: {p1Name} (ID:{p1})");
+        sb.AppendLine($"玩家2: {p2Name} (ID:{p2})");
+        sb.AppendLine($"玩家3: {p3Name} (ID:{p3})");
+        sb.AppendLine($"错和: {(openCuohe ? "开" : "关")}");
+        sb.AppendLine($"提示: {(tips ? "开" : "关")}");
+        sb.AppendLine($"复式: {(isPlayerSetRandomSeed ? "开" : "关")}");
+        sb.AppendLine($"随机种子: {gameRecord.gameTitle["game_random_seed"]}");
+        sb.AppendLine($"开始时间: {gameRecord.gameTitle["start_time"]}");
+        sb.AppendLine($"结束时间: {gameRecord.gameTitle["end_time"]}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 生成当前局信息文案（局序号、当前圈、种子、手牌数、行动数等）
+    /// </summary>
+    private string BuildRoundInfoString() {
+        if (gameRecord?.gameRound?.rounds == null) return "暂无局信息";
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round round)) {
+            return $"当前局索引 {currentRoundIndex} 无数据";
+        }
+        int handCount = (round.p0Tiles?.Count ?? 0) + (round.p1Tiles?.Count ?? 0) + (round.p2Tiles?.Count ?? 0) + (round.p3Tiles?.Count ?? 0);
+        int actionCount = round.actionTicks?.Count ?? 0;
+        int tileWallCount = round.tilesList?.Count ?? 0;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("【局信息】");
+        sb.AppendLine($"局数序号: {round.roundIndex}");
+        sb.AppendLine($"当前局数: {round.currentRound}");
+        sb.AppendLine($"随机种子: {round.roundRandomSeed}");
+        sb.AppendLine($"牌山张数: {tileWallCount}");
+        sb.AppendLine($"行动总数: {actionCount}");
+        sb.AppendLine($"当前行动: {currentNode} / {actionCount}");
+        return sb.ToString();
     }
 
     private int ParseTickInt(List<string> tick, int index) {
@@ -856,6 +1086,11 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         string rule = gameRecord.gameTitle["rule"].ToString().Trim().Trim('"').ToLowerInvariant();
         Dictionary<int, int> roundToHonba = new Dictionary<int, int>();
+        if (recordRoundItemPrefab == null) {
+            Debug.LogError("BuildRoundNodeItems: recordRoundItemPrefab 未分配，无法创建局数按钮。");
+            return;
+        }
+        
         foreach (Round round in _roundsListForInspector) {
             int honba = 0;
             if (rule == "riichi") {
@@ -867,9 +1102,9 @@ public partial class GameRecordManager : MonoBehaviour {
                 honba = roundToHonba[round.currentRound];
             }
             GameObject itemObj = Instantiate(recordRoundItemPrefab, recordRoundItemContainer);
-            Component item = itemObj.GetComponent("RecordRoundItem");
+            RecordRoundItem item = itemObj.GetComponent<RecordRoundItem>();
             if (item != null) {
-                item.SendMessage("InitializeFromManager", $"{rule}|{round.roundIndex}|{round.currentRound}|{honba}");
+                item.Initialize(rule, round.roundIndex, round.currentRound, honba);
             }
         }
         recordRoundItemContainer.gameObject.SetActive(true);
@@ -916,5 +1151,51 @@ public partial class GameRecordManager : MonoBehaviour {
         if (rule == "qingque" || rule == "riichi") {
             return; // 暂不处理，后续规则扩展在这里接入
         }
+    }
+
+    /// <summary>
+    /// 从牌谱构建带 score_history 的玩家数据并刷新计分表。按局顺序汇总四家 score_history（格式如 "+24","-8","0"），original_player_index 为 0～3。
+    /// </summary>
+    public void RefreshRecordScoreTable() {
+        if (gameRecord?.gameRound?.rounds == null || GameScoreRecord.Instance == null) return;
+        string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+        int p0Id = ReadGameTitleInt(gameRecord.gameTitle, "p0_user_id", 0);
+        int p1Id = ReadGameTitleInt(gameRecord.gameTitle, "p1_user_id", 0);
+        int p2Id = ReadGameTitleInt(gameRecord.gameTitle, "p2_user_id", 0);
+        int p3Id = ReadGameTitleInt(gameRecord.gameTitle, "p3_user_id", 0);
+        string name0 = userIdToUsername.TryGetValue(p0Id, out string n0) ? n0 : p0Id.ToString();
+        string name1 = userIdToUsername.TryGetValue(p1Id, out string n1) ? n1 : p1Id.ToString();
+        string name2 = userIdToUsername.TryGetValue(p2Id, out string n2) ? n2 : p2Id.ToString();
+        string name3 = userIdToUsername.TryGetValue(p3Id, out string n3) ? n3 : p3Id.ToString();
+        var hist0 = new List<string>();
+        var hist1 = new List<string>();
+        var hist2 = new List<string>();
+        var hist3 = new List<string>();
+        foreach (Round round in gameRecord.gameRound.GetRoundsList()) {
+            if (round.scoreChanges != null && round.scoreChanges.Count >= 4) {
+                hist0.Add(FormatScoreChange(round.scoreChanges[0]));
+                hist1.Add(FormatScoreChange(round.scoreChanges[1]));
+                hist2.Add(FormatScoreChange(round.scoreChanges[2]));
+                hist3.Add(FormatScoreChange(round.scoreChanges[3]));
+            } else {
+                hist0.Add("0");
+                hist1.Add("0");
+                hist2.Add("0");
+                hist3.Add("0");
+            }
+        }
+        var player_to_info = new Dictionary<string, PlayerInfoClass> {
+            { "self", new PlayerInfoClass { original_player_index = 0, username = name0, score_history = hist0 } },
+            { "right", new PlayerInfoClass { original_player_index = 1, username = name1, score_history = hist1 } },
+            { "top", new PlayerInfoClass { original_player_index = 2, username = name2, score_history = hist2 } },
+            { "left", new PlayerInfoClass { original_player_index = 3, username = name3, score_history = hist3 } }
+        };
+        GameScoreRecord.Instance.UpdateScoreRecord(rule, player_to_info);
+    }
+
+    private static string FormatScoreChange(int delta) {
+        if (delta > 0) return "+" + delta;
+        if (delta < 0) return delta.ToString();
+        return "0";
     }
 }

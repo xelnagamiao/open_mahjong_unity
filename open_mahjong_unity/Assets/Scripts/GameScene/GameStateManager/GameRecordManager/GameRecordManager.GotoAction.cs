@@ -15,6 +15,17 @@ public partial class GameRecordManager
         currentNode = 0;
         currentPlayerIndex = 0;
         lastDiscardPlayerIndex = -1;
+        
+        // 重置牌山列表到初始状态
+        if (roundData.tilesList != null) {
+            currentTilesList = new List<int>(roundData.tilesList);
+        } else {
+            currentTilesList = new List<int>();
+        }
+        lastActionBeforeDeal = "";
+        consumedFromFront = 0;
+        consumedFromBack = 0;
+        
         GotoSelectPlayer(false);
 
         // 推演当前目标节点信息
@@ -29,7 +40,8 @@ public partial class GameRecordManager
         
         Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord", 0, 0, null, false, null);
         RebuildRecord3DTableWithoutAnimation();
-        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex]);
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+        RefreshTileListViewIfVisible();
     }
 
     // 推演行动节点
@@ -57,6 +69,22 @@ public partial class GameRecordManager
         if (action == "deal") {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
+            
+            // 处理牌山：根据前一个操作决定删除第一张还是最后一张
+            if (currentTilesList.Count > 0) {
+                if (lastActionBeforeDeal == "gang" || lastActionBeforeDeal == "angang" || lastActionBeforeDeal == "jiagang") {
+                    // 杠后摸牌：删除最后一张
+                    currentTilesList.RemoveAt(currentTilesList.Count - 1);
+                    consumedFromBack++;
+                } else {
+                    // 普通摸牌：删除第一张
+                    currentTilesList.RemoveAt(0);
+                    consumedFromFront++;
+                }
+            }
+            
+            // 重置前一个操作标记
+            lastActionBeforeDeal = "";
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "cut") {
@@ -79,12 +107,14 @@ public partial class GameRecordManager
             int[] combinationMask = new int[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);
+            lastActionBeforeDeal = "angang"; // 记录暗杠操作，下次摸牌时删除最后一张
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jiagang") {
             int jiagangTile = ParseTickInt(tick, 1);
             RemoveNTiles(actingPlayer.tileList, jiagangTile, 1);
             BuildJiagangMask(actingPlayer, jiagangTile);
+            lastActionBeforeDeal = "jiagang"; // 记录加杠操作，下次摸牌时删除最后一张
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "chi_left" || action == "chi_mid" || action == "chi_right" || action == "peng" || action == "gang") {
@@ -103,8 +133,25 @@ public partial class GameRecordManager
             int[] combinationMask = BuildMingpaiMask(action, mingpaiTile, actingPlayerIndex, discardPlayerIndex);
             actingPlayer.combinationTiles.Add(BuildCombinationTarget(action, mingpaiTile));
             actingPlayer.combinationMasks.Add(combinationMask);
+            if (action == "gang") {
+                lastActionBeforeDeal = "gang"; // 记录明杠操作，下次摸牌时删除最后一张
+            } else {
+                // 吃、碰操作重置标记（因为它们不是杠操作）
+                lastActionBeforeDeal = "";
+            }
             nextPlayerIndex = actingPlayerIndex;
         }
+        else if (action == "cut") {
+            // cut 操作不重置 lastActionBeforeDeal，因为杠操作可能在 cut 之前
+        }
+        else if (action == "buhua") {
+            // buhua 操作不重置 lastActionBeforeDeal，因为杠操作可能在 buhua 之前
+        }
+        else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "liuju") {
+            // 和牌/流局操作：重置标记
+            lastActionBeforeDeal = "";
+        }
+        // 其他未知操作不处理 lastActionBeforeDeal，保持当前状态
 
         currentPlayerIndex = nextPlayerIndex;
     }
