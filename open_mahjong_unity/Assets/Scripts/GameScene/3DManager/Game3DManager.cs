@@ -378,6 +378,12 @@ public partial class Game3DManager : MonoBehaviour {
         CollectChildren(topPosPanel.buhuaPosition, objectsToReturn);
         CollectChildren(rightPosPanel.buhuaPosition, objectsToReturn);
         CollectChildren(selfPosPanel.buhuaPosition, objectsToReturn);
+
+        // 收集所有面板的展开手牌
+        CollectChildren(leftPosPanel.ShowCardsPosition, objectsToReturn);
+        CollectChildren(topPosPanel.ShowCardsPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.ShowCardsPosition, objectsToReturn);
+        CollectChildren(selfPosPanel.ShowCardsPosition, objectsToReturn);
         
         // 收集所有面板的组合牌3D对象数组中的子物体
         foreach (PosPanel3D panel in new[] { selfPosPanel, leftPosPanel, topPosPanel, rightPosPanel })

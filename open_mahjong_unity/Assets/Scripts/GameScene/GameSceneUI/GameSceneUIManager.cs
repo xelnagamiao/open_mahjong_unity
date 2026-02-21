@@ -50,6 +50,14 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 牌谱回放结算展示（和牌）
+    /// </summary>
+    public void ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType, Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername)
+    {
+        StartCoroutine(EndResultPanel.Instance.ShowRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType, indexToPosition, positionToUsername));
+    }
+
+    /// <summary>
     /// 显示流局面板
     /// </summary>
     public void ShowEndLiuju()

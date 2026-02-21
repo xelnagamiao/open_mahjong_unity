@@ -42,6 +42,7 @@ public partial class GameRecordManager
         RebuildRecord3DTableWithoutAnimation();
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         RefreshTileListViewIfVisible();
+        UpdateCurrentXunmuText();
     }
 
     // 推演行动节点

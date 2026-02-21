@@ -2,6 +2,7 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public partial class GameCanvas{
@@ -65,14 +66,16 @@ public partial class GameCanvas{
                 Debug.LogWarning("ChangeHandCards InitHandCardsFromRecord: TilesList 为空，跳过初始化。");
                 yield break;
             }
+            int[] sortedTiles = (int[])TilesList.Clone();
+            Array.Sort(sortedTiles);
             for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
                 Transform child = handCardsContainer.GetChild(i);
                 Destroyer.Instance.AddToDestroyer(child);
             }
-            for (int i = 0; i < TilesList.Length; i++){
+            for (int i = 0; i < sortedTiles.Length; i++){
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(TilesList[i], false);
+                tileCard.SetTile(sortedTiles[i], false);
                 RectTransform cardRect = cardObj.GetComponent<RectTransform>();
                 cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
             }

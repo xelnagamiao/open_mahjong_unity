@@ -15,10 +15,13 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private Button nextStepButton;
     [SerializeField] private Button backStepButton;
     [SerializeField] private Button showGameRoundContentButton;
+    [SerializeField] private TMP_Text currentRoundText;
     [SerializeField] private Button showXunmuContentButton;
+    [SerializeField] private TMP_Text currentXunmuText;
     [SerializeField] private Button showTileListButton;
     [SerializeField] private Button showGameInfoButton;
     [SerializeField] private Button showRoundInfoButton;
+    [SerializeField] private Button quitRecordButton;
     [SerializeField] private GameObject recordNodeItemPrefab;
     [SerializeField] private GameObject recordRoundItemPrefab;
     [SerializeField] private ScrollRect xunmuScrollView;
@@ -119,6 +122,7 @@ public partial class GameRecordManager : MonoBehaviour {
         showTileListButton.onClick.AddListener(ShowTileList);
         showGameInfoButton.onClick.AddListener(ShowGameInfo);
         showRoundInfoButton.onClick.AddListener(ShowRoundInfo);
+        quitRecordButton.onClick.AddListener(QuitRecord);
     }
 
     /// <summary>
@@ -153,6 +157,7 @@ public partial class GameRecordManager : MonoBehaviour {
     public void LoadRecord(string recordJson, PlayerRecordInfo[] players_info = null) {
         // 清空临时面板
         GameSceneUIManager.Instance.InitGameRecord();
+        GameSceneMouseInputController.Instance.SetState("recordstate");
 
         // 初始化selfPlayerId，如果selectedPlayerUserid没有值，后续使用selfPlayerId作为显示玩家的默认值
         selfPlayerId = 0;
@@ -317,22 +322,22 @@ public partial class GameRecordManager : MonoBehaviour {
                 Debug.LogError("规则错误");
             }
         
-        int moveIndex = roundIndex % 4 - 1;
-        if (moveIndex == 0) {
-            recordPlayer.playerIndex = recordPlayer.originalPlayerIndex;
-        }
-        else if (moveIndex == 1) {
-            recordPlayer.playerIndex = BackCurrentNum(recordPlayer.originalPlayerIndex);
-        }
-        else if (moveIndex == 2) {
-            recordPlayer.playerIndex = BackCurrentNum(BackCurrentNum(recordPlayer.originalPlayerIndex));
-        }
-        else if (moveIndex == 3) {
-            recordPlayer.playerIndex = BackCurrentNum(BackCurrentNum(BackCurrentNum(recordPlayer.originalPlayerIndex)));
-        }
-        else {
-            Debug.LogError("移动索引错误");
-        }
+            int moveIndex = roundIndex % 4 - 1;
+            if (moveIndex == 0) {
+                recordPlayer.playerIndex = recordPlayer.originalPlayerIndex;
+            }
+            else if (moveIndex == 1) {
+                recordPlayer.playerIndex = BackCurrentNum(recordPlayer.originalPlayerIndex);
+            }
+            else if (moveIndex == 2) {
+                recordPlayer.playerIndex = BackCurrentNum(BackCurrentNum(recordPlayer.originalPlayerIndex));
+            }
+            else if (moveIndex == 3) {
+                recordPlayer.playerIndex = BackCurrentNum(BackCurrentNum(BackCurrentNum(recordPlayer.originalPlayerIndex)));
+            }
+            else {
+                Debug.LogWarning("移动索引错误");
+            }
         }
         
         // 初始化牌山列表（当前牌山和原始牌山）
@@ -349,11 +354,12 @@ public partial class GameRecordManager : MonoBehaviour {
             consumedFromFront = 0;
             consumedFromBack = 0;
         }
-        BuildTileListInContainer();
-        
-        GotoSelectPlayer();
-        InferAndMarkStartIndex();
-        BuildXunmuToNodeAndCreateItems();
+
+        BuildTileListInContainer(); // 初始化牌山视图
+        GotoSelectPlayer(); // 选择选中玩家
+        InferAndMarkStartIndex(); // 推断并标记初始行动节点
+        BuildXunmuToNodeAndCreateItems(); // 构建巡目到节点并创建巡目项
+        RefreshCurrentRecordTexts(); // 刷新当前局数和巡目文本
     }
 
     // 选择选中玩家
@@ -425,16 +431,16 @@ public partial class GameRecordManager : MonoBehaviour {
 
         // 给玩家设置初始手牌
         foreach (var recordPlayer in recordPlayerList){
-            if (recordPlayer.originalPlayerIndex == 0){
+            if (recordPlayer.playerIndex == 0){
                 recordPlayer.tileList = new List<int>(gameRecord.gameRound.rounds[currentRoundIndex].p0Tiles);
             }
-            else if (recordPlayer.originalPlayerIndex == 1){
+            else if (recordPlayer.playerIndex == 1){
                 recordPlayer.tileList = new List<int>(gameRecord.gameRound.rounds[currentRoundIndex].p1Tiles);
             }
-            else if (recordPlayer.originalPlayerIndex == 2){
+            else if (recordPlayer.playerIndex == 2){
                 recordPlayer.tileList = new List<int>(gameRecord.gameRound.rounds[currentRoundIndex].p2Tiles);
             }
-            else if (recordPlayer.originalPlayerIndex == 3){
+            else if (recordPlayer.playerIndex == 3){
                 recordPlayer.tileList = new List<int>(gameRecord.gameRound.rounds[currentRoundIndex].p3Tiles);
             }
         }
@@ -489,6 +495,17 @@ public partial class GameRecordManager : MonoBehaviour {
         currentRoundIndex = roundIndex;
         InitGameRound(roundIndex);
     }
+
+    /// <summary>
+    /// 切换到指定用户的牌谱视角，并保持在当前节点。
+    /// </summary>
+    public void SwitchRecordPerspectiveToUser(int userId) {
+        if (userId == 0 || gameRecord == null) return;
+        selectedPlayerUserid = userId;
+        int targetNode = currentNode;
+        GotoSelectPlayer(true);
+        GotoAction(targetNode);
+    }
     
     // 执行下一步行动
     private void NextAction() {
@@ -502,6 +519,7 @@ public partial class GameRecordManager : MonoBehaviour {
         List<string> tick = roundData.actionTicks[currentNode];
         if (tick == null || tick.Count == 0) {
             currentNode++;
+            UpdateCurrentXunmuText();
             return;
         }
 
@@ -516,6 +534,8 @@ public partial class GameRecordManager : MonoBehaviour {
             actingPlayerIndex = ParseTickInt(tick, 2);
         } else if ((action == "chi_left" || action == "chi_mid" || action == "chi_right" || action == "peng" || action == "gang") && tick.Count >= 3) {
             actingPlayerIndex = ParseTickInt(tick, 2);
+        } else if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") && tick.Count >= 4) {
+            actingPlayerIndex = ParseTickInt(tick, 3);
         }
 
         string currentPlayerPosition = indexToPosition[actingPlayerIndex];
@@ -632,15 +652,25 @@ public partial class GameRecordManager : MonoBehaviour {
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, action);
             nextPlayerIndex = actingPlayerIndex;
         }
-        else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "liuju") {
-            // 和牌/流局由后续面板逻辑接管，这里仅步进节点
-            lastActionBeforeDeal = ""; // 和牌/流局重置标记
+        else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
+            int huScore = ParseTickInt(tick, 1);
+            string[] huFan = ParseHuFanList(tick, 2);
+            int hepaiPlayerIndex = tick.Count >= 4 ? ParseTickInt(tick, 3) : actingPlayerIndex;
+            ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex);
+            GameSceneUIManager.Instance.UpdateScoreRecord();
+            lastActionBeforeDeal = ""; // 和牌重置标记
+        }
+        else if (action == "liuju") {
+            GameSceneUIManager.Instance.ShowEndLiuju();
+            StartCoroutine(GotoNextRoundAfterDelay(2f));
+            lastActionBeforeDeal = ""; // 流局重置标记
         }
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         RefreshTileListViewIfVisible();
+        UpdateCurrentXunmuText();
     }
 
     
@@ -657,75 +687,6 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    // 跳转到下一巡目
-    private void NextXunmu() {
-        if (xunmuNodeList.Count == 0) return;
-        int targetNode = -1;
-        for (int i = 0; i < xunmuNodeList.Count; i++) {
-            int node = xunmuNodeList[i];
-            if (node > currentNode) {
-                targetNode = node;
-                break;
-            }
-        }
-        if (targetNode < 0) return;
-        GotoSelectNode(targetNode);
-    }
-
-    // 跳转到上一巡目
-    private void BackXunmu() {
-        if (xunmuNodeList.Count == 0) return;
-        int targetNode = -1;
-        for (int i = xunmuNodeList.Count - 1; i >= 0; i--) {
-            int node = xunmuNodeList[i];
-            if (node < currentNode) {
-                targetNode = node;
-                break;
-            }
-        }
-        if (targetNode < 0) return;
-        GotoSelectNode(targetNode);
-    }
-
-    // 跳转到下一步行动
-    private void NextStep() {
-        NextAction();
-    }
-
-    // 跳转到上一步行动
-    private void BackStep() {
-        GotoAction(currentNode - 1);
-    }
-
-    // 显示局数内容
-    private void ShowGameRoundContent() {
-        bool shouldOpenRound = !roundScrollView.gameObject.activeSelf;
-        roundScrollView.gameObject.SetActive(shouldOpenRound);
-        if (shouldOpenRound) {
-            xunmuScrollView.gameObject.SetActive(false);
-        }
-    }
-
-    // 显示巡目内容
-    private void ShowXunmuContent() {
-        bool shouldOpenXunmu = !xunmuScrollView.gameObject.activeSelf;
-        xunmuScrollView.gameObject.SetActive(shouldOpenXunmu);
-        if (shouldOpenXunmu) {
-            roundScrollView.gameObject.SetActive(false);
-        }
-    }
-
-    // 显示/隐藏牌山视图（点击按钮切换）
-    private void ShowTileList() {
-        if (tileListView == null) return;
-        bool shouldShow = !tileListView.activeSelf;
-        if (shouldShow) {
-            UpdateTileListOpacity();
-            tileListView.SetActive(true);
-        } else {
-            tileListView.SetActive(false);
-        }
-    }
 
     /// <summary>
     /// 在 tileListContainer 中根据 originalTilesList 生成所有牌山卡牌（GameInit/InitGameRound 时调用）
@@ -769,34 +730,49 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    // 显示/隐藏游戏信息（与局数信息互斥，点击按钮切换）
-    private void ShowGameInfo() {
-        if (gameInfoView == null) return;
-        bool shouldShow = !gameInfoView.activeSelf;
-        if (shouldShow) {
-            if (roundInfoView != null) roundInfoView.SetActive(false);
-            if (gameInfoText != null) {
-                gameInfoText.text = BuildGameInfoString();
-            }
-            gameInfoView.SetActive(true);
-        } else {
-            gameInfoView.SetActive(false);
-        }
+    /// <summary>
+    /// 刷新当前局文本与当前巡文本
+    /// </summary>
+    private void RefreshCurrentRecordTexts() {
+        UpdateCurrentRoundText();
+        UpdateCurrentXunmuText();
     }
 
-    // 显示/隐藏局数信息（与游戏信息互斥，点击按钮切换）
-    private void ShowRoundInfo() {
-        if (roundInfoView == null) return;
-        bool shouldShow = !roundInfoView.activeSelf;
-        if (shouldShow) {
-            if (gameInfoView != null) gameInfoView.SetActive(false);
-            if (roundInfoText != null) {
-                roundInfoText.text = BuildRoundInfoString();
-            }
-            roundInfoView.SetActive(true);
-        } else {
-            roundInfoView.SetActive(false);
+    /// <summary>
+    /// 更新当前局显示文本（东风东、东风南……北风北）
+    /// </summary>
+    private void UpdateCurrentRoundText() {
+        if (currentRoundText == null) return;
+        int roundNo = currentRoundIndex;
+        if (gameRecord != null &&
+            gameRecord.gameRound != null &&
+            gameRecord.gameRound.rounds != null &&
+            gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) &&
+            roundData.currentRound > 0) {
+            roundNo = roundData.currentRound;
         }
+        string rule = ReadGameTitleString(gameRecord != null ? gameRecord.gameTitle : null, "rule", "guobiao").ToLowerInvariant();
+        currentRoundText.text = FormatRoundText(rule, roundNo);
+    }
+
+    /// <summary>
+    /// 更新当前巡显示文本（x巡）
+    /// </summary>
+    private void UpdateCurrentXunmuText() {
+        if (currentXunmuText == null) return;
+        int xunmu = 0;
+        for (int i = 0; i < xunmuNodeList.Count; i++) {
+            if (xunmuNodeList[i] <= currentNode) {
+                xunmu = i;
+            } else {
+                break;
+            }
+        }
+        currentXunmuText.text = $"{xunmu}巡";
+    }
+
+    private string FormatRoundText(string rule, int roundNo) {
+        return RoundTextDictionary.GetRoundName(rule, roundNo);
     }
 
     /// <summary>
@@ -905,6 +881,56 @@ public partial class GameRecordManager : MonoBehaviour {
     private bool ParseTickBool(List<string> tick, int index) {
         if (index >= tick.Count) return false;
         return tick[index].ToLowerInvariant() == "true";
+    }
+
+    private string[] ParseHuFanList(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return new string[0];
+        string raw = tick[index].Trim();
+        if (raw.StartsWith("[") && raw.EndsWith("]") && raw.Length >= 2) {
+            raw = raw.Substring(1, raw.Length - 2);
+        }
+        string[] split = raw.Split(',');
+        List<string> fans = new List<string>();
+        for (int i = 0; i < split.Length; i++) {
+            string fan = split[i].Trim().Trim('"').Trim('\'');
+            if (!string.IsNullOrEmpty(fan)) {
+                fans.Add(fan);
+            }
+        }
+        return fans.ToArray();
+    }
+
+    private void ShowRecordResult(string huClass, int huScore, string[] huFan, int hepaiPlayerIndex) {
+        Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
+        foreach (var kv in recordPlayer_to_info) {
+            int uid = kv.Value.userId;
+            if (userIdToUsername.TryGetValue(uid, out string username)) {
+                positionToUsername[kv.Key] = username;
+            } else {
+                positionToUsername[kv.Key] = uid.ToString();
+            }
+        }
+
+        string roomType = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+        if (indexToPosition.ContainsKey(hepaiPlayerIndex)) {
+            string huPosition = indexToPosition[hepaiPlayerIndex];
+            GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
+        }
+        GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType, indexToPosition, positionToUsername);
+    }
+
+    /// <summary>
+    /// 牌谱流局后延迟切换下一局
+    /// </summary>
+    private System.Collections.IEnumerator GotoNextRoundAfterDelay(float delaySeconds) {
+        yield return new WaitForSeconds(delaySeconds);
+        int nextRound = currentRoundIndex + 1;
+        if (gameRecord != null &&
+            gameRecord.gameRound != null &&
+            gameRecord.gameRound.rounds != null &&
+            gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
+            GotoSelectRound(nextRound);
+        }
     }
 
     private int RemoveTileForCut(List<int> tileList, int tileId, bool isMoqie) {

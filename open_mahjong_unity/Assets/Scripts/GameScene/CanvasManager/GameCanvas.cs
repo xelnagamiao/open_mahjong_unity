@@ -108,7 +108,7 @@ public partial class GameCanvas : MonoBehaviour {
 
             // 调用面板的 SetPlayerInfo 方法
             if (targetPanel != null) {
-                targetPanel.SetPlayerInfo(player);
+                targetPanel.SetPlayerInfo(player, "gamestate");
             }
             else
             {
@@ -177,7 +177,7 @@ public partial class GameCanvas : MonoBehaviour {
                     score_history = new string[0],
                     tag_list = new string[0]
                 };
-                targetPanel.SetPlayerInfo(playerInfo);
+                targetPanel.SetPlayerInfo(playerInfo, "record");
             }
             else
             {

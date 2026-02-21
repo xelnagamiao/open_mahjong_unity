@@ -87,6 +87,7 @@ public class NormalGameStateManager : MonoBehaviour{
         UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
         // 保存gamestate_id
         UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
+        GameSceneMouseInputController.Instance.SetState("gamestate");
 
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口

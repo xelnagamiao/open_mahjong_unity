@@ -80,6 +80,10 @@ public class EndResultPanel : MonoBehaviour {
         {"镜同", 0},{"镜同三对", 0},{"镜同二对", 0},{"双龙会", 0},
     };
     public static EndResultPanel Instance { get; private set; }
+    private const string StateNone = "";
+    private const string StateGame = "gamestate";
+    private const string StateRecord = "recordstate";
+    private string currentState = StateNone;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -93,6 +97,7 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+        currentState = StateGame;
 
         gameObject.SetActive(true);
 
@@ -256,11 +261,105 @@ public class EndResultPanel : MonoBehaviour {
         gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// 牌谱回放结算展示（不依赖对局内 player_to_score/手牌数据）：
+    /// - 默认除和牌者外，其他玩家显示为已准备
+    /// - 无协程倒计时动画，仅显示“确认”按钮
+    /// </summary>
+    public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType, Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername) {
+        currentState = StateRecord;
+        gameObject.SetActive(true);
+
+        // 清空旧内容，避免与上一条结算叠加
+        foreach (Transform child in EndTilescontainer.transform) {
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in FanCountContainer) {
+            Destroy(child.gameObject);
+        }
+
+        // 用户名
+        SelfUserName.text = positionToUsername != null && positionToUsername.ContainsKey("self") ? positionToUsername["self"] : "";
+        LeftUserName.text = positionToUsername != null && positionToUsername.ContainsKey("left") ? positionToUsername["left"] : "";
+        TopUserName.text = positionToUsername != null && positionToUsername.ContainsKey("top") ? positionToUsername["top"] : "";
+        RightUserName.text = positionToUsername != null && positionToUsername.ContainsKey("right") ? positionToUsername["right"] : "";
+
+        // 牌谱回放不在此处计算分差，先清空分数文本
+        SelfScore.text = "";
+        LeftScore.text = "";
+        TopScore.text = "";
+        RightScore.text = "";
+
+        // 回放模式默认全员未准备（仅通过确认按钮进入下一局）
+        SelfReady.gameObject.SetActive(false);
+        LeftReady.gameObject.SetActive(false);
+        TopReady.gameObject.SetActive(false);
+        RightReady.gameObject.SetActive(false);
+
+        // 先展示总番
+        GameObject totalFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount totalFanCount = totalFanInstance.GetComponent<FanCount>();
+        if (totalFanCount != null) {
+            totalFanCount.SetFanCount($"{hu_class} 总番", hu_score);
+        }
+
+        // 直接展示番型（回放模式不做逐条等待动画）
+        if (hu_fan != null) {
+            for (int i = 0; i < hu_fan.Length; i++) {
+                string fanName = hu_fan[i];
+                int fanValue = 0;
+                if (roomType == "guobiao") {
+                    fanValue = FanToValueGuobiao.ContainsKey(fanName) ? FanToValueGuobiao[fanName] : 0;
+                } else if (roomType == "qingque") {
+                    fanValue = FanToValueQingque.ContainsKey(fanName) ? FanToValueQingque[fanName] : 0;
+                }
+
+                GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
+                FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
+                if (fanCount != null) {
+                    fanCount.SetFanCount(fanName, fanValue);
+                }
+            }
+        }
+
+        // 回放模式仅显示确认按钮，点击后关闭并切到下一局
+        EndButton.interactable = true;
+        EndButtonText.text = "确认";
+        yield break;
+    }
+
     // 按钮点击以后发送准备消息
     public void EndButtonClick(){
         EndButton.interactable = false;
-        // 发送准备消息到服务器
+        if (currentState == StateRecord) {
+            HandleRecordStateConfirm();
+            return;
+        }
+        if (currentState == StateGame) {
+            HandleGameStateConfirm();
+            return;
+        }
+        Debug.LogWarning("EndResultPanel 当前状态未知，忽略确认点击");
+    }
+
+    private void HandleGameStateConfirm() {
+        // 对局状态：发送准备消息到服务器
         GameStateNetworkManager.Instance.SendAction("ready", 0);
+    }
+
+    private void HandleRecordStateConfirm() {
+        // 回放状态：关闭面板并切到下一局（若存在）
+        gameObject.SetActive(false);
+        if (GameRecordManager.Instance == null ||
+            GameRecordManager.Instance.gameRecord == null ||
+            GameRecordManager.Instance.gameRecord.gameRound == null ||
+            GameRecordManager.Instance.gameRecord.gameRound.rounds == null) {
+            return;
+        }
+        int nextRound = GameRecordManager.Instance.currentRoundIndex + 1;
+        if (GameRecordManager.Instance.gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
+            GameRecordManager.Instance.GotoSelectRound(nextRound);
+        }
     }
     
     // 更新准备状态显示
@@ -287,6 +386,7 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     public void ClearEndResultPanel(){
+        currentState = StateNone;
 
         gameObject.SetActive(false);
 
