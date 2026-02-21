@@ -24,7 +24,7 @@ public class RoomInfo {
 
 public class GameEndInfo { // 显示游戏结束结果
     public long game_random_seed; // 游戏随机种子
-    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据 {user_id: {"rank": int, "score": int, "pt": int, "username": string}}
+    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据 {rank: {"rank": int, "score": int, "pt": int, "username": string}}
 }
 
 public class ShowResultInfo { // 显示结算结果
@@ -115,6 +115,10 @@ public class SwitchSeatInfo { // 换位信息
 
 public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
     public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
+}
+
+public class ReadyStatusInfo { // 准备状态信息
+    public Dictionary<int, bool> player_to_ready; // 玩家索引到准备状态的映射 {player_index: ready}
 }
 public class PlayerRecordInfo { // 玩家对局记录信息
     public int user_id;                 // 用户ID
@@ -223,6 +227,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
     public SwitchSeatInfo switch_seat_info; // 国标游戏中换位信息
     public RefreshPlayerTagListInfo refresh_player_tag_list_info; // 刷新玩家标签列表信息
+    public ReadyStatusInfo ready_status_info; // 准备状态信息
     public RecordInfo[] record_list; // 返回游戏记录列表
     public PlayerInfoResponse player_info; // 返回玩家信息
     public RuleStatsResponse rule_stats; // 返回单个规则的统计数据

@@ -79,11 +79,11 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建表game_player_records（使用复合主键 (game_id, user_id)）
+            # 创建表game_player_records（使用复合主键 (game_id, user_id)，移除外键约束以保留已删除用户的记录）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
                     game_id BIGINT NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
-                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL,
                     username VARCHAR(255) NOT NULL,
                     score INT NOT NULL,
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
@@ -274,6 +274,36 @@ class DatabaseManager:
             logger.info('用户ID序列初始化完成')
             print('用户ID序列初始化完成')
 
+            # 迁移旧表结构：移除外键约束（保留已删除用户的记录）
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'game_player_records'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
+            
+            if table_exists:
+                # 查找并删除 user_id 的外键约束
+                cursor.execute("""
+                    SELECT constraint_name 
+                    FROM information_schema.table_constraints 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'game_player_records' 
+                    AND constraint_type = 'FOREIGN KEY'
+                    AND constraint_name LIKE '%user_id%';
+                """)
+                fk_result = cursor.fetchone()
+                
+                if fk_result:
+                    fk_name = fk_result[0]
+                    try:
+                        cursor.execute(f"ALTER TABLE game_player_records DROP CONSTRAINT IF EXISTS {fk_name};")
+                        logger.info(f'已移除 game_player_records 表的外键约束: {fk_name}')
+                    except Error as e:
+                        logger.warning(f'移除外键约束时出现警告: {e}')
+
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')
@@ -459,6 +489,14 @@ class DatabaseManager:
             # 如果密码哈希为空字符串，则可以删除
             if stored_password and not self.verify_password("", stored_password):
                 logger.warning(f'拒绝删除：游客账户密码不为空 user_id={user_id}, username={username}')
+                return False
+            
+            # 检查是否有牌谱记录，如果有则阻止删除（保留 user_id 用于牌谱查询）
+            cursor.execute("SELECT COUNT(*) FROM game_player_records WHERE user_id = %s", (user_id,))
+            record_count = cursor.fetchone()[0]
+            
+            if record_count > 0:
+                logger.info(f'用户 {user_id} 有 {record_count} 条牌谱记录，保留用户记录以维护牌谱完整性')
                 return False
             
             # 执行删除

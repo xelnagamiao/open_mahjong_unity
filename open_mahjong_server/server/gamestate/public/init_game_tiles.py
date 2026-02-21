@@ -26,9 +26,9 @@ def _shuffle_and_deal(self) -> None:
     debug_mode = getattr(self, 'Debug', False)
     if debug_mode:
         # 使用测试牌例（共通调试用牌例）
-        self.player_list[0].hand_tiles = [11,11,11,11,12,12,12,12,13,13,13,13,14]
-        self.player_list[0].combination_tiles = []
-        self.player_list[0].combination_mask = []
+        self.player_list[0].hand_tiles = [19,19,47,47,39]
+        self.player_list[0].combination_tiles = ["k41","k26","k13"]
+        self.player_list[0].combination_mask = [[1,41,1,41,1,41],[0,26,0,26,0,26],[1,13,1,13,1,13]]
         self.player_list[1].hand_tiles = []
         self.player_list[2].hand_tiles = []
         self.player_list[3].hand_tiles = []

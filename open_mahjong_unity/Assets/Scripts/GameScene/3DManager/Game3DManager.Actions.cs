@@ -23,7 +23,7 @@ public partial class Game3DManager : MonoBehaviour
             JiagangDirection = FrontDirection; // 自家加杠指针是向前
             SetPositionpoint = selfSetCombinationsPoint; // 获取放置指针
             // 获取父对象 父对象 = 玩家组合数 => 玩家组合父对象列表
-            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("self") - 1)];
         }
         else if (playerIndex == "left")
         {
@@ -31,7 +31,7 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = FrontDirection; // 向前
             JiagangDirection = RightDirection; // 左侧玩家加杠指针是向右
             SetPositionpoint = leftSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["left"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("left") - 1)];
         }
         else if (playerIndex == "top")
         {
@@ -39,7 +39,7 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = RightDirection; // 向右
             JiagangDirection = BackDirection; // 上方玩家加杠指针是向后
             SetPositionpoint = topSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["top"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("top") - 1)];
         }
         else if (playerIndex == "right")
         {
@@ -47,7 +47,7 @@ public partial class Game3DManager : MonoBehaviour
             SetDirection = BackDirection; // 向后
             JiagangDirection = LeftDirection; // 右侧玩家加杠指针是向左
             SetPositionpoint = rightSetCombinationsPoint;
-            SetParent = panel.combination3DObjects[NormalGameStateManager.Instance.player_to_info["right"].combination_tiles.Count - 1];
+            SetParent = panel.combination3DObjects[Mathf.Max(0, GetPlayerCombinationCount("right") - 1)];
         }
 
         // 获取了rotation(卡牌旋转角度) SetDirection(放置方向) 以及公共变量 $SetCombinationsPoint
@@ -223,6 +223,14 @@ public partial class Game3DManager : MonoBehaviour
     public void ActionAnimation(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false)
     {
         StartCoroutine(ActionAnimationCoroutine(playerIndex, actionType, combination_mask, doAnimation));
+    }
+
+    private int GetPlayerCombinationCount(string playerPosition) {
+        // 如果是牌谱模式，则返回牌谱模式下的组合数
+        if (GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf) {
+            return GameRecordManager.Instance.recordPlayer_to_info[playerPosition].combinationTiles.Count;
+        }
+        return NormalGameStateManager.Instance.player_to_info[playerPosition].combination_tiles.Count;
     }
 }
 

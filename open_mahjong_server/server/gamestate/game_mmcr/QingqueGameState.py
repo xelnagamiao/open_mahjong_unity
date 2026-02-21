@@ -15,6 +15,7 @@ from .boardcast import (
     broadcast_game_end,
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
+    broadcast_ready_status,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_qingque_tiles
@@ -151,6 +152,7 @@ class QingqueGameState:
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
+        "ready": 0,  # 准备操作优先级 最低优先级
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
@@ -213,6 +215,7 @@ class QingqueGameState:
                             'user_id': player.user_id,
                             'username': player.username,
                             'hand_tiles_count': len(player.hand_tiles),
+                            'hand_tiles': player.hand_tiles if player.user_id == user_id else None,  # 只有自己可见手牌
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
                             'combination_tiles': player.combination_tiles,
@@ -231,10 +234,10 @@ class QingqueGameState:
                         }
                         base_game_info['players_info'].append(player_info)
                     
-                    # 添加重连玩家的手牌
+                    # 与 broadcast_game_start 保持一致：手牌通过 players_info[].hand_tiles 传递
                     game_info = GameInfo(
                         **base_game_info,
-                        self_hand_tiles=p.hand_tiles
+                        self_hand_tiles=None
                     )
                     
                     response = Response(
@@ -551,19 +554,39 @@ class QingqueGameState:
             # 牌谱记录和牌
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
             
+            # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
-                await asyncio.sleep(2) # 等待2秒后重新开始下一局
+                # 流局：等待2秒后重新开始下一局（保持原有逻辑）
+                await asyncio.sleep(2)
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 8) # 等待和牌番种时间与8秒后重新开始下一局
+                # 和牌进行等待协程
+                fan_count = len(hu_fan) if hu_fan else 0
+                wait_time = fan_count * 0.5 + 8
+                
+                # 为所有玩家设置准备操作和剩余时间
+                self.action_dict = {}
+                for player in self.player_list:
+                    # 机器人默认准备，人类玩家需要准备
+                    if player.user_id <= 10:
+                        self.action_dict[player.player_index] = []
+                    else:
+                        self.action_dict[player.player_index] = ["ready"]
+                        # 准备阶段直接使用玩家 remaining_time 作为等待上限
+                        player.remaining_time = int(wait_time)
+                
+                # 设置游戏状态为等待准备
+                self.game_status = "waiting_ready"
+                # 广播初始准备状态
+                await broadcast_ready_status(self)
+                
+                # 参考补花轮设计：由上层循环驱动，wait_action 每次只处理一次准备
+                while any(self.action_dict[i] for i in self.action_dict):
+                    # 返回 False 代表超时或异常，直接结束准备阶段
+                    if await wait_action(self) is False:
+                        break
 
             # 开启下一局的准备工作
             next_game_round(self)   
-
-            # 换位
-            if self.current_round >= self.max_round*4:
-                if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                    await broadcast_switch_seat(self)
-                    await asyncio.sleep(5)
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
@@ -581,13 +604,14 @@ class QingqueGameState:
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
 
-        """
         # 存储游戏牌谱
         game_id = self.db_manager.store_guobiao_game_record(
             self.game_record,
             self.player_list,
             self.room_type
         )
+
+        """
         
         # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)

@@ -70,7 +70,7 @@ public partial class GameCanvas : MonoBehaviour {
         openScoreRecordPanelButton.onClick.RemoveAllListeners();
         openScoreRecordPanelButton.onClick.AddListener(() => {
             SetScoreRecordOpen(!_isScoreRecordOpen); // 切换状态
-            if (_isScoreRecordOpen) { GameScoreRecord.Instance.gameObject.SetActive(true); GameScoreRecord.Instance.UpdateScoreRecord(); } // 打开并刷新
+            if (_isScoreRecordOpen) { GameScoreRecord.Instance.gameObject.SetActive(true); GameSceneUIManager.Instance.UpdateScoreRecord(); } // 打开并由 UIManager 传入数据刷新
             else { GameScoreRecord.Instance.Close(); } // 关闭并清理
         });
         SetScoreRecordOpen(false); // 初始化按钮文字与状态
@@ -108,7 +108,7 @@ public partial class GameCanvas : MonoBehaviour {
 
             // 调用面板的 SetPlayerInfo 方法
             if (targetPanel != null) {
-                targetPanel.SetPlayerInfo(player);
+                targetPanel.SetPlayerInfo(player, "gamestate");
             }
             else
             {
@@ -124,6 +124,132 @@ public partial class GameCanvas : MonoBehaviour {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
 
+    }
+
+    // 从牌谱记录初始化游戏UI
+    public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
+        // 清空手牌容器 - 倒序遍历避免SetParent影响
+        for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
+            Transform child = handCardsContainer.GetChild(i);
+            Destroyer.Instance.AddToDestroyer(child);
+        }
+        // 通过面板组件设置玩家信息
+        foreach (var recordPlayer in recordPlayerList){
+            string position = indexToPosition[recordPlayer.playerIndex];
+            GamePlayerPanel targetPanel = null;
+            // 根据位置获取对应的面板
+            switch (position) {
+                case "self":
+                    targetPanel = playerSelfPanel;
+                    break;
+                case "right":
+                    targetPanel = playerRightPanel;
+                    break;
+                case "top":
+                    targetPanel = playerTopPanel;
+                    break;
+                case "left":
+                    targetPanel = playerLeftPanel;
+                    break;
+            }
+
+            // 调用面板的 SetPlayerInfo 方法
+            if (targetPanel != null) {
+                // 将 RecordPlayer 转换为 PlayerInfo
+                PlayerInfo playerInfo = new PlayerInfo {
+                    user_id = recordPlayer.userId,
+                    username = userIdToUsername.ContainsKey(recordPlayer.userId) ? userIdToUsername[recordPlayer.userId] : $"玩家{recordPlayer.userId}",
+                    player_index = recordPlayer.playerIndex,
+                    original_player_index = recordPlayer.originalPlayerIndex,
+                    title_used = recordPlayer.title_used,
+                    profile_used = recordPlayer.profile_used,
+                    character_used = recordPlayer.character_used,
+                    voice_used = recordPlayer.voice_used,
+                    hand_tiles_count = recordPlayer.tileList != null ? recordPlayer.tileList.Count : 0,
+                    hand_tiles = recordPlayer.tileList != null ? recordPlayer.tileList.ToArray() : new int[0],
+                    discard_tiles = new int[0],
+                    discard_origin_tiles = new int[0],
+                    combination_tiles = new string[0],
+                    combination_mask = new int[0][],
+                    huapai_list = new int[0],
+                    remaining_time = 0,
+                    score = 0,
+                    score_history = new string[0],
+                    tag_list = new string[0]
+                };
+                targetPanel.SetPlayerInfo(playerInfo, "record");
+            }
+            else
+            {
+                Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
+            }
+        }
+    }
+
+    // 从牌谱记录更新左上房间信息
+    public void UpdateRoomInfoFromRecord(GameRecord gameRecord, int currentRoundIndex) {
+        string roomType = ReadStringValue(gameRecord.gameTitle, "rule", "guobiao");
+        int maxRound = ReadIntValue(gameRecord.gameTitle, "max_round", 0);
+        if (maxRound <= 0) {
+            int roundCount = gameRecord.gameRound.rounds.Count;
+            maxRound = Mathf.Clamp((roundCount + 3) / 4, 1, 4);
+        }
+
+        int currentRound = currentRoundIndex;
+        long roundRandomSeed = 0;
+        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
+            if (roundData.currentRound > 0) {
+                currentRound = roundData.currentRound;
+            }
+            roundRandomSeed = roundData.roundRandomSeed;
+        }
+
+        GameInfo gameInfo = new GameInfo {
+            room_type = roomType,
+            max_round = maxRound,
+            current_round = currentRound,
+            round_random_seed = roundRandomSeed,
+            open_cuohe = ReadBoolValue(gameRecord.gameTitle, "open_cuohe", false),
+            tips = ReadBoolValue(gameRecord.gameTitle, "tips", false),
+            isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
+        };
+        roundPanel.UpdateRoomInfo(gameInfo, roomType);
+    }
+
+    private static string ReadStringValue(Dictionary<string, object> source, string key, string defaultValue) {
+        if (source == null || !source.TryGetValue(key, out object value) || value == null) {
+            return defaultValue;
+        }
+        string text = value.ToString().Trim().Trim('"');
+        return string.IsNullOrEmpty(text) ? defaultValue : text.ToLowerInvariant();
+    }
+
+    private static int ReadIntValue(Dictionary<string, object> source, string key, int defaultValue) {
+        if (source == null || !source.TryGetValue(key, out object value) || value == null) {
+            return defaultValue;
+        }
+        if (value is int directInt) {
+            return directInt;
+        }
+        return int.TryParse(value.ToString(), out int parsed) ? parsed : defaultValue;
+    }
+
+    private static bool ReadBoolValue(Dictionary<string, object> source, string key, bool defaultValue) {
+        if (source == null || !source.TryGetValue(key, out object value) || value == null) {
+            return defaultValue;
+        }
+        if (value is bool directBool) {
+            return directBool;
+        }
+
+        string text = value.ToString().Trim().Trim('"');
+        if (bool.TryParse(text, out bool parsedBool)) {
+            return parsedBool;
+        }
+        if (int.TryParse(text, out int parsedInt)) {
+            return parsedInt != 0;
+        }
+        return defaultValue;
     }
 
     // 更新玩家标签列表

@@ -7,7 +7,7 @@ using TMPro;
 
 public partial class BoardCanvas {
     
-    public void ShowCurrentPlayer(string currentPlayerIndex){
+    public void ShowCurrentPlayer(string currentPlayerIndex, int remainTiles){
         // 1. 如果存在旧的闪烁动画，则停止它
         if (flashCoroutine != null){
             StopCoroutine(flashCoroutine);
@@ -44,7 +44,7 @@ public partial class BoardCanvas {
         flashCoroutine = StartCoroutine(FlashImage(targetImage));
 
         // 5. 更新剩余牌数
-        remiansTilesText.text = $"余:{NormalGameStateManager.Instance.remainTiles}";
+        remiansTilesText.text = $"余:{remainTiles}";
     }
 
     private IEnumerator FlashImage(Image image) {

@@ -2,6 +2,7 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public partial class GameCanvas{
@@ -39,20 +40,44 @@ public partial class GameCanvas{
 
         Debug.Log($"手牌处理: {ChangeType}");
 
-        // 初始化手牌 只初始化前13张
+        // 初始化手牌（先初始化前13张，若有第14张则使用 GetCard 设置）
         if (ChangeType == "InitHandCards"){
-            int cardCount = 0;
-            foreach (int tile in TilesList){
-                if (cardCount >= 13) break;
+            if (TilesList == null){
+                yield break;
+            }
+            int initCount = Mathf.Min(13, TilesList.Length);
+            for (int i = 0; i < initCount; i++){
                 // 创建手牌
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(tile, false);
+                tileCard.SetTile(TilesList[i], false);
                 // 设置位置：每张牌间隔一个宽度
                 RectTransform cardRect = cardObj.GetComponent<RectTransform>();
-                cardRect.anchoredPosition = new Vector2(cardCount * tileCardWidth, 0);
-                // 计数增加
-                cardCount++;
+                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
+            }
+            // 第14张牌使用摸牌设置 确保手牌美观
+            if (TilesList.Length >= 14){
+                yield return StartCoroutine(ChangeHandCardsCoroutine("GetCard", TilesList[13], null, null));
+            }
+        }
+
+        else if (ChangeType == "InitHandCardsFromRecord"){
+            if (TilesList == null){
+                Debug.LogWarning("ChangeHandCards InitHandCardsFromRecord: TilesList 为空，跳过初始化。");
+                yield break;
+            }
+            int[] sortedTiles = (int[])TilesList.Clone();
+            Array.Sort(sortedTiles);
+            for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
+                Transform child = handCardsContainer.GetChild(i);
+                Destroyer.Instance.AddToDestroyer(child);
+            }
+            for (int i = 0; i < sortedTiles.Length; i++){
+                GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
+                TileCard tileCard = cardObj.GetComponent<TileCard>();
+                tileCard.SetTile(sortedTiles[i], false);
+                RectTransform cardRect = cardObj.GetComponent<RectTransform>();
+                cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
             }
         }
 
@@ -154,6 +179,10 @@ public partial class GameCanvas{
 
         // 删除组合牌 在手牌中删除全部组合牌
         else if (ChangeType == "RemoveCombinationCard"){
+            if (TilesList == null){
+                Debug.LogWarning("ChangeHandCards RemoveCombinationCard: TilesList 为空，跳过处理。");
+                yield break;
+            }
             foreach (int tileToRemove in TilesList){
                 foreach (Transform child in handCardsContainer){
                     TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
@@ -178,14 +207,14 @@ public partial class GameCanvas{
         }
 
         // 如果切牌是摸切或者补花摸牌张 则不需要排序
-        else if (ChangeType == "RemoveBuhuaGetCard"){
+        else if (ChangeType == "RemoveBuhuaGetCard" || ChangeType == "InitHandCardsFromRecord"){
             isArranged = true;
             yield break;
         }
 
         // 初始化卡牌、摸切、手切、单次补花、吃碰杠以后 进行卡牌排序 
         else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" ||
-         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard"){
+         ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "InitHandCardsFromRecord" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard"){
             isArranged = true;
             // 等待排序完成
             yield return StartCoroutine(RearrangeHandCardsWithAnimation());
@@ -224,7 +253,7 @@ public partial class GameCanvas{
         }
 
         // 如果玩家选择了自动排序手牌，按tileId排序
-        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.isAutoArrangeHandCards){
+        if (AutoAction.Instance.IsAutoArrangeHandCards){
             tileCards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
         }
         // 如果不勾选自动排序，保持原有顺序

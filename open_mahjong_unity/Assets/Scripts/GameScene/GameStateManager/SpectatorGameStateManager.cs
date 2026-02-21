@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -193,6 +193,15 @@ public class SpectatorGameStateManager : MonoBehaviour {
                 doresponse.combination_mask,
                 doresponse.combination_target
             );
+            
+            // 更新剩余牌数（当有摸牌操作时）
+            if (doresponse.action_list != null) {
+                foreach (string action in doresponse.action_list) {
+                    if (action == "deal_tile" || action == "deal_gang_tile" || action == "deal_buhua_tile") {
+                        remainTiles = Mathf.Max(0, remainTiles - 1);
+                    }
+                }
+            }
         }
     }
 
@@ -298,7 +307,7 @@ public class SpectatorGameStateManager : MonoBehaviour {
     public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time) {
         if (SwitchType == "askHandAction") {
             // 只显示当前玩家，不显示操作按钮
-            BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer);
+            BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer, remainTiles);
         } else if (SwitchType == "doAction") {
             // 只更新UI状态
         } else if (SwitchType == "ClearAction") {

@@ -23,10 +23,11 @@ public class RecordPrefab : MonoBehaviour{
     [SerializeField] private Button LoadRecordButton;
     
     private string record_data_json;
+    private PlayerRecordInfo[] players_info; // 保存四位玩家的记录信息
     public void InitializeRecordItem(string username1, string username2, string username3, string username4,
     string score1, string score2, string score3, string score4,
     string hasRecord, string mainRule, string subRule, string recordedTime,
-    string record_data_json
+    string record_data_json, PlayerRecordInfo[] players_info
     )
     {
         Username1Text.text = username1;
@@ -42,6 +43,7 @@ public class RecordPrefab : MonoBehaviour{
         SubRuleText.text = subRule;
         RecordedTimeText.text = recordedTime;
         this.record_data_json = record_data_json;
+        this.players_info = players_info;
     }
 
     private void Awake(){
@@ -50,6 +52,6 @@ public class RecordPrefab : MonoBehaviour{
 
     private void LoadRecord(){
         WindowsManager.Instance.SwitchWindow("recordscene");
-        GameRecordManager.Instance.LoadRecord(record_data_json);
+        GameRecordManager.Instance.LoadRecord(record_data_json, players_info);
     }
 }
