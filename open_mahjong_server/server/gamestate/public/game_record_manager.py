@@ -73,10 +73,10 @@ def init_game_round(self):
     }
 
 # 牌谱记录补花
-def player_action_record_buhua(self,max_tile: int):
+def player_action_record_buhua(self,max_tile: int,action_player: int):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["buhua",max_tile]
+        ["buhua",max_tile,action_player]
     )
 
 # 牌谱记录摸牌

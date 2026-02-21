@@ -236,6 +236,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
             way_to_hepai.remove("和绝张")
 
     # 使用计算服务类检查和牌
+    print(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 
    

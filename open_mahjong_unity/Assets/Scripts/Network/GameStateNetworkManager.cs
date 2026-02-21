@@ -64,6 +64,10 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/get_spectator_list":
                 HandleGetSpectatorListResponse(response);
                 break;
+            case "gamestate/guobiao/ready_status":
+            case "gamestate/qingque/ready_status":
+                HandleReadyStatus(response);
+                break;
             default:
                 Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");
                 break;
@@ -262,6 +266,16 @@ public class GameStateNetworkManager : MonoBehaviour {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"移除观战失败: {e.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 处理准备状态更新
+    /// </summary>
+    private void HandleReadyStatus(Response response) {
+        Debug.Log($"收到准备状态更新: {response.message}");
+        if (response.ready_status_info != null && EndResultPanel.Instance != null) {
+            EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
         }
     }
 }

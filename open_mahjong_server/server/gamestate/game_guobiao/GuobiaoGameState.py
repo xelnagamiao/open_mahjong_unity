@@ -15,10 +15,11 @@ from .boardcast import (
     broadcast_game_end,
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
+    broadcast_ready_status,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_guobiao_tiles
-from ..public.next_game_round import next_game_round
+from ..public.next_game_round import next_game_round_switchseat
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -143,7 +144,7 @@ class GuobiaoGameState:
         self.action_events:Dict[int,asyncio.Event] = {0:asyncio.Event(),1:asyncio.Event(),2:asyncio.Event(),3:asyncio.Event()}  # 玩家索引 -> Event
         self.action_queues:Dict[int,asyncio.Queue] = {0:asyncio.Queue(),1:asyncio.Queue(),2:asyncio.Queue(),3:asyncio.Queue()}  # 玩家索引 -> Queue
         self.waiting_players_list = [] # 等待操作的玩家列表
-
+        
         # 所有check方法都返回action_dict字典
         self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]} # 玩家索引 -> 操作列表
         # 行为 -> 优先级 用于在多人共通等待行为时判断是否需要等待更高优先级玩家的操作或直接结束更低优先级玩家的等待
@@ -151,6 +152,7 @@ class GuobiaoGameState:
         "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,  # 和牌优先级 三种优先级对应多人和牌时的优先权
         "peng": 2, "gang": 2,  # 碰杠优先级 次高优先级
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,  # 吃牌优先级 次低优先级
+        "ready": 0,  # 准备操作优先级 最低优先级
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
 
@@ -216,6 +218,7 @@ class GuobiaoGameState:
                             'user_id': player.user_id,
                             'username': player.username,
                             'hand_tiles_count': len(player.hand_tiles),
+                            'hand_tiles': player.hand_tiles if player.user_id == user_id else None,  # 只有自己可见手牌
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
                             'combination_tiles': player.combination_tiles,
@@ -234,10 +237,10 @@ class GuobiaoGameState:
                         }
                         base_game_info['players_info'].append(player_info)
                     
-                    # 添加重连玩家的手牌
+                    # 与 broadcast_game_start 保持一致：手牌通过 players_info[].hand_tiles 传递
                     game_info = GameInfo(
                         **base_game_info,
-                        self_hand_tiles=p.hand_tiles
+                        self_hand_tiles=None
                     )
                     
                     response = Response(
@@ -330,6 +333,11 @@ class GuobiaoGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
+            # 换位
+            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+                await broadcast_switch_seat(self)
+                await asyncio.sleep(5)
+
             # 记录结算前的分数（用于计算本局分数变化）
             scores_before = {player.original_player_index: player.score for player in self.player_list}
 
@@ -358,7 +366,7 @@ class GuobiaoGameState:
                             self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                             self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                             # 牌谱记录补花
-                            player_action_record_buhua(self,max_tile = max_tile)
+                            player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                             # 牌谱记录摸牌
                             player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                             # 广播补花操作（使用 deal_buhua_tile 作为补花摸牌标识）
@@ -431,7 +439,7 @@ class GuobiaoGameState:
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
                         self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                         # 牌谱记录补花
-                        player_action_record_buhua(self,max_tile = max_tile)
+                        player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                         # 牌谱记录摸牌
                         player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
                         # 广播补花操作
@@ -681,18 +689,35 @@ class GuobiaoGameState:
             # 牌谱记录和牌
             player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
             
+            # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
-                await asyncio.sleep(2) # 等待2秒后重新开始下一局
+                # 流局：等待2秒后重新开始下一局（保持原有逻辑）
+                await asyncio.sleep(2)
             else:
-                await asyncio.sleep(len(hu_fan)*0.5 + 8) # 等待和牌番种时间与8秒后重新开始下一局
+                # 和牌进行等待协程
+                fan_count = len(hu_fan) if hu_fan else 0
+                wait_time = fan_count * 0.5 + 8
+                
+                # 为所有玩家设置准备操作，并将准备阶段等待时间写入玩家剩余时间
+                self.action_dict = {}
+                for player in self.player_list:
+                    if player.user_id <= 10: # 机器人默认准备
+                        self.action_dict[player.player_index] = []
+                    else:
+                        self.action_dict[player.player_index] = ["ready"]
+                        player.remaining_time = int(wait_time)
+                # 设置游戏状态
+                self.game_status = "waiting_ready"
+                # 广播准备状态
+                await broadcast_ready_status(self)
+                # 参考补花轮：准备阶段由上层循环驱动，wait_action 每次只处理一次准备
+                while any(self.action_dict[i] for i in self.action_dict):
+                    # 返回 False 代表超时或异常，直接结束准备阶段
+                    if await wait_action(self) is False:
+                        break
 
             # 开启下一局的准备工作
-            next_game_round(self)   
-
-            # 换位
-            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
-                await broadcast_switch_seat(self)
-                await asyncio.sleep(5)
+            next_game_round_switchseat(self)   
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环

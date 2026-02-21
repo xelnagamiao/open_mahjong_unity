@@ -41,10 +41,14 @@ public partial class Game3DManager : MonoBehaviour
             rotation = Quaternion.Euler(90, 0, 270);
         }
 
+        bool isRecordSet = SetType == "Record";
         // 添加随机的 z 轴旋转（正负3度），模拟手牌排列的自然效果
-        Vector3 euler = rotation.eulerAngles;
-        euler.z += Random.Range(-3f, 3f);
-        rotation = Quaternion.Euler(euler);
+        if (!isRecordSet)
+        {
+            Vector3 euler = rotation.eulerAngles;
+            euler.z += Random.Range(-3f, 3f);
+            rotation = Quaternion.Euler(euler);
+        }
 
         // 获取每行最多放多少张牌
         int cardsPerRow;
@@ -81,7 +85,9 @@ public partial class Game3DManager : MonoBehaviour
             Debug.LogError($"无法从对象池获取牌: {tileId}");
             yield break;
         }
-        lastCut3DObject = cardObj;
+        if (SetType == "Discard") {
+            lastCut3DObject = cardObj;
+        }
         // 设置父对象
         cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
@@ -141,22 +147,30 @@ public partial class Game3DManager : MonoBehaviour
             rotation = Quaternion.Euler(90, 0, 270);
         }
 
+        bool isRecordSet = SetType == "Record";
         // 添加随机的 z 轴旋转（正负3度），模拟手牌排列的自然效果
-        Vector3 euler = rotation.eulerAngles;
-        euler.z += Random.Range(-3f, 3f);
-        rotation = Quaternion.Euler(euler);
+        if (!isRecordSet)
+        {
+            Vector3 euler = rotation.eulerAngles;
+            euler.z += Random.Range(-3f, 3f);
+            rotation = Quaternion.Euler(euler);
+        }
 
         // 获取每行最多放多少张牌
         int cardsPerRow;
         // 弃牌每行最多放 6 张牌
-        if (SetType == "Discard")
+        if (SetType == "Discard" || SetType == "DiscardWithoutAnimation")
         {
             cardsPerRow = 6;
         }
         // 补花每行最多放 4 张牌
-        else if (SetType == "Buhua")
+        else if (SetType == "Buhua" || SetType == "BuhuaWithoutAnimation")
         {
             cardsPerRow = 4;
+        }
+        else if (SetType == "Record")
+        {
+            cardsPerRow = 14;
         }
         else
         {
@@ -180,7 +194,9 @@ public partial class Game3DManager : MonoBehaviour
             Debug.LogError($"无法从对象池获取牌: {tileId}");
             return;
         }
-        lastCut3DObject = cardObj;
+        if (SetType == "Discard") {
+            lastCut3DObject = cardObj;
+        }
         // 设置父对象
         cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";
@@ -191,6 +207,12 @@ public partial class Game3DManager : MonoBehaviour
             Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
         }
 
+        if (isRecordSet)
+        {
+            cardObj.transform.position = currentPosition;
+            return;
+        }
+
         // 启动移动动画：先移动到最后删除的位置，然后移动到目标位置
         // 如果手牌者是自己，使用selfPosPanel的cardsPosition容器本身的位置
         Vector3 startPosition = lastRemove3DPosition;
@@ -198,10 +220,13 @@ public partial class Game3DManager : MonoBehaviour
         {
             startPosition = selfPosPanel.cardsPosition.position;
         }
+        if (SetType == "DiscardWithoutAnimation" || SetType == "BuhuaWithoutAnimation")
+        {
+            return;
+        }
+        else{
+            StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
+        }
 
-        StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
     }
-
 }
-
-

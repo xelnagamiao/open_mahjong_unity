@@ -70,7 +70,7 @@ PostgreSQL
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
 | game_id | BIGINT | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
-| user_id | BIGINT | NOT NULL, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| user_id | BIGINT | NOT NULL | 用户ID（无外键约束，删除用户时保留记录以维护牌谱完整性） |
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
@@ -81,10 +81,10 @@ PostgreSQL
 | voice_used | INT | NULL | 使用的音色ID（可为空） |
 | PRIMARY KEY | (game_id, user_id) | 复合主键 | 每个游戏每个玩家一条记录 |
 
-> **级联删除说明**：
-> - 删除 `users` 表中的用户记录时，会级联删除 `game_player_records` 中该用户的所有记录
-> - 删除 `game_records` 表中的牌谱记录时，会级联删除 `game_player_records` 中该游戏的所有玩家记录
-> - 不会删除牌谱数据
+> **牌谱保存规则**：
+> - 对局中包含机器人（user_id <= 10）时，不保存牌谱和对局记录
+> - 对局中四位玩家都是玩家或游客时，保存牌谱和对局记录
+> - 删除用户时，如果该用户有牌谱记录，则阻止删除，保留用户记录以维护牌谱完整性
 
 ### 规则特定统计表
 
@@ -106,4 +106,9 @@ PostgreSQL
 4. **guobiao_fan_stats** - 该用户的国标麻将番种统计数据
 5. **riichi_history_stats** - 该用户的立直麻将基础统计数据
 6. **riichi_fan_stats** - 该用户的立直麻将番种统计数据
-7. **game_player_records** - 该用户参与的所有对局记录
+
+> **注意**：
+> - **game_player_records** 表已移除外键约束，删除用户时不会删除牌谱记录
+> - 如果用户有牌谱记录，删除操作会被阻止，以保留牌谱完整性
+> - 牌谱记录中的 `user_id` 和 `username` 会永久保留，即使对应的用户已被删除
+

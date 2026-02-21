@@ -34,6 +34,17 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     }
 
     /// <summary>
+    /// 设置卡牌不透明度（用于牌山视图中已摸走的牌变灰）
+    /// </summary>
+    /// <param name="alpha">0~1，1 为完全不透明</param>
+    public void SetOpacity(float alpha) {
+        if (tileImage == null) return;
+        Color c = tileImage.color;
+        c.a = Mathf.Clamp01(alpha);
+        tileImage.color = c;
+    }
+
+    /// <summary>
     /// 鼠标进入时，高亮所有相同tileId的3D卡牌
     /// </summary>
     public void OnPointerEnter(PointerEventData eventData)

@@ -3,7 +3,7 @@ import asyncio
 import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
-from .boardcast import broadcast_do_action
+from .boardcast import broadcast_do_action, broadcast_ready_status
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,
@@ -444,4 +444,22 @@ async def wait_action(self):
             else:
                 self.game_status = "deal_card" # 历时行为
                 return
+        
+        # 等待准备阶段
+        case "waiting_ready":
+            # 准备阶段按“单次处理 + 上层循环”的方式执行
+            if action_data:
+                if action_type == "ready":
+                    # 主循环里已将该玩家 action_dict 清空，这里广播最新准备状态
+                    await broadcast_ready_status(self)
+                    return True
+                logger.error(f"等待准备阶段出现非ready的操作类型: {action_type}")
+                return False
+
+            # 超时：将仍未准备玩家视为放弃本轮准备，避免上层循环卡死
+            for wait_player_index, wait_actions in self.action_dict.items():
+                if "ready" in wait_actions:
+                    self.action_dict[wait_player_index] = []
+            await broadcast_ready_status(self)
+            return False
 

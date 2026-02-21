@@ -41,6 +41,8 @@ public class SwitchSeatPanel : MonoBehaviour {
 
     // Start is called before the first frame update
     public IEnumerator ShowSwitchSeatPanel(int gameRound){
+        // 隐藏和牌结算面板
+        EndResultPanel.Instance.ClearEndResultPanel();
         // 重置面板位置到初始位置
         ResetPanelPositions();
         // 获取自身索引

@@ -25,6 +25,10 @@ namespace Qingque13.Criteria
                     if (num >= 1 && num <= 9)
                     {
                         numTable |= (ushort)(1 << num);
+                    } 
+                    else
+                    {
+                        return false; // Invalid tile number for this criterion
                     }
                 }
             }

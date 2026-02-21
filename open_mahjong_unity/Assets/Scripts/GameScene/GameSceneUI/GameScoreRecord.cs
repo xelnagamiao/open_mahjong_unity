@@ -76,33 +76,22 @@ public class GameScoreRecord : MonoBehaviour
     }
 
     /// <summary>
-    /// 更新分数记录显示
+    /// 更新分数记录显示。由调用方传入规则与 player_to_info（含 score_history、original_player_index）。
     /// </summary>
-    public void UpdateScoreRecord()
+    /// <param name="rule">规则类型（如 guobiao、qingque）</param>
+    /// <param name="player_to_info">四家玩家数据（可任意顺序，内部按 original_player_index 排序）</param>
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info)
     {
-        // 从 GameSceneManager.Instance.player_to_info 中获取数据
-        var playerInfos = NormalGameStateManager.Instance.player_to_info;
-        
-        // 按照 original_player_index 排序获取玩家信息
-        var sortedPlayers = new List<(int originalIndex, string username, List<string> scoreHistory)>();
-        
-        foreach (var kvp in playerInfos)
-        {
-            sortedPlayers.Add((kvp.Value.original_player_index, kvp.Value.username, kvp.Value.score_history));
-        }
-        
-        // 按照 original_index 排序
-        sortedPlayers.Sort((a, b) => a.originalIndex.CompareTo(b.originalIndex));
-        
-        // 获取规则（从 GameSceneManager 获取）
-        string rule = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomType : "UNKNOWN";
-        
-        // 调用初始化方法
-        InitializeScoreRecord(rule, 
-            sortedPlayers[0].originalIndex, sortedPlayers[0].username, sortedPlayers[0].scoreHistory,
-            sortedPlayers[1].originalIndex, sortedPlayers[1].username, sortedPlayers[1].scoreHistory,
-            sortedPlayers[2].originalIndex, sortedPlayers[2].username, sortedPlayers[2].scoreHistory,
-            sortedPlayers[3].originalIndex, sortedPlayers[3].username, sortedPlayers[3].scoreHistory);
+        if (player_to_info == null || player_to_info.Count < 4) return;
+
+        var sorted = new List<PlayerInfoClass>(player_to_info.Values);
+        sorted.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
+
+        InitializeScoreRecord(rule,
+            sorted[0].original_player_index, sorted[0].username, sorted[0].score_history ?? new List<string>(),
+            sorted[1].original_player_index, sorted[1].username, sorted[1].score_history ?? new List<string>(),
+            sorted[2].original_player_index, sorted[2].username, sorted[2].score_history ?? new List<string>(),
+            sorted[3].original_player_index, sorted[3].username, sorted[3].score_history ?? new List<string>());
     }
 
     /// <summary>

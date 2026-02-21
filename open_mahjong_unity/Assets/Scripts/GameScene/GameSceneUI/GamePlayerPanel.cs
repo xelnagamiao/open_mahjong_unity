@@ -12,6 +12,7 @@ public class GamePlayerPanel : MonoBehaviour {
     [SerializeField] private Image playerProfileEdgePicture;   // 玩家头像边框
     [SerializeField] private Image playerIslossconnPicture; // 玩家是否掉线图片
     [SerializeField] private GameObject playerIsPeidaPicture; // 玩家是否陪打图片
+    [SerializeField] private Button GoToRecordSelectButton; // 牌谱模式下切换到该玩家视角
 
     private void Awake() {
         playerIslossconnPicture.gameObject.SetActive(false);
@@ -20,7 +21,7 @@ public class GamePlayerPanel : MonoBehaviour {
 
 
     // 设置玩家信息
-    public void SetPlayerInfo(PlayerInfo playerInfo) {
+    public void SetPlayerInfo(PlayerInfo playerInfo, string state) {
 
         // 设置玩家名称
         playerNameText.text = playerInfo.username;
@@ -43,6 +44,21 @@ public class GamePlayerPanel : MonoBehaviour {
         }
 
         UpdateTagList(playerInfo.tag_list);
+
+        // 牌谱模式下启用“切换视角”按钮；对局模式隐藏
+        if (GoToRecordSelectButton != null) {
+            bool isRecordState = state == "record";
+            GoToRecordSelectButton.gameObject.SetActive(isRecordState);
+            GoToRecordSelectButton.onClick.RemoveAllListeners();
+            if (isRecordState) {
+                int userId = playerInfo.user_id;
+                GoToRecordSelectButton.onClick.AddListener(() => {
+                    if (GameRecordManager.Instance != null) {
+                        GameRecordManager.Instance.SwitchRecordPerspectiveToUser(userId);
+                    }
+                });
+            }
+        }
     }
 
     // 更新标签列表显示

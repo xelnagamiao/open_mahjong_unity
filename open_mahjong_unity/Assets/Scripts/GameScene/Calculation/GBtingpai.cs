@@ -314,12 +314,17 @@ public class Chinese_Tingpai_Check
                     string.Join(", ", i.hand_tiles),
                     i.complete_step,
                     string.Join(", ", i.combination_list));
-                // 如果听牌步数是14 则代表缺的那张牌就是组合龙的缺张 直接返回缺张牌
-                if (i.complete_step == 14)
+                
+                // 如果有组合龙
+                if (i.combination_list.Any(comb => comb.Contains("z")))
                 {
                     DebugPrint("组合龙型");
-                    waiting_tiles = new HashSet<int>(temp_waiting_tiles);
-                    return;
+                    // 如果听牌步数为14 没有手牌 说明是组合龙缺张
+                    if (i.complete_step == 14 && i.hand_tiles.Count == 0)
+                    {
+                        waiting_tiles = new HashSet<int>(temp_waiting_tiles);
+                        return;
+                    }
                 }
 
                 if (i.hand_tiles.Count == 1)

@@ -942,6 +942,9 @@ public class Chinese_Hepai_Check {
                         sign_count++;
                         sign_pointer = sign_val;
                     }
+                    else if (sign_val == sign_pointer){
+                        continue;
+                    }
                     else
                     {
                         if (sign_count <= 2)
@@ -966,6 +969,9 @@ public class Chinese_Hepai_Check {
                     {
                         sign_count++;
                         sign_pointer = sign_val;
+                    }
+                    else if (sign_val == sign_pointer){
+                        continue;
                     }
                     else
                     {

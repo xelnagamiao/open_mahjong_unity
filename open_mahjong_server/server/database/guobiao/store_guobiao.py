@@ -113,6 +113,11 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
     """
     conn = None
     try:
+        # 对局包含机器人时，不保存牌谱/对局记录
+        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
+            logger.info("对局包含机器人，跳过牌谱与对局记录保存")
+            return None
+
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         
@@ -131,16 +136,13 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         # 获取玩家排名（rank_result 是 1-4）
         saved_count = 0
         for player in player_list:
-            # 跳过游客账户（user_id < 10000000）
-            if player.user_id < 10000000:
-                continue
-                
             rank = player.record_counter.rank_result  # 1-4
             # 从玩家对象获取使用的设置信息（对局时的设置）
             title_used = getattr(player, 'title_used', None)
             character_used = getattr(player, 'character_used', None)
             profile_used = getattr(player, 'profile_used', None)
             voice_used = getattr(player, 'voice_used', None)
+            actual_user_id = player.user_id
             
             try:
                 cursor.execute("""
@@ -149,7 +151,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
-                    player.user_id,
+                    actual_user_id,
                     player.username,
                     player.score,
                     rank,
@@ -161,7 +163,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                 ))
                 saved_count += 1
             except Error as e:
-                logger.warning(f'跳过玩家对局记录存储（用户不存在）: user_id={player.user_id}, username={player.username}, error={e}')
+                logger.warning(f'跳过玩家对局记录存储: user_id={player.user_id}, username={player.username}, error={e}')
         logger.info(f'已为 {saved_count} 名玩家保存对局记录到 game_player_records 表')
         
         conn.commit()
@@ -193,6 +195,11 @@ def store_guobiao_game_stats(db_manager, game_id: int, player_list: list, room_t
     """
     conn = None
     try:
+        # 对局包含机器人时，不保存统计
+        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
+            logger.info("对局包含机器人，跳过基础统计保存")
+            return
+
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         
@@ -216,11 +223,17 @@ def store_guobiao_game_stats(db_manager, game_id: int, player_list: list, room_t
         
         # 更新每个玩家的基础统计数据
         for player in player_list:
-            # 跳过游客账户（user_id < 10000000）
-            if player.user_id < 10000000:
-                continue
-                
             user_id = player.user_id
+            
+            # 跳过游客（只统计注册用户 user_id > 10000000）
+            if user_id <= 10000000:
+                continue
+            
+            # 检查用户是否存在
+            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                continue
+            
             counter = player.record_counter
             win_count = counter.zimo_times + counter.dianhe_times
             
@@ -289,6 +302,11 @@ def store_guobiao_fan_stats(db_manager, game_id: int, player_list: list, room_ty
     """
     conn = None
     try:
+        # 对局包含机器人时，不保存统计
+        if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
+            logger.info("对局包含机器人，跳过番种统计保存")
+            return
+
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         
@@ -297,11 +315,17 @@ def store_guobiao_fan_stats(db_manager, game_id: int, player_list: list, room_ty
         
         # 更新每个玩家的番种统计数据
         for player in player_list:
-            # 跳过游客账户（user_id < 10000000）
-            if player.user_id < 10000000:
-                continue
-                
             user_id = player.user_id
+            
+            # 跳过游客（只统计注册用户 user_id > 10000000）
+            if user_id <= 10000000:
+                continue
+            
+            # 检查用户是否存在
+            cursor.execute("SELECT 1 FROM users WHERE user_id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                continue
+            
             counter = player.record_counter
             
             fan_increment = {field: 0 for field in FAN_FIELDS}

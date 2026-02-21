@@ -1,4 +1,4 @@
-from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
+from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
 from typing import List, Dict, Optional
 import logging
 import asyncio
@@ -27,29 +27,6 @@ async def broadcast_game_start(self):
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
-    # 为每个玩家准备信息
-    for player in self.player_list: # 遍历玩家列表
-        player_info = {
-            'user_id': player.user_id, # 用户ID
-            'username': player.username, # 用户名（用于显示）
-            'hand_tiles_count': len(player.hand_tiles), # 手牌数量
-            'discard_tiles': player.discard_tiles, # 弃牌
-            'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
-            'combination_tiles': player.combination_tiles, # 组合
-            "combination_mask": player.combination_mask, # 组合形状
-            "huapai_list": player.huapai_list, # 花牌列表
-            'remaining_time': player.remaining_time, # 剩余局时
-            'player_index': player.player_index, # 东南西北位置
-            'original_player_index': player.original_player_index, # 原始玩家索引 东南西北 0 1 2 3
-            'score': player.score, # 分数
-            "title_used": player.title_used, # 称号ID
-            'profile_used': player.profile_used, # 使用的头像ID
-            'character_used': player.character_used, # 使用的角色ID
-            'voice_used': player.voice_used, # 使用的音色ID
-            'score_history': player.score_history, # 分数历史变化列表
-            'tag_list': player.tag_list, # 标签列表
-        }
-        base_game_info['players_info'].append(player_info) # 将字典添加到列表中
 
     # 为每个玩家发送消息
     for current_player in self.player_list:
@@ -66,12 +43,41 @@ async def broadcast_game_start(self):
             # 如果player_list中有玩家在self.game_server.user_id_to_connection:
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                
-                # 将游戏信息字典转换为 GameInfo 类 并添加 self_hand_tiles 字段
-                game_info = GameInfo(
+
+                # 为当前玩家构建玩家信息列表（当前玩家看到自己的手牌，其他人看不到）
+                players_info_for_current = []
+                for player in self.player_list:
+                    player_info = {
+                        'user_id': player.user_id, # 用户ID
+                        'username': player.username, # 用户名（用于显示）
+                        'hand_tiles_count': len(player.hand_tiles), # 手牌数量
+                        'hand_tiles': player.hand_tiles if player.user_id == current_player.user_id else None,  # 只有自己的手牌
+                        'discard_tiles': player.discard_tiles, # 弃牌
+                        'discard_origin_tiles': player.discard_origin_tiles, # 理论弃牌
+                        'combination_tiles': player.combination_tiles, # 组合
+                        "combination_mask": player.combination_mask, # 组合形状
+                        "huapai_list": player.huapai_list, # 花牌列表
+                        'remaining_time': player.remaining_time, # 剩余局时
+                        'player_index': player.player_index, # 东南西北位置
+                        'original_player_index': player.original_player_index, # 原始玩家索引 东南西北 0 1 2 3
+                        'score': player.score, # 分数
+                        "title_used": player.title_used, # 称号ID
+                        'profile_used': player.profile_used, # 使用的头像ID
+                        'character_used': player.character_used, # 使用的角色ID
+                        'voice_used': player.voice_used, # 使用的音色ID
+                        'score_history': player.score_history, # 分数历史变化列表
+                        'tag_list': player.tag_list, # 标签列表
+                    }
+                    players_info_for_current.append(player_info)
+
+                # 构建当前玩家的游戏信息（手牌在 PlayerInfo 中，不再使用 self_hand_tiles）
+                game_info_for_current = {
                     **base_game_info,
-                    self_hand_tiles=current_player.hand_tiles  # 只包含当前玩家的手牌
-                )
+                    'players_info': players_info_for_current,
+                    'self_hand_tiles': None
+                }
+
+                game_info = GameInfo(**game_info_for_current)
 
                 response = Response(
                     type="gamestate/qingque/game_start",
@@ -440,4 +446,47 @@ async def broadcast_refresh_player_tag_list(self):
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送刷新玩家标签列表信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
+
+# 广播准备状态
+async def broadcast_ready_status(self):
+    """广播所有玩家的准备状态"""
+    # 判断准备状态
+    player_to_ready = {}
+    for player in self.player_list:
+        # 如果玩家不在等待列表中，说明已准备
+        player_to_ready[player.player_index] = player.player_index not in self.waiting_players_list
+    
+    ready_info = Ready_status_info(
+        player_to_ready=player_to_ready
+    )
+    
+    # 为每个玩家发送准备状态信息
+    for current_player in self.player_list:
+        try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
+                continue
+            
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                
+                response = Response(
+                    type="gamestate/qingque/ready_status",
+                    success=True,
+                    message="准备状态更新",
+                    ready_status_info=ready_info
+                )
+                
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.info(f"已向玩家 {current_player.username} 发送准备状态信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送准备状态信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播

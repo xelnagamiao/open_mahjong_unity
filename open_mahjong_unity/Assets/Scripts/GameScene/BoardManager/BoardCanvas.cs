@@ -153,6 +153,68 @@ public partial class BoardCanvas : MonoBehaviour {
         }
     }
 
+    // 从牌谱记录初始化中心盘信息
+    public void InitializeBoardInfoFromRecord(
+        List<GameRecordManager.RecordPlayer> recordPlayerList,
+        Dictionary<int, string> indexToPosition,
+        Dictionary<int, int> userIdToScore,
+        string roomType,
+        int currentRound,
+        int remainTiles
+    ) {
+        foreach (var recordPlayer in recordPlayerList) {
+            if (!indexToPosition.TryGetValue(recordPlayer.playerIndex, out string position)) {
+                continue;
+            }
+
+            int score = 0;
+            if (userIdToScore != null && userIdToScore.TryGetValue(recordPlayer.userId, out int parsedScore)) {
+                score = parsedScore;
+            }
+            string playerIndexText = PositionToChineseCharacter.TryGetValue(recordPlayer.playerIndex, out string indexText) ? indexText : "?";
+
+            if (position == "self") {
+                player_self_score.text = score.ToString();
+                player_self_index.text = playerIndexText;
+                player_self_current_image.gameObject.SetActive(false);
+            } else if (position == "left") {
+                player_left_score.text = score.ToString();
+                player_left_index.text = playerIndexText;
+                player_left_current_image.gameObject.SetActive(false);
+            } else if (position == "top") {
+                player_top_score.text = score.ToString();
+                player_top_index.text = playerIndexText;
+                player_top_current_image.gameObject.SetActive(false);
+            } else if (position == "right") {
+                player_right_score.text = score.ToString();
+                player_right_index.text = playerIndexText;
+                player_right_current_image.gameObject.SetActive(false);
+            }
+        }
+
+        remiansTilesText.text = $"余:{Mathf.Max(remainTiles, 0)}";
+
+        Dictionary<int, string> roundMap = null;
+        if (roomType == "guobiao") {
+            roundMap = CurrentRoundTextGB;
+        } else if (roomType == "qingque") {
+            roundMap = CurrentRoundTextQingque;
+        } else if (roomType == "riichi") {
+            roundMap = CurrentRoundTextRiichi;
+        }
+
+        if (roundMap != null && roundMap.TryGetValue(currentRound, out string currentRoundStr)) {
+            CurrentRoundText.text = currentRoundStr;
+        } else {
+            CurrentRoundText.text = "";
+        }
+
+        baselineScores[player_self_score] = player_self_score.text;
+        baselineScores[player_left_score] = player_left_score.text;
+        baselineScores[player_top_score] = player_top_score.text;
+        baselineScores[player_right_score] = player_right_score.text;
+    }
+
     // 显示玩家分数分差
     public void ShowScoreDifference() {
         // 如果当前正在显示分差，先强制恢复到基准分数，避免“分差文本”被当作原始分数保存

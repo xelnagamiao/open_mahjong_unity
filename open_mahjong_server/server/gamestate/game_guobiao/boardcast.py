@@ -1,4 +1,4 @@
-from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info
+from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
 from typing import List, Dict, Optional
 import logging
 import asyncio
@@ -370,11 +370,12 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典 {user_id: Player_final_data}
+    # 构建玩家最终数据字典 {rank: Player_final_data}
     player_final_data = {}
     for player in self.player_list:
-        player_final_data[player.user_id] = Player_final_data(
-            rank=player.record_counter.rank_result,
+        rank = player.record_counter.rank_result
+        player_final_data[rank] = Player_final_data(
+            rank=rank,
             score=player.score,
             pt=0,  # 默认0分
             username=player.username
@@ -502,4 +503,52 @@ async def broadcast_refresh_player_tag_list(self):
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送刷新玩家标签列表信息失败: {e}")
+            # 允许广播出错，继续向其他玩家广播
+
+# 广播准备状态
+async def broadcast_ready_status(self):
+    """广播所有玩家的准备状态"""
+    # 判断准备状态
+    player_to_ready = {}
+    for player in self.player_list:
+        # 如果玩家仍在等待准备，说明未准备
+        # 使用.get()方法安全访问，如果键不存在或值为空列表，说明已准备
+        action_list = self.action_dict.get(player.player_index, [])
+        if action_list and "ready" in action_list:
+            player_to_ready[player.player_index] = False
+        else:
+            player_to_ready[player.player_index] = True
+    
+    ready_info = Ready_status_info(
+        player_to_ready=player_to_ready
+    )
+    
+    # 为每个玩家发送准备状态信息
+    for current_player in self.player_list:
+        try:
+            # 如果玩家掉线，跳过广播
+            if "offline" in current_player.tag_list:
+                logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                continue
+            
+            # 如果是机器人，跳过广播
+            if current_player.user_id == 0:
+                continue
+            
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                
+                response = Response(
+                    type="gamestate/guobiao/ready_status",
+                    success=True,
+                    message="准备状态更新",
+                    ready_status_info=ready_info
+                )
+                
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.info(f"已向玩家 {current_player.username} 发送准备状态信息")
+            else:
+                logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送准备状态信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播

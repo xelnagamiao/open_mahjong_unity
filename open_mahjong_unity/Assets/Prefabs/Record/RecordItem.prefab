@@ -36,9 +36,9 @@ RectTransform:
   - {fileID: 4533337848583023109}
   - {fileID: 4889100702687121686}
   - {fileID: 7033026023551000947}
+  - {fileID: 86598491593794573}
   - {fileID: 6805655844954637488}
   - {fileID: 7326069607014720015}
-  - {fileID: 86598491593794573}
   - {fileID: 6450444909016701445}
   - {fileID: 3916530492768238362}
   - {fileID: 4906220260077740989}
@@ -104,11 +104,11 @@ MonoBehaviour:
   Username1Text: {fileID: 4333854863601998492}
   Username2Text: {fileID: 1779396267528335787}
   Username3Text: {fileID: 985265000681110515}
-  Username4Text: {fileID: 8619008345896627978}
+  Username4Text: {fileID: 5985024027667316209}
   Score1Text: {fileID: 5031384802969158709}
   Score2Text: {fileID: 8065479471264032210}
-  Score3Text: {fileID: 5985024027667316209}
-  Score4Text: {fileID: 2153804563575045739}
+  Score3Text: {fileID: 2153804563575045739}
+  Score4Text: {fileID: 8619008345896627978}
   HasRecordText: {fileID: 9154681059333380168}
   MainRuleText: {fileID: 6057225399533208606}
   SubRuleText: {fileID: 2566437958858181051}
@@ -260,7 +260,7 @@ GameObject:
   - component: {fileID: 1261358250270558899}
   - component: {fileID: 8619008345896627978}
   m_Layer: 11
-  m_Name: Username4
+  m_Name: Score4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1198,7 +1198,7 @@ GameObject:
   - component: {fileID: 8855270367972484209}
   - component: {fileID: 2153804563575045739}
   m_Layer: 11
-  m_Name: Score4
+  m_Name: Score3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1600,7 +1600,7 @@ GameObject:
   - component: {fileID: 8640262070021441164}
   - component: {fileID: 5985024027667316209}
   m_Layer: 11
-  m_Name: Score3
+  m_Name: Username4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
