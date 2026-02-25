@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 """
 # 牌谱格式示例 牌谱记录方法一般在boardcast_do_action方法前执行
+# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌 bh=补花 c=切牌 ag=暗杠 jg=加杠 cl/cm/cr=吃 p=碰 g=明杠
+# 和牌与流局保持全名: hu_self hu_first hu_second hu_third liuju
 {
 'game_title': 
     {
@@ -10,14 +12,10 @@ from datetime import date, datetime
     'game_random_seed': 718078453, 
     'max_round': 4, 
     'start_time': datetime.datetime(2025, 11, 27, 4, 23, 19, 681525), 
-    'player0_user_id': 10000000, 
-    'player0_username': '1', 
-    'player1_user_id': 10000001, 
-    'player1_username': '2', 
-    'player2_user_id': 10000002, 
-    'player2_username': '3', 
-    'player3_user_id': 10000003, 
-    'player3_username': '4', 
+    'p0_uid': 10000000, 'p0_name': '1', 
+    'p1_uid': 10000001, 'p1_name': '2', 
+    'p2_uid': 10000002, 'p2_name': '3', 
+    'p3_uid': 10000003, 'p3_name': '4', 
     'end_time': datetime.datetime(2025, 11, 27, 7, 18, 21, 660461)}, 
     'game_round': {
         'round_index_1': {
@@ -25,9 +23,8 @@ from datetime import date, datetime
             'current_round': 1, 
             'tiles_list': [], 
             'round_index': 1, 'action_ticks': [
-            ['cut', 55, True], ['deal', 56], ['cut', 56, True], ['deal', 15], ['cut', 15, True], ['deal', 34], ['cut', 34, True], 
-            ['deal', 39], ['cut', 39, True], ['deal', 46], ['cut', 46, True], ['deal', 37], ['cut', 37, True], ['deal', 32], ['cut', 32, True], 
-            ['deal', 44], ['cut', 44, True],
+            ['c', 55, 'T'], ['d', 56], ['c', 56, 'T'], ['d', 15], ['c', 15, 'T'], ['d', 34], ['c', 34, 'F'], 
+            ['d', 39], ['c', 39, 'T'], ['d', 46], ['c', 46, 'T'], ['gd', 37], ['c', 37, 'T'],
         }
     }
 }
@@ -42,14 +39,14 @@ def init_game_record(self):
         "open_cuohe":self.open_cuohe, # 是否开启错和
         "tips":self.tips, # 是否开启提示
         "is_player_set_random_seed":self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
-        "p0_user_id":self.player_list[0].user_id, # 玩家0用户ID
-        "p0_username":self.player_list[0].username, # 玩家0用户名
-        "p1_user_id":self.player_list[1].user_id, # 玩家1用户ID
-        "p1_username":self.player_list[1].username, # 玩家1用户名
-        "p2_user_id":self.player_list[2].user_id, # 玩家2用户ID
-        "p2_username":self.player_list[2].username, # 玩家2用户名
-        "p3_user_id":self.player_list[3].user_id, # 玩家3用户ID
-        "p3_username":self.player_list[3].username, # 玩家3用户名
+        "p0_uid":self.player_list[0].user_id,
+        "p0_name":self.player_list[0].username,
+        "p1_uid":self.player_list[1].user_id,
+        "p1_name":self.player_list[1].username,
+        "p2_uid":self.player_list[2].user_id,
+        "p2_name":self.player_list[2].username,
+        "p3_uid":self.player_list[3].user_id,
+        "p3_name":self.player_list[3].username,
     }
     self.game_record["game_round"] = {}
 
@@ -76,42 +73,49 @@ def init_game_round(self):
 def player_action_record_buhua(self,max_tile: int,action_player: int):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["buhua",max_tile,action_player]
+        ["bh",max_tile,action_player]
     )
 
-# 牌谱记录摸牌
-def player_action_record_deal(self,deal_tile: int):
+# 牌谱记录摸牌 deal_type: "d" 普通摸牌, "gd" 杠后摸牌, "bd" 补花后摸牌
+def player_action_record_deal(self, deal_tile: int, deal_type: str = "d"):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["deal",deal_tile]
+        [deal_type, deal_tile]
     )
 
 # 牌谱记录切牌
 def player_action_record_cut(self, cut_tile: int,is_moqie: bool = False):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["cut",cut_tile,is_moqie]
+        ["c", cut_tile, "T" if is_moqie else "F"]
     )
 
 # 牌谱记录暗杠
 def player_action_record_angang(self,angang_tile: int):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["angang",angang_tile]
+        ["ag",angang_tile]
     )
 
 # 牌谱记录加杠
 def player_action_record_jiagang(self,jiagang_tile: int):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["jiagang",jiagang_tile]
+        ["jg",jiagang_tile]
     )
+
+# 游戏逻辑动作名 → 牌谱短码
+_ACTION_TO_RECORD = {
+    "chi_left": "cl", "chi_mid": "cm", "chi_right": "cr",
+    "peng": "p", "gang": "g",
+}
 
 # 牌谱记录吃碰杠牌
 def player_action_record_chipenggang(self,action_type: str,mingpai_tile: int,action_player: int):
     self.player_action_tick += 1
+    record_code = _ACTION_TO_RECORD.get(action_type, action_type)
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        [action_type,mingpai_tile,action_player]
+        [record_code,mingpai_tile,action_player]
     )
 
 # 牌谱记录和牌

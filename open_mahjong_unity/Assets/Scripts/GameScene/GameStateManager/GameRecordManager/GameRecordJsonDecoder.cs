@@ -31,17 +31,17 @@ public static class GameRecordJsonDecoder {
             // 从 game_title 中提取玩家 userid
             Dictionary<int, int> playerUserIds = new Dictionary<int, int>();
             if (gameRecord.gameTitle != null) {
-                if (gameRecord.gameTitle.ContainsKey("p0_user_id") && gameRecord.gameTitle["p0_user_id"] != null) {
-                    playerUserIds[0] = Convert.ToInt32(gameRecord.gameTitle["p0_user_id"]);
+                if (gameRecord.gameTitle.ContainsKey("p0_uid") && gameRecord.gameTitle["p0_uid"] != null) {
+                    playerUserIds[0] = Convert.ToInt32(gameRecord.gameTitle["p0_uid"]);
                 }
-                if (gameRecord.gameTitle.ContainsKey("p1_user_id") && gameRecord.gameTitle["p1_user_id"] != null) {
-                    playerUserIds[1] = Convert.ToInt32(gameRecord.gameTitle["p1_user_id"]);
+                if (gameRecord.gameTitle.ContainsKey("p1_uid") && gameRecord.gameTitle["p1_uid"] != null) {
+                    playerUserIds[1] = Convert.ToInt32(gameRecord.gameTitle["p1_uid"]);
                 }
-                if (gameRecord.gameTitle.ContainsKey("p2_user_id") && gameRecord.gameTitle["p2_user_id"] != null) {
-                    playerUserIds[2] = Convert.ToInt32(gameRecord.gameTitle["p2_user_id"]);
+                if (gameRecord.gameTitle.ContainsKey("p2_uid") && gameRecord.gameTitle["p2_uid"] != null) {
+                    playerUserIds[2] = Convert.ToInt32(gameRecord.gameTitle["p2_uid"]);
                 }
-                if (gameRecord.gameTitle.ContainsKey("p3_user_id") && gameRecord.gameTitle["p3_user_id"] != null) {
-                    playerUserIds[3] = Convert.ToInt32(gameRecord.gameTitle["p3_user_id"]);
+                if (gameRecord.gameTitle.ContainsKey("p3_uid") && gameRecord.gameTitle["p3_uid"] != null) {
+                    playerUserIds[3] = Convert.ToInt32(gameRecord.gameTitle["p3_uid"]);
                 }
             }
 

@@ -75,9 +75,14 @@ class GuobiaoPlayer:
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌
         self.hand_tiles.append(element)
 
-    def get_gang_tile(self, tiles_list):
-        element = tiles_list.pop() # 从牌堆中获取最后一张牌
+    def get_gang_tile(self, tiles_list, gamestate):
+        if len(tiles_list) <= 1 or gamestate.backward_tiles_list_type == "single":
+            element = tiles_list.pop(-1) # 从牌堆中获取倒数第一张牌
+        else:
+            element = tiles_list.pop(-2) # 从牌堆中获取倒数第二张牌
         self.hand_tiles.append(element)
+        # 切换倒序摸牌状态
+        gamestate.backward_tiles_list_type = "single" if gamestate.backward_tiles_list_type == "double" else "double"
 
     # 游戏进程类
 class GuobiaoGameState:
@@ -155,6 +160,9 @@ class GuobiaoGameState:
         "ready": 0,  # 准备操作优先级 最低优先级
         "pass": 0,"buhua":0,"cut":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,"deal_buhua_tile":0 # 其他优先级 最低优先级
         }
+
+        
+        self.backward_tiles_list_type = "double"
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
@@ -368,7 +376,7 @@ class GuobiaoGameState:
                             # 牌谱记录补花
                             player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                             # 牌谱记录摸牌
-                            player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                            player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "bd")
                             # 广播补花操作（使用 deal_buhua_tile 作为补花摸牌标识）
                             await self.broadcast_do_action(
                                 action_list = ["buhua","deal_buhua_tile"],
@@ -406,7 +414,7 @@ class GuobiaoGameState:
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                         # 牌谱记录摸牌
-                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "deal")
                         # 广播摸牌操作
                         await self.broadcast_do_action(
                             action_list = ["deal_tile"],
@@ -419,9 +427,9 @@ class GuobiaoGameState:
                     # 杠后摸牌操作：当前玩家进行摸牌
                     case "deal_card_after_gang": # 杠后发牌历时行为
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
-                        self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
+                        self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self) # 倒序摸牌
                         # 牌谱记录摸牌
-                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "gd")
                         # 广播摸牌操作
                         await self.broadcast_do_action(
                             action_list = ["deal_gang_tile"],
@@ -436,12 +444,12 @@ class GuobiaoGameState:
                         max_tile = max(self.player_list[self.current_player_index].hand_tiles) # 获取最大牌（花牌数字永远最大）
                         self.player_list[self.current_player_index].hand_tiles.remove(max_tile) # 从手牌中移除最大牌
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
-                        self.player_list[self.current_player_index].get_gang_tile(self.tiles_list) # 倒序摸牌
+                        self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self) # 倒序摸牌
                         self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
                         # 牌谱记录补花
                         player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                         # 牌谱记录摸牌
-                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1])
+                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "bd")
                         # 广播补花操作
                         await self.broadcast_do_action(
                             action_list = ["buhua","deal_buhua_tile"],

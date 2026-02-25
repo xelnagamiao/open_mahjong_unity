@@ -87,11 +87,13 @@ public class NormalGameStateManager : MonoBehaviour{
         UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
         // 保存gamestate_id
         UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
-        GameSceneMouseInputController.Instance.SetState("gamestate");
+
 
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
+        
+        GameSceneMouseInputController.Instance.SetState("gamestate");
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
