@@ -34,10 +34,6 @@ public partial class Game3DManager : MonoBehaviour {
     private Vector3 UpDirection; // 上方向
     private Vector3 DownDirection; // 下方向
 
-    // 3D手牌处理队列
-    private Queue<System.Func<Coroutine>> change3DTileQueue = new Queue<System.Func<Coroutine>>();
-    private bool isChange3DTileProcessing = false;
-
     public static Game3DManager Instance { get; private set; }
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -68,10 +64,10 @@ public partial class Game3DManager : MonoBehaviour {
 
 
 
-    // 3D手牌处理入口 为了保证摸牌和打牌在未来添加动画以后不同时处理 所以使用队列管理 
+    // 3D手牌处理入口 协程并行执行，多个 Change3DTileCoroutine 可同时运行
     // 本方法管理所有来自GameSceneManager的3D手牌处理请求 除了Clear3DTile清空面板 ActionAnimation和牌谱直接调用子方法
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask){
-        // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理导致的可见停顿
+        // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
             if (panel == null) return;
@@ -88,32 +84,10 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        // 将3D手牌处理任务加入队列
-        change3DTileQueue.Enqueue(() => {
-            return StartCoroutine(Change3DTileCoroutine(actionType,tileId,removeCount,PlayerPosition,cut_class,combination_mask));
-        });
-        // 未启动执行队列则启动
-        if (!isChange3DTileProcessing){
-            StartCoroutine(ProcessChange3DTileQueue());
-        }
+        // 直接启动协程，允许多个 Change3DTileCoroutine 并行执行
+        StartCoroutine(Change3DTileCoroutine(actionType,tileId,removeCount,PlayerPosition,cut_class,combination_mask));
     }
     
-    // 处理3D手牌队列
-    private IEnumerator ProcessChange3DTileQueue(){
-        // 3D手牌处理运行
-        isChange3DTileProcessing = true;
-        while (change3DTileQueue.Count > 0){
-            // 拿取下一个任务
-            System.Func<Coroutine> change3DTileAction = change3DTileQueue.Dequeue();
-            // 执行任务
-            Coroutine change3DTileCoroutine = change3DTileAction.Invoke();
-            // 等待任务完成
-            yield return change3DTileCoroutine;
-        }
-        // 3D手牌处理结束
-        isChange3DTileProcessing = false;
-    }
-
     // Change3DTile 管理3D手牌组的变更行为
     public IEnumerator Change3DTileCoroutine(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask){
         // Change3DTile 所有类型：
