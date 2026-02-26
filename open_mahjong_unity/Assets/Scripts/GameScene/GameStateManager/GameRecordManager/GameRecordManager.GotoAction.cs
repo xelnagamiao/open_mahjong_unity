@@ -15,6 +15,7 @@ public partial class GameRecordManager
         currentNode = 0;
         currentPlayerIndex = 0;
         lastDiscardPlayerIndex = -1;
+        lastDiscardTileId = -1;
         
         // 重置牌山列表到初始状态
         if (roundData.tilesList != null) {
@@ -27,6 +28,21 @@ public partial class GameRecordManager
         currentOriginalIndices = new List<int>();
         for (int i = 0; i < originalTilesList.Count; i++) currentOriginalIndices.Add(i);
         backwardTilesType = "double";
+
+        // 重置 RecordPlayer.score 到本局开始时的累计分数
+        if (gameRecord?.gameRound?.rounds != null) {
+            int[] cumulativeByOrig = new int[4];
+            for (int r = 1; r < currentRoundIndex; r++) {
+                if (gameRecord.gameRound.rounds.TryGetValue(r, out Round prevRound) &&
+                    prevRound.scoreChanges != null && prevRound.scoreChanges.Count >= 4) {
+                    for (int p = 0; p < 4; p++) cumulativeByOrig[p] += prevRound.scoreChanges[p];
+                }
+            }
+            foreach (var rp in recordPlayerList) {
+                rp.score = cumulativeByOrig[rp.originalPlayerIndex];
+                userIdToScore[rp.userId] = rp.score;
+            }
+        }
         
         GotoSelectPlayer(false);
 
@@ -99,7 +115,9 @@ public partial class GameRecordManager
             bool isMoqie = ParseTickBool(tick, 2);
             RemoveTileForCut(actingPlayer.tileList, cutTile, isMoqie);
             actingPlayer.discardTiles.Add(cutTile);
+            actingPlayer.discardIsMoqie.Add(isMoqie);
             lastDiscardPlayerIndex = actingPlayerIndex;
+            lastDiscardTileId = cutTile;
             nextPlayerIndex = (actingPlayerIndex + 1) % 4;
         }
         else if (action == "bh") {
@@ -140,6 +158,18 @@ public partial class GameRecordManager
             actingPlayer.combinationMasks.Add(combinationMask);
             nextPlayerIndex = actingPlayerIndex;
         }
+        else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
+            // tick 格式: [hu_class, hepai_player_index, hu_score, hu_fan_json, score_changes_json]
+            int[] sc = ParseTickScoreChanges(tick, 4);
+            if (sc != null && sc.Length >= 4) {
+                var deltas = new Dictionary<int, int>();
+                foreach (var rp in recordPlayerList) {
+                    deltas[rp.playerIndex] = sc[rp.originalPlayerIndex];
+                }
+                ApplyScoreDeltas(deltas, out _, out _);
+            }
+        }
+        // "end" 和 "liuju" 在快进模式下无需额外处理
 
         currentPlayerIndex = nextPlayerIndex;
     }
@@ -149,8 +179,9 @@ public partial class GameRecordManager
             string position = kv.Key;
             RecordPlayer player = kv.Value;
 
-            foreach (int tileId in player.discardTiles) {
-                Game3DManager.Instance.Change3DTile("SetDiscardWithoutAnimation", tileId, 0, position, false, null);
+            for (int i = 0; i < player.discardTiles.Count; i++) {
+                bool moqie = i < player.discardIsMoqie.Count && player.discardIsMoqie[i];
+                Game3DManager.Instance.Change3DTile("SetRecordDiscardWithoutAnimation", player.discardTiles[i], 0, position, moqie, null);
             }
             foreach (int tileId in player.huapaiList) {
                 Game3DManager.Instance.Change3DTile("SetBuhuacardWithoutAnimation", tileId, 0, position, false, null);

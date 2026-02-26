@@ -52,9 +52,14 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 牌谱回放结算展示（和牌）
     /// </summary>
-    public void ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType, Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername)
+    public void ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+        Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
+        int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after)
     {
-        StartCoroutine(EndResultPanel.Instance.ShowRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType, indexToPosition, positionToUsername));
+        StartCoroutine(EndResultPanel.Instance.ShowRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
+            indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
+            player_to_score_before, player_to_score_after));
     }
 
     /// <summary>

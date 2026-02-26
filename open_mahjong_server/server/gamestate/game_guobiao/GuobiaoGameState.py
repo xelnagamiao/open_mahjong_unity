@@ -20,7 +20,7 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from ..public.init_game_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_end,end_game_record
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -414,7 +414,7 @@ class GuobiaoGameState:
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
                         # 牌谱记录摸牌
-                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "deal")
+                        player_action_record_deal(self,deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],deal_type = "d")
                         # 广播摸牌操作
                         await self.broadcast_do_action(
                             action_list = ["deal_tile"],
@@ -515,12 +515,22 @@ class GuobiaoGameState:
                                 else:
                                     i.score += 10
 
+                            # 牌谱记录错和（无 end 标记，游戏继续）
+                            cuohe_hu_fan = hu_fan + ["错和"]
+                            cuohe_score_changes = [0, 0, 0, 0]
+                            for player in self.player_list:
+                                cuohe_score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
+                            player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
+                                                    hu_fan=cuohe_hu_fan, hepai_player_index=hepai_player_index,
+                                                    score_changes=cuohe_score_changes)
+                            # 更新 scores_before 避免后续结算重复计算错和罚分
+                            for player in self.player_list:
+                                scores_before[player.original_player_index] = player.score
+
                             # 广播错和结算结果
                             player_to_score = {}
                             for i in self.player_list:
                                 player_to_score[i.player_index] = i.score
-                            # 在 hu_fan 中添加"错和"番
-                            cuohe_hu_fan = hu_fan + ["错和"]
                             await self.broadcast_result(
                                                 hepai_player_index = hepai_player_index,
                                                 player_to_score = player_to_score,
@@ -694,8 +704,19 @@ class GuobiaoGameState:
                     score_change_str = "0"
                 player.score_history.append(score_change_str)
 
-            # 牌谱记录和牌
-            player_action_record_end(self,hu_class = self.hu_class,hu_score = hu_score,hu_fan = hu_fan,hepai_player_index = hepai_player_index)
+            # 牌谱记录本局各玩家分数变化 [p0, p1, p2, p3] 按 original_player_index 排列
+            score_changes = [0, 0, 0, 0]
+            for player in self.player_list:
+                score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
+
+            # 牌谱记录和牌/流局 + end 标记
+            if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
+                player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
+                                        hu_fan=hu_fan, hepai_player_index=hepai_player_index,
+                                        score_changes=score_changes)
+            else:
+                player_action_record_liuju(self)
+            player_action_record_round_end(self)
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":

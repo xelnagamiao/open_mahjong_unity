@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,6 +13,13 @@ public class AutoAction : MonoBehaviour{
     [SerializeField] private TMP_Text autoPassText; // 自动过牌文本
     [SerializeField] private TMP_Text autoBuhuaText; // 自动补花文本
 
+    [Header("鸣牌展开")]
+    [SerializeField] private TMP_Text expandButtonText; // 展开按钮（附加按钮的文本）
+    [SerializeField] private GameObject mingPaiPanel; // 鸣牌选项面板
+    [SerializeField] private TMP_Text autoPassChiText; // 不吃文本
+    [SerializeField] private TMP_Text autoPassPengText; // 不碰文本
+    [SerializeField] private TMP_Text autoPassGangText; // 不杠文本
+
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white; // false时的颜色（白色）
     [SerializeField] private Color trueColor = new Color(1f, 0.5f, 0f); // true时的颜色（橙色）
@@ -23,6 +30,10 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoHepai = false; // 是否自动胡牌
     private bool isAutoCut = false; // 是否自动出牌
     private bool isAutoPass = false; // 是否自动过牌
+    private bool isAutoPassChi = false; // 是否不吃
+    private bool isAutoPassPeng = false; // 是否不碰
+    private bool isAutoPassGang = false; // 是否不杠
+    private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
 
     // 公共属性，供外部访问
     public bool IsAutoArrangeHandCards { get => isAutoArrangeHandCards; }
@@ -30,6 +41,9 @@ public class AutoAction : MonoBehaviour{
     public bool IsAutoHepai { get => isAutoHepai; }
     public bool IsAutoCut { get => isAutoCut; }
     public bool IsAutoPass { get => isAutoPass; }
+    public bool IsAutoPassChi { get => isAutoPassChi; }
+    public bool IsAutoPassPeng { get => isAutoPassPeng; }
+    public bool IsAutoPassGang { get => isAutoPassGang; }
 
     private void Awake(){
         if (Instance == null){
@@ -48,7 +62,14 @@ public class AutoAction : MonoBehaviour{
         isAutoHepai = false;
         isAutoPass = false;
         isAutoCut = false;
+        isAutoPassChi = false;
+        isAutoPassPeng = false;
+        isAutoPassGang = false;
         // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的当前值
+
+        // 鸣牌面板初始隐藏
+        if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+        isMingPaiPanelExpanded = false;
 
         // 更新显示
         UpdateAllTextColors();
@@ -63,6 +84,10 @@ public class AutoAction : MonoBehaviour{
         AddClickListener(autoCutCardText, ToggleAutoCutCard);
         AddClickListener(autoPassText, ToggleAutoPass);
         AddClickListener(autoBuhuaText, ToggleAutoBuhua);
+        AddClickListener(expandButtonText, ToggleMingPaiPanel);
+        AddClickListener(autoPassChiText, ToggleAutoPassChi);
+        AddClickListener(autoPassPengText, ToggleAutoPassPeng);
+        AddClickListener(autoPassGangText, ToggleAutoPassGang);
     }
 
     // 为TMP_Text添加点击监听器
@@ -109,6 +134,27 @@ public class AutoAction : MonoBehaviour{
         ToggleAutoOption(ref isAutoBuhua, autoBuhuaText);
     }
 
+    // 切换鸣牌面板展开/收起
+    private void ToggleMingPaiPanel(){
+        isMingPaiPanelExpanded = !isMingPaiPanelExpanded;
+        if (mingPaiPanel != null) mingPaiPanel.SetActive(isMingPaiPanelExpanded);
+    }
+
+    // 切换不吃
+    private void ToggleAutoPassChi(){
+        ToggleAutoOption(ref isAutoPassChi, autoPassChiText);
+    }
+
+    // 切换不碰
+    private void ToggleAutoPassPeng(){
+        ToggleAutoOption(ref isAutoPassPeng, autoPassPengText);
+    }
+
+    // 切换不杠
+    private void ToggleAutoPassGang(){
+        ToggleAutoOption(ref isAutoPassGang, autoPassGangText);
+    }
+
     // 更新单个文本颜色
     private void UpdateTextColor(TMP_Text text, bool value){
         if (text != null){
@@ -123,5 +169,8 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(autoCutCardText, isAutoCut);
         UpdateTextColor(autoPassText, isAutoPass);
         UpdateTextColor(autoBuhuaText, isAutoBuhua);
+        UpdateTextColor(autoPassChiText, isAutoPassChi);
+        UpdateTextColor(autoPassPengText, isAutoPassPeng);
+        UpdateTextColor(autoPassGangText, isAutoPassGang);
     }
 }

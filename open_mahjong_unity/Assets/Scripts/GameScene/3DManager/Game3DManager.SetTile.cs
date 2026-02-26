@@ -4,7 +4,7 @@ using UnityEngine;
 public partial class Game3DManager : MonoBehaviour
 {
     // 放置3D卡牌 id-位置-类型-玩家位置（协程版本）
-    private IEnumerator Set3DTileCoroutine(int tileId, Transform SetPosition, string SetType, string PlayerPosition)
+    private IEnumerator Set3DTileCoroutine(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false)
     {
         Debug.Log($"Set3DTileCoroutine:{tileId} {SetType}, {PlayerPosition}");
 
@@ -98,6 +98,11 @@ public partial class Game3DManager : MonoBehaviour
             Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
         }
 
+        // 摸切灰色叠加（动画之前应用，使整个出牌过程都显示灰色）
+        if (isMoqie && Card3DHoverManager.Instance != null) {
+            Card3DHoverManager.Instance.SetCardGrayOverlay(cardObj, Card3DHoverManager.Instance.MoqieOverlayColor, Card3DHoverManager.Instance.MoqieOverlayIntensity);
+        }
+
         // 启动移动动画：先移动到最后删除的位置，然后移动到目标位置
         // 如果手牌者是自己，使用selfPosPanel的cardsPosition容器本身的位置
         Vector3 startPosition = lastRemove3DPosition;
@@ -110,7 +115,7 @@ public partial class Game3DManager : MonoBehaviour
     }
     
     // 放置3D卡牌 id-位置-类型-玩家位置
-    private void Set3DTile(int tileId, Transform SetPosition, string SetType, string PlayerPosition)
+    private void Set3DTile(int tileId, Transform SetPosition, string SetType, string PlayerPosition, bool isMoqie = false)
     {
         Debug.Log($"Set3DTile:{tileId} {SetType}, {PlayerPosition}");
 
@@ -205,6 +210,11 @@ public partial class Game3DManager : MonoBehaviour
         if (Card3DHoverManager.Instance != null)
         {
             Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
+        }
+
+        // 摸切灰色叠加
+        if (isMoqie && Card3DHoverManager.Instance != null) {
+            Card3DHoverManager.Instance.SetCardGrayOverlay(cardObj, Card3DHoverManager.Instance.MoqieOverlayColor, Card3DHoverManager.Instance.MoqieOverlayIntensity);
         }
 
         if (isRecordSet)

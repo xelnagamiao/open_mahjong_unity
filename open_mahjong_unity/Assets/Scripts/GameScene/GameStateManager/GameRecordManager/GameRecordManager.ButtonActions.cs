@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public partial class GameRecordManager {
@@ -11,8 +12,32 @@ public partial class GameRecordManager {
                 break;
             }
         }
-        if (targetNode < 0) return;
-        GotoSelectNode(targetNode);
+        if (targetNode >= 0) {
+            GotoSelectNode(targetNode);
+            return;
+        }
+
+        // 已在最后一巡，查找终局动作（和牌/流局）并跳转执行
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) ||
+            roundData.actionTicks == null) {
+            return;
+        }
+        int terminalNode = -1;
+        for (int i = roundData.actionTicks.Count - 1; i >= 0; i--) {
+            List<string> tick = roundData.actionTicks[i];
+            if (tick == null || tick.Count == 0) continue;
+            string action = tick[0];
+            if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "liuju") {
+                terminalNode = i;
+                break;
+            }
+        }
+        if (terminalNode >= 0 && terminalNode >= currentNode) {
+            if (terminalNode > currentNode) {
+                GotoSelectNode(terminalNode);
+            }
+            NextStep();
+        }
     }
 
     public void BackXunmu() {

@@ -122,20 +122,57 @@ public static class GameRecordJsonDecoder {
         }
 
         // 解析 action_ticks（操作记录）
+        // end/hu_fan/score_changes 内含数组，不能直接用 List<List<string>> 反序列化，需手动解析
         JArray actionTicks = roundData["action_ticks"] as JArray;
         if (actionTicks != null) {
-            round.actionTicks = actionTicks.ToObject<List<List<string>>>() ?? new List<List<string>>();
-        }
+            round.actionTicks = new List<List<string>>();
+            foreach (JToken tickToken in actionTicks) {
+                JArray tickArr = tickToken as JArray;
+                if (tickArr == null) continue;
+                var tick = new List<string>();
+                foreach (JToken elem in tickArr) {
+                    if (elem is JArray arr) {
+                        tick.Add(arr.ToString());
+                    } else {
+                        tick.Add(elem?.ToString() ?? "");
+                    }
+                }
+                round.actionTicks.Add(tick);
 
-        // 解析每局结算分数 score_changes：[p0变化, p1变化, p2变化, p3变化]，用于计分表
-        JArray scoreChangesArr = roundData["score_changes"] as JArray;
-        if (scoreChangesArr != null && scoreChangesArr.Count >= 4) {
-            round.scoreChanges = new List<int>();
-            for (int i = 0; i < 4; i++) {
-                round.scoreChanges.Add(scoreChangesArr[i].Value<int>());
+                // 和牌动作 → 累加 scoreChanges（支持错和+正常和牌多次出现）
+                string act = tick[0];
+                if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
+                    int[] sc = ParseScoreChangesFromTick(tick, 4);
+                    if (sc != null) {
+                        if (round.scoreChanges == null) {
+                            round.scoreChanges = new List<int>(sc);
+                        } else {
+                            for (int j = 0; j < 4 && j < sc.Length; j++) {
+                                round.scoreChanges[j] += sc[j];
+                            }
+                        }
+                    }
+                }
             }
         }
 
         return round;
+    }
+
+    /// <summary>
+    /// 从 tick 的指定索引解析 score_changes JSON 数组 → int[]
+    /// </summary>
+    private static int[] ParseScoreChangesFromTick(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
+        try {
+            JArray arr = JArray.Parse(tick[index]);
+            int[] result = new int[arr.Count];
+            for (int i = 0; i < arr.Count; i++) {
+                result[i] = arr[i].Value<int>();
+            }
+            return result;
+        } catch {
+            return null;
+        }
     }
 }

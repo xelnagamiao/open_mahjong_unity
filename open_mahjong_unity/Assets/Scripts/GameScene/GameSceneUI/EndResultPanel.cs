@@ -266,7 +266,10 @@ public class EndResultPanel : MonoBehaviour {
     /// - 默认除和牌者外，其他玩家显示为已准备
     /// - 无协程倒计时动画，仅显示“确认”按钮
     /// </summary>
-    public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType, Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername) {
+    public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+        Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
+        int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after) {
         currentState = StateRecord;
         gameObject.SetActive(true);
 
@@ -284,26 +287,65 @@ public class EndResultPanel : MonoBehaviour {
         TopUserName.text = positionToUsername != null && positionToUsername.ContainsKey("top") ? positionToUsername["top"] : "";
         RightUserName.text = positionToUsername != null && positionToUsername.ContainsKey("right") ? positionToUsername["right"] : "";
 
-        // 牌谱回放不在此处计算分差，先清空分数文本
-        SelfScore.text = "";
-        LeftScore.text = "";
-        TopScore.text = "";
-        RightScore.text = "";
-
-        // 回放模式默认全员未准备（仅通过确认按钮进入下一局）
+        // 回放模式默认全员未准备
         SelfReady.gameObject.SetActive(false);
         LeftReady.gameObject.SetActive(false);
         TopReady.gameObject.SetActive(false);
         RightReady.gameObject.SetActive(false);
 
-        // 先展示总番
-        GameObject totalFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
-        FanCount totalFanCount = totalFanInstance.GetComponent<FanCount>();
-        if (totalFanCount != null) {
-            totalFanCount.SetFanCount($"{hu_class} 总番", hu_score);
+        // 显示和牌玩家手牌（同 ShowResult 的逻辑）
+        if (hepai_player_hand != null && hepai_player_hand.Length > 0) {
+            int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
+            int[] handWithoutLast = new int[hepai_player_hand.Length - 1];
+            Array.Copy(hepai_player_hand, handWithoutLast, handWithoutLast.Length);
+            Array.Sort(handWithoutLast);
+
+            for (int i = 0; i < handWithoutLast.Length; i++) {
+                GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+                staticCard.GetComponent<StaticCard>().SetTileOnlyImage(handWithoutLast[i]);
+            }
+
+            GameObject hideSplitInstance = Instantiate(HideSplit, EndTilescontainer.transform);
+
+            // 显示组合牌
+            if (hepai_player_combination_mask != null) {
+                for (int list = 0; list < hepai_player_combination_mask.Length; list++) {
+                    for (int mask = 1; mask < hepai_player_combination_mask[list].Length; mask += 2) {
+                        GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+                        staticCard.GetComponent<StaticCard>().SetTileOnlyImage(hepai_player_combination_mask[list][mask]);
+                    }
+                }
+            }
+
+            GameObject hideSplitInstance2 = Instantiate(HideSplit, EndTilescontainer.transform);
+
+            // 显示和牌张
+            GameObject LastCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+            LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
         }
 
-        // 直接展示番型（回放模式不做逐条等待动画）
+        // 显示各玩家分数变化
+        if (player_to_score_after != null && player_to_score_after.Count > 0) {
+            foreach (var player in player_to_score_after) {
+                if (!indexToPosition.ContainsKey(player.Key)) continue;
+                string position = indexToPosition[player.Key];
+                int scoreBefore = player_to_score_before != null && player_to_score_before.ContainsKey(player.Key) ? player_to_score_before[player.Key] : 0;
+                int scoreAfter = player.Value;
+                string scoreText = FormatScoreWithDiff(scoreBefore, scoreAfter);
+
+                if (position == "self") SelfScore.text = scoreText;
+                else if (position == "left") LeftScore.text = scoreText;
+                else if (position == "top") TopScore.text = scoreText;
+                else if (position == "right") RightScore.text = scoreText;
+            }
+        } else {
+            SelfScore.text = "";
+            LeftScore.text = "";
+            TopScore.text = "";
+            RightScore.text = "";
+        }
+
+        // 直接展示番型（回放模式不做逐条等待动画，不显示总番行）
         if (hu_fan != null) {
             for (int i = 0; i < hu_fan.Length; i++) {
                 string fanName = hu_fan[i];
@@ -328,6 +370,16 @@ public class EndResultPanel : MonoBehaviour {
         yield break;
     }
 
+    private static string FormatScoreWithDiff(int before, int after) {
+        int diff = after - before;
+        if (diff > 0) {
+            return $"{after}<color=green>+{diff}</color>";
+        } else if (diff < 0) {
+            return $"{after}<color=red>{diff}</color>";
+        }
+        return after.ToString();
+    }
+
     // 按钮点击以后发送准备消息
     public void EndButtonClick(){
         EndButton.interactable = false;
@@ -348,17 +400,9 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleRecordStateConfirm() {
-        // 回放状态：关闭面板并切到下一局（若存在）
         gameObject.SetActive(false);
-        if (GameRecordManager.Instance == null ||
-            GameRecordManager.Instance.gameRecord == null ||
-            GameRecordManager.Instance.gameRecord.gameRound == null ||
-            GameRecordManager.Instance.gameRecord.gameRound.rounds == null) {
-            return;
-        }
-        int nextRound = GameRecordManager.Instance.currentRoundIndex + 1;
-        if (GameRecordManager.Instance.gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
-            GameRecordManager.Instance.GotoSelectRound(nextRound);
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.DelayedGotoNextRoundAfterConfirm(0.1f);
         }
     }
     
