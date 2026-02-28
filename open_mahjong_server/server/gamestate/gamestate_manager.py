@@ -259,6 +259,12 @@ class GameStateManager:
         for gamestate_id, game_state in self.gamestate_id_to_game_state.items():
             # 确保游戏状态有玩家列表且至少有4个玩家
             if hasattr(game_state, 'player_list') and len(game_state.player_list) >= 4:
+                # 含 bot(uid<=10) 的对局不开放观战
+                if any(player.user_id <= 10 for player in game_state.player_list):
+                    continue
+                # 若游戏状态显式关闭观战，也不返回
+                if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
+                    continue
                 # 获取规则类型
                 room_type = getattr(game_state, 'room_type', 'guobiao')
                 

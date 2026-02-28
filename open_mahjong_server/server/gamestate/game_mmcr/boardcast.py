@@ -100,9 +100,11 @@ async def broadcast_ask_hand_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
-            # 如果玩家掉线，跳过广播
+            # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播
@@ -162,9 +164,11 @@ async def broadcast_ask_other_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
-            # 如果玩家掉线，跳过广播
+            # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播

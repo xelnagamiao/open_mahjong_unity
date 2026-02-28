@@ -1,398 +1,259 @@
-# 观战系统管理器
+# 观战系统管理器 - 基于增量牌谱的延迟观战
 import asyncio
 import time
+import json
 import logging
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# 游戏逻辑动作名 → 牌谱短码
+_ACTION_TO_TICK = {
+    "chi_left": "cl", "chi_mid": "cm", "chi_right": "cr",
+    "peng": "p", "gang": "g",
+}
+
 
 class SpectatorManager:
-    """观战系统管理器，负责管理延迟观战功能"""
+    """基于牌谱增量的延迟观战管理器
     
-    def __init__(self, gamestate, delay: float = 180.0, max_cache_size: int = 10000):
-        """
-        初始化观战管理器
-        
-        Args:
-            gamestate: 游戏状态实例
-            delay: 延迟时间（秒），默认180秒（3分钟）
-            max_cache_size: 最大缓存消息数量
-        """
+    核心思路：记录与 game_record 相同格式的 action_ticks（外加 ask_hand / ask_other 事件），
+    以时间戳标记每条 tick。观战者连接时发送 3 分钟前的完整牌谱，之后每秒增量推送新 tick。
+    """
+
+    def __init__(self, gamestate, delay: float = 180.0, enabled: bool = True):
         self.gamestate = gamestate
-        self.spectator_connections: Dict[int, Any] = {}  # 观战玩家连接 {user_id: PlayerConnection}
-        # 以回合为基础的缓存结构: {round_index: {'game_start': message, 'messages': [messages...]}}
-        self.round_based_cache: Dict[int, Dict[str, Any]] = {}
-        self.message_cache: List[Dict] = []  # 消息缓存列表，按时间顺序存储（用于向后兼容和快速查找）
-        self.message_cache_lock = asyncio.Lock()  # 消息缓存锁
-        self.spectator_delay = delay  # 延迟时间（秒）
-        self.spectator_send_tasks: Dict[int, asyncio.Task] = {}  # 观战玩家的发送任务 {user_id: Task}
-        self.max_cache_size = max_cache_size  # 最大缓存消息数量
-    
-    async def cache_broadcast_message(self, message_type: str, message_data: dict):
-        """缓存广播消息，带时间戳，以回合为基础存储"""
-        async with self.message_cache_lock:
-            current_round = getattr(self.gamestate, 'current_round', 1)
-            cached_message = {
-                'timestamp': time.time(),  # 消息产生时间
-                'type': message_type,
-                'data': message_data,
-                'action_tick': self.gamestate.server_action_tick,
-                'round': current_round,
-                'sent_to_spectators': set()  # 已发送给哪些观战玩家
+        self.spectator_delay = delay
+        # 含 bot(uid<=10) 的对局禁用观战
+        self.enabled = enabled and not any(p.user_id <= 10 for p in gamestate.player_list)
+        self.spectator_connections: Dict[int, Any] = {}
+        self.spectator_send_tasks: Dict[int, asyncio.Task] = {}
+
+        # 观战牌谱数据
+        self.game_title: dict = {}
+        self.players_settings: list = []
+        self.round_headers: Dict[int, dict] = {}       # round_index -> {timestamp, data}
+        self.round_ticks: Dict[int, list] = {}          # round_index -> [{timestamp, tick}]
+        self.current_round_index: int = 0
+
+        # 各观战者的发送进度
+        self.spectator_progress: Dict[int, dict] = {}   # user_id -> {round_index, tick_index}
+
+    # ========== 数据记录方法（由 broadcast / game_loop 调用） ==========
+
+    def record_game_title(self):
+        """记录游戏标题（仅首次有效）"""
+        if not self.enabled:
+            return
+        if self.game_title:
+            return
+        gs = self.gamestate
+        self.game_title = {
+            "rule": gs.room_type,
+            "game_random_seed": gs.game_random_seed,
+            "max_round": gs.max_round,
+            "open_cuohe": gs.open_cuohe,
+            "tips": gs.tips,
+            "isPlayerSetRandomSeed": gs.isPlayerSetRandomSeed,
+        }
+        for i, player in enumerate(gs.player_list):
+            self.game_title[f"p{i}_uid"] = player.user_id
+            self.game_title[f"p{i}_name"] = player.username
+
+        self.players_settings = []
+        for player in gs.player_list:
+            self.players_settings.append({
+                "user_id": player.user_id,
+                "username": player.username,
+                "title_used": player.title_used,
+                "profile_used": player.profile_used,
+                "character_used": player.character_used,
+                "voice_used": player.voice_used,
+            })
+
+    def record_round_start(self):
+        """记录局开始时的牌山与手牌快照"""
+        if not self.enabled:
+            return
+        gs = self.gamestate
+        round_idx = gs.round_index
+        self.current_round_index = round_idx
+        self.round_headers[round_idx] = {
+            "timestamp": time.time(),
+            "data": {
+                "round_random_seed": gs.round_random_seed,
+                "current_round": gs.current_round,
+                "p0_tiles": gs.player_list[0].hand_tiles.copy(),
+                "p1_tiles": gs.player_list[1].hand_tiles.copy(),
+                "p2_tiles": gs.player_list[2].hand_tiles.copy(),
+                "p3_tiles": gs.player_list[3].hand_tiles.copy(),
+                "tiles_list": gs.tiles_list.copy(),
+                "round_index": round_idx,
             }
-            
-            # 添加到时间顺序缓存
-            self.message_cache.append(cached_message)
-            
-            # 以回合为基础存储
-            if current_round not in self.round_based_cache:
-                self.round_based_cache[current_round] = {
-                    'game_start': None,
-                    'messages': []
-                }
-            
-            # 如果是game_start，单独存储
-            if message_type == 'game_start':
-                self.round_based_cache[current_round]['game_start'] = cached_message
-            else:
-                # 其他消息添加到消息列表
-                self.round_based_cache[current_round]['messages'].append(cached_message)
-            
-            # 限制缓存大小，只保留最近的消息
-            if len(self.message_cache) > self.max_cache_size:
-                # 保留最近的消息，删除最旧的
-                self.message_cache = self.message_cache[-self.max_cache_size:]
-                
-                # 同时清理回合缓存中最旧的回合
-                if self.round_based_cache:
-                    oldest_round = min(self.round_based_cache.keys())
-                    del self.round_based_cache[oldest_round]
-    
+        }
+        self.round_ticks[round_idx] = []
+
+    def record_tick(self, tick):
+        """记录一条带时间戳的观战 tick"""
+        if not self.enabled:
+            return
+        round_idx = self.current_round_index
+        if round_idx not in self.round_ticks:
+            self.round_ticks[round_idx] = []
+        self.round_ticks[round_idx].append({
+            "timestamp": time.time(),
+            "tick": tick
+        })
+
+    def record_do_action_ticks(self, action_list, action_player, **kwargs):
+        """将 broadcast_do_action 的参数转换为牌谱格式 tick 并记录"""
+        if not self.enabled:
+            return
+        for action in action_list:
+            if action == "deal_tile":
+                self.record_tick(["d", kwargs.get("deal_tile")])
+            elif action == "deal_gang_tile":
+                self.record_tick(["gd", kwargs.get("deal_tile")])
+            elif action == "deal_buhua_tile":
+                self.record_tick(["bd", kwargs.get("deal_tile")])
+            elif action == "cut":
+                is_moqie = kwargs.get("cut_class", False)
+                self.record_tick(["c", kwargs.get("cut_tile"), "T" if is_moqie else "F"])
+            elif action == "buhua":
+                self.record_tick(["bh", kwargs.get("buhua_tile"), action_player])
+            elif action in _ACTION_TO_TICK:
+                code = _ACTION_TO_TICK[action]
+                mask = kwargs.get("combination_mask") or []
+                tile = mask[1] if len(mask) > 1 else 0
+                self.record_tick([code, tile, action_player])
+            elif action == "angang":
+                mask = kwargs.get("combination_mask") or []
+                tile = mask[1] if len(mask) > 1 else 0
+                self.record_tick(["ag", tile])
+            elif action == "jiagang":
+                mask = kwargs.get("combination_mask") or []
+                tile = mask[1] if len(mask) > 1 else 0
+                self.record_tick(["jg", tile])
+
+    def record_ask_hand(self, player_index: int, action_list: list):
+        """记录询问手牌操作事件"""
+        if not self.enabled:
+            return
+        self.record_tick(["ask_hand", player_index, ",".join(action_list)])
+
+    def record_ask_other(self, player_action_map: dict, cut_tile: int):
+        """记录询问鸣牌操作事件
+        
+        player_action_map: {player_index: [action_list], ...}
+        """
+        if not self.enabled:
+            return
+        info = ";".join(f"{idx}:{','.join(actions)}" for idx, actions in player_action_map.items())
+        self.record_tick(["ask_other", cut_tile, info])
+
+    # ========== 观战者管理 ==========
+
     async def add_spectator(self, user_id: int, connection: Any):
-        """添加观战玩家，检测延迟时间并发送初始状态"""
+        """添加观战玩家并发送初始牌谱数据"""
         from ...response import Response, MessageInfo
-        
+
+        if not self.enabled:
+            msg = "当前对局包含机器人，禁用观战"
+            response = Response(
+                type="spectator/add_spectator",
+                success=False,
+                message=msg,
+                message_info=MessageInfo(title="观战不可用", content=msg)
+            )
+            try:
+                await connection.websocket.send_json(response.dict(exclude_none=True))
+            except Exception as e:
+                logger.error(f"发送观战禁用提示失败: {e}")
+            return
+
         if user_id in self.spectator_connections:
-            logger.warning(f"观战玩家 {user_id} 已存在，将替换连接")
             await self.remove_spectator(user_id)
-        
-        # 计算当前时间和目标时间
-        current_time = time.time()
-        target_time = current_time - self.spectator_delay
-        
-        # 检查是否有符合条件的game_start消息
-        async with self.message_cache_lock:
-            # 找到最接近目标时间且时间戳 <= target_time 的game_start
-            best_game_start = None
-            best_game_start_round = None
-            
-            for round_index, round_data in self.round_based_cache.items():
-                game_start = round_data.get('game_start')
-                if game_start and game_start['timestamp'] <= target_time:
-                    if best_game_start is None or game_start['timestamp'] > best_game_start['timestamp']:
-                        best_game_start = game_start
-                        best_game_start_round = round_index
-            
-            # 如果没有找到符合条件的game_start
-            if best_game_start is None:
-                # 找到最早的game_start，计算需要等待的时间
-                earliest_game_start = None
-                for round_data in self.round_based_cache.values():
-                    game_start = round_data.get('game_start')
-                    if game_start:
-                        if earliest_game_start is None or game_start['timestamp'] < earliest_game_start['timestamp']:
-                            earliest_game_start = game_start
-                
-                if earliest_game_start:
-                    # 计算需要等待的时间
-                    wait_time = earliest_game_start['timestamp'] + self.spectator_delay - current_time
-                    wait_seconds = int(wait_time) if wait_time > 0 else 0
-                    
-                    response = Response(
-                        type="spectator/add_spectator",
-                        success=False,
-                        message=f"需要等待 {wait_seconds} 秒后才能开始观战",
-                        message_info=MessageInfo(
-                            title="观战延迟",
-                            content=f"由于延迟观战机制，您需要等待 {wait_seconds} 秒后才能开始观战"
-                        )
-                    )
-                    try:
-                        await connection.websocket.send_json(response.dict(exclude_none=True))
-                    except Exception as e:
-                        logger.error(f"向观战玩家 {user_id} 发送等待提示失败: {e}")
-                    return
-                else:
-                    # 完全没有game_start消息
-                    response = Response(
-                        type="spectator/add_spectator",
-                        success=False,
-                        message="未能找到对应时间戳的开始游戏消息",
-                        message_info=MessageInfo(
-                            title="观战失败",
-                            content="未能找到对应时间戳的开始游戏消息，无法开始观战"
-                        )
-                    )
-                    try:
-                        await connection.websocket.send_json(response.dict(exclude_none=True))
-                    except Exception as e:
-                        logger.error(f"向观战玩家 {user_id} 发送错误提示失败: {e}")
-                    return
-        
-        # 找到了符合条件的game_start，添加观战玩家
+
+        target_time = time.time() - self.spectator_delay
+        record = self._build_spectator_record(target_time)
+
+        if record is None:
+            earliest_ts = min((h["timestamp"] for h in self.round_headers.values()), default=None)
+            if earliest_ts:
+                wait_sec = max(0, int(earliest_ts + self.spectator_delay - time.time()))
+                msg = f"需要等待 {wait_sec} 秒后才能开始观战"
+            else:
+                msg = "对局尚未开始，无法观战"
+            response = Response(
+                type="spectator/add_spectator",
+                success=False,
+                message=msg,
+                message_info=MessageInfo(title="观战延迟", content=msg)
+            )
+            try:
+                await connection.websocket.send_json(response.dict(exclude_none=True))
+            except Exception as e:
+                logger.error(f"发送观战等待提示失败: {e}")
+            return
+
         self.spectator_connections[user_id] = connection
-        logger.info(f"添加观战玩家 {user_id}，room_id: {self.gamestate.room_id}")
-        
+
+        # 计算已发送进度
+        last_round_idx = 0
+        last_tick_count = 0
+        for ri in sorted(self.round_headers.keys()):
+            if self.round_headers[ri]["timestamp"] <= target_time:
+                last_round_idx = ri
+                ticks = self.round_ticks.get(ri, [])
+                last_tick_count = sum(1 for t in ticks if t["timestamp"] <= target_time)
+        self.spectator_progress[user_id] = {
+            "round_index": last_round_idx,
+            "tick_index": last_tick_count
+        }
+
         # 发送成功响应
-        response = Response(
-            type="spectator/add_spectator",
-            success=True,
-            message="已成功加入观战"
-        )
         try:
-            await connection.websocket.send_json(response.dict(exclude_none=True))
+            resp_ok = Response(type="spectator/add_spectator", success=True, message="已成功加入观战")
+            await connection.websocket.send_json(resp_ok.dict(exclude_none=True))
         except Exception as e:
-            logger.error(f"向观战玩家 {user_id} 发送成功响应失败: {e}")
-        
-        # 启动延迟消息发送任务
-        await self.start_spectator_message_delivery(user_id)
-        
-        # 发送初始状态（从找到的game_start开始，直到当前时间戳）
-        await self.send_spectator_initial_state(user_id, best_game_start_round, best_game_start)
-    
+            logger.error(f"发送观战成功响应失败: {e}")
+            return
+
+        # 发送初始牌谱数据
+        try:
+            record_json = json.dumps(record, ensure_ascii=False, default=str)
+            init_resp = Response(
+                type="spectator/record_init",
+                success=True,
+                message="观战初始数据",
+                message_info=MessageInfo(title="spectator_record", content=record_json)
+            )
+            await connection.websocket.send_json(init_resp.dict(exclude_none=True))
+            logger.info(f"已向观战玩家 {user_id} 发送初始牌谱数据")
+        except Exception as e:
+            logger.error(f"发送观战初始数据失败: {e}")
+            await self.remove_spectator(user_id)
+            return
+
+        task = asyncio.create_task(self._delivery_loop(user_id))
+        self.spectator_send_tasks[user_id] = task
+
     async def remove_spectator(self, user_id: int):
         """移除观战玩家"""
-        if user_id in self.spectator_connections:
-            del self.spectator_connections[user_id]
-            logger.info(f"移除观战玩家 {user_id}，room_id: {self.gamestate.room_id}")
-        
-        # 取消发送任务
-        if user_id in self.spectator_send_tasks:
-            task = self.spectator_send_tasks[user_id]
-            if not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-            del self.spectator_send_tasks[user_id]
-    
-    async def send_spectator_initial_state(self, user_id: int, start_round: int, start_game_start: dict):
-        """向观战玩家发送初始状态（从指定的game_start开始，按时间顺序发送直到当前时间戳）"""
-        if user_id not in self.spectator_connections:
-            return
-        
-        # 计算目标时间（当前时间 - 延迟）
-        current_time = time.time()
-        target_time = current_time - self.spectator_delay
-        
-        # 从指定的game_start开始，发送所有消息直到当前时间戳
-        async with self.message_cache_lock:
-            # 先发送game_start
-            if start_game_start:
-                await self.send_message_to_spectator(user_id, start_game_start)
-                start_game_start['sent_to_spectators'].add(user_id)
-            
-            # 从该回合开始，发送所有消息直到当前时间戳
-            # 遍历所有回合，从start_round开始
-            for round_index in sorted(self.round_based_cache.keys()):
-                if round_index < start_round:
-                    continue
-                
-                round_data = self.round_based_cache[round_index]
-                
-                # 发送该回合的所有消息（除了game_start，因为已经发送过了）
-                for msg in round_data.get('messages', []):
-                    # 只发送时间戳 <= 当前时间戳的消息（发送到当前，不是target_time）
-                    if msg['timestamp'] <= current_time and user_id not in msg['sent_to_spectators']:
-                        await self.send_message_to_spectator(user_id, msg)
-                        msg['sent_to_spectators'].add(user_id)
-    
-    async def start_spectator_message_delivery(self, user_id: int):
-        """为观战玩家启动延迟消息发送任务"""
-        async def delivery_loop():
+        self.spectator_connections.pop(user_id, None)
+        self.spectator_progress.pop(user_id, None)
+        task = self.spectator_send_tasks.pop(user_id, None)
+        if task and not task.done():
+            task.cancel()
             try:
-                while user_id in self.spectator_connections:
-                    current_time = time.time()
-                    target_time = current_time - self.spectator_delay
-                    
-                    # 获取需要发送的消息
-                    messages_to_send = []
-                    async with self.message_cache_lock:
-                        for msg in self.message_cache:
-                            if (msg['timestamp'] <= target_time and 
-                                user_id not in msg.get('sent_to_spectators', set())):
-                                messages_to_send.append(msg)
-                    
-                    # 批量发送消息
-                    for msg in messages_to_send:
-                        await self.send_message_to_spectator(user_id, msg)
-                        async with self.message_cache_lock:
-                            if 'sent_to_spectators' not in msg:
-                                msg['sent_to_spectators'] = set()
-                            msg['sent_to_spectators'].add(user_id)
-                    
-                    # 等待一小段时间再检查（0.1秒）
-                    await asyncio.sleep(0.1)
+                await task
             except asyncio.CancelledError:
-                logger.info(f"观战玩家 {user_id} 的消息发送任务已取消")
-            except Exception as e:
-                logger.error(f"观战玩家 {user_id} 的消息发送任务出错: {e}")
-                # 出错时移除观战玩家
-                await self.remove_spectator(user_id)
-        
-        # 启动任务
-        task = asyncio.create_task(delivery_loop())
-        self.spectator_send_tasks[user_id] = task
-    
-    async def send_message_to_spectator(self, user_id: int, message: dict):
-        """向观战玩家发送单条消息"""
-        if user_id not in self.spectator_connections:
-            return
-        
-        try:
-            connection = self.spectator_connections[user_id]
-            # 根据消息类型构建响应
-            response = self.build_response_from_cached_message(message)
-            if response:
-                await connection.websocket.send_json(response.dict(exclude_none=True))
-        except Exception as e:
-            logger.error(f"向观战玩家 {user_id} 发送消息失败: {e}")
-            # 如果发送失败，可能是连接断开，移除观战玩家
-            await self.remove_spectator(user_id)
-    
-    def _get_rule_prefix(self) -> str:
-        """根据游戏状态获取规则前缀（用于构建消息类型）"""
-        room_type = getattr(self.gamestate, 'room_type', 'guobiao')
-        # 映射规则类型到消息前缀
-        rule_prefix_map = {
-            'guobiao': 'guobiao',
-            'qingque': 'qingque',
-            'riichi': 'riichi'
-        }
-        return rule_prefix_map.get(room_type, 'guobiao')
-    
-    def build_response_from_cached_message(self, message: dict):
-        """从缓存的消息构建响应对象（使用spectator路由）"""
-        from ...response import Response, GameInfo, Ask_hand_action_info, Ask_other_action_info, Do_action_info, Show_result_info, Game_end_info, Player_final_data, Switch_seat_info, Refresh_player_tag_list_info
-        
-        message_type = message['type']
-        data = message['data']
-        rule_prefix = self._get_rule_prefix()  # 获取规则前缀
-        
-        try:
-            if message_type == 'game_start':
-                # 确保 self_hand_tiles 为 None（手牌在 PlayerInfo 中）
-                game_info_data = data.copy()
-                if 'self_hand_tiles' not in game_info_data:
-                    game_info_data['self_hand_tiles'] = None
-                return Response(
-                    type=f"spectator/{rule_prefix}/game_start",
-                    success=True,
-                    message="游戏开始",
-                    game_info=GameInfo(**game_info_data)
-                )
-            elif message_type == 'ask_hand_action':
-                return Response(
-                    type=f"spectator/{rule_prefix}/broadcast_hand_action",
-                    success=True,
-                    message="发牌，并询问手牌操作",
-                    ask_hand_action_info=Ask_hand_action_info(**data)
-                )
-            elif message_type == 'ask_other_action':
-                return Response(
-                    type=f"spectator/{rule_prefix}/ask_other_action",
-                    success=True,
-                    message="询问操作",
-                    ask_other_action_info=Ask_other_action_info(**data)
-                )
-            elif message_type == 'do_action':
-                return Response(
-                    type=f"spectator/{rule_prefix}/do_action",
-                    success=True,
-                    message="返回操作内容",
-                    do_action_info=Do_action_info(**data)
-                )
-            elif message_type == 'show_result':
-                return Response(
-                    type=f"spectator/{rule_prefix}/show_result",
-                    success=True,
-                    message="显示结算结果",
-                    show_result_info=Show_result_info(**data)
-                )
-            elif message_type == 'game_end':
-                return Response(
-                    type=f"spectator/{rule_prefix}/game_end",
-                    success=True,
-                    message="游戏结束",
-                    game_end_info=Game_end_info(**data)
-                )
-            elif message_type == 'switch_seat':
-                return Response(
-                    type="spectator/switch_seat",
-                    success=True,
-                    message="换位信息",
-                    switch_seat_info=Switch_seat_info(**data)
-                )
-            elif message_type == 'refresh_player_tag_list':
-                return Response(
-                    type="spectator/refresh_player_tag_list",
-                    success=True,
-                    message="刷新玩家标签列表",
-                    refresh_player_tag_list_info=Refresh_player_tag_list_info(**data)
-                )
-            else:
-                logger.warning(f"未知的消息类型: {message_type}")
-                return None
-        except Exception as e:
-            logger.error(f"构建响应对象失败: {e}, message_type: {message_type}, data: {data}")
-            return None
-    
-    async def send_full_game_record_to_spectators(self, game_record: dict):
-        """向所有观战玩家发送完整的游戏记录数据（游戏结束时调用）"""
-        import json
-        from ...response import Response, MessageInfo
-        
-        if not self.spectator_connections:
-            return
-        
-        rule_prefix = self._get_rule_prefix()
-        
-        # 构建完整的游戏记录数据
-        full_game_record_data = {
-            'game_record': game_record,
-            'gamestate_id': self.gamestate.gamestate_id,
-            'room_id': self.gamestate.room_id,
-            'room_type': getattr(self.gamestate, 'room_type', 'guobiao')
-        }
-        
-        # 向所有观战玩家发送完整游戏记录
-        for user_id, connection in list(self.spectator_connections.items()):
-            try:
-                # 将完整记录序列化为 JSON 字符串，通过 message_info 传递
-                record_json = json.dumps(full_game_record_data, ensure_ascii=False)
-                response = Response(
-                    type=f"spectator/{rule_prefix}/full_game_record",
-                    success=True,
-                    message="完整游戏记录",
-                    message_info=MessageInfo(
-                        title="完整游戏记录",
-                        content=record_json
-                    )
-                )
-                
-                await connection.websocket.send_json(response.dict(exclude_none=True))
-                logger.info(f"已向观战玩家 {user_id} 发送完整游戏记录")
-            except Exception as e:
-                logger.error(f"向观战玩家 {user_id} 发送完整游戏记录失败: {e}")
-                # 发送失败时移除观战玩家
-                await self.remove_spectator(user_id)
-    
+                pass
+        logger.info(f"移除观战玩家 {user_id}")
+
     async def cleanup(self):
         """清理所有观战资源"""
-        # 取消所有观战发送任务
-        for user_id, task in list(self.spectator_send_tasks.items()):
+        for task in list(self.spectator_send_tasks.values()):
             if not task.done():
                 task.cancel()
                 try:
@@ -401,5 +262,157 @@ class SpectatorManager:
                     pass
         self.spectator_send_tasks.clear()
         self.spectator_connections.clear()
+        self.spectator_progress.clear()
         logger.info(f"已清理观战管理器，room_id: {self.gamestate.room_id}")
 
+    async def send_final_record_and_close(self):
+        """对局结束后一次性发送完整牌谱，并立即结束观战增量推送服务"""
+        from ...response import Response, MessageInfo
+
+        if not self.enabled:
+            return
+        if not self.spectator_connections:
+            return
+
+        final_record = self._build_full_record()
+        if final_record is None:
+            return
+
+        record_json = json.dumps(final_record, ensure_ascii=False, default=str)
+        msg = "游戏对局结束，已获取全部对局记录"
+
+        for user_id, conn in list(self.spectator_connections.items()):
+            try:
+                resp = Response(
+                    type="spectator/record_complete",
+                    success=True,
+                    message=msg,
+                    message_info=MessageInfo(title="spectator_record_final", content=record_json)
+                )
+                await conn.websocket.send_json(resp.dict(exclude_none=True))
+            except Exception as e:
+                logger.error(f"向观战玩家 {user_id} 发送完整牌谱失败: {e}")
+
+        for task in list(self.spectator_send_tasks.values()):
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self.spectator_send_tasks.clear()
+        self.spectator_progress.clear()
+        self.spectator_connections.clear()
+
+    # ========== 内部方法 ==========
+
+    def _build_spectator_record(self, target_time: float) -> Optional[dict]:
+        """构建截止到 target_time 的观战牌谱 JSON 结构"""
+        if not self.game_title or not self.round_headers:
+            return None
+
+        record = {
+            "game_title": {**self.game_title},
+            "players_settings": self.players_settings,
+            "game_round": {}
+        }
+
+        found_any = False
+        for ri in sorted(self.round_headers.keys()):
+            header = self.round_headers[ri]
+            if header["timestamp"] > target_time:
+                break
+
+            round_data = {**header["data"], "action_ticks": []}
+            for entry in self.round_ticks.get(ri, []):
+                if entry["timestamp"] <= target_time:
+                    round_data["action_ticks"].append(entry["tick"])
+                else:
+                    break
+            record["game_round"][f"round_index_{ri}"] = round_data
+            found_any = True
+
+        return record if found_any else None
+
+    def _build_full_record(self) -> Optional[dict]:
+        """构建完整观战牌谱（不受延迟时间影响）"""
+        if not self.game_title or not self.round_headers:
+            return None
+
+        record = {
+            "game_title": {**self.game_title},
+            "players_settings": self.players_settings,
+            "game_round": {}
+        }
+        for ri in sorted(self.round_headers.keys()):
+            header = self.round_headers[ri]
+            round_data = {**header["data"], "action_ticks": []}
+            for entry in self.round_ticks.get(ri, []):
+                round_data["action_ticks"].append(entry["tick"])
+            record["game_round"][f"round_index_{ri}"] = round_data
+        return record
+
+    def _get_new_updates(self, user_id: int, target_time: float) -> Optional[list]:
+        """获取观战者尚未收到的增量数据"""
+        progress = self.spectator_progress.get(user_id)
+        if not progress:
+            return None
+
+        updates = []
+        for ri in sorted(self.round_headers.keys()):
+            header = self.round_headers[ri]
+
+            # 新局
+            if ri > progress["round_index"] and header["timestamp"] <= target_time:
+                round_data = {**header["data"], "action_ticks": []}
+                for entry in self.round_ticks.get(ri, []):
+                    if entry["timestamp"] <= target_time:
+                        round_data["action_ticks"].append(entry["tick"])
+                updates.append({"type": "new_round", "round_index": ri, "round_data": round_data})
+                progress["round_index"] = ri
+                progress["tick_index"] = len(round_data["action_ticks"])
+
+            # 当前局增量
+            elif ri == progress["round_index"]:
+                ticks = self.round_ticks.get(ri, [])
+                start = progress["tick_index"]
+                new_ticks = [t["tick"] for t in ticks[start:] if t["timestamp"] <= target_time]
+                if new_ticks:
+                    updates.append({"type": "ticks", "round_index": ri, "new_ticks": new_ticks})
+                    progress["tick_index"] = start + len(new_ticks)
+
+        return updates or None
+
+    async def _delivery_loop(self, user_id: int):
+        """每秒向观战者推送通过延迟阈值的增量 tick"""
+        from ...response import Response, MessageInfo
+
+        try:
+            while user_id in self.spectator_connections:
+                target_time = time.time() - self.spectator_delay
+                updates = self._get_new_updates(user_id, target_time)
+
+                if updates:
+                    try:
+                        update_json = json.dumps(updates, ensure_ascii=False, default=str)
+                        resp = Response(
+                            type="spectator/record_update",
+                            success=True,
+                            message="观战增量数据",
+                            message_info=MessageInfo(title="spectator_update", content=update_json)
+                        )
+                        conn = self.spectator_connections.get(user_id)
+                        if conn:
+                            await conn.websocket.send_json(resp.dict(exclude_none=True))
+                    except Exception as e:
+                        logger.error(f"向观战玩家 {user_id} 发送增量数据失败: {e}")
+                        await self.remove_spectator(user_id)
+                        return
+
+                await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            logger.info(f"观战玩家 {user_id} 的发送任务已取消")
+        except Exception as e:
+            logger.error(f"观战玩家 {user_id} 的发送任务出错: {e}")
+        finally:
+            self.spectator_send_tasks.pop(user_id, None)

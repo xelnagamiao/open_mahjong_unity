@@ -597,7 +597,6 @@ class QingqueGameState:
                 self.game_status = "waiting_ready"
                 # 广播初始准备状态
                 await broadcast_ready_status(self)
-                
                 # 参考补花轮设计：由上层循环驱动，wait_action 每次只处理一次准备
                 while any(self.action_dict[i] for i in self.action_dict):
                     # 返回 False 代表超时或异常，直接结束准备阶段

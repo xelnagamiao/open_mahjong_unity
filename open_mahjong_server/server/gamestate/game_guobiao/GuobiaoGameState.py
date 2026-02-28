@@ -167,9 +167,10 @@ class GuobiaoGameState:
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
 
-        # 观战系统相关 - 使用专门的观战管理器
+        # 观战系统相关：含 bot(uid<=10) 的对局禁用观战
+        self.spectator_enabled = not any(player.user_id <= 10 for player in self.player_list)
         from .spectator_manager import SpectatorManager
-        self.spectator_manager = SpectatorManager(self, delay=180.0, max_cache_size=10000)
+        self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
 
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
@@ -523,6 +524,8 @@ class GuobiaoGameState:
                             player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                                     hu_fan=cuohe_hu_fan, hepai_player_index=hepai_player_index,
                                                     score_changes=cuohe_score_changes)
+                            if hasattr(self, 'spectator_manager'):
+                                self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, cuohe_hu_fan, cuohe_score_changes])
                             # 更新 scores_before 避免后续结算重复计算错和罚分
                             for player in self.player_list:
                                 scores_before[player.original_player_index] = player.score
@@ -714,9 +717,15 @@ class GuobiaoGameState:
                 player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
                                         score_changes=score_changes)
+                if hasattr(self, 'spectator_manager'):
+                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, hu_fan, score_changes])
             else:
                 player_action_record_liuju(self)
+                if hasattr(self, 'spectator_manager'):
+                    self.spectator_manager.record_tick(["liuju"])
             player_action_record_round_end(self)
+            if hasattr(self, 'spectator_manager'):
+                self.spectator_manager.record_tick(["end"])
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
@@ -735,6 +744,7 @@ class GuobiaoGameState:
                     else:
                         self.action_dict[player.player_index] = ["ready"]
                         player.remaining_time = int(wait_time)
+
                 # 设置游戏状态
                 self.game_status = "waiting_ready"
                 # 广播准备状态
@@ -764,10 +774,10 @@ class GuobiaoGameState:
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
         
-        # 向所有观战玩家发送完整的游戏记录
+        # 对局结束后：一次性下发完整牌谱给观战者，并结束观战增量服务
         if hasattr(self, 'spectator_manager'):
-            await self.spectator_manager.send_full_game_record_to_spectators(self.game_record)
-
+            await self.spectator_manager.send_final_record_and_close()
+        
         # 存储游戏牌谱
         game_id = self.db_manager.store_guobiao_game_record(
             self.game_record,

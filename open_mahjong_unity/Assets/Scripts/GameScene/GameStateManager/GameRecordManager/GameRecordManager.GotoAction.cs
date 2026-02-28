@@ -70,6 +70,12 @@ public partial class GameRecordManager
         }
 
         string action = tick[0];
+
+        // 观战 ask 事件不改变对局状态，快进时跳过
+        if (action == "ask_hand" || action == "ask_other") {
+            return;
+        }
+
         if (nodeIndex == startIndex) {
             currentPlayerIndex = 0;
         }

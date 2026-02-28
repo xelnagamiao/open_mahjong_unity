@@ -31,6 +31,17 @@ public class GameSceneMouseInputController : MonoBehaviour, IPointerClickHandler
     }
 
     public void OnPointerClick(PointerEventData eventData) {
+        HandlePointerClick(eventData);
+    }
+
+    /// <summary>
+    /// 允许其他 UI（如世界空间面板）转发点击，避免输入被顶层 Raycast 截断。
+    /// </summary>
+    public void HandleExternalPointerClick(PointerEventData eventData) {
+        HandlePointerClick(eventData);
+    }
+
+    private void HandlePointerClick(PointerEventData eventData) {
         if (state == "gamestate") {
             if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                 TryAutoMoqieFromSelfHand();

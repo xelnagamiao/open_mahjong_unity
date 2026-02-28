@@ -264,12 +264,12 @@ public class EndResultPanel : MonoBehaviour {
     /// <summary>
     /// 牌谱回放结算展示（不依赖对局内 player_to_score/手牌数据）：
     /// - 默认除和牌者外，其他玩家显示为已准备
-    /// - 无协程倒计时动画，仅显示“确认”按钮
+    /// - 无协程倒计时动画，仅显示“确认”按钮；观战模式下不显示确认，由 end tick 驱动下一局
     /// </summary>
     public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
-        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after) {
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false) {
         currentState = StateRecord;
         gameObject.SetActive(true);
 
@@ -364,8 +364,9 @@ public class EndResultPanel : MonoBehaviour {
             }
         }
 
-        // 回放模式仅显示确认按钮，点击后关闭并切到下一局
-        EndButton.interactable = true;
+        // 回放模式仅显示确认按钮，点击后关闭并切到下一局；观战模式不显示确认，由 end tick 驱动
+        EndButton.interactable = !isSpectator;
+        EndButton.gameObject.SetActive(!isSpectator);
         EndButtonText.text = "确认";
         yield break;
     }
