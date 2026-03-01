@@ -1,17 +1,23 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TMPro;
+using Newtonsoft.Json;
 
 public class RecordPanel : MonoBehaviour {
-    // 单例模式
 
     public static RecordPanel Instance { get; private set; }
     [SerializeField] private RecordPrefab RecordPrefab;
     [SerializeField] private Transform dropdownContentTransform;
 
+    [Header("导航按钮")]
     [SerializeField] private Button BackMenuButton;
+    [SerializeField] private Button SearchRecordButton;
+
+    [Header("牌谱ID搜索面板")]
+    [SerializeField] private GameObject RecordIdInputPanel;
+    [SerializeField] private TMP_InputField RecordIdInputField;
+    [SerializeField] private Button ConfirmLoadButton;
+    [SerializeField] private Button CancelSearchButton;
 
     private void Awake() {
         if (Instance == null) {
@@ -21,15 +27,38 @@ public class RecordPanel : MonoBehaviour {
             return;
         }
         BackMenuButton.onClick.AddListener(BackMenu);
+        SearchRecordButton.onClick.AddListener(OpenRecordIdInput);
+        ConfirmLoadButton.onClick.AddListener(ConfirmLoadRecordById);
+        CancelSearchButton.onClick.AddListener(CloseRecordIdInput);
+
+        if (RecordIdInputPanel != null)
+            RecordIdInputPanel.SetActive(false);
     }
 
     private void BackMenu() {
         WindowsManager.Instance.SwitchWindow("menu");
     }
 
-    /// <summary>
-    /// 处理获取记录列表的响应
-    /// </summary>
+    private void OpenRecordIdInput() {
+        RecordIdInputPanel.SetActive(true);
+        RecordIdInputField.text = "";
+        RecordIdInputField.ActivateInputField();
+    }
+
+    private void CloseRecordIdInput() {
+        RecordIdInputPanel.SetActive(false);
+    }
+
+    private void ConfirmLoadRecordById() {
+        string id = RecordIdInputField.text.Trim();
+        if (string.IsNullOrEmpty(id)) {
+            NotificationManager.Instance.ShowTip("牌谱", false, "请输入牌谱ID");
+            return;
+        }
+        RecordIdInputPanel.SetActive(false);
+        DataNetworkManager.Instance.GetRecordById(id);
+    }
+
     public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList) {
         if (!success) {
             Debug.LogError($"获取记录列表失败: {message}");
@@ -41,57 +70,26 @@ public class RecordPanel : MonoBehaviour {
             return;
         }
 
-        // 清空现有记录项
         foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
         }
 
-        // 为每条记录创建 RecordItem
         foreach (var record in recordList) {
-            // 检查玩家信息是否有效
             if (record.players == null || record.players.Length == 0) {
                 Debug.LogWarning($"游戏 {record.game_id} 没有玩家信息，跳过");
                 continue;
             }
 
-            // 从 record 字典中提取游戏头部信息
-            var gameTitle = record.record.ContainsKey("game_title") 
-                ? record.record["game_title"] as Dictionary<string, object> 
-                : null;
-
-            // 获取规则信息
-            string mainRule = record.rule ?? (gameTitle != null && gameTitle.ContainsKey("rule") ? gameTitle["rule"].ToString() : "GB");
-            string subRule = gameTitle != null && gameTitle.ContainsKey("max_round") ? $"{gameTitle["max_round"]}局" : "";
-
-            // 获取时间信息
+            string mainRule = record.rule ?? "GB";
+            string subRule = "";
             string recordedTime = record.created_at;
 
-            // 确定是否有完整记录（检查是否有 game_round）
-            string hasRecord = record.record.ContainsKey("game_round") ? "有" : "无";
-
-            // 玩家信息已经按排名排序（从服务器端返回时已排序）
-            // 确保有4个玩家，不足的用空字符串填充
-            string username1 = record.players.Length > 0 ? record.players[0].username : "";
-            string username2 = record.players.Length > 1 ? record.players[1].username : "";
-            string username3 = record.players.Length > 2 ? record.players[2].username : "";
-            string username4 = record.players.Length > 3 ? record.players[3].username : "";
-
-            string score1 = record.players.Length > 0 ? record.players[0].score.ToString() : "0";
-            string score2 = record.players.Length > 1 ? record.players[1].score.ToString() : "0";
-            string score3 = record.players.Length > 2 ? record.players[2].score.ToString() : "0";
-            string score4 = record.players.Length > 3 ? record.players[3].score.ToString() : "0";
-
-            // 将 record 字典序列化为 JSON 字符串
-            string recordJson = Newtonsoft.Json.JsonConvert.SerializeObject(record.record);
-
-            // 创建 RecordItem 实例
             RecordPrefab item = Instantiate(RecordPrefab, dropdownContentTransform);
-
             item.InitializeRecordItem(
-                username1, username2, username3, username4,
-                score1, score2, score3, score4,
-                hasRecord, mainRule, subRule, recordedTime,
-                recordJson,
+                record.game_id,
+                mainRule,
+                subRule,
+                recordedTime,
                 record.players
             );
         }
@@ -99,27 +97,14 @@ public class RecordPanel : MonoBehaviour {
         Debug.Log($"成功加载 {recordList.Length} 条游戏记录");
     }
 
-    /// <summary>
-    /// 加载游戏记录
-    /// </summary>
-    /// <param name="recordJson">游戏记录的 JSON 字符串</param>
-    public void LoadRecord(string recordJson) {
-        if (string.IsNullOrEmpty(recordJson)) {
-            Debug.LogError("游戏记录 JSON 字符串为空");
+    public void OnRecordDetailReceived(RecordDetail detail) {
+        if (detail == null || detail.record == null) {
+            NotificationManager.Instance.ShowTip("牌谱", false, "牌谱数据为空");
             return;
         }
 
-        try {
-            // 解析 JSON 字符串
-            // 注意：Unity 的 JsonUtility 不能直接解析 Dictionary<string, object>
-            // 如果需要解析复杂结构，可以使用 SimpleJSON 或其他 JSON 库
-            Debug.Log($"加载游戏记录: {recordJson}");
-            
-            // TODO: 实现具体的记录加载逻辑
-            // 例如：解析 JSON，恢复游戏状态，显示回放界面等
-            
-        } catch (System.Exception e) {
-            Debug.LogError($"加载游戏记录失败: {e.Message}");
-        }
+        string recordJson = JsonConvert.SerializeObject(detail.record);
+        WindowsManager.Instance.SwitchWindow("recordscene");
+        GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
     }
 }

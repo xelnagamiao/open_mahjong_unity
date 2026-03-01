@@ -1,57 +1,81 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
 
 public class RecordPrefab : MonoBehaviour{
+    [Header("基本信息")]
+    [SerializeField] private TextMeshProUGUI RecordIdText;
+    [SerializeField] private TextMeshProUGUI MainRuleText;
+    [SerializeField] private TextMeshProUGUI SubRuleText;
+    [SerializeField] private TextMeshProUGUI RecordedTimeText;
+
+    [Header("排名位次")]
+    [SerializeField] private TextMeshProUGUI Rank1Text;
+    [SerializeField] private TextMeshProUGUI Rank2Text;
+    [SerializeField] private TextMeshProUGUI Rank3Text;
+    [SerializeField] private TextMeshProUGUI Rank4Text;
+
+    [Header("玩家名")]
     [SerializeField] private TextMeshProUGUI Username1Text;
     [SerializeField] private TextMeshProUGUI Username2Text;
     [SerializeField] private TextMeshProUGUI Username3Text;
     [SerializeField] private TextMeshProUGUI Username4Text;
+
+    [Header("分数")]
     [SerializeField] private TextMeshProUGUI Score1Text;
     [SerializeField] private TextMeshProUGUI Score2Text;
     [SerializeField] private TextMeshProUGUI Score3Text;
     [SerializeField] private TextMeshProUGUI Score4Text;
-    [SerializeField] private TextMeshProUGUI HasRecordText;
-    [SerializeField] private TextMeshProUGUI MainRuleText;
 
-    [SerializeField] private TextMeshProUGUI SubRuleText;
-
-    [SerializeField] private TextMeshProUGUI RecordedTimeText;
+    [Header("按钮")]
     [SerializeField] private Button LoadRecordButton;
+    [SerializeField] private Button CopyIdButton;
     
-    private string record_data_json;
-    private PlayerRecordInfo[] players_info; // 保存四位玩家的记录信息
-    public void InitializeRecordItem(string username1, string username2, string username3, string username4,
-    string score1, string score2, string score3, string score4,
-    string hasRecord, string mainRule, string subRule, string recordedTime,
-    string record_data_json, PlayerRecordInfo[] players_info
-    )
+    private string gameId;
+    private PlayerRecordInfo[] playersInfo;
+
+    public void InitializeRecordItem(string gameId, string mainRule, string subRule, string recordedTime, PlayerRecordInfo[] players)
     {
-        Username1Text.text = username1;
-        Username2Text.text = username2;
-        Username3Text.text = username3;
-        Username4Text.text = username4;
-        Score1Text.text = score1;
-        Score2Text.text = score2;
-        Score3Text.text = score3;
-        Score4Text.text = score4;
-        HasRecordText.text = hasRecord;
+        this.gameId = gameId;
+        this.playersInfo = players;
+
+        RecordIdText.text = gameId;
         MainRuleText.text = mainRule;
         SubRuleText.text = subRule;
         RecordedTimeText.text = recordedTime;
-        this.record_data_json = record_data_json;
-        this.players_info = players_info;
+
+        TextMeshProUGUI[] rankTexts = { Rank1Text, Rank2Text, Rank3Text, Rank4Text };
+        TextMeshProUGUI[] usernameTexts = { Username1Text, Username2Text, Username3Text, Username4Text };
+        TextMeshProUGUI[] scoreTexts = { Score1Text, Score2Text, Score3Text, Score4Text };
+
+        if (players != null) {
+            System.Array.Sort(players, (a, b) => a.rank.CompareTo(b.rank));
+            for (int i = 0; i < 4; i++) {
+                if (i < players.Length) {
+                    rankTexts[i].text = $"{players[i].rank}位";
+                    usernameTexts[i].text = players[i].username;
+                    scoreTexts[i].text = players[i].score >= 0 ? $"+{players[i].score}" : players[i].score.ToString();
+                } else {
+                    rankTexts[i].text = "";
+                    usernameTexts[i].text = "";
+                    scoreTexts[i].text = "";
+                }
+            }
+        }
     }
 
     private void Awake(){
         LoadRecordButton.onClick.AddListener(LoadRecord);
+        CopyIdButton.onClick.AddListener(CopyRecordId);
     }
 
     private void LoadRecord(){
-        WindowsManager.Instance.SwitchWindow("recordscene");
-        GameRecordManager.Instance.LoadRecord(record_data_json, players_info);
+        DataNetworkManager.Instance.GetRecordById(gameId);
+    }
+
+    private void CopyRecordId(){
+        GUIUtility.systemCopyBuffer = gameId;
+        NotificationManager.Instance.ShowTip("牌谱", true, $"已复制牌谱ID: {gameId}");
     }
 }

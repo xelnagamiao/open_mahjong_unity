@@ -3,10 +3,18 @@
 """
 import json
 import logging
+import string
+import secrets
 from psycopg2 import Error
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+GAME_ID_ALPHABET = string.ascii_letters + string.digits  # a-z A-Z 0-9
+GAME_ID_LENGTH = 10
+
+def generate_game_id(length: int = GAME_ID_LENGTH) -> str:
+    return ''.join(secrets.choice(GAME_ID_ALPHABET) for _ in range(length))
 
 # 番种定义映射（用于统计）
 FAN_NAME_TO_FIELD = {
@@ -121,13 +129,26 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         
-        # 1. 存储牌谱记录到 game_records 表
+        # 1. 存储牌谱记录到 game_records 表（生成 base62 game_id，碰撞时重试）
         game_record_json = json.dumps(game_record, ensure_ascii=False, default=str)
-        cursor.execute(
-            "INSERT INTO game_records (record) VALUES (%s) RETURNING game_id",
-            (game_record_json,)
-        )
-        game_id = cursor.fetchone()[0]
+        max_retries = 5
+        game_id = None
+        for _ in range(max_retries):
+            candidate_id = generate_game_id()
+            try:
+                cursor.execute(
+                    "INSERT INTO game_records (game_id, record) VALUES (%s, %s)",
+                    (candidate_id, game_record_json)
+                )
+                game_id = candidate_id
+                break
+            except Error as dup_err:
+                conn.rollback()
+                logger.warning(f'game_id 碰撞: {candidate_id}, 重试...')
+                continue
+        if game_id is None:
+            logger.error('多次生成 game_id 均碰撞，存储失败')
+            return None
         logger.info(f'牌谱记录已保存到 game_records 表，game_id: {game_id}')
         
         # 2. 存储玩家对局记录到 game_player_records 表
@@ -181,7 +202,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             db_manager._put_connection(conn)
 
 # 存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
-def store_guobiao_game_stats(db_manager, game_id: int, player_list: list, room_type: str, game_round: int, total_rounds: int):
+def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_type: str, game_round: int, total_rounds: int):
     """
     存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
     
@@ -289,7 +310,7 @@ def store_guobiao_game_stats(db_manager, game_id: int, player_list: list, room_t
             db_manager._put_connection(conn)
 
 # 存储国标麻将游戏番种统计数据到 guobiao_fan_stats 表
-def store_guobiao_fan_stats(db_manager, game_id: int, player_list: list, room_type: str, game_round: int):
+def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_type: str, game_round: int):
     """
     存储国标麻将游戏番种统计数据到 guobiao_fan_stats 表
     

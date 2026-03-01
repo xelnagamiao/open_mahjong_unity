@@ -62,14 +62,14 @@ PostgreSQL
 ### game_records 存储对局记录的牌谱
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| game_id | BIGSERIAL | PRIMARY KEY | 对局唯一标识，自增 |
+| game_id | VARCHAR(16) | PRIMARY KEY | 对局唯一标识，10位base62字符串（a-zA-Z0-9） |
 | record | JSONB | NOT NULL | 完整的牌谱记录（包含 game_title 和 game_round） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
 ### game_player_records 牌谱记录表，用于存储玩家对局记录
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| game_id | BIGINT | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
+| game_id | VARCHAR(16) | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
 | user_id | BIGINT | NOT NULL | 用户ID（无外键约束，删除用户时保留记录以维护牌谱完整性） |
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |

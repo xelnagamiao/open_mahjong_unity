@@ -1,4 +1,4 @@
-﻿// 5.Response 接收数据类型
+// 5.Response 接收数据类型
 
 using System.Collections.Generic;
 
@@ -131,8 +131,15 @@ public class PlayerRecordInfo { // 玩家对局记录信息
     public int? voice_used;            // 使用的音色ID（可为空）
 }
 
-public class RecordInfo { // 游戏记录信息（按游戏分组，包含4个玩家）
-    public int game_id;                 // 对局ID
+public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）
+    public string game_id;              // 对局ID（base62字符串）
+    public string rule;                 // 规则类型（GB/JP）
+    public string created_at;           // 创建时间
+    public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
+}
+
+public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
+    public string game_id;              // 对局ID（base62字符串）
     public string rule;                 // 规则类型（GB/JP）
     public Dictionary<string, object> record; // 完整的牌谱记录
     public string created_at;           // 创建时间
@@ -228,7 +235,8 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public SwitchSeatInfo switch_seat_info; // 国标游戏中换位信息
     public RefreshPlayerTagListInfo refresh_player_tag_list_info; // 刷新玩家标签列表信息
     public ReadyStatusInfo ready_status_info; // 准备状态信息
-    public RecordInfo[] record_list; // 返回游戏记录列表
+    public RecordInfo[] record_list; // 返回游戏记录列表（元数据）
+    public RecordDetail record_detail; // 返回单个完整牌谱记录
     public PlayerInfoResponse player_info; // 返回玩家信息
     public RuleStatsResponse rule_stats; // 返回单个规则的统计数据
     public LoginInfo login_info; // 返回登录信息

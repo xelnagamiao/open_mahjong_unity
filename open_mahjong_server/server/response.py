@@ -117,8 +117,15 @@ class Player_record_info(BaseModel):
     voice_used: Optional[int] = None  # 使用的音色ID
 
 class Record_info(BaseModel):
-    """游戏记录信息（按游戏分组，包含4个玩家）"""
-    game_id: int  # 对局ID
+    """游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）"""
+    game_id: str  # 对局ID（base62字符串）
+    rule: str  # 规则类型（GB/JP）
+    created_at: str  # 创建时间
+    players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+
+class Record_detail(BaseModel):
+    """完整的游戏牌谱记录（按ID查询时返回）"""
+    game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
     record: Dict  # 完整的牌谱记录（JSONB）
     created_at: str  # 创建时间
@@ -214,7 +221,8 @@ class Response(BaseModel):
     switch_seat_info: Optional[Switch_seat_info] = None # 用于广播换位信息
     refresh_player_tag_list_info: Optional[Refresh_player_tag_list_info] = None # 用于广播刷新玩家标签列表
     ready_status_info: Optional[Ready_status_info] = None # 用于广播准备状态
-    record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表
+    record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表（元数据）
+    record_detail: Optional[Record_detail] = None # 用于返回单个完整牌谱记录
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
     rule_stats: Optional[Rule_stats_response] = None # 用于返回单个规则的统计数据
     login_info: Optional[LoginInfo] = None # 用于返回登录信息

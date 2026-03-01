@@ -73,7 +73,7 @@ class DatabaseManager:
             # 创建表game_records（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_records (
-                    game_id BIGSERIAL PRIMARY KEY,
+                    game_id VARCHAR(16) PRIMARY KEY,
                     record JSONB NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
@@ -82,7 +82,7 @@ class DatabaseManager:
             # 创建表game_player_records（使用复合主键 (game_id, user_id)，移除外键约束以保留已删除用户的记录）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
-                    game_id BIGINT NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
+                    game_id VARCHAR(16) NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
                     user_id BIGINT NOT NULL,
                     username VARCHAR(255) NOT NULL,
                     score INT NOT NULL,
@@ -567,19 +567,16 @@ class DatabaseManager:
     
     def get_record_list(self, user_id: int, limit: int = 20) -> List[Dict[str, Any]]:
         """
-        获取指定用户的最近N局游戏记录，按 game_id 分组打包
-        
-        注意：每个游戏在 game_player_records 表中有4条记录（对应4个玩家），
-        需要按 game_id 分组，将同一游戏的4个玩家记录打包在一起。
+        获取指定用户的最近N局游戏记录元数据（不含完整牌谱），按 game_id 分组打包
         
         Args:
             user_id: 用户ID
-            limit: 返回游戏数量限制，默认20（每个游戏包含4个玩家）
+            limit: 返回游戏数量限制，默认20
         
         Returns:
             游戏记录列表，每个记录包含：
-            - game_id: 游戏ID
-            - record: 完整的牌谱记录（JSONB）
+            - game_id: 游戏ID（字符串）
+            - rule: 规则类型
             - created_at: 创建时间
             - players: 该游戏的4个玩家信息列表（按排名排序）
         """
@@ -588,7 +585,6 @@ class DatabaseManager:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            # 第一步：获取用户参与的最近N个游戏的 game_id（去重）
             cursor.execute("""
                 SELECT DISTINCT game_id
                 FROM game_player_records
@@ -597,13 +593,13 @@ class DatabaseManager:
                 LIMIT %s
             """, (user_id, limit))
             
-            game_ids = [row['game_id'] for row in cursor.fetchall()]
+            # 兼容旧库：game_id 可能为 BIGINT，统一转为 str
+            game_ids = [str(row['game_id']) for row in cursor.fetchall()]
             
             if not game_ids:
                 logger.info(f'用户 {user_id} 没有游戏记录')
                 return []
             
-            # 第二步：获取这些游戏的所有玩家记录和牌谱记录
             placeholders = ','.join(['%s'] * len(game_ids))
             cursor.execute(f"""
                 SELECT 
@@ -617,36 +613,26 @@ class DatabaseManager:
                     gpr.character_used,
                     gpr.profile_used,
                     gpr.voice_used,
-                    gr.record,
                     gr.created_at
                 FROM game_player_records gpr
                 INNER JOIN game_records gr ON gpr.game_id = gr.game_id
                 WHERE gpr.game_id IN ({placeholders})
-                ORDER BY gpr.game_id DESC, gpr.rank
+                ORDER BY gr.created_at DESC, gpr.rank
             """, game_ids)
             
-            # 第三步：按 game_id 分组打包
-            games_dict = {}  # {game_id: {game_info, players}}
+            games_dict = {}
             
             for row in cursor.fetchall():
-                game_id = row['game_id']
+                game_id = str(row['game_id'])  # 兼容旧库 BIGINT
                 
-                # 初始化游戏记录（如果还没有）
                 if game_id not in games_dict:
-                    record_data = row['record']
-                    # 解析 JSONB record 字段
-                    if isinstance(record_data, str):
-                        record_data = json.loads(record_data)
-                    
                     games_dict[game_id] = {
                         'game_id': game_id,
-                        'record': record_data,
                         'created_at': str(row['created_at']),
                         'rule': row['rule'],
                         'players': []
                     }
                 
-                # 添加玩家信息到该游戏的玩家列表
                 games_dict[game_id]['players'].append({
                     'user_id': row['user_id'],
                     'username': row['username'],
@@ -658,16 +644,83 @@ class DatabaseManager:
                     'voice_used': row.get('voice_used')
                 })
             
-            # 转换为列表，按 game_id 降序排序（最新的在前）
             records = list(games_dict.values())
-            records.sort(key=lambda x: x['game_id'], reverse=True)
             
-            logger.info(f'获取用户 {user_id} 的 {len(records)} 局游戏记录（共 {sum(len(r["players"]) for r in records)} 条玩家记录）')
+            logger.info(f'获取用户 {user_id} 的 {len(records)} 局游戏记录元数据')
             return records
             
         except Error as e:
             logger.error(f'获取游戏记录列表失败: {e}', exc_info=True)
             return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+    
+    def get_record_by_id(self, game_id: str) -> Optional[Dict[str, Any]]:
+        """
+        根据 game_id 获取完整牌谱记录和玩家信息
+        
+        Args:
+            game_id: 游戏ID（字符串）
+        
+        Returns:
+            包含完整牌谱和玩家信息的字典，找不到返回 None
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # 兼容旧库 BIGINT：用 ::text 比较，使字符串 ID 能匹配整数列
+            cursor.execute("""
+                SELECT game_id, record, created_at
+                FROM game_records
+                WHERE game_id::text = %s
+            """, (str(game_id).strip(),))
+            
+            game_row = cursor.fetchone()
+            if not game_row:
+                return None
+            
+            record_data = game_row['record']
+            if isinstance(record_data, str):
+                record_data = json.loads(record_data)
+            
+            cursor.execute("""
+                SELECT user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
+                FROM game_player_records
+                WHERE game_id::text = %s
+                ORDER BY rank
+            """, (str(game_id).strip(),))
+            
+            players = []
+            rule = None
+            for row in cursor.fetchall():
+                if rule is None:
+                    rule = row['rule']
+                players.append({
+                    'user_id': row['user_id'],
+                    'username': row['username'],
+                    'score': row['score'],
+                    'rank': row['rank'],
+                    'title_used': row.get('title_used'),
+                    'character_used': row.get('character_used'),
+                    'profile_used': row.get('profile_used'),
+                    'voice_used': row.get('voice_used')
+                })
+            
+            return {
+                'game_id': str(game_row['game_id']),  # 兼容旧库 BIGINT
+                'rule': rule or '',
+                'record': record_data,
+                'created_at': str(game_row['created_at']),
+                'players': players
+            }
+            
+        except Error as e:
+            logger.error(f'获取牌谱记录失败 (game_id={game_id}): {e}', exc_info=True)
+            return None
         finally:
             if conn:
                 cursor.close()

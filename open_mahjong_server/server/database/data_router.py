@@ -1,6 +1,6 @@
 # 数据路由处理器
 import logging
-from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Player_record_info, Player_info_response, UserSettings
+from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,8 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
     # 根据完整路径分发
     if message_type == "data/get_record_list":
         await handle_get_record_list(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_record_by_id":
+        await handle_get_record_by_id(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_guobiao_stats":
         await handle_get_guobiao_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_riichi_stats":
@@ -27,14 +29,12 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         logger.warning(f"未知的数据消息路径: {message_type}")
 
 async def handle_get_record_list(game_server, Connect_id: str, message: dict, websocket):
-    """处理获取游戏记录列表请求"""
+    """处理获取游戏记录列表请求（仅返回元数据，不含完整牌谱）"""
     player = game_server.players.get(Connect_id)
     if player and player.user_id:
         records = game_server.db_manager.get_record_list(player.user_id, limit=20)
-        # 转换为 Record_info 列表
         record_list = []
         for game_record in records:
-            # 将玩家信息转换为 Player_record_info 列表
             players_info = []
             for player_data in game_record['players']:
                 players_info.append(Player_record_info(
@@ -49,9 +49,8 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                 ))
             
             record_info = Record_info(
-                game_id=game_record['game_id'],
+                game_id=str(game_record['game_id']),  # 兼容旧库 BIGINT 返回 int
                 rule=game_record['rule'],
-                record=game_record['record'],
                 created_at=game_record['created_at'],
                 players=players_info
             )
@@ -68,6 +67,64 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
             type="data/get_record_list",
             success=False,
             message="用户未登录"
+        )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, websocket):
+    """处理按ID获取完整牌谱记录请求"""
+    player = game_server.players.get(Connect_id)
+    if not (player and player.user_id):
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message="用户未登录"
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+    
+    game_id = message.get("game_id", "").strip()
+    if not game_id:
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message="缺少牌谱ID"
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+    
+    result = game_server.db_manager.get_record_by_id(game_id)
+    if result is None:
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message=f"未找到牌谱 {game_id}"
+        )
+    else:
+        players_info = []
+        for p in result['players']:
+            players_info.append(Player_record_info(
+                user_id=p['user_id'],
+                username=p['username'],
+                score=p['score'],
+                rank=p['rank'],
+                title_used=p.get('title_used'),
+                character_used=p.get('character_used'),
+                profile_used=p.get('profile_used'),
+                voice_used=p.get('voice_used')
+            ))
+        
+        detail = Record_detail(
+            game_id=result['game_id'],
+            rule=result['rule'],
+            record=result['record'],
+            created_at=result['created_at'],
+            players=players_info
+        )
+        response = Response(
+            type="data/get_record_by_id",
+            success=True,
+            message="获取牌谱成功",
+            record_detail=detail
         )
     await websocket.send_json(response.dict(exclude_none=True))
 
