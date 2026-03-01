@@ -75,6 +75,7 @@ public partial class GameCanvas : MonoBehaviour {
             else { GameScoreRecord.Instance.Close(); } // 关闭并清理
         });
         SetScoreRecordOpen(false); // 初始化按钮文字与状态
+        remianTimeText.text = ""; // 清空剩余时间文本
     }
 
     // 计分板被外部关闭时调整

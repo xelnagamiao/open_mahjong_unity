@@ -49,7 +49,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                 ))
             
             record_info = Record_info(
-                game_id=str(game_record['game_id']),  # 兼容旧库 BIGINT 返回 int
+                game_id=game_record['game_id'],
                 rule=game_record['rule'],
                 created_at=game_record['created_at'],
                 players=players_info

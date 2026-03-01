@@ -34,63 +34,6 @@ public partial class BoardCanvas : MonoBehaviour {
         {3, "北"}
     };
 
-    public static Dictionary<int, string> CurrentRoundTextGB = new Dictionary<int, string>() {
-        {1, "东风东"},
-        {2, "东风南"},
-        {3, "东风西"},
-        {4, "东风北"},
-        {5, "南风东"},
-        {6, "南风南"},
-        {7, "南风西"},
-        {8, "南风北"},
-        {9, "西风东"},
-        {10, "西风南"},
-        {11, "西风西"},
-        {12, "西风北"},
-        {13, "北风东"},
-        {14, "北风南"},
-        {15, "北风西"},
-        {16, "北风北"},
-    };
-
-    public static Dictionary<int, string> CurrentRoundTextQingque = new Dictionary<int, string>() {
-        {1, "东一局"},
-        {2, "东二局"},
-        {3, "东三局"},
-        {4, "东四局"},
-        {5, "南一局"},
-        {6, "南二局"},
-        {7, "南三局"},
-        {8, "南四局"},
-        {9, "西一局"},
-        {10, "西二局"},
-        {11, "西三局"},
-        {12, "西四局"},
-        {13, "北一局"},
-        {14, "北二局"},
-        {15, "北三局"},
-        {16, "北四局"},
-    };
-
-    public static Dictionary<int, string> CurrentRoundTextRiichi = new Dictionary<int, string>() {
-        {1, "东一局"},
-        {2, "东二局"},
-        {3, "东三局"},
-        {4, "东四局"},
-        {5, "南一局"},
-        {6, "南二局"},
-        {7, "南三局"},
-        {8, "南四局"},
-        {9, "西一局"},
-        {10, "西二局"},
-        {11, "西三局"},
-        {12, "西四局"},
-        {13, "北一局"},
-        {14, "北二局"},
-        {15, "北三局"},
-        {16, "北四局"},
-    };
-
     public static BoardCanvas Instance { get; private set; }
     private Coroutine flashCoroutine; // 闪烁协程
     private Coroutine scoreDifferenceCoroutine; // 分差显示协程
@@ -139,11 +82,11 @@ public partial class BoardCanvas : MonoBehaviour {
         string roomType = gameInfo.room_type;
         Dictionary<int, string> roundMap = null;
         if (roomType == "guobiao") {
-            roundMap = CurrentRoundTextGB;
+            roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
-            roundMap = CurrentRoundTextQingque;
+            roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
-            roundMap = CurrentRoundTextRiichi;
+            roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
         }
 
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {
@@ -196,11 +139,11 @@ public partial class BoardCanvas : MonoBehaviour {
 
         Dictionary<int, string> roundMap = null;
         if (roomType == "guobiao") {
-            roundMap = CurrentRoundTextGB;
+            roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
-            roundMap = CurrentRoundTextQingque;
+            roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
-            roundMap = CurrentRoundTextRiichi;
+            roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
         }
 
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string currentRoundStr)) {
@@ -256,7 +199,7 @@ public partial class BoardCanvas : MonoBehaviour {
         player_top_score.text = FormatScoreDifference(topDiff);
         player_right_score.text = FormatScoreDifference(rightDiff);
         // 等待3秒
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(2f);
         // 恢复基准分数文本
         RestoreBaselineScores();
         isShowingScoreDifference = false;

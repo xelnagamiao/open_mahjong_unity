@@ -732,26 +732,26 @@ class GuobiaoGameState:
                 # 流局：等待2秒后重新开始下一局（保持原有逻辑）
                 await asyncio.sleep(2)
             else:
-                # 和牌进行等待协程
+                # 和牌：固定等待 8 + fan_count*0.5 秒（准备阶段共用同一截止时间，不因多轮 wait_action 累加）
                 fan_count = len(hu_fan) if hu_fan else 0
                 wait_time = fan_count * 0.5 + 8
-                
-                # 为所有玩家设置准备操作，并将准备阶段等待时间写入玩家剩余时间
+                ready_phase_deadline = time.time() + wait_time
+
                 self.action_dict = {}
                 for player in self.player_list:
-                    if player.user_id <= 10: # 机器人默认准备
+                    if player.user_id <= 10:
                         self.action_dict[player.player_index] = []
                     else:
                         self.action_dict[player.player_index] = ["ready"]
                         player.remaining_time = int(wait_time)
 
-                # 设置游戏状态
                 self.game_status = "waiting_ready"
-                # 广播准备状态
                 await broadcast_ready_status(self)
-                # 参考补花轮：准备阶段由上层循环驱动，wait_action 每次只处理一次准备
                 while any(self.action_dict[i] for i in self.action_dict):
-                    # 返回 False 代表超时或异常，直接结束准备阶段
+                    # 每轮用剩余时间更新 remaining_time，保证总等待不超过 wait_time
+                    for p in self.player_list:
+                        if self.action_dict.get(p.player_index):
+                            p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
                     if await wait_action(self) is False:
                         break
 

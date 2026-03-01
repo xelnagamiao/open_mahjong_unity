@@ -70,7 +70,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建表game_records（如果不存在）
+            # 创建表 game_records（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_records (
                     game_id VARCHAR(16) PRIMARY KEY,
@@ -79,7 +79,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建表game_player_records（使用复合主键 (game_id, user_id)，移除外键约束以保留已删除用户的记录）
+            # 创建表 game_player_records（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
                     game_id VARCHAR(16) NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
@@ -593,8 +593,7 @@ class DatabaseManager:
                 LIMIT %s
             """, (user_id, limit))
             
-            # 兼容旧库：game_id 可能为 BIGINT，统一转为 str
-            game_ids = [str(row['game_id']) for row in cursor.fetchall()]
+            game_ids = [row['game_id'] for row in cursor.fetchall()]
             
             if not game_ids:
                 logger.info(f'用户 {user_id} 没有游戏记录')
@@ -623,7 +622,7 @@ class DatabaseManager:
             games_dict = {}
             
             for row in cursor.fetchall():
-                game_id = str(row['game_id'])  # 兼容旧库 BIGINT
+                game_id = row['game_id']
                 
                 if game_id not in games_dict:
                     games_dict[game_id] = {
@@ -672,12 +671,11 @@ class DatabaseManager:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            # 兼容旧库 BIGINT：用 ::text 比较，使字符串 ID 能匹配整数列
             cursor.execute("""
                 SELECT game_id, record, created_at
                 FROM game_records
-                WHERE game_id::text = %s
-            """, (str(game_id).strip(),))
+                WHERE game_id = %s
+            """, (game_id.strip(),))
             
             game_row = cursor.fetchone()
             if not game_row:
@@ -690,9 +688,9 @@ class DatabaseManager:
             cursor.execute("""
                 SELECT user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
                 FROM game_player_records
-                WHERE game_id::text = %s
+                WHERE game_id = %s
                 ORDER BY rank
-            """, (str(game_id).strip(),))
+            """, (game_id.strip(),))
             
             players = []
             rule = None
@@ -711,7 +709,7 @@ class DatabaseManager:
                 })
             
             return {
-                'game_id': str(game_row['game_id']),  # 兼容旧库 BIGINT
+                'game_id': game_row['game_id'],
                 'rule': rule or '',
                 'record': record_data,
                 'created_at': str(game_row['created_at']),

@@ -11,6 +11,8 @@ using System.Collections.Generic;
 /// - Shift + 滚轮下：下一局
 /// - Shift + 滚轮上：上一局
 /// 鼠标悬停在本脚本挂载物体上时输入生效。
+/// 若希望点击能穿透到世界空间 UI（如 ControPanel），在同一 GameObject 上挂 PassThroughToWorldSpaceFilter，
+/// 并指定 ControPanel 所在的世界空间 Canvas（及可选的目标 Graphic）。
 /// </summary>
 public class GameSceneMouseInputController : MonoBehaviour, IPointerClickHandler, IScrollHandler, IPointerEnterHandler, IPointerExitHandler {
     public static GameSceneMouseInputController Instance { get; private set; }

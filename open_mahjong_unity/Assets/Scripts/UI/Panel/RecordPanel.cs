@@ -33,6 +33,11 @@ public class RecordPanel : MonoBehaviour {
 
         if (RecordIdInputPanel != null)
             RecordIdInputPanel.SetActive(false);
+        // 清理dropdownContentTransform下的子物体
+        foreach (Transform child in dropdownContentTransform) {
+            Destroy(child.gameObject);
+        }
+        
     }
 
     private void BackMenu() {

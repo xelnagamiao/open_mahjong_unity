@@ -47,11 +47,11 @@ public class RoundPanel : MonoBehaviour {
         // 设置当前轮数文本（按规则匹配字典）
         Dictionary<int, string> roundMap = null;
         if (roomType == "guobiao") {
-            roundMap = BoardCanvas.CurrentRoundTextGB;
-        }else if (roomType == "qingque") {
-            roundMap = BoardCanvas.CurrentRoundTextQingque;
+            roundMap = RoundTextDictionary.CurrentRoundTextGB;
+        } else if (roomType == "qingque") {
+            roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
-            roundMap = BoardCanvas.CurrentRoundTextRiichi;
+            roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
         }
         if (roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
             roomNowRoundText.text = roundText;

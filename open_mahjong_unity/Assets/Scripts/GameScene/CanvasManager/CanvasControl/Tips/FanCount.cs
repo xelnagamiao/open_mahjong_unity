@@ -20,8 +20,8 @@ public class FanCount : MonoBehaviour
         
     }
 
-    public void SetFanCount(string name, int value){
+    public void SetFanCount(string name, string valueDisplay) {
         FanName.text = name;
-        FanValue.text = $"{value}番";
+        FanValue.text = valueDisplay;
     }
 }
