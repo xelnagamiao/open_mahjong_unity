@@ -157,7 +157,7 @@ public partial class Game3DManager : MonoBehaviour
         if (!isRecordSet)
         {
             Vector3 euler = rotation.eulerAngles;
-            euler.z += Random.Range(-3f, 3f);
+            euler.z += Random.Range(-2f, 2f);
             rotation = Quaternion.Euler(euler);
         }
 

@@ -18,7 +18,7 @@ from .boardcast import (
     broadcast_ready_status,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
-from ..public.init_game_tiles import init_qingque_tiles
+from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
@@ -126,6 +126,10 @@ class QingqueGameState:
         self.room_type = room_data["room_type"] # 房间规则
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
+        self.sub_rule = room_data.get("sub_rule", "qingque/standard") # 子规则
+        self.hepai_limit = 1 # 青雀起和限制固定为1
+        self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
+        self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
         
         self.isPlayerSetRandomSeed = False # 是否玩家设置了随机种子
 
@@ -166,6 +170,10 @@ class QingqueGameState:
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
 
+        # 观战系统相关：含 bot(uid<=10) 或配置禁用的对局禁用观战
+        self.spectator_enabled = self.allow_spectator_config and not any(player.user_id <= 10 for player in self.player_list)
+        from .spectator_manager import SpectatorManager
+        self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
 
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
@@ -197,7 +205,7 @@ class QingqueGameState:
                     from ...response import Response, GameInfo
                     player_conn = self.game_server.user_id_to_connection[user_id]
                     
-                    # 构建游戏信息
+                    # 构建游戏信息（与 broadcast_game_start 一致，固定含 sub_rule、hepai_limit）
                     base_game_info = {
                         'room_id': self.room_id,
                         'gamestate_id': self.gamestate_id,
@@ -211,6 +219,8 @@ class QingqueGameState:
                         'step_time': self.step_time,
                         'round_time': self.round_time,
                         'room_type': self.room_type,
+                        'sub_rule': self.sub_rule,
+                        'hepai_limit': self.hepai_limit,
                         'open_cuohe': self.open_cuohe,
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
@@ -260,6 +270,9 @@ class QingqueGameState:
 
     async def cleanup_game_state(self):
         """清理游戏状态协程：取消游戏循环任务（映射关系由 gamestate_manager 统一清理）"""
+        # 清理观战管理器
+        await self.spectator_manager.cleanup()
+        
         # 取消游戏循环任务
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()
@@ -331,6 +344,9 @@ class QingqueGameState:
 
         # 牌谱记录游戏头
         init_game_record(self)
+        # 牌谱/观战用：子规则与起和限制写入 game_title，客户端据此做番表显示
+        self.game_record["game_title"]["sub_rule"] = self.sub_rule
+        self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
@@ -343,13 +359,24 @@ class QingqueGameState:
             # 牌谱记录对局头
             init_game_round(self)
 
-            # 初始行为（青雀规则：无补花阶段，直接从庄家起手）
+            # 初始行为（青雀规则：无补花阶段，每人13张后庄家单独摸牌）
             self.game_status = "waiting_hand_action"  # 初始行动
             self.current_player_index = 0 # 初始玩家索引
+            self.dihe_possible = True # 地和标志：庄家首次切牌且未暗杠时，被他家荣和即为地和
 
-            self.refresh_waiting_tiles(self.current_player_index, is_first_action=True) # 检查手牌等待牌
+            # 庄家（player 0）摸第14张牌
+            self.refresh_waiting_tiles(self.current_player_index) # 摸牌前用13张手牌计算听牌
+            self.player_list[0].get_tile(self.tiles_list) # 从牌山摸牌
+            # 牌谱记录摸牌
+            player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
+            # 广播摸牌操作
+            await self.broadcast_do_action(
+                action_list=["deal_tile"],
+                action_player=0,
+                deal_tile=self.player_list[0].hand_tiles[-1],
+            )
             logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
-            self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
+            self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作（天和检测）
             await self.broadcast_ask_hand_action() # 广播手牌操作
             await self.wait_action() # 等待手牌操作
 
@@ -378,6 +405,7 @@ class QingqueGameState:
 
                     # 杠后摸牌操作：当前玩家进行摸牌
                     case "deal_card_after_gang": # 杠后发牌历时行为
+                        self.dihe_possible = False # 庄家暗杠/加杠/明杠后，地和不再可能
                         self.refresh_waiting_tiles(self.current_player_index) # 摸牌前更新听牌
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self) # 倒序摸牌
                         # 牌谱记录摸牌
@@ -569,9 +597,15 @@ class QingqueGameState:
                 player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
                                         score_changes=score_changes)
+                if hasattr(self, 'spectator_manager'):
+                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, hu_fan, score_changes])
             else:
                 player_action_record_liuju(self)
+                if hasattr(self, 'spectator_manager'):
+                    self.spectator_manager.record_tick(["liuju"])
             player_action_record_round_end(self)
+            if hasattr(self, 'spectator_manager'):
+                self.spectator_manager.record_tick(["end"])
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
@@ -618,22 +652,24 @@ class QingqueGameState:
 
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
+        
+        # 对局结束后：一次性下发完整牌谱给观战者，并结束观战增量服务
+        if hasattr(self, 'spectator_manager'):
+            await self.spectator_manager.send_final_record_and_close()
 
         # 存储游戏牌谱
-        game_id = self.db_manager.store_guobiao_game_record(
+        game_id = self.db_manager.store_qingque_game_record(
             self.game_record,
             self.player_list,
             self.room_type
         )
-
-        """
         
         # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         if not has_ai_player and game_id:
             total_rounds = len(self.game_record.get("game_round", {}))
             # 存储基础统计数据
-            self.db_manager.store_guobiao_game_stats(
+            self.db_manager.store_qingque_game_stats(
                 game_id,
                 self.player_list,
                 self.room_type,
@@ -641,7 +677,7 @@ class QingqueGameState:
                 total_rounds
             )
             # 存储番种统计数据
-            self.db_manager.store_guobiao_fan_stats(
+            self.db_manager.store_qingque_fan_stats(
                 game_id,
                 self.player_list,
                 self.room_type,
@@ -649,7 +685,6 @@ class QingqueGameState:
             )
         elif has_ai_player:
             logger.info(f'游戏记录包含AI玩家，跳过统计数据保存，game_id: {game_id}')
-        """
 
         # 结束游戏生命周期：使用统一的清理方法
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
@@ -659,7 +694,18 @@ class QingqueGameState:
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
 
-# 挂载广播方法于GuobiaoGameState实例
+    # ========== 观战系统方法（委托给观战管理器） ==========
+    
+    async def add_spectator(self, user_id: int, connection: Any):
+        """添加观战玩家"""
+        await self.spectator_manager.add_spectator(user_id, connection)
+    
+    async def remove_spectator(self, user_id: int):
+        """移除观战玩家"""
+        await self.spectator_manager.remove_spectator(user_id)
+
+
+# 挂载广播方法于QingqueGameState实例
 QingqueGameState.wait_action = wait_action
 QingqueGameState.broadcast_game_start = broadcast_game_start
 QingqueGameState.broadcast_ask_hand_action = broadcast_ask_hand_action

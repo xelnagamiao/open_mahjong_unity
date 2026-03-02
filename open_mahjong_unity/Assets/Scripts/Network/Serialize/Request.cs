@@ -10,6 +10,7 @@ public class LoginRequest { // 登录请求
 public class CreateGBRoomRequest { // 创建国标房间请求
     public string type;
     public string rule;
+    public string sub_rule;
     public string roomname; // 服务器期望的字段名
     public int gameround; // 服务器期望的字段名
     public int roundTimerValue; // 服务器期望的字段名
@@ -18,6 +19,9 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public string password;
     public int random_seed; // 随机种子
     public bool open_cuohe; // 是否开启错和
+    public int hepai_limit; // 起和番限制
+    public bool tourist_limit; // 游客限制
+    public bool allow_spectator; // 允许观战
 }
 
 public class GetRoomListRequest { // 获取房间列表请求
@@ -73,6 +77,12 @@ public class GetGuobiaoStatsRequest { // 获取国标统计数据请求
 }
 
 public class GetRiichiStatsRequest { // 获取立直统计数据请求
+    public string type;
+    public string userid;
+    public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
+}
+
+public class GetQingqueStatsRequest { // 获取青雀统计数据请求
     public string type;
     public string userid;
     public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）

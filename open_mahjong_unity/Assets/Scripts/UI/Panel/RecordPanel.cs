@@ -86,7 +86,7 @@ public class RecordPanel : MonoBehaviour {
             }
 
             string mainRule = record.rule ?? "GB";
-            string subRule = "";
+            string subRule = record.sub_rule ?? "";
             string recordedTime = record.created_at;
 
             RecordPrefab item = Instantiate(RecordPrefab, dropdownContentTransform);

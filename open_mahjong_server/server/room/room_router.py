@@ -60,7 +60,11 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         message["stepTimerValue"],
         message["tips"],
         message["random_seed"],
-        message["open_cuohe"]
+        message["open_cuohe"],
+        message.get("sub_rule", "guobiao/standard"),
+        message.get("hepai_limit", 8),
+        message.get("tourist_limit", False),
+        message.get("allow_spectator", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -87,7 +91,10 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message["roundTimerValue"],
         message["stepTimerValue"],
         message["tips"],
-        message["random_seed"]
+        message["random_seed"],
+        message.get("sub_rule", "qingque/standard"),
+        message.get("tourist_limit", False),
+        message.get("allow_spectator", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

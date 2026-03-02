@@ -38,7 +38,8 @@ public class NormalGameStateManager : MonoBehaviour{
     // 房间信息
     public int roomId; // 房间ID
     public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
-    public string roomType; // 房间规则类型（服务器下发的 room_type，如 "guobiao"/"jp"）
+    public string roomType; // 房间规则类型（用于番表显示：guobiao/standard、guobiao/xiaolin、qingque 等）
+    public int hepaiLimit = 8; // 起和番限制（国标有效，服务器下发的 hepai_limit，默认8）
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
     public int roomRoundTime; // 局时
@@ -649,7 +650,9 @@ public class NormalGameStateManager : MonoBehaviour{
             }
         }
         roomId = gameInfo.room_id; // 存储房间ID
-        roomType = gameInfo.room_type; // 存储房间规则类型
+        // 有 sub_rule 时用 sub_rule 作为 roomType（番表/结算显示），否则用 room_type
+        roomType = !string.IsNullOrEmpty(gameInfo.sub_rule) ? gameInfo.sub_rule : gameInfo.room_type;
+        hepaiLimit = gameInfo.hepai_limit > 0 ? gameInfo.hepai_limit : 8; // 起和番限制，国标提示用
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数

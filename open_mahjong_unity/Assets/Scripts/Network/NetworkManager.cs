@@ -180,23 +180,30 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
-    // 启动服务器统计信息协程（每30秒获取一次）
+    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表
     private void StartServerStatsCoroutine() {
-        // 如果已有协程在运行，先停止它
         if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
         }
-        // 立即获取一次统计信息
-        GetServerStats();
-        // 启动协程每30秒获取一次
-        serverStatsCoroutine = StartCoroutine(ServerStatsUpdateCoroutine());
+        if (IsOnMainMenu()) {
+            GetServerStats();
+            RoomNetworkManager.Instance?.GetRoomList();
+        }
+        serverStatsCoroutine = StartCoroutine(ServerStatsAndRoomListCoroutine());
     }
 
-    // 服务器统计信息更新协程
-    private IEnumerator ServerStatsUpdateCoroutine() {
+    private bool IsOnMainMenu() {
+        return WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "menu";
+    }
+
+    // 仅在主菜单时每5秒刷新服务器统计与房间列表
+    private IEnumerator ServerStatsAndRoomListCoroutine() {
         while (true) {
-            yield return new WaitForSeconds(30f); // 等待30秒
-            GetServerStats();
+            yield return new WaitForSeconds(5f);
+            if (IsOnMainMenu()) {
+                GetServerStats();
+                RoomNetworkManager.Instance?.GetRoomList();
+            }
         }
     }
 
@@ -240,6 +247,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_record_by_id":
                 case "data/get_guobiao_stats":
                 case "data/get_riichi_stats":
+                case "data/get_qingque_stats":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
                 // 观战系统：初始牌谱 / 增量更新 → GameRecordManager

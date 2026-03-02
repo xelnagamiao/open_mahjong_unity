@@ -28,7 +28,7 @@ class RoomManager:
         self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -65,6 +65,9 @@ class RoomManager:
             else:
                 has_password = True
             
+            # 校验起和番限制（1-64）
+            hepai_limit = max(1, min(64, hepai_limit))
+
             # 传参配置 传入的参数
             room_config = {
                 "room_name": room_name, # 房间名
@@ -93,6 +96,10 @@ class RoomManager:
             room_data = {
                 "room_id": room_id, # 房间ID
                 "room_type": "guobiao", # 房间类型
+                "sub_rule": sub_rule, # 子规则
+                "hepai_limit": hepai_limit, # 起和番限制
+                "tourist_limit": tourist_limit, # 游客限制
+                "allow_spectator": allow_spectator, # 允许观战
                 "max_player": 4, # 最大玩家数
                 "player_list": [host_user_id], # 玩家列表（使用 user_id）
                 "player_settings": {
@@ -142,7 +149,7 @@ class RoomManager:
 
     async def create_Qingque_room(self, player_id: str, room_name: str, gameround: int,
                                   password: str, roundTimerValue: int, stepTimerValue: int,
-                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
+                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
         """
         创建青雀房间。
         青雀规则不支持错和，open_cuohe 参数会被忽略，统一按 False 处理。
@@ -211,6 +218,10 @@ class RoomManager:
             room_data = {
                 "room_id": room_id, # 房间ID
                 "room_type": "qingque", # 房间类型（青雀）
+                "sub_rule": sub_rule, # 子规则
+                "hepai_limit": 1, # 青雀起和限制固定为1
+                "tourist_limit": tourist_limit, # 游客限制
+                "allow_spectator": allow_spectator, # 允许观战
                 "max_player": 4, # 最大玩家数
                 "player_list": [host_user_id], # 玩家列表（使用 user_id）
                 "player_settings": {
@@ -335,6 +346,14 @@ class RoomManager:
                     type="error_message",
                     success=False,
                     message="玩家已在其他房间中，请先离开当前房间"
+                )
+
+            # 若房间开启了游客限制，则不允许游客加入
+            if room_data.get("tourist_limit", False) and getattr(player, "is_tourist", False):
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="该房间不允许游客加入"
                 )
             
             # 更新房间信息

@@ -153,7 +153,9 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         
         # 2. 存储玩家对局记录到 game_player_records 表
         rule = room_type  # 使用传入的 room_type 作为规则
-        
+        game_title = game_record.get("game_title") or {}
+        sub_rule = game_title.get("sub_rule") or "guobiao/standard"
+
         # 获取玩家排名（rank_result 是 1-4）
         saved_count = 0
         for player in player_list:
@@ -164,12 +166,12 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             profile_used = getattr(player, 'profile_used', None)
             voice_used = getattr(player, 'voice_used', None)
             actual_user_id = player.user_id
-            
+
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, rule, sub_rule, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     actual_user_id,
@@ -177,6 +179,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     player.score,
                     rank,
                     rule,
+                    sub_rule,
                     title_used,
                     character_used,
                     profile_used,

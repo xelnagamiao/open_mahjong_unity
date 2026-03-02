@@ -39,6 +39,8 @@ class GameInfo(BaseModel):
     step_time: int
     round_time: int
     room_type: str
+    sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
+    hepai_limit: Optional[int] = None  # 起和番限制（国标有效，默认8）
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     players_info: List[PlayerInfo]
@@ -120,6 +122,7 @@ class Record_info(BaseModel):
     """游戏记录元数据（按游戏分组，包含4个玩家，不含完整牌谱）"""
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
+    sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 
@@ -127,6 +130,7 @@ class Record_detail(BaseModel):
     """完整的游戏牌谱记录（按ID查询时返回）"""
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
+    sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
     record: Dict  # 完整的牌谱记录（JSONB）
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
@@ -187,10 +191,10 @@ class ServerStatsInfo(BaseModel):
 class SpectatorInfo(BaseModel):
     """观战信息"""
     rule: str  # 规则类型（guobiao/qingque）
-    player1_id: int  # 玩家1 ID
-    player2_id: int  # 玩家2 ID
-    player3_id: int  # 玩家3 ID
-    player4_id: int  # 玩家4 ID
+    player1_name: str  # 玩家1 用户名
+    player2_name: str  # 玩家2 用户名
+    player3_name: str  # 玩家3 用户名
+    player4_name: str  # 玩家4 用户名
     gamestate_id: str  # 游戏状态ID
 
 class LoginInfo(BaseModel):

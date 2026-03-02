@@ -124,5 +124,10 @@ public class WindowsManager : MonoBehaviour {
         // 更新当前窗口状态
         currentWindow = targetWindow;
     }
-    
+
+    /// <summary>
+    /// 获取当前窗口标识（如 "menu"、"room"、"game" 等），供 NetworkManager 等判断是否在主菜单等。
+    /// </summary>
+    public string GetCurrentWindow() => currentWindow;
+
 }

@@ -20,9 +20,11 @@ public class RoundPanel : MonoBehaviour {
     // 更新房间信息
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
 
-        // 设置规则文本
-        if (roomType == "guobiao") {
+        // 设置规则文本（guobiao/standard、guobiao/xiaolin 均显示为国标/小林改）
+        if (roomType == "guobiao" || roomType == "guobiao/standard") {
             ruleText.text = "国标麻将";
+        } else if (roomType == "guobiao/xiaolin") {
+            ruleText.text = "国标(小林改)";
         } else if (roomType == "qingque") {
             ruleText.text = "青雀";
         } else if (roomType == "riichi") {
@@ -44,16 +46,16 @@ public class RoundPanel : MonoBehaviour {
             GameRoundText.text = "未知轮数";
         }
 
-        // 设置当前轮数文本（按规则匹配字典）
+        // 设置当前轮数文本（按规则匹配字典，guobiao 子规则共用国标轮次）
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao") {
+        if (roomType == "guobiao" || (roomType != null && roomType.StartsWith("guobiao/"))) {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
             roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
         }
-        if (roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
+        if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
             roomNowRoundText.text = roundText;
         } else {
             roomNowRoundText.text = "未知轮数";

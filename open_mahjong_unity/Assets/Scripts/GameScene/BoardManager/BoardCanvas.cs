@@ -78,10 +78,10 @@ public partial class BoardCanvas : MonoBehaviour {
         // 设置剩余牌数
         remiansTilesText.text = $"余:{gameInfo.tile_count}"; 
 
-        // 设置当前回合
+        // 设置当前回合（guobiao/standard、guobiao/xiaolin 均按国标轮次显示）
         string roomType = gameInfo.room_type;
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao") {
+        if (roomType == "guobiao" || (roomType != null && roomType.StartsWith("guobiao/"))) {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
@@ -138,7 +138,7 @@ public partial class BoardCanvas : MonoBehaviour {
         remiansTilesText.text = $"余:{Mathf.Max(remainTiles, 0)}";
 
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao") {
+        if (roomType == "guobiao" || (roomType != null && roomType.StartsWith("guobiao/"))) {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;

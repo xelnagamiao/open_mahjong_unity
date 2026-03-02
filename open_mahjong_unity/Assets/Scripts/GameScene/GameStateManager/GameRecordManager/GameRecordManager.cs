@@ -837,16 +837,9 @@ public partial class GameRecordManager : MonoBehaviour {
     private string BuildGameInfoString() {
         if (gameRecord?.gameTitle == null) return "暂无游戏信息";
         var gt = gameRecord.gameTitle;
-        string rule = "未知规则";
-        if (!string.IsNullOrEmpty(ReadGameTitleString(gt, "rule", "guobiao"))) {
-            rule = "国标";
-        } else if (!string.IsNullOrEmpty(ReadGameTitleString(gt, "rule", "qingque"))) {
-            rule = "青雀";
-        } else if (!string.IsNullOrEmpty(ReadGameTitleString(gt, "rule", "riichi"))) {
-            rule = "立直";
-        } else {
-            rule = "未知规则";
-        }
+        string ruleKey = ReadGameTitleString(gt, "rule", "").ToLowerInvariant();
+        string rule = (ruleKey.Contains("guobiao") ? "国标" : (ruleKey.Contains("qingque") ? "青雀" : (ruleKey.Contains("riichi") ? "立直" : "未知规则")));
+        string subRule = ReadGameTitleString(gt, "sub_rule", "");
         int maxRound = ReadGameTitleInt(gt, "max_round", 0);
         if (maxRound <= 0 && gameRecord.gameRound != null) {
             maxRound = Mathf.Max(1, gameRecord.gameRound.rounds?.Count ?? 0);
@@ -865,6 +858,7 @@ public partial class GameRecordManager : MonoBehaviour {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("【游戏信息】");
         sb.AppendLine($"规则: {rule}");
+        if (!string.IsNullOrEmpty(subRule)) sb.AppendLine($"子规则: {subRule}");
         sb.AppendLine($"最大局数: {maxRound}局");
         sb.AppendLine($"玩家0: {p0Name} (ID:{p0})");
         sb.AppendLine($"玩家1: {p1Name} (ID:{p1})");
@@ -1048,7 +1042,10 @@ public partial class GameRecordManager : MonoBehaviour {
             }
         }
 
-        string roomType = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+        // 番表显示优先使用 sub_rule（如 guobiao/xiaolin），无则用 rule
+        string ruleFallback = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+        string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
+        string roomType = !string.IsNullOrEmpty(subRule) ? subRule : ruleFallback;
         if (indexToPosition.ContainsKey(hepaiPlayerIndex)) {
             string huPosition = indexToPosition[hepaiPlayerIndex];
             GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);

@@ -43,6 +43,9 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_riichi_stats":
                 HandleGetRiichiStatsResponse(response);
                 break;
+            case "data/get_qingque_stats":
+                HandleGetQingqueStatsResponse(response);
+                break;
             default:
                 Debug.LogWarning($"未知的数据消息类型: {response.type}");
                 break;
@@ -91,6 +94,19 @@ public class DataNetworkManager : MonoBehaviour {
         
         // 处理统计数据
         PlayerInfoPanel.Instance.OnRiichiStatsReceived(response.success, response.message, response.rule_stats);
+    }
+    
+    /// <summary>
+    /// 处理获取青雀统计数据响应
+    /// </summary>
+    private void HandleGetQingqueStatsResponse(Response response) {
+        if (PlayerInfoPanel.Instance == null) return;
+        
+        if (response.player_info != null) {
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+        }
+        
+        PlayerInfoPanel.Instance.OnQingqueStatsReceived(response.success, response.message, response.rule_stats);
     }
     
     /// <summary>
@@ -158,6 +174,23 @@ public class DataNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"获取立直统计数据失败: {e.Message}");
             PlayerInfoPanel.Instance.OnRiichiStatsReceived(false, e.Message, null);
+        }
+    }
+
+    /// <summary>
+    /// 获取青雀统计数据
+    /// </summary>
+    public async void GetQingqueStats(string userid, bool need_player_info = false) {
+        try {
+            var request = new GetQingqueStatsRequest {
+                type = "data/get_qingque_stats",
+                userid = userid,
+                need_player_info = need_player_info
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取青雀统计数据失败: {e.Message}");
+            PlayerInfoPanel.Instance?.OnQingqueStatsReceived(false, e.Message, null);
         }
     }
 }

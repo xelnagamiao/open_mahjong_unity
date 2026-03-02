@@ -235,14 +235,17 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         elif "和绝张" in way_to_hepai:
             way_to_hepai.remove("和绝张")
 
-    # 使用计算服务类检查和牌
+    # 使用计算服务类检查和牌（根据子规则选择检查方法）
     print(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
-    result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+    if hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/xiaolin":
+        result = self.calculation_service.GB_xiaolin_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+    else:
+        result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 
-   
-    # 判断是否足够8番，减去花牌的数量
+    # 判断是否满足起和番限制，减去花牌的数量
+    hepai_limit = getattr(self, 'hepai_limit', 8)
     huapai_count = way_to_hepai.count("花牌")
-    if result[0] - huapai_count >= 8:
+    if result[0] - huapai_count >= hepai_limit:
         if get_index_relative_position(self.player_list[player_index].player_index, self.current_player_index) == "self":
             temp_action_dict[self.player_list[player_index].player_index].append("hu_self") # 自己切牌 最高优先级和牌
             self.result_dict["hu_self"] = result # 保存结算结果

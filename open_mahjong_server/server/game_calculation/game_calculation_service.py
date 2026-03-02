@@ -9,10 +9,10 @@ from time import time
 # 传统国标 Python 实现
 # 先尝试包内相对导入，失败时退回到本地绝对导入（便于单文件测试）
 try:
-    from .gb_hepai_check import Chinese_Hepai_Check, PlayerTiles
+    from .gb_hepai_check import Chinese_Hepai_Check, Xiaolin_Hepai_Check, PlayerTiles
     from .gb_tingpai_check import Chinese_Tingpai_Check
 except ImportError:
-    from gb_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
+    from gb_hepai_check import Chinese_Hepai_Check, Xiaolin_Hepai_Check, PlayerTiles  # type: ignore
     from gb_tingpai_check import Chinese_Tingpai_Check          # type: ignore
 
 # Qingque13 C# 桥接模块
@@ -44,6 +44,7 @@ class GameCalculationService:
         self._lock = threading.RLock()  # 使用可重入锁，支持嵌套调用
         # 国标和牌 / 听牌检查实例（Python 版本）
         self._hepai_check = Chinese_Hepai_Check()
+        self._xiaolin_hepai_check = Xiaolin_Hepai_Check()
         self._tingpai_check = Chinese_Tingpai_Check()
 
     def Qingque_hepai_check(
@@ -137,6 +138,12 @@ class GameCalculationService:
         """
         with self._lock:
             return self._hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+
+    def GB_xiaolin_hepai_check(self, hand_list: List[int], tiles_combination: List,
+                   way_to_hepai: List[str], get_tile: int) -> Tuple[int, List[str]]:
+        """小林规和牌检查（使用修改后的番数价值表）"""
+        with self._lock:
+            return self._xiaolin_hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
     
     def GB_tingpai_check(self, hand_tile_list: List[int], combination_list: List) -> Set[int]:
         """

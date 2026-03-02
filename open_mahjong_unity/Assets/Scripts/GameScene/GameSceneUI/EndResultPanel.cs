@@ -165,11 +165,8 @@ public class EndResultPanel : MonoBehaviour {
             yield return new WaitForSeconds(0.5f);
             
             string fanName = hu_fan[i];
-            string roomType = NormalGameStateManager.Instance.roomType;
-            if (roomType != "guobiao" && roomType != "qingque") {
-                Debug.LogError("未知的规则类型: " + roomType);
-                continue;
-            }
+            string roomType = NormalGameStateManager.Instance?.roomType;
+            if (string.IsNullOrEmpty(roomType)) roomType = "guobiao";
             string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanName);
 
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
@@ -289,9 +286,10 @@ public class EndResultPanel : MonoBehaviour {
         }
 
         if (hu_fan != null) {
+            string fanRoomType = string.IsNullOrEmpty(roomType) ? "guobiao" : roomType;
             for (int i = 0; i < hu_fan.Length; i++) {
                 string fanName = hu_fan[i];
-                string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanName);
+                string fanDisplay = FanTextDictionary.GetFanDisplayText(fanRoomType, fanName);
                 GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
                 if (fanCount != null) {

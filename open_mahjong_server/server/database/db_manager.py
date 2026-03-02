@@ -88,6 +88,7 @@ class DatabaseManager:
                     score INT NOT NULL,
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
                     rule VARCHAR(10) NOT NULL,
+                    sub_rule VARCHAR(32) NULL,
                     title_used INT NULL,
                     character_used INT NULL,
                     profile_used INT NULL,
@@ -238,6 +239,133 @@ class DatabaseManager:
                 );
             """)
 
+            # 创建表qingque_history_stats（如果不存在）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS qingque_history_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    total_games INT NOT NULL DEFAULT 0,
+                    total_rounds INT NOT NULL DEFAULT 0,
+                    win_count INT NOT NULL DEFAULT 0,
+                    self_draw_count INT NOT NULL DEFAULT 0,
+                    deal_in_count INT NOT NULL DEFAULT 0,
+                    total_fan_score INT NOT NULL DEFAULT 0,
+                    total_win_turn INT NOT NULL DEFAULT 0,
+                    total_fangchong_score INT NOT NULL DEFAULT 0,
+                    first_place_count INT NOT NULL DEFAULT 0,
+                    second_place_count INT NOT NULL DEFAULT 0,
+                    third_place_count INT NOT NULL DEFAULT 0,
+                    fourth_place_count INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
+            # 创建表qingque_fan_stats（青雀麻将番种统计表）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS qingque_fan_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    hepai INT NOT NULL DEFAULT 0,
+                    tianhe INT NOT NULL DEFAULT 0,
+                    dihe INT NOT NULL DEFAULT 0,
+                    lingshangkaihua INT NOT NULL DEFAULT 0,
+                    haidilaoyue INT NOT NULL DEFAULT 0,
+                    hedilaoyue INT NOT NULL DEFAULT 0,
+                    qianggang INT NOT NULL DEFAULT 0,
+                    qidui INT NOT NULL DEFAULT 0,
+                    menqianqing INT NOT NULL DEFAULT 0,
+                    siangang INT NOT NULL DEFAULT 0,
+                    sanangang INT NOT NULL DEFAULT 0,
+                    shuangangang INT NOT NULL DEFAULT 0,
+                    angang INT NOT NULL DEFAULT 0,
+                    sigang INT NOT NULL DEFAULT 0,
+                    sangang INT NOT NULL DEFAULT 0,
+                    shuanggang INT NOT NULL DEFAULT 0,
+                    sianke INT NOT NULL DEFAULT 0,
+                    sananke INT NOT NULL DEFAULT 0,
+                    duiduihe INT NOT NULL DEFAULT 0,
+                    shiergui INT NOT NULL DEFAULT 0,
+                    bagui INT NOT NULL DEFAULT 0,
+                    sandiedui INT NOT NULL DEFAULT 0,
+                    erdiedui INT NOT NULL DEFAULT 0,
+                    diedui INT NOT NULL DEFAULT 0,
+                    ziyise INT NOT NULL DEFAULT 0,
+                    dasixi INT NOT NULL DEFAULT 0,
+                    xiaosixi INT NOT NULL DEFAULT 0,
+                    sixidui INT NOT NULL DEFAULT 0,
+                    fengpaisanke INT NOT NULL DEFAULT 0,
+                    fengpaiqidui INT NOT NULL DEFAULT 0,
+                    fengpailiudui INT NOT NULL DEFAULT 0,
+                    fengpaiwudui INT NOT NULL DEFAULT 0,
+                    fengpaisidui INT NOT NULL DEFAULT 0,
+                    dasanyuan INT NOT NULL DEFAULT 0,
+                    xiaosanyuan INT NOT NULL DEFAULT 0,
+                    sanyuanliudui INT NOT NULL DEFAULT 0,
+                    sanyuandui INT NOT NULL DEFAULT 0,
+                    fanpaisike INT NOT NULL DEFAULT 0,
+                    fanpaisanke INT NOT NULL DEFAULT 0,
+                    fanpaierke INT NOT NULL DEFAULT 0,
+                    fanpaike INT NOT NULL DEFAULT 0,
+                    fanpaiqidui INT NOT NULL DEFAULT 0,
+                    fanpailiudui INT NOT NULL DEFAULT 0,
+                    fanpaiwudui INT NOT NULL DEFAULT 0,
+                    fanpaisifu INT NOT NULL DEFAULT 0,
+                    fanpaisanfu INT NOT NULL DEFAULT 0,
+                    fanpaierfu INT NOT NULL DEFAULT 0,
+                    fanpai INT NOT NULL DEFAULT 0,
+                    qingyaojiu INT NOT NULL DEFAULT 0,
+                    hunyaojiu INT NOT NULL DEFAULT 0,
+                    qingdaiyao INT NOT NULL DEFAULT 0,
+                    hundaiyao INT NOT NULL DEFAULT 0,
+                    jiulianbaodeng INT NOT NULL DEFAULT 0,
+                    qingyise INT NOT NULL DEFAULT 0,
+                    hunyise INT NOT NULL DEFAULT 0,
+                    wumenqi INT NOT NULL DEFAULT 0,
+                    hunyishu INT NOT NULL DEFAULT 0,
+                    ershu INT NOT NULL DEFAULT 0,
+                    erju INT NOT NULL DEFAULT 0,
+                    sanju INT NOT NULL DEFAULT 0,
+                    siju INT NOT NULL DEFAULT 0,
+                    lianshu INT NOT NULL DEFAULT 0,
+                    jianshu INT NOT NULL DEFAULT 0,
+                    jingshu INT NOT NULL DEFAULT 0,
+                    yingshu INT NOT NULL DEFAULT 0,
+                    mantingfang INT NOT NULL DEFAULT 0,
+                    sitongshun INT NOT NULL DEFAULT 0,
+                    santongshun INT NOT NULL DEFAULT 0,
+                    erbangao INT NOT NULL DEFAULT 0,
+                    yibangao INT NOT NULL DEFAULT 0,
+                    silianke INT NOT NULL DEFAULT 0,
+                    sanlianke INT NOT NULL DEFAULT 0,
+                    sibugao INT NOT NULL DEFAULT 0,
+                    sanbugao INT NOT NULL DEFAULT 0,
+                    silianhuan INT NOT NULL DEFAULT 0,
+                    sanlianhuan INT NOT NULL DEFAULT 0,
+                    yiqiguantong INT NOT NULL DEFAULT 0,
+                    qiliandui INT NOT NULL DEFAULT 0,
+                    liuliandui INT NOT NULL DEFAULT 0,
+                    wuliandui INT NOT NULL DEFAULT 0,
+                    siliandui INT NOT NULL DEFAULT 0,
+                    sansetongke INT NOT NULL DEFAULT 0,
+                    sansetongshun INT NOT NULL DEFAULT 0,
+                    sanseedui INT NOT NULL DEFAULT 0,
+                    sansetongdui INT NOT NULL DEFAULT 0,
+                    sanselianke INT NOT NULL DEFAULT 0,
+                    sanseguantong INT NOT NULL DEFAULT 0,
+                    jingtong INT NOT NULL DEFAULT 0,
+                    jingtongsandui INT NOT NULL DEFAULT 0,
+                    jingtongerdui INT NOT NULL DEFAULT 0,
+                    shuanglonghui INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
             # 创建表user_settings（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_settings (
@@ -303,6 +431,21 @@ class DatabaseManager:
                         logger.info(f'已移除 game_player_records 表的外键约束: {fk_name}')
                     except Error as e:
                         logger.warning(f'移除外键约束时出现警告: {e}')
+
+            # 迁移：为 game_player_records 添加 sub_rule 列（若不存在）
+            if table_exists:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'sub_rule'
+                    );
+                """)
+                if not cursor.fetchone()[0]:
+                    try:
+                        cursor.execute("ALTER TABLE game_player_records ADD COLUMN sub_rule VARCHAR(32) NULL;")
+                        logger.info('已为 game_player_records 表添加 sub_rule 列')
+                    except Error as e:
+                        logger.warning(f'添加 sub_rule 列时出现警告: {e}')
 
             conn.commit() # 提交
             logger.info('数据表初始化成功')
@@ -608,6 +751,7 @@ class DatabaseManager:
                     gpr.score,
                     gpr.rank,
                     gpr.rule,
+                    gpr.sub_rule,
                     gpr.title_used,
                     gpr.character_used,
                     gpr.profile_used,
@@ -629,6 +773,7 @@ class DatabaseManager:
                         'game_id': game_id,
                         'created_at': str(row['created_at']),
                         'rule': row['rule'],
+                        'sub_rule': row.get('sub_rule'),
                         'players': []
                     }
                 
@@ -686,7 +831,7 @@ class DatabaseManager:
                 record_data = json.loads(record_data)
             
             cursor.execute("""
-                SELECT user_id, username, score, rank, rule, title_used, character_used, profile_used, voice_used
+                SELECT user_id, username, score, rank, rule, sub_rule, title_used, character_used, profile_used, voice_used
                 FROM game_player_records
                 WHERE game_id = %s
                 ORDER BY rank
@@ -694,9 +839,12 @@ class DatabaseManager:
             
             players = []
             rule = None
+            sub_rule = None
             for row in cursor.fetchall():
                 if rule is None:
                     rule = row['rule']
+                if sub_rule is None:
+                    sub_rule = row.get('sub_rule')
                 players.append({
                     'user_id': row['user_id'],
                     'username': row['username'],
@@ -711,6 +859,7 @@ class DatabaseManager:
             return {
                 'game_id': game_row['game_id'],
                 'rule': rule or '',
+                'sub_rule': sub_rule,
                 'record': record_data,
                 'created_at': str(game_row['created_at']),
                 'players': players
@@ -726,19 +875,13 @@ class DatabaseManager:
     
     def get_player_stats(self, user_id: int) -> Dict[str, Any]:
         """
-        获取指定用户的所有统计数据（包括 guobiao_history_stats、riichi_history_stats 和 guobiao_fan_stats）
+        获取指定用户的所有统计数据（包括各规则的 history_stats 和 fan_stats）
         
         Args:
             user_id: 用户ID
         
         Returns:
-            包含所有统计数据的字典，格式：
-            {
-                'guobiao_stats': [{'rule': 'guobiao', 'mode': '4/4', ...}, ...],
-                'riichi_stats': [{'rule': 'riichi', 'mode': '1_4_game', ...}, ...],
-                'guobiao_fan_stats': [{'rule': 'guobiao', 'mode': '4/4', ...}, ...]  # 番种统计数据
-            }
-            如果某个规则没有数据，则返回空列表
+            包含所有统计数据的字典
         """
         conn = None
         try:
@@ -748,7 +891,9 @@ class DatabaseManager:
             result = {
                 'guobiao_stats': [],
                 'riichi_stats': [],
-                'guobiao_fan_stats': []
+                'guobiao_fan_stats': [],
+                'qingque_stats': [],
+                'qingque_fan_stats': [],
             }
             
             # 查询 guobiao_history_stats
@@ -784,12 +929,34 @@ class DatabaseManager:
                 stats_dict = dict(row)
                 result['guobiao_fan_stats'].append(stats_dict)
             
-            logger.info(f'获取用户 {user_id} 的统计数据：国标 {len(result["guobiao_stats"])} 条，立直 {len(result["riichi_stats"])} 条，番种 {len(result["guobiao_fan_stats"])} 条')
+            # 查询 qingque_history_stats
+            cursor.execute("""
+                SELECT * FROM qingque_history_stats
+                WHERE user_id = %s
+                ORDER BY rule, mode
+            """, (user_id,))
+            
+            for row in cursor.fetchall():
+                stats_dict = dict(row)
+                result['qingque_stats'].append(stats_dict)
+            
+            # 查询 qingque_fan_stats
+            cursor.execute("""
+                SELECT * FROM qingque_fan_stats
+                WHERE user_id = %s
+                ORDER BY rule, mode
+            """, (user_id,))
+            
+            for row in cursor.fetchall():
+                stats_dict = dict(row)
+                result['qingque_fan_stats'].append(stats_dict)
+            
+            logger.info(f'获取用户 {user_id} 的统计数据：国标 {len(result["guobiao_stats"])} 条，立直 {len(result["riichi_stats"])} 条，国标番种 {len(result["guobiao_fan_stats"])} 条，青雀 {len(result["qingque_stats"])} 条，青雀番种 {len(result["qingque_fan_stats"])} 条')
             return result
             
         except Error as e:
             logger.error(f'获取玩家统计数据失败: {e}', exc_info=True)
-            return {'guobiao_stats': [], 'riichi_stats': [], 'guobiao_fan_stats': []}
+            return {'guobiao_stats': [], 'riichi_stats': [], 'guobiao_fan_stats': [], 'qingque_stats': [], 'qingque_fan_stats': []}
         finally:
             if conn:
                 cursor.close()
@@ -876,3 +1043,10 @@ from .guobiao.store_guobiao import store_guobiao_game_record, store_guobiao_game
 DatabaseManager.store_guobiao_game_record = store_guobiao_game_record
 DatabaseManager.store_guobiao_game_stats = store_guobiao_game_stats
 DatabaseManager.store_guobiao_fan_stats = store_guobiao_fan_stats
+
+# 挂载青雀麻将相关方法到 DatabaseManager 类
+from .qingque.store_qingque import store_qingque_game_record, store_qingque_game_stats, store_qingque_fan_stats
+
+DatabaseManager.store_qingque_game_record = store_qingque_game_record
+DatabaseManager.store_qingque_game_stats = store_qingque_game_stats
+DatabaseManager.store_qingque_fan_stats = store_qingque_fan_stats

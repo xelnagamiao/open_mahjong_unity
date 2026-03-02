@@ -26,6 +26,8 @@ async def broadcast_game_start(self):
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
         'room_type': self.room_type, # 房间类型
+        'sub_rule': getattr(self, 'sub_rule', 'guobiao/standard'), # 子规则（番表显示）
+        'hepai_limit': getattr(self, 'hepai_limit', 8), # 起和番限制（提示用）
         'open_cuohe': self.open_cuohe, # 是否开启错和
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息

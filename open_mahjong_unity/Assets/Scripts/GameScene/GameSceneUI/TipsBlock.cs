@@ -19,7 +19,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     public void ShowTipsBlock(List<int> selfHandTiles, List<string> combinationTiles){
         HashSet<int> waitingTiles = new HashSet<int>();
         try {
-            if (NormalGameStateManager.Instance.roomType == "guobiao"){
+            if (NormalGameStateManager.Instance.roomType == "guobiao" || (NormalGameStateManager.Instance.roomType != null && NormalGameStateManager.Instance.roomType.StartsWith("guobiao/"))){
                 waitingTiles = GBtingpai.TingpaiCheck(
                     selfHandTiles,
                     combinationTiles,

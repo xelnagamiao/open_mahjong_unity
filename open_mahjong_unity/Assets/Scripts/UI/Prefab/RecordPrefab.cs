@@ -42,7 +42,7 @@ public class RecordPrefab : MonoBehaviour{
 
         RecordIdText.text = gameId;
         MainRuleText.text = mainRule;
-        SubRuleText.text = subRule;
+        SubRuleText.text = RuleNameDictionary.GetDisplayName(subRule, mainRule);
         RecordedTimeText.text = recordedTime;
 
         TextMeshProUGUI[] rankTexts = { Rank1Text, Rank2Text, Rank3Text, Rank4Text };
