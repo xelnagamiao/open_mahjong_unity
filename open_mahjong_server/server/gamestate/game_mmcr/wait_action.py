@@ -40,7 +40,10 @@ async def wait_action(self):
     action_data = None # 保存操作数据
     action_type = None # 保存操作类型
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + self.step_time > used_time for i in self.waiting_players_list):
+    # waiting_ready
+    timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
+
+    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
 
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
@@ -87,8 +90,8 @@ async def wait_action(self):
 
                 used_time += time_end - time_start # 服务器计算操作时间
                 used_int_time = int(used_time) # 变量整数时间
-                if used_int_time >= self.step_time: # 扣除玩家超出步时的时间
-                    self.player_list[temp_player_index].remaining_time -= (used_int_time - self.step_time)
+                if timeout_grace > 0 and used_int_time >= timeout_grace: # 扣除玩家超出步时的时间
+                    self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                
                 self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
                 self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家

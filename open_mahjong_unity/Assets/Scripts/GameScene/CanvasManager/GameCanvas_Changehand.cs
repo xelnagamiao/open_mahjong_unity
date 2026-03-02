@@ -15,7 +15,7 @@ public partial class GameCanvas{
         });
         // 未启动执行队列则启动
         if (!isChangeHandCardProcessing){
-            StartCoroutine(ProcessChangeHandCardQueue());
+            _processChangeHandCardQueueCoroutine = StartCoroutine(ProcessChangeHandCardQueue());
         }
     }
     
@@ -32,6 +32,7 @@ public partial class GameCanvas{
             yield return changeHandCardCoroutine;
         }
         // 手牌处理结束
+        _processChangeHandCardQueueCoroutine = null;
         isChangeHandCardProcessing = false;
     }
     
@@ -304,6 +305,7 @@ public partial class GameCanvas{
         // 记录起始位置
         List<Vector2> startPositions = new List<Vector2>();
         for (int i = 0; i < cards.Count; i++){
+            if (cards[i] == null) yield break; // 手牌已被清空（重连/下一局）
             startPositions.Add(cards[i].anchoredPosition);
         }
         
@@ -336,14 +338,18 @@ public partial class GameCanvas{
 
     /// <summary>
     /// 摸牌动画：从上方2个宽度向下滑动到原始位置，同时透明度从100到0
+    /// 若 cardRect 在动画过程中被销毁（如重连/下一局清空手牌），会安全退出，避免 MissingReferenceException。
     /// </summary>
     private IEnumerator AnimateGetCard(RectTransform cardRect, Vector2 targetPosition)
     {
+        if (cardRect == null) yield break;
+
         // 计算初始位置（上方2个宽度）
         Vector2 startPosition = targetPosition + new Vector2(0, 1.0f * tileCardWidth);
         
         // 设置初始位置和透明度
         cardRect.anchoredPosition = startPosition;
+        if (cardRect == null) yield break;
         
         // 获取CanvasGroup组件控制透明度（如果没有则添加）
         CanvasGroup canvasGroup = cardRect.GetComponent<CanvasGroup>();
@@ -360,6 +366,7 @@ public partial class GameCanvas{
         // 动画循环
         while (elapsedTime < animationDuration)
         {
+            if (cardRect == null) yield break; // 手牌容器被清空（重连/下一局）时安全退出
             elapsedTime += Time.deltaTime;
             float progress = Mathf.Clamp01(elapsedTime / animationDuration);
             
@@ -373,6 +380,7 @@ public partial class GameCanvas{
         }
         
         // 确保最终位置和透明度准确
+        if (cardRect == null) yield break;
         cardRect.anchoredPosition = targetPosition;
         canvasGroup.alpha = 1.0f;
     }

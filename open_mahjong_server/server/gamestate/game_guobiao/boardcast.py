@@ -26,6 +26,8 @@ async def broadcast_game_start(self):
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
         'room_type': self.room_type, # 房间类型
+        'sub_rule': getattr(self, 'sub_rule', 'guobiao/standard'), # 子规则（番表显示）
+        'hepai_limit': getattr(self, 'hepai_limit', 8), # 起和番限制（提示用）
         'open_cuohe': self.open_cuohe, # 是否开启错和
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
@@ -92,49 +94,14 @@ async def broadcast_game_start(self):
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
             
-            # 为每个玩家缓存消息（用于观战系统）
-            if hasattr(self, 'spectator_manager'):
-                await self.spectator_manager.cache_broadcast_message('game_start', game_info_for_current)
-                
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送消息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
     
-    # 为观战玩家缓存消息（观战玩家可以看到所有手牌）
+    # 为观战系统记录局开始数据
     if hasattr(self, 'spectator_manager'):
-        # 为观战玩家构建玩家信息列表（可以看到所有手牌）
-        players_info_for_spectator = []
-        for player in self.player_list:
-            player_info = {
-                'user_id': player.user_id,
-                'username': player.username,
-                'hand_tiles_count': len(player.hand_tiles),
-                'hand_tiles': player.hand_tiles,  # 观战玩家可以看到所有手牌
-                'discard_tiles': player.discard_tiles,
-                'discard_origin_tiles': player.discard_origin_tiles,
-                'combination_tiles': player.combination_tiles,
-                'combination_mask': player.combination_mask,
-                'huapai_list': player.huapai_list,
-                'remaining_time': player.remaining_time,
-                'player_index': player.player_index,
-                'original_player_index': player.original_player_index,
-                'score': player.score,
-                'title_used': player.title_used,
-                'profile_used': player.profile_used,
-                'character_used': player.character_used,
-                'voice_used': player.voice_used,
-                'score_history': player.score_history,
-                'tag_list': player.tag_list,
-            }
-            players_info_for_spectator.append(player_info)
-        
-        spectator_game_info = {
-            **base_game_info,
-            'players_info': players_info_for_spectator,
-            'self_hand_tiles': None  # 观战玩家不使用 self_hand_tiles
-        }
-        
-        await self.spectator_manager.cache_broadcast_message('game_start', spectator_game_info)
+        self.spectator_manager.record_game_title()
+        self.spectator_manager.record_round_start()
 
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
@@ -171,10 +138,6 @@ async def broadcast_ask_hand_action(self):
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
-                    
-                    # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据）
-                    if hasattr(self, 'spectator_manager'):
-                        await self.spectator_manager.cache_broadcast_message('ask_hand_action', response.ask_hand_action_info.dict(exclude_none=True))
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
             else:
@@ -195,15 +158,15 @@ async def broadcast_ask_hand_action(self):
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
-                    
-                    # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据）
-                    if hasattr(self, 'spectator_manager'):
-                        await self.spectator_manager.cache_broadcast_message('ask_hand_action', response.ask_hand_action_info.dict(exclude_none=True))
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播手牌操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+
+    # 为观战系统记录 ask_hand tick（在循环外确保只记录一次）
+    if hasattr(self, 'spectator_manager'):
+        self.spectator_manager.record_ask_hand(self.current_player_index, self.action_dict.get(self.current_player_index, []))
 
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
@@ -240,16 +203,21 @@ async def broadcast_ask_other_action(self):
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
-                    
-                    # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据）
-                    if hasattr(self, 'spectator_manager'):
-                        await self.spectator_manager.cache_broadcast_message('ask_other_action', response.ask_other_action_info.dict(exclude_none=True))
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
 
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播询问操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+
+    # 为观战系统记录 ask_other tick（汇总所有有操作的玩家）
+    if hasattr(self, 'spectator_manager'):
+        player_action_map = {}
+        for idx, actions in self.action_dict.items():
+            if actions:
+                player_action_map[idx] = actions
+        if player_action_map:
+            self.spectator_manager.record_ask_other(player_action_map, cut_tile)
 
 # 广播操作
 async def broadcast_do_action(
@@ -302,15 +270,20 @@ async def broadcast_do_action(
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 logger.info(f"已向玩家 {current_player.username} 广播操作信息")
-                
-                # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据，只缓存一次）
-                if hasattr(self, 'spectator_manager') and i == 0:  # 只缓存一次
-                    await self.spectator_manager.cache_broadcast_message('do_action', response.do_action_info.dict(exclude_none=True))
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+
+    # 为观战系统记录 do_action tick
+    if hasattr(self, 'spectator_manager'):
+        self.spectator_manager.record_do_action_ticks(
+            action_list, action_player,
+            cut_tile=cut_tile, cut_class=cut_class,
+            deal_tile=deal_tile, buhua_tile=buhua_tile,
+            combination_mask=combination_mask
+        )
 
 # 广播结算结果
 async def broadcast_result(self, 
@@ -356,10 +329,6 @@ async def broadcast_result(self,
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 logger.info(f"已向玩家 {current_player.username} 广播结算结果信息")
-                
-                # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据，只缓存一次）
-                if hasattr(self, 'spectator_manager') and i == 0:  # 只缓存一次
-                    await self.spectator_manager.cache_broadcast_message('show_result', response.show_result_info.dict(exclude_none=True))
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -408,10 +377,6 @@ async def broadcast_game_end(self):
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 logger.info(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
-                
-                # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据，只缓存一次）
-                if hasattr(self, 'spectator_manager') and current_player == self.player_list[0]:  # 只缓存一次
-                    await self.spectator_manager.cache_broadcast_message('game_end', response.game_end_info.dict(exclude_none=True))
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -449,10 +414,6 @@ async def broadcast_switch_seat(self):
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 logger.info(f"已向玩家 {current_player.username} 发送换位信息")
-                
-                # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据，只缓存一次）
-                if hasattr(self, 'spectator_manager') and current_player == self.player_list[0]:  # 只缓存一次
-                    await self.spectator_manager.cache_broadcast_message('switch_seat', response.switch_seat_info.dict(exclude_none=True))
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
@@ -495,10 +456,6 @@ async def broadcast_refresh_player_tag_list(self):
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 logger.info(f"已向玩家 {current_player.username} 发送刷新玩家标签列表信息")
-                
-                # 缓存消息供观战玩家使用（直接使用已构建的 Response 数据，只缓存一次）
-                if hasattr(self, 'spectator_manager') and current_player == self.player_list[0]:  # 只缓存一次
-                    await self.spectator_manager.cache_broadcast_message('refresh_player_tag_list', response.refresh_player_tag_list_info.dict(exclude_none=True))
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:

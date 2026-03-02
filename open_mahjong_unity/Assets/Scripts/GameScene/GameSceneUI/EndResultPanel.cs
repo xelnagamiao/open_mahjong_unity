@@ -29,56 +29,6 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private GameObject StaticCardPrefab;
     [SerializeField] private GameObject HideSplit;
 
-    // 番数和分数的对应表（存储番数值）
-    private Dictionary<string, int> FanToValueGuobiao = new Dictionary<string, int> {
-        {"大四喜", 88}, {"大三元", 88}, {"绿一色", 88}, {"九莲宝灯", 88}, {"四杠", 88},
-        {"连七对", 88}, {"十三幺", 88},
-        {"清幺九", 64}, {"小四喜", 64}, {"小三元", 64}, {"字一色", 64}, {"四暗刻", 64}, {"一色双龙会", 64},
-        {"一色四同顺", 48}, {"一色四节高", 48}, {"一色四步高", 32}, {"三杠", 32}, {"混幺九", 32},
-        {"七对", 24}, {"七星不靠", 24}, {"全双刻", 24},
-        {"清一色", 24}, {"一色三同顺", 24}, {"一色三节高", 24}, {"全大", 24}, {"全中", 24}, {"全小", 24},
-        {"清龙", 16}, {"三色双龙会", 16}, {"一色三步高", 16}, {"全带五", 16}, {"三同刻", 16}, {"三暗刻", 16},
-        {"全不靠", 12}, {"组合龙", 12}, {"大于五", 12}, {"小于五", 12}, {"三风刻", 12},
-        {"花龙", 8}, {"推不倒", 8}, {"三色三同顺", 8}, {"三色三节高", 8}, {"无番和", 8}, {"妙手回春", 8}, {"海底捞月", 8},
-        {"杠上开花", 8}, {"抢杠和", 8}, {"碰碰和", 6}, {"混一色", 6}, {"三色三步高", 6}, {"五门齐", 6}, {"全求人", 6}, {"双暗杠", 6}, {"双箭刻", 6},
-        {"全带幺", 4}, {"不求人", 4}, {"双明杠", 4}, {"和绝张", 4}, {"箭刻", 2}, {"圈风刻", 2}, {"门风刻", 2}, {"门前清", 2},
-        {"平和", 2}, {"双暗刻", 2}, {"暗杠", 2}, {"断幺", 2},
-        {"老少副", 1}, {"明杠", 1}, {"缺一门", 1}, {"无字", 1}, {"边张", 1},
-        {"嵌张", 1}, {"单钓将", 1}, {"自摸", 1}, {"明暗杠", 5},
-        {"错和", 0}, // 错和番，价值0番
-        // 可叠加番数 四归一、双同刻、一般高、喜相逢、连六、幺九刻、花牌七个番种允许复计。
-        {"花牌*1", 1}, {"花牌*2", 2}, {"花牌*3", 3}, {"花牌*4", 4}, {"花牌*5", 5}, {"花牌*6", 6}, {"花牌*7", 7}, {"花牌*8", 8},
-        {"四归一*1", 2}, {"四归一*2", 4}, {"四归一*3", 6}, {"四归一*4", 8},
-        {"双同刻*1", 2}, {"双同刻*2", 4}, {"双同刻*3", 6}, {"双同刻*4", 8},
-        {"一般高*1", 1}, {"一般高*2", 2}, {"一般高*3", 3}, {"一般高*4", 4},
-        {"喜相逢*1", 1}, {"喜相逢*2", 2}, {"喜相逢*3", 3}, {"喜相逢*4", 4},
-        {"幺九刻*1", 1}, {"幺九刻*2", 2}, {"幺九刻*3", 3}, {"幺九刻*4", 4},
-        {"连六*1", 1}, {"连六*2", 2}, {"连六*3", 3}, {"连六*4", 4},
-    };
-
-
-    private Dictionary<string, int> FanToValueQingque = new Dictionary<string, int> {
-        {"和牌", 0},{"天和", 0},{"地和", 0},{"岭上开花", 0},{"海底捞月", 0},
-        {"河底捞鱼", 0},{"抢杠", 0},{"七对", 0},{"门前清", 0},{"四暗杠", 0},
-        {"三暗杠", 0},{"双暗杠", 0},{"暗杠", 0},{"四杠", 0},{"三杠", 0},
-        {"双杠", 0},{"四暗刻", 0},
-        {"三暗刻", 0},{"对对和", 0},{"十二归", 0},{"八归", 0},{"三叠对", 0},
-        {"二叠对", 0},{"叠对", 0},{"字一色", 0},{"大四喜", 0},{"小四喜", 0},{"四喜对", 0},
-        {"风牌三刻", 0},{"风牌七对", 0},{"风牌六对", 0},{"风牌五对", 0},
-        {"风牌四对", 0},{"大三元", 0},{"小三元", 0}, {"三元六对", 0},{"三元对", 0},
-        {"番牌四刻", 0},{"番牌三刻", 0},{"番牌二刻", 0},{"番牌刻", 0},
-        {"番牌七对", 0},{"番牌六对", 0},{"番牌五对", 0},{"番牌四副", 0},
-        {"番牌三副", 0},{"番牌二副", 0},{"番牌", 0},{"清幺九", 0},{"混幺九", 0},
-        {"清带幺", 0},{"混带幺", 0},{"九莲宝灯", 0},{"清一色", 0},
-        {"混一色", 0},{"五门齐", 0},{"混一数", 0},{"二数", 0},
-        {"二聚", 0},{"三聚", 0},{"四聚", 0},{"连数", 0},{"间数", 0},
-        {"镜数", 0},{"映数", 0},{"满庭芳", 0},{"四同顺", 0},
-        {"三同顺", 0},{"二般高", 0},{"一般高", 0},{"四连刻", 0},{"三连刻", 0}, 
-        {"四步高", 0},{"三步高", 0},{"四连环", 0},{"三连环", 0},{"一气贯通", 0},{"七连对", 0},
-        {"六连对", 0},{"五连对", 0},{"四连对", 0},{"三色同刻", 0},
-        {"三色同顺", 0},{"三色二对", 0},{"三色同对", 0},{"三色连刻", 0},{"三色贯通", 0},
-        {"镜同", 0},{"镜同三对", 0},{"镜同二对", 0},{"双龙会", 0},
-    };
     public static EndResultPanel Instance { get; private set; }
     private const string StateNone = "";
     private const string StateGame = "gamestate";
@@ -214,25 +164,15 @@ public class EndResultPanel : MonoBehaviour {
             // 每半秒 显示一个番数
             yield return new WaitForSeconds(0.5f);
             
-            // 获取番数名称和值
             string fanName = hu_fan[i];
-            int fanValue = 0;
-            if (NormalGameStateManager.Instance.roomType == "guobiao") {
-                fanValue = FanToValueGuobiao.ContainsKey(fanName) ? FanToValueGuobiao[fanName] : 0;
-            } else if (NormalGameStateManager.Instance.roomType == "qingque") {
-                fanValue = FanToValueQingque.ContainsKey(fanName) ? FanToValueQingque[fanName] : 0;
-            } else {
-                Debug.LogError("未知的规则类型: " + NormalGameStateManager.Instance.roomType);
-                continue;
-            }
-            
-            // 实例化 FanCountPrefab
+            string roomType = NormalGameStateManager.Instance?.roomType;
+            if (string.IsNullOrEmpty(roomType)) roomType = "guobiao";
+            string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanName);
+
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
-            
-            // 调用 SetFanCount 方法
             FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
             if (fanCount != null) {
-                fanCount.SetFanCount(fanName, fanValue);
+                fanCount.SetFanCount(fanName, fanDisplay);
             } else {
                 Debug.LogWarning($"FanCountPrefab 上未找到 FanCount 组件");
             }
@@ -264,9 +204,12 @@ public class EndResultPanel : MonoBehaviour {
     /// <summary>
     /// 牌谱回放结算展示（不依赖对局内 player_to_score/手牌数据）：
     /// - 默认除和牌者外，其他玩家显示为已准备
-    /// - 无协程倒计时动画，仅显示“确认”按钮
+    /// - 无协程倒计时动画，仅显示“确认”按钮；观战模式下不显示确认，由 end tick 驱动下一局
     /// </summary>
-    public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType, Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername) {
+    public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+        Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
+        int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false) {
         currentState = StateRecord;
         gameObject.SetActive(true);
 
@@ -284,48 +227,92 @@ public class EndResultPanel : MonoBehaviour {
         TopUserName.text = positionToUsername != null && positionToUsername.ContainsKey("top") ? positionToUsername["top"] : "";
         RightUserName.text = positionToUsername != null && positionToUsername.ContainsKey("right") ? positionToUsername["right"] : "";
 
-        // 牌谱回放不在此处计算分差，先清空分数文本
-        SelfScore.text = "";
-        LeftScore.text = "";
-        TopScore.text = "";
-        RightScore.text = "";
-
-        // 回放模式默认全员未准备（仅通过确认按钮进入下一局）
+        // 回放模式默认全员未准备
         SelfReady.gameObject.SetActive(false);
         LeftReady.gameObject.SetActive(false);
         TopReady.gameObject.SetActive(false);
         RightReady.gameObject.SetActive(false);
 
-        // 先展示总番
-        GameObject totalFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
-        FanCount totalFanCount = totalFanInstance.GetComponent<FanCount>();
-        if (totalFanCount != null) {
-            totalFanCount.SetFanCount($"{hu_class} 总番", hu_score);
+        // 显示和牌玩家手牌（同 ShowResult 的逻辑）
+        if (hepai_player_hand != null && hepai_player_hand.Length > 0) {
+            int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
+            int[] handWithoutLast = new int[hepai_player_hand.Length - 1];
+            Array.Copy(hepai_player_hand, handWithoutLast, handWithoutLast.Length);
+            Array.Sort(handWithoutLast);
+
+            for (int i = 0; i < handWithoutLast.Length; i++) {
+                GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+                staticCard.GetComponent<StaticCard>().SetTileOnlyImage(handWithoutLast[i]);
+            }
+
+            GameObject hideSplitInstance = Instantiate(HideSplit, EndTilescontainer.transform);
+
+            // 显示组合牌
+            if (hepai_player_combination_mask != null) {
+                for (int list = 0; list < hepai_player_combination_mask.Length; list++) {
+                    for (int mask = 1; mask < hepai_player_combination_mask[list].Length; mask += 2) {
+                        GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+                        staticCard.GetComponent<StaticCard>().SetTileOnlyImage(hepai_player_combination_mask[list][mask]);
+                    }
+                }
+            }
+
+            GameObject hideSplitInstance2 = Instantiate(HideSplit, EndTilescontainer.transform);
+
+            // 显示和牌张
+            GameObject LastCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+            LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
         }
 
-        // 直接展示番型（回放模式不做逐条等待动画）
+        // 显示各玩家分数变化
+        if (player_to_score_after != null && player_to_score_after.Count > 0) {
+            foreach (var player in player_to_score_after) {
+                if (!indexToPosition.ContainsKey(player.Key)) continue;
+                string position = indexToPosition[player.Key];
+                int scoreBefore = player_to_score_before != null && player_to_score_before.ContainsKey(player.Key) ? player_to_score_before[player.Key] : 0;
+                int scoreAfter = player.Value;
+                string scoreText = FormatScoreWithDiff(scoreBefore, scoreAfter);
+
+                if (position == "self") SelfScore.text = scoreText;
+                else if (position == "left") LeftScore.text = scoreText;
+                else if (position == "top") TopScore.text = scoreText;
+                else if (position == "right") RightScore.text = scoreText;
+            }
+        } else {
+            SelfScore.text = "";
+            LeftScore.text = "";
+            TopScore.text = "";
+            RightScore.text = "";
+        }
+
         if (hu_fan != null) {
+            string fanRoomType = string.IsNullOrEmpty(roomType) ? "guobiao" : roomType;
             for (int i = 0; i < hu_fan.Length; i++) {
                 string fanName = hu_fan[i];
-                int fanValue = 0;
-                if (roomType == "guobiao") {
-                    fanValue = FanToValueGuobiao.ContainsKey(fanName) ? FanToValueGuobiao[fanName] : 0;
-                } else if (roomType == "qingque") {
-                    fanValue = FanToValueQingque.ContainsKey(fanName) ? FanToValueQingque[fanName] : 0;
-                }
-
+                string fanDisplay = FanTextDictionary.GetFanDisplayText(fanRoomType, fanName);
                 GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
                 if (fanCount != null) {
-                    fanCount.SetFanCount(fanName, fanValue);
+                    fanCount.SetFanCount(fanName, fanDisplay);
                 }
             }
         }
 
-        // 回放模式仅显示确认按钮，点击后关闭并切到下一局
-        EndButton.interactable = true;
+        // 回放模式仅显示确认按钮，点击后关闭并切到下一局；观战模式不显示确认，由 end tick 驱动
+        EndButton.interactable = !isSpectator;
+        EndButton.gameObject.SetActive(!isSpectator);
         EndButtonText.text = "确认";
         yield break;
+    }
+
+    private static string FormatScoreWithDiff(int before, int after) {
+        int diff = after - before;
+        if (diff > 0) {
+            return $"{after}<color=green>+{diff}</color>";
+        } else if (diff < 0) {
+            return $"{after}<color=red>{diff}</color>";
+        }
+        return after.ToString();
     }
 
     // 按钮点击以后发送准备消息
@@ -348,17 +335,9 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleRecordStateConfirm() {
-        // 回放状态：关闭面板并切到下一局（若存在）
         gameObject.SetActive(false);
-        if (GameRecordManager.Instance == null ||
-            GameRecordManager.Instance.gameRecord == null ||
-            GameRecordManager.Instance.gameRecord.gameRound == null ||
-            GameRecordManager.Instance.gameRecord.gameRound.rounds == null) {
-            return;
-        }
-        int nextRound = GameRecordManager.Instance.currentRoundIndex + 1;
-        if (GameRecordManager.Instance.gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
-            GameRecordManager.Instance.GotoSelectRound(nextRound);
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.DelayedGotoNextRoundAfterConfirm(0.1f);
         }
     }
     

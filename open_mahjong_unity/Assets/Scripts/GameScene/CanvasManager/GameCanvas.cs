@@ -49,6 +49,7 @@ public partial class GameCanvas : MonoBehaviour {
     // 手牌处理队列管理
     private Queue<System.Func<Coroutine>> changeHandCardQueue = new Queue<System.Func<Coroutine>>();
     private bool isChangeHandCardProcessing = false;
+    private Coroutine _processChangeHandCardQueueCoroutine;
     public string ActionBlockContainerState = "None"; // 操作块容器状态
 
     private float tileCardWidth; // 手牌预制体宽度
@@ -74,13 +75,29 @@ public partial class GameCanvas : MonoBehaviour {
             else { GameScoreRecord.Instance.Close(); } // 关闭并清理
         });
         SetScoreRecordOpen(false); // 初始化按钮文字与状态
+        remianTimeText.text = ""; // 清空剩余时间文本
     }
 
     // 计分板被外部关闭时调整
     public void SetScoreRecordOpen(bool open) { _isScoreRecordOpen = open; openScoreRecordButtonText.text = _isScoreRecordOpen ? "关闭计分板" : "打开计分板"; }
 
+    /// <summary>
+    /// 停止手牌处理协程并清空队列。在重连/下一局等清空手牌前调用，避免对已销毁的 RectTransform 继续执行动画。
+    /// </summary>
+    private void StopAndClearChangeHandCardQueue()
+    {
+        while (changeHandCardQueue.Count > 0) changeHandCardQueue.Dequeue();
+        if (isChangeHandCardProcessing && _processChangeHandCardQueueCoroutine != null)
+        {
+            StopCoroutine(_processChangeHandCardQueueCoroutine);
+            _processChangeHandCardQueueCoroutine = null;
+            isChangeHandCardProcessing = false;
+        }
+    }
+
     // 初始化游戏UI
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
+        StopAndClearChangeHandCardQueue();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
             Transform child = handCardsContainer.GetChild(i);
@@ -128,6 +145,7 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 从牌谱记录初始化游戏UI
     public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
+        StopAndClearChangeHandCardQueue();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
             Transform child = handCardsContainer.GetChild(i);

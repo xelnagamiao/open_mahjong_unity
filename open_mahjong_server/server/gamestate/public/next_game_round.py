@@ -9,6 +9,7 @@ def next_game_round_switchseat(self):
     self.current_player_index = 0
     self.xunmu = 1
     self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+    self.backward_tiles_list_type = "double" # 重置倒序摸牌状态
 
     # 清空花牌弃牌组合牌列表 重置时间
     self.hu_class = None
@@ -71,6 +72,7 @@ def next_game_round(self):
     self.current_player_index = 0
     self.xunmu = 1
     self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+    self.backward_tiles_list_type = "double" # 重置倒序摸牌状态
 
     # 清空花牌弃牌组合牌列表 重置时间
     self.hu_class = None

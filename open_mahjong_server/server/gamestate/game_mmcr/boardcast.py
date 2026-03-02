@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
     """广播游戏开始信息"""
-    # 基础游戏信息
+    # 基础游戏信息（与国标一致固定下发 sub_rule、hepai_limit，供 NormalGameStateManager 番表/起和用）
     base_game_info = {
         'room_id': self.room_id, # 房间ID
         'gamestate_id': self.gamestate_id, # 游戏状态ID
@@ -23,6 +23,8 @@ async def broadcast_game_start(self):
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
         'room_type': self.room_type, # 房间类型
+        'sub_rule': getattr(self, 'sub_rule', 'qingque/standard'), # 子规则
+        'hepai_limit': getattr(self, 'hepai_limit', 1), # 青雀起和固定 1
         'open_cuohe': self.open_cuohe, # 是否开启错和
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
@@ -93,6 +95,11 @@ async def broadcast_game_start(self):
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送消息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+    
+    # 为观战系统记录局开始数据
+    if hasattr(self, 'spectator_manager'):
+        self.spectator_manager.record_game_title()
+        self.spectator_manager.record_round_start()
 
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
@@ -100,9 +107,11 @@ async def broadcast_ask_hand_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
-            # 如果玩家掉线，跳过广播
+            # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播
@@ -155,6 +164,10 @@ async def broadcast_ask_hand_action(self):
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播手牌操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
 
+    # 为观战系统记录 ask_hand tick
+    if hasattr(self, 'spectator_manager'):
+        self.spectator_manager.record_ask_hand(self.current_player_index, self.action_dict.get(self.current_player_index, []))
+
 # 广播询问切牌后操作 吃 碰 杠 胡
 async def broadcast_ask_other_action(self):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
@@ -162,9 +175,11 @@ async def broadcast_ask_other_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
-            # 如果玩家掉线，跳过广播
+            # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播
@@ -214,6 +229,15 @@ async def broadcast_ask_other_action(self):
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播询问操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+
+    # 为观战系统记录 ask_other tick
+    if hasattr(self, 'spectator_manager'):
+        player_action_map = {}
+        for idx, actions in self.action_dict.items():
+            if actions:
+                player_action_map[idx] = actions
+        if player_action_map:
+            self.spectator_manager.record_ask_other(player_action_map, cut_tile)
 
 # 广播操作
 async def broadcast_do_action(
@@ -271,6 +295,15 @@ async def broadcast_do_action(
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+
+    # 为观战系统记录 do_action tick
+    if hasattr(self, 'spectator_manager'):
+        self.spectator_manager.record_do_action_ticks(
+            action_list, action_player,
+            cut_tile=cut_tile, cut_class=cut_class,
+            deal_tile=deal_tile, buhua_tile=buhua_tile,
+            combination_mask=combination_mask
+        )
 
 # 广播结算结果
 async def broadcast_result(self, 

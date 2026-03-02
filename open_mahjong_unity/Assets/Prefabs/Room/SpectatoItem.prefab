@@ -1155,10 +1155,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   RuleText: {fileID: 6961916754911433406}
-  Player1IdText: {fileID: 2998512544228065629}
-  Player2IdText: {fileID: 419962701323730460}
-  Player3IdText: {fileID: 5057610110852336782}
-  Player4IdText: {fileID: 5555573437172743786}
+  Player1NameText: {fileID: 2998512544228065629}
+  Player2NameText: {fileID: 419962701323730460}
+  Player3NameText: {fileID: 5057610110852336782}
+  Player4NameText: {fileID: 5555573437172743786}
   GamestateIdText: {fileID: 561787759604106919}
   SpectateButton: {fileID: 8052580494311133495}
 --- !u!1 &8598179584847752691

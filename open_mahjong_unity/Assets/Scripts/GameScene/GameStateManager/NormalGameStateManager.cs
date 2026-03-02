@@ -38,7 +38,8 @@ public class NormalGameStateManager : MonoBehaviour{
     // 房间信息
     public int roomId; // 房间ID
     public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
-    public string roomType; // 房间规则类型（服务器下发的 room_type，如 "guobiao"/"jp"）
+    public string roomType; // 房间规则类型（用于番表显示：guobiao/standard、guobiao/xiaolin、qingque 等）
+    public int hepaiLimit = 8; // 起和番限制（国标有效，服务器下发的 hepai_limit，默认8）
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
     public int roomRoundTime; // 局时
@@ -87,11 +88,13 @@ public class NormalGameStateManager : MonoBehaviour{
         UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
         // 保存gamestate_id
         UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
-        GameSceneMouseInputController.Instance.SetState("gamestate");
+
 
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
+
+        GameSceneMouseInputController.Instance.SetState("gamestate");
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
@@ -392,7 +395,7 @@ public class NormalGameStateManager : MonoBehaviour{
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             // 如果开启自动过牌或自动胡牌，则启动协程
-            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai){
+            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
         }
@@ -455,11 +458,28 @@ public class NormalGameStateManager : MonoBehaviour{
 
             // 如果和牌列表为空（没有可用的和牌操作）
             if (string.IsNullOrEmpty(actualHupaiAction)){
-                // 如果开启自动过牌，则执行自动过牌
+                // 如果开启自动过牌，则直接pass
                 if (AutoAction.Instance.IsAutoPass){
                     yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)
                     GameCanvas.Instance.ChooseAction("pass", 0);
                     yield return null;
+                }
+                else{
+                    // 按不吃/不碰/不杠筛选：不吃排除 chi_*，不碰排除 peng，不杠排除 gang
+                    // 如果筛选后剩余操作列表为空（或只剩 pass），则自动pass
+                    List<string> remaining = new List<string>(allowActionList);
+                    if (AutoAction.Instance.IsAutoPassChi)
+                        remaining.RemoveAll(a => a == "chi_left" || a == "chi_mid" || a == "chi_right");
+                    if (AutoAction.Instance.IsAutoPassPeng)
+                        remaining.RemoveAll(a => a == "peng");
+                    if (AutoAction.Instance.IsAutoPassGang)
+                        remaining.RemoveAll(a => a == "gang");
+                    remaining.RemoveAll(a => a == "pass");
+                    if (remaining.Count == 0){
+                        yield return new WaitForSeconds(0.2f);
+                        GameCanvas.Instance.ChooseAction("pass", 0);
+                        yield return null;
+                    }
                 }
             }
 
@@ -630,7 +650,9 @@ public class NormalGameStateManager : MonoBehaviour{
             }
         }
         roomId = gameInfo.room_id; // 存储房间ID
-        roomType = gameInfo.room_type; // 存储房间规则类型
+        // 有 sub_rule 时用 sub_rule 作为 roomType（番表/结算显示），否则用 room_type
+        roomType = !string.IsNullOrEmpty(gameInfo.sub_rule) ? gameInfo.sub_rule : gameInfo.room_type;
+        hepaiLimit = gameInfo.hepai_limit > 0 ? gameInfo.hepai_limit : 8; // 起和番限制，国标提示用
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数

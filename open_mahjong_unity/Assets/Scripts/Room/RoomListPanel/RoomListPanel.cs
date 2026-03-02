@@ -109,6 +109,7 @@ public class RoomListPanel : MonoBehaviour {
                     gameTime: roomData.game_round,
                     hasPassword: roomData.has_password,
                     room_type: roomData.room_type,
+                    sub_rule: roomData.sub_rule ?? "未知规则",
                     isGameRunning: roomData.is_game_running,
                     randomSeed: roomData.random_seed,
                     tips: roomData.tips,

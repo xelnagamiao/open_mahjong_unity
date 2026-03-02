@@ -153,6 +153,11 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 将牌归还到池中
     /// </summary>
     public void Return(int type, GameObject tile) {
+        // 归还前重置材质颜色并取消悬停管理器注册
+        if (Card3DHoverManager.Instance != null) {
+            Card3DHoverManager.Instance.ResetAndUnregisterCard(tile);
+        }
+
         Tile3D tile3D = tile.GetComponent<Tile3D>();
         if (tile3D != null && type == -1) {
             int tileId = tile3D.GetTileId();

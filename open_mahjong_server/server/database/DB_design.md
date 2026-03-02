@@ -62,19 +62,20 @@ PostgreSQL
 ### game_records 存储对局记录的牌谱
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| game_id | BIGSERIAL | PRIMARY KEY | 对局唯一标识，自增 |
+| game_id | VARCHAR(16) | PRIMARY KEY | 对局唯一标识，10位base62字符串（a-zA-Z0-9） |
 | record | JSONB | NOT NULL | 完整的牌谱记录（包含 game_title 和 game_round） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
 ### game_player_records 牌谱记录表，用于存储玩家对局记录
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| game_id | BIGINT | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
+| game_id | VARCHAR(16) | NOT NULL, REFERENCES game_records(game_id) ON DELETE CASCADE | 对局ID，外键关联 game_records |
 | user_id | BIGINT | NOT NULL | 用户ID（无外键约束，删除用户时保留记录以维护牌谱完整性） |
 | username | VARCHAR(255) | NOT NULL | 玩家用户名（对局时的用户名） |
 | score | INT | NOT NULL | 玩家最终分数（可能为负数） |
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
-| rule | VARCHAR(10) | NOT NULL | 规则类型（guobiao=国标，riichi=立直） |
+| rule | VARCHAR(10) | NOT NULL | 规则类型（guobiao=国标，riichi=立直，qingque=青雀） |
+| sub_rule | VARCHAR(32) | NULL | 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard），用于记录列表与牌谱展示 |
 | title_used | INT | NULL | 使用的称号ID（可为空） |
 | character_used | INT | NULL | 使用的角色ID（可为空） |
 | profile_used | INT | NULL | 使用的头像ID（可为空） |
@@ -94,6 +95,10 @@ PostgreSQL
   - `guobiao_history_stats` - 基础统计数据
   - `guobiao_fan_stats` - 番种统计数据
 
+- **青雀麻将**：`database/qingque/db_design.md`
+  - `qingque_history_stats` - 基础统计数据
+  - `qingque_fan_stats` - 番种统计数据
+
 - **立直麻将**：`database/riichi/db_design.md`
   - `riichi_history_stats` - 基础统计数据
   - `riichi_fan_stats` - 番种统计数据（待定义）
@@ -104,8 +109,10 @@ PostgreSQL
 2. **user_config** - 该用户的配置记录
 3. **guobiao_history_stats** - 该用户的国标麻将基础统计数据
 4. **guobiao_fan_stats** - 该用户的国标麻将番种统计数据
-5. **riichi_history_stats** - 该用户的立直麻将基础统计数据
-6. **riichi_fan_stats** - 该用户的立直麻将番种统计数据
+5. **qingque_history_stats** - 该用户的青雀麻将基础统计数据
+6. **qingque_fan_stats** - 该用户的青雀麻将番种统计数据
+7. **riichi_history_stats** - 该用户的立直麻将基础统计数据
+8. **riichi_fan_stats** - 该用户的立直麻将番种统计数据
 
 > **注意**：
 > - **game_player_records** 表已移除外键约束，删除用户时不会删除牌谱记录

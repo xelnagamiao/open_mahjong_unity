@@ -55,10 +55,10 @@ public class SpectatorPanel : MonoBehaviour {
             SpectatorPrefab item = Instantiate(SpectatorPrefab, contentTransform);
             item.InitializeSpectatorItem(
                 spectator.rule,
-                spectator.player1_id,
-                spectator.player2_id,
-                spectator.player3_id,
-                spectator.player4_id,
+                spectator.player1_name,
+                spectator.player2_name,
+                spectator.player3_name,
+                spectator.player4_name,
                 spectator.gamestate_id
             );
         }

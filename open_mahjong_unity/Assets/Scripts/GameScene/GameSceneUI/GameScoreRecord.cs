@@ -123,20 +123,25 @@ public class GameScoreRecord : MonoBehaviour
             ClearContainer(RoundIndexContainer.transform);
         }
         
-        // 根据规则获取局数标签列表
-        if (!ruleRoundIndexDict.ContainsKey(rule) && !ruleRoundIndexDictQingque.ContainsKey(rule) && !ruleRoundIndexDictRiichi.ContainsKey(rule))
+        // 子规则（如 guobiao/xiaolin、qingque/standard）映射为基础规则以查局数标签
+        string baseRule = (rule != null && rule.StartsWith("guobiao")) ? "guobiao"
+            : (rule != null && rule.StartsWith("qingque")) ? "qingque"
+            : (rule != null && rule.StartsWith("riichi")) ? "riichi"
+            : (rule ?? "");
+        
+        if (!ruleRoundIndexDict.ContainsKey(baseRule) && !ruleRoundIndexDictQingque.ContainsKey(baseRule) && !ruleRoundIndexDictRiichi.ContainsKey(baseRule))
         {
             Debug.LogError($"未知的规则类型: {rule}");
             return;
         }
         
         List<string> roundIndexList;
-        if (rule == "qingque") {
-            roundIndexList = ruleRoundIndexDictQingque[rule];
-        } else if (rule == "riichi") {
-            roundIndexList = ruleRoundIndexDictRiichi[rule];
+        if (baseRule == "qingque") {
+            roundIndexList = ruleRoundIndexDictQingque[baseRule];
+        } else if (baseRule == "riichi") {
+            roundIndexList = ruleRoundIndexDictRiichi[baseRule];
         } else {
-            roundIndexList = ruleRoundIndexDict[rule];
+            roundIndexList = ruleRoundIndexDict[baseRule];
         }
         
         // 在RoundIndexContainer中生成局数标签文本
