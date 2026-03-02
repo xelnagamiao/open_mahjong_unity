@@ -34,8 +34,7 @@ public class Round {
     public List<List<string>> actionTicks;
 
     /// <summary>
-    /// 本局结算分数变化，按玩家顺序 [p0, p1, p2, p3]，与 GameScoreRecord 的 score_history 单局格式一致（如 +24、-8、0）
-    /// 若牌谱 JSON 无此字段则为 null，计分表该局可显示为空或 0。
+    /// 本局结算分数变化 [p0, p1, p2, p3]，从 hu_* 动作的 score_changes 累加
     /// </summary>
     public List<int> scoreChanges;
 

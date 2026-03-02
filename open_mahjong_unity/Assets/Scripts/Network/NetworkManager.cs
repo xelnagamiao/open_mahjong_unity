@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Events;
 using System;
 using System.Threading.Tasks;
@@ -180,23 +180,30 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
-    // 启动服务器统计信息协程（每30秒获取一次）
+    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表
     private void StartServerStatsCoroutine() {
-        // 如果已有协程在运行，先停止它
         if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
         }
-        // 立即获取一次统计信息
-        GetServerStats();
-        // 启动协程每30秒获取一次
-        serverStatsCoroutine = StartCoroutine(ServerStatsUpdateCoroutine());
+        if (IsOnMainMenu()) {
+            GetServerStats();
+            RoomNetworkManager.Instance?.GetRoomList();
+        }
+        serverStatsCoroutine = StartCoroutine(ServerStatsAndRoomListCoroutine());
     }
 
-    // 服务器统计信息更新协程
-    private IEnumerator ServerStatsUpdateCoroutine() {
+    private bool IsOnMainMenu() {
+        return WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "menu";
+    }
+
+    // 仅在主菜单时每5秒刷新服务器统计与房间列表
+    private IEnumerator ServerStatsAndRoomListCoroutine() {
         while (true) {
-            yield return new WaitForSeconds(30f); // 等待30秒
-            GetServerStats();
+            yield return new WaitForSeconds(5f);
+            if (IsOnMainMenu()) {
+                GetServerStats();
+                RoomNetworkManager.Instance?.GetRoomList();
+            }
         }
     }
 
@@ -237,30 +244,28 @@ public class NetworkManager : MonoBehaviour {
                     break;
                 // 数据相关消息交由 DataNetworkManager 处理
                 case "data/get_record_list":
+                case "data/get_record_by_id":
                 case "data/get_guobiao_stats":
                 case "data/get_riichi_stats":
+                case "data/get_qingque_stats":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
-                // 观战相关消息交由 SpectatorGameStateManager 处理
-                case "spectator/guobiao/game_start":
-                case "spectator/qingque/game_start":
-                case "spectator/guobiao/broadcast_hand_action":
-                case "spectator/qingque/broadcast_hand_action":
-                case "spectator/guobiao/ask_other_action":
-                case "spectator/qingque/ask_other_action":
-                case "spectator/guobiao/do_action":
-                case "spectator/qingque/do_action":
-                case "spectator/guobiao/show_result":
-                case "spectator/qingque/show_result":
-                case "spectator/guobiao/game_end":
-                case "spectator/qingque/game_end":
-                case "spectator/guobiao/full_game_record":
-                case "spectator/qingque/full_game_record":
-                case "spectator/switch_seat":
-                case "spectator/refresh_player_tag_list":
+                // 观战系统：初始牌谱 / 增量更新 → GameRecordManager
+                case "spectator/record_init":
+                    HandleSpectatorRecordInit(response);
+                    break;
+                case "spectator/record_update":
+                    HandleSpectatorRecordUpdate(response);
+                    break;
+                case "spectator/record_complete":
+                    HandleSpectatorRecordComplete(response);
+                    break;
+                // 观战系统：加入/离开通知
                 case "spectator/add_spectator":
+                    HandleSpectatorAddResult(response);
+                    break;
                 case "spectator/remove_spectator":
-                    SpectatorGameStateManager.Instance.HandleSpectatorMessage(response);
+                    HandleSpectatorRemoveResult(response);
                     break;
                 // 游戏状态相关消息交由 GameStateNetworkManager 处理
                 case "gamestate/get_spectator_list":
@@ -316,6 +321,64 @@ public class NetworkManager : MonoBehaviour {
         }
     }
     
+
+    // ========== 观战消息处理 ==========
+
+    private void HandleSpectatorRecordInit(Response response) {
+        if (!response.success) {
+            Debug.LogWarning($"观战初始数据失败: {response.message}");
+            return;
+        }
+        string recordJson = response.message_info?.content;
+        if (string.IsNullOrEmpty(recordJson)) {
+            Debug.LogError("观战初始数据为空");
+            return;
+        }
+        WindowsManager.Instance.SwitchWindow("game");
+        GameRecordManager.Instance.StartSpectating(recordJson);
+    }
+
+    private void HandleSpectatorRecordUpdate(Response response) {
+        if (!response.success) return;
+        string updatesJson = response.message_info?.content;
+        if (string.IsNullOrEmpty(updatesJson)) return;
+        GameRecordManager.Instance.AppendSpectatorTicks(updatesJson);
+    }
+
+    private void HandleSpectatorRecordComplete(Response response) {
+        string msg = string.IsNullOrEmpty(response.message) ? "游戏对局结束，已获取全部对局记录" : response.message;
+        NotificationManager.Instance?.ShowTip("观战", true, msg);
+        if (GameRecordManager.Instance == null) return;
+
+        string recordJson = response.message_info?.content;
+        if (!string.IsNullOrEmpty(recordJson)) {
+            try {
+                WindowsManager.Instance.SwitchWindow("game");
+                GameRecordManager.Instance.StartSpectating(recordJson);
+            } catch (Exception e) {
+                Debug.LogError($"加载完整观战牌谱失败: {e.Message}");
+            }
+        }
+        if (GameRecordManager.Instance.IsSpectating) {
+            GameRecordManager.Instance.SwitchToRecordMode();
+        }
+    }
+
+    private void HandleSpectatorAddResult(Response response) {
+        if (response.success) {
+            NotificationManager.Instance?.ShowTip("观战", true, response.message);
+        } else {
+            NotificationManager.Instance?.ShowTip("观战", false, response.message);
+        }
+    }
+
+    private void HandleSpectatorRemoveResult(Response response) {
+        Debug.Log($"观战移除: {response.message}");
+        if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
+            GameRecordManager.Instance.StopSpectating();
+        }
+        WindowsManager.Instance.SwitchWindow("menu");
+    }
 
     // 发送发布版版本号
     public async void SendReleaseVersion(){

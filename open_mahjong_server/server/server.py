@@ -155,13 +155,12 @@ class GameServer:
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator)
 
-    # 创建青雀房间（目前沿用国标房间逻辑，固定不开放错和）
-    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0) -> Response:
-        # 这里直接复用 create_GB_room 的实现，open_cuohe 固定为 False
-        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False)
+    # 创建青雀房间
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator)
 
     # 获取房间列表
     def get_room_list(self) -> Response:
@@ -454,8 +453,8 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
         tourist_username = None
         
         for attempt in range(max_attempts):
-            # 生成随机后缀
-            random_suffix = secrets.token_urlsafe(8)
+            # 生成随机后缀，截断 2 字符以缩短游客 id 长度
+            random_suffix = secrets.token_urlsafe(8)[:-2]
             candidate_username = f"游客_{random_suffix}"
             
             # 检查用户名是否已存在

@@ -1243,6 +1243,26 @@ class Chinese_Hepai_Check:
         result = self.fan_count_output(player_tiles, combination_str, zimo_or_not, way_to_hepai)
         return result # 元组(int,list[str])
 
+class Xiaolin_Hepai_Check(Chinese_Hepai_Check):
+    """小林规和牌检查，继承国标检查逻辑，仅修改番数价值表"""
+    count_model_dict:Dict[str,int] = {
+        "dasixi":88,"dasanyuan":64,"lvyise":88,"jiulianbaodeng":88,"sigang":88,
+        "lianqidui":88,"shisanyao":88,
+        "qingyaojiu":64,"xiaosixi":64,"xiaosanyuan":32,"ziyise":64,"sianke":64,"yiseshuanglonghui":64,
+        "yisesitongshun":64,"yisesijiegao":64,"yisesibugao":32,"sangang":32,"hunyaojiu":32,
+        "qiduizi":24,"qixingbukao":24,"quanshuangke":24,
+        "qingyise":32,"yisesantongshun":24,"yisesanjiegao":24,"quanda":24,"quanzhong":24,"quanxiao":24,
+        "qinglong":16,"sanseshuanglonghui":24,"yisesanbugao":16,"quandaiwu":16,"santongke":16,"sananke":16,
+        "quanbukao":12,"zuhelong":12,"dayuwu":12,"xiaoyuwu":12,"sanfengke":24,
+        "hualong":8,"tuibudao":8,"sansesantongshun":8,"sansesanjiegao":8,"wufanhe":8,"miaoshouhuichun":8,"haidilaoyue":8,
+        "gangshangkaihua":8,"qiangganghe":8,"pengpenghe":6,"hunyise":12,"sansesanbugao":6,"wumenqi":6,"quanqiuren":6,"shuangangang":8,"shuangjianke":12,
+        "quandaiyao":6,"buqiuren":0,"shuangminggang":4,"hejuezhang":0,"jianke":2,"quanfengke":2,"menfengke":2,"menqianqing":2,
+        "pinghe":2,"siguiyi":2,"shuangtongke":2,"shuanganke":2,"angang":2,"duanyao":2,"yibangao":1,"xixiangfeng":1,
+        "lianliu":1,"laoshaofu":1,"yaojiuke":0,"minggang":1,"queyimen":1,"wuzi":1,"bianzhang":1,
+        "qianzhang":1,"dandiaojiang":1,"zimo":0,"huapai":1,"mingangang":5,
+    }
+
+
 # 测试
 if __name__ == "__main__":
     # 生成刻顺=>手牌

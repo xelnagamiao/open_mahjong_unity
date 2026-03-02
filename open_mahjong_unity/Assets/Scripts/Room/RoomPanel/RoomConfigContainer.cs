@@ -7,9 +7,12 @@ using UnityEngine.UI;
 using System.Reflection;
 
 public class RoomConfigContainer : MonoBehaviour {
-    [SerializeField] private ConfigItem configItemPrefab; // 配置项预制体（如果需要动态创建）
+    [Header("滚动与内容")]
+    [SerializeField] private RectTransform contentContainer; // 配置项父节点：若绑定 ScrollRect 的 Content，则列表可滚动；为空则用本物体
 
-    // 需要显示的字段名到显示名的映射
+    [SerializeField] private ConfigItem configItemPrefab; // 配置项预制体
+
+    // 需要显示的配置项顺序
     private List<string> fieldNames = new List<string>
     {
         "room_type",
@@ -19,7 +22,10 @@ public class RoomConfigContainer : MonoBehaviour {
         "random_seed",
         "tips",
         "open_cuohe",
-        "has_password"
+        "has_password",
+        "tourist_limit",
+        "hepai_limit",
+        "allow_spectator"
     };
 
     // 单例模式
@@ -34,8 +40,8 @@ public class RoomConfigContainer : MonoBehaviour {
     }
 
     public void SetRoomConfig(RoomInfo roomInfo) {
-        // 使用自身作为容器
-        Transform container = transform;
+        // 若在编辑器中指定了 contentContainer（如 ScrollRect 的 Content），则配置项生成在其下，以支持滚动
+        Transform container = contentContainer != null ? contentContainer : transform;
 
         // 清理旧的配置项
         for (int i = container.childCount - 1; i >= 0; i--){
@@ -50,7 +56,7 @@ public class RoomConfigContainer : MonoBehaviour {
             switch (fieldName) {
                 case "room_type":
                     displayName = "规则";
-                    displayValue = FormatRoomType(roomInfo.room_type);
+                    displayValue = RuleNameDictionary.GetDisplayName(roomInfo.sub_rule, roomInfo.room_type);
                     break;
                 case "game_round":
                     displayName = "圈数";
@@ -85,6 +91,18 @@ public class RoomConfigContainer : MonoBehaviour {
                     displayName = "密码";
                     displayValue = FormatHasPassword(roomInfo.has_password);
                     break;
+                case "tourist_limit":
+                    displayName = "允许游客";
+                    displayValue = roomInfo.tourist_limit ? "否" : "是";
+                    break;
+                case "hepai_limit":
+                    displayName = "起和番数";
+                    displayValue = (roomInfo.hepai_limit > 0 ? roomInfo.hepai_limit : 8).ToString();
+                    break;
+                case "allow_spectator":
+                    displayName = "允许观战";
+                    displayValue = roomInfo.allow_spectator ? "是" : "否";
+                    break;
                 default:
                     Debug.LogWarning($"未知字段名: {fieldName}");
                     continue;
@@ -96,24 +114,6 @@ public class RoomConfigContainer : MonoBehaviour {
         }
     }
 
-
-    /// <summary>
-    /// 格式化房间类型
-    /// </summary>
-    private string FormatRoomType(string roomType)
-    {
-        switch (roomType)
-        {
-            case "guobiao":
-                return "国标麻将";
-            case "qingque":
-                return "青雀";
-            case "riichi":
-                return "立直麻将";
-            default:
-                return roomType ?? "未知规则";
-        }
-    }
 
     /// <summary>
     /// 获取圈数显示文本

@@ -92,6 +92,40 @@ public class PlayerInfoPanel : MonoBehaviour{
         {"mingangang", "明暗杠"}
     };
 
+    // 青雀番种英文到中文的翻译字典
+    private static Dictionary<string, string> qingqueFanTranslationDict = new Dictionary<string, string>{
+        {"hepai", "和牌"}, {"tianhe", "天和"}, {"dihe", "地和"}, {"lingshangkaihua", "岭上开花"},
+        {"haidilaoyue", "海底捞月"}, {"hedilaoyue", "河底捞鱼"}, {"qianggang", "抢杠"},
+        {"qidui", "七对"}, {"menqianqing", "门前清"}, {"siangang", "四暗杠"},
+        {"sanangang", "三暗杠"}, {"shuangangang", "双暗杠"}, {"angang", "暗杠"},
+        {"sigang", "四杠"}, {"sangang", "三杠"}, {"shuanggang", "双杠"},
+        {"sianke", "四暗刻"}, {"sananke", "三暗刻"}, {"duiduihe", "对对和"},
+        {"shiergui", "十二归"}, {"bagui", "八归"}, {"sandiedui", "三叠对"},
+        {"erdiedui", "二叠对"}, {"diedui", "叠对"}, {"ziyise", "字一色"},
+        {"dasixi", "大四喜"}, {"xiaosixi", "小四喜"}, {"sixidui", "四喜对"},
+        {"fengpaisanke", "风牌三刻"}, {"fengpaiqidui", "风牌七对"}, {"fengpailiudui", "风牌六对"},
+        {"fengpaiwudui", "风牌五对"}, {"fengpaisidui", "风牌四对"}, {"dasanyuan", "大三元"},
+        {"xiaosanyuan", "小三元"}, {"sanyuanliudui", "三元六对"}, {"sanyuandui", "三元对"},
+        {"fanpaisike", "番牌四刻"}, {"fanpaisanke", "番牌三刻"}, {"fanpaierke", "番牌二刻"},
+        {"fanpaike", "番牌刻"}, {"fanpaiqidui", "番牌七对"}, {"fanpailiudui", "番牌六对"},
+        {"fanpaiwudui", "番牌五对"}, {"fanpaisifu", "番牌四副"}, {"fanpaisanfu", "番牌三副"},
+        {"fanpaierfu", "番牌二副"}, {"fanpai", "番牌"}, {"qingyaojiu", "清幺九"},
+        {"hunyaojiu", "混幺九"}, {"qingdaiyao", "清带幺"}, {"hundaiyao", "混带幺"},
+        {"jiulianbaodeng", "九莲宝灯"}, {"qingyise", "清一色"}, {"hunyise", "混一色"},
+        {"wumenqi", "五门齐"}, {"hunyishu", "混一数"}, {"ershu", "二数"},
+        {"erju", "二聚"}, {"sanju", "三聚"}, {"siju", "四聚"},
+        {"lianshu", "连数"}, {"jianshu", "间数"}, {"jingshu", "镜数"},
+        {"yingshu", "映数"}, {"mantingfang", "满庭芳"}, {"sitongshun", "四同顺"},
+        {"santongshun", "三同顺"}, {"erbangao", "二般高"}, {"yibangao", "一般高"},
+        {"silianke", "四连刻"}, {"sanlianke", "三连刻"}, {"sibugao", "四步高"},
+        {"sanbugao", "三步高"}, {"silianhuan", "四连环"}, {"sanlianhuan", "三连环"},
+        {"yiqiguantong", "一气贯通"}, {"qiliandui", "七连对"}, {"liuliandui", "六连对"},
+        {"wuliandui", "五连对"}, {"siliandui", "四连对"}, {"sansetongke", "三色同刻"},
+        {"sansetongshun", "三色同顺"}, {"sanseedui", "三色二对"}, {"sansetongdui", "三色同对"},
+        {"sanselianke", "三色连刻"}, {"sanseguantong", "三色贯通"}, {"jingtong", "镜同"},
+        {"jingtongsandui", "镜同三对"}, {"jingtongerdui", "镜同二对"}, {"shuanglonghui", "双龙会"}
+    };
+
     // 用户信息
     [SerializeField] private TMP_Text usernameText; // 用户名
     [SerializeField] private TMP_Text useridText; // 用户ID
@@ -116,10 +150,12 @@ public class PlayerInfoPanel : MonoBehaviour{
     private int currentUserId; // 当前显示的用户ID
     private PlayerStatsInfo[] guobiaoStats;
     private PlayerStatsInfo[] riichiStats;
+    private PlayerStatsInfo[] qingqueStats;
     
     // 保存汇总番种统计数据（由服务器返回）
     private Dictionary<string, int> guobiaoTotalFanStats;
     private Dictionary<string, int> riichiTotalFanStats;
+    private Dictionary<string, int> qingqueTotalFanStats;
 
     // Start is called before the first frame update
     void Start(){
@@ -164,8 +200,10 @@ public class PlayerInfoPanel : MonoBehaviour{
         // 清空之前的数据
         guobiaoStats = null;
         riichiStats = null;
+        qingqueStats = null;
         guobiaoTotalFanStats = null;
         riichiTotalFanStats = null;
+        qingqueTotalFanStats = null;
 
         // 默认加载国标数据
         CurrentShowRule = "guobiao";
@@ -217,6 +255,25 @@ public class PlayerInfoPanel : MonoBehaviour{
         }
     }
 
+    // 接收青雀统计数据
+    public void OnQingqueStatsReceived(bool success, string message, RuleStatsResponse ruleStats){
+        if (!success || ruleStats == null){
+            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取青雀统计数据失败");
+            return;
+        }
+
+        if (!gameObject.activeSelf){
+            gameObject.SetActive(true);
+        }
+
+        qingqueStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
+        qingqueTotalFanStats = ruleStats.total_fan_stats;
+
+        if (CurrentShowRule == "Other"){
+            RefreshCurrentRuleDisplay();
+        }
+    }
+
     // 切换规则
     private void OnSwitchRuleButtonClick(string rule){
         CurrentShowRule = rule;
@@ -224,10 +281,15 @@ public class PlayerInfoPanel : MonoBehaviour{
         // 如果数据不存在（null 或未初始化），则请求数据
         if (rule == "guobiao" && guobiaoStats == null){
             DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
-                return;
-            }
+            return;
+        }
         else if (rule == "riichi" && riichiStats == null){
             DataNetworkManager.Instance?.GetRiichiStats(currentUserId.ToString());
+            return;
+        }
+        else if (rule == "Other" && qingqueStats == null){
+            DataNetworkManager.Instance?.GetQingqueStats(currentUserId.ToString());
+            // 这里可以添加多个规则
             return;
         }
         
@@ -334,11 +396,56 @@ public class PlayerInfoPanel : MonoBehaviour{
             
             totalFanStats = riichiTotalFanStats;
         }
+        else if (CurrentShowRule == "Other"){
+            // 青雀麻将：显示4个固定模式
+            string[] qingqueModes = {"4/4", "3/4", "2/4", "1/4"};
+            
+            Dictionary<string, PlayerStatsInfo> statsDict = new Dictionary<string, PlayerStatsInfo>();
+            if (qingqueStats != null){
+                foreach (var stat in qingqueStats){
+                    if (stat?.mode != null){
+                        statsDict[stat.mode] = stat;
+                    }
+                }
+            }
+            
+            for (int i = 0; i < qingqueModes.Length; i++){
+                string mode = qingqueModes[i];
+                statsDict.TryGetValue(mode, out PlayerStatsInfo stat);
+                
+                if (stat == null){
+                    stat = new PlayerStatsInfo{
+                        rule = "qingque",
+                        mode = mode,
+                        total_games = 0,
+                        total_rounds = 0,
+                        win_count = 0,
+                        self_draw_count = 0,
+                        deal_in_count = 0,
+                        total_fan_score = 0,
+                        total_win_turn = 0,
+                        total_fangchong_score = 0,
+                        first_place_count = 0,
+                        second_place_count = 0,
+                        third_place_count = 0,
+                        fourth_place_count = 0
+                    };
+                }
+                
+                GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+                PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
+                playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
+            }
+
+            totalFanStats = qingqueTotalFanStats;
+        }
 
         // 在尾部显示番数总计（如果存在）
         if (totalFanStats != null){
+            // Other 标签实际对应青雀规则
+            string fanStatsRule = CurrentShowRule == "Other" ? "qingque" : CurrentShowRule;
             PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
-                rule = CurrentShowRule,
+                rule = fanStatsRule,
                 mode = "总计",
                 fan_stats = totalFanStats
             };
@@ -523,8 +630,14 @@ public class PlayerInfoPanel : MonoBehaviour{
     private void ShowFanStats(Transform parent, PlayerStatsInfo stats){
         if (parent == null) return;
         
+        // 根据规则选择对应的番种翻译字典
+        Dictionary<string, string> currentFanDict = fanTranslationDict;
+        if (stats?.rule == "qingque"){
+            currentFanDict = qingqueFanTranslationDict;
+        }
+
         // 显示所有番种，包括值为0的
-        foreach (var fanPair in fanTranslationDict){
+        foreach (var fanPair in currentFanDict){
             string fanName = fanPair.Value; // 中文名称
             int fanValue = 0;
             

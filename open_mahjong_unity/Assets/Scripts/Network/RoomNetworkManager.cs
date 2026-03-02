@@ -111,7 +111,6 @@ public class RoomNetworkManager : MonoBehaviour {
     /// </summary>
     public async void Create_GB_Room(GB_Create_RoomConfig config) {
         try {
-            // 将字符串格式的随机种子转换为整数
             int randomSeed = 0;
             if (!string.IsNullOrEmpty(config.RandomSeed)) {
                 if (!int.TryParse(config.RandomSeed, out randomSeed)) {
@@ -122,6 +121,7 @@ public class RoomNetworkManager : MonoBehaviour {
             var request = new CreateGBRoomRequest {
                 type = "room/create_GB_room",
                 rule = config.Rule,
+                sub_rule = config.SubRule ?? "guobiao/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
@@ -129,9 +129,12 @@ public class RoomNetworkManager : MonoBehaviour {
                 tips = config.Tips,
                 password = config.Password,
                 random_seed = randomSeed,
-                open_cuohe = config.CuoHe
+                open_cuohe = config.CuoHe,
+                hepai_limit = config.HepaiLimit,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator
             };
-            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}");
+            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}, HepaiLimit: {config.HepaiLimit}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
@@ -150,10 +153,10 @@ public class RoomNetworkManager : MonoBehaviour {
                 }
             }
 
-            // 复用与国标相同的请求结构，仅 type 与 rule 区分
             var request = new CreateGBRoomRequest {
                 type = "room/create_Qingque_room",
                 rule = config.Rule,
+                sub_rule = config.SubRule ?? "qingque/standard",
                 roomname = config.RoomName,
                 gameround = config.GameRound,
                 roundTimerValue = config.RoundTimer,
@@ -161,10 +164,12 @@ public class RoomNetworkManager : MonoBehaviour {
                 tips = config.Tips,
                 password = config.Password,
                 random_seed = randomSeed,
-                // 青雀规则不支持错和，这里固定为 false
-                open_cuohe = false
+                open_cuohe = false,
+                hepai_limit = 1,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator
             };
-            Debug.Log($"发送创建青雀房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.Rule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}");
+            Debug.Log($"发送创建青雀房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, TouristLimit: {config.TouristLimit}, AllowSpectator: {config.AllowSpectator}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);

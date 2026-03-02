@@ -59,6 +59,9 @@ def check_action_after_cut(self,cut_tile):
         if "peida" in item.tag_list:
             temp_action_dict[item.player_index] = []
 
+    # 地和仅在庄家首次切牌时有效，切牌检查完毕后关闭
+    self.dihe_possible = False
+
     return temp_action_dict
 
 # 加杠检查操作 存储 抢杠
@@ -163,14 +166,10 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
 
 # 检查和牌操作
 def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_first_action=False,is_get_gang_tile=False):
-    # 和牌操作
-    # 构建手牌列表：Qingque_hepai_check 需要 hand_list 包含和牌（内部会自动移除）
-    # 自摸时：手牌已经包含和牌；点和时：手牌不包含和牌，需要添加
+    # 构建手牌列表：自摸时手牌已包含和牌；点和/抢杠时需添加
     if hepai_type == "handgot":
-        # 自摸：手牌已经包含和牌
         tiles_list = self.player_list[player_index].hand_tiles.copy()
     else:
-        # 点和/抢杠和：手牌不包含和牌，需要添加
         tiles_list = self.player_list[player_index].hand_tiles + [hepai_tile]
     
     combination_tiles = self.player_list[player_index].combination_tiles
@@ -180,30 +179,24 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     if hepai_type == "qianggang":
         way_to_hepai.append("抢杠")
 
-    # 荣和
+    # 荣和 / 地和 / 河底捞鱼
     elif hepai_type == "dianhe":
-        way_to_hepai.append("点和")
+        if getattr(self, 'dihe_possible', False):
+            way_to_hepai.append("地和")
         if len(self.tiles_list) == 0:
-            way_to_hepai.append("海底捞月")
+            way_to_hepai.append("河底捞鱼")
 
-    # 自摸 岭上开花
+    # 自摸 / 天和 / 岭上开花 / 海底捞月
     elif hepai_type == "handgot":
-        if is_get_gang_tile:
+        if is_first_action and self.player_list[player_index].player_index == 0:
+            way_to_hepai.append("天和")
+        elif is_get_gang_tile:
             way_to_hepai.append("岭上开花")
         else:
             way_to_hepai.append("自摸")
-        if len(self.tiles_list) == 0:
-            way_to_hepai.append("妙手回春")
+        if not is_first_action and len(self.tiles_list) == 0:
+            way_to_hepai.append("海底捞月")
 
-    # 获取场风
-    if self.current_round <= 4:
-        way_to_hepai.append("场风东")
-    elif self.current_round <= 8:
-        way_to_hepai.append("场风南")
-    elif self.current_round <= 12:
-        way_to_hepai.append("场风西")
-    elif self.current_round <= 16:
-        way_to_hepai.append("场风北")
     # 自风检查
     if self.player_list[player_index].player_index == 0:
         way_to_hepai.append("自风东")
@@ -213,37 +206,6 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         way_to_hepai.append("自风西")
     elif self.player_list[player_index].player_index == 3:
         way_to_hepai.append("自风北")
-    # 和单张检查
-    if len(self.player_list[player_index].waiting_tiles) == 1:
-        way_to_hepai.append("和单张")
-
-    # 和绝张检查 弃牌+1 有顺子+1 有刻+2
-    show_tiles_count = 0
-    now_combinations = []
-    for i in self.player_list:
-        show_tiles_count += i.discard_tiles.count(hepai_tile)
-        now_combinations.extend(i.combination_tiles)
-    for i in now_combinations:
-        if f"k{hepai_tile}" in i:
-            show_tiles_count += 3
-        if f"s{hepai_tile-1}" in i:
-            show_tiles_count += 1
-        if f"s{hepai_tile}" in i:
-            show_tiles_count += 1
-        if f"s{hepai_tile+1}" in i:
-            show_tiles_count += 1
-    if show_tiles_count == 4:
-        way_to_hepai.append("和绝张")
-    elif show_tiles_count == 3:
-        if "自摸" in way_to_hepai:
-            way_to_hepai.append("和绝张")
-
-    # 第一轮行动时移除独听番种
-    if is_first_action:
-        if "和单张" in way_to_hepai:
-            way_to_hepai.remove("和单张")
-        elif "和绝张" in way_to_hepai:
-            way_to_hepai.remove("和绝张")
 
     # 使用计算服务类检查和牌（青雀版本）
     result = self.calculation_service.Qingque_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)

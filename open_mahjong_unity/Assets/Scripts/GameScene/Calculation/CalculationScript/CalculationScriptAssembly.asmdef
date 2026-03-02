@@ -1,0 +1,16 @@
+{
+    "name": "CalculationScriptAssembly",
+    "rootNamespace": "",
+    "references": [
+        "GUID:d278e848b8094c74c86ab0bb64d29503"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

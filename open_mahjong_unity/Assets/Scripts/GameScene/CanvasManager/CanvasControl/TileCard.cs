@@ -126,7 +126,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         HashSet<int> waitingTiles = new HashSet<int>();
         try
         {
-            if (NormalGameStateManager.Instance.roomType == "guobiao"){
+            if (NormalGameStateManager.Instance.roomType == "guobiao" || (NormalGameStateManager.Instance.roomType != null && NormalGameStateManager.Instance.roomType.StartsWith("guobiao/"))){
                 waitingTiles = GBtingpai.TingpaiCheck(
                     tempHandTiles,
                     NormalGameStateManager.Instance.player_to_info["self"].combination_tiles,

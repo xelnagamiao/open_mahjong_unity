@@ -1,6 +1,6 @@
 # 数据路由处理器
 import logging
-from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Player_record_info, Player_info_response, UserSettings
+from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings
 
 logger = logging.getLogger(__name__)
 
@@ -19,22 +19,24 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
     # 根据完整路径分发
     if message_type == "data/get_record_list":
         await handle_get_record_list(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_record_by_id":
+        await handle_get_record_by_id(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_guobiao_stats":
         await handle_get_guobiao_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_riichi_stats":
         await handle_get_riichi_stats(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_qingque_stats":
+        await handle_get_qingque_stats(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的数据消息路径: {message_type}")
 
 async def handle_get_record_list(game_server, Connect_id: str, message: dict, websocket):
-    """处理获取游戏记录列表请求"""
+    """处理获取游戏记录列表请求（仅返回元数据，不含完整牌谱）"""
     player = game_server.players.get(Connect_id)
     if player and player.user_id:
         records = game_server.db_manager.get_record_list(player.user_id, limit=20)
-        # 转换为 Record_info 列表
         record_list = []
         for game_record in records:
-            # 将玩家信息转换为 Player_record_info 列表
             players_info = []
             for player_data in game_record['players']:
                 players_info.append(Player_record_info(
@@ -51,7 +53,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
             record_info = Record_info(
                 game_id=game_record['game_id'],
                 rule=game_record['rule'],
-                record=game_record['record'],
+                sub_rule=game_record.get('sub_rule'),
                 created_at=game_record['created_at'],
                 players=players_info
             )
@@ -68,6 +70,65 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
             type="data/get_record_list",
             success=False,
             message="用户未登录"
+        )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, websocket):
+    """处理按ID获取完整牌谱记录请求"""
+    player = game_server.players.get(Connect_id)
+    if not (player and player.user_id):
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message="用户未登录"
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+    
+    game_id = message.get("game_id", "").strip()
+    if not game_id:
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message="缺少牌谱ID"
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+    
+    result = game_server.db_manager.get_record_by_id(game_id)
+    if result is None:
+        response = Response(
+            type="data/get_record_by_id",
+            success=False,
+            message=f"未找到牌谱 {game_id}"
+        )
+    else:
+        players_info = []
+        for p in result['players']:
+            players_info.append(Player_record_info(
+                user_id=p['user_id'],
+                username=p['username'],
+                score=p['score'],
+                rank=p['rank'],
+                title_used=p.get('title_used'),
+                character_used=p.get('character_used'),
+                profile_used=p.get('profile_used'),
+                voice_used=p.get('voice_used')
+            ))
+        
+        detail = Record_detail(
+            game_id=result['game_id'],
+            rule=result['rule'],
+            sub_rule=result.get('sub_rule'),
+            record=result['record'],
+            created_at=result['created_at'],
+            players=players_info
+        )
+        response = Response(
+            type="data/get_record_by_id",
+            success=True,
+            message="获取牌谱成功",
+            record_detail=detail
         )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -195,6 +256,83 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
         type="data/get_riichi_stats",
         success=True,
         message="获取立直统计数据成功",
+        rule_stats=rule_stats_response,
+        player_info=player_info
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, websocket):
+    """处理获取青雀统计数据请求"""
+    from .qingque.get_qingque_stats import get_qingque_history_stats, get_qingque_fan_stats_total
+    try:
+        target_user_id = int(message.get("userid"))
+    except (ValueError, TypeError):
+        response = Response(
+            type="data/get_qingque_stats",
+            success=False,
+            message="无效的用户ID"
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+    
+    # 检查是否需要玩家信息
+    need_player_info = message.get("need_player_info", False)
+    player_info = None
+    
+    if need_player_info:
+        user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
+        if user_settings_data:
+            player_info = Player_info_response(
+                user_id=target_user_id,
+                user_settings=UserSettings(
+                    user_id=user_settings_data.get('user_id'),
+                    username=user_settings_data.get('username'),
+                    title_id=user_settings_data.get('title_id'),
+                    profile_image_id=user_settings_data.get('profile_image_id'),
+                    character_id=user_settings_data.get('character_id'),
+                    voice_id=user_settings_data.get('voice_id')
+                ),
+                gb_stats=[],
+                jp_stats=[]
+            )
+    
+    # 获取青雀历史统计数据
+    history_stats_rows = get_qingque_history_stats(game_server.db_manager, target_user_id)
+    
+    # 转换为 Player_stats_info 列表
+    history_stats_list = []
+    for stats_row in history_stats_rows:
+        history_stats_list.append(Player_stats_info(
+            rule=stats_row.get('rule', 'qingque'),
+            mode=stats_row.get('mode'),
+            total_games=stats_row.get('total_games'),
+            total_rounds=stats_row.get('total_rounds'),
+            win_count=stats_row.get('win_count'),
+            self_draw_count=stats_row.get('self_draw_count'),
+            deal_in_count=stats_row.get('deal_in_count'),
+            total_fan_score=stats_row.get('total_fan_score'),
+            total_win_turn=stats_row.get('total_win_turn'),
+            total_fangchong_score=stats_row.get('total_fangchong_score'),
+            first_place_count=stats_row.get('first_place_count'),
+            second_place_count=stats_row.get('second_place_count'),
+            third_place_count=stats_row.get('third_place_count'),
+            fourth_place_count=stats_row.get('fourth_place_count'),
+            fan_stats=None
+        ))
+    
+    # 获取汇总番种统计数据
+    total_fan_stats = get_qingque_fan_stats_total(game_server.db_manager, target_user_id)
+    
+    rule_stats_response = Rule_stats_response(
+        rule="qingque",
+        history_stats=history_stats_list,
+        total_fan_stats=total_fan_stats
+    )
+    
+    response = Response(
+        type="data/get_qingque_stats",
+        success=True,
+        message="获取青雀统计数据成功",
         rule_stats=rule_stats_response,
         player_info=player_info
     )

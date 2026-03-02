@@ -30,7 +30,7 @@ public class RoomItem : MonoBehaviour {
     private bool needPassword; // 是否有密码
 
     // SetRoomInfo 会在RoomPanel的HandleRoomListResponse中调用
-    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,bool isGameRunning,int randomSeed,bool tips,bool openCuohe) {
+    public void SetRoomListInfo(string roomId,string roomName,string hostUserName,int playerCount,int gameTime,bool hasPassword,string room_type,string sub_rule,bool isGameRunning,int randomSeed,bool tips,bool openCuohe) {
         this.roomId = roomId; // 保存房间号,在JoinClick中返回上一级
         this.needPassword = hasPassword; // 保存是否需要密码
         
@@ -62,17 +62,8 @@ public class RoomItem : MonoBehaviour {
         joinButton.interactable = playerCount < 4 && !isGameRunning;
 
 
-        // 显示规则
-        if (room_type == "guobiao"){
-            this.playRule.text = $"国标";
-
-        } else if (room_type == "riichi"){
-            this.playRule.text = $"立直";
-        } else if (room_type == "qingque"){
-            this.playRule.text = $"青雀";
-        } else {
-            this.playRule.text = $"规则:未知";
-        }
+        // 显示规则（使用 RuleNameDictionary 统一映射）
+        this.playRule.text = RuleNameDictionary.GetDisplayName(sub_rule, room_type);
 
         if (room_type == "guobiao"){
             showGBInfo(gameTime,randomSeed,tips,openCuohe);
@@ -80,13 +71,7 @@ public class RoomItem : MonoBehaviour {
             showRiichiInfo(gameTime,randomSeed,tips,openCuohe);
         } else if (room_type == "qingque"){
             showQingqueInfo(gameTime,randomSeed,tips,openCuohe);
-        }
-
-
-
-
-        
-        
+        }     
     }
     // 点击加入按钮时，直接调用密码面板
     private void JoinClick() {

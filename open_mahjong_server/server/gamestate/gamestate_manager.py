@@ -259,6 +259,12 @@ class GameStateManager:
         for gamestate_id, game_state in self.gamestate_id_to_game_state.items():
             # 确保游戏状态有玩家列表且至少有4个玩家
             if hasattr(game_state, 'player_list') and len(game_state.player_list) >= 4:
+                # 含 bot(uid<=10) 的对局不开放观战
+                if any(player.user_id <= 10 for player in game_state.player_list):
+                    continue
+                # 若游戏状态显式关闭观战，也不返回
+                if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
+                    continue
                 # 获取规则类型
                 room_type = getattr(game_state, 'room_type', 'guobiao')
                 
@@ -266,19 +272,19 @@ class GameStateManager:
                 # guobiao -> guobiao, qingque -> qingque, riichi -> riichi
                 rule = room_type
                 
-                # 获取4个玩家的ID
-                player1_id = game_state.player_list[0].user_id
-                player2_id = game_state.player_list[1].user_id
-                player3_id = game_state.player_list[2].user_id
-                player4_id = game_state.player_list[3].user_id
+                # 获取4个玩家的用户名（用于显示）
+                player1_name = game_state.player_list[0].username
+                player2_name = game_state.player_list[1].username
+                player3_name = game_state.player_list[2].username
+                player4_name = game_state.player_list[3].username
                 
                 # 创建观战信息
                 spectator_info = SpectatorInfo(
                     rule=rule,
-                    player1_id=player1_id,
-                    player2_id=player2_id,
-                    player3_id=player3_id,
-                    player4_id=player4_id,
+                    player1_name=player1_name,
+                    player2_name=player2_name,
+                    player3_name=player3_name,
+                    player4_name=player4_name,
                     gamestate_id=gamestate_id
                 )
                 spectator_list.append(spectator_info)

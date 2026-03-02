@@ -156,7 +156,7 @@ public class TipsContainer : MonoBehaviour
             // 根据规则类型调用不同的处理方法
             if (gameManager.roomType == "qingque") {
                 ProcessQingqueTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
-            } else if (gameManager.roomType == "guobiao") {
+            } else if (gameManager.roomType == "guobiao" || (gameManager.roomType != null && gameManager.roomType.StartsWith("guobiao/"))) {
                 ProcessGuobiaoTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
             } else {
                 Debug.LogWarning($"未知的规则类型: {gameManager.roomType}");
@@ -176,19 +176,20 @@ public class TipsContainer : MonoBehaviour
         List<string> mergedWayToHepai,
         int huapaiCount)
     {
-        // 计算点和的番数
+        // 计算点和的番数（起和限制使用服务器下发的 hepai_limit）
         var dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         int dianheFan = dianheResult.Item1;
+        int hepaiLimit = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.hepaiLimit : 8;
 
-        if (dianheFan - huapaiCount >= 8) {
-            // 如果番数大于等于8，显示卡牌和番数
+        if (dianheFan - huapaiCount >= hepaiLimit) {
+            // 番数达到起和限制，显示卡牌和番数
             GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
             tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
             
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount($"{dianheFan}番", "dianhe");
         } else {
-            // 如果番数小于8，改为"自摸"重新计算
+            // 番数未达起和，改为"自摸"重新计算
             List<string> zimoWayToHepai = new List<string>(wayToHepai);
             zimoWayToHepai.AddRange(singleTilewayToHepai);
             zimoWayToHepai.Add("自摸");
@@ -197,15 +198,15 @@ public class TipsContainer : MonoBehaviour
             var zimoResult = GBhepai.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
             int zimoFan = zimoResult.Item1;
             
-            if (zimoFan - huapaiCount >= 8) {
-                // 自摸大于等于8，显示"仅自摸"
+            if (zimoFan - huapaiCount >= hepaiLimit) {
+                // 自摸达到起和，显示"仅自摸"
                 GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
                 fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("仅自摸", "zimo");
             } else {
-                // 仍然小于8，显示"无役"
+                // 仍未达到起和，显示"无役"
                 GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 

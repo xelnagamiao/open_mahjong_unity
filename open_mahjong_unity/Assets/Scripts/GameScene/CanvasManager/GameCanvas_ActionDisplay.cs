@@ -41,6 +41,27 @@ public partial class GameCanvas{
         StartCoroutine(FadeOutActionDisplay(actionTextObj,displayPos));
     }
 
+    /// <summary>
+    /// 观战用：显示和正常对局一致的操作按钮，但全部禁用（点击无效）。
+    /// </summary>
+    public void ShowSpectatorActionButtons(List<string> actionList) {
+        ClearActionButton();
+        if (actionList == null || actionList.Count == 0) {
+            return;
+        }
+
+        SetActionButton(actionList);
+
+        // 观战只展示按钮：移除点击回调（外观保持正常，点击无反应）
+        foreach (Transform child in ActionButtonContainer) {
+            Button btn = child.GetComponent<Button>();
+            if (btn != null) {
+                btn.interactable = true;
+                btn.onClick.RemoveAllListeners();
+            }
+        }
+    }
+
     // 渐变消失协程
     private IEnumerator FadeOutActionDisplay(GameObject actionTextObj,Transform displayPos) {
         if (actionTextObj == null) {

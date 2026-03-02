@@ -18,7 +18,14 @@ public class Card3DHoverManager : MonoBehaviour
 
     // 悬停时的蓝色高亮（不改变透明度，仅轻微偏蓝）
     [SerializeField] private Color hoverColor = new Color(0.7f, 0.85f, 1f, 1f);
-    [SerializeField, Range(0f, 1f)] private float hoverIntensity = 0.3f; // 0-1，越大越接近 hoverColor
+    [SerializeField, Range(0f, 1f)] private float hoverIntensity = 0.3f;
+
+    [Header("牌谱摸切灰色叠加")]
+    [SerializeField] private Color moqieOverlayColor = new Color(0.5f, 0.5f, 0.5f);
+    [SerializeField, Range(0f, 1f)] private float moqieOverlayIntensity = 0.45f;
+
+    public Color MoqieOverlayColor => moqieOverlayColor;
+    public float MoqieOverlayIntensity => moqieOverlayIntensity;
 
     // 存储每个卡牌的原始材质属性
     private Dictionary<GameObject, CardMaterialData> cardMaterialData = new Dictionary<GameObject, CardMaterialData>();
@@ -31,6 +38,10 @@ public class Card3DHoverManager : MonoBehaviour
         public Color originalFrontColor;
         public Color originalBackColor;
         public Color originalSideColor;
+        // 灰色叠加（独立于 original，不会污染原始值）
+        public bool hasGrayOverlay;
+        public Color grayOverlayColor;
+        public float grayOverlayIntensity;
     }
 
     private void Awake() {
@@ -81,6 +92,32 @@ public class Card3DHoverManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 归还对象池前调用：恢复材质到注册时的真实原始值，并取消注册
+    /// </summary>
+    public void ResetAndUnregisterCard(GameObject cardObj) {
+        if (cardMaterialData.ContainsKey(cardObj)) {
+            CardMaterialData data = cardMaterialData[cardObj];
+            if (data.material.HasProperty("_FrontColor")) data.material.SetColor("_FrontColor", data.originalFrontColor);
+            if (data.material.HasProperty("_BackColor")) data.material.SetColor("_BackColor", data.originalBackColor);
+            if (data.material.HasProperty("_SideColor")) data.material.SetColor("_SideColor", data.originalSideColor);
+            if (data.material.HasProperty("_Alpha")) data.material.SetFloat("_Alpha", data.originalAlpha);
+            if (data.material.HasProperty("_GrayScale")) data.material.SetFloat("_GrayScale", data.originalGrayScale);
+        }
+        int tileId = -1;
+        foreach (var kvp in tileIdToCards) {
+            if (kvp.Value.Contains(cardObj)) {
+                tileId = kvp.Key;
+                break;
+            }
+        }
+        if (tileId >= 0) {
+            UnregisterCard(cardObj, tileId);
+        } else {
+            cardMaterialData.Remove(cardObj);
+        }
+    }
+
+    /// <summary>
     /// 当鼠标悬停在某个tileId的卡牌上时调用
     /// </summary>
     public void OnCardHover(int tileId) {
@@ -112,19 +149,22 @@ public class Card3DHoverManager : MonoBehaviour
         foreach (GameObject cardObj in tileIdToCards[tileId]) {
             if (cardMaterialData.ContainsKey(cardObj)) {
                 CardMaterialData data = cardMaterialData[cardObj];
+                Color baseFront = GetBaseColor(data.originalFrontColor, data);
+                Color baseBack = GetBaseColor(data.originalBackColor, data);
+                Color baseSide = GetBaseColor(data.originalSideColor, data);
                 if (data.material.HasProperty("_FrontColor")) {
-                    Color c = Color.Lerp(data.originalFrontColor, hoverColor, hoverIntensity);
-                    c.a = data.originalFrontColor.a;
+                    Color c = Color.Lerp(baseFront, hoverColor, hoverIntensity);
+                    c.a = baseFront.a;
                     data.material.SetColor("_FrontColor", c);
                 }
                 if (data.material.HasProperty("_BackColor")) {
-                    Color c = Color.Lerp(data.originalBackColor, hoverColor, hoverIntensity);
-                    c.a = data.originalBackColor.a;
+                    Color c = Color.Lerp(baseBack, hoverColor, hoverIntensity);
+                    c.a = baseBack.a;
                     data.material.SetColor("_BackColor", c);
                 }
                 if (data.material.HasProperty("_SideColor")) {
-                    Color c = Color.Lerp(data.originalSideColor, hoverColor, hoverIntensity);
-                    c.a = data.originalSideColor.a;
+                    Color c = Color.Lerp(baseSide, hoverColor, hoverIntensity);
+                    c.a = baseSide.a;
                     data.material.SetColor("_SideColor", c);
                 }
             }
@@ -132,7 +172,17 @@ public class Card3DHoverManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 恢复指定tileId的所有卡牌到原始状态
+    /// 获取基础显示颜色：原始色 + 灰色叠加（如有）
+    /// </summary>
+    private static Color GetBaseColor(Color originalColor, CardMaterialData data) {
+        if (!data.hasGrayOverlay) return originalColor;
+        Color c = Color.Lerp(originalColor, data.grayOverlayColor, data.grayOverlayIntensity);
+        c.a = originalColor.a;
+        return c;
+    }
+
+    /// <summary>
+    /// 恢复指定tileId的所有卡牌到原始状态（含灰色叠加）
     /// </summary>
     private void RestoreCards(int tileId) {
         if (!tileIdToCards.ContainsKey(tileId)) return;
@@ -140,13 +190,13 @@ public class Card3DHoverManager : MonoBehaviour
             if (cardMaterialData.ContainsKey(cardObj)) {
                 CardMaterialData data = cardMaterialData[cardObj];
                 if (data.material.HasProperty("_FrontColor")) {
-                    data.material.SetColor("_FrontColor", data.originalFrontColor);
+                    data.material.SetColor("_FrontColor", GetBaseColor(data.originalFrontColor, data));
                 }
                 if (data.material.HasProperty("_BackColor")) {
-                    data.material.SetColor("_BackColor", data.originalBackColor);
+                    data.material.SetColor("_BackColor", GetBaseColor(data.originalBackColor, data));
                 }
                 if (data.material.HasProperty("_SideColor")) {
-                    data.material.SetColor("_SideColor", data.originalSideColor);
+                    data.material.SetColor("_SideColor", GetBaseColor(data.originalSideColor, data));
                 }
                 if (data.material.HasProperty("_Alpha")) {
                     data.material.SetFloat("_Alpha", data.originalAlpha);
@@ -155,6 +205,26 @@ public class Card3DHoverManager : MonoBehaviour
                     data.material.SetFloat("_GrayScale", data.originalGrayScale);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// 对指定卡牌应用灰色叠加（混合 overlayColor），不修改保存的原始颜色值
+    /// </summary>
+    public void SetCardGrayOverlay(GameObject cardObj, Color overlayColor, float intensity) {
+        if (!cardMaterialData.ContainsKey(cardObj)) return;
+        CardMaterialData data = cardMaterialData[cardObj];
+        data.hasGrayOverlay = true;
+        data.grayOverlayColor = overlayColor;
+        data.grayOverlayIntensity = intensity;
+        if (data.material.HasProperty("_FrontColor")) {
+            data.material.SetColor("_FrontColor", GetBaseColor(data.originalFrontColor, data));
+        }
+        if (data.material.HasProperty("_BackColor")) {
+            data.material.SetColor("_BackColor", GetBaseColor(data.originalBackColor, data));
+        }
+        if (data.material.HasProperty("_SideColor")) {
+            data.material.SetColor("_SideColor", GetBaseColor(data.originalSideColor, data));
         }
     }
 
