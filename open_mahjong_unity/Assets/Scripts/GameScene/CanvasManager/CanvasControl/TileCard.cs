@@ -18,9 +18,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     [SerializeField] private Button tileButton;  // 按钮组件
 
     // 将私有字段改为公共属性
-    public int tileId { get; private set; }    // 牌的ID（如"11"表示一万）
+    public int tileId;   // 牌的ID（如"11"表示一万）
     public bool currentGetTile;   // 是否是当前摸到的牌
-    
+
     private bool isHovering = false; // 是否正在悬停
 
     private void OnEnable()

@@ -1,4 +1,4 @@
-from typing import Dict,List
+from typing import Dict, List, Tuple
 from time import time
 import logging
 
@@ -197,7 +197,7 @@ class Chinese_Hepai_Check:
     }
     def __init__(self, debug=False):
         self.debug = debug  # 添加debug标志
-    
+
     def debug_print(self, *args, **kwargs):
         """只在debug模式下打印"""
         if self.debug:
@@ -1007,8 +1007,8 @@ class Chinese_Hepai_Check:
                             player_tiles.fan_list.append("menqianqing") # 门前清
                 case "自摸":
                     if all(i not in ["s","k","g"] for i in combination_str):
-                        # 由于七对子，连七对，九莲宝灯的自摸不计不求人，但是不求人又不计自摸，所以如果不求人和自摸都存在，就会被同事剔除
-                        # 添加额外验证避免阻挡番嵌套 是粗糙的方法 也可以使用阻挡牌优先级依次消除阻挡
+                        # 由于七对子，连七对，九莲宝灯的自摸不计不求人，但是不求人又不计自摸，所以如果不求人和自摸都存在，就会被同时剔除
+                        # 添加额外验证避免阻挡番嵌套 暂时是粗糙的方法 也可以使用阻挡牌优先级依次消除阻挡
                         if any(i in {"qiduizi","jiulianbaodeng","lianqidui","shisanyao","sianke","qixingbukao","quanbukao"} for i in player_tiles.fan_list):
                             player_tiles.fan_list.append("zimo") # 自摸
                         else:
@@ -1018,11 +1018,10 @@ class Chinese_Hepai_Check:
 
     def fan_count_output(self, player_tiles:PlayerTiles, combination_str, zimo_or_not, way_to_hepai):
         
-        # 无番和判定
-        if not any(fan for fan in player_tiles.fan_list if fan != "huapai"):
-            player_tiles.fan_list.append("wufanhe") # 无番和
-
-
+        # 无番和判定：排除花牌后，若没有剩余番或剩余番番值均为 0，则添加无番和
+        remaining = [f for f in player_tiles.fan_list if f != "huapai"]
+        if not remaining or all(self.count_model_dict.get(f, 0) == 0 for f in remaining):
+            player_tiles.fan_list.append("wufanhe")  # 无番和
 
         # 根据规定原则排除阻挡番种：
         # 通过字典repel_model_dict存储番种的阻挡关系,通过自摸或点和找到字典的对应阻挡列表项
@@ -1109,7 +1108,7 @@ class Chinese_Hepai_Check:
             # 2.三色三步高本身什么都不复合,直接使用第一个成立的二顺番即可
             elif "sansesanbugao" in player_tiles.fan_list:
                 origin_fan_list.append(repeatable_fan_list[0])
-            # 3.三色三同顺在复合喜相逢的情况下,复合一般高必然,剔除全部喜相逢保留任意唯一二顺番即可
+            # 3.三色三同顺在现有逻辑下如果复合喜相逢(构成三色三同顺本身的顺子不会进入喜相逢检测),则复合一般高必然,剔除全部喜相逢保留任意唯一二顺番即可
             elif "sansesantongshun" in player_tiles.fan_list:
                 for i in repeatable_fan_list:
                     if i in ["yibangao","lianliu","laoshaofu"]: # 没有喜相逢
@@ -1143,7 +1142,9 @@ class Chinese_Hepai_Check:
         player_tiles.fan_list = origin_fan_list
         self.debug_print("最终番种",player_tiles.fan_list)
 
-
+        # 无番和：番种表里剩下的番番值都为 0（或没有番）时，计为无番和
+        if not player_tiles.fan_list or all(self.count_model_dict.get(f, 0) == 0 for f in player_tiles.fan_list):
+            player_tiles.fan_list = ["wufanhe"]
 
         # 结算得分和展示文本
         # 四归一、双同刻、一般高、喜相逢、连六、幺九刻、花牌七个番种允许复计。 先计算减计列表，然后取最大值向下覆盖
@@ -1166,6 +1167,13 @@ class Chinese_Hepai_Check:
         self.debug_print("和牌文本",player_tiles.fan_count_list)
         self.debug_print("和牌得分",fan_count)
         return fan_count,player_tiles.fan_count_list # 返回和牌得分 展示文本 int/list[str]
+
+    def filter_zero_value_fans(self, fan_score: int, fan_count_list: List[str]) -> Tuple[int, List[str]]:
+        """
+        剔除番值=0 的番种后返回，供外部在获取和牌结果后调用再 return 到服务器/客户端。
+        国标标准无 0 值番，直接原样返回。
+        """
+        return fan_score, fan_count_list
 
     def fan_count(self, player_tiles: PlayerTiles,get_tile,way_to_hepai):
 
@@ -1242,25 +1250,6 @@ class Chinese_Hepai_Check:
         # 通过番种列表清理阻挡番种 输出文本和得分
         result = self.fan_count_output(player_tiles, combination_str, zimo_or_not, way_to_hepai)
         return result # 元组(int,list[str])
-
-class Xiaolin_Hepai_Check(Chinese_Hepai_Check):
-    """小林规和牌检查，继承国标检查逻辑，仅修改番数价值表"""
-    count_model_dict:Dict[str,int] = {
-        "dasixi":88,"dasanyuan":64,"lvyise":88,"jiulianbaodeng":88,"sigang":88,
-        "lianqidui":88,"shisanyao":88,
-        "qingyaojiu":64,"xiaosixi":64,"xiaosanyuan":32,"ziyise":64,"sianke":64,"yiseshuanglonghui":64,
-        "yisesitongshun":64,"yisesijiegao":64,"yisesibugao":32,"sangang":32,"hunyaojiu":32,
-        "qiduizi":24,"qixingbukao":24,"quanshuangke":24,
-        "qingyise":32,"yisesantongshun":24,"yisesanjiegao":24,"quanda":24,"quanzhong":24,"quanxiao":24,
-        "qinglong":16,"sanseshuanglonghui":24,"yisesanbugao":16,"quandaiwu":16,"santongke":16,"sananke":16,
-        "quanbukao":12,"zuhelong":12,"dayuwu":12,"xiaoyuwu":12,"sanfengke":24,
-        "hualong":8,"tuibudao":8,"sansesantongshun":8,"sansesanjiegao":8,"wufanhe":8,"miaoshouhuichun":8,"haidilaoyue":8,
-        "gangshangkaihua":8,"qiangganghe":8,"pengpenghe":6,"hunyise":12,"sansesanbugao":6,"wumenqi":6,"quanqiuren":6,"shuangangang":8,"shuangjianke":12,
-        "quandaiyao":6,"buqiuren":0,"shuangminggang":4,"hejuezhang":0,"jianke":2,"quanfengke":2,"menfengke":2,"menqianqing":2,
-        "pinghe":2,"siguiyi":2,"shuangtongke":2,"shuanganke":2,"angang":2,"duanyao":2,"yibangao":1,"xixiangfeng":1,
-        "lianliu":1,"laoshaofu":1,"yaojiuke":0,"minggang":1,"queyimen":1,"wuzi":1,"bianzhang":1,
-        "qianzhang":1,"dandiaojiang":1,"zimo":0,"huapai":1,"mingangang":5,
-    }
 
 
 # 测试

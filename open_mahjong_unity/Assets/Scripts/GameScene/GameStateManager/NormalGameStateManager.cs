@@ -89,7 +89,6 @@ public class NormalGameStateManager : MonoBehaviour{
         // 保存gamestate_id
         UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
 
-
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景

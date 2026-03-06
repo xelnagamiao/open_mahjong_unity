@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -165,7 +166,7 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
-    /// 处理国标规则的和牌提示
+    /// 处理国标规则的和牌提示：guobiao/standard 用 GBhepai，guobiao/xiaolin 用 GBhepaiXiaolin + 剔除方法。
     /// </summary>
     private void ProcessGuobiaoTile(
         int hepaiTile,
@@ -176,8 +177,15 @@ public class TipsContainer : MonoBehaviour
         List<string> mergedWayToHepai,
         int huapaiCount)
     {
-        // 计算点和的番数（起和限制使用服务器下发的 hepai_limit）
-        var dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
+        string roomType = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomType : null;
+
+        Tuple<int, List<string>> dianheResult;
+        if (roomType == "guobiao/xiaolin") {
+            dianheResult = GBhepaiXiaolin.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
+            dianheResult = GBhepaiXiaolin.FilterZeroValueFans(dianheResult.Item1, dianheResult.Item2);
+        } else {
+            dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
+        }
         int dianheFan = dianheResult.Item1;
         int hepaiLimit = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.hepaiLimit : 8;
 
@@ -194,8 +202,13 @@ public class TipsContainer : MonoBehaviour
             zimoWayToHepai.AddRange(singleTilewayToHepai);
             zimoWayToHepai.Add("自摸");
 
-            // 计算自摸的番数
-            var zimoResult = GBhepai.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
+            Tuple<int, List<string>> zimoResult;
+            if (roomType == "guobiao/xiaolin") {
+                zimoResult = GBhepaiXiaolin.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
+                zimoResult = GBhepaiXiaolin.FilterZeroValueFans(zimoResult.Item1, zimoResult.Item2);
+            } else {
+                zimoResult = GBhepai.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
+            }
             int zimoFan = zimoResult.Item1;
             
             if (zimoFan - huapaiCount >= hepaiLimit) {

@@ -6,8 +6,8 @@ using UnityEngine.UI;
 public class RecordPrefab : MonoBehaviour{
     [Header("基本信息")]
     [SerializeField] private TextMeshProUGUI RecordIdText;
-    [SerializeField] private TextMeshProUGUI MainRuleText;
-    [SerializeField] private TextMeshProUGUI SubRuleText;
+    [SerializeField] private TextMeshProUGUI RuleText;
+    [SerializeField] private TextMeshProUGUI MatchTypeText;
     [SerializeField] private TextMeshProUGUI RecordedTimeText;
 
     [Header("排名位次")]
@@ -35,14 +35,16 @@ public class RecordPrefab : MonoBehaviour{
     private string gameId;
     private PlayerRecordInfo[] playersInfo;
 
-    public void InitializeRecordItem(string gameId, string mainRule, string subRule, string recordedTime, PlayerRecordInfo[] players)
+    public void InitializeRecordItem(string gameId, string subRule, string matchType, string recordedTime, PlayerRecordInfo[] players)
     {
         this.gameId = gameId;
         this.playersInfo = players;
 
         RecordIdText.text = gameId;
-        MainRuleText.text = mainRule;
-        SubRuleText.text = RuleNameDictionary.GetDisplayName(subRule, mainRule);
+        string ruleName = RuleNameDictionary.GetWholeName(subRule);
+        string matchTypeDisplay = RoundTextDictionary.GetMatchTypeDisplay(matchType);
+        RuleText.text = ruleName;
+        MatchTypeText.text = matchTypeDisplay;
         RecordedTimeText.text = recordedTime;
 
         TextMeshProUGUI[] rankTexts = { Rank1Text, Rank2Text, Rank3Text, Rank4Text };

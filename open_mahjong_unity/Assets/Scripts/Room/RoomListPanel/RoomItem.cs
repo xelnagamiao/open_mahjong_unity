@@ -62,8 +62,7 @@ public class RoomItem : MonoBehaviour {
         joinButton.interactable = playerCount < 4 && !isGameRunning;
 
 
-        // 显示规则（使用 RuleNameDictionary 统一映射）
-        this.playRule.text = RuleNameDictionary.GetDisplayName(sub_rule, room_type);
+        this.playRule.text = RuleNameDictionary.GetWholeName(sub_rule);
 
         if (room_type == "guobiao"){
             showGBInfo(gameTime,randomSeed,tips,openCuohe);

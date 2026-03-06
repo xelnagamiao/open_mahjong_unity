@@ -16,7 +16,7 @@ public class SpectatorPrefab : MonoBehaviour {
     private string gamestate_id;
 
     public void InitializeSpectatorItem(string rule, string player1_name, string player2_name, string player3_name, string player4_name, string gamestate_id) {
-        string ruleDisplay = "规则:" + RuleNameDictionary.GetDisplayName(null, rule);
+        string ruleDisplay = "规则:" + RuleNameDictionary.GetWholeName(rule);
         if (RuleText != null) RuleText.text = ruleDisplay;
         if (Player1NameText != null) Player1NameText.text = $"玩家1: {player1_name ?? "-"}";
         if (Player2NameText != null) Player2NameText.text = $"玩家2: {player2_name ?? "-"}";

@@ -123,6 +123,7 @@ class Record_info(BaseModel):
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
+    match_type: Optional[str] = None  # 局数类型（如 1/4、2/4、4/4），用于区分全庄战、半庄战、天梯等
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 

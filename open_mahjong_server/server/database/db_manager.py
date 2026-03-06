@@ -402,51 +402,6 @@ class DatabaseManager:
             logger.info('用户ID序列初始化完成')
             print('用户ID序列初始化完成')
 
-            # 迁移旧表结构：移除外键约束（保留已删除用户的记录）
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'game_player_records'
-                );
-            """)
-            table_exists = cursor.fetchone()[0]
-            
-            if table_exists:
-                # 查找并删除 user_id 的外键约束
-                cursor.execute("""
-                    SELECT constraint_name 
-                    FROM information_schema.table_constraints 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'game_player_records' 
-                    AND constraint_type = 'FOREIGN KEY'
-                    AND constraint_name LIKE '%user_id%';
-                """)
-                fk_result = cursor.fetchone()
-                
-                if fk_result:
-                    fk_name = fk_result[0]
-                    try:
-                        cursor.execute(f"ALTER TABLE game_player_records DROP CONSTRAINT IF EXISTS {fk_name};")
-                        logger.info(f'已移除 game_player_records 表的外键约束: {fk_name}')
-                    except Error as e:
-                        logger.warning(f'移除外键约束时出现警告: {e}')
-
-            # 迁移：为 game_player_records 添加 sub_rule 列（若不存在）
-            if table_exists:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.columns
-                        WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'sub_rule'
-                    );
-                """)
-                if not cursor.fetchone()[0]:
-                    try:
-                        cursor.execute("ALTER TABLE game_player_records ADD COLUMN sub_rule VARCHAR(32) NULL;")
-                        logger.info('已为 game_player_records 表添加 sub_rule 列')
-                    except Error as e:
-                        logger.warning(f'添加 sub_rule 列时出现警告: {e}')
-
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')
@@ -752,6 +707,7 @@ class DatabaseManager:
                     gpr.rank,
                     gpr.rule,
                     gpr.sub_rule,
+                    gpr.match_type,
                     gpr.title_used,
                     gpr.character_used,
                     gpr.profile_used,
@@ -774,6 +730,7 @@ class DatabaseManager:
                         'created_at': str(row['created_at']),
                         'rule': row['rule'],
                         'sub_rule': row.get('sub_rule'),
+                        'match_type': row.get('match_type'),
                         'players': []
                     }
                 

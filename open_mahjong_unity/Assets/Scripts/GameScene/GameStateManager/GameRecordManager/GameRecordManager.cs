@@ -301,7 +301,7 @@ public partial class GameRecordManager : MonoBehaviour {
             userIdToScore[rp.userId] = rp.score;
         }
 
-        // 根据局数确定风位轮转：每局正向+1（东→南→西→北）
+        // 根据局数确定风位轮转：每局正向+1（东→南→西→北），与服务器 back_current_num 对应
         // 例：东风北（roundIndex=4）时，original 0 应显示为北(3)
         int rotateSteps = ((roundIndex - 1) % 4 + 4) % 4;
         foreach (var recordPlayer in recordPlayerList){
@@ -311,7 +311,23 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             recordPlayer.playerIndex = idx;
         }
-        
+
+        // 国标固定换位：guobiao/standard 与 guobiao/xiaolin 在第 5、9、13 局应用固定换位（与 next_game_round_switchseat 一致）
+        string subRule = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "").ToLowerInvariant();
+        bool useFixedSeat = (subRule == "guobiao/standard" || subRule == "guobiao/xiaolin") && (roundIndex == 5 || roundIndex == 9 || roundIndex == 13);
+        if (useFixedSeat) {
+            foreach (var recordPlayer in recordPlayerList) {
+                int orig = recordPlayer.originalPlayerIndex;
+                if (roundIndex == 5) {
+                    recordPlayer.playerIndex = (orig == 0 ? 1 : (orig == 1 ? 0 : (orig == 2 ? 3 : 2)));
+                } else if (roundIndex == 9) {
+                    recordPlayer.playerIndex = (orig == 0 ? 3 : (orig == 1 ? 2 : (orig == 2 ? 0 : 1)));
+                } else {
+                    recordPlayer.playerIndex = (orig == 0 ? 2 : (orig == 1 ? 3 : (orig == 2 ? 1 : 0)));
+                }
+            }
+        }
+
         // 初始化牌山列表（当前牌山和原始牌山）
         if (gameRecord.gameRound.rounds.TryGetValue(roundIndex, out Round roundData)) {
             originalTilesList = roundData.tilesList != null ? new List<int>(roundData.tilesList) : new List<int>();
@@ -577,7 +593,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 if (isMoqie) {
                     GameCanvas.Instance.ChangeHandCards("RemoveGetCard", cutTile, null, null);
                 } else {
-                    GameCanvas.Instance.ChangeHandCards("RemoveHandCard", cutTile, null, cutIndex);
+                    GameCanvas.Instance.ChangeHandCards("RemoveHandCardRecord", cutTile, null, null);
                 }
             }
             Game3DManager.Instance.Change3DTile("RecordDiscard", cutTile, 0, currentPlayerPosition, isMoqie, null);

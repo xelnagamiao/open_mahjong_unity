@@ -16,6 +16,7 @@ from .boardcast import (
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
+    reconnected_send_pending_ask,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from .init_tiles import init_qingque_tiles
@@ -266,6 +267,7 @@ class QingqueGameState:
                     
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
+                    await reconnected_send_pending_ask(self, user_id)
                 break
 
     async def cleanup_game_state(self):
@@ -715,8 +717,9 @@ QingqueGameState.broadcast_result = broadcast_result
 QingqueGameState.broadcast_game_end = broadcast_game_end
 QingqueGameState.broadcast_switch_seat = broadcast_switch_seat
 QingqueGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
+QingqueGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
 
-# 挂载功能函数于GuobiaoGameState实例
+# 挂载功能函数于QingqueGameState实例
 QingqueGameState.next_current_index = next_current_index
 QingqueGameState.refresh_waiting_tiles = refresh_waiting_tiles
 

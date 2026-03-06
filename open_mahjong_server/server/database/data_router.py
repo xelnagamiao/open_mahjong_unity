@@ -54,6 +54,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                 game_id=game_record['game_id'],
                 rule=game_record['rule'],
                 sub_rule=game_record.get('sub_rule'),
+                match_type=game_record.get('match_type'),
                 created_at=game_record['created_at'],
                 players=players_info
             )

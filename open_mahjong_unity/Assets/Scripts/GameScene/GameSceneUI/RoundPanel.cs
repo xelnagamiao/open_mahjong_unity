@@ -25,7 +25,7 @@ public class RoundPanel : MonoBehaviour {
             ruleText.text = "国标麻将";
         } else if (roomType == "guobiao/xiaolin") {
             ruleText.text = "国标(小林改)";
-        } else if (roomType == "qingque") {
+        } else if (roomType == "qingque" || roomType == "qingque/standard") {
             ruleText.text = "青雀";
         } else if (roomType == "riichi") {
             ruleText.text = "立直麻将";
@@ -48,9 +48,9 @@ public class RoundPanel : MonoBehaviour {
 
         // 设置当前轮数文本（按规则匹配字典，guobiao 子规则共用国标轮次）
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao" || (roomType != null && roomType.StartsWith("guobiao/"))) {
+        if (roomType == "guobiao" || roomType == "guobiao/standard" || roomType == "guobiao/xiaolin") {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
-        } else if (roomType == "qingque") {
+        } else if (roomType == "qingque" || roomType == "qingque/standard") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
             roundMap = RoundTextDictionary.CurrentRoundTextRiichi;

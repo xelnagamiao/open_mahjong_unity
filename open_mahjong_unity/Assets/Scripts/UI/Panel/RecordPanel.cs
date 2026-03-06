@@ -13,6 +13,9 @@ public class RecordPanel : MonoBehaviour {
     [SerializeField] private Button BackMenuButton;
     [SerializeField] private Button SearchRecordButton;
 
+    [Header("无牌谱提示面板")]
+    [SerializeField] private GameObject NoRecordPanel;
+
     [Header("牌谱ID搜索面板")]
     [SerializeField] private GameObject RecordIdInputPanel;
     [SerializeField] private TMP_InputField RecordIdInputField;
@@ -31,8 +34,8 @@ public class RecordPanel : MonoBehaviour {
         ConfirmLoadButton.onClick.AddListener(ConfirmLoadRecordById);
         CancelSearchButton.onClick.AddListener(CloseRecordIdInput);
 
-        if (RecordIdInputPanel != null)
-            RecordIdInputPanel.SetActive(false);
+        RecordIdInputPanel.SetActive(false);
+        NoRecordPanel.SetActive(false);
         // 清理dropdownContentTransform下的子物体
         foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
@@ -70,30 +73,28 @@ public class RecordPanel : MonoBehaviour {
             return;
         }
 
-        if (recordList == null || recordList.Length == 0) {
+        if (recordList.Length == 0) {
             Debug.Log("没有游戏记录");
+            NoRecordPanel.SetActive(true);
             return;
         }
+
+        NoRecordPanel.SetActive(false);
 
         foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
         }
 
         foreach (var record in recordList) {
-            if (record.players == null || record.players.Length == 0) {
-                Debug.LogWarning($"游戏 {record.game_id} 没有玩家信息，跳过");
-                continue;
-            }
-
-            string mainRule = record.rule ?? "GB";
             string subRule = record.sub_rule ?? "";
+            string matchType = record.match_type ?? "";
             string recordedTime = record.created_at;
 
             RecordPrefab item = Instantiate(RecordPrefab, dropdownContentTransform);
             item.InitializeRecordItem(
                 record.game_id,
-                mainRule,
                 subRule,
+                matchType,
                 recordedTime,
                 record.players
             );
@@ -103,11 +104,6 @@ public class RecordPanel : MonoBehaviour {
     }
 
     public void OnRecordDetailReceived(RecordDetail detail) {
-        if (detail == null || detail.record == null) {
-            NotificationManager.Instance.ShowTip("牌谱", false, "牌谱数据为空");
-            return;
-        }
-
         string recordJson = JsonConvert.SerializeObject(detail.record);
         WindowsManager.Instance.SwitchWindow("recordscene");
         GameRecordManager.Instance.LoadRecord(recordJson, detail.players);

@@ -6,14 +6,15 @@ import threading
 from typing import List, Set, Tuple
 from time import time
 
-# 传统国标 Python 实现
-# 先尝试包内相对导入，失败时退回到本地绝对导入（便于单文件测试）
+# 国标和牌：标准与小林规各独立脚本，外部获取结果后调用实例的剔除方法再 return
 try:
-    from .gb_hepai_check import Chinese_Hepai_Check, Xiaolin_Hepai_Check, PlayerTiles
+    from .guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles
+    from .guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check
     from .gb_tingpai_check import Chinese_Tingpai_Check
 except ImportError:
-    from gb_hepai_check import Chinese_Hepai_Check, Xiaolin_Hepai_Check, PlayerTiles  # type: ignore
-    from gb_tingpai_check import Chinese_Tingpai_Check          # type: ignore
+    from guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
+    from guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check  # type: ignore
+    from gb_tingpai_check import Chinese_Tingpai_Check  # type: ignore
 
 # Qingque13 C# 桥接模块
 try:
@@ -124,26 +125,21 @@ class GameCalculationService:
         with self._lock:
             return call_get_base_point(fan)
 
-    def GB_hepai_check(self, hand_list: List[int], tiles_combination: List, 
+    def GB_hepai_check(self, hand_list: List[int], tiles_combination: List,
                    way_to_hepai: List[str], get_tile: int) -> Tuple[int, List[str]]:
         """
-        检查和牌
-        Args:
-            hand_list: 手牌列表
-            tiles_combination: 组合牌列表
-            way_to_hepai: 和牌方式列表
-            get_tile: 获得的牌
-        Returns:
-            (分数, 番种列表) 元组
+        检查和牌；获取结果后调用实例的剔除方法（剔除番值=0）再 return 到服务器。
         """
         with self._lock:
-            return self._hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+            score, fan_list = self._hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+            return self._hepai_check.filter_zero_value_fans(score, fan_list)
 
     def GB_xiaolin_hepai_check(self, hand_list: List[int], tiles_combination: List,
                    way_to_hepai: List[str], get_tile: int) -> Tuple[int, List[str]]:
-        """小林规和牌检查（使用修改后的番数价值表）"""
+        """小林规和牌检查；返回包含 0 分番在内的全部番种，由客户端或上层按需过滤。"""
         with self._lock:
-            return self._xiaolin_hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+            score, fan_list = self._xiaolin_hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+            return score, fan_list
     
     def GB_tingpai_check(self, hand_tile_list: List[int], combination_list: List) -> Set[int]:
         """

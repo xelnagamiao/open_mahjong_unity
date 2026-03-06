@@ -25,6 +25,7 @@ public static class RoundTextDictionary {
         {13, "北一局"}, {14, "北二局"}, {15, "北三局"}, {16, "北四局"},
     };
 
+    /// <summary>局数（当前第几局）显示名</summary>
     public static string GetRoundName(string rule, int currentRound) {
         Dictionary<int, string> roundMap = null;
         if (rule == "guobiao") roundMap = CurrentRoundTextGB;
@@ -34,5 +35,26 @@ public static class RoundTextDictionary {
             return roundName;
         }
         return $"第{currentRound}局";
+    }
+
+    /// <summary>圈数（东风战/东南战等）显示名，供房间配置等使用。</summary>
+    public static readonly Dictionary<int, string> MaxRoundText = new Dictionary<int, string> {
+        { 1, "东风战" },
+        { 2, "东南战" },
+        { 3, "东西战" },
+        { 4, "全庄战" },
+    };
+
+    public static string GetMaxRoundText(int game_round) {
+        return MaxRoundText.TryGetValue(game_round, out string text) ? text : $"未知({game_round})";
+    }
+
+    /// <summary>根据服务端 match_type（如 1/4、2/4、4/4）返回局数显示名（东风战/东南战/全庄战等）</summary>
+    public static string GetMatchTypeDisplay(string match_type) {
+        if (string.IsNullOrEmpty(match_type)) return "";
+        int slash = match_type.IndexOf('/');
+        if (slash < 0 || !int.TryParse(match_type.Substring(0, slash), out int rounds))
+            return "";
+        return GetMaxRoundText(rounds);
     }
 }
