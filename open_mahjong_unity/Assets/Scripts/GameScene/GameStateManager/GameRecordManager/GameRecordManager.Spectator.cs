@@ -84,6 +84,8 @@ public partial class GameRecordManager {
         }
         Game3DManager.Instance.Clear3DTile();
         HideGameRecord();
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
+        UserDataManager.Instance.SetGamestateId("");
     }
 
     /// <summary>切换到牌谱阅览模式：用于观战中手动切离最后节点。</summary>
@@ -229,10 +231,14 @@ public partial class GameRecordManager {
         spectatorExitButton.onClick.AddListener(OnClickExitSpectator);
     }
 
-    private void OnClickExitSpectator() {
+    private async void OnClickExitSpectator() {
         string gamestateId = UserDataManager.Instance.GamestateId;
         if (!string.IsNullOrEmpty(gamestateId)) {
-            GameStateNetworkManager.Instance.RemoveSpectator(gamestateId);
+            try {
+                await GameStateNetworkManager.Instance.RemoveSpectator(gamestateId);
+            } catch (System.Exception e) {
+                Debug.LogError($"发送退出观战消息失败: {e.Message}");
+            }
         }
         StopSpectating();
         WindowsManager.Instance.SwitchWindow("menu");

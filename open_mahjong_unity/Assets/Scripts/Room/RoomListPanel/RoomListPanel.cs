@@ -64,14 +64,12 @@ public class RoomListPanel : MonoBehaviour {
         }
     }
 
-    // 3.刷新房间列表 调用NetworkManager的GetRoomList方法
+    // 3.刷新房间列表 调用 RoomNetworkManager 的 GetRoomList 方法（手动刷新时显示 tips）
     public void RefreshRoomList() {
-        // ClearRoomList 清空当前列表
         foreach (var item in currentRoomItems) {
             Destroy(item);
         }
-        // 请求新的房间列表
-        RoomNetworkManager.Instance.GetRoomList();
+        RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: true);
     }
 
     // 4.获取房间列表响应

@@ -163,8 +163,8 @@ class GameServer:
         return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator)
 
     # 获取房间列表
-    def get_room_list(self) -> Response:
-        return self.room_manager.get_room_list()
+    def get_room_list(self, show_tip: bool = False) -> Response:
+        return self.room_manager.get_room_list(show_tip=show_tip)
 
     # 加入房间
     async def join_room(self, Connect_id: str, room_id: str, password: str):

@@ -99,8 +99,9 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
     await websocket.send_json(response.dict(exclude_none=True))
 
 async def handle_get_room_list(game_server, Connect_id: str, message: dict, websocket):
-    """处理获取房间列表请求"""
-    response = game_server.get_room_list()
+    """处理获取房间列表请求。show_tip：True=手动刷新显示tips，False/null=静默刷新"""
+    show_tip = message.get("show_tip", False)
+    response = game_server.get_room_list(show_tip=show_tip)
     await websocket.send_json(response.dict(exclude_none=True))
 
 async def handle_join_room(game_server, Connect_id: str, message: dict, websocket):

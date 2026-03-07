@@ -660,10 +660,12 @@ class QingqueGameState:
             await self.spectator_manager.send_final_record_and_close()
 
         # 存储游戏牌谱
+        match_type = f"{self.max_round}/4"
         game_id = self.db_manager.store_qingque_game_record(
             self.game_record,
             self.player_list,
-            self.room_type
+            self.room_type,
+            match_type
         )
         
         # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据

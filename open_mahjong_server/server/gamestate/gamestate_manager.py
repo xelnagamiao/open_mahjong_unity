@@ -167,12 +167,19 @@ class GameStateManager:
         """
         处理玩家断开连接
         
+        - 若为对局内玩家：标记 offline 并检查是否需清理 gamestate
+        - 若为观战者：从各 gamestate 的 spectator_manager 中移除（与 remove_spectator 一致）
+        
         Args:
             user_id: 用户ID
         """
         if user_id in self.user_id_to_game_state:
             game_state = self.user_id_to_game_state[user_id]
             await game_state.player_disconnect(user_id)
+        # 观战者断开时，需从所有 gamestate 的 spectator_manager 中移除
+        for game_state in list(self.gamestate_id_to_game_state.values()):
+            if hasattr(game_state, 'spectator_manager') and game_state.spectator_manager:
+                await game_state.remove_spectator(user_id)
     
     async def player_reconnect(self, user_id: int):
         """

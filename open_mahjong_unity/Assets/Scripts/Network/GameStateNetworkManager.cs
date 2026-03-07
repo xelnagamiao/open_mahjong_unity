@@ -256,17 +256,13 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// <summary>
     /// 移除观战
     /// </summary>
-    public async void RemoveSpectator(string gamestate_id) {
-        try {
-            var request = new RemoveSpectatorRequest {
-                type = "gamestate/GB/remove_spectator",
-                gamestate_id = gamestate_id
-            };
-            Debug.Log($"发送移除观战消息: {request.type}, gamestate_id: {gamestate_id}");
-            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
-        } catch (Exception e) {
-            Debug.LogError($"移除观战失败: {e.Message}");
-        }
+    public async System.Threading.Tasks.Task RemoveSpectator(string gamestate_id) {
+        var request = new RemoveSpectatorRequest {
+            type = "gamestate/GB/remove_spectator",
+            gamestate_id = gamestate_id
+        };
+        Debug.Log($"发送移除观战消息: {request.type}, gamestate_id: {gamestate_id}");
+        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
     
     /// <summary>

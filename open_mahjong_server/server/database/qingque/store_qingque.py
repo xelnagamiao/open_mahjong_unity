@@ -114,7 +114,7 @@ FAN_NAME_TO_FIELD = {
 FAN_FIELDS = list(dict.fromkeys(FAN_NAME_TO_FIELD.values()))
 
 
-def store_qingque_game_record(db_manager, game_record: dict, player_list: list, room_type: str):
+def store_qingque_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str):
     """
     存储青雀麻将游戏牌谱记录和玩家对局记录
     
@@ -123,6 +123,7 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
         game_record: 游戏牌谱记录字典
         player_list: 玩家列表，每个玩家包含 record_counter 属性
         room_type: 房间规则类型（如 "qingque"）
+        match_type: 局数类型，由外部显式传入（如 "4/4"、"1/4_rank" 等），便于后续扩展
     
     Returns:
         成功返回 game_id，失败返回 None
@@ -160,8 +161,6 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
         rule = room_type
         game_title = game_record.get("game_title") or {}
         sub_rule = game_title.get("sub_rule") or "qingque/standard"
-        max_round = game_title.get("max_round", 4)
-        match_type = f"{max_round}/4"  # 局数类型，如 1/4、2/4、4/4，用于全庄/半庄/天梯等
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result

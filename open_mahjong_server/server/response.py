@@ -213,6 +213,7 @@ class Response(BaseModel):
     type: str
     success: bool
     message: str
+    show_tip: Optional[bool] = None  # room/get_room_list 时回显：True=客户端显示刷新成功tips
     # 消息体
     message_info: Optional[MessageInfo] = None # 用于返回消息信息
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据

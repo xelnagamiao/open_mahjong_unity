@@ -93,7 +93,7 @@ public class NormalGameStateManager : MonoBehaviour{
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
 
-        GameSceneMouseInputController.Instance.SetState("gamestate");
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateGame);
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
@@ -597,19 +597,18 @@ public class NormalGameStateManager : MonoBehaviour{
                     
                     // 如果 combination_tiles 的字符串有 "k"（刻子/碰），传入 "peng"
                     if (combinationStr.Contains("k")){
-                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
                     }
                     // 如果 combination_mask 中有 "3"（加杠），说明是碰后加杠的情况
                     // 需要先调用 "peng" 再调用 "jiagang"，确保 pengToJiagangPosDict 正确缓存
                     else if (jiagangCount > 0){
                         // 先调用 peng，创建碰牌并缓存横置位置
-                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
                         // 再调用 jiagang，在缓存的位置上添加加杠牌
-                        Game3DManager.Instance.ActionAnimation(position, "jiagang", combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false));
                     }
                     else{
-                        // 其他情况直接调用 ActionAnimation
-                        Game3DManager.Instance.ActionAnimation(position, "None",  combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false));
                     }
                 }
             }

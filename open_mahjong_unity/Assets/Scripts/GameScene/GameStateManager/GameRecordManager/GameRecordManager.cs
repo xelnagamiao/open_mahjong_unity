@@ -171,6 +171,7 @@ public partial class GameRecordManager : MonoBehaviour {
     public void HideGameRecord() {
         gameObject.SetActive(false);
         CurrentMode = RecordManagerMode.Record;
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
     }
 
     // 加载牌谱
@@ -178,11 +179,11 @@ public partial class GameRecordManager : MonoBehaviour {
         CurrentMode = RecordManagerMode.Record;
         // 清空临时面板
         GameSceneUIManager.Instance.InitGameRecord();
-        GameSceneMouseInputController.Instance.SetState("recordstate");
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateRecord);
 
         // 初始化selfPlayerId，如果selectedPlayerUserid没有值，后续使用selfPlayerId作为显示玩家的默认值
         selfPlayerId = 0;
-        if (UserDataManager.Instance != null && UserDataManager.Instance.UserId != 0){
+        if (UserDataManager.Instance.UserId != 0){
             selfPlayerId = UserDataManager.Instance.UserId;
         }
         selectedPlayerUserid = 0;
@@ -268,6 +269,8 @@ public partial class GameRecordManager : MonoBehaviour {
 
     // 初始化局数
     private void InitGameRound(int roundIndex) {
+        // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突
+        Game3DManager.Instance.StopAllRunningAnimations();
         // 清理3D桌面
         Game3DManager.Instance.Clear3DTile();
 
@@ -704,6 +707,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
+        GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null); // 切换当前玩家时刷新手牌（与对局侧一致）
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         RefreshTileListViewIfVisible();
         UpdateCurrentXunmuText();
@@ -848,44 +852,42 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 生成游戏信息文案（规则、局数、玩家ID、选项等）
+    /// 生成游戏信息文案，有什么信息就展示什么，因为不同规则可能有不同牌谱头配置（规则、局数、玩家ID、选项等）
     /// </summary>
     private string BuildGameInfoString() {
         if (gameRecord?.gameTitle == null) return "暂无游戏信息";
         var gt = gameRecord.gameTitle;
         string ruleKey = ReadGameTitleString(gt, "rule", "").ToLowerInvariant();
-        string rule = (ruleKey.Contains("guobiao") ? "国标" : (ruleKey.Contains("qingque") ? "青雀" : (ruleKey.Contains("riichi") ? "立直" : "未知规则")));
         string subRule = ReadGameTitleString(gt, "sub_rule", "");
-        int maxRound = ReadGameTitleInt(gt, "max_round", 0);
-        if (maxRound <= 0 && gameRecord.gameRound != null) {
-            maxRound = Mathf.Max(1, gameRecord.gameRound.rounds?.Count ?? 0);
-        }
-        int p0 = ReadGameTitleInt(gt, "p0_uid", 0);
-        int p1 = ReadGameTitleInt(gt, "p1_uid", 0);
-        int p2 = ReadGameTitleInt(gt, "p2_uid", 0);
-        int p3 = ReadGameTitleInt(gt, "p3_uid", 0);
-        bool openCuohe = ReadGameTitleBool(gt, "open_cuohe", false);
-        bool tips = ReadGameTitleBool(gt, "tips", false);
-        bool isPlayerSetRandomSeed = ReadGameTitleBool(gt, "isPlayerSetRandomSeed", false);
-        string p0Name = userIdToUsername.TryGetValue(p0, out string n0) ? n0 : p0.ToString();
-        string p1Name = userIdToUsername.TryGetValue(p1, out string n1) ? n1 : p1.ToString();
-        string p2Name = userIdToUsername.TryGetValue(p2, out string n2) ? n2 : p2.ToString();
-        string p3Name = userIdToUsername.TryGetValue(p3, out string n3) ? n3 : p3.ToString();
+        string rule = RuleNameDictionary.GetWholeName(subRule);
+        if (string.IsNullOrEmpty(rule)) rule = (ruleKey.Contains("guobiao") ? "国标" : (ruleKey.Contains("qingque") ? "青雀" : (ruleKey.Contains("riichi") ? "立直" : "未知规则")));
+
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("【游戏信息】");
         sb.AppendLine($"规则: {rule}");
         if (!string.IsNullOrEmpty(subRule)) sb.AppendLine($"子规则: {subRule}");
-        sb.AppendLine($"最大局数: {maxRound}局");
-        sb.AppendLine($"玩家0: {p0Name} (ID:{p0})");
-        sb.AppendLine($"玩家1: {p1Name} (ID:{p1})");
-        sb.AppendLine($"玩家2: {p2Name} (ID:{p2})");
-        sb.AppendLine($"玩家3: {p3Name} (ID:{p3})");
-        sb.AppendLine($"错和: {(openCuohe ? "开" : "关")}");
-        sb.AppendLine($"提示: {(tips ? "开" : "关")}");
-        sb.AppendLine($"复式: {(isPlayerSetRandomSeed ? "开" : "关")}");
-        sb.AppendLine($"随机种子: {gameRecord.gameTitle["game_random_seed"]}");
-        sb.AppendLine($"开始时间: {gameRecord.gameTitle["start_time"]}");
-        sb.AppendLine($"结束时间: {gameRecord.gameTitle["end_time"]}");
+        int maxRound = ReadGameTitleInt(gt, "max_round", 0);
+        if (maxRound <= 0 && gameRecord.gameRound != null) maxRound = Mathf.Max(1, gameRecord.gameRound.rounds?.Count ?? 0);
+        if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
+        int hepaiLimit = ReadGameTitleInt(gt, "hepai_limit", 0);
+        if (hepaiLimit > 0) sb.AppendLine($"起和番: {hepaiLimit}");
+        int p0 = ReadGameTitleInt(gt, "p0_uid", 0), p1 = ReadGameTitleInt(gt, "p1_uid", 0), p2 = ReadGameTitleInt(gt, "p2_uid", 0), p3 = ReadGameTitleInt(gt, "p3_uid", 0);
+        if (p0 != 0 || p1 != 0 || p2 != 0 || p3 != 0) {
+            string p0Name = userIdToUsername.TryGetValue(p0, out string n0) ? n0 : p0.ToString();
+            string p1Name = userIdToUsername.TryGetValue(p1, out string n1) ? n1 : p1.ToString();
+            string p2Name = userIdToUsername.TryGetValue(p2, out string n2) ? n2 : p2.ToString();
+            string p3Name = userIdToUsername.TryGetValue(p3, out string n3) ? n3 : p3.ToString();
+            sb.AppendLine($"玩家0: {p0Name} (ID:{p0})");
+            sb.AppendLine($"玩家1: {p1Name} (ID:{p1})");
+            sb.AppendLine($"玩家2: {p2Name} (ID:{p2})");
+            sb.AppendLine($"玩家3: {p3Name} (ID:{p3})");
+        }
+        if (gt.ContainsKey("open_cuohe")) sb.AppendLine($"错和: {(ReadGameTitleBool(gt, "open_cuohe", false) ? "开" : "关")}");
+        if (gt.ContainsKey("tips")) sb.AppendLine($"提示: {(ReadGameTitleBool(gt, "tips", false) ? "开" : "关")}");
+        if (gt.ContainsKey("isPlayerSetRandomSeed")) sb.AppendLine($"复式: {(ReadGameTitleBool(gt, "isPlayerSetRandomSeed", false) ? "开" : "关")}");
+        if (gt.ContainsKey("game_random_seed") && gt["game_random_seed"] != null) sb.AppendLine($"随机种子: {gt["game_random_seed"]}");
+        if (gt.ContainsKey("start_time") && gt["start_time"] != null) sb.AppendLine($"开始时间: {gt["start_time"]}");
+        if (gt.ContainsKey("end_time") && gt["end_time"] != null) sb.AppendLine($"结束时间: {gt["end_time"]}");
         return sb.ToString();
     }
 

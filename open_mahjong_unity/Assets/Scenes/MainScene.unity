@@ -12250,8 +12250,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1332678262}
   m_HandleRect: {fileID: 1332678261}
   m_Direction: 2
-  m_Value: 0.99999994
-  m_Size: 0.2420661
+  m_Value: 1
+  m_Size: 0.2421731
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -17306,7 +17306,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 499035793}
   m_Direction: 0
   m_Value: 0
-  m_Size: 0.9999999
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -18590,8 +18590,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 827846118}
   m_HandleRect: {fileID: 827846117}
   m_Direction: 0
-  m_Value: 0
-  m_Size: 0.99999994
+  m_Value: 1
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -29488,7 +29488,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 724945556}
   m_HandleRect: {fileID: 724945555}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -44591,7 +44591,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2042164789}
   m_HandleRect: {fileID: 2042164788}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -48653,6 +48653,8 @@ GameObject:
   - component: {fileID: 1098807262}
   - component: {fileID: 1098807264}
   - component: {fileID: 1098807263}
+  - component: {fileID: 1098807266}
+  - component: {fileID: 1098807265}
   m_Layer: 12
   m_Name: RoundInfoView
   m_TagString: Untagged
@@ -48678,7 +48680,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -360.00003, y: 383.55}
-  m_SizeDelta: {x: 558.84, y: 293.67}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1098807263
 MonoBehaviour:
@@ -48718,6 +48720,46 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1098807261}
   m_CullTransparentMesh: 1
+--- !u!114 &1098807265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1098807261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_HorizontalFit: 2
+  m_VerticalFit: 2
+--- !u!114 &1098807266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1098807261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Padding:
+    m_Left: 20
+    m_Right: 20
+    m_Top: 10
+    m_Bottom: 10
+  m_ChildAlignment: 0
+  m_Spacing: 0
+  m_ChildForceExpandWidth: 0
+  m_ChildForceExpandHeight: 0
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
+  m_ChildScaleWidth: 0
+  m_ChildScaleHeight: 0
+  m_ReverseArrangement: 0
 --- !u!1 &1099641269
 GameObject:
   m_ObjectHideFlags: 0
@@ -57861,7 +57903,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1916523776}
   m_HandleRect: {fileID: 1916523775}
   m_Direction: 2
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -64548,7 +64590,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1586217848}
   m_HandleRect: {fileID: 1586217847}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -69776,6 +69818,8 @@ GameObject:
   - component: {fileID: 1541039492}
   - component: {fileID: 1541039494}
   - component: {fileID: 1541039493}
+  - component: {fileID: 1541039496}
+  - component: {fileID: 1541039495}
   m_Layer: 12
   m_Name: GameInfoView
   m_TagString: Untagged
@@ -69801,7 +69845,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -360, y: 278}
-  m_SizeDelta: {x: 558.8357, y: 504.7728}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1541039493
 MonoBehaviour:
@@ -69841,6 +69885,46 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1541039491}
   m_CullTransparentMesh: 1
+--- !u!114 &1541039495
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541039491}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Padding:
+    m_Left: 20
+    m_Right: 20
+    m_Top: 10
+    m_Bottom: 10
+  m_ChildAlignment: 0
+  m_Spacing: 0
+  m_ChildForceExpandWidth: 0
+  m_ChildForceExpandHeight: 0
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
+  m_ChildScaleWidth: 0
+  m_ChildScaleHeight: 0
+  m_ReverseArrangement: 0
+--- !u!114 &1541039496
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541039491}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_HorizontalFit: 2
+  m_VerticalFit: 2
 --- !u!1 &1543558363
 GameObject:
   m_ObjectHideFlags: 0
@@ -75330,6 +75414,7 @@ MonoBehaviour:
   HepaiLimitInput: {fileID: 371478062}
   closeButton: {fileID: 212143163}
   createButton: {fileID: 115690985}
+  addRuleButton: {fileID: 1951924412}
 --- !u!222 &1681232960
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -82060,8 +82145,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 601137682}
   m_HandleRect: {fileID: 601137681}
   m_Direction: 0
-  m_Value: 0
-  m_Size: 0.99999994
+  m_Value: 1
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -83233,10 +83318,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1541039492}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.0000081062, y: 58}
-  m_SizeDelta: {x: 505.6626, y: 359.1043}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1833607156
 MonoBehaviour:
@@ -83258,7 +83343,13 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: "\u3010\u6E38\u620F\u4FE1\u606F\u3011\r\n\u89C4\u5219: \u56FD\u6807\r\n\u5B50\u89C4\u5219:
+    guobiao/standard\r\n\u6700\u5927\u5C40\u6570: 4\u5C40\r\n\u73A9\u5BB60: chinkaku
+    (ID:10000010)\r\n\u73A9\u5BB61: Momochai (ID:10000011)\r\n\u73A9\u5BB62: Null
+    (ID:10000020)\r\n\u73A9\u5BB63: Xelnaga (ID:10000001)\r\n\u9519\u548C: \u5173\r\n\u63D0\u793A:
+    \u5F00\r\n\u590D\u5F0F: \u5173\r\n\u8D77\u548C\u756A\uFF1A8\n\u968F\u673A\u79CD\u5B50:
+    2301051439\r\n\u5F00\u59CB\u65F6\u95F4: 2026-03-05 22:13:07.704402\r\n\u7ED3\u675F\u65F6\u95F4:
+    2026-03-05 23:04:48.486383\r"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_sharedMaterial: {fileID: -228896018595606784, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
@@ -84257,10 +84348,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1098807262}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -4.1589, y: 56}
-  m_SizeDelta: {x: 504.4341, y: 139.986}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1866826887
 MonoBehaviour:
@@ -84282,7 +84373,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: "\u3010\u5C40\u4FE1\u606F\u3011\r\n\u5C40\u6570\u5E8F\u53F7: 1\r\n\u5F53\u524D\u5C40\u6570:
+    1\r\n\u968F\u673A\u79CD\u5B50: 2653789144\r\n\u724C\u5C71\u5F20\u6570: 91\r\n\u884C\u52A8\u603B\u6570:
+    145\r\n\u5F53\u524D\u884C\u52A8: 0 / 145\r"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_sharedMaterial: {fileID: -228896018595606784, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
@@ -90894,7 +90987,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1078809008}
   m_HandleRect: {fileID: 1078809006}
   m_Direction: 2
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:

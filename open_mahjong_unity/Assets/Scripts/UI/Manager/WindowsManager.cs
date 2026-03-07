@@ -75,6 +75,7 @@ public class WindowsManager : MonoBehaviour {
                 headerPanel.SetActive(true);
                 menuPanel.SetActive(true); // 主界面
                 HeaderPanel.Instance.UpdateButtonState("menu");
+                RoomNetworkManager.Instance?.GetRoomList(showTipOnSuccess: false);
                 break;
             // room 房间界面
             case "room":

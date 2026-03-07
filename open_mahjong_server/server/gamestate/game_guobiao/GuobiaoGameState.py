@@ -790,11 +790,13 @@ class GuobiaoGameState:
         if hasattr(self, 'spectator_manager'):
             await self.spectator_manager.send_final_record_and_close()
         
-        # 存储游戏牌谱（始终保存）
+        # 存储游戏牌谱
+        match_type = f"{self.max_round}/4"
         game_id = self.db_manager.store_guobiao_game_record(
             self.game_record,
             self.player_list,
-            self.room_type
+            self.room_type,
+            match_type
         )
         
         # 判断是否应该保存对局数据和番种统计

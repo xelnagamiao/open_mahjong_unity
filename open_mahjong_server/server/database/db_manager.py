@@ -79,7 +79,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建表 game_player_records（如果不存在）
+            # 创建表 game_player_records（如果不存在）；记录字段使用 match_type，与 get_record_list 一致
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
                     game_id VARCHAR(16) NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
@@ -89,6 +89,7 @@ class DatabaseManager:
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
                     rule VARCHAR(10) NOT NULL,
                     sub_rule VARCHAR(32) NULL,
+                    match_type VARCHAR(24) NULL,
                     title_used INT NULL,
                     character_used INT NULL,
                     profile_used INT NULL,
@@ -96,6 +97,26 @@ class DatabaseManager:
                     PRIMARY KEY (game_id, user_id)
                 );
             """)
+            # 迁移：若表已存在且缺少 match_type，则追加列
+            try:
+                cursor.execute("ALTER TABLE game_player_records ADD COLUMN match_type VARCHAR(24) NULL;")
+            except Error as e:
+                if getattr(e, "pgcode", None) != "42701":
+                    raise
+            # 迁移：若表中曾有 mode 列，将 mode 拷贝到 match_type 后丢弃 mode
+            cursor.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'mode';
+            """)
+            if cursor.fetchone():
+                try:
+                    cursor.execute("""
+                        UPDATE game_player_records SET match_type = mode
+                        WHERE match_type IS NULL AND mode IS NOT NULL;
+                    """)
+                    cursor.execute("ALTER TABLE game_player_records DROP COLUMN mode;")
+                except Error:
+                    pass
 
             # 创建表guobiao_history_stats（如果不存在）
             cursor.execute("""
