@@ -46,6 +46,7 @@ public class CreatePanel : MonoBehaviour {
     [Header("按钮")]
     [SerializeField] private Button closeButton;
     [SerializeField] private Button createButton;
+    [SerializeField] private Button addRuleButton;
 
     private static readonly Dictionary<string, string> SubRuleDescriptions = new Dictionary<string, string> {
         { "qingque/standard", "青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照；如在测试中发现设计问题或有任何建议，可以联系规则制定人莫莫柴Q1107574，提交bug可在群906497522提交" },
@@ -58,6 +59,7 @@ public class CreatePanel : MonoBehaviour {
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         closeButton.onClick.AddListener(ClosePanel);
         createButton.onClick.AddListener(CreateRoom);
+        if (addRuleButton != null) addRuleButton.onClick.AddListener(OnAddRuleClick);
 
         SetRandomSeedPanel.SetActive(false);
         PasswordPanel.SetActive(false);
@@ -157,6 +159,10 @@ public class CreatePanel : MonoBehaviour {
 
     private void ClosePanel() {
         WindowsManager.Instance.SwitchWindow("menu");
+    }
+
+    private void OnAddRuleClick() {
+        WindowsManager.Instance.SwitchWindow("aboutUs");
     }
 
     private void CreateRoom() {

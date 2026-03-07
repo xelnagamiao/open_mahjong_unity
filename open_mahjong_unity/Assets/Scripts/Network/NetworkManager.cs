@@ -154,8 +154,6 @@ public class NetworkManager : MonoBehaviour {
     private void HandleLoginResponse(Response response){
         if (response.success) {
             WindowsManager.Instance.SwitchWindow("menu");
-            // 请求房间列表
-            RoomNetworkManager.Instance?.GetRoomList();
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -180,14 +178,13 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
-    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表
+    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表（SwitchWindow("menu") 已负责切换时刷新，此处不重复）
     private void StartServerStatsCoroutine() {
         if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
         }
         if (IsOnMainMenu()) {
             GetServerStats();
-            RoomNetworkManager.Instance?.GetRoomList();
         }
         serverStatsCoroutine = StartCoroutine(ServerStatsAndRoomListCoroutine());
     }
@@ -196,13 +193,13 @@ public class NetworkManager : MonoBehaviour {
         return WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "menu";
     }
 
-    // 仅在主菜单时每5秒刷新服务器统计与房间列表
+    // 仅在主菜单时每5秒刷新服务器统计与房间列表（不显示 tips）
     private IEnumerator ServerStatsAndRoomListCoroutine() {
         while (true) {
             yield return new WaitForSeconds(5f);
             if (IsOnMainMenu()) {
                 GetServerStats();
-                RoomNetworkManager.Instance?.GetRoomList();
+                RoomNetworkManager.Instance?.GetRoomList(showTipOnSuccess: false);
             }
         }
     }

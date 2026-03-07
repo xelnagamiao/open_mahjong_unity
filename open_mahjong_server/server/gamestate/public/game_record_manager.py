@@ -17,21 +17,22 @@ from datetime import date, datetime
 # 牌谱记录游戏头
 def init_game_record(self):
     self.game_record["game_title"] = {
-        "rule":self.room_type, # 规则
-        "game_random_seed":self.game_random_seed, # 随机种子
-        "max_round":self.max_round, # 最大局数
-        "start_time": datetime.now(), # 开始时间
-        "open_cuohe":self.open_cuohe, # 是否开启错和
-        "tips":self.tips, # 是否开启提示
-        "is_player_set_random_seed":self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
-        "p0_uid":self.player_list[0].user_id,
-        "p0_name":self.player_list[0].username,
-        "p1_uid":self.player_list[1].user_id,
-        "p1_name":self.player_list[1].username,
-        "p2_uid":self.player_list[2].user_id,
-        "p2_name":self.player_list[2].username,
-        "p3_uid":self.player_list[3].user_id,
-        "p3_name":self.player_list[3].username,
+        "rule": self.room_type,
+        "game_random_seed": self.game_random_seed,
+        "max_round": self.max_round,
+        "start_time": datetime.now(),
+        "open_cuohe": self.open_cuohe,
+        "tips": self.tips,
+        "is_player_set_random_seed": self.isPlayerSetRandomSeed,
+        "hepai_limit": getattr(self, "hepai_limit", None),
+        "p0_uid": self.player_list[0].user_id,
+        "p0_name": self.player_list[0].username,
+        "p1_uid": self.player_list[1].user_id,
+        "p1_name": self.player_list[1].username,
+        "p2_uid": self.player_list[2].user_id,
+        "p2_name": self.player_list[2].username,
+        "p3_uid": self.player_list[3].user_id,
+        "p3_name": self.player_list[3].username,
     }
     self.game_record["game_round"] = {}
 

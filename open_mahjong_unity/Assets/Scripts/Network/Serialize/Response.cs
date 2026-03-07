@@ -231,6 +231,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public string type; // 消息类型
     public bool success; // 消息是否成功
     public string message; // 消息内容
+    public bool show_tip; // room/get_room_list 时回显：True=显示刷新成功tips
     // 消息体
     public MessageInfo message_info; // 用于返回消息信息
     public RoomInfo[] room_list; // 返回房间列表

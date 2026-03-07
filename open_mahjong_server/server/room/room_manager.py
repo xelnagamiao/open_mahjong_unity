@@ -269,7 +269,7 @@ class RoomManager:
                 message=f"创建房间失败: {str(e)}"
         )
 
-    def get_room_list(self) -> Response:
+    def get_room_list(self, show_tip: bool = False) -> Response:
         try:
             room_list = []
             for room_id, room_data in self.rooms.items():
@@ -278,7 +278,8 @@ class RoomManager:
                 type="room/get_room_list",
                 success=True,
                 message="获取房间列表成功",
-                room_list=room_list
+                room_list=room_list,
+                show_tip=show_tip
             )
         except Exception as e:
             return Response(

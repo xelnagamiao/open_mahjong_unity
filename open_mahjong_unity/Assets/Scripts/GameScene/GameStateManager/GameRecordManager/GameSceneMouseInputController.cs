@@ -17,7 +17,12 @@ using UnityEngine.EventSystems;
 public class GameSceneMouseInputController : MonoBehaviour {
     public static GameSceneMouseInputController Instance { get; private set; }
 
-    [SerializeField] private string state = "UnInit"; // recordstate / gamestate
+    /// <summary>状态码：不在牌谱/观战时的默认状态</summary>
+    public const string StateIdle = "Idle";
+    public const string StateRecord = "recordstate";
+    public const string StateGame = "gamestate";
+
+    [SerializeField] private string state = StateIdle;
 
     [Header("排除区域（可选）")]
     [Tooltip("当鼠标射线命中此 Rect（或其子物体）下的 UI 元素时，不处理点击/滚轮。比矩形包含更精确，透明空白处不会误拦截。")]
@@ -46,7 +51,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
     private void Update() {
         if (IsPointerOverExcludeRect()) return;
 
-        if (state == "recordstate") {
+        if (state == StateRecord) {
             if (Input.GetMouseButtonDown(0)) {
                 GameRecordManager.Instance.NextStep();
             } else if (Input.GetMouseButtonDown(1)) {
@@ -64,7 +69,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
                     else if (scroll > 0f) GameRecordManager.Instance.BackXunmu();
                 }
             }
-        } else if (state == "gamestate") {
+        } else if (state == StateGame) {
             if (Input.GetMouseButtonDown(0)) {
                 float t = Time.unscaledTime;
                 if (t - _lastLeftClickTime <= DoubleClickThreshold) {
@@ -106,17 +111,19 @@ public class GameSceneMouseInputController : MonoBehaviour {
     /// 允许世界空间面板（如 ControPanel）转发点击，避免被顶层射线截断。与 Update 中的 Input 处理互斥（同一次点击只处理一次）。
     /// </summary>
     public void HandleExternalPointerClick(PointerEventData eventData) {
-        if (state == "gamestate") {
+        if (state == StateGame) {
             if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                 TryAutoMoqieFromSelfHand();
             }
             return;
         }
 
-        if (eventData.button == PointerEventData.InputButton.Left) {
-            GameRecordManager.Instance.NextStep();
-        } else if (eventData.button == PointerEventData.InputButton.Right) {
-            GameRecordManager.Instance.BackStep();
+        if (state == StateRecord) {
+            if (eventData.button == PointerEventData.InputButton.Left) {
+                GameRecordManager.Instance.NextStep();
+            } else if (eventData.button == PointerEventData.InputButton.Right) {
+                GameRecordManager.Instance.BackStep();
+            }
         }
     }
 

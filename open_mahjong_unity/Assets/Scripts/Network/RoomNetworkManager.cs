@@ -62,11 +62,13 @@ public class RoomNetworkManager : MonoBehaviour {
     }
     
     /// <summary>
-    /// 处理获取房间列表响应
+    /// 处理获取房间列表响应（根据服务端回显的 show_tip 决定是否显示 tips）
     /// </summary>
     private void HandleGetRoomListResponse(Response response) {
         RoomListPanel.Instance.GetRoomListResponse(response.success, response.message, response.room_list);
-        NotificationManager.Instance.ShowTip("get_room_list", true, "获取房间列表成功");
+        if (response.show_tip) {
+            NotificationManager.Instance.ShowTip("get_room_list", true, "刷新房间列表成功");
+        }
     }
     
     /// <summary>
@@ -177,12 +179,14 @@ public class RoomNetworkManager : MonoBehaviour {
     }
     
     /// <summary>
-    /// 获取房间列表
+    /// 获取房间列表。show_tip 会随请求发送，服务端原样回显，客户端据此决定是否显示 tips。
     /// </summary>
-    public async void GetRoomList() {
+    /// <param name="showTipOnSuccess">仅手动点击刷新按钮时为 true，自动刷新和切换菜单时为 false</param>
+    public async void GetRoomList(bool showTipOnSuccess = false) {
         try {
             var request = new GetRoomListRequest {
-                type = "room/get_room_list"
+                type = "room/get_room_list",
+                show_tip = showTipOnSuccess
             };
             Debug.Log($"发送获取房间列表消息{request.type}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
