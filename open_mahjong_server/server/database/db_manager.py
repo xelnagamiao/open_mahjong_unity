@@ -97,11 +97,14 @@ class DatabaseManager:
                     PRIMARY KEY (game_id, user_id)
                 );
             """)
-            # 迁移：若表已存在且缺少 match_type，则追加列
+            # 迁移：若表已存在且缺少 match_type，则追加列（重复列时回滚到 savepoint 继续，避免事务被中止）
+            cursor.execute("SAVEPOINT sp_add_match_type;")
             try:
                 cursor.execute("ALTER TABLE game_player_records ADD COLUMN match_type VARCHAR(24) NULL;")
             except Error as e:
-                if getattr(e, "pgcode", None) != "42701":
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_match_type;")
+                else:
                     raise
             # 迁移：若表中曾有 mode 列，将 mode 拷贝到 match_type 后丢弃 mode
             cursor.execute("""
@@ -109,6 +112,7 @@ class DatabaseManager:
                 WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'mode';
             """)
             if cursor.fetchone():
+                cursor.execute("SAVEPOINT sp_migrate_mode;")
                 try:
                     cursor.execute("""
                         UPDATE game_player_records SET match_type = mode
@@ -116,7 +120,7 @@ class DatabaseManager:
                     """)
                     cursor.execute("ALTER TABLE game_player_records DROP COLUMN mode;")
                 except Error:
-                    pass
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_migrate_mode;")
 
             # 创建表guobiao_history_stats（如果不存在）
             cursor.execute("""

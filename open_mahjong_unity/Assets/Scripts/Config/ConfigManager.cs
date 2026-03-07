@@ -37,7 +37,8 @@ public class ConfigManager : MonoBehaviour {
 
     // 头衔编号 => 头衔名称
     private static Dictionary<int, string> titleDictionary = new Dictionary<int, string>{
-        { 1, "暂无头衔" }
+        { 1, "暂无头衔" },
+        { 2, "hhmlb" }
     };
 
     private const string KEY_MASTER_VOLUME = "MasterVolume";
