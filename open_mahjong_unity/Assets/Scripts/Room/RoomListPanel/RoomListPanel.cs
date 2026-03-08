@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -22,8 +21,6 @@ public class RoomListPanel : MonoBehaviour {
     [SerializeField] private Button passwordInputAdmit; // 密码输入按钮
     [SerializeField] private Button passwordInputCancel; // 密码输入取消按钮
 
-    // GameObject列表 存储当前房间列表 用于CreateRoomList和ClearRoomList
-    private List<GameObject> currentRoomItems = new List<GameObject>();
     private string roomId;
     private void Start() {
         // 初始化按钮监听 1.显示房间面板 2.刷新房间列表 3.加入房间
@@ -66,10 +63,16 @@ public class RoomListPanel : MonoBehaviour {
 
     // 3.刷新房间列表 调用 RoomNetworkManager 的 GetRoomList 方法（手动刷新时显示 tips）
     public void RefreshRoomList() {
-        foreach (var item in currentRoomItems) {
-            Destroy(item);
-        }
+        ClearRoomListContent();
         RoomNetworkManager.Instance.GetRoomList(showTipOnSuccess: true);
+    }
+
+    // 清理房间列表容器内的所有子物体
+    private void ClearRoomListContent() {
+        if (roomListContent == null) return;
+        for (int i = roomListContent.childCount - 1; i >= 0; i--) {
+            Destroy(roomListContent.GetChild(i).gameObject);
+        }
     }
 
     // 4.获取房间列表响应
@@ -79,40 +82,20 @@ public class RoomListPanel : MonoBehaviour {
             return;
         }
 
-        // 清理现有房间列表
-        foreach (var item in currentRoomItems) {
-            Destroy(item);
-        }
-        currentRoomItems.Clear();
+        // 清理容器内现有房间列表
+        ClearRoomListContent();
 
         // 直接使用 roomList 数组
         if (room_List != null) {
             foreach (var roomData in room_List) {
                 // 显示国标和青雀房间
                 if (roomData.room_type == "guobiao" || roomData.room_type == "qingque") {
-                // 创建房间预制体
-                GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
-                roomItem.SetActive(true);
-                currentRoomItems.Add(roomItem);
+                    GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
+                    roomItem.SetActive(true);
 
-                // 获取RoomItem组件 订阅RoomItem的JoinClicked事件
-                var roomItemComponent = roomItem.GetComponent<RoomItem>();
-
-                // 初始化房间信息
-                roomItemComponent.SetRoomListInfo(
-                    roomId: roomData.room_id,
-                    roomName: roomData.room_name,
-                    hostUserName: roomData.host_name,
-                    playerCount: roomData.player_list.Length,
-                    gameTime: roomData.game_round,
-                    hasPassword: roomData.has_password,
-                    room_type: roomData.room_type,
-                    sub_rule: roomData.sub_rule ?? "未知规则",
-                    isGameRunning: roomData.is_game_running,
-                    randomSeed: roomData.random_seed,
-                    tips: roomData.tips,
-                    openCuohe: roomData.open_cuohe
-                    );
+                    var roomItemComponent = roomItem.GetComponent<RoomItem>();
+                    // 传入 RoomInfo，由 RoomItem 自己解包并显示
+                    roomItemComponent.SetRoomInfo(roomData);
                 }
             }
         }

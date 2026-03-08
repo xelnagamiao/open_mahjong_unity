@@ -47,7 +47,7 @@ public class WindowsManager : MonoBehaviour {
 
     // 切换窗口
     public void SwitchWindow(string targetWindow) {
-        // 如果在game状态下收到切换到room的请求，直接返回
+        // 如果在game状态下收到切换到room的请求，直接返回(在对局中如果房间状态更新，不自动切换到房间列表)
         if (currentWindow == "game" && targetWindow == "room") {
             return;
         }
@@ -74,16 +74,15 @@ public class WindowsManager : MonoBehaviour {
                 loginPanel.SetActive(false);
                 headerPanel.SetActive(true);
                 menuPanel.SetActive(true); // 主界面
-                HeaderPanel.Instance.UpdateButtonState("menu");
                 RoomNetworkManager.Instance?.GetRoomList(showTipOnSuccess: false);
                 break;
             // room 房间界面
             case "room":
                 roomRoot.SetActive(true);
-                HeaderPanel.Instance.UpdateButtonState("room");
                 break;
             // game 游戏界面 下属的窗口
             case "game":
+            case "recordscene":
                 menuPanel.SetActive(false);
                 headerPanel.SetActive(false);
                 gamePanel.SetActive(true); // 游戏界面
@@ -91,39 +90,30 @@ public class WindowsManager : MonoBehaviour {
             case "record":
                 recordPanel.SetActive(true); // 游戏记录界面
                 break;
-            case "recordscene":
-                recordPanel.SetActive(false);
-                headerPanel.SetActive(false);
-                gamePanel.SetActive(true); // 游戏界面
-                break;
             case "notice":
                 noticePanel.SetActive(true); // 公告界面
-                HeaderPanel.Instance.UpdateButtonState("notice");
                 break;
             case "aboutUs":
                 aboutUsPanel.SetActive(true); // 关于我们界面
-                HeaderPanel.Instance.UpdateButtonState("aboutUs");
                 break;
             case "player":
                 playerPanel.SetActive(true);
-                HeaderPanel.Instance.UpdateButtonState("player");
                 break;
             case "config":
                 configPanel.SetActive(true);
-                HeaderPanel.Instance.UpdateButtonState("config");
                 break;
             case "sceneConfig":
                 sceneConfigPanel.SetActive(true);
-                HeaderPanel.Instance.UpdateButtonState("sceneConfig");
                 break;
             case "spectator":
                 spectatorPanel.SetActive(true);
-                HeaderPanel.Instance.UpdateButtonState("spectator");
                 break;
         }
-        
+
         // 更新当前窗口状态
         currentWindow = targetWindow;
+        // 由 HeaderPanel 统一根据当前窗口更新导航栏按钮图片
+        HeaderPanel.Instance?.UpdateButtonState(targetWindow);
     }
 
     /// <summary>
