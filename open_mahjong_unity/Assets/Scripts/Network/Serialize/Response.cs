@@ -5,6 +5,7 @@ using System.Collections.Generic;
 public class RoomInfo {
     public string room_id;
     public string room_type;
+    public string room_rule;
     public string sub_rule;       // 子规则，如 guobiao/standard、guobiao/xiaolin、qingque/standard
     public int hepai_limit;       // 起和番数（国标有效）
     public bool tourist_limit;    // 是否限制游客加入
@@ -41,6 +42,8 @@ public class ShowResultInfo { // 显示结算结果
     public int[] hepai_player_huapai; // 和牌玩家花牌列表
     public int[][] hepai_player_combination_mask; // 和牌玩家组合掩码
     public int action_tick;
+    public int? base_fu; // 古典麻将：基础副数
+    public string[] fu_fan_list; // 古典麻将：副番名列表
 }
 
 public class AskHandActionGBInfo { // 询问手牌操作
@@ -106,7 +109,8 @@ public class GameInfo { // 游戏开始时传递房间信息
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时
-    public string room_type;            // 房间类型
+    public string room_type;            // 房间类型（custom/match等）
+    public string room_rule;            // 房间规则（guobiao/qingque等）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     public int hepai_limit;             // 起和番限制（国标有效，默认8）
     public bool open_cuohe;             // 是否开启错和

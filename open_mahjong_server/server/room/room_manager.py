@@ -95,7 +95,8 @@ class RoomManager:
             # 创建房间数据头
             room_data = {
                 "room_id": room_id, # 房间ID
-                "room_type": "guobiao", # 房间类型
+                "room_type": "custom", # 房间类型（自定义对局）
+                "room_rule": "guobiao", # 房间规则（用于游戏与统计）
                 "sub_rule": sub_rule, # 子规则
                 "hepai_limit": hepai_limit, # 起和番限制
                 "tourist_limit": tourist_limit, # 游客限制
@@ -217,7 +218,8 @@ class RoomManager:
             # 创建房间数据头
             room_data = {
                 "room_id": room_id, # 房间ID
-                "room_type": "qingque", # 房间类型（青雀）
+                "room_type": "custom", # 房间类型（自定义对局）
+                "room_rule": "qingque", # 房间规则（用于游戏与统计）
                 "sub_rule": sub_rule, # 子规则
                 "hepai_limit": 1, # 青雀起和限制固定为1
                 "tourist_limit": tourist_limit, # 游客限制
@@ -268,6 +270,90 @@ class RoomManager:
                 success=False,
                 message=f"创建房间失败: {str(e)}"
         )
+
+    async def create_Classical_room(self, player_id: str, room_name: str, gameround: int,
+                                    password: str, roundTimerValue: int, stepTimerValue: int,
+                                    tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+        """创建古典麻将房间"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            host_user_id = player.user_id
+            host_name = player.username
+
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+
+            has_password = password != ""
+
+            room_config = {
+                "room_name": room_name,
+                "game_round": gameround,
+                "round_timer": roundTimerValue,
+                "step_timer": stepTimerValue,
+                "random_seed": random_seed,
+                "open_cuohe": False,
+            }
+
+            try:
+                validator_class = self.room_validators["guobiao"]
+                validated_config = validator_class(**room_config)
+            except ValueError as e:
+                return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
+
+            room_id = self._generate_room_id()
+
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "classical",
+                "sub_rule": sub_rule,
+                "hepai_limit": 1,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": allow_spectator,
+                "max_player": 4,
+                "player_list": [host_user_id],
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },
+                "has_password": has_password,
+                "tips": tips,
+                "host_user_id": host_user_id,
+                "host_name": host_name,
+                "is_game_running": False,
+            }
+
+            room_data.update(validated_config.dict())
+
+            self.rooms[room_id] = room_data
+            if has_password:
+                self.room_passwords[room_id] = password
+
+            player.current_room_id = room_id
+
+            await self._broadcast_room_info(room_id)
+
+            return Response(
+                type="room/create_room_done",
+                success=True,
+                message="房间创建成功",
+                room_info=room_data
+            )
+
+        except Exception as e:
+            return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
 
     def get_room_list(self, show_tip: bool = False) -> Response:
         try:

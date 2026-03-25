@@ -391,6 +391,58 @@ class DatabaseManager:
                 );
             """)
 
+            # 创建表 classical_history_stats（古典麻将基础统计表）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS classical_history_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    total_games INT NOT NULL DEFAULT 0,
+                    total_rounds INT NOT NULL DEFAULT 0,
+                    win_count INT NOT NULL DEFAULT 0,
+                    self_draw_count INT NOT NULL DEFAULT 0,
+                    deal_in_count INT NOT NULL DEFAULT 0,
+                    total_fan_score INT NOT NULL DEFAULT 0,
+                    total_win_turn INT NOT NULL DEFAULT 0,
+                    total_fangchong_score INT NOT NULL DEFAULT 0,
+                    first_place_count INT NOT NULL DEFAULT 0,
+                    second_place_count INT NOT NULL DEFAULT 0,
+                    third_place_count INT NOT NULL DEFAULT 0,
+                    fourth_place_count INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
+            # 创建表 classical_fan_stats（古典麻将番种统计表）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS classical_fan_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    zimo INT NOT NULL DEFAULT 0,
+                    hunyise INT NOT NULL DEFAULT 0,
+                    xiaosanyuan INT NOT NULL DEFAULT 0,
+                    qingyise INT NOT NULL DEFAULT 0,
+                    ziyise INT NOT NULL DEFAULT 0,
+                    luanfengheming INT NOT NULL DEFAULT 0,
+                    lingshangkaihua INT NOT NULL DEFAULT 0,
+                    haidilaoyue INT NOT NULL DEFAULT 0,
+                    jinjidoushi INT NOT NULL DEFAULT 0,
+                    dasanyuan INT NOT NULL DEFAULT 0,
+                    dasixi INT NOT NULL DEFAULT 0,
+                    xiaosixi INT NOT NULL DEFAULT 0,
+                    tianhe INT NOT NULL DEFAULT 0,
+                    dihe INT NOT NULL DEFAULT 0,
+                    jiulianbaodeng INT NOT NULL DEFAULT 0,
+                    guoshiwushuang INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
             # 创建表user_settings（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_settings (
@@ -1032,3 +1084,10 @@ from .qingque.store_qingque import store_qingque_game_record, store_qingque_game
 DatabaseManager.store_qingque_game_record = store_qingque_game_record
 DatabaseManager.store_qingque_game_stats = store_qingque_game_stats
 DatabaseManager.store_qingque_fan_stats = store_qingque_fan_stats
+
+# 挂载古典麻将相关方法到 DatabaseManager 类
+from .classical.store_classical import store_classical_game_record, store_classical_game_stats, store_classical_fan_stats
+
+DatabaseManager.store_classical_game_record = store_classical_game_record
+DatabaseManager.store_classical_game_stats = store_classical_game_stats
+DatabaseManager.store_classical_fan_stats = store_classical_fan_stats

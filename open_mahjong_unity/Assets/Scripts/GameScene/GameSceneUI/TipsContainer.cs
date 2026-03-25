@@ -154,13 +154,13 @@ public class TipsContainer : MonoBehaviour
             List<string> combinationList = new List<string>(gameManager.player_to_info["self"].combination_tiles ?? new List<string>());
             int huapaiCount = gameManager.player_to_info["self"].huapai_list.Count;
             
-            // 根据规则类型调用不同的处理方法
-            if (gameManager.roomType == "qingque") {
+            // 根据房间规则调用不同的处理方法
+            if (gameManager.roomRule == "qingque") {
                 ProcessQingqueTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
-            } else if (gameManager.roomType == "guobiao" || (gameManager.roomType != null && gameManager.roomType.StartsWith("guobiao/"))) {
+            } else if (gameManager.roomRule == "guobiao") {
                 ProcessGuobiaoTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
             } else {
-                Debug.LogWarning($"未知的规则类型: {gameManager.roomType}");
+                Debug.LogWarning($"未知的规则类型: {gameManager.roomRule}");
             }
         }
     }
@@ -177,17 +177,17 @@ public class TipsContainer : MonoBehaviour
         List<string> mergedWayToHepai,
         int huapaiCount)
     {
-        string roomType = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomType : null;
+        string subRule = NormalGameStateManager.Instance.subRule;
 
         Tuple<int, List<string>> dianheResult;
-        if (roomType == "guobiao/xiaolin") {
+        if (subRule == "guobiao/xiaolin") {
             dianheResult = GBhepaiXiaolin.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
             dianheResult = GBhepaiXiaolin.FilterZeroValueFans(dianheResult.Item1, dianheResult.Item2);
         } else {
             dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         }
         int dianheFan = dianheResult.Item1;
-        int hepaiLimit = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.hepaiLimit : 8;
+        int hepaiLimit = NormalGameStateManager.Instance.hepaiLimit;
 
         if (dianheFan - huapaiCount >= hepaiLimit) {
             // 番数达到起和限制，显示卡牌和番数
@@ -203,7 +203,7 @@ public class TipsContainer : MonoBehaviour
             zimoWayToHepai.Add("自摸");
 
             Tuple<int, List<string>> zimoResult;
-            if (roomType == "guobiao/xiaolin") {
+            if (subRule == "guobiao/xiaolin") {
                 zimoResult = GBhepaiXiaolin.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
                 zimoResult = GBhepaiXiaolin.FilterZeroValueFans(zimoResult.Item1, zimoResult.Item2);
             } else {

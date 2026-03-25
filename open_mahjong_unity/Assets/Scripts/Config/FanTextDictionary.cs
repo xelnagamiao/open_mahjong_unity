@@ -102,16 +102,73 @@ public static class FanTextDictionary {
         {"自摸", "1番"}, {"门前清", "1番"}, {"明杠", "1番"}, {"断幺", "1番"}, {"喜相逢", "1番"}, {"连六", "1番"}, {"老少副", "1番"}, {"幺九刻", "1番"},
     };
 
+    /// <summary>
+    /// 古典规则副数说明（Fu）
+    /// </summary>
+    public static readonly Dictionary<string, string> FuToDisplayClassical = new Dictionary<string, string> {
+        {"和牌", "10副"}, {"自摸", "2副"}, {"边嵌吊", "2副"},
+        {"刻子", "2副"}, {"暗刻", "4副"}, {"明杠", "8副"}, {"暗杠", "16副"},
+        {"幺九刻", "4副"}, {"幺九暗刻", "8副"}, {"幺九明杠", "16副"}, {"幺九暗杠", "32副"},
+        {"番牌刻", "8副"}, {"番牌暗刻", "16副"}, {"番牌明杠", "32副"}, {"番牌暗杠", "64副"},
+        {"满贯", "300副"},
+
+        {"刻子*2", "4副"}, {"刻子*3", "6副"}, {"刻子*4", "8副"},
+        {"暗刻*2", "8副"}, {"暗刻*3", "12副"}, {"暗刻*4", "16副"},
+        {"明杠*2", "16副"}, {"明杠*3", "24副"}, {"明杠*4", "32副"},
+        {"暗杠*2", "32副"}, {"暗杠*3", "48副"}, {"暗杠*4", "64副"},
+
+        {"幺九刻*2", "8副"}, {"幺九刻*3", "12副"}, {"幺九刻*4", "16副"},
+        {"幺九暗刻*2", "16副"}, {"幺九暗刻*3", "24副"}, {"幺九暗刻*4", "32副"},
+        {"幺九明杠*2", "32副"}, {"幺九明杠*3", "48副"}, {"幺九明杠*4", "64副"},
+        {"幺九暗杠*2", "64副"}, {"幺九暗杠*3", "96副"}, {"幺九暗杠*4", "128副"},
+
+        {"番牌刻*2", "16副"}, {"番牌刻*3", "24副"}, {"番牌刻*4", "32副"},
+        {"番牌暗刻*2", "32副"}, {"番牌暗刻*3", "48副"}, {"番牌暗刻*4", "64副"},
+        {"番牌明杠*2", "64副"}, {"番牌明杠*3", "96副"}, {"番牌明杠*4", "128副"},
+        {"番牌暗杠*2", "128副"}, {"番牌暗杠*3", "192副"}, {"番牌暗杠*4", "256副"}
+    };
+
+    /// <summary>
+    /// 古典规则番数说明（Fan）
+    /// </summary>
+    public static readonly Dictionary<string, string> FanToDisplayClassical = new Dictionary<string, string> {
+        {"自摸", "0翻"},
+        {"混一色", "1翻"},
+        {"小三元", "2翻"},
+        {"清一色", "3翻"},
+        {"字一色", "3翻"},
+        {"鸾凤和鸣", "1翻"},
+        {"岭上开花", "1翻"},
+        {"海底捞月", "1翻"},
+        {"金鸡夺食", "1翻"},
+        {"大三元", "满贯"},
+        {"大四喜", "满贯"},
+        {"小四喜", "满贯"},
+        {"天和", "满贯"},
+        {"地和", "满贯"},
+        {"九莲宝灯", "满贯"},
+        {"国士无双", "满贯"},
+    };
+
+
+    /// <summary>
+    /// 古典规则：根据副种名称返回副数显示文本（如 "10副"），未命中时返回 "0副"。
+    /// </summary>
+    public static string GetFuDisplayText(string fuName) {
+        if (FuToDisplayClassical.TryGetValue(fuName, out string display)) return display;
+        return "0副";
+    }
 
     /// <summary>
     /// 根据规则与番种名称返回显示文本（如 "88番"），未命中时返回 "0番"。
     /// </summary>
     public static string GetFanDisplayText(string rule, string fanName) {
         Dictionary<string, string> map = null;
-        if (rule == "guobiao" || rule == "guobiao/standard") map = FanToDisplayGuobiao;
-        else if (rule == "qingque") map = FanToDisplayQingque;
+        if (rule == "guobiao/standard") map = FanToDisplayGuobiao;
+        else if (rule == "qingque/standard") map = FanToDisplayQingque;
         else if (rule == "guobiao/xiaolin") map = FanToDisplayXiaolin;
         else if (rule == "guobiao/lanshi") map = FanToDisplayLanshi;
+        else if (rule == "classical/standard") map = FanToDisplayClassical;
         if (map != null && map.TryGetValue(fanName, out string display)) return display;
         return "0番";
     }

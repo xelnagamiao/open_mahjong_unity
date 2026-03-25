@@ -78,15 +78,17 @@ public partial class BoardCanvas : MonoBehaviour {
         // 设置剩余牌数
         remiansTilesText.text = $"余:{gameInfo.tile_count}"; 
 
-        // 设置当前回合（guobiao/standard、guobiao/xiaolin 均按国标轮次显示）
-        string roomType = gameInfo.room_type;
+        // 设置当前回合（按 room_rule 判断）
+        string roomType = gameInfo.room_rule;
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao" || (roomType != null && roomType.StartsWith("guobiao/"))) {
+        if (roomType == "guobiao") {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
             roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
+        } else if (roomType == "classical") {
+            roundMap = RoundTextDictionary.CurrentRoundTextClassical;
         }
 
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {
@@ -138,12 +140,14 @@ public partial class BoardCanvas : MonoBehaviour {
         remiansTilesText.text = $"余:{Mathf.Max(remainTiles, 0)}";
 
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao" || (roomType != null && roomType.StartsWith("guobiao/"))) {
+        if (roomType == "guobiao") {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
         } else if (roomType == "qingque") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (roomType == "riichi") {
             roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
+        } else if (roomType == "classical") {
+            roundMap = RoundTextDictionary.CurrentRoundTextClassical;
         }
 
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string currentRoundStr)) {

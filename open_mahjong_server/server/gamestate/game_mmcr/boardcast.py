@@ -23,7 +23,8 @@ async def broadcast_game_start(self):
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
-        'room_type': self.room_type, # 房间类型
+        'room_type': self.room_type, # 房间类型（custom/match等）
+        'room_rule': self.room_rule, # 房间规则（guobiao/qingque等）
         'sub_rule': getattr(self, 'sub_rule', 'qingque/standard'), # 子规则
         'hepai_limit': getattr(self, 'hepai_limit', 1), # 青雀起和固定 1
         'open_cuohe': self.open_cuohe, # 是否开启错和

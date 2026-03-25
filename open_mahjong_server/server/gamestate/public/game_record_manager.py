@@ -17,7 +17,7 @@ from datetime import date, datetime
 # 牌谱记录游戏头
 def init_game_record(self):
     self.game_record["game_title"] = {
-        "rule": self.room_type,
+        "rule": self.room_rule,
         "game_random_seed": self.game_random_seed,
         "max_round": self.max_round,
         "start_time": datetime.now(),

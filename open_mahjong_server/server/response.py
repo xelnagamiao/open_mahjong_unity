@@ -39,6 +39,7 @@ class GameInfo(BaseModel):
     step_time: int
     round_time: int
     room_type: str
+    room_rule: str
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     hepai_limit: Optional[int] = None  # 起和番限制（国标有效，默认8）
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
@@ -83,6 +84,8 @@ class Show_result_info(BaseModel):
     hepai_player_huapai: Optional[List[int]] = None  # 和牌玩家花牌列表
     hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
     action_tick: int
+    base_fu: Optional[int] = None  # 古典麻将：基础副数
+    fu_fan_list: Optional[List[str]] = None  # 古典麻将：副番名列表
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）

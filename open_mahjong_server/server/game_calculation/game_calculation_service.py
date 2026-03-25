@@ -11,10 +11,16 @@ try:
     from .guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles
     from .guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check
     from .gb_tingpai_check import Chinese_Tingpai_Check
+    from .classical.classical_hepai_check import Classical_Hepai_Check
+    from .classical.classical_tingpai_check import Classical_Tingpai_Check
+    from .classical.classical_fushu_check import Classical_Fushu_Check
 except ImportError:
     from guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
     from guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check  # type: ignore
     from gb_tingpai_check import Chinese_Tingpai_Check  # type: ignore
+    from classical.classical_hepai_check import Classical_Hepai_Check  # type: ignore
+    from classical.classical_tingpai_check import Classical_Tingpai_Check  # type: ignore
+    from classical.classical_fushu_check import Classical_Fushu_Check  # type: ignore
 
 # Qingque13 C# 桥接模块
 try:
@@ -47,6 +53,9 @@ class GameCalculationService:
         self._hepai_check = Chinese_Hepai_Check()
         self._xiaolin_hepai_check = Xiaolin_Hepai_Check()
         self._tingpai_check = Chinese_Tingpai_Check()
+        self._classical_hepai_check = Classical_Hepai_Check()
+        self._classical_tingpai_check = Classical_Tingpai_Check()
+        self._classical_fushu_check = Classical_Fushu_Check()
 
     def Qingque_hepai_check(
         self,
@@ -152,6 +161,39 @@ class GameCalculationService:
         """
         with self._lock:
             return self._tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Classical_hepai_check(
+        self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int
+    ) -> Tuple[int, int, List[str], List[str]]:
+        """
+        古典麻将和牌检查：
+        返回 (副数, 总副数, 副番名列表, 番名列表)。
+        way_to_hepai 可传参数：
+        - 副相关：和牌、自摸、边嵌吊
+        - 门风相关（仅门风作役牌，不含圈风）：门风东、门风南、门风西、门风北
+        - 翻相关：岭上开花(或杠上开花)、海底捞月、金鸡夺食(或抢杠和)
+        - 满贯相关：天和、地和、九莲宝灯、国士无双
+        """
+        with self._lock:
+            return self._classical_hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
+
+    def Classical_tingpai_check(self, hand_tile_list: List[int], combination_list: List[str]) -> Set[int]:
+        """
+        古典麻将听牌检查（仅一般形）。
+        """
+        with self._lock:
+            return self._classical_tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Classical_fushu_check(
+        self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int
+    ) -> int:
+        """
+        古典麻将基础副数检查：
+        返回可和牌型中的最大基础副数。
+        way_to_hepai 可传参数：和牌、自摸、边嵌吊、门风东/门风南/门风西/门风北，以及满贯项（天和、地和、九莲宝灯、国士无双）。
+        """
+        with self._lock:
+            return self._classical_fushu_check.fushucheck(hand_list, tiles_combination, way_to_hepai, get_tile)
 
 
 if __name__ == "__main__":

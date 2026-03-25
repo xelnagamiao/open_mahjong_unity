@@ -33,26 +33,32 @@ public class GameStateNetworkManager : MonoBehaviour {
         switch (response.type) {
             case "gamestate/guobiao/game_start":
             case "gamestate/qingque/game_start":
+            case "gamestate/classical/game_start":
                 HandleGameStart(response);
                 break;
             case "gamestate/guobiao/broadcast_hand_action":
             case "gamestate/qingque/broadcast_hand_action":
+            case "gamestate/classical/broadcast_hand_action":
                 HandleBroadcastHandAction(response);
                 break;
             case "gamestate/guobiao/ask_other_action":
             case "gamestate/qingque/ask_other_action":
+            case "gamestate/classical/ask_other_action":
                 HandleAskOtherAction(response);
                 break;
             case "gamestate/guobiao/do_action":
             case "gamestate/qingque/do_action":
+            case "gamestate/classical/do_action":
                 HandleDoAction(response);
                 break;
             case "gamestate/guobiao/show_result":
             case "gamestate/qingque/show_result":
+            case "gamestate/classical/show_result":
                 HandleShowResult(response);
                 break;
             case "gamestate/guobiao/game_end":
             case "gamestate/qingque/game_end":
+            case "gamestate/classical/game_end":
                 HandleGameEnd(response);
                 break;
             case "switch_seat":
@@ -66,6 +72,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 break;
             case "gamestate/guobiao/ready_status":
             case "gamestate/qingque/ready_status":
+            case "gamestate/classical/ready_status":
                 HandleReadyStatus(response);
                 break;
             default:
@@ -142,7 +149,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.hu_class,
             showresponse.hepai_player_hand,
             showresponse.hepai_player_huapai,
-            showresponse.hepai_player_combination_mask
+            showresponse.hepai_player_combination_mask,
+            showresponse.base_fu,
+            showresponse.fu_fan_list
         );
     }
     

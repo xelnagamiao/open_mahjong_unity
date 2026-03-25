@@ -245,6 +245,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_guobiao_stats":
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
+                case "data/get_classical_stats":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
                 // 观战系统：初始牌谱 / 增量更新 → GameRecordManager
@@ -268,18 +269,25 @@ public class NetworkManager : MonoBehaviour {
                 case "gamestate/get_spectator_list":
                 case "gamestate/guobiao/game_start":
                 case "gamestate/qingque/game_start":
+                case "gamestate/classical/game_start":
                 case "gamestate/guobiao/broadcast_hand_action":
                 case "gamestate/qingque/broadcast_hand_action":
+                case "gamestate/classical/broadcast_hand_action":
                 case "gamestate/guobiao/ask_other_action":
                 case "gamestate/qingque/ask_other_action":
+                case "gamestate/classical/ask_other_action":
                 case "gamestate/guobiao/do_action":
                 case "gamestate/qingque/do_action":
+                case "gamestate/classical/do_action":
                 case "gamestate/guobiao/show_result":
                 case "gamestate/qingque/show_result":
+                case "gamestate/classical/show_result":
                 case "gamestate/guobiao/game_end":
                 case "gamestate/qingque/game_end":
+                case "gamestate/classical/game_end":
                 case "gamestate/guobiao/ready_status":
                 case "gamestate/qingque/ready_status":
+                case "gamestate/classical/ready_status":
                 case "switch_seat":
                 case "refresh_player_tag_list":
                     GameStateNetworkManager.Instance?.HandleGameStateMessage(response);

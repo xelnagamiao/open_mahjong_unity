@@ -1,17 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 
 public class NotificationManager : MonoBehaviour {
     
     [Header("Tips 配置")]
-
-    // 显示面板
     [SerializeField] private GameObject tipsPosition;
-    [SerializeField] private TipsPrefab tipsPrefab;              // Tips 预制体（包含 TipsPrefab 脚本）
-    [SerializeField] private float defaultTipDuration = 3f;      // Tips 默认显示时长
+    [SerializeField] private TipItem tipItemPrefab;                // Tips 预制体（挂 TipItem + CanvasGroup）
+    [SerializeField] private float defaultTipDuration = 5f;  // Tips 默认显示时长
+    private TipStackController _tipStack;
 
     [Header("PlayerInfo 配置")]
     [SerializeField] private GameObject playerInfoPosition;
@@ -30,6 +27,10 @@ public class NotificationManager : MonoBehaviour {
             return;
         }
         Instance = this;
+        if (tipsPosition != null) {
+            _tipStack = tipsPosition.GetComponent<TipStackController>();
+            if (_tipStack == null) _tipStack = tipsPosition.AddComponent<TipStackController>();
+        }
     }
 
     /// <summary>
@@ -40,13 +41,12 @@ public class NotificationManager : MonoBehaviour {
     /// <param name="message">显示内容</param>
     /// <param name="duration">自定义显示时长，传入 &lt;=0 则使用默认值</param>
     public void ShowTip(string type, bool isSuccess, string message, float duration = -1f) {
-
         Transform parent = tipsPosition.transform;
-        TipsPrefab tipInstance = Instantiate(tipsPrefab, parent.position, parent.rotation, parent);
-        tipInstance.ShowMessage(type, isSuccess, message);
-
+        TipItem tipItem = Instantiate(tipItemPrefab, parent.position, parent.rotation, parent);
+        tipItem.ShowMessage(type, isSuccess, message);
         float lifeTime = duration > 0f ? duration : defaultTipDuration;
-        StartCoroutine(DestroyTipAfterDelay(tipInstance.gameObject, lifeTime));
+        _tipStack.Push(tipItem);
+        tipItem.Init(lifeTime);
     }
 
     /// <summary>
@@ -94,13 +94,4 @@ public class NotificationManager : MonoBehaviour {
             ShowTip("错误", false, $"获取玩家信息失败: {message}");
         }
     }
-    
-    // tips销毁协程
-    private IEnumerator DestroyTipAfterDelay(GameObject tipInstance, float delay) {
-        yield return new WaitForSeconds(delay);
-        if (tipInstance != null) {
-            Destroy(tipInstance);
-        }
-    }
-
 }

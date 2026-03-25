@@ -21,6 +21,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_create_GB_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Qingque_room":
         await handle_create_Qingque_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/create_Classical_room":
+        await handle_create_Classical_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/get_room_list":
         await handle_get_room_list(game_server, Connect_id, message, websocket)
     elif message_type == "room/join_room":
@@ -93,6 +95,35 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message["tips"],
         message["random_seed"],
         message.get("sub_rule", "qingque/standard"),
+        message.get("tourist_limit", False),
+        message.get("allow_spectator", True),
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_create_Classical_room(game_server, Connect_id: str, message: dict, websocket):
+    """处理创建古典麻将房间请求"""
+    logging.info(f"创建古典麻将房间请求 - 用户名: {Connect_id}")
+    if Connect_id in game_server.players:
+        player = game_server.players[Connect_id]
+        if player.current_room_id:
+            response = Response(
+                type="tips",
+                success=False,
+                message="已经处于一个房间中，请先退出房间再创建新房间"
+            )
+            await websocket.send_json(response.dict(exclude_none=True))
+            return
+
+    response = await game_server.create_Classical_room(
+        Connect_id,
+        message["roomname"],
+        message["gameround"],
+        message["password"],
+        message["roundTimerValue"],
+        message["stepTimerValue"],
+        message["tips"],
+        message["random_seed"],
+        message.get("sub_rule", "classical/standard"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
     )

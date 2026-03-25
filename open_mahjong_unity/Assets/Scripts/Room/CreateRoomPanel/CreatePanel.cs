@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using TMPro;
 
 /// <summary>
-/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / ricchi / qingque）切换不同功能的显示与创建逻辑。
+/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / ricchi / qingque / classical）切换不同功能的显示与创建逻辑。
 /// </summary>
 public class CreatePanel : MonoBehaviour {
-    /// <summary>规则状态：guobiao / ricchi / qingque，与 chooseRule 下拉索引对应 0/1/2。</summary>
+    /// <summary>规则状态：guobiao / ricchi / qingque / classical，与 chooseRule 下拉索引对应 0/1/2/3。</summary>
     private string _ruleState = "guobiao";
 
     [Header("Dropdown")]
@@ -35,6 +35,10 @@ public class CreatePanel : MonoBehaviour {
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
     [SerializeField] private GameObject PasswordPanel;
+
+
+
+    
     [SerializeField] private GameObject InputHepaiLimitPlane;
 
     [Header("输入字段")]
@@ -52,14 +56,15 @@ public class CreatePanel : MonoBehaviour {
         { "qingque/standard", "青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照；如在测试中发现设计问题或有任何建议，可以联系规则制定人莫莫柴Q1107574，提交bug可在群906497522提交" },
         { "guobiao/standard", "国标麻将源于国家体育总局于1998年11月出台的《中国竞技麻将比赛规则(试行)》、是中国唯一由官方确立的竞技麻将规则；本平台参照Natsuki编著的新编MCR撰写运行逻辑，已通过所有牌例验证，如发现测试过程中出现了不符合国标麻将规则预期的行为，请向Q群906497522反馈。" },
         { "guobiao/xiaolin", "小林改版国标麻将，对国标麻将进行了番数平衡，还处于测试版，取消了8番起胡和底分，改为点和得分x2，自摸番三。非竞技规则，只为娱乐。" },
-        { "guobiao/lanshi", "蓝十改版的国标麻将规则，对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。" }
+        { "guobiao/lanshi", "蓝十改版的国标麻将规则，对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。" },
+        { "classical/standard", "本规则为根据《绘图麻雀牌谱》《想定宁波规则》等书籍文献资料汇总而成的，试图还原1920年代左右或以前的早期麻将样貌的麻将规则。相比现代规则，古典麻雀有番种体系简单、重刻杠幺九、未和牌家计分等特点，具有独特风味。" }
     };
 
     private void Start() {
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         closeButton.onClick.AddListener(ClosePanel);
         createButton.onClick.AddListener(CreateRoom);
-        if (addRuleButton != null) addRuleButton.onClick.AddListener(OnAddRuleClick);
+        addRuleButton.onClick.AddListener(OnAddRuleClick);
 
         SetRandomSeedPanel.SetActive(false);
         PasswordPanel.SetActive(false);
@@ -88,6 +93,7 @@ public class CreatePanel : MonoBehaviour {
             0 => "guobiao",
             1 => "ricchi",
             2 => "qingque",
+            3 => "classical",
             _ => "guobiao"
         };
         RefreshVisibility();
@@ -111,7 +117,9 @@ public class CreatePanel : MonoBehaviour {
     }
 
     private string GetCurrentSubRuleKey() {
-        return _ruleState == "qingque" ? "qingque/standard" : GetSelectedSubRule();
+        if (_ruleState == "qingque") return "qingque/standard";
+        if (_ruleState == "classical") return "classical/standard";
+        return GetSelectedSubRule();
     }
 
     private void RefreshSubRuleDescription() {
@@ -178,6 +186,11 @@ public class CreatePanel : MonoBehaviour {
 
         if (_ruleState == "qingque") {
             CreateQingqueRoom();
+            return;
+        }
+
+        if (_ruleState == "classical") {
+            CreateClassicalRoom();
         }
     }
 
@@ -244,6 +257,29 @@ public class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Qingque_Room(config);
+    }
+
+    private void CreateClassicalRoom() {
+        var config = new Qingque_Create_RoomConfig {
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "classical",
+            SubRule = "classical/standard",
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = AllowSpectatorToggle.isOn,
+        };
+
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Classical_Room(config);
     }
 
     private int GetSelectedGameTime() {

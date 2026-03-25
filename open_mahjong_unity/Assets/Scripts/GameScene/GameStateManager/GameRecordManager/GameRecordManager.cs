@@ -860,7 +860,7 @@ public partial class GameRecordManager : MonoBehaviour {
         string ruleKey = ReadGameTitleString(gt, "rule", "").ToLowerInvariant();
         string subRule = ReadGameTitleString(gt, "sub_rule", "");
         string rule = RuleNameDictionary.GetWholeName(subRule);
-        if (string.IsNullOrEmpty(rule)) rule = (ruleKey.Contains("guobiao") ? "国标" : (ruleKey.Contains("qingque") ? "青雀" : (ruleKey.Contains("riichi") ? "立直" : "未知规则")));
+        if (string.IsNullOrEmpty(rule)) rule = (ruleKey.Contains("guobiao") ? "国标" : (ruleKey.Contains("qingque") ? "青雀" : (ruleKey.Contains("classical") ? "古典" : (ruleKey.Contains("riichi") ? "立直" : "未知规则"))));
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("【游戏信息】");

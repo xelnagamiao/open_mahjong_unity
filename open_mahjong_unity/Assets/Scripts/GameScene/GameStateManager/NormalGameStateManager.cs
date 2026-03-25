@@ -38,7 +38,9 @@ public class NormalGameStateManager : MonoBehaviour{
     // 房间信息
     public int roomId; // 房间ID
     public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
-    public string roomType; // 房间规则类型（用于番表显示：guobiao/standard、guobiao/xiaolin、qingque 等）
+    public string roomType; // 房间类型（custom/match等）
+    public string roomRule; // 房间规则（guobiao/qingque等）
+    public string subRule;  // 子规则（guobiao/standard、guobiao/xiaolin、qingque/standard）
     public int hepaiLimit = 8; // 起和番限制（国标有效，服务器下发的 hepai_limit，默认8）
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
@@ -303,7 +305,7 @@ public class NormalGameStateManager : MonoBehaviour{
     }
 
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 隐藏和牌提示
@@ -317,7 +319,7 @@ public class NormalGameStateManager : MonoBehaviour{
         else{
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
             SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
-            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask);
+            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list);
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
@@ -648,8 +650,9 @@ public class NormalGameStateManager : MonoBehaviour{
             }
         }
         roomId = gameInfo.room_id; // 存储房间ID
-        // 有 sub_rule 时用 sub_rule 作为 roomType（番表/结算显示），否则用 room_type
-        roomType = !string.IsNullOrEmpty(gameInfo.sub_rule) ? gameInfo.sub_rule : gameInfo.room_type;
+        roomType = gameInfo.room_type;
+        roomRule = gameInfo.room_rule;
+        subRule = gameInfo.sub_rule;
         hepaiLimit = gameInfo.hepai_limit > 0 ? gameInfo.hepai_limit : 8; // 起和番限制，国标提示用
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时

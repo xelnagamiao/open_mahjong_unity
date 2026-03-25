@@ -179,6 +179,41 @@ public class RoomNetworkManager : MonoBehaviour {
     }
     
     /// <summary>
+    /// 创建古典麻将房间
+    /// </summary>
+    public async void Create_Classical_Room(Qingque_Create_RoomConfig config) {
+        try {
+            int randomSeed = 0;
+            if (!string.IsNullOrEmpty(config.RandomSeed)) {
+                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
+                    randomSeed = 0;
+                }
+            }
+
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Classical_room",
+                rule = config.Rule,
+                sub_rule = config.SubRule ?? "classical/standard",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = false,
+                hepai_limit = 1,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator
+            };
+            Debug.Log($"发送创建古典麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
+
+    /// <summary>
     /// 获取房间列表。show_tip 会随请求发送，服务端原样回显，客户端据此决定是否显示 tips。
     /// </summary>
     /// <param name="showTipOnSuccess">仅手动点击刷新按钮时为 true，自动刷新和切换菜单时为 false</param>

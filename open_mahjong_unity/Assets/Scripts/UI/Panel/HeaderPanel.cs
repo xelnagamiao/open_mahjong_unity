@@ -30,21 +30,23 @@ public class HeaderPanel : MonoBehaviour {
     }
 
     private void Start() {
-        backToGameButton.Button.gameObject.SetActive(false);
-        matchButton.Button.onClick.AddListener(OnMatchClick);
-        menuButton.Button.onClick.AddListener(Menu);
-        roomButton.Button.onClick.AddListener(Room);
-        recordButton.Button.onClick.AddListener(Record);
-        playerDataButton.Button.onClick.AddListener(PlayerInfo);
-        configButton.Button.onClick.AddListener(Config);
-        aboutUsButton.Button.onClick.AddListener(AboutUs);
-        noticeButton.Button.onClick.AddListener(Notice);
-        sceneConfigButton.Button.onClick.AddListener(SceneConfig);
-        spectatorButton.Button.onClick.AddListener(Spectator);
-    }
+        if (backToGameButton != null) {
+            backToGameButton.Button.gameObject.SetActive(false);
+        }
 
-    private void OnMatchClick() {
-        NotificationManager.Instance?.ShowTip("段位", false, "段位系统仍在开发中,将在 release 4 更新中上线");
+        if (matchButton != null) {
+            matchButton.Button.onClick.AddListener(Match);
+        }
+
+        if (menuButton != null) menuButton.Button.onClick.AddListener(Menu);
+        if (roomButton != null) roomButton.Button.onClick.AddListener(Room);
+        if (recordButton != null) recordButton.Button.onClick.AddListener(Record);
+        if (playerDataButton != null) playerDataButton.Button.onClick.AddListener(PlayerInfo);
+        if (configButton != null) configButton.Button.onClick.AddListener(Config);
+        if (aboutUsButton != null) aboutUsButton.Button.onClick.AddListener(AboutUs);
+        if (noticeButton != null) noticeButton.Button.onClick.AddListener(Notice);
+        if (sceneConfigButton != null) sceneConfigButton.Button.onClick.AddListener(SceneConfig);
+        if (spectatorButton != null) spectatorButton.Button.onClick.AddListener(Spectator);
     }
 
     private void Menu() => WindowsManager.Instance.SwitchWindow("menu");
@@ -59,6 +61,7 @@ public class HeaderPanel : MonoBehaviour {
     private void Notice() => WindowsManager.Instance.SwitchWindow("notice");
     private void SceneConfig() => WindowsManager.Instance.SwitchWindow("sceneConfig");
     private void Spectator() => WindowsManager.Instance.SwitchWindow("spectator");
+    private void Match() => WindowsManager.Instance.SwitchWindow("match");
 
     /// <summary>
     /// 根据当前窗口更新导航栏按钮状态（由 WindowsManager.SwitchWindow 末尾调用）。Stay 颜色仅在此处设置。
@@ -79,10 +82,10 @@ public class HeaderPanel : MonoBehaviour {
         noticeButton?.SetState(_currentWindowName == "notice", false, default);
         sceneConfigButton?.SetState(_currentWindowName == "sceneConfig", false, default);
         spectatorButton?.SetState(_currentWindowName == "spectator", false, default);
-        matchButton?.SetState(false, false, default);
+        matchButton?.SetState(_currentWindowName == "match", false, default);
     }
 
     private static bool IsInRoom() {
-        return UserDataManager.Instance != null && !string.IsNullOrEmpty(UserDataManager.Instance.RoomId);
+        return UserDataManager.Instance != null && UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE;
     }
 }
