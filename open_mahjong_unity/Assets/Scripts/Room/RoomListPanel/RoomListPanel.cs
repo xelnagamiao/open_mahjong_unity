@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -17,14 +16,12 @@ public class RoomListPanel : MonoBehaviour {
 
 
     [Header("Password Input")]
-    [SerializeField] private GameObject passwordInputPanel; // 密码输入面板
-    [SerializeField] private float passwordPanelFadeDuration = 0.2f; // 与 WindowFadeTransition 一致的渐显/渐隐时长
+    [SerializeField] private PanelPopupTransition passwordInputPanel; // 密码输入面板（挂载 PanelPopupTransition）
     [SerializeField] private TMP_InputField passwordInput; // 密码输入框
     [SerializeField] private Button passwordInputAdmit; // 密码输入按钮
     [SerializeField] private Button passwordInputCancel; // 密码输入取消按钮
 
     private string roomId;
-    private Coroutine _passwordPanelFadeRoutine;
 
     private void Start() {
         // 初始化按钮监听 1.显示房间面板 2.刷新房间列表 3.加入房间
@@ -34,7 +31,7 @@ public class RoomListPanel : MonoBehaviour {
         // 订阅密码输入按钮
         passwordInputAdmit.onClick.AddListener(PasswordInputAdmit);
         passwordInputCancel.onClick.AddListener(PasswordInputCancel);
-        if (passwordInputPanel != null) passwordInputPanel.SetActive(false);
+        if (passwordInputPanel != null) passwordInputPanel.gameObject.SetActive(false);
     }
 
     private void Awake() {
@@ -98,14 +95,12 @@ public class RoomListPanel : MonoBehaviour {
         if (room_List != null) {
             foreach (var roomData in room_List) {
                 // room_type 为 custom/match 等；具体玩法由 room_rule 区分（与服务端 boardcast 一致）
-                if (roomData.room_rule == "guobiao" || roomData.room_rule == "qingque") {
-                    GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
-                    roomItem.SetActive(true);
+                GameObject roomItem = Instantiate(roomItemPrefab, roomListContent);
+                roomItem.SetActive(true);
 
-                    var roomItemComponent = roomItem.GetComponent<RoomItem>();
-                    // 传入 RoomInfo，由 RoomItem 自己解包并显示
-                    roomItemComponent.SetRoomInfo(roomData);
-                }
+                var roomItemComponent = roomItem.GetComponent<RoomItem>();
+                // 传入 RoomInfo，由 RoomItem 自己解包并显示
+                roomItemComponent.SetRoomInfo(roomData);
             }
         }
     }
@@ -115,45 +110,23 @@ public class RoomListPanel : MonoBehaviour {
     public void JoinClicked(string roomId, bool needPassword) {
         if (needPassword) {
             this.roomId = roomId;
-            if (_passwordPanelFadeRoutine != null) StopCoroutine(_passwordPanelFadeRoutine);
-            _passwordPanelFadeRoutine = StartCoroutine(ShowPasswordPanelFaded());
+            passwordInputPanel.Show();
         } else {
             RoomNetworkManager.Instance.JoinRoom(roomId, "");
         }
     }
 
-    private IEnumerator ShowPasswordPanelFaded() {
-        yield return WindowFadeTransition.FadeOverlayIn(passwordInputPanel, passwordPanelFadeDuration);
-        _passwordPanelFadeRoutine = null;
-    }
-
-    private IEnumerator HidePasswordPanelFaded() {
-        yield return WindowFadeTransition.FadeOverlayOut(passwordInputPanel, passwordPanelFadeDuration);
-        _passwordPanelFadeRoutine = null;
-    }
-
-
-
-    // 密码输入面板点击确认调用joinRoom
     private void PasswordInputAdmit() {
         if (string.IsNullOrEmpty(passwordInput.text)) {
             Debug.LogError("密码不能为空");
             return;
         }
-        if (_passwordPanelFadeRoutine != null) StopCoroutine(_passwordPanelFadeRoutine);
         string pwd = passwordInput.text;
-        _passwordPanelFadeRoutine = StartCoroutine(HidePasswordPanelThenJoin(pwd));
-    }
-    // 密码输入面板点击取消关闭密码输入面板
-    private void PasswordInputCancel() {
-        if (_passwordPanelFadeRoutine != null) StopCoroutine(_passwordPanelFadeRoutine);
-        _passwordPanelFadeRoutine = StartCoroutine(HidePasswordPanelFaded());
+        passwordInputPanel.Hide(() => RoomNetworkManager.Instance.JoinRoom(roomId, pwd));
     }
 
-    private IEnumerator HidePasswordPanelThenJoin(string password) {
-        yield return WindowFadeTransition.FadeOverlayOut(passwordInputPanel, passwordPanelFadeDuration);
-        RoomNetworkManager.Instance.JoinRoom(roomId, password);
-        _passwordPanelFadeRoutine = null;
+    private void PasswordInputCancel() {
+        passwordInputPanel.Hide();
     }
 }
 

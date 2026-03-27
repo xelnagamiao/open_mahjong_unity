@@ -33,7 +33,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
-        GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
+        ScoreHistoryPanel.Instance.Close();                 // 关闭分数记录面板
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
@@ -54,19 +54,19 @@ public class GameSceneUIManager : MonoBehaviour
     public void ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
-        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false)
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
+        int? base_fu = null, string[] fu_fan_list = null)
     {
         StartCoroutine(EndResultPanel.Instance.ShowRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
-            player_to_score_before, player_to_score_after, isSpectator));
+            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list));
     }
 
     /// <summary>
     /// 显示流局面板
     /// </summary>
-    public void ShowEndLiuju()
-    {
-        EndLiujuPanel.Instance.ShowLiujuPanel();
+    public void ShowEndLiuju(string displayText = "流局") {
+        EndLiujuPanel.Instance.ShowLiujuPanel(displayText);
     }
 
     /// <summary>
@@ -90,7 +90,7 @@ public class GameSceneUIManager : MonoBehaviour
     /// </summary>
     public void UpdateScoreRecord()
     {
-        if (GameScoreRecord.Instance == null) return;
+        if (ScoreHistoryPanel.Instance == null) return;
 
         if (GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf && GameRecordManager.Instance.gameRecord != null)
         {
@@ -102,7 +102,7 @@ public class GameSceneUIManager : MonoBehaviour
         if (player_to_info == null || player_to_info.Count < 4) return;
 
         string rule = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomRule : "UNKNOWN";
-        GameScoreRecord.Instance.UpdateScoreRecord(rule, player_to_info);
+        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info);
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
-        GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
+        ScoreHistoryPanel.Instance.Close();                 // 关闭分数记录面板
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
@@ -131,7 +131,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
-        GameScoreRecord.Instance.Close();                 // 关闭分数记录面板
+        ScoreHistoryPanel.Instance.Close();                 // 关闭分数记录面板
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件

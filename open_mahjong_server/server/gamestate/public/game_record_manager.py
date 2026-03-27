@@ -104,12 +104,22 @@ def player_action_record_chipenggang(self,action_type: str,mingpai_tile: int,act
         [record_code,mingpai_tile,action_player]
     )
 
-# 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
+# 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes, base_fu?, fu_fan_list?]
 def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
-                            hepai_player_index: int, score_changes: List[int]):
+                            hepai_player_index: int, score_changes: List[int],
+                            base_fu=None, fu_fan_list=None):
+    self.player_action_tick += 1
+    tick = [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
+    if base_fu is not None:
+        tick.append(base_fu)
+        tick.append(fu_fan_list or [])
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(tick)
+
+# 牌谱记录九种九牌流局 ["jiuzhongjiupai"]
+def player_action_record_jiuzhongjiupai(self):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
+        ["jiuzhongjiupai"]
     )
 
 # 牌谱记录流局 ["liuju"]

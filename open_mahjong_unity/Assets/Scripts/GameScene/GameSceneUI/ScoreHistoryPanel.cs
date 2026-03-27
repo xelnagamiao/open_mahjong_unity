@@ -4,9 +4,9 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class GameScoreRecord : MonoBehaviour
+public class ScoreHistoryPanel : MonoBehaviour
 {
-    public static GameScoreRecord Instance { get; private set; }
+    public static ScoreHistoryPanel Instance { get; private set; }
     [SerializeField] private GameObject Tmp_Text_Prefab;
     [SerializeField] private GameObject RoundIndexContainer;
     [SerializeField] private TMP_Text player0UserName;
@@ -23,20 +23,12 @@ public class GameScoreRecord : MonoBehaviour
     [SerializeField] private Transform player3GameScoreContainer;
     [SerializeField] private Button closeButton; // 关闭计分板按钮
 
-    // 规则对应的局数标签字典
-    private Dictionary<string, List<string>> ruleRoundIndexDict = new Dictionary<string, List<string>>
-    {
-        {"guobiao", new List<string>{"东风东","东风南","东风西","东风北","南风东","南风南","南风西","南风北","西风东","西风南","西风西","西风北","北风东","北风南","北风西","北风北"}},
-    };
-
-    private Dictionary<string, List<string>> ruleRoundIndexDictQingque = new Dictionary<string, List<string>>
-    {
-        {"qingque", new List<string>{"东一局","东二局","东三局","东四局","南一局","南二局","南三局","南四局","西一局","西二局","西三局","西四局","北一局","北二局","北三局","北四局"}},
-    };
-
-    private Dictionary<string, List<string>> ruleRoundIndexDictRiichi = new Dictionary<string, List<string>>
-    {
-        {"riichi", new List<string>{"东一局","东二局","东三局","东四局","南一局","南二局","南三局","南四局","西一局","西二局","西三局","西四局","北一局","北二局","北三局","北四局"}},
+    // 规则到局数标签字典的映射（统一使用 RoundTextDictionary）
+    private static readonly Dictionary<string, Dictionary<int, string>> RuleToRoundMap = new Dictionary<string, Dictionary<int, string>> {
+        { "guobiao", RoundTextDictionary.CurrentRoundTextGB },
+        { "qingque", RoundTextDictionary.CurrentRoundTextQingque },
+        { "riichi", RoundTextDictionary.CurrentRoundTextRiichi },
+        { "classical", RoundTextDictionary.CurrentRoundTextClassical },
     };
 
     private void Awake()
@@ -124,34 +116,24 @@ public class GameScoreRecord : MonoBehaviour
         }
         
         // 子规则（如 guobiao/xiaolin、qingque/standard）映射为基础规则以查局数标签
-        string baseRule = (rule != null && rule.StartsWith("guobiao")) ? "guobiao"
-            : (rule != null && rule.StartsWith("qingque")) ? "qingque"
-            : (rule != null && rule.StartsWith("riichi")) ? "riichi"
-            : (rule ?? "");
-        
-        if (!ruleRoundIndexDict.ContainsKey(baseRule) && !ruleRoundIndexDictQingque.ContainsKey(baseRule) && !ruleRoundIndexDictRiichi.ContainsKey(baseRule))
-        {
+        string baseRule = rule ?? "";
+        foreach (var kv in RuleToRoundMap) {
+            if (baseRule.StartsWith(kv.Key)) { baseRule = kv.Key; break; }
+        }
+
+        if (!RuleToRoundMap.TryGetValue(baseRule, out Dictionary<int, string> roundMap)) {
             Debug.LogError($"未知的规则类型: {rule}");
             return;
         }
-        
-        List<string> roundIndexList;
-        if (baseRule == "qingque") {
-            roundIndexList = ruleRoundIndexDictQingque[baseRule];
-        } else if (baseRule == "riichi") {
-            roundIndexList = ruleRoundIndexDictRiichi[baseRule];
-        } else {
-            roundIndexList = ruleRoundIndexDict[baseRule];
-        }
-        
-        // 在RoundIndexContainer中生成局数标签文本
-        foreach (string roundIndex in roundIndexList)
-        {
+
+        // 在RoundIndexContainer中生成局数标签文本（按 key 顺序 1~16）
+        var sortedKeys = new List<int>(roundMap.Keys);
+        sortedKeys.Sort();
+        foreach (int key in sortedKeys) {
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
-            if (text != null)
-            {
-                text.text = roundIndex;
+            if (text != null) {
+                text.text = roundMap[key];
             }
         }
         

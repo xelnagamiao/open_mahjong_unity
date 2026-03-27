@@ -239,8 +239,13 @@ async def wait_action(self):
                     self.game_status = "END"
                     logger.info(f"处理自摸操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}")
                     return
+                elif action_type == "jiuzhongjiupai":
+                    self.hu_class = "jiuzhongjiupai"
+                    self.game_status = "END"
+                    logger.info(f"处理九种九牌流局: player_index={player_index}")
+                    return
                 else:
-                    logger.error(f"摸牌后手牌阶段action_type出现非cut,angang,jiagang,hu_self的值: {action_type}")
+                    logger.error(f"摸牌后手牌阶段action_type出现非cut,angang,jiagang,hu_self,jiuzhongjiupai的值: {action_type}")
                     return
             # 超时自动摸切
             else:

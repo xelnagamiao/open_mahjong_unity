@@ -312,11 +312,11 @@ public class NormalGameStateManager : MonoBehaviour{
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
         // 显示结算结果
-        if (hu_class == "liuju"){
-            // 流局情况下，显示流局
-            GameSceneUIManager.Instance.ShowEndLiuju();
-        }
-        else{
+        if (hu_class == "liuju") {
+            GameSceneUIManager.Instance.ShowEndLiuju("流局");
+        } else if (hu_class == "jiuzhongjiupai") {
+            GameSceneUIManager.Instance.ShowEndLiuju("九种九牌");
+        } else {
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
             SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
             GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list);

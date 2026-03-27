@@ -2,7 +2,8 @@
     "name": "CalculationScriptAssembly",
     "rootNamespace": "",
     "references": [
-        "GUID:d278e848b8094c74c86ab0bb64d29503"
+        "GUID:d278e848b8094c74c86ab0bb64d29503",
+        "GUID:a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

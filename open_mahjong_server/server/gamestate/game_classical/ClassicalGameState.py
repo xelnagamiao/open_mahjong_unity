@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 import time
 import logging
 import hashlib
-from .action_check import check_action_after_cut, check_action_jiagang, check_action_buhua, check_action_hand_action, refresh_waiting_tiles, check_kokushi
+from .action_check import check_action_after_cut, check_action_jiagang, check_action_buhua, check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -21,7 +21,7 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_round_end, end_game_record
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_round_end, end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -144,6 +144,7 @@ class ClassicalGameState:
             "hu_self": 6, "hu_first": 5, "hu_second": 4, "hu_third": 3,
             "peng": 2, "gang": 2,
             "chi_left": 1, "chi_mid": 1, "chi_right": 1,
+            "jiuzhongjiupai": 6,
             "ready": 0,
             "pass": 0, "buhua": 0, "cut": 0, "angang": 0, "jiagang": 0, "deal_tile": 0, "deal_gang_tile": 0, "deal_buhua_tile": 0
         }
@@ -311,24 +312,36 @@ class ClassicalGameState:
             self.current_player_index = 0
             self.dihe_possible = True
 
-            # ===== 国士无双检查：发牌13张后、庄家摸第14张之前 =====
-            kokushi_winner = None
+            # ===== 开局预检测轮：按玩家0-3顺序检查国士无双和九种九牌 =====
+            pre_check_resolved = False
             for i in range(4):
-                if check_kokushi(self.player_list[i].hand_tiles):
+                actions = []
+                has_kokushi = check_kokushi(self.player_list[i].hand_tiles)
+                has_jiuzhong = check_jiuzhongjiupai(self.player_list[i].hand_tiles)
+                if has_kokushi:
                     logger.info(f"玩家{i}符合国士无双条件，手牌: {self.player_list[i].hand_tiles}")
-                    self.action_dict = {0: [], 1: [], 2: [], 3: []}
-                    self.action_dict[i] = ["hu_self", "pass"]
                     self.result_dict["hu_self"] = (0, 300, [], ["国士无双"])
-                    self.current_player_index = i
-                    await self.broadcast_ask_hand_action()
-                    await self.wait_action()
-                    if self.game_status == "END":
-                        kokushi_winner = i
-                        break
-                    self.result_dict.pop("hu_self", None)
+                    actions.append("hu_self")
+                if has_jiuzhong:
+                    logger.info(f"玩家{i}符合九种九牌条件，手牌: {self.player_list[i].hand_tiles}")
+                    actions.append("jiuzhongjiupai")
+                if not actions:
+                    continue
+                actions.append("pass")
+                self.action_dict = {0: [], 1: [], 2: [], 3: []}
+                self.action_dict[i] = actions
+                self.current_player_index = i
+                await self.broadcast_ask_hand_action()
+                await self.wait_action()
+                if self.game_status == "END":
+                    pre_check_resolved = True
+                    break
+                if self.hu_class == "jiuzhongjiupai":
+                    pre_check_resolved = True
+                    break
+                self.result_dict.pop("hu_self", None)
 
-            if kokushi_winner is not None:
-                # 国士无双和牌，跳到结算
+            if pre_check_resolved:
                 pass
             else:
                 # 正常流程：庄家摸第14张牌
@@ -494,7 +507,8 @@ class ClassicalGameState:
                         i.record_counter.fulu_times += 1
 
             else:
-                self.hu_class = "liuju"
+                if self.hu_class != "jiuzhongjiupai":
+                    self.hu_class = "liuju"
                 await broadcast_result(self,
                                        hepai_player_index=None,
                                        player_to_score=None,
@@ -523,11 +537,16 @@ class ClassicalGameState:
                 score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
 
             if self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]:
-                player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
+                player_action_record_hu(self, hu_class=self.hu_class, hu_score=actual_hu_score,
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
-                                        score_changes=score_changes)
+                                        score_changes=score_changes,
+                                        base_fu=hu_base_fu, fu_fan_list=hu_fu_fan_list)
                 if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, hu_fan, score_changes])
+                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, actual_hu_score, hu_fan, score_changes])
+            elif self.hu_class == "jiuzhongjiupai":
+                player_action_record_jiuzhongjiupai(self)
+                if hasattr(self, 'spectator_manager'):
+                    self.spectator_manager.record_tick(["jiuzhongjiupai"])
             else:
                 player_action_record_liuju(self)
                 if hasattr(self, 'spectator_manager'):
@@ -536,7 +555,7 @@ class ClassicalGameState:
             if hasattr(self, 'spectator_manager'):
                 self.spectator_manager.record_tick(["end"])
 
-            if self.hu_class == "liuju":
+            if self.hu_class in ["liuju", "jiuzhongjiupai"]:
                 await asyncio.sleep(2)
             else:
                 fan_count = len(hu_fan) if hu_fan else 0

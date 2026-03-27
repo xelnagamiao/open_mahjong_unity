@@ -30,6 +30,21 @@ def _is_jiulian(waiting_tiles: set) -> bool:
     return any(waiting_tiles == s for s in _JIULIAN_SETS)
 
 
+def check_jiuzhongjiupai(hand_tiles: List[int]) -> bool:
+    """
+    检查九种九牌：13张起手牌中包含9种或以上的幺九牌（1、9数牌及字牌）。
+    """
+    if len(hand_tiles) != 13:
+        return False
+    yaochuu = set()
+    for t in hand_tiles:
+        if t >= 41:
+            yaochuu.add(t)
+        elif t % 10 == 1 or t % 10 == 9:
+            yaochuu.add(t)
+    return len(yaochuu) >= 9
+
+
 def check_kokushi(hand_tiles: List[int]) -> bool:
     """
     检查国士无双：13张起手牌之间无任何联系。

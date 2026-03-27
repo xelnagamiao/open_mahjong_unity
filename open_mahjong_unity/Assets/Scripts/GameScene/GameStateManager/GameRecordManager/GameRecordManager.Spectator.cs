@@ -353,7 +353,8 @@ public partial class GameRecordManager {
             case "hu_first":
             case "hu_second":
             case "hu_third": return 6.0f;
-            case "liuju": return 4.0f;
+            case "liuju":
+            case "jiuzhongjiupai": return 2.0f;
             case "end": return 0.5f;
             default: return 0.3f;
         }
@@ -382,7 +383,11 @@ public partial class GameRecordManager {
                 GotoSelectRound(nextRound, false);
             }
         } else if (action == "liuju") {
-            GameSceneUIManager.Instance.ShowEndLiuju();
+            GameSceneUIManager.Instance.ShowEndLiuju("流局");
+            currentNode++;
+            UpdateCurrentXunmuText();
+        } else if (action == "jiuzhongjiupai") {
+            GameSceneUIManager.Instance.ShowEndLiuju("九种九牌");
             currentNode++;
             UpdateCurrentXunmuText();
         } else {

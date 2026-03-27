@@ -96,7 +96,7 @@ class Player_final_data(BaseModel):
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[int, Player_final_data]  # 玩家最终数据 {rank: Player_final_data}
+    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据 {username: Player_final_data}
 
 class Switch_seat_info(BaseModel):
     """换位信息"""

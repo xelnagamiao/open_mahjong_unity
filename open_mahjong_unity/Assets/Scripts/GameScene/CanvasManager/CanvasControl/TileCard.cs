@@ -140,6 +140,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                     false
                 );
             }
+            else if (NormalGameStateManager.Instance.roomRule == "classical"){
+                waitingTiles = ClassicalExternal.TingpaiCheck(
+                    tempHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
+                    false
+                );
+            }
             else
             {
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");

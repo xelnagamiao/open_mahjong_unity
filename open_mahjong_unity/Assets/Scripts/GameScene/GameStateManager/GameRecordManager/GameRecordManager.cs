@@ -661,10 +661,12 @@ public partial class GameRecordManager : MonoBehaviour {
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
-            // tick 格式: [hu_class, hepai_player_index, hu_score, hu_fan_json, score_changes_json]
+            // tick 格式: [hu_class, hepai_player_index, hu_score, hu_fan_json, score_changes_json, base_fu?, fu_fan_list?]
             int hepaiPlayerIndex = ParseTickInt(tick, 1);
             int huScore = (int)ParseTickDouble(tick, 2);
             string[] huFan = ParseHuFanList(tick, 3);
+            int? baseFu = tick.Count > 5 ? (int?)ParseTickInt(tick, 5) : null;
+            string[] fuFanList = tick.Count > 6 ? ParseHuFanList(tick, 6) : null;
 
             string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
             RecordPlayer huPlayer = recordPlayer_to_info[huPosition];
@@ -694,11 +696,15 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             ApplyScoreDeltas(deltas, out Dictionary<int, int> playerToScoreBefore, out Dictionary<int, int> playerToScoreAfter);
 
-            ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter);
+            ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList);
             GameSceneUIManager.Instance.UpdateScoreRecord();
         }
         else if (action == "liuju") {
-            GameSceneUIManager.Instance.ShowEndLiuju();
+            GameSceneUIManager.Instance.ShowEndLiuju("流局");
+            StartCoroutine(AutoNextActionAfterDelay(1f));
+        }
+        else if (action == "jiuzhongjiupai") {
+            GameSceneUIManager.Instance.ShowEndLiuju("九种九牌");
             StartCoroutine(AutoNextActionAfterDelay(1f));
         }
         else if (action == "end") {
@@ -1048,7 +1054,8 @@ public partial class GameRecordManager : MonoBehaviour {
 
     private void ShowRecordResult(string huClass, int huScore, string[] huFan, int hepaiPlayerIndex,
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
-        Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter) {
+        Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
+        int? baseFu = null, string[] fuFanList = null) {
 
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
         foreach (var kv in recordPlayer_to_info) {
@@ -1076,7 +1083,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
-            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode);
+            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList);
     }
 
     /// <summary>
@@ -1386,7 +1393,7 @@ public partial class GameRecordManager : MonoBehaviour {
     /// 从牌谱构建带 score_history 的玩家数据并刷新计分表。按局顺序汇总四家 score_history（格式如 "+24","-8","0"），original_player_index 为 0～3。
     /// </summary>
     public void RefreshRecordScoreTable() {
-        if (gameRecord?.gameRound?.rounds == null || GameScoreRecord.Instance == null) return;
+        if (gameRecord?.gameRound?.rounds == null || ScoreHistoryPanel.Instance == null) return;
         string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
         int p0Id = ReadGameTitleInt(gameRecord.gameTitle, "p0_uid", 0);
         int p1Id = ReadGameTitleInt(gameRecord.gameTitle, "p1_uid", 0);
@@ -1419,7 +1426,7 @@ public partial class GameRecordManager : MonoBehaviour {
             { "top", new PlayerInfoClass { original_player_index = 2, username = name2, score_history = hist2 } },
             { "left", new PlayerInfoClass { original_player_index = 3, username = name3, score_history = hist3 } }
         };
-        GameScoreRecord.Instance.UpdateScoreRecord(rule, player_to_info);
+        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info);
     }
 
     private static string FormatScoreChange(int delta) {

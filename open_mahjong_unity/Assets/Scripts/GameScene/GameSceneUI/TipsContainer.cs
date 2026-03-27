@@ -159,6 +159,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessQingqueTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
             } else if (gameManager.roomRule == "guobiao") {
                 ProcessGuobiaoTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
+            } else if (gameManager.roomRule == "classical") {
+                ProcessClassicalTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai);
             } else {
                 Debug.LogWarning($"未知的规则类型: {gameManager.roomRule}");
             }
@@ -292,6 +294,60 @@ public class TipsContainer : MonoBehaviour
             }
         }
         Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
+    }
+
+    /// <summary>
+    /// 处理古典规则的和牌提示：计算副数并显示。
+    /// </summary>
+    private void ProcessClassicalTile(
+        int hepaiTile,
+        List<int> handList,
+        List<string> combinationList,
+        List<string> wayToHepai,
+        List<string> singleTilewayToHepai,
+        List<string> mergedWayToHepai) {
+        // 古典麻将 wayToHepai 使用"门风"而非"自风"
+        var classicalWay = ConvertToClassicalWay(mergedWayToHepai);
+        var dianheResult = ClassicalExternal.HepaiCheck(handList, combinationList, classicalWay, hepaiTile, false);
+        int dianheTotalFu = dianheResult.Item2;
+        int hepaiLimit = NormalGameStateManager.Instance.hepaiLimit;
+
+        if (dianheTotalFu >= hepaiLimit) {
+            GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
+            tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
+            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount($"{dianheTotalFu}副", "dianhe");
+        } else {
+            var zimoWay = ConvertToClassicalWay(new List<string>(wayToHepai));
+            zimoWay.AddRange(singleTilewayToHepai);
+            zimoWay.Add("自摸");
+            var zimoResult = ClassicalExternal.HepaiCheck(handList, combinationList, zimoWay, hepaiTile, false);
+            int zimoTotalFu = zimoResult.Item2;
+
+            if (zimoTotalFu >= hepaiLimit) {
+                GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
+                tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
+                GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("仅自摸", "zimo");
+            } else {
+                GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
+                tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
+                GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役", "wuyi");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 将标准 wayToHepai 中"自风X"转换为古典规则的"门风X"。
+    /// </summary>
+    private static List<string> ConvertToClassicalWay(List<string> wayToHepai) {
+        var result = new List<string>();
+        foreach (string w in wayToHepai) {
+            if (w.StartsWith("自风")) result.Add("门风" + w.Substring(2));
+            else result.Add(w);
+        }
+        return result;
     }
 
     public void HideTips(){

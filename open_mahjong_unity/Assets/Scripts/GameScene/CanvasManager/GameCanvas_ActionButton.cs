@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -101,6 +101,13 @@ public partial class GameCanvas : MonoBehaviour {
                 // 将当前的吃牌选项添加到已存在的吃牌按钮中
                 chiButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加吃牌选项: {action_list[i]}");
+            }
+            // 九种九牌
+            else if (action_list[i] == "jiuzhongjiupai"){
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                TMP_Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "九种九牌";
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 取消
             else if (action_list[i] == "pass"){

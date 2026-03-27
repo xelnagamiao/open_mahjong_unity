@@ -71,8 +71,8 @@ public partial class GameCanvas : MonoBehaviour {
         openScoreRecordPanelButton.onClick.RemoveAllListeners();
         openScoreRecordPanelButton.onClick.AddListener(() => {
             SetScoreRecordOpen(!_isScoreRecordOpen); // 切换状态
-            if (_isScoreRecordOpen) { GameScoreRecord.Instance.gameObject.SetActive(true); GameSceneUIManager.Instance.UpdateScoreRecord(); } // 打开并由 UIManager 传入数据刷新
-            else { GameScoreRecord.Instance.Close(); } // 关闭并清理
+            if (_isScoreRecordOpen) { ScoreHistoryPanel.Instance.gameObject.SetActive(true); GameSceneUIManager.Instance.UpdateScoreRecord(); } // 打开并由 UIManager 传入数据刷新
+            else { ScoreHistoryPanel.Instance.Close(); } // 关闭并清理
         });
         SetScoreRecordOpen(false); // 初始化按钮文字与状态
         remianTimeText.text = ""; // 清空剩余时间文本

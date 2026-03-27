@@ -87,7 +87,7 @@ public class HeaderButton : MonoBehaviour {
 
     private void LerpTo(Color target, float duration) {
         if (image == null) return;
-        if (duration <= 0f) {
+        if (duration <= 0f || !gameObject.activeInHierarchy) {
             image.color = target;
             StopTween();
             return;
