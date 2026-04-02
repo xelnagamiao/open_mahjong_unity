@@ -108,6 +108,8 @@ class QingqueGameState:
             player_setting = player_settings.get(user_id, {})
             if user_id == 0:
                 username = "麻雀罗伯特"
+            elif user_id == 2:
+                username = "牌效罗伯特"
             else:
                 username = player_setting.get("username", f"用户{user_id}")
             player = QingquePlayer(user_id, username, [], room_data["round_timer"])

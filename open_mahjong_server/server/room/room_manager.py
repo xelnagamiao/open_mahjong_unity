@@ -629,6 +629,44 @@ class RoomManager:
                 message=f"添加机器人失败: {str(e)}"
             )
 
+    async def add_smart_bot_to_room(self, Connect_id: str, room_id: str) -> Response:
+        """添加牌效 AI 机器人（user_id=2）到房间"""
+        try:
+            if room_id not in self.rooms:
+                return Response(type="error_message", success=False, message="房间不存在")
+
+            room_data = self.rooms[room_id]
+
+            if room_data.get("is_game_running", False):
+                return Response(type="error_message", success=False, message="游戏正在进行中，无法添加机器人")
+
+            if len(room_data["player_list"]) >= room_data["max_player"]:
+                return Response(type="error_message", success=False, message="房间已满")
+
+            bot_user_id = 2
+
+            room_data["player_list"].append(bot_user_id)
+
+            if "player_settings" not in room_data:
+                room_data["player_settings"] = {}
+
+            room_data["player_settings"][bot_user_id] = {
+                "user_id": bot_user_id,
+                "username": "牌效罗伯特",
+                "title_id": 1,
+                "profile_image_id": 1,
+                "character_id": 1,
+                "voice_id": 1
+            }
+
+            await self._broadcast_room_info(room_id)
+
+            return Response(type="tips", success=True, message="牌效罗伯特已添加到房间")
+
+        except Exception as e:
+            logger.error(f"添加牌效机器人到房间失败: {e}", exc_info=True)
+            return Response(type="tips", success=False, message=f"添加机器人失败: {str(e)}")
+
     async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int) -> Response:
         """
         房主移除房间中的指定玩家

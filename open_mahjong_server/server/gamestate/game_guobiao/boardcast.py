@@ -3,7 +3,8 @@ from typing import List, Dict, Optional
 import logging
 import asyncio
 import time
-from ..public.auto_cut_ai import auto_cut_action
+from ..public.ai.auto_cut_ai import auto_cut_action
+from ..public.ai.smart_bot_ai import smart_bot_action
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,11 @@ async def broadcast_ask_hand_action(self):
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
-                continue  # 机器人不需要接收广播
+                continue
+            elif current_player.user_id == 2:
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
             
             if i == self.current_player_index:
                 # 对当前玩家发送包含摸牌信息的消息
@@ -188,7 +193,11 @@ async def broadcast_ask_other_action(self):
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
-                continue  # 机器人不需要接收广播
+                continue
+            elif current_player.user_id == 2:
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
             
             if self.action_dict[i] != []:
                 # 发送询问行动信息

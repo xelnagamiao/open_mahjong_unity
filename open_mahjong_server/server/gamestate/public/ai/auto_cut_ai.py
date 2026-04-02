@@ -1,7 +1,8 @@
-# AutoCut机器人
+# AutoCut机器人（摸切罗伯特）
+# 最简单的机器人AI：摸牌后切最后一张（摸切），其他操作全部pass
 import asyncio
 import logging
-from ..game_guobiao.get_action import get_ai_action
+from .get_action import get_ai_action
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,16 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
         game_status: 游戏状态
     """
     try:
-        # waiting_hand_action 时等待 0.5 秒，其他情况等待 0.1 秒
-        await asyncio.sleep(0.5 if game_status == "waiting_hand_action" else 0.1)
+        await asyncio.sleep(0.5)
         # 通过传入的玩家索引获得玩家对象的数据
         current_player = game_state.player_list[player_index]
         
         if game_status == "waiting_hand_action":
+            # 有花牌必须先补花
+            if "buhua" in action_list:
+                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 buhua（手牌补花）")
+                await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
+                return
             # 手牌操作：选择cut（切牌）
             if "cut" in action_list:
                 # 选择最后一张手牌（摸切）
@@ -60,8 +65,8 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 return
 
         elif game_status == "waiting_buhua_round":
-            # 询问补花操作：选择补花
-            if "buhua" in action_list:
+            # 询问补花操作：选择pass（补花轮机器人不做特殊处理）
+            if "pass" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass")
                 await get_ai_action(game_state, player_index, "pass", None, None, None, None)
                 return
@@ -70,4 +75,3 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
             
     except Exception as e:
         logger.error(f"机器人 {player_index} 自动操作失败: {e}", exc_info=True)
-

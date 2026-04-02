@@ -33,6 +33,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_start_game(game_server, Connect_id, message, websocket)
     elif message_type == "room/add_bot":
         await handle_add_bot_to_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/add_smart_bot":
+        await handle_add_smart_bot_to_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/kick_player":
         await handle_kick_player_from_room(game_server, Connect_id, message, websocket)
     else:
@@ -150,6 +152,10 @@ async def handle_start_game(game_server, Connect_id: str, message: dict, websock
 async def handle_add_bot_to_room(game_server, Connect_id: str, message: dict, websocket):
     """处理添加机器人到房间请求"""
     await game_server.add_bot_to_room(Connect_id, message["room_id"])
+
+async def handle_add_smart_bot_to_room(game_server, Connect_id: str, message: dict, websocket):
+    """处理添加牌效机器人到房间请求"""
+    await game_server.add_smart_bot_to_room(Connect_id, message["room_id"])
 
 async def handle_kick_player_from_room(game_server, Connect_id: str, message: dict, websocket):
     """处理房主移除玩家请求"""

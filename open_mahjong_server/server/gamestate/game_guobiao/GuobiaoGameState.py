@@ -108,6 +108,8 @@ class GuobiaoGameState:
             player_setting = player_settings.get(user_id, {})
             if user_id == 0:
                 username = "麻雀罗伯特"
+            elif user_id == 2:
+                username = "牌效罗伯特"
             else:
                 username = player_setting.get("username", f"用户{user_id}")
             player = GuobiaoPlayer(user_id, username, [], room_data["round_timer"])
@@ -132,6 +134,7 @@ class GuobiaoGameState:
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
+        
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
         

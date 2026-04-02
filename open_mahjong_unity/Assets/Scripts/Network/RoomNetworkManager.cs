@@ -277,6 +277,17 @@ public class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 添加牌效机器人到房间
+    /// </summary>
+    public async void AddSmartBotToRoom(string roomId) {
+        var request = new AddBotToRoomRequest {
+            type = "room/add_smart_bot",
+            room_id = roomId
+        };
+        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+    }
+
+    /// <summary>
     /// 从房间移除玩家（仅房主可用）
     /// </summary>
     public async void KickPlayerFromRoom(string roomId, int targetUserId) {
