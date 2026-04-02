@@ -95,7 +95,8 @@ class RoomManager:
             # 创建房间数据头
             room_data = {
                 "room_id": room_id, # 房间ID
-                "room_type": "guobiao", # 房间类型
+                "room_type": "custom", # 房间类型（自定义对局）
+                "room_rule": "guobiao", # 房间规则（用于游戏与统计）
                 "sub_rule": sub_rule, # 子规则
                 "hepai_limit": hepai_limit, # 起和番限制
                 "tourist_limit": tourist_limit, # 游客限制
@@ -217,7 +218,8 @@ class RoomManager:
             # 创建房间数据头
             room_data = {
                 "room_id": room_id, # 房间ID
-                "room_type": "qingque", # 房间类型（青雀）
+                "room_type": "custom", # 房间类型（自定义对局）
+                "room_rule": "qingque", # 房间规则（用于游戏与统计）
                 "sub_rule": sub_rule, # 子规则
                 "hepai_limit": 1, # 青雀起和限制固定为1
                 "tourist_limit": tourist_limit, # 游客限制
@@ -269,7 +271,91 @@ class RoomManager:
                 message=f"创建房间失败: {str(e)}"
         )
 
-    def get_room_list(self) -> Response:
+    async def create_Classical_room(self, player_id: str, room_name: str, gameround: int,
+                                    password: str, roundTimerValue: int, stepTimerValue: int,
+                                    tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+        """创建古典麻将房间"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            host_user_id = player.user_id
+            host_name = player.username
+
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+
+            has_password = password != ""
+
+            room_config = {
+                "room_name": room_name,
+                "game_round": gameround,
+                "round_timer": roundTimerValue,
+                "step_timer": stepTimerValue,
+                "random_seed": random_seed,
+                "open_cuohe": False,
+            }
+
+            try:
+                validator_class = self.room_validators["guobiao"]
+                validated_config = validator_class(**room_config)
+            except ValueError as e:
+                return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
+
+            room_id = self._generate_room_id()
+
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "classical",
+                "sub_rule": sub_rule,
+                "hepai_limit": 1,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": allow_spectator,
+                "max_player": 4,
+                "player_list": [host_user_id],
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },
+                "has_password": has_password,
+                "tips": tips,
+                "host_user_id": host_user_id,
+                "host_name": host_name,
+                "is_game_running": False,
+            }
+
+            room_data.update(validated_config.dict())
+
+            self.rooms[room_id] = room_data
+            if has_password:
+                self.room_passwords[room_id] = password
+
+            player.current_room_id = room_id
+
+            await self._broadcast_room_info(room_id)
+
+            return Response(
+                type="room/create_room_done",
+                success=True,
+                message="房间创建成功",
+                room_info=room_data
+            )
+
+        except Exception as e:
+            return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
+
+    def get_room_list(self, show_tip: bool = False) -> Response:
         try:
             room_list = []
             for room_id, room_data in self.rooms.items():
@@ -278,7 +364,8 @@ class RoomManager:
                 type="room/get_room_list",
                 success=True,
                 message="获取房间列表成功",
-                room_list=room_list
+                room_list=room_list,
+                show_tip=show_tip
             )
         except Exception as e:
             return Response(
@@ -541,6 +628,44 @@ class RoomManager:
                 success=False,
                 message=f"添加机器人失败: {str(e)}"
             )
+
+    async def add_smart_bot_to_room(self, Connect_id: str, room_id: str) -> Response:
+        """添加牌效 AI 机器人（user_id=2）到房间"""
+        try:
+            if room_id not in self.rooms:
+                return Response(type="error_message", success=False, message="房间不存在")
+
+            room_data = self.rooms[room_id]
+
+            if room_data.get("is_game_running", False):
+                return Response(type="error_message", success=False, message="游戏正在进行中，无法添加机器人")
+
+            if len(room_data["player_list"]) >= room_data["max_player"]:
+                return Response(type="error_message", success=False, message="房间已满")
+
+            bot_user_id = 2
+
+            room_data["player_list"].append(bot_user_id)
+
+            if "player_settings" not in room_data:
+                room_data["player_settings"] = {}
+
+            room_data["player_settings"][bot_user_id] = {
+                "user_id": bot_user_id,
+                "username": "牌效罗伯特",
+                "title_id": 1,
+                "profile_image_id": 1,
+                "character_id": 1,
+                "voice_id": 1
+            }
+
+            await self._broadcast_room_info(room_id)
+
+            return Response(type="tips", success=True, message="牌效罗伯特已添加到房间")
+
+        except Exception as e:
+            logger.error(f"添加牌效机器人到房间失败: {e}", exc_info=True)
+            return Response(type="tips", success=False, message=f"添加机器人失败: {str(e)}")
 
     async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int) -> Response:
         """

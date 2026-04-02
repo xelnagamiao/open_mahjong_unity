@@ -84,6 +84,8 @@ public partial class GameRecordManager {
         }
         Game3DManager.Instance.Clear3DTile();
         HideGameRecord();
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
+        UserDataManager.Instance.SetGamestateId("");
     }
 
     /// <summary>切换到牌谱阅览模式：用于观战中手动切离最后节点。</summary>
@@ -229,10 +231,14 @@ public partial class GameRecordManager {
         spectatorExitButton.onClick.AddListener(OnClickExitSpectator);
     }
 
-    private void OnClickExitSpectator() {
+    private async void OnClickExitSpectator() {
         string gamestateId = UserDataManager.Instance.GamestateId;
         if (!string.IsNullOrEmpty(gamestateId)) {
-            GameStateNetworkManager.Instance.RemoveSpectator(gamestateId);
+            try {
+                await GameStateNetworkManager.Instance.RemoveSpectator(gamestateId);
+            } catch (System.Exception e) {
+                Debug.LogError($"发送退出观战消息失败: {e.Message}");
+            }
         }
         StopSpectating();
         WindowsManager.Instance.SwitchWindow("menu");
@@ -347,7 +353,8 @@ public partial class GameRecordManager {
             case "hu_first":
             case "hu_second":
             case "hu_third": return 6.0f;
-            case "liuju": return 4.0f;
+            case "liuju":
+            case "jiuzhongjiupai": return 2.0f;
             case "end": return 0.5f;
             default: return 0.3f;
         }
@@ -376,7 +383,11 @@ public partial class GameRecordManager {
                 GotoSelectRound(nextRound, false);
             }
         } else if (action == "liuju") {
-            GameSceneUIManager.Instance.ShowEndLiuju();
+            GameSceneUIManager.Instance.ShowEndLiuju("流局");
+            currentNode++;
+            UpdateCurrentXunmuText();
+        } else if (action == "jiuzhongjiupai") {
+            GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
             currentNode++;
             UpdateCurrentXunmuText();
         } else {
@@ -443,7 +454,7 @@ public partial class GameRecordManager {
     }
 
     private static List<string> FilterAskHandActions(List<string> raw) {
-        string[] allow = new[] { "cut", "buhua", "hu_self", "angang", "jiagang", "pass" };
+        string[] allow = new[] { "cut", "buhua", "hu_self", "angang", "jiagang", "jiuzhongjiupai", "pass" };
         return FilterByWhitelist(raw, allow);
     }
 

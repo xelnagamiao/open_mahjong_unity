@@ -26,6 +26,7 @@ public class CreateGBRoomRequest { // 创建国标房间请求
 
 public class GetRoomListRequest { // 获取房间列表请求
     public string type;
+    public bool show_tip; // True=手动刷新显示tips，False=静默刷新
 }
 
 public class JoinRoomRequest { // 加入房间请求

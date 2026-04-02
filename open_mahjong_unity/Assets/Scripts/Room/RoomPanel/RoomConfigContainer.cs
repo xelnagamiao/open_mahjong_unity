@@ -56,11 +56,11 @@ public class RoomConfigContainer : MonoBehaviour {
             switch (fieldName) {
                 case "room_type":
                     displayName = "规则";
-                    displayValue = RuleNameDictionary.GetDisplayName(roomInfo.sub_rule, roomInfo.room_type);
+                    displayValue = RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
                     break;
                 case "game_round":
                     displayName = "圈数";
-                    displayValue = GetMaxRoundText(roomInfo.game_round);
+                    displayValue = RoundTextDictionary.GetMaxRoundText(roomInfo.game_round);
                     break;
                 case "round_timer":
                     displayName = "局时";
@@ -114,26 +114,6 @@ public class RoomConfigContainer : MonoBehaviour {
         }
     }
 
-
-    /// <summary>
-    /// 获取圈数显示文本
-    /// </summary>
-    private string GetMaxRoundText(int game_round)
-    {
-        switch (game_round)
-        {
-            case 1:
-                return "东风战";
-            case 2:
-                return "东南战";
-            case 3:
-                return "东西战";
-            case 4:
-                return "全庄战";
-            default:
-                return $"未知({game_round})";
-        }
-    }
 
     /// <summary>
     /// 格式化局时

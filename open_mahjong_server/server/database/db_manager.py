@@ -79,7 +79,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 创建表 game_player_records（如果不存在）
+            # 创建表 game_player_records（如果不存在）；记录字段使用 match_type，与 get_record_list 一致
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_player_records (
                     game_id VARCHAR(16) NOT NULL REFERENCES game_records(game_id) ON DELETE CASCADE,
@@ -89,6 +89,7 @@ class DatabaseManager:
                     rank INT NOT NULL CHECK (rank >= 1 AND rank <= 4),
                     rule VARCHAR(10) NOT NULL,
                     sub_rule VARCHAR(32) NULL,
+                    match_type VARCHAR(24) NULL,
                     title_used INT NULL,
                     character_used INT NULL,
                     profile_used INT NULL,
@@ -96,6 +97,30 @@ class DatabaseManager:
                     PRIMARY KEY (game_id, user_id)
                 );
             """)
+            # 迁移：若表已存在且缺少 match_type，则追加列（重复列时回滚到 savepoint 继续，避免事务被中止）
+            cursor.execute("SAVEPOINT sp_add_match_type;")
+            try:
+                cursor.execute("ALTER TABLE game_player_records ADD COLUMN match_type VARCHAR(24) NULL;")
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_match_type;")
+                else:
+                    raise
+            # 迁移：若表中曾有 mode 列，将 mode 拷贝到 match_type 后丢弃 mode
+            cursor.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'mode';
+            """)
+            if cursor.fetchone():
+                cursor.execute("SAVEPOINT sp_migrate_mode;")
+                try:
+                    cursor.execute("""
+                        UPDATE game_player_records SET match_type = mode
+                        WHERE match_type IS NULL AND mode IS NOT NULL;
+                    """)
+                    cursor.execute("ALTER TABLE game_player_records DROP COLUMN mode;")
+                except Error:
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_migrate_mode;")
 
             # 创建表guobiao_history_stats（如果不存在）
             cursor.execute("""
@@ -366,6 +391,58 @@ class DatabaseManager:
                 );
             """)
 
+            # 创建表 classical_history_stats（古典麻将基础统计表）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS classical_history_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    total_games INT NOT NULL DEFAULT 0,
+                    total_rounds INT NOT NULL DEFAULT 0,
+                    win_count INT NOT NULL DEFAULT 0,
+                    self_draw_count INT NOT NULL DEFAULT 0,
+                    deal_in_count INT NOT NULL DEFAULT 0,
+                    total_fan_score INT NOT NULL DEFAULT 0,
+                    total_win_turn INT NOT NULL DEFAULT 0,
+                    total_fangchong_score INT NOT NULL DEFAULT 0,
+                    first_place_count INT NOT NULL DEFAULT 0,
+                    second_place_count INT NOT NULL DEFAULT 0,
+                    third_place_count INT NOT NULL DEFAULT 0,
+                    fourth_place_count INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
+            # 创建表 classical_fan_stats（古典麻将番种统计表）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS classical_fan_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    zimo INT NOT NULL DEFAULT 0,
+                    hunyise INT NOT NULL DEFAULT 0,
+                    xiaosanyuan INT NOT NULL DEFAULT 0,
+                    qingyise INT NOT NULL DEFAULT 0,
+                    ziyise INT NOT NULL DEFAULT 0,
+                    luanfengheming INT NOT NULL DEFAULT 0,
+                    lingshangkaihua INT NOT NULL DEFAULT 0,
+                    haidilaoyue INT NOT NULL DEFAULT 0,
+                    jinjidoushi INT NOT NULL DEFAULT 0,
+                    dasanyuan INT NOT NULL DEFAULT 0,
+                    dasixi INT NOT NULL DEFAULT 0,
+                    xiaosixi INT NOT NULL DEFAULT 0,
+                    tianhe INT NOT NULL DEFAULT 0,
+                    dihe INT NOT NULL DEFAULT 0,
+                    jiulianbaodeng INT NOT NULL DEFAULT 0,
+                    guoshiwushuang INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
+
             # 创建表user_settings（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_settings (
@@ -401,51 +478,6 @@ class DatabaseManager:
 
             logger.info('用户ID序列初始化完成')
             print('用户ID序列初始化完成')
-
-            # 迁移旧表结构：移除外键约束（保留已删除用户的记录）
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'game_player_records'
-                );
-            """)
-            table_exists = cursor.fetchone()[0]
-            
-            if table_exists:
-                # 查找并删除 user_id 的外键约束
-                cursor.execute("""
-                    SELECT constraint_name 
-                    FROM information_schema.table_constraints 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'game_player_records' 
-                    AND constraint_type = 'FOREIGN KEY'
-                    AND constraint_name LIKE '%user_id%';
-                """)
-                fk_result = cursor.fetchone()
-                
-                if fk_result:
-                    fk_name = fk_result[0]
-                    try:
-                        cursor.execute(f"ALTER TABLE game_player_records DROP CONSTRAINT IF EXISTS {fk_name};")
-                        logger.info(f'已移除 game_player_records 表的外键约束: {fk_name}')
-                    except Error as e:
-                        logger.warning(f'移除外键约束时出现警告: {e}')
-
-            # 迁移：为 game_player_records 添加 sub_rule 列（若不存在）
-            if table_exists:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.columns
-                        WHERE table_schema = 'public' AND table_name = 'game_player_records' AND column_name = 'sub_rule'
-                    );
-                """)
-                if not cursor.fetchone()[0]:
-                    try:
-                        cursor.execute("ALTER TABLE game_player_records ADD COLUMN sub_rule VARCHAR(32) NULL;")
-                        logger.info('已为 game_player_records 表添加 sub_rule 列')
-                    except Error as e:
-                        logger.warning(f'添加 sub_rule 列时出现警告: {e}')
 
             conn.commit() # 提交
             logger.info('数据表初始化成功')
@@ -752,6 +784,7 @@ class DatabaseManager:
                     gpr.rank,
                     gpr.rule,
                     gpr.sub_rule,
+                    gpr.match_type,
                     gpr.title_used,
                     gpr.character_used,
                     gpr.profile_used,
@@ -774,6 +807,7 @@ class DatabaseManager:
                         'created_at': str(row['created_at']),
                         'rule': row['rule'],
                         'sub_rule': row.get('sub_rule'),
+                        'match_type': row.get('match_type'),
                         'players': []
                     }
                 
@@ -1050,3 +1084,10 @@ from .qingque.store_qingque import store_qingque_game_record, store_qingque_game
 DatabaseManager.store_qingque_game_record = store_qingque_game_record
 DatabaseManager.store_qingque_game_stats = store_qingque_game_stats
 DatabaseManager.store_qingque_fan_stats = store_qingque_fan_stats
+
+# 挂载古典麻将相关方法到 DatabaseManager 类
+from .classical.store_classical import store_classical_game_record, store_classical_game_stats, store_classical_fan_stats
+
+DatabaseManager.store_classical_game_record = store_classical_game_record
+DatabaseManager.store_classical_game_stats = store_classical_game_stats
+DatabaseManager.store_classical_fan_stats = store_classical_fan_stats

@@ -76,6 +76,7 @@ PostgreSQL
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
 | rule | VARCHAR(10) | NOT NULL | 规则类型（guobiao=国标，riichi=立直，qingque=青雀） |
 | sub_rule | VARCHAR(32) | NULL | 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard），用于记录列表与牌谱展示 |
+| match_type | VARCHAR(24) | NULL | 局数/模式，由外部显式传入（如 4/4、1/4、1/4rank），对应统计表 mode |
 | title_used | INT | NULL | 使用的称号ID（可为空） |
 | character_used | INT | NULL | 使用的角色ID（可为空） |
 | profile_used | INT | NULL | 使用的头像ID（可为空） |

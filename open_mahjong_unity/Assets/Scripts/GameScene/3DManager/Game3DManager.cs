@@ -18,6 +18,7 @@ public partial class Game3DManager : MonoBehaviour {
     private Vector3 rightSetCombinationsPoint;
 
     private GameObject lastCut3DObject; // 最后一张弃牌的3D对象
+    private Coroutine _currentDiscardMoveCoroutine; // 当前出牌飞行动画协程，鸣牌时需终止
     private Vector3 lastRemove3DPosition; // 最后一张删除的3D对象
     private Dictionary<int,Vector3> pengToJiagangPosDict = new Dictionary<int,Vector3>(); // 碰牌的加杠预留指针
 
@@ -65,7 +66,7 @@ public partial class Game3DManager : MonoBehaviour {
 
 
     // 3D手牌处理入口 协程并行执行，多个 Change3DTileCoroutine 可同时运行
-    // 本方法管理所有来自GameSceneManager的3D手牌处理请求 除了Clear3DTile清空面板 ActionAnimation和牌谱直接调用子方法
+    // 本方法管理所有来自GameSceneManager的3D手牌处理请求 除了Clear3DTile清空面板；牌谱重建等可直调 ActionAnimationCoroutine
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
@@ -196,8 +197,15 @@ public partial class Game3DManager : MonoBehaviour {
             if (lastCut3DObject != null){
                 // 加杠和暗杠不需要删除上一张3D卡牌
                 if (actionType != "jiagang" && actionType != "angang"){
+                    // 若最后一张弃牌仍在飞行动画中，先终止动画避免复用后位置被改写
+                    if (_currentDiscardMoveCoroutine != null) {
+                        StopCoroutine(_currentDiscardMoveCoroutine);
+                        _currentDiscardMoveCoroutine = null;
+                    }
                     MahjongObjectPool.Instance.Return(-1, lastCut3DObject);
                     lastCut3DObject = null;
+                    // 等一帧再构建组合，避免卡牌位置仍被已中止的动画协程决定；组合动画是移动父物体，若牌的世界位置未刷新会错位
+                    yield return null;
                 }
             }
             else{
@@ -498,6 +506,18 @@ public partial class Game3DManager : MonoBehaviour {
                 MahjongObjectPool.Instance.Return(-1, obj);
             }
         }
+    }
+
+    /// <summary>
+    /// 清空本对象上所有正在执行的协程（用于牌谱重新推理手牌前，避免旧动画与重建画面冲突）
+    /// </summary>
+    public void StopAllRunningAnimations() {
+        if (_currentDiscardMoveCoroutine != null) {
+            StopCoroutine(_currentDiscardMoveCoroutine);
+            _currentDiscardMoveCoroutine = null;
+        }
+        lastCut3DObject = null;
+        StopAllCoroutines();
     }
     
     /// <summary>

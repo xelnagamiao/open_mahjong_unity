@@ -29,11 +29,19 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private GameObject StaticCardPrefab;
     [SerializeField] private GameObject HideSplit;
 
+    [Header("总计面板")]
+    [SerializeField] private GameObject FanCountTotalPanel;
+    [SerializeField] private TextMeshProUGUI TotalFu;
+    [SerializeField] private TextMeshProUGUI TotalFan;
+    [SerializeField] private TextMeshProUGUI TotalScore;
+    [SerializeField] private TextMeshProUGUI TotalLimitDisplay;
+
     public static EndResultPanel Instance { get; private set; }
     private const string StateNone = "";
     private const string StateGame = "gamestate";
     private const string StateRecord = "recordstate";
     private string currentState = StateNone;
+    private Coroutine showResultCoroutine;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -46,10 +54,21 @@ public class EndResultPanel : MonoBehaviour {
         EndButton.interactable = false;
     }
 
-    public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+    public void StartShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
+        gameObject.SetActive(true);
+        showResultCoroutine = StartCoroutine(ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list));
+    }
+
+    public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
         currentState = StateGame;
 
         gameObject.SetActive(true);
+
+        FanCountTotalPanel.SetActive(false);
 
         // 显示玩家准备状态
         SelfReady.gameObject.SetActive(false);
@@ -160,23 +179,38 @@ public class EndResultPanel : MonoBehaviour {
         BoardCanvas.Instance.UpdatePlayerScores(player_to_score, NormalGameStateManager.Instance.indexToPosition);
 
         // 显示番数
-        for (int i = 0; i < hu_fan.Length; i++){
-            // 每半秒 显示一个番数
-            yield return new WaitForSeconds(0.5f);
-            
-            string fanName = hu_fan[i];
-            string roomType = NormalGameStateManager.Instance?.roomType;
-            if (string.IsNullOrEmpty(roomType)) roomType = "guobiao";
-            string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanName);
+        string roomRuleForFan = NormalGameStateManager.Instance.subRule;
+        bool isClassical = roomRuleForFan == "classical/standard";
 
+        if (isClassical && fu_fan_list != null) {
+            // 古典麻将：先显示副番列表
+            for (int i = 0; i < fu_fan_list.Length; i++) {
+                yield return new WaitForSeconds(0.5f);
+                string fuName = fu_fan_list[i];
+                string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
+                GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
+                FanCount fuCount = fuInstance.GetComponent<FanCount>();
+                if (fuCount != null) {
+                    fuCount.SetFanCount(fuName, fuDisplay);
+                    fuCount.ApplyFuColor();
+                }
+            }
+        }
+
+        for (int i = 0; i < hu_fan.Length; i++) {
+            yield return new WaitForSeconds(0.5f);
+            string fanName = hu_fan[i];
+            string fanDisplay = FanTextDictionary.GetFanDisplayText(roomRuleForFan, fanName);
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
             FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
             if (fanCount != null) {
                 fanCount.SetFanCount(fanName, fanDisplay);
-            } else {
-                Debug.LogWarning($"FanCountPrefab 上未找到 FanCount 组件");
+                fanCount.ApplyFanColor();
             }
         }
+
+        yield return new WaitForSeconds(0.5f);
+        ShowTotalPanel(roomRuleForFan, hu_score, hu_fan, base_fu);
         
         // 允许按钮点击
         EndButton.interactable = true;
@@ -209,9 +243,11 @@ public class EndResultPanel : MonoBehaviour {
     public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
-        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false) {
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
+        int? base_fu = null, string[] fu_fan_list = null) {
         currentState = StateRecord;
         gameObject.SetActive(true);
+        FanCountTotalPanel.SetActive(false);
 
         // 清空旧内容，避免与上一条结算叠加
         foreach (Transform child in EndTilescontainer.transform) {
@@ -285,18 +321,36 @@ public class EndResultPanel : MonoBehaviour {
             RightScore.text = "";
         }
 
+        bool isClassical = roomType == "classical/standard";
+
+        // 古典麻将：显示副番列表
+        if (isClassical && fu_fan_list != null) {
+            for (int i = 0; i < fu_fan_list.Length; i++) {
+                string fuName = fu_fan_list[i];
+                string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
+                GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
+                FanCount fuCount = fuInstance.GetComponent<FanCount>();
+                if (fuCount != null) {
+                    fuCount.SetFanCount(fuName, fuDisplay);
+                    fuCount.ApplyFuColor();
+                }
+            }
+        }
+
         if (hu_fan != null) {
-            string fanRoomType = string.IsNullOrEmpty(roomType) ? "guobiao" : roomType;
             for (int i = 0; i < hu_fan.Length; i++) {
                 string fanName = hu_fan[i];
-                string fanDisplay = FanTextDictionary.GetFanDisplayText(fanRoomType, fanName);
+                string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanName);
                 GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
                 if (fanCount != null) {
                     fanCount.SetFanCount(fanName, fanDisplay);
+                    fanCount.ApplyFanColor();
                 }
             }
         }
+
+        ShowTotalPanel(roomType, hu_score, hu_fan, base_fu);
 
         // 回放模式仅显示确认按钮，点击后关闭并切到下一局；观战模式不显示确认，由 end tick 驱动
         EndButton.interactable = !isSpectator;
@@ -364,10 +418,59 @@ public class EndResultPanel : MonoBehaviour {
         }
     }
 
+    /// <summary>
+    /// 显示总计面板。古典麻将显示副数+番数+点数+满贯，国标/青雀仅显示番数+点数。
+    /// </summary>
+    private void ShowTotalPanel(string rule, int huScore, string[] huFan, int? baseFu) {
+        FanCountTotalPanel.SetActive(true);
+        bool isClassical = rule == "classical/standard";
+
+        // 副数：仅古典麻将且有 baseFu 时显示
+        bool showFu = isClassical && baseFu.HasValue;
+        TotalFu.gameObject.SetActive(showFu);
+        if (showFu) TotalFu.text = $"{baseFu.Value}副";
+
+        // 番数
+        if (isClassical) {
+            int fanTotal = CalculateClassicalFanTotal(huFan);
+            TotalFan.text = fanTotal >= 0 ? $"{fanTotal}番" : "满贯";
+        } else {
+            TotalFan.text = $"{huScore}番";
+        }
+
+        // 点数
+        TotalScore.text = $"{huScore}点";
+
+        // 满贯：仅古典麻将且达到顶分 300 时显示
+        bool showLimit = isClassical && huScore >= 300;
+        TotalLimitDisplay.gameObject.SetActive(showLimit);
+        if (showLimit) TotalLimitDisplay.text = "满贯";
+    }
+
+    /// <summary>
+    /// 计算古典麻将翻数总和。若包含"满贯"级别役种则返回 -1 表示满贯。
+    /// </summary>
+    private static int CalculateClassicalFanTotal(string[] huFan) {
+        int total = 0;
+        foreach (string fan in huFan) {
+            string display = FanTextDictionary.GetFanDisplayText("classical/standard", fan);
+            if (display == "满贯") return -1;
+            if (display.EndsWith("翻") && int.TryParse(display.Replace("翻", ""), out int val)) {
+                total += val;
+            }
+        }
+        return total;
+    }
+
     public void ClearEndResultPanel(){
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
         currentState = StateNone;
 
         gameObject.SetActive(false);
+        FanCountTotalPanel.SetActive(false);
 
         // 清空结算
         foreach (Transform child in EndTilescontainer.transform){

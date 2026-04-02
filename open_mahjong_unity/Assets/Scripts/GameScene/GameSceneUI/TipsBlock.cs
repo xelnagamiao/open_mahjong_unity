@@ -19,18 +19,21 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     public void ShowTipsBlock(List<int> selfHandTiles, List<string> combinationTiles){
         HashSet<int> waitingTiles = new HashSet<int>();
         try {
-            if (NormalGameStateManager.Instance.roomType == "guobiao" || (NormalGameStateManager.Instance.roomType != null && NormalGameStateManager.Instance.roomType.StartsWith("guobiao/"))){
+            if (NormalGameStateManager.Instance.roomRule == "guobiao"){
                 waitingTiles = GBtingpai.TingpaiCheck(
                     selfHandTiles,
                     combinationTiles,
                     false
                 );
             }
-            else if (NormalGameStateManager.Instance.roomType == "qingque"){
+            else if (NormalGameStateManager.Instance.roomRule == "qingque"){
                 waitingTiles = Qingque13External.TingpaiCheck(selfHandTiles, combinationTiles, false);
             }
+            else if (NormalGameStateManager.Instance.roomRule == "classical"){
+                waitingTiles = ClassicalExternal.TingpaiCheck(selfHandTiles, combinationTiles, false);
+            }
             else{
-                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomType}");
+                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
                 waitingTiles = new HashSet<int>();
             }
         } catch (System.Exception e) {

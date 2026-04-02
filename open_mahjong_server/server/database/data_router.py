@@ -27,6 +27,8 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_riichi_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_qingque_stats":
         await handle_get_qingque_stats(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_classical_stats":
+        await handle_get_classical_stats(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的数据消息路径: {message_type}")
 
@@ -54,6 +56,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                 game_id=game_record['game_id'],
                 rule=game_record['rule'],
                 sub_rule=game_record.get('sub_rule'),
+                match_type=game_record.get('match_type'),
                 created_at=game_record['created_at'],
                 players=players_info
             )
@@ -333,6 +336,79 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
         type="data/get_qingque_stats",
         success=True,
         message="获取青雀统计数据成功",
+        rule_stats=rule_stats_response,
+        player_info=player_info
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_get_classical_stats(game_server, Connect_id: str, message: dict, websocket):
+    """处理获取古典麻将统计数据请求"""
+    from .classical.get_classical_stats import get_classical_history_stats, get_classical_fan_stats_total
+    try:
+        target_user_id = int(message.get("userid"))
+    except (ValueError, TypeError):
+        response = Response(
+            type="data/get_classical_stats",
+            success=False,
+            message="无效的用户ID"
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+
+    need_player_info = message.get("need_player_info", False)
+    player_info = None
+
+    if need_player_info:
+        user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
+        if user_settings_data:
+            player_info = Player_info_response(
+                user_id=target_user_id,
+                user_settings=UserSettings(
+                    user_id=user_settings_data.get('user_id'),
+                    username=user_settings_data.get('username'),
+                    title_id=user_settings_data.get('title_id'),
+                    profile_image_id=user_settings_data.get('profile_image_id'),
+                    character_id=user_settings_data.get('character_id'),
+                    voice_id=user_settings_data.get('voice_id')
+                ),
+                gb_stats=[],
+                jp_stats=[]
+            )
+
+    history_stats_rows = get_classical_history_stats(game_server.db_manager, target_user_id)
+
+    history_stats_list = []
+    for stats_row in history_stats_rows:
+        history_stats_list.append(Player_stats_info(
+            rule=stats_row.get('rule', 'classical'),
+            mode=stats_row.get('mode'),
+            total_games=stats_row.get('total_games'),
+            total_rounds=stats_row.get('total_rounds'),
+            win_count=stats_row.get('win_count'),
+            self_draw_count=stats_row.get('self_draw_count'),
+            deal_in_count=stats_row.get('deal_in_count'),
+            total_fan_score=stats_row.get('total_fan_score'),
+            total_win_turn=stats_row.get('total_win_turn'),
+            total_fangchong_score=stats_row.get('total_fangchong_score'),
+            first_place_count=stats_row.get('first_place_count'),
+            second_place_count=stats_row.get('second_place_count'),
+            third_place_count=stats_row.get('third_place_count'),
+            fourth_place_count=stats_row.get('fourth_place_count'),
+            fan_stats=None
+        ))
+
+    total_fan_stats = get_classical_fan_stats_total(game_server.db_manager, target_user_id)
+
+    rule_stats_response = Rule_stats_response(
+        rule="classical",
+        history_stats=history_stats_list,
+        total_fan_stats=total_fan_stats
+    )
+
+    response = Response(
+        type="data/get_classical_stats",
+        success=True,
+        message="获取古典麻将统计数据成功",
         rule_stats=rule_stats_response,
         player_info=player_info
     )

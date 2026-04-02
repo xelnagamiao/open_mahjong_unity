@@ -111,7 +111,13 @@ public partial class Game3DManager : MonoBehaviour
             startPosition = selfPosPanel.cardsPosition.position;
         }
 
-        yield return StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
+        if (SetType == "Discard") {
+            _currentDiscardMoveCoroutine = StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
+            yield return _currentDiscardMoveCoroutine;
+            _currentDiscardMoveCoroutine = null;
+        } else {
+            yield return StartCoroutine(MoveCardFromRemovePosition(cardObj, currentPosition, startPosition));
+        }
     }
     
     // 放置3D卡牌 id-位置-类型-玩家位置

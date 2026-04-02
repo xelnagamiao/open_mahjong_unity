@@ -42,42 +42,40 @@ public class Tile3D : MonoBehaviour
         }
     }
 
-/// <summary>
-/// 设置牌面纹理（使用缓存的Sprite）
-/// 额外做 90° 顺时针旋转补偿，抵消向左旋转 90° 的问题
-/// </summary>
-/// <summary>
-/// 设置牌面纹理（使用缓存的Sprite）
-/// 额外做 90° 逆时针旋转补偿（向左旋转 90°）
-/// </summary>
-public void SetCardSprite(int tileId, Sprite sprite)
-{
-    InitializeComponents();
-    
-    currentTileId = tileId;
-    Texture2D atlasTexture = sprite.texture;
-    targetMaterial.SetTexture("_FrontTex", atlasTexture);
+    /// <summary>
+    /// 设置牌面纹理（使用缓存的Sprite）
+    /// 额外做 90° 逆时针旋转补偿（向左旋转 90°）
+    /// verticalStretch: 牌面上下拉伸倍数，1.0=不拉伸，1.1=拉伸 1.1 倍（通过 UV 实现，不改变 3D 几何）
+    /// </summary>
+    public void SetCardSprite(int tileId, Sprite sprite, float verticalStretch = 1f) {
+        InitializeComponents();
 
-    Rect uvRect = sprite.textureRect;
+        currentTileId = tileId;
+        Texture2D atlasTexture = sprite.texture;
+        targetMaterial.SetTexture("_FrontTex", atlasTexture);
 
-    // 原计算：tiling 和 offset
-    float tilingX = uvRect.width / atlasTexture.width;
-    float tilingY = uvRect.height / atlasTexture.height;
-    float offsetX = uvRect.x / atlasTexture.width;
-    float offsetY = uvRect.y / atlasTexture.height;
+        Rect uvRect = sprite.textureRect;
 
-    // 为了让纹理向左旋转 90°（逆时针），对 UV 坐标做变换：
-    // 原始 UV -> 旋转后 UV = (1 - v, u)
-    // 对应 tiling 和 offset 的变换：
-    float newTilingX = tilingY;
-    float newTilingY = tilingX;
-    float newOffsetX = 1f - (offsetY + tilingY);
-    float newOffsetY = offsetX;
+        float tilingX = uvRect.width / atlasTexture.width;
+        float tilingY = uvRect.height / atlasTexture.height;
+        float offsetX = uvRect.x / atlasTexture.width;
+        float offsetY = uvRect.y / atlasTexture.height;
 
-    // 写入 PropertyBlock
-    propBlock.SetVector("_FrontTilingOffset", new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY));
+        // 牌面上下拉伸：采样更小的垂直区域并拉伸显示
+        if (verticalStretch > 1f) {
+            float origTilingY = tilingY;
+            tilingY /= verticalStretch;
+            offsetY += origTilingY * (1f - 1f / verticalStretch) * 0.5f;
+        }
 
-    cardRenderer.SetPropertyBlock(propBlock);
+        // 为了让纹理向左旋转 90°（逆时针），对 UV 坐标做变换
+        float newTilingX = tilingY;
+        float newTilingY = tilingX;
+        float newOffsetX = 1f - (offsetY + tilingY);
+        float newOffsetY = offsetX;
+
+        propBlock.SetVector("_FrontTilingOffset", new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY));
+        cardRenderer.SetPropertyBlock(propBlock);
 
     // 可选：调试日志，方便确认
     // Debug.Log($"[Tile {tileId}] 逆时针90° tiling: {newTilingX:F4}, {newTilingY:F4} | offset: {newOffsetX:F4}, {newOffsetY:F4}");

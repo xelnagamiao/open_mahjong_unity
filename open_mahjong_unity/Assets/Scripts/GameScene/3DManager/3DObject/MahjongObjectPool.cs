@@ -68,6 +68,8 @@ public class MahjongObjectPool : MonoBehaviour {
         }
     }
 
+    private const float CARD_FACE_VERTICAL_STRETCH = 1.1f;
+
     public void InitializePool(string rule) {
         const int BLANK_TILE_ID = 0;
         Queue<GameObject> blankTilePool = new Queue<GameObject>();
@@ -76,10 +78,11 @@ public class MahjongObjectPool : MonoBehaviour {
             obj.SetActive(false);
             obj.transform.SetParent(transform);
             PrecalculateNormals(obj);
+            ApplyCardTexture(obj, BLANK_TILE_ID);
             blankTilePool.Enqueue(obj);
         }
         poolDictionary[BLANK_TILE_ID] = blankTilePool;
-        
+
         int[] standardTiles = {
             11, 12, 13, 14, 15, 16, 17, 18, 19,
             21, 22, 23, 24, 25, 26, 27, 28, 29,
@@ -98,7 +101,7 @@ public class MahjongObjectPool : MonoBehaviour {
             }
             poolDictionary[tileId] = objectPool;
         }
-        
+
         int[] flowerTiles = { 51, 52, 53, 54, 55, 56, 57, 58 };
         foreach (int tileId in flowerTiles) {
             Queue<GameObject> objectPool = new Queue<GameObject>();
@@ -186,7 +189,7 @@ public class MahjongObjectPool : MonoBehaviour {
     }
 
     /// <summary>
-    /// 应用牌面纹理
+    /// 应用牌面纹理，初始化时一次性完成（含牌面上下拉伸）
     /// </summary>
     private void ApplyCardTexture(GameObject cardObj, int tileId) {
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
@@ -194,7 +197,7 @@ public class MahjongObjectPool : MonoBehaviour {
             tile3D = cardObj.AddComponent<Tile3D>();
         }
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
-            tile3D.SetCardSprite(tileId, cachedSprite);
+            tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);
         }
     }
 }

@@ -33,26 +33,32 @@ public class GameStateNetworkManager : MonoBehaviour {
         switch (response.type) {
             case "gamestate/guobiao/game_start":
             case "gamestate/qingque/game_start":
+            case "gamestate/classical/game_start":
                 HandleGameStart(response);
                 break;
             case "gamestate/guobiao/broadcast_hand_action":
             case "gamestate/qingque/broadcast_hand_action":
+            case "gamestate/classical/broadcast_hand_action":
                 HandleBroadcastHandAction(response);
                 break;
             case "gamestate/guobiao/ask_other_action":
             case "gamestate/qingque/ask_other_action":
+            case "gamestate/classical/ask_other_action":
                 HandleAskOtherAction(response);
                 break;
             case "gamestate/guobiao/do_action":
             case "gamestate/qingque/do_action":
+            case "gamestate/classical/do_action":
                 HandleDoAction(response);
                 break;
             case "gamestate/guobiao/show_result":
             case "gamestate/qingque/show_result":
+            case "gamestate/classical/show_result":
                 HandleShowResult(response);
                 break;
             case "gamestate/guobiao/game_end":
             case "gamestate/qingque/game_end":
+            case "gamestate/classical/game_end":
                 HandleGameEnd(response);
                 break;
             case "switch_seat":
@@ -66,7 +72,11 @@ public class GameStateNetworkManager : MonoBehaviour {
                 break;
             case "gamestate/guobiao/ready_status":
             case "gamestate/qingque/ready_status":
+            case "gamestate/classical/ready_status":
                 HandleReadyStatus(response);
+                break;
+            case "gamestate/classical/show_shuhewei":
+                HandleShowShuhewei(response);
                 break;
             default:
                 Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");
@@ -142,7 +152,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.hu_class,
             showresponse.hepai_player_hand,
             showresponse.hepai_player_huapai,
-            showresponse.hepai_player_combination_mask
+            showresponse.hepai_player_combination_mask,
+            showresponse.base_fu,
+            showresponse.fu_fan_list
         );
     }
     
@@ -256,19 +268,24 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// <summary>
     /// 移除观战
     /// </summary>
-    public async void RemoveSpectator(string gamestate_id) {
-        try {
-            var request = new RemoveSpectatorRequest {
-                type = "gamestate/GB/remove_spectator",
-                gamestate_id = gamestate_id
-            };
-            Debug.Log($"发送移除观战消息: {request.type}, gamestate_id: {gamestate_id}");
-            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
-        } catch (Exception e) {
-            Debug.LogError($"移除观战失败: {e.Message}");
-        }
+    public async System.Threading.Tasks.Task RemoveSpectator(string gamestate_id) {
+        var request = new RemoveSpectatorRequest {
+            type = "gamestate/GB/remove_spectator",
+            gamestate_id = gamestate_id
+        };
+        Debug.Log($"发送移除观战消息: {request.type}, gamestate_id: {gamestate_id}");
+        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
     
+    /// <summary>
+    /// 处理数和尾结算
+    /// </summary>
+    private void HandleShowShuhewei(Response response) {
+        Debug.Log($"收到数和尾结算消息: {response.show_shuhewei_info}");
+        ShowShuheWeiInfo info = response.show_shuhewei_info;
+        NormalGameStateManager.Instance.ShowShuhewei(info.player_fu, info.player_to_score, info.score_changes);
+    }
+
     /// <summary>
     /// 处理准备状态更新
     /// </summary>

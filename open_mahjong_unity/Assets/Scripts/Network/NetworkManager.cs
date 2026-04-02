@@ -154,8 +154,6 @@ public class NetworkManager : MonoBehaviour {
     private void HandleLoginResponse(Response response){
         if (response.success) {
             WindowsManager.Instance.SwitchWindow("menu");
-            // 请求房间列表
-            RoomNetworkManager.Instance?.GetRoomList();
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -180,14 +178,13 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
-    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表
+    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表（SwitchWindow("menu") 已负责切换时刷新，此处不重复）
     private void StartServerStatsCoroutine() {
         if (serverStatsCoroutine != null) {
             StopCoroutine(serverStatsCoroutine);
         }
         if (IsOnMainMenu()) {
             GetServerStats();
-            RoomNetworkManager.Instance?.GetRoomList();
         }
         serverStatsCoroutine = StartCoroutine(ServerStatsAndRoomListCoroutine());
     }
@@ -196,13 +193,13 @@ public class NetworkManager : MonoBehaviour {
         return WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "menu";
     }
 
-    // 仅在主菜单时每5秒刷新服务器统计与房间列表
+    // 仅在主菜单时每5秒刷新服务器统计与房间列表（不显示 tips）
     private IEnumerator ServerStatsAndRoomListCoroutine() {
         while (true) {
             yield return new WaitForSeconds(5f);
             if (IsOnMainMenu()) {
                 GetServerStats();
-                RoomNetworkManager.Instance?.GetRoomList();
+                RoomNetworkManager.Instance?.GetRoomList(showTipOnSuccess: false);
             }
         }
     }
@@ -248,6 +245,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_guobiao_stats":
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
+                case "data/get_classical_stats":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
                 // 观战系统：初始牌谱 / 增量更新 → GameRecordManager
@@ -271,18 +269,26 @@ public class NetworkManager : MonoBehaviour {
                 case "gamestate/get_spectator_list":
                 case "gamestate/guobiao/game_start":
                 case "gamestate/qingque/game_start":
+                case "gamestate/classical/game_start":
                 case "gamestate/guobiao/broadcast_hand_action":
                 case "gamestate/qingque/broadcast_hand_action":
+                case "gamestate/classical/broadcast_hand_action":
                 case "gamestate/guobiao/ask_other_action":
                 case "gamestate/qingque/ask_other_action":
+                case "gamestate/classical/ask_other_action":
                 case "gamestate/guobiao/do_action":
                 case "gamestate/qingque/do_action":
+                case "gamestate/classical/do_action":
                 case "gamestate/guobiao/show_result":
                 case "gamestate/qingque/show_result":
+                case "gamestate/classical/show_result":
                 case "gamestate/guobiao/game_end":
                 case "gamestate/qingque/game_end":
+                case "gamestate/classical/game_end":
                 case "gamestate/guobiao/ready_status":
                 case "gamestate/qingque/ready_status":
+                case "gamestate/classical/ready_status":
+                case "gamestate/classical/show_shuhewei":
                 case "switch_seat":
                 case "refresh_player_tag_list":
                     GameStateNetworkManager.Instance?.HandleGameStateMessage(response);

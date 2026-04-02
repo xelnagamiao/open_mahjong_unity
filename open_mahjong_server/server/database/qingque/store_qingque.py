@@ -114,7 +114,7 @@ FAN_NAME_TO_FIELD = {
 FAN_FIELDS = list(dict.fromkeys(FAN_NAME_TO_FIELD.values()))
 
 
-def store_qingque_game_record(db_manager, game_record: dict, player_list: list, room_type: str):
+def store_qingque_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str):
     """
     存储青雀麻将游戏牌谱记录和玩家对局记录
     
@@ -123,6 +123,7 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
         game_record: 游戏牌谱记录字典
         player_list: 玩家列表，每个玩家包含 record_counter 属性
         room_type: 房间规则类型（如 "qingque"）
+        match_type: 局数类型，由外部显式传入（如 "4/4"、"1/4_rank" 等），便于后续扩展
     
     Returns:
         成功返回 game_id，失败返回 None
@@ -171,10 +172,10 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, sub_rule, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, rule, sub_rule, match_type, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    game_id, player.user_id, player.username, player.score, rank, rule, sub_rule,
+                    game_id, player.user_id, player.username, player.score, rank, rule, sub_rule, match_type,
                     title_used, character_used, profile_used, voice_used
                 ))
                 saved_count += 1

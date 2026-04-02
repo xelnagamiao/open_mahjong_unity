@@ -10,6 +10,8 @@ public partial class GameRecordManager
         }
         int safeActionIndex = Mathf.Clamp(actionIndex, 0, roundData.actionTicks.Count);
 
+        // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突
+        Game3DManager.Instance.StopAllRunningAnimations();
         // 重置到局初始状态（UI/2D/3D）
         Game3DManager.Instance.Clear3DTile();
         currentNode = 0;
@@ -208,14 +210,14 @@ public partial class GameRecordManager
                 }
 
                 if (combinationStr.Contains("k")) {
-                    Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask, false);
+                    Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
                 }
                 else if (jiagangCount > 0) {
-                    Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask, false);
-                    Game3DManager.Instance.ActionAnimation(position, "jiagang", combinationMask, false);
+                    Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
+                    Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false));
                 }
                 else {
-                    Game3DManager.Instance.ActionAnimation(position, "None", combinationMask, false);
+                    Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false));
                 }
             }
         }

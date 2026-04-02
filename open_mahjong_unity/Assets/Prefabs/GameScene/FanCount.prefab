@@ -302,6 +302,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FanName: {fileID: 1642047345585929887}
   FanValue: {fileID: 9050327367405986889}
+  BackgroundImage: {fileID: 5229698470179781309}
+  fuColor: {r: 1, g: 0.67178184, b: 0.0990566, a: 1}
+  fanColor: {r: 0.55, g: 0.7, b: 1, a: 1}
 --- !u!1 &7020908814059698061
 GameObject:
   m_ObjectHideFlags: 0

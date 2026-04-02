@@ -8,7 +8,8 @@ public class UserDataManager : MonoBehaviour {
     public string Username { get; private set; }
     public string Userkey { get; private set; }
     public int UserId { get; private set; }
-    public string RoomId { get; private set; } = "";
+    public const string ROOM_ID_NONE = "NOROOM";
+    public string RoomId { get; private set; } = ROOM_ID_NONE;
     public string GamestateId { get; private set; } = ""; // 当前游戏状态ID（用于游戏内操作）
     public int TitleId { get; private set; }
     public int ProfileImageId { get; private set; }
@@ -54,12 +55,13 @@ public class UserDataManager : MonoBehaviour {
     public void SetRoomId(string room_id) {
         Debug.Log("SetRoomId: " + room_id);
         Debug.Log("Current RoomId: " + this.RoomId);
+        if (string.IsNullOrEmpty(room_id)) room_id = ROOM_ID_NONE;
         // 如果房间ID发生变化
         if (this.RoomId != room_id){
-            if (this.RoomId != ""){ // 如果房间本身不是空的,就说明房间变空了,需要退出房间聊天室
+            if (this.RoomId != ROOM_ID_NONE){ // 如果房间本身不是空的,就说明房间变空了,需要退出房间聊天室
                 ChatManager.Instance.LeaveRoom(int.Parse(this.RoomId)); // 退出房间聊天室
             }
-            else if (room_id != ""){ // 如果房间本身是空的,就说明房间变非空了,需要加入房间聊天室
+            else if (room_id != ROOM_ID_NONE){ // 如果房间本身是空的,就说明房间变非空了,需要加入房间聊天室
                 ChatManager.Instance.JoinRoom(int.Parse(room_id)); // 加入房间聊天室
             }
             this.RoomId = room_id;

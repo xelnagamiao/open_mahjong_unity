@@ -151,11 +151,13 @@ public class PlayerInfoPanel : MonoBehaviour{
     private PlayerStatsInfo[] guobiaoStats;
     private PlayerStatsInfo[] riichiStats;
     private PlayerStatsInfo[] qingqueStats;
+    private PlayerStatsInfo[] classicalStats;
     
     // 保存汇总番种统计数据（由服务器返回）
     private Dictionary<string, int> guobiaoTotalFanStats;
     private Dictionary<string, int> riichiTotalFanStats;
     private Dictionary<string, int> qingqueTotalFanStats;
+    private Dictionary<string, int> classicalTotalFanStats;
 
     // Start is called before the first frame update
     void Start(){
@@ -201,9 +203,11 @@ public class PlayerInfoPanel : MonoBehaviour{
         guobiaoStats = null;
         riichiStats = null;
         qingqueStats = null;
+        classicalStats = null;
         guobiaoTotalFanStats = null;
         riichiTotalFanStats = null;
         qingqueTotalFanStats = null;
+        classicalTotalFanStats = null;
 
         // 默认加载国标数据
         CurrentShowRule = "guobiao";
@@ -274,6 +278,25 @@ public class PlayerInfoPanel : MonoBehaviour{
         }
     }
 
+    // 接收古典麻将统计数据
+    public void OnClassicalStatsReceived(bool success, string message, RuleStatsResponse ruleStats) {
+        if (!success || ruleStats == null) {
+            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取古典麻将统计数据失败");
+            return;
+        }
+
+        if (!gameObject.activeSelf) {
+            gameObject.SetActive(true);
+        }
+
+        classicalStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
+        classicalTotalFanStats = ruleStats.total_fan_stats;
+
+        if (CurrentShowRule == "Other") {
+            RefreshCurrentRuleDisplay();
+        }
+    }
+
     // 切换规则
     private void OnSwitchRuleButtonClick(string rule){
         CurrentShowRule = rule;
@@ -287,9 +310,9 @@ public class PlayerInfoPanel : MonoBehaviour{
             DataNetworkManager.Instance?.GetRiichiStats(currentUserId.ToString());
             return;
         }
-        else if (rule == "Other" && qingqueStats == null){
-            DataNetworkManager.Instance?.GetQingqueStats(currentUserId.ToString());
-            // 这里可以添加多个规则
+        else if (rule == "Other" && (qingqueStats == null || classicalStats == null)){
+            if (qingqueStats == null) DataNetworkManager.Instance?.GetQingqueStats(currentUserId.ToString());
+            if (classicalStats == null) DataNetworkManager.Instance?.GetClassicalStats(currentUserId.ToString());
             return;
         }
         
@@ -438,10 +461,50 @@ public class PlayerInfoPanel : MonoBehaviour{
             }
 
             totalFanStats = qingqueTotalFanStats;
+
+            // 古典麻将数据（同在 Other 标签下）
+            string[] classicalModes = {"4/4", "3/4", "2/4", "1/4"};
+
+            Dictionary<string, PlayerStatsInfo> classicalStatsDict = new Dictionary<string, PlayerStatsInfo>();
+            if (classicalStats != null) {
+                foreach (var stat in classicalStats) {
+                    if (stat?.mode != null) {
+                        classicalStatsDict[stat.mode] = stat;
+                    }
+                }
+            }
+
+            for (int i = 0; i < classicalModes.Length; i++) {
+                string mode = classicalModes[i];
+                classicalStatsDict.TryGetValue(mode, out PlayerStatsInfo stat);
+
+                if (stat == null) {
+                    stat = new PlayerStatsInfo {
+                        rule = "classical",
+                        mode = mode,
+                        total_games = 0,
+                        total_rounds = 0,
+                        win_count = 0,
+                        self_draw_count = 0,
+                        deal_in_count = 0,
+                        total_fan_score = 0,
+                        total_win_turn = 0,
+                        total_fangchong_score = 0,
+                        first_place_count = 0,
+                        second_place_count = 0,
+                        third_place_count = 0,
+                        fourth_place_count = 0
+                    };
+                }
+
+                GameObject classicalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+                PlayerInfoEntry classicalEntry = classicalEntryObject.GetComponent<PlayerInfoEntry>();
+                classicalEntry.SetPlayerInfoEntry("mode", this, stat);
+            }
         }
 
         // 在尾部显示番数总计（如果存在）
-        if (totalFanStats != null){
+        if (totalFanStats != null) {
             // Other 标签实际对应青雀规则
             string fanStatsRule = CurrentShowRule == "Other" ? "qingque" : CurrentShowRule;
             PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
