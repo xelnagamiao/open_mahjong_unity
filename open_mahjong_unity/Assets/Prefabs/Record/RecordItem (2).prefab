@@ -542,7 +542,7 @@ GameObject:
   - component: {fileID: 7927566858574530812}
   - component: {fileID: 5694588844929111491}
   m_Layer: 11
-  m_Name: MainRule
+  m_Name: Rule
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -565,7 +565,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 167.6382, y: 40}
+  m_SizeDelta: {x: 212.86, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7927566858574530812
 CanvasRenderer:
@@ -1191,7 +1191,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4198420174530661597}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -1227,8 +1227,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   RecordIdText: {fileID: 4405907798755685326}
-  MainRuleText: {fileID: 5694588844929111491}
-  SubRuleText: {fileID: 8900534256103872357}
+  RuleText: {fileID: 5694588844929111491}
+  MatchTypeText: {fileID: 8900534256103872357}
   RecordedTimeText: {fileID: 5459026308097100978}
   Rank1Text: {fileID: 7462645865462314206}
   Rank2Text: {fileID: 689276444015183511}
@@ -1681,7 +1681,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 265.3853, y: 40}
+  m_SizeDelta: {x: 412, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &62279730565923396
 CanvasRenderer:
@@ -1839,7 +1839,7 @@ MonoBehaviour:
     m_Top: 14
     m_Bottom: 0
   m_ChildAlignment: 0
-  m_Spacing: 40.2
+  m_Spacing: 28.53
   m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 0
   m_ChildControlWidth: 0
@@ -1993,7 +1993,7 @@ GameObject:
   - component: {fileID: 2007812001800573922}
   - component: {fileID: 8900534256103872357}
   m_Layer: 11
-  m_Name: SubRule
+  m_Name: MatchType
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2016,7 +2016,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 167.6382, y: 40}
+  m_SizeDelta: {x: 109.71, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2007812001800573922
 CanvasRenderer:
@@ -2457,7 +2457,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 204.406, y: 40}
+  m_SizeDelta: {x: 200.3, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6808011816323789356
 CanvasRenderer:

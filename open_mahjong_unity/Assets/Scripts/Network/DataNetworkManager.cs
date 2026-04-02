@@ -46,6 +46,9 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_qingque_stats":
                 HandleGetQingqueStatsResponse(response);
                 break;
+            case "data/get_classical_stats":
+                HandleGetClassicalStatsResponse(response);
+                break;
             default:
                 Debug.LogWarning($"未知的数据消息类型: {response.type}");
                 break;
@@ -109,6 +112,19 @@ public class DataNetworkManager : MonoBehaviour {
         PlayerInfoPanel.Instance.OnQingqueStatsReceived(response.success, response.message, response.rule_stats);
     }
     
+    /// <summary>
+    /// 处理获取古典麻将统计数据响应
+    /// </summary>
+    private void HandleGetClassicalStatsResponse(Response response) {
+        if (PlayerInfoPanel.Instance == null) return;
+
+        if (response.player_info != null) {
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+        }
+
+        PlayerInfoPanel.Instance.OnClassicalStatsReceived(response.success, response.message, response.rule_stats);
+    }
+
     /// <summary>
     /// 处理获取观战列表响应
     /// </summary>
@@ -191,6 +207,23 @@ public class DataNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"获取青雀统计数据失败: {e.Message}");
             PlayerInfoPanel.Instance?.OnQingqueStatsReceived(false, e.Message, null);
+        }
+    }
+
+    /// <summary>
+    /// 获取古典麻将统计数据
+    /// </summary>
+    public async void GetClassicalStats(string userid, bool need_player_info = false) {
+        try {
+            var request = new GetQingqueStatsRequest {
+                type = "data/get_classical_stats",
+                userid = userid,
+                need_player_info = need_player_info
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取古典麻将统计数据失败: {e.Message}");
+            PlayerInfoPanel.Instance?.OnClassicalStatsReceived(false, e.Message, null);
         }
     }
 }

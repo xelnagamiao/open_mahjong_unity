@@ -16,10 +16,11 @@ from .boardcast import (
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
+    reconnected_send_pending_ask,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from .init_tiles import init_qingque_tiles
-from ..public.next_game_round import next_game_round
+from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -107,6 +108,8 @@ class QingqueGameState:
             player_setting = player_settings.get(user_id, {})
             if user_id == 0:
                 username = "麻雀罗伯特"
+            elif user_id == 2:
+                username = "牌效罗伯特"
             else:
                 username = player_setting.get("username", f"用户{user_id}")
             player = QingquePlayer(user_id, username, [], room_data["round_timer"])
@@ -123,10 +126,13 @@ class QingqueGameState:
         self.max_round = room_data["game_round"] # 最大局数
         self.step_time = room_data["step_timer"] # 步时
         self.round_time = room_data["round_timer"] # 局时
-        self.room_type = room_data["room_type"] # 房间规则
+        # room_rule 表示具体规则（qingque等），room_type 表示房间类型（custom/match等） sub_rule 表示子规则（qingque/standard等）
+        self.room_rule = room_data["room_rule"]
+        self.room_type = room_data["room_type"]
+        self.sub_rule = room_data.get("sub_rule") # 子规则
+
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
-        self.sub_rule = room_data.get("sub_rule", "qingque/standard") # 子规则
         self.hepai_limit = 1 # 青雀起和限制固定为1
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
@@ -219,6 +225,7 @@ class QingqueGameState:
                         'step_time': self.step_time,
                         'round_time': self.round_time,
                         'room_type': self.room_type,
+                        'room_rule': self.room_rule,
                         'sub_rule': self.sub_rule,
                         'hepai_limit': self.hepai_limit,
                         'open_cuohe': self.open_cuohe,
@@ -266,6 +273,7 @@ class QingqueGameState:
                     
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
                     logger.info(f"已向重连玩家 {p.username} 发送游戏状态信息")
+                    await reconnected_send_pending_ask(self, user_id)
                 break
 
     async def cleanup_game_state(self):
@@ -609,12 +617,12 @@ class QingqueGameState:
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
-                # 流局：等待2秒后重新开始下一局（保持原有逻辑）
+                # 流局：等待2秒后重新开始下一局
                 await asyncio.sleep(2)
             else:
-                # 和牌：固定等待 8 + fan_count*0.5 秒（准备阶段共用同一截止时间，不因多轮 wait_action 累加）
+                # 和牌：固定等待 8 + fan_count*0.5 + 0.5显示总计时间
                 fan_count = len(hu_fan) if hu_fan else 0
-                wait_time = fan_count * 0.5 + 8
+                wait_time = fan_count * 0.5 + 8 + 0.5
                 ready_phase_deadline = time.time() + wait_time
 
                 self.action_dict = {}
@@ -635,7 +643,7 @@ class QingqueGameState:
                         break
 
             # 开启下一局的准备工作
-            next_game_round(self)   
+            next_game_round_random_switchseat(self)   
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环
@@ -658,10 +666,12 @@ class QingqueGameState:
             await self.spectator_manager.send_final_record_and_close()
 
         # 存储游戏牌谱
+        match_type = f"{self.max_round}/4"
         game_id = self.db_manager.store_qingque_game_record(
             self.game_record,
             self.player_list,
-            self.room_type
+            self.room_type,
+            match_type
         )
         
         # 检查是否包含AI玩家（user_id <= 10），如果没有AI玩家则保存统计数据
@@ -715,8 +725,9 @@ QingqueGameState.broadcast_result = broadcast_result
 QingqueGameState.broadcast_game_end = broadcast_game_end
 QingqueGameState.broadcast_switch_seat = broadcast_switch_seat
 QingqueGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
+QingqueGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
 
-# 挂载功能函数于GuobiaoGameState实例
+# 挂载功能函数于QingqueGameState实例
 QingqueGameState.next_current_index = next_current_index
 QingqueGameState.refresh_waiting_tiles = refresh_waiting_tiles
 

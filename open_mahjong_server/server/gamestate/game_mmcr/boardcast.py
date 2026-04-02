@@ -2,7 +2,9 @@ from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_
 from typing import List, Dict, Optional
 import logging
 import asyncio
-from ..public.auto_cut_ai import auto_cut_action
+import time
+from ..public.ai.auto_cut_ai import auto_cut_action
+from ..public.ai.smart_bot_ai import smart_bot_action
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,8 @@ async def broadcast_game_start(self):
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
-        'room_type': self.room_type, # 房间类型
+        'room_type': self.room_type, # 房间类型（custom/match等）
+        'room_rule': self.room_rule, # 房间规则（guobiao/qingque等）
         'sub_rule': getattr(self, 'sub_rule', 'qingque/standard'), # 子规则
         'hepai_limit': getattr(self, 'hepai_limit', 1), # 青雀起和固定 1
         'open_cuohe': self.open_cuohe, # 是否开启错和
@@ -104,6 +107,7 @@ async def broadcast_game_start(self):
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
+    self._ask_broadcast_time = time.time()  # 供重连补发时按经过时间重算剩余时间，与观战独立
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
@@ -118,7 +122,11 @@ async def broadcast_ask_hand_action(self):
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
-                continue  # 机器人不需要接收广播
+                continue
+            elif current_player.user_id == 2:
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
             
             if i == self.current_player_index:
                 # 对当前玩家发送包含摸牌信息的消息
@@ -172,6 +180,7 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
+    self._ask_broadcast_time = time.time()  # 供重连补发时按经过时间重算剩余时间，与观战独立
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
@@ -186,7 +195,11 @@ async def broadcast_ask_other_action(self):
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
-                continue  # 机器人不需要接收广播
+                continue
+            elif current_player.user_id == 2:
+                if self.action_dict.get(i, []):
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
             
             if self.action_dict[i] != []:
                 # 发送询问行动信息
@@ -239,6 +252,58 @@ async def broadcast_ask_other_action(self):
         if player_action_map:
             self.spectator_manager.record_ask_other(player_action_map, cut_tile)
 
+
+def _reconnect_remaining_time(self, player) -> int:
+    """重连补发时按「当时剩余 - 已过时间」重算剩余时间，与观战独立。"""
+    t0 = getattr(self, "_ask_broadcast_time", None)
+    if t0 is None:
+        return player.remaining_time
+    elapsed = max(0, time.time() - t0)
+    return max(0, player.remaining_time - int(elapsed))
+
+
+async def reconnected_send_pending_ask(self, user_id: int):
+    """重连后若当前处于 ask_hand 或 ask_other 等待中，向该玩家补发对应消息；剩余时间按经过时间重算（与正常广播逻辑一致：ask_hand 仅当前出牌者收，ask_other 仅有待选操作的玩家收）。"""
+    reconnect_idx = next((i for i, p in enumerate(self.player_list) if p.user_id == user_id), None)
+    if reconnect_idx is None or user_id not in self.game_server.user_id_to_connection:
+        return
+    player_conn = self.game_server.user_id_to_connection[user_id]
+    player = self.player_list[reconnect_idx]
+    remaining_sent = _reconnect_remaining_time(self, player)
+    if self.game_status == "waiting_hand_action":
+        if reconnect_idx == self.current_player_index:
+            response = Response(
+                type="gamestate/qingque/broadcast_hand_action",
+                success=True,
+                message="发牌，并询问手牌操作",
+                ask_hand_action_info=Ask_hand_action_info(
+                    remaining_time=remaining_sent,
+                    player_index=self.current_player_index,
+                    remain_tiles=len(self.tiles_list),
+                    action_list=self.action_dict.get(reconnect_idx, []),
+                    action_tick=self.server_action_tick,
+                ),
+            )
+            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
+    elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
+        if self.action_dict.get(reconnect_idx):
+            cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+            response = Response(
+                type="gamestate/qingque/ask_other_action",
+                success=True,
+                message="询问操作",
+                ask_other_action_info=Ask_other_action_info(
+                    remaining_time=remaining_sent,
+                    action_list=self.action_dict[reconnect_idx],
+                    cut_tile=cut_tile,
+                    action_tick=self.server_action_tick,
+                ),
+            )
+            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            logger.info(f"重连补发 ask_other 给玩家 {player.username}，剩余时间 {remaining_sent}s")
+
+
 # 广播操作
 async def broadcast_do_action(
     self, 
@@ -252,8 +317,9 @@ async def broadcast_do_action(
     combination_target: str = None,
     combination_mask: List[int] = None
     ):
-    
     self.server_action_tick += 1
+    if hasattr(self, "_ask_broadcast_time"):
+        delattr(self, "_ask_broadcast_time")
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         print(f"广播操作: action_list={action_list}, action_player={action_player}, cut_tile={cut_tile}, cut_class={cut_class}, cut_tile_index={cut_tile_index}, deal_tile={deal_tile}, buhua_tile={buhua_tile}, combination_target={combination_target}, combination_mask={combination_mask}")
@@ -359,13 +425,13 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典 {user_id: Player_final_data}
+    # 构建玩家最终数据字典 {username: Player_final_data}
     player_final_data = {}
     for player in self.player_list:
-        player_final_data[player.user_id] = Player_final_data(
+        player_final_data[player.username] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
-            pt=0,  # 默认0分
+            pt=0,
             username=player.username
         )
     

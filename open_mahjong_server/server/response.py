@@ -39,6 +39,7 @@ class GameInfo(BaseModel):
     step_time: int
     round_time: int
     room_type: str
+    room_rule: str
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     hepai_limit: Optional[int] = None  # 起和番限制（国标有效，默认8）
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
@@ -83,6 +84,13 @@ class Show_result_info(BaseModel):
     hepai_player_huapai: Optional[List[int]] = None  # 和牌玩家花牌列表
     hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
     action_tick: int
+    base_fu: Optional[int] = None  # 古典麻将：基础副数
+    fu_fan_list: Optional[List[str]] = None  # 古典麻将：副番名列表
+
+class Show_shuhewei_info(BaseModel):
+    player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
+    player_to_score: Dict[int, int]  # 结算后各玩家总分 {player_index: score}
+    score_changes: Dict[int, int]  # 数和尾引起的分数变化 {player_index: delta}
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
@@ -93,7 +101,7 @@ class Player_final_data(BaseModel):
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[int, Player_final_data]  # 玩家最终数据 {rank: Player_final_data}
+    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据 {username: Player_final_data}
 
 class Switch_seat_info(BaseModel):
     """换位信息"""
@@ -123,6 +131,7 @@ class Record_info(BaseModel):
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
+    match_type: Optional[str] = None  # 局数类型（如 1/4、2/4、4/4），用于区分全庄战、半庄战、天梯等
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 
@@ -212,6 +221,7 @@ class Response(BaseModel):
     type: str
     success: bool
     message: str
+    show_tip: Optional[bool] = None  # room/get_room_list 时回显：True=客户端显示刷新成功tips
     # 消息体
     message_info: Optional[MessageInfo] = None # 用于返回消息信息
     room_list: Optional[list[dict]] = None # 用于执行get_room_list时返回房间列表数据
@@ -221,6 +231,7 @@ class Response(BaseModel):
     ask_other_action_info: Optional[Ask_other_action_info] = None # 用于询问切牌后其他家玩家操作 吃 碰 杠 胡
     do_action_info: Optional[Do_action_info] = None # 用于广播玩家操作
     show_result_info: Optional[Show_result_info] = None # 用于广播结算结果
+    show_shuhewei_info: Optional[Show_shuhewei_info] = None # 用于广播数和尾结算
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
     switch_seat_info: Optional[Switch_seat_info] = None # 用于广播换位信息
     refresh_player_tag_list_info: Optional[Refresh_player_tag_list_info] = None # 用于广播刷新玩家标签列表

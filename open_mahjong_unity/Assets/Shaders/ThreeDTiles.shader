@@ -54,7 +54,7 @@ Shader "Custom/ThreeDTiles"
             #pragma vertex vertMain
             #pragma fragment fragMain
             #pragma target 3.0
-            #pragma multi_compile_instancing  // 保持 Instancing 支持
+            #pragma multi_compile_instancing
 
             #include "UnityCG.cginc"
 
@@ -73,9 +73,6 @@ Shader "Custom/ThreeDTiles"
             half _Alpha;
             half _GrayScale;
             half _FrontRotation;
-
-            // 只保留必要的 Instancing 宏（不重复定义 _FrontTilingOffset）
-            // 如果你以后有其他 per-instance 属性，再加 Buffer
 
             struct appdata_main
             {
@@ -134,13 +131,15 @@ Shader "Custom/ThreeDTiles"
                     frontUV = RotateUV(frontUV, _FrontRotation);
                 }
                 
-                fixed4 front = tex2D(_FrontTex, frontUV) * _FrontColor;
+                // 强制 lod = 0：使用 tex2Dlod + float4(uv, 0, 0)
+                // 最后一个参数是 lod level，0 = 最高分辨率 mip（完整采样）
+                fixed4 front = tex2Dlod(_FrontTex, float4(frontUV, 0, 0)) * _FrontColor;
 
                 float2 backUV = i.uvBack * _BackTilingOffset.xy + _BackTilingOffset.zw;
-                fixed4 back = tex2D(_BackTex, backUV) * _BackColor;
+                fixed4 back = tex2Dlod(_BackTex, float4(backUV, 0, 0)) * _BackColor;
 
                 float2 sideUV = i.uvSide * _SideTilingOffset.xy + _SideTilingOffset.zw;
-                fixed4 side = tex2D(_SideTex, sideUV) * _SideColor;
+                fixed4 side = tex2Dlod(_SideTex, float4(sideUV, 0, 0)) * _SideColor;
 
                 fixed4 col = front * i.color.r + back * i.color.g + side * i.color.b;
 

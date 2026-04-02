@@ -162,9 +162,13 @@ class GameServer:
     async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
         return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator)
 
+    # 创建古典麻将房间
+    async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+        return await self.room_manager.create_Classical_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator)
+
     # 获取房间列表
-    def get_room_list(self) -> Response:
-        return self.room_manager.get_room_list()
+    def get_room_list(self, show_tip: bool = False) -> Response:
+        return self.room_manager.get_room_list(show_tip=show_tip)
 
     # 加入房间
     async def join_room(self, Connect_id: str, room_id: str, password: str):
@@ -179,6 +183,11 @@ class GameServer:
     # 添加机器人到房间
     async def add_bot_to_room(self, Connect_id: str, room_id: str):
         response = await self.room_manager.add_bot_to_room(Connect_id, room_id)
+        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+
+    # 添加牌效机器人到房间
+    async def add_smart_bot_to_room(self, Connect_id: str, room_id: str):
+        response = await self.room_manager.add_smart_bot_to_room(Connect_id, room_id)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
     # 房主移除玩家

@@ -17,21 +17,22 @@ from datetime import date, datetime
 # 牌谱记录游戏头
 def init_game_record(self):
     self.game_record["game_title"] = {
-        "rule":self.room_type, # 规则
-        "game_random_seed":self.game_random_seed, # 随机种子
-        "max_round":self.max_round, # 最大局数
-        "start_time": datetime.now(), # 开始时间
-        "open_cuohe":self.open_cuohe, # 是否开启错和
-        "tips":self.tips, # 是否开启提示
-        "is_player_set_random_seed":self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
-        "p0_uid":self.player_list[0].user_id,
-        "p0_name":self.player_list[0].username,
-        "p1_uid":self.player_list[1].user_id,
-        "p1_name":self.player_list[1].username,
-        "p2_uid":self.player_list[2].user_id,
-        "p2_name":self.player_list[2].username,
-        "p3_uid":self.player_list[3].user_id,
-        "p3_name":self.player_list[3].username,
+        "rule": self.room_rule,
+        "game_random_seed": self.game_random_seed,
+        "max_round": self.max_round,
+        "start_time": datetime.now(),
+        "open_cuohe": self.open_cuohe,
+        "tips": self.tips,
+        "is_player_set_random_seed": self.isPlayerSetRandomSeed,
+        "hepai_limit": getattr(self, "hepai_limit", None),
+        "p0_uid": self.player_list[0].user_id,
+        "p0_name": self.player_list[0].username,
+        "p1_uid": self.player_list[1].user_id,
+        "p1_name": self.player_list[1].username,
+        "p2_uid": self.player_list[2].user_id,
+        "p2_name": self.player_list[2].username,
+        "p3_uid": self.player_list[3].user_id,
+        "p3_name": self.player_list[3].username,
     }
     self.game_record["game_round"] = {}
 
@@ -103,12 +104,22 @@ def player_action_record_chipenggang(self,action_type: str,mingpai_tile: int,act
         [record_code,mingpai_tile,action_player]
     )
 
-# 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
+# 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes, base_fu?, fu_fan_list?]
 def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
-                            hepai_player_index: int, score_changes: List[int]):
+                            hepai_player_index: int, score_changes: List[int],
+                            base_fu=None, fu_fan_list=None):
+    self.player_action_tick += 1
+    tick = [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
+    if base_fu is not None:
+        tick.append(base_fu)
+        tick.append(fu_fan_list or [])
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(tick)
+
+# 牌谱记录九老峰回流局 ["jiuzhongjiupai"]
+def player_action_record_jiuzhongjiupai(self):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
+        ["jiuzhongjiupai"]
     )
 
 # 牌谱记录流局 ["liuju"]

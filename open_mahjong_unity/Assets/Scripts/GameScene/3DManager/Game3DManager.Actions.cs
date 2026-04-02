@@ -218,12 +218,6 @@ public partial class Game3DManager : MonoBehaviour
             }
         }
     }
-    
-    // 鸣牌3D显示（同步版本，用于向后兼容）
-    public void ActionAnimation(string playerIndex, string actionType, int[] combination_mask, bool doAnimation = false)
-    {
-        StartCoroutine(ActionAnimationCoroutine(playerIndex, actionType, combination_mask, doAnimation));
-    }
 
     private int GetPlayerCombinationCount(string playerPosition) {
         // 如果是牌谱模式，则返回牌谱模式下的组合数

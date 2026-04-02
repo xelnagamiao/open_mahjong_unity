@@ -1,6 +1,6 @@
 # 游戏状态路由处理器
 import logging
-from .game_guobiao.get_action import get_action
+from .public.ai.get_action import get_action
 from ..response import Response, SpectatorInfo
 
 logger = logging.getLogger(__name__)

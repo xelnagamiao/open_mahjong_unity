@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from .game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..response import Response, MessageInfo
 from .game_mmcr.QingqueGameState import QingqueGameState
+from .game_classical.ClassicalGameState import ClassicalGameState
 logger = logging.getLogger(__name__)
 
 class GameStateManager:
@@ -22,6 +23,7 @@ class GameStateManager:
         # 管理不同房间id到已启动的游戏服务的映射（仅用于开始游戏时检查，之后不再使用）
         self.room_id_to_GuobiaoGameState: Dict[str, GuobiaoGameState] = {}
         self.room_id_to_QingqueGameState: Dict[str, QingqueGameState] = {}
+        self.room_id_to_ClassicalGameState: Dict[str, ClassicalGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
         self.gamestate_id_to_game_state: Dict[str, Any] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
@@ -61,7 +63,8 @@ class GameStateManager:
         room_data["is_game_running"] = True
         
         # 创建游戏任务
-        if room_data["room_type"] == "guobiao":
+        room_rule = room_data["room_rule"]
+        if room_rule == "guobiao":
             try:
                 # 生成 gamestate_id
                 gamestate_id = str(uuid.uuid4())
@@ -95,7 +98,7 @@ class GameStateManager:
                         del self.gamestate_id_to_game_state[game_state.gamestate_id]
                     del self.room_id_to_GuobiaoGameState[room_id]
                 return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
-        elif room_data["room_type"] == "qingque":
+        elif room_rule == "qingque":
             try:
                 # 生成 gamestate_id
                 gamestate_id = str(uuid.uuid4())
@@ -128,6 +131,34 @@ class GameStateManager:
                     if hasattr(game_state, 'gamestate_id') and game_state.gamestate_id in self.gamestate_id_to_game_state:
                         del self.gamestate_id_to_game_state[game_state.gamestate_id]
                     del self.room_id_to_QingqueGameState[room_id]
+                return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
+        elif room_rule == "classical":
+            try:
+                gamestate_id = str(uuid.uuid4())
+                
+                game_state = ClassicalGameState(
+                    self.game_server, 
+                    room_data, 
+                    self.game_server.calculation_service,
+                    self.game_server.db_manager,
+                    gamestate_id
+                )
+                self.room_id_to_ClassicalGameState[room_id] = game_state
+                self.gamestate_id_to_game_state[gamestate_id] = game_state
+                
+                for player_id in room_data["player_list"]:
+                    self.user_id_to_game_state[player_id] = game_state
+                
+                game_state.game_task = asyncio.create_task(game_state.run_game_loop())
+                logger.info(f"房间 {room_id} 的古典麻将游戏已启动，gamestate_id: {gamestate_id}")
+            except Exception as e:
+                logger.error(f"创建古典麻将游戏任务时发生异常，room_id: {room_id}, 错误: {e}", exc_info=True)
+                room_data["is_game_running"] = False
+                if room_id in self.room_id_to_ClassicalGameState:
+                    game_state = self.room_id_to_ClassicalGameState[room_id]
+                    if hasattr(game_state, 'gamestate_id') and game_state.gamestate_id in self.gamestate_id_to_game_state:
+                        del self.gamestate_id_to_game_state[game_state.gamestate_id]
+                    del self.room_id_to_ClassicalGameState[room_id]
                 return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
         else:
             return Response(type="error_message", success=False, message="房间类型不支持")
@@ -167,12 +198,19 @@ class GameStateManager:
         """
         处理玩家断开连接
         
+        - 若为对局内玩家：标记 offline 并检查是否需清理 gamestate
+        - 若为观战者：从各 gamestate 的 spectator_manager 中移除（与 remove_spectator 一致）
+        
         Args:
             user_id: 用户ID
         """
         if user_id in self.user_id_to_game_state:
             game_state = self.user_id_to_game_state[user_id]
             await game_state.player_disconnect(user_id)
+        # 观战者断开时，需从所有 gamestate 的 spectator_manager 中移除
+        for game_state in list(self.gamestate_id_to_game_state.values()):
+            if hasattr(game_state, 'spectator_manager') and game_state.spectator_manager:
+                await game_state.remove_spectator(user_id)
     
     async def player_reconnect(self, user_id: int):
         """
@@ -210,6 +248,8 @@ class GameStateManager:
             return self.room_id_to_GuobiaoGameState.get(room_id)
         elif room_id in self.room_id_to_QingqueGameState:
             return self.room_id_to_QingqueGameState.get(room_id)
+        elif room_id in self.room_id_to_ClassicalGameState:
+            return self.room_id_to_ClassicalGameState.get(room_id)
         return None
     
     def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[Any]:
@@ -266,11 +306,7 @@ class GameStateManager:
                 if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
                     continue
                 # 获取规则类型
-                room_type = getattr(game_state, 'room_type', 'guobiao')
-                
-                # 根据房间类型映射到规则标识符
-                # guobiao -> guobiao, qingque -> qingque, riichi -> riichi
-                rule = room_type
+                rule = game_state.room_rule
                 
                 # 获取4个玩家的用户名（用于显示）
                 player1_name = game_state.player_list[0].username
@@ -325,6 +361,8 @@ class GameStateManager:
             del self.room_id_to_GuobiaoGameState[game_state.room_id]
         elif game_state.room_id in self.room_id_to_QingqueGameState:
             del self.room_id_to_QingqueGameState[game_state.room_id]
+        elif game_state.room_id in self.room_id_to_ClassicalGameState:
+            del self.room_id_to_ClassicalGameState[game_state.room_id]
         
         # 3. 清理 gamestate_id 到游戏状态的映射
         if gamestate_id and gamestate_id in self.gamestate_id_to_game_state:

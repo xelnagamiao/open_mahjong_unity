@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
@@ -27,24 +28,26 @@ public class EndGamePanel : MonoBehaviour {
         }
     }
 
-    // ✅ 参数 key 为 string（排名rank），按照rank顺序（1,2,3,4）显示
+    /// <summary>
+    /// 参数 key 为 username，按照 rank 值升序（1,2,3,4）排列后显示。
+    /// </summary>
     public void ShowGameEndPanel(
         long game_random_seed,
         Dictionary<string, Dictionary<string, object>> player_final_data) {
         gameObject.SetActive(true);
 
-        // 按照rank顺序（1,2,3,4）获取和显示玩家数据
-        for (int rank = 1; rank <= 4; rank++) {
-            string rankKey = rank.ToString();
-            if (player_final_data.ContainsKey(rankKey) && (rank - 1) < rankDisplays.Length) {
-                var playerData = player_final_data[rankKey]; // 获取当前排名玩家数据
-                var display = rankDisplays[rank - 1]; // 获取视窗列表中的第(rank-1)个元素
+        // 按 rank 值升序排列所有玩家数据
+        var sorted = player_final_data.Values
+            .OrderBy(d => System.Convert.ToInt32(d["rank"]))
+            .ToList();
 
-                display.username.text = playerData["username"].ToString();
-                display.score.text = playerData["score"].ToString();
-                display.rank.text = playerData["rank"].ToString();
-                display.pt.text = playerData["pt"].ToString();
-            }
+        for (int i = 0; i < sorted.Count && i < rankDisplays.Length; i++) {
+            var playerData = sorted[i];
+            var display = rankDisplays[i];
+            display.username.text = playerData["username"].ToString();
+            display.score.text = playerData["score"].ToString();
+            display.rank.text = playerData["rank"].ToString();
+            display.pt.text = playerData["pt"].ToString();
         }
         // 显示游戏随机种子
         gameRandomSeed.text = "游戏随机种子: " + game_random_seed.ToString();

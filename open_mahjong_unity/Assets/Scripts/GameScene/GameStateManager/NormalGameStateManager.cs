@@ -38,7 +38,9 @@ public class NormalGameStateManager : MonoBehaviour{
     // 房间信息
     public int roomId; // 房间ID
     public string gamestateId; // 游戏状态ID（用于发送游戏操作请求）
-    public string roomType; // 房间规则类型（用于番表显示：guobiao/standard、guobiao/xiaolin、qingque 等）
+    public string roomType; // 房间类型（custom/match等）
+    public string roomRule; // 房间规则（guobiao/qingque等）
+    public string subRule;  // 子规则（guobiao/standard、guobiao/xiaolin、qingque/standard）
     public int hepaiLimit = 8; // 起和番限制（国标有效，服务器下发的 hepai_limit，默认8）
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
@@ -89,12 +91,11 @@ public class NormalGameStateManager : MonoBehaviour{
         // 保存gamestate_id
         UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
 
-
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
 
-        GameSceneMouseInputController.Instance.SetState("gamestate");
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateGame);
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
@@ -127,7 +128,7 @@ public class NormalGameStateManager : MonoBehaviour{
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" , "angang", "jiagang","pass"};
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" , "angang", "jiagang", "jiuzhongjiupai", "pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);
@@ -304,24 +305,39 @@ public class NormalGameStateManager : MonoBehaviour{
     }
 
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask){
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 隐藏和牌提示
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
         // 显示结算结果
-        if (hu_class == "liuju"){
-            // 流局情况下，显示流局
-            GameSceneUIManager.Instance.ShowEndLiuju();
-        }
-        else{
+        if (hu_class == "liuju") {
+            GameSceneUIManager.Instance.ShowEndLiuju("流局");
+        } else if (hu_class == "jiuzhongjiupai") {
+            GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
+        } else {
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
             SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
-            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask);
+            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list);
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
+    }
+
+    // 数和尾结算
+    public void ShowShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes) {
+        EndResultPanel.Instance.ClearEndResultPanel();
+        // 更新计分板
+        BoardCanvas.Instance.UpdatePlayerScores(player_to_score, indexToPosition);
+        // 更新本地分数记录
+        foreach (var kvp in player_to_score) {
+            string pos = indexToPosition.ContainsKey(kvp.Key) ? indexToPosition[kvp.Key] : null;
+            if (pos != null && player_to_info.ContainsKey(pos)) {
+                player_to_info[pos].score = kvp.Value;
+            }
+        }
+        GameSceneUIManager.Instance.ShowShuhewei(player_fu, player_to_score, score_changes, indexToPosition, player_to_info);
     }
 
     // 执行换位
@@ -598,19 +614,18 @@ public class NormalGameStateManager : MonoBehaviour{
                     
                     // 如果 combination_tiles 的字符串有 "k"（刻子/碰），传入 "peng"
                     if (combinationStr.Contains("k")){
-                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
                     }
                     // 如果 combination_mask 中有 "3"（加杠），说明是碰后加杠的情况
                     // 需要先调用 "peng" 再调用 "jiagang"，确保 pengToJiagangPosDict 正确缓存
                     else if (jiagangCount > 0){
                         // 先调用 peng，创建碰牌并缓存横置位置
-                        Game3DManager.Instance.ActionAnimation(position, "peng", combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "peng", combinationMask, false));
                         // 再调用 jiagang，在缓存的位置上添加加杠牌
-                        Game3DManager.Instance.ActionAnimation(position, "jiagang", combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "jiagang", combinationMask, false));
                     }
                     else{
-                        // 其他情况直接调用 ActionAnimation
-                        Game3DManager.Instance.ActionAnimation(position, "None",  combinationMask,false);
+                        Game3DManager.Instance.StartCoroutine(Game3DManager.Instance.ActionAnimationCoroutine(position, "None", combinationMask, false));
                     }
                 }
             }
@@ -650,8 +665,9 @@ public class NormalGameStateManager : MonoBehaviour{
             }
         }
         roomId = gameInfo.room_id; // 存储房间ID
-        // 有 sub_rule 时用 sub_rule 作为 roomType（番表/结算显示），否则用 room_type
-        roomType = !string.IsNullOrEmpty(gameInfo.sub_rule) ? gameInfo.sub_rule : gameInfo.room_type;
+        roomType = gameInfo.room_type;
+        roomRule = gameInfo.room_rule;
+        subRule = gameInfo.sub_rule;
         hepaiLimit = gameInfo.hepai_limit > 0 ? gameInfo.hepai_limit : 8; // 起和番限制，国标提示用
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时

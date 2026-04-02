@@ -18,9 +18,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     [SerializeField] private Button tileButton;  // 按钮组件
 
     // 将私有字段改为公共属性
-    public int tileId { get; private set; }    // 牌的ID（如"11"表示一万）
+    public int tileId;   // 牌的ID（如"11"表示一万）
     public bool currentGetTile;   // 是否是当前摸到的牌
-    
+
     private bool isHovering = false; // 是否正在悬停
 
     private void OnEnable()
@@ -126,15 +126,22 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         HashSet<int> waitingTiles = new HashSet<int>();
         try
         {
-            if (NormalGameStateManager.Instance.roomType == "guobiao" || (NormalGameStateManager.Instance.roomType != null && NormalGameStateManager.Instance.roomType.StartsWith("guobiao/"))){
+            if (NormalGameStateManager.Instance.roomRule == "guobiao"){
                 waitingTiles = GBtingpai.TingpaiCheck(
                     tempHandTiles,
                     NormalGameStateManager.Instance.player_to_info["self"].combination_tiles,
                     false
                 );
             }
-            else if (NormalGameStateManager.Instance.roomType == "qingque"){
+            else if (NormalGameStateManager.Instance.roomRule == "qingque"){
                 waitingTiles = Qingque13External.TingpaiCheck(
+                    tempHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
+                    false
+                );
+            }
+            else if (NormalGameStateManager.Instance.roomRule == "classical"){
+                waitingTiles = ClassicalExternal.TingpaiCheck(
                     tempHandTiles,
                     NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
                     false
@@ -142,7 +149,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             }
             else
             {
-                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomType}");
+                Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
                 waitingTiles = new HashSet<int>();
             }
         }

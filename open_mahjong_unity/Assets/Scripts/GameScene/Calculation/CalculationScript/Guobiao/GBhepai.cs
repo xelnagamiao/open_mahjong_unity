@@ -3,24 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-// 国标麻将和牌检查入口类
+// 国标麻将 - 标准和牌检查入口（独立脚本）
 public static class GBhepai {
     /// <summary>
-    /// 和牌检查方法，类似 Python 版本的 HepaiCheck
+    /// 国标标准和牌检查
     /// </summary>
-    /// <param name="hand_list">手牌列表</param>
-    /// <param name="tiles_combination">已组成的组合列表</param>
-    /// <param name="way_to_hepai">和牌方式列表</param>
-    /// <param name="get_tile">和牌张</param>
-    /// <param name="debug">是否启用调试日志，默认为 false</param>
-    /// <returns>返回元组：(番数, 番种列表)</returns>
     public static Tuple<int, List<string>> HepaiCheck(
         List<int> hand_list,
         List<string> tiles_combination,
         List<string> way_to_hepai,
         int get_tile,
         bool debug = false) {
-        var checker = new Chinese_Hepai_Check(debug);
+        var checker = new Chinese_Hepai_Check(debug, null);
         return checker.HepaiCheck(hand_list, tiles_combination, way_to_hepai, get_tile);
     }
 }
@@ -208,7 +202,7 @@ public class Chinese_Hepai_Check {
             { "mingangang", new List<string>() }
         };
 
-        // 存储番种的番数
+        // 存储番种的番数（国标标准）
         private static readonly Dictionary<string, int> count_model_dict = new Dictionary<string, int>
         {
             { "dasixi", 88 }, { "dasanyuan", 88 }, { "lvyise", 88 }, { "jiulianbaodeng", 88 }, { "sigang", 88 },
@@ -227,7 +221,7 @@ public class Chinese_Hepai_Check {
             { "qianzhang", 1 }, { "dandiaojiang", 1 }, { "zimo", 1 }, { "huapai", 1 }, { "mingangang", 5 }
         };
 
-        private static readonly Dictionary<string, string> eng_to_chinese_dict = new Dictionary<string, string>
+        internal static readonly Dictionary<string, string> EngToChineseDict = new Dictionary<string, string>
         {
             { "dasixi", "大四喜" }, { "dasanyuan", "大三元" }, { "lvyise", "绿一色" }, { "jiulianbaodeng", "九莲宝灯" }, { "sigang", "四杠" },
             { "sangang", "三杠" }, { "lianqidui", "连七对" }, { "shisanyao", "十三幺" },
@@ -298,9 +292,12 @@ public class Chinese_Hepai_Check {
         private static readonly HashSet<int> zipai = new HashSet<int> { 41, 42, 43, 44, 45, 46, 47 };
 
         private bool debug;
+        private readonly Dictionary<string, int> _countModelDict;
 
-        public Chinese_Hepai_Check(bool debug = false) {
+        /// <param name="countDict">为 null 时使用国标标准番值表；小林规由 GBhepaiXiaolin 传入其番值表。</param>
+        public Chinese_Hepai_Check(bool debug = false, Dictionary<string, int> countDict = null) {
             this.debug = debug;
+            _countModelDict = countDict ?? count_model_dict;
         }
 
         private void DebugPrint(params object[] args) {
@@ -1414,8 +1411,10 @@ public class Chinese_Hepai_Check {
         // 番种输出和得分计算
         private Tuple<int, List<string>> FanCountOutput(PlayerTiles player_tiles, string combination_str, bool zimo_or_not, List<string> way_to_hepai) {
             
-            if (player_tiles.fan_list.Count == 0 || player_tiles.fan_list.All(f => f == "huapai"))
-                player_tiles.fan_list.Add("wufanhe"); // 无番和
+            // 无番和：排除花牌后，若没有剩余番或剩余番番值均为 0，则添加无番和
+            var remaining = player_tiles.fan_list.Where(f => f != "huapai").ToList();
+            if (remaining.Count == 0 || remaining.All(f => _countModelDict.GetValueOrDefault(f, 0) == 0))
+                player_tiles.fan_list.Add("wufanhe");
 
             // 根据规定原则排除阻挡番种
             var need_to_remove = new List<string>();
@@ -1482,7 +1481,7 @@ public class Chinese_Hepai_Check {
 
             DebugPrint("全部被添加的番种", string.Join(",", player_tiles.fan_list));
             // 按番大小排列
-            player_tiles.fan_list = player_tiles.fan_list.OrderByDescending(x => count_model_dict.ContainsKey(x) ? count_model_dict[x] : 0).ToList();
+            player_tiles.fan_list = player_tiles.fan_list.OrderByDescending(x => _countModelDict.ContainsKey(x) ? _countModelDict[x] : 0).ToList();
 
             DebugPrint("需要被阻挡的番种", string.Join(",", need_to_remove));
             foreach (var i in need_to_remove)
@@ -1580,10 +1579,10 @@ public class Chinese_Hepai_Check {
             {
                 if (!fuji_set.Contains(i))
                 {
-                    fan_count += count_model_dict.ContainsKey(i) ? count_model_dict[i] : 0;
-                    DebugPrint($"添加番数{i},{count_model_dict.GetValueOrDefault(i, 0)}");
-                    if (eng_to_chinese_dict.ContainsKey(i))
-                        temp_fan_count_list.Add(eng_to_chinese_dict[i]);
+                    fan_count += _countModelDict.ContainsKey(i) ? _countModelDict[i] : 0;
+                    DebugPrint($"添加番数{i},{_countModelDict.GetValueOrDefault(i, 0)}");
+                    if (EngToChineseDict.ContainsKey(i))
+                        temp_fan_count_list.Add(EngToChineseDict[i]);
                 }
             }
 
@@ -1592,10 +1591,10 @@ public class Chinese_Hepai_Check {
                 if (player_tiles.fan_list.Contains(i))
                 {
                     int count = player_tiles.fan_list.Count(x => x == i);
-                    fan_count += count * count_model_dict.GetValueOrDefault(i, 0);
-                    DebugPrint($"添加番数{i},{count * count_model_dict.GetValueOrDefault(i, 0)}");
-                    if (eng_to_chinese_dict.ContainsKey(i))
-                        temp_fan_count_list.Add($"{eng_to_chinese_dict[i]}*{count}");
+                    fan_count += count * _countModelDict.GetValueOrDefault(i, 0);
+                    DebugPrint($"添加番数{i},{count * _countModelDict.GetValueOrDefault(i, 0)}");
+                    if (EngToChineseDict.ContainsKey(i))
+                        temp_fan_count_list.Add($"{EngToChineseDict[i]}*{count}");
                 }
             }
 

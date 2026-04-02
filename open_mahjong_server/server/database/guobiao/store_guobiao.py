@@ -106,7 +106,7 @@ STACKABLE_FANS = ["花牌", "四归一", "双同刻", "一般高", "喜相逢", 
 FAN_FIELDS = list(dict.fromkeys(FAN_NAME_TO_FIELD.values()))
 
 # 存储国标麻将游戏牌谱记录和玩家对局记录
-def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, room_type: str):
+def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str):
     """
     存储国标麻将游戏牌谱记录和玩家对局记录
     
@@ -115,6 +115,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         game_record: 游戏牌谱记录字典
         player_list: 玩家列表，每个玩家包含 record_counter 属性
         room_type: 房间规则类型（如 "guobiao"）
+        match_type: 局数/模式，由外部显式传入（如 "4/4"、"1/4_rank"），保存到 match_type 字段
     
     Returns:
         成功返回 game_id，失败返回 None
@@ -151,16 +152,13 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             return None
         logger.info(f'牌谱记录已保存到 game_records 表，game_id: {game_id}')
         
-        # 2. 存储玩家对局记录到 game_player_records 表
-        rule = room_type  # 使用传入的 room_type 作为规则
+        # 2. 存储玩家对局记录到 game_player_records 表（match_type 外部传入，写入 match_type 字段）
+        rule = room_type
         game_title = game_record.get("game_title") or {}
         sub_rule = game_title.get("sub_rule") or "guobiao/standard"
-
-        # 获取玩家排名（rank_result 是 1-4）
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result  # 1-4
-            # 从玩家对象获取使用的设置信息（对局时的设置）
             title_used = getattr(player, 'title_used', None)
             character_used = getattr(player, 'character_used', None)
             profile_used = getattr(player, 'profile_used', None)
@@ -170,8 +168,8 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, sub_rule, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, rule, sub_rule, match_type, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     actual_user_id,
@@ -180,6 +178,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     rank,
                     rule,
                     sub_rule,
+                    match_type,
                     title_used,
                     character_used,
                     profile_used,
