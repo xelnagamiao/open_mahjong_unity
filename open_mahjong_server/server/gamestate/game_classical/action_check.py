@@ -32,7 +32,7 @@ def _is_jiulian(waiting_tiles: set) -> bool:
 
 def check_jiuzhongjiupai(hand_tiles: List[int]) -> bool:
     """
-    检查九种九牌：13张起手牌中包含9种或以上的幺九牌（1、9数牌及字牌）。
+    检查九老峰回：13张起手牌中包含9种或以上的幺九牌（1、9数牌及字牌）。
     """
     if len(hand_tiles) != 13:
         return False
@@ -71,7 +71,7 @@ def check_kokushi(hand_tiles: List[int]) -> bool:
 def check_action_after_cut(self, cut_tile):
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
 
-    if self.tiles_list != []:
+    if len(self.tiles_list) > self.dead_wall_count:
         next_player_index = next_current_num(self.current_player_index)
         if cut_tile <= 40:
             if cut_tile - 2 in self.player_list[next_player_index].hand_tiles:
@@ -91,12 +91,12 @@ def check_action_after_cut(self, cut_tile):
 
         for item in self.player_list:
             if item.hand_tiles.count(cut_tile) == 3:
-                if self.tiles_list != []:
+                if len(self.tiles_list) > self.dead_wall_count:
                     temp_action_dict[item.player_index].append("gang")
                     break
 
     for item in self.player_list:
-        if cut_tile in item.waiting_tiles and item.player_index != self.current_player_index:
+        if item.player_index != self.current_player_index:
             check_hepai(self, temp_action_dict, cut_tile, item.player_index, "dianhe")
 
     for i in temp_action_dict:
@@ -143,12 +143,12 @@ def check_action_hand_action(self, player_index, is_get_gang_tile=False, is_firs
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
     player_item = self.player_list[player_index]
 
-    if self.tiles_list != []:
+    if len(self.tiles_list) > self.dead_wall_count:
         # 暗杠
         processed_cards = set()
         for carditem in player_item.hand_tiles:
             if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
-                if self.tiles_list != []:
+                if len(self.tiles_list) > self.dead_wall_count:
                     temp_action_dict[player_index].append("angang")
                     processed_cards.add(carditem)
 
@@ -157,7 +157,7 @@ def check_action_hand_action(self, player_index, is_get_gang_tile=False, is_firs
             if combination_tile[0] == "k":
                 jiagang_index = int(combination_tile[1:])
                 if jiagang_index in player_item.hand_tiles:
-                    if self.tiles_list != []:
+                    if len(self.tiles_list) > self.dead_wall_count:
                         temp_action_dict[player_index].append("jiagang")
 
     temp_action_dict[player_index].append("cut")
@@ -230,7 +230,7 @@ def check_hepai(self, temp_action_dict, hepai_tile, player_index, hepai_type, is
             way_to_hepai.append("岭上开花")
         else:
             way_to_hepai.append("自摸")
-        if not is_first_action and len(self.tiles_list) == 0:
+        if not is_first_action and len(self.tiles_list) <= self.dead_wall_count:
             way_to_hepai.append("海底捞月")
 
     # 九莲宝灯（九面听）

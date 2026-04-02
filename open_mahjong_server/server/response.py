@@ -87,6 +87,11 @@ class Show_result_info(BaseModel):
     base_fu: Optional[int] = None  # 古典麻将：基础副数
     fu_fan_list: Optional[List[str]] = None  # 古典麻将：副番名列表
 
+class Show_shuhewei_info(BaseModel):
+    player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
+    player_to_score: Dict[int, int]  # 结算后各玩家总分 {player_index: score}
+    score_changes: Dict[int, int]  # 数和尾引起的分数变化 {player_index: delta}
+
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
     score: int  # 玩家分数
@@ -226,6 +231,7 @@ class Response(BaseModel):
     ask_other_action_info: Optional[Ask_other_action_info] = None # 用于询问切牌后其他家玩家操作 吃 碰 杠 胡
     do_action_info: Optional[Do_action_info] = None # 用于广播玩家操作
     show_result_info: Optional[Show_result_info] = None # 用于广播结算结果
+    show_shuhewei_info: Optional[Show_shuhewei_info] = None # 用于广播数和尾结算
     game_end_info: Optional[Game_end_info] = None # 用于广播游戏结束信息
     switch_seat_info: Optional[Switch_seat_info] = None # 用于广播换位信息
     refresh_player_tag_list_info: Optional[Refresh_player_tag_list_info] = None # 用于广播刷新玩家标签列表

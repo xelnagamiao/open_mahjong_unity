@@ -209,7 +209,7 @@ async def _handle_qianggang(game_state, player_index, action_list, player):
 
 
 async def _handle_buhua_round(game_state, player_index, action_list, player):
-    """补花轮询问：能补花就补花，有和牌（国士/九种九牌）就和，否则pass"""
+    """补花轮询问：能补花就补花，有和牌（国士/九老峰回）就和，否则pass"""
     # 补花必须直接补花
     if "buhua" in action_list:
         logger.info(f"牌效AI {player_index} ({player.username}) 选择 buhua")
@@ -220,9 +220,9 @@ async def _handle_buhua_round(game_state, player_index, action_list, player):
         logger.info(f"牌效AI {player_index} ({player.username}) 选择 hu_self（补花轮）")
         await get_ai_action(game_state, player_index, "hu_self", None, None, None, None)
         return
-    # 九种九牌流局选择
+    # 九老峰回流局选择
     if "jiuzhongjiupai" in action_list:
-        logger.info(f"牌效AI {player_index} ({player.username}) 选择 pass（放弃九种九牌）")
+        logger.info(f"牌效AI {player_index} ({player.username}) 选择 pass（放弃九老峰回）")
         await get_ai_action(game_state, player_index, "pass", None, None, None, None)
         return
     # 默认pass

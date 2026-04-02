@@ -115,7 +115,7 @@ def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
         tick.append(fu_fan_list or [])
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(tick)
 
-# 牌谱记录九种九牌流局 ["jiuzhongjiupai"]
+# 牌谱记录九老峰回流局 ["jiuzhongjiupai"]
 def player_action_record_jiuzhongjiupai(self):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(

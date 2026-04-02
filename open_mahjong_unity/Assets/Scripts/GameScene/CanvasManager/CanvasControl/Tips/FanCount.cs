@@ -1,9 +1,11 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 public class FanCount : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI FanName;
     [SerializeField] private TextMeshProUGUI FanValue;
+    [SerializeField] private Image BackgroundImage;
 
     [Header("副数颜色")]
     [SerializeField] private Color fuColor = new Color(0.55f, 0.82f, 0.49f);
@@ -16,12 +18,10 @@ public class FanCount : MonoBehaviour {
     }
 
     public void ApplyFuColor() {
-        FanName.color = fuColor;
-        FanValue.color = fuColor;
+        BackgroundImage.color = fuColor;
     }
 
     public void ApplyFanColor() {
-        FanName.color = fanColor;
-        FanValue.color = fanColor;
+        BackgroundImage.color = fanColor;
     }
 }

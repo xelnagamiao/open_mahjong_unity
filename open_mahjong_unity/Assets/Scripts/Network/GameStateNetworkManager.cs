@@ -75,6 +75,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/classical/ready_status":
                 HandleReadyStatus(response);
                 break;
+            case "gamestate/classical/show_shuhewei":
+                HandleShowShuhewei(response);
+                break;
             default:
                 Debug.LogWarning($"未知的游戏状态消息类型: {response.type}");
                 break;
@@ -274,6 +277,15 @@ public class GameStateNetworkManager : MonoBehaviour {
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
     }
     
+    /// <summary>
+    /// 处理数和尾结算
+    /// </summary>
+    private void HandleShowShuhewei(Response response) {
+        Debug.Log($"收到数和尾结算消息: {response.show_shuhewei_info}");
+        ShowShuheWeiInfo info = response.show_shuhewei_info;
+        NormalGameStateManager.Instance.ShowShuhewei(info.player_fu, info.player_to_score, info.score_changes);
+    }
+
     /// <summary>
     /// 处理准备状态更新
     /// </summary>

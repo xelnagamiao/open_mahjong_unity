@@ -704,7 +704,7 @@ public partial class GameRecordManager : MonoBehaviour {
             StartCoroutine(AutoNextActionAfterDelay(1f));
         }
         else if (action == "jiuzhongjiupai") {
-            GameSceneUIManager.Instance.ShowEndLiuju("九种九牌");
+            GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
             StartCoroutine(AutoNextActionAfterDelay(1f));
         }
         else if (action == "end") {

@@ -94,7 +94,8 @@ async def wait_action(self):
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                
                 self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
-                self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
+                if temp_player_index in self.waiting_players_list:
+                    self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
                 
                 # 检查当前操作是否是最高优先级的
                 do_interrupt = True
@@ -242,7 +243,7 @@ async def wait_action(self):
                 elif action_type == "jiuzhongjiupai":
                     self.hu_class = "jiuzhongjiupai"
                     self.game_status = "END"
-                    logger.info(f"处理九种九牌流局: player_index={player_index}")
+                    logger.info(f"处理九老峰回流局: player_index={player_index}")
                     return
                 else:
                     logger.error(f"摸牌后手牌阶段action_type出现非cut,angang,jiagang,hu_self,jiuzhongjiupai的值: {action_type}")

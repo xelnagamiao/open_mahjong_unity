@@ -1,4 +1,4 @@
-from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
+from ...response import Response,GameInfo,Ask_hand_action_info,Ask_other_action_info,Do_action_info,Show_result_info,Show_shuhewei_info,Game_end_info,Player_final_data,Switch_seat_info,Refresh_player_tag_list_info,Ready_status_info
 from typing import List, Dict, Optional
 import logging
 import asyncio
@@ -19,7 +19,7 @@ async def broadcast_game_start(self):
         'current_player_index': self.current_player_index, # 当前轮到的玩家索引
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
-        'tile_count': len(self.tiles_list), # 牌山剩余牌数
+        'tile_count': max(0, len(self.tiles_list) - self.dead_wall_count), # 牌山剩余牌数
         'round_random_seed': self.round_random_seed, # 单局随机种子
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
@@ -139,7 +139,7 @@ async def broadcast_ask_hand_action(self):
                         ask_hand_action_info = Ask_hand_action_info(
                             remaining_time=current_player.remaining_time,
                             player_index= self.current_player_index,
-                            remain_tiles=len(self.tiles_list),
+                            remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                             action_list=self.action_dict[i],
                             action_tick=self.server_action_tick
                         )
@@ -159,7 +159,7 @@ async def broadcast_ask_hand_action(self):
                         ask_hand_action_info = Ask_hand_action_info(
                             remaining_time=current_player.remaining_time,
                             player_index= self.current_player_index,
-                            remain_tiles=len(self.tiles_list),
+                            remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                             action_list=self.action_dict[i],
                             action_tick=self.server_action_tick
                         )
@@ -279,7 +279,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
                 ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
                     player_index=self.current_player_index,
-                    remain_tiles=len(self.tiles_list),
+                    remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict.get(reconnect_idx, []),
                     action_tick=self.server_action_tick,
                 ),
@@ -591,3 +591,29 @@ async def broadcast_ready_status(self):
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送准备状态信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
+
+# 广播数和尾结算
+async def broadcast_shuhewei(self, player_fu: Dict[int, int], player_to_score: Dict[int, int], score_changes: Dict[int, int]):
+    self.server_action_tick += 1
+    for i, current_player in enumerate(self.player_list):
+        try:
+            if "offline" in current_player.tag_list:
+                continue
+            if current_player.user_id == 0:
+                continue
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                response = Response(
+                    type="gamestate/classical/show_shuhewei",
+                    success=True,
+                    message="数和尾结算",
+                    show_shuhewei_info=Show_shuhewei_info(
+                        player_fu=player_fu,
+                        player_to_score=player_to_score,
+                        score_changes=score_changes,
+                    )
+                )
+                await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                logger.info(f"已向玩家 {current_player.username} 广播数和尾结算信息")
+        except Exception as e:
+            logger.error(f"向玩家 {current_player.username} 广播数和尾结算信息失败: {e}")

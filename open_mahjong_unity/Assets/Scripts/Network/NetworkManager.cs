@@ -288,6 +288,7 @@ public class NetworkManager : MonoBehaviour {
                 case "gamestate/guobiao/ready_status":
                 case "gamestate/qingque/ready_status":
                 case "gamestate/classical/ready_status":
+                case "gamestate/classical/show_shuhewei":
                 case "switch_seat":
                 case "refresh_player_tag_list":
                     GameStateNetworkManager.Instance?.HandleGameStateMessage(response);

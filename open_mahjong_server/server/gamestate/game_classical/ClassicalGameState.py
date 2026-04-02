@@ -16,6 +16,7 @@ from .boardcast import (
     broadcast_switch_seat,
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
+    broadcast_shuhewei,
     reconnected_send_pending_ask,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num
@@ -152,6 +153,7 @@ class ClassicalGameState:
         }
 
         self.backward_tiles_list_type = "double"
+        self.dead_wall_count = 14
 
         self.Debug = False
 
@@ -192,7 +194,7 @@ class ClassicalGameState:
                         'current_player_index': self.current_player_index,
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
-                        'tile_count': len(self.tiles_list),
+                        'tile_count': max(0, len(self.tiles_list) - self.dead_wall_count),
                         'round_random_seed': self.round_random_seed,
                         'current_round': self.current_round,
                         'step_time': self.step_time,
@@ -314,7 +316,7 @@ class ClassicalGameState:
             self.current_player_index = 0
             self.dihe_possible = True
 
-            # ===== 开局预检测轮：按玩家0-3顺序检查国士无双和九种九牌 =====
+            # ===== 开局预检测轮：按玩家0-3顺序检查国士无双和九老峰回 =====
             pre_check_resolved = False
             for i in range(4):
                 actions = []
@@ -325,7 +327,7 @@ class ClassicalGameState:
                     self.result_dict["hu_self"] = (0, 300, [], ["国士无双"])
                     actions.append("hu_self")
                 if has_jiuzhong:
-                    logger.info(f"玩家{i}符合九种九牌条件，手牌: {self.player_list[i].hand_tiles}")
+                    logger.info(f"玩家{i}符合九老峰回条件，手牌: {self.player_list[i].hand_tiles}")
                     actions.append("jiuzhongjiupai")
                 if not actions:
                     continue
@@ -366,7 +368,7 @@ class ClassicalGameState:
                     match self.game_status:
 
                         case "deal_card":
-                            if self.tiles_list == []:
+                            if len(self.tiles_list) <= self.dead_wall_count:
                                 self.game_status = "END"
                                 break
                             self.next_current_index()
@@ -468,7 +470,9 @@ class ClassicalGameState:
                     self.result_dict = {}
                     logger.info(f"和牌玩家索引{hepai_player_index}")
                     self.player_list[hepai_player_index].score += actual_hu_score
-                    self.player_list[self.current_player_index].score -= actual_hu_score
+                    for i in self.player_list:
+                        if i.player_index != hepai_player_index:
+                            i.score -= total_fu
 
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1
                     self.player_list[hepai_player_index].record_counter.recorded_fans.append(hu_fan)
@@ -476,7 +480,26 @@ class ClassicalGameState:
                     self.player_list[hepai_player_index].record_counter.win_turn += self.xunmu
 
                     self.player_list[self.current_player_index].record_counter.fangchong_times += 1
-                    self.player_list[self.current_player_index].record_counter.fangchong_score += actual_hu_score
+                    self.player_list[self.current_player_index].record_counter.fangchong_score += total_fu
+
+                # 和牌者提前数和尾：用和牌总副数与其他三家副露副数逐一比较
+                winner_fu = total_fu
+                for player in self.player_list:
+                    if player.player_index == hepai_player_index:
+                        continue
+                    other_fu = self._calc_player_fu(player)
+                    diff = winner_fu - other_fu
+                    if diff == 0:
+                        continue
+                    is_dealer = (hepai_player_index == 0 or player.player_index == 0)
+                    payment = abs(diff) * 2 if is_dealer else abs(diff)
+                    if diff > 0:
+                        self.player_list[hepai_player_index].score += payment
+                        player.score -= payment
+                    else:
+                        self.player_list[hepai_player_index].score -= payment
+                        player.score += payment
+                logger.info(f"和牌者提前数和尾: winner_fu={winner_fu}, hepai_player_index={hepai_player_index}")
 
                 player_to_score = {}
                 for i in self.player_list:
@@ -557,8 +580,12 @@ class ClassicalGameState:
             if hasattr(self, 'spectator_manager'):
                 self.spectator_manager.record_tick(["end"])
 
-            if self.hu_class in ["liuju", "jiuzhongjiupai"]:
+            if self.hu_class == "jiuzhongjiupai":
                 await asyncio.sleep(2)
+            elif self.hu_class == "liuju":
+                await asyncio.sleep(2)
+                # 数和尾结算（流局后）
+                await self._settle_shuhewei(hepai_player_index)
             else:
                 fan_count = len(hu_fan) if hu_fan else 0
                 wait_time = fan_count * 0.5 + 8 + 0.5
@@ -580,6 +607,9 @@ class ClassicalGameState:
                             p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
                     if await wait_action(self) is False:
                         break
+
+                # 数和尾结算（和牌后）
+                await self._settle_shuhewei(hepai_player_index)
 
             next_game_round_random_switchseat(self)
 
@@ -630,6 +660,80 @@ class ClassicalGameState:
         await self.game_server.room_manager.destroy_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
+    # ========== 数和尾结算 ==========
+
+    _YAOJIU = {11, 19, 21, 29, 31, 39, 41, 42, 43, 44}
+    _FANPAI = {45, 46, 47}
+    _MELD_FU = {
+        'k': {'normal': 2, 'yaojiu': 4, 'fanpai': 8},
+        'K': {'normal': 4, 'yaojiu': 8, 'fanpai': 16},
+        'g': {'normal': 8, 'yaojiu': 16, 'fanpai': 32},
+        'G': {'normal': 16, 'yaojiu': 32, 'fanpai': 64},
+    }
+
+    def _calc_player_fu(self, player) -> int:
+        """根据玩家副露计算副数（仅计副露组合）"""
+        active_fanpai = set(self._FANPAI)
+        wind_map = {0: 41, 1: 42, 2: 43, 3: 44}
+        if player.player_index in wind_map:
+            active_fanpai.add(wind_map[player.player_index])
+
+        fu = 0
+        for combo in player.combination_tiles:
+            sign = combo[0]
+            try:
+                tile = int(combo[1:])
+            except ValueError:
+                continue
+            fu_map = self._MELD_FU.get(sign)
+            if not fu_map:
+                continue
+            if tile in active_fanpai:
+                fu += fu_map['fanpai']
+            elif tile in self._YAOJIU:
+                fu += fu_map['yaojiu']
+            else:
+                fu += fu_map['normal']
+        return fu
+
+    async def _settle_shuhewei(self, hepai_player_index):
+        """数和尾结算：和牌者已在和牌时提前结算，此处仅剩余玩家互相比较副数；涉及庄家支付翻倍"""
+        player_fu = {}
+        for player in self.player_list:
+            player_fu[player.player_index] = self._calc_player_fu(player)
+
+        shuhewei_changes = {p.player_index: 0 for p in self.player_list}
+
+        indices = [p.player_index for p in self.player_list]
+        for i in range(len(indices)):
+            for j in range(i + 1, len(indices)):
+                idx_a, idx_b = indices[i], indices[j]
+                # 和牌者已在和牌结算时提前计算数和尾，此处跳过
+                if hepai_player_index is not None and (idx_a == hepai_player_index or idx_b == hepai_player_index):
+                    continue
+                fa, fb = player_fu[idx_a], player_fu[idx_b]
+                if fa == fb:
+                    continue
+                if fa > fb:
+                    payer, receiver = idx_b, idx_a
+                    diff = fa - fb
+                else:
+                    payer, receiver = idx_a, idx_b
+                    diff = fb - fa
+                is_dealer_involved = (payer == 0 or receiver == 0)
+                payment = diff * 2 if is_dealer_involved else diff
+                shuhewei_changes[receiver] += payment
+                shuhewei_changes[payer] -= payment
+
+        for player in self.player_list:
+            player.score += shuhewei_changes[player.player_index]
+
+        player_to_score = {p.player_index: p.score for p in self.player_list}
+
+        logger.info(f"数和尾结算: player_fu={player_fu}, changes={shuhewei_changes}")
+        await self.broadcast_shuhewei(player_fu, player_to_score, shuhewei_changes)
+        await asyncio.sleep(5)
+
     # ========== 观战系统方法 ==========
 
     async def add_spectator(self, user_id: int, connection: Any):
@@ -649,6 +753,7 @@ ClassicalGameState.broadcast_result = broadcast_result
 ClassicalGameState.broadcast_game_end = broadcast_game_end
 ClassicalGameState.broadcast_switch_seat = broadcast_switch_seat
 ClassicalGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
+ClassicalGameState.broadcast_shuhewei = broadcast_shuhewei
 ClassicalGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
 
 ClassicalGameState.next_current_index = next_current_index

@@ -132,7 +132,6 @@ public static class FanTextDictionary {
     /// 古典规则番数说明（Fan）
     /// </summary>
     public static readonly Dictionary<string, string> FanToDisplayClassical = new Dictionary<string, string> {
-        {"自摸", "0翻"},
         {"混一色", "1翻"},
         {"小三元", "2翻"},
         {"清一色", "3翻"},

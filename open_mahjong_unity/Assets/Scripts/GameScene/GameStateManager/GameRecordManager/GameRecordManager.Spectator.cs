@@ -387,7 +387,7 @@ public partial class GameRecordManager {
             currentNode++;
             UpdateCurrentXunmuText();
         } else if (action == "jiuzhongjiupai") {
-            GameSceneUIManager.Instance.ShowEndLiuju("九种九牌");
+            GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
             currentNode++;
             UpdateCurrentXunmuText();
         } else {
@@ -454,7 +454,7 @@ public partial class GameRecordManager {
     }
 
     private static List<string> FilterAskHandActions(List<string> raw) {
-        string[] allow = new[] { "cut", "buhua", "hu_self", "angang", "jiagang", "pass" };
+        string[] allow = new[] { "cut", "buhua", "hu_self", "angang", "jiagang", "jiuzhongjiupai", "pass" };
         return FilterByWhitelist(raw, allow);
     }
 

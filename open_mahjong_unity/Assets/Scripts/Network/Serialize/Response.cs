@@ -46,6 +46,12 @@ public class ShowResultInfo { // 显示结算结果
     public string[] fu_fan_list; // 古典麻将：副番名列表
 }
 
+public class ShowShuheWeiInfo { // 数和尾结算信息
+    public Dictionary<int, int> player_fu; // 各玩家副数 {player_index: fu}
+    public Dictionary<int, int> player_to_score; // 结算后各玩家总分
+    public Dictionary<int, int> score_changes; // 数和尾分数变化
+}
+
 public class AskHandActionGBInfo { // 询问手牌操作
     public string[] action_list; // 操作列表
     public int remaining_time; // 剩余时间
@@ -245,6 +251,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public AskOtherActionGBInfo ask_other_action_info; // 国标游戏中询问吃碰杠和
     public DoActionInfo do_action_info; // 国标游戏中执行操作
     public ShowResultInfo show_result_info; // 国标游戏中显示结算结果
+    public ShowShuheWeiInfo show_shuhewei_info; // 古典麻将数和尾结算
     public GameEndInfo game_end_info; // 国标游戏中显示游戏结束结果
     public SwitchSeatInfo switch_seat_info; // 国标游戏中换位信息
     public RefreshPlayerTagListInfo refresh_player_tag_list_info; // 刷新玩家标签列表信息

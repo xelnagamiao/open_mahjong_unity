@@ -38,6 +38,10 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                     logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}")
                     await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
                     return
+            if "pass" in action_list:
+                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass（手牌阶段无cut）")
+                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+                return
 
         elif game_status == "onlycut_after_action":
             # 转移行为后切牌：选择cut（切牌）

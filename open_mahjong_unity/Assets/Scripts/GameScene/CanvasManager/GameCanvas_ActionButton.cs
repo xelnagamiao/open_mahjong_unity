@@ -102,11 +102,11 @@ public partial class GameCanvas : MonoBehaviour {
                 chiButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加吃牌选项: {action_list[i]}");
             }
-            // 九种九牌
+            // 九老峰回
             else if (action_list[i] == "jiuzhongjiupai"){
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "九种九牌";
+                buttonText.text = "九老峰回";
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 取消

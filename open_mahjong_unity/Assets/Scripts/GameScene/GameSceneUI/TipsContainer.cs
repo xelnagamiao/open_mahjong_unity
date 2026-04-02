@@ -306,8 +306,9 @@ public class TipsContainer : MonoBehaviour
         List<string> wayToHepai,
         List<string> singleTilewayToHepai,
         List<string> mergedWayToHepai) {
-        // 古典麻将 wayToHepai 使用"门风"而非"自风"
+        // 古典麻将 wayToHepai 使用"门风"而非"自风"，并包含"和牌"底副
         var classicalWay = ConvertToClassicalWay(mergedWayToHepai);
+        classicalWay.Insert(0, "和牌");
         var dianheResult = ClassicalExternal.HepaiCheck(handList, combinationList, classicalWay, hepaiTile, false);
         int dianheTotalFu = dianheResult.Item2;
         int hepaiLimit = NormalGameStateManager.Instance.hepaiLimit;
@@ -319,6 +320,7 @@ public class TipsContainer : MonoBehaviour
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount($"{dianheTotalFu}副", "dianhe");
         } else {
             var zimoWay = ConvertToClassicalWay(new List<string>(wayToHepai));
+            zimoWay.Insert(0, "和牌");
             zimoWay.AddRange(singleTilewayToHepai);
             zimoWay.Add("自摸");
             var zimoResult = ClassicalExternal.HepaiCheck(handList, combinationList, zimoWay, hepaiTile, false);

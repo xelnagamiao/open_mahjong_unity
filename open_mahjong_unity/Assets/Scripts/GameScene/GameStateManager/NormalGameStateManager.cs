@@ -128,7 +128,7 @@ public class NormalGameStateManager : MonoBehaviour{
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             // 存储全部可用行动
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" , "angang", "jiagang","pass"};
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" , "angang", "jiagang", "jiuzhongjiupai", "pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);
@@ -315,7 +315,7 @@ public class NormalGameStateManager : MonoBehaviour{
         if (hu_class == "liuju") {
             GameSceneUIManager.Instance.ShowEndLiuju("流局");
         } else if (hu_class == "jiuzhongjiupai") {
-            GameSceneUIManager.Instance.ShowEndLiuju("九种九牌");
+            GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
         } else {
             GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
             SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
@@ -323,6 +323,21 @@ public class NormalGameStateManager : MonoBehaviour{
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
+    }
+
+    // 数和尾结算
+    public void ShowShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes) {
+        EndResultPanel.Instance.ClearEndResultPanel();
+        // 更新计分板
+        BoardCanvas.Instance.UpdatePlayerScores(player_to_score, indexToPosition);
+        // 更新本地分数记录
+        foreach (var kvp in player_to_score) {
+            string pos = indexToPosition.ContainsKey(kvp.Key) ? indexToPosition[kvp.Key] : null;
+            if (pos != null && player_to_info.ContainsKey(pos)) {
+                player_to_info[pos].score = kvp.Value;
+            }
+        }
+        GameSceneUIManager.Instance.ShowShuhewei(player_fu, player_to_score, score_changes, indexToPosition, player_to_info);
     }
 
     // 执行换位

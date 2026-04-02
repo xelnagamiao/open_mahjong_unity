@@ -41,6 +41,7 @@ public class EndResultPanel : MonoBehaviour {
     private const string StateGame = "gamestate";
     private const string StateRecord = "recordstate";
     private string currentState = StateNone;
+    private Coroutine showResultCoroutine;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -51,6 +52,15 @@ public class EndResultPanel : MonoBehaviour {
         // 非激活状态按钮
         EndButton.onClick.AddListener(EndButtonClick);
         EndButton.interactable = false;
+    }
+
+    public void StartShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
+        gameObject.SetActive(true);
+        showResultCoroutine = StartCoroutine(ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list));
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
@@ -453,6 +463,10 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     public void ClearEndResultPanel(){
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
         currentState = StateNone;
 
         gameObject.SetActive(false);
