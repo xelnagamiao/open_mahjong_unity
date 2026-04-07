@@ -355,6 +355,7 @@ public partial class GameRecordManager {
             case "hu_third": return 6.0f;
             case "liuju":
             case "jiuzhongjiupai": return 2.0f;
+            case "shuhewei": return 5.0f;
             case "end": return 0.5f;
             default: return 0.3f;
         }

@@ -22,7 +22,7 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_round_end, end_game_record
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -731,6 +731,11 @@ class ClassicalGameState:
         player_to_score = {p.player_index: p.score for p in self.player_list}
 
         logger.info(f"数和尾结算: player_fu={player_fu}, changes={shuhewei_changes}")
+        player_action_record_shuhewei(self, player_fu, shuhewei_changes)
+        if hasattr(self, 'spectator_manager'):
+            fu_list = [player_fu.get(i, 0) for i in range(4)]
+            changes_list = [shuhewei_changes.get(i, 0) for i in range(4)]
+            self.spectator_manager.record_tick(["shuhewei", fu_list, changes_list])
         await self.broadcast_shuhewei(player_fu, player_to_score, shuhewei_changes)
         await asyncio.sleep(5)
 

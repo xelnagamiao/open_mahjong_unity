@@ -157,6 +157,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
         # 获取玩家信息
         user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
         if user_settings_data:
+            rank_data = game_server.db_manager.get_rank_data(target_user_id)
             player_info = Player_info_response(
                 user_id=target_user_id,
                 user_settings=UserSettings(
@@ -167,8 +168,10 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')
                 ),
-                gb_stats=[],  # 不需要在这里填充统计数据
-                jp_stats=[]   # 不需要在这里填充统计数据
+                gb_stats=[],
+                jp_stats=[],
+                guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
+                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
             )
     
     # 获取国标历史统计数据
@@ -231,9 +234,9 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
     player_info = None
     
     if need_player_info:
-        # 获取玩家信息
         user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
         if user_settings_data:
+            rank_data = game_server.db_manager.get_rank_data(target_user_id)
             player_info = Player_info_response(
                 user_id=target_user_id,
                 user_settings=UserSettings(
@@ -244,8 +247,10 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
                     character_id=user_settings_data.get('character_id'),
                     voice_id=user_settings_data.get('voice_id')
                 ),
-                gb_stats=[],  # 不需要在这里填充统计数据
-                jp_stats=[]   # 不需要在这里填充统计数据
+                gb_stats=[],
+                jp_stats=[],
+                guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
+                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
             )
     
     # TODO: 实现立直统计数据获取
@@ -285,6 +290,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
     if need_player_info:
         user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
         if user_settings_data:
+            rank_data = game_server.db_manager.get_rank_data(target_user_id)
             player_info = Player_info_response(
                 user_id=target_user_id,
                 user_settings=UserSettings(
@@ -296,7 +302,9 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
                     voice_id=user_settings_data.get('voice_id')
                 ),
                 gb_stats=[],
-                jp_stats=[]
+                jp_stats=[],
+                guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
+                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
             )
     
     # 获取青雀历史统计数据
@@ -361,6 +369,7 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
     if need_player_info:
         user_settings_data = game_server.db_manager.get_user_settings(target_user_id)
         if user_settings_data:
+            rank_data = game_server.db_manager.get_rank_data(target_user_id)
             player_info = Player_info_response(
                 user_id=target_user_id,
                 user_settings=UserSettings(
@@ -372,7 +381,9 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
                     voice_id=user_settings_data.get('voice_id')
                 ),
                 gb_stats=[],
-                jp_stats=[]
+                jp_stats=[],
+                guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
+                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
             )
 
     history_stats_rows = get_classical_history_stats(game_server.db_manager, target_user_id)

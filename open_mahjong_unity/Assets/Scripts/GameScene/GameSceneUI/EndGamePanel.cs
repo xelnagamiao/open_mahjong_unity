@@ -20,8 +20,16 @@ public class EndGamePanel : MonoBehaviour {
 
     public static EndGamePanel Instance { get; private set; }
 
+    // 排位赛段位变动数据（当前玩家）
+    private bool isRankedMatch;
+    private string rankBefore;
+    private int scoreBefore;
+    private string rankAfter;
+    private int scoreAfter;
+    private float ptChange;
+
     private void Awake() {
-        if (Instance == null){
+        if (Instance == null) {
             Instance = this;
         } else {
             Destroy(gameObject);
@@ -51,19 +59,37 @@ public class EndGamePanel : MonoBehaviour {
         }
         // 显示游戏随机种子
         gameRandomSeed.text = "游戏随机种子: " + game_random_seed.ToString();
-        // 设置主页按钮点击事件
+
+        // 检测是否为排位赛（当前玩家有 rank_before 字段）
+        isRankedMatch = false;
+        string myUsername = UserDataManager.Instance.Username;
+        if (player_final_data.TryGetValue(myUsername, out var myData)) {
+            if (myData.ContainsKey("rank_before") && myData["rank_before"] != null) {
+                isRankedMatch = true;
+                rankBefore = myData["rank_before"].ToString();
+                scoreBefore = System.Convert.ToInt32(myData["score_before"]);
+                rankAfter = myData["rank_after"].ToString();
+                scoreAfter = System.Convert.ToInt32(myData["score_after"]);
+                ptChange = System.Convert.ToSingle(myData["pt"]);
+            }
+        }
+
+        // 设置按钮点击事件
         goHomeButton.onClick.RemoveAllListeners();
         goHomeButton.onClick.AddListener(OnGoHomeButtonClick);
     }
 
     private void OnGoHomeButtonClick() {
         gameObject.SetActive(false);
-        WindowsManager.Instance.SwitchWindow("menu");
-        Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
+        if (isRankedMatch) {
+            RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
+        } else {
+            WindowsManager.Instance.SwitchWindow("menu");
+            Game3DManager.Instance.Clear3DTile();
+        }
     }
 
-    public void ClearEndGamePanel(){
+    public void ClearEndGamePanel() {
         gameObject.SetActive(false);
     }
-
 }

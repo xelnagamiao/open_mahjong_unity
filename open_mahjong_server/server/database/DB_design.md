@@ -34,6 +34,8 @@ PostgreSQL
 | username | VARCHAR(255) | UNIQUE NOT NULL | 用户名，唯一 |
 | password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 PBKDF2+SHA256，100000 次迭代）。游客账户密码为空字符串 |
 | is_tourist | BOOLEAN | DEFAULT FALSE | 是否为游客账户（游客账户可被删除） |
+| is_sponsor | BOOLEAN | NOT NULL DEFAULT FALSE | 是否为赞助者 |
+| is_mcrpl_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 是否拥有 MCRPL 资格 |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
 ### user_settings 用户设置表
@@ -88,6 +90,17 @@ PostgreSQL
 > - 对局中四位玩家都是玩家或游客时，保存牌谱和对局记录
 > - 删除用户时，如果该用户有牌谱记录，则阻止删除，保留用户记录以维护牌谱完整性
 
+### rank_data 通用段位数据表
+存储各规则的段位/分数数据，每个用户一条记录。
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
+| guobiao_rank | VARCHAR(10) | NOT NULL DEFAULT '10级' | 国标段位名称 |
+| guobiao_score | INT | NOT NULL DEFAULT 0 | 国标段位分数 |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
+
 ### 规则特定统计表
 
 不同规则的统计表设计已移至各自文件夹下的 `db_design.md` 文件：
@@ -108,6 +121,7 @@ PostgreSQL
 
 1. **user_settings** - 该用户的设置记录
 2. **user_config** - 该用户的配置记录
+3. **rank_data** - 该用户的段位数据
 3. **guobiao_history_stats** - 该用户的国标麻将基础统计数据
 4. **guobiao_fan_stats** - 该用户的国标麻将番种统计数据
 5. **qingque_history_stats** - 该用户的青雀麻将基础统计数据

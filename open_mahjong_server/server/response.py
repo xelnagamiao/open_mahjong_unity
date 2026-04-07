@@ -95,8 +95,12 @@ class Show_shuhewei_info(BaseModel):
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
     score: int  # 玩家分数
-    pt: int  # 玩家分数
+    pt: float  # 段位 PT 变动
     username: str  # 用户名
+    rank_before: Optional[str] = None  # 对局前段位名
+    score_before: Optional[int] = None  # 对局前段位分数
+    rank_after: Optional[str] = None  # 对局后段位名
+    score_after: Optional[int] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
     """游戏结束信息"""
@@ -185,11 +189,20 @@ class Player_info_response(BaseModel):
     user_settings: Optional[UserSettings] = None  # 用户设置信息
     gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
     jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
+    guobiao_rank: Optional[str] = None  # 国标段位
+    guobiao_score: Optional[int] = None  # 国标分数
 
 class UserConfig(BaseModel):
     """用户游戏配置信息（音量等）"""
     user_id: int  # 用户ID
     volume: int  # 音量设置（0-100）
+
+class RankData(BaseModel):
+    """段位数据（登录时同步）"""
+    guobiao_rank: str = "10级"
+    guobiao_score: int = 0
+    is_sponsor: bool = False
+    is_mcrpl_qualified: bool = False
 
 class ServerStatsInfo(BaseModel):
     """服务器统计信息"""
@@ -243,5 +256,6 @@ class Response(BaseModel):
     login_info: Optional[LoginInfo] = None # 用于返回登录信息
     user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息
+    rank_data: Optional[RankData] = None # 用于返回段位数据
     server_stats: Optional[ServerStatsInfo] = None # 用于返回服务器统计信息
     spectator_list: Optional[List[SpectatorInfo]] = None # 用于返回观战列表

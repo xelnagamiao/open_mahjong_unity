@@ -12,10 +12,12 @@ from .room.room_manager import RoomManager
 from .room.room_router import handle_room_message
 from .gamestate.gamestate_router import handle_gamestate_message
 from .database.data_router import handle_data_message
+from .match.match_router import handle_match_message
 from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
 from .chat_server.chat_server import ChatServer
 from .game_calculation.game_calculation_service import GameCalculationService
+from .match.match_manager import MatchManager
 import secrets,hashlib
 import subprocess,os,signal,sys
 import time
@@ -109,6 +111,8 @@ class GameServer:
         self.db_manager = db_manager
         # 聊天服务器
         self.chat_server = chat_server
+        # 匹配管理器
+        self.match_manager = MatchManager(self)
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, Connect_id: str):
@@ -131,6 +135,10 @@ class GameServer:
                     logging.info(f"已删除游客账户 user_id={player.user_id}, username={player.username}")
                 else:
                     logging.warning(f"删除游客账户失败 user_id={player.user_id}, username={player.username}")
+
+            # 从匹配队列中移除
+            if player.user_id:
+                self.match_manager.player_disconnect(player.user_id)
 
             # 如果玩家在游戏中，则断开游戏连接
             if player.user_id:
@@ -324,6 +332,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             elif message.get("type", "").startswith("gamestate/"):
                 # 游戏状态相关消息，交由游戏状态路由处理器处理
                 await handle_gamestate_message(game_server, Connect_id, message, websocket)
+
+            # 检查是否是匹配相关消息（type 字段以 "match/" 开头）
+            elif message.get("type", "").startswith("match/"):
+                await handle_match_message(game_server, Connect_id, message, websocket)
 
             # 检查是否是数据相关消息（type 字段以 "data/" 开头）
             elif message.get("type", "").startswith("data/"):
@@ -531,7 +543,7 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
     logging.info(f" 生成用户秘钥{user_key} ")
     
     # 获取用户设置和游戏配置信息
-    from .response import LoginInfo, UserSettings, UserConfig
+    from .response import LoginInfo, UserSettings, UserConfig, RankData
     user_settings_data = db_manager.get_user_settings(user_id)
     user_config_data = db_manager.get_user_config(user_id)
     
@@ -553,6 +565,18 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
             volume=user_config_data.get('volume', 100)
         )
     
+    # 获取段位数据
+    rank_data_raw = db_manager.get_rank_data(user_id)
+    sponsor_mcrpl = db_manager.get_user_sponsor_mcrpl(user_id)
+    rank_data = None
+    if rank_data_raw:
+        rank_data = RankData(
+            guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
+            guobiao_score=rank_data_raw.get('guobiao_score', 0),
+            is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
+            is_mcrpl_qualified=sponsor_mcrpl.get('is_mcrpl_qualified', False) if sponsor_mcrpl else False,
+        )
+
     login_info = LoginInfo(
         user_id=user_id,
         username=username,
@@ -565,5 +589,6 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
         message="游客登录成功" if is_tourist else ("登录成功" if player is not None else "注册并登录成功"),
         login_info=login_info,
         user_settings=user_settings,
-        user_config=user_config
+        user_config=user_config,
+        rank_data=rank_data,
     )

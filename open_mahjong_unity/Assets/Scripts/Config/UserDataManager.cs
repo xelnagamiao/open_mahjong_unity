@@ -16,6 +16,12 @@ public class UserDataManager : MonoBehaviour {
     public int CharacterId { get; private set; }
     public int VoiceId { get; private set; }
 
+    // 段位数据
+    public string GuobiaoRank { get; private set; } = "10级";
+    public int GuobiaoScore { get; private set; } = 0;
+    public bool IsSponsor { get; private set; } = false;
+    public bool IsMcrplQualified { get; private set; } = false;
+
     // 登录时输入的账号密码缓存（用于下次启动自动填充）
     public string SavedLoginUsername { get; private set; }
     public string SavedLoginPassword { get; private set; }
@@ -71,6 +77,20 @@ public class UserDataManager : MonoBehaviour {
     // 设置当前游戏状态ID
     public void SetGamestateId(string gamestate_id) {
         GamestateId = gamestate_id;
+    }
+
+    // 设置段位数据
+    public void SetRankData(string guobiaoRank, int guobiaoScore, bool isSponsor, bool isMcrplQualified) {
+        GuobiaoRank = guobiaoRank;
+        GuobiaoScore = guobiaoScore;
+        IsSponsor = isSponsor;
+        IsMcrplQualified = isMcrplQualified;
+    }
+
+    // 更新段位（排位赛结束后由 RankChangePanel 调用）
+    public void UpdateGuobiaoRank(string newRank, int newScore) {
+        GuobiaoRank = newRank;
+        GuobiaoScore = newScore;
     }
 
     // 缓存登录输入并持久化

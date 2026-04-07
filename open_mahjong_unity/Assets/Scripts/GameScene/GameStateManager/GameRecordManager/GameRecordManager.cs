@@ -699,13 +699,47 @@ public partial class GameRecordManager : MonoBehaviour {
             ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList);
             GameSceneUIManager.Instance.UpdateScoreRecord();
         }
+        else if (action == "shuhewei") {
+            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+            if (rule == "classical") {
+                int[] fuArray = ParseTickScoreChanges(tick, 1);
+                int[] changesArray = ParseTickScoreChanges(tick, 2);
+
+                var playerFu = new Dictionary<int, int>();
+                var scoreChanges = new Dictionary<int, int>();
+                var deltas = new Dictionary<int, int>();
+
+                foreach (var rp in recordPlayerList) {
+                    int origIdx = rp.originalPlayerIndex;
+                    playerFu[rp.playerIndex] = (fuArray != null && origIdx < fuArray.Length) ? fuArray[origIdx] : 0;
+                    int change = (changesArray != null && origIdx < changesArray.Length) ? changesArray[origIdx] : 0;
+                    scoreChanges[rp.playerIndex] = change;
+                    deltas[rp.playerIndex] = change;
+                }
+
+                ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> playerToScoreAfter);
+
+                var player_to_info = new Dictionary<string, PlayerInfoClass>();
+                foreach (var rp in recordPlayerList) {
+                    string pos = indexToPosition[rp.playerIndex];
+                    string username = userIdToUsername.TryGetValue(rp.userId, out string name) ? name : rp.userId.ToString();
+                    player_to_info[pos] = new PlayerInfoClass { username = username };
+                }
+
+                EndResultPanel.Instance.ClearEndResultPanel();
+                EndShuheWeiPanel.Instance.ShowShuhewei(playerFu, playerToScoreAfter, scoreChanges, indexToPosition, player_to_info);
+                GameSceneUIManager.Instance.UpdateScoreRecord();
+                BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
+            }
+            StartCoroutine(AutoNextActionAfterDelay(5f));
+        }
         else if (action == "liuju") {
             GameSceneUIManager.Instance.ShowEndLiuju("流局");
-            StartCoroutine(AutoNextActionAfterDelay(1f));
+            StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "jiuzhongjiupai") {
             GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
-            StartCoroutine(AutoNextActionAfterDelay(1f));
+            StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "end") {
             StartCoroutine(GotoNextRoundAfterDelay(0.1f));
@@ -1106,6 +1140,13 @@ public partial class GameRecordManager : MonoBehaviour {
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 牌谱和牌结算点击确认后，推进到下一个行动节点（可能是shuhewei或end）
+    /// </summary>
+    public void AdvanceToNextAction() {
+        NextAction();
     }
 
     /// <summary>

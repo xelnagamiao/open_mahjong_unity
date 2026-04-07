@@ -408,11 +408,16 @@ async def broadcast_game_end(self):
     # 构建玩家最终数据字典 {username: Player_final_data}
     player_final_data = {}
     for player in self.player_list:
+        pt = getattr(player, 'pt', 0)
         player_final_data[player.username] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
-            pt=0,
-            username=player.username
+            pt=pt,
+            username=player.username,
+            rank_before=getattr(player, 'rank_before', None),
+            score_before=getattr(player, 'score_before', None),
+            rank_after=getattr(player, 'rank_after', None),
+            score_after=getattr(player, 'score_after', None),
         )
     
     # 为每个玩家发送游戏结束信息

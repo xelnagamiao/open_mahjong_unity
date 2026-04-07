@@ -172,6 +172,14 @@ public class NetworkManager : MonoBehaviour {
             if (response.user_config != null) {
                 ConfigManager.Instance.SetUserConfig(response.user_config.volume);
             }
+            if (response.rank_data != null) {
+                UserDataManager.Instance.SetRankData(
+                    response.rank_data.guobiao_rank,
+                    response.rank_data.guobiao_score,
+                    response.rank_data.is_sponsor,
+                    response.rank_data.is_mcrpl_qualified
+                );
+            }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
             // 启动服务器统计信息协程
             StartServerStatsCoroutine();
@@ -293,6 +301,14 @@ public class NetworkManager : MonoBehaviour {
                 case "refresh_player_tag_list":
                     GameStateNetworkManager.Instance?.HandleGameStateMessage(response);
                     break;
+                // 匹配系统消息交由 MatchNetworkManager 处理
+                case "match/join_queue_done":
+                case "match/leave_queue_done":
+                case "match/queue_status":
+                case "match/match_found":
+                    MatchNetworkManager.Instance?.HandleMatchMessage(response);
+                    break;
+
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
                     NotificationManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);

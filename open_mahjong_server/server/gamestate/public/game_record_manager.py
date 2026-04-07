@@ -129,6 +129,15 @@ def player_action_record_liuju(self):
         ["liuju"]
     )
 
+# 牌谱记录数和尾结算 ["shuhewei", [p0_fu,p1_fu,p2_fu,p3_fu], [p0Δ,p1Δ,p2Δ,p3Δ]]
+def player_action_record_shuhewei(self, player_fu: Dict[int, int], score_changes: Dict[int, int]):
+    self.player_action_tick += 1
+    fu_list = [player_fu.get(i, 0) for i in range(4)]
+    changes_list = [score_changes.get(i, 0) for i in range(4)]
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["shuhewei", fu_list, changes_list]
+    )
+
 # 牌谱记录回合结束标记 ["end"]
 def player_action_record_round_end(self):
     self.player_action_tick += 1

@@ -1,0 +1,190 @@
+"""
+段位体系与 PT 计算
+"""
+import logging
+from typing import Tuple, Optional
+
+logger = logging.getLogger(__name__)
+
+# 段位定义：(段位名, 起始分数, 升段分数, 是否可掉段)
+RANK_TABLE = [
+    ("10级", 0, 20, False),
+    ("9级",  0, 20, False),
+    ("8级",  0, 20, False),
+    ("7级",  0, 20, False),
+    ("6级",  0, 40, False),
+    ("5级",  0, 60, False),
+    ("4级",  0, 80, False),
+    ("3级",  0, 100, False),
+    ("2级",  0, 100, True),
+    ("1级",  0, 100, True),
+    ("初段", 200, 400, True),
+    ("二段", 400, 800, True),
+    ("三段", 600, 1200, True),
+    ("四段", 800, 1600, True),
+    ("五段", 1000, 2000, True),
+    ("六段", 1200, 2400, True),
+    ("七段", 1400, 2800, True),
+    ("八段", 1600, 3200, True),
+    ("九段", 2000, 4000, True),
+]
+
+RANK_NAME_TO_INDEX = {r[0]: i for i, r in enumerate(RANK_TABLE)}
+
+# 场次基础分
+TIER_BASE_SCORE = {
+    "beginner": 30,
+    "intermediate": 50,
+    "advanced": 80,
+    "mcrpl": 120,
+}
+
+# 局制系数：全庄=1, 半庄=0.7, 东风=0.49
+GAME_TYPE_MULTIPLIER = {
+    "quanzhuang": 1.0,
+    "banzhuang": 0.7,
+    "dongfeng": 0.49,
+}
+
+# 名次系数 [1名, 2名, 3名, 4名]（即 8/10, 2/10, -3/10, -7/10）
+RANK_COEFFICIENTS = [0.8, 0.2, -0.3, -0.7]
+
+# 场次准入段位等级（索引值，越大段位越高）
+TIER_MIN_RANK_INDEX = {
+    "beginner": 0,       # 所有人
+    "intermediate": 9,   # 1级（index 9）
+    "advanced": 13,      # 四段（index 13）
+    "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
+}
+
+
+def get_rank_index(rank_name: str) -> int:
+    return RANK_NAME_TO_INDEX.get(rank_name, 0)
+
+
+def can_play_tier(rank_name: str, tier: str, is_mcrpl_qualified: bool = False) -> bool:
+    """判断段位是否有资格进入指定场次"""
+    if tier == "mcrpl":
+        return is_mcrpl_qualified
+    rank_idx = get_rank_index(rank_name)
+    return rank_idx >= TIER_MIN_RANK_INDEX.get(tier, 0)
+
+
+def calculate_pt(tier: str, game_type: str, rank_position: int) -> float:
+    """
+    计算 PT 值
+    Args:
+        tier: 场次 (beginner/intermediate/advanced/mcrpl)
+        game_type: 局制 (dongfeng/banzhuang/quanzhuang)
+        rank_position: 名次 (1-4)
+    Returns:
+        PT 值（浮点数，由调用方决定是否取整）
+    """
+    base = TIER_BASE_SCORE.get(tier, 30)
+    multiplier = GAME_TYPE_MULTIPLIER.get(game_type, 1.0)
+    coeff = RANK_COEFFICIENTS[rank_position - 1]
+    return round(base * multiplier * coeff, 2)
+
+
+def apply_pt(rank_name: str, score: int, pt: float) -> Tuple[str, int]:
+    """
+    将 PT 应用到当前分数，处理升降段
+    Args:
+        rank_name: 当前段位名
+        score: 当前分数
+        pt: PT 变动值
+    Returns:
+        (新段位名, 新分数)
+    """
+    rank_idx = get_rank_index(rank_name)
+    new_score = score + round(pt)
+
+    # 升段检查（可能连续升段）
+    while rank_idx < len(RANK_TABLE) - 1:
+        _, _, promote_score, _ = RANK_TABLE[rank_idx]
+        if new_score >= promote_score:
+            overflow = new_score - promote_score
+            rank_idx += 1
+            next_start = RANK_TABLE[rank_idx][1]
+            new_score = next_start + overflow
+        else:
+            break
+
+    # 降段检查（可能连续降段）
+    while rank_idx > 0:
+        _, start_score, _, can_demote = RANK_TABLE[rank_idx]
+        if new_score < start_score and can_demote:
+            deficit = start_score - new_score
+            rank_idx -= 1
+            prev_promote = RANK_TABLE[rank_idx][2]
+            new_score = prev_promote - deficit
+        else:
+            break
+
+    # 分数不能低于当前段位起始分（不可降段的情况）
+    _, start_score, _, can_demote = RANK_TABLE[rank_idx]
+    if new_score < start_score:
+        new_score = start_score
+
+    return RANK_TABLE[rank_idx][0], new_score
+
+
+def parse_queue_type(queue_type: str) -> Optional[Tuple[str, str]]:
+    """
+    解析队列类型字符串为 (tier, game_type)
+    如 "beginner_dongfeng" -> ("beginner", "dongfeng")
+    """
+    parts = queue_type.rsplit("_", 1)
+    if len(parts) != 2:
+        return None
+    tier, game_type = parts
+    if tier not in TIER_BASE_SCORE or game_type not in GAME_TYPE_MULTIPLIER:
+        return None
+    return tier, game_type
+
+
+def queue_type_to_game_round(queue_type: str) -> int:
+    """队列类型转游戏局数"""
+    parsed = parse_queue_type(queue_type)
+    if not parsed:
+        return 4
+    _, game_type = parsed
+    return {"dongfeng": 1, "banzhuang": 2, "quanzhuang": 4}.get(game_type, 4)
+
+
+def queue_type_to_match_type(queue_type: str) -> str:
+    """队列类型转统计 mode（如 1/4_rank）"""
+    game_round = queue_type_to_game_round(queue_type)
+    return f"{game_round}/4_rank"
+
+
+def queue_type_to_display_name(queue_type: str) -> str:
+    """队列类型转显示名"""
+    parsed = parse_queue_type(queue_type)
+    if not parsed:
+        return queue_type
+    tier, game_type = parsed
+    tier_names = {"beginner": "初级场", "intermediate": "中级场", "advanced": "高级场", "mcrpl": "MCRPL"}
+    game_type_names = {"dongfeng": "东风战", "banzhuang": "半庄战", "quanzhuang": "全庄战"}
+    return f"{tier_names.get(tier, tier)} - {game_type_names.get(game_type, game_type)}"
+
+
+def queue_type_to_room_config(queue_type: str) -> dict:
+    """队列类型转房间配置"""
+    parsed = parse_queue_type(queue_type)
+    if not parsed:
+        return {}
+    tier, game_type = parsed
+    game_round = {"dongfeng": 1, "banzhuang": 2, "quanzhuang": 4}.get(game_type, 4)
+    # 初级场有提示无错和，中级场及以上无提示有错和
+    tips = (tier == "beginner")
+    open_cuohe = (tier != "beginner")
+    return {
+        "game_round": game_round,
+        "tips": tips,
+        "open_cuohe": open_cuohe,
+        "hepai_limit": 8,
+        "round_timer": 300,
+        "step_timer": 30,
+        "sub_rule": "guobiao/standard",
+    }
