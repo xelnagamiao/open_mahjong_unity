@@ -572,7 +572,7 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
     if rank_data_raw:
         rank_data = RankData(
             guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
-            guobiao_score=rank_data_raw.get('guobiao_score', 0),
+            guobiao_score=rank_data_raw.get('guobiao_score', 0.0),
             is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
             is_mcrpl_qualified=sponsor_mcrpl.get('is_mcrpl_qualified', False) if sponsor_mcrpl else False,
         )

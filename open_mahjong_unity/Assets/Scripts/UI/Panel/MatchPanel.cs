@@ -8,11 +8,11 @@ public class MatchPanel : MonoBehaviour {
 
     [Header("匹配成功动画")]
     [SerializeField] private GameObject matchFoundPanel;
+    [SerializeField] private PanelPopupTransition matchFoundPopup;
     [SerializeField] private TMP_Text matchFoundTypeText;
     [SerializeField] private TMP_Text matchFoundCountdownText;
 
-    private MatchButton[] matchButtons;
-    private Coroutine refreshCoroutine;
+    public MatchButton[] matchButtons;
     private Coroutine countdownCoroutine;
 
     private void Awake() {
@@ -26,24 +26,15 @@ public class MatchPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
+        if (matchButtons == null || matchButtons.Length == 0) {
+            matchButtons = GetComponentsInChildren<MatchButton>(true);
+        }
         RefreshAllButtons();
-        MatchNetworkManager.Instance?.SendGetQueueStatus();
-        if (refreshCoroutine != null) StopCoroutine(refreshCoroutine);
-        refreshCoroutine = StartCoroutine(RefreshQueueStatusRoutine());
+        NetworkPollingManager.Instance.StartMatchQueuePolling();
     }
 
     private void OnDisable() {
-        if (refreshCoroutine != null) {
-            StopCoroutine(refreshCoroutine);
-            refreshCoroutine = null;
-        }
-    }
-
-    private IEnumerator RefreshQueueStatusRoutine() {
-        while (true) {
-            yield return new WaitForSeconds(5f);
-            MatchNetworkManager.Instance?.SendGetQueueStatus();
-        }
+        NetworkPollingManager.Instance.StopMatchQueuePolling();
     }
 
     private void RefreshAllButtons() {
@@ -56,9 +47,15 @@ public class MatchPanel : MonoBehaviour {
     /// 由 MatchNetworkManager 调用，更新所有按钮的人数显示
     /// </summary>
     public void UpdateQueueStatus(Dictionary<string, QueueStatusEntry> queueStatus) {
+        if (queueStatus == null) return;
+        if (matchButtons == null || matchButtons.Length == 0) {
+            matchButtons = GetComponentsInChildren<MatchButton>(true);
+        }
         foreach (var btn in matchButtons) {
             if (queueStatus.TryGetValue(btn.QueueType, out QueueStatusEntry entry)) {
                 btn.UpdateCounts(entry.waiting, entry.playing);
+            } else {
+                btn.UpdateCounts(0, 0);
             }
         }
     }
@@ -67,8 +64,13 @@ public class MatchPanel : MonoBehaviour {
     /// 匹配成功动画：头部显示类型，底部显示 5 秒倒计时
     /// </summary>
     public void ShowMatchFoundAnimation(string matchTypeName) {
-        if (matchFoundPanel == null) return;
-        matchFoundPanel.SetActive(true);
+        if (matchFoundPanel == null && matchFoundPopup == null) return;
+        MatchingWidget.Instance?.Hide();
+        if (matchFoundPopup != null) {
+            matchFoundPopup.Show();
+        } else {
+            matchFoundPanel.SetActive(true);
+        }
         matchFoundTypeText.text = matchTypeName;
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
         countdownCoroutine = StartCoroutine(MatchFoundCountdown());
@@ -79,6 +81,10 @@ public class MatchPanel : MonoBehaviour {
             matchFoundCountdownText.text = $"{i} 秒后进入游戏...";
             yield return new WaitForSeconds(1f);
         }
-        matchFoundPanel.SetActive(false);
+        if (matchFoundPopup != null) {
+            matchFoundPopup.Hide();
+        } else if (matchFoundPanel != null) {
+            matchFoundPanel.SetActive(false);
+        }
     }
 }

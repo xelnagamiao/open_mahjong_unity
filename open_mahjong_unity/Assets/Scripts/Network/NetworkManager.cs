@@ -35,8 +35,6 @@ public class NetworkManager : MonoBehaviour {
     
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
-    // 服务器统计信息协程控制
-    private Coroutine serverStatsCoroutine;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
@@ -181,34 +179,6 @@ public class NetworkManager : MonoBehaviour {
                 );
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
-            // 启动服务器统计信息协程
-            StartServerStatsCoroutine();
-        }
-    }
-
-    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表（SwitchWindow("menu") 已负责切换时刷新，此处不重复）
-    private void StartServerStatsCoroutine() {
-        if (serverStatsCoroutine != null) {
-            StopCoroutine(serverStatsCoroutine);
-        }
-        if (IsOnMainMenu()) {
-            GetServerStats();
-        }
-        serverStatsCoroutine = StartCoroutine(ServerStatsAndRoomListCoroutine());
-    }
-
-    private bool IsOnMainMenu() {
-        return WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "menu";
-    }
-
-    // 仅在主菜单时每5秒刷新服务器统计与房间列表（不显示 tips）
-    private IEnumerator ServerStatsAndRoomListCoroutine() {
-        while (true) {
-            yield return new WaitForSeconds(5f);
-            if (IsOnMainMenu()) {
-                GetServerStats();
-                RoomNetworkManager.Instance?.GetRoomList(showTipOnSuccess: false);
-            }
         }
     }
 
@@ -494,11 +464,6 @@ public class NetworkManager : MonoBehaviour {
 
 
     private async void OnApplicationQuit() {
-        // 停止服务器统计信息协程
-        if (serverStatsCoroutine != null) {
-            StopCoroutine(serverStatsCoroutine);
-            serverStatsCoroutine = null;
-        }
         if (websocket != null && websocket.State == WebSocketState.Open)
             await websocket.Close();
     }

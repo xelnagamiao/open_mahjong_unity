@@ -18,6 +18,7 @@ public class PlayerInfoPanel : MonoBehaviour{
     [Header("段位信息")]
     [SerializeField] private TMP_Text rankText;
     [SerializeField] private Slider rankProgressBar;
+    [SerializeField] private TMP_Text rankScoreText;
 
     // 切换规则按钮
     [SerializeField] private Button ShowGBRuleButtom;
@@ -86,14 +87,15 @@ public class PlayerInfoPanel : MonoBehaviour{
 
         // 段位信息
         string rank = playerInfo.guobiao_rank ?? "10级";
-        int score = playerInfo.guobiao_score;
+        float score = playerInfo.guobiao_score;
         int idx = RankConfig.GetRankIndex(rank);
         var (_, startScore, promoteScore) = RankConfig.RankTable[idx];
         if (rankText != null) rankText.text = rank;
         if (rankProgressBar != null) {
             float range = promoteScore - startScore;
-            rankProgressBar.value = range > 0 ? (float)(score - startScore) / range : 0;
+            rankProgressBar.value = range > 0 ? (score - startScore) / range : 0;
         }
+        if (rankScoreText != null) rankScoreText.text = $"{score:F1}/{promoteScore}";
 
         // 清空之前的数据
         guobiaoStats = null;

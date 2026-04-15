@@ -18,7 +18,7 @@ public class UserDataManager : MonoBehaviour {
 
     // 段位数据
     public string GuobiaoRank { get; private set; } = "10级";
-    public int GuobiaoScore { get; private set; } = 0;
+    public float GuobiaoScore { get; private set; } = 0;
     public bool IsSponsor { get; private set; } = false;
     public bool IsMcrplQualified { get; private set; } = false;
 
@@ -80,7 +80,7 @@ public class UserDataManager : MonoBehaviour {
     }
 
     // 设置段位数据
-    public void SetRankData(string guobiaoRank, int guobiaoScore, bool isSponsor, bool isMcrplQualified) {
+    public void SetRankData(string guobiaoRank, float guobiaoScore, bool isSponsor, bool isMcrplQualified) {
         GuobiaoRank = guobiaoRank;
         GuobiaoScore = guobiaoScore;
         IsSponsor = isSponsor;
@@ -88,7 +88,7 @@ public class UserDataManager : MonoBehaviour {
     }
 
     // 更新段位（排位赛结束后由 RankChangePanel 调用）
-    public void UpdateGuobiaoRank(string newRank, int newScore) {
+    public void UpdateGuobiaoRank(string newRank, float newScore) {
         GuobiaoRank = newRank;
         GuobiaoScore = newScore;
     }

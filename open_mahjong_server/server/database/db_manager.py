@@ -462,11 +462,25 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS rank_data (
                     user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
                     guobiao_rank VARCHAR(10) NOT NULL DEFAULT '10级',
-                    guobiao_score INT NOT NULL DEFAULT 0,
+                    guobiao_score DOUBLE PRECISION NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            # rank_data 表迁移：guobiao_score 改为浮点，支持小数 PT
+            cursor.execute("SAVEPOINT sp_rank_score_float;")
+            try:
+                cursor.execute("""
+                    ALTER TABLE rank_data
+                    ALTER COLUMN guobiao_score TYPE DOUBLE PRECISION
+                    USING guobiao_score::DOUBLE PRECISION;
+                """)
+                cursor.execute("""
+                    ALTER TABLE rank_data
+                    ALTER COLUMN guobiao_score SET DEFAULT 0;
+                """)
+            except Error:
+                cursor.execute("ROLLBACK TO SAVEPOINT sp_rank_score_float;")
 
             # 创建表user_settings（如果不存在）
             cursor.execute("""

@@ -98,9 +98,9 @@ class Player_final_data(BaseModel):
     pt: float  # 段位 PT 变动
     username: str  # 用户名
     rank_before: Optional[str] = None  # 对局前段位名
-    score_before: Optional[int] = None  # 对局前段位分数
+    score_before: Optional[float] = None  # 对局前段位分数
     rank_after: Optional[str] = None  # 对局后段位名
-    score_after: Optional[int] = None  # 对局后段位分数
+    score_after: Optional[float] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
     """游戏结束信息"""
@@ -190,7 +190,7 @@ class Player_info_response(BaseModel):
     gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
     jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
     guobiao_rank: Optional[str] = None  # 国标段位
-    guobiao_score: Optional[int] = None  # 国标分数
+    guobiao_score: Optional[float] = None  # 国标分数
 
 class UserConfig(BaseModel):
     """用户游戏配置信息（音量等）"""
@@ -200,7 +200,7 @@ class UserConfig(BaseModel):
 class RankData(BaseModel):
     """段位数据（登录时同步）"""
     guobiao_rank: str = "10级"
-    guobiao_score: int = 0
+    guobiao_score: float = 0
     is_sponsor: bool = False
     is_mcrpl_qualified: bool = False
 

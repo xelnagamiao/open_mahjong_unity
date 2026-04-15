@@ -97,7 +97,7 @@ PostgreSQL
 |--------|------|------|------|
 | user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户ID，外键关联 users |
 | guobiao_rank | VARCHAR(10) | NOT NULL DEFAULT '10级' | 国标段位名称 |
-| guobiao_score | INT | NOT NULL DEFAULT 0 | 国标段位分数 |
+| guobiao_score | DOUBLE PRECISION | NOT NULL DEFAULT 0 | 国标段位分数（支持小数） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
 

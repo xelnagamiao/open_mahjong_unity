@@ -803,7 +803,7 @@ class GuobiaoGameState:
                     rank_data = self.db_manager.get_rank_data(player.user_id)
                     old_rank = rank_data["guobiao_rank"] if rank_data else "10级"
                     old_score = rank_data["guobiao_score"] if rank_data else 0
-                    pt = calculate_pt(tier, game_type, player.record_counter.rank_result)
+                    pt = calculate_pt(tier, game_type, player.record_counter.rank_result, old_rank)
                     new_rank, new_score = apply_pt(old_rank, old_score, pt)
                     # 存储到 player 对象供广播使用
                     player.pt = pt

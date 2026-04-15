@@ -11,7 +11,7 @@ def get_rank_data(db_manager, user_id: int) -> dict:
     """
     获取用户段位数据
     Returns:
-        {'guobiao_rank': str, 'guobiao_score': int} 或 None
+        {'guobiao_rank': str, 'guobiao_score': float} 或 None
     """
     conn = None
     try:
@@ -23,7 +23,7 @@ def get_rank_data(db_manager, user_id: int) -> dict:
         )
         row = cursor.fetchone()
         if row:
-            return {"guobiao_rank": row[0], "guobiao_score": row[1]}
+            return {"guobiao_rank": row[0], "guobiao_score": float(row[1])}
         return None
     except Error as e:
         logger.error(f"获取段位数据失败: {e}")
@@ -36,7 +36,7 @@ def get_rank_data(db_manager, user_id: int) -> dict:
             db_manager._put_connection(conn)
 
 
-def update_rank_data(db_manager, user_id: int, guobiao_rank: str, guobiao_score: int):
+def update_rank_data(db_manager, user_id: int, guobiao_rank: str, guobiao_score: float):
     """更新用户段位数据"""
     conn = None
     try:

@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// 导航栏面板
+/// </summary>
+
 [System.Serializable]
 public class NavigationItem
 {

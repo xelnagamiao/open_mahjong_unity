@@ -13,6 +13,7 @@ public class UserContainer : MonoBehaviour {
     [Header("段位信息UI组件")]
     [SerializeField] private TMP_Text rankText;
     [SerializeField] private Slider rankProgressBar;
+    [SerializeField] private TMP_Text rankScoreText;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -53,7 +54,7 @@ public class UserContainer : MonoBehaviour {
     /// </summary>
     public void RefreshRankDisplay() {
         string rank = UserDataManager.Instance.GuobiaoRank;
-        int score = UserDataManager.Instance.GuobiaoScore;
+        float score = UserDataManager.Instance.GuobiaoScore;
         int idx = RankConfig.GetRankIndex(rank);
         var (_, startScore, promoteScore) = RankConfig.RankTable[idx];
 
@@ -62,7 +63,8 @@ public class UserContainer : MonoBehaviour {
 
         if (rankProgressBar != null) {
             float range = promoteScore - startScore;
-            rankProgressBar.value = range > 0 ? (float)(score - startScore) / range : 0;
+            rankProgressBar.value = range > 0 ? (score - startScore) / range : 0;
         }
+        if (rankScoreText != null) rankScoreText.text = $"{score:F1}/{promoteScore}";
     }
 }

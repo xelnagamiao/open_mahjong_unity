@@ -171,7 +171,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
                 gb_stats=[],
                 jp_stats=[],
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
-                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
+                guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
     
     # 获取国标历史统计数据
@@ -250,7 +250,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
                 gb_stats=[],
                 jp_stats=[],
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
-                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
+                guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
     
     # TODO: 实现立直统计数据获取
@@ -304,7 +304,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
                 gb_stats=[],
                 jp_stats=[],
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
-                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
+                guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
     
     # 获取青雀历史统计数据
@@ -383,7 +383,7 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
                 gb_stats=[],
                 jp_stats=[],
                 guobiao_rank=rank_data.get('guobiao_rank', '10级') if rank_data else '10级',
-                guobiao_score=rank_data.get('guobiao_score', 0) if rank_data else 0
+                guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
 
     history_stats_rows = get_classical_history_stats(game_server.db_manager, target_user_id)

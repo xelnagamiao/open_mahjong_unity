@@ -4,35 +4,15 @@ using System.Collections.Generic;
 /// 段位体系常量与翻译字典（与服务器 rank_calculator.py 保持一致）
 /// </summary>
 public static class RankConfig {
-    // 段位表: (段位名, 起始分数, 升段分数)
-    public static readonly (string name, int startScore, int promoteScore)[] RankTable = {
-        ("10级", 0, 20), ("9级", 0, 20), ("8级", 0, 20), ("7级", 0, 20),
-        ("6级", 0, 40), ("5级", 0, 60), ("4级", 0, 80),
-        ("3级", 0, 100), ("2级", 0, 100), ("1级", 0, 100),
-        ("初段", 200, 400), ("二段", 400, 800), ("三段", 600, 1200),
-        ("四段", 800, 1600), ("五段", 1000, 2000), ("六段", 1200, 2400),
-        ("七段", 1400, 2800), ("八段", 1600, 3200), ("九段", 2000, 4000),
-    };
-
-    // 段位名 -> 等级索引（越高越大）
-    public static readonly Dictionary<string, int> RankLevelMap = new Dictionary<string, int> {
-        {"10级", 0}, {"9级", 1}, {"8级", 2}, {"7级", 3},
-        {"6级", 4}, {"5级", 5}, {"4级", 6}, {"3级", 7}, {"2级", 8},
-        {"1级", 9},
-        {"初段", 10}, {"二段", 11}, {"三段", 12},
-        {"四段", 13}, {"五段", 14}, {"六段", 15},
-        {"七段", 16}, {"八段", 17}, {"九段", 18},
-    };
+    public static (string name, int startScore, int promoteScore)[] RankTable => RankLevelConfig.RankTable;
+    public static Dictionary<string, int> RankLevelMap => RankLevelConfig.RankLevelMap;
 
     public static int GetRankIndex(string rankName) {
-        for (int i = 0; i < RankTable.Length; i++) {
-            if (RankTable[i].name == rankName) return i;
-        }
-        return 0;
+        return RankLevelConfig.GetRankIndex(rankName);
     }
 
     public static int GetRankLevel(string rankName) {
-        return RankLevelMap.TryGetValue(rankName, out int level) ? level : 0;
+        return RankLevelConfig.GetRankLevel(rankName);
     }
 
     /// <summary>

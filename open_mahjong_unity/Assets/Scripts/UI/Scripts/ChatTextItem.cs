@@ -4,6 +4,10 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
+/// <summary>
+/// 聊天文本项
+/// </summary>
+
 public class ChatTextItem : MonoBehaviour
 {
     private const float FADE_DURATION = 5; // 渐隐持续时间（秒）

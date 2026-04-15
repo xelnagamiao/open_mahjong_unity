@@ -27,7 +27,7 @@ public class RankChangePanel : MonoBehaviour {
     /// <summary>
     /// 显示段位变动动画
     /// </summary>
-    public void ShowRankChange(string oldRank, int oldScore, string newRank, int newScore, float pt) {
+    public void ShowRankChange(string oldRank, float oldScore, string newRank, float newScore, float pt) {
         gameObject.SetActive(true);
         confirmButton.interactable = false;
 
@@ -37,7 +37,7 @@ public class RankChangePanel : MonoBehaviour {
         animCoroutine = StartCoroutine(PlayRankChangeAnimation(oldRank, oldScore, newRank, newScore));
     }
 
-    private IEnumerator PlayRankChangeAnimation(string oldRank, int oldScore, string newRank, int newScore) {
+    private IEnumerator PlayRankChangeAnimation(string oldRank, float oldScore, string newRank, float newScore) {
         int oldIdx = RankConfig.GetRankIndex(oldRank);
         int newIdx = RankConfig.GetRankIndex(newRank);
 
@@ -96,7 +96,7 @@ public class RankChangePanel : MonoBehaviour {
         confirmButton.interactable = true;
     }
 
-    private IEnumerator AnimateProgress(int rankIdx, int fromScore, int toScore, float duration) {
+    private IEnumerator AnimateProgress(int rankIdx, float fromScore, float toScore, float duration) {
         var (_, startScore, promoteScore) = RankConfig.RankTable[rankIdx];
         float range = promoteScore - startScore;
         float elapsed = 0f;
@@ -105,18 +105,18 @@ public class RankChangePanel : MonoBehaviour {
             float t = Mathf.Clamp01(elapsed / duration);
             float currentScore = Mathf.Lerp(fromScore, toScore, t);
             progressBar.value = range > 0 ? (currentScore - startScore) / range : 0;
-            scoreText.text = $"{Mathf.RoundToInt(currentScore)}/{promoteScore}";
+            scoreText.text = $"{currentScore:F1}/{promoteScore}";
             yield return null;
         }
-        progressBar.value = range > 0 ? (float)(toScore - startScore) / range : 0;
-        scoreText.text = $"{toScore}/{promoteScore}";
+        progressBar.value = range > 0 ? (toScore - startScore) / range : 0;
+        scoreText.text = $"{toScore:F1}/{promoteScore}";
     }
 
-    private void SetProgressBar(int rankIdx, int score) {
+    private void SetProgressBar(int rankIdx, float score) {
         var (_, startScore, promoteScore) = RankConfig.RankTable[rankIdx];
         float range = promoteScore - startScore;
-        progressBar.value = range > 0 ? (float)(score - startScore) / range : 0;
-        scoreText.text = $"{score}/{promoteScore}";
+        progressBar.value = range > 0 ? (score - startScore) / range : 0;
+        scoreText.text = $"{score:F1}/{promoteScore}";
     }
 
     private void OnConfirm() {

@@ -15,7 +15,7 @@ RANK_TABLE = [
     ("6级",  0, 40, False),
     ("5级",  0, 60, False),
     ("4级",  0, 80, False),
-    ("3级",  0, 100, False),
+    ("3级",  0, 100, True),
     ("2级",  0, 100, True),
     ("1级",  0, 100, True),
     ("初段", 200, 400, True),
@@ -31,12 +31,12 @@ RANK_TABLE = [
 
 RANK_NAME_TO_INDEX = {r[0]: i for i, r in enumerate(RANK_TABLE)}
 
-# 场次基础分
+# 场次基础均得分（全庄）
 TIER_BASE_SCORE = {
     "beginner": 30,
-    "intermediate": 50,
-    "advanced": 80,
-    "mcrpl": 120,
+    "intermediate": 55,
+    "advanced": 95,
+    "mcrpl": 135,
 }
 
 # 局制系数：全庄=1, 半庄=0.7, 东风=0.49
@@ -46,8 +46,31 @@ GAME_TYPE_MULTIPLIER = {
     "dongfeng": 0.49,
 }
 
-# 名次系数 [1名, 2名, 3名, 4名]（即 8/10, 2/10, -3/10, -7/10）
-RANK_COEFFICIENTS = [0.8, 0.2, -0.3, -0.7]
+# 名次系数 [1名, 2名, 3名, 4名]
+RANK_COEFFICIENTS = [0.8, 0.2, 0.3, 0.7]
+
+# 各段位“均失pt”（用于三四名扣分，和场次无关）
+RANK_AVG_LOSS_PT = {
+    "10级": 0,
+    "9级": 0,
+    "8级": 0,
+    "7级": 0,
+    "6级": 0,
+    "5级": 0,
+    "4级": 0,
+    "3级": 0,
+    "2级": 15,
+    "1级": 35,
+    "初段": 45,
+    "二段": 55,
+    "三段": 65,
+    "四段": 95,
+    "五段": 105,
+    "六段": 120,
+    "七段": 150,
+    "八段": 175,
+    "九段": 200,
+}
 
 # 场次准入段位等级（索引值，越大段位越高）
 TIER_MIN_RANK_INDEX = {
@@ -70,23 +93,30 @@ def can_play_tier(rank_name: str, tier: str, is_mcrpl_qualified: bool = False) -
     return rank_idx >= TIER_MIN_RANK_INDEX.get(tier, 0)
 
 
-def calculate_pt(tier: str, game_type: str, rank_position: int) -> float:
+def calculate_pt(tier: str, game_type: str, rank_position: int, rank_name: str) -> float:
     """
     计算 PT 值
     Args:
         tier: 场次 (beginner/intermediate/advanced/mcrpl)
         game_type: 局制 (dongfeng/banzhuang/quanzhuang)
         rank_position: 名次 (1-4)
+        rank_name: 当前段位名
     Returns:
         PT 值（浮点数，由调用方决定是否取整）
     """
-    base = TIER_BASE_SCORE.get(tier, 30)
-    multiplier = GAME_TYPE_MULTIPLIER.get(game_type, 1.0)
+    if rank_position in (1, 2):
+        base = TIER_BASE_SCORE.get(tier, 30)
+        multiplier = GAME_TYPE_MULTIPLIER.get(game_type, 1.0)
+        coeff = RANK_COEFFICIENTS[rank_position - 1]
+        return round(base * multiplier * coeff, 2)
+
+    # 第三/第四名扣分：由段位均失pt决定，与场次/局制无关
+    avg_loss = RANK_AVG_LOSS_PT.get(rank_name, 0)
     coeff = RANK_COEFFICIENTS[rank_position - 1]
-    return round(base * multiplier * coeff, 2)
+    return round(-avg_loss * coeff, 2)
 
 
-def apply_pt(rank_name: str, score: int, pt: float) -> Tuple[str, int]:
+def apply_pt(rank_name: str, score: float, pt: float) -> Tuple[str, float]:
     """
     将 PT 应用到当前分数，处理升降段
     Args:
@@ -97,7 +127,7 @@ def apply_pt(rank_name: str, score: int, pt: float) -> Tuple[str, int]:
         (新段位名, 新分数)
     """
     rank_idx = get_rank_index(rank_name)
-    new_score = score + round(pt)
+    new_score = score + pt
 
     # 升段检查（可能连续升段）
     while rank_idx < len(RANK_TABLE) - 1:
@@ -126,7 +156,7 @@ def apply_pt(rank_name: str, score: int, pt: float) -> Tuple[str, int]:
     if new_score < start_score:
         new_score = start_score
 
-    return RANK_TABLE[rank_idx][0], new_score
+    return RANK_TABLE[rank_idx][0], round(new_score, 2)
 
 
 def parse_queue_type(queue_type: str) -> Optional[Tuple[str, str]]:
@@ -184,7 +214,7 @@ def queue_type_to_room_config(queue_type: str) -> dict:
         "tips": tips,
         "open_cuohe": open_cuohe,
         "hepai_limit": 8,
-        "round_timer": 300,
-        "step_timer": 30,
+        "round_timer": 20,
+        "step_timer": 5,
         "sub_rule": "guobiao/standard",
     }

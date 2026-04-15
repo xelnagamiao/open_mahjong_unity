@@ -6,6 +6,7 @@ using UnityEngine.UI;
 
 public class EndGamePanel : MonoBehaviour {
     [SerializeField] private RankDisplay[] rankDisplays;
+    [SerializeField] private CanvasGroupFadeIn fadeInEffect;
 
     [System.Serializable]
     public class RankDisplay {
@@ -23,9 +24,9 @@ public class EndGamePanel : MonoBehaviour {
     // 排位赛段位变动数据（当前玩家）
     private bool isRankedMatch;
     private string rankBefore;
-    private int scoreBefore;
+    private float scoreBefore;
     private string rankAfter;
-    private int scoreAfter;
+    private float scoreAfter;
     private float ptChange;
 
     private void Awake() {
@@ -43,6 +44,7 @@ public class EndGamePanel : MonoBehaviour {
         long game_random_seed,
         Dictionary<string, Dictionary<string, object>> player_final_data) {
         gameObject.SetActive(true);
+        fadeInEffect?.PlayFadeIn();
 
         // 按 rank 值升序排列所有玩家数据
         var sorted = player_final_data.Values
@@ -55,7 +57,7 @@ public class EndGamePanel : MonoBehaviour {
             display.username.text = playerData["username"].ToString();
             display.score.text = playerData["score"].ToString();
             display.rank.text = playerData["rank"].ToString();
-            display.pt.text = playerData["pt"].ToString();
+            display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F1}";
         }
         // 显示游戏随机种子
         gameRandomSeed.text = "游戏随机种子: " + game_random_seed.ToString();
@@ -67,9 +69,9 @@ public class EndGamePanel : MonoBehaviour {
             if (myData.ContainsKey("rank_before") && myData["rank_before"] != null) {
                 isRankedMatch = true;
                 rankBefore = myData["rank_before"].ToString();
-                scoreBefore = System.Convert.ToInt32(myData["score_before"]);
+                scoreBefore = System.Convert.ToSingle(myData["score_before"]);
                 rankAfter = myData["rank_after"].ToString();
-                scoreAfter = System.Convert.ToInt32(myData["score_after"]);
+                scoreAfter = System.Convert.ToSingle(myData["score_after"]);
                 ptChange = System.Convert.ToSingle(myData["pt"]);
             }
         }
