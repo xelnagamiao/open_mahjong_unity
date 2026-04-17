@@ -45,6 +45,14 @@ public class RoomListPanel : MonoBehaviour {
         }
     }
 
+    private void OnEnable() {
+        NetworkPollingManager.Instance.StartRoomListPolling();
+    }
+
+    private void OnDisable() {
+        NetworkPollingManager.Instance.StopRoomListPolling();
+    }
+
     // 1.点击创建房间按钮 打开房间面板
     private void OpenCreatePanel() {
         if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {

@@ -35,8 +35,6 @@ public class NetworkManager : MonoBehaviour {
     
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
-    // 服务器统计信息协程控制
-    private Coroutine serverStatsCoroutine;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
@@ -172,35 +170,15 @@ public class NetworkManager : MonoBehaviour {
             if (response.user_config != null) {
                 ConfigManager.Instance.SetUserConfig(response.user_config.volume);
             }
-            UserContainer.Instance.ShowUserSettings(response.user_settings);
-            // 启动服务器统计信息协程
-            StartServerStatsCoroutine();
-        }
-    }
-
-    // 启动协程：仅在主菜单时每5秒刷新服务器统计与房间列表（SwitchWindow("menu") 已负责切换时刷新，此处不重复）
-    private void StartServerStatsCoroutine() {
-        if (serverStatsCoroutine != null) {
-            StopCoroutine(serverStatsCoroutine);
-        }
-        if (IsOnMainMenu()) {
-            GetServerStats();
-        }
-        serverStatsCoroutine = StartCoroutine(ServerStatsAndRoomListCoroutine());
-    }
-
-    private bool IsOnMainMenu() {
-        return WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "menu";
-    }
-
-    // 仅在主菜单时每5秒刷新服务器统计与房间列表（不显示 tips）
-    private IEnumerator ServerStatsAndRoomListCoroutine() {
-        while (true) {
-            yield return new WaitForSeconds(5f);
-            if (IsOnMainMenu()) {
-                GetServerStats();
-                RoomNetworkManager.Instance?.GetRoomList(showTipOnSuccess: false);
+            if (response.rank_data != null) {
+                UserDataManager.Instance.SetRankData(
+                    response.rank_data.guobiao_rank,
+                    response.rank_data.guobiao_score,
+                    response.rank_data.is_sponsor,
+                    response.rank_data.is_mcrpl_qualified
+                );
             }
+            UserContainer.Instance.ShowUserSettings(response.user_settings);
         }
     }
 
@@ -293,6 +271,14 @@ public class NetworkManager : MonoBehaviour {
                 case "refresh_player_tag_list":
                     GameStateNetworkManager.Instance?.HandleGameStateMessage(response);
                     break;
+                // 匹配系统消息交由 MatchNetworkManager 处理
+                case "match/join_queue_done":
+                case "match/leave_queue_done":
+                case "match/queue_status":
+                case "match/match_found":
+                    MatchNetworkManager.Instance?.HandleMatchMessage(response);
+                    break;
+
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
                     NotificationManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);
@@ -478,11 +464,6 @@ public class NetworkManager : MonoBehaviour {
 
 
     private async void OnApplicationQuit() {
-        // 停止服务器统计信息协程
-        if (serverStatsCoroutine != null) {
-            StopCoroutine(serverStatsCoroutine);
-            serverStatsCoroutine = null;
-        }
         if (websocket != null && websocket.State == WebSocketState.Open)
             await websocket.Close();
     }

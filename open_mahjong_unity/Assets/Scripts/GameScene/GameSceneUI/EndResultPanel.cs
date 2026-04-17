@@ -391,7 +391,7 @@ public class EndResultPanel : MonoBehaviour {
     private void HandleRecordStateConfirm() {
         gameObject.SetActive(false);
         if (GameRecordManager.Instance != null) {
-            GameRecordManager.Instance.DelayedGotoNextRoundAfterConfirm(0.1f);
+            GameRecordManager.Instance.AdvanceToNextAction();
         }
     }
     

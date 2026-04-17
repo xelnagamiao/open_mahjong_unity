@@ -137,6 +137,7 @@ class GuobiaoGameState:
         
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
+        self.match_queue_type = room_data.get("match_queue_type", None) # 排位匹配队列类型
         
         self.isPlayerSetRandomSeed = False # 是否玩家设置了随机种子
 
@@ -790,6 +791,30 @@ class GuobiaoGameState:
         for index, player in enumerate[GuobiaoPlayer](self.player_list):
             player.record_counter.rank_result = index + 1
 
+        # 排位赛 PT 计算
+        is_match = (self.room_type == "match")
+        match_queue_type = getattr(self, 'match_queue_type', None)
+        if is_match and match_queue_type:
+            from ...match.rank_calculator import calculate_pt, apply_pt, parse_queue_type, queue_type_to_match_type
+            parsed = parse_queue_type(match_queue_type)
+            if parsed:
+                tier, game_type = parsed
+                for player in self.player_list:
+                    rank_data = self.db_manager.get_rank_data(player.user_id)
+                    old_rank = rank_data["guobiao_rank"] if rank_data else "10级"
+                    old_score = rank_data["guobiao_score"] if rank_data else 0
+                    pt = calculate_pt(tier, game_type, player.record_counter.rank_result, old_rank)
+                    new_rank, new_score = apply_pt(old_rank, old_score, pt)
+                    # 存储到 player 对象供广播使用
+                    player.pt = pt
+                    player.rank_before = old_rank
+                    player.score_before = old_score
+                    player.rank_after = new_rank
+                    player.score_after = new_score
+                    # 更新数据库
+                    self.db_manager.update_rank_data(player.user_id, new_rank, new_score)
+                    logger.info(f"排位 PT: {player.username} rank {player.record_counter.rank_result}, pt={pt}, {old_rank}({old_score}) -> {new_rank}({new_score})")
+
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
         
@@ -798,7 +823,11 @@ class GuobiaoGameState:
             await self.spectator_manager.send_final_record_and_close()
         
         # 存储游戏牌谱
-        match_type = f"{self.max_round}/4"
+        if is_match and match_queue_type:
+            from ...match.rank_calculator import queue_type_to_match_type
+            match_type = queue_type_to_match_type(match_queue_type)
+        else:
+            match_type = f"{self.max_round}/4"
         game_id = self.db_manager.store_guobiao_game_record(
             self.game_record,
             self.player_list,
@@ -833,6 +862,10 @@ class GuobiaoGameState:
                 self.room_type,
                 self.max_round
             )
+
+        # 排位赛结束时更新匹配管理器的游戏中人数
+        if is_match and match_queue_type and hasattr(self.game_server, 'match_manager'):
+            self.game_server.match_manager.on_match_game_end(match_queue_type)
 
         # 结束游戏生命周期：使用统一的清理方法
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)

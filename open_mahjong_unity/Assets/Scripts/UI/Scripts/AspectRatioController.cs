@@ -5,6 +5,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine.Events;
 
+/// <summary>
+/// 固定宽高比窗口
+/// </summary>
+
 public class AspectRatioController : MonoBehaviour
 {
     public ResolutionChangedEvent resolutionChangedEvent;

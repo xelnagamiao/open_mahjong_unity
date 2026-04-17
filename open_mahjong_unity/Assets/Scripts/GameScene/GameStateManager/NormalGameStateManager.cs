@@ -95,8 +95,6 @@ public class NormalGameStateManager : MonoBehaviour{
         // 0.切换窗口
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
 
-        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateGame);
-
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
 
         InitializeSetInfo(gameInfo); // 初始化对局数据
@@ -115,6 +113,9 @@ public class NormalGameStateManager : MonoBehaviour{
 
         // 初始化游戏开始UI（包括自动行为组件）
         GameSceneUIManager.Instance.InitGameStart();
+
+        // InitGameStart内的HideGameRecord 会将鼠标输入置为 Idle，在此之后进入对局输入模式
+        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateGame);
 
         // 根据对局信息生成他家已有的3D卡牌（弃牌、副露、花牌）
         GenerateOtherPlayers3DTiles(gameInfo);
@@ -326,8 +327,21 @@ public class NormalGameStateManager : MonoBehaviour{
     }
 
     // 数和尾结算
-    public void ShowShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes) {
+    public void ShowShuhewei(
+        Dictionary<int, int> player_fu,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> score_changes,
+        Dictionary<int, string[]> player_fan,
+        Dictionary<int, string[]> player_fu_types,
+        string hu_class,
+        int? hepai_player_index
+    ) {
         EndResultPanel.Instance.ClearEndResultPanel();
+        if (!string.IsNullOrEmpty(hu_class) && hu_class != "liuju" && hu_class != "jiuzhongjiupai" && hepai_player_index.HasValue && indexToPosition.ContainsKey(hepai_player_index.Value)) {
+            string huPos = indexToPosition[hepai_player_index.Value];
+            GameCanvas.Instance.ShowActionDisplay(huPos, hu_class);
+            SoundManager.Instance.PlayActionSound(huPos, hu_class);
+        }
         // 更新计分板
         BoardCanvas.Instance.UpdatePlayerScores(player_to_score, indexToPosition);
         // 更新本地分数记录
@@ -337,7 +351,7 @@ public class NormalGameStateManager : MonoBehaviour{
                 player_to_info[pos].score = kvp.Value;
             }
         }
-        GameSceneUIManager.Instance.ShowShuhewei(player_fu, player_to_score, score_changes, indexToPosition, player_to_info);
+        GameSceneUIManager.Instance.ShowShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info);
     }
 
     // 执行换位

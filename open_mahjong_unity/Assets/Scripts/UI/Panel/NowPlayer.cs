@@ -19,6 +19,14 @@ public class NowPlayer : MonoBehaviour {
         Instance = this;
     }
 
+    private void OnEnable() {
+        NetworkPollingManager.Instance.StartServerStatsPolling();
+    }
+
+    private void OnDisable() {
+        NetworkPollingManager.Instance.StopServerStatsPolling();
+    }
+
     // 显示服务器统计信息
     public void DisplayServerStats(int onlinePlayerCount, int waitingRoomCount, int playingRoomCount) {
         if (onlinePlayerCountText != null) {

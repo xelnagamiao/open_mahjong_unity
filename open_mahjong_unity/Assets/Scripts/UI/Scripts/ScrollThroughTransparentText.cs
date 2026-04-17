@@ -2,6 +2,10 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+/// <summary>
+/// 滚动穿过透明文本
+/// </summary>
+
 public class ScrollThroughTransparentText : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IScrollHandler
 {
     [SerializeField] private ScrollRect targetScrollRect;

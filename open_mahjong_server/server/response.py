@@ -91,17 +91,25 @@ class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
     player_to_score: Dict[int, int]  # 结算后各玩家总分 {player_index: score}
     score_changes: Dict[int, int]  # 数和尾引起的分数变化 {player_index: delta}
+    player_fan: Dict[int, List[str]]  # 各玩家番型列表（未和牌玩家通常为空）
+    player_fu_types: Dict[int, List[str]]  # 各玩家副种列表
+    hu_class: Optional[str] = None  # 本局和牌类型（无和牌时为 liuju 或空）
+    hepai_player_index: Optional[int] = None  # 和牌玩家索引（无和牌时为空）
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
     score: int  # 玩家分数
-    pt: int  # 玩家分数
+    pt: float  # 段位 PT 变动
     username: str  # 用户名
+    rank_before: Optional[str] = None  # 对局前段位名
+    score_before: Optional[float] = None  # 对局前段位分数
+    rank_after: Optional[str] = None  # 对局后段位名
+    score_after: Optional[float] = None  # 对局后段位分数
 
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据 {username: Player_final_data}
+    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
 
 class Switch_seat_info(BaseModel):
     """换位信息"""
@@ -185,11 +193,20 @@ class Player_info_response(BaseModel):
     user_settings: Optional[UserSettings] = None  # 用户设置信息
     gb_stats: List[Player_stats_info]  # 国标麻将统计数据列表
     jp_stats: List[Player_stats_info]  # 立直麻将统计数据列表
+    guobiao_rank: Optional[str] = None  # 国标段位
+    guobiao_score: Optional[float] = None  # 国标分数
 
 class UserConfig(BaseModel):
     """用户游戏配置信息（音量等）"""
     user_id: int  # 用户ID
     volume: int  # 音量设置（0-100）
+
+class RankData(BaseModel):
+    """段位数据（登录时同步）"""
+    guobiao_rank: str = "10级"
+    guobiao_score: float = 0
+    is_sponsor: bool = False
+    is_mcrpl_qualified: bool = False
 
 class ServerStatsInfo(BaseModel):
     """服务器统计信息"""
@@ -243,5 +260,6 @@ class Response(BaseModel):
     login_info: Optional[LoginInfo] = None # 用于返回登录信息
     user_settings: Optional[UserSettings] = None # 用于返回用户设置信息
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息
+    rank_data: Optional[RankData] = None # 用于返回段位数据
     server_stats: Optional[ServerStatsInfo] = None # 用于返回服务器统计信息
     spectator_list: Optional[List[SpectatorInfo]] = None # 用于返回观战列表
