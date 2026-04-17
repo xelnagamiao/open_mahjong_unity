@@ -427,10 +427,10 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典 {username: Player_final_data}
+    # 构建玩家最终数据字典，键为顺位字符串 "1"～"4"
     player_final_data = {}
     for player in self.player_list:
-        player_final_data[player.username] = Player_final_data(
+        player_final_data[str(player.record_counter.rank_result)] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=0,
@@ -552,11 +552,13 @@ async def broadcast_refresh_player_tag_list(self):
 # 广播准备状态
 async def broadcast_ready_status(self):
     """广播所有玩家的准备状态"""
-    # 判断准备状态
+    # 基于 action_dict 判断准备状态：
+    # - action_dict[player] 仍包含 "ready" => 未准备
+    # - action_dict[player] 为空或不含 "ready" => 已准备
     player_to_ready = {}
     for player in self.player_list:
-        # 如果玩家不在等待列表中，说明已准备
-        player_to_ready[player.player_index] = player.player_index not in self.waiting_players_list
+        pending_actions = self.action_dict.get(player.player_index, [])
+        player_to_ready[player.player_index] = "ready" not in pending_actions
     
     ready_info = Ready_status_info(
         player_to_ready=player_to_ready
@@ -593,7 +595,16 @@ async def broadcast_ready_status(self):
             # 允许广播出错，继续向其他玩家广播
 
 # 广播数和尾结算
-async def broadcast_shuhewei(self, player_fu: Dict[int, int], player_to_score: Dict[int, int], score_changes: Dict[int, int]):
+async def broadcast_shuhewei(
+    self,
+    player_fu: Dict[int, int],
+    player_to_score: Dict[int, int],
+    score_changes: Dict[int, int],
+    player_fan: Dict[int, List[str]],
+    player_fu_types: Dict[int, List[str]],
+    hu_class: Optional[str],
+    hepai_player_index: Optional[int],
+):
     self.server_action_tick += 1
     for i, current_player in enumerate(self.player_list):
         try:
@@ -611,6 +622,10 @@ async def broadcast_shuhewei(self, player_fu: Dict[int, int], player_to_score: D
                         player_fu=player_fu,
                         player_to_score=player_to_score,
                         score_changes=score_changes,
+                        player_fan=player_fan,
+                        player_fu_types=player_fu_types,
+                        hu_class=hu_class,
+                        hepai_player_index=hepai_player_index,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))

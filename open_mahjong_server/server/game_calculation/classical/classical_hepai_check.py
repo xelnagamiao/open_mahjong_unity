@@ -36,6 +36,7 @@ class Classical_Hepai_Check(ClassicalCombinationSolver):
         "番牌暗刻": 16,
         "番牌明杠": 32,
         "番牌暗杠": 64,
+        "番牌对": 2,
     }
 
     def __init__(self, debug=False):
@@ -129,6 +130,10 @@ class Classical_Hepai_Check(ClassicalCombinationSolver):
             fu += add_fu
             fu_repeat_count[tag] = fu_repeat_count.get(tag, 0) + 1
 
+        if pair_tile in fanpai_set:
+            fu += self._FU_VALUE_MAP["番牌对"]
+            fu_repeat_count["番牌对"] = fu_repeat_count.get("番牌对", 0) + 1
+
         hand_tiles = player_tiles.hand_tiles_mapped[:]
         if not hand_tiles:
             hand_tiles, _ = self.build_hand_and_combination_mapping(player_tiles)
@@ -144,7 +149,7 @@ class Classical_Hepai_Check(ClassicalCombinationSolver):
             fan += 3
             fan_list.append("字一色")
 
-        if all(s in {"K", "k", "G", "g"} for s, _ in triplets):
+        if len(triplets) == 4:
             fan += 1
             fan_list.append("鸾凤和鸣")
 

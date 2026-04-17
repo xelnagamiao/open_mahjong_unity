@@ -73,8 +73,8 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 显示数和尾结算面板
     /// </summary>
-    public void ShowShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info) {
-        EndShuheWeiPanel.Instance.ShowShuhewei(player_fu, player_to_score, score_changes, indexToPosition, player_to_info);
+    public void ShowShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string[]> player_fan, Dictionary<int, string[]> player_fu_types, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info) {
+        EndShuheWeiPanel.Instance.ShowShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, false);
     }
 
     /// <summary>

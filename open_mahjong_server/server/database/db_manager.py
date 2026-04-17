@@ -443,6 +443,45 @@ class DatabaseManager:
                 );
             """)
 
+            # users 表迁移：添加 is_sponsor 和 is_mcrpl_qualified 字段
+            for col_name, col_def in [
+                ("is_sponsor", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("is_mcrpl_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ]:
+                cursor.execute(f"SAVEPOINT sp_add_{col_name};")
+                try:
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_def};")
+                except Error as e:
+                    if getattr(e, "pgcode", None) == "42701":
+                        cursor.execute(f"ROLLBACK TO SAVEPOINT sp_add_{col_name};")
+                    else:
+                        raise
+
+            # 创建通用段位数据表 rank_data
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS rank_data (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                    guobiao_rank VARCHAR(10) NOT NULL DEFAULT '10级',
+                    guobiao_score DOUBLE PRECISION NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            # rank_data 表迁移：guobiao_score 改为浮点，支持小数 PT
+            cursor.execute("SAVEPOINT sp_rank_score_float;")
+            try:
+                cursor.execute("""
+                    ALTER TABLE rank_data
+                    ALTER COLUMN guobiao_score TYPE DOUBLE PRECISION
+                    USING guobiao_score::DOUBLE PRECISION;
+                """)
+                cursor.execute("""
+                    ALTER TABLE rank_data
+                    ALTER COLUMN guobiao_score SET DEFAULT 0;
+                """)
+            except Error:
+                cursor.execute("ROLLBACK TO SAVEPOINT sp_rank_score_float;")
+
             # 创建表user_settings（如果不存在）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_settings (
@@ -603,6 +642,12 @@ class DatabaseManager:
             cursor.execute("""
                 INSERT INTO user_config (user_id, volume)
                 VALUES (%s, 100)
+            """, (user_id,))
+
+            # 初始化用户的 rank_data 记录
+            cursor.execute("""
+                INSERT INTO rank_data (user_id, guobiao_rank, guobiao_score)
+                VALUES (%s, '10级', 0)
             """, (user_id,))
 
             conn.commit()
@@ -1091,3 +1136,10 @@ from .classical.store_classical import store_classical_game_record, store_classi
 DatabaseManager.store_classical_game_record = store_classical_game_record
 DatabaseManager.store_classical_game_stats = store_classical_game_stats
 DatabaseManager.store_classical_fan_stats = store_classical_fan_stats
+
+# 挂载段位数据 CRUD 方法到 DatabaseManager 类
+from .guobiao.rank_data import get_rank_data, update_rank_data, get_user_sponsor_mcrpl
+
+DatabaseManager.get_rank_data = get_rank_data
+DatabaseManager.update_rank_data = update_rank_data
+DatabaseManager.get_user_sponsor_mcrpl = get_user_sponsor_mcrpl

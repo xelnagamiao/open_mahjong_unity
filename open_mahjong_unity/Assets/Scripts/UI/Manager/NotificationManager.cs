@@ -80,10 +80,16 @@ public class NotificationManager : MonoBehaviour {
         }
 
         if (success && playerInfo != null) {
-            // 在 playerInfoPosition 下创建玩家信息面板
             Transform parent = playerInfoPosition != null ? playerInfoPosition.transform : transform;
-            GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
-            PlayerInfoPanel playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
+            PlayerInfoPanel playerInfoPanel = PlayerInfoPanel.Instance;
+            if (playerInfoPanel == null) {
+                playerInfoPanel = parent.GetComponentInChildren<PlayerInfoPanel>(true);
+            }
+            if (playerInfoPanel == null) {
+                GameObject playerInfoPanelObject = Instantiate(playerInfoPanelPrefab, parent);
+                playerInfoPanelObject.SetActive(false);
+                playerInfoPanel = playerInfoPanelObject.GetComponent<PlayerInfoPanel>();
+            }
             if (playerInfoPanel != null) {
                 playerInfoPanel.ShowPlayerInfo(playerInfo);
             } else {

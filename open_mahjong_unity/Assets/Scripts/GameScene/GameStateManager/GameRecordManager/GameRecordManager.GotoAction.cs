@@ -167,7 +167,6 @@ public partial class GameRecordManager
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
-            // tick 格式: [hu_class, hepai_player_index, hu_score, hu_fan_json, score_changes_json]
             int[] sc = ParseTickScoreChanges(tick, 4);
             if (sc != null && sc.Length >= 4) {
                 var deltas = new Dictionary<int, int>();
@@ -177,7 +176,16 @@ public partial class GameRecordManager
                 ApplyScoreDeltas(deltas, out _, out _);
             }
         }
-        // "end" 和 "liuju" 在快进模式下无需额外处理
+        else if (action == "shuhewei") {
+            int[] changesArray = ParseTickScoreChanges(tick, 2);
+            if (changesArray != null && changesArray.Length >= 4) {
+                var deltas = new Dictionary<int, int>();
+                foreach (var rp in recordPlayerList) {
+                    deltas[rp.playerIndex] = changesArray[rp.originalPlayerIndex];
+                }
+                ApplyScoreDeltas(deltas, out _, out _);
+            }
+        }
 
         currentPlayerIndex = nextPlayerIndex;
     }

@@ -283,7 +283,15 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleShowShuhewei(Response response) {
         Debug.Log($"收到数和尾结算消息: {response.show_shuhewei_info}");
         ShowShuheWeiInfo info = response.show_shuhewei_info;
-        NormalGameStateManager.Instance.ShowShuhewei(info.player_fu, info.player_to_score, info.score_changes);
+        NormalGameStateManager.Instance.ShowShuhewei(
+            info.player_fu,
+            info.player_to_score,
+            info.score_changes,
+            info.player_fan,
+            info.player_fu_types,
+            info.hu_class,
+            info.hepai_player_index
+        );
     }
 
     /// <summary>
@@ -291,8 +299,13 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     private void HandleReadyStatus(Response response) {
         Debug.Log($"收到准备状态更新: {response.message}");
-        if (response.ready_status_info != null && EndResultPanel.Instance != null) {
-            EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
+        if (response.ready_status_info != null) {
+            if (EndResultPanel.Instance != null && EndResultPanel.Instance.gameObject.activeSelf) {
+                EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
+            }
+            if (EndShuheWeiPanel.Instance != null && EndShuheWeiPanel.Instance.gameObject.activeSelf) {
+                EndShuheWeiPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
+            }
         }
     }
 }

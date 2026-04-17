@@ -7,6 +7,10 @@ using UnityEngine;
 using System.Runtime.InteropServices;
 using System.Collections;
 
+/// <summary>
+/// 固定宽高比窗口
+/// </summary>
+
 public class FixedAspectRatio : MonoBehaviour
 {
     public float targetAspectRatio = 16f / 9f; // 例如 1.777
