@@ -16,8 +16,8 @@ public class RecordPanel : MonoBehaviour {
     [Header("无牌谱提示面板")]
     [SerializeField] private GameObject NoRecordPanel;
 
-    [Header("牌谱ID搜索面板")]
-    [SerializeField] private GameObject RecordIdInputPanel;
+    [Header("牌谱ID搜索面板（根节点挂 PanelPopupTransition + CanvasGroup）")]
+    [SerializeField] private PanelPopupTransition recordIdInputPopup;
     [SerializeField] private TMP_InputField RecordIdInputField;
     [SerializeField] private Button ConfirmLoadButton;
     [SerializeField] private Button CancelSearchButton;
@@ -34,13 +34,13 @@ public class RecordPanel : MonoBehaviour {
         ConfirmLoadButton.onClick.AddListener(ConfirmLoadRecordById);
         CancelSearchButton.onClick.AddListener(CloseRecordIdInput);
 
-        RecordIdInputPanel.SetActive(false);
+        if (recordIdInputPopup != null) {
+            recordIdInputPopup.gameObject.SetActive(false);
+        }
         NoRecordPanel.SetActive(false);
-        // 清理dropdownContentTransform下的子物体
         foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
         }
-        
     }
 
     private void BackMenu() {
@@ -48,13 +48,15 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void OpenRecordIdInput() {
-        RecordIdInputPanel.SetActive(true);
-        RecordIdInputField.text = "";
-        RecordIdInputField.ActivateInputField();
+        if (recordIdInputPopup == null) return;
+        recordIdInputPopup.Show(() => {
+            RecordIdInputField.text = "";
+            RecordIdInputField.ActivateInputField();
+        });
     }
 
     private void CloseRecordIdInput() {
-        RecordIdInputPanel.SetActive(false);
+        recordIdInputPopup?.Hide();
     }
 
     private void ConfirmLoadRecordById() {
@@ -63,7 +65,7 @@ public class RecordPanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("牌谱", false, "请输入牌谱ID");
             return;
         }
-        RecordIdInputPanel.SetActive(false);
+        recordIdInputPopup?.Hide();
         DataNetworkManager.Instance.GetRecordById(id);
     }
 

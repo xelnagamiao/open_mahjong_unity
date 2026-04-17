@@ -22,6 +22,7 @@ namespace Classical {
             { "刻子", 2 }, { "暗刻", 4 }, { "明杠", 8 }, { "暗杠", 16 },
             { "幺九刻", 4 }, { "幺九暗刻", 8 }, { "幺九明杠", 16 }, { "幺九暗杠", 32 },
             { "番牌刻", 8 }, { "番牌暗刻", 16 }, { "番牌明杠", 32 }, { "番牌暗杠", 64 },
+            { "番牌对", 2 },
         };
 
         private readonly ClassicalCombinationSolver _solver = new ClassicalCombinationSolver();
@@ -109,6 +110,12 @@ namespace Classical {
                 fuRepeatCount[tag] = cnt + 1;
             }
 
+            if (fanpaiSet.Contains(pairTile)) {
+                fu += FuValueMap["番牌对"];
+                fuRepeatCount.TryGetValue("番牌对", out int pairCnt);
+                fuRepeatCount["番牌对"] = pairCnt + 1;
+            }
+
             var handTiles = pt.HandTilesMapped.Count > 0
                 ? new List<int>(pt.HandTilesMapped)
                 : new List<int>();
@@ -123,7 +130,7 @@ namespace Classical {
             else if (!hasHonor && suitSet.Count == 1) { fan += 3; fanList.Add("清一色"); }
             else if (handTiles.All(t => Honors.Contains(t))) { fan += 3; fanList.Add("字一色"); }
 
-            if (triplets.Count > 0 && triplets.All(x => "KkGg".Contains(x.sign))) { fan++; fanList.Add("鸾凤和鸣"); }
+            if (triplets.Count == 4) { fan++; fanList.Add("鸾凤和鸣"); }
 
             var dragonPungs = new HashSet<int>();
             var windPungs = new HashSet<int>();

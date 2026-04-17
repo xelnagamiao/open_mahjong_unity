@@ -437,10 +437,6 @@ class ClassicalGameState:
                     hepai_player_index = self.current_player_index
                     actual_hu_score = total_fu * 3
                     self.result_dict = {}
-                    self.player_list[hepai_player_index].score += actual_hu_score
-                    for i in self.player_list:
-                        if i.player_index != hepai_player_index:
-                            i.score -= total_fu
 
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1
                     self.player_list[hepai_player_index].record_counter.recorded_fans.append(hu_fan)
@@ -468,11 +464,6 @@ class ClassicalGameState:
                     hu_base_fu = base_fu
                     actual_hu_score = total_fu * 3
                     self.result_dict = {}
-                    logger.info(f"和牌玩家索引{hepai_player_index}")
-                    self.player_list[hepai_player_index].score += actual_hu_score
-                    for i in self.player_list:
-                        if i.player_index != hepai_player_index:
-                            i.score -= total_fu
 
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1
                     self.player_list[hepai_player_index].record_counter.recorded_fans.append(hu_fan)
@@ -481,49 +472,6 @@ class ClassicalGameState:
 
                     self.player_list[self.current_player_index].record_counter.fangchong_times += 1
                     self.player_list[self.current_player_index].record_counter.fangchong_score += total_fu
-
-                # 和牌者提前数和尾：用和牌总副数与其他三家副露副数逐一比较
-                winner_fu = total_fu
-                for player in self.player_list:
-                    if player.player_index == hepai_player_index:
-                        continue
-                    other_fu = self._calc_player_fu(player)
-                    diff = winner_fu - other_fu
-                    if diff == 0:
-                        continue
-                    is_dealer = (hepai_player_index == 0 or player.player_index == 0)
-                    payment = abs(diff) * 2 if is_dealer else abs(diff)
-                    if diff > 0:
-                        self.player_list[hepai_player_index].score += payment
-                        player.score -= payment
-                    else:
-                        self.player_list[hepai_player_index].score -= payment
-                        player.score += payment
-                logger.info(f"和牌者提前数和尾: winner_fu={winner_fu}, hepai_player_index={hepai_player_index}")
-
-                player_to_score = {}
-                for i in self.player_list:
-                    player_to_score[i.player_index] = i.score
-                he_hand = self.player_list[hepai_player_index].hand_tiles
-                he_huapai = self.player_list[hepai_player_index].huapai_list
-                he_combination_mask = self.player_list[hepai_player_index].combination_mask
-
-                await broadcast_result(self,
-                                       hepai_player_index=hepai_player_index,
-                                       player_to_score=player_to_score,
-                                       hu_score=actual_hu_score,
-                                       hu_fan=hu_fan,
-                                       hu_class=self.hu_class,
-                                       hepai_player_hand=he_hand,
-                                       hepai_player_huapai=he_huapai,
-                                       hepai_player_combination_mask=he_combination_mask,
-                                       base_fu=hu_base_fu,
-                                       fu_fan_list=hu_fu_fan_list,
-                                       )
-
-                print(f"hu_class: {self.hu_class}, result_dict: {self.result_dict}")
-                print(f"player_list_hand_tiles: {self.player_list[hepai_player_index].hand_tiles}")
-                print(f"base_fu: {hu_base_fu}, total_fu: {hu_score}, fu_fan_list: {hu_fu_fan_list}, fan_list: {hu_fan}")
 
                 for i in self.player_list:
                     has_fulu = any(combo.startswith("k") or combo.startswith("g") or combo.startswith("s")
@@ -546,6 +494,16 @@ class ClassicalGameState:
                                        base_fu=None,
                                        fu_fan_list=None,
                                        )
+
+            shuhewei_extra_wait = 0.0
+            if self.hu_class != "jiuzhongjiupai":
+                shuhewei_extra_wait = await self._settle_shuhewei(
+                    hepai_player_index=hepai_player_index,
+                    hepai_total_fu=hu_score,
+                    hepai_fan=hu_fan,
+                    hepai_fu_types=hu_fu_fan_list,
+                    hu_class=self.hu_class,
+                )
 
             for player in self.player_list:
                 score_change = player.score - scores_before[player.original_player_index]
@@ -582,13 +540,8 @@ class ClassicalGameState:
 
             if self.hu_class == "jiuzhongjiupai":
                 await asyncio.sleep(2)
-            elif self.hu_class == "liuju":
-                await asyncio.sleep(2)
-                # 数和尾结算（流局后）
-                await self._settle_shuhewei(hepai_player_index)
             else:
-                fan_count = len(hu_fan) if hu_fan else 0
-                wait_time = fan_count * 0.5 + 8 + 0.5
+                wait_time = shuhewei_extra_wait + 8
                 ready_phase_deadline = time.time() + wait_time
 
                 self.action_dict = {}
@@ -607,9 +560,6 @@ class ClassicalGameState:
                             p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
                     if await wait_action(self) is False:
                         break
-
-                # 数和尾结算（和牌后）
-                await self._settle_shuhewei(hepai_player_index)
 
             next_game_round_random_switchseat(self)
 
@@ -670,15 +620,27 @@ class ClassicalGameState:
         'g': {'normal': 8, 'yaojiu': 16, 'fanpai': 32},
         'G': {'normal': 16, 'yaojiu': 32, 'fanpai': 64},
     }
+    _MELD_TAG = {
+        'k': {'normal': "刻子", 'yaojiu': "幺九刻", 'fanpai': "番牌刻"},
+        'K': {'normal': "暗刻", 'yaojiu': "幺九暗刻", 'fanpai': "番牌暗刻"},
+        'g': {'normal': "明杠", 'yaojiu': "幺九明杠", 'fanpai': "番牌明杠"},
+        'G': {'normal': "暗杠", 'yaojiu': "幺九暗杠", 'fanpai': "番牌暗杠"},
+    }
 
     def _calc_player_fu(self, player) -> int:
         """根据玩家副露计算副数（仅计副露组合）"""
+        fu, _ = self._calc_player_fu_detail(player)
+        return fu
+
+    def _calc_player_fu_detail(self, player) -> tuple[int, List[str]]:
+        """根据玩家副露计算副数与副种列表（仅计副露组合）"""
         active_fanpai = set(self._FANPAI)
         wind_map = {0: 41, 1: 42, 2: 43, 3: 44}
         if player.player_index in wind_map:
             active_fanpai.add(wind_map[player.player_index])
 
         fu = 0
+        fu_tag_count: Dict[str, int] = {}
         for combo in player.combination_tiles:
             sign = combo[0]
             try:
@@ -686,58 +648,100 @@ class ClassicalGameState:
             except ValueError:
                 continue
             fu_map = self._MELD_FU.get(sign)
+            tag_map = self._MELD_TAG.get(sign)
             if not fu_map:
                 continue
             if tile in active_fanpai:
                 fu += fu_map['fanpai']
+                tag = tag_map['fanpai']
             elif tile in self._YAOJIU:
                 fu += fu_map['yaojiu']
+                tag = tag_map['yaojiu']
             else:
                 fu += fu_map['normal']
-        return fu
+                tag = tag_map['normal']
+            fu_tag_count[tag] = fu_tag_count.get(tag, 0) + 1
 
-    async def _settle_shuhewei(self, hepai_player_index):
-        """数和尾结算：和牌者已在和牌时提前结算，此处仅剩余玩家互相比较副数；涉及庄家支付翻倍"""
+        fu_tags: List[str] = []
+        for tag, cnt in fu_tag_count.items():
+            fu_tags.append(tag if cnt == 1 else f"{tag}*{cnt}")
+        return fu, fu_tags
+
+    async def _settle_shuhewei(
+        self,
+        hepai_player_index,
+        hepai_total_fu: Optional[int],
+        hepai_fan: Optional[List[str]],
+        hepai_fu_types: Optional[List[str]],
+        hu_class: Optional[str],
+    ) -> float:
+        """数和尾结算：四家分别计副，若一家有 x 副，则向所有不足 x 副且未和牌者收 x 分。"""
         player_fu = {}
+        player_fan: Dict[int, List[str]] = {}
+        player_fu_types: Dict[int, List[str]] = {}
         for player in self.player_list:
-            player_fu[player.player_index] = self._calc_player_fu(player)
+            normal_fu, normal_fu_types = self._calc_player_fu_detail(player)
+            player_fu[player.player_index] = normal_fu
+            player_fan[player.player_index] = []
+            player_fu_types[player.player_index] = normal_fu_types
+
+        if hepai_player_index is not None and hepai_total_fu is not None:
+            player_fu[hepai_player_index] = hepai_total_fu
+            player_fan[hepai_player_index] = list(hepai_fan or [])
+            player_fu_types[hepai_player_index] = list(hepai_fu_types or [])
 
         shuhewei_changes = {p.player_index: 0 for p in self.player_list}
-
         indices = [p.player_index for p in self.player_list]
-        for i in range(len(indices)):
-            for j in range(i + 1, len(indices)):
-                idx_a, idx_b = indices[i], indices[j]
-                # 和牌者已在和牌结算时提前计算数和尾，此处跳过
-                if hepai_player_index is not None and (idx_a == hepai_player_index or idx_b == hepai_player_index):
+
+        for receiver in indices:
+            receiver_fu = player_fu[receiver]
+            for payer in indices:
+                if payer == receiver:
                     continue
-                fa, fb = player_fu[idx_a], player_fu[idx_b]
-                if fa == fb:
+                if hepai_player_index is not None and payer == hepai_player_index:
                     continue
-                if fa > fb:
-                    payer, receiver = idx_b, idx_a
-                    diff = fa - fb
-                else:
-                    payer, receiver = idx_a, idx_b
-                    diff = fb - fa
-                is_dealer_involved = (payer == 0 or receiver == 0)
-                payment = diff * 2 if is_dealer_involved else diff
-                shuhewei_changes[receiver] += payment
-                shuhewei_changes[payer] -= payment
+                if player_fu[payer] < receiver_fu:
+                    shuhewei_changes[receiver] += receiver_fu
+                    shuhewei_changes[payer] -= receiver_fu
 
         for player in self.player_list:
             player.score += shuhewei_changes[player.player_index]
 
         player_to_score = {p.player_index: p.score for p in self.player_list}
+        reveal_wait = 0.0
+        for idx in range(4):
+            reveal_items = len(player_fu_types.get(idx, [])) + len(player_fan.get(idx, []))
+            reveal_wait += 0.3 + reveal_items * 0.5 + 0.5
 
-        logger.info(f"数和尾结算: player_fu={player_fu}, changes={shuhewei_changes}")
-        player_action_record_shuhewei(self, player_fu, shuhewei_changes)
+        logger.info(
+            f"数和尾结算: player_fu={player_fu}, player_fu_types={player_fu_types}, "
+            f"player_fan={player_fan}, changes={shuhewei_changes}, hu_class={hu_class}, hepai_player_index={hepai_player_index}"
+        )
+        player_action_record_shuhewei(
+            self,
+            player_fu,
+            shuhewei_changes,
+            player_fan,
+            player_fu_types,
+            hu_class or "",
+            -1 if hepai_player_index is None else hepai_player_index,
+        )
         if hasattr(self, 'spectator_manager'):
             fu_list = [player_fu.get(i, 0) for i in range(4)]
             changes_list = [shuhewei_changes.get(i, 0) for i in range(4)]
-            self.spectator_manager.record_tick(["shuhewei", fu_list, changes_list])
-        await self.broadcast_shuhewei(player_fu, player_to_score, shuhewei_changes)
-        await asyncio.sleep(5)
+            fan_lists = [player_fan.get(i, []) for i in range(4)]
+            fu_type_lists = [player_fu_types.get(i, []) for i in range(4)]
+            self.spectator_manager.record_tick(["shuhewei", fu_list, changes_list, fan_lists, fu_type_lists, hu_class or "", -1 if hepai_player_index is None else hepai_player_index])
+        await self.broadcast_shuhewei(
+            player_fu,
+            player_to_score,
+            shuhewei_changes,
+            player_fan,
+            player_fu_types,
+            hu_class,
+            hepai_player_index,
+        )
+        return reveal_wait
 
     # ========== 观战系统方法 ==========
 

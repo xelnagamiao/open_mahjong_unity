@@ -2,7 +2,9 @@
 
 ## 概述
 
-欢迎使用 open_mahjong_unity！ 测试网址salasasa.cn
+欢迎使用 open_mahjong_unity！ 
+测试网址 salasasa.cn
+示例平台Steam页 https://store.steampowered.com/app/4565740/Salasasa/
 
 ## 项目简介
 
@@ -30,7 +32,7 @@ open_mahjong_unity是一款基于unity/python-fastapi的麻将平台项目，该
 ### 3.关于Salasasa名称和本项目的关系的声明
 
 “Salasasa” 名称以及网址 salasasa.cn 是项目示例服务器的标识与域名。在基于 open_mahjong_unity 创建独立分支或修改版本时，请遵守以下约定：
-    1.不得使用 “Salasasa” 原名称来命名自己的服务器；
+    1.不得使用 “Salasasa” 原名称来命名自己的服务器，但以个人学习、维护特定规则为目的，不以商业形式公开发行或得到临时许可的除外；
     2.未经许可，不得在“Salasasa”命名以外的客户端中继续使用 salasasa.cn 的 API 或服务器服务；
     3.基于 “Salasasa” 命名的客户端变体允许存在，但必须在获取许可的同时，在客户端的版本验证 API 中显式标注该版本为非官方修改版；
     4.如果客户端变体出现网络攻击、恶意行为或严重影响服务器正常运行的情况，salasasa 保留要求停止发布、封禁相关客户端，以及采取法律措施维权的权利。

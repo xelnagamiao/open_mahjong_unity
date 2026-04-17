@@ -5,6 +5,8 @@ using NativeWebSocket;
 public class MatchNetworkManager : MonoBehaviour {
     public static MatchNetworkManager Instance { get; private set; }
     private bool isMatchFoundLocked;
+    /// <summary>最近一次请求加入的队列标识，用于 UI 展示（不依赖服务器 message 文案）。</summary>
+    private string lastJoinedQueueType;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -34,7 +36,7 @@ public class MatchNetworkManager : MonoBehaviour {
     private void HandleJoinQueueDone(Response response) {
         if (response.success) {
             if (!isMatchFoundLocked) {
-                MatchingWidget.Instance?.Show(response.message);
+                MatchQueueingPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
             }
         } else {
             NotificationManager.Instance.ShowTip("匹配", false, response.message);
@@ -43,7 +45,7 @@ public class MatchNetworkManager : MonoBehaviour {
 
     private void HandleLeaveQueueDone(Response response) {
         isMatchFoundLocked = false;
-        MatchingWidget.Instance?.Hide();
+        MatchQueueingPanel.Instance?.Hide();
     }
 
     private void HandleQueueStatus(Response response) {
@@ -54,13 +56,13 @@ public class MatchNetworkManager : MonoBehaviour {
 
     private void HandleMatchFound(Response response) {
         isMatchFoundLocked = true;
-        MatchingWidget.Instance?.Hide();
-        MatchPanel.Instance?.ShowMatchFoundAnimation(response.message);
+        MatchFoundedPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
     }
 
     // 发送加入匹配队列请求
     public async void SendJoinQueue(string queueType) {
         isMatchFoundLocked = false;
+        lastJoinedQueueType = queueType;
         if (NetworkManager.Instance == null) {
             Debug.LogWarning("[MatchNetworkManager] NetworkManager 不存在，无法发送加入匹配请求");
             return;

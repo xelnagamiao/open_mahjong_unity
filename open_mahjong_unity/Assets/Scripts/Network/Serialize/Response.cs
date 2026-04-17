@@ -29,7 +29,7 @@ public class RoomInfo {
 
 public class GameEndInfo { // 显示游戏结束结果
     public long game_random_seed; // 游戏随机种子
-    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据 {username: {"rank": int, "score": int, "pt": float, "username": string, "rank_before": string, "score_before": int, "rank_after": string, "score_after": int}}
+    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据，键为顺位 "1"～"4"，value 含 username、rank、score、pt 等
 }
 
 public class ShowResultInfo { // 显示结算结果
@@ -50,6 +50,10 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public Dictionary<int, int> player_fu; // 各玩家副数 {player_index: fu}
     public Dictionary<int, int> player_to_score; // 结算后各玩家总分
     public Dictionary<int, int> score_changes; // 数和尾分数变化
+    public Dictionary<int, string[]> player_fan; // 各玩家番型列表（未和牌玩家通常为空）
+    public Dictionary<int, string[]> player_fu_types; // 各玩家副种列表
+    public string hu_class; // 本局和牌类型
+    public int? hepai_player_index; // 和牌玩家索引（无和牌为空）
 }
 
 public class AskHandActionGBInfo { // 询问手牌操作

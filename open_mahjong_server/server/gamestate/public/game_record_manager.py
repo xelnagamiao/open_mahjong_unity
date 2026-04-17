@@ -129,13 +129,24 @@ def player_action_record_liuju(self):
         ["liuju"]
     )
 
-# 牌谱记录数和尾结算 ["shuhewei", [p0_fu,p1_fu,p2_fu,p3_fu], [p0Δ,p1Δ,p2Δ,p3Δ]]
-def player_action_record_shuhewei(self, player_fu: Dict[int, int], score_changes: Dict[int, int]):
+# 牌谱记录数和尾结算
+# ["shuhewei", [p0_fu,p1_fu,p2_fu,p3_fu], [p0Δ,p1Δ,p2Δ,p3Δ], [[p0番...],[p1番...],[p2番...],[p3番...]], [[p0副种...],[p1副种...],[p2副种...],[p3副种...]], hu_class, hepai_player_index]
+def player_action_record_shuhewei(
+    self,
+    player_fu: Dict[int, int],
+    score_changes: Dict[int, int],
+    player_fan: Dict[int, List[str]],
+    player_fu_types: Dict[int, List[str]],
+    hu_class: str,
+    hepai_player_index: int,
+):
     self.player_action_tick += 1
     fu_list = [player_fu.get(i, 0) for i in range(4)]
     changes_list = [score_changes.get(i, 0) for i in range(4)]
+    fan_list = [player_fan.get(i, []) for i in range(4)]
+    fu_type_list = [player_fu_types.get(i, []) for i in range(4)]
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["shuhewei", fu_list, changes_list]
+        ["shuhewei", fu_list, changes_list, fan_list, fu_type_list, hu_class, hepai_player_index]
     )
 
 # 牌谱记录回合结束标记 ["end"]

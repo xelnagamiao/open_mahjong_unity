@@ -1,32 +1,29 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class EndShuheWeiPanel : MonoBehaviour {
+    private const string StateNone = "";
+    private const string StateGame = "gamestate";
+    private const string StateRecord = "recordstate";
+    private const float RevealInterval = 0.5f;
+    private const float DetailItemInterval = 0.5f;
+
     public static EndShuheWeiPanel Instance { get; private set; }
 
     [SerializeField] private TextMeshProUGUI titleText;
+    [SerializeField] private GameObject FanCountPrefab;
+    [SerializeField] private Button EndButton;
+    [SerializeField] private TextMeshProUGUI EndButtonText;
+    [SerializeField] private List<ShuheweiPlayerPanel> playerPanels = new List<ShuheweiPlayerPanel>();
 
-    [Header("Self")]
-    [SerializeField] private TextMeshProUGUI SelfUserName;
-    [SerializeField] private TextMeshProUGUI SelfScore;
-    [SerializeField] private TextMeshProUGUI SelfFuCount;
-
-    [Header("Left")]
-    [SerializeField] private TextMeshProUGUI LeftUserName;
-    [SerializeField] private TextMeshProUGUI LeftScore;
-    [SerializeField] private TextMeshProUGUI LeftFuCount;
-
-    [Header("Top")]
-    [SerializeField] private TextMeshProUGUI TopUserName;
-    [SerializeField] private TextMeshProUGUI TopScore;
-    [SerializeField] private TextMeshProUGUI TopFuCount;
-
-    [Header("Right")]
-    [SerializeField] private TextMeshProUGUI RightUserName;
-    [SerializeField] private TextMeshProUGUI RightScore;
-    [SerializeField] private TextMeshProUGUI RightFuCount;
+    private Coroutine showRoutine;
+    private Coroutine countdownRoutine;
+    private string currentState = StateNone;
+    private Dictionary<string, int> posToIndex = new Dictionary<string, int>();
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -34,59 +31,240 @@ public class EndShuheWeiPanel : MonoBehaviour {
             return;
         }
         Instance = this;
+        if (EndButton != null) {
+            EndButton.onClick.AddListener(OnClickEndButton);
+        }
+        CollectPlayerPanels();
     }
 
-    public void ShowShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info) {
-        if (titleText != null) titleText.text = "数和尾";
+    public void ShowShuhewei(
+        Dictionary<int, int> player_fu,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> score_changes,
+        Dictionary<int, string[]> player_fan,
+        Dictionary<int, string[]> player_fu_types,
+        Dictionary<int, string> indexToPosition,
+        Dictionary<string, PlayerInfoClass> player_to_info,
+        bool isRecord = false
+    ) {
+        if (showRoutine != null) {
+            StopCoroutine(showRoutine);
+            showRoutine = null;
+        }
+        if (countdownRoutine != null) {
+            StopCoroutine(countdownRoutine);
+            countdownRoutine = null;
+        }
 
-        Dictionary<string, int> posToIndex = new Dictionary<string, int>();
+        currentState = isRecord ? StateRecord : StateGame;
+        gameObject.SetActive(true);
+        if (titleText != null) {
+            titleText.text = "数和尾";
+        }
+        if (EndButton != null) {
+            EndButton.interactable = false;
+            EndButton.gameObject.SetActive(true);
+        }
+        CollectPlayerPanels();
+
+        ResetReadyStatus();
+
+        posToIndex.Clear();
         foreach (var kvp in indexToPosition) {
             posToIndex[kvp.Value] = kvp.Key;
         }
 
-        FillPosition("self", posToIndex, player_to_info, player_to_score, score_changes, player_fu,
-            SelfUserName, SelfScore, SelfFuCount);
-        FillPosition("left", posToIndex, player_to_info, player_to_score, score_changes, player_fu,
-            LeftUserName, LeftScore, LeftFuCount);
-        FillPosition("top", posToIndex, player_to_info, player_to_score, score_changes, player_fu,
-            TopUserName, TopScore, TopFuCount);
-        FillPosition("right", posToIndex, player_to_info, player_to_score, score_changes, player_fu,
-            RightUserName, RightScore, RightFuCount);
+        InitializeAllPanels(player_to_info);
 
-        gameObject.SetActive(true);
-        StartCoroutine(AutoHideAfterDelay());
+        showRoutine = StartCoroutine(PlayReveal(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord));
     }
 
-    private void FillPosition(string pos, Dictionary<string, int> posToIndex,
-        Dictionary<string, PlayerInfoClass> player_to_info,
-        Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes,
+    private IEnumerator PlayReveal(
         Dictionary<int, int> player_fu,
-        TextMeshProUGUI nameText, TextMeshProUGUI scoreText, TextMeshProUGUI fuText) {
-        if (!posToIndex.ContainsKey(pos)) return;
-        int playerIndex = posToIndex[pos];
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> score_changes,
+        Dictionary<int, string[]> player_fan,
+        Dictionary<int, string[]> player_fu_types,
+        bool isRecord
+    ) {
+        string[] order = { "self", "left", "top", "right" };
+        for (int i = 0; i < order.Length; i++) {
+            string pos = order[i];
+            if (!posToIndex.ContainsKey(pos)) {
+                continue;
+            }
+            int playerIndex = posToIndex[pos];
+            int fu = player_fu.ContainsKey(playerIndex) ? player_fu[playerIndex] : 0;
+            string[] fanList = player_fan != null && player_fan.ContainsKey(playerIndex) ? player_fan[playerIndex] : Array.Empty<string>();
+            string[] fuTypeList = player_fu_types != null && player_fu_types.ContainsKey(playerIndex) ? player_fu_types[playerIndex] : Array.Empty<string>();
+            int fanCount = SumFanCount(fanList);
+            int roundFuPoint = CalculateRoundFuPoint(fu, fanCount);
 
-        nameText.text = player_to_info.ContainsKey(pos) ? player_to_info[pos].username : "";
-
-        int score = player_to_score.ContainsKey(playerIndex) ? player_to_score[playerIndex] : 0;
-        int change = score_changes.ContainsKey(playerIndex) ? score_changes[playerIndex] : 0;
-        if (change > 0) {
-            scoreText.text = score.ToString() + $"<color=green>+{change}</color>";
-        } else if (change < 0) {
-            scoreText.text = score.ToString() + $"<color=red>{change}</color>";
-        } else {
-            scoreText.text = score.ToString();
+            ShuheweiPlayerPanel panel = GetPanelByKey(pos);
+            yield return StartCoroutine(panel.PlayRoundStatsAnimation(fu, fanCount, roundFuPoint, 0.3f));
+            yield return StartCoroutine(panel.PlayFuAndFanReveal(fuTypeList, fanList, FanCountPrefab, DetailItemInterval));
+            int totalScore = player_to_score.ContainsKey(playerIndex) ? player_to_score[playerIndex] : 0;
+            int change = score_changes.ContainsKey(playerIndex) ? score_changes[playerIndex] : 0;
+            panel.SetTotalScore(totalScore, change);
+            yield return new WaitForSeconds(RevealInterval);
         }
 
-        int fu = player_fu.ContainsKey(playerIndex) ? player_fu[playerIndex] : 0;
-        fuText.text = $"{fu}副";
+        if (isRecord) {
+            if (EndButton != null) {
+                EndButton.interactable = true;
+            }
+            if (EndButtonText != null) {
+                EndButtonText.text = "确认";
+            }
+            yield break;
+        }
+
+        if (EndButton != null) {
+            EndButton.interactable = true;
+        }
+        countdownRoutine = StartCoroutine(CountDownAndHide(8));
+    }
+
+    private int CalculateRoundFuPoint(int fu, int fanCount) {
+        if (fanCount <= 0) {
+            return fu;
+        }
+        int multiplied = fu;
+        for (int i = 0; i < fanCount; i++) {
+            multiplied *= 2;
+        }
+        return Mathf.Min(300, multiplied);
+    }
+
+    private IEnumerator CountDownAndHide(int seconds) {
+        for (int i = seconds; i >= 0; i--) {
+            if (EndButtonText != null) {
+                EndButtonText.text = $"确定({i})";
+            }
+            yield return new WaitForSeconds(1f);
+        }
+        if (EndButton != null) {
+            EndButton.interactable = false;
+        }
+        gameObject.SetActive(false);
+    }
+
+    private void InitializeAllPanels(Dictionary<string, PlayerInfoClass> player_to_info) {
+        for (int i = 0; i < playerPanels.Count; i++) {
+            ShuheweiPlayerPanel panel = playerPanels[i];
+            string posKey = GetPositionKey(panel.Position);
+            panel.SetUserName(player_to_info.ContainsKey(posKey) ? player_to_info[posKey].username : "");
+            panel.ResetRoundStats();
+            panel.SetReady(false);
+            panel.ClearFanContainer();
+        }
+    }
+
+    private int SumFanCount(string[] fanList) {
+        int total = 0;
+        for (int i = 0; i < fanList.Length; i++) {
+            string fanDisplay = FanTextDictionary.GetFanDisplayText("classical/standard", fanList[i]);
+            if (fanDisplay.EndsWith("翻") && int.TryParse(fanDisplay.Replace("翻", ""), out int val)) {
+                total += val;
+            }
+        }
+        return total;
+    }
+
+    private void ClearFanContainer(Transform container) {
+        for (int i = container.childCount - 1; i >= 0; i--) {
+            Destroy(container.GetChild(i).gameObject);
+        }
+    }
+
+    private void ResetReadyStatus() {
+        for (int i = 0; i < playerPanels.Count; i++) {
+            playerPanels[i].SetReady(false);
+        }
+    }
+
+    private ShuheweiPlayerPanel GetPanelByKey(string posKey) {
+        for (int i = 0; i < playerPanels.Count; i++) {
+            if (GetPositionKey(playerPanels[i].Position) == posKey) {
+                return playerPanels[i];
+            }
+        }
+        throw new Exception($"未配置位置面板: {posKey}");
+    }
+
+    private string GetPositionKey(ShuheweiPanelPosition position) {
+        if (position == ShuheweiPanelPosition.Self) return "self";
+        if (position == ShuheweiPanelPosition.Left) return "left";
+        if (position == ShuheweiPanelPosition.Top) return "top";
+        return "right";
+    }
+
+    public void UpdateReadyStatus(Dictionary<int, bool> playerToReady) {
+        if (NormalGameStateManager.Instance == null) {
+            return;
+        }
+        foreach (var kvp in playerToReady) {
+            if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(kvp.Key)) {
+                continue;
+            }
+            string position = NormalGameStateManager.Instance.indexToPosition[kvp.Key];
+            bool isReady = kvp.Value;
+            GetPanelByKey(position).SetReady(isReady);
+        }
+    }
+
+    private void OnClickEndButton() {
+        if (EndButton != null) {
+            EndButton.interactable = false;
+        }
+        if (currentState == StateRecord) {
+            gameObject.SetActive(false);
+            GameRecordManager.Instance.AdvanceToNextAction();
+            return;
+        }
+        if (currentState == StateGame) {
+            GameStateNetworkManager.Instance.SendAction("ready", 0);
+        }
     }
 
     public void ClearEndShuheWeiPanel() {
+        if (showRoutine != null) {
+            StopCoroutine(showRoutine);
+            showRoutine = null;
+        }
+        if (countdownRoutine != null) {
+            StopCoroutine(countdownRoutine);
+            countdownRoutine = null;
+        }
+        currentState = StateNone;
         gameObject.SetActive(false);
+        if (EndButton != null) {
+            EndButton.interactable = false;
+        }
+        if (EndButtonText != null) {
+            EndButtonText.text = "确定";
+        }
+        ResetReadyStatus();
+        for (int i = 0; i < playerPanels.Count; i++) {
+            ShuheweiPlayerPanel panel = playerPanels[i];
+            if (panel == null) {
+                continue;
+            }
+            panel.ResetRoundStats();
+            panel.ClearFanContainer();
+        }
     }
 
-    private IEnumerator AutoHideAfterDelay() {
-        yield return new WaitForSeconds(5f);
-        gameObject.SetActive(false);
+    private void CollectPlayerPanels() {
+        ShuheweiPlayerPanel[] foundPanels = GetComponentsInChildren<ShuheweiPlayerPanel>(true);
+        if (foundPanels == null || foundPanels.Length == 0) {
+            return;
+        }
+        playerPanels.Clear();
+        for (int i = 0; i < foundPanels.Length; i++) {
+            if (foundPanels[i] != null) {
+                playerPanels.Add(foundPanels[i]);
+            }
+        }
     }
 }

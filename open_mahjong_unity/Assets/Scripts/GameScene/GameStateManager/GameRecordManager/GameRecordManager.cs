@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System;
 using TMPro;
+using Newtonsoft.Json.Linq;
 using Unity.Entities.UniversalDelegates;
 
 /// <summary>
@@ -661,6 +662,23 @@ public partial class GameRecordManager : MonoBehaviour {
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
+            string ruleName = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+            if (ruleName == "classical") {
+                int hepaiPlayerIndexOnly = ParseTickInt(tick, 1);
+                if (indexToPosition.ContainsKey(hepaiPlayerIndexOnly)) {
+                    string classicalHuPosition = indexToPosition[hepaiPlayerIndexOnly];
+                    GameCanvas.Instance.ShowActionDisplay(classicalHuPosition, action);
+                    SoundManager.Instance.PlayActionSound(classicalHuPosition, action);
+                }
+                currentPlayerIndex = nextPlayerIndex;
+                currentNode++;
+                GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
+                BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+                RefreshTileListViewIfVisible();
+                UpdateCurrentXunmuText();
+                return;
+            }
+
             // tick 格式: [hu_class, hepai_player_index, hu_score, hu_fan_json, score_changes_json, base_fu?, fu_fan_list?]
             int hepaiPlayerIndex = ParseTickInt(tick, 1);
             int huScore = (int)ParseTickDouble(tick, 2);
@@ -690,9 +708,9 @@ public partial class GameRecordManager : MonoBehaviour {
             } else {
                 Round huRoundData = null;
                 gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out huRoundData);
-                string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+                string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
                 int fangchong = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : currentPlayerIndex;
-                deltas = ResolveScoreDeltas(huRoundData, rule, action, ParseTickDouble(tick, 2), hepaiPlayerIndex, fangchong);
+                deltas = ResolveScoreDeltas(huRoundData, recordRule, action, ParseTickDouble(tick, 2), hepaiPlayerIndex, fangchong);
             }
             ApplyScoreDeltas(deltas, out Dictionary<int, int> playerToScoreBefore, out Dictionary<int, int> playerToScoreAfter);
 
@@ -704,10 +722,14 @@ public partial class GameRecordManager : MonoBehaviour {
             if (rule == "classical") {
                 int[] fuArray = ParseTickScoreChanges(tick, 1);
                 int[] changesArray = ParseTickScoreChanges(tick, 2);
+                string[][] fanArray = ParseTickFanLists(tick, 3);
+                string[][] fuTypeArray = ParseTickFanLists(tick, 4);
 
                 var playerFu = new Dictionary<int, int>();
                 var scoreChanges = new Dictionary<int, int>();
                 var deltas = new Dictionary<int, int>();
+                var playerFan = new Dictionary<int, string[]>();
+                var playerFuTypes = new Dictionary<int, string[]>();
 
                 foreach (var rp in recordPlayerList) {
                     int origIdx = rp.originalPlayerIndex;
@@ -715,6 +737,8 @@ public partial class GameRecordManager : MonoBehaviour {
                     int change = (changesArray != null && origIdx < changesArray.Length) ? changesArray[origIdx] : 0;
                     scoreChanges[rp.playerIndex] = change;
                     deltas[rp.playerIndex] = change;
+                    playerFan[rp.playerIndex] = (fanArray != null && origIdx < fanArray.Length && fanArray[origIdx] != null) ? fanArray[origIdx] : Array.Empty<string>();
+                    playerFuTypes[rp.playerIndex] = (fuTypeArray != null && origIdx < fuTypeArray.Length && fuTypeArray[origIdx] != null) ? fuTypeArray[origIdx] : Array.Empty<string>();
                 }
 
                 ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> playerToScoreAfter);
@@ -727,11 +751,19 @@ public partial class GameRecordManager : MonoBehaviour {
                 }
 
                 EndResultPanel.Instance.ClearEndResultPanel();
-                EndShuheWeiPanel.Instance.ShowShuhewei(playerFu, playerToScoreAfter, scoreChanges, indexToPosition, player_to_info);
+                EndShuheWeiPanel.Instance.ShowShuhewei(playerFu, playerToScoreAfter, scoreChanges, playerFan, playerFuTypes, indexToPosition, player_to_info, true);
                 GameSceneUIManager.Instance.UpdateScoreRecord();
                 BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
+                if (IsSpectating && IsLiveSpectatorMode) {
+                    float revealWait = 0f;
+                    foreach (var rp in recordPlayerList) {
+                        int idx = rp.playerIndex;
+                        int revealItems = (playerFuTypes.ContainsKey(idx) ? playerFuTypes[idx].Length : 0) + (playerFan.ContainsKey(idx) ? playerFan[idx].Length : 0);
+                        revealWait += 0.3f + revealItems * 0.5f + 0.5f;
+                    }
+                    StartCoroutine(AutoNextActionAfterDelay(8f + revealWait));
+                }
             }
-            StartCoroutine(AutoNextActionAfterDelay(5f));
         }
         else if (action == "liuju") {
             GameSceneUIManager.Instance.ShowEndLiuju("流局");
@@ -1062,6 +1094,31 @@ public partial class GameRecordManager : MonoBehaviour {
             int[] result = new int[parts.Length];
             for (int i = 0; i < parts.Length; i++) {
                 int.TryParse(parts[i].Trim(), out result[i]);
+            }
+            return result;
+        } catch {
+            return null;
+        }
+    }
+
+    private string[][] ParseTickFanLists(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
+        try {
+            JArray arr = JArray.Parse(tick[index]);
+            string[][] result = new string[arr.Count][];
+            for (int i = 0; i < arr.Count; i++) {
+                if (arr[i] is JArray subArr) {
+                    List<string> fans = new List<string>();
+                    for (int j = 0; j < subArr.Count; j++) {
+                        string fan = subArr[j]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(fan)) {
+                            fans.Add(fan);
+                        }
+                    }
+                    result[i] = fans.ToArray();
+                } else {
+                    result[i] = Array.Empty<string>();
+                }
             }
             return result;
         } catch {

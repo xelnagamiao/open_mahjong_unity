@@ -5,7 +5,8 @@ using TMPro;
 using UnityEngine.UI;
 
 
-public class PlayerInfoPanel : MonoBehaviour{
+public class PlayerInfoPanel : MonoBehaviour {
+    [SerializeField] private PanelPopupTransition panelPopup;
 
     // 用户信息
     [SerializeField] private TMP_Text usernameText;
@@ -31,7 +32,7 @@ public class PlayerInfoPanel : MonoBehaviour{
     [SerializeField] private GameObject PlayerInfoDataLayoutGroupPrefab;
 
     public static PlayerInfoPanel Instance { get; private set; }
-    
+
     private string CurrentShowRule = "guobiao";
     private int currentUserId; // 当前显示的用户ID
     private PlayerStatsInfo[] guobiaoStats;
@@ -45,24 +46,23 @@ public class PlayerInfoPanel : MonoBehaviour{
     private Dictionary<string, int> qingqueTotalFanStats;
     private Dictionary<string, int> classicalTotalFanStats;
 
-    // Start is called before the first frame update
-    void Start(){
+    private void Awake() {
         Instance = this;
+        if (panelPopup == null) {
+            panelPopup = GetComponent<PanelPopupTransition>();
+        }
         copyUseridButton.onClick.AddListener(OnCopyUseridButtonClick);
-        
-        if (closeButton != null){
+        if (closeButton != null) {
             closeButton.onClick.AddListener(OnCloseButtonClick);
         }
-
         ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("guobiao"));
         ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("riichi"));
         ShowOtherRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("Other"));
-
         gameObject.SetActive(false);
     }
 
-    void OnDestroy(){
-        if (Instance == this){
+    private void OnDestroy() {
+        if (Instance == this) {
             Instance = null;
         }
     }
@@ -111,6 +111,11 @@ public class PlayerInfoPanel : MonoBehaviour{
         CurrentShowRule = "guobiao";
         ClearRecordEntryContainer();
         DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
+        if (panelPopup != null) {
+            panelPopup.Show();
+        } else {
+            gameObject.SetActive(true);
+        }
     }
 
     // 接收国标统计数据
@@ -118,11 +123,6 @@ public class PlayerInfoPanel : MonoBehaviour{
         if (!success || ruleStats == null){
             NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取国标统计数据失败");
             return;
-        }
-
-        // 确保面板处于显示状态
-        if (!gameObject.activeSelf){
-            gameObject.SetActive(true);
         }
 
         // 保存国标数据
@@ -142,11 +142,6 @@ public class PlayerInfoPanel : MonoBehaviour{
             return;
         }
 
-        // 确保面板处于显示状态
-        if (!gameObject.activeSelf){
-            gameObject.SetActive(true);
-        }
-
         // 保存立直数据
         riichiStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
         riichiTotalFanStats = ruleStats.total_fan_stats;
@@ -164,10 +159,6 @@ public class PlayerInfoPanel : MonoBehaviour{
             return;
         }
 
-        if (!gameObject.activeSelf){
-            gameObject.SetActive(true);
-        }
-
         qingqueStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
         qingqueTotalFanStats = ruleStats.total_fan_stats;
 
@@ -181,10 +172,6 @@ public class PlayerInfoPanel : MonoBehaviour{
         if (!success || ruleStats == null) {
             NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取古典麻将统计数据失败");
             return;
-        }
-
-        if (!gameObject.activeSelf) {
-            gameObject.SetActive(true);
         }
 
         classicalStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
@@ -432,10 +419,12 @@ public class PlayerInfoPanel : MonoBehaviour{
         textEditor.Copy();
     }
 
-    // 关闭按钮点击事件
-    private void OnCloseButtonClick(){
-        // 仅隐藏面板，不销毁对象，便于下次再次显示
-        gameObject.SetActive(false);
+    private void OnCloseButtonClick() {
+        if (panelPopup != null) {
+            panelPopup.Hide(() => Destroy(gameObject));
+        } else {
+            Destroy(gameObject);
+        }
     }
 
     // 显示数据

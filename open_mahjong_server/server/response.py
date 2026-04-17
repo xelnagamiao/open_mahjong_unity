@@ -91,6 +91,10 @@ class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
     player_to_score: Dict[int, int]  # 结算后各玩家总分 {player_index: score}
     score_changes: Dict[int, int]  # 数和尾引起的分数变化 {player_index: delta}
+    player_fan: Dict[int, List[str]]  # 各玩家番型列表（未和牌玩家通常为空）
+    player_fu_types: Dict[int, List[str]]  # 各玩家副种列表
+    hu_class: Optional[str] = None  # 本局和牌类型（无和牌时为 liuju 或空）
+    hepai_player_index: Optional[int] = None  # 和牌玩家索引（无和牌时为空）
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
@@ -105,7 +109,7 @@ class Player_final_data(BaseModel):
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据 {username: Player_final_data}
+    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
 
 class Switch_seat_info(BaseModel):
     """换位信息"""

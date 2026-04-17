@@ -38,7 +38,7 @@ public class EndGamePanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 参数 key 为 username，按照 rank 值升序（1,2,3,4）排列后显示。
+    /// 参数 key 为顺位字符串 "1"～"4"，按顺位升序显示。
     /// </summary>
     public void ShowGameEndPanel(
         long game_random_seed,
@@ -46,9 +46,9 @@ public class EndGamePanel : MonoBehaviour {
         gameObject.SetActive(true);
         fadeInEffect?.PlayFadeIn();
 
-        // 按 rank 值升序排列所有玩家数据
-        var sorted = player_final_data.Values
-            .OrderBy(d => System.Convert.ToInt32(d["rank"]))
+        var sorted = player_final_data
+            .OrderBy(kv => System.Convert.ToInt32(kv.Key))
+            .Select(kv => kv.Value)
             .ToList();
 
         for (int i = 0; i < sorted.Count && i < rankDisplays.Length; i++) {
@@ -65,15 +65,19 @@ public class EndGamePanel : MonoBehaviour {
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;
         string myUsername = UserDataManager.Instance.Username;
-        if (player_final_data.TryGetValue(myUsername, out var myData)) {
-            if (myData.ContainsKey("rank_before") && myData["rank_before"] != null) {
-                isRankedMatch = true;
-                rankBefore = myData["rank_before"].ToString();
-                scoreBefore = System.Convert.ToSingle(myData["score_before"]);
-                rankAfter = myData["rank_after"].ToString();
-                scoreAfter = System.Convert.ToSingle(myData["score_after"]);
-                ptChange = System.Convert.ToSingle(myData["pt"]);
+        foreach (var d in player_final_data.Values) {
+            if (d["username"].ToString() != myUsername) {
+                continue;
             }
+            if (d.ContainsKey("rank_before") && d["rank_before"] != null) {
+                isRankedMatch = true;
+                rankBefore = d["rank_before"].ToString();
+                scoreBefore = System.Convert.ToSingle(d["score_before"]);
+                rankAfter = d["rank_after"].ToString();
+                scoreAfter = System.Convert.ToSingle(d["score_after"]);
+                ptChange = System.Convert.ToSingle(d["pt"]);
+            }
+            break;
         }
 
         // 设置按钮点击事件
