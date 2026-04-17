@@ -10,7 +10,8 @@ public class EndShuheWeiPanel : MonoBehaviour {
     private const string StateGame = "gamestate";
     private const string StateRecord = "recordstate";
     private const float RevealInterval = 0.5f;
-    private const float DetailItemInterval = 0.5f;
+    private const float DetailNumberAnimationSeconds = 0.5f;
+    private const float DetailPauseSeconds = 0.5f;
 
     public static EndShuheWeiPanel Instance { get; private set; }
 
@@ -35,6 +36,11 @@ public class EndShuheWeiPanel : MonoBehaviour {
             EndButton.onClick.AddListener(OnClickEndButton);
         }
         CollectPlayerPanels();
+        ResetReadyStatus();
+    }
+
+    private void OnEnable() {
+        ResetReadyStatus();
     }
 
     public void ShowShuhewei(
@@ -57,7 +63,8 @@ public class EndShuheWeiPanel : MonoBehaviour {
         }
 
         currentState = isRecord ? StateRecord : StateGame;
-        gameObject.SetActive(true);
+        CollectPlayerPanels();
+        ResetReadyStatus();
         if (titleText != null) {
             titleText.text = "数和尾";
         }
@@ -65,9 +72,7 @@ public class EndShuheWeiPanel : MonoBehaviour {
             EndButton.interactable = false;
             EndButton.gameObject.SetActive(true);
         }
-        CollectPlayerPanels();
-
-        ResetReadyStatus();
+        gameObject.SetActive(true);
 
         posToIndex.Clear();
         foreach (var kvp in indexToPosition) {
@@ -98,11 +103,17 @@ public class EndShuheWeiPanel : MonoBehaviour {
             string[] fanList = player_fan != null && player_fan.ContainsKey(playerIndex) ? player_fan[playerIndex] : Array.Empty<string>();
             string[] fuTypeList = player_fu_types != null && player_fu_types.ContainsKey(playerIndex) ? player_fu_types[playerIndex] : Array.Empty<string>();
             int fanCount = SumFanCount(fanList);
-            int roundFuPoint = CalculateRoundFuPoint(fu, fanCount);
+            int roundFuPoint = ShuheweiPlayerPanel.CalculateRoundFuPoint(fu, fanCount);
 
             ShuheweiPlayerPanel panel = GetPanelByKey(pos);
-            yield return StartCoroutine(panel.PlayRoundStatsAnimation(fu, fanCount, roundFuPoint, 0.3f));
-            yield return StartCoroutine(panel.PlayFuAndFanReveal(fuTypeList, fanList, FanCountPrefab, DetailItemInterval));
+            yield return StartCoroutine(panel.PlayFuAndFanReveal(
+                fuTypeList,
+                fanList,
+                FanCountPrefab,
+                DetailNumberAnimationSeconds,
+                DetailPauseSeconds
+            ));
+            panel.SetRoundStats(fu, fanCount, roundFuPoint);
             int totalScore = player_to_score.ContainsKey(playerIndex) ? player_to_score[playerIndex] : 0;
             int change = score_changes.ContainsKey(playerIndex) ? score_changes[playerIndex] : 0;
             panel.SetTotalScore(totalScore, change);
@@ -123,17 +134,6 @@ public class EndShuheWeiPanel : MonoBehaviour {
             EndButton.interactable = true;
         }
         countdownRoutine = StartCoroutine(CountDownAndHide(8));
-    }
-
-    private int CalculateRoundFuPoint(int fu, int fanCount) {
-        if (fanCount <= 0) {
-            return fu;
-        }
-        int multiplied = fu;
-        for (int i = 0; i < fanCount; i++) {
-            multiplied *= 2;
-        }
-        return Mathf.Min(300, multiplied);
     }
 
     private IEnumerator CountDownAndHide(int seconds) {
@@ -163,23 +163,17 @@ public class EndShuheWeiPanel : MonoBehaviour {
     private int SumFanCount(string[] fanList) {
         int total = 0;
         for (int i = 0; i < fanList.Length; i++) {
-            string fanDisplay = FanTextDictionary.GetFanDisplayText("classical/standard", fanList[i]);
-            if (fanDisplay.EndsWith("翻") && int.TryParse(fanDisplay.Replace("翻", ""), out int val)) {
-                total += val;
-            }
+            total += ShuheweiPlayerPanel.ParseFanValue(fanList[i]);
         }
         return total;
     }
 
-    private void ClearFanContainer(Transform container) {
-        for (int i = container.childCount - 1; i >= 0; i--) {
-            Destroy(container.GetChild(i).gameObject);
-        }
-    }
-
     private void ResetReadyStatus() {
         for (int i = 0; i < playerPanels.Count; i++) {
-            playerPanels[i].SetReady(false);
+            if (playerPanels[i] == null) {
+                continue;
+            }
+            playerPanels[i].HideReadyIndicators();
         }
     }
 

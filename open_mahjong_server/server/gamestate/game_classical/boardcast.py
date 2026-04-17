@@ -552,11 +552,13 @@ async def broadcast_refresh_player_tag_list(self):
 # 广播准备状态
 async def broadcast_ready_status(self):
     """广播所有玩家的准备状态"""
-    # 判断准备状态
+    # 基于 action_dict 判断准备状态：
+    # - action_dict[player] 仍包含 "ready" => 未准备
+    # - action_dict[player] 为空或不含 "ready" => 已准备
     player_to_ready = {}
     for player in self.player_list:
-        # 如果玩家不在等待列表中，说明已准备
-        player_to_ready[player.player_index] = player.player_index not in self.waiting_players_list
+        pending_actions = self.action_dict.get(player.player_index, [])
+        player_to_ready[player.player_index] = "ready" not in pending_actions
     
     ready_info = Ready_status_info(
         player_to_ready=player_to_ready

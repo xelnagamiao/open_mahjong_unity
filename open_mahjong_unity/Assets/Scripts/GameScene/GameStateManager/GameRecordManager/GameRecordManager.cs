@@ -759,7 +759,7 @@ public partial class GameRecordManager : MonoBehaviour {
                     foreach (var rp in recordPlayerList) {
                         int idx = rp.playerIndex;
                         int revealItems = (playerFuTypes.ContainsKey(idx) ? playerFuTypes[idx].Length : 0) + (playerFan.ContainsKey(idx) ? playerFan[idx].Length : 0);
-                        revealWait += 0.3f + revealItems * 0.5f + 0.5f;
+                        revealWait += revealItems * 1.0f + 0.5f;
                     }
                     StartCoroutine(AutoNextActionAfterDelay(8f + revealWait));
                 }

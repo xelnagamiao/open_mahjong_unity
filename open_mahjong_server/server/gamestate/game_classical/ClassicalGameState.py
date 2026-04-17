@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import time
 import logging
 import hashlib
+import math
 from .action_check import check_action_after_cut, check_action_jiagang, check_action_buhua, check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
 from .wait_action import wait_action
 from .boardcast import (
@@ -550,7 +551,7 @@ class ClassicalGameState:
                         self.action_dict[player.player_index] = []
                     else:
                         self.action_dict[player.player_index] = ["ready"]
-                        player.remaining_time = int(wait_time)
+                        player.remaining_time = math.ceil(wait_time)
 
                 self.game_status = "waiting_ready"
                 await broadcast_ready_status(self)
@@ -633,7 +634,7 @@ class ClassicalGameState:
         return fu
 
     def _calc_player_fu_detail(self, player) -> tuple[int, List[str]]:
-        """根据玩家副露计算副数与副种列表（仅计副露组合）"""
+        """根据玩家副露与手牌中的番牌对子计算副数与副种列表"""
         active_fanpai = set(self._FANPAI)
         wind_map = {0: 41, 1: 42, 2: 43, 3: 44}
         if player.player_index in wind_map:
@@ -661,6 +662,18 @@ class ClassicalGameState:
                 fu += fu_map['normal']
                 tag = tag_map['normal']
             fu_tag_count[tag] = fu_tag_count.get(tag, 0) + 1
+
+        # 未和牌玩家的手牌中，番牌对子每组额外计 2 副。
+        hand_fanpai_pair_count = 0
+        hand_tile_counter: Dict[int, int] = {}
+        for tile in player.hand_tiles:
+            hand_tile_counter[tile] = hand_tile_counter.get(tile, 0) + 1
+        for tile, cnt in hand_tile_counter.items():
+            if tile in active_fanpai and cnt == 2:
+                hand_fanpai_pair_count += 1
+        if hand_fanpai_pair_count > 0:
+            fu += hand_fanpai_pair_count * 2
+            fu_tag_count["番牌对"] = fu_tag_count.get("番牌对", 0) + hand_fanpai_pair_count
 
         fu_tags: List[str] = []
         for tag, cnt in fu_tag_count.items():
@@ -711,7 +724,7 @@ class ClassicalGameState:
         reveal_wait = 0.0
         for idx in range(4):
             reveal_items = len(player_fu_types.get(idx, [])) + len(player_fan.get(idx, []))
-            reveal_wait += 0.3 + reveal_items * 0.5 + 0.5
+            reveal_wait += reveal_items * 1.0 + 0.5
 
         logger.info(
             f"数和尾结算: player_fu={player_fu}, player_fu_types={player_fu_types}, "
