@@ -78,12 +78,14 @@ public class ScoreHistoryPanel : MonoBehaviour
 
         var sorted = new List<PlayerInfoClass>(player_to_info.Values);
         sorted.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
+        List<int> roundNumberHistory = sorted[0].round_number_history ?? new List<int>();
 
         InitializeScoreRecord(rule,
             sorted[0].original_player_index, sorted[0].username, sorted[0].score_history ?? new List<string>(),
             sorted[1].original_player_index, sorted[1].username, sorted[1].score_history ?? new List<string>(),
             sorted[2].original_player_index, sorted[2].username, sorted[2].score_history ?? new List<string>(),
-            sorted[3].original_player_index, sorted[3].username, sorted[3].score_history ?? new List<string>());
+            sorted[3].original_player_index, sorted[3].username, sorted[3].score_history ?? new List<string>(),
+            roundNumberHistory);
     }
 
     /// <summary>
@@ -107,7 +109,8 @@ public class ScoreHistoryPanel : MonoBehaviour
         int originIndex0, string username0, List<string> scoreHistory0,
         int originIndex1, string username1, List<string> scoreHistory1,
         int originIndex2, string username2, List<string> scoreHistory2,
-        int originIndex3, string username3, List<string> scoreHistory3)
+        int originIndex3, string username3, List<string> scoreHistory3,
+        List<int> roundNumberHistory = null)
     {
         // 清空之前的局数索引容器
         if (RoundIndexContainer != null)
@@ -126,14 +129,23 @@ public class ScoreHistoryPanel : MonoBehaviour
             return;
         }
 
-        // 在RoundIndexContainer中生成局数标签文本（按 key 顺序 1~16）
-        var sortedKeys = new List<int>(roundMap.Keys);
-        sortedKeys.Sort();
-        foreach (int key in sortedKeys) {
+        // 在 RoundIndexContainer 中按实际历史生成局数标签（支持连庄出现相同局名）。
+        // 若服务端未提供历史，则回退为固定标签表。
+        List<int> roundNumbers = roundNumberHistory ?? new List<int>();
+        if (roundNumbers.Count == 0) {
+            var fallbackKeys = new List<int>(roundMap.Keys);
+            fallbackKeys.Sort();
+            roundNumbers = fallbackKeys;
+        }
+        foreach (int roundNumber in roundNumbers) {
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                text.text = roundMap[key];
+                if (roundMap.TryGetValue(roundNumber, out string label)) {
+                    text.text = label;
+                } else {
+                    text.text = $"第{roundNumber}局";
+                }
             }
         }
         

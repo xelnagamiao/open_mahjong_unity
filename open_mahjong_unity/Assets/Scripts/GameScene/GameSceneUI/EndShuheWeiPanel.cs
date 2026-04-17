@@ -99,11 +99,11 @@ public class EndShuheWeiPanel : MonoBehaviour {
                 continue;
             }
             int playerIndex = posToIndex[pos];
-            int fu = player_fu.ContainsKey(playerIndex) ? player_fu[playerIndex] : 0;
             string[] fanList = player_fan != null && player_fan.ContainsKey(playerIndex) ? player_fan[playerIndex] : Array.Empty<string>();
             string[] fuTypeList = player_fu_types != null && player_fu_types.ContainsKey(playerIndex) ? player_fu_types[playerIndex] : Array.Empty<string>();
-            int fanCount = SumFanCount(fanList);
-            int roundFuPoint = ShuheweiPlayerPanel.CalculateRoundFuPoint(fu, fanCount);
+            int displayFu = ShuheweiPlayerPanel.SumFuValues(fuTypeList);
+            int displayFan = ShuheweiPlayerPanel.SumFanValues(fanList);
+            int displayFuPoint = ShuheweiPlayerPanel.CalculateRoundFuPoint(displayFu, displayFan);
 
             ShuheweiPlayerPanel panel = GetPanelByKey(pos);
             yield return StartCoroutine(panel.PlayFuAndFanReveal(
@@ -113,7 +113,7 @@ public class EndShuheWeiPanel : MonoBehaviour {
                 DetailNumberAnimationSeconds,
                 DetailPauseSeconds
             ));
-            panel.SetRoundStats(fu, fanCount, roundFuPoint);
+            panel.SetRoundStats(displayFu, displayFan, displayFuPoint);
             int totalScore = player_to_score.ContainsKey(playerIndex) ? player_to_score[playerIndex] : 0;
             int change = score_changes.ContainsKey(playerIndex) ? score_changes[playerIndex] : 0;
             panel.SetTotalScore(totalScore, change);
@@ -158,14 +158,6 @@ public class EndShuheWeiPanel : MonoBehaviour {
             panel.SetReady(false);
             panel.ClearFanContainer();
         }
-    }
-
-    private int SumFanCount(string[] fanList) {
-        int total = 0;
-        for (int i = 0; i < fanList.Length; i++) {
-            total += ShuheweiPlayerPanel.ParseFanValue(fanList[i]);
-        }
-        return total;
     }
 
     private void ResetReadyStatus() {

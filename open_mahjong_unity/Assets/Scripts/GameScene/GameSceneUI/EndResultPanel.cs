@@ -188,10 +188,11 @@ public class EndResultPanel : MonoBehaviour {
                 yield return new WaitForSeconds(0.5f);
                 string fuName = fu_fan_list[i];
                 string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
+                string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuName);
                 GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fuCount = fuInstance.GetComponent<FanCount>();
                 if (fuCount != null) {
-                    fuCount.SetFanCount(fuName, fuDisplay);
+                    fuCount.SetFanCount(fuNameDisplay, fuDisplay);
                     fuCount.ApplyFuColor();
                 }
             }
@@ -328,10 +329,11 @@ public class EndResultPanel : MonoBehaviour {
             for (int i = 0; i < fu_fan_list.Length; i++) {
                 string fuName = fu_fan_list[i];
                 string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
+                string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuName);
                 GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fuCount = fuInstance.GetComponent<FanCount>();
                 if (fuCount != null) {
-                    fuCount.SetFanCount(fuName, fuDisplay);
+                    fuCount.SetFanCount(fuNameDisplay, fuDisplay);
                     fuCount.ApplyFuColor();
                 }
             }

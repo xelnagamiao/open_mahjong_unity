@@ -71,6 +71,7 @@ async def broadcast_game_start(self):
                         'character_used': player.character_used, # 使用的角色ID
                         'voice_used': player.voice_used, # 使用的音色ID
                         'score_history': player.score_history, # 分数历史变化列表
+                        'round_number_history': player.round_number_history, # 实际每手对应局数（支持连庄重复）
                         'tag_list': player.tag_list, # 标签列表
                     }
                     players_info_for_current.append(player_info)

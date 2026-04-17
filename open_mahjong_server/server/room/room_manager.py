@@ -713,11 +713,11 @@ class RoomManager:
 
             # 更新房间中的玩家设置信息
             # 普通玩家：直接删除其设置信息
-            # 机器人（user_id == 0）：只有当房间中已经没有任何 0 时才删除设置，避免多机器人共享同一配置被提前删掉
+            # 机器人（user_id <= 10）：只有当房间中已经没有该 user_id 时才删除设置，避免同类机器人共享配置被提前删掉
             if "player_settings" in room_data and target_user_id in room_data["player_settings"]:
-                if target_user_id == 0:
-                    # 如果 player_list 中已经没有机器人了，再删设置
-                    if 0 not in room_data["player_list"]:
+                if target_user_id <= 10:
+                    # 如果 player_list 中已经没有该机器人类型，再删除其设置
+                    if target_user_id not in room_data["player_list"]:
                         del room_data["player_settings"][target_user_id]
                 else:
                     del room_data["player_settings"][target_user_id]

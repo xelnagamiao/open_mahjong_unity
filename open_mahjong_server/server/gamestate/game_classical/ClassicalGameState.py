@@ -63,6 +63,7 @@ class ClassicalPlayer:
         self.waiting_tiles = set[int]()
         self.record_counter = RecordCounter()
         self.score_history = []
+        self.round_number_history = []
 
         self.title_used = 0
         self.profile_used = 0
@@ -229,6 +230,7 @@ class ClassicalGameState:
                             'character_used': player.character_used,
                             'voice_used': player.voice_used,
                             'score_history': player.score_history,
+                            'round_number_history': player.round_number_history,
                             'tag_list': player.tag_list,
                         }
                         base_game_info['players_info'].append(player_info)
@@ -515,6 +517,7 @@ class ClassicalGameState:
                 else:
                     score_change_str = "0"
                 player.score_history.append(score_change_str)
+                player.round_number_history.append(self.current_round)
 
             score_changes = [0, 0, 0, 0]
             for player in self.player_list:
@@ -562,7 +565,15 @@ class ClassicalGameState:
                     if await wait_action(self) is False:
                         break
 
-            next_game_round_random_switchseat(self)
+            is_dealer_win = (
+                self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]
+                and hepai_player_index == 0
+            )
+            next_game_round_random_switchseat(
+                self,
+                keep_current_round=is_dealer_win,
+                keep_dealer_seat=is_dealer_win,
+            )
 
             logger.info(f"重新开始下一局")
 

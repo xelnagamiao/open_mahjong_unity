@@ -104,6 +104,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int profile_used;            // 使用的头像ID
     public int voice_used;              // 使用的音色ID
     public string[] score_history;      // 分数历史变化列表，每局记录 +？、-？ 或 0
+    public int[] round_number_history;  // 实际每手对应局数（支持连庄重复）
     public string[] tag_list;           // 标签列表
 }
 

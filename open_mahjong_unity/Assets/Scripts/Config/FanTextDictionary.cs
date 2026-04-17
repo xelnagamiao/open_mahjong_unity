@@ -160,6 +160,15 @@ public static class FanTextDictionary {
     }
 
     /// <summary>
+    /// 古典规则：根据副种名称返回展示名称（如“刻子*2”显示为“数牌刻*2”）。
+    /// </summary>
+    public static string GetFuNameDisplayText(string fuName) {
+        if (fuName == "刻子") return "数牌刻";
+        if (fuName.StartsWith("刻子*")) return fuName.Replace("刻子*", "数牌刻*");
+        return fuName;
+    }
+
+    /// <summary>
     /// 根据规则与番种名称返回显示文本（如 "88番"），未命中时返回 "0番"。
     /// </summary>
     public static string GetFanDisplayText(string rule, string fanName) {

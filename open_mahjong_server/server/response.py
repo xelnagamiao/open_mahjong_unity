@@ -24,6 +24,7 @@ class PlayerInfo(BaseModel):
     profile_used: Optional[int] = None  # 使用的头像ID
     voice_used: Optional[int] = None  # 使用的音色ID
     score_history: Optional[List[str]] = None  # 分数历史变化列表，每局记录 +？、-？ 或 0
+    round_number_history: Optional[List[int]] = None  # 实际每手对应局数（支持连庄重复）
     tag_list: Optional[List[str]] = None  # 标签列表
 
 class GameInfo(BaseModel):

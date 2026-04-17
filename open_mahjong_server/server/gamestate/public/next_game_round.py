@@ -94,11 +94,17 @@ def next_game_round(self):
 
 
     
-def next_game_round_random_switchseat(self):
-    """进入下一局游戏 随机换位"""
-    # 局数+1
-    self.current_round += 1
-    self.round_index += 1
+def next_game_round_random_switchseat(self, keep_current_round: bool = False, keep_dealer_seat: bool = False):
+    """进入下一局游戏 随机换位
+    keep_current_round=True 时用于连庄：只增加 round_index，不推进 current_round。
+    keep_dealer_seat=True 时用于连庄：不轮转座位，保持东家不变。
+    """
+    # 局数推进（连庄时仅推进局序号，不推进圈位局数）
+    if keep_current_round:
+        self.round_index += 1
+    else:
+        self.current_round += 1
+        self.round_index += 1
     self.current_player_index = 0
     self.xunmu = 1
     self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
@@ -116,9 +122,10 @@ def next_game_round_random_switchseat(self):
         i.remaining_time = self.round_time
         if "peida" in i.tag_list:
             i.tag_list.remove("peida")
-        i.player_index = back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
+        if not keep_dealer_seat:
+            i.player_index = back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
 
-    if self.current_round in (5, 9, 13):
+    if (not keep_dealer_seat) and self.current_round in (5, 9, 13):
         seed = getattr(self, "game_random_seed", 0)
         rng = random.Random((seed * 1009 + self.current_round * 9176) & 0xFFFFFFFF)
         players = list(self.player_list)
