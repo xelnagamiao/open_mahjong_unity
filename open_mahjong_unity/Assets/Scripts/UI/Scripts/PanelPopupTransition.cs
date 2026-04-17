@@ -88,10 +88,14 @@ public class PanelPopupTransition : MonoBehaviour {
             _rt.localScale = Vector3.one * HideEndScale;
         }
 
+        _routine = null;
+        onComplete?.Invoke();
+        yield return null;
+        if (this == null) {
+            yield break;
+        }
         gameObject.SetActive(false);
         _cg.alpha = 1f;
         _rt.localScale = Vector3.one;
-        _routine = null;
-        onComplete?.Invoke();
     }
 }

@@ -46,6 +46,8 @@ public class PlayerInfoPanel : MonoBehaviour {
     private Dictionary<string, int> qingqueTotalFanStats;
     private Dictionary<string, int> classicalTotalFanStats;
 
+    private bool _shownOnce;
+
     private void Awake() {
         Instance = this;
         if (panelPopup == null) {
@@ -58,7 +60,12 @@ public class PlayerInfoPanel : MonoBehaviour {
         ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("guobiao"));
         ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("riichi"));
         ShowOtherRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("Other"));
-        gameObject.SetActive(false);
+    }
+
+    private void Start() {
+        if (!_shownOnce) {
+            gameObject.SetActive(false);
+        }
     }
 
     private void OnDestroy() {
@@ -111,6 +118,7 @@ public class PlayerInfoPanel : MonoBehaviour {
         CurrentShowRule = "guobiao";
         ClearRecordEntryContainer();
         DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
+        _shownOnce = true;
         if (panelPopup != null) {
             panelPopup.Show();
         } else {
@@ -421,9 +429,9 @@ public class PlayerInfoPanel : MonoBehaviour {
 
     private void OnCloseButtonClick() {
         if (panelPopup != null) {
-            panelPopup.Hide(() => Destroy(gameObject));
+            panelPopup.Hide();
         } else {
-            Destroy(gameObject);
+            gameObject.SetActive(false);
         }
     }
 
