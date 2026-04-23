@@ -149,6 +149,61 @@ def player_action_record_shuhewei(
         ["shuhewei", fu_list, changes_list, fan_list, fu_type_list, hu_class, hepai_player_index]
     )
 
+# 立直麻将 - 牌谱记录宣告立直 ["riichi", player_index, is_daburu]
+def player_action_record_riichi(self, player_index: int, is_daburu: bool = False):
+    self.player_action_tick += 1
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["riichi", player_index, 1 if is_daburu else 0]
+    )
+
+# 立直麻将 - 牌谱记录新翻出宝牌指示牌 ["dora", tile_id]
+def player_action_record_new_dora(self, tile_id: int):
+    self.player_action_tick += 1
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["dora", tile_id]
+    )
+
+# 立直麻将 - 牌谱记录荒牌流局（含听牌/不听结算）
+# ["ryuukyoku", [p0_tenpai..p3_tenpai], [p0Δ..p3Δ], reason]
+def player_action_record_ryuukyoku(self, tenpai_flags: List[int], score_changes: List[int], reason: str = "exhaustive"):
+    self.player_action_tick += 1
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["ryuukyoku", list(tenpai_flags), list(score_changes), reason]
+    )
+
+# 立直麻将 - 记录和牌细节 ["hu_riichi", hepai_player_index, hu_class, han, fu, yaku[], score_changes[], dora_indicators[], ura_dora_indicators[], aka_count]
+def player_action_record_hu_riichi(
+    self,
+    hepai_player_index: int,
+    hu_class: str,
+    han: int,
+    fu: int,
+    yaku: List[str],
+    score_changes: List[int],
+    dora_indicators: List[int],
+    ura_dora_indicators: List[int],
+    aka_count: int,
+    honba: int,
+    riichi_sticks_collected: int,
+):
+    self.player_action_tick += 1
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        [
+            "hu_riichi",
+            hepai_player_index,
+            hu_class,
+            han,
+            fu,
+            list(yaku),
+            list(score_changes),
+            list(dora_indicators),
+            list(ura_dora_indicators),
+            aka_count,
+            honba,
+            riichi_sticks_collected,
+        ]
+    )
+
 # 牌谱记录回合结束标记 ["end"]
 def player_action_record_round_end(self):
     self.player_action_tick += 1

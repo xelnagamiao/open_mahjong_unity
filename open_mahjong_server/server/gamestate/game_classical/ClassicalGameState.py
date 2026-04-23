@@ -674,11 +674,29 @@ class ClassicalGameState:
                 tag = tag_map['normal']
             fu_tag_count[tag] = fu_tag_count.get(tag, 0) + 1
 
-        # 未和牌玩家的手牌中，番牌对子每组额外计 2 副。
-        hand_fanpai_pair_count = 0
+        # 未和牌玩家的手牌副数：优先将 >=3 张同牌计为暗刻（普通/幺九/番牌），
+        # 扣除后剩余恰好 2 张且为番牌者计番牌对。4 张同牌视作 1 组暗刻（多出 1 张不计分）。
         hand_tile_counter: Dict[int, int] = {}
         for tile in player.hand_tiles:
             hand_tile_counter[tile] = hand_tile_counter.get(tile, 0) + 1
+
+        for tile, cnt in hand_tile_counter.items():
+            if cnt < 3:
+                continue
+            if tile in active_fanpai:
+                ankou_tag = "番牌暗刻"
+                ankou_fu = self._MELD_FU['K']['fanpai']
+            elif tile in self._YAOJIU:
+                ankou_tag = "幺九暗刻"
+                ankou_fu = self._MELD_FU['K']['yaojiu']
+            else:
+                ankou_tag = "暗刻"
+                ankou_fu = self._MELD_FU['K']['normal']
+            fu += ankou_fu
+            fu_tag_count[ankou_tag] = fu_tag_count.get(ankou_tag, 0) + 1
+            hand_tile_counter[tile] = cnt - 3
+
+        hand_fanpai_pair_count = 0
         for tile, cnt in hand_tile_counter.items():
             if tile in active_fanpai and cnt == 2:
                 hand_fanpai_pair_count += 1

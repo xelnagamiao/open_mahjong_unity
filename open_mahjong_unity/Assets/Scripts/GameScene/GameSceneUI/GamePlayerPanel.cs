@@ -12,11 +12,15 @@ public class GamePlayerPanel : MonoBehaviour {
     [SerializeField] private Image playerProfileEdgePicture;   // 玩家头像边框
     [SerializeField] private Image playerIslossconnPicture; // 玩家是否掉线图片
     [SerializeField] private GameObject playerIsPeidaPicture; // 玩家是否陪打图片
+    [SerializeField] private GameObject playerRiichiIcon; // 立直状态图标（日麻）
+    [SerializeField] private GameObject playerFuritenIcon; // 振听状态图标（日麻）
     [SerializeField] private Button GoToRecordSelectButton; // 牌谱模式下切换到该玩家视角
 
     private void Awake() {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
+        if (playerRiichiIcon != null) playerRiichiIcon.SetActive(false);
+        if (playerFuritenIcon != null) playerFuritenIcon.SetActive(false);
     }
 
 
@@ -63,11 +67,11 @@ public class GamePlayerPanel : MonoBehaviour {
 
     // 更新标签列表显示
     public void UpdateTagList(string[] tag_list) {
-        // 先隐藏所有标签
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
-        
-        // 根据标签列表显示对应的标签
+        if (playerRiichiIcon != null) playerRiichiIcon.SetActive(false);
+        if (playerFuritenIcon != null) playerFuritenIcon.SetActive(false);
+
         if (tag_list != null) {
             foreach(var item in tag_list) {
                 if (item == "offline") {
@@ -75,6 +79,12 @@ public class GamePlayerPanel : MonoBehaviour {
                 }
                 if (item == "peida") {
                     playerIsPeidaPicture.gameObject.SetActive(true);
+                }
+                if (item == "riichi" && playerRiichiIcon != null) {
+                    playerRiichiIcon.SetActive(true);
+                }
+                if (item == "furiten" && playerFuritenIcon != null) {
+                    playerFuritenIcon.SetActive(true);
                 }
             }
         }

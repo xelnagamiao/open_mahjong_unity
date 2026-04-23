@@ -25,6 +25,8 @@ public class RoomInfo {
     public bool is_game_running; // 游戏是否正在运行
     public int random_seed; // 随机种子
     public bool open_cuohe; // 是否开启错和
+    public bool? red_dora;  // 立直麻将专属：是否启用赤宝牌
+    public string hepai_way; // 立直麻将专属：和牌方式 head_bump / multi_ron / three_ron_abort
 }
 
 public class GameEndInfo { // 显示游戏结束结果
@@ -44,6 +46,18 @@ public class ShowResultInfo { // 显示结算结果
     public int action_tick;
     public int? base_fu; // 古典麻将：基础副数
     public string[] fu_fan_list; // 古典麻将：副番名列表
+
+    // 立直麻将扩展字段
+    public int? han;                          // 总番数
+    public int? fu;                           // 符数
+    public int? aka_count;                    // 赤宝牌数量
+    public int? dora_count;                   // 表宝牌数量
+    public int? ura_dora_count;               // 里宝牌数量
+    public int[] dora_indicators;            // 宝牌指示牌（含本局已翻开的杠宝牌）
+    public int[] ura_dora_indicators;        // 里宝牌指示牌
+    public int? honba;                        // 本场数
+    public int? riichi_sticks_collected;      // 和牌者收走的立直棒数
+    public Dictionary<int, int> score_changes; // 点数变化 {original_player_index: delta}
 }
 
 public class ShowShuheWeiInfo { // 数和尾结算信息
@@ -69,6 +83,8 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
     public int remaining_time; // 剩余时间
     public int cut_tile; // 切牌
     public int action_tick;
+    // 立直麻将赤宝牌吃牌候选：键为方向 "chi_left"/"chi_mid"/"chi_right"，值为每条候选的两张真实牌 ID（含 105/205/305）
+    public System.Collections.Generic.Dictionary<string, int[][]> chi_candidates;
 }
 
 public class DoActionInfo { // 执行操作
@@ -128,6 +144,15 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool isPlayerSetRandomSeed;  // 是否设置随机种子
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
+
+    // 立直麻将扩展字段
+    public int? honba;                  // 本场棒数
+    public int? riichi_sticks;          // 场供立直棒数
+    public int[] dora_indicators;      // 宝牌指示牌（含杠宝牌翻出的牌）
+    public int[] kan_dora_indicators;  // 杠宝牌指示牌
+    public string hepai_way;            // 和牌方式 head_bump / multi_ron / three_ron_abort
+    public bool? red_dora;              // 是否启用赤宝牌
+    public int? dealer_index;           // 当前亲家索引
 }
 
 public class SwitchSeatInfo { // 换位信息

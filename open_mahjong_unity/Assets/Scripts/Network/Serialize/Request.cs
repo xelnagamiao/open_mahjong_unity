@@ -24,6 +24,25 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public bool allow_spectator; // 允许观战
 }
 
+public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
+    public string type;
+    public string rule;
+    public string sub_rule;
+    public string roomname;
+    public int gameround;
+    public int roundTimerValue;
+    public int stepTimerValue;
+    public bool tips;
+    public string password;
+    public int random_seed;
+    public bool open_cuohe; // 是否开启错和（错和罚 9000/家并重打本局）
+    public int hepai_limit; // 自定义起和番数，低于该番数视为错和
+    public bool red_dora; // 是否启用赤宝牌
+    public string hepai_way; // 和牌方式：head_bump / multi_ron / three_ron_abort
+    public bool tourist_limit;
+    public bool allow_spectator;
+}
+
 public class GetRoomListRequest { // 获取房间列表请求
     public string type;
     public bool show_tip; // True=手动刷新显示tips，False=静默刷新
@@ -60,6 +79,7 @@ public class SendActionRequest { // 发送国标游戏操作请求
     public bool? cutClass; // 切牌类型
     public int? TileId; // 切牌
     public string gamestate_id; // 游戏状态ID
+    public int? chiComboIndex; // 立直麻将赤宝牌吃牌候选索引，默认 0 表示优先非赤 5
 }
 
 public class GetRecordListRequest { // 获取游戏记录请求

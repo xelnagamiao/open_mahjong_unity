@@ -2,9 +2,11 @@
 
 ## 概述
 
-欢迎使用 open_mahjong_unity！ 
-测试网址 salasasa.cn
-示例平台Steam页 https://store.steampowered.com/app/4565740/Salasasa/
+欢迎使用 open_mahjong_unity！
+
+Web端测试网址 [https://salasasa.cn](https://salasasa.cn)
+
+PC端Steam页 [https://store.steampowered.com/app/4565740/Salasasa/](https://store.steampowered.com/app/4565740/Salasasa/)
 
 ## 项目简介
 
@@ -296,12 +298,14 @@ open_mahjong_unity/
 ## 3.技术栈
 
 ### 游戏客户端 (open_mahjong_unity)
+
 - **引擎**: Unity 2022.3 LTS (2022.3.62f3c1)
 - **语言**: C#
 - **网络**: WebSocket (Nativewebsocket)
 - **平台**: PC/Web/Android/iOS
 
 ### 游戏服务器 (open_mahjong_server、open_mahjong_chat_server)
+
 - **框架**: FastAPI
 - **语言**: Python 3.12 Golang
 - **网络**: WebSocket, HTTP
@@ -309,15 +313,16 @@ open_mahjong_unity/
 - **部署**: supervisor 或 任意您喜欢的任务管理器
 
 ### Web 平台 (open_mahjong_web)
+
 - **前端**: Vue3
 - **后端**: Node.js
 - **数据库**: PostgreSQL 18
 
 ### 4.交流
+
 - **测试/开发群号**: 906497522
-- **项目地址**: https://github.com/xelnagamiao/open_mahjong_unity
-- **语雀文档(未完成)**: https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#
-- **开发进度表**: https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2
+- **项目地址**: [https://github.com/xelnagamiao/open_mahjong_unity](https://github.com/xelnagamiao/open_mahjong_unity)
+- **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
+- **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
 
 *最后更新：2026年3月16日 dev ver 0.3.52.0 *
-

@@ -53,7 +53,8 @@ public class MahjongObjectPool : MonoBehaviour {
             21, 22, 23, 24, 25, 26, 27, 28, 29,
             31, 32, 33, 34, 35, 36, 37, 38, 39,
             41, 42, 43, 44, 45, 46, 47,
-            51, 52, 53, 54, 55, 56, 57, 58
+            51, 52, 53, 54, 55, 56, 57, 58,
+            105, 205, 305 // 立直麻将：赤 5m / 赤 5p / 赤 5s
         };
 
         foreach (int id in allIds) {
@@ -104,6 +105,19 @@ public class MahjongObjectPool : MonoBehaviour {
 
         int[] flowerTiles = { 51, 52, 53, 54, 55, 56, 57, 58 };
         foreach (int tileId in flowerTiles) {
+            Queue<GameObject> objectPool = new Queue<GameObject>();
+            GameObject obj = Instantiate(tile3DPrefab);
+            obj.SetActive(false);
+            obj.transform.SetParent(transform);
+            PrecalculateNormals(obj);
+            ApplyCardTexture(obj, tileId);
+            objectPool.Enqueue(obj);
+            poolDictionary[tileId] = objectPool;
+        }
+
+        // 立直麻将赤宝牌：每种仅 1 张，与普通 5m/5p/5s 作为同点数不同实体
+        int[] redDoraTiles = { 105, 205, 305 };
+        foreach (int tileId in redDoraTiles) {
             Queue<GameObject> objectPool = new Queue<GameObject>();
             GameObject obj = Instantiate(tile3DPrefab);
             obj.SetActive(false);

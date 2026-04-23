@@ -297,7 +297,7 @@ public partial class Game3DManager : MonoBehaviour {
         Transform target = isShowCardsMode ? panel.ShowCardsPosition : panel.cardsPosition;
         if (isShowCardsMode){
             List<int> sortedTiles = new List<int>(handTiles);
-            sortedTiles.Sort();
+            sortedTiles.Sort(TileIdOrder.Compare);
             for (int i = 0; i < sortedTiles.Count; i++){
                 Set3DTile(sortedTiles[i], target, "Record", playerPosition);
             }
@@ -367,7 +367,7 @@ public partial class Game3DManager : MonoBehaviour {
             Tile3D tileB = b.GetComponent<Tile3D>();
             int idA = tileA != null ? tileA.GetTileId() : 0;
             int idB = tileB != null ? tileB.GetTileId() : 0;
-            return idA.CompareTo(idB);
+            return TileIdOrder.Compare(idA, idB);
         });
 
         Vector3 startPos = showCardsPosition.position;

@@ -1137,6 +1137,13 @@ DatabaseManager.store_classical_game_record = store_classical_game_record
 DatabaseManager.store_classical_game_stats = store_classical_game_stats
 DatabaseManager.store_classical_fan_stats = store_classical_fan_stats
 
+from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats
+from .riichi.get_riichi_stats import get_riichi_stats
+
+DatabaseManager.store_riichi_game_record = store_riichi_game_record
+DatabaseManager.store_riichi_game_stats = store_riichi_game_stats
+DatabaseManager.get_riichi_stats = get_riichi_stats
+
 # 挂载段位数据 CRUD 方法到 DatabaseManager 类
 from .guobiao.rank_data import get_rank_data, update_rank_data, get_user_sponsor_mcrpl
 

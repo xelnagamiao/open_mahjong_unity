@@ -14,6 +14,8 @@ try:
     from .classical.classical_hepai_check import Classical_Hepai_Check
     from .classical.classical_tingpai_check import Classical_Tingpai_Check
     from .classical.classical_fushu_check import Classical_Fushu_Check
+    from .riichi.riichi_hepai_check import Riichi_Hepai_Check
+    from .riichi.riichi_tingpai_check import Riichi_Tingpai_Check
 except ImportError:
     from guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
     from guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check  # type: ignore
@@ -21,6 +23,8 @@ except ImportError:
     from classical.classical_hepai_check import Classical_Hepai_Check  # type: ignore
     from classical.classical_tingpai_check import Classical_Tingpai_Check  # type: ignore
     from classical.classical_fushu_check import Classical_Fushu_Check  # type: ignore
+    from riichi.riichi_hepai_check import Riichi_Hepai_Check  # type: ignore
+    from riichi.riichi_tingpai_check import Riichi_Tingpai_Check  # type: ignore
 
 # Qingque13 C# 桥接模块
 try:
@@ -56,6 +60,8 @@ class GameCalculationService:
         self._classical_hepai_check = Classical_Hepai_Check()
         self._classical_tingpai_check = Classical_Tingpai_Check()
         self._classical_fushu_check = Classical_Fushu_Check()
+        self._riichi_hepai_check = Riichi_Hepai_Check()
+        self._riichi_tingpai_check = Riichi_Tingpai_Check()
 
     def Qingque_hepai_check(
         self,
@@ -183,6 +189,31 @@ class GameCalculationService:
         """
         with self._lock:
             return self._classical_tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Riichi_hepai_check(
+        self,
+        hand_list: List[int],
+        tiles_combination: List[str],
+        way_to_hepai: List[str],
+        get_tile: int,
+        context: dict = None,
+    ) -> dict:
+        """
+        立直麻将和牌检查（基于 mahjong 库）。
+        返回字典：is_valid / han / fu / score / yaku / cost / aka_count / error。
+        context 见 Riichi_Hepai_Check.hepai_check 文档。
+        """
+        with self._lock:
+            return self._riichi_hepai_check.hepai_check(
+                hand_list, tiles_combination, way_to_hepai, get_tile, context or {}
+            )
+
+    def Riichi_tingpai_check(self, hand_tile_list: List[int], combination_list: List[str]) -> Set[int]:
+        """
+        立直麻将听牌检查（一般型 + 七对子 + 国士无双）。
+        """
+        with self._lock:
+            return self._riichi_tingpai_check.tingpai_check(hand_tile_list, combination_list)
 
     def Classical_fushu_check(
         self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int

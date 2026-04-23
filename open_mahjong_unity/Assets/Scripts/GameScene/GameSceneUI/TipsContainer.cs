@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using Riichi;
 
 public class TipsContainer : MonoBehaviour
 {
@@ -161,6 +162,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessGuobiaoTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
             } else if (gameManager.roomRule == "classical") {
                 ProcessClassicalTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai);
+            } else if (gameManager.roomRule == "riichi") {
+                ProcessRiichiTile(hepaiTile, handList, combinationList);
             } else {
                 Debug.LogWarning($"未知的规则类型: {gameManager.roomRule}");
             }
@@ -338,6 +341,81 @@ public class TipsContainer : MonoBehaviour
                 fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役", "wuyi");
             }
         }
+    }
+
+    /// <summary>
+    /// 处理立直规则的和牌提示：本地完整计番，展示"番-符 点数"（役满直接显示"役满"）。
+    /// 先以荣和上下文计算，若不成立再按自摸上下文重算。
+    /// </summary>
+    private void ProcessRiichiTile(
+        int hepaiTile,
+        List<int> handList,
+        List<string> combinationList) {
+        RiichiHandResult ronResult = RiichiExternal.FullHepaiCheck(
+            handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: false));
+
+        RiichiHandResult displayResult = ronResult;
+        string kindTag = "dianhe";
+
+        if (!ronResult.IsValid || ronResult.Score <= 0) {
+            // 点和不成立或番数不足 → 改按自摸重算
+            var tsumoResult = RiichiExternal.FullHepaiCheck(
+                handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: true));
+            if (tsumoResult.IsValid && tsumoResult.Score > 0) {
+                displayResult = tsumoResult;
+                kindTag = "zimo";
+            } else {
+                displayResult = null;
+            }
+        }
+
+        GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
+        tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
+
+        GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+        string label = FormatRiichiFanLabel(displayResult);
+        fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, displayResult == null ? "wuyi" : kindTag);
+    }
+
+    /// <summary>
+    /// 从 NormalGameStateManager 读取必要字段构造立直和牌上下文（门风/场风/宝牌/立直态等）。
+    /// </summary>
+    private RiichiHandContext BuildRiichiContext(bool isTsumo) {
+        NormalGameStateManager gm = NormalGameStateManager.Instance;
+        var ctx = new RiichiHandContext {
+            IsTsumo = isTsumo,
+            HasOpenTanyao = true,
+        };
+
+        string[] selfTags = gm.player_to_info["self"].tag_list;
+        if (selfTags != null) {
+            foreach (var tag in selfTags) {
+                if (tag == "riichi") ctx.IsRiichi = true;
+                else if (tag == "daburu_riichi") { ctx.IsDaburuRiichi = true; ctx.IsRiichi = true; }
+                else if (tag == "ippatsu") ctx.IsIppatsu = true;
+            }
+        }
+
+        int relativeFromDealer = ((gm.selfIndex - gm.dealerIndex) % 4 + 4) % 4;
+        ctx.PlayerWind = RiichiTileUtil.East + relativeFromDealer;
+        int roundWindOffset = Mathf.Clamp((gm.currentRound - 1) / 4, 0, 3);
+        ctx.RoundWind = RiichiTileUtil.East + roundWindOffset;
+
+        ctx.DoraIndicators = gm.doraIndicators != null ? new List<int>(gm.doraIndicators) : new List<int>();
+        // 里宝仅立直者在和牌时才能看到；tips 阶段若已立直，允许展示理论值（服务端仍以结算为准）
+        ctx.UraDoraIndicators = new List<int>();
+        return ctx;
+    }
+
+    /// <summary>
+    /// 将和牌结果格式化为 tips 小标签：仅展示番数（役满直接显示"役满 / x倍役满"）。
+    /// </summary>
+    private static string FormatRiichiFanLabel(RiichiHandResult result) {
+        if (result == null || !result.IsValid) return "无役";
+        if (result.YakumanMultiplier >= 2) return $"{result.YakumanMultiplier}倍役满";
+        if (result.YakumanMultiplier == 1) return "役满";
+        if (result.Han <= 0) return "无役";
+        return $"{result.Han}番";
     }
 
     /// <summary>

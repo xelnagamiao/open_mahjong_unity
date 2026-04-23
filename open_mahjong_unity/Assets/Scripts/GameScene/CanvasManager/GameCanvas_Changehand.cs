@@ -61,7 +61,7 @@ public partial class GameCanvas{
                 yield break;
             }
             int[] sortedTiles = (int[])TilesList.Clone();
-            Array.Sort(sortedTiles);
+            Array.Sort(sortedTiles, TileIdOrder.Comparer);
             for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
                 Transform child = handCardsContainer.GetChild(i);
                 Destroyer.Instance.AddToDestroyer(child);
@@ -261,7 +261,7 @@ public partial class GameCanvas{
         bool isRecordPlayback = GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf;
         // 牌谱模式始终按牌值排序；对局模式在勾选自动排序时排序
         if (isRecordPlayback || (AutoAction.Instance != null && AutoAction.Instance.IsAutoArrangeHandCards)){
-            tileCards.Sort((a, b) => a.tileId.CompareTo(b.tileId));
+            tileCards.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
         }
         // 对局且不勾选自动排序时保持原有顺序
 

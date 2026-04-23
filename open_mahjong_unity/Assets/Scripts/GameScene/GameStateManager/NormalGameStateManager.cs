@@ -64,6 +64,15 @@ public class NormalGameStateManager : MonoBehaviour{
     // 上次摸牌类型
     public string lastDealTileType; // 上次摸牌类型
 
+    // 立直麻将专属字段
+    public int honba; // 本场棒数
+    public int riichiSticks; // 场供立直棒数
+    public List<int> doraIndicators = new List<int>(); // 宝牌指示牌（含已翻出的杠宝牌）
+    public List<int> kanDoraIndicators = new List<int>(); // 杠宝牌指示牌
+    public string hepaiWay; // 和牌方式 head_bump / multi_ron / three_ron_abort
+    public bool redDora; // 是否启用赤宝牌
+    public int dealerIndex; // 当前亲家索引
+
     // 调试用 于编辑器显示玩家信息列表
     [SerializeField]
     public List<PlayerInfoClass> playerInfoList = new List<PlayerInfoClass>(); // 玩家信息列表
@@ -142,7 +151,9 @@ public class NormalGameStateManager : MonoBehaviour{
     }
 
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
-    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile){
+    public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null){
+        // 立直麻将涉赤 5 的吃牌候选（键：方向，值：每条候选两张真实牌 ID）
+        chiCandidates = chi_candidates ?? new Dictionary<string, int[][]>();
         // 如果列表中有服务器提供的可用操作，则显示倒计时
         if (action_list.Length > 0){
             // 1.存储全部可用行动
@@ -156,6 +167,11 @@ public class NormalGameStateManager : MonoBehaviour{
             SwitchCurrentPlayer("self","askMingPaiAction",remaining_time);
         }
     }
+
+    /// <summary>
+    /// 当前一轮询问切牌后操作下发的吃牌候选（立直麻将赤宝牌场景）。
+    /// </summary>
+    public Dictionary<string, int[][]> chiCandidates = new Dictionary<string, int[][]>();
 
     // 执行行动
     public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target) {
@@ -307,7 +323,7 @@ public class NormalGameStateManager : MonoBehaviour{
     }
 
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 隐藏和牌提示
@@ -316,15 +332,65 @@ public class NormalGameStateManager : MonoBehaviour{
         // 显示结算结果
         if (hu_class == "liuju") {
             GameSceneUIManager.Instance.ShowEndLiuju("流局");
+        } else if (IsRiichiAbortHuClass(hu_class)) {
+            // 立直麻将特殊流局：荒牌流局 / 九种九牌 / 四杠散了 / 四风连打 / 四人立直 / 三家和流局
+            ShowRiichiPenaltyPanel(hu_class, player_to_score, riichiExtras);
         } else if (hu_class == "jiuzhongjiupai") {
             GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
         } else {
-            GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class); // 显示操作文本
-            SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class); // 播放操作音效
-            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list);
+            GameCanvas.Instance.ShowActionDisplay(indexToPosition[hepai_player_index], hu_class);
+            SoundManager.Instance.PlayActionSound(indexToPosition[hepai_player_index], hu_class);
+            GameSceneUIManager.Instance.ShowEndResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras);
         }
         // 更新分数记录
         GameSceneUIManager.Instance.UpdateScoreRecord();
+    }
+
+    // 判断日麻流局类 hu_class
+    private static bool IsRiichiAbortHuClass(string hu_class) {
+        return hu_class == "ryuukyoku"
+            || hu_class == "four_kan_abort"
+            || hu_class == "four_wind_abort"
+            || hu_class == "four_riichi_abort"
+            || hu_class == "three_ron_abort";
+    }
+
+    // 将日麻流局 hu_class 映射为中文标题
+    private static string GetRiichiAbortTitle(string hu_class) {
+        switch (hu_class) {
+            case "ryuukyoku": return "荒牌流局";
+            case "four_kan_abort": return "四杠散了";
+            case "four_wind_abort": return "四风连打";
+            case "four_riichi_abort": return "四人立直";
+            case "three_ron_abort": return "三家和流局";
+            case "jiuzhongjiupai": return "九种九牌";
+            default: return "流局";
+        }
+    }
+
+    // 展示日麻流局专用的罚符/分数变化面板
+    private void ShowRiichiPenaltyPanel(string hu_class, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras) {
+        var usernameByPos = new Dictionary<string, string>();
+        var scoreByPos = new Dictionary<string, int>();
+        var deltaByPos = new Dictionary<string, int>();
+
+        Dictionary<int, int> scoreChanges = riichiExtras != null ? riichiExtras.ScoreChanges : null;
+
+        foreach (var kvp in indexToPosition) {
+            int idx = kvp.Key;
+            string pos = kvp.Value;
+            string username = player_to_info.ContainsKey(pos) ? player_to_info[pos].username : string.Empty;
+            int scoreAfter = player_to_score != null && player_to_score.ContainsKey(idx) ? player_to_score[idx] : 0;
+            int delta = scoreChanges != null && scoreChanges.ContainsKey(idx) ? scoreChanges[idx] : 0;
+            usernameByPos[pos] = username;
+            scoreByPos[pos] = scoreAfter;
+            deltaByPos[pos] = delta;
+
+            if (player_to_info.ContainsKey(pos)) player_to_info[pos].score = scoreAfter;
+        }
+
+        BoardCanvas.Instance.UpdatePlayerScores(player_to_score, indexToPosition);
+        GameSceneUIManager.Instance.ShowPenalty(GetRiichiAbortTitle(hu_class), usernameByPos, scoreByPos, deltaByPos);
     }
 
     // 数和尾结算
@@ -700,6 +766,15 @@ public class NormalGameStateManager : MonoBehaviour{
         tips = gameInfo.tips; // 存储是否提示
         isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和
         isSetRandomSeed = gameInfo.isPlayerSetRandomSeed; // 存储是否设置随机种子
+
+        // 立直麻将字段同步：服务端未下发时使用默认值
+        honba = gameInfo.honba ?? 0;
+        riichiSticks = gameInfo.riichi_sticks ?? 0;
+        doraIndicators = gameInfo.dora_indicators != null ? new List<int>(gameInfo.dora_indicators) : new List<int>();
+        kanDoraIndicators = gameInfo.kan_dora_indicators != null ? new List<int>(gameInfo.kan_dora_indicators) : new List<int>();
+        hepaiWay = gameInfo.hepai_way ?? "head_bump";
+        redDora = gameInfo.red_dora ?? false;
+        dealerIndex = gameInfo.dealer_index ?? 0;
         if (isOpenCuoHe){
             Debug.Log("开启错和");
         }
@@ -819,6 +894,35 @@ public class NormalGameStateManager : MonoBehaviour{
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// 立直宣告广播处理：刷新玩家 tag_list，并更新场供立直棒计数。
+    /// </summary>
+    public void OnRiichiDeclared(Dictionary<int, string[]> playerToTagList) {
+        if (playerToTagList != null) {
+            RefreshPlayerTagList(playerToTagList);
+        }
+        riichiSticks += 1;
+        if (RoundPanel.Instance != null) {
+            RoundPanel.Instance.RefreshRiichi(honba, riichiSticks, doraIndicators, kanDoraIndicators);
+        }
+    }
+
+    /// <summary>
+    /// 宝牌/杠宝牌翻开广播处理。
+    /// </summary>
+    public void OnDoraUpdated(GameInfo gameInfo) {
+        if (gameInfo == null) return;
+        if (gameInfo.dora_indicators != null) {
+            doraIndicators = new List<int>(gameInfo.dora_indicators);
+        }
+        if (gameInfo.kan_dora_indicators != null) {
+            kanDoraIndicators = new List<int>(gameInfo.kan_dora_indicators);
+        }
+        if (RoundPanel.Instance != null) {
+            RoundPanel.Instance.RefreshRiichi(honba, riichiSticks, doraIndicators, kanDoraIndicators);
+        }
     }
 }
 

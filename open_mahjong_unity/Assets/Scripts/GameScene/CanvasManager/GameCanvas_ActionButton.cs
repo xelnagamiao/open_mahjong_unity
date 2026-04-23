@@ -122,9 +122,10 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     // 选择行动
-    public void ChooseAction(string actionType,int targetTile){
+    public void ChooseAction(string actionType, int targetTile, int chiComboIndex = -1){
         NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
-        // 发送行动
-        GameStateNetworkManager.Instance.SendAction(actionType,targetTile);
+        // 发送行动：立直麻将涉赤 5 时通过 chiComboIndex 指明所选吃牌候选（默认 0 表示优先非赤 5）
+        int idx = chiComboIndex >= 0 ? chiComboIndex : 0;
+        GameStateNetworkManager.Instance.SendAction(actionType, targetTile, idx);
     }
 }

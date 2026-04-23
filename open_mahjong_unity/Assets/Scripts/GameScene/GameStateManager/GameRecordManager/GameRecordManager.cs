@@ -66,6 +66,8 @@ public partial class GameRecordManager : MonoBehaviour {
     private int lastDiscardTileId = -1;
     // 5.当前局数
     public int currentRoundIndex;
+    // 立直麻将当前局已翻开的宝牌指示牌（含杠宝牌），用于回放 hu_riichi 结算展示
+    private List<int> recordRiichiDoraIndicators = new List<int>();
     
     [SerializeField] private List<RecordPlayer> recordPlayerList = new List<RecordPlayer>();
     // 6.用户ID到用户名的映射
@@ -469,6 +471,7 @@ public partial class GameRecordManager : MonoBehaviour {
         currentPlayerIndex = 0;
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
+        recordRiichiDoraIndicators.Clear();
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);    
     }
     
@@ -772,6 +775,41 @@ public partial class GameRecordManager : MonoBehaviour {
         else if (action == "jiuzhongjiupai") {
             GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
             StartCoroutine(AutoNextActionAfterDelay(2f));
+        }
+        else if (action == "riichi") {
+            int riichiPlayer = ParseTickInt(tick, 1);
+            if (indexToPosition.ContainsKey(riichiPlayer)) {
+                GameCanvas.Instance.ShowActionDisplay(indexToPosition[riichiPlayer], "riichi");
+            }
+            nextPlayerIndex = actingPlayerIndex;
+        }
+        else if (action == "dora") {
+            int doraTile = ParseTickInt(tick, 1);
+            recordRiichiDoraIndicators.Add(doraTile);
+            nextPlayerIndex = actingPlayerIndex;
+        }
+        else if (action == "ryuukyoku") {
+            string reason = tick.Count > 3 ? tick[3] : "exhaustive";
+            string text = reason switch {
+                "exhaustive" => "流局",
+                "sifuuu" => "四风连打",
+                "suukaikan" => "四杠散了",
+                "suurichi" => "四人立直",
+                "sanchahou" => "三家和流局",
+                _ => "流局",
+            };
+            int[] changes = ParseTickScoreChanges(tick, 2);
+            if (changes != null) {
+                var deltas = new Dictionary<int, int>();
+                foreach (var rp in recordPlayerList) deltas[rp.playerIndex] = changes[rp.originalPlayerIndex];
+                ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> after);
+                BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
+            }
+            GameSceneUIManager.Instance.ShowEndLiuju(text);
+            StartCoroutine(AutoNextActionAfterDelay(2f));
+        }
+        else if (action == "hu_riichi") {
+            HandleHuRiichiReplay(tick);
         }
         else if (action == "end") {
             StartCoroutine(GotoNextRoundAfterDelay(0.1f));
@@ -1175,6 +1213,75 @@ public partial class GameRecordManager : MonoBehaviour {
         GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
             playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList);
+    }
+
+    /// <summary>
+    /// 处理立直麻将回放和牌节点：
+    /// tick 格式 ["hu_riichi", hepai_player_index, hu_class, han, fu, yaku[],
+    ///            score_changes[], dora_indicators[], ura_dora_indicators[], aka_count, honba, riichi_sticks_collected]
+    /// </summary>
+    private void HandleHuRiichiReplay(List<string> tick) {
+        int hepaiPlayerIndex = ParseTickInt(tick, 1);
+        string huClass = tick.Count > 2 ? tick[2] : "hu_self";
+        int han = tick.Count > 3 ? ParseTickInt(tick, 3) : 0;
+        int fu = tick.Count > 4 ? ParseTickInt(tick, 4) : 0;
+        string[] yaku = tick.Count > 5 ? ParseHuFanList(tick, 5) : new string[0];
+        int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
+        int[] doraIndicators = tick.Count > 7 ? ParseTickScoreChanges(tick, 7) : null;
+        int[] uraDoraIndicators = tick.Count > 8 ? ParseTickScoreChanges(tick, 8) : null;
+        int akaCount = tick.Count > 9 ? ParseTickInt(tick, 9) : 0;
+        int honba = tick.Count > 10 ? ParseTickInt(tick, 10) : 0;
+        int riichiSticksCollected = tick.Count > 11 ? ParseTickInt(tick, 11) : 0;
+
+        string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
+        RecordPlayer huPlayer = recordPlayer_to_info[huPosition];
+        int[] hepaiPlayerHand = huPlayer.tileList.ToArray();
+        if (huClass != "hu_self" && lastDiscardTileId >= 0) {
+            int[] newHand = new int[hepaiPlayerHand.Length + 1];
+            Array.Copy(hepaiPlayerHand, newHand, hepaiPlayerHand.Length);
+            newHand[hepaiPlayerHand.Length] = lastDiscardTileId;
+            hepaiPlayerHand = newHand;
+        }
+        int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
+        int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
+
+        var deltas = new Dictionary<int, int>();
+        int huScore = 0;
+        if (scoreChanges != null && scoreChanges.Length >= 4) {
+            foreach (var rp in recordPlayerList) {
+                deltas[rp.playerIndex] = scoreChanges[rp.originalPlayerIndex];
+            }
+            huScore = scoreChanges[hepaiPlayerIndex];
+        }
+        ApplyScoreDeltas(deltas, out Dictionary<int, int> playerToScoreBefore, out Dictionary<int, int> playerToScoreAfter);
+
+        var extras = new RiichiEndResultExtras {
+            Han = han,
+            Fu = fu,
+            AkaCount = akaCount,
+            DoraCount = doraIndicators != null ? doraIndicators.Length : 0,
+            UraDoraCount = uraDoraIndicators != null ? uraDoraIndicators.Length : 0,
+            DoraIndicators = doraIndicators != null ? new List<int>(doraIndicators) : new List<int>(recordRiichiDoraIndicators),
+            UraDoraIndicators = uraDoraIndicators != null ? new List<int>(uraDoraIndicators) : new List<int>(),
+            Honba = honba,
+            RiichiSticksCollected = riichiSticksCollected,
+            ScoreChanges = deltas,
+        };
+
+        Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
+        foreach (var kv in recordPlayer_to_info) {
+            int uid = kv.Value.userId;
+            positionToUsername[kv.Key] = userIdToUsername.TryGetValue(uid, out string username) ? username : uid.ToString();
+        }
+
+        string roomType = "riichi/standard";
+        GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
+        SoundManager.Instance.PlayActionSound(huPosition, huClass);
+        BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
+
+        GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, yaku, huClass, roomType,
+            indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
+            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, null, null, extras);
     }
 
     /// <summary>

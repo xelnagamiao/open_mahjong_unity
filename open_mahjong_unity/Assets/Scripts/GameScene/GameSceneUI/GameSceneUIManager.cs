@@ -31,6 +31,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
+        if (PenaltyPanel.Instance != null) PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符/流局面板
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
@@ -45,8 +46,8 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 显示和牌结算结果
     /// </summary>
-    public void ShowEndResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null) {
-        EndResultPanel.Instance.StartShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list);
+    public void ShowEndResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        EndResultPanel.Instance.StartShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras);
     }
 
     /// <summary>
@@ -56,11 +57,11 @@ public class GameSceneUIManager : MonoBehaviour
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
-        int? base_fu = null, string[] fu_fan_list = null)
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null)
     {
         StartCoroutine(EndResultPanel.Instance.ShowRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
             indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
-            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list));
+            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras));
     }
 
     /// <summary>
@@ -68,6 +69,17 @@ public class GameSceneUIManager : MonoBehaviour
     /// </summary>
     public void ShowEndLiuju(string displayText = "流局") {
         EndLiujuPanel.Instance.ShowLiujuPanel(displayText);
+    }
+
+    /// <summary>
+    /// 显示罚符/流局面板（立直麻将荒牌流局、九种九牌、四杠散了、四风连打、四人立直、三家和流局等）。
+    /// </summary>
+    public void ShowPenalty(
+        string title,
+        System.Collections.Generic.Dictionary<string, string> usernameByPos,
+        System.Collections.Generic.Dictionary<string, int> scoreByPos,
+        System.Collections.Generic.Dictionary<string, int> deltaByPos) {
+        PenaltyPanel.Instance.ShowPenaltyPanel(title, usernameByPos, scoreByPos, deltaByPos);
     }
 
     /// <summary>
@@ -121,6 +133,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
+        if (PenaltyPanel.Instance != null) PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符/流局面板
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
@@ -138,6 +151,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
+        if (PenaltyPanel.Instance != null) PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符/流局面板
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板

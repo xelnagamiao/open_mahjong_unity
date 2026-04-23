@@ -47,6 +47,14 @@ class GameInfo(BaseModel):
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
+    # 立直麻将专用字段
+    honba: Optional[int] = None  # 本场棒数
+    riichi_sticks: Optional[int] = None  # 场供立直棒数
+    dora_indicators: Optional[List[int]] = None  # 宝牌指示牌（含杠宝牌翻出的牌）
+    kan_dora_indicators: Optional[List[int]] = None  # 已翻开的杠宝牌指示牌（与 dora_indicators 可合并使用，保留冗余便于客户端显示分层）
+    hepai_way: Optional[str] = None  # 和牌方式：head_bump / multi_ron / three_ron_abort
+    red_dora: Optional[bool] = None  # 是否启用赤宝牌
+    dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
 
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
@@ -60,6 +68,9 @@ class Ask_other_action_info(BaseModel):
     action_list: List[str]
     cut_tile: int
     action_tick: int
+    # 立直麻将赤宝牌场景下，针对每个吃方向可能存在多种真实牌组合，供客户端展示选择
+    # 键为方向（"chi_left" / "chi_mid" / "chi_right"），值为候选组合列表，每个候选为两张真实牌 ID
+    chi_candidates: Optional[Dict[str, List[List[int]]]] = None
 
 class Do_action_info(BaseModel):
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
@@ -87,6 +98,17 @@ class Show_result_info(BaseModel):
     action_tick: int
     base_fu: Optional[int] = None  # 古典麻将：基础副数
     fu_fan_list: Optional[List[str]] = None  # 古典麻将：副番名列表
+    # 立直麻将专用字段
+    han: Optional[int] = None  # 番数
+    fu: Optional[int] = None  # 符数
+    aka_count: Optional[int] = None  # 赤宝牌数量
+    dora_count: Optional[int] = None  # 宝牌数量（含杠宝）
+    ura_dora_count: Optional[int] = None  # 里宝牌数量
+    dora_indicators: Optional[List[int]] = None  # 宝牌指示牌（结算快照，含本局已翻开的杠宝牌）
+    ura_dora_indicators: Optional[List[int]] = None  # 里宝牌指示牌
+    honba: Optional[int] = None  # 本场数
+    riichi_sticks_collected: Optional[int] = None  # 和牌者收走的立直棒数
+    score_changes: Optional[Dict[int, int]] = None  # 各玩家点数变化（含本场/场供）
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}

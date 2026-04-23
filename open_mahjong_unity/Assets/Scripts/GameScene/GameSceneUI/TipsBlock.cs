@@ -32,6 +32,9 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             else if (NormalGameStateManager.Instance.roomRule == "classical"){
                 waitingTiles = ClassicalExternal.TingpaiCheck(selfHandTiles, combinationTiles, false);
             }
+            else if (NormalGameStateManager.Instance.roomRule == "riichi"){
+                waitingTiles = RiichiExternal.TingpaiCheck(selfHandTiles, combinationTiles, false);
+            }
             else{
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
                 waitingTiles = new HashSet<int>();

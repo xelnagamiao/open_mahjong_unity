@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -39,134 +39,174 @@ public class ActionButton : MonoBehaviour {
         button.onClick.AddListener(OnClick);
     }
 
+    // 判定当前按钮是否为吃牌按钮
+    private bool IsChiButton(){
+        foreach (string a in actionTypeList){
+            if (a == "chi_left" || a == "chi_mid" || a == "chi_right") return true;
+        }
+        return false;
+    }
+
+    // 汇总当前吃牌按钮所有方向的候选组合
+    // 每项：(actionType, chiComboIndex, [tileA, tileB]) — 两张真实牌 ID（含赤 5 的 105/205/305）
+    private List<(string action, int comboIndex, int[] pair)> CollectChiCandidates(){
+        List<(string, int, int[])> result = new List<(string, int, int[])>();
+        int lastCutTile = NormalGameStateManager.Instance.lastCutCardID;
+        var chiCandidates = NormalGameStateManager.Instance.chiCandidates;
+        foreach (string action in actionTypeList){
+            if (action != "chi_left" && action != "chi_mid" && action != "chi_right") continue;
+            int[][] pairs;
+            if (chiCandidates != null && chiCandidates.TryGetValue(action, out pairs) && pairs != null && pairs.Length > 0){
+                for (int i = 0; i < pairs.Length; i++){
+                    result.Add((action, i, pairs[i]));
+                }
+            } else {
+                int[] fallback;
+                switch (action){
+                    case "chi_left": fallback = new int[] { lastCutTile - 2, lastCutTile - 1 }; break;
+                    case "chi_mid":  fallback = new int[] { lastCutTile - 1, lastCutTile + 1 }; break;
+                    default:         fallback = new int[] { lastCutTile + 1, lastCutTile + 2 }; break;
+                }
+                result.Add((action, 0, fallback));
+            }
+        }
+        return result;
+    }
+
     // 按钮点击事件
     void OnClick(){
+        bool isChi = IsChiButton();
+        List<(string action, int comboIndex, int[] pair)> chiCands = isChi ? CollectChiCandidates() : null;
 
-        // 如果动作列表大于1 显示子级按钮
-        if (actionTypeList.Count > 1){
-            int lastCutTile = NormalGameStateManager.Instance.lastCutCardID;
+        // 展开条件：存在多种吃牌候选（跨方向或单方向内含赤 5 多解），或手动杠/加杠需多选
+        bool expandSubButtons = (isChi && chiCands.Count > 1)
+            || (!isChi && actionTypeList.Count > 1);
 
-            // 确定当前按钮类型
+        if (expandSubButtons){
             string currentButtonType = "None";
-            if (actionTypeList.Contains("chi_left") || actionTypeList.Contains("chi_right") || actionTypeList.Contains("chi_mid")){
+            if (isChi){
                 currentButtonType = "chi";
             } else if (actionTypeList.Contains("angang")){
                 currentButtonType = "angang";
             } else if (actionTypeList.Contains("jiagang")){
                 currentButtonType = "jiagang";
             }
-            
-            // 如果ActionBlockContenter的状态为空,点击则创建子级按钮
+
             if (GameCanvas.Instance.ActionBlockContainerState == "None"){
                 GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
             }
-            // 如果ActionBlockContenter的状态不为空
             else if (GameCanvas.Instance.ActionBlockContainerState != "None"){
-                // 清空容器
                 foreach (Transform child in ActionBlockContenter){
                     Destroy(child.gameObject);
                 }
-                // 如果点击的是相同类型的按钮，则清空后直接返回
                 if (GameCanvas.Instance.ActionBlockContainerState == currentButtonType){
                     GameCanvas.Instance.ActionBlockContainerState = "None";
                     return;
                 }
-                // 如果点击的是不同类型的按钮，则切换状态继续执行
                 else {
                     GameCanvas.Instance.ActionBlockContainerState = currentButtonType;
                 }
             }
 
-            // 根据按钮里的多种吃牌情况创建分支块
-            foreach (string actionType in actionTypeList){
-                List<int> TipsCardsList = new List<int>(); // 为每个case创建独立的列表
-                switch (actionType) {
-                    case "chi_left": 
-                        TipsCardsList.Add(lastCutTile-2);
-                        TipsCardsList.Add(lastCutTile-1);
-                        CreateActionCards(TipsCardsList, actionType,0);
-                        break;
-                    case "chi_mid":
-                        TipsCardsList.Add(lastCutTile-1);
-                        TipsCardsList.Add(lastCutTile+1);
-                        CreateActionCards(TipsCardsList, actionType,0);
-                        break;
-                    case "chi_right":
-                        TipsCardsList.Add(lastCutTile+1);
-                        TipsCardsList.Add(lastCutTile+2);
-                        CreateActionCards(TipsCardsList, actionType,0);
-                        break;
-                    case "angang":
-                        // 遍历手牌 如果手牌有4张相同的牌 则添加到提示牌列表
-                        // 使用 HashSet 确保每个 tileID 只处理一次
-                        HashSet<int> processedTileIDs = new HashSet<int>();
-                        foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                            if (!processedTileIDs.Contains(tileID) && NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
-                                processedTileIDs.Add(tileID);
-                                List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
-                                CreateActionCards(angangCards, actionType,tileID);
-                            }
-                        }
-                        break;
-                    case "jiagang":
-                        // 遍历手牌 如果组合牌中有符合加杠的组合 则添加到提示牌列表
-                        foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                            if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
-                                List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
-                                CreateActionCards(jiagangCards, actionType,tileID);
-                            }
-                        }
-                        break;
-                    }
-            }
-        }
-        // 如果动作列表小于等于1 发送行动
-        else {
-            if (actionTypeList[0] == "jiagang"){
-                Debug.Log($"选择了行动 {actionTypeList[0]}");
-                int targetTile = 0;
-                foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                    if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
-                        targetTile = tileID;
-                        break;
-                    }
+            if (isChi){
+                foreach (var cand in chiCands){
+                    CreateChiCandidateBlock(cand.action, cand.comboIndex, cand.pair);
                 }
-                GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
-            } else if (actionTypeList[0] == "angang"){
-                Debug.Log($"选择了行动 {actionTypeList[0]}");
-                int targetTile = 0;
-                foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                    if (NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
-                        targetTile = tileID;
-                        break;
-                    }
-                }
-                GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
             } else {
-                Debug.Log($"选择了行动 {actionTypeList[0]}");
-                GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
+                foreach (string actionType in actionTypeList){
+                    List<int> TipsCardsList = new List<int>();
+                    switch (actionType) {
+                        case "angang":
+                            HashSet<int> processedTileIDs = new HashSet<int>();
+                            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                                if (!processedTileIDs.Contains(tileID) && NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                                    processedTileIDs.Add(tileID);
+                                    List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
+                                    CreateActionCards(angangCards, actionType,tileID);
+                                }
+                            }
+                            break;
+                        case "jiagang":
+                            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                                if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
+                                    List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
+                                    CreateActionCards(jiagangCards, actionType,tileID);
+                                }
+                            }
+                            break;
+                    }
+                }
             }
+            return;
+        }
+
+        // 单一候选：直接发送
+        if (isChi){
+            var only = chiCands[0];
+            Debug.Log($"选择了行动 {only.action} chiComboIndex={only.comboIndex}");
+            GameCanvas.Instance.ChooseAction(only.action, 0, only.comboIndex);
+            return;
+        }
+
+        if (actionTypeList[0] == "jiagang"){
+            Debug.Log($"选择了行动 {actionTypeList[0]}");
+            int targetTile = 0;
+            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
+                    targetTile = tileID;
+                    break;
+                }
+            }
+            GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+        } else if (actionTypeList[0] == "angang"){
+            Debug.Log($"选择了行动 {actionTypeList[0]}");
+            int targetTile = 0;
+            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
+                if (NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
+                    targetTile = tileID;
+                    break;
+                }
+            }
+            GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+        } else {
+            Debug.Log($"选择了行动 {actionTypeList[0]}");
+            GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
         }
     }
 
     private void CreateActionCards(List<int> TipsCardsList,string actionType,int targetTile) {
-        // 在提示牌容器中创建提示牌块
         GameObject containerBlockObj = Instantiate(ActionBlockPrefab, ActionBlockContenter);
 
-        // 设置提示牌块的行动类型为actionType
         ActionBlock blockClick = containerBlockObj.GetComponent<ActionBlock>();
         blockClick.actionType = actionType;
         if (targetTile != 0){
             blockClick.targetTile = targetTile;
         }
 
-        // 在提示牌块中根据TipsCardsList创建提示牌
         foreach (int tile in TipsCardsList){
             GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
             cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
         }
 
-        // 强制刷新布局，使 ActionBlockContenter 根据子块重新计算大小
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(ActionBlockContenter as RectTransform);
+    }
+
+    // 生成吃牌候选子按钮：包含两张真实牌 ID（按值升序展示），点击回传对应 chiComboIndex
+    private void CreateChiCandidateBlock(string actionType, int comboIndex, int[] pair){
+        GameObject containerBlockObj = Instantiate(ActionBlockPrefab, ActionBlockContenter);
+        ActionBlock blockClick = containerBlockObj.GetComponent<ActionBlock>();
+        blockClick.actionType = actionType;
+        blockClick.chiComboIndex = comboIndex;
+
+        int[] sorted = new int[pair.Length];
+        System.Array.Copy(pair, sorted, pair.Length);
+        System.Array.Sort(sorted, TileIdOrder.Comparer);
+        foreach (int tile in sorted){
+            GameObject cardObj = Instantiate(StaticCardPrefab, containerBlockObj.transform);
+            cardObj.GetComponent<StaticCard>().SetTileOnlyImage(tile);
+        }
+
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(ActionBlockContenter as RectTransform);
     }

@@ -1,35 +1,44 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
-using System.Reflection;
 
+/// <summary>
+/// 房间信息展示：按规则组织需要显示的配置项，逐项以 <see cref="ConfigItem"/> 预制体生成。
+/// 使用 <see cref="RuleDisplayFields"/> 声明每条规则需要显示的字段及顺序；生成时按数据转为可读文本。
+/// </summary>
 public class RoomConfigContainer : MonoBehaviour {
     [Header("滚动与内容")]
-    [SerializeField] private RectTransform contentContainer; // 配置项父节点：若绑定 ScrollRect 的 Content，则列表可滚动；为空则用本物体
+    [SerializeField] private RectTransform contentContainer;
 
-    [SerializeField] private ConfigItem configItemPrefab; // 配置项预制体
+    [SerializeField] private ConfigItem configItemPrefab;
 
-    // 需要显示的配置项顺序
-    private List<string> fieldNames = new List<string>
-    {
-        "room_type",
-        "game_round",
-        "round_timer",
-        "step_timer",
-        "random_seed",
-        "tips",
-        "open_cuohe",
-        "has_password",
-        "tourist_limit",
-        "hepai_limit",
-        "allow_spectator"
+    // 每条规则需要显示的配置项及其顺序。未登记的规则回退到 default 列表
+    private static readonly Dictionary<string, List<string>> RuleDisplayFields = new Dictionary<string, List<string>> {
+        { "guobiao", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "open_cuohe", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
+        } },
+        { "riichi", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "open_cuohe", "has_password", "tourist_limit", "hepai_limit",
+            "red_dora", "hepai_way", "allow_spectator",
+        } },
+        { "qingque", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "has_password", "tourist_limit", "allow_spectator",
+        } },
+        { "classical", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "has_password", "tourist_limit", "allow_spectator",
+        } },
     };
 
-    // 单例模式
+    private static readonly List<string> DefaultDisplayFields = new List<string> {
+        "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+        "tips", "has_password", "tourist_limit", "allow_spectator",
+    };
+
     public static RoomConfigContainer Instance { get; private set; }
+
     private void Awake() {
         if (Instance == null) {
             Instance = this;
@@ -40,126 +49,119 @@ public class RoomConfigContainer : MonoBehaviour {
     }
 
     public void SetRoomConfig(RoomInfo roomInfo) {
-        // 若在编辑器中指定了 contentContainer（如 ScrollRect 的 Content），则配置项生成在其下，以支持滚动
         Transform container = contentContainer != null ? contentContainer : transform;
 
-        // 清理旧的配置项
-        for (int i = container.childCount - 1; i >= 0; i--){
+        for (int i = container.childCount - 1; i >= 0; i--) {
             Destroy(container.GetChild(i).gameObject);
         }
 
-        foreach (string fieldName in fieldNames){
-            ConfigItem configItem;
-            string displayName;
-            string displayValue;
+        List<string> fields = RuleDisplayFields.TryGetValue(roomInfo.room_rule, out var ruleFields)
+            ? ruleFields
+            : DefaultDisplayFields;
 
-            switch (fieldName) {
-                case "room_type":
-                    displayName = "规则";
-                    displayValue = RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
-                    break;
-                case "game_round":
-                    displayName = "圈数";
-                    displayValue = RoundTextDictionary.GetMaxRoundText(roomInfo.game_round);
-                    break;
-                case "round_timer":
-                    displayName = "局时";
-                    displayValue = FormatRoundTimer(roomInfo.round_timer);
-                    break;
-                case "step_timer":
-                    displayName = "步时";
-                    displayValue = FormatStepTimer(roomInfo.step_timer);
-                    break;
-                case "random_seed":
-                    displayName = "复式";
-                    displayValue = FormatRandomSeed(roomInfo.random_seed);
-                    break;
-                case "tips":
-                    displayName = "提示";
-                    displayValue = FormatTips(roomInfo.tips);
-                    break;
-                case "open_cuohe":
-                    // 检查字段是否存在（青雀房间可能没有此字段）
-                    try {
-                        displayName = "错和";
-                        displayValue = FormatOpenCuohe(roomInfo.open_cuohe);
-                    } catch {
-                        continue; // 跳过不存在的字段
-                    }
-                    break;
-                case "has_password":
-                    displayName = "密码";
-                    displayValue = FormatHasPassword(roomInfo.has_password);
-                    break;
-                case "tourist_limit":
-                    displayName = "允许游客";
-                    displayValue = roomInfo.tourist_limit ? "否" : "是";
-                    break;
-                case "hepai_limit":
-                    displayName = "起和番数";
-                    displayValue = (roomInfo.hepai_limit > 0 ? roomInfo.hepai_limit : 8).ToString();
-                    break;
-                case "allow_spectator":
-                    displayName = "允许观战";
-                    displayValue = roomInfo.allow_spectator ? "是" : "否";
-                    break;
-                default:
-                    Debug.LogWarning($"未知字段名: {fieldName}");
-                    continue;
+        foreach (string fieldName in fields) {
+            if (!TryBuildField(roomInfo, fieldName, out string displayName, out string displayValue)) {
+                continue;
             }
-
-            // 创建配置项
-            configItem = Instantiate(configItemPrefab, container);
+            ConfigItem configItem = Instantiate(configItemPrefab, container);
             configItem.SetConfig(displayName, displayValue);
         }
     }
 
+    private bool TryBuildField(RoomInfo roomInfo, string fieldName, out string displayName, out string displayValue) {
+        displayName = null;
+        displayValue = null;
+        switch (fieldName) {
+            case "room_type":
+                displayName = "规则";
+                displayValue = RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
+                return true;
+            case "game_round":
+                displayName = "圈数";
+                displayValue = RoundTextDictionary.GetMaxRoundText(roomInfo.game_round);
+                return true;
+            case "round_timer":
+                displayName = "局时";
+                displayValue = FormatRoundTimer(roomInfo.round_timer);
+                return true;
+            case "step_timer":
+                displayName = "步时";
+                displayValue = FormatStepTimer(roomInfo.step_timer);
+                return true;
+            case "random_seed":
+                displayName = "复式";
+                displayValue = FormatRandomSeed(roomInfo.random_seed);
+                return true;
+            case "tips":
+                displayName = "提示";
+                displayValue = FormatTips(roomInfo.tips);
+                return true;
+            case "open_cuohe":
+                displayName = "错和";
+                displayValue = FormatOpenCuohe(roomInfo.open_cuohe);
+                return true;
+            case "has_password":
+                displayName = "密码";
+                displayValue = FormatHasPassword(roomInfo.has_password);
+                return true;
+            case "tourist_limit":
+                displayName = "允许游客";
+                displayValue = roomInfo.tourist_limit ? "否" : "是";
+                return true;
+            case "hepai_limit":
+                displayName = "起和番数";
+                displayValue = roomInfo.hepai_limit.ToString();
+                return true;
+            case "allow_spectator":
+                displayName = "允许观战";
+                displayValue = roomInfo.allow_spectator ? "是" : "否";
+                return true;
+            case "red_dora":
+                if (!roomInfo.red_dora.HasValue) return false;
+                displayName = "赤宝牌";
+                displayValue = roomInfo.red_dora.Value ? "开" : "关";
+                return true;
+            case "hepai_way":
+                if (string.IsNullOrEmpty(roomInfo.hepai_way)) return false;
+                displayName = "和牌方式";
+                displayValue = FormatHepaiWay(roomInfo.hepai_way);
+                return true;
+            default:
+                Debug.LogWarning($"未知字段名: {fieldName}");
+                return false;
+        }
+    }
 
-    /// <summary>
-    /// 格式化局时
-    /// </summary>
-    private string FormatRoundTimer(int roundTimer)
-    {
+    private string FormatRoundTimer(int roundTimer) {
         return roundTimer.ToString();
     }
 
-    /// <summary>
-    /// 格式化步时
-    /// </summary>
-    private string FormatStepTimer(int stepTimer)
-    {
+    private string FormatStepTimer(int stepTimer) {
         return stepTimer.ToString();
     }
 
-    /// <summary>
-    /// 格式化随机种子（复式）
-    /// </summary>
-    private string FormatRandomSeed(int randomSeed)
-    {
+    private string FormatRandomSeed(int randomSeed) {
         return randomSeed == 0 ? "关" : "开";
     }
 
-    /// <summary>
-    /// 格式化提示
-    /// </summary>
-    private string FormatTips(bool tips)
-    {
+    private string FormatTips(bool tips) {
         return tips ? "开" : "关";
     }
 
-    /// <summary>
-    /// 格式化错和
-    /// </summary>
-    private string FormatOpenCuohe(bool openCuohe)
-    {
+    private string FormatOpenCuohe(bool openCuohe) {
         return openCuohe ? "开" : "关";
     }
 
-    /// <summary>
-    /// 格式化密码
-    /// </summary>
-    private string FormatHasPassword(bool hasPassword)
-    {
+    private string FormatHasPassword(bool hasPassword) {
         return hasPassword ? "有" : "无";
     }
-}  
+
+    private string FormatHepaiWay(string way) {
+        return way switch {
+            "head_bump" => "头跳",
+            "multi_ron" => "允许多家和",
+            "three_ron_abort" => "三家和了流局",
+            _ => way,
+        };
+    }
+}
