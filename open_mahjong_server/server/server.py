@@ -1,6 +1,7 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Optional, List, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 import asyncio
 import logging
@@ -83,6 +84,14 @@ async def lifespan(app: FastAPI):
 
 # 创建游戏服务器实例
 app = FastAPI(lifespan=lifespan)
+
+# HTTP 计算接口默认仅供 Node 端通过 localhost 代理调用；CORS 放开以便本地开发或日后直连测试
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # 玩家连接对象
 class PlayerConnection:
@@ -595,3 +604,100 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
         user_config=user_config,
         rank_data=rank_data,
     )
+
+
+# ==================== HTTP 计算接口 ====================
+# 部署在 /game/ 下（nginx 已将 /game/ 反代到本服务），提供给 web 端使用的纯计算接口
+# 仅做无副作用的牌型检查，不依赖玩家会话/数据库
+
+class GBCalcRequest(BaseModel):
+    hand_tiles: List[int] = Field(..., description="手牌（包含和牌张），数字编码：11-19 万 / 21-29 饼 / 31-39 条 / 41-44 风 / 45-47 中白发")
+    tiles_combination: List[str] = Field(default_factory=list, description="副露/暗杠/暗刻列表，如 ['k11','S22','G33']；明刻 k 暗刻 K 明杠 g 暗杠 G 明顺 s 暗顺 S")
+    way_to_hepai: List[str] = Field(default_factory=list, description="和牌方式标记，如 ['点和','和单张','场风东','自风南','花牌'] 或 ['自摸']")
+    get_tile: int = Field(..., description="和牌张")
+    flower_tiles: List[int] = Field(default_factory=list, description="花牌（51-58），数量将转化为对应的'花牌'番标记")
+
+
+class GBTingpaiRequest(BaseModel):
+    hand_tiles: List[int] = Field(..., description="手牌（不含将摸到的牌），共 13 - 副露张数*3 张")
+    tiles_combination: List[str] = Field(default_factory=list, description="副露/暗杠/暗刻列表")
+
+
+def _augment_way_with_flowers(way_to_hepai: List[str], flower_tiles: List[int]) -> List[str]:
+    augmented = list(way_to_hepai)
+    for tile in flower_tiles:
+        # 50-59 区间为花牌；每张花牌追加一次"花牌"标记，hepai_check 内部会按数量计番
+        if 50 < tile < 60:
+            augmented.append("花牌")
+    return augmented
+
+
+@app.post("/calc/gb/score")
+async def calc_gb_score(req: GBCalcRequest):
+    """国标麻将算分接口：返回最高番数的和牌结果。"""
+    try:
+        way = _augment_way_with_flowers(req.way_to_hepai, req.flower_tiles)
+        score, fan_list = game_server.calculation_service.GB_hepai_check(
+            list(req.hand_tiles),
+            list(req.tiles_combination),
+            way,
+            req.get_tile,
+        )
+        return {
+            "success": True,
+            "score": score,
+            "fan_list": fan_list,
+            "is_hepai": score > 0,
+        }
+    except IndexError:
+        # 牌型不构成和牌时，hepai_check 内部 allow_list 为空会抛出 IndexError
+        return {
+            "success": True,
+            "score": 0,
+            "fan_list": [],
+            "is_hepai": False,
+            "message": "该牌型不能和牌",
+        }
+    except Exception as exc:
+        logging.exception("国标算分接口异常")
+        raise HTTPException(status_code=400, detail=f"计算失败: {exc}")
+
+
+@app.post("/calc/gb/decompose")
+async def calc_gb_decompose(req: GBCalcRequest):
+    """国标麻将拆解接口：返回所有有效的和牌拆解形态。"""
+    try:
+        way = _augment_way_with_flowers(req.way_to_hepai, req.flower_tiles)
+        decompositions = game_server.calculation_service.GB_hepai_decompose(
+            list(req.hand_tiles),
+            list(req.tiles_combination),
+            way,
+            req.get_tile,
+        )
+        return {
+            "success": True,
+            "is_hepai": len(decompositions) > 0,
+            "decompositions": decompositions,
+        }
+    except Exception as exc:
+        logging.exception("国标拆解接口异常")
+        raise HTTPException(status_code=400, detail=f"计算失败: {exc}")
+
+
+@app.post("/calc/gb/tingpai")
+async def calc_gb_tingpai(req: GBTingpaiRequest):
+    """国标麻将听牌接口：返回所有可和的待牌。"""
+    try:
+        waiting = game_server.calculation_service.GB_tingpai_check(
+            list(req.hand_tiles),
+            list(req.tiles_combination),
+        )
+        waiting_sorted = sorted(int(t) for t in waiting)
+        return {
+            "success": True,
+            "is_tingpai": len(waiting_sorted) > 0,
+            "waiting_tiles": waiting_sorted,
+        }
+    except Exception as exc:
+        logging.exception("国标听牌接口异常")
+        raise HTTPException(status_code=400, detail=f"计算失败: {exc}")

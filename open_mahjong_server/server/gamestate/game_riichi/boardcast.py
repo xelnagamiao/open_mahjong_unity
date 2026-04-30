@@ -21,7 +21,7 @@ from ...response import (
     Ready_status_info,
 )
 from ..public.ai.auto_cut_ai import auto_cut_action
-from ..public.ai.smart_bot_ai import smart_bot_action
+from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot_action
 
 logger = logging.getLogger(__name__)
 

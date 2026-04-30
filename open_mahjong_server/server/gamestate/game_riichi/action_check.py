@@ -172,8 +172,15 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
 
     # 自摸和
     last_tile = player_item.hand_tiles[-1]
-    if _normalize(last_tile) in player_item.waiting_tiles:
+    normal_last = _normalize(last_tile)
+    if normal_last in player_item.waiting_tiles:
         check_hepai(self, temp_action_dict, last_tile, player_index, "tsumo", is_first_action, is_get_gang_tile)
+    else:
+        logger.info(
+            f"[riichi tsumo skip] player={player_index} last_tile={last_tile} normal={normal_last} "
+            f"waiting_tiles={sorted(player_item.waiting_tiles)} hand={player_item.hand_tiles} "
+            f"combos={player_item.combination_tiles}"
+        )
 
     return temp_action_dict
 
@@ -266,11 +273,19 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
     )
 
     if not result.get("is_valid"):
+        logger.info(
+            f"[riichi hepai invalid] player={player_index} type={hepai_type} tile={hepai_tile} "
+            f"hand={tiles_list} combos={player.combination_tiles} error={result.get('error')}"
+        )
         return
 
     # 起和番数限制：低于 hepai_limit 的和牌需开启 open_cuohe 才允许宣告，并在结算时走错和流程
     if int(result.get("han", 0)) < int(getattr(self, "hepai_limit", 1)):
         if not getattr(self, "open_cuohe", False):
+            logger.info(
+                f"[riichi hepai blocked by hepai_limit] player={player_index} type={hepai_type} "
+                f"han={result.get('han')} limit={self.hepai_limit} yaku={result.get('yaku')}"
+            )
             return
 
     rel = get_index_relative_position(player.player_index, self.current_player_index)

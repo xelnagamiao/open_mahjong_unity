@@ -1,197 +1,187 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/database');
+const config = require('../config/config');
 
-// 听牌待牌判断 (XT)
-router.post('/count-hand', async (req, res) => {
+const CALC_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
+const CALC_TIMEOUT_MS = config.calcServer.timeoutMs;
+
+// 国标麻将合法牌号集合（11-19 万 / 21-29 饼 / 31-39 条 / 41-44 风 / 45-47 中白发）
+const VALID_TILES = new Set();
+for (const base of [10, 20, 30]) {
+  for (let i = 1; i <= 9; i++) VALID_TILES.add(base + i);
+}
+for (let i = 1; i <= 7; i++) VALID_TILES.add(40 + i);
+// 花牌 51-58
+const VALID_FLOWERS = new Set();
+for (let i = 1; i <= 8; i++) VALID_FLOWERS.add(50 + i);
+
+const VALID_COMBINATION_PREFIXES = new Set(['s', 'S', 'k', 'K', 'g', 'G', 'q']);
+
+function validateGBCalcInput(body, requireGetTile) {
+  const errors = [];
+
+  if (!Array.isArray(body.hand_tiles) || body.hand_tiles.length === 0) {
+    errors.push('hand_tiles 必须是非空整数数组');
+  } else {
+    for (const t of body.hand_tiles) {
+      if (!Number.isInteger(t) || (!VALID_TILES.has(t) && !VALID_FLOWERS.has(t))) {
+        errors.push(`非法牌号: ${t}`);
+        break;
+      }
+    }
+  }
+
+  const combos = Array.isArray(body.tiles_combination) ? body.tiles_combination : [];
+  for (const c of combos) {
+    if (typeof c !== 'string' || c.length < 3 || !VALID_COMBINATION_PREFIXES.has(c[0])) {
+      errors.push(`非法副露/暗刻格式: ${c}`);
+      break;
+    }
+    const tileId = parseInt(c.slice(1), 10);
+    if (!VALID_TILES.has(tileId)) {
+      errors.push(`非法副露牌号: ${c}`);
+      break;
+    }
+  }
+
+  if (requireGetTile) {
+    if (!Number.isInteger(body.get_tile) || !VALID_TILES.has(body.get_tile)) {
+      errors.push('get_tile 必须是合法牌号');
+    }
+  }
+
+  const flowers = Array.isArray(body.flower_tiles) ? body.flower_tiles : [];
+  for (const f of flowers) {
+    if (!Number.isInteger(f) || !VALID_FLOWERS.has(f)) {
+      errors.push(`非法花牌: ${f}`);
+      break;
+    }
+  }
+
+  return errors;
+}
+
+// 调用 Python FastAPI 计算服务并透传响应
+async function proxyToCalcServer(path, body) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CALC_TIMEOUT_MS);
   try {
-    const { hand } = req.body;
-    
-    if (!hand) {
-      return res.status(400).json({
-        success: false,
-        message: '请提供手牌数据'
-      });
-    }
-
-    // 输入验证
-    const allowCharacter = new Set(['0','1','2','3','4','5','6','7','8','9','s','m','p','东','南','西','北','中','白','发']);
-    const countCharacter = new Set(['0','1','2','3','4','5','6','7','8','9','东','南','西','北','中','白','发']);
-    
-    // 检查字符限制
-    for (let char of hand) {
-      if (!allowCharacter.has(char)) {
-        return res.status(400).json({
-          success: false,
-          message: '格式错误:手牌中不得出现超出0,1,2,3,4,5,6,7,8,9,s,m,p,东,南,西,北的字符'
-        });
-      }
-    }
-    
-    // 检查牌数
-    let countTiles = 0;
-    for (let char of hand) {
-      if (countCharacter.has(char)) {
-        countTiles++;
-      }
-    }
-    
-    if (countTiles !== 13) {
-      return res.status(400).json({
-        success: false,
-        message: countTiles > 13 ? '格式错误:传入麻将牌数量大于13' : '格式错误:传入麻将牌数量小于13'
-      });
-    }
-
-    // 这里应该调用听牌计算函数
-    // const output = xt_count(hand);
-    const output = `听牌分析结果: ${hand}`; // 临时占位
-
-    // 保存到数据库（如果表存在的话，这里暂时注释掉，因为可能没有这个表）
-    // const result = await pool.query(
-    //   'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES ($1, $2, $3) RETURNING id',
-    //   [hand, output, true]
-    // );
-
-    res.json({
-      success: true,
-      message: '计算成功',
-      data: {
-        input: hand,
-        output: output,
-        id: null // result.rows[0].id
-      }
+    const resp = await fetch(`${CALC_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
     });
+    const text = await resp.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (_) {
+      data = { detail: text };
+    }
+    return { status: resp.status, data };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
+// 国标算分接口
+router.post('/gb/score', async (req, res) => {
+  const errors = validateGBCalcInput(req.body, true);
+  if (errors.length > 0) {
+    return res.status(400).json({ success: false, message: errors.join('; ') });
+  }
+
+  try {
+    const { status, data } = await proxyToCalcServer('/calc/gb/score', {
+      hand_tiles: req.body.hand_tiles,
+      tiles_combination: req.body.tiles_combination || [],
+      way_to_hepai: req.body.way_to_hepai || [],
+      get_tile: req.body.get_tile,
+      flower_tiles: req.body.flower_tiles || [],
+    });
+    if (status >= 400) {
+      return res.status(status).json({
+        success: false,
+        message: data.detail || data.message || '计算服务返回错误'
+      });
+    }
+    return res.json({
+      success: true,
+      data: data,
+    });
   } catch (error) {
-    console.error('听牌计算错误:', error);
-    res.status(500).json({
+    console.error('国标算分代理错误:', error);
+    return res.status(502).json({
       success: false,
-      message: '服务器内部错误'
+      message: '无法连接到计算服务'
     });
   }
 });
 
-// 立直麻将牌型解算 (RC)
-router.post('/count-riichi', async (req, res) => {
-  try {
-    const {
-      hand,
-      fulu1,
-      fulu2,
-      fulu3,
-      fulu4,
-      wayToHepai,
-      doraNum,
-      deepDoraNum,
-      positionSelect
-    } = req.body;
+// 国标拆解接口
+router.post('/gb/decompose', async (req, res) => {
+  const errors = validateGBCalcInput(req.body, true);
+  if (errors.length > 0) {
+    return res.status(400).json({ success: false, message: errors.join('; ') });
+  }
 
-    if (!hand) {
-      return res.status(400).json({
+  try {
+    const { status, data } = await proxyToCalcServer('/calc/gb/decompose', {
+      hand_tiles: req.body.hand_tiles,
+      tiles_combination: req.body.tiles_combination || [],
+      way_to_hepai: req.body.way_to_hepai || [],
+      get_tile: req.body.get_tile,
+      flower_tiles: req.body.flower_tiles || [],
+    });
+    if (status >= 400) {
+      return res.status(status).json({
         success: false,
-        message: '请提供手牌数据'
+        message: data.detail || data.message || '计算服务返回错误'
       });
     }
-
-    // 这里应该调用立直麻将计算函数
-    // const output = mahjong_count(hand, fulu1, fulu2, fulu3, fulu4, wayToHepai, doraNum, deepDoraNum, positionSelect);
-    const output = `立直麻将分析结果: ${hand}`; // 临时占位
-
-    // 保存到数据库（如果表存在的话，这里暂时注释掉，因为可能没有这个表）
-    // const result = await pool.query(
-    //   'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES ($1, $2, $3) RETURNING id',
-    //   [JSON.stringify(req.body), output, true]
-    // );
-
-    res.json({
+    return res.json({
       success: true,
-      message: '计算成功',
-      data: {
-        input: req.body,
-        output: output,
-        id: null // result.rows[0].id
-      }
+      data: data,
     });
-
   } catch (error) {
-    console.error('立直麻将计算错误:', error);
-    res.status(500).json({
+    console.error('国标拆解代理错误:', error);
+    return res.status(502).json({
       success: false,
-      message: '服务器内部错误'
+      message: '无法连接到计算服务'
     });
   }
 });
 
-// 国标麻将牌型解算 (GB)
-router.post('/count-chinese', async (req, res) => {
-  try {
-    const {
-      hand,
-      fulu1,
-      fulu2,
-      fulu3,
-      fulu4,
-      wayToHepai,
-      flowerTiles
-    } = req.body;
+// 国标听牌待牌接口
+router.post('/gb/tingpai', async (req, res) => {
+  const errors = validateGBCalcInput(req.body, false);
+  if (errors.length > 0) {
+    return res.status(400).json({ success: false, message: errors.join('; ') });
+  }
 
-    if (!hand) {
-      return res.status(400).json({
+  try {
+    const { status, data } = await proxyToCalcServer('/calc/gb/tingpai', {
+      hand_tiles: req.body.hand_tiles,
+      tiles_combination: req.body.tiles_combination || [],
+    });
+    if (status >= 400) {
+      return res.status(status).json({
         success: false,
-        message: '请提供手牌数据'
+        message: data.detail || data.message || '计算服务返回错误'
       });
     }
-
-    // 这里应该调用国标麻将计算函数
-    // const output = chinese_mahjong_count(hand, fulu1, fulu2, fulu3, fulu4, wayToHepai, flowerTiles);
-    const output = `国标麻将分析结果: ${hand}`; // 临时占位
-
-    // 保存到数据库（如果表存在的话，这里暂时注释掉，因为可能没有这个表）
-    // const result = await pool.query(
-    //   'INSERT INTO mahjong_results (mj_input, mj_output, is_valid) VALUES ($1, $2, $3) RETURNING id',
-    //   [JSON.stringify(req.body), output, true]
-    // );
-
-    res.json({
+    return res.json({
       success: true,
-      message: '计算成功',
-      data: {
-        input: req.body,
-        output: output,
-        id: null // result.rows[0].id
-      }
+      data: data,
     });
-
   } catch (error) {
-    console.error('国标麻将计算错误:', error);
-    res.status(500).json({
+    console.error('国标听牌代理错误:', error);
+    return res.status(502).json({
       success: false,
-      message: '服务器内部错误'
+      message: '无法连接到计算服务'
     });
   }
 });
 
-// 获取历史记录
-router.get('/history', async (req, res) => {
-  try {
-    // 如果表不存在，返回空数组
-    const result = await pool.query(
-      'SELECT * FROM mahjong_results ORDER BY created_at DESC LIMIT 50'
-    ).catch(() => ({ rows: [] }));
-
-    res.json({
-      success: true,
-      data: result.rows || []
-    });
-
-  } catch (error) {
-    console.error('获取历史记录错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '服务器内部错误'
-    });
-  }
-});
-
-module.exports = router; 
+module.exports = router;

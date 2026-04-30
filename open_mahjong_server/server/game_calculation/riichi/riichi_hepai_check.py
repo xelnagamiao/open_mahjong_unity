@@ -205,7 +205,11 @@ class Riichi_Hepai_Check:
                     return cand
             return t34 * 4
 
+        # mahjong 库 estimate_hand_value 的 tiles 参数需要传入完整 14 张（闭手 + 副露 + 和牌），
+        # 若仅传闭手会被判为 hand_not_winning，导致开门和牌一律无法成立。
         tiles_136_total = []
+        for m in melds:
+            tiles_136_total.extend(m.tiles)
         for tid in hand_without_win:
             tiles_136_total.append(alloc_136(tile_id_to_34(tid)))
         win_136 = alloc_136(tile_id_to_34(get_tile))

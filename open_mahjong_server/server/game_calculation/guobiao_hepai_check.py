@@ -1251,6 +1251,65 @@ class Chinese_Hepai_Check:
         result = self.fan_count_output(player_tiles, combination_str, zimo_or_not, way_to_hepai)
         return result # 元组(int,list[str])
 
+    def hepai_decompose(self, hand_list: list, tiles_combination: list, way_to_hepai: list, get_tile: int) -> list:
+        """
+        和牌拆解：返回所有有效的和牌拆解形态及其番种与分数。
+
+        Returns:
+            按番数从高到低排序的列表，每个元素为：
+            {
+                "score": int,
+                "fan_list": List[str],     中文番种名
+                "fan_keys": List[str],     英文番种 key（剔除 0 番后）
+                "combinations": List[str], 例如 ["s12","k15","K33","q41"]
+            }
+            非和牌返回空列表。
+        """
+        complete_step = len(tiles_combination) * 3
+        player_tiles = PlayerTiles(hand_list, tiles_combination, complete_step)
+
+        player_tiles_list = []
+        if len(player_tiles.hand_tiles) == 14:
+            if not player_tiles_list:
+                self.GS_check(player_tiles, player_tiles_list)
+            if not player_tiles_list:
+                self.QBK_check(player_tiles, player_tiles_list)
+            if not player_tiles_list:
+                self.QD_check(player_tiles, player_tiles_list)
+        else:
+            self.QBK_check(player_tiles, player_tiles_list)
+        player_tiles_list.append(player_tiles)
+
+        check_done_list = []
+        for player_tiles_item in player_tiles_list:
+            self.normal_check(player_tiles_item, check_done_list)
+
+        chinese_to_eng = {v: k for k, v in self.eng_to_chinese_dict.items()}
+
+        results = []
+        for pt in check_done_list:
+            local_way = list(way_to_hepai) if way_to_hepai else []
+            score, fan_list_cn = self.fan_count(pt, get_tile, local_way)
+            # fan_count 后 combination_list 已反映最终拆解（含暗转明等修正）
+            fan_keys = []
+            for name in fan_list_cn:
+                if "*" in name:
+                    base, _, count_str = name.partition("*")
+                    base = base.strip()
+                    if base in chinese_to_eng:
+                        fan_keys.append(f"{chinese_to_eng[base]}*{count_str.strip()}")
+                elif name in chinese_to_eng:
+                    fan_keys.append(chinese_to_eng[name])
+            results.append({
+                "score": score,
+                "fan_list": list(fan_list_cn),
+                "fan_keys": fan_keys,
+                "combinations": list(pt.combination_list),
+            })
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results
+
 
 # 测试
 if __name__ == "__main__":

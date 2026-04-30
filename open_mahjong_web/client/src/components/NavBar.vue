@@ -9,7 +9,6 @@
     text-color="#fff"
     active-text-color="#ffd04b"
   >
-  <!-- 导航栏左侧点选菜单 -->
     <div class="nav-container">
       <div class="nav-left">
         <el-menu-item index="/" class="logo">
@@ -22,64 +21,53 @@
           <span>麻将对战平台</span>
         </el-menu-item>
 
-        <el-menu-item index="/docs">
-          <el-icon><Document /></el-icon>
-          <span>开发手册</span>
-        </el-menu-item>
-
         <el-menu-item index="/player-data">
           <el-icon><User /></el-icon>
           <span>玩家数据</span>
+        </el-menu-item>
+
+        <el-menu-item index="/shanten">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>听牌判断</span>
+        </el-menu-item>
+
+        <el-menu-item index="/chinese">
+          <el-icon><Trophy /></el-icon>
+          <span>国标解算</span>
+        </el-menu-item>
+
+        <el-menu-item index="/docs">
+          <el-icon><Document /></el-icon>
+          <span>开发手册</span>
         </el-menu-item>
 
         <el-menu-item index="/github">
           <el-icon><Link /></el-icon>
           <span>GitHub</span>
         </el-menu-item>
-
-        <el-menu-item index="/shanten">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>听牌判断(未启用)</span>
-        </el-menu-item>
-        
-        <el-menu-item index="/chinese">
-          <el-icon><Trophy /></el-icon>
-          <span>国标麻将判断(未启用)</span>
-        </el-menu-item>
-        
-        <el-menu-item index="/riichi">
-          <el-icon><Star /></el-icon>
-          <span>立直麻将判断(未启用)</span>
-        </el-menu-item>
-
       </div>
 
-      
       <div class="nav-right">
         <!-- 登录和注册功能暂不提供 -->
       </div>
     </div>
-    </el-menu>
+  </el-menu>
 </template>
 
 <script setup>
-// 导入Vue相关库
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Grid,
   DataAnalysis,
   Trophy,
-  Star,
   User,
   Link,
   Document,
   VideoPlay
 } from '@element-plus/icons-vue'
 
-// 获取当前路由
 const route = useRoute()
-// 计算当前激活的菜单项
 const activeIndex = computed(() => route.path)
 </script>
 
@@ -120,4 +108,4 @@ const activeIndex = computed(() => route.path)
 .el-menu-item .el-icon {
   margin-right: 4px;
 }
-</style> 
+</style>

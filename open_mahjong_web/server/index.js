@@ -51,18 +51,14 @@ io.on('connection', (socket) => {
   });
 });
 
-// 开发模式下的前端路由处理
-if (config.isProduction) {
-  // 生产模式：提供静态文件
-  app.use(express.static(path.join(__dirname, '../client/dist')));
-  
-  // 所有非API路由都返回index.html
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  });
-} else {
-  // 开发模式：重定向到Vue开发服务器
-  app.get('*', (req, res) => {
+// 路径处理：
+// 生产环境前端静态资源由 Nginx 直接提供，Node 仅负责 /api 路由
+// 开发环境将非 API 请求重定向到 Vite dev server
+if (!config.isProduction) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
     res.redirect('http://localhost:5173' + req.url);
   });
 }

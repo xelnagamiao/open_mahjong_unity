@@ -3,13 +3,11 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import Home from '@/views/Home.vue'
 import ShantenAnalysis from '@/views/ShantenAnalysis.vue'
 import ChineseMahjong from '@/views/ChineseMahjong.vue'
-import RiichiMahjong from '@/views/RiichiMahjong.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import UnityGame from '@/views/UnityGame.vue'
 
-// 注册路由
 const routes = [
-  // 使用默认布局的路由（有头部和尾部）
+  // 含布局（顶部导航 + 底部）
   {
     path: '/',
     component: DefaultLayout,
@@ -33,12 +31,6 @@ const routes = [
         meta: { title: '国标麻将牌型解算 - salasasa.cn' }
       },
       {
-        path: 'riichi',
-        name: 'RiichiMahjong',
-        component: RiichiMahjong,
-        meta: { title: '立直麻将牌型解算 - salasasa.cn' }
-      },
-      {
         path: 'player-data',
         name: 'PlayerData',
         component: PlayerData,
@@ -46,19 +38,16 @@ const routes = [
       }
     ]
   },
-  // 无布局的路由（纯黑全屏页面）
   {
     path: '/game-unity',
     name: 'UnityGame',
     component: UnityGame,
     meta: { title: '麻将对战平台 - salasasa.cn' }
   },
-  // 外部链接路由
   {
     path: '/docs',
     name: 'Docs',
-    beforeEnter: (to, from, next) => {
-      // 在新窗口打开开发手册页面
+    beforeEnter: () => {
       window.open('https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc# 《open》', '_blank')
     },
     meta: { title: '开发手册 - salasasa.cn' }
@@ -66,11 +55,10 @@ const routes = [
   {
     path: '/github',
     name: 'GitHub',
-    beforeEnter: (to, from, next) => {
-      // 在新窗口打开GitHub页面
+    beforeEnter: () => {
       window.open('https://github.com/xelnagamiao/open_mahjong_unity', '_blank')
     },
-    meta: { title: 'GitHub项目 - salasasa.cn' }
+    meta: { title: 'GitHub 项目 - salasasa.cn' }
   }
 ]
 
@@ -79,7 +67,6 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫 - 设置页面标题
 router.beforeEach((to, from, next) => {
   if (to.meta.title) {
     document.title = to.meta.title
@@ -87,4 +74,4 @@ router.beforeEach((to, from, next) => {
   next()
 })
 
-export default router 
+export default router
