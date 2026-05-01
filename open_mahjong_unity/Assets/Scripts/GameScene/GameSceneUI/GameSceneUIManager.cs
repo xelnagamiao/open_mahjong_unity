@@ -144,6 +144,7 @@ public class GameSceneUIManager : MonoBehaviour
         AutoAction.Instance.gameObject.SetActive(true);
         AutoAction.Instance.Initialize(); // 初始化自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false);
+        if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.HideAll(); // 正常对局隐藏退出牌谱/退出观战按钮
     }
 
     public void InitGameRecord() {

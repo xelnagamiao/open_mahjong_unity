@@ -30,8 +30,7 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private Button showGameInfoButton;
     [SerializeField] private Button showSpectatorInfoButton;
     [SerializeField] private Button showRoundInfoButton;
-    [SerializeField] private Button quitRecordButton;
-    [SerializeField] private Button quitSpectatorButton;
+    // 退出按钮统一由 ExitButtonManager 引用并控制可见性，此处保留 SerializeField 仅用于绑定 onClick
     [SerializeField] private GameObject recordNodeItemPrefab;
     [SerializeField] private GameObject recordRoundItemPrefab;
     [SerializeField] private ScrollRect xunmuScrollView;
@@ -152,8 +151,15 @@ public partial class GameRecordManager : MonoBehaviour {
         showGameInfoButton.onClick.AddListener(ShowGameInfo);
         showSpectatorInfoButton.onClick.AddListener(ShowSpectatorInfo);
         showRoundInfoButton.onClick.AddListener(ShowRoundInfo);
-        quitRecordButton.onClick.AddListener(QuitRecord);
-        quitSpectatorButton.onClick.AddListener(OnClickExitSpectator);
+    }
+
+    private void Start() {
+        if (ExitButtonManager.Instance != null) {
+            if (ExitButtonManager.Instance.QuitRecordButton != null)
+                ExitButtonManager.Instance.QuitRecordButton.onClick.AddListener(QuitRecord);
+            if (ExitButtonManager.Instance.QuitSpectatorButton != null)
+                ExitButtonManager.Instance.QuitSpectatorButton.onClick.AddListener(OnClickExitSpectator);
+        }
     }
 
     /// <summary>
@@ -175,6 +181,7 @@ public partial class GameRecordManager : MonoBehaviour {
         gameObject.SetActive(false);
         CurrentMode = RecordManagerMode.Record;
         GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
+        if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.HideAll();
     }
 
     // 加载牌谱
@@ -207,16 +214,14 @@ public partial class GameRecordManager : MonoBehaviour {
             spectatingPanel.SetActive(true); // 显示观战面板
             showGameInfoButton.gameObject.SetActive(false); // 隐藏显示游戏信息按钮
             showSpectatorInfoButton.gameObject.SetActive(true); // 显示显示观战信息按钮
-            quitSpectatorButton.gameObject.SetActive(true); // 显示退出观战按钮
-            quitRecordButton.gameObject.SetActive(false); // 隐藏退出牌谱按钮
+            if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.ShowForSpectator();
         }
         // 牌谱模式
         else if (CurrentMode == RecordManagerMode.Record) {
             spectatingPanel.SetActive(false); // 隐藏观战面板
             showGameInfoButton.gameObject.SetActive(true); // 显示显示游戏信息按钮
             showSpectatorInfoButton.gameObject.SetActive(false); // 隐藏显示观战信息按钮
-            quitSpectatorButton.gameObject.SetActive(false); // 隐藏退出观战按钮
-            quitRecordButton.gameObject.SetActive(true); // 显示退出牌谱按钮
+            if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.ShowForRecord();
         }
 
         // 解析记录头

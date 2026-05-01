@@ -1,7 +1,6 @@
-<!-- 顶部导航栏 -->
 <template>
   <el-menu
-    :default-active="activeIndex"
+    :default-active="activeMenu"
     class="nav-menu"
     mode="horizontal"
     router
@@ -12,18 +11,28 @@
     <div class="nav-container">
       <div class="nav-left">
         <el-menu-item index="/" class="logo">
-          <el-icon><Grid /></el-icon>
-          <span>salasasa.cn</span>
+          <img class="logo-img" src="/logo.svg" width="32" height="32" alt="OpenMahjong" />
+          <span class="logo-text">salasasa.cn</span>
         </el-menu-item>
 
         <el-menu-item index="/game-unity">
           <el-icon><VideoPlay /></el-icon>
-          <span>麻将对战平台</span>
+          <span>对战平台</span>
+        </el-menu-item>
+
+        <el-menu-item index="/github">
+          <el-icon><Link /></el-icon>
+          <span>GitHub</span>
         </el-menu-item>
 
         <el-menu-item index="/player-data">
           <el-icon><User /></el-icon>
           <span>玩家数据</span>
+        </el-menu-item>
+
+        <el-menu-item index="/paili">
+          <el-icon><Histogram /></el-icon>
+          <span>牌理</span>
         </el-menu-item>
 
         <el-menu-item index="/shanten">
@@ -33,22 +42,18 @@
 
         <el-menu-item index="/chinese">
           <el-icon><Trophy /></el-icon>
-          <span>国标解算</span>
+          <span>国标麻将</span>
+        </el-menu-item>
+
+        <el-menu-item index="/rulebook">
+          <el-icon><Reading /></el-icon>
+          <span>规则书</span>
         </el-menu-item>
 
         <el-menu-item index="/docs">
           <el-icon><Document /></el-icon>
           <span>开发手册</span>
         </el-menu-item>
-
-        <el-menu-item index="/github">
-          <el-icon><Link /></el-icon>
-          <span>GitHub</span>
-        </el-menu-item>
-      </div>
-
-      <div class="nav-right">
-        <!-- 登录和注册功能暂不提供 -->
       </div>
     </div>
   </el-menu>
@@ -58,17 +63,25 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  Grid,
+  VideoPlay,
+  User,
+  Histogram,
   DataAnalysis,
   Trophy,
-  User,
-  Link,
+  Reading,
   Document,
-  VideoPlay
+  Link,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
-const activeIndex = computed(() => route.path)
+
+const activeMenu = computed(() => {
+  const p = route.path || '/'
+  if (p === '/' || p === '') return '/'
+  if (p.startsWith('/rulebook')) return '/rulebook'
+  if (p === '/github') return '/github'
+  return p
+})
 </script>
 
 <style scoped>
@@ -78,7 +91,7 @@ const activeIndex = computed(() => route.path)
 
 .nav-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   max-width: 1200px;
   margin: 0 auto;
@@ -88,21 +101,25 @@ const activeIndex = computed(() => route.path)
 .nav-left {
   display: flex;
   align-items: center;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
 }
 
 .logo {
   font-size: 18px;
   font-weight: bold;
+  display: inline-flex;
+  align-items: center;
 }
 
-.logo .el-icon {
-  margin-right: 8px;
-  font-size: 20px;
+.logo-img {
+  margin-right: 10px;
+  vertical-align: middle;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  line-height: 1;
 }
 
 .el-menu-item .el-icon {

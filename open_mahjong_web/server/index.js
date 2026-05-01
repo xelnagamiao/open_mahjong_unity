@@ -28,9 +28,23 @@ const db = require('./config/database');
 // 路由
 const mahjongRoutes = require('./routes/mahjong'); // mahjongRoutes: 处理麻将游戏相关的 API（如创建房间、开始游戏等）
 const playerRoutes = require('./routes/player'); // playerRoutes: 处理玩家数据查询相关的 API
+const { createWindowLimiter } = require('./middleware/rateLimit');
 
-app.use('/api/mahjong', mahjongRoutes); // 将mahjongRoutes挂载到/api/mahjong路径下
-app.use('/api/player', playerRoutes); // 将playerRoutes挂载到/api/player路径下
+// 数据库与多表聚合查询较贵：每 IP 每分钟约 24 次
+const playerQueryLimiter = createWindowLimiter({
+  windowMs: 60_000,
+  max: 24,
+  keyFn: (req) => `${req.ip || 'unknown'}:player`,
+});
+// 牌理 / 听牌 / 国标算分等转发 Python：每 IP 每分钟约 40 次
+const mahjongCalcLimiter = createWindowLimiter({
+  windowMs: 60_000,
+  max: 40,
+  keyFn: (req) => `${req.ip || 'unknown'}:mahjong`,
+});
+
+app.use('/api/mahjong', mahjongCalcLimiter, mahjongRoutes);
+app.use('/api/player', playerQueryLimiter, playerRoutes);
 
 // WebSocket连接处理
 io.on('connection', (socket) => {

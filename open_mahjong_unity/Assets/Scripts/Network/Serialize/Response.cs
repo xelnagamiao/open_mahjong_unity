@@ -311,5 +311,6 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public ServerStatsInfo server_stats; // 返回服务器统计信息
     public SpectatorInfo[] spectator_list; // 返回观战列表
     public Dictionary<string, QueueStatusEntry> queue_status; // 匹配队列状态
+    public long client_ts; // pong 消息回传：客户端发送 ping 的时间戳（毫秒）
 }
 

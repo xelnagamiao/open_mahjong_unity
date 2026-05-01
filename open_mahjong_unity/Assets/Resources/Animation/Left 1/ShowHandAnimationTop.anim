@@ -6,7 +6,7 @@ AnimationClip:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: ShowHandAnimation
+  m_Name: ShowHandAnimationTop
   serializedVersion: 7
   m_Legacy: 0
   m_Compressed: 0
@@ -66,16 +66,16 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.33333334
-        value: -44.2
-        inSlope: 0
-        outSlope: 0
+        value: -5.4
+        inSlope: 10.799998
+        outSlope: 10.799998
         tangentMode: 136
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.6666667
-        value: -35.3
+        value: 5.5
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -135,7 +135,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -7.2
+        value: -48
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -297,16 +297,16 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.33333334
-        value: -44.2
-        inSlope: 0
-        outSlope: 0
+        value: -5.4
+        inSlope: 10.799998
+        outSlope: 10.799998
         tangentMode: 136
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.6666667
-        value: -35.3
+        value: 5.5
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -483,7 +483,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -7.2
+        value: -48
         inSlope: 0
         outSlope: 0
         tangentMode: 136

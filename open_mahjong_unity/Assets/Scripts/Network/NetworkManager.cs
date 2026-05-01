@@ -32,7 +32,20 @@ public class NetworkManager : MonoBehaviour {
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
-    
+
+    // 心跳/延迟测量
+    private const float PingIntervalSeconds = 2f; // ping 发送间隔
+    private const float PingTimeoutSeconds = 6f; // 超过该秒数未收到 pong 时视为高延迟
+    private const int PingTimeoutMs = 9999; // 超时未收到 pong 时显示的延迟值
+    private float _pingTimer = PingIntervalSeconds; // 初始为间隔值，连接后立刻 ping 一次
+    private long _lastPingTs;
+    private float _lastPongElapsed; // 距离上次收到 pong 的时间，用于检测超时
+    private int _latencyMs = -1; // -1 表示尚未取得测量
+    /// <summary>最近一次 ping/pong 测得的延迟（毫秒）。-1 表示未测得，>=0 为有效值。</summary>
+    public int LatencyMs => _latencyMs;
+    /// <summary>延迟变更事件。每次收到 pong 或 ping 超时时触发，参数为最新延迟（毫秒）。</summary>
+    public event Action<int> OnLatencyChanged;
+
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
@@ -139,6 +152,45 @@ public class NetworkManager : MonoBehaviour {
             }
             action?.Invoke();
         }
+
+        // 周期性 ping：仅在已连接时发送，长时间未收到 pong 视为高延迟
+        if (websocket != null && websocket.State == WebSocketState.Open) {
+            _pingTimer += Time.unscaledDeltaTime;
+            _lastPongElapsed += Time.unscaledDeltaTime;
+            if (_pingTimer >= PingIntervalSeconds) {
+                _pingTimer = 0f;
+                SendPing();
+            }
+            // 超过 PingTimeoutSeconds 仍未收到 pong：视为高延迟，但不主动断开
+            if (_lastPingTs > 0 && _lastPongElapsed > PingTimeoutSeconds && _latencyMs != PingTimeoutMs) {
+                _latencyMs = PingTimeoutMs;
+                OnLatencyChanged?.Invoke(_latencyMs);
+            }
+        }
+    }
+
+    private async void SendPing() {
+        try {
+            _lastPingTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var request = new PingRequest {
+                type = "ping",
+                client_ts = _lastPingTs,
+            };
+            await websocket.SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogWarning($"发送 ping 失败: {e.Message}");
+            _latencyMs = PingTimeoutMs;
+            OnLatencyChanged?.Invoke(_latencyMs);
+        }
+    }
+
+    private void HandlePong(Response response) {
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long sendTs = response.client_ts > 0 ? response.client_ts : _lastPingTs;
+        int rtt = (int)Math.Max(0, now - sendTs);
+        _latencyMs = rtt;
+        _lastPongElapsed = 0f;
+        OnLatencyChanged?.Invoke(_latencyMs);
     }
 
     // 主线程调度器方法
@@ -193,7 +245,10 @@ public class NetworkManager : MonoBehaviour {
     private void Get_Message(byte[] bytes){
         try{
             string jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
-            Debug.Log($"收到服务器消息: {jsonStr}");
+            // 心跳响应频繁出现，跳过日志避免刷屏
+            if (!jsonStr.Contains("\"type\":\"pong\"")) {
+                Debug.Log($"收到服务器消息: {jsonStr}");
+            }
             var response = JsonConvert.DeserializeObject<Response>(jsonStr);
 
             switch (response.type){
@@ -203,6 +258,9 @@ public class NetworkManager : MonoBehaviour {
                     break;
                 case "get_server_stats": // 获取服务器统计信息
                     DisplayServerStats(response.server_stats);
+                    break;
+                case "pong": // 心跳回包，用于计算延迟
+                    HandlePong(response);
                     break;
                 case "error_message":
                     Debug.Log($"错误消息: {response.message}");

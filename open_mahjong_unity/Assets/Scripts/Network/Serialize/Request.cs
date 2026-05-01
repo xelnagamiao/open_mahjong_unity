@@ -118,6 +118,11 @@ public class GetServerStatsRequest { // 获取服务器统计信息请求
     public string type;
 }
 
+public class PingRequest { // 心跳/延迟测量请求 服务器原样回传 client_ts
+    public string type;
+    public long client_ts; // 客户端发送时刻(毫秒)
+}
+
 public class ReconnectRequest { // 重连请求
     public string type;
     public bool reconnect;

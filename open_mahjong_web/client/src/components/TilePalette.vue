@@ -3,23 +3,33 @@
   <div class="tile-palette">
     <div class="palette-row">
       <span class="row-label">万</span>
-      <TileChip v-for="id in wanTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      <div class="palette-tiles">
+        <TileChip v-for="id in wanTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      </div>
     </div>
     <div class="palette-row">
       <span class="row-label">饼</span>
-      <TileChip v-for="id in bingTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      <div class="palette-tiles">
+        <TileChip v-for="id in bingTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      </div>
     </div>
     <div class="palette-row">
       <span class="row-label">条</span>
-      <TileChip v-for="id in tiaoTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      <div class="palette-tiles">
+        <TileChip v-for="id in tiaoTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      </div>
     </div>
     <div class="palette-row">
-      <span class="row-label">风/箭</span>
-      <TileChip v-for="id in zipaiTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      <span class="row-label">风箭</span>
+      <div class="palette-tiles">
+        <TileChip v-for="id in zipaiTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      </div>
     </div>
     <div v-if="includeFlowers" class="palette-row">
       <span class="row-label">花</span>
-      <TileChip v-for="id in flowerTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      <div class="palette-tiles">
+        <TileChip v-for="id in flowerTiles" :key="id" :tile-id="id" :size="size" @click="onPick(id)" />
+      </div>
     </div>
   </div>
 </template>
@@ -47,24 +57,39 @@ const onPick = (id) => emit('pick', id)
 .tile-palette {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  gap: 8px;
+  padding: 10px;
+  min-width: 0;
+  background: var(--omu-surface-soft, #f5f7fa);
+  border: 1px dashed var(--omu-border, #ebeef5);
   border-radius: 12px;
 }
 
 .palette-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .row-label {
-  width: 56px;
-  flex: 0 0 auto;
-  font-weight: bold;
-  color: white;
-  opacity: 0.8;
+  width: 2.5em;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--omu-text-soft, #606266);
+}
+
+.palette-tiles {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 </style>

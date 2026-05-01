@@ -87,6 +87,7 @@ public class EndGamePanel : MonoBehaviour {
 
     private void OnGoHomeButtonClick() {
         gameObject.SetActive(false);
+        HeaderPanel.Instance?.SetBackToGameVisible(false);
         if (isRankedMatch) {
             RankChangePanel.Instance.ShowRankChange(rankBefore, scoreBefore, rankAfter, scoreAfter, ptChange);
         } else {

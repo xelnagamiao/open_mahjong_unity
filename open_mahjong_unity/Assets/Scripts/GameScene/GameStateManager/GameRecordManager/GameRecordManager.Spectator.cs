@@ -581,8 +581,11 @@ public partial class GameRecordManager {
         bool inRecord = CurrentMode == RecordManagerMode.Record;
         bool inSpectator = CurrentMode == RecordManagerMode.Spectator || CurrentMode == RecordManagerMode.RecordOnSpectator;
 
-        quitRecordButton.gameObject.SetActive(inRecord);
-        quitSpectatorButton.gameObject.SetActive(inSpectator);
+        if (ExitButtonManager.Instance != null) {
+            if (inSpectator) ExitButtonManager.Instance.ShowForSpectator();
+            else if (inRecord) ExitButtonManager.Instance.ShowForRecord();
+            else ExitButtonManager.Instance.HideAll();
+        }
         showGameInfoButton.gameObject.SetActive(inRecord);
         showSpectatorInfoButton.gameObject.SetActive(inSpectator);
         if (inSpectator) gameInfoView.SetActive(false);

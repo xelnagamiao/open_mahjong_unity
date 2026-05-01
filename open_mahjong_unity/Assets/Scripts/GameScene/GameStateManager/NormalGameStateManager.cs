@@ -58,6 +58,11 @@ public class NormalGameStateManager : MonoBehaviour{
     public string CurrentPlayer; // 当前玩家字符串
     public List<int> selfHandTiles = new List<int>(); // 手牌列表
 
+    /// <summary>当前是否在等待自己做出手牌/鸣牌操作（供回到主菜单时的红色提醒按钮判断）。</summary>
+    public bool IsSelfActionRequired { get; private set; }
+    /// <summary>对局是否处于进行中（InitializeGame 后置 true，结算/结束时置 false）。</summary>
+    public bool IsGameActive { get; private set; }
+
     // 玩家信息
     public Dictionary<string,PlayerInfoClass> player_to_info = new Dictionary<string,PlayerInfoClass>(); // 玩家信息
 
@@ -130,6 +135,8 @@ public class NormalGameStateManager : MonoBehaviour{
         // 根据对局信息生成他家已有的3D卡牌（弃牌、副露、花牌）
         GenerateOtherPlayers3DTiles(gameInfo);
 
+        IsGameActive = true;
+        IsSelfActionRequired = false;
     }
 
 
@@ -452,6 +459,8 @@ public class NormalGameStateManager : MonoBehaviour{
     public void GameEnd(long game_random_seed, Dictionary<string, Dictionary<string, object>> player_final_data){
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
+        IsGameActive = false;
+        IsSelfActionRequired = false;
         // 显示游戏结束结果
         GameSceneUIManager.Instance.ShowEndGame(game_random_seed, player_final_data);
     }
@@ -476,11 +485,13 @@ public class NormalGameStateManager : MonoBehaviour{
                 // 询问操作时隐藏提示块
                 TipsBlock.Instance.HideTipsBlock();
                 TipsContainer.Instance.HideTips();
+                IsSelfActionRequired = true;
             }
             // 询问的不是自己的回合
             else{
                 GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null,null); // 重置手牌
                 SwitchCurrentPlayer(GetCardPlayer,"ClearAction",0); // 重置自身命令
+                IsSelfActionRequired = false;
             }
             // 只有askHandAction才会转移玩家位置
             BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer, remainTiles); // 显示当前玩家
@@ -495,6 +506,7 @@ public class NormalGameStateManager : MonoBehaviour{
             if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
+            IsSelfActionRequired = true;
         }
 
         // 执行行动
@@ -512,6 +524,7 @@ public class NormalGameStateManager : MonoBehaviour{
                 if (tips){
                     TipsBlock.Instance.ShowTipsBlock(selfHandTiles, player_to_info["self"].combination_tiles);
                 }
+                IsSelfActionRequired = false;
             }
         }
 
@@ -523,12 +536,14 @@ public class NormalGameStateManager : MonoBehaviour{
             GameCanvas.Instance.ClearActionButton();
             // 清空允许操作列表
             allowActionList.Clear();
+            IsSelfActionRequired = false;
         }
 
         // 时间耗尽
         else if (SwitchType == "TimeOut"){
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();
+            IsSelfActionRequired = false;
         }
     }
 

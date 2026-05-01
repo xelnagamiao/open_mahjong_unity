@@ -285,4 +285,5 @@ class Response(BaseModel):
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息
     rank_data: Optional[RankData] = None # 用于返回段位数据
     server_stats: Optional[ServerStatsInfo] = None # 用于返回服务器统计信息
+    client_ts: Optional[int] = None # pong 心跳：原样回传客户端发送 ping 时的时间戳（毫秒）
     spectator_list: Optional[List[SpectatorInfo]] = None # 用于返回观战列表

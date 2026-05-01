@@ -438,7 +438,8 @@ class ClassicalGameState:
                     hu_fu_fan_list = fu_fan_list
                     hu_base_fu = base_fu
                     hepai_player_index = self.current_player_index
-                    actual_hu_score = total_fu * 3
+                    # 庄家收支x2：庄家自摸 → 三家各付 2*total_fu；闲家自摸 → 庄家付 2*total_fu，其余两家各付 total_fu
+                    actual_hu_score = total_fu * 6 if hepai_player_index == 0 else total_fu * 4
                     self.result_dict = {}
 
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1
@@ -465,7 +466,8 @@ class ClassicalGameState:
                     hu_fan = fan_list
                     hu_fu_fan_list = fu_fan_list
                     hu_base_fu = base_fu
-                    actual_hu_score = total_fu * 3
+                    # 庄家收支x2：庄家荣和 → 全部 2*total_fu * 3；闲家荣和 → 庄家付 2*total_fu，其余两家各付 total_fu
+                    actual_hu_score = total_fu * 6 if hepai_player_index == 0 else total_fu * 4
                     self.result_dict = {}
 
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1
@@ -734,6 +736,7 @@ class ClassicalGameState:
 
         shuhewei_changes = {p.player_index: 0 for p in self.player_list}
         indices = [p.player_index for p in self.player_list]
+        dealer_index = 0 # 古典麻将：座位 0 始终为庄家（连庄通过 keep_dealer_seat 保持）
 
         for receiver in indices:
             receiver_fu = player_fu[receiver]
@@ -743,8 +746,11 @@ class ClassicalGameState:
                 if hepai_player_index is not None and payer == hepai_player_index:
                     continue
                 if player_fu[payer] < receiver_fu:
-                    shuhewei_changes[receiver] += receiver_fu
-                    shuhewei_changes[payer] -= receiver_fu
+                    # 庄家收支翻倍（庄家幺二）：副数本身不变，仅最终转账翻倍
+                    multiplier = 2 if (receiver == dealer_index or payer == dealer_index) else 1
+                    transfer = receiver_fu * multiplier
+                    shuhewei_changes[receiver] += transfer
+                    shuhewei_changes[payer] -= transfer
 
         for player in self.player_list:
             player.score += shuhewei_changes[player.player_index]

@@ -184,4 +184,35 @@ router.post('/gb/tingpai', async (req, res) => {
   }
 });
 
+// 牌理：14 张切牌后向听 / 进张分析
+router.post('/paili', async (req, res) => {
+  const errors = validateGBCalcInput(req.body, false);
+  if (errors.length > 0) {
+    return res.status(400).json({ success: false, message: errors.join('; ') });
+  }
+
+  try {
+    const { status, data } = await proxyToCalcServer('/calc/paili', {
+      hand_tiles: req.body.hand_tiles,
+      tiles_combination: req.body.tiles_combination || [],
+    });
+    if (status >= 400) {
+      return res.status(status).json({
+        success: false,
+        message: data.detail || data.message || '计算服务返回错误'
+      });
+    }
+    return res.json({
+      success: true,
+      data: data,
+    });
+  } catch (error) {
+    console.error('牌理代理错误:', error);
+    return res.status(502).json({
+      success: false,
+      message: '无法连接到计算服务'
+    });
+  }
+});
+
 module.exports = router;

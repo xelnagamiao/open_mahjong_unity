@@ -28,6 +28,18 @@ export const TILE_NAME = {
   55: '梅', 56: '兰', 57: '竹', 58: '菊'
 };
 
+/** 单张牌转为 m/p/s/z 简写（与 tilesToNotationText 字序一致：z 为 1东2南3西4北5白6发7中） */
+export function tileIdToNotation(id) {
+  if (id == null || Number.isNaN(id)) return '?'
+  if (id >= 11 && id <= 19) return `${id - 10}m`
+  if (id >= 21 && id <= 29) return `${id - 20}p`
+  if (id >= 31 && id <= 39) return `${id - 30}s`
+  const z = { 41: '1z', 42: '2z', 43: '3z', 44: '4z', 46: '5z', 47: '6z', 45: '7z' }
+  if (z[id]) return z[id]
+  if (id >= 51 && id <= 58) return `${id - 50}花`
+  return `#${id}`
+}
+
 // 简短文本（一行）
 export const TILE_SHORT = {
   41: '东', 42: '南', 43: '西', 44: '北',
@@ -82,3 +94,89 @@ export function combinationLabel(code) {
 export function sortTiles(tiles) {
   return [...tiles].sort((a, b) => a - b);
 }
+
+// 把项目内部牌号转为「数字+花色字母」简写（万 m / 筒 p / 索 s / 字 z）
+// z：1东 2南 3西 4北 5白 6发 7中
+export function tilesToNotationText(tiles) {
+  if (!tiles || tiles.length === 0) return ''
+  const groups = { m: [], p: [], s: [], z: [] }
+  const sorted = [...tiles].sort((a, b) => a - b)
+  for (const id of sorted) {
+    if (id >= 11 && id <= 19) groups.m.push(id - 10)
+    else if (id >= 21 && id <= 29) groups.p.push(id - 20)
+    else if (id >= 31 && id <= 39) groups.s.push(id - 30)
+    else if (id === 41) groups.z.push(1)
+    else if (id === 42) groups.z.push(2)
+    else if (id === 43) groups.z.push(3)
+    else if (id === 44) groups.z.push(4)
+    else if (id === 46) groups.z.push(5)
+    else if (id === 47) groups.z.push(6)
+    else if (id === 45) groups.z.push(7)
+  }
+  let out = ''
+  for (const suit of ['m', 'p', 's', 'z']) {
+    if (groups[suit].length === 0) continue
+    out += groups[suit].join('') + suit
+  }
+  return out
+}
+
+// 解析「数字+花色字母」简写为项目内部牌号数组；解析失败抛出 Error
+export function parseNotationText(input) {
+  if (!input) return []
+  const text = input.replace(/\s+/g, '').toLowerCase()
+  if (!text) return []
+  const result = []
+  const buffer = []
+  for (const ch of text) {
+    if (ch >= '0' && ch <= '9') {
+      buffer.push(ch)
+      continue
+    }
+    if (ch === 'm' || ch === 'p' || ch === 's' || ch === 'z') {
+      if (buffer.length === 0) {
+        throw new Error(`「${ch}」前缺少数字`)
+      }
+      for (const numChar of buffer) {
+        const num = parseInt(numChar, 10)
+        if (ch === 'z') {
+          if (num < 1 || num > 7) throw new Error(`字牌仅允许 1-7：z${num}`)
+          // 1东 2南 3西 4北 5白 6发 7中
+          const map = { 1: 41, 2: 42, 3: 43, 4: 44, 5: 46, 6: 47, 7: 45 }
+          result.push(map[num])
+        } else {
+          if (num === 0) {
+            // 0m / 0p / 0s 视为赤 5：万/饼/条 的 5
+            const base = ch === 'm' ? 10 : ch === 'p' ? 20 : 30
+            result.push(base + 5)
+          } else {
+            const base = ch === 'm' ? 10 : ch === 'p' ? 20 : 30
+            result.push(base + num)
+          }
+        }
+      }
+      buffer.length = 0
+    } else {
+      throw new Error(`非法字符：${ch}`)
+    }
+  }
+  if (buffer.length > 0) throw new Error('数字之后必须紧跟花色字母 m/p/s/z')
+  return result
+}
+
+/** 从完整 136 张牌墙中随机抽取 count 张（每种牌至多 4 张） */
+export function randomHandTiles(count) {
+  const wall = []
+  for (let d = 0; d < 4; d++) {
+    for (let t = 11; t <= 19; t++) wall.push(t)
+    for (let t = 21; t <= 29; t++) wall.push(t)
+    for (let t = 31; t <= 39; t++) wall.push(t)
+    for (const t of [41, 42, 43, 44, 45, 46, 47]) wall.push(t)
+  }
+  for (let i = wall.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[wall[i], wall[j]] = [wall[j], wall[i]]
+  }
+  return wall.slice(0, count)
+}
+

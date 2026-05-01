@@ -5,6 +5,8 @@ import ShantenAnalysis from '@/views/ShantenAnalysis.vue'
 import ChineseMahjong from '@/views/ChineseMahjong.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import UnityGame from '@/views/UnityGame.vue'
+import Rulebook from '@/views/Rulebook.vue'
+import Paili from '@/views/Paili.vue'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -16,13 +18,19 @@ const routes = [
         path: '',
         name: 'Home',
         component: Home,
-        meta: { title: '首页 - salasasa.cn' }
+        meta: { title: '欢迎访问 salasasa.cn' }
       },
       {
         path: 'shanten',
         name: 'ShantenAnalysis',
         component: ShantenAnalysis,
         meta: { title: '听牌待牌判断 - salasasa.cn' }
+      },
+      {
+        path: 'paili',
+        name: 'Paili',
+        component: Paili,
+        meta: { title: '牌理 - salasasa.cn' }
       },
       {
         path: 'chinese',
@@ -35,6 +43,12 @@ const routes = [
         name: 'PlayerData',
         component: PlayerData,
         meta: { title: '玩家数据统计 - salasasa.cn' }
+      },
+      {
+        path: 'rulebook/:rule?',
+        name: 'Rulebook',
+        component: Rulebook,
+        meta: { title: '规则书 - salasasa.cn' }
       }
     ]
   },
@@ -49,6 +63,7 @@ const routes = [
     name: 'Docs',
     beforeEnter: () => {
       window.open('https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc# 《open》', '_blank')
+      return false
     },
     meta: { title: '开发手册 - salasasa.cn' }
   },
@@ -57,6 +72,7 @@ const routes = [
     name: 'GitHub',
     beforeEnter: () => {
       window.open('https://github.com/xelnagamiao/open_mahjong_unity', '_blank')
+      return false
     },
     meta: { title: 'GitHub 项目 - salasasa.cn' }
   }
