@@ -197,6 +197,7 @@ class MatchManager:
             "step_timer": room_config["step_timer"],
             "random_seed": 0,
             "open_cuohe": room_config["open_cuohe"],
+            "tactical_call": room_config.get("tactical_call", False),
             "match_queue_type": queue_type,
         }
 

@@ -132,24 +132,41 @@ def check_action_jiagang(self, jiagang_tile: int):
 
 
 def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = False, is_first_action: bool = False):
-    """摸牌后的手牌动作检查：和牌/暗杠/加杠/立直/切牌"""
+    """摸牌后的手牌动作检查：和牌/暗杠/加杠/立直/切牌。
+    立直已宣告者：不允许加杠，仅允许「不改变听牌张集合且不改变听牌结构」的暗杠；其余仅可切牌（强制摸切由主循环处理）。
+    """
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
     player_item = self.player_list[player_index]
+    is_riichi = "riichi" in player_item.tag_list
 
     # 四杠已达上限后禁止任何开杠
     kan_allowed = getattr(self, "total_kans", 0) < 4
     if kan_allowed and len(self.tiles_list) > self.dead_wall_count:
-        # 暗杠：非立直玩家或立直后不改变听牌的暗杠；此处简化处理，立直玩家不允许暗杠
         processed = set()
-        if "riichi" not in player_item.tag_list:
-            for carditem in player_item.hand_tiles:
-                normal = _normalize(carditem)
-                if normal in processed:
-                    continue
-                if sum(1 for t in player_item.hand_tiles if _normalize(t) == normal) == 4:
-                    temp_action_dict[player_index].append("angang")
+        for carditem in player_item.hand_tiles:
+            normal = _normalize(carditem)
+            if normal in processed:
+                continue
+            if sum(1 for t in player_item.hand_tiles if _normalize(t) == normal) != 4:
+                continue
+            if is_riichi:
+                # 立直家暗杠：必须满足摸到的就是杠的牌（不能改变手牌结构）且杠后听牌集合不变
+                last_norm = _normalize(player_item.hand_tiles[-1])
+                if last_norm != normal:
                     processed.add(normal)
+                    continue
+                test_hand = [_normalize(t) for t in player_item.hand_tiles if _normalize(t) != normal]
+                test_combos = list(player_item.combination_tiles) + [f"G{normal}"]
+                new_waits = self.calculation_service.Riichi_tingpai_check(test_hand, test_combos)
+                if new_waits == player_item.waiting_tiles:
+                    temp_action_dict[player_index].append("angang")
+                processed.add(normal)
+            else:
+                temp_action_dict[player_index].append("angang")
+                processed.add(normal)
 
+        # 加杠仅非立直家可用
+        if not is_riichi:
             for combination_tile in player_item.combination_tiles:
                 if combination_tile[0] == "k":
                     jiagang_tile = int(combination_tile[1:])
@@ -158,10 +175,11 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
 
     temp_action_dict[player_index].append("cut")
 
-    # 立直宣告：门前清+听牌+点数>=1000+牌墙余>=4+未立直
+    # 立直宣告：门前清 + 听牌 + 点数≥1000 + 未立直；并要求剩余可摸牌 ≥4（即剩余 ≤3 时禁止立直），
+    # 与广播给客户端的 remain_tiles = max(0, len(tiles_list) - dead_wall_count) 同一口径。
     can_declare_riichi = (
         _is_menqianqing(player_item.combination_tiles)
-        and "riichi" not in player_item.tag_list
+        and not is_riichi
         and player_item.score >= 1000
         and (len(self.tiles_list) - self.dead_wall_count) >= 4
     )
@@ -229,6 +247,54 @@ def _is_furiten(player, discards_own: List[int]) -> bool:
     return False
 
 
+def compute_kuikae_forbidden(player) -> List[int]:
+    """日麻食替禁切：吃/碰后到本家切出前，只禁两类牌——
+    - X 自身（鸣来源；吃/碰的弃牌张，立即丢回等同没鸣，必禁）
+    - 仅当用「两面搭子」吃时（chi_left = X 在副露最右端，X-1/X-2 自手；chi_right = X 在副露最左端，X+1/X+2 自手）：
+      额外禁同色「另一面」X∓3（与副露另一头连成新顺子）。
+    嵌张吃（chi_mid）与碰（peng）只禁 X，不禁筋牌。
+    """
+    if not player.combination_tiles or not player.combination_mask:
+        return []
+    last_combo = player.combination_tiles[-1]
+    last_mask = player.combination_mask[-1]
+    if not last_combo or not last_mask:
+        return []
+    # mingpai 在 mask 中以 flag=1 标识；不存在则不是吃/碰副露（如暗杠/加杠）
+    mingpai_tile = None
+    for i in range(0, len(last_mask), 2):
+        if last_mask[i] == 1:
+            mingpai_tile = last_mask[i + 1]
+            break
+    if mingpai_tile is None:
+        return []
+    forbidden = {mingpai_tile}
+    normal = _normalize(mingpai_tile)
+    if normal >= 40:
+        return sorted(forbidden)
+    head = last_combo[0]
+    if head != "s":
+        # 碰 (k...) / 杠 (g/G...) 仅禁 X
+        return sorted(forbidden)
+    try:
+        mid = int(last_combo[1:])
+    except ValueError:
+        return sorted(forbidden)
+    suit = normal // 10
+    # X 在副露最左端 (chi_right): mid = X+1 → 禁 X+3；要求与 X 同色且数值 1..9
+    if mid - normal == 1:
+        cand = normal + 3
+        if cand // 10 == suit and 1 <= cand % 10 <= 9:
+            forbidden.add(cand)
+    # X 在副露最右端 (chi_left): mid = X-1 → 禁 X-3
+    elif normal - mid == 1:
+        cand = normal - 3
+        if cand // 10 == suit and 1 <= cand % 10 <= 9:
+            forbidden.add(cand)
+    # mid == normal 即嵌张 (chi_mid)：仅禁 X，不再追加
+    return sorted(forbidden)
+
+
 def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepai_type: str, is_first_action: bool = False, is_get_gang_tile: bool = False):
     """调用服务端 mahjong 库进行和牌判定；成功则记入 temp_action_dict。"""
     player = self.player_list[player_index]
@@ -237,9 +303,9 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
     if hepai_type != "tsumo":
         tiles_list.append(hepai_tile)
 
-    # 荣和方振听判定
+    # 荣和方振听判定（永久 / 同巡 / 立直）
     if hepai_type in ("ron", "chankan"):
-        if _is_furiten(player, player.discard_tiles) or player.temp_furiten:
+        if _is_furiten(player, player.discard_tiles) or player.temp_furiten or getattr(player, "riichi_furiten", False):
             return
 
     is_haitei = hepai_type == "tsumo" and len(self.tiles_list) <= self.dead_wall_count and not is_get_gang_tile

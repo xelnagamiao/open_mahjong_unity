@@ -14,6 +14,7 @@ public class HeaderPanel : MonoBehaviour {
     [SerializeField] private HeaderButton sceneConfigButton;
     [SerializeField] private HeaderButton spectatorButton;
     [SerializeField] private HeaderButton matchButton;
+    [SerializeField] private HeaderButton friendButton;
     [SerializeField] private HeaderButton backToGameButton;
     [Tooltip("「正在对局中」的红色提醒按钮所使用的底色")]
     [SerializeField] private Color backToGameTintColor = new Color(0.92f, 0.34f, 0.34f);
@@ -59,6 +60,7 @@ public class HeaderPanel : MonoBehaviour {
         if (noticeButton != null) noticeButton.Button.onClick.AddListener(Notice);
         if (sceneConfigButton != null) sceneConfigButton.Button.onClick.AddListener(SceneConfig);
         if (spectatorButton != null) spectatorButton.Button.onClick.AddListener(Spectator);
+        if (friendButton != null) friendButton.Button.onClick.AddListener(Friend);
     }
 
     /// <summary>
@@ -111,6 +113,7 @@ public class HeaderPanel : MonoBehaviour {
     private void SceneConfig() => WindowsManager.Instance.SwitchWindow("sceneConfig");
     private void Spectator() => WindowsManager.Instance.SwitchWindow("spectator");
     private void Match() => WindowsManager.Instance.SwitchWindow("match");
+    private void Friend() => WindowsManager.Instance.SwitchWindow("friend");
 
     /// <summary>
     /// 根据当前窗口更新导航栏按钮状态（由 WindowsManager.SwitchWindow 末尾调用）。Stay 颜色仅在此处设置。
@@ -132,6 +135,7 @@ public class HeaderPanel : MonoBehaviour {
         sceneConfigButton?.SetState(_currentWindowName == "sceneConfig", false, default);
         spectatorButton?.SetState(_currentWindowName == "spectator", false, default);
         matchButton?.SetState(_currentWindowName == "match", false, default);
+        friendButton?.SetState(_currentWindowName == "friend", false, default);
     }
 
     private static bool IsInRoom() {

@@ -15,7 +15,7 @@ public class RoomConfigContainer : MonoBehaviour {
     private static readonly Dictionary<string, List<string>> RuleDisplayFields = new Dictionary<string, List<string>> {
         { "guobiao", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "open_cuohe", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
+            "tips", "open_cuohe", "tactical_call", "has_password", "tourist_limit", "hepai_limit", "allow_spectator",
         } },
         { "riichi", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -24,7 +24,7 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "qingque", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "has_password", "tourist_limit", "allow_spectator",
+            "tips", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "classical", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -99,6 +99,10 @@ public class RoomConfigContainer : MonoBehaviour {
             case "open_cuohe":
                 displayName = "错和";
                 displayValue = FormatOpenCuohe(roomInfo.open_cuohe);
+                return true;
+            case "tactical_call":
+                displayName = "战术鸣牌";
+                displayValue = roomInfo.tactical_call ? "开" : "关";
                 return true;
             case "has_password":
                 displayName = "密码";

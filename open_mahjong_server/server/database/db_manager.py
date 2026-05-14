@@ -505,6 +505,17 @@ class DatabaseManager:
                 );
             """)
 
+            # 好友/关注关系表（单向关注，A 关注 B 不要求 B 关注 A，每人上限 10）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_friends (
+                    user_id        BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    friend_user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, friend_user_id)
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_friends_user ON user_friends(user_id);")
+
 
             # 创建游客用户序列（9000000-9900000）
             cursor.execute("CREATE SEQUENCE IF NOT EXISTS tourist_user_id_seq START 9000000 INCREMENT 1 MAXVALUE 9900000 CYCLE;")
@@ -1110,6 +1121,127 @@ class DatabaseManager:
             if conn:
                 conn.rollback()
             return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    # ---------------- 好友 / 关注 ----------------
+
+    FRIEND_MAX = 10
+
+    def count_friends(self, user_id: int) -> int:
+        """返回 user_id 当前关注的人数，失败返回 -1。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM user_friends WHERE user_id = %s", (user_id,))
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0
+        except Error as e:
+            logger.error(f'count_friends 失败 user_id={user_id}: {e}')
+            if conn:
+                conn.rollback()
+            return -1
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def add_friend(self, user_id: int, friend_user_id: int) -> Dict[str, Any]:
+        """
+        关注一个玩家。返回 {success: bool, message: str, code: str}
+        code 取值：ok / self / not_found / full / duplicate / error
+        """
+        if user_id == friend_user_id:
+            return {"success": False, "message": "不能关注自己", "code": "self"}
+
+        # 校验目标用户存在
+        target = self.get_user_by_user_id(friend_user_id)
+        if not target:
+            return {"success": False, "message": "目标玩家不存在", "code": "not_found"}
+
+        cur_count = self.count_friends(user_id)
+        if cur_count < 0:
+            return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+        if cur_count >= self.FRIEND_MAX:
+            return {
+                "success": False,
+                "message": "关注人数已满，请清理关注列表后再关注",
+                "code": "full",
+            }
+
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO user_friends (user_id, friend_user_id) VALUES (%s, %s)",
+                (user_id, friend_user_id),
+            )
+            conn.commit()
+            return {"success": True, "message": "关注成功", "code": "ok"}
+        except Error as e:
+            if conn:
+                conn.rollback()
+            if getattr(e, "pgcode", None) == "23505":
+                return {"success": False, "message": "已经关注过该玩家", "code": "duplicate"}
+            logger.error(f'add_friend 失败: {e}')
+            return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def remove_friend(self, user_id: int, friend_user_id: int) -> bool:
+        """取消关注。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM user_friends WHERE user_id = %s AND friend_user_id = %s",
+                (user_id, friend_user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            logger.error(f'remove_friend 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_friends(self, user_id: int) -> List[Dict[str, Any]]:
+        """
+        列出 user_id 关注的所有玩家基础信息（不含在线状态，由调用方拼装）：
+        [{user_id, username, profile_image_id}, ...]
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id
+                FROM user_friends uf
+                INNER JOIN users u ON u.user_id = uf.friend_user_id
+                LEFT JOIN user_settings us ON us.user_id = uf.friend_user_id
+                WHERE uf.user_id = %s
+                ORDER BY uf.created_at ASC
+                """,
+                (user_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error as e:
+            logger.error(f'list_friends 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
         finally:
             if conn:
                 cursor.close()

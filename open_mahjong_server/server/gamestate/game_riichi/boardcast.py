@@ -26,6 +26,18 @@ from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot
 logger = logging.getLogger(__name__)
 
 
+def _tag_list_for_viewer(tags, subject_player_index: int, viewer_player_index: int) -> list:
+    """振听 furiten 仅同步给本人视角：非本人座位的 tag 副本中移除 furiten。"""
+    out = list(tags) if tags is not None else []
+    if subject_player_index != viewer_player_index:
+        return [t for t in out if t != "furiten"]
+    return out
+
+
+def _player_to_tag_list_for_viewer(player_list, viewer_player_index: int) -> dict:
+    return {p.player_index: _tag_list_for_viewer(p.tag_list, p.player_index, viewer_player_index) for p in player_list}
+
+
 def _build_base_game_info(self) -> dict:
     return {
         "room_id": self.room_id,
@@ -55,7 +67,7 @@ def _build_base_game_info(self) -> dict:
     }
 
 
-def _build_player_info(player, viewer_uid: int) -> dict:
+def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dict:
     return {
         "user_id": player.user_id,
         "username": player.username,
@@ -76,7 +88,8 @@ def _build_player_info(player, viewer_uid: int) -> dict:
         "voice_used": player.voice_used,
         "score_history": player.score_history,
         "round_number_history": player.round_number_history,
-        "tag_list": player.tag_list,
+        "tag_list": _tag_list_for_viewer(player.tag_list, player.player_index, viewer_player_index),
+        "discard_riichi_flags": list(getattr(player, "discard_riichi_flags", []) or []),
     }
 
 
@@ -89,10 +102,11 @@ async def broadcast_game_start(self):
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
             player_conn = self.game_server.user_id_to_connection[cp.user_id]
-            infos = [_build_player_info(p, cp.user_id) for p in self.player_list]
+            infos = [_build_player_info(p, cp.user_id, cp.player_index) for p in self.player_list]
             game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None})
             response = Response(type="gamestate/riichi/game_start", success=True, message="游戏开始", game_info=game_info)
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_game_start 失败: {e}", exc_info=True)
     if hasattr(self, "spectator_manager"):
@@ -120,6 +134,8 @@ async def broadcast_ask_hand_action(self):
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
             player_conn = self.game_server.user_id_to_connection[cp.user_id]
+            riichi_cuts = cp.riichi_candidate_cuts if "riichi_cut" in self.action_dict[i] else None
+            forbidden = list(cp.kuikae_forbidden_tiles) if i == self.current_player_index and cp.kuikae_forbidden_tiles else None
             response = Response(
                 type="gamestate/riichi/broadcast_hand_action",
                 success=True,
@@ -130,9 +146,12 @@ async def broadcast_ask_hand_action(self):
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict[i],
                     action_tick=self.server_action_tick,
+                    riichi_candidate_cuts=riichi_cuts,
+                    forbidden_cut_tiles=forbidden,
                 ),
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_ask_hand_action 失败: {e}")
     if hasattr(self, "spectator_manager"):
@@ -173,6 +192,7 @@ async def broadcast_ask_other_action(self):
                 ),
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_ask_other_action 失败: {e}")
     if hasattr(self, "spectator_manager"):
@@ -192,6 +212,7 @@ async def broadcast_do_action(
     buhua_tile: int = None,
     combination_target: str = None,
     combination_mask: List[int] = None,
+    is_riichi_horizontal: bool = None,
 ):
     self.server_action_tick += 1
     if hasattr(self, "_ask_broadcast_time"):
@@ -218,9 +239,11 @@ async def broadcast_do_action(
                     buhua_tile=buhua_tile,
                     combination_mask=combination_mask,
                     combination_target=combination_target,
+                    is_riichi_horizontal=is_riichi_horizontal,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_do_action 失败: {e}")
     if hasattr(self, "spectator_manager"):
@@ -229,6 +252,7 @@ async def broadcast_do_action(
             cut_tile=cut_tile, cut_class=cut_class,
             deal_tile=deal_tile, buhua_tile=buhua_tile,
             combination_mask=combination_mask,
+            is_riichi_horizontal=is_riichi_horizontal,
         )
 
 
@@ -251,6 +275,8 @@ async def broadcast_result(
     honba: Optional[int] = None,
     riichi_sticks_collected: Optional[int] = None,
     score_changes: Optional[Dict[int, int]] = None,
+    tenpai_tiles: Optional[Dict[int, List[int]]] = None,
+    exhaustive_penalty: Optional[bool] = None,
 ):
     self.server_action_tick += 1
     for cp in self.player_list:
@@ -283,9 +309,12 @@ async def broadcast_result(
                     honba=honba,
                     riichi_sticks_collected=riichi_sticks_collected,
                     score_changes=score_changes,
+                    tenpai_tiles=tenpai_tiles,
+                    exhaustive_penalty=exhaustive_penalty,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_result 失败: {e}")
 
@@ -300,15 +329,18 @@ async def broadcast_declare_riichi(self, player_index: int):
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
             conn = self.game_server.user_id_to_connection[cp.user_id]
+            filtered_tags = _player_to_tag_list_for_viewer(self.player_list, cp.player_index)
             response = Response(
                 type="gamestate/riichi/declare_riichi",
                 success=True,
                 message="立直宣告",
                 refresh_player_tag_list_info=Refresh_player_tag_list_info(
-                    player_to_tag_list={p.player_index: p.tag_list for p in self.player_list}
+                    player_to_tag_list=filtered_tags,
+                    riichi_declared_player_index=player_index,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_declare_riichi 失败: {e}")
     if hasattr(self, "spectator_manager"):
@@ -337,6 +369,7 @@ async def broadcast_update_dora(self, new_indicator: int, is_kan_dora: bool = Fa
             dict_data["dora_indicators"] = list(self.dora_indicators)
             dict_data["kan_dora_indicators"] = list(self.kan_dora_indicators)
             await conn.websocket.send_json(dict_data)
+            await self.send_to_realtime_spectators(cp.player_index, dict_data)
         except Exception as e:
             logger.error(f"riichi broadcast_update_dora 失败: {e}")
     if hasattr(self, "spectator_manager"):
@@ -370,6 +403,7 @@ async def broadcast_game_end(self):
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_game_end 失败: {e}")
 
@@ -385,14 +419,12 @@ async def broadcast_switch_seat(self):
             conn = self.game_server.user_id_to_connection[cp.user_id]
             response = Response(type="switch_seat", success=True, message="换位信息", switch_seat_info=info)
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_switch_seat 失败: {e}")
 
 
 async def broadcast_refresh_player_tag_list(self):
-    info = Refresh_player_tag_list_info(
-        player_to_tag_list={p.player_index: p.tag_list for p in self.player_list}
-    )
     for cp in self.player_list:
         try:
             if "offline" in cp.tag_list or cp.user_id == 0:
@@ -400,9 +432,13 @@ async def broadcast_refresh_player_tag_list(self):
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
             conn = self.game_server.user_id_to_connection[cp.user_id]
+            info = Refresh_player_tag_list_info(
+                player_to_tag_list=_player_to_tag_list_for_viewer(self.player_list, cp.player_index)
+            )
             response = Response(type="refresh_player_tag_list", success=True, message="刷新玩家标签列表",
                                 refresh_player_tag_list_info=info)
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_refresh_player_tag_list 失败: {e}")
 
@@ -423,6 +459,7 @@ async def broadcast_ready_status(self):
             response = Response(type="gamestate/riichi/ready_status", success=True, message="准备状态更新",
                                 ready_status_info=info)
             await conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_ready_status 失败: {e}")
 
@@ -437,6 +474,8 @@ async def reconnected_send_pending_ask(self, user_id: int):
     remaining = player.remaining_time if t0 is None else max(0, player.remaining_time - int(max(0, time.time() - t0)))
     if self.game_status == "waiting_hand_action":
         if idx == self.current_player_index:
+            riichi_cuts = player.riichi_candidate_cuts if "riichi_cut" in self.action_dict.get(idx, []) else None
+            forbidden = list(player.kuikae_forbidden_tiles) if player.kuikae_forbidden_tiles else None
             response = Response(
                 type="gamestate/riichi/broadcast_hand_action",
                 success=True,
@@ -447,6 +486,8 @@ async def reconnected_send_pending_ask(self, user_id: int):
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict.get(idx, []),
                     action_tick=self.server_action_tick,
+                    riichi_candidate_cuts=riichi_cuts,
+                    forbidden_cut_tiles=forbidden,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))

@@ -23,6 +23,9 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
+    [Header("日麻：自家振听标记（仅操作区显示；服务器仅向本人同步 furiten）")]
+    [SerializeField] private GameObject selfFuritenIndicator;
+
     [Header("预制体")]
     [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体[吃,碰,杠,胡,补花,抢杠]
     [SerializeField] private GameObject ActionBlockPrefab;  // 静态牌容器块(在操作按钮有多种结果时显示)
@@ -141,6 +144,7 @@ public partial class GameCanvas : MonoBehaviour {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
 
+        RefreshSelfFuritenIndicator();
     }
 
     // 从牌谱记录初始化游戏UI
@@ -202,6 +206,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
+        RefreshSelfFuritenIndicator();
     }
 
     // 从牌谱记录更新左上房间信息
@@ -303,15 +308,85 @@ public partial class GameCanvas : MonoBehaviour {
                 }
             }
         }
+        RefreshSelfFuritenIndicator();
     }
 
-    public void ClearActionButton(){
+    // 根据自家 tag_list 是否含 furiten 显示/隐藏操作区振听标记
+    public void RefreshSelfFuritenIndicator() {
+        if (selfFuritenIndicator == null) return;
+        var gm = NormalGameStateManager.Instance;
+        if (gm == null) {
+            selfFuritenIndicator.SetActive(false);
+            return;
+        }
+        bool isRiichi = gm.roomRule == "riichi" || (!string.IsNullOrEmpty(gm.subRule) && gm.subRule.StartsWith("riichi"));
+        if (!isRiichi) {
+            selfFuritenIndicator.SetActive(false);
+            return;
+        }
+        string[] tags = gm.player_to_info != null && gm.player_to_info.ContainsKey("self")
+            ? gm.player_to_info["self"].tag_list
+            : null;
+        bool show = false;
+        if (tags != null) {
+            for (int i = 0; i < tags.Length; i++) {
+                if (tags[i] == "furiten") {
+                    show = true;
+                    break;
+                }
+            }
+        }
+        selfFuritenIndicator.SetActive(show);
+    }
+
+    public void ClearActionButton() {
         ActionBlockContainerState = "None";
         foreach (Transform child in ActionBlockContenter){
             Destroy(child.gameObject);
         }
         foreach (Transform child in ActionButtonContainer){
             Destroy(child.gameObject);
+        }
+    }
+
+    /// <summary>
+    /// 立直选牌模式下隐藏/恢复所有操作按钮容器。
+    /// </summary>
+    public void SetActionButtonContainerVisible(bool visible) {
+        if (ActionButtonContainer == null) return;
+        ActionButtonContainer.gameObject.SetActive(visible);
+    }
+
+    /// <summary>
+    /// 根据当前立直/食替/已立直锁手状态统一刷新自家手牌的可点状态：
+    /// - 处于立直选牌模式：仅 riichi_candidate_cuts 中存在的 tile_id 可点；
+    /// - 自家已立直（tag_list 含 riichi/daburu_riichi）：仅最右摸入牌（currentGetTile=true）可点，其余全部置灰；
+    /// - 普通切牌阶段：按服务端下发的 forbidden_cut_tiles 禁点（食替）。
+    /// </summary>
+    public void RefreshHandTileSelectability() {
+        if (handCardsContainer == null) return;
+        bool inRiichiCutMode = RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive;
+        var candidates = NormalGameStateManager.Instance.selfRiichiCandidateCuts;
+        var forbidden = NormalGameStateManager.Instance.selfForbiddenCutTiles;
+        bool selfRiichi = false;
+        var selfTags = NormalGameStateManager.Instance.player_to_info["self"].tag_list;
+        if (selfTags != null) {
+            for (int i = 0; i < selfTags.Length; i++) {
+                if (selfTags[i] == "riichi" || selfTags[i] == "daburu_riichi") { selfRiichi = true; break; }
+            }
+        }
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tc == null) continue;
+            bool selectable;
+            if (inRiichiCutMode) {
+                selectable = candidates.ContainsKey(tc.tileId);
+            } else if (selfRiichi) {
+                selectable = tc.currentGetTile;
+            } else {
+                selectable = !forbidden.Contains(tc.tileId);
+            }
+            tc.SetSelectable(selectable);
         }
     }
 

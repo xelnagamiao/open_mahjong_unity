@@ -251,6 +251,12 @@ public class NetworkManager : MonoBehaviour {
             }
             var response = JsonConvert.DeserializeObject<Response>(jsonStr);
 
+            // 好友 / 实时观战相关消息统一交由 FriendNetworkManager 处理
+            if (response.type != null && response.type.StartsWith("friend/")) {
+                FriendNetworkManager.Instance?.HandleFriendMessage(response);
+                return;
+            }
+
             switch (response.type){
                 case "login":
                     HandleLoginResponse(response);

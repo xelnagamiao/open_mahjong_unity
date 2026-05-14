@@ -8,6 +8,7 @@ class GBRoomValidator(BaseModel):
     step_timer: int
     random_seed: int
     open_cuohe: bool = False
+    tactical_call: bool = False
     
     @validator('room_name')
     def validate_room_name(cls, v):

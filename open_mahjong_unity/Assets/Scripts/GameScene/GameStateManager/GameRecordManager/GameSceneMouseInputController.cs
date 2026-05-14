@@ -13,14 +13,18 @@ using UnityEngine.EventSystems;
 /// 通过 Input 直接读取鼠标位置与按键，用「排除用 RectTransform」判断是否在面板上，避免射线导致的指针偏移。
 /// 无需挂载在带 Graphic 的物体上，也不再依赖 PassThroughToWorldSpaceFilter。
 /// ControPanel 点击仍可通过 HandleExternalPointerClick 转发，与本脚本的 Input 处理二选一生效，不会重复触发。
+/// 对局态（StateGame）下由子状态 actionInputPhase 区分 askHandAction / askOtherAction，并结合 ConfigManager 的摸切与鸣牌「取消」快捷配置。
 /// </summary>
 public class GameSceneMouseInputController : MonoBehaviour {
     public static GameSceneMouseInputController Instance { get; private set; }
 
-    /// <summary>状态码：不在牌谱/观战时的默认状态</summary>
     public const string StateIdle = "Idle";
     public const string StateRecord = "recordstate";
     public const string StateGame = "gamestate";
+
+    public const string InputPhaseNone = "";
+    public const string InputPhaseAskHand = "askHandAction";
+    public const string InputPhaseAskOther = "askOtherAction";
 
     [SerializeField] private string state = StateIdle;
 
@@ -30,11 +34,15 @@ public class GameSceneMouseInputController : MonoBehaviour {
     [Tooltip("用于将 excludeRect 投影到屏幕的相机，通常为渲染世界空间 Canvas 的 Camera。")]
     [SerializeField] private Camera worldCamera;
 
+    private string actionInputPhase = InputPhaseNone;
+
     private float _lastLeftClickTime = -1f;
     private const float DoubleClickThreshold = 0.3f;
 
     private readonly List<RaycastResult> _uiRaycastResults = new List<RaycastResult>(16);
     private PointerEventData _pointerEventData;
+
+    public string ActionInputPhase => actionInputPhase;
 
     private void Awake() {
         if (Instance == null) {
@@ -46,6 +54,13 @@ public class GameSceneMouseInputController : MonoBehaviour {
 
     public void SetState(string newState) {
         state = newState;
+        SetActionInputPhase(InputPhaseNone);
+    }
+
+    public void SetActionInputPhase(string phase) {
+        if (actionInputPhase == phase) return;
+        actionInputPhase = phase;
+        _lastLeftClickTime = -1f;
     }
 
     private void Update() {
@@ -70,22 +85,49 @@ public class GameSceneMouseInputController : MonoBehaviour {
                 }
             }
         } else if (state == StateGame) {
-            if (Input.GetMouseButtonDown(0)) {
-                float t = Time.unscaledTime;
-                if (t - _lastLeftClickTime <= DoubleClickThreshold) {
+            HandleGameStateMouseShortcutsFromInput();
+        }
+    }
+
+    private void HandleGameStateMouseShortcutsFromInput() {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        ConfigManager cfg = ConfigManager.Instance;
+
+        if (actionInputPhase == InputPhaseAskHand && gsm.allowActionList.Contains("cut")) {
+            if (cfg.MoqieShortcutMode == 1) {
+                if (Input.GetMouseButtonDown(1)) {
                     TryAutoMoqieFromSelfHand();
-                    _lastLeftClickTime = -1f;
-                } else {
-                    _lastLeftClickTime = t;
+                }
+            } else {
+                if (Input.GetMouseButtonDown(0)) {
+                    float t = Time.unscaledTime;
+                    if (t - _lastLeftClickTime <= DoubleClickThreshold) {
+                        TryAutoMoqieFromSelfHand();
+                        _lastLeftClickTime = -1f;
+                    } else {
+                        _lastLeftClickTime = t;
+                    }
+                }
+            }
+        } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
+            if (cfg.AskOtherPassShortcutMode == 0) {
+                if (Input.GetMouseButtonDown(1)) {
+                    GameCanvas.Instance.TrySendPassFromShortcut();
+                }
+            } else if (cfg.AskOtherPassShortcutMode == 2) {
+                if (Input.GetMouseButtonDown(0)) {
+                    float t = Time.unscaledTime;
+                    if (t - _lastLeftClickTime <= DoubleClickThreshold) {
+                        GameCanvas.Instance.TrySendPassFromShortcut();
+                        _lastLeftClickTime = -1f;
+                    } else {
+                        _lastLeftClickTime = t;
+                    }
                 }
             }
         }
     }
 
-    /// <summary>
-    /// 鼠标射线是否命中排除 UI（excludeRect 及其子物体）。
-    /// 注意：需要目标 UI 上存在可 Raycast 的 Graphic（如 Image/TMP_Text 且 Raycast Target 开启）。
-    /// </summary>
     private bool IsPointerOverExcludeRect() {
         if (excludeRect == null) return false;
         if (EventSystem.current == null) return false;
@@ -109,11 +151,32 @@ public class GameSceneMouseInputController : MonoBehaviour {
 
     /// <summary>
     /// 允许世界空间面板（如 ControPanel）转发点击，避免被顶层射线截断。与 Update 中的 Input 处理互斥（同一次点击只处理一次）。
+    /// 对局态下摸切/鸣牌取消与 Update 使用相同子状态与配置判断。
     /// </summary>
     public void HandleExternalPointerClick(PointerEventData eventData) {
         if (state == StateGame) {
-            if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
-                TryAutoMoqieFromSelfHand();
+            NormalGameStateManager gsm = NormalGameStateManager.Instance;
+            ConfigManager cfg = ConfigManager.Instance;
+            if (actionInputPhase == InputPhaseAskHand && gsm.allowActionList.Contains("cut")) {
+                if (cfg.MoqieShortcutMode == 1) {
+                    if (eventData.button == PointerEventData.InputButton.Right) {
+                        TryAutoMoqieFromSelfHand();
+                    }
+                } else {
+                    if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
+                        TryAutoMoqieFromSelfHand();
+                    }
+                }
+            } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
+                if (cfg.AskOtherPassShortcutMode == 0) {
+                    if (eventData.button == PointerEventData.InputButton.Right) {
+                        GameCanvas.Instance.TrySendPassFromShortcut();
+                    }
+                } else if (cfg.AskOtherPassShortcutMode == 2) {
+                    if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
+                        GameCanvas.Instance.TrySendPassFromShortcut();
+                    }
+                }
             }
             return;
         }
@@ -136,11 +199,9 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     private void TryAutoMoqieFromSelfHand() {
-        if (NormalGameStateManager.Instance == null) return;
         var selfHandTiles = NormalGameStateManager.Instance.selfHandTiles;
-        if (selfHandTiles == null || selfHandTiles.Count <= 0) return;
         int lastTileId = selfHandTiles[selfHandTiles.Count - 1];
-        if (GameCanvas.Instance != null && GameCanvas.Instance.TriggerTileCardClick(lastTileId)) return;
+        if (GameCanvas.Instance.TriggerTileCardClick(lastTileId)) return;
         Debug.LogWarning($"自动出牌失败：无法找到牌ID {lastTileId} 对应的 TileCard");
     }
 }

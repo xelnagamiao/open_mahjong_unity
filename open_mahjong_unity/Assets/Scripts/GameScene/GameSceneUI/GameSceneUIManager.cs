@@ -6,7 +6,10 @@ using System;
 public class GameSceneUIManager : MonoBehaviour
 {
     public static GameSceneUIManager Instance { get; private set; }
-    
+
+    [SerializeField] private RealtimeSpectatorIndicator realtimeSpectatorIndicator;
+    public RealtimeSpectatorIndicator RealtimeSpectatorIndicator => realtimeSpectatorIndicator;
+
     private void Awake()
     {
         if (Instance == null)
@@ -31,7 +34,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
-        if (PenaltyPanel.Instance != null) PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符/流局面板
+        PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符面板
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
@@ -41,6 +44,7 @@ public class GameSceneUIManager : MonoBehaviour
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false); // 隐藏牌谱设置组件
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
+        RoundEndFlowManager.Instance.StopActiveSequence();
     }
 
     /// <summary>
@@ -72,14 +76,13 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 显示罚符/流局面板（立直麻将荒牌流局、九种九牌、四杠散了、四风连打、四人立直、三家和流局等）。
+    /// 显示罚符面板（四杠散了、四风连打、四人立直、三家和流局等一次性展示）。
     /// </summary>
     public void ShowPenalty(
-        string title,
         System.Collections.Generic.Dictionary<string, string> usernameByPos,
         System.Collections.Generic.Dictionary<string, int> scoreByPos,
         System.Collections.Generic.Dictionary<string, int> deltaByPos) {
-        PenaltyPanel.Instance.ShowPenaltyPanel(title, usernameByPos, scoreByPos, deltaByPos);
+        PenaltyPanel.Instance.ShowPenaltyPanel(usernameByPos, scoreByPos, deltaByPos);
     }
 
     /// <summary>
@@ -133,7 +136,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
-        if (PenaltyPanel.Instance != null) PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符/流局面板
+        PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符面板
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
@@ -145,6 +148,8 @@ public class GameSceneUIManager : MonoBehaviour
         AutoAction.Instance.Initialize(); // 初始化自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false);
         if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.HideAll(); // 正常对局隐藏退出牌谱/退出观战按钮
+        if (realtimeSpectatorIndicator != null) realtimeSpectatorIndicator.ResetForNewGame(); // 重置被实时观战指示器，主动询问一次
+        RoundEndFlowManager.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }
 
     public void InitGameRecord() {
@@ -152,7 +157,7 @@ public class GameSceneUIManager : MonoBehaviour
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel(); // 清空换位面板
         EndLiujuPanel.Instance.ClearEndLiujuPanel();     // 清空流局面板
-        if (PenaltyPanel.Instance != null) PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符/流局面板
+        PenaltyPanel.Instance.ClearPenaltyPanel(); // 清空罚符面板
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
@@ -164,5 +169,6 @@ public class GameSceneUIManager : MonoBehaviour
         RecordSetting.Instance.Initialize();
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
+        RoundEndFlowManager.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }
 }

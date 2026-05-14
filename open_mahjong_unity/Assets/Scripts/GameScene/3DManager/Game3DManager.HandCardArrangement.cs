@@ -20,6 +20,9 @@ public partial class Game3DManager {
         else if (cardPosition == topPosPanel.cardsPosition) {
             direction = LeftDirection; // 向左
         }
+        else if (cardPosition == selfPosPanel.cardsPosition) {
+            direction = RightDirection; // 向右
+        }
         else {
             // self 位置不需要排列（自己的手牌是2D显示的）
             return false;
@@ -58,7 +61,7 @@ public partial class Game3DManager {
 
     // 检测并排列所有玩家的3D手牌（公共方法，供外部调用）
     public void CheckAndRearrangeAllPlayersHandCards() {
-        // 检查并排列所有其他玩家的手牌（不包括自己，因为自己的手牌是2D显示的）
+        // 检查并排列各家 3D 手牌（含自家明牌手牌）
         if (NeedsRearrangement(leftPosPanel.cardsPosition)) {
             StartCoroutine(Rearrange3DCardsWithAnimation(leftPosPanel.cardsPosition));
         }
@@ -67,6 +70,9 @@ public partial class Game3DManager {
         }
         if (NeedsRearrangement(rightPosPanel.cardsPosition)) {
             StartCoroutine(Rearrange3DCardsWithAnimation(rightPosPanel.cardsPosition));
+        }
+        if (NeedsRearrangement(selfPosPanel.cardsPosition)) {
+            StartCoroutine(Rearrange3DCardsWithAnimation(selfPosPanel.cardsPosition));
         }
     }
 }

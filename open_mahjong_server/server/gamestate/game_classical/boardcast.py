@@ -93,6 +93,7 @@ async def broadcast_game_start(self):
                 )
                 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送游戏开始信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -146,6 +147,7 @@ async def broadcast_ask_hand_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
                     logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -166,6 +168,7 @@ async def broadcast_ask_hand_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
                     logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -218,6 +221,7 @@ async def broadcast_ask_other_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
                     logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -237,6 +241,7 @@ async def broadcast_ask_other_action(self):
                         )
                     )
                     await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
                     logger.info(f"已向玩家 {current_player.username} 广播通用询问操作信息")
                 else:
                     logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -356,6 +361,7 @@ async def broadcast_do_action(
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 广播操作信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -417,6 +423,7 @@ async def broadcast_result(self,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 广播结算结果信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -464,6 +471,7 @@ async def broadcast_game_end(self):
                 )
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 user_id={current_player.user_id}, username={current_player.username} 广播游戏结束信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -501,6 +509,7 @@ async def broadcast_switch_seat(self):
                 )
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送换位信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -543,6 +552,7 @@ async def broadcast_refresh_player_tag_list(self):
                 )
 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送刷新玩家标签列表信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -588,6 +598,7 @@ async def broadcast_ready_status(self):
                 )
                 
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 发送准备状态信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -630,6 +641,7 @@ async def broadcast_shuhewei(
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                await self.send_to_realtime_spectators(current_player.player_index, response)
                 logger.info(f"已向玩家 {current_player.username} 广播数和尾结算信息")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} 广播数和尾结算信息失败: {e}")

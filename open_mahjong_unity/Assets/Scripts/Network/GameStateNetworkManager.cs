@@ -115,7 +115,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             handresponse.remaining_time,
             handresponse.player_index,
             handresponse.remain_tiles,
-            handresponse.action_list
+            handresponse.action_list,
+            handresponse.riichi_candidate_cuts,
+            handresponse.forbidden_cut_tiles
         );
     }
     
@@ -148,7 +150,10 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.deal_tile,
             doresponse.buhua_tile,
             doresponse.combination_mask,
-            doresponse.combination_target
+            doresponse.combination_target,
+            doresponse.is_riichi_horizontal,
+            doresponse.is_claim == true,
+            doresponse.silent == true
         );
     }
     
@@ -170,7 +175,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.hepai_player_combination_mask,
             showresponse.base_fu,
             showresponse.fu_fan_list,
-            riichiExtras
+            riichiExtras,
+            showresponse.silent == true
         );
     }
 
@@ -179,7 +185,9 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 非日麻或未携带相关字段时返回 null。
     /// </summary>
     private static RiichiEndResultExtras BuildRiichiExtrasIfAny(ShowResultInfo info) {
-        if (info.han == null && info.fu == null && info.ura_dora_indicators == null && info.honba == null) {
+        bool hasHuExtras = info.han != null || info.fu != null || info.ura_dora_indicators != null || info.honba != null;
+        bool hasRyuuExtras = (info.tenpai_tiles != null && info.tenpai_tiles.Count > 0) || info.exhaustive_penalty != null;
+        if (!hasHuExtras && !hasRyuuExtras) {
             return null;
         }
         return new RiichiEndResultExtras {
@@ -193,6 +201,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             Honba = info.honba ?? 0,
             RiichiSticksCollected = info.riichi_sticks_collected ?? 0,
             ScoreChanges = info.score_changes,
+            TenpaiTiles = info.tenpai_tiles,
+            NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
         };
     }
     
@@ -239,6 +249,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 发送国标卡牌方法（切牌）
     /// </summary>
     public async void SendChineseGameTile(bool cutClass, int tileId, int cutIndex) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendChineseGameTileRequest {
                 type = "gamestate/GB/cut_tile",
@@ -257,6 +268,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 发送吃碰杠回应
     /// </summary>
     public async void SendAction(string action, int targetTile, int chiComboIndex = 0) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendActionRequest {
                 type = "gamestate/GB/send_action",
@@ -338,7 +350,8 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     private void HandleRiichiDeclare(Response response) {
         Debug.Log($"收到立直宣告: {response.message}");
-        NormalGameStateManager.Instance.OnRiichiDeclared(response.refresh_player_tag_list_info?.player_to_tag_list);
+        var info = response.refresh_player_tag_list_info;
+        NormalGameStateManager.Instance.OnRiichiDeclared(info?.player_to_tag_list, info?.riichi_declared_player_index);
     }
 
     /// <summary>
@@ -353,6 +366,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 立直切牌请求
     /// </summary>
     public async void SendRiichiCut(bool cutClass, int tileId, int cutIndex) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendChineseGameTileRequest {
                 type = "gamestate/riichi/riichi_cut",

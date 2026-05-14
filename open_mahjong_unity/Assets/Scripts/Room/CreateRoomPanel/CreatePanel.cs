@@ -27,6 +27,7 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgHepaiLimit     = "hepai_limit";      // 自定义起和番数（整数；Toggle 与 Input 成组显隐）
     private const string CfgRedDora        = "red_dora";         // 赤宝牌
     private const string CfgHepaiWay       = "hepai_way";        // 和牌方式下拉索引
+    private const string CfgTacticalCall   = "tactical_call";    // 战术鸣牌（国标 / 青雀）
 
     /// <summary>
     /// 每条规则需要显示的全部配置项与默认值。
@@ -45,6 +46,7 @@ public class CreatePanel : MonoBehaviour {
             { CfgSubRule,        0 }, // 子规则下拉索引（国标）
             { CfgCuohe,          false }, // 错和
             { CfgHepaiLimit,     8 }, // 起和番数
+            { CfgTacticalCall,   false }, // 战术鸣牌
         } },
         { "riichi", new Dictionary<string, object> {
             { CfgGameRound,      2 },
@@ -69,6 +71,7 @@ public class CreatePanel : MonoBehaviour {
             { CfgRandomSeed,     false },
             { CfgTouristLimit,   false },
             { CfgAllowSpectator, true },
+            { CfgTacticalCall,   false }, // 战术鸣牌
         } },
         { "classical", new Dictionary<string, object> {
             { CfgGameRound,      4 },
@@ -107,6 +110,7 @@ public class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle InputHepaiLimitToggle;
     [SerializeField] private Toggle AllowSpectatorToggle;
     [SerializeField] private Toggle RedDoraToggle;
+    [SerializeField] private Toggle TacticalCallToggle;
 
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
@@ -208,6 +212,7 @@ public class CreatePanel : MonoBehaviour {
                 break;
             case CfgRedDora:        RedDoraToggle.isOn = (bool)value; break;
             case CfgHepaiWay:       HepaiWayDropdown.value = (int)value; break;
+            case CfgTacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
         }
     }
 
@@ -240,6 +245,7 @@ public class CreatePanel : MonoBehaviour {
 
         RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CfgRedDora));
         HepaiWayPanel.SetActive(visible.ContainsKey(CfgHepaiWay));
+        TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CfgTacticalCall));
     }
 
     private string GetCurrentSubRuleKey() {
@@ -393,6 +399,7 @@ public class CreatePanel : MonoBehaviour {
             HepaiLimit = hepaiLimit,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
+            TacticalCall = TacticalCallToggle.isOn,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
@@ -416,6 +423,7 @@ public class CreatePanel : MonoBehaviour {
             Tips = tipsToggle.isOn,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
+            TacticalCall = TacticalCallToggle.isOn,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {

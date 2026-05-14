@@ -70,11 +70,13 @@ def player_action_record_deal(self, deal_tile: int, deal_type: str = "d"):
     )
 
 # 牌谱记录切牌
-def player_action_record_cut(self, cut_tile: int,is_moqie: bool = False):
+def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_riichi_horizontal: bool = False):
+    """牌谱切牌记录：is_riichi_horizontal 为 True 时该弃牌在回放时应当横置渲染（含立直宣告与续横）。"""
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["c", cut_tile, "T" if is_moqie else "F"]
-    )
+    entry = ["c", cut_tile, "T" if is_moqie else "F"]
+    if is_riichi_horizontal:
+        entry.append("H")
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
 # 牌谱记录暗杠
 def player_action_record_angang(self,angang_tile: int):

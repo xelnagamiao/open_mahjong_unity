@@ -9,8 +9,9 @@ from .action_check import (
     check_action_after_cut,
     check_action_jiagang,
     refresh_waiting_tiles,
+    compute_kuikae_forbidden,
 )
-from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi
+from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_refresh_player_tag_list
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,
@@ -43,6 +44,19 @@ async def wait_action(self):
                 self.action_queues[i].get_nowait()
             except Exception:
                 break
+
+    # 立直家在 waiting_hand_action 阶段若只剩 "cut"（无暗杠/无和牌等其它选项），
+    # 则不必询问客户端，直接执行强制摸切（tsumogiri）。这样既符合规则也不浪费询问轮。
+    # 摸切之间留出 0.3s 视觉停顿，避免客户端摸到/打出牌动画首尾相接显得太快。
+    if self.game_status == "waiting_hand_action":
+        cur = self.current_player_index
+        cur_player = self.player_list[cur]
+        is_riichi = "riichi" in cur_player.tag_list or "daburu_riichi" in cur_player.tag_list
+        if is_riichi and self.action_dict.get(cur, []) == ["cut"]:
+            tile_id = cur_player.hand_tiles[-1]
+            await asyncio.sleep(0.3)
+            await _execute_cut(self, cur, tile_id, is_moqie=True, cut_tile_index=None, is_riichi=False)
+            return
 
     for player_index, action_list in self.action_dict.items():
         if action_list:
@@ -116,9 +130,12 @@ async def wait_action(self):
         case "waiting_hand_action":
             if action_data:
                 if action_type == "cut":
+                    # 摸打之间停 0.3s（与立直自动摸切一致）
+                    await asyncio.sleep(0.3)
                     await _do_cut(self, player_index, action_data, is_riichi=False)
                     return
                 elif action_type == "riichi_cut":
+                    await asyncio.sleep(0.3)
                     await _do_cut(self, player_index, action_data, is_riichi=True)
                     return
                 elif action_type == "angang":
@@ -184,6 +201,7 @@ async def wait_action(self):
                 # 超时摸切
                 is_moqie = True
                 tile_id = self.player_list[self.current_player_index].hand_tiles[-1]
+                await asyncio.sleep(0.3)
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
                 return
 
@@ -191,6 +209,11 @@ async def wait_action(self):
             tile_id = self.player_list[self.current_player_index].discard_tiles[-1]
             combination_mask = []
             combination_target = ""
+            # 记录本巡有荣和机会的玩家：若最终未荣和，则进入同巡振听（立直家额外锁立直振听）
+            ron_eligible_indexes = [
+                pi for pi, acts in self.action_dict.items()
+                if any(a in ("hu_first", "hu_second", "hu_third") for a in acts)
+            ]
             if action_data:
                 refresh_waiting_tiles(self, player_index)
                 normal_tile = _normalize(tile_id)
@@ -255,14 +278,26 @@ async def wait_action(self):
                     return
 
                 if action_type in ("chi_left", "chi_mid", "chi_right", "peng", "gang"):
-                    self.player_list[self.current_player_index].discard_tiles.pop(-1)
-                    self.player_list[self.current_player_index].discard_origin_tiles.append(tile_id)
+                    discarder = self.player_list[self.current_player_index]
+                    discarder.discard_tiles.pop(-1)
+                    # 同步移除横置标记；如果被吃/碰/明杠走的就是立直家刚摆出的横置弃牌，
+                    # 则给该玩家 riichi_marker_pending 置位，使其下一张弃牌仍横置（视觉上"续横"）
+                    if discarder.discard_riichi_flags:
+                        was_horizontal = discarder.discard_riichi_flags.pop(-1)
+                        if was_horizontal:
+                            discarder.riichi_marker_pending = True
+                    discarder.discard_origin_tiles.append(tile_id)
                     self.player_list[player_index].combination_mask.append(combination_mask)
                     self.current_player_index = player_index
                     player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id, action_player=player_index)
                     await broadcast_do_action(self, action_list=[action_type], action_player=self.current_player_index,
                                               combination_mask=combination_mask, combination_target=combination_target)
                     _clear_ippatsu(self)
+                    # 食替：吃/碰后到本家切牌前不可丢回的牌（吃来源 + 两面搭子的筋）
+                    if action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
+                        self.player_list[self.current_player_index].kuikae_forbidden_tiles = compute_kuikae_forbidden(
+                            self.player_list[self.current_player_index]
+                        )
                     if action_type == "gang":
                         self._last_kan_type = "daiminkan"
                         self.game_status = "deal_card_after_gang"
@@ -272,6 +307,10 @@ async def wait_action(self):
 
                 if action_type == "pass":
                     _commit_pending_riichi(self)
+                    _apply_passed_ron_furiten(self, ron_eligible_indexes)
+                    # 立直振听/同巡振听挂上后立刻同步给客户端，否则 furiten 图标需等到下次摸牌才显示
+                    if self.sync_furiten_tags():
+                        await broadcast_refresh_player_tag_list(self)
                     if getattr(self, "_pending_four_kan_abort", False):
                         self.hu_class = "four_kan_abort"
                         self.game_status = "END"
@@ -280,6 +319,9 @@ async def wait_action(self):
                     return
             else:
                 _commit_pending_riichi(self)
+                _apply_passed_ron_furiten(self, ron_eligible_indexes)
+                if self.sync_furiten_tags():
+                    await broadcast_refresh_player_tag_list(self)
                 if getattr(self, "_pending_four_kan_abort", False):
                     self.hu_class = "four_kan_abort"
                     self.game_status = "END"
@@ -291,15 +333,22 @@ async def wait_action(self):
             if action_data and action_type == "cut":
                 is_moqie = action_data.get("cutClass")
                 tile_id = action_data.get("TileId")
+                await asyncio.sleep(0.3)
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, action_data.get("cutIndex"), is_riichi=False)
                 return
             else:
                 is_moqie = True
                 tile_id = self.player_list[self.current_player_index].hand_tiles[-1]
+                await asyncio.sleep(0.3)
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
                 return
 
         case "waiting_action_qianggang":
+            # 抢杠和：放过抢杠机会的玩家与放过荣和同等处理——同巡振听；立直家则永久振听到本局结束
+            chankan_eligible_indexes = [
+                pi for pi, acts in self.action_dict.items()
+                if any(a in ("hu_first", "hu_second", "hu_third") for a in acts)
+            ]
             temp_jiagang_tile = self.jiagang_tile
             self.jiagang_tile = None
             if action_data:
@@ -310,10 +359,16 @@ async def wait_action(self):
                     self.game_status = "END"
                     return
                 else:
-                    # 抢杠和不成立，继续加杠流程：摸岭上、翻宝牌指示
+                    # 抢杠和不成立，继续加杠流程：摸岭上、翻宝牌指示；放过的玩家挂同巡/立直振听
+                    _apply_passed_ron_furiten(self, chankan_eligible_indexes)
+                    if self.sync_furiten_tags():
+                        await broadcast_refresh_player_tag_list(self)
                     self.game_status = "deal_card_after_gang"
                     return
             else:
+                _apply_passed_ron_furiten(self, chankan_eligible_indexes)
+                if self.sync_furiten_tags():
+                    await broadcast_refresh_player_tag_list(self)
                 self.game_status = "deal_card_after_gang"
                 return
 
@@ -336,15 +391,25 @@ async def _do_cut(self, player_index: int, action_data: dict, is_riichi: bool):
 
 
 async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cut_tile_index, is_riichi: bool):
-    """切牌/立直切，更新振听并广播。"""
+    """切牌/立直切，更新振听并广播。
+    立直家被鸣后续切的牌也需横置，由 player.riichi_marker_pending 触发——和 is_riichi 任一为真都会让本次弃牌标记为横置。"""
     player = self.player_list[player_index]
     if tile_id not in player.hand_tiles:
         logger.error(f"tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
         raise ValueError("非法切牌")
 
+    if tile_id in (player.kuikae_forbidden_tiles or []):
+        logger.error(f"player {player_index} 试图食替切回禁牌 {tile_id}, forbidden={player.kuikae_forbidden_tiles}")
+        raise ValueError("食替禁切")
+
+    horizontal_flag = bool(is_riichi or player.riichi_marker_pending)
+
     player.hand_tiles.remove(tile_id)
     player.discard_tiles.append(tile_id)
-    player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
+    player.discard_riichi_flags.append(horizontal_flag)
+    player.kuikae_forbidden_tiles = []
+    player.riichi_marker_pending = False
+    player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie, is_riichi_horizontal=horizontal_flag)
 
     if self.current_player_index == 0:
         self.xunmu += 1
@@ -361,7 +426,8 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
         await broadcast_declare_riichi(self, player_index)
 
     await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
-                              cut_tile=tile_id, cut_class=is_moqie, cut_tile_index=cut_tile_index)
+                              cut_tile=tile_id, cut_class=is_moqie, cut_tile_index=cut_tile_index,
+                              is_riichi_horizontal=horizontal_flag)
 
     # 明杠/加杠的杠宝牌指示牌在"打完牌"之后才翻（标准立直规则）。
     while getattr(self, "_pending_kan_dora_count", 0) > 0:
@@ -370,13 +436,9 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
 
     refresh_waiting_tiles(self, self.current_player_index)
 
-    # 更新振听标签
-    if any(_normalize(t) in player.waiting_tiles for t in player.discard_tiles):
-        if "furiten" not in player.tag_list:
-            player.tag_list.append("furiten")
-    else:
-        if "furiten" in player.tag_list:
-            player.tag_list.remove("furiten")
+    # 自家切牌后由 sync_furiten_tags 在合适时机统一调整 furiten tag（永久/同巡/立直振听归一显示）
+    if self.sync_furiten_tags():
+        await broadcast_refresh_player_tag_list(self)
 
     # 清一发
     _clear_ippatsu(self, keep_player_index=player_index if is_riichi else None)
@@ -430,6 +492,17 @@ def _clear_ippatsu(self, keep_player_index=None):
             continue
         if "ippatsu" in p.tag_list:
             p.tag_list.remove("ippatsu")
+
+
+def _apply_passed_ron_furiten(self, ron_eligible_indexes):
+    """有荣和机会但未在本巡和牌的玩家进入同巡振听；立直家则永久振听到本局结束。"""
+    if not ron_eligible_indexes:
+        return
+    for pi in ron_eligible_indexes:
+        p = self.player_list[pi]
+        p.temp_furiten = True
+        if "riichi" in p.tag_list or "daburu_riichi" in p.tag_list:
+            p.riichi_furiten = True
 
 
 def _pick_chi_pair(player, action_type: str, req_a: int, req_b: int, chi_combo_index: int):

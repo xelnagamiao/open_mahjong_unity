@@ -25,6 +25,7 @@ public class RoomInfo {
     public bool is_game_running; // 游戏是否正在运行
     public int random_seed; // 随机种子
     public bool open_cuohe; // 是否开启错和
+    public bool tactical_call; // 战术鸣牌（国标/青雀）
     public bool? red_dora;  // 立直麻将专属：是否启用赤宝牌
     public string hepai_way; // 立直麻将专属：和牌方式 head_bump / multi_ron / three_ron_abort
 }
@@ -58,6 +59,11 @@ public class ShowResultInfo { // 显示结算结果
     public int? honba;                        // 本场数
     public int? riichi_sticks_collected;      // 和牌者收走的立直棒数
     public Dictionary<int, int> score_changes; // 点数变化 {original_player_index: delta}
+    // 荒牌流局：各家听牌张 {player_index: [tile_id, ...]}，未听家不出现；以及是否发生不听罚符
+    public Dictionary<int, int[]> tenpai_tiles;
+    public bool? exhaustive_penalty;
+    // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时跳过
+    public bool? silent;
 }
 
 public class ShowShuheWeiInfo { // 数和尾结算信息
@@ -76,6 +82,10 @@ public class AskHandActionGBInfo { // 询问手牌操作
     public int player_index; // 玩家索引
     public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
     public int action_tick;
+    // 立直麻将：可立直切牌候选 {tile_id: [waiting_tile_id, ...]}，仅 action_list 含 riichi_cut 时下发
+    public Dictionary<int, int[]> riichi_candidate_cuts;
+    // 立直麻将：吃后切牌阶段的禁切牌列表（食替规则），客户端用于变暗与禁点
+    public int[] forbidden_cut_tiles;
 }
 
 public class AskOtherActionGBInfo { // 询问切牌后操作
@@ -85,6 +95,8 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
     public int action_tick;
     // 立直麻将赤宝牌吃牌候选：键为方向 "chi_left"/"chi_mid"/"chi_right"，值为每条候选的两张真实牌 ID（含 105/205/305）
     public System.Collections.Generic.Dictionary<string, int[][]> chi_candidates;
+    // 战术鸣牌：True 时表示这是申请阶段对更高优先级行为的再次询问，客户端使用战术倒计时
+    public bool? is_tactical_recheck;
 }
 
 public class DoActionInfo { // 执行操作
@@ -98,6 +110,11 @@ public class DoActionInfo { // 执行操作
     public int? buhua_tile;         // 可空类型
     public string combination_target; // 可空类型
     public int[] combination_mask;  // 数组可以为null
+    public bool? is_riichi_horizontal; // 立直规则：本张弃牌是否横置（含立直宣告 + 立直牌被吃后续横）
+    // 战术鸣牌：True 时表示这是申请阶段广播，仅播放发声与字体动画，不应用状态变化
+    public bool? is_claim;
+    // 战术鸣牌：True 时表示这是申请阶段后的静默实际行为，仅应用状态变化，不播放发声与字体动画
+    public bool? silent;
 }
 
 public class PlayerInfo { // 房间信息中单个玩家信息
@@ -122,6 +139,7 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public string[] score_history;      // 分数历史变化列表，每局记录 +？、-？ 或 0
     public int[] round_number_history;  // 实际每手对应局数（支持连庄重复）
     public string[] tag_list;           // 标签列表
+    public bool[] discard_riichi_flags; // 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
 }
 
 public class GameInfo { // 游戏开始时传递房间信息
@@ -141,6 +159,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     public int hepai_limit;             // 起和番限制（国标有效，默认8）
     public bool open_cuohe;             // 是否开启错和
+    public bool tactical_call;          // 战术鸣牌（国标/青雀）
     public bool isPlayerSetRandomSeed;  // 是否设置随机种子
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
@@ -161,6 +180,8 @@ public class SwitchSeatInfo { // 换位信息
 
 public class RefreshPlayerTagListInfo { // 刷新玩家标签列表信息
     public Dictionary<int, string[]> player_to_tag_list; // 玩家索引到标签列表的映射 {player_index: tag_list}
+    // 立直宣告广播复用此结构时填入：刚宣告立直的玩家索引（用于音效/点棒动画定位）
+    public int? riichi_declared_player_index;
 }
 
 public class ReadyStatusInfo { // 准备状态信息
@@ -280,6 +301,19 @@ public class SpectatorInfo { // 观战信息
     public string gamestate_id; // 游戏状态ID
 }
 
+public class FriendInfo { // 好友 / 关注信息
+    public int user_id;           // 被关注者的 user_id
+    public string username;        // 用户名
+    public int profile_image_id;   // 头像 ID
+    public string state;           // "offline" / "online" / "in_game"
+    public string gamestate_id;    // 仅当 state == "in_game" 时有值
+}
+
+public class RealtimeSpectatorEntry { // 实时观战者条目
+    public int user_id;
+    public string username;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
@@ -312,5 +346,16 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public SpectatorInfo[] spectator_list; // 返回观战列表
     public Dictionary<string, QueueStatusEntry> queue_status; // 匹配队列状态
     public long client_ts; // pong 消息回传：客户端发送 ping 的时间戳（毫秒）
+    // 好友 / 关注 / 实时观战
+    public FriendInfo[] friend_list;             // 关注列表
+    public int? friend_count;                    // 当前关注人数
+    public int? friend_max;                      // 关注上限
+    public string realtime_request_id;           // 实时观战请求 ID
+    public int? realtime_from_user_id;           // 发起者 user_id
+    public string realtime_from_username;        // 发起者 username
+    public int? realtime_to_user_id;             // 接收者 user_id
+    public string realtime_to_username;          // 接收者 username
+    public string realtime_gamestate_id;         // 关联对局 gamestate_id
+    public RealtimeSpectatorEntry[] realtime_spectators; // 当前实时观战者列表
 }
 

@@ -404,6 +404,13 @@ class GameStateManager:
         
         logger.info(f"已清理所有映射关系，gamestate_id: {gamestate_id}, room_id: {game_state.room_id}")
         
+        # 通知挂在该对局的实时观战者下机
+        if getattr(self.game_server, "friend_manager", None):
+            try:
+                await self.game_server.friend_manager.on_game_end(game_state)
+            except Exception as exc:
+                logger.warning(f"friend_manager.on_game_end 异常: {exc}")
+
         # 然后调用游戏状态的清理方法（取消协程）
         await game_state.cleanup_game_state()
         logger.info(f"已清理游戏状态协程，gamestate_id: {gamestate_id}, room_id: {game_state.room_id}")

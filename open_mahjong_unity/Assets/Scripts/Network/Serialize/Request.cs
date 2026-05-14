@@ -22,6 +22,7 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public int hepai_limit; // 起和番限制
     public bool tourist_limit; // 游客限制
     public bool allow_spectator; // 允许观战
+    public bool tactical_call; // 战术鸣牌（国标/青雀）
 }
 
 public class CreateRiichiRoomRequest { // 创建立直麻将房间请求

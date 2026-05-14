@@ -109,10 +109,18 @@ class RiichiPlayer:
         self.pending_riichi = False
         self.pending_daburu = False
         self.riichi_turn: Optional[int] = None
-        self.temp_furiten = False  # 同巡振听（默认听牌后放铳会荣和失败，简化使用永久振听）
+        self.temp_furiten = False  # 同巡振听：自家放过本巡他家弃牌中的听张后，至下一次自摸前不可荣和
+        self.riichi_furiten = False  # 立直振听：立直状态下放过荣和后永久振听到本局结束
         self.riichi_candidate_cuts: Dict[int, List[int]] = {}
         # 吃牌候选：{"chi_left": [[r1, r2], ...], ...}，含赤 5 真实 ID，供客户端展示可选吃法
         self.chi_candidates: Dict[str, List[List[int]]] = {}
+        # 食替禁切：吃/碰后到本家切出前，不可丢回的真实牌 ID 列表（包含吃来源 + 两面搭子筋）
+        self.kuikae_forbidden_tiles: List[int] = []
+        # 河中每张弃牌是否横置（含立直宣告与"立直牌被吃后下一张续横"两种情形），与 discard_tiles 同序
+        self.discard_riichi_flags: List[bool] = []
+        # 立直家本应横置的下一张弃牌待标记位：宣告立直时置 True；本次切完归 False；
+        # 若立直宣告的横置弃牌被他家吃/碰则在 chi/peng/gang 处理处再次置 True，使下一张续横
+        self.riichi_marker_pending: bool = False
 
     def get_tile(self, tiles_list):
         element = tiles_list.pop(0)
@@ -233,6 +241,25 @@ class RiichiGameState:
         self.spectator_enabled = self.allow_spectator_config and not any(p.user_id <= 10 for p in self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
+        # 实时观战者（与传统观战独立的低延迟管道，由 FriendManager 维护）
+        self.realtime_spectators = []
+
+    async def send_to_realtime_spectators(self, player_index: int, response):
+        """把同一份 Response 转发给挂在 player_index 座位上的所有实时观战者。"""
+        spectators = getattr(self, "realtime_spectators", None)
+        if not spectators:
+            return
+        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
+        for sp in list(spectators):
+            if sp.player_index != player_index:
+                continue
+            conn = self.game_server.user_id_to_connection.get(sp.user_id)
+            if conn is None:
+                continue
+            try:
+                await conn.websocket.send_json(payload)
+            except Exception:
+                pass
 
     async def player_disconnect(self, user_id: int):
         for p in self.player_list:
@@ -256,7 +283,8 @@ class RiichiGameState:
                     from .boardcast import _build_base_game_info, _build_player_info
                     conn = self.game_server.user_id_to_connection[user_id]
                     base = _build_base_game_info(self)
-                    infos = [_build_player_info(pp, user_id) for pp in self.player_list]
+                    viewer_pi = next((pp.player_index for pp in self.player_list if pp.user_id == user_id), 0)
+                    infos = [_build_player_info(pp, user_id, viewer_pi) for pp in self.player_list]
                     game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None})
                     response = Response(type="gamestate/riichi/game_start", success=True, message="重连成功", game_info=game_info)
                     await conn.websocket.send_json(response.dict(exclude_none=True))
@@ -357,6 +385,11 @@ class RiichiGameState:
                             break
                         next_current_index(self)
                         self.refresh_waiting_tiles(self.current_player_index)
+                        # 摸牌一刻：解除自家上一巡的同巡振听（永久/立直振听不受影响）
+                        next_p = self.player_list[self.current_player_index]
+                        next_p.temp_furiten = False
+                        if self.sync_furiten_tags():
+                            await self.broadcast_refresh_player_tag_list()
                         self.player_list[self.current_player_index].get_tile(self.tiles_list)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="d")
                         await self.broadcast_do_action(
@@ -383,6 +416,11 @@ class RiichiGameState:
                                 self._pending_four_kan_abort = True
 
                         self.refresh_waiting_tiles(self.current_player_index)
+                        # 岭上摸牌同样解除该家同巡振听（永久/立直振听仍由 sync_furiten_tags 保留）
+                        gplayer = self.player_list[self.current_player_index]
+                        gplayer.temp_furiten = False
+                        if self.sync_furiten_tags():
+                            await self.broadcast_refresh_player_tag_list()
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="gd")
                         await self.broadcast_do_action(
@@ -439,7 +477,26 @@ class RiichiGameState:
                 self.spectator_manager.record_tick(["end"])
 
             # 准备阶段
-            wait_time = 8.0
+            # 与客户端 RoundEndFlowManager / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
+            # 避免动画结束后还要在空白界面再等几秒。和牌画面较长（需阅读番符），其它流局以演出时长 + 0.5s 余量为准。
+            if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
+                wait_time = 8.0
+            elif self.hu_class == "ryuukyoku":
+                tenpai_indexes = [p.player_index for p in self.player_list if p.waiting_tiles]
+                noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
+                # 1.5s 听牌倒下动画 + 2s 流局标题 (+ 3s 不听罚符) + 0.5s 余量
+                if tenpai_indexes and noten_indexes:
+                    wait_time = 1.5 + 2.0 + 3.0 + 0.5
+                else:
+                    wait_time = 1.5 + 2.0 + 0.5
+            elif self.hu_class == "jiuzhongjiupai":
+                # 仅 EndLiujuPanel 默认 2s 自动隐藏 + 0.5s 余量
+                wait_time = 2.0 + 0.5
+            elif self.hu_class in ("four_wind_abort", "four_kan_abort", "four_riichi_abort", "three_ron_abort"):
+                # PenaltyPanel Standard 模式 autoHideSeconds=4s + 0.5s 余量
+                wait_time = 4.0 + 0.5
+            else:
+                wait_time = 8.0
             deadline = time.time() + wait_time
             self.action_dict = {}
             for p in self.player_list:
@@ -487,6 +544,7 @@ class RiichiGameState:
                 p.huapai_list = []
                 p.discard_tiles = []
                 p.discard_origin_tiles = []
+                p.discard_riichi_flags = []
                 p.combination_tiles = []
                 p.combination_mask = []
                 p.waiting_tiles = set()
@@ -495,8 +553,11 @@ class RiichiGameState:
                 p.pending_daburu = False
                 p.riichi_turn = None
                 p.temp_furiten = False
+                p.riichi_furiten = False
                 p.riichi_candidate_cuts = {}
                 p.chi_candidates = {}
+                p.kuikae_forbidden_tiles = []
+                p.riichi_marker_pending = False
                 for tag in ("riichi", "daburu_riichi", "ippatsu", "furiten"):
                     if tag in p.tag_list:
                         p.tag_list.remove(tag)
@@ -554,11 +615,17 @@ class RiichiGameState:
             # 荒牌流局：听牌家均分 3000 分
             self.hu_class = "ryuukyoku"
             changes = await self._settle_ryuukyoku()
+            tenpai_indexes = [p.player_index for p in self.player_list if p.waiting_tiles]
+            noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
+            has_penalty = bool(tenpai_indexes and noten_indexes)
+            tenpai_tiles = {p.player_index: sorted(p.waiting_tiles) for p in self.player_list if p.waiting_tiles}
             await broadcast_result(
                 self,
                 hu_class="ryuukyoku",
                 score_changes={i: changes.get(i, 0) for i in range(4)},
                 player_to_score={p.original_player_index: p.score for p in self.player_list},
+                tenpai_tiles=tenpai_tiles,
+                exhaustive_penalty=has_penalty,
             )
 
     async def _settle_hu(self):
@@ -786,6 +853,25 @@ class RiichiGameState:
 
         player_action_record_new_dora(self, tile_id=new_ind)
         await broadcast_update_dora(self, new_indicator=new_ind, is_kan_dora=True)
+
+    # ========== 振听 ==========
+
+    def sync_furiten_tags(self) -> bool:
+        """根据 永久振听 / 同巡振听 / 立直振听 三态合并出对应 furiten tag。
+        永久振听：自家弃牌中含听牌；同巡振听：本巡放过荣和；立直振听：立直后放过荣和（永久至本局结束）。
+        三者中任意一种成立即挂 furiten tag。返回是否发生改动（用于决定是否广播）。"""
+        changed = False
+        for p in self.player_list:
+            permanent = any(_normalize(t) in p.waiting_tiles for t in p.discard_tiles)
+            is_furiten = permanent or p.temp_furiten or p.riichi_furiten
+            has_tag = "furiten" in p.tag_list
+            if is_furiten and not has_tag:
+                p.tag_list.append("furiten")
+                changed = True
+            elif not is_furiten and has_tag:
+                p.tag_list.remove("furiten")
+                changed = True
+        return changed
 
     # ========== 特殊流局检测 ==========
 

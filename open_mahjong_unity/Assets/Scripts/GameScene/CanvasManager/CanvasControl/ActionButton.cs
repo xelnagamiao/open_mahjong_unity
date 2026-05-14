@@ -75,6 +75,11 @@ public class ActionButton : MonoBehaviour {
 
     // 按钮点击事件
     void OnClick(){
+        // 立直按钮：进入立直选牌模式（隐藏其他按钮、按候选切牌变暗手牌、点击切牌发送 riichi_cut）
+        if (actionTypeList.Count == 1 && actionTypeList[0] == "riichi_cut") {
+            RiichiCutSelectionController.Instance.EnterRiichiCutMode();
+            return;
+        }
         bool isChi = IsChiButton();
         List<(string action, int comboIndex, int[] pair)> chiCands = isChi ? CollectChiCandidates() : null;
 

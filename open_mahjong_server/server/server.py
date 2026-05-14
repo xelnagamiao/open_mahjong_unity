@@ -13,6 +13,8 @@ from .room.room_router import handle_room_message
 from .gamestate.gamestate_router import handle_gamestate_message
 from .database.data_router import handle_data_message
 from .match.match_router import handle_match_message
+from .friend.friend_router import handle_friend_message
+from .friend.friend_manager import FriendManager
 from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
 from .chat_server.chat_server import ChatServer
@@ -121,6 +123,8 @@ class GameServer:
         self.chat_server = chat_server
         # 匹配管理器
         self.match_manager = MatchManager(self)
+        # 好友 / 实时观战 管理器
+        self.friend_manager = FriendManager(self)
 
     # 玩家连接：使用websocket为key 存储[sebsocket,uuid] : PlayerConnection[1,1,0,0]
     async def connect(self, websocket: WebSocket, Connect_id: str):
@@ -148,6 +152,13 @@ class GameServer:
             if player.user_id:
                 self.match_manager.player_disconnect(player.user_id)
 
+            # 清理好友实时观战相关：撤回请求、移除观战者
+            if player.user_id:
+                try:
+                    await self.friend_manager.on_player_disconnect(player.user_id)
+                except Exception as exc:
+                    logging.warning(f"friend_manager.on_player_disconnect 异常: {exc}")
+
             # 如果玩家在游戏中，则断开游戏连接
             if player.user_id:
                 await self.gamestate_manager.player_disconnect(player.user_id)
@@ -171,12 +182,12 @@ class GameServer:
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call)
 
     # 创建青雀房间
-    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
-        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator)
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
+        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call)
 
     # 创建古典麻将房间
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
@@ -357,6 +368,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             elif message.get("type", "").startswith("data/"):
                 # 数据相关消息，交由数据路由处理器处理
                 await handle_data_message(game_server, Connect_id, message, websocket)
+
+            # 检查是否是好友 / 实时观战相关消息（type 字段以 "friend/" 开头）
+            elif message.get("type", "").startswith("friend/"):
+                await handle_friend_message(game_server, Connect_id, message, websocket)
 
             elif message["type"] == "ping":
                 # 心跳/延迟测量：原样回传客户端发送时刻，由客户端自行计算往返时间

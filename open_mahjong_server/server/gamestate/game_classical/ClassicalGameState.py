@@ -162,6 +162,24 @@ class ClassicalGameState:
         self.spectator_enabled = self.allow_spectator_config and not any(player.user_id <= 10 for player in self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
+        # 实时观战者（由 FriendManager 维护，结构: List[RealtimeSpectator]）
+        self.realtime_spectators = []
+
+    async def send_to_realtime_spectators(self, player_index: int, response):
+        spectators = getattr(self, "realtime_spectators", None)
+        if not spectators:
+            return
+        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
+        for sp in list(spectators):
+            if sp.player_index != player_index:
+                continue
+            conn = self.game_server.user_id_to_connection.get(sp.user_id)
+            if conn is None:
+                continue
+            try:
+                await conn.websocket.send_json(payload)
+            except Exception:
+                pass
 
     async def player_disconnect(self, user_id: int):
         for p in self.player_list:

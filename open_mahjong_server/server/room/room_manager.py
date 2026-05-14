@@ -28,7 +28,7 @@ class RoomManager:
         self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -76,6 +76,7 @@ class RoomManager:
                 "step_timer": stepTimerValue, # 步时
                 "random_seed": random_seed, # 随机种子
                 "open_cuohe": open_cuohe, # 是否开启错和
+                "tactical_call": tactical_call, # 战术鸣牌
             }
 
             # 拿取国标麻将验证器 使用验证器验证room_config
@@ -150,7 +151,7 @@ class RoomManager:
 
     async def create_Qingque_room(self, player_id: str, room_name: str, gameround: int,
                                   password: str, roundTimerValue: int, stepTimerValue: int,
-                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
         """
         创建青雀房间。
         青雀规则不支持错和，open_cuohe 参数会被忽略，统一按 False 处理。
@@ -199,6 +200,7 @@ class RoomManager:
                 "step_timer": stepTimerValue, # 步时
                 "random_seed": random_seed, # 随机种子
                 "open_cuohe": False, # 青雀规则不支持错和，固定为 False
+                "tactical_call": tactical_call, # 战术鸣牌
             }
 
             # 拿取国标麻将验证器（青雀规则与国标类似，复用验证器）

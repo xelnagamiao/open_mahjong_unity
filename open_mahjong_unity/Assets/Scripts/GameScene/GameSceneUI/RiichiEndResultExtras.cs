@@ -15,4 +15,8 @@ public class RiichiEndResultExtras {
     public int Honba;
     public int RiichiSticksCollected;
     public Dictionary<int, int> ScoreChanges;
+    /// <summary>荒牌流局时各家听牌张，键为 player_index，值为听张 ID 列表；未听家不出现。</summary>
+    public Dictionary<int, int[]> TenpaiTiles;
+    /// <summary>荒牌流局是否发生不听罚符点棒。</summary>
+    public bool NotenPenaltyAfterDraw;
 }

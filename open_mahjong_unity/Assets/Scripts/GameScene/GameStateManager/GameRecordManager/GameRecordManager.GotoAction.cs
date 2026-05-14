@@ -121,9 +121,11 @@ public partial class GameRecordManager
         else if (action == "c") {
             int cutTile = ParseTickInt(tick, 1);
             bool isMoqie = ParseTickBool(tick, 2);
+            bool isRiichiHorizontal = tick.Count > 3 && tick[3] == "H";
             RemoveTileForCut(actingPlayer.tileList, cutTile, isMoqie);
             actingPlayer.discardTiles.Add(cutTile);
             actingPlayer.discardIsMoqie.Add(isMoqie);
+            actingPlayer.discardRiichiFlags.Add(isRiichiHorizontal);
             lastDiscardPlayerIndex = actingPlayerIndex;
             lastDiscardTileId = cutTile;
             nextPlayerIndex = (actingPlayerIndex + 1) % 4;
@@ -157,7 +159,11 @@ public partial class GameRecordManager
 
             if (lastDiscardPlayerIndex >= 0 && indexToPosition.ContainsKey(lastDiscardPlayerIndex)) {
                 string discardPlayerPosition = indexToPosition[lastDiscardPlayerIndex];
-                RemoveOneTile(recordPlayer_to_info[discardPlayerPosition].discardTiles, mingpaiTile);
+                var dpRecord = recordPlayer_to_info[discardPlayerPosition];
+                RemoveOneTile(dpRecord.discardTiles, mingpaiTile);
+                if (dpRecord.discardRiichiFlags.Count > 0){
+                    dpRecord.discardRiichiFlags.RemoveAt(dpRecord.discardRiichiFlags.Count - 1);
+                }
             }
 
             int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : currentPlayerIndex;
@@ -186,6 +192,13 @@ public partial class GameRecordManager
                 ApplyScoreDeltas(deltas, out _, out _);
             }
         }
+        else if (action == "riichi") {
+            // 跳转重建路径同样需要标记立直，便于 RebuildRecord3DTableWithoutAnimation 复原立直棒
+            int riichiPlayer = ParseTickInt(tick, 1);
+            foreach (var rp in recordPlayerList){
+                if (rp.playerIndex == riichiPlayer){ rp.isRiichi = true; break; }
+            }
+        }
 
         currentPlayerIndex = nextPlayerIndex;
     }
@@ -197,7 +210,12 @@ public partial class GameRecordManager
 
             for (int i = 0; i < player.discardTiles.Count; i++) {
                 bool moqie = i < player.discardIsMoqie.Count && player.discardIsMoqie[i];
-                Game3DManager.Instance.Change3DTile("SetRecordDiscardWithoutAnimation", player.discardTiles[i], 0, position, moqie, null);
+                bool horizontal = i < player.discardRiichiFlags.Count && player.discardRiichiFlags[i];
+                Game3DManager.Instance.Change3DTile("SetRecordDiscardWithoutAnimation", player.discardTiles[i], 0, position, moqie, null, horizontal);
+            }
+            // 跳转回放：已立直的玩家立刻放置立直棒（不播放飞行动画）
+            if (player.isRiichi){
+                Game3DManager.Instance.PlaceRiichiTenbouAt(position);
             }
             foreach (int tileId in player.huapaiList) {
                 Game3DManager.Instance.Change3DTile("SetBuhuacardWithoutAnimation", tileId, 0, position, false, null);
