@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -47,6 +47,23 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_VOICE_VOLUME = "VoiceVolume";
     private const int DEFAULT_VOLUME = 100;
 
+    private const string KEY_WHITE_DRAGON_FACE = "WhiteDragonFaceMode";
+    private const string KEY_MOQIE_SHORTCUT = "MoqieShortcutMode";
+    private const string KEY_ASK_OTHER_PASS_SHORTCUT = "AskOtherPassShortcutMode";
+
+    /// <summary>图集中空白/纯白牌面资源编号（与 2D CardFaceImage_xuefun 一致）。</summary>
+    public const int BlankFaceImageId = 2;
+
+    /// <summary>白板牌面：0 纯白（使用 BlankFaceImageId 图）1 回形（图集原图）</summary>
+    public int WhiteDragonFaceMode { get; private set; }
+    /// <summary>摸切快捷：0 双击 1 右键</summary>
+    public int MoqieShortcutMode { get; private set; }
+    /// <summary>鸣牌询问时过牌快捷：0 右键 1 无 2 双击</summary>
+    public int AskOtherPassShortcutMode { get; private set; }
+
+    /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
+    public const int WhiteDragonTileId = 46;
+
     public int MasterVolume { get; private set; }
     public int MusicVolume { get; private set; }
     public int SoundEffectVolume { get; private set; }
@@ -68,6 +85,10 @@ public class ConfigManager : MonoBehaviour {
         MusicVolume = PlayerPrefs.GetInt(KEY_MUSIC_VOLUME, DEFAULT_VOLUME);
         SoundEffectVolume = PlayerPrefs.GetInt(KEY_SOUND_EFFECT_VOLUME, DEFAULT_VOLUME);
         VoiceVolume = PlayerPrefs.GetInt(KEY_VOICE_VOLUME, DEFAULT_VOLUME);
+
+        WhiteDragonFaceMode = PlayerPrefs.GetInt(KEY_WHITE_DRAGON_FACE, 1);
+        MoqieShortcutMode = PlayerPrefs.GetInt(KEY_MOQIE_SHORTCUT, 0);
+        AskOtherPassShortcutMode = PlayerPrefs.GetInt(KEY_ASK_OTHER_PASS_SHORTCUT, 0);
         
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = ForegroundFrameRate;
@@ -132,5 +153,27 @@ public class ConfigManager : MonoBehaviour {
 
     public static string GetTitleText(int titleId) {
         return titleDictionary.ContainsKey(titleId) ? titleDictionary[titleId] : titleDictionary[1];
+    }
+
+    public bool UseBlankWhiteDragonFace(int tileId) {
+        return WhiteDragonFaceMode == 0 && tileId == WhiteDragonTileId;
+    }
+
+    public void SetWhiteDragonFaceMode(int mode) {
+        WhiteDragonFaceMode = Mathf.Clamp(mode, 0, 1);
+        PlayerPrefs.SetInt(KEY_WHITE_DRAGON_FACE, WhiteDragonFaceMode);
+        PlayerPrefs.Save();
+    }
+
+    public void SetMoqieShortcutMode(int mode) {
+        MoqieShortcutMode = Mathf.Clamp(mode, 0, 1);
+        PlayerPrefs.SetInt(KEY_MOQIE_SHORTCUT, MoqieShortcutMode);
+        PlayerPrefs.Save();
+    }
+
+    public void SetAskOtherPassShortcutMode(int mode) {
+        AskOtherPassShortcutMode = Mathf.Clamp(mode, 0, 2);
+        PlayerPrefs.SetInt(KEY_ASK_OTHER_PASS_SHORTCUT, AskOtherPassShortcutMode);
+        PlayerPrefs.Save();
     }
 }

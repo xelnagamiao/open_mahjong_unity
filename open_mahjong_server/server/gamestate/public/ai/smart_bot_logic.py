@@ -3,7 +3,7 @@
 牌面编码转换、向听数计算、进张数计算、手牌评估函数。
 """
 import logging
-from typing import List, Tuple
+from typing import List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,18 @@ except ImportError:
 # 34-index: 0-8(万) 9-17(筒) 18-26(索) 27(东) 28(南) 29(西) 30(北) 31(白) 32(发) 33(中)
 _HONOR_MAP = {41: 27, 42: 28, 43: 29, 44: 30, 45: 33, 46: 32, 47: 31}
 
+def normalize_tile(tile_id: int) -> int:
+    """红5归一化：105->15, 205->25, 305->35。其他牌原值返回。"""
+    if tile_id == 105:
+        return 15
+    if tile_id == 205:
+        return 25
+    if tile_id == 305:
+        return 35
+    return tile_id
+
 def tile_to_34(tile_id: int) -> int:
+    tile_id = normalize_tile(tile_id)
     if tile_id in _HONOR_MAP:
         return _HONOR_MAP[tile_id]
     suit = tile_id // 10  # 1=万 2=筒 3=索
@@ -134,32 +145,50 @@ def evaluate_hand(hand_tiles: List[int], meld_count: int, visible_34: List[int])
     a = count_acceptance(hand_tiles, meld_count, visible_34)
     return (-s, a)
 
-def find_best_cut(hand_tiles: List[int], meld_count: int, visible_34: List[int]) -> Tuple[int, int]:
-    """枚举每张手牌切出后的最优评分，返回 (best_tile_id, best_cut_index)"""
+def find_best_cut(hand_tiles: List[int], meld_count: int, visible_34: List[int],
+                   forbidden_normalized: Optional[Set[int]] = None) -> Tuple[int, int]:
+    """枚举每张手牌切出后的最优评分，返回 (best_tile_id, best_cut_index)
+    forbidden_normalized: 食替等规则禁切牌的归一化牌ID集合（与 hand_tiles 比较时手牌也会归一化）
+    """
+    forbidden = forbidden_normalized or set()
     best_score = (-999, -1)
-    best_tile = hand_tiles[-1]
-    best_index = len(hand_tiles) - 1
+    best_tile = None
+    best_index = -1
     seen = set()
     for i, tile in enumerate(hand_tiles):
         if tile in seen:
             continue
         seen.add(tile)
+        if normalize_tile(tile) in forbidden:
+            continue
         remaining = hand_tiles[:i] + hand_tiles[i+1:]
         score = evaluate_hand(remaining, meld_count, visible_34)
         if score > best_score:
             best_score = score
             best_tile = tile
             best_index = i
+    if best_tile is None:
+        # 全部被禁切（理论上不应发生）时退回首张未被禁切的牌
+        for i, tile in enumerate(hand_tiles):
+            if normalize_tile(tile) not in forbidden:
+                return tile, i
+        return hand_tiles[-1], len(hand_tiles) - 1
     return best_tile, best_index
 
-def find_best_cut_score(hand_tiles: List[int], meld_count: int, visible_34: List[int]) -> Tuple[int, int]:
-    """枚举每张手牌切出后的最优评分，返回最优评分元组"""
+def find_best_cut_score(hand_tiles: List[int], meld_count: int, visible_34: List[int],
+                         forbidden_normalized: Optional[Set[int]] = None) -> Tuple[int, int]:
+    """枚举每张手牌切出后的最优评分，返回最优评分元组
+    forbidden_normalized: 禁切牌的归一化牌ID集合（如日麻食替）；为空集时不过滤
+    """
+    forbidden = forbidden_normalized or set()
     best_score = (-999, -1)
     seen = set()
     for i, tile in enumerate(hand_tiles):
         if tile in seen:
             continue
         seen.add(tile)
+        if normalize_tile(tile) in forbidden:
+            continue
         remaining = hand_tiles[:i] + hand_tiles[i+1:]
         score = evaluate_hand(remaining, meld_count, visible_34)
         if score > best_score:

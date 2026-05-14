@@ -134,7 +134,8 @@ public class RoomNetworkManager : MonoBehaviour {
                 open_cuohe = config.CuoHe,
                 hepai_limit = config.HepaiLimit,
                 tourist_limit = config.TouristLimit,
-                allow_spectator = config.AllowSpectator
+                allow_spectator = config.AllowSpectator,
+                tactical_call = config.TacticalCall
             };
             Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}, HepaiLimit: {config.HepaiLimit}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
@@ -169,7 +170,8 @@ public class RoomNetworkManager : MonoBehaviour {
                 open_cuohe = false,
                 hepai_limit = 1,
                 tourist_limit = config.TouristLimit,
-                allow_spectator = config.AllowSpectator
+                allow_spectator = config.AllowSpectator,
+                tactical_call = config.TacticalCall
             };
             Debug.Log($"发送创建青雀房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, TouristLimit: {config.TouristLimit}, AllowSpectator: {config.AllowSpectator}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
@@ -207,6 +209,43 @@ public class RoomNetworkManager : MonoBehaviour {
                 allow_spectator = config.AllowSpectator
             };
             Debug.Log($"发送创建古典麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
+
+    /// <summary>
+    /// 创建立直麻将房间
+    /// </summary>
+    public async void Create_Riichi_Room(Riichi_Create_RoomConfig config) {
+        try {
+            int randomSeed = 0;
+            if (!string.IsNullOrEmpty(config.RandomSeed)) {
+                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
+                    randomSeed = 0;
+                }
+            }
+
+            var request = new CreateRiichiRoomRequest {
+                type = "room/create_Riichi_room",
+                rule = config.Rule,
+                sub_rule = config.SubRule ?? "riichi/standard",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = config.CuoHe,
+                hepai_limit = config.HepaiLimit,
+                red_dora = config.RedDora,
+                hepai_way = config.HepaiWay ?? "head_bump",
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator
+            };
+            Debug.Log($"发送创建立直麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, cuohe={config.CuoHe}, hepai_limit={config.HepaiLimit}, red_dora={config.RedDora}, hepai_way={config.HepaiWay}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);

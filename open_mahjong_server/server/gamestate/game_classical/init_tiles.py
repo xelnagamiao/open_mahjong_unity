@@ -24,7 +24,8 @@ def init_classical_tiles(self):
 
 def _shuffle_and_deal(self) -> None:
     """种子生成、洗牌、发牌（每人13张，不额外发牌）"""
-    combined = f"{self.game_random_seed}_{self.current_round}".encode("utf-8")
+    # 使用 round_index 作为每手唯一递增因子，连庄时 current_round 不变也会换种子。
+    combined = f"{self.game_random_seed}_{self.round_index}".encode("utf-8")
     hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
     self.round_random_seed = hash_value % (2**32)
     random.seed(self.round_random_seed)

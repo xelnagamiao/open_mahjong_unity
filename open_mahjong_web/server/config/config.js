@@ -33,6 +33,13 @@ const appConfig = {
   isDebug: process.env.DEBUG === 'true' || !isProduction
 };
 
+// ==================== 游戏计算服务器（Python FastAPI）====================
+// 用于代理国标算分/拆解/听牌等纯计算接口
+const calcServerConfig = {
+  baseUrl: process.env.CALC_SERVER_URL || 'http://127.0.0.1:8081',
+  timeoutMs: parseInt(process.env.CALC_SERVER_TIMEOUT_MS) || 8000,
+};
+
 // ==================== 前端和跨域配置 ====================
 // 生产环境的前端地址
 const productionFrontendUrl = process.env.FRONTEND_URL || 'https://salasasa.cn';
@@ -79,6 +86,9 @@ module.exports = {
   
   // Socket.IO 配置
   socket: socketConfig,
+
+  // 计算服务器配置
+  calcServer: calcServerConfig,
   
   // 便捷访问
   isProduction: isProduction,

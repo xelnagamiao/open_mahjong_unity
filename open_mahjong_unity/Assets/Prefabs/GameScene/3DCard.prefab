@@ -107,3 +107,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _cospatialVertexDistanceThreshold: 0.1
   _recalculateOnEnable: 1
+  _skipIfAlreadyCalculated: 1

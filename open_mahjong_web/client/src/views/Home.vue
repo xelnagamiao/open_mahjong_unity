@@ -1,14 +1,15 @@
 <template>
-  <!-- 首页 欢迎词  -->
   <div class="home">
     <div class="hero-section">
-      <h1 class="hero-title">欢迎访问salasasa.cn</h1>
-      <p class="hero-subtitle">一个简易的麻将服务网站 欢迎加入玩家qq群906497522寻找雀友与交流</p>
+      <h1 class="hero-title">欢迎访问 salasasa.cn</h1>
+      <p class="hero-subtitle">
+        一个简易的麻将服务网站。欢迎加入玩家 QQ 群 906497522，寻找雀友与交流。
+      </p>
     </div>
-    <!-- 功能 -->
+
     <div class="features-grid">
-      <el-card 
-        v-for="feature in features" 
+      <el-card
+        v-for="feature in features"
         :key="feature.id"
         class="feature-card"
         :body-style="{ padding: '0px' }"
@@ -20,14 +21,13 @@
               <component :is="feature.icon" />
             </el-icon>
           </div>
-             <div class="card-text">
-             <h3 v-html="feature.title.replace('\n', '<br>')"></h3>
-             <p>{{ feature.description }}</p>
-           </div>
+          <div class="card-text">
+            <h3 v-html="feature.title.replace('\n', '<br>')"></h3>
+            <p>{{ feature.description }}</p>
+          </div>
         </div>
       </el-card>
     </div>
-
   </div>
 </template>
 
@@ -35,12 +35,14 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  VideoPlay,
+  User,
+  Histogram,
   DataAnalysis,
   Trophy,
-  Star,
-  VideoPlay,
+  Reading,
   Document,
-  Link
+  Link,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -49,85 +51,85 @@ const features = ref([
   {
     id: 1,
     title: '对战平台',
-    description: 'open_mahjong_unity是基于Unity开发的麻将对战平台,目前仅支持国标规则',
-    icon: 'VideoPlay',
-    color: '#007bff', /* 蓝色 */
+    description: 'Unity 客户端：国标、青雀、古典等玩法，匹配 / 房间 / 观战 / 牌谱。',
+    icon: VideoPlay,
+    color: '#007bff',
     type: 'route',
-    route: '/game-unity'
+    route: '/game-unity',
+  },
+  {
+    id: 8,
+    title: 'GitHub 项目',
+    description: '源码、Issue 与共建。',
+    icon: Link,
+    color: '#808080',
+    type: 'route',
+    route: '/github',
   },
   {
     id: 2,
-    title: '开发手册',
-    description: '查看开发文档,设计自定义的麻将规则',
-    icon: 'Document',
-    color: '#00b300', /* 绿色 */
+    title: '玩家数据',
+    description: '查询各规则下的胜率、得分与对战记录。',
+    icon: User,
+    color: '#e74c3c',
     type: 'route',
-    route: '/docs'
+    route: '/player-data',
   },
   {
     id: 3,
-    title: '玩家数据统计',
-    description: '查询玩家的胜率、得分、对战次数等数据',
-    icon: 'Link',
-    color: '#ff0000', /* 红色 */ 
+    title: '牌理',
+    description: '14 张手牌：逐张分析切牌后的向听与进张，支持牌面简写与点选。',
+    icon: Histogram,
+    color: '#9b59b6',
     type: 'route',
-    route: '/player-data'
+    route: '/paili',
   },
   {
     id: 4,
-    title: 'GitHub项目',
-    description: '转至GitHub页面',
-    icon: 'Link',
-    color: '#6699CC', /* 灰色 */ 
+    title: '听牌待牌判断',
+    description: '国标听牌算法：手牌 + 副露，判断是否听牌及全部待牌。',
+    icon: DataAnalysis,
+    color: '#4ECDC4',
     type: 'route',
-    route: '/github'
+    route: '/shanten',
   },
   {
     id: 5,
-    title: '听牌待牌判断(未启用)',
-    description: '分析手牌是否听牌，以及听牌手牌的待牌',
-    icon: 'DataAnalysis',
-    color: '#4ECDC4',
+    title: '国标麻将\n牌型解算',
+    description: '番种、得分、和牌拆解（连接服务器算分接口）。',
+    icon: Trophy,
+    color: '#45B7D1',
     type: 'route',
-    route: '/shanten'
+    route: '/chinese',
   },
   {
     id: 6,
-    title: '国标麻将牌型解算(未启用)',
-    description: '根据您输入的手牌、副露、花牌、和牌方式计算出可能的和牌构成与他家支付的点数',
-    icon: 'Trophy',
-    color: '#45B7D1',
+    title: '规则书',
+    description: '国标 / 立直 / 青雀 / 古典等规则 PDF 与说明入口。',
+    icon: Reading,
+    color: '#a78bfa',
     type: 'route',
-    route: '/chinese'
+    route: '/rulebook',
   },
   {
     id: 7,
-    title: '立直麻将牌型解算(未启用)',
-    description: '根据您输入的手牌、副露、宝牌、和牌方式计算出可能的和牌构成与他家支付的点数',
-    icon: 'Star',
-    color: '#FF8C42',
+    title: '开发手册',
+    description: '协议与扩展自定义规则的语雀文档。',
+    icon: Document,
+    color: '#00b300',
     type: 'route',
-    route: '/riichi'
-  }
+    route: '/docs',
+  },
 ])
 
 const handleFeatureClick = (feature) => {
   if (feature.type === 'route') {
-    // 检查是否为外部链接路由
-    if (feature.route === '/game-unity' || feature.route === '/docs' || feature.route === '/github') {
-      // 这些路由会在beforeEnter中处理，在新窗口打开
-      router.push(feature.route)
-    } else {
-      // 普通路由正常跳转
-      router.push(feature.route)
-    }
+    router.push(feature.route)
   } else if (feature.type === 'external') {
     if (feature.url.startsWith('http')) {
-      // 外部链接，在新窗口打开
       window.open(feature.url, '_blank')
     } else {
-      // 内部静态页面 - 在新窗口打开
-      window.open(feature.url, '_blank')
+      router.push(feature.url)
     }
   }
 }
@@ -142,7 +144,7 @@ const handleFeatureClick = (feature) => {
 
 .hero-section {
   text-align: center;
-  margin-bottom: 60px;
+  margin-bottom: 50px;
   color: white;
 }
 
@@ -150,21 +152,22 @@ const handleFeatureClick = (feature) => {
   font-size: 3rem;
   margin-bottom: 20px;
   font-weight: bold;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .hero-subtitle {
   font-size: 1.2rem;
-  opacity: 0.9;
-  max-width: 600px;
+  opacity: 0.95;
+  max-width: 720px;
   margin: 0 auto;
+  line-height: 1.6;
 }
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 30px;
-  margin-bottom: 60px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 28px;
+  margin-bottom: 40px;
 }
 
 .feature-card {
@@ -176,12 +179,12 @@ const handleFeatureClick = (feature) => {
 }
 
 .feature-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .card-content {
-  padding: 40px;
+  padding: 36px;
   color: white;
   text-align: center;
   min-height: 200px;
@@ -192,33 +195,33 @@ const handleFeatureClick = (feature) => {
 }
 
 .card-icon {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .card-text h3 {
   font-size: 1.5rem;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   font-weight: bold;
 }
 
 .card-text p {
   font-size: 1rem;
   line-height: 1.6;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 @media (max-width: 768px) {
   .hero-title {
     font-size: 2rem;
   }
-  
+
   .features-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .card-content {
-    padding: 30px;
-    min-height: 150px;
+    padding: 28px;
+    min-height: 160px;
   }
 }
-</style> 
+</style>

@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # 获取机器人AI行动（直接使用玩家索引，只检测逻辑合法性）
-async def get_ai_action(game_state, player_index: int, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int):
+async def get_ai_action(game_state, player_index: int, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0):
     """
     机器人AI操作处理
     直接使用玩家索引，只检测逻辑相关的合法性
@@ -17,6 +17,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
         TileId: 切牌ID（仅用于cut操作）
         cutIndex: 切牌索引（仅用于cut操作）
         target_tile: 目标牌（用于angang、jiagang等操作）
+        chi_combo_index: 立直麻将涉赤 5 时吃牌候选索引（默认 0 = 优先非赤 5）
     """
     try:
         # 验证玩家索引是否有效
@@ -43,7 +44,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             return
 
         # 操作合法，将操作数据放入队列
-        if action_type == "cut": # 切牌操作
+        if action_type in ("cut", "riichi_cut"): # 切牌/立直切
             # 验证切牌的TileId是否在玩家手牌中
             if TileId not in current_player.hand_tiles:
                 logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
@@ -74,7 +75,8 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
                     return  # 丢弃命令
             await game_state.action_queues[player_index].put({
                 "action_type": action_type,
-                "target_tile": target_tile
+                "target_tile": target_tile,
+                "chi_combo_index": chi_combo_index,
             })
             # 设置事件
             game_state.action_events[player_index].set()
@@ -84,7 +86,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
         raise Exception(f"处理机器人操作时发生错误: {e}") # 出现问题时中断游戏
 
 # 获取玩家行动
-async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int):
+async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0):
     try:
         # 检测行动合法性
         # 从游戏服务器的PlayerConnection中获取user_id
@@ -133,7 +135,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             return
 
         # 操作合法，将操作数据放入队列
-        if action_type == "cut": # 切牌操作
+        if action_type in ("cut", "riichi_cut"): # 切牌/立直切
             # 验证切牌的TileId是否在玩家手牌中
             if TileId not in current_player.hand_tiles:
                 logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, user_id={user_id}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
@@ -177,7 +179,8 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                     return  # 丢弃命令
             await game_state.action_queues[player_index].put({
                 "action_type": action_type,
-                "target_tile": target_tile
+                "target_tile": target_tile,
+                "chi_combo_index": chi_combo_index,
             })
             # 设置事件
             game_state.action_events[player_index].set()

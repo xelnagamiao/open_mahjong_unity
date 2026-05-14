@@ -28,7 +28,7 @@ class RoomManager:
         self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -76,6 +76,7 @@ class RoomManager:
                 "step_timer": stepTimerValue, # 步时
                 "random_seed": random_seed, # 随机种子
                 "open_cuohe": open_cuohe, # 是否开启错和
+                "tactical_call": tactical_call, # 战术鸣牌
             }
 
             # 拿取国标麻将验证器 使用验证器验证room_config
@@ -150,7 +151,7 @@ class RoomManager:
 
     async def create_Qingque_room(self, player_id: str, room_name: str, gameround: int,
                                   password: str, roundTimerValue: int, stepTimerValue: int,
-                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
         """
         创建青雀房间。
         青雀规则不支持错和，open_cuohe 参数会被忽略，统一按 False 处理。
@@ -199,6 +200,7 @@ class RoomManager:
                 "step_timer": stepTimerValue, # 步时
                 "random_seed": random_seed, # 随机种子
                 "open_cuohe": False, # 青雀规则不支持错和，固定为 False
+                "tactical_call": tactical_call, # 战术鸣牌
             }
 
             # 拿取国标麻将验证器（青雀规则与国标类似，复用验证器）
@@ -314,6 +316,101 @@ class RoomManager:
                 "room_rule": "classical",
                 "sub_rule": sub_rule,
                 "hepai_limit": 1,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": allow_spectator,
+                "max_player": 4,
+                "player_list": [host_user_id],
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },
+                "has_password": has_password,
+                "tips": tips,
+                "host_user_id": host_user_id,
+                "host_name": host_name,
+                "is_game_running": False,
+            }
+
+            room_data.update(validated_config.dict())
+
+            self.rooms[room_id] = room_data
+            if has_password:
+                self.room_passwords[room_id] = password
+
+            player.current_room_id = room_id
+
+            await self._broadcast_room_info(room_id)
+
+            return Response(
+                type="room/create_room_done",
+                success=True,
+                message="房间创建成功",
+                room_info=room_data
+            )
+
+        except Exception as e:
+            return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
+
+    async def create_Riichi_room(self, player_id: str, room_name: str, gameround: int,
+                                 password: str, roundTimerValue: int, stepTimerValue: int,
+                                 tips: bool, random_seed: int = 0,
+                                 sub_rule: str = "riichi/standard",
+                                 open_cuohe: bool = False,
+                                 hepai_limit: int = 1,
+                                 red_dora: bool = True,
+                                 hepai_way: str = "head_bump",
+                                 tourist_limit: bool = False,
+                                 allow_spectator: bool = True) -> Response:
+        """创建立直麻将房间"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            host_user_id = player.user_id
+            host_name = player.username
+
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+
+            has_password = password != ""
+
+            hepai_limit = max(1, min(64, hepai_limit))
+
+            room_config = {
+                "room_name": room_name,
+                "game_round": gameround,
+                "round_timer": roundTimerValue,
+                "step_timer": stepTimerValue,
+                "random_seed": random_seed,
+                "open_cuohe": open_cuohe,
+                "hepai_limit": hepai_limit,
+                "red_dora": red_dora,
+                "hepai_way": hepai_way,
+            }
+
+            try:
+                validator_class = self.room_validators["riichi"]
+                validated_config = validator_class(**room_config)
+            except ValueError as e:
+                return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
+
+            room_id = self._generate_room_id()
+
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "riichi",
+                "sub_rule": sub_rule,
                 "tourist_limit": tourist_limit,
                 "allow_spectator": allow_spectator,
                 "max_player": 4,
@@ -713,11 +810,11 @@ class RoomManager:
 
             # 更新房间中的玩家设置信息
             # 普通玩家：直接删除其设置信息
-            # 机器人（user_id == 0）：只有当房间中已经没有任何 0 时才删除设置，避免多机器人共享同一配置被提前删掉
+            # 机器人（user_id <= 10）：只有当房间中已经没有该 user_id 时才删除设置，避免同类机器人共享配置被提前删掉
             if "player_settings" in room_data and target_user_id in room_data["player_settings"]:
-                if target_user_id == 0:
-                    # 如果 player_list 中已经没有机器人了，再删设置
-                    if 0 not in room_data["player_list"]:
+                if target_user_id <= 10:
+                    # 如果 player_list 中已经没有该机器人类型，再删除其设置
+                    if target_user_id not in room_data["player_list"]:
                         del room_data["player_settings"][target_user_id]
                 else:
                     del room_data["player_settings"][target_user_id]

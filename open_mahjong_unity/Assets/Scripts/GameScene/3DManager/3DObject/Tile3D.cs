@@ -12,7 +12,12 @@ public class Tile3D : MonoBehaviour
     private Renderer cardRenderer;
     private Material targetMaterial;
     private int currentTileId = -1;
+    private int currentPoolTileId = -1;
     private MaterialPropertyBlock propBlock;
+
+    /// <summary>立直横置标记：用于河中后续牌偏移计算与重连/牌谱重建。
+    /// 仅 SetType="Discard" 路径会写入；归还对象池时由 MahjongObjectPool 重置。</summary>
+    public bool isRiichiHorizontal;
 
     private void Awake() {
         InitializeComponents();
@@ -51,6 +56,7 @@ public class Tile3D : MonoBehaviour
         InitializeComponents();
 
         currentTileId = tileId;
+        currentPoolTileId = tileId;
         Texture2D atlasTexture = sprite.texture;
         targetMaterial.SetTexture("_FrontTex", atlasTexture);
 
@@ -86,6 +92,21 @@ public class Tile3D : MonoBehaviour
     /// </summary>
     public int GetTileId() {
         return currentTileId;
+    }
+
+    /// <summary>
+    /// 设置逻辑牌 id 与对象池 id；自家手牌可显示空白牌面但保留真实牌值。
+    /// </summary>
+    public void SetTileIds(int tileId, int poolTileId) {
+        currentTileId = tileId;
+        currentPoolTileId = poolTileId;
+    }
+
+    /// <summary>
+    /// 获取当前对象应归还的对象池 id。
+    /// </summary>
+    public int GetPoolTileId() {
+        return currentPoolTileId;
     }
 
     /// <summary>

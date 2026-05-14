@@ -1,11 +1,9 @@
 using System.Collections;
 using UnityEngine;
 
-public partial class Game3DManager : MonoBehaviour
-{
+public partial class Game3DManager : MonoBehaviour {
     // 摸牌3D显示（协程版本）
-    private IEnumerator Get3DTileCoroutine(string playerIndex, string actionType)
-    {
+    private IEnumerator Get3DTileCoroutine(string playerIndex, string actionType, int spawnTileId = 0) {
         PosPanel3D panel = GetPosPanel(playerIndex);
         Transform cardsPosition = panel.cardsPosition;
 
@@ -13,54 +11,60 @@ public partial class Game3DManager : MonoBehaviour
         Quaternion rotation = Quaternion.identity;
         Vector3 direction = Vector3.zero;
 
-        if (playerIndex == "left")
-        {
+        if (playerIndex == "self") {
+            rotation = SelfHandStandingRotation();
+            direction = RightDirection; // 向右
+        }
+        else if (playerIndex == "left") {
             rotation = Quaternion.Euler(0, 90, 0); // 面朝左侧
             direction = BackDirection; // 向后
         }
-        else if (playerIndex == "top")
-        {
+        else if (playerIndex == "top") {
             rotation = Quaternion.Euler(0, 180, 0); // 面朝前侧
             direction = LeftDirection; // 向左
         }
-        else if (playerIndex == "right")
-        {
+        else if (playerIndex == "right") {
             rotation = Quaternion.Euler(0, 270, 0); // 面朝右侧
             direction = FrontDirection; // 向前
         }
-        else
-        {
+        else {
             Debug.LogWarning($"未知的玩家位置: {playerIndex}");
             yield break;
         }
 
         // 初始化牌生成位置 = 玩家手牌起始点 + (3D卡牌数量)*宽度间距*方向
         Vector3 spawnPosition = Vector3.zero;
-        if (actionType == "init")
-        {
+        if (actionType == "init") {
             spawnPosition = cardsPosition.position + (cardsPosition.childCount) * cardWidth * direction;
         }
         // 摸牌生成位置 = 玩家手牌起始点 + (3D卡牌数量+1)*宽度间距*方向
-        else if (actionType == "get")
-        {
+        else if (actionType == "get") {
             spawnPosition = cardsPosition.position + (cardsPosition.childCount + 1) * cardWidth * direction;
         }
-        
+
         // 等待一帧，避免与其他操作在同一帧执行
         yield return null;
-        
-        // 从对象池获取空白牌面
-        GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation);
+
+        // 自家手牌显示空白牌面，但保留真实牌值用于 3D 删除和收拢。
+        GameObject cardObj;
+        if (playerIndex == "self" && spawnTileId >= 10) {
+            cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation, spawnTileId);
+        }
+        else {
+            cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation);
+        }
         if (cardObj == null) {
-            Debug.LogError("无法从对象池获取空白牌面");
+            Debug.LogError("无法从对象池获取3D手牌");
             yield break;
         }
         cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+        if (Card3DHoverManager.Instance != null && playerIndex == "self" && spawnTileId >= 11) {
+            Card3DHoverManager.Instance.RegisterCard(cardObj, spawnTileId);
+        }
     }
-    
+
     // 摸牌3D显示
-    private void Get3DTile(string playerIndex, string actionType)
-    {
+    private void Get3DTile(string playerIndex, string actionType, int spawnTileId = 0) {
         PosPanel3D panel = GetPosPanel(playerIndex);
         Transform cardsPosition = panel.cardsPosition;
 
@@ -68,46 +72,51 @@ public partial class Game3DManager : MonoBehaviour
         Quaternion rotation = Quaternion.identity;
         Vector3 direction = Vector3.zero;
 
-        if (playerIndex == "left")
-        {
+        if (playerIndex == "self") {
+            rotation = SelfHandStandingRotation();
+            direction = RightDirection; // 向右
+        }
+        else if (playerIndex == "left") {
             rotation = Quaternion.Euler(0, 90, 0); // 面朝左侧
             direction = BackDirection; // 向后
         }
-        else if (playerIndex == "top")
-        {
+        else if (playerIndex == "top") {
             rotation = Quaternion.Euler(0, 180, 0); // 面朝前侧
             direction = LeftDirection; // 向左
         }
-        else if (playerIndex == "right")
-        {
+        else if (playerIndex == "right") {
             rotation = Quaternion.Euler(0, 270, 0); // 面朝右侧
             direction = FrontDirection; // 向前
         }
-        else
-        {
+        else {
             Debug.LogWarning($"未知的玩家位置: {playerIndex}");
             return;
         }
 
         // 初始化牌生成位置 = 玩家手牌起始点 + (3D卡牌数量)*宽度间距*方向
         Vector3 spawnPosition = Vector3.zero;
-        if (actionType == "init")
-        {
+        if (actionType == "init") {
             spawnPosition = cardsPosition.position + (cardsPosition.childCount) * cardWidth * direction;
         }
         // 摸牌生成位置 = 玩家手牌起始点 + (3D卡牌数量+1)*宽度间距*方向
-        else if (actionType == "get")
-        {
+        else if (actionType == "get") {
             spawnPosition = cardsPosition.position + (cardsPosition.childCount + 1) * cardWidth * direction;
         }
-        // 从对象池获取空白牌面
-        GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation);
+
+        GameObject cardObj;
+        if (playerIndex == "self" && spawnTileId >= 10) {
+            cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation, spawnTileId);
+        }
+        else {
+            cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawnPosition, rotation);
+        }
         if (cardObj == null) {
-            Debug.LogError("无法从对象池获取空白牌面");
+            Debug.LogError("无法从对象池获取3D手牌");
             return;
         }
         cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+        if (Card3DHoverManager.Instance != null && playerIndex == "self" && spawnTileId >= 11) {
+            Card3DHoverManager.Instance.RegisterCard(cardObj, spawnTileId);
+        }
     }
 }
-
-

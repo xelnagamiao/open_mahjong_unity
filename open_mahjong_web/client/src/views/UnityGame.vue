@@ -1,5 +1,6 @@
 <template>
   <div class="unity-game-container">
+    <div v-if="hintVisible" class="unity-page-hint">{{ hintText }}</div>
     <div id="unity-container" class="unity-container">
       <canvas id="unity-canvas" ref="unityCanvas"></canvas>
       <div id="unity-loading-bar" class="unity-loading-bar">
@@ -19,26 +20,33 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 const unityCanvas = ref(null)
-let unityInstance = null
+const hintVisible = ref(true)
+const hintText = ref('正在准备 WebGL，界面可能短暂无响应属正常现象…')
 
-// 从Unity的index.html中解析文件名
+let unityInstance = null
+let unityMountGeneration = 0
+const UNITY_LOADER_SCRIPT_ID = 'unity-webgl-loader-script'
+
+function removeUnityLoaderScript() {
+  const el = document.getElementById(UNITY_LOADER_SCRIPT_ID)
+  if (el) el.remove()
+}
+
 async function parseUnityConfig() {
   try {
     const response = await fetch('/unity-game/index.html')
     const html = await response.text()
-    
-    // 解析loaderUrl
+
     const loaderMatch = html.match(/var\s+loaderUrl\s*=\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
-    // 解析config对象中的文件名
     const dataMatch = html.match(/dataUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
     const frameworkMatch = html.match(/frameworkUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
     const codeMatch = html.match(/codeUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
-    
+
     const buildUrl = '/unity-game/Build'
-    
+
     return {
       loaderUrl: loaderMatch ? buildUrl + '/' + loaderMatch[1] : null,
       dataUrl: dataMatch ? buildUrl + '/' + dataMatch[1] : null,
@@ -51,7 +59,6 @@ async function parseUnityConfig() {
   }
 }
 
-// 显示警告横幅
 function unityShowBanner(msg, type) {
   const warningBanner = document.querySelector('#unity-warning')
   if (!warningBanner) return
@@ -59,11 +66,11 @@ function unityShowBanner(msg, type) {
   function updateBannerVisibility() {
     warningBanner.style.display = warningBanner.children.length ? 'block' : 'none'
   }
-  
+
   const div = document.createElement('div')
   div.innerHTML = msg
   warningBanner.appendChild(div)
-  
+
   if (type === 'error') {
     div.style = 'background: red; padding: 10px;'
   } else if (type === 'warning') {
@@ -76,7 +83,6 @@ function unityShowBanner(msg, type) {
   updateBannerVisibility()
 }
 
-// 调整 Unity 容器大小以保持 16:9 宽高比
 function adjustUnityContainer() {
   const container = document.querySelector('#unity-container')
   const canvas = document.querySelector('#unity-canvas')
@@ -85,24 +91,27 @@ function adjustUnityContainer() {
 
   const parentWidth = containerParent.clientWidth
   const parentHeight = containerParent.clientHeight
-  
+
   const aspectRatio = 16 / 9
   let width = parentWidth
   let height = width / aspectRatio
-  
+
   if (height > parentHeight) {
     height = parentHeight
     width = height * aspectRatio
   }
-  
+
   container.style.width = width + 'px'
   container.style.height = height + 'px'
   canvas.style.width = width + 'px'
   canvas.style.height = height + 'px'
 }
 
-// 加载 Unity 游戏
-async function loadUnityGame() {
+const onOrientationChange = () => {
+  setTimeout(adjustUnityContainer, 100)
+}
+
+async function loadUnityGame(gen) {
   const canvas = unityCanvas.value
   if (!canvas) return
 
@@ -114,14 +123,16 @@ async function loadUnityGame() {
     loadingBar.style.display = 'block'
   }
 
-  // 先从Unity的index.html中解析文件名
   const fileConfig = await parseUnityConfig()
+  if (gen !== unityMountGeneration) return
+
   if (!fileConfig || !fileConfig.loaderUrl) {
     console.error('无法解析Unity配置文件')
     alert('无法加载Unity游戏配置，请检查Unity构建文件是否存在')
     if (loadingBar) {
       loadingBar.style.display = 'none'
     }
+    hintVisible.value = false
     return
   }
 
@@ -136,21 +147,37 @@ async function loadUnityGame() {
     showBanner: unityShowBanner
   }
 
-  // 加载 Unity loader
+  removeUnityLoaderScript()
   const script = document.createElement('script')
+  script.id = UNITY_LOADER_SCRIPT_ID
   script.src = fileConfig.loaderUrl
   script.onload = () => {
-    if (typeof createUnityInstance === 'function') {
+    if (gen !== unityMountGeneration) return
+    hintText.value = '正在下载与编译资源，请稍候…'
+    requestAnimationFrame(() => {
+      if (gen !== unityMountGeneration) return
+      if (typeof createUnityInstance !== 'function') {
+        console.error('createUnityInstance 未定义')
+        alert('Unity 加载器异常')
+        if (loadingBar) loadingBar.style.display = 'none'
+        hintVisible.value = false
+        return
+      }
       createUnityInstance(canvas, config, (progress) => {
         if (progressBarFull) {
           progressBarFull.style.width = 100 * progress + '%'
         }
       })
         .then((instance) => {
+          if (gen !== unityMountGeneration) {
+            try { instance.Quit() } catch (e) { /* ignore */ }
+            return
+          }
           unityInstance = instance
           if (loadingBar) {
             loadingBar.style.display = 'none'
           }
+          hintVisible.value = false
           if (fullscreenButton) {
             fullscreenButton.onclick = () => {
               if (unityInstance) {
@@ -162,8 +189,9 @@ async function loadUnityGame() {
         .catch((message) => {
           console.error('Unity 加载失败:', message)
           alert('Unity 游戏加载失败: ' + message)
+          hintVisible.value = false
         })
-    }
+    })
   }
   script.onerror = () => {
     console.error('无法加载 Unity loader')
@@ -171,31 +199,30 @@ async function loadUnityGame() {
     if (loadingBar) {
       loadingBar.style.display = 'none'
     }
+    hintVisible.value = false
   }
   document.body.appendChild(script)
 }
 
 onMounted(() => {
-  // 初始调整大小
+  const gen = ++unityMountGeneration
   adjustUnityContainer()
-
-  // 监听窗口大小变化和屏幕方向变化
   window.addEventListener('resize', adjustUnityContainer)
-  window.addEventListener('orientationchange', () => {
-    // 方向改变后延迟一点时间再调整，确保尺寸已更新
-    setTimeout(adjustUnityContainer, 100)
-  })
+  window.addEventListener('orientationchange', onOrientationChange)
 
-  // 加载 Unity 游戏
-  loadUnityGame()
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      if (gen !== unityMountGeneration) return
+      loadUnityGame(gen)
+    })
+  })
 })
 
 onUnmounted(() => {
-  // 清理事件监听
+  unityMountGeneration++
   window.removeEventListener('resize', adjustUnityContainer)
-  window.removeEventListener('orientationchange', adjustUnityContainer)
-  
-  // 清理 Unity 实例
+  window.removeEventListener('orientationchange', onOrientationChange)
+  removeUnityLoaderScript()
   if (unityInstance) {
     try {
       unityInstance.Quit()
@@ -214,11 +241,28 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #000000;
+  background: #1a1525;
   overflow: hidden;
   position: relative;
 }
 
+.unity-page-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(520px, 92vw);
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  text-align: center;
+}
 
 .unity-container {
   position: relative;
@@ -318,4 +362,3 @@ onUnmounted(() => {
   opacity: 0.8;
 }
 </style>
-

@@ -73,6 +73,25 @@ public class SoundManager : MonoBehaviour {
         }
     }
 
+    /// <summary>
+    /// 播放立直宣告语音；按指定方位玩家的音色挑选 riichi 资源，加载失败时回退默认音色。
+    /// </summary>
+    public void PlayRiichiVoice(string playerPosition) {
+        int voiceId = 1;
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
+            voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
+        }
+        string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
+        AudioClip clip = Resources.Load<AudioClip>($"Sound/{voicePath}/riichi");
+        if (clip == null) clip = Resources.Load<AudioClip>($"Sound/{voiceIdToPath[1]}/riichi");
+        if (clip == null) {
+            Debug.LogWarning("未找到立直音效资源 Sound/<voice>/riichi");
+            return;
+        }
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
+        audioSource.PlayOneShot(clip, volume);
+    }
+
     public void PlayPhysicsSound(/* Vector3 position, 物理音效发出位置 */string actionType){
 
         if (actionType == "cut"){

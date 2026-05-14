@@ -63,6 +63,7 @@ class ClassicalPlayer:
         self.waiting_tiles = set[int]()
         self.record_counter = RecordCounter()
         self.score_history = []
+        self.round_number_history = []
 
         self.title_used = 0
         self.profile_used = 0
@@ -161,6 +162,24 @@ class ClassicalGameState:
         self.spectator_enabled = self.allow_spectator_config and not any(player.user_id <= 10 for player in self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
+        # 实时观战者（由 FriendManager 维护，结构: List[RealtimeSpectator]）
+        self.realtime_spectators = []
+
+    async def send_to_realtime_spectators(self, player_index: int, response):
+        spectators = getattr(self, "realtime_spectators", None)
+        if not spectators:
+            return
+        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
+        for sp in list(spectators):
+            if sp.player_index != player_index:
+                continue
+            conn = self.game_server.user_id_to_connection.get(sp.user_id)
+            if conn is None:
+                continue
+            try:
+                await conn.websocket.send_json(payload)
+            except Exception:
+                pass
 
     async def player_disconnect(self, user_id: int):
         for p in self.player_list:
@@ -229,6 +248,7 @@ class ClassicalGameState:
                             'character_used': player.character_used,
                             'voice_used': player.voice_used,
                             'score_history': player.score_history,
+                            'round_number_history': player.round_number_history,
                             'tag_list': player.tag_list,
                         }
                         base_game_info['players_info'].append(player_info)
@@ -436,7 +456,8 @@ class ClassicalGameState:
                     hu_fu_fan_list = fu_fan_list
                     hu_base_fu = base_fu
                     hepai_player_index = self.current_player_index
-                    actual_hu_score = total_fu * 3
+                    # 庄家收支x2：庄家自摸 → 三家各付 2*total_fu；闲家自摸 → 庄家付 2*total_fu，其余两家各付 total_fu
+                    actual_hu_score = total_fu * 6 if hepai_player_index == 0 else total_fu * 4
                     self.result_dict = {}
 
                     self.player_list[hepai_player_index].record_counter.zimo_times += 1
@@ -463,7 +484,8 @@ class ClassicalGameState:
                     hu_fan = fan_list
                     hu_fu_fan_list = fu_fan_list
                     hu_base_fu = base_fu
-                    actual_hu_score = total_fu * 3
+                    # 庄家收支x2：庄家荣和 → 全部 2*total_fu * 3；闲家荣和 → 庄家付 2*total_fu，其余两家各付 total_fu
+                    actual_hu_score = total_fu * 6 if hepai_player_index == 0 else total_fu * 4
                     self.result_dict = {}
 
                     self.player_list[hepai_player_index].record_counter.dianhe_times += 1
@@ -515,6 +537,7 @@ class ClassicalGameState:
                 else:
                     score_change_str = "0"
                 player.score_history.append(score_change_str)
+                player.round_number_history.append(self.current_round)
 
             score_changes = [0, 0, 0, 0]
             for player in self.player_list:
@@ -562,7 +585,15 @@ class ClassicalGameState:
                     if await wait_action(self) is False:
                         break
 
-            next_game_round_random_switchseat(self)
+            is_dealer_win = (
+                self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]
+                and hepai_player_index == 0
+            )
+            next_game_round_random_switchseat(
+                self,
+                keep_current_round=is_dealer_win,
+                keep_dealer_seat=is_dealer_win,
+            )
 
             logger.info(f"重新开始下一局")
 
@@ -663,11 +694,29 @@ class ClassicalGameState:
                 tag = tag_map['normal']
             fu_tag_count[tag] = fu_tag_count.get(tag, 0) + 1
 
-        # 未和牌玩家的手牌中，番牌对子每组额外计 2 副。
-        hand_fanpai_pair_count = 0
+        # 未和牌玩家的手牌副数：优先将 >=3 张同牌计为暗刻（普通/幺九/番牌），
+        # 扣除后剩余恰好 2 张且为番牌者计番牌对。4 张同牌视作 1 组暗刻（多出 1 张不计分）。
         hand_tile_counter: Dict[int, int] = {}
         for tile in player.hand_tiles:
             hand_tile_counter[tile] = hand_tile_counter.get(tile, 0) + 1
+
+        for tile, cnt in hand_tile_counter.items():
+            if cnt < 3:
+                continue
+            if tile in active_fanpai:
+                ankou_tag = "番牌暗刻"
+                ankou_fu = self._MELD_FU['K']['fanpai']
+            elif tile in self._YAOJIU:
+                ankou_tag = "幺九暗刻"
+                ankou_fu = self._MELD_FU['K']['yaojiu']
+            else:
+                ankou_tag = "暗刻"
+                ankou_fu = self._MELD_FU['K']['normal']
+            fu += ankou_fu
+            fu_tag_count[ankou_tag] = fu_tag_count.get(ankou_tag, 0) + 1
+            hand_tile_counter[tile] = cnt - 3
+
+        hand_fanpai_pair_count = 0
         for tile, cnt in hand_tile_counter.items():
             if tile in active_fanpai and cnt == 2:
                 hand_fanpai_pair_count += 1
@@ -705,6 +754,7 @@ class ClassicalGameState:
 
         shuhewei_changes = {p.player_index: 0 for p in self.player_list}
         indices = [p.player_index for p in self.player_list]
+        dealer_index = 0 # 古典麻将：座位 0 始终为庄家（连庄通过 keep_dealer_seat 保持）
 
         for receiver in indices:
             receiver_fu = player_fu[receiver]
@@ -714,8 +764,11 @@ class ClassicalGameState:
                 if hepai_player_index is not None and payer == hepai_player_index:
                     continue
                 if player_fu[payer] < receiver_fu:
-                    shuhewei_changes[receiver] += receiver_fu
-                    shuhewei_changes[payer] -= receiver_fu
+                    # 庄家收支翻倍（庄家幺二）：副数本身不变，仅最终转账翻倍
+                    multiplier = 2 if (receiver == dealer_index or payer == dealer_index) else 1
+                    transfer = receiver_fu * multiplier
+                    shuhewei_changes[receiver] += transfer
+                    shuhewei_changes[payer] -= transfer
 
         for player in self.player_list:
             player.score += shuhewei_changes[player.player_index]

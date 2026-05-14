@@ -60,16 +60,20 @@ public class RoomPanel : MonoBehaviour {
 
         // 根据实际玩家数量设置面板
         for (int i = 0; i < roomInfo.player_list.Length && i < 4; i++) {
-            // 按照玩家列表的user_id获取用户设置
+            // 按照玩家列表的user_id获取用户设置，同类型机器人共用同一份配置
             int userId = roomInfo.player_list[i];
             string key = userId.ToString();
 
-            UserSettings userSettings = roomInfo.player_settings[key];
-            string username = userSettings.username;
-            int titleId = userSettings.title_id;
-            int profileImageId = userSettings.profile_image_id;
-            int characterId = userSettings.character_id;
-            int voiceId = userSettings.voice_id;
+            string username;
+            if (roomInfo.player_settings.TryGetValue(key, out UserSettings userSettings)) {
+                username = userSettings.username;
+            } else if (userId == 0) {
+                username = "麻雀罗伯特";
+            } else if (userId == 2) {
+                username = "牌效罗伯特";
+            } else {
+                username = $"用户{userId}";
+            }
 
             // 房主可以移除除自己外的玩家（包括机器人）
             bool canRemove = isHost && userId != UserDataManager.Instance.UserId;

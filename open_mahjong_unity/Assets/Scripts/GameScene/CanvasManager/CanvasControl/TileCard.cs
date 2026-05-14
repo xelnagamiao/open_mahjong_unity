@@ -41,9 +41,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void SetTile(int id,bool isCurrentGetTile) {
         tileId = id;
         currentGetTile = isCurrentGetTile;
-        
+
+        int faceResourceId = id;
+        if (ConfigManager.Instance.UseBlankWhiteDragonFace(id)) {
+            faceResourceId = ConfigManager.BlankFaceImageId;
+        }
         // 不需要添加扩展名
-        string path = $"image/CardFaceImage_xuefun/{id}";
+        string path = $"image/CardFaceImage_xuefun/{faceResourceId}";
         Sprite sprite = Resources.Load<Sprite>(path);
         
         if (sprite != null) {
@@ -57,12 +61,29 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void OnTileClick()
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
+        // 立直选牌模式优先：仅向服务器发送 riichi_cut 请求；候选过滤已由 SetSelectable 完成。
+        if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
+            int cutIndex = transform.GetSiblingIndex();
+            GameStateNetworkManager.Instance.SendRiichiCut(currentGetTile, tileId, cutIndex);
+            RiichiCutSelectionController.Instance.ExitRiichiCutMode();
+            return;
+        }
         // 如果切牌在允许操作列表中
         if (NormalGameStateManager.Instance.allowActionList.Contains("cut")){
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             GameStateNetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {
             Debug.Log("没有权限出牌");
+        }
+    }
+
+    /// <summary>
+    /// 控制本卡牌是否可点击；不可选时整体调灰（保留 alpha=1，仅 RGB 调暗），用于立直选牌/食替禁切/立直锁定。
+    /// </summary>
+    public void SetSelectable(bool selectable) {
+        if (tileButton != null) tileButton.interactable = selectable;
+        if (tileImage != null) {
+            tileImage.color = selectable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
         }
     }
 
@@ -142,6 +163,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             }
             else if (NormalGameStateManager.Instance.roomRule == "classical"){
                 waitingTiles = ClassicalExternal.TingpaiCheck(
+                    tempHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
+                    false
+                );
+            }
+            else if (NormalGameStateManager.Instance.roomRule == "riichi"){
+                waitingTiles = RiichiExternal.TingpaiCheck(
                     tempHandTiles,
                     NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
                     false

@@ -110,7 +110,8 @@ public static class FanTextDictionary {
         {"刻子", "2副"}, {"暗刻", "4副"}, {"明杠", "8副"}, {"暗杠", "16副"},
         {"幺九刻", "4副"}, {"幺九暗刻", "8副"}, {"幺九明杠", "16副"}, {"幺九暗杠", "32副"},
         {"番牌刻", "8副"}, {"番牌暗刻", "16副"}, {"番牌明杠", "32副"}, {"番牌暗杠", "64副"},
-        {"番牌对", "2副"},
+        {"番牌对", "2副"}, {"番牌对*2", "4副"}, {"番牌对*3", "6副"}, {"番牌对*4", "8副"},
+        {"番牌对*5", "10副"}, {"番牌对*6", "12副"}, {"番牌对*7", "14副"},
         {"满贯", "300副"},
 
         {"刻子*2", "4副"}, {"刻子*3", "6副"}, {"刻子*4", "8副"},
@@ -127,6 +128,33 @@ public static class FanTextDictionary {
         {"番牌暗刻*2", "32副"}, {"番牌暗刻*3", "48副"}, {"番牌暗刻*4", "64副"},
         {"番牌明杠*2", "64副"}, {"番牌明杠*3", "96副"}, {"番牌明杠*4", "128副"},
         {"番牌暗杠*2", "128副"}, {"番牌暗杠*3", "192副"}, {"番牌暗杠*4", "256副"}
+    };
+
+    /// <summary>
+    /// 立直麻将役种番（han）数显示映射，役名与 mahjong 库中文映射保持一致。
+    /// 满贯及以上为“役满/累计役满”。
+    /// </summary>
+    public static readonly Dictionary<string, string> FanToDisplayRiichi = new Dictionary<string, string> {
+        // 1番
+        {"立直", "1番"}, {"门前清自摸和", "1番"}, {"平和", "1番"}, {"断幺九", "1番"},
+        {"一杯口", "1番"}, {"自风牌", "1番"}, {"场风牌", "1番"}, {"白", "1番"}, {"发", "1番"},
+        {"中", "1番"}, {"岭上开花", "1番"}, {"枪杠", "1番"}, {"海底捞月", "1番"}, {"河底捞鱼", "1番"},
+        {"一发", "1番"}, {"宝牌", "1番"}, {"赤宝牌", "1番"}, {"里宝牌", "1番"},
+        // 2番
+        {"双立直", "2番"}, {"三色同刻", "2番"}, {"三杠子", "2番"}, {"对对和", "2番"},
+        {"三暗刻", "2番"}, {"小三元", "2番"}, {"混老头", "2番"}, {"七对子", "2番"},
+        {"混全带幺九", "2番"}, {"一气通贯", "2番"}, {"三色同顺", "2番"},
+        // 3番
+        {"二杯口", "3番"}, {"纯全带幺九", "3番"}, {"混一色", "3番"},
+        // 6番
+        {"清一色", "6番"},
+        // 役满（13番计）
+        {"天和", "役满"}, {"地和", "役满"}, {"大三元", "役满"}, {"四暗刻", "役满"},
+        {"字一色", "役满"}, {"绿一色", "役满"}, {"清老头", "役满"}, {"国士无双", "役满"},
+        {"小四喜", "役满"}, {"四杠子", "役满"}, {"九莲宝灯", "役满"},
+        // 双倍役满
+        {"四暗刻单骑", "双倍役满"}, {"国士无双十三面", "双倍役满"},
+        {"纯正九莲宝灯", "双倍役满"}, {"大四喜", "双倍役满"},
     };
 
     /// <summary>
@@ -160,6 +188,15 @@ public static class FanTextDictionary {
     }
 
     /// <summary>
+    /// 古典规则：根据副种名称返回展示名称（如“刻子*2”显示为“数牌刻*2”）。
+    /// </summary>
+    public static string GetFuNameDisplayText(string fuName) {
+        if (fuName == "刻子") return "数牌刻";
+        if (fuName.StartsWith("刻子*")) return fuName.Replace("刻子*", "数牌刻*");
+        return fuName;
+    }
+
+    /// <summary>
     /// 根据规则与番种名称返回显示文本（如 "88番"），未命中时返回 "0番"。
     /// </summary>
     public static string GetFanDisplayText(string rule, string fanName) {
@@ -169,6 +206,7 @@ public static class FanTextDictionary {
         else if (rule == "guobiao/xiaolin") map = FanToDisplayXiaolin;
         else if (rule == "guobiao/lanshi") map = FanToDisplayLanshi;
         else if (rule == "classical/standard") map = FanToDisplayClassical;
+        else if (rule == "riichi/standard" || rule == "riichi") map = FanToDisplayRiichi;
         if (map != null && map.TryGetValue(fanName, out string display)) return display;
         return "0番";
     }

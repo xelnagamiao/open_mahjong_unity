@@ -134,6 +134,7 @@ class GuobiaoGameState:
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
+        self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：开启后切牌/抢杠询问时附加 2 秒申请-打断阶段
         
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
@@ -183,6 +184,24 @@ class GuobiaoGameState:
         self.spectator_enabled = self.allow_spectator_config and not any(player.user_id <= 10 for player in self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
+        # 实时观战者（由 FriendManager 维护，结构: List[RealtimeSpectator]）
+        self.realtime_spectators = []
+
+    async def send_to_realtime_spectators(self, player_index: int, response):
+        spectators = getattr(self, "realtime_spectators", None)
+        if not spectators:
+            return
+        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
+        for sp in list(spectators):
+            if sp.player_index != player_index:
+                continue
+            conn = self.game_server.user_id_to_connection.get(sp.user_id)
+            if conn is None:
+                continue
+            try:
+                await conn.websocket.send_json(payload)
+            except Exception:
+                pass
 
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
