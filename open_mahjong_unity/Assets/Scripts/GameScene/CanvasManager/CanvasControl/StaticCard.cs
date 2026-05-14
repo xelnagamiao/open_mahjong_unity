@@ -23,7 +23,11 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     public void SetTileOnlyImage(int tile) {
         tileId = tile;
-        string path = $"image/CardFaceImage_xuefun/{tile}";
+        int faceResourceId = tile;
+        if (ConfigManager.Instance.UseBlankWhiteDragonFace(tile)) {
+            faceResourceId = ConfigManager.BlankFaceImageId;
+        }
+        string path = $"image/CardFaceImage_xuefun/{faceResourceId}";
         Sprite sprite = Resources.Load<Sprite>(path);
         if (sprite != null) {
             tileImage.sprite = sprite;

@@ -22,6 +22,12 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_cut_tile(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/riichi/cut_tile":
+        await handle_cut_tile(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/riichi/riichi_cut":
+        await handle_riichi_cut(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/riichi/send_action":
+        await handle_send_action(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/add_spectator":
         await handle_add_spectator(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/remove_spectator":
@@ -55,6 +61,28 @@ async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket
     except Exception as e:
         logger.error(f"处理切牌请求失败: {e}", exc_info=True)
 
+async def handle_riichi_cut(game_server, Connect_id: str, message: dict, websocket):
+    """处理立直切牌请求"""
+    try:
+        gamestate_id = message.get("gamestate_id")
+        if not gamestate_id:
+            return
+        game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+        if not game_state:
+            return
+        await get_action(
+            game_state,
+            Connect_id,
+            "riichi_cut",
+            message.get("cutClass"),
+            message.get("TileId"),
+            cutIndex=message.get("cutIndex"),
+            target_tile=None,
+        )
+    except Exception as e:
+        logger.error(f"处理立直切牌请求失败: {e}", exc_info=True)
+
+
 async def handle_send_action(game_server, Connect_id: str, message: dict, websocket):
     """处理发送操作请求"""
     try:
@@ -74,7 +102,8 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
             cutClass=None, 
             TileId=None, 
             cutIndex=None,
-            target_tile=message.get("targetTile")
+            target_tile=message.get("targetTile"),
+            chi_combo_index=message.get("chiComboIndex", 0) or 0,
         )
     except Exception as e:
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)

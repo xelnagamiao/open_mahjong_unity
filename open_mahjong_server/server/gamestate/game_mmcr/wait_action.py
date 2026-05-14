@@ -3,7 +3,7 @@ import asyncio
 import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
-from .boardcast import broadcast_do_action, broadcast_ready_status
+from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.logic_common import get_index_relative_position
 from ..public.game_record_manager import (
     player_action_record_cut,
@@ -14,6 +14,94 @@ from ..public.game_record_manager import (
 )
 
 logger = logging.getLogger(__name__)
+
+TACTICAL_GRACE_SECONDS = 2.0
+
+
+async def _tactical_grace_phase(self, action_type, player_index, action_data, cut_tile):
+    """战术鸣牌打断阶段：详见国标麻将同名函数。"""
+    while True:
+        if action_type != "pass":
+            await broadcast_do_action(
+                self,
+                action_list=[action_type],
+                action_player=player_index,
+                cut_tile=cut_tile,
+                is_claim=True,
+            )
+
+        current_priority = self.action_priority[action_type]
+        higher_action_dict = {pid: [] for pid in range(4)}
+        any_higher = False
+        for pid in range(4):
+            if pid == player_index:
+                continue
+            filtered = [a for a in self.action_dict.get(pid, []) if self.action_priority[a] > current_priority]
+            if filtered:
+                higher_action_dict[pid] = filtered
+                any_higher = True
+        self.action_dict = higher_action_dict
+
+        for pid in range(4):
+            self.action_events[pid].clear()
+            while not self.action_queues[pid].empty():
+                try:
+                    self.action_queues[pid].get_nowait()
+                except Exception:
+                    break
+
+        if any_higher:
+            await broadcast_ask_other_action(
+                self,
+                remaining_time_override=int(TACTICAL_GRACE_SECONDS),
+                is_tactical_recheck=True,
+            )
+
+        elapsed = 0.0
+        new_claim = None
+        while elapsed < TACTICAL_GRACE_SECONDS:
+            remaining = TACTICAL_GRACE_SECONDS - elapsed
+            task_list = []
+            task_to_player = {}
+            for pid in range(4):
+                if self.action_dict[pid]:
+                    t = asyncio.create_task(self.action_events[pid].wait())
+                    task_list.append(t)
+                    task_to_player[t] = pid
+            timer_task = asyncio.create_task(asyncio.sleep(remaining))
+            task_list.append(timer_task)
+
+            start = time.time()
+            done, pending = await asyncio.wait(task_list, return_when=asyncio.FIRST_COMPLETED)
+            end = time.time()
+            elapsed += end - start
+            for t in pending:
+                t.cancel()
+
+            best_submitted = None
+            for t in done:
+                if t is timer_task:
+                    continue
+                temp_pid = task_to_player[t]
+                temp_data = await self.action_queues[temp_pid].get()
+                temp_type = temp_data.get("action_type")
+                self.action_dict[temp_pid] = []
+                if temp_type == "pass":
+                    continue
+                temp_priority = self.action_priority.get(temp_type, -1)
+                if temp_priority <= current_priority:
+                    continue
+                if best_submitted is None or temp_priority > best_submitted[0]:
+                    best_submitted = (temp_priority, temp_type, temp_pid, dict(temp_data))
+
+            if best_submitted is not None:
+                new_claim = best_submitted
+                break
+
+        if new_claim is None:
+            return action_type, player_index, action_data
+
+        _, action_type, player_index, action_data = new_claim
 
 # 等待玩家行动
 async def wait_action(self):
@@ -119,7 +207,14 @@ async def wait_action(self):
                     logger.info(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
 
                 # 如果是最高优先级，中断等待，执行操作
-                if do_interrupt:
+                # 战术鸣牌：切牌后/抢杠询问阶段每次仅以申请阶段处理一个非 pass 行为，
+                # 后续的更高优先级打断交给 _tactical_grace_phase 逐次广播
+                tactical_break = (
+                    getattr(self, "tactical_call", False)
+                    and temp_action_type != "pass"
+                    and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+                )
+                if do_interrupt or tactical_break:
                     self.waiting_players_list = [] # 清空等待列表，强制结束循环
 
     # 等待行为结束,开始处理操作,pass,超时逻辑
@@ -135,7 +230,20 @@ async def wait_action(self):
         logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
     else:
         logger.info(f"操作超时")
-        
+
+    # 战术鸣牌：在切牌后/抢杠询问阶段，先进入 2 秒申请-打断阶段
+    if (
+        getattr(self, "tactical_call", False)
+        and action_data
+        and action_type != "pass"
+        and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+    ):
+        cut_tile_for_claim = self.player_list[self.current_player_index].discard_tiles[-1]
+        action_type, player_index, action_data = await _tactical_grace_phase(
+            self, action_type, player_index, action_data, cut_tile_for_claim
+        )
+        self._tactical_silent_action = True
+
     # 情形处理
     match self.game_status:
         # 摸牌后手牌case 包含 切牌cut 暗杠gang 加杠jiagang 自摸hu

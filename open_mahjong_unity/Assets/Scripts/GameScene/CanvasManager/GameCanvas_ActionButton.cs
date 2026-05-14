@@ -109,6 +109,14 @@ public partial class GameCanvas : MonoBehaviour {
                 buttonText.text = "九老峰回";
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
+            // 立直（仅在自家门清听牌且服务器允许时下发；点击后进入立直选牌模式）
+            else if (action_list[i] == "riichi_cut"){
+                Debug.Log($"立直");
+                ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
+                TMP_Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "立直";
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
             // 取消
             else if (action_list[i] == "pass"){
                 Debug.Log($"取消");
@@ -119,12 +127,20 @@ public partial class GameCanvas : MonoBehaviour {
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
         }
+        // 食替禁切等场景需要按当前状态变暗手牌
+        GameCanvas.Instance.RefreshHandTileSelectability();
     }
 
     // 选择行动
-    public void ChooseAction(string actionType,int targetTile){
+    public void ChooseAction(string actionType, int targetTile, int chiComboIndex = -1){
         NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
-        // 发送行动
-        GameStateNetworkManager.Instance.SendAction(actionType,targetTile);
+        // 发送行动：立直麻将涉赤 5 时通过 chiComboIndex 指明所选吃牌候选（默认 0 表示优先非赤 5）
+        int idx = chiComboIndex >= 0 ? chiComboIndex : 0;
+        GameStateNetworkManager.Instance.SendAction(actionType, targetTile, idx);
+    }
+
+    public void TrySendPassFromShortcut() {
+        if (!NormalGameStateManager.Instance.allowActionList.Contains("pass")) return;
+        ChooseAction("pass", 0);
     }
 }

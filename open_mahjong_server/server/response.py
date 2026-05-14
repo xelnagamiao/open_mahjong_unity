@@ -24,7 +24,9 @@ class PlayerInfo(BaseModel):
     profile_used: Optional[int] = None  # 使用的头像ID
     voice_used: Optional[int] = None  # 使用的音色ID
     score_history: Optional[List[str]] = None  # 分数历史变化列表，每局记录 +？、-？ 或 0
+    round_number_history: Optional[List[int]] = None  # 实际每手对应局数（支持连庄重复）
     tag_list: Optional[List[str]] = None  # 标签列表
+    discard_riichi_flags: Optional[List[bool]] = None  # 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
 
 class GameInfo(BaseModel):
     room_id: int
@@ -43,9 +45,18 @@ class GameInfo(BaseModel):
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     hepai_limit: Optional[int] = None  # 起和番限制（国标有效，默认8）
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
+    tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
+    # 立直麻将专用字段
+    honba: Optional[int] = None  # 本场棒数
+    riichi_sticks: Optional[int] = None  # 场供立直棒数
+    dora_indicators: Optional[List[int]] = None  # 宝牌指示牌（含杠宝牌翻出的牌）
+    kan_dora_indicators: Optional[List[int]] = None  # 已翻开的杠宝牌指示牌（与 dora_indicators 可合并使用，保留冗余便于客户端显示分层）
+    hepai_way: Optional[str] = None  # 和牌方式：head_bump / multi_ron / three_ron_abort
+    red_dora: Optional[bool] = None  # 是否启用赤宝牌
+    dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
 
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
@@ -53,12 +64,21 @@ class Ask_hand_action_info(BaseModel):
     remain_tiles: int
     action_list: List[str]
     action_tick: int
+    # 立直麻将：可立直切牌候选 {tile_id: [waiting_tile, ...]}，仅当 action_list 含 riichi_cut 时下发
+    riichi_candidate_cuts: Optional[Dict[int, List[int]]] = None
+    # 立直麻将：吃后切牌阶段，本家被禁切的牌（食替规则：吃来源 + 两面搭子的筋）；客户端用于变暗与禁点
+    forbidden_cut_tiles: Optional[List[int]] = None
 
 class Ask_other_action_info(BaseModel):
     remaining_time: int
     action_list: List[str]
     cut_tile: int
     action_tick: int
+    # 立直麻将赤宝牌场景下，针对每个吃方向可能存在多种真实牌组合，供客户端展示选择
+    # 键为方向（"chi_left" / "chi_mid" / "chi_right"），值为候选组合列表，每个候选为两张真实牌 ID
+    chi_candidates: Optional[Dict[str, List[List[int]]]] = None
+    # 战术鸣牌（国标/青雀）：当前正处于战术鸣牌打断阶段，仅对当前申请的更高优先级行为再次询问
+    is_tactical_recheck: Optional[bool] = None
 
 class Do_action_info(BaseModel):
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
@@ -73,6 +93,11 @@ class Do_action_info(BaseModel):
     combination_mask: Optional[List[int]] = None # 在鸣牌时传递鸣牌形状
     combination_target: Optional[str] = None # 在鸣牌时传递鸣牌目标
     action_tick: int # 用于同步操作时钟
+    is_riichi_horizontal: Optional[bool] = None  # 立直规则：本张弃牌是否横置（含立直宣告 + 立直牌被吃后续横）
+    # 战术鸣牌（国标/青雀）：is_claim 仅播放发声与字体动画，不应用任何状态变化
+    is_claim: Optional[bool] = None
+    # 战术鸣牌（国标/青雀）：silent 仅应用状态变化，不播放发声与字体动画
+    silent: Optional[bool] = None
 
 class Show_result_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
@@ -86,6 +111,22 @@ class Show_result_info(BaseModel):
     action_tick: int
     base_fu: Optional[int] = None  # 古典麻将：基础副数
     fu_fan_list: Optional[List[str]] = None  # 古典麻将：副番名列表
+    # 立直麻将专用字段
+    han: Optional[int] = None  # 番数
+    fu: Optional[int] = None  # 符数
+    aka_count: Optional[int] = None  # 赤宝牌数量
+    dora_count: Optional[int] = None  # 宝牌数量（含杠宝）
+    ura_dora_count: Optional[int] = None  # 里宝牌数量
+    dora_indicators: Optional[List[int]] = None  # 宝牌指示牌（结算快照，含本局已翻开的杠宝牌）
+    ura_dora_indicators: Optional[List[int]] = None  # 里宝牌指示牌
+    honba: Optional[int] = None  # 本场数
+    riichi_sticks_collected: Optional[int] = None  # 和牌者收走的立直棒数
+    score_changes: Optional[Dict[int, int]] = None  # 各玩家点数变化（含本场/场供）
+    # 荒牌流局：各家听牌张（{player_index: [tile_id...]}，未听家给空列表或不出现），以及是否发生不听罚符点棒
+    tenpai_tiles: Optional[Dict[int, List[int]]] = None
+    exhaustive_penalty: Optional[bool] = None
+    # 战术鸣牌（国标/青雀）：silent 标志和牌字体动画与音效已由战术鸣牌申请阶段播放，本次结算跳过 ShowActionDisplay/PlayActionSound
+    silent: Optional[bool] = None
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
@@ -118,6 +159,8 @@ class Switch_seat_info(BaseModel):
 class Refresh_player_tag_list_info(BaseModel):
     """刷新玩家标签列表信息"""
     player_to_tag_list: Dict[int, List[str]]  # 玩家索引到标签列表的映射 {player_index: tag_list}
+    # 立直宣告广播复用此结构时填入：刚宣告立直的玩家索引（用于客户端音效/点棒动画定位）
+    riichi_declared_player_index: Optional[int] = None
 
 class Ready_status_info(BaseModel):
     """准备状态信息"""
@@ -223,6 +266,19 @@ class SpectatorInfo(BaseModel):
     player4_name: str  # 玩家4 用户名
     gamestate_id: str  # 游戏状态ID
 
+class FriendInfo(BaseModel):
+    """好友/关注信息"""
+    user_id: int                                 # 被关注者的用户ID
+    username: str                                # 用户名
+    profile_image_id: int = 1                    # 头像ID
+    state: str                                   # "offline" / "online" / "in_game"
+    gamestate_id: Optional[str] = None           # 仅在 state == "in_game" 时有效
+
+class RealtimeSpectatorEntry(BaseModel):
+    """实时观战者条目（用于推送给被观战玩家显示列表）"""
+    user_id: int
+    username: str
+
 class LoginInfo(BaseModel):
     """登录信息"""
     user_id: int  # 用户ID
@@ -262,4 +318,16 @@ class Response(BaseModel):
     user_config: Optional[UserConfig] = None # 用于返回用户游戏配置信息
     rank_data: Optional[RankData] = None # 用于返回段位数据
     server_stats: Optional[ServerStatsInfo] = None # 用于返回服务器统计信息
+    client_ts: Optional[int] = None # pong 心跳：原样回传客户端发送 ping 时的时间戳（毫秒）
     spectator_list: Optional[List[SpectatorInfo]] = None # 用于返回观战列表
+    # 好友 / 关注 / 实时观战 相关字段
+    friend_list: Optional[List[FriendInfo]] = None
+    realtime_request_id: Optional[str] = None
+    realtime_from_user_id: Optional[int] = None
+    realtime_from_username: Optional[str] = None
+    realtime_to_user_id: Optional[int] = None
+    realtime_to_username: Optional[str] = None
+    realtime_gamestate_id: Optional[str] = None
+    realtime_spectators: Optional[List[RealtimeSpectatorEntry]] = None
+    friend_count: Optional[int] = None
+    friend_max: Optional[int] = None

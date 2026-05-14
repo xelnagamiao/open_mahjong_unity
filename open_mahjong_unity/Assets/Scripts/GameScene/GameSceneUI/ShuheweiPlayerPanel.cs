@@ -45,14 +45,18 @@ public class ShuheweiPlayerPanel : MonoBehaviour {
     public void ResetRoundStats() {
         RoundFuText.text = "副 0";
         RoundFanText.text = "番 0";
-        RoundFuPointText.text = "本局副数 0";
+        RoundFuPointText.text = "本局副数 0*1 = 0";
         TotalScoreText.text = "本场总副数 0";
     }
 
     public void SetRoundStats(int fuValue, int fanValue, int fuPointValue) {
         RoundFuText.text = $"副 {fuValue}";
         RoundFanText.text = $"番 {fanValue}";
-        RoundFuPointText.text = $"本局副数 {fuPointValue}";
+        int multiplier = 1;
+        for (int i = 0; i < fanValue; i++) {
+            multiplier *= 2;
+        }
+        RoundFuPointText.text = $"本局副数 {fuValue}*{multiplier} = {fuPointValue}";
     }
 
     public IEnumerator AnimateRoundStats(
@@ -81,7 +85,8 @@ public class ShuheweiPlayerPanel : MonoBehaviour {
         GameObject fuInstance = Instantiate(fanCountPrefab, FanContainer);
         FanCount fuCount = fuInstance.GetComponent<FanCount>();
         string fuDisplay = FanTextDictionary.GetFuDisplayText(fuType);
-        fuCount.SetFanCount(fuType, fuDisplay);
+        string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuType);
+        fuCount.SetFanCount(fuNameDisplay, fuDisplay);
         fuCount.ApplyFuColor();
     }
 
@@ -113,6 +118,22 @@ public class ShuheweiPlayerPanel : MonoBehaviour {
             return val;
         }
         return 0;
+    }
+
+    public static int SumFuValues(string[] fuTypes) {
+        int total = 0;
+        for (int i = 0; i < fuTypes.Length; i++) {
+            total += ParseFuValue(fuTypes[i]);
+        }
+        return total;
+    }
+
+    public static int SumFanValues(string[] fanList) {
+        int total = 0;
+        for (int i = 0; i < fanList.Length; i++) {
+            total += ParseFanValue(fanList[i]);
+        }
+        return total;
     }
 
     public static int CalculateRoundFuPoint(int fu, int fan) {

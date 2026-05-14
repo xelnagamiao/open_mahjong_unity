@@ -12,6 +12,7 @@ public static class RuleNameDictionary {
         { "guobiao/xiaolin", "国标麻将(小林改)" },
         { "guobiao/lanshi", "国标麻将(蓝十改)" },
         { "classical/standard", "古典麻雀" },
+        { "riichi/standard", "立直麻将(标准)" },
         // 从roomtype获得
         { "guobiao", "国标麻将" },
         { "qingque", "青雀" },
@@ -26,6 +27,7 @@ public static class RuleNameDictionary {
         { "guobiao/lanshi", "蓝十" },
         { "qingque/standard", "青雀" },
         { "classical/standard", "古典" },
+        { "riichi/standard", "立直" },
     };
 
     public static string GetWholeName(string subRule) {

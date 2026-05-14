@@ -1,17 +1,14 @@
 <template>
-  <el-container>
-    <el-header>
-      <!-- 导航栏 -->
+  <el-container class="default-layout">
+    <el-header class="layout-header">
       <nav-bar />
     </el-header>
 
-    <el-main>
-      <!-- 路由视图 -->
+    <el-main class="layout-main">
       <router-view />
     </el-main>
 
-    <el-footer>
-      <!-- 底部 -->
+    <el-footer class="layout-footer">
       <app-footer />
     </el-footer>
   </el-container>
@@ -23,24 +20,24 @@ import AppFooter from '@/components/AppFooter.vue'
 </script>
 
 <style scoped>
-.el-container {
+.default-layout {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: transparent;
 }
 
-.el-header {
+.layout-header {
   padding: 0;
   height: auto;
+  background: transparent;
 }
 
-.el-main {
+.layout-main {
   padding: 20px;
   flex: 1;
 }
 
-.el-footer {
+.layout-footer {
   padding: 0;
   height: auto;
 }
 </style>
-

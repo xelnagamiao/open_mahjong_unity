@@ -15,6 +15,7 @@ public class Qingque_Create_RoomConfig {
     public string RandomSeed { get; set; }
     public bool TouristLimit { get; set; }
     public bool AllowSpectator { get; set; }
+    public bool TacticalCall { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
         if (string.IsNullOrEmpty(RoomName)) {

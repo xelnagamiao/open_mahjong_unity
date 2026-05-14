@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -61,13 +59,11 @@ public class GamePlayerPanel : MonoBehaviour {
         }
     }
 
-    // 更新标签列表显示
+    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处仅处理掉线、陪打等）
     public void UpdateTagList(string[] tag_list) {
-        // 先隐藏所有标签
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
-        
-        // 根据标签列表显示对应的标签
+
         if (tag_list != null) {
             foreach(var item in tag_list) {
                 if (item == "offline") {

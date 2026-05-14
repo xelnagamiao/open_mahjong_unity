@@ -118,7 +118,11 @@ class SpectatorManager:
                 self.record_tick(["bd", kwargs.get("deal_tile")])
             elif action == "cut":
                 is_moqie = kwargs.get("cut_class", False)
-                self.record_tick(["c", kwargs.get("cut_tile"), "T" if is_moqie else "F"])
+                is_riichi_horizontal = kwargs.get("is_riichi_horizontal", False)
+                tick = ["c", kwargs.get("cut_tile"), "T" if is_moqie else "F"]
+                if is_riichi_horizontal:
+                    tick.append("H")
+                self.record_tick(tick)
             elif action == "buhua":
                 self.record_tick(["bh", kwargs.get("buhua_tile"), action_player])
             elif action in _ACTION_TO_TICK:

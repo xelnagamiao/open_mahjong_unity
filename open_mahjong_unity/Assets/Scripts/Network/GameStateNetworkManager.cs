@@ -34,32 +34,44 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/guobiao/game_start":
             case "gamestate/qingque/game_start":
             case "gamestate/classical/game_start":
+            case "gamestate/riichi/game_start":
                 HandleGameStart(response);
                 break;
             case "gamestate/guobiao/broadcast_hand_action":
             case "gamestate/qingque/broadcast_hand_action":
             case "gamestate/classical/broadcast_hand_action":
+            case "gamestate/riichi/broadcast_hand_action":
                 HandleBroadcastHandAction(response);
                 break;
             case "gamestate/guobiao/ask_other_action":
             case "gamestate/qingque/ask_other_action":
             case "gamestate/classical/ask_other_action":
+            case "gamestate/riichi/ask_other_action":
                 HandleAskOtherAction(response);
                 break;
             case "gamestate/guobiao/do_action":
             case "gamestate/qingque/do_action":
             case "gamestate/classical/do_action":
+            case "gamestate/riichi/do_action":
                 HandleDoAction(response);
                 break;
             case "gamestate/guobiao/show_result":
             case "gamestate/qingque/show_result":
             case "gamestate/classical/show_result":
+            case "gamestate/riichi/show_result":
                 HandleShowResult(response);
                 break;
             case "gamestate/guobiao/game_end":
             case "gamestate/qingque/game_end":
             case "gamestate/classical/game_end":
+            case "gamestate/riichi/game_end":
                 HandleGameEnd(response);
+                break;
+            case "gamestate/riichi/declare_riichi":
+                HandleRiichiDeclare(response);
+                break;
+            case "gamestate/riichi/update_dora":
+                HandleRiichiUpdateDora(response);
                 break;
             case "switch_seat":
                 HandleSwitchSeat(response);
@@ -73,6 +85,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/guobiao/ready_status":
             case "gamestate/qingque/ready_status":
             case "gamestate/classical/ready_status":
+            case "gamestate/riichi/ready_status":
                 HandleReadyStatus(response);
                 break;
             case "gamestate/classical/show_shuhewei":
@@ -102,7 +115,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             handresponse.remaining_time,
             handresponse.player_index,
             handresponse.remain_tiles,
-            handresponse.action_list
+            handresponse.action_list,
+            handresponse.riichi_candidate_cuts,
+            handresponse.forbidden_cut_tiles
         );
     }
     
@@ -115,7 +130,8 @@ public class GameStateNetworkManager : MonoBehaviour {
         NormalGameStateManager.Instance.AskMingPaiAction(
             askresponse.remaining_time,
             askresponse.action_list,
-            askresponse.cut_tile
+            askresponse.cut_tile,
+            askresponse.chi_candidates
         );
     }
     
@@ -134,7 +150,10 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.deal_tile,
             doresponse.buhua_tile,
             doresponse.combination_mask,
-            doresponse.combination_target
+            doresponse.combination_target,
+            doresponse.is_riichi_horizontal,
+            doresponse.is_claim == true,
+            doresponse.silent == true
         );
     }
     
@@ -144,6 +163,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleShowResult(Response response) {
         Debug.Log($"收到显示结算结果消息: {response.show_result_info}");
         ShowResultInfo showresponse = response.show_result_info;
+        RiichiEndResultExtras riichiExtras = BuildRiichiExtrasIfAny(showresponse);
         NormalGameStateManager.Instance.ShowResult(
             showresponse.hepai_player_index,
             showresponse.player_to_score,
@@ -154,8 +174,36 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.hepai_player_huapai,
             showresponse.hepai_player_combination_mask,
             showresponse.base_fu,
-            showresponse.fu_fan_list
+            showresponse.fu_fan_list,
+            riichiExtras,
+            showresponse.silent == true
         );
+    }
+
+    /// <summary>
+    /// 从 show_result_info 中提取立直麻将扩展信息（han/fu/dora/里宝牌/本场/场供/赤宝牌数）。
+    /// 非日麻或未携带相关字段时返回 null。
+    /// </summary>
+    private static RiichiEndResultExtras BuildRiichiExtrasIfAny(ShowResultInfo info) {
+        bool hasHuExtras = info.han != null || info.fu != null || info.ura_dora_indicators != null || info.honba != null;
+        bool hasRyuuExtras = (info.tenpai_tiles != null && info.tenpai_tiles.Count > 0) || info.exhaustive_penalty != null;
+        if (!hasHuExtras && !hasRyuuExtras) {
+            return null;
+        }
+        return new RiichiEndResultExtras {
+            Han = info.han ?? 0,
+            Fu = info.fu ?? 0,
+            AkaCount = info.aka_count ?? 0,
+            DoraCount = info.dora_count ?? 0,
+            UraDoraCount = info.ura_dora_count ?? 0,
+            DoraIndicators = info.dora_indicators != null ? new System.Collections.Generic.List<int>(info.dora_indicators) : new System.Collections.Generic.List<int>(),
+            UraDoraIndicators = info.ura_dora_indicators != null ? new System.Collections.Generic.List<int>(info.ura_dora_indicators) : new System.Collections.Generic.List<int>(),
+            Honba = info.honba ?? 0,
+            RiichiSticksCollected = info.riichi_sticks_collected ?? 0,
+            ScoreChanges = info.score_changes,
+            TenpaiTiles = info.tenpai_tiles,
+            NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
+        };
     }
     
     /// <summary>
@@ -201,6 +249,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 发送国标卡牌方法（切牌）
     /// </summary>
     public async void SendChineseGameTile(bool cutClass, int tileId, int cutIndex) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendChineseGameTileRequest {
                 type = "gamestate/GB/cut_tile",
@@ -218,13 +267,15 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// <summary>
     /// 发送吃碰杠回应
     /// </summary>
-    public async void SendAction(string action, int targetTile) {
+    public async void SendAction(string action, int targetTile, int chiComboIndex = 0) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         try {
             var request = new SendActionRequest {
                 type = "gamestate/GB/send_action",
                 gamestate_id = UserDataManager.Instance.GamestateId,
                 action = action,
-                targetTile = targetTile
+                targetTile = targetTile,
+                chiComboIndex = chiComboIndex,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
@@ -292,6 +343,42 @@ public class GameStateNetworkManager : MonoBehaviour {
             info.hu_class,
             info.hepai_player_index
         );
+    }
+
+    /// <summary>
+    /// 处理立直宣告广播：仅 tag_list/score 同步由其他广播负责，这里主要用于客户端动效播放。
+    /// </summary>
+    private void HandleRiichiDeclare(Response response) {
+        Debug.Log($"收到立直宣告: {response.message}");
+        var info = response.refresh_player_tag_list_info;
+        NormalGameStateManager.Instance.OnRiichiDeclared(info?.player_to_tag_list, info?.riichi_declared_player_index);
+    }
+
+    /// <summary>
+    /// 处理宝牌/杠宝牌翻开广播。
+    /// </summary>
+    private void HandleRiichiUpdateDora(Response response) {
+        Debug.Log($"收到宝牌更新: {response.message}");
+        NormalGameStateManager.Instance.OnDoraUpdated(response.game_info);
+    }
+
+    /// <summary>
+    /// 立直切牌请求
+    /// </summary>
+    public async void SendRiichiCut(bool cutClass, int tileId, int cutIndex) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
+        try {
+            var request = new SendChineseGameTileRequest {
+                type = "gamestate/riichi/riichi_cut",
+                cutClass = cutClass,
+                TileId = tileId,
+                cutIndex = cutIndex,
+                gamestate_id = UserDataManager.Instance.GamestateId
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送立直切牌消息失败: {e.Message}");
+        }
     }
 
     /// <summary>

@@ -22,6 +22,7 @@ public class NetworkPollingManager : MonoBehaviour {
     private Coroutine roomListPollingCoroutine;
     private Coroutine serverStatsPollingCoroutine;
     private Coroutine matchQueuePollingCoroutine;
+    private Coroutine friendListPollingCoroutine;
 
     private void Awake() {
         if (_instance != null && _instance != this) {
@@ -74,6 +75,25 @@ public class NetworkPollingManager : MonoBehaviour {
         if (matchQueuePollingCoroutine != null) {
             StopCoroutine(matchQueuePollingCoroutine);
             matchQueuePollingCoroutine = null;
+        }
+    }
+
+    /// <summary>
+    /// 好友/关注列表轮询：仅在 FriendPanel 可见时启动，由 FriendPanel 在 OnEnable 调用，
+    /// OnDisable 调用 StopFriendListPolling 停止。每次轮询会带回最新的在线/对局中状态供按钮联动。
+    /// </summary>
+    public void StartFriendListPolling(float intervalSeconds = 5f) {
+        StopFriendListPolling();
+        FriendNetworkManager.Instance?.ListFriends();
+        friendListPollingCoroutine = StartCoroutine(PollingRoutine(() => {
+            FriendNetworkManager.Instance?.ListFriends();
+        }, intervalSeconds));
+    }
+
+    public void StopFriendListPolling() {
+        if (friendListPollingCoroutine != null) {
+            StopCoroutine(friendListPollingCoroutine);
+            friendListPollingCoroutine = null;
         }
     }
 

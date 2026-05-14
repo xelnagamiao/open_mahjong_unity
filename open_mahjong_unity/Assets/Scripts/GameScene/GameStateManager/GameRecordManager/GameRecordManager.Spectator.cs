@@ -384,11 +384,11 @@ public partial class GameRecordManager {
                 GotoSelectRound(nextRound, false);
             }
         } else if (action == "liuju") {
-            GameSceneUIManager.Instance.ShowEndLiuju("流局");
+            RoundEndFlowManager.Instance.PresentLiuju("流局");
             currentNode++;
             UpdateCurrentXunmuText();
         } else if (action == "jiuzhongjiupai") {
-            GameSceneUIManager.Instance.ShowEndLiuju("九老峰回");
+            RoundEndFlowManager.Instance.PresentLiuju("九老峰回");
             currentNode++;
             UpdateCurrentXunmuText();
         } else {
@@ -581,8 +581,11 @@ public partial class GameRecordManager {
         bool inRecord = CurrentMode == RecordManagerMode.Record;
         bool inSpectator = CurrentMode == RecordManagerMode.Spectator || CurrentMode == RecordManagerMode.RecordOnSpectator;
 
-        quitRecordButton.gameObject.SetActive(inRecord);
-        quitSpectatorButton.gameObject.SetActive(inSpectator);
+        if (ExitButtonManager.Instance != null) {
+            if (inSpectator) ExitButtonManager.Instance.ShowForSpectator();
+            else if (inRecord) ExitButtonManager.Instance.ShowForRecord();
+            else ExitButtonManager.Instance.HideAll();
+        }
         showGameInfoButton.gameObject.SetActive(inRecord);
         showSpectatorInfoButton.gameObject.SetActive(inSpectator);
         if (inSpectator) gameInfoView.SetActive(false);

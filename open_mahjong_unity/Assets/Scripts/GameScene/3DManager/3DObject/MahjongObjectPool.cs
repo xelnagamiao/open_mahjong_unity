@@ -25,6 +25,9 @@ public enum MahjongTileType_extend_GB {
 public class MahjongObjectPool : MonoBehaviour {
     public static MahjongObjectPool Instance;
 
+    /// <summary>与图集、ConfigManager.BlankFaceImageId 一致：空白立牌池键与牌面 id。</summary>
+    private const int BlankPoolTileId = 2;
+
     [SerializeField] GameObject tile3DPrefab;
     [SerializeField] SpriteAtlas cardAtlas;
     private Dictionary<int, Queue<GameObject>> poolDictionary;
@@ -41,6 +44,7 @@ public class MahjongObjectPool : MonoBehaviour {
         }
         
         CacheAllSprites(cardAtlas);
+        // 目前所有规则都使用一套国标卡牌
         InitializePool("guobiao");
     }
     
@@ -49,11 +53,12 @@ public class MahjongObjectPool : MonoBehaviour {
     /// </summary>
     private void CacheAllSprites(SpriteAtlas atlas) {
         int[] allIds = {
-            0, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            2, 11, 12, 13, 14, 15, 16, 17, 18, 19, // 2 = 空白白板 46 = 回形白板
             21, 22, 23, 24, 25, 26, 27, 28, 29,
             31, 32, 33, 34, 35, 36, 37, 38, 39,
             41, 42, 43, 44, 45, 46, 47,
-            51, 52, 53, 54, 55, 56, 57, 58
+            51, 52, 53, 54, 55, 56, 57, 58,
+            105, 205, 305 // 立直麻将：赤 5m / 赤 5p / 赤 5s
         };
 
         foreach (int id in allIds) {
@@ -71,17 +76,17 @@ public class MahjongObjectPool : MonoBehaviour {
     private const float CARD_FACE_VERTICAL_STRETCH = 1.1f;
 
     public void InitializePool(string rule) {
-        const int BLANK_TILE_ID = 0;
+        int blankId = BlankPoolTileId;
         Queue<GameObject> blankTilePool = new Queue<GameObject>();
-        for (int i = 0; i < 42; i++) {
+        for (int i = 0; i < 56; i++) {
             GameObject obj = Instantiate(tile3DPrefab);
             obj.SetActive(false);
             obj.transform.SetParent(transform);
             PrecalculateNormals(obj);
-            ApplyCardTexture(obj, BLANK_TILE_ID);
+            ApplyCardTexture(obj, blankId);
             blankTilePool.Enqueue(obj);
         }
-        poolDictionary[BLANK_TILE_ID] = blankTilePool;
+        poolDictionary[blankId] = blankTilePool;
 
         int[] standardTiles = {
             11, 12, 13, 14, 15, 16, 17, 18, 19,
@@ -104,6 +109,19 @@ public class MahjongObjectPool : MonoBehaviour {
 
         int[] flowerTiles = { 51, 52, 53, 54, 55, 56, 57, 58 };
         foreach (int tileId in flowerTiles) {
+            Queue<GameObject> objectPool = new Queue<GameObject>();
+            GameObject obj = Instantiate(tile3DPrefab);
+            obj.SetActive(false);
+            obj.transform.SetParent(transform);
+            PrecalculateNormals(obj);
+            ApplyCardTexture(obj, tileId);
+            objectPool.Enqueue(obj);
+            poolDictionary[tileId] = objectPool;
+        }
+
+        // 立直麻将赤宝牌：每种仅 1 张，与普通 5m/5p/5s 作为同点数不同实体
+        int[] redDoraTiles = { 105, 205, 305 };
+        foreach (int tileId in redDoraTiles) {
             Queue<GameObject> objectPool = new Queue<GameObject>();
             GameObject obj = Instantiate(tile3DPrefab);
             obj.SetActive(false);
@@ -142,6 +160,7 @@ public class MahjongObjectPool : MonoBehaviour {
         tile.SetActive(true);
         tile.transform.position = position;
         tile.transform.rotation = rotation;
+        ApplyCardTexture(tile, type);
         return tile;
     }
     
@@ -149,7 +168,19 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 从池中取出一张空白牌面
     /// </summary>
     public GameObject SpawnBlankTile(Vector3 position, Quaternion rotation) {
-        return Spawn(0, position, rotation);
+        return Spawn(BlankPoolTileId, position, rotation);
+    }
+
+    /// <summary>
+    /// 从空白池取牌，但保留真实牌值用于自家 3D 手牌删除。
+    /// </summary>
+    public GameObject SpawnBlankTile(Vector3 position, Quaternion rotation, int logicalTileId) {
+        GameObject tile = SpawnBlankTile(position, rotation);
+        if (tile != null) {
+            Tile3D tile3D = tile.GetComponent<Tile3D>();
+            tile3D.SetTileIds(logicalTileId, BlankPoolTileId);
+        }
+        return tile;
     }
 
     /// <summary>
@@ -163,18 +194,24 @@ public class MahjongObjectPool : MonoBehaviour {
 
         Tile3D tile3D = tile.GetComponent<Tile3D>();
         if (tile3D != null && type == -1) {
-            int tileId = tile3D.GetTileId();
-            if (tileId != -1) {
-                type = tileId;
+            int resolvedId = tile3D.GetPoolTileId();
+            if (resolvedId != -1) {
+                type = resolvedId;
             }
         }
-        
-        if (type == 0 || type == -1) {
-            type = 0;
+        if (tile3D != null) {
+            tile3D.isRiichiHorizontal = false;
+        }
+
+        int blankId = BlankPoolTileId;
+        if (type == 0 || type == 1) {
+            type = blankId;
         }
         if (!poolDictionary.ContainsKey(type)) {
-            type = 0;
+            type = blankId;
         }
+
+        ApplyCardTexture(tile, type);
 
         tile.SetActive(false);
         tile.transform.SetParent(transform);
@@ -185,7 +222,7 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 将空白牌面归还到池中
     /// </summary>
     public void ReturnBlankTile(GameObject tile) {
-        Return(0, tile);
+        Return(BlankPoolTileId, tile);
     }
 
     /// <summary>
@@ -198,6 +235,9 @@ public class MahjongObjectPool : MonoBehaviour {
         }
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
             tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);
+        }
+        if (ConfigManager.Instance != null && ConfigManager.Instance.UseBlankWhiteDragonFace(tileId) && spriteCache.TryGetValue(BlankPoolTileId, out Sprite blankSprite)) {
+            tile3D.SetCardSprite(tileId, blankSprite, CARD_FACE_VERTICAL_STRETCH);
         }
     }
 }

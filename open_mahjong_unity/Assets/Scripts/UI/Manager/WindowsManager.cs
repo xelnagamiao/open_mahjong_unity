@@ -23,6 +23,7 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private GameObject sceneConfigPanel; // 场景配置窗口
     [SerializeField] private GameObject spectatorPanel; // 观战窗口
     [SerializeField] private GameObject matchPanel; // 匹配窗口（段位匹配等）
+    [SerializeField] private GameObject friendPanel; // 好友/关注窗口
 
     [Header("窗口切换动画")]
     [SerializeField] private float windowFadeDuration = 0.2f;
@@ -66,6 +67,7 @@ public class WindowsManager : MonoBehaviour {
         off(sceneConfigPanel);
         off(spectatorPanel);
         off(matchPanel);
+        off(friendPanel);
         off(gamePanel);
         loginPanel.SetActive(true);
     }
@@ -151,6 +153,7 @@ public class WindowsManager : MonoBehaviour {
         addIfActive(sceneConfigPanel);
         addIfActive(spectatorPanel);
         addIfActive(matchPanel);
+        addIfActive(friendPanel);
         addIfActive(gamePanel);
     }
 
@@ -174,6 +177,7 @@ public class WindowsManager : MonoBehaviour {
         Off(sceneConfigPanel);
         Off(spectatorPanel);
         if (matchPanel != null) Off(matchPanel);
+        if (friendPanel != null) Off(friendPanel);
         switch (targetWindow) {
             case "login":
                 Off(gamePanel);
@@ -217,6 +221,9 @@ public class WindowsManager : MonoBehaviour {
             case "match":
                 if (matchPanel != null) On(matchPanel);
                 break;
+            case "friend":
+                if (friendPanel != null) On(friendPanel);
+                break;
         }
     }
 
@@ -248,6 +255,7 @@ public class WindowsManager : MonoBehaviour {
         norm(sceneConfigPanel);
         norm(spectatorPanel);
         norm(matchPanel);
+        norm(friendPanel);
         norm(gamePanel);
     }
 
