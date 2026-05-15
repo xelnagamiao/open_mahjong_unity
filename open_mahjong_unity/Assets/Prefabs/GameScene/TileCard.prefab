@@ -263,6 +263,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tileImage: {fileID: 5882930103443015541}
   tileButton: {fileID: 984668354213579145}
+  tileId: 0
   currentGetTile: 0
 --- !u!1 &7299549083031623788
 GameObject:

@@ -11,6 +11,7 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
 
     private RectTransform imageRect;
     private RectTransform buttonRect;
+    private bool isHovering;
 
     private void Awake() {
         imageRect = tileImage.GetComponent<RectTransform>();
@@ -18,12 +19,18 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
     }
 
     public void OnPointerEnter(PointerEventData eventData) {
+        if (isHovering) return;
+
+        isHovering = true;
         // Image和Button一起上浮
         imageRect.localPosition += Vector3.up * hoverOffset;
         buttonRect.localPosition += Vector3.up * hoverOffset;
     }
 
     public void OnPointerExit(PointerEventData eventData) {
+        if (!isHovering) return;
+
+        isHovering = false;
         // Image和Button一起下降
         imageRect.localPosition -= Vector3.up * hoverOffset;
         buttonRect.localPosition -= Vector3.up * hoverOffset;
