@@ -44,8 +44,8 @@ async def broadcast_game_start(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             # 为当前玩家构建玩家信息列表（当前玩家看到自己的手牌，其他人看不到）
@@ -120,7 +120,7 @@ async def broadcast_ask_hand_action(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，启动自动操作并跳过广播
+            # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
@@ -128,6 +128,8 @@ async def broadcast_ask_hand_action(self):
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
+            elif current_player.user_id < 10:
                 continue
             
             if i == self.current_player_index:
@@ -193,7 +195,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，启动自动操作并跳过广播
+            # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
@@ -201,6 +203,8 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
+            elif current_player.user_id < 10:
                 continue
             
             if self.action_dict[i] != []:
@@ -316,17 +320,17 @@ async def broadcast_do_action(
         self.server_action_tick += 1
         if hasattr(self, "_ask_broadcast_time"):
             delattr(self, "_ask_broadcast_time")
+    print(f"广播操作: action_list={action_list}, action_player={action_player}, cut_tile={cut_tile}, cut_class={cut_class}, cut_tile_index={cut_tile_index}, deal_tile={deal_tile}, buhua_tile={buhua_tile}, combination_target={combination_target}, combination_mask={combination_mask}, is_claim={is_claim}, silent={silent}")
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        print(f"广播操作: action_list={action_list}, action_player={action_player}, cut_tile={cut_tile}, cut_class={cut_class}, cut_tile_index={cut_tile_index}, deal_tile={deal_tile}, buhua_tile={buhua_tile}, combination_target={combination_target}, combination_mask={combination_mask}, is_claim={is_claim}, silent={silent}")
         try:
             # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             # 发送通用信息
@@ -394,8 +398,8 @@ async def broadcast_result(self,
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -454,8 +458,8 @@ async def broadcast_game_end(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -495,8 +499,8 @@ async def broadcast_switch_seat(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -538,8 +542,8 @@ async def broadcast_refresh_player_tag_list(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:
@@ -587,8 +591,8 @@ async def broadcast_ready_status(self):
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
             
-            # 如果是机器人，跳过广播
-            if current_player.user_id == 0:
+            # 机器人占用 user_id < 10 的保留段，无需网络广播
+            if current_player.user_id < 10:
                 continue
             
             if current_player.user_id in self.game_server.user_id_to_connection:

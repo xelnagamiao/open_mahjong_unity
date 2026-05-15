@@ -4,7 +4,7 @@
 import logging
 from typing import Optional
 
-from ..response import Response, FriendInfo
+from ..response import Response, FriendInfo, FriendRequestInfo
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +38,22 @@ async def handle_friend_message(game_server, Connect_id: str, message: dict, web
     user_id, username, _ws = auth
 
     try:
-        if message_type == "friend/add_friend":
+        if message_type in ("friend/add_friend", "friend/add_following"):
             await _handle_add_friend(game_server, user_id, message, websocket)
-        elif message_type == "friend/remove_friend":
+        elif message_type in ("friend/remove_friend", "friend/remove_following"):
             await _handle_remove_friend(game_server, user_id, message, websocket)
+        elif message_type in ("friend/list_following",):
+            await _handle_list_following(game_server, user_id, websocket)
         elif message_type == "friend/list_friends":
             await _handle_list_friends(game_server, user_id, websocket)
+        elif message_type == "friend/request_friend":
+            await _handle_request_friend(game_server, user_id, message, websocket)
+        elif message_type == "friend/list_friend_requests":
+            await _handle_list_friend_requests(game_server, user_id, websocket)
+        elif message_type == "friend/respond_friend_request":
+            await _handle_respond_friend_request(game_server, user_id, message, websocket)
+        elif message_type == "friend/delete_friend":
+            await _handle_delete_friend(game_server, user_id, message, websocket)
         elif message_type == "friend/request_realtime":
             await _handle_request_realtime(game_server, user_id, username, message, websocket)
         elif message_type == "friend/respond_realtime":
@@ -74,24 +84,24 @@ async def _handle_add_friend(game_server, user_id: int, message: dict, websocket
         await _send(
             websocket,
             Response(
-                type="friend/add_friend",
+                type="friend/add_following",
                 success=False,
                 message="目标 UID 非法",
             ),
         )
         return
     result = game_server.db_manager.add_friend(user_id, friend_user_id)
-    friend_list = game_server.friend_manager.build_friend_list_payload(user_id)
+    friend_list = game_server.friend_manager.build_following_list_payload(user_id)
     payload_list = [FriendInfo(**item) for item in friend_list]
     await _send(
         websocket,
         Response(
-            type="friend/add_friend",
+            type="friend/add_following",
             success=result["success"],
             message=result["message"],
             friend_list=payload_list,
             friend_count=len(payload_list),
-            friend_max=game_server.db_manager.FRIEND_MAX,
+            friend_max=game_server.db_manager.FOLLOW_MAX,
         ),
     )
 
@@ -103,21 +113,37 @@ async def _handle_remove_friend(game_server, user_id: int, message: dict, websoc
     except (TypeError, ValueError):
         await _send(
             websocket,
-            Response(type="friend/remove_friend", success=False, message="目标 UID 非法"),
+            Response(type="friend/remove_following", success=False, message="目标 UID 非法"),
         )
         return
     ok = game_server.db_manager.remove_friend(user_id, friend_user_id)
-    friend_list = game_server.friend_manager.build_friend_list_payload(user_id)
+    friend_list = game_server.friend_manager.build_following_list_payload(user_id)
     payload_list = [FriendInfo(**item) for item in friend_list]
     await _send(
         websocket,
         Response(
-            type="friend/remove_friend",
+            type="friend/remove_following",
             success=ok,
             message="已取消关注" if ok else "取消关注失败",
             friend_list=payload_list,
             friend_count=len(payload_list),
-            friend_max=game_server.db_manager.FRIEND_MAX,
+            friend_max=game_server.db_manager.FOLLOW_MAX,
+        ),
+    )
+
+
+async def _handle_list_following(game_server, user_id: int, websocket):
+    friend_list = game_server.friend_manager.build_following_list_payload(user_id)
+    payload_list = [FriendInfo(**item) for item in friend_list]
+    await _send(
+        websocket,
+        Response(
+            type="friend/list_following",
+            success=True,
+            message="ok",
+            friend_list=payload_list,
+            friend_count=len(payload_list),
+            friend_max=game_server.db_manager.FOLLOW_MAX,
         ),
     )
 
@@ -133,6 +159,97 @@ async def _handle_list_friends(game_server, user_id: int, websocket):
             message="ok",
             friend_list=payload_list,
             friend_count=len(payload_list),
+            friend_max=game_server.db_manager.FRIEND_MAX,
+        ),
+    )
+
+
+async def _handle_request_friend(game_server, user_id: int, message: dict, websocket):
+    target_user_id = message.get("target_user_id")
+    try:
+        target_user_id = int(target_user_id)
+    except (TypeError, ValueError):
+        await _send(
+            websocket,
+            Response(type="friend/request_friend", success=False, message="目标 UID 非法"),
+        )
+        return
+    result = game_server.db_manager.send_friend_request(user_id, target_user_id)
+    friend_list = game_server.friend_manager.build_friend_list_payload(user_id)
+    await _send(
+        websocket,
+        Response(
+            type="friend/request_friend",
+            success=result["success"],
+            message=result["message"],
+            friend_list=[FriendInfo(**item) for item in friend_list],
+            friend_count=len(friend_list),
+            friend_max=game_server.db_manager.FRIEND_MAX,
+        ),
+    )
+
+
+async def _handle_list_friend_requests(game_server, user_id: int, websocket):
+    rows = game_server.friend_manager.build_friend_request_list_payload(user_id)
+    await _send(
+        websocket,
+        Response(
+            type="friend/list_friend_requests",
+            success=True,
+            message="ok",
+            friend_request_list=[FriendRequestInfo(**item) for item in rows],
+        ),
+    )
+
+
+async def _handle_respond_friend_request(game_server, user_id: int, message: dict, websocket):
+    from_user_id = message.get("from_user_id")
+    accept = bool(message.get("accept", False))
+    try:
+        from_user_id = int(from_user_id)
+    except (TypeError, ValueError):
+        await _send(
+            websocket,
+            Response(type="friend/respond_friend_request", success=False, message="目标 UID 非法"),
+        )
+        return
+    result = game_server.db_manager.respond_friend_request(user_id, from_user_id, accept)
+    friend_list = game_server.friend_manager.build_friend_list_payload(user_id)
+    request_list = game_server.friend_manager.build_friend_request_list_payload(user_id)
+    await _send(
+        websocket,
+        Response(
+            type="friend/respond_friend_request",
+            success=result["success"],
+            message=result["message"],
+            friend_list=[FriendInfo(**item) for item in friend_list],
+            friend_count=len(friend_list),
+            friend_max=game_server.db_manager.FRIEND_MAX,
+            friend_request_list=[FriendRequestInfo(**item) for item in request_list],
+        ),
+    )
+
+
+async def _handle_delete_friend(game_server, user_id: int, message: dict, websocket):
+    friend_user_id = message.get("friend_user_id")
+    try:
+        friend_user_id = int(friend_user_id)
+    except (TypeError, ValueError):
+        await _send(
+            websocket,
+            Response(type="friend/delete_friend", success=False, message="目标 UID 非法"),
+        )
+        return
+    ok = game_server.db_manager.delete_mutual_friend(user_id, friend_user_id)
+    friend_list = game_server.friend_manager.build_friend_list_payload(user_id)
+    await _send(
+        websocket,
+        Response(
+            type="friend/delete_friend",
+            success=ok,
+            message="已删除好友" if ok else "删除好友失败",
+            friend_list=[FriendInfo(**item) for item in friend_list],
+            friend_count=len(friend_list),
             friend_max=game_server.db_manager.FRIEND_MAX,
         ),
     )

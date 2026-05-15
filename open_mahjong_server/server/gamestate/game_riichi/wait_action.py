@@ -47,14 +47,13 @@ async def wait_action(self):
 
     # 立直家在 waiting_hand_action 阶段若只剩 "cut"（无暗杠/无和牌等其它选项），
     # 则不必询问客户端，直接执行强制摸切（tsumogiri）。这样既符合规则也不浪费询问轮。
-    # 摸切之间留出 0.3s 视觉停顿，避免客户端摸到/打出牌动画首尾相接显得太快。
+    # 与国标 wait_action 一致，不在服务端插入额外切牌前 sleep，避免出牌节奏卡顿、机器人明显变慢。
     if self.game_status == "waiting_hand_action":
         cur = self.current_player_index
         cur_player = self.player_list[cur]
         is_riichi = "riichi" in cur_player.tag_list or "daburu_riichi" in cur_player.tag_list
         if is_riichi and self.action_dict.get(cur, []) == ["cut"]:
             tile_id = cur_player.hand_tiles[-1]
-            await asyncio.sleep(0.3)
             await _execute_cut(self, cur, tile_id, is_moqie=True, cut_tile_index=None, is_riichi=False)
             return
 
@@ -130,12 +129,9 @@ async def wait_action(self):
         case "waiting_hand_action":
             if action_data:
                 if action_type == "cut":
-                    # 摸打之间停 0.3s（与立直自动摸切一致）
-                    await asyncio.sleep(0.3)
                     await _do_cut(self, player_index, action_data, is_riichi=False)
                     return
                 elif action_type == "riichi_cut":
-                    await asyncio.sleep(0.3)
                     await _do_cut(self, player_index, action_data, is_riichi=True)
                     return
                 elif action_type == "angang":
@@ -201,7 +197,6 @@ async def wait_action(self):
                 # 超时摸切
                 is_moqie = True
                 tile_id = self.player_list[self.current_player_index].hand_tiles[-1]
-                await asyncio.sleep(0.3)
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
                 return
 
@@ -333,13 +328,11 @@ async def wait_action(self):
             if action_data and action_type == "cut":
                 is_moqie = action_data.get("cutClass")
                 tile_id = action_data.get("TileId")
-                await asyncio.sleep(0.3)
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, action_data.get("cutIndex"), is_riichi=False)
                 return
             else:
                 is_moqie = True
                 tile_id = self.player_list[self.current_player_index].hand_tiles[-1]
-                await asyncio.sleep(0.3)
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
                 return
 

@@ -12,7 +12,7 @@ from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, evaluate_hand,
     find_best_cut, find_best_cut_score, should_accept_hu,
-    normalize_tile,
+    normalize_tile, count_acceptance,
 )
 from .smart_bot_ai import _handle_qianggang, _handle_buhua_round
 
@@ -171,6 +171,18 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
     meld_count = count_melds(combs)
     visible = count_visible_tiles(game_state)
 
+    # 门清听牌：直接宣告立直并切出听牌枚数最大的候选张，避免错过立直机会
+    if "riichi_cut" in action_list:
+        candidates = getattr(player, "riichi_candidate_cuts", None) or {}
+        if candidates:
+            tile_id, cut_index = _pick_best_riichi_cut(hand, meld_count, visible, candidates)
+            if tile_id is not None:
+                logger.info(
+                    f"日麻牌效AI {player_index} ({player.username}) 选择 riichi_cut, tile_id={tile_id}, waits={candidates.get(tile_id)}"
+                )
+                await get_ai_action(game_state, player_index, "riichi_cut", True, tile_id, cut_index, None)
+                return
+
     # 暗杠：手中四张相同（按归一化匹配，红5与普通5视为同种）
     if "angang" in action_list:
         seen_norms = set()
@@ -212,6 +224,32 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}")
         await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
         return
+
+
+def _pick_best_riichi_cut(hand_tiles, meld_count, visible_34, candidates):
+    """从 riichi_candidate_cuts 中挑出听牌枚数最大的切牌；按 (受入枚数, 听牌种类数) 排序，
+    红 5（105/205/305）优先保留：评分相同优先切出非红 5。
+    返回 (tile_id, cut_index)；候选为空时返回 (None, -1)。
+    """
+    best_score = (-1, -1, 1)  # (受入枚数, 种类数, 红5优先级倒序)
+    best_tile = None
+    best_index = -1
+    for tile_id, wait_list in candidates.items():
+        # 切出后手牌 13 张已是听牌
+        try:
+            cut_idx = hand_tiles.index(tile_id)
+        except ValueError:
+            continue
+        new_hand = hand_tiles[:cut_idx] + hand_tiles[cut_idx + 1:]
+        accept_count = count_acceptance(new_hand, meld_count, visible_34)
+        wait_types = len(wait_list) if wait_list else 0
+        red_dora_penalty = 0 if tile_id in (105, 205, 305) else 1
+        score = (accept_count, wait_types, red_dora_penalty)
+        if score > best_score:
+            best_score = score
+            best_tile = tile_id
+            best_index = cut_idx
+    return best_tile, best_index
 
 
 async def _handle_after_cut(game_state, player_index, action_list, player):

@@ -505,7 +505,7 @@ class DatabaseManager:
                 );
             """)
 
-            # 好友/关注关系表（单向关注，A 关注 B 不要求 B 关注 A，每人上限 10）
+            # 关注关系表（单向关注，A 关注 B 不要求 B 关注 A）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_friends (
                     user_id        BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -515,6 +515,31 @@ class DatabaseManager:
                 );
             """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_friends_user ON user_friends(user_id);")
+
+            # 双向好友关系表：user_id_small / user_id_large 组成唯一好友边
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_friendships (
+                    user_id_small BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    user_id_large BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id_small, user_id_large),
+                    CHECK (user_id_small < user_id_large)
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_friendships_small ON user_friendships(user_id_small);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_friendships_large ON user_friendships(user_id_large);")
+
+            # 好友申请表：同一发送者到接收者只保留一个待处理申请
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_friend_requests (
+                    from_user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    to_user_id   BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (from_user_id, to_user_id),
+                    CHECK (from_user_id <> to_user_id)
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_friend_requests_to ON user_friend_requests(to_user_id);")
 
 
             # 创建游客用户序列（9000000-9900000）
@@ -1128,7 +1153,8 @@ class DatabaseManager:
 
     # ---------------- 好友 / 关注 ----------------
 
-    FRIEND_MAX = 10
+    FOLLOW_MAX = 10
+    FRIEND_MAX = 20
 
     def count_friends(self, user_id: int) -> int:
         """返回 user_id 当前关注的人数，失败返回 -1。"""
@@ -1165,7 +1191,7 @@ class DatabaseManager:
         cur_count = self.count_friends(user_id)
         if cur_count < 0:
             return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
-        if cur_count >= self.FRIEND_MAX:
+        if cur_count >= self.FOLLOW_MAX:
             return {
                 "success": False,
                 "message": "关注人数已满，请清理关注列表后再关注",
@@ -1189,6 +1215,264 @@ class DatabaseManager:
                 return {"success": False, "message": "已经关注过该玩家", "code": "duplicate"}
             logger.error(f'add_friend 失败: {e}')
             return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def count_mutual_friends(self, user_id: int) -> int:
+        """返回 user_id 当前双向好友人数，失败返回 -1。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM user_friendships
+                WHERE user_id_small = %s OR user_id_large = %s
+                """,
+                (user_id, user_id),
+            )
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0
+        except Error as e:
+            logger.error(f'count_mutual_friends 失败 user_id={user_id}: {e}')
+            if conn:
+                conn.rollback()
+            return -1
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def are_mutual_friends(self, user_id: int, friend_user_id: int) -> bool:
+        """判断两名用户是否已经是双向好友。"""
+        small, large = sorted((user_id, friend_user_id))
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 1 FROM user_friendships
+                WHERE user_id_small = %s AND user_id_large = %s
+                """,
+                (small, large),
+            )
+            return cursor.fetchone() is not None
+        except Error as e:
+            logger.error(f'are_mutual_friends 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def send_friend_request(self, user_id: int, target_user_id: int) -> Dict[str, Any]:
+        """发送好友申请。"""
+        if user_id == target_user_id:
+            return {"success": False, "message": "不能添加自己为好友", "code": "self"}
+        if not self.get_user_by_user_id(target_user_id):
+            return {"success": False, "message": "目标玩家不存在", "code": "not_found"}
+        if self.are_mutual_friends(user_id, target_user_id):
+            return {"success": False, "message": "你们已经是好友", "code": "duplicate"}
+        cur_count = self.count_mutual_friends(user_id)
+        target_count = self.count_mutual_friends(target_user_id)
+        if cur_count < 0 or target_count < 0:
+            return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+        if cur_count >= self.FRIEND_MAX:
+            return {"success": False, "message": "好友已满，请清理好友列表后再申请", "code": "full"}
+        if target_count >= self.FRIEND_MAX:
+            return {"success": False, "message": "对方好友已满", "code": "target_full"}
+
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            # 对方已申请你时，直接建立好友关系。
+            cursor.execute(
+                """
+                SELECT 1 FROM user_friend_requests
+                WHERE from_user_id = %s AND to_user_id = %s
+                """,
+                (target_user_id, user_id),
+            )
+            if cursor.fetchone():
+                small, large = sorted((user_id, target_user_id))
+                cursor.execute(
+                    """
+                    INSERT INTO user_friendships (user_id_small, user_id_large)
+                    VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (small, large),
+                )
+                cursor.execute(
+                    """
+                    DELETE FROM user_friend_requests
+                    WHERE (from_user_id = %s AND to_user_id = %s)
+                       OR (from_user_id = %s AND to_user_id = %s)
+                    """,
+                    (user_id, target_user_id, target_user_id, user_id),
+                )
+                conn.commit()
+                return {"success": True, "message": "已成为好友", "code": "accepted"}
+
+            cursor.execute(
+                """
+                INSERT INTO user_friend_requests (from_user_id, to_user_id)
+                VALUES (%s, %s)
+                """,
+                (user_id, target_user_id),
+            )
+            conn.commit()
+            return {"success": True, "message": "好友申请已发送", "code": "ok"}
+        except Error as e:
+            if conn:
+                conn.rollback()
+            if getattr(e, "pgcode", None) == "23505":
+                return {"success": False, "message": "已经发送过好友申请", "code": "duplicate"}
+            logger.error(f'send_friend_request 失败: {e}')
+            return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def respond_friend_request(self, user_id: int, from_user_id: int, accept: bool) -> Dict[str, Any]:
+        """处理发给 user_id 的好友申请。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM user_friend_requests
+                WHERE from_user_id = %s AND to_user_id = %s
+                """,
+                (from_user_id, user_id),
+            )
+            if cursor.rowcount <= 0:
+                conn.commit()
+                return {"success": False, "message": "好友申请不存在或已处理", "code": "not_found"}
+            if not accept:
+                conn.commit()
+                return {"success": True, "message": "已拒绝好友申请", "code": "declined"}
+            cur_count = self.count_mutual_friends(user_id)
+            from_count = self.count_mutual_friends(from_user_id)
+            if cur_count < 0 or from_count < 0:
+                conn.rollback()
+                return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+            if cur_count >= self.FRIEND_MAX:
+                conn.rollback()
+                return {"success": False, "message": "好友已满，请清理好友列表后再接受", "code": "full"}
+            if from_count >= self.FRIEND_MAX:
+                conn.rollback()
+                return {"success": False, "message": "对方好友已满", "code": "target_full"}
+            small, large = sorted((user_id, from_user_id))
+            cursor.execute(
+                """
+                INSERT INTO user_friendships (user_id_small, user_id_large)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (small, large),
+            )
+            conn.commit()
+            return {"success": True, "message": "已成为好友", "code": "accepted"}
+        except Error as e:
+            logger.error(f'respond_friend_request 失败: {e}')
+            if conn:
+                conn.rollback()
+            return {"success": False, "message": "服务器繁忙，请稍后再试", "code": "error"}
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def delete_mutual_friend(self, user_id: int, friend_user_id: int) -> bool:
+        """双向删除好友关系。"""
+        small, large = sorted((user_id, friend_user_id))
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM user_friendships
+                WHERE user_id_small = %s AND user_id_large = %s
+                """,
+                (small, large),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            logger.error(f'delete_mutual_friend 失败: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_mutual_friends(self, user_id: int) -> List[Dict[str, Any]]:
+        """列出 user_id 的双向好友基础信息。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id
+                FROM user_friendships f
+                INNER JOIN users u ON u.user_id = CASE
+                    WHEN f.user_id_small = %s THEN f.user_id_large
+                    ELSE f.user_id_small
+                END
+                LEFT JOIN user_settings us ON us.user_id = u.user_id
+                WHERE f.user_id_small = %s OR f.user_id_large = %s
+                ORDER BY f.created_at ASC
+                """,
+                (user_id, user_id, user_id),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error as e:
+            logger.error(f'list_mutual_friends 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_friend_requests(self, user_id: int) -> List[Dict[str, Any]]:
+        """列出发给 user_id 的好友申请。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT u.user_id, u.username, COALESCE(us.profile_image_id, 1) AS profile_image_id
+                FROM user_friend_requests r
+                INNER JOIN users u ON u.user_id = r.from_user_id
+                LEFT JOIN user_settings us ON us.user_id = r.from_user_id
+                WHERE r.to_user_id = %s
+                ORDER BY r.created_at ASC
+                """,
+                (user_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error as e:
+            logger.error(f'list_friend_requests 失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
         finally:
             if conn:
                 cursor.close()

@@ -15,7 +15,7 @@ from ..public.game_record_manager import (
 
 logger = logging.getLogger(__name__)
 
-TACTICAL_GRACE_SECONDS = 2.0
+TACTICAL_GRACE_SECONDS = 1.5
 
 
 async def _tactical_grace_phase(self, action_type, player_index, action_data, cut_tile):
@@ -41,6 +41,8 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
                 higher_action_dict[pid] = filtered
                 any_higher = True
         self.action_dict = higher_action_dict
+        # 同步刷新等待玩家列表，使 get_action 接受这些玩家在 2 秒窗口内的抢断行为
+        self.waiting_players_list = [pid for pid, alist in higher_action_dict.items() if alist]
 
         for pid in range(4):
             self.action_events[pid].clear()
@@ -51,9 +53,10 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
                     break
 
         if any_higher:
+            import math as _math
             await broadcast_ask_other_action(
                 self,
-                remaining_time_override=int(TACTICAL_GRACE_SECONDS),
+                remaining_time_override=_math.ceil(TACTICAL_GRACE_SECONDS),
                 is_tactical_recheck=True,
             )
 

@@ -58,11 +58,14 @@ public partial class Game3DManager {
     }
 
     private void PlayHandRevealAnimation(PosPanel3D panel) {
-        if (panel.handRevealAnimator != null && !string.IsNullOrEmpty(panel.handRevealExpandTrigger)) {
-            panel.handRevealAnimator.enabled = true;
-            panel.handRevealAnimator.ResetTrigger(panel.handRevealExpandTrigger);
-            panel.handRevealAnimator.SetTrigger(panel.handRevealExpandTrigger);
-        }
+        if (panel.handRevealAnimator == null || string.IsNullOrEmpty(panel.handRevealExpandTrigger)) return;
+        Animator anim = panel.handRevealAnimator;
+        anim.enabled = true;
+        // Rebind 把状态机与动画属性一并拉回默认状态，避免上一次 Expand 末态在 enabled=true 瞬间被立即采样，
+        // 表现为他家手牌先弹到展开末态再播一次 Expand（看起来像倒了两次）。
+        anim.Rebind();
+        anim.ResetTrigger(panel.handRevealExpandTrigger);
+        anim.SetTrigger(panel.handRevealExpandTrigger);
     }
 
 

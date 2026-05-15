@@ -11,9 +11,6 @@ using System;
 public class FriendNetworkManager : MonoBehaviour {
     public static FriendNetworkManager Instance { get; private set; }
 
-    public event Action<Response> OnFriendListResponse;
-    public event Action<Response> OnAddFriendResponse;
-    public event Action<Response> OnRemoveFriendResponse;
     public event Action<Response> OnRealtimeRequestResult;        // A 发起后立即收到的回包
     public event Action<Response> OnRealtimeRequestIncoming;      // B 收到的请求
     public event Action<Response> OnRealtimeRequestTimeout;       // A 收到的超时
@@ -36,14 +33,29 @@ public class FriendNetworkManager : MonoBehaviour {
     public void HandleFriendMessage(Response response) {
         if (response == null || string.IsNullOrEmpty(response.type)) return;
         switch (response.type) {
+            case "friend/list_following":
+                FriendPanel.Instance?.OnFollowingListResponse(response);
+                break;
+            case "friend/add_following":
+                FriendPanel.Instance?.OnAddFollowingResponse(response);
+                break;
+            case "friend/remove_following":
+                FriendPanel.Instance?.OnRemoveFollowingResponse(response);
+                break;
             case "friend/list_friends":
-                OnFriendListResponse?.Invoke(response);
+                FriendPanel.Instance?.OnFriendListResponse(response);
                 break;
-            case "friend/add_friend":
-                OnAddFriendResponse?.Invoke(response);
+            case "friend/request_friend":
+                FriendPanel.Instance?.OnRequestFriendResponse(response);
                 break;
-            case "friend/remove_friend":
-                OnRemoveFriendResponse?.Invoke(response);
+            case "friend/delete_friend":
+                FriendPanel.Instance?.OnDeleteFriendResponse(response);
+                break;
+            case "friend/list_friend_requests":
+                FriendPanel.Instance?.OnFriendRequestListResponse(response);
+                break;
+            case "friend/respond_friend_request":
+                FriendPanel.Instance?.OnRespondFriendRequestResponse(response);
                 break;
             case "friend/realtime_request_result":
                 OnRealtimeRequestResult?.Invoke(response);
@@ -113,16 +125,42 @@ public class FriendNetworkManager : MonoBehaviour {
         }
     }
 
+    public void ListAllFriendPanels() {
+        ListFollowing();
+        ListFriends();
+        ListFriendRequests();
+    }
+
+    public void ListFollowing() {
+        _Send(new { type = "friend/list_following" });
+    }
+
+    public void AddFollowing(int friendUserId) {
+        _Send(new { type = "friend/add_following", friend_user_id = friendUserId });
+    }
+
+    public void RemoveFollowing(int friendUserId) {
+        _Send(new { type = "friend/remove_following", friend_user_id = friendUserId });
+    }
+
     public void ListFriends() {
         _Send(new { type = "friend/list_friends" });
     }
 
-    public void AddFriend(int friendUserId) {
-        _Send(new { type = "friend/add_friend", friend_user_id = friendUserId });
+    public void RequestFriend(int targetUserId) {
+        _Send(new { type = "friend/request_friend", target_user_id = targetUserId });
     }
 
-    public void RemoveFriend(int friendUserId) {
-        _Send(new { type = "friend/remove_friend", friend_user_id = friendUserId });
+    public void DeleteFriend(int friendUserId) {
+        _Send(new { type = "friend/delete_friend", friend_user_id = friendUserId });
+    }
+
+    public void ListFriendRequests() {
+        _Send(new { type = "friend/list_friend_requests" });
+    }
+
+    public void RespondFriendRequest(int fromUserId, bool accept) {
+        _Send(new { type = "friend/respond_friend_request", from_user_id = fromUserId, accept = accept });
     }
 
     public void RequestRealtime(int targetUserId) {
