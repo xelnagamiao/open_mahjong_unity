@@ -4,10 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 好友列表条目脚本，对应 FriendPanel 中的预制体。
-/// 三个按钮依据 state 控制 interactable：
-///   - offline / online → 仅 unfollow 可点
-///   - in_game           → 三个都可点
+/// 双向好友列表条目脚本，对应 FriendPanel 的好友预制体。
+/// 观战按钮受普通观战权限控制，实时观战按钮只受是否在对局中控制。
 /// 状态文本颜色：离线白 / 在线绿 / 对局中蓝（可在编辑器修改）。
 /// 头像点击：复用 ProfileOnClick 行为，发起 Guobiao 战绩请求。
 /// </summary>
@@ -26,7 +24,7 @@ public class FriendItem : MonoBehaviour {
     [Header("操作按钮")]
     [SerializeField] private Button spectateButton;          // 普通延迟观战
     [SerializeField] private Button realtimeSpectateButton;  // 实时观战
-    [SerializeField] private Button unfollowButton;          // 取消关注
+    [SerializeField] private Button deleteFriendButton;      // 删除好友
 
     private FriendInfo _info;
     private bool _listenersBound;
@@ -60,17 +58,19 @@ public class FriendItem : MonoBehaviour {
 
         bool inGame = IsInGameState(info.state);
         bool hasGamestateId = !string.IsNullOrEmpty(info.gamestate_id);
+        // 三枚按钮始终保留显示：玩家不在对局中只把观战 / 实时观战置灰（interactable=false），
+        // 避免按钮在 SetActive 切换时引起 LayoutGroup 重排，导致玩家进入对局后按钮"看不见"激活。
         if (spectateButton != null) {
-            spectateButton.gameObject.SetActive(inGame && hasGamestateId);
+            spectateButton.gameObject.SetActive(true);
             spectateButton.interactable = inGame && hasGamestateId;
         }
         if (realtimeSpectateButton != null) {
-            realtimeSpectateButton.gameObject.SetActive(inGame);
+            realtimeSpectateButton.gameObject.SetActive(true);
             realtimeSpectateButton.interactable = inGame;
         }
-        if (unfollowButton != null) {
-            unfollowButton.gameObject.SetActive(true);
-            unfollowButton.interactable = true;
+        if (deleteFriendButton != null) {
+            deleteFriendButton.gameObject.SetActive(true);
+            deleteFriendButton.interactable = true;
         }
     }
 
@@ -83,7 +83,7 @@ public class FriendItem : MonoBehaviour {
         if (_listenersBound) return;
         if (spectateButton != null) spectateButton.onClick.AddListener(OnClickSpectate);
         if (realtimeSpectateButton != null) realtimeSpectateButton.onClick.AddListener(OnClickRealtime);
-        if (unfollowButton != null) unfollowButton.onClick.AddListener(OnClickUnfollow);
+        if (deleteFriendButton != null) deleteFriendButton.onClick.AddListener(OnClickDeleteFriend);
         _listenersBound = true;
     }
 
@@ -143,14 +143,14 @@ public class FriendItem : MonoBehaviour {
             NotificationManager.Instance?.ShowTip("实时观战", false, "对方当前不在对局中");
             return;
         }
-        FriendNetworkManager.Instance?.RequestRealtime(_info.user_id);
         if (RealtimeRequestWaitPanel.Instance != null) {
             RealtimeRequestWaitPanel.Instance.ShowWaiting(_info.user_id, _info.username);
         }
+        FriendNetworkManager.Instance?.RequestRealtime(_info.user_id);
     }
 
-    private void OnClickUnfollow() {
+    private void OnClickDeleteFriend() {
         if (_info == null) return;
-        FriendNetworkManager.Instance?.RemoveFriend(_info.user_id);
+        FriendPanel.Instance?.ShowDeleteFriendConfirm(_info.user_id, _info.username);
     }
 }

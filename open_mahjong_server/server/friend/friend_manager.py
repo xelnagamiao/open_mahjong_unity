@@ -76,28 +76,34 @@ class FriendManager:
             logger.warning(f"FriendManager._send_to_user 发送失败 user_id={user_id}: {exc}")
             return False
 
-    # ----------------- 好友列表 -----------------
+    # ----------------- 好友 / 关注列表 -----------------
 
     def _compute_state(self, friend_user_id: int) -> Dict[str, Optional[str]]:
-        """返回 {state, gamestate_id} ：'in_game' / 'online' / 'offline'。"""
+        """返回 {state, gamestate_id}：state 为 'in_game' / 'online' / 'offline'。
+        玩家在对局中时 state 始终为 in_game；gamestate_id 仅在该对局允许观战
+        （未关闭 spectator_enabled 且不含 bot）时下发，否则置 None，由客户端
+        据此把观战 / 实时观战按钮置灰。
+        """
         conn = self.game_server.user_id_to_connection.get(friend_user_id)
         if conn is None:
             return {"state": "offline", "gamestate_id": None}
         game_state = self.game_server.gamestate_manager.get_game_state_by_user_id(friend_user_id)
         if game_state is None:
             return {"state": "online", "gamestate_id": None}
-        # 含 bot/未开启观战的对局也不让观战，参考 get_spectator_list
+        spectator_allowed = True
         if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
-            return {"state": "online", "gamestate_id": None}
+            spectator_allowed = False
         if hasattr(game_state, "player_list") and any(
             p.user_id <= 10 for p in game_state.player_list
         ):
-            return {"state": "online", "gamestate_id": None}
-        return {"state": "in_game", "gamestate_id": getattr(game_state, "gamestate_id", None)}
+            spectator_allowed = False
+        return {
+            "state": "in_game",
+            "gamestate_id": getattr(game_state, "gamestate_id", None) if spectator_allowed else None,
+        }
 
-    def build_friend_list_payload(self, user_id: int) -> List[Dict]:
-        """读取数据库 + 在线状态，组装 FriendInfo 列表。"""
-        rows = self.game_server.db_manager.list_friends(user_id)
+    def _build_user_state_payload(self, rows: List[Dict]) -> List[Dict]:
+        """读取用户基础行 + 在线状态，组装 FriendInfo 列表。"""
         result: List[Dict] = []
         for row in rows:
             state_info = self._compute_state(int(row["user_id"]))
@@ -111,6 +117,28 @@ class FriendManager:
                 }
             )
         return result
+
+    def build_following_list_payload(self, user_id: int) -> List[Dict]:
+        """读取数据库 + 在线状态，组装关注列表。"""
+        rows = self.game_server.db_manager.list_friends(user_id)
+        return self._build_user_state_payload(rows)
+
+    def build_friend_list_payload(self, user_id: int) -> List[Dict]:
+        """读取数据库 + 在线状态，组装双向好友列表。"""
+        rows = self.game_server.db_manager.list_mutual_friends(user_id)
+        return self._build_user_state_payload(rows)
+
+    def build_friend_request_list_payload(self, user_id: int) -> List[Dict]:
+        """读取发给 user_id 的好友申请。"""
+        rows = self.game_server.db_manager.list_friend_requests(user_id)
+        return [
+            {
+                "user_id": int(row["user_id"]),
+                "username": row.get("username", ""),
+                "profile_image_id": int(row.get("profile_image_id") or 1),
+            }
+            for row in rows
+        ]
 
     # ----------------- 实时观战请求生命周期 -----------------
 
@@ -129,6 +157,12 @@ class FriendManager:
                 type="friend/realtime_request_result",
                 success=False,
                 message="不能实时观战自己",
+            )
+        if not self.game_server.db_manager.are_mutual_friends(from_user_id, target_user_id):
+            return Response(
+                type="friend/realtime_request_result",
+                success=False,
+                message="只有好友可以发起实时观战申请",
             )
 
         # 限频
@@ -156,13 +190,6 @@ class FriendManager:
                 success=False,
                 message="对方当前不在游戏中",
             )
-        if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
-            return Response(
-                type="friend/realtime_request_result",
-                success=False,
-                message="该对局不允许观战",
-            )
-
         player_index = self._find_player_index(game_state, target_user_id)
         if player_index is None:
             return Response(

@@ -86,15 +86,15 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
 
     private void HandleTimeout(Response response) {
         if (!gameObject.activeSelf) return;
-        if (!string.IsNullOrEmpty(_pendingRequestId) &&
-            !string.Equals(response.realtime_request_id, _pendingRequestId)) return;
+        if (string.IsNullOrEmpty(_pendingRequestId)) return;
+        if (!string.Equals(response.realtime_request_id, _pendingRequestId)) return;
         ShowResultAndClose(response.message ?? "请求已超时，对方忽略了该请求");
     }
 
     private void HandleDeclined(Response response) {
         if (!gameObject.activeSelf) return;
-        if (!string.IsNullOrEmpty(_pendingRequestId) &&
-            !string.Equals(response.realtime_request_id, _pendingRequestId)) return;
+        if (string.IsNullOrEmpty(_pendingRequestId)) return;
+        if (!string.Equals(response.realtime_request_id, _pendingRequestId)) return;
         ShowResultAndClose(response.message ?? "对方拒绝了实时观战申请");
     }
 

@@ -5,29 +5,59 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 好友/关注 面板：UID 输入框 + 添加按钮 + "0/10" 文本 + 滚动列表。
-/// 服务器消息通过 FriendNetworkManager 事件订阅。
-/// 进入面板：清空 content 下全部子物体（含未纳入字典的残留）、注册 5s 轮询；退出面板：停止轮询。
-/// 首轮请求在下一帧发出，避免与 Destroy 同帧导致列表与旧子物体叠加。
+/// 好友面板：关注者 / 好友 / 好友申请三个子面板。
+/// 关注者用于普通延时观战；好友用于普通观战、实时观战和双向删除；好友申请用于接受 / 拒绝。
 /// </summary>
 public class FriendPanel : MonoBehaviour {
     public static FriendPanel Instance { get; private set; }
 
-    [Header("添加好友")]
-    [SerializeField] private TMP_InputField uidInput;
-    [SerializeField] private Button addButton;
-    [SerializeField] private TMP_Text countText;
+    private enum Tab {
+        Following,
+        Friends,
+        Requests,
+    }
 
-    [Header("列表")]
-    [SerializeField] private Transform contentTransform;
+    [Header("页签按钮")]
+    [SerializeField] private Button followingTabButton;
+    [SerializeField] private Button friendsTabButton;
+    [SerializeField] private Button requestsTabButton;
+
+    [Header("子面板")]
+    [SerializeField] private GameObject followingPanel;
+    [SerializeField] private GameObject friendsPanel;
+    [SerializeField] private GameObject requestsPanel;
+
+    [Header("关注者面板")]
+    [SerializeField] private TMP_InputField followingUidInput;
+    [SerializeField] private Button addFollowingButton;
+    [SerializeField] private TMP_Text followingCountText;
+    [SerializeField] private Transform followingContentTransform;
+    [SerializeField] private GameObject followingItemPrefab;
+
+    [Header("好友面板")]
+    [SerializeField] private TMP_InputField friendUidInput;
+    [SerializeField] private Button requestFriendButton;
+    [SerializeField] private TMP_Text friendCountText;
+    [SerializeField] private Transform friendContentTransform;
     [SerializeField] private GameObject friendItemPrefab;
+
+    [Header("好友申请面板")]
+    [SerializeField] private TMP_Text requestCountText;
+    [SerializeField] private Transform requestContentTransform;
+    [SerializeField] private GameObject friendRequestItemPrefab;
+
+    [Header("确认弹窗")]
+    [SerializeField] private FriendDeleteConfirmPopup deleteConfirmPopup;
 
     [Header("轮询")]
     [SerializeField] private float pollingIntervalSeconds = 5f;
 
-    private readonly Dictionary<int, FriendItem> _itemsByUid = new Dictionary<int, FriendItem>();
-    private int _friendMax = 10;
-    private Coroutine _deferredPollingRoutine;
+    private readonly Dictionary<int, FollowingItem> _followingItemsByUid = new Dictionary<int, FollowingItem>();
+    private readonly Dictionary<int, FriendItem> _friendItemsByUid = new Dictionary<int, FriendItem>();
+    private readonly Dictionary<int, FriendRequestItem> _requestItemsByUid = new Dictionary<int, FriendRequestItem>();
+    private int _followingMax = 10;
+    private int _friendMax = 20;
+    private Coroutine _pollingCoroutine;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -35,121 +65,231 @@ public class FriendPanel : MonoBehaviour {
             return;
         }
         Instance = this;
-        if (addButton != null) addButton.onClick.AddListener(OnClickAdd);
+        if (followingTabButton != null) followingTabButton.onClick.AddListener(() => SwitchTab(Tab.Following));
+        if (friendsTabButton != null) friendsTabButton.onClick.AddListener(() => SwitchTab(Tab.Friends));
+        if (requestsTabButton != null) requestsTabButton.onClick.AddListener(() => SwitchTab(Tab.Requests));
+        if (addFollowingButton != null) addFollowingButton.onClick.AddListener(OnClickAddFollowing);
+        if (requestFriendButton != null) requestFriendButton.onClick.AddListener(OnClickRequestFriend);
+        ClearAllItems();
     }
 
     private void OnEnable() {
-        ClearContentAndItems();
-        if (countText != null) countText.text = $"0/{_friendMax}";
-        if (FriendNetworkManager.Instance != null) {
-            FriendNetworkManager.Instance.OnFriendListResponse += HandleListResponse;
-            FriendNetworkManager.Instance.OnAddFriendResponse += HandleAddResponse;
-            FriendNetworkManager.Instance.OnRemoveFriendResponse += HandleRemoveResponse;
-        }
-        if (_deferredPollingRoutine != null) StopCoroutine(_deferredPollingRoutine);
-        _deferredPollingRoutine = StartCoroutine(CoStartPollingAfterLayout());
-    }
-
-    private IEnumerator CoStartPollingAfterLayout() {
-        yield return null;
-        _deferredPollingRoutine = null;
-        if (NetworkPollingManager.Instance != null) {
-            NetworkPollingManager.Instance.StartFriendListPolling(pollingIntervalSeconds);
-        }
+        ClearAllItems();
+        SwitchTab(Tab.Following);
+        UpdateCountTexts(0, 0, 0);
+        FriendNetworkManager.Instance?.ListAllFriendPanels();
+        if (_pollingCoroutine != null) StopCoroutine(_pollingCoroutine);
+        _pollingCoroutine = StartCoroutine(CoPollFriendList());
     }
 
     private void OnDisable() {
-        if (_deferredPollingRoutine != null) {
-            StopCoroutine(_deferredPollingRoutine);
-            _deferredPollingRoutine = null;
-        }
-        if (FriendNetworkManager.Instance != null) {
-            FriendNetworkManager.Instance.OnFriendListResponse -= HandleListResponse;
-            FriendNetworkManager.Instance.OnAddFriendResponse -= HandleAddResponse;
-            FriendNetworkManager.Instance.OnRemoveFriendResponse -= HandleRemoveResponse;
-        }
-        if (NetworkPollingManager.Instance != null) {
-            NetworkPollingManager.Instance.StopFriendListPolling();
+        if (_pollingCoroutine != null) {
+            StopCoroutine(_pollingCoroutine);
+            _pollingCoroutine = null;
         }
     }
 
-    private void OnClickAdd() {
-        if (uidInput == null || string.IsNullOrWhiteSpace(uidInput.text)) {
+    private IEnumerator CoPollFriendList() {
+        var wait = new WaitForSeconds(pollingIntervalSeconds);
+        while (true) {
+            yield return wait;
+            FriendNetworkManager.Instance?.ListAllFriendPanels();
+        }
+    }
+
+    private void SwitchTab(Tab tab) {
+        if (followingPanel != null) followingPanel.SetActive(tab == Tab.Following);
+        if (friendsPanel != null) friendsPanel.SetActive(tab == Tab.Friends);
+        if (requestsPanel != null) requestsPanel.SetActive(tab == Tab.Requests);
+    }
+
+    private void OnClickAddFollowing() {
+        if (followingUidInput == null || string.IsNullOrWhiteSpace(followingUidInput.text)) {
             NotificationManager.Instance?.ShowTip("关注", false, "请输入要关注的玩家 UID");
             return;
         }
-        if (!int.TryParse(uidInput.text.Trim(), out int uid)) {
+        if (!int.TryParse(followingUidInput.text.Trim(), out int uid)) {
             NotificationManager.Instance?.ShowTip("关注", false, "UID 必须是数字");
             return;
         }
-        FriendNetworkManager.Instance?.AddFriend(uid);
+        FriendNetworkManager.Instance?.AddFollowing(uid);
     }
 
-    private void HandleListResponse(Response response) {
-        ApplyList(response);
+    private void OnClickRequestFriend() {
+        if (friendUidInput == null || string.IsNullOrWhiteSpace(friendUidInput.text)) {
+            NotificationManager.Instance?.ShowTip("好友", false, "请输入要申请的玩家 UID");
+            return;
+        }
+        if (!int.TryParse(friendUidInput.text.Trim(), out int uid)) {
+            NotificationManager.Instance?.ShowTip("好友", false, "UID 必须是数字");
+            return;
+        }
+        FriendNetworkManager.Instance?.RequestFriend(uid);
     }
 
-    private void HandleAddResponse(Response response) {
+    public void ShowDeleteFriendConfirm(int userId, string username) {
+        if (deleteConfirmPopup != null) {
+            deleteConfirmPopup.Show(username, () => FriendNetworkManager.Instance?.DeleteFriend(userId));
+        } else {
+            FriendNetworkManager.Instance?.DeleteFriend(userId);
+        }
+    }
+
+    public void OnFollowingListResponse(Response response) {
+        ApplyFollowingList(response);
+    }
+
+    public void OnAddFollowingResponse(Response response) {
         if (!string.IsNullOrEmpty(response.message)) {
             NotificationManager.Instance?.ShowTip("关注", response.success, response.message);
         }
-        if (response.success && uidInput != null) uidInput.text = string.Empty;
-        ApplyList(response);
+        if (response.success && followingUidInput != null) followingUidInput.text = string.Empty;
+        ApplyFollowingList(response);
     }
 
-    private void HandleRemoveResponse(Response response) {
+    public void OnRemoveFollowingResponse(Response response) {
         if (!string.IsNullOrEmpty(response.message)) {
             NotificationManager.Instance?.ShowTip("关注", response.success, response.message);
         }
-        ApplyList(response);
+        ApplyFollowingList(response);
     }
 
-    private void ApplyList(Response response) {
-        if (response.friend_max.HasValue) _friendMax = response.friend_max.Value;
+    public void OnFriendListResponse(Response response) {
+        ApplyFriendList(response);
+    }
+
+    public void OnRequestFriendResponse(Response response) {
+        if (!string.IsNullOrEmpty(response.message)) {
+            NotificationManager.Instance?.ShowTip("好友", response.success, response.message);
+        }
+        if (response.success && friendUidInput != null) friendUidInput.text = string.Empty;
+        ApplyFriendList(response);
+    }
+
+    public void OnDeleteFriendResponse(Response response) {
+        if (!string.IsNullOrEmpty(response.message)) {
+            NotificationManager.Instance?.ShowTip("好友", response.success, response.message);
+        }
+        ApplyFriendList(response);
+    }
+
+    public void OnFriendRequestListResponse(Response response) {
+        ApplyFriendRequestList(response);
+    }
+
+    public void OnRespondFriendRequestResponse(Response response) {
+        if (!string.IsNullOrEmpty(response.message)) {
+            NotificationManager.Instance?.ShowTip("好友申请", response.success, response.message);
+        }
+        ApplyFriendList(response);
+        ApplyFriendRequestList(response);
+    }
+
+    private void ApplyFollowingList(Response response) {
+        if (response.friend_max.HasValue) _followingMax = response.friend_max.Value;
         var list = response.friend_list;
         int count = list?.Length ?? 0;
-        if (countText != null) countText.text = $"{count}/{_friendMax}";
-        if (contentTransform == null || friendItemPrefab == null) return;
+        if (followingCountText != null) followingCountText.text = $"{count}/{_followingMax}";
+        if (followingContentTransform == null || followingItemPrefab == null) return;
 
         var seen = new HashSet<int>();
         if (list != null) {
             foreach (var info in list) {
                 if (info == null) continue;
                 seen.Add(info.user_id);
-                if (_itemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
+                if (_followingItemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
                     existing.Refresh(info);
                 } else {
-                    var go = Instantiate(friendItemPrefab, contentTransform);
-                    var item = go.GetComponent<FriendItem>();
-                    if (item != null) {
-                        item.Initialize(info);
-                        _itemsByUid[info.user_id] = item;
-                    } else {
-                        Destroy(go);
-                    }
+                    var go = Instantiate(followingItemPrefab, followingContentTransform);
+                    var item = go.GetComponent<FollowingItem>();
+                    item.Initialize(info);
+                    _followingItemsByUid[info.user_id] = item;
                 }
             }
         }
+        RemoveMissing(_followingItemsByUid, seen);
+    }
 
+    private void ApplyFriendList(Response response) {
+        if (response.friend_max.HasValue) _friendMax = response.friend_max.Value;
+        var list = response.friend_list;
+        int count = list?.Length ?? 0;
+        if (friendCountText != null) friendCountText.text = $"{count}/{_friendMax}";
+        if (friendContentTransform == null || friendItemPrefab == null) return;
+
+        var seen = new HashSet<int>();
+        if (list != null) {
+            foreach (var info in list) {
+                if (info == null) continue;
+                seen.Add(info.user_id);
+                if (_friendItemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
+                    existing.Refresh(info);
+                } else {
+                    var go = Instantiate(friendItemPrefab, friendContentTransform);
+                    var item = go.GetComponent<FriendItem>();
+                    item.Initialize(info);
+                    _friendItemsByUid[info.user_id] = item;
+                }
+            }
+        }
+        RemoveMissing(_friendItemsByUid, seen);
+    }
+
+    private void ApplyFriendRequestList(Response response) {
+        var list = response.friend_request_list;
+        int count = list?.Length ?? 0;
+        if (requestCountText != null) requestCountText.text = $"{count}";
+        if (requestContentTransform == null || friendRequestItemPrefab == null) return;
+
+        var seen = new HashSet<int>();
+        if (list != null) {
+            foreach (var info in list) {
+                if (info == null) continue;
+                seen.Add(info.user_id);
+                if (_requestItemsByUid.TryGetValue(info.user_id, out var existing) && existing != null) {
+                    existing.Refresh(info);
+                } else {
+                    var go = Instantiate(friendRequestItemPrefab, requestContentTransform);
+                    var item = go.GetComponent<FriendRequestItem>();
+                    item.Initialize(info);
+                    _requestItemsByUid[info.user_id] = item;
+                }
+            }
+        }
+        RemoveMissing(_requestItemsByUid, seen);
+    }
+
+    private static void RemoveMissing<T>(Dictionary<int, T> itemsByUid, HashSet<int> seen) where T : Component {
         var toRemove = new List<int>();
-        foreach (var kv in _itemsByUid) {
+        foreach (var kv in itemsByUid) {
             if (!seen.Contains(kv.Key)) toRemove.Add(kv.Key);
         }
-        foreach (var uid in toRemove) {
-            if (_itemsByUid.TryGetValue(uid, out var it) && it != null) Destroy(it.gameObject);
-            _itemsByUid.Remove(uid);
+        foreach (int uid in toRemove) {
+            if (itemsByUid.TryGetValue(uid, out var item) && item != null) Destroy(item.gameObject);
+            itemsByUid.Remove(uid);
         }
     }
 
-    /// <summary>
-    /// 清空字典并销毁 content 下所有子物体，避免旧版本残留或未跟踪的条目留在 ScrollView 里。
-    /// </summary>
-    private void ClearContentAndItems() {
-        _itemsByUid.Clear();
-        if (contentTransform == null) return;
-        for (int i = contentTransform.childCount - 1; i >= 0; i--) {
-            Transform c = contentTransform.GetChild(i);
+    private void ClearAllItems() {
+        ClearContainer(followingContentTransform);
+        ClearContainer(friendContentTransform);
+        ClearContainer(requestContentTransform);
+        _followingItemsByUid.Clear();
+        _friendItemsByUid.Clear();
+        _requestItemsByUid.Clear();
+    }
+
+    private static void ClearContainer(Transform container) {
+        if (container == null) return;
+        for (int i = container.childCount - 1; i >= 0; i--) {
+            Transform c = container.GetChild(i);
             if (c != null) Destroy(c.gameObject);
         }
+    }
+
+    private void UpdateCountTexts(int followingCount, int friendCount, int requestCount) {
+        if (followingCountText != null) followingCountText.text = $"{followingCount}/{_followingMax}";
+        if (friendCountText != null) friendCountText.text = $"{friendCount}/{_friendMax}";
+        if (requestCountText != null) requestCountText.text = $"{requestCount}";
     }
 }
