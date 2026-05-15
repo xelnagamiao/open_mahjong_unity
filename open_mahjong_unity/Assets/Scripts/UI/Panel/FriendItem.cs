@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -57,10 +58,25 @@ public class FriendItem : MonoBehaviour {
         LoadAvatar(info.profile_image_id);
         UpdateAvatarClickTarget(info.user_id);
 
-        bool inGame = info.state == "in_game";
-        SetInteractable(spectateButton, inGame);
-        SetInteractable(realtimeSpectateButton, inGame);
-        SetInteractable(unfollowButton, true);
+        bool inGame = IsInGameState(info.state);
+        bool hasGamestateId = !string.IsNullOrEmpty(info.gamestate_id);
+        if (spectateButton != null) {
+            spectateButton.gameObject.SetActive(inGame && hasGamestateId);
+            spectateButton.interactable = inGame && hasGamestateId;
+        }
+        if (realtimeSpectateButton != null) {
+            realtimeSpectateButton.gameObject.SetActive(inGame);
+            realtimeSpectateButton.interactable = inGame;
+        }
+        if (unfollowButton != null) {
+            unfollowButton.gameObject.SetActive(true);
+            unfollowButton.interactable = true;
+        }
+    }
+
+    private static bool IsInGameState(string state) {
+        if (string.IsNullOrEmpty(state)) return false;
+        return state.Trim().Equals("in_game", StringComparison.OrdinalIgnoreCase);
     }
 
     private void BindButtonsOnce() {
@@ -86,19 +102,23 @@ public class FriendItem : MonoBehaviour {
     }
 
     private static string StateDisplay(string state) {
-        return state switch {
+        if (IsInGameState(state)) return "对局中";
+        if (string.IsNullOrEmpty(state)) return "";
+        string s = state.Trim().ToLowerInvariant();
+        return s switch {
             "offline" => "离线",
             "online" => "在线",
-            "in_game" => "对局中",
-            _ => state ?? "",
+            _ => state,
         };
     }
 
     private Color StateColor(string state) {
-        return state switch {
+        if (IsInGameState(state)) return inGameColor;
+        if (string.IsNullOrEmpty(state)) return offlineColor;
+        string s = state.Trim().ToLowerInvariant();
+        return s switch {
             "offline" => offlineColor,
             "online" => onlineColor,
-            "in_game" => inGameColor,
             _ => offlineColor,
         };
     }
@@ -107,11 +127,6 @@ public class FriendItem : MonoBehaviour {
         if (avatar == null) return;
         Sprite sprite = Resources.Load<Sprite>($"image/Profiles/{profileImageId}");
         if (sprite != null) avatar.sprite = sprite;
-    }
-
-    private static void SetInteractable(Button btn, bool on) {
-        if (btn == null) return;
-        btn.interactable = on;
     }
 
     private void OnClickSpectate() {
@@ -124,7 +139,7 @@ public class FriendItem : MonoBehaviour {
 
     private void OnClickRealtime() {
         if (_info == null) return;
-        if (_info.state != "in_game") {
+        if (!IsInGameState(_info.state)) {
             NotificationManager.Instance?.ShowTip("实时观战", false, "对方当前不在对局中");
             return;
         }

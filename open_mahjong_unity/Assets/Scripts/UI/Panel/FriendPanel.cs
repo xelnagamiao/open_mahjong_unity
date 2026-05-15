@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -6,8 +7,8 @@ using UnityEngine.UI;
 /// <summary>
 /// 好友/关注 面板：UID 输入框 + 添加按钮 + "0/10" 文本 + 滚动列表。
 /// 服务器消息通过 FriendNetworkManager 事件订阅。
-/// 进入面板：清空旧条目、注册 5s 轮询；退出面板：停止轮询。
-/// 轮询返回的列表用于动态刷新条目状态文本与按钮可点状态，避免每次都销毁重建。
+/// 进入面板：清空 content 下全部子物体（含未纳入字典的残留）、注册 5s 轮询；退出面板：停止轮询。
+/// 首轮请求在下一帧发出，避免与 Destroy 同帧导致列表与旧子物体叠加。
 /// </summary>
 public class FriendPanel : MonoBehaviour {
     public static FriendPanel Instance { get; private set; }
@@ -26,6 +27,7 @@ public class FriendPanel : MonoBehaviour {
 
     private readonly Dictionary<int, FriendItem> _itemsByUid = new Dictionary<int, FriendItem>();
     private int _friendMax = 10;
+    private Coroutine _deferredPollingRoutine;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -37,19 +39,30 @@ public class FriendPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
-        ClearItems();
+        ClearContentAndItems();
         if (countText != null) countText.text = $"0/{_friendMax}";
         if (FriendNetworkManager.Instance != null) {
             FriendNetworkManager.Instance.OnFriendListResponse += HandleListResponse;
             FriendNetworkManager.Instance.OnAddFriendResponse += HandleAddResponse;
             FriendNetworkManager.Instance.OnRemoveFriendResponse += HandleRemoveResponse;
         }
+        if (_deferredPollingRoutine != null) StopCoroutine(_deferredPollingRoutine);
+        _deferredPollingRoutine = StartCoroutine(CoStartPollingAfterLayout());
+    }
+
+    private IEnumerator CoStartPollingAfterLayout() {
+        yield return null;
+        _deferredPollingRoutine = null;
         if (NetworkPollingManager.Instance != null) {
             NetworkPollingManager.Instance.StartFriendListPolling(pollingIntervalSeconds);
         }
     }
 
     private void OnDisable() {
+        if (_deferredPollingRoutine != null) {
+            StopCoroutine(_deferredPollingRoutine);
+            _deferredPollingRoutine = null;
+        }
         if (FriendNetworkManager.Instance != null) {
             FriendNetworkManager.Instance.OnFriendListResponse -= HandleListResponse;
             FriendNetworkManager.Instance.OnAddFriendResponse -= HandleAddResponse;
@@ -91,12 +104,6 @@ public class FriendPanel : MonoBehaviour {
         ApplyList(response);
     }
 
-    /// <summary>
-    /// 把后端最新的好友列表 diff 到 UI：
-    /// - 新增 uid → Instantiate 新 FriendItem
-    /// - 已存在 uid → FriendItem.Refresh(info) 原地更新状态文本与按钮可点
-    /// - 缺失 uid → 销毁
-    /// </summary>
     private void ApplyList(Response response) {
         if (response.friend_max.HasValue) _friendMax = response.friend_max.Value;
         var list = response.friend_list;
@@ -134,10 +141,15 @@ public class FriendPanel : MonoBehaviour {
         }
     }
 
-    private void ClearItems() {
-        foreach (var kv in _itemsByUid) {
-            if (kv.Value != null) Destroy(kv.Value.gameObject);
-        }
+    /// <summary>
+    /// 清空字典并销毁 content 下所有子物体，避免旧版本残留或未跟踪的条目留在 ScrollView 里。
+    /// </summary>
+    private void ClearContentAndItems() {
         _itemsByUid.Clear();
+        if (contentTransform == null) return;
+        for (int i = contentTransform.childCount - 1; i >= 0; i--) {
+            Transform c = contentTransform.GetChild(i);
+            if (c != null) Destroy(c.gameObject);
+        }
     }
 }

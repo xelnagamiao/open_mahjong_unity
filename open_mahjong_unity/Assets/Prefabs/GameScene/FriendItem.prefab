@@ -1045,6 +1045,9 @@ MonoBehaviour:
   uidText: {fileID: 6652445002997037689}
   usernameText: {fileID: 2388661750913757933}
   stateText: {fileID: 3557483632973696635}
+  offlineColor: {r: 1, g: 1, b: 1, a: 1}
+  onlineColor: {r: 0.3, g: 0.85, b: 0.3, a: 1}
+  inGameColor: {r: 0.34901965, g: 0.446695, b: 1, a: 1}
   spectateButton: {fileID: 3789506558858891255}
   realtimeSpectateButton: {fileID: 3229408758748784054}
   unfollowButton: {fileID: 3525110797912396166}

@@ -3,17 +3,17 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 战术鸣牌等待面板：每次申请阶段固定 2 秒倒计时。
+/// 战术鸣牌等待面板：每次申请阶段固定 1.5 秒倒计时。
 /// 服务端在切牌后/抢杠询问阶段会先广播 is_claim=true 的 do_action 让客户端发声并显示字体动画，
-/// 同时启动该面板上的 0→100 滑动条。若 2 秒内有更高优先级行为打断，
-/// 服务端会重新广播一次 is_claim 申请，本面板会重新归零并继续 2 秒倒计时；
+/// 同时启动该面板上的 0→100 滑动条。若 1.5 秒内有更高优先级行为打断，
+/// 服务端会重新广播一次 is_claim 申请，本面板会重新归零并继续 1.5 秒倒计时；
 /// 期间没有打断时，服务端会下发 silent=true 的实际行为，此时面板隐藏。
 /// </summary>
 public class TacticalCallPanel : MonoBehaviour {
     public static TacticalCallPanel Instance { get; private set; }
 
     [SerializeField] private Slider countdownSlider;
-    [SerializeField] private float durationSeconds = 2f;
+    [SerializeField] private float durationSeconds = 1.5f;
 
     private Coroutine activeCoroutine;
 
@@ -27,7 +27,7 @@ public class TacticalCallPanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 显示战术鸣牌面板并从 0 滑动到 100，2 秒后自动隐藏。
+    /// 显示战术鸣牌面板并从 0 滑动到 100，1.5 秒后自动隐藏。
     /// 若上一段倒计时仍在播放（出现连续打断），会停止旧倒计时并重新开始。
     /// </summary>
     public void ShowClaim() {
