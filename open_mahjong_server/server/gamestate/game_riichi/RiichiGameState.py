@@ -619,12 +619,14 @@ class RiichiGameState:
             noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
             has_penalty = bool(tenpai_indexes and noten_indexes)
             tenpai_tiles = {p.player_index: sorted(p.waiting_tiles) for p in self.player_list if p.waiting_tiles}
+            tenpai_hands = {p.player_index: list(p.hand_tiles) for p in self.player_list if p.waiting_tiles}
             await broadcast_result(
                 self,
                 hu_class="ryuukyoku",
                 score_changes={i: changes.get(i, 0) for i in range(4)},
                 player_to_score={p.original_player_index: p.score for p in self.player_list},
                 tenpai_tiles=tenpai_tiles,
+                tenpai_hands=tenpai_hands,
                 exhaustive_penalty=has_penalty,
             )
 
@@ -830,24 +832,22 @@ class RiichiGameState:
     # ========== 抽宝牌 ==========
 
     async def _reveal_kan_dora(self):
-        """翻开下一张杠宝牌指示牌（上层）以及对应位置的里杠宝（下层）。
+        """翻开下一张杠宝牌指示牌以及对应位置的里杠宝。
 
         王牌布局（init_tiles）：tiles_list[-1..-4] 为 4 张岭上牌；
-        tiles_list[-5] / -6 为初始上层/下层宝牌指示；后续指示牌每对向左偏移 2
-        （上: -7/-9/-11/-13；里: -8/-10/-12/-14）。
-        每次岭上摸牌会 pop(-1)，因此"当前位置 = 原始位置 + rinshan_count"。
-        该公式兼容明/加杠延后翻开以及连杠场景。
+        宝牌指示牌使用原始牌山倒数 6/8/10/12/14，里宝牌使用倒数 5/7/9/11/13。
+        每次岭上摸牌会 pop(-1)，因此当前位置 = 原始位置 + rinshan_count。
         """
-        n = len(self.dora_indicators) + 1  # 即将翻开第 n 张上层指示牌（初始计为第 1 张）
-        idx = -(3 + 2 * n) + self.rinshan_count
+        next_kan_number = len(self.kan_dora_indicators) + 1
+        if next_kan_number > 4:
+            return
+        idx = -(6 + 2 * next_kan_number) + self.rinshan_count
         if -idx > self.dead_wall_count or -idx > len(self.tiles_list):
             return
         new_ind = self.tiles_list[idx]
         self.kan_dora_indicators.append(new_ind)
-        self.dora_indicators.append(new_ind)
 
-        m = len(self.ura_dora_indicators) + 1
-        ura_idx = -(4 + 2 * m) + self.rinshan_count
+        ura_idx = -(5 + 2 * next_kan_number) + self.rinshan_count
         if -ura_idx <= self.dead_wall_count and -ura_idx <= len(self.tiles_list):
             self.ura_kan_dora_indicators.append(self.tiles_list[ura_idx])
 

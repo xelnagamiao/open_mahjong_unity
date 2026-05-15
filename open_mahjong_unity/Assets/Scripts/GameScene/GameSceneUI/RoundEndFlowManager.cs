@@ -81,8 +81,9 @@ public class RoundEndFlowManager : MonoBehaviour {
     private IEnumerator CoRiichiDrawWallLiujuSequence(string displayText, Dictionary<int, int> player_to_score, RiichiEndResultExtras riichiExtras) {
         HideSelfGameplayControl(false);
         Dictionary<int, int[]> tenpaiTiles = riichiExtras != null ? riichiExtras.TenpaiTiles : null;
+        Dictionary<int, int[]> tenpaiHands = riichiExtras != null ? riichiExtras.TenpaiHands : null;
         // 听牌玩家手牌先倒下，动画时长由流程统一等待。
-        yield return Game3DManager.Instance.RoundEndRevealTenpaiHandsAndPlayExpandAnimation(tenpaiTiles);
+        yield return Game3DManager.Instance.RoundEndRevealTenpaiHandsAndPlayExpandAnimation(tenpaiHands);
         // 流局面板按 player_index 在对应方位容器中显示真实听张。
         EndLiujuPanel.Instance.ShowLiujuPanel(displayText, tenpaiTiles, DrawCaptionHoldSeconds);
         yield return new WaitForSeconds(DrawCaptionHoldSeconds);

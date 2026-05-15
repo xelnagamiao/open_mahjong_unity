@@ -75,7 +75,7 @@ public class FriendPanel : MonoBehaviour {
 
     private void OnEnable() {
         ClearAllItems();
-        SwitchTab(Tab.Following);
+        SwitchTab(Tab.Friends);
         UpdateCountTexts(0, 0, 0);
         FriendNetworkManager.Instance?.ListAllFriendPanels();
         if (_pollingCoroutine != null) StopCoroutine(_pollingCoroutine);

@@ -37,6 +37,7 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI TotalLimitDisplay;
 
     [Header("立直麻将结算扩展（可选，仅 riichi 规则显示）")]
+    [SerializeField] private GameObject RiichiPanel;
     [Tooltip("宝牌指示槽位（手动拖入 StaticCard）。未翻开位置显示牌背 0。")]
     [SerializeField] private StaticCard[] RiichiDoraSlots;
     [Tooltip("里宝牌指示槽位（手动拖入 StaticCard）。未翻开位置显示牌背 0。")]
@@ -507,6 +508,9 @@ public class EndResultPanel : MonoBehaviour {
     /// </summary>
     private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
         bool isRiichi = rule == "riichi/standard" || rule == "riichi";
+        if (RiichiPanel != null) {
+            RiichiPanel.SetActive(isRiichi);
+        }
         if (!isRiichi || extras == null) {
             FillDoraSlots(RiichiDoraSlots, null);
             FillDoraSlots(RiichiUraDoraSlots, null);
@@ -558,6 +562,9 @@ public class EndResultPanel : MonoBehaviour {
             resultRootCanvasGroup.alpha = 1f;
         }
         FanCountTotalPanel.SetActive(false);
+        if (RiichiPanel != null) {
+            RiichiPanel.SetActive(false);
+        }
         FillDoraSlots(RiichiDoraSlots, null);
         FillDoraSlots(RiichiUraDoraSlots, null);
 

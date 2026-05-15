@@ -76,7 +76,7 @@ public class NormalGameStateManager : MonoBehaviour{
     // 立直麻将专属字段
     public int honba; // 本场棒数
     public int riichiSticks; // 场供立直棒数
-    public List<int> doraIndicators = new List<int>(); // 宝牌指示牌（含已翻出的杠宝牌）
+    public List<int> doraIndicators = new List<int>(); // 初始宝牌指示牌
     public List<int> kanDoraIndicators = new List<int>(); // 杠宝牌指示牌
     public string hepaiWay; // 和牌方式 head_bump / multi_ron / three_ron_abort
     public bool redDora; // 是否启用赤宝牌
@@ -1003,11 +1003,15 @@ public class NormalGameStateManager : MonoBehaviour{
     /// </summary>
     public void OnDoraUpdated(GameInfo gameInfo) {
         if (gameInfo == null) return;
-        if (gameInfo.dora_indicators != null) {
-            doraIndicators = new List<int>(gameInfo.dora_indicators);
+        OnDoraUpdated(gameInfo.dora_indicators, gameInfo.kan_dora_indicators);
+    }
+
+    public void OnDoraUpdated(int[] doraIndicatorsFromServer, int[] kanDoraIndicatorsFromServer) {
+        if (doraIndicatorsFromServer != null) {
+            doraIndicators = new List<int>(doraIndicatorsFromServer);
         }
-        if (gameInfo.kan_dora_indicators != null) {
-            kanDoraIndicators = new List<int>(gameInfo.kan_dora_indicators);
+        if (kanDoraIndicatorsFromServer != null) {
+            kanDoraIndicators = new List<int>(kanDoraIndicatorsFromServer);
         }
         if (RoundPanel.Instance != null) {
             RoundPanel.Instance.RefreshRiichi(honba, riichiSticks, doraIndicators, kanDoraIndicators);

@@ -276,6 +276,7 @@ async def broadcast_result(
     riichi_sticks_collected: Optional[int] = None,
     score_changes: Optional[Dict[int, int]] = None,
     tenpai_tiles: Optional[Dict[int, List[int]]] = None,
+    tenpai_hands: Optional[Dict[int, List[int]]] = None,
     exhaustive_penalty: Optional[bool] = None,
 ):
     self.server_action_tick += 1
@@ -310,6 +311,7 @@ async def broadcast_result(
                     riichi_sticks_collected=riichi_sticks_collected,
                     score_changes=score_changes,
                     tenpai_tiles=tenpai_tiles,
+                    tenpai_hands=tenpai_hands,
                     exhaustive_penalty=exhaustive_penalty,
                 ),
             )

@@ -8,16 +8,8 @@ public partial class Game3DManager {
     /// </summary>
     public void RefreshSelfFaceHandFromTileList() {
         if (NormalGameStateManager.Instance == null || selfPosPanel == null) return;
-        List<GameObject> objectsToReturn = new List<GameObject>();
-        CollectChildren(selfPosPanel.cardsPosition, objectsToReturn);
-        foreach (GameObject obj in objectsToReturn) {
-            MahjongObjectPool.Instance.Return(-1, obj);
-        }
         List<int> ids = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
-        ids.Sort(TileIdOrder.Comparer);
-        for (int i = 0; i < ids.Count; i++) {
-            Set3DTile(ids[i], selfPosPanel.cardsPosition, "Record", "self");
-        }
+        LayRoundEndClosedFaceHandAtPosition("self", ids);
     }
 
     /// <summary>
@@ -27,14 +19,15 @@ public partial class Game3DManager {
         if (NormalGameStateManager.Instance == null || hepaiPlayerHand == null || hepaiPlayerHand.Length == 0) yield break;
         if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(hepaiPlayerIndex)) yield break;
         string pos = NormalGameStateManager.Instance.indexToPosition[hepaiPlayerIndex];
-        LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
         PosPanel3D panel = GetPosPanel(pos);
+        RestoreHandRevealInitialPose(panel);
+        LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(1.5f);
     }
 
     /// <summary>
-    /// 日麻荒牌流局：听牌玩家手牌倒下，自家听牌时显示真实牌面。
+    /// 日麻荒牌流局：听牌玩家手牌倒下，四家都按服务端下发的真实手牌渲染牌面。
     /// 入参为 {player_index: [tile_id...]}，未在字典中视为不听。
     /// </summary>
     public IEnumerator RoundEndRevealTenpaiHandsAndPlayExpandAnimation(Dictionary<int, int[]> tenpaiTilesByPlayerIndex) {
@@ -46,10 +39,10 @@ public partial class Game3DManager {
             if (tiles == null || tiles.Length == 0) continue;
             if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(playerIndex)) continue;
             string pos = NormalGameStateManager.Instance.indexToPosition[playerIndex];
-            if (pos == "self") {
-                RefreshSelfFaceHandFromTileList();
-            }
-            PlayHandRevealAnimation(GetPosPanel(pos));
+            PosPanel3D panel = GetPosPanel(pos);
+            RestoreHandRevealInitialPose(panel);
+            LayRoundEndClosedFaceHandAtPosition(pos, tiles);
+            PlayHandRevealAnimation(panel);
             played = true;
         }
         if (played) {
@@ -60,20 +53,35 @@ public partial class Game3DManager {
     private void PlayHandRevealAnimation(PosPanel3D panel) {
         if (panel.handRevealAnimator == null || string.IsNullOrEmpty(panel.handRevealExpandTrigger)) return;
         Animator anim = panel.handRevealAnimator;
+        anim.enabled = false;
+        RestoreHandRevealInitialPose(panel);
         anim.enabled = true;
-        // Rebind 把状态机与动画属性一并拉回默认状态，避免上一次 Expand 末态在 enabled=true 瞬间被立即采样，
-        // 表现为他家手牌先弹到展开末态再播一次 Expand（看起来像倒了两次）。
+        // 先采样默认状态，再触发展开，避免上一轮末态在启用 Animator 时被立即应用。
         anim.Rebind();
+        anim.Update(0f);
         anim.ResetTrigger(panel.handRevealExpandTrigger);
         anim.SetTrigger(panel.handRevealExpandTrigger);
     }
 
+    private void RestoreHandRevealInitialPose(PosPanel3D panel) {
+        if (panel == null || panel.handRevealAnimator == null) return;
+        Transform target = panel.handRevealAnimator.transform;
+        for (int i = 0; i < handRevealInitialPoses.Count; i++) {
+            HandRevealInitialPose pose = handRevealInitialPoses[i];
+            if (pose.target != target) continue;
+            target.localPosition = pose.localPosition;
+            target.localRotation = pose.localRotation;
+            target.localScale = pose.localScale;
+            return;
+        }
+    }
 
     /// <summary>
     /// 在指定位置布置明牌，用于和牌展示。
     /// </summary>
     private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand, int[][] combinationMask) {
         PosPanel3D panel = GetPosPanel(playerPosition);
+        RestoreHandRevealInitialPose(panel);
         Transform target = panel.cardsPosition;
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(target, objectsToReturn);
@@ -98,5 +106,22 @@ public partial class Game3DManager {
             }
         }
         Set3DTile(last, target, "Record", playerPosition);
+    }
+
+    private void LayRoundEndClosedFaceHandAtPosition(string playerPosition, IList<int> handTiles) {
+        PosPanel3D panel = GetPosPanel(playerPosition);
+        RestoreHandRevealInitialPose(panel);
+        Transform target = panel.cardsPosition;
+        List<GameObject> objectsToReturn = new List<GameObject>();
+        CollectChildren(target, objectsToReturn);
+        foreach (GameObject obj in objectsToReturn) {
+            MahjongObjectPool.Instance.Return(-1, obj);
+        }
+
+        List<int> sorted = new List<int>(handTiles);
+        sorted.Sort(TileIdOrder.Comparer);
+        for (int i = 0; i < sorted.Count; i++) {
+            Set3DTile(sorted[i], target, "Record", playerPosition);
+        }
     }
 }

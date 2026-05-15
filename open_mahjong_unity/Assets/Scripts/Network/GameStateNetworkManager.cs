@@ -202,6 +202,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             RiichiSticksCollected = info.riichi_sticks_collected ?? 0,
             ScoreChanges = info.score_changes,
             TenpaiTiles = info.tenpai_tiles,
+            TenpaiHands = info.tenpai_hands,
             NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
         };
     }
@@ -359,7 +360,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     private void HandleRiichiUpdateDora(Response response) {
         Debug.Log($"收到宝牌更新: {response.message}");
-        NormalGameStateManager.Instance.OnDoraUpdated(response.game_info);
+        NormalGameStateManager.Instance.OnDoraUpdated(response.dora_indicators, response.kan_dora_indicators);
     }
 
     /// <summary>
