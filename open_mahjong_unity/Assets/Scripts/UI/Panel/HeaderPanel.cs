@@ -113,7 +113,10 @@ public class HeaderPanel : MonoBehaviour {
     private void SceneConfig() => WindowsManager.Instance.SwitchWindow("sceneConfig");
     private void Spectator() => WindowsManager.Instance.SwitchWindow("spectator");
     private void Match() => WindowsManager.Instance.SwitchWindow("match");
-    private void Friend() => WindowsManager.Instance.SwitchWindow("friend");
+    private void Friend() {
+        WindowsManager.Instance.SwitchWindow("friend");
+        FriendNetworkManager.Instance?.ListAllFriendPanels();
+    }
 
     /// <summary>
     /// 根据当前窗口更新导航栏按钮状态（由 WindowsManager.SwitchWindow 末尾调用）。Stay 颜色仅在此处设置。

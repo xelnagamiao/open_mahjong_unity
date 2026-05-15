@@ -425,16 +425,9 @@ public class NormalGameStateManager : MonoBehaviour{
         foreach (string action in action_list) {
             SoundManager.Instance.PlayActionSound(actor, action);
             SoundManager.Instance.PlayPhysicsSound(action);
-            GameCanvas.Instance.ShowActionDisplay(actor, NormalizeClaimActionForDisplay(action));
+            // ShowActionDisplay 已正确处理 hu_first/hu_second/hu_third/hu_self 并显示为「胡」
+            GameCanvas.Instance.ShowActionDisplay(actor, action);
         }
-    }
-
-    private static string NormalizeClaimActionForDisplay(string action) {
-        // 申请阶段的胡使用 hu_first/hu_second/hu_third，客户端 ShowActionDisplay 通常按 hu 处理
-        if (action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "hu_self") {
-            return "hu";
-        }
-        return action;
     }
 
     // 判断日麻流局类 hu_class

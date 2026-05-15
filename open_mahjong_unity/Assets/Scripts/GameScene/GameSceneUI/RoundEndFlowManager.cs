@@ -53,14 +53,15 @@ public class RoundEndFlowManager : MonoBehaviour {
 
     private IEnumerator CoHuResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, bool isSilent) {
         HideSelfGameplayControl();
-        bool riichi = NormalGameStateManager.Instance.roomRule == "riichi";
-        if (riichi && hepai_player_hand != null && hepai_player_hand.Length > 0) {
-            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepai_player_index, hepai_player_hand, hepai_player_combination_mask);
-        }
-        // 战术鸣牌：字体动画与音效已在申请阶段播放，跳过此处的胡牌发声与字体动画
+        // 先喊胡：字体动画 + 音效；战术鸣牌已在申请阶段播放过则跳过
         if (!isSilent) {
             GameCanvas.Instance.ShowActionDisplay(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);
             SoundManager.Instance.PlayActionSound(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);
+        }
+        // 再倒牌（仅日麻规则展示赢家明牌+展开动画）
+        bool riichi = NormalGameStateManager.Instance.roomRule == "riichi";
+        if (riichi && hepai_player_hand != null && hepai_player_hand.Length > 0) {
+            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepai_player_index, hepai_player_hand, hepai_player_combination_mask);
         }
         EndResultPanel.Instance.StartShowResultAfterDelay(0f, hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras);
         activeRoundEndCoroutine = null;

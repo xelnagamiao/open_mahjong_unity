@@ -15,9 +15,9 @@ public partial class GameCanvas : MonoBehaviour {
         
         // 设置倒计时初始值
         if (_currentCutTime > 0){
-            remianTimeText.text = $"剩余时间: {_currentRemainingTime}+{_currentCutTime}";
+            remianTimeText.text = $"{_currentRemainingTime}+{_currentCutTime}";
         } else {
-            remianTimeText.text = $"剩余时间: {_currentRemainingTime}";
+            remianTimeText.text = $"{_currentRemainingTime}";
         }
 
         // 启动倒计时协程
@@ -42,9 +42,9 @@ public partial class GameCanvas : MonoBehaviour {
             }
             // 更新文本内容
             if (_currentCutTime > 0){
-                remianTimeText.text = $"剩余时间: {_currentRemainingTime}+{_currentCutTime}";
+                remianTimeText.text = $"{_currentRemainingTime}+{_currentCutTime}";
             } else {
-                remianTimeText.text = $"剩余时间: {_currentRemainingTime}";
+                remianTimeText.text = $"{_currentRemainingTime}";
             }
             // 决定文本颜色 低于5秒时显示红色
             if (_currentRemainingTime <= 5 && _currentCutTime <= 0) {

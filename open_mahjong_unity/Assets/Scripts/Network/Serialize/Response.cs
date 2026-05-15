@@ -309,6 +309,12 @@ public class FriendInfo { // 好友 / 关注信息
     public string gamestate_id;    // 仅当 state == "in_game" 时有值
 }
 
+public class FriendRequestInfo { // 好友申请信息
+    public int user_id;
+    public string username;
+    public int profile_image_id;
+}
+
 public class RealtimeSpectatorEntry { // 实时观战者条目
     public int user_id;
     public string username;
@@ -348,6 +354,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public long client_ts; // pong 消息回传：客户端发送 ping 的时间戳（毫秒）
     // 好友 / 关注 / 实时观战
     public FriendInfo[] friend_list;             // 关注列表
+    public FriendRequestInfo[] friend_request_list; // 好友申请列表
     public int? friend_count;                    // 当前关注人数
     public int? friend_max;                      // 关注上限
     public string realtime_request_id;           // 实时观战请求 ID

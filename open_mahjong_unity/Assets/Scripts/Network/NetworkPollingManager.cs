@@ -30,7 +30,6 @@ public class NetworkPollingManager : MonoBehaviour {
             return;
         }
         _instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     public void StartRoomListPolling(float intervalSeconds = 5f) {
@@ -84,9 +83,9 @@ public class NetworkPollingManager : MonoBehaviour {
     /// </summary>
     public void StartFriendListPolling(float intervalSeconds = 5f) {
         StopFriendListPolling();
-        FriendNetworkManager.Instance?.ListFriends();
+        FriendNetworkManager.Instance?.ListAllFriendPanels();
         friendListPollingCoroutine = StartCoroutine(PollingRoutine(() => {
-            FriendNetworkManager.Instance?.ListFriends();
+            FriendNetworkManager.Instance?.ListAllFriendPanels();
         }, intervalSeconds));
     }
 

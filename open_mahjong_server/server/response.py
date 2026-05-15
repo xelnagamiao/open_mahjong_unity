@@ -274,6 +274,12 @@ class FriendInfo(BaseModel):
     state: str                                   # "offline" / "online" / "in_game"
     gamestate_id: Optional[str] = None           # 仅在 state == "in_game" 时有效
 
+class FriendRequestInfo(BaseModel):
+    """好友申请信息"""
+    user_id: int
+    username: str
+    profile_image_id: int = 1
+
 class RealtimeSpectatorEntry(BaseModel):
     """实时观战者条目（用于推送给被观战玩家显示列表）"""
     user_id: int
@@ -322,6 +328,7 @@ class Response(BaseModel):
     spectator_list: Optional[List[SpectatorInfo]] = None # 用于返回观战列表
     # 好友 / 关注 / 实时观战 相关字段
     friend_list: Optional[List[FriendInfo]] = None
+    friend_request_list: Optional[List[FriendRequestInfo]] = None
     realtime_request_id: Optional[str] = None
     realtime_from_user_id: Optional[int] = None
     realtime_from_username: Optional[str] = None

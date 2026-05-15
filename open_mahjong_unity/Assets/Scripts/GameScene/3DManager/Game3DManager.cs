@@ -234,8 +234,44 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
+        // 初始化手牌走同步路径，避免与紧随其后的补花/摸牌广播触发的删/增手牌协程交错，
+        // 导致 InitHandCards 在 yield 帧之后才补出 13 张手牌叠加在已增量的牌上。
+        if (actionType == "InitHandCards"){
+            InitHandCardsImmediate();
+            return;
+        }
+
         // 直接启动协程，允许多个 Change3DTileCoroutine 并行执行
         StartCoroutine(Change3DTileCoroutine(actionType,tileId,removeCount,PlayerPosition,cut_class,combination_mask, isRiichi));
+    }
+
+    // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
+    private void InitHandCardsImmediate() {
+        List<GameObject> objectsToReturn = new List<GameObject>();
+        CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(topPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(rightPosPanel.cardsPosition, objectsToReturn);
+        CollectChildren(selfPosPanel.cardsPosition, objectsToReturn);
+        foreach (GameObject obj in objectsToReturn) {
+            MahjongObjectPool.Instance.Return(-1, obj);
+        }
+
+        int leftCount = NormalGameStateManager.Instance.player_to_info["left"].hand_tiles_count;
+        int topCount = NormalGameStateManager.Instance.player_to_info["top"].hand_tiles_count;
+        int rightCount = NormalGameStateManager.Instance.player_to_info["right"].hand_tiles_count;
+        List<int> selfTilesSnapshot = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
+        for (int i = 0; i < leftCount; i++) {
+            Get3DTile("left", "init", 0);
+        }
+        for (int i = 0; i < topCount; i++) {
+            Get3DTile("top", "init", 0);
+        }
+        for (int i = 0; i < rightCount; i++) {
+            Get3DTile("right", "init", 0);
+        }
+        for (int i = 0; i < selfTilesSnapshot.Count; i++) {
+            Get3DTile("self", "init", selfTilesSnapshot[i]);
+        }
     }
     
     // Change3DTile 管理3D手牌组的变更行为
@@ -247,24 +283,10 @@ public partial class Game3DManager : MonoBehaviour {
         // Buhua 补花 => Set3DTile(buhua) => RemoveHandCardsCoroutine // 其实补花也有摸打补花的说法，后续需要优化这种情况
         // 吃碰杠 => ActionAnimation => RemoveHandCardsCoroutine（含自家，按掩码删牌）
 
-        // 初始化手牌 
+        // 初始化手牌：统一走同步路径，避免协程 yield 期间与补花/摸牌广播交错产生多余手牌
         if (actionType == "InitHandCards"){
-            // 先清除所有手牌，确保 childCount 正确
-            yield return StartCoroutine(ClearHandCardsCoroutine());
-            
-            // 然后初始化手牌
-            for (int i = 0; i < NormalGameStateManager.Instance.player_to_info["left"].hand_tiles_count; i++){
-                Get3DTile("left","init", 0);
-            }
-            for (int i = 0; i < NormalGameStateManager.Instance.player_to_info["top"].hand_tiles_count; i++){
-                Get3DTile("top","init", 0);
-            }
-            for (int i = 0; i < NormalGameStateManager.Instance.player_to_info["right"].hand_tiles_count; i++){
-                Get3DTile("right","init", 0);
-            }
-            for (int i = 0; i < NormalGameStateManager.Instance.selfHandTiles.Count; i++) {
-                Get3DTile("self", "init", NormalGameStateManager.Instance.selfHandTiles[i]);
-            }
+            InitHandCardsImmediate();
+            yield break;
         }
 
         if (actionType == "InitHandCardsFromRecord"){

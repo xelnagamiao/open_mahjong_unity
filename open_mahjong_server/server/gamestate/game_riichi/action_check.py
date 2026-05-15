@@ -247,12 +247,24 @@ def _is_furiten(player, discards_own: List[int]) -> bool:
     return False
 
 
+def _expand_with_red_dora(tile_norm: int) -> List[int]:
+    """对 5m/5p/5s 同时包含赤 5 实牌 id，使红 5 与普通 5 都纳入禁切判断。"""
+    if tile_norm == 15:
+        return [15, 105]
+    if tile_norm == 25:
+        return [25, 205]
+    if tile_norm == 35:
+        return [35, 305]
+    return [tile_norm]
+
+
 def compute_kuikae_forbidden(player) -> List[int]:
     """日麻食替禁切：吃/碰后到本家切出前，只禁两类牌——
     - X 自身（鸣来源；吃/碰的弃牌张，立即丢回等同没鸣，必禁）
     - 仅当用「两面搭子」吃时（chi_left = X 在副露最右端，X-1/X-2 自手；chi_right = X 在副露最左端，X+1/X+2 自手）：
       额外禁同色「另一面」X∓3（与副露另一头连成新顺子）。
     嵌张吃（chi_mid）与碰（peng）只禁 X，不禁筋牌。
+    集合内同时包含普通牌与赤 5 实牌 id（如 35 与 305），让红 5 与普通 5 等同看待。
     """
     if not player.combination_tiles or not player.combination_mask:
         return []
@@ -268,8 +280,8 @@ def compute_kuikae_forbidden(player) -> List[int]:
             break
     if mingpai_tile is None:
         return []
-    forbidden = {mingpai_tile}
     normal = _normalize(mingpai_tile)
+    forbidden = set(_expand_with_red_dora(normal))
     if normal >= 40:
         return sorted(forbidden)
     head = last_combo[0]
@@ -281,16 +293,16 @@ def compute_kuikae_forbidden(player) -> List[int]:
     except ValueError:
         return sorted(forbidden)
     suit = normal // 10
+    cand = None
     # X 在副露最左端 (chi_right): mid = X+1 → 禁 X+3；要求与 X 同色且数值 1..9
     if mid - normal == 1:
         cand = normal + 3
-        if cand // 10 == suit and 1 <= cand % 10 <= 9:
-            forbidden.add(cand)
     # X 在副露最右端 (chi_left): mid = X-1 → 禁 X-3
     elif normal - mid == 1:
         cand = normal - 3
-        if cand // 10 == suit and 1 <= cand % 10 <= 9:
-            forbidden.add(cand)
+    if cand is not None and cand // 10 == suit and 1 <= cand % 10 <= 9:
+        for tid in _expand_with_red_dora(cand):
+            forbidden.add(tid)
     # mid == normal 即嵌张 (chi_mid)：仅禁 X，不再追加
     return sorted(forbidden)
 
