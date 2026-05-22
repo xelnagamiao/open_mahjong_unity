@@ -23,7 +23,7 @@ public partial class Game3DManager {
         RestoreHandRevealInitialPose(panel);
         LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
         PlayHandRevealAnimation(panel);
-        yield return new WaitForSeconds(1.5f);
+        yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public partial class Game3DManager {
             played = true;
         }
         if (played) {
-            yield return new WaitForSeconds(1.5f);
+            yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
         }
     }
 

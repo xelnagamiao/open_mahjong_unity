@@ -45,16 +45,25 @@ async def wait_action(self):
             except Exception:
                 break
 
-    # 立直家在 waiting_hand_action 阶段若只剩 "cut"（无暗杠/无和牌等其它选项），
-    # 则不必询问客户端，直接执行强制摸切（tsumogiri）。这样既符合规则也不浪费询问轮。
-    # 与国标 wait_action 一致，不在服务端插入额外切牌前 sleep，避免出牌节奏卡顿、机器人明显变慢。
+    # 真实玩家立直后若只剩 "cut"，给客户端 0.5 秒提交自动摸切；超时后服务端强制摸切。
+    # AI 仍进入自动行为入口，由 AI 统一停顿后提交摸切，保证视觉节奏一致。
     if self.game_status == "waiting_hand_action":
         cur = self.current_player_index
         cur_player = self.player_list[cur]
         is_riichi = "riichi" in cur_player.tag_list or "daburu_riichi" in cur_player.tag_list
-        if is_riichi and self.action_dict.get(cur, []) == ["cut"]:
-            tile_id = cur_player.hand_tiles[-1]
-            await _execute_cut(self, cur, tile_id, is_moqie=True, cut_tile_index=None, is_riichi=False)
+        if is_riichi and cur_player.user_id > 10 and self.action_dict.get(cur, []) == ["cut"]:
+            self.waiting_players_list = [cur]
+            self.action_events[cur].clear()
+            try:
+                await asyncio.wait_for(self.action_events[cur].wait(), timeout=0.5)
+            except asyncio.TimeoutError:
+                pass
+            if not self.action_queues[cur].empty():
+                action_data = await self.action_queues[cur].get()
+                if action_data.get("action_type") == "cut":
+                    await _do_cut(self, cur, dict(action_data), is_riichi=False)
+                    return
+            await _execute_cut(self, cur, cur_player.hand_tiles[-1], is_moqie=True, cut_tile_index=None, is_riichi=False)
             return
 
     for player_index, action_list in self.action_dict.items():
@@ -100,6 +109,7 @@ async def wait_action(self):
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
                 self.action_dict[temp_player_index] = []
+                # 同一批完成任务中可能已有更高优先级操作清空等待列表，因此移除前先确认仍在等待。
                 if temp_player_index in self.waiting_players_list:
                     self.waiting_players_list.remove(temp_player_index)
 

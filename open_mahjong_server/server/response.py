@@ -138,6 +138,8 @@ class Show_shuhewei_info(BaseModel):
     player_fu_types: Dict[int, List[str]]  # 各玩家副种列表
     hu_class: Optional[str] = None  # 本局和牌类型（无和牌时为 liuju 或空）
     hepai_player_index: Optional[int] = None  # 和牌玩家索引（无和牌时为空）
+    hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌，用于数和尾前倒牌
+    hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
@@ -262,6 +264,7 @@ class ServerStatsInfo(BaseModel):
 class SpectatorInfo(BaseModel):
     """观战信息"""
     rule: str  # 规则类型（guobiao/qingque）
+    sub_rule: str  # 子规则类型（guobiao/standard 等）
     player1_name: str  # 玩家1 用户名
     player2_name: str  # 玩家2 用户名
     player3_name: str  # 玩家3 用户名

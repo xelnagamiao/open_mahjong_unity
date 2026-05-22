@@ -44,7 +44,7 @@ public class GameSceneUIManager : MonoBehaviour
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false); // 隐藏牌谱设置组件
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
-        RoundEndFlowManager.Instance.StopActiveSequence();
+        RoundEndPresentation.Instance.StopActiveSequence();
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ public class GameSceneUIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 显示罚符面板（四杠散了、四风连打、四人立直、三家和流局等一次性展示）。
+    /// 显示罚符面板（如荒牌不听罚符等）。
     /// </summary>
     public void ShowPenalty(
         System.Collections.Generic.Dictionary<string, string> usernameByPos,
@@ -149,7 +149,7 @@ public class GameSceneUIManager : MonoBehaviour
         RecordSetting.Instance.gameObject.SetActive(false);
         if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.HideAll(); // 正常对局隐藏退出牌谱/退出观战按钮
         if (realtimeSpectatorIndicator != null) realtimeSpectatorIndicator.ResetForNewGame(); // 重置被实时观战指示器，主动询问一次
-        RoundEndFlowManager.Instance.ShowSelfGameplayControlAndResyncHand3D();
+        RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }
 
     public void InitGameRecord() {
@@ -169,6 +169,6 @@ public class GameSceneUIManager : MonoBehaviour
         RecordSetting.Instance.Initialize();
         GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
-        RoundEndFlowManager.Instance.ShowSelfGameplayControlAndResyncHand3D();
+        RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }
 }

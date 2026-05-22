@@ -1,0 +1,117 @@
+using UnityEngine;
+
+public partial class NormalGameStateManager {
+    // 切换玩家状态
+    public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){
+        
+        // 询问手牌操作
+        if (SwitchType == "askHandAction"){
+            // 如果有人3d卡牌未排列 则排列 (仅在国标补花轮之后可能出现这样的问题)
+            Game3DManager.Instance.CheckAndRearrangeAllPlayersHandCards();
+            // 如果行动者是自己
+            if (GetCardPlayer == "self"){
+                // 显示可用行动 开启倒计时
+                GameCanvas.Instance.ClearActionButton(); // 清空操作按钮 *有时候补花轮自己不补花，但是别人也不补，就出现两次按钮
+                GameCanvas.Instance.SetActionButton(allowActionList);
+                GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
+                // 立直锁手 / 食替禁切：每次询问立刻刷新自家手牌的可点状态与变灰显示
+                GameCanvas.Instance.RefreshHandTileSelectability();
+                if (AutoAction.Instance != null) {
+                    AutoAction.Instance.SetAutoCutLocked(IsSelfRiichi());
+                }
+                // 如果开启自动胡牌、自动补花或者自动出牌，则启动协程
+                if (AutoAction.Instance != null && (AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut)){
+                    StartCoroutine(WaitAutoAction("AutoHandAction"));
+                }
+                // 询问操作时隐藏提示块
+                TipsBlock.Instance.HideTipsBlock();
+                TipsContainer.Instance.HideTips();
+                IsSelfActionRequired = true;
+                GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskHand);
+            }
+            // 询问的不是自己的回合
+            else{
+                GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null,null); // 重置手牌
+                SwitchCurrentPlayer(GetCardPlayer,"ClearAction",0); // 重置自身命令
+                IsSelfActionRequired = false;
+            }
+            // 只有askHandAction才会转移玩家位置
+            BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer, remainTiles); // 显示当前玩家
+            CurrentPlayer = GetCardPlayer; // 存储当前玩家
+        }
+
+        // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
+        else if (SwitchType == "askMingPaiAction"){
+            GameCanvas.Instance.ClearActionButton();
+            GameCanvas.Instance.SetActionButton(allowActionList);
+            GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
+            // 如果开启自动过牌或自动胡牌，则启动协程
+            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
+                StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
+            }
+            IsSelfActionRequired = true;
+            GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskOther);
+        }
+
+        // 执行行动
+        else if (SwitchType == "doAction"){
+            GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
+            Debug.Log($"doAction行动者: {GetCardPlayer}");
+            // 如果行动者是自己
+            if (GetCardPlayer == "self"){
+                // 停止计时器
+                GameCanvas.Instance.StopTimeRunning();
+                // 清空允许操作列表
+                allowActionList.Clear();
+                // 清空按钮
+                GameCanvas.Instance.ClearActionButton();
+                // 切牌后退出立直选牌模式（超时被迫切牌时同样会走到这里），并清空食替禁切
+                if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
+                selfRiichiCandidateCuts.Clear();
+                selfForbiddenCutTiles.Clear();
+                // 立刻恢复手牌正常颜色，避免用户看到禁切灰色滞留到下一轮询问
+                GameCanvas.Instance.RefreshHandTileSelectability();
+                // 在自己执行操作以后计算听牌提示，如果有提示就显示右侧提示块
+                if (tips){
+                    TipsBlock.Instance.ShowTipsBlock(selfHandTiles, player_to_info["self"].combination_tiles);
+                }
+                IsSelfActionRequired = false;
+            }
+        }
+
+        // 选择行动
+        else if (SwitchType == "ClearAction"){
+            // 停止计时器
+            GameCanvas.Instance.StopTimeRunning();
+            // 清空操作按钮
+            GameCanvas.Instance.ClearActionButton();
+            // 清空允许操作列表与立直/食替缓存
+            allowActionList.Clear();
+            selfRiichiCandidateCuts.Clear();
+            selfForbiddenCutTiles.Clear();
+            if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
+            IsSelfActionRequired = false;
+            GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
+        }
+
+        // 时间耗尽
+        else if (SwitchType == "TimeOut"){
+            // 清空操作按钮
+            GameCanvas.Instance.ClearActionButton();
+            if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
+            IsSelfActionRequired = false;
+            GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
+        }
+    }
+
+    private bool IsSelfRiichi(){
+        string[] tags = player_to_info["self"].tag_list;
+        if (tags == null) return false;
+        for (int i = 0; i < tags.Length; i++){
+            if (tags[i] == "riichi" || tags[i] == "daburu_riichi"){
+                return true;
+            }
+        }
+        return false;
+    }
+}

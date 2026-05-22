@@ -127,6 +127,12 @@ public partial class GameCanvas : MonoBehaviour {
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
         }
+
+        // 播放操作按钮出现音效
+        if (ActionButtonContainer.childCount > 0 && SoundManager.Instance != null) {
+            SoundManager.Instance.PlayActionButtonAppearSound();
+        }
+
         // 食替禁切等场景需要按当前状态变暗手牌
         GameCanvas.Instance.RefreshHandTileSelectability();
     }

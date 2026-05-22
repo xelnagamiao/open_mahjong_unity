@@ -229,7 +229,7 @@ public class TipsContainer : MonoBehaviour
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役", "wuyi");
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("未起和", "wuyi");
             }
         }
         Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
@@ -293,7 +293,7 @@ public class TipsContainer : MonoBehaviour
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役", "wuyi");
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无番", "wuyi");
             }
         }
         Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
@@ -338,7 +338,7 @@ public class TipsContainer : MonoBehaviour
                 GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
                 tileObject.GetComponent<StaticCard>().SetTileOnlyImage(hepaiTile);
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无役", "wuyi");
+                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount("无番", "wuyi");
             }
         }
     }

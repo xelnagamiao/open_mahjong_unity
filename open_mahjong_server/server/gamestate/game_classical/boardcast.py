@@ -616,6 +616,8 @@ async def broadcast_shuhewei(
     player_fu_types: Dict[int, List[str]],
     hu_class: Optional[str],
     hepai_player_index: Optional[int],
+    hepai_player_hand: Optional[List[int]] = None,
+    hepai_player_combination_mask: Optional[List[List[int]]] = None,
 ):
     self.server_action_tick += 1
     for i, current_player in enumerate(self.player_list):
@@ -638,6 +640,8 @@ async def broadcast_shuhewei(
                         player_fu_types=player_fu_types,
                         hu_class=hu_class,
                         hepai_player_index=hepai_player_index,
+                        hepai_player_hand=hepai_player_hand,
+                        hepai_player_combination_mask=hepai_player_combination_mask,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))

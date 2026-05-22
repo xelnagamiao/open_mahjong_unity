@@ -51,7 +51,7 @@ const features = ref([
   {
     id: 1,
     title: '对战平台',
-    description: 'Unity 客户端：国标、青雀、古典等玩法，匹配 / 房间 / 观战 / 牌谱。',
+    description: 'open_mahjong_unity是基于Unity开发的麻将对战平台,目前支持国标/日麻/青雀/古典和一些子规则。',
     icon: VideoPlay,
     color: '#007bff',
     type: 'route',
@@ -60,7 +60,8 @@ const features = ref([
   {
     id: 8,
     title: 'GitHub 项目',
-    description: '源码、Issue 与共建。',
+    // 青灰色
+    description: '转至GitHub项目页面。',
     icon: Link,
     color: '#808080',
     type: 'route',
@@ -69,16 +70,17 @@ const features = ref([
   {
     id: 2,
     title: '玩家数据',
-    description: '查询各规则下的胜率、得分与对战记录。',
+    description: '查询玩家的胜率、得分、对战次数等数据。',
     icon: User,
-    color: '#e74c3c',
+    // 大红色
+    color: '#ff0000',
     type: 'route',
     route: '/player-data',
   },
   {
     id: 3,
     title: '牌理',
-    description: '14 张手牌：逐张分析切牌后的向听与进张，支持牌面简写与点选。',
+    description: '分析手牌是否听牌，以及听牌的向听数或待牌。',
     icon: Histogram,
     color: '#9b59b6',
     type: 'route',
@@ -95,8 +97,8 @@ const features = ref([
   },
   {
     id: 5,
-    title: '国标麻将\n牌型解算',
-    description: '番种、得分、和牌拆解（连接服务器算分接口）。',
+    title: '国标麻将牌型解算',
+    description: '根据您输入的手牌、副露、花牌、和牌方式计算出可能的和牌构成与他家支付的点数。',
     icon: Trophy,
     color: '#45B7D1',
     type: 'route',
@@ -105,7 +107,7 @@ const features = ref([
   {
     id: 6,
     title: '规则书',
-    description: '国标 / 立直 / 青雀 / 古典等规则 PDF 与说明入口。',
+    description: '查询国标/立直/青雀/古典等规则的PDF说明书。',
     icon: Reading,
     color: '#a78bfa',
     type: 'route',
@@ -114,7 +116,7 @@ const features = ref([
   {
     id: 7,
     title: '开发手册',
-    description: '协议与扩展自定义规则的语雀文档。',
+    description: '查看开发文档,设计自定义的麻将规则。',
     icon: Document,
     color: '#00b300',
     type: 'route',

@@ -75,6 +75,8 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public Dictionary<int, string[]> player_fu_types; // 各玩家副种列表
     public string hu_class; // 本局和牌类型
     public int? hepai_player_index; // 和牌玩家索引（无和牌为空）
+    public int[] hepai_player_hand; // 和牌玩家手牌
+    public int[][] hepai_player_combination_mask; // 和牌玩家组合掩码
 }
 
 public class AskHandActionGBInfo { // 询问手牌操作
@@ -295,6 +297,7 @@ public class ServerStatsInfo { // 服务器统计信息
 
 public class SpectatorInfo { // 观战信息
     public string rule;         // 规则类型（guobiao/qingque）
+    public string sub_rule;     // 子规则类型（guobiao/standard等）
     public string player1_name; // 玩家1 用户名
     public string player2_name; // 玩家2 用户名
     public string player3_name; // 玩家3 用户名

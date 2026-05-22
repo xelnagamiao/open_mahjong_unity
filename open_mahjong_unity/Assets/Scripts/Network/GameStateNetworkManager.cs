@@ -342,7 +342,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             info.player_fan,
             info.player_fu_types,
             info.hu_class,
-            info.hepai_player_index
+            info.hepai_player_index,
+            info.hepai_player_hand,
+            info.hepai_player_combination_mask
         );
     }
 

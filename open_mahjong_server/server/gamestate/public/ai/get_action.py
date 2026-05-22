@@ -3,6 +3,37 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def _normalize_tile(tile: int) -> int:
+    if tile == 105:
+        return 15
+    if tile == 205:
+        return 25
+    if tile == 305:
+        return 35
+    return tile
+
+def _count_normalized(hand_tiles: list, normal_tile: int) -> int:
+    return sum(1 for t in hand_tiles if _normalize_tile(t) == normal_tile)
+
+def _infer_jiagang_target(player):
+    """从玩家已有碰牌与手牌推断可加杠目标，兼容赤 5 与客户端 targetTile 缺失。"""
+    for combo in getattr(player, "combination_tiles", []) or []:
+        if not combo or combo[0] != "k":
+            continue
+        try:
+            normal_tile = int(combo[1:])
+        except ValueError:
+            continue
+        if _count_normalized(player.hand_tiles, normal_tile) > 0:
+            return normal_tile
+    return None
+
+def _resolve_jiagang_target(player, target_tile):
+    normal_target = _normalize_tile(target_tile) if target_tile is not None else None
+    if normal_target is not None and f"k{normal_target}" in player.combination_tiles and _count_normalized(player.hand_tiles, normal_target) > 0:
+        return normal_target
+    return _infer_jiagang_target(player)
+
 # 获取机器人AI行动（直接使用玩家索引，只检测逻辑合法性）
 async def get_ai_action(game_state, player_index: int, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0):
     """
@@ -64,12 +95,14 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             # 验证特殊操作的条件
             if action_type == "jiagang":
                 # 加杠验证：要求组合牌中有碰牌形成的刻子
-                if f"k{target_tile}" not in current_player.combination_tiles:
-                    logger.warning(f"加杠失败：玩家没有碰牌形成的刻子, player_index={player_index}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}")
+                target_tile = _resolve_jiagang_target(current_player, target_tile)
+                if target_tile is None:
+                    logger.warning(f"加杠失败：玩家没有可加杠的刻子, player_index={player_index}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
             elif action_type == "angang":
                 # 暗杠验证：要求目标牌在自己手上有4张
-                tile_count = current_player.hand_tiles.count(target_tile)
+                target_tile = _normalize_tile(target_tile)
+                tile_count = _count_normalized(current_player.hand_tiles, target_tile)
                 if tile_count < 4:
                     logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
@@ -168,12 +201,14 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             # 验证特殊操作的条件
             if action_type == "jiagang":
                 # 加杠验证：要求组合牌中有碰牌形成的刻子
-                if f"k{target_tile}" not in current_player.combination_tiles:
-                    logger.warning(f"加杠失败：玩家没有碰牌形成的刻子, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}")
+                target_tile = _resolve_jiagang_target(current_player, target_tile)
+                if target_tile is None:
+                    logger.warning(f"加杠失败：玩家没有可加杠的刻子, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, combination_tiles={current_player.combination_tiles}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令
             elif action_type == "angang":
                 # 暗杠验证：要求目标牌在自己手上有4张
-                tile_count = current_player.hand_tiles.count(target_tile)
+                target_tile = _normalize_tile(target_tile)
+                tile_count = _count_normalized(current_player.hand_tiles, target_tile)
                 if tile_count < 4:
                     logger.warning(f"暗杠失败：手牌中没有足够的牌进行暗杠, player_index={player_index}, user_id={user_id}, target_tile={target_tile}, count={tile_count}, hand_tiles={current_player.hand_tiles}")
                     return  # 丢弃命令

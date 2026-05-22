@@ -384,11 +384,11 @@ public partial class GameRecordManager {
                 GotoSelectRound(nextRound, false);
             }
         } else if (action == "liuju") {
-            RoundEndFlowManager.Instance.PresentLiuju("流局");
+            RoundEndPresentation.Instance.PresentLiuju("流局", false);
             currentNode++;
             UpdateCurrentXunmuText();
         } else if (action == "jiuzhongjiupai") {
-            RoundEndFlowManager.Instance.PresentLiuju("九老峰回");
+            RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);
             currentNode++;
             UpdateCurrentXunmuText();
         } else {

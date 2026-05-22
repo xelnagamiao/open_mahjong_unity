@@ -38,6 +38,11 @@ from .boardcast import (
     reconnected_send_pending_ask,
 )
 from ..public.logic_common import next_current_num, next_current_index
+from ..public.round_end_timing import (
+    hu_result_ready_wait_seconds,
+    ROUND_END_HAND_REVEAL_SEC,
+    liuju_ready_wait_seconds,
+)
 from ..public.game_record_manager import (
     init_game_record,
     init_game_round,
@@ -477,24 +482,30 @@ class RiichiGameState:
                 self.spectator_manager.record_tick(["end"])
 
             # 准备阶段
-            # 与客户端 RoundEndFlowManager / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
+            # 与客户端 RoundEndPresentation / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
             # 避免动画结束后还要在空白界面再等几秒。和牌画面较长（需阅读番符），其它流局以演出时长 + 0.5s 余量为准。
             if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
-                wait_time = 8.0
+                settle_result = self.result_dict.get(self.hu_class) or {}
+                fan_count = len(settle_result.get("yaku", []))
+                wait_time = hu_result_ready_wait_seconds(
+                    fan_count,
+                    pre_panel_delay_sec=ROUND_END_HAND_REVEAL_SEC,
+                )
             elif self.hu_class == "ryuukyoku":
                 tenpai_indexes = [p.player_index for p in self.player_list if p.waiting_tiles]
                 noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
-                # 1.5s 听牌倒下动画 + 2s 流局标题 (+ 3s 不听罚符) + 0.5s 余量
-                if tenpai_indexes and noten_indexes:
-                    wait_time = 1.5 + 2.0 + 3.0 + 0.5
-                else:
-                    wait_time = 1.5 + 2.0 + 0.5
-            elif self.hu_class == "jiuzhongjiupai":
-                # 仅 EndLiujuPanel 默认 2s 自动隐藏 + 0.5s 余量
-                wait_time = 2.0 + 0.5
-            elif self.hu_class in ("four_wind_abort", "four_kan_abort", "four_riichi_abort", "three_ron_abort"):
-                # PenaltyPanel Standard 模式 autoHideSeconds=4s + 0.5s 余量
-                wait_time = 4.0 + 0.5
+                wait_time = liuju_ready_wait_seconds(
+                    include_hand_reveal=bool(tenpai_indexes),
+                    has_draw_noten_penalty=bool(tenpai_indexes and noten_indexes),
+                )
+            elif self.hu_class in (
+                "jiuzhongjiupai",
+                "four_wind_abort",
+                "four_kan_abort",
+                "four_riichi_abort",
+                "three_ron_abort",
+            ):
+                wait_time = liuju_ready_wait_seconds()
             else:
                 wait_time = 8.0
             deadline = time.time() + wait_time
@@ -610,6 +621,9 @@ class RiichiGameState:
             player_action_record_liuju(self)
         elif self.hu_class == "four_riichi_abort":
             await broadcast_result(self, hu_class="four_riichi_abort")
+            player_action_record_liuju(self)
+        elif self.hu_class == "three_ron_abort":
+            await broadcast_result(self, hu_class="three_ron_abort")
             player_action_record_liuju(self)
         else:
             # 荒牌流局：听牌家均分 3000 分

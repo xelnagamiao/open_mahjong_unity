@@ -57,6 +57,15 @@ public class PenaltyPanel : MonoBehaviour {
         Dictionary<string, int> deltaByPos,
         PenaltyPresentation presentation = PenaltyPresentation.Standard,
         float drawNotenSequenceTotalSeconds = 3f) {
+        PreparePenaltyPanel(usernameByPos, scoreByPos, deltaByPos, presentation);
+        PlayPreparedPenaltyPanel(usernameByPos, scoreByPos, deltaByPos, presentation, drawNotenSequenceTotalSeconds);
+    }
+
+    public void PreparePenaltyPanel(
+        Dictionary<string, string> usernameByPos,
+        Dictionary<string, int> scoreByPos,
+        Dictionary<string, int> deltaByPos,
+        PenaltyPresentation presentation = PenaltyPresentation.Standard) {
         if (sequenceCoroutine != null) {
             StopCoroutine(sequenceCoroutine);
             sequenceCoroutine = null;
@@ -73,6 +82,19 @@ public class PenaltyPanel : MonoBehaviour {
             ApplyRow("left", leftUserName, leftScore, leftDelta, usernameByPos, scoreByPos, deltaByPos);
             ApplyRow("top", topUserName, topScore, topDelta, usernameByPos, scoreByPos, deltaByPos);
             ApplyRow("right", rightUserName, rightScore, rightDelta, usernameByPos, scoreByPos, deltaByPos);
+        }
+        else {
+            ApplyAfterDrawNotenInitialRows(usernameByPos, scoreByPos, deltaByPos);
+        }
+    }
+
+    public void PlayPreparedPenaltyPanel(
+        Dictionary<string, string> usernameByPos,
+        Dictionary<string, int> scoreByPos,
+        Dictionary<string, int> deltaByPos,
+        PenaltyPresentation presentation = PenaltyPresentation.Standard,
+        float drawNotenSequenceTotalSeconds = 3f) {
+        if (presentation == PenaltyPresentation.Standard) {
             if (autoHideSeconds > 0f) {
                 autoHideCoroutine = StartCoroutine(AutoHideAfter(autoHideSeconds));
             }
@@ -111,6 +133,29 @@ public class PenaltyPanel : MonoBehaviour {
     private static void SetRowScoreDelta(TMP_Text scoreText, TMP_Text deltaText, int scoreValue, int deltaValue) {
         scoreText.text = scoreValue.ToString();
         deltaText.text = deltaValue > 0 ? "+" + deltaValue : (deltaValue < 0 ? deltaValue.ToString() : "0");
+    }
+
+    private void ApplyAfterDrawNotenInitialRows(
+        Dictionary<string, string> usernameByPos,
+        Dictionary<string, int> scoresAfter,
+        Dictionary<string, int> deltas) {
+        ApplyAfterDrawNotenInitialRow("self", selfUserName, selfScore, selfDelta, usernameByPos, scoresAfter, deltas);
+        ApplyAfterDrawNotenInitialRow("left", leftUserName, leftScore, leftDelta, usernameByPos, scoresAfter, deltas);
+        ApplyAfterDrawNotenInitialRow("top", topUserName, topScore, topDelta, usernameByPos, scoresAfter, deltas);
+        ApplyAfterDrawNotenInitialRow("right", rightUserName, rightScore, rightDelta, usernameByPos, scoresAfter, deltas);
+    }
+
+    private static void ApplyAfterDrawNotenInitialRow(
+        string pos,
+        TMP_Text userNameText,
+        TMP_Text scoreText,
+        TMP_Text deltaText,
+        Dictionary<string, string> usernameByPos,
+        Dictionary<string, int> scoresAfter,
+        Dictionary<string, int> deltas) {
+        int delta = deltas[pos];
+        userNameText.text = usernameByPos[pos];
+        SetRowScoreDelta(scoreText, deltaText, scoresAfter[pos] - delta, delta);
     }
 
     private IEnumerator RunAfterDrawNotenThreePhase(

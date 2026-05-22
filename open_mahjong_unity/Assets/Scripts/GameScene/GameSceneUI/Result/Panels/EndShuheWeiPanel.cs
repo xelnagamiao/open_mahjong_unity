@@ -53,6 +53,20 @@ public class EndShuheWeiPanel : MonoBehaviour {
         Dictionary<string, PlayerInfoClass> player_to_info,
         bool isRecord = false
     ) {
+        PrepareShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, isRecord);
+        PlayPreparedShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord);
+    }
+
+    public void PrepareShuhewei(
+        Dictionary<int, int> player_fu,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> score_changes,
+        Dictionary<int, string[]> player_fan,
+        Dictionary<int, string[]> player_fu_types,
+        Dictionary<int, string> indexToPosition,
+        Dictionary<string, PlayerInfoClass> player_to_info,
+        bool isRecord = false
+    ) {
         if (showRoutine != null) {
             StopCoroutine(showRoutine);
             showRoutine = null;
@@ -80,7 +94,16 @@ public class EndShuheWeiPanel : MonoBehaviour {
         }
 
         InitializeAllPanels(player_to_info);
+    }
 
+    public void PlayPreparedShuhewei(
+        Dictionary<int, int> player_fu,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> score_changes,
+        Dictionary<int, string[]> player_fan,
+        Dictionary<int, string[]> player_fu_types,
+        bool isRecord = false
+    ) {
         showRoutine = StartCoroutine(PlayReveal(player_fu, player_to_score, score_changes, player_fan, player_fu_types, isRecord));
     }
 
@@ -133,15 +156,18 @@ public class EndShuheWeiPanel : MonoBehaviour {
         if (EndButton != null) {
             EndButton.interactable = true;
         }
-        countdownRoutine = StartCoroutine(CountDownAndHide(8));
+        countdownRoutine = StartCoroutine(CountDownAndHide(Mathf.RoundToInt(RoundEndTiming.HuConfirmCountdownSeconds)));
     }
 
     private IEnumerator CountDownAndHide(int seconds) {
-        for (int i = seconds; i >= 0; i--) {
+        for (int i = seconds; i > 0; i--) {
             if (EndButtonText != null) {
                 EndButtonText.text = $"确定({i})";
             }
             yield return new WaitForSeconds(1f);
+        }
+        if (EndButtonText != null) {
+            EndButtonText.text = "确定(0)";
         }
         if (EndButton != null) {
             EndButton.interactable = false;

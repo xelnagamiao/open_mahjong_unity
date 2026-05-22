@@ -794,11 +794,11 @@ public partial class GameRecordManager : MonoBehaviour {
             }
         }
         else if (action == "liuju") {
-            RoundEndFlowManager.Instance.PresentLiuju("流局");
+            RoundEndPresentation.Instance.PresentLiuju("流局", false);
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "jiuzhongjiupai") {
-            RoundEndFlowManager.Instance.PresentLiuju("九老峰回");
+            RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "riichi") {
@@ -837,7 +837,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> after);
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
-            RoundEndFlowManager.Instance.PresentLiuju(text);
+            RoundEndPresentation.Instance.PresentLiuju(text, false);
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "hu_riichi") {
@@ -1217,6 +1217,13 @@ public partial class GameRecordManager : MonoBehaviour {
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
         int? baseFu = null, string[] fuFanList = null) {
+        if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
+            if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
+                BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
+            }
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            return;
+        }
 
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
         foreach (var kv in recordPlayer_to_info) {
@@ -1255,6 +1262,18 @@ public partial class GameRecordManager : MonoBehaviour {
     private void HandleHuRiichiReplay(List<string> tick) {
         int hepaiPlayerIndex = ParseTickInt(tick, 1);
         string huClass = tick.Count > 2 ? tick[2] : "hu_self";
+        if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
+            int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
+            if (scoreChanges != null) {
+                var deltas = new Dictionary<int, int>();
+                foreach (var rp in recordPlayerList) deltas[rp.playerIndex] = scoreChanges[rp.originalPlayerIndex];
+                ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> after);
+                BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
+            }
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            StartCoroutine(AutoNextActionAfterDelay(2f));
+            return;
+        }
         int han = tick.Count > 3 ? ParseTickInt(tick, 3) : 0;
         int fu = tick.Count > 4 ? ParseTickInt(tick, 4) : 0;
         string[] yaku = tick.Count > 5 ? ParseHuFanList(tick, 5) : new string[0];

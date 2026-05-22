@@ -38,12 +38,25 @@ public class EndLiujuPanel : MonoBehaviour {
 
     /// <param name="tenpaiTilesByPlayerIndex">键为 player_index，值为听张 ID 列表；未听家不出现或为 null。</param>
     public void ShowLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex, float visibleSeconds) {
+        PrepareLiujuPanel(displayText, tenpaiTilesByPlayerIndex);
+        PlayPreparedLiujuPanel(visibleSeconds);
+    }
+
+    public void PrepareLiujuPanel(string displayText, Dictionary<int, int[]> tenpaiTilesByPlayerIndex = null) {
+        if (autoHideCoroutine != null) {
+            StopCoroutine(autoHideCoroutine);
+            autoHideCoroutine = null;
+        }
         if (liujuText != null) liujuText.text = displayText;
         ClearTenpaiMarkers();
         ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex);
         gameObject.SetActive(true);
+    }
+
+    public void PlayPreparedLiujuPanel(float visibleSeconds) {
         if (autoHideCoroutine != null) {
             StopCoroutine(autoHideCoroutine);
+            autoHideCoroutine = null;
         }
         autoHideCoroutine = StartCoroutine(AutoHideAfterDelay(visibleSeconds));
     }

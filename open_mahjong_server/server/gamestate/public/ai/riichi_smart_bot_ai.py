@@ -166,6 +166,7 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         await get_ai_action(game_state, player_index, "hu_self", None, None, None, None)
         return
 
+    is_riichi = "riichi" in player.tag_list or "daburu_riichi" in player.tag_list
     hand = player.hand_tiles[:]
     combs = getattr(player, 'combination_tiles', [])
     meld_count = count_melds(combs)
@@ -217,6 +218,13 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
                         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 jiagang, tile={ktile}")
                         await get_ai_action(game_state, player_index, "jiagang", None, None, None, ktile)
                         return
+
+    if is_riichi and "cut" in action_list and player.hand_tiles:
+        tile_id = player.hand_tiles[-1]
+        cut_index = len(player.hand_tiles) - 1
+        logger.info(f"日麻牌效AI {player_index} ({player.username}) 立直后选择摸切, tile_id={tile_id}")
+        await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
+        return
 
     # 切牌：枚举每张手牌切出后的评分，选最优（吃碰后需排除食替禁切牌）
     if "cut" in action_list and hand:

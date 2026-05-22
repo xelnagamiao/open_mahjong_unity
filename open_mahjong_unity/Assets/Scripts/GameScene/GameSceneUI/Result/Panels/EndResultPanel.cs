@@ -43,9 +43,6 @@ public class EndResultPanel : MonoBehaviour {
     [Tooltip("里宝牌指示槽位（手动拖入 StaticCard）。未翻开位置显示牌背 0。")]
     [SerializeField] private StaticCard[] RiichiUraDoraSlots;
 
-    [Header("结算面板渐入（可选）")]
-    [SerializeField] private CanvasGroup resultRootCanvasGroup;
-
     public static EndResultPanel Instance { get; private set; }
     private const string StateNone = "";
     private const string StateGame = "gamestate";
@@ -69,53 +66,48 @@ public class EndResultPanel : MonoBehaviour {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
-        gameObject.SetActive(true);
-        showResultCoroutine = StartCoroutine(ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras));
+        InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
+        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras));
     }
 
-    /// <summary>
-    /// 在延迟后渐入并进入与 StartShowResult 相同的结算协程（用于和牌前插入动画）。
-    /// </summary>
-    public void StartShowResultAfterDelay(float delayBeforeVisible, int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
-        gameObject.SetActive(true);
-        if (resultRootCanvasGroup != null) {
-            resultRootCanvasGroup.alpha = 0f;
-        }
-        showResultCoroutine = StartCoroutine(ShowResultAfterDelayRoutine(delayBeforeVisible, hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras));
+        InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
     }
 
-    private IEnumerator ShowResultAfterDelayRoutine(float delayBeforeVisible, int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras) {
-        if (delayBeforeVisible > 0f) {
-            yield return new WaitForSeconds(delayBeforeVisible);
+    public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
         }
-        if (resultRootCanvasGroup != null) {
-            float dur = 0.35f;
-            float t = 0f;
-            while (t < dur) {
-                t += Time.deltaTime;
-                resultRootCanvasGroup.alpha = Mathf.Clamp01(t / dur);
-                yield return null;
-            }
-            resultRootCanvasGroup.alpha = 1f;
-        }
-        yield return StartCoroutine(ShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras));
+        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras));
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
+        yield return PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras);
+    }
+
+    public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null) {
         currentState = StateGame;
-
         gameObject.SetActive(true);
-
         FanCountTotalPanel.SetActive(false);
+        EndButton.interactable = false;
+        EndButtonText.text = "确定";
+
+        foreach (Transform child in EndTilescontainer.transform) {
+            Destroy(child.gameObject);
+        }
+        foreach (Transform child in FanCountContainer) {
+            Destroy(child.gameObject);
+        }
 
         // 立直规则：和牌画面出现的瞬间立刻翻开宝牌/里宝牌（含里宝来自立直家），其余槽位仍渲染牌背 0
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, riichiExtras);
 
-        // 显示玩家准备状态
         SelfReady.gameObject.SetActive(false);
         LeftReady.gameObject.SetActive(false);
         TopReady.gameObject.SetActive(false);
@@ -222,7 +214,9 @@ public class EndResultPanel : MonoBehaviour {
 
         // 修改计分板
         BoardCanvas.Instance.UpdatePlayerScores(player_to_score, NormalGameStateManager.Instance.indexToPosition);
+    }
 
+    private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         // 显示番数
         string roomRuleForFan = NormalGameStateManager.Instance.subRule;
         bool isClassical = roomRuleForFan == "classical/standard";
@@ -230,7 +224,7 @@ public class EndResultPanel : MonoBehaviour {
         if (isClassical && fu_fan_list != null) {
             // 古典麻将：先显示副番列表
             for (int i = 0; i < fu_fan_list.Length; i++) {
-                yield return new WaitForSeconds(0.5f);
+                yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
                 string fuName = fu_fan_list[i];
                 string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
                 string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuName);
@@ -244,7 +238,7 @@ public class EndResultPanel : MonoBehaviour {
         }
 
         for (int i = 0; i < hu_fan.Length; i++) {
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
             string fanName = hu_fan[i];
             string fanDisplay = FanTextDictionary.GetFanDisplayText(roomRuleForFan, fanName);
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
@@ -255,27 +249,15 @@ public class EndResultPanel : MonoBehaviour {
             }
         }
 
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(RoundEndTiming.HuBeforeTotalPanelSeconds);
         ShowTotalPanel(roomRuleForFan, hu_score, hu_fan, base_fu, riichiExtras);
 
-        // 允许按钮点击
         EndButton.interactable = true;
-        EndButtonText.text = "确定(8)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(7)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(6)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(5)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(4)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(3)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(2)";
-        yield return new WaitForSeconds(1);
-        EndButtonText.text = "确定(1)";
-        yield return new WaitForSeconds(1);
+        int countdown = Mathf.RoundToInt(RoundEndTiming.HuConfirmCountdownSeconds);
+        for (int i = countdown; i > 0; i--) {
+            EndButtonText.text = $"确定({i})";
+            yield return new WaitForSeconds(1f);
+        }
         EndButtonText.text = "确定(0)";
         EndButton.interactable = false;
         gameObject.SetActive(false);
@@ -558,9 +540,6 @@ public class EndResultPanel : MonoBehaviour {
         currentState = StateNone;
 
         gameObject.SetActive(false);
-        if (resultRootCanvasGroup != null) {
-            resultRootCanvasGroup.alpha = 1f;
-        }
         FanCountTotalPanel.SetActive(false);
         if (RiichiPanel != null) {
             RiichiPanel.SetActive(false);

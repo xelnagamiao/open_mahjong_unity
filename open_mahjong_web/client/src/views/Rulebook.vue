@@ -3,7 +3,7 @@
   <div class="rulebook">
     <div class="page-header">
       <h1>规则书</h1>
-      <p class="subtitle">查阅各类麻将规则的官方文档与详细牌例</p>
+      <p class="subtitle">查阅各类麻将规则的规则、牌例或文档</p>
     </div>
 
     <div class="tab-bar">
@@ -71,19 +71,19 @@ const rules = [
   {
     key: 'guobiao',
     label: '国标麻将',
-    description: '中国国家体育总局正式比赛使用的麻将规则。本平台同时提供「小林改版」社区调整方案。',
+    description: '国标麻将指国家体育总局在1998出台的《中国竞技麻将比赛规则(试行)》中确立的麻将规则',
     gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
     icon: Trophy,
     docs: [
       {
-        title: '新编 MCR 规则书',
-        desc: '官方修订版规则与番种说明，含完整算番示例。',
+        title: '国标麻将（新编MCR）',
+        desc: '本平台使用Natsuki编著的新编MCR规则书设计国标麻将的运行逻辑。',
         url: '/rulebooks/guobiao-mcr.pdf',
         filename: '新编MCR.pdf'
       },
       {
-        title: '中国麻将（小林改版）规则书',
-        desc: '社区平衡修订版：对部分番种进行小幅升降，仍以 MCR 番种为基础。',
+        title: '国标麻将（小林改）',
+        desc: '社区修改的一种麻将规则',
         url: '/rulebooks/guobiao-kobayashi.pdf',
         filename: '中国麻将（小林改版）规则书.pdf'
       }
@@ -92,13 +92,13 @@ const rules = [
   {
     key: 'riichi',
     label: '立直麻将',
-    description: '日式立直麻将规则，包含役种、符算与立直棒等核心机制说明。',
+    description: '立直麻将一般指日本麻将，是麻将规则的一个分支。',
     gradient: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
     icon: Promotion,
     docs: [
       {
-        title: 'GGHK 立直麻将规则书（中文）',
-        desc: '香港麻将协会发布的中文规则书，对役种与计分讲解清晰。',
+        title: 'GGHK 立直麻将规则书',
+        desc: '香港麻将协会发布的立直麻将规则书',
         url: '/rulebooks/riichi-rulebook.pdf',
         filename: 'GGHK-Riichi-Mahjong-Rulebook-CN.pdf'
       }
@@ -107,25 +107,25 @@ const rules = [
   {
     key: 'qingque',
     label: '青雀',
-    description: '社区设计的轻量化麻将规则，通过一页纸 / 牌例 / 完整规则书三层资料快速上手。',
+    description: '青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照。',
     gradient: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)',
     icon: Star,
     docs: [
       {
-        title: '青雀一页纸（速查版）',
-        desc: '一张纸看完核心机制与术语，适合零基础速记。',
+        title: '青雀一页纸',
+        desc: '一页纸番种速记。',
         url: '/rulebooks/qingque-onepage.pdf',
         filename: '青雀一页纸 12.5.pdf'
       },
       {
         title: '青雀牌例',
-        desc: '通过实战牌例理解番种和特殊和牌形态。',
+        desc: '记录规则中所有番种对应的详解及牌例。',
         url: '/rulebooks/qingque-paili.pdf',
         filename: '青雀牌例 2.8.pdf'
       },
       {
-        title: '青雀完整规则书',
-        desc: '包含完整规则、判罚、特殊形态与平台扩展规则。',
+        title: '青雀规则文档',
+        desc: '包含青雀规则的行牌逻辑和概念解释。',
         url: '/rulebooks/qingque-rulebook.pdf',
         filename: '青雀 12.5-a1.pdf'
       }
@@ -134,13 +134,13 @@ const rules = [
   {
     key: 'classical',
     label: '古典麻将',
-    description: '传统古典麻将玩法，副计分体系，含连庄、庄家幺二（庄家收支双倍）等机制。',
+    description: '本规则为根据《绘图麻雀牌谱》《想定宁波规则》等书籍文献资料汇总而成的，试图还原1920年代左右或以前的早期麻将样貌的麻将规则。相比现代规则，古典麻雀有番种体系简单、重刻杠幺九、未和牌家计分等特点，具有独特风味。',
     gradient: 'linear-gradient(135deg, #fbc2eb 0%, #a18cd1 100%)',
     icon: Coffee,
     docs: [
       {
-        title: '古典麻将规则书',
-        desc: '完整规则与计分逻辑，含连庄、庄家幺二等结算细节。',
+        title: '古典麻将',
+        desc: '平台现行的古典麻将版本。',
         url: '/rulebooks/classical-rulebook.pdf',
         filename: '古典麻将规则.pdf'
       }
