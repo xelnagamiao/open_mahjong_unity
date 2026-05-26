@@ -59,12 +59,12 @@ public class SoundManager : MonoBehaviour {
             return;
         }
         audioTarget = $"Sound/{voicePath}/{voiceKey}";
-        AudioClip soundToPlay = Resources.Load<AudioClip>(audioTarget);
+        AudioClip soundToPlay = LoadVoiceClipWithFallback(voicePath, voiceKey, out string loadedTarget);
         
         if (soundToPlay != null) {
             float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
-            Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 音量: {volume}");
+            Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 资源: {loadedTarget}, 音量: {volume}");
         } else {
             Debug.LogWarning($"未找到音效文件: {audioTarget}");
         }
@@ -100,6 +100,35 @@ public class SoundManager : MonoBehaviour {
             return "peng";
         }
         return null;
+    }
+
+    private AudioClip LoadVoiceClipWithFallback(string voicePath, string voiceKey, out string loadedTarget) {
+        foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
+            string target = $"Sound/{voicePath}/{key}";
+            AudioClip clip = Resources.Load<AudioClip>(target);
+            if (clip != null) {
+                loadedTarget = target;
+                return clip;
+            }
+        }
+        foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
+            string target = $"Sound/{voiceIdToPath[1]}/{key}";
+            AudioClip clip = Resources.Load<AudioClip>(target);
+            if (clip != null) {
+                loadedTarget = target;
+                return clip;
+            }
+        }
+        loadedTarget = null;
+        return null;
+    }
+
+    private static string[] GetVoiceFallbackKeys(string voiceKey) {
+        if (voiceKey == "rong") return new[] { "rong", "dianhe", "hu" };
+        if (voiceKey == "zimo") return new[] { "zimo", "hu" };
+        if (voiceKey == "angang") return new[] { "angang", "gang" };
+        if (voiceKey == "jiagang") return new[] { "jiagang", "gang" };
+        return new[] { voiceKey };
     }
 
     /// <summary>

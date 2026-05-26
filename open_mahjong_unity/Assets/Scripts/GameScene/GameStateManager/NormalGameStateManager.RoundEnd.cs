@@ -14,6 +14,9 @@ public partial class NormalGameStateManager {
             // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时直接关闭面板
             TacticalCallPanel.Instance.HidePanel();
         }
+        if (riichiExtras != null && IsHuClass(hu_class)) {
+            OnRiichiSticksCollected(riichiExtras.RiichiSticksCollected);
+        }
         // 显示结算结果
         if (hu_class == "liuju") {
             RoundEndPresentation.Instance.PresentLiuju("流局");
@@ -128,6 +131,10 @@ public partial class NormalGameStateManager {
             TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
             TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         }
+    }
+
+    private static bool IsHuClass(string huClass) {
+        return huClass == "hu_self" || huClass == "hu_first" || huClass == "hu_second" || huClass == "hu_third";
     }
 
     // 游戏结束

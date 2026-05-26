@@ -92,6 +92,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
         Quaternion endRot = RiichiTenbouPlacementRotation(playerPosition);
         GameObject tenbou = Instantiate(riichiTenbouPrefab, startTransform.position, endRot);
+        tenbou.name = $"RiichiTenbou_{playerPosition}";
         tenbou.transform.SetParent(panel.tenbouPos.parent, worldPositionStays: true);
         StartCoroutine(MoveTenbouCoroutine(tenbou, startTransform.position, endTransform.position, endRot, 0.6f));
     }
@@ -157,12 +158,39 @@ public partial class Game3DManager : MonoBehaviour {
         return Quaternion.Euler(-180, 180, 0);
     }
 
+    /// <summary>河牌/副露俯视朝向，与各家弃牌区一致。</summary>
+    private Quaternion RiverTileWorldRotation(string playerPosition, bool isHorizontal = false) {
+        Quaternion rotation = Quaternion.identity;
+        if (playerPosition == "self") rotation = Quaternion.Euler(90, 0, 180);
+        else if (playerPosition == "left") rotation = Quaternion.Euler(90, 0, 90);
+        else if (playerPosition == "top") rotation = Quaternion.Euler(90, 0, 0);
+        else if (playerPosition == "right") rotation = Quaternion.Euler(90, 0, 270);
+        if (isHorizontal) rotation = Quaternion.Euler(0, 90, 0) * rotation;
+        return rotation;
+    }
+
+    /// <summary>局终手牌展开动画结束后，将牌面朝向校正为与河牌一致。</summary>
+    private void SnapRevealedHandTilesToRiverFacing(string playerPosition) {
+        PosPanel3D panel = GetPosPanel(playerPosition);
+        if (panel == null || panel.cardsPosition == null) return;
+        Transform target = panel.cardsPosition;
+        for (int i = 0; i < target.childCount; i++) {
+            Transform child = target.GetChild(i);
+            Tile3D tile3D = child.GetComponent<Tile3D>();
+            bool horizontal = tile3D != null && tile3D.isRiichiHorizontal;
+            Quaternion rotation = RiverTileWorldRotation(playerPosition, horizontal);
+            Vector3 euler = rotation.eulerAngles;
+            euler.z += Random.Range(-2f, 2f);
+            child.rotation = Quaternion.Euler(euler);
+        }
+    }
+
     /// <summary>局终/牌谱明牌摆牌：与摸牌时相同的立面朝向，供 Cube 展开动画推倒。</summary>
     private Quaternion RecordHandTileRotation(string playerPosition) {
         if (playerPosition == "self") return SelfHandStandingRotation();
         if (playerPosition == "left") return Quaternion.Euler(0, 90, 0);
         if (playerPosition == "top") return Quaternion.Euler(0, 180, 0);
-        if (playerPosition == "right") return Quaternion.Euler(180, 270, 0);
+        if (playerPosition == "right") return Quaternion.Euler(0, 270, 0);
         return Quaternion.identity;
     }
 

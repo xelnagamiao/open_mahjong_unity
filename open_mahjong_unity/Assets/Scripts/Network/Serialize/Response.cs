@@ -175,6 +175,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public string hepai_way;            // 和牌方式 head_bump / multi_ron / three_ron_abort
     public bool? red_dora;              // 是否启用赤宝牌
     public int? dealer_index;           // 当前亲家索引
+    public int? view_player_index;      // 实时观战视角座位（客户端作为 self 渲染）
 }
 
 public class SwitchSeatInfo { // 换位信息

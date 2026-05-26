@@ -50,11 +50,11 @@ public partial class GameCanvas : MonoBehaviour {
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
-                Debug.Log($"胡牌");
+                Debug.Log($"和牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "胡";
-                Debug.Log($"胡牌按钮: {ActionButtonObj}");
+                buttonText.text = "和";
+                Debug.Log($"和牌按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 补花
@@ -139,6 +139,7 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 选择行动
     public void ChooseAction(string actionType, int targetTile, int chiComboIndex = -1){
+        if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
         // 发送行动：立直麻将涉赤 5 时通过 chiComboIndex 指明所选吃牌候选（默认 0 表示优先非赤 5）
         int idx = chiComboIndex >= 0 ? chiComboIndex : 0;

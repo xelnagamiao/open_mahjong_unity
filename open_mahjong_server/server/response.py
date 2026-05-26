@@ -57,6 +57,7 @@ class GameInfo(BaseModel):
     hepai_way: Optional[str] = None  # 和牌方式：head_bump / multi_ron / three_ron_abort
     red_dora: Optional[bool] = None  # 是否启用赤宝牌
     dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
+    view_player_index: Optional[int] = None  # 实时观战/特殊视角：客户端以此座位作为 self 视角
 
 class Ask_hand_action_info(BaseModel):
     remaining_time: int

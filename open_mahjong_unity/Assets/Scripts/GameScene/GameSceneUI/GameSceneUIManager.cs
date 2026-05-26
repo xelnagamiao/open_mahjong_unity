@@ -152,6 +152,26 @@ public class GameSceneUIManager : MonoBehaviour
         RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }
 
+    /// <summary>实时观战进入对局：清空临时面板，隐藏自动操作。</summary>
+    public void InitRealtimeSpectatorStart() {
+        EndResultPanel.Instance.ClearEndResultPanel();
+        EndGamePanel.Instance.ClearEndGamePanel();
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
+        EndLiujuPanel.Instance.ClearEndLiujuPanel();
+        PenaltyPanel.Instance.ClearPenaltyPanel();
+        EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel();
+        StartGamePanel.Instance.ClearStartGamePanel();
+        GameRecordManager.Instance.HideGameRecord();
+        ScoreHistoryPanel.Instance.Close();
+        TipsBlock.Instance.HideTipsBlock();
+        TipsContainer.Instance.HideTips();
+        GameCanvas.Instance.SetScoreRecordOpen(false);
+        AutoAction.Instance.gameObject.SetActive(false);
+        RecordSetting.Instance.gameObject.SetActive(false);
+        if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.ShowForRealtimeSpectator();
+        RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
+    }
+
     public void InitGameRecord() {
         EndResultPanel.Instance.ClearEndResultPanel(); // 清空和牌结算面板
         EndGamePanel.Instance.ClearEndGamePanel();       // 清空游戏结束面板

@@ -40,4 +40,13 @@ public partial class NormalGameStateManager {
             RoundPanel.Instance.RefreshRiichi(honba, riichiSticks, doraIndicators, kanDoraIndicators);
         }
     }
+
+    public void OnRiichiSticksCollected(int collectedCount) {
+        if (collectedCount <= 0) return;
+        riichiSticks = 0;
+        Game3DManager.Instance.ClearAllRiichiTenbous();
+        if (RoundPanel.Instance != null) {
+            RoundPanel.Instance.RefreshRiichi(honba, riichiSticks, doraIndicators, kanDoraIndicators);
+        }
+    }
 }

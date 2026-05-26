@@ -30,8 +30,12 @@ public partial class NormalGameStateManager {
         // 初始化他人手牌区域
         Game3DManager.Instance.Change3DTile("InitHandCards",0,0,null,false,null);
 
-        // 初始化游戏开始UI（包括自动行为组件）
-        GameSceneUIManager.Instance.InitGameStart();
+        // 初始化游戏开始UI（观战者不显示自动操作）
+        if (IsRealtimeSpectator) {
+            GameSceneUIManager.Instance.InitRealtimeSpectatorStart();
+        } else {
+            GameSceneUIManager.Instance.InitGameStart();
+        }
 
         // InitGameStart内的HideGameRecord 会将鼠标输入置为 Idle，在此之后进入对局输入模式
         GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateGame);
@@ -159,10 +163,23 @@ public partial class NormalGameStateManager {
         player_to_info["right"].combination_tiles = new List<string>();
 
         // 如果gameinfo.user_id等于自己的user_id，则设置自身索引为gameinfo.player_index
-        foreach (var player in gameInfo.players_info){
-            if (player.user_id == UserDataManager.Instance.UserId){
-                selfIndex = player.player_index; // 存储自身索引
-                break;
+        if (IsRealtimeSpectator) {
+            if (gameInfo.view_player_index.HasValue) {
+                selfIndex = gameInfo.view_player_index.Value;
+            } else {
+                foreach (var player in gameInfo.players_info) {
+                    if (player.hand_tiles != null && player.hand_tiles.Length > 0) {
+                        selfIndex = player.player_index;
+                        break;
+                    }
+                }
+            }
+        } else {
+            foreach (var player in gameInfo.players_info) {
+                if (player.user_id == UserDataManager.Instance.UserId) {
+                    selfIndex = player.player_index;
+                    break;
+                }
             }
         }
         roomId = gameInfo.room_id; // 存储房间ID
@@ -311,7 +328,16 @@ public partial class NormalGameStateManager {
     // 获取自己的 PlayerInfo
     private PlayerInfo GetSelfPlayerInfo(GameInfo gameInfo){
         if (gameInfo.players_info == null) return null;
-        
+
+        if (IsRealtimeSpectator) {
+            foreach (var player in gameInfo.players_info) {
+                if (player.player_index == selfIndex) {
+                    return player;
+                }
+            }
+            return null;
+        }
+
         int selfUserId = UserDataManager.Instance.UserId;
         foreach (var player in gameInfo.players_info){
             if (player.user_id == selfUserId){

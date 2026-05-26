@@ -278,6 +278,7 @@ async def broadcast_result(
     tenpai_tiles: Optional[Dict[int, List[int]]] = None,
     tenpai_hands: Optional[Dict[int, List[int]]] = None,
     exhaustive_penalty: Optional[bool] = None,
+    silent: bool = False,
 ):
     self.server_action_tick += 1
     for cp in self.player_list:
@@ -313,6 +314,7 @@ async def broadcast_result(
                     tenpai_tiles=tenpai_tiles,
                     tenpai_hands=tenpai_hands,
                     exhaustive_penalty=exhaustive_penalty,
+                    silent=True if silent else None,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
@@ -466,11 +468,14 @@ async def broadcast_ready_status(self):
             logger.error(f"riichi broadcast_ready_status 失败: {e}")
 
 
-async def reconnected_send_pending_ask(self, user_id: int):
-    idx = next((i for i, p in enumerate(self.player_list) if p.user_id == user_id), None)
-    if idx is None or user_id not in self.game_server.user_id_to_connection:
+async def reconnected_send_pending_ask_for_viewer(self, spectator_user_id: int, view_player_index: int):
+    """按指定座位视角向实时观战者补发当前等待中的操作询问。"""
+    if spectator_user_id not in self.game_server.user_id_to_connection:
         return
-    conn = self.game_server.user_id_to_connection[user_id]
+    if view_player_index < 0 or view_player_index >= len(self.player_list):
+        return
+    conn = self.game_server.user_id_to_connection[spectator_user_id]
+    idx = view_player_index
     player = self.player_list[idx]
     t0 = getattr(self, "_ask_broadcast_time", None)
     remaining = player.remaining_time if t0 is None else max(0, player.remaining_time - int(max(0, time.time() - t0)))
@@ -509,3 +514,10 @@ async def reconnected_send_pending_ask(self, user_id: int):
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
+
+
+async def reconnected_send_pending_ask(self, user_id: int):
+    idx = next((i for i, p in enumerate(self.player_list) if p.user_id == user_id), None)
+    if idx is None or user_id not in self.game_server.user_id_to_connection:
+        return
+    await reconnected_send_pending_ask_for_viewer(self, user_id, idx)

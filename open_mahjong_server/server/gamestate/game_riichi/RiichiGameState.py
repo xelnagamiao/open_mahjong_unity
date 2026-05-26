@@ -737,6 +737,7 @@ class RiichiGameState:
             honba=self.honba,
             riichi_sticks_collected=collected,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
+            silent=True,
         )
 
     async def _settle_cuohe(self):
@@ -812,6 +813,7 @@ class RiichiGameState:
             honba=self.honba,
             riichi_sticks_collected=0,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
+            silent=True,
         )
 
     async def _settle_ryuukyoku(self) -> Dict[int, int]:
@@ -919,6 +921,28 @@ class RiichiGameState:
         return check_jiuzhongjiupai(player.hand_tiles)
 
     # ========== 观战 ==========
+
+    async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_player_index: int):
+        """实时观战接入：按被观战座位视角补发 game_start 与当前 pending ask，与断线重连一致。"""
+        if spectator_user_id not in self.game_server.user_id_to_connection:
+            return
+        if view_player_index < 0 or view_player_index >= len(self.player_list):
+            return
+        from ...response import Response, GameInfo
+        from .boardcast import _build_base_game_info, _build_player_info, reconnected_send_pending_ask_for_viewer
+
+        viewer = self.player_list[view_player_index]
+        conn = self.game_server.user_id_to_connection[spectator_user_id]
+        base = _build_base_game_info(self)
+        infos = [_build_player_info(p, viewer.user_id, view_player_index) for p in self.player_list]
+        game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None, "view_player_index": view_player_index})
+        await conn.websocket.send_json(Response(
+            type="gamestate/riichi/game_start",
+            success=True,
+            message="实时观战初始化",
+            game_info=game_info,
+        ).dict(exclude_none=True))
+        await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
     async def add_spectator(self, user_id: int, connection):
         await self.spectator_manager.add_spectator(user_id, connection)

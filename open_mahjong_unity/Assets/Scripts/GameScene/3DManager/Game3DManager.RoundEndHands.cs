@@ -24,6 +24,7 @@ public partial class Game3DManager {
         LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
+        SnapRevealedHandTilesToRiverFacing(pos);
     }
 
     /// <summary>
@@ -47,6 +48,11 @@ public partial class Game3DManager {
         }
         if (played) {
             yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
+            foreach (var kvp in tenpaiTilesByPlayerIndex) {
+                if (kvp.Value == null || kvp.Value.Length == 0) continue;
+                if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(kvp.Key)) continue;
+                SnapRevealedHandTilesToRiverFacing(NormalGameStateManager.Instance.indexToPosition[kvp.Key]);
+            }
         }
     }
 

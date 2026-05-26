@@ -193,8 +193,7 @@ async def wait_action(self):
                         self.game_status = "deal_card_after_gang"
                     return
                 elif action_type == "hu_self":
-                    self.hu_class = "hu_self"
-                    self.game_status = "END"
+                    await _broadcast_hu_and_end(self, self.current_player_index, "hu_self")
                     return
                 elif action_type == "jiuzhongjiupai":
                     self.hu_class = "jiuzhongjiupai"
@@ -280,10 +279,7 @@ async def wait_action(self):
                     else:
                         combination_mask = [0, r1, 1, tile_id, 0, r2, 0, r3]
                 elif action_type in ("hu_first", "hu_second", "hu_third"):
-                    self.player_list[player_index].hand_tiles.append(tile_id)
-                    self.hu_class = action_type
-                    self.ron_player_index = player_index
-                    self.game_status = "END"
+                    await _broadcast_hu_and_end(self, player_index, action_type, tile_id)
                     return
 
                 if action_type in ("chi_left", "chi_mid", "chi_right", "peng", "gang"):
@@ -360,10 +356,7 @@ async def wait_action(self):
             self.jiagang_tile = None
             if action_data:
                 if action_type in ("hu_first", "hu_second", "hu_third"):
-                    self.player_list[player_index].hand_tiles.append(temp_jiagang_tile)
-                    self.hu_class = action_type
-                    self.ron_player_index = player_index
-                    self.game_status = "END"
+                    await _broadcast_hu_and_end(self, player_index, action_type, temp_jiagang_tile)
                     return
                 else:
                     # 抢杠和不成立，继续加杠流程：摸岭上、翻宝牌指示；放过的玩家挂同巡/立直振听
@@ -388,6 +381,17 @@ async def wait_action(self):
                     self.action_dict[wait_player_index] = []
             await broadcast_ready_status(self)
             return False
+
+
+async def _broadcast_hu_and_end(self, player_index: int, action_type: str, tile_id: int | None = None):
+    """广播和牌/荣和行动后再进入 END，客户端可立即播放荣/自摸语音与动作文字。"""
+    if tile_id is not None:
+        self.player_list[player_index].hand_tiles.append(tile_id)
+    await broadcast_do_action(self, action_list=[action_type], action_player=player_index)
+    self.hu_class = action_type
+    if action_type in ("hu_first", "hu_second", "hu_third"):
+        self.ron_player_index = player_index
+    self.game_status = "END"
 
 
 async def _do_cut(self, player_index: int, action_data: dict, is_riichi: bool):

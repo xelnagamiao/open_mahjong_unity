@@ -119,15 +119,16 @@ async def riichi_smart_bot_action(game_state, player_index: int, action_list: li
     日麻牌效AI自动操作：在公共牌效逻辑上叠加食替禁切与红5归一化处理。
     """
     try:
-        await asyncio.sleep(0.5)
         current_player = game_state.player_list[player_index]
 
         if game_status == "waiting_hand_action":
+            await asyncio.sleep(0.5)
             # 摸牌后手牌操作：和牌 > 暗杠/加杠 > 切牌
             await _handle_hand_action(game_state, player_index, action_list, current_player, set())
             return
 
         if game_status == "onlycut_after_action":
+            await asyncio.sleep(0.5)
             # 吃碰后手牌操作：和牌 > 切牌（不可暗杠/加杠），并需遵守食替禁切
             kuikae_forbidden = _kuikae_forbidden_after_meld(current_player)
             await _handle_hand_action(game_state, player_index, action_list, current_player, kuikae_forbidden)
@@ -143,6 +144,7 @@ async def riichi_smart_bot_action(game_state, player_index: int, action_list: li
             return
 
         if game_status == "waiting_buhua_round":
+            await asyncio.sleep(0.5)
             await _handle_buhua_round(game_state, player_index, action_list, current_player)
             return
 
@@ -267,6 +269,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     for hu_action in ("hu_first", "hu_second", "hu_third"):
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
             logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {hu_action}")
+            await asyncio.sleep(0.5)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
             return
 
@@ -335,4 +338,6 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
             best_action_score = gang_score
 
     logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {best_action} (score={best_action_score})")
+    if best_action != "pass":
+        await asyncio.sleep(0.5)
     await get_ai_action(game_state, player_index, best_action, None, None, None, None)

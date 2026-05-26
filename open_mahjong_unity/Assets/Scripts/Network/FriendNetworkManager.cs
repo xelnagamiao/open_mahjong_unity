@@ -102,9 +102,11 @@ public class FriendNetworkManager : MonoBehaviour {
                 break;
             case "friend/realtime_spectators_changed":
                 OnRealtimeSpectatorsChanged?.Invoke(response);
+                RealtimeSpectatorIndicator.Instance?.HandleSpectatorsChanged(response);
                 break;
             case "friend/list_realtime_spectators":
                 OnListRealtimeSpectatorsResp?.Invoke(response);
+                RealtimeSpectatorIndicator.Instance?.HandleSpectatorsChanged(response);
                 break;
         }
     }

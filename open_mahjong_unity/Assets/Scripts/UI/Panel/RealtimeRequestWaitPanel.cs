@@ -110,10 +110,10 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
             Debug.LogWarning("realtime_started 缺少 gamestate_id");
             return;
         }
-        WindowsManager.Instance?.SwitchWindow("game");
         if (NormalGameStateManager.Instance != null) {
             NormalGameStateManager.Instance.StartAsRealtimeSpectator(gamestateId);
         }
+        WindowsManager.Instance?.SwitchWindow("game");
     }
 
     private void OnCancelClicked() {

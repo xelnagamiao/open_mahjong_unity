@@ -36,7 +36,6 @@ public partial class NormalGameStateManager {
         selfForbiddenCutTiles.Clear();
         // 如果列表中有服务器提供的可用操作，则显示倒计时
         if (action_list.Length > 0){
-            // 以本次服务器询问为准重建列表（战术鸣牌二次询问时客户端未必走过 ClearAction）
             allowActionList = BuildMingPaiAllowActionList(action_list);
             SwitchCurrentPlayer("self","askMingPaiAction",remaining_time);
         }
@@ -118,7 +117,11 @@ public partial class NormalGameStateManager {
                     Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
                     break;
 
-                // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
+                // 和牌：语音与动作文字已在 do_action 阶段播放
+                case "hu_self":
+                case "hu_first":
+                case "hu_second":
+                case "hu_third":
                 case "hu":
                     break;
 
