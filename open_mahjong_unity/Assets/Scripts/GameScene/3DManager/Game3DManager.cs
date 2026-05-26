@@ -38,16 +38,6 @@ public partial class Game3DManager : MonoBehaviour {
 
     public static Game3DManager Instance { get; private set; }
 
-    /// <summary>展开动画 Animator 的初始 localTRS 缓存，复位时强制把动画驱动的 Transform 拉回原位。
-    /// Animator 在 Rebind 后只重置控制器状态，不会回写动画期间被改写的 Transform，故另存一份。</summary>
-    private struct HandRevealInitialPose {
-        public Transform target;
-        public Vector3 localPosition;
-        public Quaternion localRotation;
-        public Vector3 localScale;
-    }
-    private List<HandRevealInitialPose> handRevealInitialPoses = new List<HandRevealInitialPose>();
-
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
@@ -73,51 +63,15 @@ public partial class Game3DManager : MonoBehaviour {
         BackDirection = new Vector3(0,0,-1);
         UpDirection = new Vector3(0,1,0);
         DownDirection = new Vector3(0,-1,0);
-        CacheHandRevealInitialPoses();
-        DisableHandRevealAnimators();
-    }
-
-    private void CacheHandRevealInitialPoses() {
-        handRevealInitialPoses.Clear();
-        foreach (PosPanel3D panel in new[] { selfPosPanel, leftPosPanel, topPosPanel, rightPosPanel }) {
-            if (panel.handRevealAnimator == null) continue;
-            Transform t = panel.handRevealAnimator.transform;
-            handRevealInitialPoses.Add(new HandRevealInitialPose {
-                target = t,
-                localPosition = t.localPosition,
-                localRotation = t.localRotation,
-                localScale = t.localScale,
-            });
-        }
-    }
-
-    private void DisableHandRevealAnimators() {
-        foreach (PosPanel3D panel in new[] { selfPosPanel, leftPosPanel, topPosPanel, rightPosPanel }) {
-            if (panel.handRevealAnimator != null) {
-                panel.handRevealAnimator.enabled = false;
-            }
-        }
+        ResetHandRevealAnimators();
     }
 
     /// <summary>
-    /// 重置四家手牌展开动画到初始状态：禁用 Animator + 触发器复位 + 把展开动画作用过的 Transform
-    /// 强制还原到缓存的 localTRS，避免上一局展开后下一局新建手牌仍显示在展开位置上。
+    /// 重置四家手牌展开动画到 Idle 状态，避免上一局展开末帧影响下一局摆牌。
     /// </summary>
     public void ResetHandRevealAnimators() {
         foreach (PosPanel3D panel in new[] { selfPosPanel, leftPosPanel, topPosPanel, rightPosPanel }) {
-            Animator anim = panel.handRevealAnimator;
-            if (anim == null) continue;
-            if (!string.IsNullOrEmpty(panel.handRevealExpandTrigger)) {
-                anim.ResetTrigger(panel.handRevealExpandTrigger);
-            }
-            anim.enabled = false;
-        }
-        for (int i = 0; i < handRevealInitialPoses.Count; i++) {
-            HandRevealInitialPose pose = handRevealInitialPoses[i];
-            if (pose.target == null) continue;
-            pose.target.localPosition = pose.localPosition;
-            pose.target.localRotation = pose.localRotation;
-            pose.target.localScale = pose.localScale;
+            ForceHandRevealIdle(panel);
         }
     }
 
@@ -136,9 +90,10 @@ public partial class Game3DManager : MonoBehaviour {
             Debug.LogWarning("Game3DManager.riichiTenbouPrefab 未绑定");
             return;
         }
-        GameObject tenbou = Instantiate(riichiTenbouPrefab, startTransform.position, startTransform.rotation);
+        Quaternion endRot = RiichiTenbouPlacementRotation(playerPosition);
+        GameObject tenbou = Instantiate(riichiTenbouPrefab, startTransform.position, endRot);
         tenbou.transform.SetParent(panel.tenbouPos.parent, worldPositionStays: true);
-        StartCoroutine(MoveTenbouCoroutine(tenbou, startTransform.position, endTransform.position, endTransform.rotation, 0.6f));
+        StartCoroutine(MoveTenbouCoroutine(tenbou, startTransform.position, endTransform.position, endRot, 0.6f));
     }
 
     /// <summary>
@@ -155,9 +110,19 @@ public partial class Game3DManager : MonoBehaviour {
                 if (t != null && t.name.StartsWith("RiichiTenbou_")) return;
             }
         }
-        GameObject tenbou = Instantiate(riichiTenbouPrefab, endTransform.position, endTransform.rotation);
+        Quaternion endRot = RiichiTenbouPlacementRotation(playerPosition);
+        GameObject tenbou = Instantiate(riichiTenbouPrefab, endTransform.position, endRot);
         tenbou.name = $"RiichiTenbou_{playerPosition}";
         tenbou.transform.SetParent(endTransform.parent, worldPositionStays: true);
+    }
+
+    /// <summary>立直棒落点朝向：与各家河牌俯视一致，不继承 UI 节点旋转。</summary>
+    private Quaternion RiichiTenbouPlacementRotation(string playerPosition) {
+        if (playerPosition == "self") return Quaternion.Euler(90, 0, 180);
+        if (playerPosition == "left") return Quaternion.Euler(90, 0, 90);
+        if (playerPosition == "top") return Quaternion.Euler(90, 0, 0);
+        if (playerPosition == "right") return Quaternion.Euler(90, 0, 270);
+        return Quaternion.identity;
     }
 
     /// <summary>清空场上所有立直点棒（每局 Clear3DTile 时调用，避免下一局残留）。</summary>
@@ -192,6 +157,15 @@ public partial class Game3DManager : MonoBehaviour {
         return Quaternion.Euler(-180, 180, 0);
     }
 
+    /// <summary>局终/牌谱明牌摆牌：与摸牌时相同的立面朝向，供 Cube 展开动画推倒。</summary>
+    private Quaternion RecordHandTileRotation(string playerPosition) {
+        if (playerPosition == "self") return SelfHandStandingRotation();
+        if (playerPosition == "left") return Quaternion.Euler(0, 90, 0);
+        if (playerPosition == "top") return Quaternion.Euler(0, 180, 0);
+        if (playerPosition == "right") return Quaternion.Euler(180, 270, 0);
+        return Quaternion.identity;
+    }
+
     /// <summary>自家牌：仅手牌容器为立面；河、副露、补花仍为俯视位姿。</summary>
     private Quaternion SelfTileWorldRotation(Transform setPosition) {
         if (setPosition == selfPosPanel.cardsPosition) {
@@ -200,17 +174,13 @@ public partial class Game3DManager : MonoBehaviour {
         return Quaternion.Euler(90, 0, 180);
     }
 
-    /// <summary>按 selfHandTiles 张数重建自家 3D 手牌为白背；操作区重新显示时调用。</summary>
-    public void RefreshSelfBlankHandFromSelfTileList() {
-        if (NormalGameStateManager.Instance == null || selfPosPanel == null) return;
+    /// <summary>清空自家 3D 手牌区；对局中使用 2D 手牌，不在此处生成白背牌。</summary>
+    public void ClearSelf3DHandTiles() {
+        if (selfPosPanel == null) return;
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(selfPosPanel.cardsPosition, objectsToReturn);
         foreach (GameObject obj in objectsToReturn) {
             MahjongObjectPool.Instance.Return(-1, obj);
-        }
-        int n = NormalGameStateManager.Instance.selfHandTiles.Count;
-        for (int i = 0; i < n; i++) {
-            Get3DTile("self", "init", NormalGameStateManager.Instance.selfHandTiles[i]);
         }
     }
 
@@ -247,6 +217,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
     private void InitHandCardsImmediate() {
+        ClearAllRiichiTenbous();
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
         CollectChildren(topPosPanel.cardsPosition, objectsToReturn);
@@ -259,7 +230,6 @@ public partial class Game3DManager : MonoBehaviour {
         int leftCount = NormalGameStateManager.Instance.player_to_info["left"].hand_tiles_count;
         int topCount = NormalGameStateManager.Instance.player_to_info["top"].hand_tiles_count;
         int rightCount = NormalGameStateManager.Instance.player_to_info["right"].hand_tiles_count;
-        List<int> selfTilesSnapshot = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
         for (int i = 0; i < leftCount; i++) {
             Get3DTile("left", "init", 0);
         }
@@ -268,9 +238,6 @@ public partial class Game3DManager : MonoBehaviour {
         }
         for (int i = 0; i < rightCount; i++) {
             Get3DTile("right", "init", 0);
-        }
-        for (int i = 0; i < selfTilesSnapshot.Count; i++) {
-            Get3DTile("self", "init", selfTilesSnapshot[i]);
         }
     }
     

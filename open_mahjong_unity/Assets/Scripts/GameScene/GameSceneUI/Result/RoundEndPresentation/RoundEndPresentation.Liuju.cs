@@ -14,7 +14,6 @@ public partial class RoundEndPresentation {
     }
 
     private IEnumerator CoLiuju(string displayText, bool playPresentationEffects) {
-        HideSelfGameplayControl();
         PreparePresentationRoot(playPresentationEffects);
         EndLiujuPanel.Instance.PrepareLiujuPanel(displayText);
         yield return PlayAfterFade(

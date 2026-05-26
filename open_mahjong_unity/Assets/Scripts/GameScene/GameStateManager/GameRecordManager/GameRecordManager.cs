@@ -1262,12 +1262,12 @@ public partial class GameRecordManager : MonoBehaviour {
     private void HandleHuRiichiReplay(List<string> tick) {
         int hepaiPlayerIndex = ParseTickInt(tick, 1);
         string huClass = tick.Count > 2 ? tick[2] : "hu_self";
+        int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
         if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
-            int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
             if (scoreChanges != null) {
-                var deltas = new Dictionary<int, int>();
-                foreach (var rp in recordPlayerList) deltas[rp.playerIndex] = scoreChanges[rp.originalPlayerIndex];
-                ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> after);
+                var liujuDeltas = new Dictionary<int, int>();
+                foreach (var rp in recordPlayerList) liujuDeltas[rp.playerIndex] = scoreChanges[rp.originalPlayerIndex];
+                ApplyScoreDeltas(liujuDeltas, out _, out Dictionary<int, int> after);
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
             RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
@@ -1277,7 +1277,6 @@ public partial class GameRecordManager : MonoBehaviour {
         int han = tick.Count > 3 ? ParseTickInt(tick, 3) : 0;
         int fu = tick.Count > 4 ? ParseTickInt(tick, 4) : 0;
         string[] yaku = tick.Count > 5 ? ParseHuFanList(tick, 5) : new string[0];
-        int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
         int[] doraIndicators = tick.Count > 7 ? ParseTickScoreChanges(tick, 7) : null;
         int[] uraDoraIndicators = tick.Count > 8 ? ParseTickScoreChanges(tick, 8) : null;
         int akaCount = tick.Count > 9 ? ParseTickInt(tick, 9) : 0;

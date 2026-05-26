@@ -20,7 +20,7 @@ public partial class Game3DManager {
         if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(hepaiPlayerIndex)) yield break;
         string pos = NormalGameStateManager.Instance.indexToPosition[hepaiPlayerIndex];
         PosPanel3D panel = GetPosPanel(pos);
-        RestoreHandRevealInitialPose(panel);
+        ForceHandRevealIdle(panel);
         LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
@@ -40,7 +40,7 @@ public partial class Game3DManager {
             if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(playerIndex)) continue;
             string pos = NormalGameStateManager.Instance.indexToPosition[playerIndex];
             PosPanel3D panel = GetPosPanel(pos);
-            RestoreHandRevealInitialPose(panel);
+            ForceHandRevealIdle(panel);
             LayRoundEndClosedFaceHandAtPosition(pos, tiles);
             PlayHandRevealAnimation(panel);
             played = true;
@@ -53,27 +53,21 @@ public partial class Game3DManager {
     private void PlayHandRevealAnimation(PosPanel3D panel) {
         if (panel.handRevealAnimator == null || string.IsNullOrEmpty(panel.handRevealExpandTrigger)) return;
         Animator anim = panel.handRevealAnimator;
-        anim.enabled = false;
-        RestoreHandRevealInitialPose(panel);
-        anim.enabled = true;
-        // 先采样默认状态，再触发展开，避免上一轮末态在启用 Animator 时被立即应用。
-        anim.Rebind();
-        anim.Update(0f);
         anim.ResetTrigger(panel.handRevealExpandTrigger);
         anim.SetTrigger(panel.handRevealExpandTrigger);
     }
 
-    private void RestoreHandRevealInitialPose(PosPanel3D panel) {
+    private void ForceHandRevealIdle(PosPanel3D panel) {
         if (panel == null || panel.handRevealAnimator == null) return;
-        Transform target = panel.handRevealAnimator.transform;
-        for (int i = 0; i < handRevealInitialPoses.Count; i++) {
-            HandRevealInitialPose pose = handRevealInitialPoses[i];
-            if (pose.target != target) continue;
-            target.localPosition = pose.localPosition;
-            target.localRotation = pose.localRotation;
-            target.localScale = pose.localScale;
-            return;
+        Animator anim = panel.handRevealAnimator;
+        anim.enabled = true;
+        if (!string.IsNullOrEmpty(panel.handRevealExpandTrigger)) {
+            anim.ResetTrigger(panel.handRevealExpandTrigger);
         }
+        if (!string.IsNullOrEmpty(panel.handRevealIdleStateName)) {
+            anim.Play(panel.handRevealIdleStateName, 0, 0f);
+        }
+        anim.Update(0f);
     }
 
     /// <summary>
@@ -81,7 +75,7 @@ public partial class Game3DManager {
     /// </summary>
     private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand, int[][] combinationMask) {
         PosPanel3D panel = GetPosPanel(playerPosition);
-        RestoreHandRevealInitialPose(panel);
+        ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(target, objectsToReturn);
@@ -110,7 +104,7 @@ public partial class Game3DManager {
 
     private void LayRoundEndClosedFaceHandAtPosition(string playerPosition, IList<int> handTiles) {
         PosPanel3D panel = GetPosPanel(playerPosition);
-        RestoreHandRevealInitialPose(panel);
+        ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(target, objectsToReturn);

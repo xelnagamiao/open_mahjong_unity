@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -50,6 +50,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_WHITE_DRAGON_FACE = "WhiteDragonFaceMode";
     private const string KEY_MOQIE_SHORTCUT = "MoqieShortcutMode";
     private const string KEY_ASK_OTHER_PASS_SHORTCUT = "AskOtherPassShortcutMode";
+    private const string KEY_TARGET_FRAME_RATE = "TargetFrameRate";
 
     /// <summary>图集中空白/纯白牌面资源编号（与 2D CardFaceImage_xuefun 一致）。</summary>
     public const int BlankFaceImageId = 2;
@@ -60,6 +61,8 @@ public class ConfigManager : MonoBehaviour {
     public int MoqieShortcutMode { get; private set; }
     /// <summary>鸣牌询问时过牌快捷：0 右键 1 无 2 双击</summary>
     public int AskOtherPassShortcutMode { get; private set; }
+    /// <summary>目标帧率</summary>
+    public int TargetFrameRate { get; private set; }
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
     public const int WhiteDragonTileId = 46;
@@ -69,7 +72,13 @@ public class ConfigManager : MonoBehaviour {
     public int SoundEffectVolume { get; private set; }
     public int VoiceVolume { get; private set; }
 
-    private const int ForegroundFrameRate = 120;
+    public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
+
+#if UNITY_WEBGL
+    private const int DefaultTargetFrameRate = 60;
+#else
+    private const int DefaultTargetFrameRate = 120;
+#endif
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -89,9 +98,10 @@ public class ConfigManager : MonoBehaviour {
         WhiteDragonFaceMode = PlayerPrefs.GetInt(KEY_WHITE_DRAGON_FACE, 1);
         MoqieShortcutMode = PlayerPrefs.GetInt(KEY_MOQIE_SHORTCUT, 0);
         AskOtherPassShortcutMode = PlayerPrefs.GetInt(KEY_ASK_OTHER_PASS_SHORTCUT, 0);
+        TargetFrameRate = NormalizeTargetFrameRate(PlayerPrefs.GetInt(KEY_TARGET_FRAME_RATE, DefaultTargetFrameRate));
         
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = ForegroundFrameRate;
+        ApplyTargetFrameRate();
         Application.runInBackground = true;
     }
 
@@ -175,5 +185,23 @@ public class ConfigManager : MonoBehaviour {
         AskOtherPassShortcutMode = Mathf.Clamp(mode, 0, 2);
         PlayerPrefs.SetInt(KEY_ASK_OTHER_PASS_SHORTCUT, AskOtherPassShortcutMode);
         PlayerPrefs.Save();
+    }
+
+    public void SetTargetFrameRate(int frameRate) {
+        TargetFrameRate = NormalizeTargetFrameRate(frameRate);
+        PlayerPrefs.SetInt(KEY_TARGET_FRAME_RATE, TargetFrameRate);
+        PlayerPrefs.Save();
+        ApplyTargetFrameRate();
+    }
+
+    private void ApplyTargetFrameRate() {
+        Application.targetFrameRate = TargetFrameRate;
+    }
+
+    private static int NormalizeTargetFrameRate(int frameRate) {
+        foreach (int option in TargetFrameRateOptions) {
+            if (frameRate == option) return frameRate;
+        }
+        return DefaultTargetFrameRate;
     }
 }

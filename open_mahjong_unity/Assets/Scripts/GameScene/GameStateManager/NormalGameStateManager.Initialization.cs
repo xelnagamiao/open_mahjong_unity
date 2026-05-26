@@ -44,6 +44,8 @@ public partial class NormalGameStateManager {
 
         IsGameActive = true;
         IsSelfActionRequired = false;
+        TipsContainer.Instance?.ResetRyuukyokuTenpaiChoiceForRound();
+        TipsContainer.Instance?.HideRyuukyokuTenpaiChoice();
     }
 
     private void RestoreRiichiTenbous(GameInfo gameInfo){

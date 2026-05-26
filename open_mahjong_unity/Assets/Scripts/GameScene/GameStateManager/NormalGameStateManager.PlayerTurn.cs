@@ -104,7 +104,7 @@ public partial class NormalGameStateManager {
         }
     }
 
-    private bool IsSelfRiichi(){
+    public bool IsSelfRiichi(){
         string[] tags = player_to_info["self"].tag_list;
         if (tags == null) return false;
         for (int i = 0; i < tags.Length; i++){

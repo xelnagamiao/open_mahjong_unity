@@ -28,6 +28,8 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_riichi_cut(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/riichi/set_ryuukyoku_tenpai":
+        await handle_set_ryuukyoku_tenpai(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/add_spectator":
         await handle_add_spectator(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/remove_spectator":
@@ -107,6 +109,25 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
         )
     except Exception as e:
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)
+
+async def handle_set_ryuukyoku_tenpai(game_server, Connect_id: str, message: dict, websocket):
+    """设置立直麻将荒牌流局时的听牌申报。"""
+    try:
+        gamestate_id = message.get("gamestate_id")
+        game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+        player_conn = game_server.players.get(Connect_id)
+        if not game_state or not player_conn or not player_conn.user_id:
+            return
+        for player in game_state.player_list:
+            if player.user_id == player_conn.user_id:
+                player.ryuukyoku_declared_tenpai = bool(message.get("tenpai", True))
+                logger.info(
+                    f"设置荒牌听牌申报: gamestate_id={gamestate_id}, "
+                    f"user_id={player.user_id}, tenpai={player.ryuukyoku_declared_tenpai}"
+                )
+                return
+    except Exception as e:
+        logger.error(f"处理荒牌听牌申报失败: {e}", exc_info=True)
 
 async def handle_add_spectator(game_server, Connect_id: str, message: dict, websocket):
     """处理添加观战玩家请求"""

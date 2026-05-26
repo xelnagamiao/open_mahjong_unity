@@ -222,6 +222,10 @@ async def wait_action(self):
             if action_data:
                 refresh_waiting_tiles(self, player_index)
                 normal_tile = _normalize(tile_id)
+                if action_type not in ("hu_first", "hu_second", "hu_third", "pass"):
+                    _apply_passed_ron_furiten(self, ron_eligible_indexes)
+                    if self.sync_furiten_tags():
+                        await broadcast_refresh_player_tag_list(self)
                 if action_type == "chi_left":
                     # 组合掩码中记录真实牌 ID（含赤 5 的 105/205/305），便于客户端正确从手牌移除并渲染副露
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
@@ -313,7 +317,7 @@ async def wait_action(self):
                 if action_type == "pass":
                     _commit_pending_riichi(self)
                     _apply_passed_ron_furiten(self, ron_eligible_indexes)
-                    # 立直振听/同巡振听挂上后立刻同步给客户端，否则 furiten 图标需等到下次摸牌才显示
+                    # 立直振听/同巡振听挂上后立刻同步给客户端，否则 furiten 图标需等到下次广播才显示
                     if self.sync_furiten_tags():
                         await broadcast_refresh_player_tag_list(self)
                     if getattr(self, "_pending_four_kan_abort", False):
@@ -439,7 +443,10 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
 
     refresh_waiting_tiles(self, self.current_player_index)
 
-    # 自家切牌后由 sync_furiten_tags 在合适时机统一调整 furiten tag（永久/同巡/立直振听归一显示）
+    # 自家出牌后解除同巡振听，永久/立直振听仍由 sync_furiten_tags 保留。
+    player.temp_furiten = False
+
+    # 自家切牌后由 sync_furiten_tags 统一调整 furiten tag（永久/同巡/立直振听归一显示）
     if self.sync_furiten_tags():
         await broadcast_refresh_player_tag_list(self)
 

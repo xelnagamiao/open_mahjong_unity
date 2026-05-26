@@ -63,7 +63,7 @@ const features = ref([
     // 青灰色
     description: '转至GitHub项目页面。',
     icon: Link,
-    color: '#808080',
+    color: '#6699cc',
     type: 'route',
     route: '/github',
   },

@@ -12,6 +12,7 @@ public class TipsContainer : MonoBehaviour
     [SerializeField] private StaticCard TilePrefab;
     [SerializeField] private GameObject FanPrefab;
     [SerializeField] private GameObject FanContainer;
+    [SerializeField] private GameObject ryuukyokuTenpaiChoicePanel;
     public static TipsContainer Instance { get; private set; }
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
@@ -41,6 +42,7 @@ public class TipsContainer : MonoBehaviour
     /// </summary>
     public void SetTipsWithHand(List<int> handTiles, List<int> waitingTiles)
     {
+        UpdateRyuukyokuTenpaiChoice(waitingTiles);
 
         // 收集子对象
         List<Transform> toDestroy = new List<Transform>();
@@ -437,6 +439,41 @@ public class TipsContainer : MonoBehaviour
     public void ShowTips(){
         UpdateContainerSize();
         gameObject.SetActive(true);
+    }
+
+    public void UpdateRyuukyokuTenpaiChoice(ICollection<int> waitingTiles) {
+        NormalGameStateManager gameManager = NormalGameStateManager.Instance;
+        bool canChooseNoten = gameManager.roomRule == "riichi"
+            && gameManager.remainTiles <= 8
+            && waitingTiles.Count > 0
+            && !SelfHasRiichiTag(gameManager);
+        if (canChooseNoten) {
+            SendRyuukyokuTenpaiChoiceMessage("ShowChoice");
+        } else {
+            HideRyuukyokuTenpaiChoice();
+        }
+    }
+
+    public void HideRyuukyokuTenpaiChoice() {
+        SendRyuukyokuTenpaiChoiceMessage("Hide");
+    }
+
+    public void ResetRyuukyokuTenpaiChoiceForRound() {
+        SendRyuukyokuTenpaiChoiceMessage("ResetSelectionForRound");
+    }
+
+    private void SendRyuukyokuTenpaiChoiceMessage(string methodName) {
+        if (ryuukyokuTenpaiChoicePanel == null) return;
+        ryuukyokuTenpaiChoicePanel.SendMessage(methodName, SendMessageOptions.DontRequireReceiver);
+    }
+
+    private bool SelfHasRiichiTag(NormalGameStateManager gameManager) {
+        string[] tags = gameManager.player_to_info["self"].tag_list;
+        if (tags == null) return false;
+        for (int i = 0; i < tags.Length; i++) {
+            if (tags[i] == "riichi" || tags[i] == "daburu_riichi") return true;
+        }
+        return false;
     }
 
     /// <summary>

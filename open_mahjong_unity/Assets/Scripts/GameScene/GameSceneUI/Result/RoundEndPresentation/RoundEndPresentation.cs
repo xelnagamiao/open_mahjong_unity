@@ -29,7 +29,7 @@ public partial class RoundEndPresentation : MonoBehaviour {
         }
     }
 
-    /// <summary>隐藏自身操作区。</summary>
+    /// <summary>隐藏 2D 操作区；仅自家和牌时 revealSelfHand 为 true，会生成 3D 明牌。</summary>
     public void HideSelfGameplayControl(bool revealSelfHand = true) {
         selfGameplayControlRoot.SetActive(false);
         if (revealSelfHand) {
@@ -37,10 +37,11 @@ public partial class RoundEndPresentation : MonoBehaviour {
         }
     }
 
-    /// <summary>显示自身操作区并重新同步手牌。</summary>
+    /// <summary>显示自身操作区；清空局终 3D 明牌，对局手牌仍由 2D 操作区展示。</summary>
     public void ShowSelfGameplayControlAndResyncHand3D() {
         selfGameplayControlRoot.SetActive(true);
-        Game3DManager.Instance.RefreshSelfBlankHandFromSelfTileList();
+        Game3DManager.Instance.ResetHandRevealAnimators();
+        Game3DManager.Instance.ClearSelf3DHandTiles();
     }
 
     /// <summary>停止当前局终流程。</summary>

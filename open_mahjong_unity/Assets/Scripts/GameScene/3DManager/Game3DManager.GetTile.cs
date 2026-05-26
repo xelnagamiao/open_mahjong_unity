@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class Game3DManager : MonoBehaviour {
     // 摸牌3D显示（协程版本）
     private IEnumerator Get3DTileCoroutine(string playerIndex, string actionType, int spawnTileId = 0) {
+        if (playerIndex == "self") yield break;
         PosPanel3D panel = GetPosPanel(playerIndex);
         Transform cardsPosition = panel.cardsPosition;
 
@@ -65,6 +66,7 @@ public partial class Game3DManager : MonoBehaviour {
 
     // 摸牌3D显示
     private void Get3DTile(string playerIndex, string actionType, int spawnTileId = 0) {
+        if (playerIndex == "self") return;
         PosPanel3D panel = GetPosPanel(playerIndex);
         Transform cardsPosition = panel.cardsPosition;
 

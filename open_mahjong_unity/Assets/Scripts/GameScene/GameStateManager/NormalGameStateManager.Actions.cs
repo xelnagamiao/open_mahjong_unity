@@ -7,6 +7,7 @@ public partial class NormalGameStateManager {
     public void AskHandAction(int remaining_time, int playerIndex, int remain_tiles, string[] action_list,
                               Dictionary<int, int[]> riichi_candidate_cuts = null, int[] forbidden_cut_tiles = null) {
         string GetCardPlayer = indexToPosition[playerIndex];
+        remainTiles = remain_tiles;
         // 立直麻将自家手牌可点状态依据：每次询问刷新
         selfRiichiCandidateCuts = riichi_candidate_cuts ?? new Dictionary<int, int[]>();
         selfForbiddenCutTiles = forbidden_cut_tiles != null
@@ -60,6 +61,7 @@ public partial class NormalGameStateManager {
             if (!isSilent) {
                 SoundManager.Instance.PlayActionSound(GetCardPlayer, action);
                 SoundManager.Instance.PlayPhysicsSound(action);
+                GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, action, roomRule);
             }
             switch (action) { // action_list 实际上只会包含一个操作
 
@@ -114,7 +116,6 @@ public partial class NormalGameStateManager {
                         player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
                     }
                     Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
-                    if (!isSilent) GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "buhua"); // 显示操作文本
                     break;
 
                 // 胡牌使用NetworkManager传参调用的ShowResult方法 此处为占位符
@@ -138,7 +139,6 @@ public partial class NormalGameStateManager {
                             player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
                         }
                         Game3DManager.Instance.Change3DTile("jiagang",tile_id,1,GetCardPlayer,false,combination_mask); // 3D加杠行为
-                        if (!isSilent) GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "jiagang"); // 显示操作文本
                     }
                     else if (action == "angang"){
                         // 暗杠情况下需要删除完整手牌
@@ -154,7 +154,6 @@ public partial class NormalGameStateManager {
                             }
                         }
                         Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask); // 3D暗杠行为
-                        if (!isSilent) GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "angang"); // 显示操作文本
                     }
                     else if (action == "gang"){
                         // 杠情况下需要删除3张手牌（相对于暗杠少删一张）
@@ -171,7 +170,6 @@ public partial class NormalGameStateManager {
                             }
                         }
                         Game3DManager.Instance.Change3DTile(action,0,3,GetCardPlayer,false,combination_mask); // 3D杠行为
-                        if (!isSilent) GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, "gang"); // 显示操作文本
                     }
                     else{
                         // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
@@ -197,7 +195,6 @@ public partial class NormalGameStateManager {
                             GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray(),null); // 2D手牌行为
                         }
                         Game3DManager.Instance.Change3DTile(action,0,need_remove_list.Count,GetCardPlayer,false,combination_mask); // 3D吃碰杠行为
-                        if (!isSilent) GameCanvas.Instance.ShowActionDisplay(GetCardPlayer, action); // 显示操作文本
                     }
                     break;
                 default:
@@ -231,8 +228,8 @@ public partial class NormalGameStateManager {
         foreach (string action in action_list) {
             SoundManager.Instance.PlayActionSound(actor, action);
             SoundManager.Instance.PlayPhysicsSound(action);
-            // ShowActionDisplay 已正确处理 hu_first/hu_second/hu_third/hu_self 并显示为「胡」
-            GameCanvas.Instance.ShowActionDisplay(actor, action);
+            // ShowActionDisplay 根据规则处理 hu_first/hu_second/hu_third/hu_self 的文案
+            GameCanvas.Instance.ShowActionDisplay(actor, action, roomRule);
         }
     }
 }

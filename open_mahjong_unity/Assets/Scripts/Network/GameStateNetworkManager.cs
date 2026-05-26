@@ -283,6 +283,20 @@ public class GameStateNetworkManager : MonoBehaviour {
             Debug.LogError($"发送操作消息失败: {e.Message}");
         }
     }
+
+    public async void SetRyuukyokuTenpai(bool tenpai) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
+        try {
+            var request = new SetRyuukyokuTenpaiRequest {
+                type = "gamestate/riichi/set_ryuukyoku_tenpai",
+                gamestate_id = UserDataManager.Instance.GamestateId,
+                tenpai = tenpai
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送流局听牌申报失败: {e.Message}");
+        }
+    }
     
     /// <summary>
     /// 获取观战列表

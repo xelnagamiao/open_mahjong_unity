@@ -31,21 +31,7 @@ public class RealtimeRequestIncomingPanel : MonoBehaviour {
         gameObject.SetActive(false);
     }
 
-    private void OnEnable() {
-        if (FriendNetworkManager.Instance != null) {
-            FriendNetworkManager.Instance.OnRealtimeRequestIncoming += HandleIncoming;
-            FriendNetworkManager.Instance.OnRealtimeRequestRevoked += HandleRevoked;
-        }
-    }
-
-    private void OnDisable() {
-        if (FriendNetworkManager.Instance != null) {
-            FriendNetworkManager.Instance.OnRealtimeRequestIncoming -= HandleIncoming;
-            FriendNetworkManager.Instance.OnRealtimeRequestRevoked -= HandleRevoked;
-        }
-    }
-
-    private void HandleIncoming(Response response) {
+    public void HandleIncoming(Response response) {
         _currentRequestId = response.realtime_request_id;
         string fromName = string.IsNullOrEmpty(response.realtime_from_username)
             ? (response.realtime_from_user_id?.ToString() ?? "对方")
@@ -55,7 +41,7 @@ public class RealtimeRequestIncomingPanel : MonoBehaviour {
         else gameObject.SetActive(true);
     }
 
-    private void HandleRevoked(Response response) {
+    public void HandleRevoked(Response response) {
         if (string.IsNullOrEmpty(_currentRequestId)) return;
         if (!string.Equals(response.realtime_request_id, _currentRequestId)) return;
         _currentRequestId = null;

@@ -9,6 +9,7 @@ public partial class NormalGameStateManager {
         // 隐藏和牌提示
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
+        TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         if (isSilent) {
             // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时直接关闭面板
             TacticalCallPanel.Instance.HidePanel();
@@ -123,6 +124,10 @@ public partial class NormalGameStateManager {
         
         // 更新 GameCanvas 中的玩家面板显示
         GameCanvas.Instance.UpdatePlayerTagList(player_to_tag_list);
+        if (IsSelfRiichi()) {
+            TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
+            TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
+        }
     }
 
     // 游戏结束
@@ -131,6 +136,7 @@ public partial class NormalGameStateManager {
         SwitchCurrentPlayer("None","ClearAction",0);
         IsGameActive = false;
         IsSelfActionRequired = false;
+        TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         RoundEndPresentation.Instance.PresentEndGame(game_random_seed, player_final_data);
     }
 }

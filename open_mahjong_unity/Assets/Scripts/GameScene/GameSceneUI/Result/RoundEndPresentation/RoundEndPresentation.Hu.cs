@@ -9,7 +9,10 @@ public partial class RoundEndPresentation {
     }
 
     private IEnumerator HuResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, bool isSilent, bool playPresentationEffects) {
-        HideSelfGameplayControl();
+        bool selfWon = NormalGameStateManager.Instance.indexToPosition[hepai_player_index] == "self";
+        if (selfWon) {
+            HideSelfGameplayControl(true);
+        }
         if (!isSilent) {
             // 显示喊胡提示
             GameCanvas.Instance.ShowActionDisplay(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);

@@ -4,7 +4,6 @@ using UnityEngine;
 
 public partial class RoundEndPresentation {
     public void PresentEndGame(long game_random_seed, Dictionary<string, Dictionary<string, object>> player_final_data) {
-        HideSelfGameplayControl();
         GameSceneUIManager.Instance.ShowEndGame(game_random_seed, player_final_data);
     }
 
@@ -13,7 +12,11 @@ public partial class RoundEndPresentation {
     }
 
     private IEnumerator CoShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string[]> player_fan, Dictionary<int, string[]> player_fu_types, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info, int? hepaiPlayerIndex, int[] hepaiPlayerHand, int[][] hepaiPlayerCombinationMask, bool playPresentationEffects) {
-        HideSelfGameplayControl();
+        if (hepaiPlayerIndex.HasValue
+            && NormalGameStateManager.Instance.indexToPosition.TryGetValue(hepaiPlayerIndex.Value, out string winnerPos)
+            && winnerPos == "self") {
+            HideSelfGameplayControl(true);
+        }
         if (playPresentationEffects && hepaiPlayerIndex.HasValue && hepaiPlayerHand != null && hepaiPlayerHand.Length > 0) {
             yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepaiPlayerIndex.Value, hepaiPlayerHand, hepaiPlayerCombinationMask);
         }
