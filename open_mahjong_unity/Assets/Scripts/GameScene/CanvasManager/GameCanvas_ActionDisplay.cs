@@ -8,7 +8,7 @@ using TMPro;
 
 public partial class GameCanvas{
     // 显示操作文本
-    public void ShowActionDisplay(string playerPosition, string actionType) {
+    public void ShowActionDisplay(string playerPosition, string actionType, string roomRule = null) {
         Transform displayPos = null;
         if (playerPosition == "self"){
             displayPos = SelfActionDisplayPos;
@@ -20,25 +20,41 @@ public partial class GameCanvas{
             displayPos = TopActionDisplayPos;
         }
         
+        string displayText = GetActionDisplayText(actionType, roomRule);
+        if (string.IsNullOrEmpty(displayText)) return;
+
         // 实例化操作显示文本
         GameObject actionTextObj = Instantiate(ActionDisplayText, displayPos);
         
         // 设置文本内容
         TMP_Text actionText = actionTextObj.GetComponent<TMP_Text>();
-        if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
-            actionText.text = "吃";
-        } else if (actionType == "peng"){
-            actionText.text = "碰";
-        } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
-            actionText.text = "杠";
-        } else if (actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
-            actionText.text = "胡";
-        } else if (actionType == "buhua"){
-            actionText.text = "补花";
-        }
+        actionText.text = displayText;
         
         // 启动渐变消失协程
         StartCoroutine(FadeOutActionDisplay(actionTextObj,displayPos));
+    }
+
+    private string GetActionDisplayText(string actionType, string roomRule) {
+        if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
+            return "吃";
+        } else if (actionType == "peng"){
+            return "碰";
+        } else if (actionType == "angang" || actionType == "jiagang" || actionType == "gang"){
+            return "杠";
+        } else if (actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
+            string rule = !string.IsNullOrEmpty(roomRule) ? roomRule : NormalGameStateManager.Instance.roomRule;
+            if (actionType == "hu_self"){
+                if (rule == "guobiao") return "和";
+                return "自摸";
+            }
+            if (rule == "riichi") return "荣";
+            return "和";
+        } else if (actionType == "buhua"){
+            return "补花";
+        } else if (actionType == "riichi"){
+            return "立直";
+        }
+        return string.Empty;
     }
 
     /// <summary>

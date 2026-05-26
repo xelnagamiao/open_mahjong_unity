@@ -187,7 +187,9 @@ async def wait_action(self):
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                
                 self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
-                self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
+                # 同一批完成任务中可能已有更高优先级操作清空等待列表，因此移除前先确认仍在等待。
+                if temp_player_index in self.waiting_players_list:
+                    self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
                 
                 # 检查当前操作是否是最高优先级的
                 do_interrupt = True

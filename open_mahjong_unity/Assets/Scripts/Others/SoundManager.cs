@@ -28,8 +28,18 @@ public class SoundManager : MonoBehaviour {
     }
     
     
+    public void PlayActionButtonAppearSound() {
+        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Effects/mixkit-modern-technology-select-3124");
+        if (soundToPlay == null) {
+            Debug.LogWarning("未找到操作按钮显示音效: Sound/Effects/mixkit-modern-technology-select-3124");
+            return;
+        }
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.SoundEffectVolume / 100f : 1.0f;
+        audioSource.PlayOneShot(soundToPlay, volume);
+    }
+
     // 播放操作音效的方法
-    public void PlayActionSound(string playerPosition,string actionType) {
+    public void PlayActionSound(string playerPosition, string actionType) {
         // 根据玩家位置获取对应玩家的音色ID
         int voiceId = 1; // 默认音色ID
         if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
@@ -43,34 +53,82 @@ public class SoundManager : MonoBehaviour {
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
         string audioTarget;
 
-        if (actionType == "hu_self"){
-            audioTarget = $"Sound/{voicePath}/zimo";
-        } else if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
-            audioTarget = $"Sound/{voicePath}/hu";
-        } else if (actionType == "buhua"){
-            audioTarget = $"Sound/{voicePath}/buhua";
-        } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
-            audioTarget = $"Sound/{voicePath}/chi";
-        } else if (actionType == "angang" || actionType == "gang"){
-            audioTarget = $"Sound/{voicePath}/gang";
-        } else if (actionType == "jiagang"){
-            audioTarget = $"Sound/{voicePath}/gang";
-        } else if (actionType == "peng"){
-            audioTarget = $"Sound/{voicePath}/peng";
-        } else {
+        string voiceKey = ResolveActionVoiceKey(actionType);
+        if (voiceKey == null) {
             Debug.LogWarning($"未找到音效文件: {actionType}");
             return;
         }
-        
-        AudioClip soundToPlay = Resources.Load<AudioClip>(audioTarget);
+        audioTarget = $"Sound/{voicePath}/{voiceKey}";
+        AudioClip soundToPlay = LoadVoiceClipWithFallback(voicePath, voiceKey, out string loadedTarget);
         
         if (soundToPlay != null) {
             float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
-            Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 音量: {volume}");
+            Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 资源: {loadedTarget}, 音量: {volume}");
         } else {
             Debug.LogWarning($"未找到音效文件: {audioTarget}");
         }
+    }
+
+    private static string ResolveActionVoiceKey(string actionType) {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        string roomRule = gsm != null ? gsm.roomRule : null;
+        string subRule = gsm != null ? gsm.subRule : null;
+
+        if (actionType == "hu_self") {
+            if (roomRule == "guobiao" || (subRule != null && subRule.StartsWith("guobiao/"))) {
+                return "hu";
+            }
+            return "zimo";
+        }
+        if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third") {
+            if (roomRule == "riichi" || (subRule != null && subRule.StartsWith("riichi/"))) {
+                return "rong";
+            }
+            return "hu";
+        }
+        if (actionType == "buhua") {
+            return "buhua";
+        }
+        if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right") {
+            return "chi";
+        }
+        if (actionType == "angang" || actionType == "gang" || actionType == "jiagang") {
+            return "gang";
+        }
+        if (actionType == "peng") {
+            return "peng";
+        }
+        return null;
+    }
+
+    private AudioClip LoadVoiceClipWithFallback(string voicePath, string voiceKey, out string loadedTarget) {
+        foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
+            string target = $"Sound/{voicePath}/{key}";
+            AudioClip clip = Resources.Load<AudioClip>(target);
+            if (clip != null) {
+                loadedTarget = target;
+                return clip;
+            }
+        }
+        foreach (string key in GetVoiceFallbackKeys(voiceKey)) {
+            string target = $"Sound/{voiceIdToPath[1]}/{key}";
+            AudioClip clip = Resources.Load<AudioClip>(target);
+            if (clip != null) {
+                loadedTarget = target;
+                return clip;
+            }
+        }
+        loadedTarget = null;
+        return null;
+    }
+
+    private static string[] GetVoiceFallbackKeys(string voiceKey) {
+        if (voiceKey == "rong") return new[] { "rong", "dianhe", "hu" };
+        if (voiceKey == "zimo") return new[] { "zimo", "hu" };
+        if (voiceKey == "angang") return new[] { "angang", "gang" };
+        if (voiceKey == "jiagang") return new[] { "jiagang", "gang" };
+        return new[] { voiceKey };
     }
 
     /// <summary>

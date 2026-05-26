@@ -24,6 +24,7 @@ from ..public.logic_common import get_index_relative_position, next_current_inde
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record
+from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -563,9 +564,12 @@ class ClassicalGameState:
                 self.spectator_manager.record_tick(["end"])
 
             if self.hu_class == "jiuzhongjiupai":
-                await asyncio.sleep(2)
+                await asyncio.sleep(liuju_ready_wait_seconds())
             else:
-                wait_time = shuhewei_extra_wait + 8
+                wait_time = shuhewei_ready_wait_seconds(
+                    shuhewei_extra_wait,
+                    self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"],
+                )
                 ready_phase_deadline = time.time() + wait_time
 
                 self.action_dict = {}
@@ -806,6 +810,8 @@ class ClassicalGameState:
             player_fu_types,
             hu_class,
             hepai_player_index,
+            self.player_list[hepai_player_index].hand_tiles if hepai_player_index is not None else None,
+            self.player_list[hepai_player_index].combination_mask if hepai_player_index is not None else None,
         )
         return reveal_wait
 

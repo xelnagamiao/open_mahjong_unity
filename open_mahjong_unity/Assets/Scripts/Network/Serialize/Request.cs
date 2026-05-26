@@ -83,6 +83,12 @@ public class SendActionRequest { // 发送国标游戏操作请求
     public int? chiComboIndex; // 立直麻将赤宝牌吃牌候选索引，默认 0 表示优先非赤 5
 }
 
+public class SetRyuukyokuTenpaiRequest {
+    public string type;
+    public string gamestate_id;
+    public bool tenpai;
+}
+
 public class GetRecordListRequest { // 获取游戏记录请求
     public string type;
 }

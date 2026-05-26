@@ -54,13 +54,14 @@ public class ShowResultInfo { // 显示结算结果
     public int? aka_count;                    // 赤宝牌数量
     public int? dora_count;                   // 表宝牌数量
     public int? ura_dora_count;               // 里宝牌数量
-    public int[] dora_indicators;            // 宝牌指示牌（含本局已翻开的杠宝牌）
+    public int[] dora_indicators;            // 宝牌指示牌（结算快照，含本局已翻开的杠宝牌）
     public int[] ura_dora_indicators;        // 里宝牌指示牌
     public int? honba;                        // 本场数
     public int? riichi_sticks_collected;      // 和牌者收走的立直棒数
     public Dictionary<int, int> score_changes; // 点数变化 {original_player_index: delta}
     // 荒牌流局：各家听牌张 {player_index: [tile_id, ...]}，未听家不出现；以及是否发生不听罚符
     public Dictionary<int, int[]> tenpai_tiles;
+    public Dictionary<int, int[]> tenpai_hands; // 荒牌流局：听牌家的实际手牌，用于倒牌展示
     public bool? exhaustive_penalty;
     // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时跳过
     public bool? silent;
@@ -74,6 +75,8 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public Dictionary<int, string[]> player_fu_types; // 各玩家副种列表
     public string hu_class; // 本局和牌类型
     public int? hepai_player_index; // 和牌玩家索引（无和牌为空）
+    public int[] hepai_player_hand; // 和牌玩家手牌
+    public int[][] hepai_player_combination_mask; // 和牌玩家组合掩码
 }
 
 public class AskHandActionGBInfo { // 询问手牌操作
@@ -167,11 +170,12 @@ public class GameInfo { // 游戏开始时传递房间信息
     // 立直麻将扩展字段
     public int? honba;                  // 本场棒数
     public int? riichi_sticks;          // 场供立直棒数
-    public int[] dora_indicators;      // 宝牌指示牌（含杠宝牌翻出的牌）
+    public int[] dora_indicators;      // 初始宝牌指示牌
     public int[] kan_dora_indicators;  // 杠宝牌指示牌
     public string hepai_way;            // 和牌方式 head_bump / multi_ron / three_ron_abort
     public bool? red_dora;              // 是否启用赤宝牌
     public int? dealer_index;           // 当前亲家索引
+    public int? view_player_index;      // 实时观战视角座位（客户端作为 self 渲染）
 }
 
 public class SwitchSeatInfo { // 换位信息
@@ -294,6 +298,7 @@ public class ServerStatsInfo { // 服务器统计信息
 
 public class SpectatorInfo { // 观战信息
     public string rule;         // 规则类型（guobiao/qingque）
+    public string sub_rule;     // 子规则类型（guobiao/standard等）
     public string player1_name; // 玩家1 用户名
     public string player2_name; // 玩家2 用户名
     public string player3_name; // 玩家3 用户名
@@ -364,5 +369,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public string realtime_to_username;          // 接收者 username
     public string realtime_gamestate_id;         // 关联对局 gamestate_id
     public RealtimeSpectatorEntry[] realtime_spectators; // 当前实时观战者列表
+    public int[] dora_indicators; // update_dora 顶层字段：初始宝牌指示牌
+    public int[] kan_dora_indicators; // update_dora 顶层字段：杠宝牌指示牌
 }
 

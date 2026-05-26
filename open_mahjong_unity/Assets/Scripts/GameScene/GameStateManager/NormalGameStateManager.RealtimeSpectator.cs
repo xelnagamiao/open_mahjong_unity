@@ -1,0 +1,57 @@
+public partial class NormalGameStateManager {
+    /// <summary>
+    /// 进入实时观战模式：客户端只渲染服务器推送的 gamestate，所有发送动作的接口（cut/action/riichi 等）均提前 return。
+    /// 调用方应当先在 RealtimeRequestWaitPanel 收到 friend/realtime_started 后再调用此方法，
+    /// 服务器随后会按 B 的座位转发完整 game_start + 后续广播。
+    /// </summary>
+    public void StartAsRealtimeSpectator(string gamestateId) {
+        IsRealtimeSpectator = true;
+        UserDataManager.Instance.SetGamestateId(gamestateId);
+        if (ExitButtonManager.Instance != null) {
+            ExitButtonManager.Instance.ShowForRealtimeSpectator();
+        }
+        SubscribeRealtimeEndEvents();
+    }
+
+    /// <summary>
+    /// 退出实时观战模式（主动 ExitRealtime / 被 Kick / 游戏结束）：清空标志位与底层按钮显示，调用方负责切回主菜单。
+    /// </summary>
+    public void StopAsRealtimeSpectator() {
+        IsRealtimeSpectator = false;
+        if (ExitButtonManager.Instance != null) {
+            ExitButtonManager.Instance.HideAll();
+        }
+        UnsubscribeRealtimeEndEvents();
+    }
+
+    private bool _realtimeEndSubscribed;
+    private void SubscribeRealtimeEndEvents() {
+        if (_realtimeEndSubscribed) return;
+        if (FriendNetworkManager.Instance == null) return;
+        FriendNetworkManager.Instance.OnRealtimeKicked += HandleRealtimeKicked;
+        FriendNetworkManager.Instance.OnRealtimeEnded += HandleRealtimeEnded;
+        _realtimeEndSubscribed = true;
+    }
+    private void UnsubscribeRealtimeEndEvents() {
+        if (!_realtimeEndSubscribed) return;
+        if (FriendNetworkManager.Instance != null) {
+            FriendNetworkManager.Instance.OnRealtimeKicked -= HandleRealtimeKicked;
+            FriendNetworkManager.Instance.OnRealtimeEnded -= HandleRealtimeEnded;
+        }
+        _realtimeEndSubscribed = false;
+    }
+
+    private void HandleRealtimeKicked(Response response) {
+        if (!IsRealtimeSpectator) return;
+        NotificationManager.Instance?.ShowTip("实时观战", false, response?.message ?? "您已被踢出实时观战");
+        StopAsRealtimeSpectator();
+        WindowsManager.Instance?.SwitchWindow("menu");
+    }
+
+    private void HandleRealtimeEnded(Response response) {
+        if (!IsRealtimeSpectator) return;
+        NotificationManager.Instance?.ShowTip("实时观战", true, response?.message ?? "被观战的对局已结束");
+        StopAsRealtimeSpectator();
+        WindowsManager.Instance?.SwitchWindow("menu");
+    }
+}

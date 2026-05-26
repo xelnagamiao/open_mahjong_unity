@@ -19,9 +19,17 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
         game_status: 游戏状态
     """
     try:
-        await asyncio.sleep(0.5)
         # 通过传入的玩家索引获得玩家对象的数据
         current_player = game_state.player_list[player_index]
+
+        if game_status == "waiting_action_after_cut":
+            # 询问切牌后操作：摸切机器人直接过，不占用鸣牌等待时间
+            if "pass" in action_list:
+                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass")
+                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+                return
+
+        await asyncio.sleep(0.5)
         
         if game_status == "waiting_hand_action":
             # 有花牌必须先补花
@@ -55,12 +63,8 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                     return
 
         elif game_status == "waiting_action_after_cut":
-            # 询问切牌后操作：选择pass
-            if "pass" in action_list:
-                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass")
-                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
-                return
-            
+            return
+
         elif game_status == "waiting_action_qianggang":
             # 询问抢杠操作：选择pass
             if "pass" in action_list:

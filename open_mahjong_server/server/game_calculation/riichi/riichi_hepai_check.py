@@ -58,25 +58,28 @@ from .riichi_tile_converter import (
 # 役名（库的 English 名称）-> 中文名
 YAKU_NAME_MAP = {
     "Riichi": "立直",
-    "Daburu Riichi": "两立直",
+    "Double Riichi": "双立直",
+    "Daburu Riichi": "双立直",
     "Ippatsu": "一发",
-    "Menzen Tsumo": "门前清自摸",
+    "Menzen Tsumo": "门前清自摸和",
     "Pinfu": "平和",
     "Tanyao": "断幺九",
     "Iipeiko": "一杯口",
     "Haitei Raoyue": "海底捞月",
     "Houtei Raoyui": "河底捞鱼",
     "Rinshan Kaihou": "岭上开花",
-    "Chankan": "抢杠",
+    "Chankan": "枪杠",
     "Yakuhai (haku)": "役牌·白",
     "Yakuhai (hatsu)": "役牌·发",
     "Yakuhai (chun)": "役牌·中",
-    "Yakuhai (east)": "役牌·东",
-    "Yakuhai (south)": "役牌·南",
-    "Yakuhai (west)": "役牌·西",
-    "Yakuhai (north)": "役牌·北",
-    "Yakuhai (of place wind)": "自风",
-    "Yakuhai (of round wind)": "场风",
+    "Yakuhai (seat wind east)": "自风·东",
+    "Yakuhai (seat wind south)": "自风·南",
+    "Yakuhai (seat wind west)": "自风·西",
+    "Yakuhai (seat wind north)": "自风·北",
+    "Yakuhai (round wind east)": "场风·东",
+    "Yakuhai (round wind south)": "场风·南",
+    "Yakuhai (round wind west)": "场风·西",
+    "Yakuhai (round wind north)": "场风·北",
     "East": "东",
     "South": "南",
     "West": "西",
@@ -87,11 +90,15 @@ YAKU_NAME_MAP = {
     "Sanshoku Doujun": "三色同顺",
     "Sanshoku Doukou": "三色同刻",
     "Ittsu": "一气通贯",
+    "Chantai": "混全带幺九",
     "Chanta": "混全带幺九",
     "Junchan": "纯全带幺九",
     "Toitoi": "对对和",
+    "San Ankou": "三暗刻",
     "Sanankou": "三暗刻",
+    "San Kantsu": "三杠子",
     "Sankantsu": "三杠子",
+    "Shou Sangen": "小三元",
     "Shousangen": "小三元",
     "Honroutou": "混老头",
     "Ryanpeikou": "二杯口",
@@ -99,30 +106,51 @@ YAKU_NAME_MAP = {
     "Chinitsu": "清一色",
     "Dora": "宝牌",
     "Aka Dora": "赤宝牌",
+    "Ura Dora": "里宝牌",
     "Uradora": "里宝牌",
     "Kokushi Musou": "国士无双",
     "Daisangen": "大三元",
     "Shousuushii": "小四喜",
+    "Dai Suushii": "大四喜",
     "Daisuushii": "大四喜",
+    "Tsuu Iisou": "字一色",
     "Tsuuiisou": "字一色",
     "Ryuuiisou": "绿一色",
     "Chinroutou": "清老头",
     "Chuuren Poutou": "九莲宝灯",
+    "Suu Ankou": "四暗刻",
     "Suuankou": "四暗刻",
+    "Suu Kantsu": "四杠子",
     "Suukantsu": "四杠子",
     "Tenhou": "天和",
     "Chiihou": "地和",
     "Renhou": "人和",
+    "Renhou (yakuman)": "人和",
+    "Kokushi Musou Juusanmen Matchi": "国士无双十三面",
     "Daburu Kokushi Musou": "国士无双十三面",
+    "Suu Ankou Tanki": "四暗刻单骑",
     "Suuankou Tanki": "四暗刻单骑",
     "Daburu Chuuren Poutou": "纯正九莲宝灯",
     "Chiitoitsu": "七对子",
     "Nagashi Mangan": "流局满贯",
     "Open Riichi": "开立直",
+    "Double Open Riichi": "双倍开立直",
+    "Daichisei": "大七星",
+    "Daisharin": "大车轮",
+    "Paarenchan": "八连庄",
+    "Sashikomi": "包牌",
 }
 
 
-def _localize_yaku(name: str) -> str:
+WIND_TEXT = ["东", "南", "西", "北"]
+
+
+def _localize_yaku(name: str, context: Optional[dict] = None) -> str:
+    context = context or {}
+    if name == "Yakuhai (of place wind)":
+        return f"自风·{WIND_TEXT[int(context.get('player_wind', 0))]}"
+    if name == "Yakuhai (of round wind)":
+        return f"场风·{WIND_TEXT[int(context.get('round_wind', 0))]}"
     return YAKU_NAME_MAP.get(name, name)
 
 
@@ -275,7 +303,7 @@ class Riichi_Hepai_Check:
 
         yaku_names = []
         for y in result.yaku:
-            yaku_names.append(_localize_yaku(y.name))
+            yaku_names.append(_localize_yaku(y.name, context))
 
         # 赤宝牌修正：库默认赤 5 按 tile_136 特定索引自动识别；若外部传入 aka_count 与库结果不符，
         # 按外部语义覆盖（保持与客户端红 5 配置一致）。

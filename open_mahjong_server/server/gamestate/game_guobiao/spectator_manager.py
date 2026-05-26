@@ -50,6 +50,7 @@ class SpectatorManager:
         gs = self.gamestate
         self.game_title = {
             "rule": gs.room_rule,
+            "sub_rule": gs.sub_rule,
             "game_random_seed": gs.game_random_seed,
             "max_round": gs.max_round,
             "open_cuohe": gs.open_cuohe,

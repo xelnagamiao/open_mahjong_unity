@@ -43,6 +43,7 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             Debug.LogError($"计算听牌列表时出错: {e.Message}");
         }
         // 如果听牌列表不为空，则显示提示
+        TipsContainer.Instance.UpdateRyuukyokuTenpaiChoice(waitingTiles);
         if (waitingTiles.Count > 0){
             gameObject.SetActive(true);
             TipsContainer.Instance.SetTips(waitingTiles.ToList());

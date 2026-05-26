@@ -133,9 +133,10 @@ public class ActionButton : MonoBehaviour {
                             break;
                         case "jiagang":
                             foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                                if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
+                                int normalTile = NormalizeRiichiTile(tileID);
+                                if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{normalTile}")){
                                     List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
-                                    CreateActionCards(jiagangCards, actionType,tileID);
+                                    CreateActionCards(jiagangCards, actionType,normalTile);
                                 }
                             }
                             break;
@@ -155,13 +156,7 @@ public class ActionButton : MonoBehaviour {
 
         if (actionTypeList[0] == "jiagang"){
             Debug.Log($"选择了行动 {actionTypeList[0]}");
-            int targetTile = 0;
-            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{tileID}")){
-                    targetTile = tileID;
-                    break;
-                }
-            }
+            int targetTile = FindJiagangTargetTile();
             GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
         } else if (actionTypeList[0] == "angang"){
             Debug.Log($"选择了行动 {actionTypeList[0]}");
@@ -177,6 +172,25 @@ public class ActionButton : MonoBehaviour {
             Debug.Log($"选择了行动 {actionTypeList[0]}");
             GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
         }
+    }
+
+    private int FindJiagangTargetTile(){
+        List<int> handTiles = NormalGameStateManager.Instance.selfHandTiles;
+        List<string> combinations = NormalGameStateManager.Instance.player_to_info["self"].combination_tiles;
+        foreach (int tileID in handTiles){
+            int normalTile = NormalizeRiichiTile(tileID);
+            if (combinations.Contains($"k{normalTile}")){
+                return normalTile;
+            }
+        }
+        return 0;
+    }
+
+    private static int NormalizeRiichiTile(int tileID){
+        if (tileID == 105) return 15;
+        if (tileID == 205) return 25;
+        if (tileID == 305) return 35;
+        return tileID;
     }
 
     private void CreateActionCards(List<int> TipsCardsList,string actionType,int targetTile) {

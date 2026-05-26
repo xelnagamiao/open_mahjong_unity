@@ -139,24 +139,48 @@ public static class GameRecordJsonDecoder {
                 }
                 round.actionTicks.Add(tick);
 
-                // 和牌动作 → 累加 scoreChanges（支持错和+正常和牌多次出现）
+                // 和牌/流局动作 → 累加 scoreChanges（支持错和+正常和牌多次出现）
                 string act = tick[0];
                 if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
                     int[] sc = ParseScoreChangesFromTick(tick, 4);
-                    if (sc != null) {
-                        if (round.scoreChanges == null) {
-                            round.scoreChanges = new List<int>(sc);
-                        } else {
-                            for (int j = 0; j < 4 && j < sc.Length; j++) {
-                                round.scoreChanges[j] += sc[j];
-                            }
-                        }
-                    }
+                    AccumulateScoreChanges(round, sc);
+                } else if (act == "hu_riichi" && tick.Count >= 7) {
+                    int[] sc = ParseScoreChangesFromTick(tick, 6);
+                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, roundIndex));
+                } else if (act == "ryuukyoku" && tick.Count >= 3) {
+                    int[] sc = ParseScoreChangesFromTick(tick, 2);
+                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, roundIndex));
                 }
             }
         }
 
         return round;
+    }
+
+    private static void AccumulateScoreChanges(Round round, int[] sc) {
+        if (sc == null) return;
+        if (round.scoreChanges == null) {
+            round.scoreChanges = new List<int>(sc);
+        } else {
+            for (int j = 0; j < 4 && j < sc.Length; j++) {
+                round.scoreChanges[j] += sc[j];
+            }
+        }
+    }
+
+    /// <summary>
+    /// 立直 tick 中 score_changes 按当局 playerIndex 排列，转换为 originalPlayerIndex 顺序以便计分表统一展示。
+    /// playerIndex = back^rotateSteps(original)，故 original = (playerIndex + rotateSteps) % 4。
+    /// </summary>
+    private static int[] ConvertPlayerIndexScoreChangesToOriginal(int[] byPlayerIndex, int roundIndex) {
+        if (byPlayerIndex == null) return null;
+        int rotateSteps = ((roundIndex - 1) % 4 + 4) % 4;
+        int[] byOriginal = new int[4];
+        for (int pi = 0; pi < 4 && pi < byPlayerIndex.Length; pi++) {
+            int orig = (pi + rotateSteps) % 4;
+            byOriginal[orig] = byPlayerIndex[pi];
+        }
+        return byOriginal;
     }
 
     /// <summary>

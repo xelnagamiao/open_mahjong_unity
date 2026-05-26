@@ -137,8 +137,10 @@ public static class FanTextDictionary {
     public static readonly Dictionary<string, string> FanToDisplayRiichi = new Dictionary<string, string> {
         // 1番
         {"立直", "1番"}, {"门前清自摸和", "1番"}, {"平和", "1番"}, {"断幺九", "1番"},
-        {"一杯口", "1番"}, {"自风牌", "1番"}, {"场风牌", "1番"}, {"白", "1番"}, {"发", "1番"},
-        {"中", "1番"}, {"岭上开花", "1番"}, {"枪杠", "1番"}, {"海底捞月", "1番"}, {"河底捞鱼", "1番"},
+        {"一杯口", "1番"}, {"役牌·白", "1番"}, {"役牌·发", "1番"}, {"役牌·中", "1番"},
+        {"自风·东", "1番"}, {"自风·南", "1番"}, {"自风·西", "1番"}, {"自风·北", "1番"},
+        {"场风·东", "1番"}, {"场风·南", "1番"}, {"场风·西", "1番"}, {"场风·北", "1番"},
+        {"岭上开花", "1番"}, {"枪杠", "1番"}, {"海底捞月", "1番"}, {"河底捞鱼", "1番"},
         {"一发", "1番"}, {"宝牌", "1番"}, {"赤宝牌", "1番"}, {"里宝牌", "1番"},
         // 2番
         {"双立直", "2番"}, {"三色同刻", "2番"}, {"三杠子", "2番"}, {"对对和", "2番"},
@@ -155,6 +157,20 @@ public static class FanTextDictionary {
         // 双倍役满
         {"四暗刻单骑", "双倍役满"}, {"国士无双十三面", "双倍役满"},
         {"纯正九莲宝灯", "双倍役满"}, {"大四喜", "双倍役满"},
+    };
+
+    /// <summary>
+    /// 立直麻将中当前未在对局启用的役名与番数显示对照；牌谱或服务端仍可能下发这些名称。
+    /// </summary>
+    public static readonly Dictionary<string, string> FanToDisplayRiichiInactive = new Dictionary<string, string> {
+        {"开立直", "2番"},
+        {"双倍开立直", "3番"},
+        {"人和", "5番"},
+        {"流局满贯", "满贯"},
+        {"大七星", "役满"},
+        {"大车轮", "役满"},
+        {"八连庄", "役满"},
+        {"包牌", "役满"},
     };
 
     /// <summary>
@@ -206,7 +222,11 @@ public static class FanTextDictionary {
         else if (rule == "guobiao/xiaolin") map = FanToDisplayXiaolin;
         else if (rule == "guobiao/lanshi") map = FanToDisplayLanshi;
         else if (rule == "classical/standard") map = FanToDisplayClassical;
-        else if (rule == "riichi/standard" || rule == "riichi") map = FanToDisplayRiichi;
+        else if (rule == "riichi/standard" || rule == "riichi") {
+            if (FanToDisplayRiichi.TryGetValue(fanName, out string riichiDisplay)) return riichiDisplay;
+            if (FanToDisplayRiichiInactive.TryGetValue(fanName, out riichiDisplay)) return riichiDisplay;
+            return "0番";
+        }
         if (map != null && map.TryGetValue(fanName, out string display)) return display;
         return "0番";
     }

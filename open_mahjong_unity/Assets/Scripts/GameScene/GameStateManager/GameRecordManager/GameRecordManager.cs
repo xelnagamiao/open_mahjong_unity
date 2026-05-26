@@ -318,13 +318,12 @@ public partial class GameRecordManager : MonoBehaviour {
             userIdToScore[rp.userId] = rp.score;
         }
 
-        // 根据局数确定风位轮转：每局正向+1（东→南→西→北），与服务器 back_current_num 对应
-        // 例：东风北（roundIndex=4）时，original 0 应显示为北(3)
+        // 根据局数确定风位轮转：每局 back_current_num 一次（0→3→2→1），与服务器 next_game_round_switchseat 一致
         int rotateSteps = ((roundIndex - 1) % 4 + 4) % 4;
         foreach (var recordPlayer in recordPlayerList){
             int idx = recordPlayer.originalPlayerIndex;
             for (int i = 0; i < rotateSteps; i++) {
-                idx = ForwardCurrentNum(idx);
+                idx = BackCurrentNum(idx);
             }
             recordPlayer.playerIndex = idx;
         }
@@ -730,9 +729,7 @@ public partial class GameRecordManager : MonoBehaviour {
             var deltas = new Dictionary<int, int>();
             int[] tickScoreChanges = ParseTickScoreChanges(tick, 4);
             if (tickScoreChanges != null && tickScoreChanges.Length >= 4) {
-                foreach (var rp in recordPlayerList) {
-                    deltas[rp.playerIndex] = tickScoreChanges[rp.originalPlayerIndex];
-                }
+                MapTickScoreChangesToDeltas(tickScoreChanges, deltas);
             } else {
                 Round huRoundData = null;
                 gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out huRoundData);
@@ -794,11 +791,11 @@ public partial class GameRecordManager : MonoBehaviour {
             }
         }
         else if (action == "liuju") {
-            RoundEndFlowManager.Instance.PresentLiuju("流局");
+            RoundEndPresentation.Instance.PresentLiuju("流局", false);
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "jiuzhongjiupai") {
-            RoundEndFlowManager.Instance.PresentLiuju("九老峰回");
+            RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "riichi") {
@@ -833,11 +830,11 @@ public partial class GameRecordManager : MonoBehaviour {
             int[] changes = ParseTickScoreChanges(tick, 2);
             if (changes != null) {
                 var deltas = new Dictionary<int, int>();
-                foreach (var rp in recordPlayerList) deltas[rp.playerIndex] = changes[rp.originalPlayerIndex];
+                MapTickScoreChangesToDeltas(changes, deltas);
                 ApplyScoreDeltas(deltas, out _, out Dictionary<int, int> after);
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
-            RoundEndFlowManager.Instance.PresentLiuju(text);
+            RoundEndPresentation.Instance.PresentLiuju(text, false);
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "hu_riichi") {
@@ -849,7 +846,10 @@ public partial class GameRecordManager : MonoBehaviour {
 
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
-        GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null); // 切换当前玩家时刷新手牌（与对局侧一致）
+        // 与对局侧一致：仅在回合流转（下一家行动）时整理手牌，摸牌后同一家继续行动不排序
+        if (nextPlayerIndex != actingPlayerIndex) {
+            GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
+        }
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         RefreshTileListViewIfVisible();
         UpdateCurrentXunmuText();
@@ -1139,6 +1139,27 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 立直麻将 tick 内 score_changes 按下标 playerIndex（当局座位）排列；
+    /// 国标/青雀/古典等按下标 originalPlayerIndex 排列。
+    /// </summary>
+    private bool IsScoreChangesByPlayerIndex() {
+        string rule = ReadGameTitleString(gameRecord?.gameTitle, "rule", "").ToLowerInvariant();
+        return rule == "riichi";
+    }
+
+    /// <summary>
+    /// 将 tick 中的 score_changes 数组映射为 playerIndex → delta。
+    /// </summary>
+    private void MapTickScoreChangesToDeltas(int[] tickScoreChanges, Dictionary<int, int> deltas) {
+        if (tickScoreChanges == null || tickScoreChanges.Length < 4) return;
+        bool byPlayerIndex = IsScoreChangesByPlayerIndex();
+        foreach (var rp in recordPlayerList) {
+            int sourceIndex = byPlayerIndex ? rp.playerIndex : rp.originalPlayerIndex;
+            deltas[rp.playerIndex] = tickScoreChanges[sourceIndex];
+        }
+    }
+
+    /// <summary>
     /// 将 playerIndex → delta 应用到 RecordPlayer.score 上，
     /// 并返回 before/after 字典和同步 userIdToScore。
     /// </summary>
@@ -1217,6 +1238,13 @@ public partial class GameRecordManager : MonoBehaviour {
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
         int? baseFu = null, string[] fuFanList = null) {
+        if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
+            if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
+                BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
+            }
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            return;
+        }
 
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
         foreach (var kv in recordPlayer_to_info) {
@@ -1255,10 +1283,21 @@ public partial class GameRecordManager : MonoBehaviour {
     private void HandleHuRiichiReplay(List<string> tick) {
         int hepaiPlayerIndex = ParseTickInt(tick, 1);
         string huClass = tick.Count > 2 ? tick[2] : "hu_self";
+        int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
+        if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
+            if (scoreChanges != null) {
+                var liujuDeltas = new Dictionary<int, int>();
+                MapTickScoreChangesToDeltas(scoreChanges, liujuDeltas);
+                ApplyScoreDeltas(liujuDeltas, out _, out Dictionary<int, int> after);
+                BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
+            }
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            StartCoroutine(AutoNextActionAfterDelay(2f));
+            return;
+        }
         int han = tick.Count > 3 ? ParseTickInt(tick, 3) : 0;
         int fu = tick.Count > 4 ? ParseTickInt(tick, 4) : 0;
         string[] yaku = tick.Count > 5 ? ParseHuFanList(tick, 5) : new string[0];
-        int[] scoreChanges = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
         int[] doraIndicators = tick.Count > 7 ? ParseTickScoreChanges(tick, 7) : null;
         int[] uraDoraIndicators = tick.Count > 8 ? ParseTickScoreChanges(tick, 8) : null;
         int akaCount = tick.Count > 9 ? ParseTickInt(tick, 9) : 0;
@@ -1280,9 +1319,7 @@ public partial class GameRecordManager : MonoBehaviour {
         var deltas = new Dictionary<int, int>();
         int huScore = 0;
         if (scoreChanges != null && scoreChanges.Length >= 4) {
-            foreach (var rp in recordPlayerList) {
-                deltas[rp.playerIndex] = scoreChanges[rp.originalPlayerIndex];
-            }
+            MapTickScoreChangesToDeltas(scoreChanges, deltas);
             huScore = scoreChanges[hepaiPlayerIndex];
         }
         ApplyScoreDeltas(deltas, out Dictionary<int, int> playerToScoreBefore, out Dictionary<int, int> playerToScoreAfter);

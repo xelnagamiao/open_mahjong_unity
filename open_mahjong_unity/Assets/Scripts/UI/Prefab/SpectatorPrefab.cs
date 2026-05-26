@@ -15,14 +15,16 @@ public class SpectatorPrefab : MonoBehaviour {
     
     private string gamestate_id;
 
-    public void InitializeSpectatorItem(string rule, string player1_name, string player2_name, string player3_name, string player4_name, string gamestate_id) {
-        string ruleDisplay = "规则:" + RuleNameDictionary.GetWholeName(rule);
+    public void InitializeSpectatorItem(string rule, string subRule, string player1_name, string player2_name, string player3_name, string player4_name, string gamestate_id) {
+        string displayRule = string.IsNullOrEmpty(subRule) ? rule : subRule;
+        string ruleDisplay = "规则:" + RuleNameDictionary.GetWholeName(displayRule);
         if (RuleText != null) RuleText.text = ruleDisplay;
         if (Player1NameText != null) Player1NameText.text = $"玩家1: {player1_name ?? "-"}";
         if (Player2NameText != null) Player2NameText.text = $"玩家2: {player2_name ?? "-"}";
         if (Player3NameText != null) Player3NameText.text = $"玩家3: {player3_name ?? "-"}";
         if (Player4NameText != null) Player4NameText.text = $"玩家4: {player4_name ?? "-"}";
         if (GamestateIdText != null) GamestateIdText.text = $"游戏ID: {gamestate_id}";
+        SpectateButton.interactable = true;
         this.gamestate_id = gamestate_id;
     }
 

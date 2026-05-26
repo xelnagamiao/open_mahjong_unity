@@ -22,7 +22,7 @@
     </div>
 
     <div class="footer-bottom">
-      <p>&copy; 2026 Open Mahjong Unity 开源项目与社区 · 苏ICP备2026002546号</p>
+      <p>© 2026 立直麻雀研习社 苏ICP备2026002546号</p>
     </div>
   </footer>
 </template>
@@ -34,56 +34,57 @@
 .app-footer {
   background-color: #2c3e50;
   color: #ecf0f1;
-  padding: 28px 0 16px;
+  padding: 48px 0 28px;
   margin-top: auto;
 }
 
 .footer-content {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 22px;
-  padding: 0 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 56px;
+  padding: 0 32px;
 }
 
 .footer-section h3,
 .footer-section h4 {
-  margin: 0 0 10px;
+  margin: 0 0 16px;
   color: #3498db;
 }
 
 .footer-section h3 {
-  font-size: 1.25rem;
+  font-size: 1.75rem;
 }
 
 .footer-section h4 {
-  font-size: 1.05rem;
+  font-size: 1.35rem;
 }
 
 .footer-section p {
-  margin: 0 0 6px;
-  line-height: 1.55;
-  font-size: 14px;
+  margin: 0 0 10px;
+  line-height: 1.75;
+  font-size: 17px;
   color: #dfe6e9;
 }
 
 .footer-bottom {
   text-align: center;
-  margin-top: 22px;
-  padding-top: 14px;
+  margin-top: 40px;
+  padding-top: 22px;
   border-top: 1px solid #34495e;
 }
 
 .footer-bottom p {
   margin: 0;
   color: #bdc3c7;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 @media (max-width: 768px) {
   .footer-content {
     grid-template-columns: 1fr;
+    gap: 36px;
     text-align: center;
   }
 }

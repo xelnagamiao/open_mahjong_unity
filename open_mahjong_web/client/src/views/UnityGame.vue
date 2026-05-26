@@ -205,6 +205,9 @@ async function loadUnityGame(gen) {
 }
 
 onMounted(() => {
+  document.body.style.background = '#000000'
+  document.documentElement.style.background = '#000000'
+
   const gen = ++unityMountGeneration
   adjustUnityContainer()
   window.addEventListener('resize', adjustUnityContainer)
@@ -219,6 +222,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.body.style.background = ''
+  document.documentElement.style.background = ''
+
   unityMountGeneration++
   window.removeEventListener('resize', adjustUnityContainer)
   window.removeEventListener('orientationchange', onOrientationChange)
@@ -241,7 +247,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #1a1525;
+  background: #000000;
   overflow: hidden;
   position: relative;
 }
