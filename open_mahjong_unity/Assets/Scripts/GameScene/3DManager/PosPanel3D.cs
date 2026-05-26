@@ -14,8 +14,10 @@ public class PosPanel3D : MonoBehaviour {
 
     [Header("和牌时手牌展开动画（可选）")]
     [SerializeField] public Animator handRevealAnimator;
-    [Tooltip("须与 Animator 窗口 Parameters 中 Trigger 参数名完全一致（默认 Expand）。")]
+    [Tooltip("展开 Trigger，须与 Animator Parameters 完全一致。")]
     [SerializeField] public string handRevealExpandTrigger = "Expand";
+    [Tooltip("复位状态名，须与 Animator State 名完全一致。")]
+    [SerializeField] public string handRevealIdleStateName = "Idle";
 
     [Header("展示手牌位置")]
     [SerializeField] public Transform ShowCardsPosition; // 展示手牌位置

@@ -176,9 +176,23 @@ public partial class GameRecordManager
             int[] sc = ParseTickScoreChanges(tick, 4);
             if (sc != null && sc.Length >= 4) {
                 var deltas = new Dictionary<int, int>();
-                foreach (var rp in recordPlayerList) {
-                    deltas[rp.playerIndex] = sc[rp.originalPlayerIndex];
-                }
+                MapTickScoreChangesToDeltas(sc, deltas);
+                ApplyScoreDeltas(deltas, out _, out _);
+            }
+        }
+        else if (action == "hu_riichi") {
+            int[] sc = tick.Count > 6 ? ParseTickScoreChanges(tick, 6) : null;
+            if (sc != null && sc.Length >= 4) {
+                var deltas = new Dictionary<int, int>();
+                MapTickScoreChangesToDeltas(sc, deltas);
+                ApplyScoreDeltas(deltas, out _, out _);
+            }
+        }
+        else if (action == "ryuukyoku") {
+            int[] sc = ParseTickScoreChanges(tick, 2);
+            if (sc != null && sc.Length >= 4) {
+                var deltas = new Dictionary<int, int>();
+                MapTickScoreChangesToDeltas(sc, deltas);
                 ApplyScoreDeltas(deltas, out _, out _);
             }
         }

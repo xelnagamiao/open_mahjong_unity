@@ -21,6 +21,7 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
+from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -582,7 +583,7 @@ class GuobiaoGameState:
                                                 hepai_player_combination_mask = self.player_list[hepai_player_index].combination_mask
                                                 )
                             # 等待5秒
-                            await asyncio.sleep(len(hu_fan)*0.5 + 8 + 0.5) # 等待和牌番种时间与8秒后重新开始出牌 +0.5秒 用于兼容客户端的错和显示
+                            await asyncio.sleep(hu_result_ready_wait_seconds(len(hu_fan)))
 
                             # 错和尾处理
                             # 给错和玩家添加peida tag
@@ -768,12 +769,10 @@ class GuobiaoGameState:
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":
-                # 流局：等待2秒后重新开始下一局
-                await asyncio.sleep(2)
+                await asyncio.sleep(liuju_ready_wait_seconds())
             else:
-                # 和牌：固定等待 8 + fan_count*0.5 + 0.5显示总计时间（准备阶段共用同一截止时间，不因多轮 wait_action 累加）
                 fan_count = len(hu_fan) if hu_fan else 0
-                wait_time = fan_count * 0.5 + 8 + 0.5
+                wait_time = hu_result_ready_wait_seconds(fan_count)
                 ready_phase_deadline = time.time() + wait_time
 
                 self.action_dict = {}

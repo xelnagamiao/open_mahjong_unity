@@ -34,6 +34,7 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoPassPeng = false; // 是否不碰
     private bool isAutoPassGang = false; // 是否不杠
     private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
+    private bool isAutoCutLocked = false; // 立直后自动摸切锁定
 
     // 公共属性，供外部访问
     public bool IsAutoArrangeHandCards { get => isAutoArrangeHandCards; }
@@ -44,6 +45,7 @@ public class AutoAction : MonoBehaviour{
     public bool IsAutoPassChi { get => isAutoPassChi; }
     public bool IsAutoPassPeng { get => isAutoPassPeng; }
     public bool IsAutoPassGang { get => isAutoPassGang; }
+    public bool IsAutoCutLocked { get => isAutoCutLocked; }
 
     private void Awake(){
         if (Instance == null){
@@ -65,6 +67,7 @@ public class AutoAction : MonoBehaviour{
         isAutoPassChi = false;
         isAutoPassPeng = false;
         isAutoPassGang = false;
+        isAutoCutLocked = false;
         // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的当前值
 
         // 鸣牌面板初始隐藏
@@ -121,7 +124,16 @@ public class AutoAction : MonoBehaviour{
 
     // 切换自动出牌
     private void ToggleAutoCutCard(){
+        if (isAutoCutLocked) return;
         ToggleAutoOption(ref isAutoCut, autoCutCardText);
+    }
+
+    public void SetAutoCutLocked(bool locked){
+        isAutoCutLocked = locked;
+        if (locked) {
+            isAutoCut = true;
+        }
+        UpdateTextColor(autoCutCardText, isAutoCut);
     }
 
     // 切换自动过牌

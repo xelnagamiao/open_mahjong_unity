@@ -62,6 +62,7 @@ public class FriendNetworkManager : MonoBehaviour {
                 break;
             case "friend/realtime_request_incoming":
                 OnRealtimeRequestIncoming?.Invoke(response);
+                RealtimeRequestIncomingPanel.Instance?.HandleIncoming(response);
                 break;
             case "friend/realtime_request_timeout":
                 OnRealtimeRequestTimeout?.Invoke(response);
@@ -71,6 +72,7 @@ public class FriendNetworkManager : MonoBehaviour {
                 break;
             case "friend/realtime_request_revoked":
                 OnRealtimeRequestRevoked?.Invoke(response);
+                RealtimeRequestIncomingPanel.Instance?.HandleRevoked(response);
                 break;
             case "friend/realtime_request_cancel_result":
             case "friend/realtime_request_respond_result":
@@ -100,9 +102,11 @@ public class FriendNetworkManager : MonoBehaviour {
                 break;
             case "friend/realtime_spectators_changed":
                 OnRealtimeSpectatorsChanged?.Invoke(response);
+                RealtimeSpectatorIndicator.Instance?.HandleSpectatorsChanged(response);
                 break;
             case "friend/list_realtime_spectators":
                 OnListRealtimeSpectatorsResp?.Invoke(response);
+                RealtimeSpectatorIndicator.Instance?.HandleSpectatorsChanged(response);
                 break;
         }
     }

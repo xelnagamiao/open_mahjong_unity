@@ -339,6 +339,7 @@ class GameStateManager:
                     continue
                 # 获取规则类型
                 rule = game_state.room_rule
+                sub_rule = getattr(game_state, "sub_rule", rule)
                 
                 # 获取4个玩家的用户名（用于显示）
                 player1_name = game_state.player_list[0].username
@@ -349,6 +350,7 @@ class GameStateManager:
                 # 创建观战信息
                 spectator_info = SpectatorInfo(
                     rule=rule,
+                    sub_rule=sub_rule,
                     player1_name=player1_name,
                     player2_name=player2_name,
                     player3_name=player3_name,

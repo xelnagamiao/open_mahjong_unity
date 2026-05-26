@@ -202,6 +202,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             RiichiSticksCollected = info.riichi_sticks_collected ?? 0,
             ScoreChanges = info.score_changes,
             TenpaiTiles = info.tenpai_tiles,
+            TenpaiHands = info.tenpai_hands,
             NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
         };
     }
@@ -282,6 +283,20 @@ public class GameStateNetworkManager : MonoBehaviour {
             Debug.LogError($"发送操作消息失败: {e.Message}");
         }
     }
+
+    public async void SetRyuukyokuTenpai(bool tenpai) {
+        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
+        try {
+            var request = new SetRyuukyokuTenpaiRequest {
+                type = "gamestate/riichi/set_ryuukyoku_tenpai",
+                gamestate_id = UserDataManager.Instance.GamestateId,
+                tenpai = tenpai
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送流局听牌申报失败: {e.Message}");
+        }
+    }
     
     /// <summary>
     /// 获取观战列表
@@ -341,7 +356,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             info.player_fan,
             info.player_fu_types,
             info.hu_class,
-            info.hepai_player_index
+            info.hepai_player_index,
+            info.hepai_player_hand,
+            info.hepai_player_combination_mask
         );
     }
 
@@ -359,7 +376,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     private void HandleRiichiUpdateDora(Response response) {
         Debug.Log($"收到宝牌更新: {response.message}");
-        NormalGameStateManager.Instance.OnDoraUpdated(response.game_info);
+        NormalGameStateManager.Instance.OnDoraUpdated(response.dora_indicators, response.kan_dora_indicators);
     }
 
     /// <summary>

@@ -52,11 +52,12 @@ class GameInfo(BaseModel):
     # 立直麻将专用字段
     honba: Optional[int] = None  # 本场棒数
     riichi_sticks: Optional[int] = None  # 场供立直棒数
-    dora_indicators: Optional[List[int]] = None  # 宝牌指示牌（含杠宝牌翻出的牌）
-    kan_dora_indicators: Optional[List[int]] = None  # 已翻开的杠宝牌指示牌（与 dora_indicators 可合并使用，保留冗余便于客户端显示分层）
+    dora_indicators: Optional[List[int]] = None  # 初始宝牌指示牌
+    kan_dora_indicators: Optional[List[int]] = None  # 已翻开的杠宝牌指示牌
     hepai_way: Optional[str] = None  # 和牌方式：head_bump / multi_ron / three_ron_abort
     red_dora: Optional[bool] = None  # 是否启用赤宝牌
     dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
+    view_player_index: Optional[int] = None  # 实时观战/特殊视角：客户端以此座位作为 self 视角
 
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
@@ -124,6 +125,8 @@ class Show_result_info(BaseModel):
     score_changes: Optional[Dict[int, int]] = None  # 各玩家点数变化（含本场/场供）
     # 荒牌流局：各家听牌张（{player_index: [tile_id...]}，未听家给空列表或不出现），以及是否发生不听罚符点棒
     tenpai_tiles: Optional[Dict[int, List[int]]] = None
+    # 荒牌流局：听牌家的实际手牌，用于客户端倒牌展示。
+    tenpai_hands: Optional[Dict[int, List[int]]] = None
     exhaustive_penalty: Optional[bool] = None
     # 战术鸣牌（国标/青雀）：silent 标志和牌字体动画与音效已由战术鸣牌申请阶段播放，本次结算跳过 ShowActionDisplay/PlayActionSound
     silent: Optional[bool] = None
@@ -136,6 +139,8 @@ class Show_shuhewei_info(BaseModel):
     player_fu_types: Dict[int, List[str]]  # 各玩家副种列表
     hu_class: Optional[str] = None  # 本局和牌类型（无和牌时为 liuju 或空）
     hepai_player_index: Optional[int] = None  # 和牌玩家索引（无和牌时为空）
+    hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌，用于数和尾前倒牌
+    hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）
@@ -260,6 +265,7 @@ class ServerStatsInfo(BaseModel):
 class SpectatorInfo(BaseModel):
     """观战信息"""
     rule: str  # 规则类型（guobiao/qingque）
+    sub_rule: str  # 子规则类型（guobiao/standard 等）
     player1_name: str  # 玩家1 用户名
     player2_name: str  # 玩家2 用户名
     player3_name: str  # 玩家3 用户名

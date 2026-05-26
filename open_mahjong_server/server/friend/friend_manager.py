@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ..response import Response, RealtimeSpectatorEntry
+from ..response import Response, RealtimeSpectatorEntry, GameInfo, Ask_hand_action_info, Ask_other_action_info
 
 if TYPE_CHECKING:
     from ..server import GameServer  # noqa: F401
@@ -416,6 +416,8 @@ class FriendManager:
             ),
         )
 
+        await self._send_realtime_initial_state(game_state, req)
+
         # 通知所有座位玩家：刷新观战者列表
         await self.broadcast_realtime_spectators_changed(game_state)
 
@@ -571,6 +573,130 @@ class FriendManager:
             )
 
     # ----------------- 状态推送 -----------------
+
+    async def _send_realtime_initial_state(self, game_state, req: PendingRealtimeRequest):
+        """实时观战接入后，按被观战座位视角补发一次 game_start 与当前等待询问。"""
+        if hasattr(game_state, "send_realtime_spectator_snapshot"):
+            await game_state.send_realtime_spectator_snapshot(req.from_user_id, req.player_index)
+            return
+        conn = self.game_server.user_id_to_connection.get(req.from_user_id)
+        if conn is None:
+            return
+        host_player = next((p for p in game_state.player_list if p.player_index == req.player_index), None)
+        if host_player is None:
+            return
+
+        room_rule = getattr(game_state, "room_rule", "guobiao")
+        response_type = f"gamestate/{room_rule}/game_start"
+        players_info = [self._build_realtime_player_info(p, host_player) for p in game_state.player_list]
+        game_info = GameInfo(
+            room_id=game_state.room_id,
+            gamestate_id=game_state.gamestate_id,
+            tips=game_state.tips,
+            current_player_index=game_state.current_player_index,
+            action_tick=game_state.server_action_tick,
+            max_round=game_state.max_round,
+            tile_count=max(0, len(game_state.tiles_list) - getattr(game_state, "dead_wall_count", 0)),
+            round_random_seed=getattr(game_state, "round_random_seed", None),
+            current_round=game_state.current_round,
+            step_time=game_state.step_time,
+            round_time=game_state.round_time,
+            room_type=game_state.room_type,
+            room_rule=room_rule,
+            sub_rule=getattr(game_state, "sub_rule", f"{room_rule}/standard"),
+            hepai_limit=getattr(game_state, "hepai_limit", 8),
+            open_cuohe=getattr(game_state, "open_cuohe", False),
+            tactical_call=getattr(game_state, "tactical_call", False),
+            isPlayerSetRandomSeed=getattr(game_state, "isPlayerSetRandomSeed", False),
+            players_info=players_info,
+            self_hand_tiles=None,
+            honba=getattr(game_state, "honba", None),
+            riichi_sticks=getattr(game_state, "riichi_sticks", None),
+            dora_indicators=list(getattr(game_state, "dora_indicators", []) or []),
+            kan_dora_indicators=list(getattr(game_state, "kan_dora_indicators", []) or []),
+            hepai_way=getattr(game_state, "hepai_way", None),
+            red_dora=getattr(game_state, "red_dora", None),
+            dealer_index=getattr(game_state, "dealer_index", None),
+            view_player_index=req.player_index,
+        )
+        await conn.websocket.send_json(Response(
+            type=response_type,
+            success=True,
+            message="实时观战初始化",
+            game_info=game_info,
+        ).dict(exclude_none=True))
+        await self._send_realtime_pending_ask(game_state, req)
+
+    def _build_realtime_player_info(self, player, host_player) -> dict:
+        return {
+            "user_id": player.user_id,
+            "username": player.username,
+            "hand_tiles_count": len(player.hand_tiles),
+            "hand_tiles": player.hand_tiles if player.user_id == host_player.user_id else None,
+            "discard_tiles": player.discard_tiles,
+            "discard_origin_tiles": getattr(player, "discard_origin_tiles", []),
+            "combination_tiles": player.combination_tiles,
+            "combination_mask": player.combination_mask,
+            "huapai_list": player.huapai_list,
+            "remaining_time": player.remaining_time,
+            "player_index": player.player_index,
+            "original_player_index": player.original_player_index,
+            "score": player.score,
+            "title_used": getattr(player, "title_used", None),
+            "profile_used": getattr(player, "profile_used", None),
+            "character_used": getattr(player, "character_used", None),
+            "voice_used": getattr(player, "voice_used", None),
+            "score_history": getattr(player, "score_history", []),
+            "round_number_history": getattr(player, "round_number_history", []),
+            "tag_list": self._tag_list_for_realtime_viewer(player, host_player),
+            "discard_riichi_flags": list(getattr(player, "discard_riichi_flags", []) or []),
+        }
+
+    def _tag_list_for_realtime_viewer(self, player, host_player) -> list:
+        tags = list(getattr(player, "tag_list", []) or [])
+        if player.player_index != host_player.player_index:
+            return [tag for tag in tags if tag != "furiten"]
+        return tags
+
+    async def _send_realtime_pending_ask(self, game_state, req: PendingRealtimeRequest):
+        conn = self.game_server.user_id_to_connection.get(req.from_user_id)
+        if conn is None:
+            return
+        player = next((p for p in game_state.player_list if p.player_index == req.player_index), None)
+        if player is None:
+            return
+        t0 = getattr(game_state, "_ask_broadcast_time", None)
+        remaining = player.remaining_time if t0 is None else max(0, player.remaining_time - int(max(0, time.time() - t0)))
+        room_rule = getattr(game_state, "room_rule", "guobiao")
+        if game_state.game_status == "waiting_hand_action" and req.player_index == game_state.current_player_index:
+            await conn.websocket.send_json(Response(
+                type=f"gamestate/{room_rule}/broadcast_hand_action",
+                success=True,
+                message="实时观战补发手牌操作询问",
+                ask_hand_action_info=Ask_hand_action_info(
+                    remaining_time=remaining,
+                    player_index=game_state.current_player_index,
+                    remain_tiles=max(0, len(game_state.tiles_list) - getattr(game_state, "dead_wall_count", 0)),
+                    action_list=game_state.action_dict.get(req.player_index, []),
+                    action_tick=game_state.server_action_tick,
+                    riichi_candidate_cuts=getattr(player, "riichi_candidate_cuts", None) if "riichi_cut" in game_state.action_dict.get(req.player_index, []) else None,
+                    forbidden_cut_tiles=list(player.kuikae_forbidden_tiles) if getattr(player, "kuikae_forbidden_tiles", None) else None,
+                ),
+            ).dict(exclude_none=True))
+        elif game_state.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and game_state.action_dict.get(req.player_index):
+            cut_tile = game_state.player_list[game_state.current_player_index].discard_tiles[-1]
+            await conn.websocket.send_json(Response(
+                type=f"gamestate/{room_rule}/ask_other_action",
+                success=True,
+                message="实时观战补发鸣牌操作询问",
+                ask_other_action_info=Ask_other_action_info(
+                    remaining_time=remaining,
+                    action_list=game_state.action_dict[req.player_index],
+                    cut_tile=cut_tile,
+                    action_tick=game_state.server_action_tick,
+                    chi_candidates=getattr(player, "chi_candidates", None) if getattr(player, "chi_candidates", None) else None,
+                ),
+            ).dict(exclude_none=True))
 
     async def broadcast_realtime_spectators_changed(self, game_state):
         """把当前实时观战者列表推给桌上所有座位玩家。"""

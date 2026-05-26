@@ -40,10 +40,10 @@ def _shuffle_and_deal(self) -> None:
         for _ in range(13):
             player.get_tile(self.tiles_list)
 
-    # 王牌区（dead wall）：最后 14 张固定保留；取第 5 张（倒数第 6）作为首张宝牌指示牌
+    # 王牌区（dead wall）：最后 14 张固定保留；倒数第 6 张为首张宝牌指示牌，倒数第 5 张为首张里宝牌指示牌。
     self.dead_wall_count = 14
-    self.dora_indicators = [self.tiles_list[-5]]
+    self.dora_indicators = [self.tiles_list[-6]]
     self.kan_dora_indicators = []
-    self.ura_dora_indicators = [self.tiles_list[-6]]
+    self.ura_dora_indicators = [self.tiles_list[-5]]
     self.ura_kan_dora_indicators = []
     self.rinshan_count = 0

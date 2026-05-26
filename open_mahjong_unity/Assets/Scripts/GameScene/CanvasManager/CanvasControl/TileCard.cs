@@ -22,6 +22,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public bool currentGetTile;   // 是否是当前摸到的牌
 
     private bool isHovering = false; // 是否正在悬停
+    private bool isSelectable = true;
+    private static int lastHandledPointerFrame = -1;
 
     private void OnEnable()
     {
@@ -30,9 +32,17 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         StartCoroutine(CheckHoverOnEnableNextFrame());
     }
 
-    private void Start(){
-        // 添加按钮点击监听
-        tileButton.onClick.AddListener(OnTileClick);
+    private void Update() {
+        if (Input.GetMouseButtonUp(0)) {
+            TryHandleRaycastClick(Input.mousePosition);
+        }
+
+        for (int i = 0; i < Input.touchCount; i++) {
+            Touch touch = Input.GetTouch(i);
+            if (touch.phase == TouchPhase.Ended) {
+                TryHandleRaycastClick(touch.position);
+            }
+        }
     }
 
     /// <summary>
@@ -81,6 +91,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     /// 控制本卡牌是否可点击；不可选时整体调灰（保留 alpha=1，仅 RGB 调暗），用于立直选牌/食替禁切/立直锁定。
     /// </summary>
     public void SetSelectable(bool selectable) {
+        isSelectable = selectable;
         if (tileButton != null) tileButton.interactable = selectable;
         if (tileImage != null) {
             tileImage.color = selectable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
@@ -92,6 +103,31 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     /// </summary>
     public void TriggerClick() {
         OnTileClick();
+    }
+
+    private void TryHandleRaycastClick(Vector2 screenPosition) {
+        if (!isSelectable) return;
+        if (lastHandledPointerFrame == Time.frameCount) return;
+        if (EventSystem.current == null) return;
+
+        PointerEventData pointerData = new PointerEventData(EventSystem.current)
+        {
+            position = screenPosition
+        };
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointerData, results);
+
+        foreach (RaycastResult result in results) {
+            TileCard raycastTileCard = result.gameObject.GetComponentInParent<TileCard>();
+            if (raycastTileCard == null) continue;
+
+            if (raycastTileCard == this) {
+                lastHandledPointerFrame = Time.frameCount;
+                OnTileClick();
+            }
+            return;
+        }
     }
     
     /// <summary>
@@ -242,7 +278,6 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void OnDestroy()
     {
-        tileButton.onClick.RemoveListener(OnTileClick);
         // 隐藏提示（参照tips的设计模式）
         TipsContainer.Instance.HideTips();
         // 清除3D卡牌高亮效果（如果正在悬停）

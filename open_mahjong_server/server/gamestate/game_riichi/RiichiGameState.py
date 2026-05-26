@@ -38,6 +38,11 @@ from .boardcast import (
     reconnected_send_pending_ask,
 )
 from ..public.logic_common import next_current_num, next_current_index
+from ..public.round_end_timing import (
+    hu_result_ready_wait_seconds,
+    ROUND_END_HAND_REVEAL_SEC,
+    liuju_ready_wait_seconds,
+)
 from ..public.game_record_manager import (
     init_game_record,
     init_game_round,
@@ -109,8 +114,9 @@ class RiichiPlayer:
         self.pending_riichi = False
         self.pending_daburu = False
         self.riichi_turn: Optional[int] = None
-        self.temp_furiten = False  # 同巡振听：自家放过本巡他家弃牌中的听张后，至下一次自摸前不可荣和
+        self.temp_furiten = False  # 同巡振听：自家放过本巡他家弃牌中的听张后，至下一次出牌后不可荣和
         self.riichi_furiten = False  # 立直振听：立直状态下放过荣和后永久振听到本局结束
+        self.ryuukyoku_declared_tenpai = True  # 荒牌流局时是否按听牌申报，立直家固定视为听牌
         self.riichi_candidate_cuts: Dict[int, List[int]] = {}
         # 吃牌候选：{"chi_left": [[r1, r2], ...], ...}，含赤 5 真实 ID，供客户端展示可选吃法
         self.chi_candidates: Dict[str, List[List[int]]] = {}
@@ -385,11 +391,6 @@ class RiichiGameState:
                             break
                         next_current_index(self)
                         self.refresh_waiting_tiles(self.current_player_index)
-                        # 摸牌一刻：解除自家上一巡的同巡振听（永久/立直振听不受影响）
-                        next_p = self.player_list[self.current_player_index]
-                        next_p.temp_furiten = False
-                        if self.sync_furiten_tags():
-                            await self.broadcast_refresh_player_tag_list()
                         self.player_list[self.current_player_index].get_tile(self.tiles_list)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="d")
                         await self.broadcast_do_action(
@@ -416,11 +417,6 @@ class RiichiGameState:
                                 self._pending_four_kan_abort = True
 
                         self.refresh_waiting_tiles(self.current_player_index)
-                        # 岭上摸牌同样解除该家同巡振听（永久/立直振听仍由 sync_furiten_tags 保留）
-                        gplayer = self.player_list[self.current_player_index]
-                        gplayer.temp_furiten = False
-                        if self.sync_furiten_tags():
-                            await self.broadcast_refresh_player_tag_list()
                         self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self)
                         player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="gd")
                         await self.broadcast_do_action(
@@ -477,24 +473,30 @@ class RiichiGameState:
                 self.spectator_manager.record_tick(["end"])
 
             # 准备阶段
-            # 与客户端 RoundEndFlowManager / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
+            # 与客户端 RoundEndPresentation / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
             # 避免动画结束后还要在空白界面再等几秒。和牌画面较长（需阅读番符），其它流局以演出时长 + 0.5s 余量为准。
             if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
-                wait_time = 8.0
+                settle_result = self.result_dict.get(self.hu_class) or {}
+                fan_count = len(settle_result.get("yaku", []))
+                wait_time = hu_result_ready_wait_seconds(
+                    fan_count,
+                    pre_panel_delay_sec=ROUND_END_HAND_REVEAL_SEC,
+                )
             elif self.hu_class == "ryuukyoku":
-                tenpai_indexes = [p.player_index for p in self.player_list if p.waiting_tiles]
-                noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
-                # 1.5s 听牌倒下动画 + 2s 流局标题 (+ 3s 不听罚符) + 0.5s 余量
-                if tenpai_indexes and noten_indexes:
-                    wait_time = 1.5 + 2.0 + 3.0 + 0.5
-                else:
-                    wait_time = 1.5 + 2.0 + 0.5
-            elif self.hu_class == "jiuzhongjiupai":
-                # 仅 EndLiujuPanel 默认 2s 自动隐藏 + 0.5s 余量
-                wait_time = 2.0 + 0.5
-            elif self.hu_class in ("four_wind_abort", "four_kan_abort", "four_riichi_abort", "three_ron_abort"):
-                # PenaltyPanel Standard 模式 autoHideSeconds=4s + 0.5s 余量
-                wait_time = 4.0 + 0.5
+                tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
+                noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
+                wait_time = liuju_ready_wait_seconds(
+                    include_hand_reveal=bool(tenpai_indexes),
+                    has_draw_noten_penalty=bool(tenpai_indexes and noten_indexes),
+                )
+            elif self.hu_class in (
+                "jiuzhongjiupai",
+                "four_wind_abort",
+                "four_kan_abort",
+                "four_riichi_abort",
+                "three_ron_abort",
+            ):
+                wait_time = liuju_ready_wait_seconds()
             else:
                 wait_time = 8.0
             deadline = time.time() + wait_time
@@ -522,7 +524,7 @@ class RiichiGameState:
                 dealer_win = self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third") and self.hepai_player_index == self.dealer_index
                 dealer_tenpai = False
                 if self.hu_class in ("ryuukyoku",):
-                    dealer_tenpai = bool(self.player_list[self.dealer_index].waiting_tiles)
+                    dealer_tenpai = self._is_ryuukyoku_tenpai(self.player_list[self.dealer_index])
                 renchan = dealer_win or (self.hu_class == "ryuukyoku" and dealer_tenpai)
                 # 特殊流局也连庄
                 if self.hu_class in ("jiuzhongjiupai", "four_wind_abort", "four_kan_abort", "four_riichi_abort", "three_ron_abort"):
@@ -554,6 +556,7 @@ class RiichiGameState:
                 p.riichi_turn = None
                 p.temp_furiten = False
                 p.riichi_furiten = False
+                p.ryuukyoku_declared_tenpai = True
                 p.riichi_candidate_cuts = {}
                 p.chi_candidates = {}
                 p.kuikae_forbidden_tiles = []
@@ -611,20 +614,25 @@ class RiichiGameState:
         elif self.hu_class == "four_riichi_abort":
             await broadcast_result(self, hu_class="four_riichi_abort")
             player_action_record_liuju(self)
+        elif self.hu_class == "three_ron_abort":
+            await broadcast_result(self, hu_class="three_ron_abort")
+            player_action_record_liuju(self)
         else:
             # 荒牌流局：听牌家均分 3000 分
             self.hu_class = "ryuukyoku"
             changes = await self._settle_ryuukyoku()
-            tenpai_indexes = [p.player_index for p in self.player_list if p.waiting_tiles]
-            noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
+            tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
+            noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
             has_penalty = bool(tenpai_indexes and noten_indexes)
-            tenpai_tiles = {p.player_index: sorted(p.waiting_tiles) for p in self.player_list if p.waiting_tiles}
+            tenpai_tiles = {p.player_index: sorted(p.waiting_tiles) for p in self.player_list if self._is_ryuukyoku_tenpai(p)}
+            tenpai_hands = {p.player_index: list(p.hand_tiles) for p in self.player_list if self._is_ryuukyoku_tenpai(p)}
             await broadcast_result(
                 self,
                 hu_class="ryuukyoku",
                 score_changes={i: changes.get(i, 0) for i in range(4)},
                 player_to_score={p.original_player_index: p.score for p in self.player_list},
                 tenpai_tiles=tenpai_tiles,
+                tenpai_hands=tenpai_hands,
                 exhaustive_penalty=has_penalty,
             )
 
@@ -729,6 +737,7 @@ class RiichiGameState:
             honba=self.honba,
             riichi_sticks_collected=collected,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
+            silent=True,
         )
 
     async def _settle_cuohe(self):
@@ -804,12 +813,13 @@ class RiichiGameState:
             honba=self.honba,
             riichi_sticks_collected=0,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
+            silent=True,
         )
 
     async def _settle_ryuukyoku(self) -> Dict[int, int]:
         """荒牌流局：听牌家均分 3000"""
-        tenpai_indexes = [p.player_index for p in self.player_list if p.waiting_tiles]
-        noten_indexes = [p.player_index for p in self.player_list if not p.waiting_tiles]
+        tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
+        noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
         changes = {i: 0 for i in range(4)}
         if tenpai_indexes and noten_indexes:
             total = 3000
@@ -821,33 +831,38 @@ class RiichiGameState:
                 changes[i] += gain_each
         for p in self.player_list:
             p.score += changes[p.player_index]
-        tenpai_flags = [1 if p.waiting_tiles else 0 for p in self.player_list]
+        tenpai_flags = [1 if self._is_ryuukyoku_tenpai(p) else 0 for p in self.player_list]
         player_action_record_ryuukyoku(self, tenpai_flags=tenpai_flags, score_changes=[changes.get(i, 0) for i in range(4)], reason="exhaustive")
         if hasattr(self, "spectator_manager"):
             self.spectator_manager.record_tick(["ryuukyoku", tenpai_flags, [changes.get(i, 0) for i in range(4)], "exhaustive"])
         return changes
 
+    def _is_ryuukyoku_tenpai(self, player: RiichiPlayer) -> bool:
+        if not player.waiting_tiles:
+            return False
+        if "riichi" in player.tag_list or "daburu_riichi" in player.tag_list:
+            return True
+        return bool(player.ryuukyoku_declared_tenpai)
+
     # ========== 抽宝牌 ==========
 
     async def _reveal_kan_dora(self):
-        """翻开下一张杠宝牌指示牌（上层）以及对应位置的里杠宝（下层）。
+        """翻开下一张杠宝牌指示牌以及对应位置的里杠宝。
 
         王牌布局（init_tiles）：tiles_list[-1..-4] 为 4 张岭上牌；
-        tiles_list[-5] / -6 为初始上层/下层宝牌指示；后续指示牌每对向左偏移 2
-        （上: -7/-9/-11/-13；里: -8/-10/-12/-14）。
-        每次岭上摸牌会 pop(-1)，因此"当前位置 = 原始位置 + rinshan_count"。
-        该公式兼容明/加杠延后翻开以及连杠场景。
+        宝牌指示牌使用原始牌山倒数 6/8/10/12/14，里宝牌使用倒数 5/7/9/11/13。
+        每次岭上摸牌会 pop(-1)，因此当前位置 = 原始位置 + rinshan_count。
         """
-        n = len(self.dora_indicators) + 1  # 即将翻开第 n 张上层指示牌（初始计为第 1 张）
-        idx = -(3 + 2 * n) + self.rinshan_count
+        next_kan_number = len(self.kan_dora_indicators) + 1
+        if next_kan_number > 4:
+            return
+        idx = -(6 + 2 * next_kan_number) + self.rinshan_count
         if -idx > self.dead_wall_count or -idx > len(self.tiles_list):
             return
         new_ind = self.tiles_list[idx]
         self.kan_dora_indicators.append(new_ind)
-        self.dora_indicators.append(new_ind)
 
-        m = len(self.ura_dora_indicators) + 1
-        ura_idx = -(4 + 2 * m) + self.rinshan_count
+        ura_idx = -(5 + 2 * next_kan_number) + self.rinshan_count
         if -ura_idx <= self.dead_wall_count and -ura_idx <= len(self.tiles_list):
             self.ura_kan_dora_indicators.append(self.tiles_list[ura_idx])
 
@@ -906,6 +921,28 @@ class RiichiGameState:
         return check_jiuzhongjiupai(player.hand_tiles)
 
     # ========== 观战 ==========
+
+    async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_player_index: int):
+        """实时观战接入：按被观战座位视角补发 game_start 与当前 pending ask，与断线重连一致。"""
+        if spectator_user_id not in self.game_server.user_id_to_connection:
+            return
+        if view_player_index < 0 or view_player_index >= len(self.player_list):
+            return
+        from ...response import Response, GameInfo
+        from .boardcast import _build_base_game_info, _build_player_info, reconnected_send_pending_ask_for_viewer
+
+        viewer = self.player_list[view_player_index]
+        conn = self.game_server.user_id_to_connection[spectator_user_id]
+        base = _build_base_game_info(self)
+        infos = [_build_player_info(p, viewer.user_id, view_player_index) for p in self.player_list]
+        game_info = GameInfo(**{**base, "players_info": infos, "self_hand_tiles": None, "view_player_index": view_player_index})
+        await conn.websocket.send_json(Response(
+            type="gamestate/riichi/game_start",
+            success=True,
+            message="实时观战初始化",
+            game_info=game_info,
+        ).dict(exclude_none=True))
+        await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
     async def add_spectator(self, user_id: int, connection):
         await self.spectator_manager.add_spectator(user_id, connection)

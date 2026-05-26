@@ -141,31 +141,30 @@ public partial class Game3DManager : MonoBehaviour {
 
         Vector3 currentPosition = SetPosition.position;
         Quaternion rotation = Quaternion.identity;
+        bool isRecordSet = SetType == "Record";
 
         Vector3 widthdirection = Vector3.zero;
         Vector3 heightdirection = Vector3.zero;
         if (PlayerPosition == "self") {
             widthdirection = RightDirection;
             heightdirection = BackDirection;
-            rotation = SelfTileWorldRotation(SetPosition);
+            rotation = isRecordSet ? RecordHandTileRotation(PlayerPosition) : SelfTileWorldRotation(SetPosition);
         }
         else if (PlayerPosition == "left") {
             widthdirection = BackDirection;
             heightdirection = LeftDirection;
-            rotation = Quaternion.Euler(90, 0, 90);
+            rotation = isRecordSet ? RecordHandTileRotation(PlayerPosition) : Quaternion.Euler(90, 0, 90);
         }
         else if (PlayerPosition == "top") {
             widthdirection = LeftDirection;
             heightdirection = FrontDirection;
-            rotation = Quaternion.Euler(90, 0, 0);
+            rotation = isRecordSet ? RecordHandTileRotation(PlayerPosition) : Quaternion.Euler(90, 0, 0);
         }
         else if (PlayerPosition == "right") {
             widthdirection = FrontDirection;
             heightdirection = RightDirection;
-            rotation = Quaternion.Euler(90, 0, 270);
+            rotation = isRecordSet ? RecordHandTileRotation(PlayerPosition) : Quaternion.Euler(90, 0, 270);
         }
-
-        bool isRecordSet = SetType == "Record";
         bool isDiscardLike = SetType == "Discard" || SetType == "DiscardWithoutAnimation";
         if (isRiichi && isDiscardLike) {
             rotation = Quaternion.Euler(0, 90, 0) * rotation;

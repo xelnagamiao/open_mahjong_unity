@@ -17,6 +17,7 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown whiteDragonFaceDropdown;
     [SerializeField] private TMP_Dropdown moqieShortcutDropdown;
     [SerializeField] private TMP_Dropdown askOtherPassShortcutDropdown;
+    [SerializeField] private TMP_Dropdown targetFrameRateDropdown;
 
     private void Awake() {
         Instance = this;
@@ -25,6 +26,7 @@ public class AppConfigPanel : MonoBehaviour {
         whiteDragonFaceDropdown.onValueChanged.AddListener(OnWhiteDragonFaceDropdownChanged);
         moqieShortcutDropdown.onValueChanged.AddListener(OnMoqieShortcutDropdownChanged);
         askOtherPassShortcutDropdown.onValueChanged.AddListener(OnAskOtherPassShortcutDropdownChanged);
+        targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
     }
 
     private void OnEnable() {
@@ -45,6 +47,12 @@ public class AppConfigPanel : MonoBehaviour {
         moqieShortcutDropdown.AddOptions(new List<string> { "双击摸切", "右键摸切" });
         askOtherPassShortcutDropdown.ClearOptions();
         askOtherPassShortcutDropdown.AddOptions(new List<string> { "右键取消", "无快捷键", "双击取消" });
+        targetFrameRateDropdown.ClearOptions();
+        List<string> frameRateOptions = new List<string>();
+        foreach (int frameRate in ConfigManager.TargetFrameRateOptions) {
+            frameRateOptions.Add(frameRate.ToString());
+        }
+        targetFrameRateDropdown.AddOptions(frameRateOptions);
     }
 
     private void SyncGameplayDropdownsFromConfig() {
@@ -54,6 +62,9 @@ public class AppConfigPanel : MonoBehaviour {
         moqieShortcutDropdown.RefreshShownValue();
         askOtherPassShortcutDropdown.SetValueWithoutNotify(ConfigManager.Instance.AskOtherPassShortcutMode);
         askOtherPassShortcutDropdown.RefreshShownValue();
+        int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
+        targetFrameRateDropdown.SetValueWithoutNotify(frameRateIndex >= 0 ? frameRateIndex : 0);
+        targetFrameRateDropdown.RefreshShownValue();
     }
 
     private void OnWhiteDragonFaceDropdownChanged(int value) {
@@ -66,5 +77,9 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnAskOtherPassShortcutDropdownChanged(int value) {
         ConfigManager.Instance.SetAskOtherPassShortcutMode(value);
+    }
+
+    private void OnTargetFrameRateDropdownChanged(int value) {
+        ConfigManager.Instance.SetTargetFrameRate(ConfigManager.TargetFrameRateOptions[value]);
     }
 }

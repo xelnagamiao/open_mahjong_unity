@@ -4,7 +4,7 @@
       <ul class="notation-list">
         <li><strong>m</strong>：万子，数字 1–9 表示一至九万；<strong>0m</strong> 表示赤五万（5m 的红宝牌写法）。</li>
         <li><strong>p</strong>：饼（筒）子；<strong>s</strong>：条（索）子；写法同万子。</li>
-        <li><strong>z</strong>：字牌，数字 1–7 依次为 <strong>东南西北白发中</strong>（与常见网页记法一致）。</li>
+        <li><strong>z</strong>：字牌，数字 1–7 依次为 <strong>东南西北白发中</strong>。</li>
         <li>同花色数字可连写，花色字母放在一段数字末尾，例如 <code>123m456p</code> 表示万 123 与饼 456。</li>
         <li>多段按顺序拼接即可，例如 <code>35m146678p24s344z5m</code>。</li>
       </ul>
