@@ -55,6 +55,12 @@ def _kuikae_forbidden_for_peng(called_tile: int) -> Set[int]:
 
 def _kuikae_forbidden_after_meld(player) -> Set[int]:
     """根据玩家最近一次副露推断食替禁切牌（用于 onlycut_after_action 阶段）。"""
+    server_forbidden = {
+        normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or [])
+    }
+    if server_forbidden:
+        return server_forbidden
+
     combos = getattr(player, 'combination_tiles', None)
     masks = getattr(player, 'combination_mask', None)
     if not combos or not masks:
@@ -230,8 +236,10 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
 
     # 切牌：枚举每张手牌切出后的评分，选最优（吃碰后需排除食替禁切牌）
     if "cut" in action_list and hand:
-        tile_id, cut_index = find_best_cut(hand, meld_count, visible, kuikae_forbidden)
-        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}")
+        forbidden = set(kuikae_forbidden or set())
+        forbidden.update(normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or []))
+        tile_id, cut_index = find_best_cut(hand, meld_count, visible, forbidden)
+        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}, forbidden={sorted(forbidden)}")
         await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
         return
 

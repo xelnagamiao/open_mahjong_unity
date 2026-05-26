@@ -15,6 +15,11 @@ def _normalize_tile(tile: int) -> int:
 def _count_normalized(hand_tiles: list, normal_tile: int) -> int:
     return sum(1 for t in hand_tiles if _normalize_tile(t) == normal_tile)
 
+def _is_kuikae_forbidden_cut(player, tile_id: int) -> bool:
+    return _normalize_tile(tile_id) in {
+        _normalize_tile(t) for t in (getattr(player, "kuikae_forbidden_tiles", None) or [])
+    }
+
 def _infer_jiagang_target(player):
     """从玩家已有碰牌与手牌推断可加杠目标，兼容赤 5 与客户端 targetTile 缺失。"""
     for combo in getattr(player, "combination_tiles", []) or []:
@@ -80,6 +85,9 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             if TileId not in current_player.hand_tiles:
                 logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
                 return  # 丢弃命令
+            if _is_kuikae_forbidden_cut(current_player, TileId):
+                logger.warning(f"食替禁切：丢弃机器人非法切牌, player_index={player_index}, TileId={TileId}, forbidden={current_player.kuikae_forbidden_tiles}")
+                return
             
             action_data_to_queue = {
                 "action_type": action_type,
@@ -173,6 +181,9 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             if TileId not in current_player.hand_tiles:
                 logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, user_id={user_id}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
                 return  # 丢弃命令
+            if _is_kuikae_forbidden_cut(current_player, TileId):
+                logger.warning(f"食替禁切：丢弃玩家非法切牌, player_index={player_index}, user_id={user_id}, TileId={TileId}, forbidden={current_player.kuikae_forbidden_tiles}")
+                return
             
             action_data_to_queue = {
                 "action_type": action_type,

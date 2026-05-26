@@ -169,29 +169,30 @@ public partial class Game3DManager : MonoBehaviour {
         return rotation;
     }
 
-    /// <summary>局终手牌展开动画结束后，将牌面朝向校正为与河牌一致。</summary>
-    private void SnapRevealedHandTilesToRiverFacing(string playerPosition) {
-        PosPanel3D panel = GetPosPanel(playerPosition);
-        if (panel == null || panel.cardsPosition == null) return;
-        Transform target = panel.cardsPosition;
-        for (int i = 0; i < target.childCount; i++) {
-            Transform child = target.GetChild(i);
-            Tile3D tile3D = child.GetComponent<Tile3D>();
-            bool horizontal = tile3D != null && tile3D.isRiichiHorizontal;
-            Quaternion rotation = RiverTileWorldRotation(playerPosition, horizontal);
-            Vector3 euler = rotation.eulerAngles;
-            euler.z += Random.Range(-2f, 2f);
-            child.rotation = Quaternion.Euler(euler);
+    /// <summary>倒牌动画 Cube 节点：cardsPosition 向上查找名为 Cube 的父节点。</summary>
+    private Transform FindHandRevealCube(PosPanel3D panel) {
+        if (panel == null || panel.cardsPosition == null) return null;
+        Transform t = panel.cardsPosition.parent;
+        while (t != null) {
+            if (t.name == "Cube") return t;
+            if (panel.handRevealAnimator != null && t == panel.handRevealAnimator.transform) break;
+            t = t.parent;
         }
+        return null;
     }
 
-    /// <summary>局终/牌谱明牌摆牌：与摸牌时相同的立面朝向，供 Cube 展开动画推倒。</summary>
+    /// <summary>
+    /// 局终/牌谱明牌摆牌初始朝向：Expand 动画将 Cube 绕本地 X 轴 +90°，
+    /// 初始世界朝向取「河牌俯视」在该旋转下的逆变换，动画全程牌面与河牌一致。
+    /// </summary>
     private Quaternion RecordHandTileRotation(string playerPosition) {
-        if (playerPosition == "self") return SelfHandStandingRotation();
-        if (playerPosition == "left") return Quaternion.Euler(0, 90, 0);
-        if (playerPosition == "top") return Quaternion.Euler(0, 180, 0);
-        if (playerPosition == "right") return Quaternion.Euler(0, 270, 0);
-        return Quaternion.identity;
+        PosPanel3D panel = GetPosPanel(playerPosition);
+        Quaternion riverFacing = RiverTileWorldRotation(playerPosition);
+        Transform cube = FindHandRevealCube(panel);
+        if (cube == null || cube.parent == null) return riverFacing;
+        Quaternion parentWorld = cube.parent.rotation;
+        Quaternion expandRot = Quaternion.Euler(90f, 0f, 0f);
+        return parentWorld * Quaternion.Inverse(expandRot) * Quaternion.Inverse(parentWorld) * riverFacing;
     }
 
     /// <summary>自家牌：仅手牌容器为立面；河、副露、补花仍为俯视位姿。</summary>

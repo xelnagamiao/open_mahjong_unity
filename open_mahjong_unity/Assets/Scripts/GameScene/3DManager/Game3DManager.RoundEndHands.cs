@@ -24,7 +24,6 @@ public partial class Game3DManager {
         LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
-        SnapRevealedHandTilesToRiverFacing(pos);
     }
 
     /// <summary>
@@ -33,7 +32,7 @@ public partial class Game3DManager {
     /// </summary>
     public IEnumerator RoundEndRevealTenpaiHandsAndPlayExpandAnimation(Dictionary<int, int[]> tenpaiTilesByPlayerIndex) {
         if (NormalGameStateManager.Instance == null || tenpaiTilesByPlayerIndex == null || tenpaiTilesByPlayerIndex.Count == 0) yield break;
-        bool played = false;
+        List<PosPanel3D> panelsToReveal = new List<PosPanel3D>();
         foreach (var kvp in tenpaiTilesByPlayerIndex) {
             int playerIndex = kvp.Key;
             int[] tiles = kvp.Value;
@@ -41,18 +40,15 @@ public partial class Game3DManager {
             if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(playerIndex)) continue;
             string pos = NormalGameStateManager.Instance.indexToPosition[playerIndex];
             PosPanel3D panel = GetPosPanel(pos);
-            ForceHandRevealIdle(panel);
             LayRoundEndClosedFaceHandAtPosition(pos, tiles);
-            PlayHandRevealAnimation(panel);
-            played = true;
+            panelsToReveal.Add(panel);
         }
-        if (played) {
-            yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
-            foreach (var kvp in tenpaiTilesByPlayerIndex) {
-                if (kvp.Value == null || kvp.Value.Length == 0) continue;
-                if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(kvp.Key)) continue;
-                SnapRevealedHandTilesToRiverFacing(NormalGameStateManager.Instance.indexToPosition[kvp.Key]);
+        if (panelsToReveal.Count > 0) {
+            yield return null;
+            foreach (PosPanel3D panel in panelsToReveal) {
+                PlayHandRevealAnimation(panel);
             }
+            yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
         }
     }
 

@@ -34,6 +34,37 @@ def _normalize(tile: int) -> int:
     return tile
 
 
+def _is_kuikae_forbidden_cut(player, tile_id: int) -> bool:
+    return _normalize(tile_id) in {
+        _normalize(t) for t in (getattr(player, "kuikae_forbidden_tiles", None) or [])
+    }
+
+
+def _pick_timeout_cut_tile(player) -> int:
+    forbidden = {
+        _normalize(t) for t in (getattr(player, "kuikae_forbidden_tiles", None) or [])
+    }
+    for tile_id in reversed(player.hand_tiles):
+        if _normalize(tile_id) not in forbidden:
+            return tile_id
+    return player.hand_tiles[-1]
+
+
+def _is_valid_cut_action(self, player_index: int, action_data: dict) -> bool:
+    action_type = action_data.get("action_type")
+    if action_type not in ("cut", "riichi_cut"):
+        return True
+    player = self.player_list[player_index]
+    tile_id = action_data.get("TileId")
+    if tile_id not in player.hand_tiles:
+        logger.warning(f"丢弃非法切牌：tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
+        return False
+    if _is_kuikae_forbidden_cut(player, tile_id):
+        logger.warning(f"丢弃食替禁切：player {player_index}, tile_id={tile_id}, forbidden={player.kuikae_forbidden_tiles}")
+        return False
+    return True
+
+
 async def wait_action(self):
     self.waiting_players_list = []
     used_time = 0
@@ -102,6 +133,8 @@ async def wait_action(self):
                 temp_action_data = await self.action_queues[temp_player_index].get()
                 temp_action_type = temp_action_data.get("action_type")
                 temp_action_data = dict(temp_action_data)
+                if not _is_valid_cut_action(self, temp_player_index, temp_action_data):
+                    continue
 
                 used_time += time_end - time_start
                 used_int_time = int(used_time)
@@ -205,7 +238,7 @@ async def wait_action(self):
             else:
                 # 超时摸切
                 is_moqie = True
-                tile_id = self.player_list[self.current_player_index].hand_tiles[-1]
+                tile_id = _pick_timeout_cut_tile(self.player_list[self.current_player_index])
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
                 return
 
@@ -342,7 +375,7 @@ async def wait_action(self):
                 return
             else:
                 is_moqie = True
-                tile_id = self.player_list[self.current_player_index].hand_tiles[-1]
+                tile_id = _pick_timeout_cut_tile(self.player_list[self.current_player_index])
                 await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
                 return
 
@@ -398,7 +431,7 @@ async def _do_cut(self, player_index: int, action_data: dict, is_riichi: bool):
     is_moqie = action_data.get("cutClass")
     tile_id = action_data.get("TileId")
     cut_tile_index = action_data.get("cutIndex")
-    await _execute_cut(self, player_index, tile_id, is_moqie, cut_tile_index, is_riichi=is_riichi)
+    return await _execute_cut(self, player_index, tile_id, is_moqie, cut_tile_index, is_riichi=is_riichi)
 
 
 async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cut_tile_index, is_riichi: bool):
@@ -409,9 +442,9 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
         logger.error(f"tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
         raise ValueError("非法切牌")
 
-    if tile_id in (player.kuikae_forbidden_tiles or []):
+    if _is_kuikae_forbidden_cut(player, tile_id):
         logger.error(f"player {player_index} 试图食替切回禁牌 {tile_id}, forbidden={player.kuikae_forbidden_tiles}")
-        raise ValueError("食替禁切")
+        return False
 
     horizontal_flag = bool(is_riichi or player.riichi_marker_pending)
 
@@ -477,6 +510,7 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
     else:
         _commit_pending_riichi(self)
         self.game_status = "deal_card"
+    return True
 
 
 def _is_first_discard_untouched(self, player_index: int) -> bool:
