@@ -391,50 +391,39 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     /// <summary>
-    /// 查找并触发指定 TileCard 的点击（用于自动出牌）
-    /// 优先查找摸切的牌（currentGetTile == true），如果没有则查找手切的牌
+    /// 摸切快捷 / 自动出牌：优先打出摸牌张，否则打出 handSortIndex 最大的手牌。
     /// </summary>
-    /// <param name="tileId">要查找的牌ID</param>
-    /// <returns>是否成功找到并触发了点击</returns>
-    public bool TriggerTileCardClick(int tileId) {
+    public bool TriggerMoqieHandCardClick() {
         if (handCardsContainer == null) {
             Debug.LogWarning("手牌容器为空，无法触发自动出牌");
             return false;
         }
 
-        TileCard targetTileCard = null;
+        TileCard drawTileCard = null;
+        TileCard rightmostTileCard = null;
+        int maxHandSortIndex = -1;
 
-        // 优先查找摸切的牌（currentGetTile == true 且 tileId 匹配）
-        for (int i = handCardsContainer.childCount - 1; i >= 0; i--) {
-            Transform child = handCardsContainer.GetChild(i);
-            TileCard tileCard = child.GetComponent<TileCard>();
-            if (tileCard != null && tileCard.tileId == tileId && tileCard.currentGetTile) {
-                targetTileCard = tileCard;
-                break;
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tileCard == null) continue;
+            if (tileCard.currentGetTile) {
+                drawTileCard = tileCard;
+            }
+            if (tileCard.handSortIndex > maxHandSortIndex) {
+                maxHandSortIndex = tileCard.handSortIndex;
+                rightmostTileCard = tileCard;
             }
         }
 
-        // 如果没有找到摸切的牌，查找任意匹配 tileId 的牌（手切）
+        TileCard targetTileCard = drawTileCard ?? rightmostTileCard;
         if (targetTileCard == null) {
-            for (int i = handCardsContainer.childCount - 1; i >= 0; i--) {
-                Transform child = handCardsContainer.GetChild(i);
-                TileCard tileCard = child.GetComponent<TileCard>();
-                if (tileCard != null && tileCard.tileId == tileId) {
-                    targetTileCard = tileCard;
-                    break;
-                }
-            }
-        }
-
-        // 如果找到目标牌，触发点击
-        if (targetTileCard != null) {
-            targetTileCard.TriggerClick();
-            Debug.Log($"自动出牌：触发牌ID {tileId} 的点击，摸切={targetTileCard.currentGetTile}");
-            return true;
-        } else {
-            Debug.LogWarning($"自动出牌失败：未找到牌ID {tileId} 的 TileCard");
+            Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
             return false;
         }
+
+        targetTileCard.TriggerClick();
+        Debug.Log($"自动出牌：触发牌ID {targetTileCard.tileId}，摸切={targetTileCard.currentGetTile}，排序位置={targetTileCard.handSortIndex}");
+        return true;
     }
 
 

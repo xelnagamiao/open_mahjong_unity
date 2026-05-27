@@ -944,6 +944,10 @@ class DatabaseManager:
             record_data = game_row['record']
             if isinstance(record_data, str):
                 record_data = json.loads(record_data)
+
+            game_title = record_data.get('game_title') or {}
+            rule = game_title.get('rule')
+            sub_rule = game_title.get('sub_rule')
             
             cursor.execute("""
                 SELECT user_id, username, score, rank, rule, sub_rule, title_used, character_used, profile_used, voice_used
@@ -953,8 +957,6 @@ class DatabaseManager:
             """, (game_id.strip(),))
             
             players = []
-            rule = None
-            sub_rule = None
             for row in cursor.fetchall():
                 if rule is None:
                     rule = row['rule']

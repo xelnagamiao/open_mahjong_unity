@@ -211,6 +211,7 @@ public class FriendPanel : MonoBehaviour {
     }
 
     private void ApplyFriendList(Response response) {
+        FriendRelationCache.ReplaceFromList(response.friend_list);
         if (response.friend_max.HasValue) _friendMax = response.friend_max.Value;
         var list = response.friend_list;
         int count = list?.Length ?? 0;

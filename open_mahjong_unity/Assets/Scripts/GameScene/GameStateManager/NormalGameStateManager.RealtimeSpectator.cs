@@ -18,6 +18,7 @@ public partial class NormalGameStateManager {
     /// </summary>
     public void StopAsRealtimeSpectator() {
         IsRealtimeSpectator = false;
+        UserDataManager.Instance.SetGamestateId("");
         if (ExitButtonManager.Instance != null) {
             ExitButtonManager.Instance.HideAll();
         }

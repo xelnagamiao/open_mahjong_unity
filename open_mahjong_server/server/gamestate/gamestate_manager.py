@@ -325,27 +325,28 @@ class GameStateManager:
             观战信息列表，每个元素包含规则、4个玩家ID和gamestate_id
         """
         from ..response import SpectatorInfo
+        from .public.spectator_rules import too_many_ai_for_spectator
         spectator_list = []
         
         # 遍历所有游戏状态
         for gamestate_id, game_state in self.gamestate_id_to_game_state.items():
             # 确保游戏状态有玩家列表且至少有4个玩家
             if hasattr(game_state, 'player_list') and len(game_state.player_list) >= 4:
-                # 含 bot(uid<=10) 的对局不开放观战
-                if any(player.user_id <= 10 for player in game_state.player_list):
+                # 含 3 个及以上 AI(uid<=10) 的对局不开放观战
+                if too_many_ai_for_spectator(game_state.player_list):
                     continue
                 # 若游戏状态显式关闭观战，也不返回
                 if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
                     continue
                 # 获取规则类型
-                rule = game_state.room_rule
-                sub_rule = getattr(game_state, "sub_rule", rule)
+                rule = game_state.room_rule or ""
+                sub_rule = getattr(game_state, "sub_rule", None) or rule
                 
                 # 获取4个玩家的用户名（用于显示）
-                player1_name = game_state.player_list[0].username
-                player2_name = game_state.player_list[1].username
-                player3_name = game_state.player_list[2].username
-                player4_name = game_state.player_list[3].username
+                player1_name = game_state.player_list[0].username or str(game_state.player_list[0].user_id)
+                player2_name = game_state.player_list[1].username or str(game_state.player_list[1].user_id)
+                player3_name = game_state.player_list[2].username or str(game_state.player_list[2].user_id)
+                player4_name = game_state.player_list[3].username or str(game_state.player_list[3].user_id)
                 
                 # 创建观战信息
                 spectator_info = SpectatorInfo(

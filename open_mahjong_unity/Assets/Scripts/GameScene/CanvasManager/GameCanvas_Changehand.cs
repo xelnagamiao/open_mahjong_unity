@@ -50,6 +50,7 @@ public partial class GameCanvas{
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
                 tileCard.SetTile(TilesList[i], false);
+                tileCard.handSortIndex = i;
                 RectTransform cardRect = cardObj.GetComponent<RectTransform>();
                 cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
             }
@@ -70,6 +71,7 @@ public partial class GameCanvas{
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
                 tileCard.SetTile(sortedTiles[i], false);
+                tileCard.handSortIndex = i;
                 RectTransform cardRect = cardObj.GetComponent<RectTransform>();
                 cardRect.anchoredPosition = new Vector2(i * tileCardWidth, 0);
             }
@@ -83,6 +85,7 @@ public partial class GameCanvas{
             // 设置位置：手牌区右侧，间隔半个宽度
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
             int handCardCount = handCardsContainer.childCount - 1; // 减去刚添加的这张
+            tileCard.handSortIndex = handCardCount;
             Vector2 targetPosition = new Vector2(handCardCount * tileCardWidth + tileCardWidth * 0.5f, 0);
             
             // 摸牌动画：先移动到上方2个宽度，然后向下滑动到原始位置，同时透明度从100到0
@@ -97,6 +100,7 @@ public partial class GameCanvas{
             // 设置位置：手牌区右侧，间隔半个宽度
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
             int handCardCount = handCardsContainer.childCount - 1; // 减去刚添加的这张
+            tileCard.handSortIndex = handCardCount;
             cardRect.anchoredPosition = new Vector2(handCardCount * tileCardWidth + tileCardWidth * 0.5f, 0);
         }
 
@@ -269,6 +273,7 @@ public partial class GameCanvas{
         for (int i = 0; i < tileCards.Count; i++) {
             // 获取手牌对象
             RectTransform cardRect = tileCards[i].GetComponent<RectTransform>();
+            tileCards[i].handSortIndex = i;
             // 根据手牌排序设置子对象层级排序
             tileCards[i].transform.SetSiblingIndex(i);
             // 根据手牌排序目标子对象位置

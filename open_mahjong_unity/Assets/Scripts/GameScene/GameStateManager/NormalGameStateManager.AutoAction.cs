@@ -57,10 +57,6 @@ public partial class NormalGameStateManager {
 
         // 手牌操作自动执行
         else if (action == "AutoHandAction"){
-            // 如果上次摸牌类型是杠牌，不执行任何自动操作
-            if (lastDealTileType == "deal_gang_tile"){
-                yield return null;
-            }
             // 如果允许操作列表有hu_self
             if (allowActionList.Contains("hu_self")){
                 // 如果开启自动胡牌，则执行自动胡牌
@@ -94,21 +90,17 @@ public partial class NormalGameStateManager {
             if (allowActionWithoutCut.Any(allowActionList.Contains)){
                 yield return null;
             }
+            // 如果上次摸牌类型是杠牌，不执行自动出牌
+            else if (lastDealTileType == "deal_gang_tile"){
+                yield return null;
+            }
             // 如果没有，则执行自动出牌
             else{
                 if (AutoAction.Instance.IsAutoCut){
                     float autoCutDelay = AutoAction.Instance.IsAutoCutLocked ? 0.3f : 0.5f;
                     yield return new WaitForSeconds(autoCutDelay);
-                    // 自动出牌 选择手牌中最近摸到的牌（列表的最后一张）
-                    if (selfHandTiles != null && selfHandTiles.Count > 0) {
-                        int lastTileId = selfHandTiles[selfHandTiles.Count - 1];
-                        // 查找对应的 TileCard 并触发点击（优先摸切，否则手切）
-                        bool success = GameCanvas.Instance.TriggerTileCardClick(lastTileId);
-                        if (!success) {
-                            Debug.LogWarning($"自动出牌失败：无法找到牌ID {lastTileId} 对应的 TileCard");
-                        }
-                    } else {
-                        Debug.LogWarning("自动出牌失败：手牌列表为空");
+                    if (!GameCanvas.Instance.TriggerMoqieHandCardClick()) {
+                        Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
                     }
                 }
                 else{

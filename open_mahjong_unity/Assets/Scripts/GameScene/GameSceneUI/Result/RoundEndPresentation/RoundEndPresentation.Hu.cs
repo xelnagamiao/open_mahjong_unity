@@ -10,8 +10,9 @@ public partial class RoundEndPresentation {
 
     private IEnumerator HuResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, bool isSilent, bool playPresentationEffects) {
         bool selfWon = NormalGameStateManager.Instance.indexToPosition[hepai_player_index] == "self";
+        bool willRevealWinnerHand = playPresentationEffects && hepai_player_hand != null && hepai_player_hand.Length > 0;
         if (selfWon) {
-            HideSelfGameplayControl(true);
+            HideSelfGameplayControl(!willRevealWinnerHand);
         }
         if (!isSilent) {
             // 显示喊胡提示
@@ -21,8 +22,8 @@ public partial class RoundEndPresentation {
         }
 
         // 展示赢家明牌+展开动画
-        if (playPresentationEffects && hepai_player_hand != null && hepai_player_hand.Length > 0) {
-            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepai_player_index, hepai_player_hand, hepai_player_combination_mask);
+        if (willRevealWinnerHand) {
+            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepai_player_index, hepai_player_hand);
         }
 
         PreparePresentationRoot(playPresentationEffects);

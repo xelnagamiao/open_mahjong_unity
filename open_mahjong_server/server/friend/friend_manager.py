@@ -93,10 +93,10 @@ class FriendManager:
         spectator_allowed = True
         if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
             spectator_allowed = False
-        if hasattr(game_state, "player_list") and any(
-            p.user_id <= 10 for p in game_state.player_list
-        ):
-            spectator_allowed = False
+        if hasattr(game_state, "player_list"):
+            from ..gamestate.public.spectator_rules import too_many_ai_for_spectator
+            if too_many_ai_for_spectator(game_state.player_list):
+                spectator_allowed = False
         return {
             "state": "in_game",
             "gamestate_id": getattr(game_state, "gamestate_id", None) if spectator_allowed else None,

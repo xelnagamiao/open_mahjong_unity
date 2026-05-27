@@ -77,7 +77,7 @@ public class RecordPrefab : MonoBehaviour{
     }
 
     private void CopyRecordId(){
-        GUIUtility.systemCopyBuffer = gameId;
+        ClipboardUtility.Copy(gameId);
         NotificationManager.Instance.ShowTip("牌谱", true, $"已复制牌谱ID: {gameId}");
     }
 }
