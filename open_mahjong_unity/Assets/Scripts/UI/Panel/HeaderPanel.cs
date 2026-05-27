@@ -41,6 +41,9 @@ public class HeaderPanel : MonoBehaviour {
     }
 
     private void Start() {
+        if (UserDataManager.Instance != null) {
+            UserDataManager.Instance.OnRoomIdChanged += RefreshButtonAppearance;
+        }
         if (backToGameButton != null) {
             backToGameButton.Button.gameObject.SetActive(false);
             backToGameButton.Button.onClick.AddListener(BackToGame);
@@ -61,6 +64,12 @@ public class HeaderPanel : MonoBehaviour {
         if (sceneConfigButton != null) sceneConfigButton.Button.onClick.AddListener(SceneConfig);
         if (spectatorButton != null) spectatorButton.Button.onClick.AddListener(Spectator);
         if (friendButton != null) friendButton.Button.onClick.AddListener(Friend);
+    }
+
+    private void OnDestroy() {
+        if (UserDataManager.Instance != null) {
+            UserDataManager.Instance.OnRoomIdChanged -= RefreshButtonAppearance;
+        }
     }
 
     /// <summary>

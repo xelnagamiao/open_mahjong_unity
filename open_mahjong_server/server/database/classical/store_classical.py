@@ -72,8 +72,8 @@ def store_classical_game_record(db_manager, game_record: dict, player_list: list
             return None
         logger.info(f'牌谱记录已保存到 game_records 表，game_id: {game_id}')
 
-        rule = room_type
         game_title = game_record.get("game_title") or {}
+        rule = game_title.get("rule") or "classical"
         sub_rule = game_title.get("sub_rule") or "classical/standard"
         saved_count = 0
         for player in player_list:

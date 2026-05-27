@@ -50,6 +50,8 @@ public class EndResultPanel : MonoBehaviour {
     private string currentState = StateNone;
     private Coroutine showResultCoroutine;
 
+    public bool IsAwaitingRecordResultConfirm => currentState == StateRecord && gameObject.activeSelf;
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
@@ -84,6 +86,20 @@ public class EndResultPanel : MonoBehaviour {
             showResultCoroutine = null;
         }
         showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras));
+    }
+
+    public void StartRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+        Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
+        int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
+        Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
+        int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
+        DisplayRecordResult(hepai_player_index, hu_score, hu_fan, hu_class, roomType,
+            indexToPosition, positionToUsername, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
+            player_to_score_before, player_to_score_after, isSpectator, base_fu, fu_fan_list, riichiExtras);
     }
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
@@ -266,9 +282,9 @@ public class EndResultPanel : MonoBehaviour {
     /// <summary>
     /// 牌谱回放结算展示（不依赖对局内 player_to_score/手牌数据）：
     /// - 默认除和牌者外，其他玩家显示为已准备
-    /// - 无协程倒计时动画，仅显示“确认”按钮；观战模式下不显示确认，由 end tick 驱动下一局
+    /// - 同步展示后显示「确认」按钮；观战模式下不显示确认，由 end tick 驱动下一局
     /// </summary>
-    public IEnumerator ShowRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
+    public void DisplayRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
         Dictionary<int, string> indexToPosition, Dictionary<string, string> positionToUsername,
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
@@ -386,7 +402,6 @@ public class EndResultPanel : MonoBehaviour {
         EndButton.interactable = !isSpectator;
         EndButton.gameObject.SetActive(!isSpectator);
         EndButtonText.text = "确认";
-        yield break;
     }
 
     private static string FormatScoreWithDiff(int before, int after) {

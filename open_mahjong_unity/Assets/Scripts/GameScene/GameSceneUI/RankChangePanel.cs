@@ -121,7 +121,6 @@ public class RankChangePanel : MonoBehaviour {
 
     private void OnConfirm() {
         gameObject.SetActive(false);
-        WindowsManager.Instance.SwitchWindow("menu");
-        Game3DManager.Instance.Clear3DTile();
+        PostGameNavigator.NavigateAfterGameEnd();
     }
 }

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = false;
+    public static bool Debug = true;
     
     public static string webUrl;
     public static string gameUrl;
@@ -131,6 +131,14 @@ public class ConfigManager : MonoBehaviour {
         VoiceVolume = Mathf.Clamp(volume, 0, 100);
         PlayerPrefs.SetInt(KEY_VOICE_VOLUME, VoiceVolume);
         PlayerPrefs.Save();
+    }
+
+    public float GetSoundEffectVolumeRatio() {
+        return MasterVolume * SoundEffectVolume / 10000f;
+    }
+
+    public float GetVoiceVolumeRatio() {
+        return MasterVolume * VoiceVolume / 10000f;
     }
 
     // 保存桌布选择

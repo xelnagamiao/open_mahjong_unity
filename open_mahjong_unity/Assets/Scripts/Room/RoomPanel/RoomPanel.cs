@@ -18,6 +18,8 @@ public class RoomPanel : MonoBehaviour {
     [SerializeField] private Button addBotButton; // 添加摸切机器人按钮
     [SerializeField] private Button addSmartBotButton; // 添加牌效机器人按钮
     [SerializeField] private RoomConfigContainer roomConfigContainer; // 房间设置容器
+    [SerializeField] private GameObject noRecordText;
+    [SerializeField] private GameObject noSpectatorsText;
 
     int player1_id = 0;
     int player2_id = 0;
@@ -107,7 +109,41 @@ public class RoomPanel : MonoBehaviour {
 
 
         this.roomConfigContainer.SetRoomConfig(roomInfo);
+        UpdateBotHintTexts(roomInfo.player_list);
+    }
 
+    private static int CountBots(int[] playerList) {
+        if (playerList == null) return 0;
+        int count = 0;
+        for (int i = 0; i < playerList.Length; i++) {
+            if (playerList[i] <= 10) count++;
+        }
+        return count;
+    }
+
+    private void UpdateBotHintTexts(int[] playerList) {
+        int botCount = CountBots(playerList);
+        if (noRecordText != null) noRecordText.SetActive(botCount >= 1);
+        if (noSpectatorsText != null) noSpectatorsText.SetActive(botCount == 3);
+    }
+
+    private void HideBotHintTexts() {
+        if (noRecordText != null) noRecordText.SetActive(false);
+        if (noSpectatorsText != null) noSpectatorsText.SetActive(false);
+    }
+
+    public void ClearRoomState() {
+        roomIdText.text = "";
+        roomnameText.text = "";
+        playerPanel1.Clear();
+        playerPanel2.Clear();
+        playerPanel3.Clear();
+        playerPanel4.Clear();
+        startButton.interactable = false;
+        addBotButton.interactable = false;
+        addSmartBotButton.interactable = false;
+        roomConfigContainer.ClearRoomConfig();
+        HideBotHintTexts();
     }
 
     private void BackButtonClicked() {

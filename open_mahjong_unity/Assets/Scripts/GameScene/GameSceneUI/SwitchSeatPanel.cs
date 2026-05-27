@@ -4,6 +4,9 @@ using UnityEngine;
 using TMPro;
 
 public class SwitchSeatPanel : MonoBehaviour {
+    private const float AnimationDuration = 1.5f;
+    private const float ServerWaitSeconds = 4f;
+
     public static SwitchSeatPanel Instance { get; private set; }
     [SerializeField] private TMP_Text NextRoundName;
     [SerializeField] private GameObject SelfPos;
@@ -130,8 +133,8 @@ public class SwitchSeatPanel : MonoBehaviour {
         // 执行换位动画
         yield return StartCoroutine(PerformSwitchAnimation(positionMapping));
 
-        // 等待一段时间让玩家观看结果
-        yield return new WaitForSeconds(2);
+        // 与服务器 broadcast_switch_seat 后的 asyncio.sleep(4) 对齐（含动画时长）
+        yield return new WaitForSeconds(ServerWaitSeconds - AnimationDuration);
 
         // 隐藏面板
         gameObject.SetActive(false);
@@ -154,7 +157,7 @@ public class SwitchSeatPanel : MonoBehaviour {
         }
 
         // 执行简单的移动动画
-        float duration = 1.5f;
+        float duration = AnimationDuration;
         float elapsedTime = 0f;
 
         // 记录起始位置

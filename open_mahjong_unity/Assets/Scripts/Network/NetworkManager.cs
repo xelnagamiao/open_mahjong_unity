@@ -231,6 +231,7 @@ public class NetworkManager : MonoBehaviour {
                 );
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
+            FriendNetworkManager.Instance?.ListFriends();
         }
     }
 

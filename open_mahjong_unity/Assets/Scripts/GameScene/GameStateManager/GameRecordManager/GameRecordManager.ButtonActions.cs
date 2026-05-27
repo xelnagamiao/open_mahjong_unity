@@ -106,6 +106,9 @@ public partial class GameRecordManager {
     }
 
     public void NextStep() {
+        if (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
+            return;
+        }
         if (IsSpectatorSession) {
             if (!CanAdvanceCurrentRound()) {
                 NotifyReachedLastAction();

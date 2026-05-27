@@ -15,13 +15,13 @@ public partial class Game3DManager {
     /// <summary>
     /// 和牌展示：在赢家手牌区布置明牌并触发可选展开动画，等待 1.5 秒。
     /// </summary>
-    public IEnumerator RoundEndRevealWinnerHandAndPlayExpandAnimation(int hepaiPlayerIndex, int[] hepaiPlayerHand, int[][] combinationMask) {
+    public IEnumerator RoundEndRevealWinnerHandAndPlayExpandAnimation(int hepaiPlayerIndex, int[] hepaiPlayerHand) {
         if (NormalGameStateManager.Instance == null || hepaiPlayerHand == null || hepaiPlayerHand.Length == 0) yield break;
         if (!NormalGameStateManager.Instance.indexToPosition.ContainsKey(hepaiPlayerIndex)) yield break;
         string pos = NormalGameStateManager.Instance.indexToPosition[hepaiPlayerIndex];
         PosPanel3D panel = GetPosPanel(pos);
         ForceHandRevealIdle(panel);
-        LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand, combinationMask);
+        LayRoundEndFaceHandAtPosition(pos, hepaiPlayerHand);
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(RoundEndPresentation.Instance.HandRevealHoldSeconds);
     }
@@ -75,7 +75,7 @@ public partial class Game3DManager {
     /// <summary>
     /// 在指定位置布置明牌，用于和牌展示。
     /// </summary>
-    private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand, int[][] combinationMask) {
+    private void LayRoundEndFaceHandAtPosition(string playerPosition, int[] hepaiPlayerHand) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         ForceHandRevealIdle(panel);
         Transform target = panel.cardsPosition;
@@ -91,15 +91,6 @@ public partial class Game3DManager {
         System.Array.Sort(closed, TileIdOrder.Comparer);
         for (int i = 0; i < closed.Length; i++) {
             Set3DTile(closed[i], target, "Record", playerPosition);
-        }
-        if (combinationMask != null) {
-            for (int r = 0; r < combinationMask.Length; r++) {
-                int[] row = combinationMask[r];
-                if (row == null) continue;
-                for (int k = 1; k < row.Length; k += 2) {
-                    Set3DTile(row[k], target, "Record", playerPosition);
-                }
-            }
         }
         Set3DTile(last, target, "Record", playerPosition);
     }

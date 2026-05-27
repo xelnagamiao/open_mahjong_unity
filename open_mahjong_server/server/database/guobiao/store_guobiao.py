@@ -114,7 +114,7 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         db_manager: DatabaseManager 实例
         game_record: 游戏牌谱记录字典
         player_list: 玩家列表，每个玩家包含 record_counter 属性
-        room_type: 房间规则类型（如 "guobiao"）
+        room_type: 房间类型（custom/match，保留参数以兼容调用方）
         match_type: 局数/模式，由外部显式传入（如 "4/4"、"1/4_rank"），保存到 match_type 字段
     
     Returns:
@@ -152,9 +152,9 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             return None
         logger.info(f'牌谱记录已保存到 game_records 表，game_id: {game_id}')
         
-        # 2. 存储玩家对局记录到 game_player_records 表（match_type 外部传入，写入 match_type 字段）
-        rule = room_type
+        # 2. 存储玩家对局记录到 game_player_records 表（rule=游戏规则，match_type=局数类型）
         game_title = game_record.get("game_title") or {}
+        rule = game_title.get("rule") or "guobiao"
         sub_rule = game_title.get("sub_rule") or "guobiao/standard"
         saved_count = 0
         for player in player_list:
@@ -212,7 +212,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
         db_manager: DatabaseManager 实例
         game_id: 游戏ID（由 store_guobiao_game_record 返回）
         player_list: 玩家列表，每个玩家包含 record_counter 属性
-        room_type: 房间规则类型（如 "guobiao"）
+        room_type: 房间类型（custom/match，保留参数以兼容调用方）
         game_round: 游戏局数（最大局数，如 4）
         total_rounds: 实际进行的局数
     """
@@ -226,7 +226,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         
-        rule = room_type  # 使用传入的 room_type 作为规则
+        rule = "guobiao"
         mode = f"{game_round}/4"  # 使用传入的 game_round 构建 mode
         
         stats_columns = [
@@ -320,7 +320,7 @@ def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_ty
         db_manager: DatabaseManager 实例
         game_id: 游戏ID（由 store_guobiao_game_record 返回）
         player_list: 玩家列表，每个玩家包含 record_counter 属性
-        room_type: 房间规则类型（如 "guobiao"）
+        room_type: 房间类型（custom/match，保留参数以兼容调用方）
         game_round: 游戏局数（最大局数，如 4）
     """
     conn = None
@@ -333,7 +333,7 @@ def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_ty
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         
-        rule = room_type  # 使用传入的 room_type 作为规则
+        rule = "guobiao"
         mode = f"{game_round}/4"  # 使用传入的 game_round 构建 mode
         
         # 更新每个玩家的番种统计数据

@@ -22,6 +22,7 @@ from ..public.logic_common import get_index_relative_position, next_current_inde
 from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
+from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -179,7 +180,7 @@ class QingqueGameState:
         self.Debug = False
 
         # 观战系统相关：含 bot(uid<=10) 或配置禁用的对局禁用观战
-        self.spectator_enabled = self.allow_spectator_config and not any(player.user_id <= 10 for player in self.player_list)
+        self.spectator_enabled = self.allow_spectator_config and not too_many_ai_for_spectator(self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
         # 实时观战者（由 FriendManager 维护，结构: List[RealtimeSpectator]）
@@ -717,8 +718,10 @@ class QingqueGameState:
         # 结束游戏生命周期：使用统一的清理方法
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         
-        # 销毁房间并广播离开房间消息
-        await self.game_server.room_manager.destroy_room(self.room_id)
+        if self.room_type == "match":
+            await self.game_server.room_manager.destroy_room(self.room_id)
+        else:
+            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
 

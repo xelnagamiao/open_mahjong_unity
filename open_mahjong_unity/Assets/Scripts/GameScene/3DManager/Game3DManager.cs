@@ -454,17 +454,51 @@ public partial class Game3DManager : MonoBehaviour {
         PosPanel3D panel = GetPosPanel(playerPosition);
         ClearPlayerRecordHandObjects(panel);
         bool isShowCardsMode = RecordSetting.Instance.IsShowCardsMode;
-        Transform target = isShowCardsMode ? panel.ShowCardsPosition : panel.cardsPosition;
         if (isShowCardsMode){
-            List<int> sortedTiles = new List<int>(handTiles);
-            sortedTiles.Sort(TileIdOrder.Compare);
-            for (int i = 0; i < sortedTiles.Count; i++){
-                Set3DTile(sortedTiles[i], target, "Record", playerPosition);
-            }
+            LayRecordShowHandTiles(playerPosition, panel.ShowCardsPosition, handTiles);
             return;
         }
         for (int i = 0; i < handTiles.Count; i++){
             Get3DTile(playerPosition,"init");
+        }
+    }
+
+    private bool TryGetRecordShowHandLayout(string playerPosition, out Vector3 direction, out Quaternion rotation) {
+        direction = Vector3.zero;
+        rotation = Quaternion.identity;
+        if (playerPosition == "left") {
+            direction = BackDirection;
+            rotation = RiverTileWorldRotation("left");
+            return true;
+        }
+        if (playerPosition == "top") {
+            direction = LeftDirection;
+            rotation = RiverTileWorldRotation("top");
+            return true;
+        }
+        if (playerPosition == "right") {
+            direction = FrontDirection;
+            rotation = RiverTileWorldRotation("right");
+            return true;
+        }
+        return false;
+    }
+
+    private void LayRecordShowHandTiles(string playerPosition, Transform showCardsPosition, IList<int> handTiles) {
+        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) return;
+
+        List<int> sortedTiles = new List<int>(handTiles);
+        sortedTiles.Sort(TileIdOrder.Compare);
+        Vector3 startPos = showCardsPosition.position;
+        for (int i = 0; i < sortedTiles.Count; i++) {
+            Vector3 pos = startPos + direction.normalized * widthSpacing * i;
+            GameObject cardObj = MahjongObjectPool.Instance.Spawn(sortedTiles[i], pos, rotation);
+            if (cardObj == null) continue;
+            cardObj.transform.SetParent(showCardsPosition, worldPositionStays: true);
+            cardObj.name = $"RecordShow_{i}";
+            if (Card3DHoverManager.Instance != null) {
+                Card3DHoverManager.Instance.RegisterCard(cardObj, sortedTiles[i]);
+            }
         }
     }
 
@@ -483,14 +517,9 @@ public partial class Game3DManager : MonoBehaviour {
         PosPanel3D panel = GetPosPanel(playerPosition);
         Transform showCards = panel.ShowCardsPosition;
 
-        Vector3 direction = Vector3.zero;
-        Quaternion rotation = Quaternion.identity;
-        if (playerPosition == "left") { direction = BackDirection; rotation = Quaternion.Euler(90, 0, 90); }
-        else if (playerPosition == "top") { direction = LeftDirection; rotation = Quaternion.Euler(90, 0, 0); }
-        else if (playerPosition == "right") { direction = FrontDirection; rotation = Quaternion.Euler(90, 0, 270); }
-        else { yield break; }
+        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) yield break;
 
-        Vector3 spawnPosition = showCards.position + direction.normalized * widthSpacing * (showCards.childCount + 1);
+        Vector3 spawnPosition = showCards.position + direction.normalized * widthSpacing * showCards.childCount;
 
         GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, spawnPosition, rotation);
         if (cardObj == null) yield break;
@@ -511,11 +540,7 @@ public partial class Game3DManager : MonoBehaviour {
     private IEnumerator RearrangeRecordShowCardsWithAnimation(Transform showCardsPosition, string playerPosition) {
         if (showCardsPosition == null || showCardsPosition.childCount == 0) yield break;
 
-        Vector3 direction = Vector3.zero;
-        if (playerPosition == "left") { direction = BackDirection; }
-        else if (playerPosition == "top") { direction = LeftDirection; }
-        else if (playerPosition == "right") { direction = FrontDirection; }
-        else { yield break; }
+        if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out _)) yield break;
 
         List<Transform> cards = new List<Transform>();
         for (int i = 0; i < showCardsPosition.childCount; i++) {

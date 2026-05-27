@@ -104,7 +104,16 @@ public partial class NormalGameStateManager {
 
     // 执行换位
     public void HandleSwitchSeat(int current_round){
-        // 显示换位动画
+        if (maxRound > 0) {
+            int minMaxRoundForSwitch = current_round switch {
+                5 => 2,
+                9 => 3,
+                13 => 4,
+                _ => 0
+            };
+            if (minMaxRoundForSwitch > 0 && maxRound < minMaxRoundForSwitch) return;
+            if (current_round > maxRound * 4) return;
+        }
         GameSceneUIManager.Instance.ShowSwitchSeat(current_round);
     }
 
@@ -142,6 +151,7 @@ public partial class NormalGameStateManager {
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         IsGameActive = false;
+        SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
         IsSelfActionRequired = false;
         TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
         RoundEndPresentation.Instance.PresentEndGame(game_random_seed, player_final_data);

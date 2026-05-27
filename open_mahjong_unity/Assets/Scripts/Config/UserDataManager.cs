@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,6 +12,7 @@ public class UserDataManager : MonoBehaviour {
     public const string ROOM_ID_NONE = "NOROOM";
     public string RoomId { get; private set; } = ROOM_ID_NONE;
     public string GamestateId { get; private set; } = ""; // 当前游戏状态ID（用于游戏内操作）
+    public event Action OnRoomIdChanged;
     public int TitleId { get; private set; }
     public int ProfileImageId { get; private set; }
     public int CharacterId { get; private set; }
@@ -71,6 +73,7 @@ public class UserDataManager : MonoBehaviour {
                 ChatManager.Instance.JoinRoom(int.Parse(room_id)); // 加入房间聊天室
             }
             this.RoomId = room_id;
+            OnRoomIdChanged?.Invoke();
         }
     }
 

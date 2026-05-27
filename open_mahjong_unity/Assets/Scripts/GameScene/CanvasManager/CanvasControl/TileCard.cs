@@ -20,6 +20,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     // 将私有字段改为公共属性
     public int tileId;   // 牌的ID（如"11"表示一万）
     public bool currentGetTile;   // 是否是当前摸到的牌
+    public int handSortIndex;   // 手牌排序位置，数值越大越靠右
 
     private bool isHovering = false; // 是否正在悬停
     private bool isSelectable = true;

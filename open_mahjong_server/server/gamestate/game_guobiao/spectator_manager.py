@@ -24,8 +24,9 @@ class SpectatorManager:
     def __init__(self, gamestate, delay: float = 180.0, enabled: bool = True):
         self.gamestate = gamestate
         self.spectator_delay = delay
-        # 含 bot(uid<=10) 的对局禁用观战
-        self.enabled = enabled and not any(p.user_id <= 10 for p in gamestate.player_list)
+        # 含 3 个及以上 AI(uid<=10) 的对局禁用观战
+        from ..public.spectator_rules import too_many_ai_for_spectator
+        self.enabled = enabled and not too_many_ai_for_spectator(gamestate.player_list)
         self.spectator_connections: Dict[int, Any] = {}
         self.spectator_send_tasks: Dict[int, asyncio.Task] = {}
 

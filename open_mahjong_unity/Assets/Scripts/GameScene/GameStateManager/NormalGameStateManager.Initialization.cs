@@ -5,9 +5,9 @@ using UnityEngine;
 public partial class NormalGameStateManager {
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
-        // 保存room_id（用于房间相关操作）
-        UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
-        // 保存gamestate_id
+        if (!IsRealtimeSpectator) {
+            UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
+        }
         UserDataManager.Instance.SetGamestateId(gameInfo.gamestate_id);
 
         gamestateId = gameInfo.gamestate_id;
@@ -191,6 +191,7 @@ public partial class NormalGameStateManager {
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数
         currentRound = gameInfo.current_round; // 存储当前轮数
+        maxRound = gameInfo.max_round;
         
         // 获取自己的手牌信息（从 PlayerInfo 中获取）
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);

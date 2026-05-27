@@ -645,6 +645,8 @@ class RoomManager:
                     success=True,
                     message="房间已解散（仅剩机器人）"
                 )
+
+            self._sync_room_host(room_data)
             
             # 广播房间信息
             await self._broadcast_room_info(room_id)
@@ -842,6 +844,8 @@ class RoomManager:
                     message="玩家已移除，房间已解散"
                 )
 
+            self._sync_room_host(room_data)
+
             # 广播房间信息更新
             await self._broadcast_room_info(room_id)
 
@@ -865,6 +869,28 @@ class RoomManager:
             if str(i) not in self.rooms:
                 return str(i)
         raise ValueError("无法创建更多房间")
+
+    def _sync_room_host(self, room_data: dict):
+        """player_list 首位为在房最久的玩家，同步 host 字段供客户端与权限校验使用。"""
+        player_list = room_data.get("player_list") or []
+        if not player_list:
+            return
+        host_user_id = player_list[0]
+        room_data["host_user_id"] = host_user_id
+        host_settings = room_data.get("player_settings", {}).get(host_user_id, {})
+        room_data["host_name"] = host_settings.get("username", f"用户{host_user_id}")
+
+    async def finish_custom_game_room(self, room_id: str):
+        """自定义房对局结束后恢复等待态，保留房间供继续开局。"""
+        if room_id not in self.rooms:
+            logger.warning(f"房间 {room_id} 不存在，无法恢复等待态")
+            return
+
+        room_data = self.rooms[room_id]
+        room_data["is_game_running"] = False
+        self._sync_room_host(room_data)
+        await self._broadcast_room_info(room_id)
+        logger.info(f"自定义房 {room_id} 对局结束，已恢复等待态")
 
     async def _broadcast_room_info(self, room_id: str):
         """广播房间信息给所有房间内的玩家"""

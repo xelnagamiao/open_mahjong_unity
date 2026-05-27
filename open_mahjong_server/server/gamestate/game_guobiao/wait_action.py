@@ -35,12 +35,16 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
         current_priority = self.action_priority[action_type]
         higher_action_dict = {pid: [] for pid in range(4)}
         any_higher = False
+        source = getattr(self, "_tactical_action_snapshot", None) or self.action_dict
         for pid in range(4):
             if pid == player_index:
                 continue
-            filtered = [a for a in self.action_dict.get(pid, []) if self.action_priority[a] > current_priority]
+            filtered = [
+                a for a in source.get(pid, [])
+                if a != "pass" and self.action_priority[a] > current_priority
+            ]
             if filtered:
-                higher_action_dict[pid] = filtered
+                higher_action_dict[pid] = filtered + ["pass"]
                 any_higher = True
         self.action_dict = higher_action_dict
         # 同步刷新等待玩家列表，使 get_action 接受这些玩家在 2 秒窗口内的抢断行为
@@ -127,6 +131,16 @@ async def wait_action(self):
         if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
             self.waiting_players_list.append(player_index)
             self.action_events[player_index].clear()
+
+    if (
+        getattr(self, "tactical_call", False)
+        and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+    ):
+        self._tactical_action_snapshot = {
+            pid: list(alist) for pid, alist in self.action_dict.items()
+        }
+    else:
+        self._tactical_action_snapshot = None
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)
@@ -249,6 +263,7 @@ async def wait_action(self):
         action_type, player_index, action_data = await _tactical_grace_phase(
             self, action_type, player_index, action_data, cut_tile_for_claim
         )
+        self._tactical_action_snapshot = None
         # 战术鸣牌的实际行为静默执行，避免与申请阶段重复发声/字体动画
         self._tactical_silent_action = True
 
