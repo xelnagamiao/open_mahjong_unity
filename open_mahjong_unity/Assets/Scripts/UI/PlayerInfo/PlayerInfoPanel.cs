@@ -16,6 +16,10 @@ public class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private Button copyUseridButton;
     [SerializeField] private Button closeButton;
 
+    [Header("好友操作")]
+    [SerializeField] private Button friendActionButton;
+    [SerializeField] private TMP_Text friendActionButtonText;
+
     [Header("段位信息")]
     [SerializeField] private TMP_Text rankText;
     [SerializeField] private Slider rankProgressBar;
@@ -47,6 +51,7 @@ public class PlayerInfoPanel : MonoBehaviour {
     private Dictionary<string, int> classicalTotalFanStats;
 
     private bool _shownOnce;
+    private string _currentUsername;
 
     private void Awake() {
         Instance = this;
@@ -56,6 +61,9 @@ public class PlayerInfoPanel : MonoBehaviour {
         copyUseridButton.onClick.AddListener(OnCopyUseridButtonClick);
         if (closeButton != null) {
             closeButton.onClick.AddListener(OnCloseButtonClick);
+        }
+        if (friendActionButton != null) {
+            friendActionButton.onClick.AddListener(OnFriendActionButtonClick);
         }
         ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("guobiao"));
         ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("riichi"));
@@ -69,6 +77,7 @@ public class PlayerInfoPanel : MonoBehaviour {
     }
 
     private void OnDestroy() {
+        UnsubscribeFriendCache();
         if (Instance == this) {
             Instance = null;
         }
@@ -82,11 +91,12 @@ public class PlayerInfoPanel : MonoBehaviour {
             return;
         }
 
-        // 保存当前用户ID
+        UnsubscribeFriendCache();
         currentUserId = playerInfo.user_id;
+        _currentUsername = playerInfo.user_settings.username ?? "未知用户";
 
         // 显示用户名和用户ID
-        usernameText.text = playerInfo.user_settings.username ?? "未知用户";
+        usernameText.text = _currentUsername;
         useridText.text = playerInfo.user_id.ToString();
         titleText.text = ConfigManager.GetTitleText(playerInfo.user_settings.title_id);
         
@@ -118,12 +128,41 @@ public class PlayerInfoPanel : MonoBehaviour {
         CurrentShowRule = "guobiao";
         ClearRecordEntryContainer();
         DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
+        FriendRelationCache.OnChanged += RefreshFriendActionButton;
+        RefreshFriendActionButton();
+        FriendNetworkManager.Instance?.ListFriends();
         _shownOnce = true;
         if (panelPopup != null) {
             panelPopup.Show();
         } else {
             gameObject.SetActive(true);
         }
+    }
+
+    private void RefreshFriendActionButton() {
+        if (friendActionButton == null) return;
+        if (currentUserId == UserDataManager.Instance.UserId) {
+            friendActionButton.gameObject.SetActive(false);
+            return;
+        }
+        friendActionButton.gameObject.SetActive(true);
+        bool isFriend = FriendRelationCache.IsFriend(currentUserId);
+        if (friendActionButtonText != null) {
+            friendActionButtonText.text = isFriend ? "移除好友" : "添加好友";
+        }
+    }
+
+    private void OnFriendActionButtonClick() {
+        if (currentUserId == UserDataManager.Instance.UserId) return;
+        if (FriendRelationCache.IsFriend(currentUserId)) {
+            FriendPanel.Instance?.ShowDeleteFriendConfirm(currentUserId, _currentUsername);
+            return;
+        }
+        FriendNetworkManager.Instance?.RequestFriend(currentUserId);
+    }
+
+    private void UnsubscribeFriendCache() {
+        FriendRelationCache.OnChanged -= RefreshFriendActionButton;
     }
 
     // 接收国标统计数据
@@ -421,13 +460,12 @@ public class PlayerInfoPanel : MonoBehaviour {
 
     // 复制 Userid
     private void OnCopyUseridButtonClick(){
-        TextEditor textEditor = new TextEditor();
-        textEditor.text = useridText.text;
-        textEditor.SelectAll();
-        textEditor.Copy();
+        ClipboardUtility.Copy(useridText.text);
+        NotificationManager.Instance.ShowTip("用户", true, $"已复制用户ID: {useridText.text}");
     }
 
     private void OnCloseButtonClick() {
+        UnsubscribeFriendCache();
         if (panelPopup != null) {
             panelPopup.Hide();
         } else {

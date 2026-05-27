@@ -6,6 +6,25 @@ from .get_action import get_ai_action
 
 logger = logging.getLogger(__name__)
 
+_PASS_WAIT_STATUSES = ("waiting_action_after_cut", "waiting_action_qianggang")
+
+
+async def _submit_pass_when_ready(game_state, player_index: int, action_list: list, current_player) -> bool:
+    """鸣牌/抢杠询问：等 wait_action 建立 waiting_players_list 后立即 pass（0 秒，与摸切机器人一致）。"""
+    if "pass" not in action_list:
+        return False
+    for _ in range(200):
+        if player_index in getattr(game_state, "waiting_players_list", []):
+            logger.info(f"自动过牌 {player_index} ({current_player.username}) 选择 pass")
+            await get_ai_action(game_state, player_index, "pass", None, None, None, None)
+            return True
+        await asyncio.sleep(0.01)
+    logger.warning(
+        f"自动过牌失败：玩家 {player_index} ({current_player.username}) 未进入 waiting_players_list"
+    )
+    return False
+
+
 # 自动切牌机器人，支持补花询问，手牌询问，其他玩家询问，抢杠询问
 async def auto_cut_action(game_state, player_index: int, action_list: list, game_status: str):
     """
@@ -22,14 +41,12 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
         # 通过传入的玩家索引获得玩家对象的数据
         current_player = game_state.player_list[player_index]
 
-        if game_status == "waiting_action_after_cut":
-            # 询问切牌后操作：摸切机器人直接过，不占用鸣牌等待时间
-            if "pass" in action_list:
-                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass")
-                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
-                return
+        if game_status in _PASS_WAIT_STATUSES:
+            await _submit_pass_when_ready(game_state, player_index, action_list, current_player)
+            return
 
-        await asyncio.sleep(0.5)
+        delay = 0.5
+        await asyncio.sleep(delay)
         
         if game_status == "waiting_hand_action":
             # 有花牌必须先补花
@@ -61,16 +78,6 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                     logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}")
                     await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
                     return
-
-        elif game_status == "waiting_action_after_cut":
-            return
-
-        elif game_status == "waiting_action_qianggang":
-            # 询问抢杠操作：选择pass
-            if "pass" in action_list:
-                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass")
-                await get_ai_action(game_state, player_index, "pass", None, None, None, None)
-                return
 
         elif game_status == "waiting_buhua_round":
             # 询问补花操作：选择pass（补花轮机器人不做特殊处理）

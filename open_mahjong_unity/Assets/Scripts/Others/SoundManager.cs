@@ -34,7 +34,7 @@ public class SoundManager : MonoBehaviour {
             Debug.LogWarning("未找到操作按钮显示音效: Sound/Effects/mixkit-modern-technology-select-3124");
             return;
         }
-        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.SoundEffectVolume / 100f : 1.0f;
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetSoundEffectVolumeRatio() : 1.0f;
         audioSource.PlayOneShot(soundToPlay, volume);
     }
 
@@ -62,7 +62,7 @@ public class SoundManager : MonoBehaviour {
         AudioClip soundToPlay = LoadVoiceClipWithFallback(voicePath, voiceKey, out string loadedTarget);
         
         if (soundToPlay != null) {
-            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
+            float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetVoiceVolumeRatio() : 1.0f;
             audioSource.PlayOneShot(soundToPlay, volume);
             Debug.Log($"播放音效: {actionType}, 音色: {voicePath}, 资源: {loadedTarget}, 音量: {volume}");
         } else {
@@ -146,7 +146,7 @@ public class SoundManager : MonoBehaviour {
             Debug.LogWarning("未找到立直音效资源 Sound/<voice>/riichi");
             return;
         }
-        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.VoiceVolume / 100f : 1.0f;
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetVoiceVolumeRatio() : 1.0f;
         audioSource.PlayOneShot(clip, volume);
     }
 
@@ -162,7 +162,7 @@ public class SoundManager : MonoBehaviour {
             Debug.LogWarning($"未找到物理音效文件: {actionType}");
             return;
         }
-        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.SoundEffectVolume / 100f : 1.0f;
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetSoundEffectVolumeRatio() : 1.0f;
         audioSource.PlayOneShot(soundToPlay, volume);
         Debug.Log($"播放物理音效: {actionType}, 音量: {volume}");
     }

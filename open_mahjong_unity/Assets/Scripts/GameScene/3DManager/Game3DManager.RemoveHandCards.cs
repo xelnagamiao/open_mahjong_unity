@@ -33,21 +33,14 @@ public partial class Game3DManager : MonoBehaviour {
 
             Debug.Log($"开始组合删除卡牌: 总数={totalCardCount}, 删除数量={removeCount}, 起始索引={startIndex}");
 
-            // 从起始位置开始连续删除指定数量的卡牌
+            // 始终从 startIndex 连续删除：Unity 子节点在删除后会前移，若用 startIndex+i 会在靠近尾部时少删牌
             for (int i = 0; i < removeCount; i++) {
-                int cardIndex = startIndex + i;
+                if (startIndex >= cardPosition.childCount) break;
+                Transform cardToRemove = cardPosition.GetChild(startIndex);
+                Debug.Log($"删除卡牌: {cardToRemove.name} (起始索引: {startIndex}, 第{i + 1}/{removeCount}张)");
 
-                // 检查索引是否有效
-                if (cardIndex < cardPosition.childCount) {
-                    Transform cardToRemove = cardPosition.GetChild(cardIndex);
-                    Debug.Log($"删除卡牌: {cardToRemove.name} (索引: {cardIndex})");
-
-                    // 保存最后一张删牌的位置
-                    lastRemove3DPosition = cardToRemove.position;
-
-                    // 将卡牌归还到对象池
-                    MahjongObjectPool.Instance.Return(-1, cardToRemove.gameObject);
-                }
+                lastRemove3DPosition = cardToRemove.position;
+                MahjongObjectPool.Instance.Return(-1, cardToRemove.gameObject);
             }
             Debug.Log($"组合删除完成: 已删除{removeCount}张卡牌");
 

@@ -44,6 +44,7 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public int selfRemainingTime; // 剩余时间
     public int remainTiles; // 剩余牌数
     public int currentRound; // 当前轮数
+    public int maxRound; // 最大风圈数（1=东风 2=半庄 3=东西 4=全庄）
     public bool tips; // 提示
     public bool isOpenCuoHe; // 是否开启错和
     public bool isSetRandomSeed; // 是否设置随机种子

@@ -12,13 +12,14 @@ public partial class RoundEndPresentation {
     }
 
     private IEnumerator CoShuhewei(Dictionary<int, int> player_fu, Dictionary<int, int> player_to_score, Dictionary<int, int> score_changes, Dictionary<int, string[]> player_fan, Dictionary<int, string[]> player_fu_types, Dictionary<int, string> indexToPosition, Dictionary<string, PlayerInfoClass> player_to_info, int? hepaiPlayerIndex, int[] hepaiPlayerHand, int[][] hepaiPlayerCombinationMask, bool playPresentationEffects) {
+        bool willRevealWinnerHand = playPresentationEffects && hepaiPlayerIndex.HasValue && hepaiPlayerHand != null && hepaiPlayerHand.Length > 0;
         if (hepaiPlayerIndex.HasValue
             && NormalGameStateManager.Instance.indexToPosition.TryGetValue(hepaiPlayerIndex.Value, out string winnerPos)
             && winnerPos == "self") {
-            HideSelfGameplayControl(true);
+            HideSelfGameplayControl(!willRevealWinnerHand);
         }
-        if (playPresentationEffects && hepaiPlayerIndex.HasValue && hepaiPlayerHand != null && hepaiPlayerHand.Length > 0) {
-            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepaiPlayerIndex.Value, hepaiPlayerHand, hepaiPlayerCombinationMask);
+        if (willRevealWinnerHand) {
+            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepaiPlayerIndex.Value, hepaiPlayerHand);
         }
 
         PreparePresentationRoot(playPresentationEffects);

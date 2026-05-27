@@ -18,6 +18,7 @@ from datetime import date, datetime
 def init_game_record(self):
     self.game_record["game_title"] = {
         "rule": self.room_rule,
+        "room_type": getattr(self, "room_type", "custom"),
         "game_random_seed": self.game_random_seed,
         "max_round": self.max_round,
         "start_time": datetime.now(),

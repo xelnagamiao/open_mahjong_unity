@@ -76,14 +76,23 @@ public class RoomNetworkManager : MonoBehaviour {
     /// </summary>
     private void HandleGetRoomInfoResponse(Response response) {
         Debug.Log("处理房间信息更新");
-        WindowsManager.Instance.SwitchWindow("room");
-        RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
+        if (ShouldNavigateToRoomOnRefresh()) {
+            WindowsManager.Instance.SwitchWindow("room");
+            RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
+        }
         RoomPanel.Instance.GetRoomInfoResponse(
             response.success, 
             response.message, 
             response.room_info
         );
         UserDataManager.Instance.SetRoomId(response.room_info.room_id);
+    }
+
+    private static bool ShouldNavigateToRoomOnRefresh() {
+        if (WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "game") {
+            return false;
+        }
+        return true;
     }
     
     /// <summary>
@@ -101,9 +110,18 @@ public class RoomNetworkManager : MonoBehaviour {
     private void HandleLeaveRoomResponse(Response response) {
         Debug.Log($"离开房间响应: {response.success}, {response.message}");
         if (response.success) {
-            UserDataManager.Instance.SetRoomId("");
+            ApplyLeftRoomState();
             NotificationManager.Instance.ShowTip("leave_room", true, "离开房间成功");
         }
+    }
+
+    /// <summary>
+    /// 离开/解散房间后重置客户端房间状态与 UI。
+    /// </summary>
+    public void ApplyLeftRoomState() {
+        UserDataManager.Instance.SetRoomId("");
+        RoomWindowsManager.Instance?.SwitchRoomWindow("createRoom");
+        RoomPanel.Instance?.ClearRoomState();
     }
     
     // ========== 房间相关的发送方法 ==========

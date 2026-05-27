@@ -51,9 +51,7 @@ public class RoomConfigContainer : MonoBehaviour {
     public void SetRoomConfig(RoomInfo roomInfo) {
         Transform container = contentContainer != null ? contentContainer : transform;
 
-        for (int i = container.childCount - 1; i >= 0; i--) {
-            Destroy(container.GetChild(i).gameObject);
-        }
+        ClearRoomConfig(container);
 
         List<string> fields = RuleDisplayFields.TryGetValue(roomInfo.room_rule, out var ruleFields)
             ? ruleFields
@@ -65,6 +63,17 @@ public class RoomConfigContainer : MonoBehaviour {
             }
             ConfigItem configItem = Instantiate(configItemPrefab, container);
             configItem.SetConfig(displayName, displayValue);
+        }
+    }
+
+    public void ClearRoomConfig() {
+        Transform container = contentContainer != null ? contentContainer : transform;
+        ClearRoomConfig(container);
+    }
+
+    private static void ClearRoomConfig(Transform container) {
+        for (int i = container.childCount - 1; i >= 0; i--) {
+            Destroy(container.GetChild(i).gameObject);
         }
     }
 

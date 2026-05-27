@@ -24,8 +24,8 @@ public class ChatPanel : MonoBehaviour {
         // 监听点击inputfield事件
         SendButton.onClick.AddListener(OnSendButtonClick);
         MessageInputField.onSelect.AddListener(OnInputFieldSelected);
-        // 监听输入框结束编辑事件（包括按下回车），按下回车时自动发送消息
-        MessageInputField.onEndEdit.AddListener(OnInputFieldSubmit);
+        // 仅在按下回车/提交时发送，避免失焦（如点击其他地方）误触发
+        MessageInputField.onSubmit.AddListener(OnInputFieldSubmit);
         // 初始化时隐藏垂直滚动栏和背景图片
         HideScrollbar();
         HideScrollView();
@@ -188,7 +188,7 @@ public class ChatPanel : MonoBehaviour {
         ShowScrollView();
     }
 
-    // 输入框提交事件（按下回车时触发）
+    // 输入框提交事件（仅按下回车时触发）
     private void OnInputFieldSubmit(string text){
         // 按下回车时自动发送消息
         OnSendButtonClick();

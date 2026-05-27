@@ -67,6 +67,9 @@ public class GameSceneMouseInputController : MonoBehaviour {
         if (IsPointerOverExcludeRect()) return;
 
         if (state == StateRecord) {
+            if (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
+                return;
+            }
             if (Input.GetMouseButtonDown(0)) {
                 GameRecordManager.Instance.NextStep();
             } else if (Input.GetMouseButtonDown(1)) {
@@ -182,6 +185,9 @@ public class GameSceneMouseInputController : MonoBehaviour {
         }
 
         if (state == StateRecord) {
+            if (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
+                return;
+            }
             if (eventData.button == PointerEventData.InputButton.Left) {
                 GameRecordManager.Instance.NextStep();
             } else if (eventData.button == PointerEventData.InputButton.Right) {
@@ -199,9 +205,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     private void TryAutoMoqieFromSelfHand() {
-        var selfHandTiles = NormalGameStateManager.Instance.selfHandTiles;
-        int lastTileId = selfHandTiles[selfHandTiles.Count - 1];
-        if (GameCanvas.Instance.TriggerTileCardClick(lastTileId)) return;
-        Debug.LogWarning($"自动出牌失败：无法找到牌ID {lastTileId} 对应的 TileCard");
+        if (GameCanvas.Instance.TriggerMoqieHandCardClick()) return;
+        Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
     }
 }

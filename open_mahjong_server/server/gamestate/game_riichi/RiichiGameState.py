@@ -22,6 +22,7 @@ from .action_check import (
     check_jiuzhongjiupai,
 )
 from .wait_action import wait_action
+from ..public.spectator_rules import too_many_ai_for_spectator
 from .init_tiles import init_riichi_tiles
 from .boardcast import (
     broadcast_game_start,
@@ -244,7 +245,7 @@ class RiichiGameState:
 
         self.Debug = False
 
-        self.spectator_enabled = self.allow_spectator_config and not any(p.user_id <= 10 for p in self.player_list)
+        self.spectator_enabled = self.allow_spectator_config and not too_many_ai_for_spectator(self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
         # 实时观战者（与传统观战独立的低延迟管道，由 FriendManager 维护）
@@ -590,7 +591,10 @@ class RiichiGameState:
                 logger.error(f"riichi 存储牌谱异常: {e}")
 
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
-        await self.game_server.room_manager.destroy_room(self.room_id)
+        if self.room_type == "match":
+            await self.game_server.room_manager.destroy_room(self.room_id)
+        else:
+            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
 
     # ========== 结算 ==========
 

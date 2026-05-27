@@ -22,6 +22,7 @@ from ..public.logic_common import get_index_relative_position, next_current_inde
 from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
+from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -181,8 +182,8 @@ class GuobiaoGameState:
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
 
-        # 观战系统相关：含 bot(uid<=10) 或配置禁用的对局禁用观战
-        self.spectator_enabled = self.allow_spectator_config and not any(player.user_id <= 10 for player in self.player_list)
+        # 观战系统相关：含 3 个及以上 AI(uid<=10) 或配置禁用的对局禁用观战
+        self.spectator_enabled = self.allow_spectator_config and not too_many_ai_for_spectator(self.player_list)
         from .spectator_manager import SpectatorManager
         self.spectator_manager = SpectatorManager(self, delay=180.0, enabled=self.spectator_enabled)
         # 实时观战者（由 FriendManager 维护，结构: List[RealtimeSpectator]）
@@ -381,10 +382,11 @@ class GuobiaoGameState:
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
-            # 换位
-            if self.current_round == 5 or self.current_round == 9 or self.current_round == 13:
+            # 换位：仅在本局设置下会实际进行该风圈对局时广播（半庄不播西/北圈换位，末局后不推进局数）
+            _switch_min_max_round = {5: 2, 9: 3, 13: 4}
+            if self.current_round in _switch_min_max_round and self.max_round >= _switch_min_max_round[self.current_round]:
                 await broadcast_switch_seat(self)
-                await asyncio.sleep(5)
+                await asyncio.sleep(4)
 
             # 记录结算前的分数（用于计算本局分数变化）
             scores_before = {player.original_player_index: player.score for player in self.player_list}
@@ -793,10 +795,12 @@ class GuobiaoGameState:
                     if await wait_action(self) is False:
                         break
 
-            # 开启下一局的准备工作
-            next_game_round_switchseat(self)   
-
-            logger.info(f"重新开始下一局")
+            if self.current_round < self.max_round * 4:
+                next_game_round_switchseat(self)
+                logger.info("重新开始下一局")
+            else:
+                logger.info("最后一局结束，不再推进局数")
+                break
             # ↑ 重新开始下一局循环
         
         # 游戏结束所有局数
@@ -888,8 +892,10 @@ class GuobiaoGameState:
         # 结束游戏生命周期：使用统一的清理方法
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
         
-        # 销毁房间并广播离开房间消息
-        await self.game_server.room_manager.destroy_room(self.room_id)
+        if self.room_type == "match":
+            await self.game_server.room_manager.destroy_room(self.room_id)
+        else:
+            await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
 
     # ========== 观战系统方法（委托给观战管理器） ==========

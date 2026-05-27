@@ -74,9 +74,6 @@ public class WindowsManager : MonoBehaviour {
 
     // 切换窗口
     public void SwitchWindow(string targetWindow) {
-        if (currentWindow == "game" && targetWindow == "room") {
-            return;
-        }
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
             _switchRoutine = null;
@@ -95,6 +92,11 @@ public class WindowsManager : MonoBehaviour {
         ApplyHeaderPanelInstant(wasActive, willActive); // 顶部栏即时切换
         currentWindow = targetWindow; // 更新当前窗口状态
         HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
+        if (targetWindow == "room"
+            && UserDataManager.Instance != null
+            && UserDataManager.Instance.RoomId == UserDataManager.ROOM_ID_NONE) {
+            RoomWindowsManager.Instance?.SwitchRoomWindow("createRoom");
+        }
 
         var fadeOut = new List<(GameObject go, CanvasGroup cg)>(); // 待渐隐面板
         var fadeIn = new List<(GameObject go, CanvasGroup cg)>(); // 待渐显面板
@@ -189,6 +191,7 @@ public class WindowsManager : MonoBehaviour {
                 On(menuPanel);
                 break;
             case "room":
+                On(headerPanel);
                 On(roomRoot);
                 break;
             case "game":
