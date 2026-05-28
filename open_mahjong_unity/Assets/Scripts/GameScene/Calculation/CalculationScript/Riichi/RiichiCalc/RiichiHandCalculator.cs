@@ -36,7 +36,13 @@ namespace Riichi {
 
             // 赤宝牌计数（若 context 未指定）
             if (!context.AkaCount.HasValue) {
-                context.AkaCount = handList.Count(RiichiTileUtil.IsRedFive);
+                int aka = handList.Count(RiichiTileUtil.IsRedFive);
+                if (context.CombinationMasks != null) {
+                    foreach (var mask in context.CombinationMasks) {
+                        aka += RiichiTileUtil.CountAkaInTiles(RiichiTileUtil.TilesFromMask(mask));
+                    }
+                }
+                context.AkaCount = aka;
             }
             result.AkaCount = context.AkaCount.Value;
 

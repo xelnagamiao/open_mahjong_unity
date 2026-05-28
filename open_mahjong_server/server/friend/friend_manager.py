@@ -616,7 +616,6 @@ class FriendManager:
             kan_dora_indicators=list(getattr(game_state, "kan_dora_indicators", []) or []),
             hepai_way=getattr(game_state, "hepai_way", None),
             red_dora=getattr(game_state, "red_dora", None),
-            dealer_index=getattr(game_state, "dealer_index", None),
             view_player_index=req.player_index,
         )
         await conn.websocket.send_json(Response(

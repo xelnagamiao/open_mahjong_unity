@@ -12,6 +12,7 @@ public class PlayerInfoClass
     public List<int> discard_tiles;
     public List<int> discard_origin_tiles;
     public List<string> combination_tiles;
+    public List<int[]> combination_masks;
     public List<int> huapai_list;
     public int title_used;
     public int profile_used;

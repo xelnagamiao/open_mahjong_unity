@@ -1,6 +1,6 @@
 """
 立直麻将广播：沿用 classical 的消息布局，新增 declare_riichi / update_dora；
-GameInfo 额外携带 honba / riichi_sticks / dora_indicators / kan_dora_indicators / hepai_way / red_dora / dealer_index。
+GameInfo 额外携带 honba / riichi_sticks / dora_indicators / kan_dora_indicators / hepai_way / red_dora。
 """
 from typing import List, Dict, Optional
 import asyncio
@@ -63,7 +63,6 @@ def _build_base_game_info(self) -> dict:
         "kan_dora_indicators": list(self.kan_dora_indicators),
         "hepai_way": self.hepai_way,
         "red_dora": self.red_dora,
-        "dealer_index": self.dealer_index,
     }
 
 

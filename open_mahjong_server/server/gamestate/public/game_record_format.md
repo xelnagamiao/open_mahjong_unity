@@ -1,0 +1,333 @@
+# 牌谱格式与数据库字段说明
+
+本文档描述当前（已测试通过）的牌谱 JSON 结构、PostgreSQL 相关表字段，以及 Unity 客户端的解析与回放逻辑。实现入口见 `game_record_manager.py`（服务端写入）与 `GameRecordJsonDecoder.cs` / `GameRecordManager.cs`（客户端读取）。
+
+---
+
+## 1. 术语对照
+
+服务端房间创建与对局运行时，有两组容易混淆的字段：
+
+| 概念 | 服务端变量 | 牌谱 `game_title` 字段 | 典型取值 | 用途 |
+|------|-----------|-------------------------|----------|------|
+| **游戏规则** | `room_rule` | `rule` | `guobiao`、`qingque`、`classical`、`riichi` | 决定玩法逻辑、客户端回放分支 |
+| **房间类型** | `room_type` | `room_type` | `custom`、`match` | 自定义房 / 排位赛等 |
+| **子规则** | `sub_rule` | `sub_rule` | `guobiao/standard`、`guobiao/xiaolin`、`riichi/standard` 等 | 番表、国标固定换位、起和限制等 |
+| **局数模式** | — | （不入 JSON） | — | 仅存 DB `match_type`，见 [§6.2.1](#621-match_type-完整取值) |
+
+**历史问题（已修复）：** 旧牌谱曾把 `room_type`（`custom`）误写入 DB 的 `rule` 列或 `game_title.rule`，导致客户端 `rule == "guobiao"` 等分支不执行，风圈/风位 UI 不轮转。**新牌谱必须以 `game_title.rule` 存游戏规则。**
+
+---
+
+## 2. 牌谱 JSON 顶层结构
+
+```json
+{
+  "game_title": { ... },
+  "game_round": {
+    "round_index_1": { ... },
+    "round_index_2": { ... }
+  }
+}
+```
+
+整份 JSON 以 **JSONB** 形式存入 `game_records.record`，是唯一权威数据源；回放时应以 JSON 内 `game_title` 为准，而非仅依赖 API 顶层的 `rule` 字段。
+
+---
+
+## 3. `game_title` 字段
+
+由 `init_game_record()` 初始化，各 `*GameState` 在开局后补充 `sub_rule` 等。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `rule` | string | **游戏规则**，取自 `self.room_rule` |
+| `room_type` | string | **房间类型**，取自 `self.room_type`，默认 `custom` |
+| `sub_rule` | string | 子规则，各 GameState 写入（如 `guobiao/standard`） |
+| `game_random_seed` | int | 整局随机种子 |
+| `max_round` | int | 风圈数（1=东风、2=半庄、4=全庄） |
+| `start_time` / `end_time` | datetime | 对局起止时间 |
+| `open_cuohe` | bool | 是否开启错和 |
+| `tips` | bool | 是否开启提示 |
+| `is_player_set_random_seed` | bool | 是否玩家指定种子 |
+| `hepai_limit` | int? | 起和番限制（国标等） |
+| `p0_uid` … `p3_uid` | int | 四个座位的用户 ID（**原始座位顺序**，整局不变） |
+| `p0_name` … `p3_name` | string | 对应用户名 |
+
+**座位约定：** `p0`～`p3` 对应该局创建时 `player_list[0..3]` 的 **original 座位**。每局 `p0_tiles` 等手牌也按此 original 索引存储；局内 `action_ticks` 里的 `action_player` 为当局 **轮转后的 player_index**。
+
+---
+
+## 4. `game_round` / 单局结构
+
+键名：`round_index_{N}`，`N` 从 1 递增。由 `init_game_round()` 创建。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `round_index` | int | 局序号（1 起） |
+| `current_round` | int | 风圈内的局号（国标：1～4 为东，5～8 为南…） |
+| `round_random_seed` | int | 本局随机种子 |
+| `p0_tiles` … `p3_tiles` | int[] | 发牌后、补花前的初始手牌（original 座位） |
+| `tiles_list` | int[] | 洗牌后、发牌前的完整牌山 |
+| `action_ticks` | array[] | 按时间顺序的操作序列（见下节） |
+
+---
+
+## 5. `action_ticks` 操作短码
+
+数组第一个元素为动作类型，其余为参数。嵌套数组（如番种列表、分数变化）在 JSON 中为子数组。
+
+### 5.1 通用操作
+
+| 短码 | 含义 | 格式示例 |
+|------|------|----------|
+| `bh` | 补花 | `["bh", tile_id, action_player]` |
+| `d` | 摸牌 | `["d", tile_id]` |
+| `gd` | 杠后摸牌 | `["gd", tile_id]` |
+| `bd` | 补花后摸牌 | `["bd", tile_id]` |
+| `c` | 切牌 | `["c", tile_id, "T"\|"F"]` 或带 `"H"` 表示立直横置 |
+| `cl` / `cm` / `cr` | 吃 | `[code, tile_id, action_player]` |
+| `p` | 碰 | `["p", tile_id, action_player]` |
+| `g` | 明杠 | `["g", tile_id, action_player]` |
+| `ag` | 暗杠 | `["ag", tile_id]` |
+| `jg` | 加杠 | `["jg", tile_id]` |
+| `liuju` | 流局 | `["liuju"]` |
+| `end` | 本局结束 | `["end"]`（和牌/流局后紧跟；错和无 `end`，对局继续） |
+
+### 5.2 国标和牌
+
+`[hu_class, hepai_player_index, hu_score, hu_fan[], score_changes[]]`
+
+- `hu_class`：`hu_self` / `hu_first` / `hu_second` / `hu_third` 等
+- `score_changes`：`[p0Δ, p1Δ, p2Δ, p3Δ]`，按 **original 座位** 顺序
+
+### 5.3 古典（数和尾）
+
+`["shuhewei", fu_list, changes_list, fan_list, fu_type_list, hu_class, hepai_player_index]`
+
+### 5.4 立直麻将
+
+| 短码 | 格式 |
+|------|------|
+| `riichi` | `["riichi", player_index, is_daburu]` |
+| `dora` | `["dora", tile_id]` |
+| `ryuukyoku` | `["ryuukyoku", tenpai_flags[], score_changes[], reason]` |
+| `hu_riichi` | `["hu_riichi", hepai_idx, hu_class, han, fu, yaku[], score_changes[], dora[], ura_dora[], aka_count, honba, riichi_sticks]` |
+
+立直 tick 中 `score_changes` 按 **当局 player_index** 排列；客户端解码时会换算为 original 顺序。
+
+### 5.5 其他
+
+- `jiuzhongjiupai`：九老峰回流局
+
+---
+
+## 6. 数据库表
+
+### 6.1 `game_records`
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| `game_id` | VARCHAR(16) PK | base62 随机 ID（10 字符） |
+| `record` | JSONB | 完整牌谱 JSON |
+| `created_at` | TIMESTAMP | 创建时间 |
+
+### 6.2 `game_player_records`
+
+每局 4 行（每位玩家一行），用于列表查询与元数据展示。
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| `game_id` | VARCHAR(16) FK | 关联 `game_records` |
+| `user_id` | BIGINT | 用户 ID |
+| `username` | VARCHAR | 用户名 |
+| `score` | INT | 终局分数 |
+| `rank` | INT | 名次 1～4 |
+| `rule` | VARCHAR(10) | **游戏规则**，来自 `game_title.rule`（如 `guobiao`） |
+| `sub_rule` | VARCHAR(32) | 来自 `game_title.sub_rule` |
+| `match_type` | VARCHAR(24) | 局数/模式（**不在 JSON 内**），完整取值见下节 |
+| `title_used` / `character_used` / `profile_used` / `voice_used` | INT | 对局使用的装扮 |
+
+**写入逻辑（以国标为例，`store_guobiao.py`）：**
+
+```python
+rule = game_title.get("rule") or "guobiao"
+sub_rule = game_title.get("sub_rule") or "guobiao/standard"
+```
+
+`match_type` 由 GameState 在对局结束时传入，与 `game_title.max_round` 的数字部分一致（排位赛带 `_rank` 后缀）。
+
+**跳过保存：** 对局含机器人（`user_id <= 10`）时不写牌谱与统计。
+
+#### 6.2.1 `match_type` 完整取值
+
+格式分两类：**自定义房** `{N}/4`、**国标排位** `{N}/4_rank`。`N` 即 `max_round`（风圈数），与 `game_title.max_round` 相同。
+
+**A. 自定义房 `{max_round}/4`**
+
+各规则 GameState 统一写入 `f"{self.max_round}/4"`（`room_type == "custom"`）：
+
+| match_type | max_round | 风圈 | 最多局数 | 客户端显示（`RoundTextDictionary`） |
+|------------|-----------|------|----------|-------------------------------------|
+| `1/4` | 1 | 东 | 4 | 东风战 |
+| `2/4` | 2 | 东+南 | 8 | 东南战 |
+| `3/4` | 3 | 东+南+西 | 12 | 西风战 |
+| `4/4` | 4 | 东+南+西+北 | 16 | 全庄战 |
+
+适用规则：`guobiao`、`qingque`、`classical`、`riichi`。创房时 `game_round` 可选 1～4（`CreatePanel` / `room_manager`）。
+
+**B. 国标排位 `{max_round}/4_rank`**
+
+仅国标 `GuobiaoGameState` 在 `room_type == "match"` 时，由 `queue_type_to_match_type(match_queue_type)` 写入（`rank_calculator.py`）：
+
+| match_type | 排位局制（`game_type`） | max_round | 客户端显示 |
+|------------|-------------------------|-----------|------------|
+| `1/4_rank` | 东风战（`dongfeng`） | 1 | 东风战 |
+| `2/4_rank` | 半庄战（`banzhuang`） | 2 | 东南战 |
+| `4/4_rank` | 全庄战（`quanzhuang`） | 4 | 全庄战 |
+
+排位队列共 12 种 `queue_type`（`beginner` / `intermediate` / `advanced` / `mcrpl` × 上表三种局制），**映射到同一 `match_type`**，场次差异不在 `match_type` 中体现。
+
+当前排位**无** `3/4_rank`（无「东西战」排位队列）。
+
+**C. 与统计表 `mode` 列的关系**
+
+`guobiao_history_stats.mode` 等统计字段使用 `{max_round}/4`（**无** `_rank` 后缀），例如排位全庄对局统计为 `4/4`，牌谱列表元数据为 `4/4_rank`。
+
+**D. 客户端解析**
+
+`RecordPrefab` 经 `RoundTextDictionary.GetMatchTypeDisplay(match_type)` 显示局制名：取 `/` 前数字查表，`_rank` 后缀不影响显示。
+
+### 6.3 统计表（简要）
+
+| 表 | `rule` 列含义 |
+|----|----------------|
+| `guobiao_history_stats` / `guobiao_fan_stats` | 固定 `"guobiao"` |
+| `qingque_*` / `classical_*` | 对应规则名 |
+| `mode` 列 | 如 `4/4`，表示局数模式 |
+
+统计与牌谱元数据分离；列表 UI 的 `match_type` 来自 `game_player_records`，不是 `history_stats.mode`。
+
+---
+
+## 7. API 与字段优先级
+
+### 7.1 记录列表 `get_record_list`
+
+从 `game_player_records` JOIN `game_records` 聚合，返回 `RecordInfo`：
+
+- `game_id`、`rule`、`sub_rule`、`match_type`、`created_at`
+- `players[]`：排名、分数、装扮等
+
+列表展示用 `sub_rule` + `match_type`（客户端经 `RuleNameDictionary` 显示）。
+
+### 7.2 单条详情 `get_record_by_id`
+
+返回 `RecordDetail`：
+
+- `record`：完整 JSON（dict）
+- `players[]`：同上
+- 顶层 `rule` / `sub_rule`：**优先** `record.game_title`，缺失时回退 `game_player_records` 行
+
+---
+
+## 8. 客户端解析流程
+
+```
+RecordPanel / RecordPrefab
+  → DataNetworkManager.GetRecordById
+  → RecordPanel.OnRecordDetailReceived(detail)
+  → JsonConvert.SerializeObject(detail.record)
+  → GameRecordManager.LoadRecord(recordJson, detail.players)
+       → GameRecordJsonDecoder.ParseGameRecord   // JSON → GameRecord
+       → InitGameRound(roundIndex)               // 座位、风位、牌山
+       → 逐步执行 action_ticks 驱动 3D/UI
+```
+
+### 8.1 `GameRecordJsonDecoder`
+
+- 解析 `game_title` → `Dictionary<string, object>`
+- 顺序读取 `round_index_1`, `round_index_2`, … 直到键不存在
+- 每局解析手牌、牌山、`action_ticks`（嵌套数组转为字符串以便统一存储）
+- 从和牌/流局 tick 累加 `Round.scoreChanges`（original 顺序）
+
+### 8.2 `GameRecordManager.LoadRecord`
+
+- 调用 `GameSceneUIManager.InitGameRecord()` 清空临时 UI
+- 用 `game_title.p*_uid` 与 API 传入的 `players_info` 对齐 **originalPlayerIndex**
+- 未传 `players_info` 时仍可从 `game_title` 取 uid
+
+### 8.3 回放分支依赖的字段
+
+| 用途 | 读取字段 |
+|------|----------|
+| 规则分支（补花起点、和牌结算、局数按钮文案） | `game_title.rule` |
+| 国标固定换位、番表 | `game_title.sub_rule` |
+| 风圈/局名显示 | `rule` + `current_round`（`RoundTextDictionary`） |
+| 计分板规则 | `RefreshRecordScoreTable` 等读 `game_title.rule` |
+
+**重要：** 回放逻辑 **不** 使用 API 顶层 `RecordDetail.rule`，只解析 JSON 内的 `game_title`。因此修复保存格式后，旧牌谱若 JSON 内 `rule` 仍为 `custom`，回放行为仍不正确。
+
+### 8.4 座位与风位轮转（国标）
+
+`InitGameRound(roundIndex)`：
+
+1. **每局轮转：** `rotateSteps = (roundIndex - 1) % 4`，对每个 original 座位做 `BackCurrentNum`（0→3→2→1），得到当局 `playerIndex`。
+2. **固定换位：** 当 `sub_rule` 为 `guobiao/standard` 或 `guobiao/xiaolin`，且 `roundIndex` 为 5、9、13 时，按服务器 `next_game_round_switchseat` 规则覆盖 `playerIndex`。
+3. **手牌映射：** 读取 `p{original}_tiles`，按上述映射渲染到 3D 四方。
+4. **累计分数：** 前面各局 `scoreChanges` 累加得到进入本局前的分数。
+
+`current_round` 用于 UI 显示「东1局」「南2局」等，与 `round_index`（整局序号）不同。
+
+---
+
+## 9. 示例片段（新格式国标全庄）
+
+```json
+{
+  "game_title": {
+    "rule": "guobiao",
+    "room_type": "custom",
+    "sub_rule": "guobiao/standard",
+    "max_round": 4,
+    "hepai_limit": 8,
+    "p0_uid": 10000001,
+    "p0_name": "玩家A",
+    "...": "..."
+  },
+  "game_round": {
+    "round_index_1": {
+      "round_index": 1,
+      "current_round": 1,
+      "p0_tiles": [11, 12, 13, "..."]
+    }
+  }
+}
+```
+
+对应 DB 示例（同一 JSON，`match_type` 随房间类型不同）：
+
+| 场景 | game_id | rule | sub_rule | match_type |
+|------|---------|------|----------|------------|
+| 自定义全庄 | `aB3xK9mN2p` | guobiao | guobiao/standard | `4/4` |
+| 自定义东风 | `xY7zQ2wR8k` | guobiao | guobiao/standard | `1/4` |
+| 自定义半庄 | `mN4pL6sT1v` | qingque | qingque/standard | `2/4` |
+| 自定义东西 | `kJ8hG5fD3a` | classical | classical/standard | `3/4` |
+| 排位全庄 | `bC9nM2xK7p` | guobiao | guobiao/standard | `4/4_rank` |
+| 排位东风 | `qW3eR5tY8u` | guobiao | guobiao/standard | `1/4_rank` |
+| 排位半庄 | `zX1cV4bN6m` | guobiao | guobiao/standard | `2/4_rank` |
+
+---
+
+## 10. 相关源码索引
+
+| 模块 | 路径 |
+|------|------|
+| 牌谱写入 API | `server/gamestate/public/game_record_manager.py` |
+| 国标入库 | `server/database/guobiao/store_guobiao.py` |
+| 详情查询 | `server/database/db_manager.py` → `get_record_by_id` |
+| JSON 解码 | `Assets/Scripts/.../GameRecordJsonDecoder.cs` |
+| 回放主逻辑 | `Assets/Scripts/.../GameRecordManager.cs` |
+| 数据结构 | `Assets/Scripts/.../GameRecordData.cs` |
+| 加载入口 | `Assets/Scripts/UI/Panel/RecordPanel.cs` |
+| API 模型 | `Assets/Scripts/Network/Serialize/Response.cs` |

@@ -28,7 +28,13 @@ namespace Riichi {
         public List<int> DoraIndicators = new List<int>();
         public List<int> UraDoraIndicators = new List<int>();
 
-        /// <summary>赤宝牌数量（null 时根据手牌自动推断）</summary>
+        /// <summary>副露 combination_mask，与 combination_tiles 同序</summary>
+        public List<int[]> CombinationMasks = null;
+
+        /// <summary>赤宝牌数量（null 时根据手牌与 mask 自动推断）</summary>
         public int? AkaCount = null;
+
+        /// <summary>立直选牌阶段：即将宣告立直，尚未写入 tag_list</summary>
+        public bool IsPendingRiichi;
     }
 }

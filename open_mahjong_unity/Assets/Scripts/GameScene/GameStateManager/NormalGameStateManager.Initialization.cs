@@ -54,14 +54,20 @@ public partial class NormalGameStateManager {
 
     private void RestoreRiichiTenbous(GameInfo gameInfo){
         if (gameInfo == null || gameInfo.players_info == null) return;
+        int placedFromTags = 0;
         foreach (var player in gameInfo.players_info){
             if (player.tag_list == null || !indexToPosition.ContainsKey(player.player_index)) continue;
             for (int i = 0; i < player.tag_list.Length; i++){
                 if (player.tag_list[i] == "riichi" || player.tag_list[i] == "daburu_riichi"){
                     Game3DManager.Instance.PlaceRiichiTenbouAt(indexToPosition[player.player_index]);
+                    placedFromTags++;
                     break;
                 }
             }
+        }
+        int fieldSticks = (gameInfo.riichi_sticks ?? 0) - placedFromTags;
+        if (fieldSticks > 0) {
+            Game3DManager.Instance.PlaceFieldRiichiTenbous(fieldSticks);
         }
     }
 
@@ -161,6 +167,10 @@ public partial class NormalGameStateManager {
         player_to_info["left"].combination_tiles = new List<string>();
         player_to_info["top"].combination_tiles = new List<string>();
         player_to_info["right"].combination_tiles = new List<string>();
+        player_to_info["self"].combination_masks = new List<int[]>();
+        player_to_info["left"].combination_masks = new List<int[]>();
+        player_to_info["top"].combination_masks = new List<int[]>();
+        player_to_info["right"].combination_masks = new List<int[]>();
 
         // 如果gameinfo.user_id等于自己的user_id，则设置自身索引为gameinfo.player_index
         if (IsRealtimeSpectator) {
@@ -259,6 +269,7 @@ public partial class NormalGameStateManager {
                 player_to_info["self"].discard_riichi_flags = player.discard_riichi_flags != null ? new List<bool>(player.discard_riichi_flags) : new List<bool>();
                 player_to_info["self"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["self"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
+                player_to_info["self"].combination_masks = CopyCombinationMasks(player.combination_mask);
                 player_to_info["self"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["self"].title_used = player.title_used; // 存储使用的称号ID
                 player_to_info["self"].profile_used = player.profile_used; // 存储使用的头像ID
@@ -276,6 +287,7 @@ public partial class NormalGameStateManager {
                 player_to_info["right"].discard_riichi_flags = player.discard_riichi_flags != null ? new List<bool>(player.discard_riichi_flags) : new List<bool>();
                 player_to_info["right"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["right"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
+                player_to_info["right"].combination_masks = CopyCombinationMasks(player.combination_mask);
                 player_to_info["right"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["right"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
                 player_to_info["right"].title_used = player.title_used; // 存储使用的称号ID
@@ -294,6 +306,7 @@ public partial class NormalGameStateManager {
                 player_to_info["top"].discard_riichi_flags = player.discard_riichi_flags != null ? new List<bool>(player.discard_riichi_flags) : new List<bool>();
                 player_to_info["top"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["top"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
+                player_to_info["top"].combination_masks = CopyCombinationMasks(player.combination_mask);
                 player_to_info["top"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["top"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
                 player_to_info["top"].title_used = player.title_used; // 存储使用的称号ID
@@ -312,6 +325,7 @@ public partial class NormalGameStateManager {
                 player_to_info["left"].discard_riichi_flags = player.discard_riichi_flags != null ? new List<bool>(player.discard_riichi_flags) : new List<bool>();
                 player_to_info["left"].discard_origin_tiles = player.discard_origin_tiles.ToList(); // 存储理论弃牌列表
                 player_to_info["left"].combination_tiles = player.combination_tiles.ToList(); // 存储组合牌列表
+                player_to_info["left"].combination_masks = CopyCombinationMasks(player.combination_mask);
                 player_to_info["left"].huapai_list = player.huapai_list.ToList(); // 存储花牌列表
                 player_to_info["left"].hand_tiles_count = player.hand_tiles_count; // 存储手牌数量
                 player_to_info["left"].title_used = player.title_used; // 存储使用的称号ID
@@ -346,5 +360,14 @@ public partial class NormalGameStateManager {
             }
         }
         return null;
+    }
+
+    private static List<int[]> CopyCombinationMasks(int[][] source) {
+        var list = new List<int[]>();
+        if (source == null) return list;
+        foreach (var mask in source) {
+            list.Add(mask);
+        }
+        return list;
     }
 }

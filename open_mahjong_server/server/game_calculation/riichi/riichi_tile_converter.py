@@ -82,6 +82,71 @@ def count_aka(tiles: List[int]) -> int:
     return sum(1 for t in tiles if t in (105, 205, 305))
 
 
+def count_aka_in_tiles(tiles: List[int]) -> int:
+    return count_aka(tiles)
+
+
+def tiles_from_mask(mask: List[int]) -> List[int]:
+    """从 combination_mask 解包真实牌 ID"""
+    return [mask[i] for i in range(1, len(mask), 2) if mask[i] >= 10]
+
+
+def alloc_136_for_tile(tile_id: int, used_136: set) -> int:
+    if tile_id in (105, 205, 305):
+        t136 = tile_id_to_136_single(tile_id)
+        used_136.add(t136)
+        return t136
+
+    normal = _normalize(tile_id)
+    t34 = tile_id_to_34(tile_id)
+
+    if normal in (15, 25, 35):
+        for i in (1, 2, 3, 0):
+            cand = t34 * 4 + i
+            if cand not in used_136:
+                used_136.add(cand)
+                return cand
+    else:
+        for i in range(4):
+            cand = t34 * 4 + i
+            if cand not in used_136:
+                used_136.add(cand)
+                return cand
+    return t34 * 4
+
+
+def dora_from_indicator(indicator_id: int) -> int:
+    """宝牌指示牌下一张（与客户端 RiichiTileUtil.DoraFromIndicator 一致）"""
+    t = _normalize(indicator_id)
+    if 11 <= t <= 19:
+        return 11 + (t - 11 + 1) % 9
+    if 21 <= t <= 29:
+        return 21 + (t - 21 + 1) % 9
+    if 31 <= t <= 39:
+        return 31 + (t - 31 + 1) % 9
+    if 41 <= t <= 44:
+        return 41 + (t - 41 + 1) % 4
+    if t == 46:
+        return 47
+    if t == 47:
+        return 45
+    if t == 45:
+        return 46
+    return t
+
+
+def count_dora_in_tiles(tiles: List[int], indicators: List[int]) -> int:
+    """统计手牌及副露中的宝牌/里宝牌张数"""
+    if not indicators:
+        return 0
+    norms = [_normalize(t) for t in tiles]
+    total = 0
+    for ind in indicators:
+        target = dora_from_indicator(ind)
+        total += sum(1 for t in norms if t == target)
+    return total
+
+
 def tiles_to_136(tiles: List[int], has_aka: bool = True) -> Tuple[List[int], List[int]]:
     """
     将内部 id 列表转换为 mahjong 库的 136 张编码列表；返回 (tiles_136, aka_136)

@@ -1,7 +1,8 @@
 """
 立直麻将 GameState：
-- 场/本/立直棒/亲家索引管理
-- 连庄机制：亲家自摸/荣和/荒片流局听牌则连庄并 +1 本场
+- player_index 0 恒为亲家；过庄时 back_current_num 轮转座位（与国标一致）
+- 连庄：亲家（index 0）和牌 / 荒牌流局听牌 / 途中特殊流局
+- 荒牌流局：本场 +1；亲家不听则过庄并继续 +1 本场
 - 特殊流局：九种九牌、四风连打、四杠散了、四人立直、三家和流局（配置允许时）
 - 本场+场供：自摸 100/家、荣和 300 由出铳家一次付清
 - 使用 mahjong 库计算番/符/点数
@@ -38,7 +39,7 @@ from .boardcast import (
     broadcast_declare_riichi,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import next_current_num, next_current_index
+from ..public.logic_common import next_current_num, next_current_index, back_current_num
 from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
     ROUND_END_HAND_REVEAL_SEC,
@@ -92,7 +93,7 @@ class RiichiPlayer:
         self.hand_tiles = tiles
         self.huapai_list = []
         self.discard_tiles = []
-        self.discard_origin_tiles = []
+        self.discard_origin_tiles = []  # 理论弃牌：切牌时写入，鸣牌只从 discard_tiles 移除，振听判定仅读此字段
         self.combination_tiles = []
         self.combination_mask = []
         self.score = 25000
@@ -222,7 +223,6 @@ class RiichiGameState:
         # 场况
         self.honba: int = 0
         self.riichi_sticks: int = 0
-        self.dealer_index: int = 0
         self.dora_indicators: List[int] = []
         self.kan_dora_indicators: List[int] = []
         self.ura_dora_indicators: List[int] = []
@@ -332,6 +332,7 @@ class RiichiGameState:
             p.player_index = i
             p.original_player_index = i
             p.score = 25000
+        self.player_list.sort(key=lambda x: x.player_index)
 
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
@@ -352,26 +353,26 @@ class RiichiGameState:
             init_game_round(self)
 
             self.game_status = "waiting_hand_action"
-            self.current_player_index = self.dealer_index
+            self.current_player_index = 0
             self.dihe_possible = True
             self.hu_class = None
             self.result_dict = {}
             self.ron_player_index = None
 
-            # 亲家摸第 14 张
+            # 亲家（player_index=0）摸第 14 张
             self.refresh_waiting_tiles(self.current_player_index)
-            self.player_list[self.dealer_index].get_tile(self.tiles_list)
-            player_action_record_deal(self, deal_tile=self.player_list[self.dealer_index].hand_tiles[-1], deal_type="d")
+            self.player_list[0].get_tile(self.tiles_list)
+            player_action_record_deal(self, deal_tile=self.player_list[0].hand_tiles[-1], deal_type="d")
             await self.broadcast_do_action(
                 action_list=["deal_tile"],
-                action_player=self.dealer_index,
-                deal_tile=self.player_list[self.dealer_index].hand_tiles[-1],
+                action_player=0,
+                deal_tile=self.player_list[0].hand_tiles[-1],
             )
 
             # 开局先计算常规动作（含天和自摸），再叠加九种九牌选项（若可宣）
             self.action_dict = check_action_hand_action(self, self.current_player_index, is_first_action=True)
-            if self._can_declare_kyuushu(self.dealer_index):
-                self.action_dict[self.dealer_index].append("jiuzhongjiupai")
+            if self._can_declare_kyuushu(0):
+                self.action_dict[0].append("jiuzhongjiupai")
             await self.broadcast_ask_hand_action()
             await self.wait_action()
 
@@ -522,11 +523,12 @@ class RiichiGameState:
                 # 错和：亲家不变、本场不增、仅更新随机种子；等同于"不加本场的连庄"重打
                 self.round_index += 1
             else:
-                dealer_win = self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third") and self.hepai_player_index == self.dealer_index
-                dealer_tenpai = False
-                if self.hu_class in ("ryuukyoku",):
-                    dealer_tenpai = self._is_ryuukyoku_tenpai(self.player_list[self.dealer_index])
-                renchan = dealer_win or (self.hu_class == "ryuukyoku" and dealer_tenpai)
+                winner_index = self._hu_winner_index()
+                oya_win = winner_index == 0
+                oya_tenpai = False
+                if self.hu_class == "ryuukyoku":
+                    oya_tenpai = self._is_ryuukyoku_tenpai(self.player_list[0])
+                renchan = oya_win or (self.hu_class == "ryuukyoku" and oya_tenpai)
                 # 特殊流局也连庄
                 if self.hu_class in ("jiuzhongjiupai", "four_wind_abort", "four_kan_abort", "four_riichi_abort", "three_ron_abort"):
                     renchan = True
@@ -535,11 +537,13 @@ class RiichiGameState:
                     self.honba += 1
                     self.round_index += 1
                 else:
-                    self.honba = 0 if dealer_win or self.hu_class in ("hu_first", "hu_second", "hu_third") else (self.honba + 1 if self.hu_class == "ryuukyoku" else 0)
-                    # 常规推进：先按圈位前进，再按座次轮转
+                    if self.hu_class == "ryuukyoku":
+                        self.honba += 1
+                    else:
+                        self.honba = 0
                     self.current_round += 1
                     self.round_index += 1
-                    self.dealer_index = (self.dealer_index + 1) % 4
+                    self._rotate_seats()
 
             # 清理局内状态
             for p in self.player_list:
@@ -597,6 +601,19 @@ class RiichiGameState:
             await self.game_server.room_manager.finish_custom_game_room(self.room_id)
 
     # ========== 结算 ==========
+
+    def _hu_winner_index(self) -> Optional[int]:
+        if self.hu_class == "hu_self":
+            return self.current_player_index
+        if self.hu_class in ("hu_first", "hu_second", "hu_third"):
+            return self.ron_player_index
+        return None
+
+    def _rotate_seats(self):
+        """过庄：player_index 0 恒为亲家，轮转座位编号。"""
+        for p in self.player_list:
+            p.player_index = back_current_num(p.player_index)
+        self.player_list.sort(key=lambda x: x.player_index)
 
     async def _settle_round(self):
         self.hepai_player_index = None
@@ -657,7 +674,7 @@ class RiichiGameState:
         else:
             winner_index = self.ron_player_index
         self.hepai_player_index = winner_index
-        is_dealer_win = (winner_index == self.dealer_index)
+        is_dealer_win = (winner_index == 0)
 
         score_changes = {i: 0 for i in range(4)}
         if self.hu_class == "hu_self":
@@ -675,7 +692,7 @@ class RiichiGameState:
                 for i in range(4):
                     if i == winner_index:
                         continue
-                    if i == self.dealer_index:
+                    if i == 0:
                         score_changes[i] -= main + self.honba * 100
                         score_changes[winner_index] += main + self.honba * 100
                     else:
@@ -726,7 +743,7 @@ class RiichiGameState:
             self,
             hepai_player_index=winner_index,
             player_to_score={p.original_player_index: p.score for p in self.player_list},
-            hu_score=sum(v for v in score_changes.values() if v > 0),
+            hu_score=result.get("score", 0),
             hu_fan=yaku,
             hu_class=self.hu_class,
             hepai_player_hand=self.player_list[winner_index].hand_tiles,
@@ -822,6 +839,8 @@ class RiichiGameState:
 
     async def _settle_ryuukyoku(self) -> Dict[int, int]:
         """荒牌流局：听牌家均分 3000"""
+        for p in self.player_list:
+            self.refresh_waiting_tiles(p.player_index)
         tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
         noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
         changes = {i: 0 for i in range(4)}
@@ -881,7 +900,7 @@ class RiichiGameState:
         三者中任意一种成立即挂 furiten tag。返回是否发生改动（用于决定是否广播）。"""
         changed = False
         for p in self.player_list:
-            permanent = any(_normalize(t) in p.waiting_tiles for t in p.discard_tiles)
+            permanent = any(_normalize(t) in p.waiting_tiles for t in p.discard_origin_tiles)
             is_furiten = permanent or p.temp_furiten or p.riichi_furiten
             has_tag = "furiten" in p.tag_list
             if is_furiten and not has_tag:

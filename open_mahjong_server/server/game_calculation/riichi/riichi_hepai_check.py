@@ -38,20 +38,23 @@
     "error": str or None,
 }
 """
-from typing import Dict, List, Optional
+from typing import List, Optional
 import copy
 
 from mahjong.hand_calculating.hand import HandCalculator
 from mahjong.hand_calculating.hand_config import HandConfig, OptionalRules
 from mahjong.meld import Meld
-from mahjong.tile import TilesConverter
+
+from mahjong.hand_calculating.scores import ScoresCalculator
 
 from .riichi_tile_converter import (
     tile_id_to_34,
-    tile_id_to_136_single,
     convert_combination,
     wind_to_tile_index,
-    count_aka,
+    count_aka_in_tiles,
+    count_dora_in_tiles,
+    tiles_from_mask,
+    alloc_136_for_tile,
 )
 
 
@@ -154,21 +157,41 @@ def _localize_yaku(name: str, context: Optional[dict] = None) -> str:
     return YAKU_NAME_MAP.get(name, name)
 
 
+def _hand_is_open(melds) -> bool:
+    return bool(melds) and any(m.opened for m in melds)
+
+
+# 门清与食下番数不同的役，下发带后缀的役名供客户端字典直接匹配
+_YAKU_WITH_OPEN_CLOSED_FORM = frozenset({
+    "三色同顺", "一气通贯", "混全带幺九", "纯全带幺九", "混一色", "清一色",
+})
+
+
+def _localize_yaku_display(name: str, context: Optional[dict], is_open: bool) -> str:
+    localized = _localize_yaku(name, context)
+    if localized in _YAKU_WITH_OPEN_CLOSED_FORM:
+        return f"{localized}{'（食下）' if is_open else '（门清）'}"
+    return localized
+
+
 class Riichi_Hepai_Check:
     def __init__(self):
         self._calc = HandCalculator()
 
-    def _build_melds(self, tiles_combination: List[str]):
+    def _build_melds(
+        self,
+        tiles_combination: List[str],
+        combination_masks: Optional[List[List[int]]],
+        used_136: set,
+    ):
         melds = []
-        for combo in tiles_combination:
+        for i, combo in enumerate(tiles_combination):
             meld_type, tile_ids = convert_combination(combo)
+            if combination_masks and i < len(combination_masks):
+                tile_ids = tiles_from_mask(combination_masks[i])
             tiles_136 = []
-            counter: Dict[int, int] = {}
             for tid in tile_ids:
-                t34 = tile_id_to_34(tid)
-                idx = counter.get(t34, 0)
-                tiles_136.append(t34 * 4 + idx)
-                counter[t34] = idx + 1
+                tiles_136.append(alloc_136_for_tile(tid, used_136))
             if meld_type == "chi":
                 mtype = Meld.CHI
                 opened = True
@@ -186,13 +209,33 @@ class Riichi_Hepai_Check:
             melds.append(Meld(meld_type=mtype, tiles=tiles_136, opened=opened))
         return melds
 
-    def _count_closed_aka(self, hand_list: List[int]) -> int:
-        return count_aka(hand_list)
+    def _collect_all_tile_ids(
+        self,
+        hand_list: List[int],
+        tiles_combination: List[str],
+        combination_masks: Optional[List[List[int]]],
+    ) -> List[int]:
+        all_tile_ids = list(hand_list)
+        if combination_masks:
+            for mask in combination_masks:
+                all_tile_ids.extend(tiles_from_mask(mask))
+        else:
+            for combo in tiles_combination:
+                _, combo_tiles = convert_combination(combo)
+                all_tile_ids.extend(combo_tiles)
+        return all_tile_ids
 
-    def _count_meld_aka(self, tiles_combination: List[str]) -> int:
-        # 副露中的 5m/5p/5s 若外部传入了赤 5 的 id（105/205/305）则计入；
-        # 目前 combination 字符串不携带赤信息，默认 0。
-        return 0
+    def _lib_bonus_han(self, result_yaku, is_open: bool) -> tuple:
+        lib_dora = lib_aka = lib_ura = 0
+        for y in result_yaku:
+            han = y.han_open if is_open else y.han_closed
+            if y.name == "Dora":
+                lib_dora = han
+            elif y.name == "Aka Dora":
+                lib_aka = han
+            elif y.name in ("Ura Dora", "Uradora"):
+                lib_ura = han
+        return lib_dora, lib_aka, lib_ura
 
     def hepai_check(
         self,
@@ -201,10 +244,12 @@ class Riichi_Hepai_Check:
         way_to_hepai: List[str],
         get_tile: int,
         context: Optional[dict] = None,
-    ) -> Dict:
+        combination_masks: Optional[List[List[int]]] = None,
+    ) -> dict:
         context = context or {}
 
-        melds = self._build_melds(tiles_combination)
+        used_136: set = set()
+        melds = self._build_melds(tiles_combination, combination_masks, used_136)
 
         hand_without_win = copy.copy(hand_list)
         try:
@@ -219,35 +264,14 @@ class Riichi_Hepai_Check:
                 "error": "get_tile 不在手牌中",
             }
 
-        # 组装 136 编码：按 34 序，每次分配一个未使用过的副本索引
-        used_136 = set()
-        for m in melds:
-            for t in m.tiles:
-                used_136.add(t)
-
-        def alloc_136(t34: int) -> int:
-            for i in range(4):
-                cand = t34 * 4 + i
-                if cand not in used_136:
-                    used_136.add(cand)
-                    return cand
-            return t34 * 4
-
-        # mahjong 库 estimate_hand_value 的 tiles 参数需要传入完整 14 张（闭手 + 副露 + 和牌），
-        # 若仅传闭手会被判为 hand_not_winning，导致开门和牌一律无法成立。
+        # 组装 136 编码：按真实牌 ID 分配，普通 5 优先非赤索引
         tiles_136_total = []
         for m in melds:
             tiles_136_total.extend(m.tiles)
         for tid in hand_without_win:
-            tiles_136_total.append(alloc_136(tile_id_to_34(tid)))
-        win_136 = alloc_136(tile_id_to_34(get_tile))
+            tiles_136_total.append(alloc_136_for_tile(tid, used_136))
+        win_136 = alloc_136_for_tile(get_tile, used_136)
         tiles_136_total.append(win_136)
-
-        # 赤宝牌：若手牌或和牌里包含 105/205/305，则对应 5m/5p/5s 的库索引需映射为赤 5。
-        # 库内部对 tile_136 通过 is_aka_dora(tile_136, aka_enabled) 判断，默认赤 5 的 tile_136 固定为
-        # 4m/5p/5s 的第 0 张（即 tile_34*4 + 0 对 5m => 16, 5p => 52, 5s => 88）。
-        # 我们在分配时，如果存在赤 5，就把该色 5 号的 tile_136=base*4 分配出去作为和牌中的赤。
-        aka_count_known = self._count_closed_aka(hand_list) + self._count_meld_aka(tiles_combination)
 
         config_rules = OptionalRules(
             has_open_tanyao=bool(context.get("has_open_tanyao", True)),
@@ -280,14 +304,16 @@ class Riichi_Hepai_Check:
         )
 
         dora_indicators = [tile_id_to_34(t) * 4 for t in context.get("dora_indicators", [])]
-        # 合并里宝（仅立直时由库内部根据 is_riichi 使用）
-        dora_indicators += [tile_id_to_34(t) * 4 for t in context.get("ura_dora_indicators", [])]
+        ura_dora_indicators = None
+        if context.get("is_riichi") and context.get("ura_dora_indicators"):
+            ura_dora_indicators = [tile_id_to_34(t) * 4 for t in context.get("ura_dora_indicators", [])]
 
         result = self._calc.estimate_hand_value(
             tiles=tiles_136_total,
             win_tile=win_136,
             melds=melds if melds else None,
             dora_indicators=dora_indicators if dora_indicators else None,
+            ura_dora_indicators=ura_dora_indicators,
             config=config,
         )
 
@@ -302,28 +328,38 @@ class Riichi_Hepai_Check:
             }
 
         yaku_names = []
+        is_open = _hand_is_open(melds)
+        lib_dora_han, lib_aka_han, lib_ura_han = self._lib_bonus_han(result.yaku, is_open)
         for y in result.yaku:
-            yaku_names.append(_localize_yaku(y.name, context))
+            if y.name in ("Dora", "Aka Dora", "Ura Dora", "Uradora"):
+                continue
+            localized = _localize_yaku(y.name, context)
+            if localized in ("宝牌", "里宝牌", "赤宝牌"):
+                continue
+            yaku_names.append(_localize_yaku_display(y.name, context, is_open))
 
-        # 赤宝牌修正：库默认赤 5 按 tile_136 特定索引自动识别；若外部传入 aka_count 与库结果不符，
-        # 按外部语义覆盖（保持与客户端红 5 配置一致）。
-        external_aka = context.get("aka_count", None)
-        han = result.han
-        fu = result.fu
-        if external_aka is not None:
-            # 从 yaku 中减去库检测到的 aka dora 次数再加上外部提供的数量
-            aka_detected = 0
-            for y in result.yaku:
-                if y.name == "Aka Dora":
-                    aka_detected = y.han_open if not config.is_tsumo else y.han_closed
-                    break
-            if external_aka != aka_detected:
-                han = han - aka_detected + int(external_aka)
+        all_tile_ids = self._collect_all_tile_ids(hand_list, tiles_combination, combination_masks)
+        aka_count = count_aka_in_tiles(all_tile_ids)
+        dora_count = count_dora_in_tiles(all_tile_ids, context.get("dora_indicators", []))
+        ura_count = count_dora_in_tiles(all_tile_ids, context.get("ura_dora_indicators", [])) if context.get("is_riichi") else 0
+        yaku_names.extend(["宝牌"] * dora_count)
+        yaku_names.extend(["里宝牌"] * ura_count)
+        if aka_count > 0:
+            yaku_names.append(f"赤宝牌*{aka_count}")
 
-        score_info = result.cost or {}
-        score = int(score_info.get("main", 0)) + int(score_info.get("additional", 0)) * (2 if not context.get("is_tsumo", False) else 2)
+        han = int(result.han) - lib_dora_han - lib_aka_han - lib_ura_han
+        han += dora_count + aka_count + ura_count
+        fu = int(result.fu)
+
+        is_yakuman = han >= 13 or any(
+            (y.han_open if is_open else y.han_closed) >= 13 for y in result.yaku
+            if y.name not in ("Dora", "Aka Dora", "Ura Dora", "Uradora")
+        )
+        score_info = ScoresCalculator.calculate_scores(han, fu, config, is_yakuman)
         if not context.get("is_tsumo", False):
             score = int(score_info.get("main", 0))
+        else:
+            score = int(score_info.get("main", 0)) + int(score_info.get("additional", 0)) * 2
 
         return {
             "is_valid": True,
@@ -332,7 +368,7 @@ class Riichi_Hepai_Check:
             "score": score,
             "yaku": yaku_names,
             "cost": score_info,
-            "aka_count": int(external_aka) if external_aka is not None else aka_count_known,
+            "aka_count": int(aka_count),
             "error": None,
         }
 

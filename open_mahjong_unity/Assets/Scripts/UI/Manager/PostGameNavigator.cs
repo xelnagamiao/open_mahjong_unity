@@ -1,18 +1,45 @@
 /// <summary>
-/// 对局结束后的页面跳转：仍在房间则回房间等待界面，否则回主菜单。
+/// 离开 gamePanel 后的页面跳转（真正退出，非对局挂后台）。
 /// </summary>
 public static class PostGameNavigator {
     public static void NavigateAfterGameEnd() {
         UserDataManager.Instance.SetGamestateId("");
-        Game3DManager.Instance.Clear3DTile();
+        GameSceneTeardown.ResetToIdle();
         HeaderPanel.Instance?.SetBackToGameVisible(false);
 
         if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
-            WindowsManager.Instance.SwitchWindow("room");
+            WindowsManager.Instance.ExitGameTo("room");
             RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
             return;
         }
 
-        WindowsManager.Instance.SwitchWindow("menu");
+        WindowsManager.Instance.ExitGameTo("menu");
+    }
+
+    public static void ExitToRecord() {
+        UserDataManager.Instance.SetGamestateId("");
+        GameSceneTeardown.ResetToIdle();
+        HeaderPanel.Instance?.SetBackToGameVisible(false);
+        WindowsManager.Instance.ExitGameTo("record");
+        DataNetworkManager.Instance?.GetRecordList();
+    }
+
+    public static void ExitToSpectator() {
+        if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
+            GameRecordManager.Instance.StopSpectating();
+        } else {
+            UserDataManager.Instance.SetGamestateId("");
+            GameSceneTeardown.ResetToIdle();
+        }
+        HeaderPanel.Instance?.SetBackToGameVisible(false);
+        WindowsManager.Instance.ExitGameTo("spectator");
+    }
+
+    public static void ExitToFriend() {
+        NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
+        GameSceneTeardown.ResetToIdle();
+        HeaderPanel.Instance?.SetBackToGameVisible(false);
+        WindowsManager.Instance.ExitGameTo("friend");
+        FriendNetworkManager.Instance?.ListAllFriendPanels();
     }
 }

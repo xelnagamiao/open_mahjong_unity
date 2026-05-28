@@ -117,6 +117,21 @@ public partial class Game3DManager : MonoBehaviour {
         tenbou.transform.SetParent(endTransform.parent, worldPositionStays: true);
     }
 
+    /// <summary>
+    /// 流局后供托立直棒：无 riichi tag 时按场供数量在牌桌中央堆叠显示（不绑定具体玩家）。
+    /// </summary>
+    public void PlaceFieldRiichiTenbous(int count) {
+        if (count <= 0 || riichiTenbouPrefab == null || topPosPanel == null || topPosPanel.tenbouPos == null) return;
+        Transform anchor = topPosPanel.tenbouPos;
+        Quaternion rot = RiichiTenbouPlacementRotation("top");
+        for (int i = 0; i < count; i++) {
+            Vector3 offset = RightDirection * (cardWidth * 0.15f * i);
+            GameObject tenbou = Instantiate(riichiTenbouPrefab, anchor.position + offset, rot);
+            tenbou.name = $"FieldRiichiTenbou_{i}";
+            tenbou.transform.SetParent(anchor.parent, worldPositionStays: true);
+        }
+    }
+
     /// <summary>立直棒落点朝向：与各家河牌俯视一致，不继承 UI 节点旋转。</summary>
     private Quaternion RiichiTenbouPlacementRotation(string playerPosition) {
         if (playerPosition == "self") return Quaternion.Euler(90, 0, 180);
@@ -132,7 +147,7 @@ public partial class Game3DManager : MonoBehaviour {
             if (panel.tenbouPos == null || panel.tenbouPos.parent == null) continue;
             for (int i = panel.tenbouPos.parent.childCount - 1; i >= 0; i--) {
                 Transform t = panel.tenbouPos.parent.GetChild(i);
-                if (t != null && t.name.StartsWith("RiichiTenbou_")) {
+                if (t != null && (t.name.StartsWith("RiichiTenbou_") || t.name.StartsWith("FieldRiichiTenbou_"))) {
                     Destroy(t.gameObject);
                 }
             }

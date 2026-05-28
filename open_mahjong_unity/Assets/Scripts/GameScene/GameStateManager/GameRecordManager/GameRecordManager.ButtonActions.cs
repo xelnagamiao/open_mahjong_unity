@@ -179,10 +179,7 @@ public partial class GameRecordManager {
     }
 
     private void QuitRecord() {
-        Game3DManager.Instance.Clear3DTile();
-        GameRecordManager.Instance.HideGameRecord();
-        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
-        WindowsManager.Instance.SwitchWindow("menu");
+        PostGameNavigator.ExitToRecord();
     }
 
     private static readonly HashSet<string> XunmuPauseActionKeys = new HashSet<string> {

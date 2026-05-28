@@ -74,20 +74,33 @@ public class WindowsManager : MonoBehaviour {
 
     // 切换窗口
     public void SwitchWindow(string targetWindow) {
+        StartSwitchWindow(targetWindow, ensureHeader: false);
+    }
+
+    /// <summary>
+    /// 真正离开 gamePanel（牌谱/观战/对局结束等）：先关闭游戏窗，再切到带 header 的目标页。
+    /// 对局进行中挂后台浏览请继续用 SwitchWindow("menu")，不要调用本方法。
+    /// </summary>
+    public void ExitGameTo(string targetWindow) {
+        if (gamePanel != null) gamePanel.SetActive(false);
+        StartSwitchWindow(targetWindow, ensureHeader: true);
+    }
+
+    private void StartSwitchWindow(string targetWindow, bool ensureHeader) {
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
             _switchRoutine = null;
             NormalizeCanvasGroups();
         }
         Debug.Log($"切换到{targetWindow}窗口");
-        _switchRoutine = StartCoroutine(SwitchWindowRoutine(targetWindow));
+        _switchRoutine = StartCoroutine(SwitchWindowRoutine(targetWindow, ensureHeader));
     }
 
-    private IEnumerator SwitchWindowRoutine(string targetWindow) {
+    private IEnumerator SwitchWindowRoutine(string targetWindow, bool ensureHeader = false) {
         var wasActive = new HashSet<GameObject>(); // 当前激活窗口集合
         CollectCurrentlyActiveManaged(wasActive); // 读取 activeSelf 现况
         var willActive = new HashSet<GameObject>(wasActive); // 目标集合
-        ApplySwitchSequenceToSet(willActive, targetWindow); // 计算切换后的目标激活集合
+        ApplySwitchSequenceToSet(willActive, targetWindow, ensureHeader); // 计算切换后的目标激活集合
 
         ApplyHeaderPanelInstant(wasActive, willActive); // 顶部栏即时切换
         currentWindow = targetWindow; // 更新当前窗口状态
@@ -162,7 +175,7 @@ public class WindowsManager : MonoBehaviour {
     /// <summary>
     /// 与原先 SwitchWindow 里 SetActive 顺序等：在「当前激活集合」上做同样的关/开，得到切换后应激活的集合。
     /// </summary>
-    private void ApplySwitchSequenceToSet(HashSet<GameObject> s, string targetWindow) {
+    private void ApplySwitchSequenceToSet(HashSet<GameObject> s, string targetWindow, bool ensureHeader = false) {
         void Off(GameObject go) {
             if (go != null) s.Remove(go);
         }
@@ -178,8 +191,14 @@ public class WindowsManager : MonoBehaviour {
         Off(roomRoot);
         Off(sceneConfigPanel);
         Off(spectatorPanel);
-        if (matchPanel != null) Off(matchPanel);
-        if (friendPanel != null) Off(friendPanel);
+        Off(matchPanel);
+        Off(friendPanel);
+        if (ensureHeader) {
+            Off(gamePanel);
+            if (targetWindow != "login" && targetWindow != "game" && targetWindow != "recordscene") {
+                On(headerPanel);
+            }
+        }
         switch (targetWindow) {
             case "login":
                 Off(gamePanel);
