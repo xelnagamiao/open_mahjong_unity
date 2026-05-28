@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 #if UNITY_WEBGL && !UNITY_EDITOR
-using WebGLSupport;
+using WebGLInputPlugin = WebGLSupport.WebGLInput;
 #endif
 
 public class ChatPanel : MonoBehaviour {
@@ -108,7 +108,7 @@ public class ChatPanel : MonoBehaviour {
         yield return null;
         MessageInputField.SetTextWithoutNotify("");
 #if UNITY_WEBGL && !UNITY_EDITOR
-        WebGLInput webGlInput = MessageInputField.GetComponent<WebGLInput>();
+        WebGLInputPlugin webGlInput = MessageInputField.GetComponent<WebGLInputPlugin>();
         if (webGlInput != null) {
             MessageInputField.text = "";
             webGlInput.SyncText(0);
