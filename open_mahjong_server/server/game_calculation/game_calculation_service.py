@@ -207,6 +207,7 @@ class GameCalculationService:
         way_to_hepai: List[str],
         get_tile: int,
         context: dict = None,
+        combination_masks: List[List[int]] = None,
     ) -> dict:
         """
         立直麻将和牌检查（基于 mahjong 库）。
@@ -215,7 +216,8 @@ class GameCalculationService:
         """
         with self._lock:
             return self._riichi_hepai_check.hepai_check(
-                hand_list, tiles_combination, way_to_hepai, get_tile, context or {}
+                hand_list, tiles_combination, way_to_hepai, get_tile, context or {},
+                combination_masks=combination_masks,
             )
 
     def Riichi_tingpai_check(self, hand_tile_list: List[int], combination_list: List[str]) -> Set[int]:

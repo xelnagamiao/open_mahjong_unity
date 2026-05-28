@@ -1,0 +1,69 @@
+{
+  "_comment": "国标麻将牌谱示例（planned round_meta 格式）。pN_tiles 按本局 player_index=N 存储；seats[original_i]=本局 seat。",
+  "game_title": {
+    "rule": "guobiao",
+    "room_type": "custom",
+    "sub_rule": "guobiao/standard",
+    "game_random_seed": 4212994277,
+    "max_round": 2,
+    "hepai_limit": 8,
+    "open_cuohe": false,
+    "tips": true,
+    "is_player_set_random_seed": false,
+    "p0_uid": 10000001,
+    "p0_name": "玩家A",
+    "p1_uid": 10000002,
+    "p1_name": "玩家B",
+    "p2_uid": 10000003,
+    "p2_name": "玩家C",
+    "p3_uid": 10000004,
+    "p3_name": "玩家D"
+  },
+  "game_round": {
+    "round_index_1": {
+      "round_index": 1,
+      "current_round": 1,
+      "round_random_seed": 4068050480,
+      "round_meta": {
+        "seats": [0, 1, 2, 3],
+        "dealer_index": 0,
+        "start_player_index": 0
+      },
+      "p0_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "p1_tiles": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "p2_tiles": [51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64],
+      "p3_tiles": [71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "tiles_list": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64, 71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "action_ticks": [
+        ["d", 21],
+        ["c", 21, "F"],
+        ["d", 35],
+        ["c", 35, "T"],
+        ["hu_self", 0, 8, ["平和", "自摸"], [24, -8, -8, -8]],
+        ["end"]
+      ]
+    },
+    "round_index_2": {
+      "round_index": 2,
+      "current_round": 2,
+      "round_random_seed": 1752449488,
+      "round_meta": {
+        "seats": [3, 0, 1, 2],
+        "dealer_index": 0,
+        "start_player_index": 0
+      },
+      "_round_meta_note": "东1局结束后 back_current_num 一次：original0→seat3, original1→seat0, original2→seat1, original3→seat2",
+      "p0_tiles": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "p1_tiles": [51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64],
+      "p2_tiles": [71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "p3_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "tiles_list": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64, 71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "action_ticks": [
+        ["d", 42],
+        ["c", 42, "F"],
+        ["liuju"],
+        ["end"]
+      ]
+    }
+  }
+}

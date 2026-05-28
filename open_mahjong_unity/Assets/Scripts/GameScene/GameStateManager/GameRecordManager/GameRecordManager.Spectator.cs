@@ -82,9 +82,7 @@ public partial class GameRecordManager {
             StopCoroutine(autoPlayCoroutine);
             autoPlayCoroutine = null;
         }
-        Game3DManager.Instance.Clear3DTile();
-        HideGameRecord();
-        GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
+        GameSceneTeardown.ResetToIdle();
         UserDataManager.Instance.SetGamestateId("");
     }
 
@@ -240,8 +238,7 @@ public partial class GameRecordManager {
                 Debug.LogError($"发送退出观战消息失败: {e.Message}");
             }
         }
-        StopSpectating();
-        WindowsManager.Instance.SwitchWindow("menu");
+        PostGameNavigator.ExitToSpectator();
     }
 
     private void ShowSpectatorModePanel(bool show) {

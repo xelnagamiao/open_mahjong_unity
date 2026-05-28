@@ -59,12 +59,7 @@ public class ExitButtonManager : MonoBehaviour {
         if (FriendNetworkManager.Instance != null) {
             FriendNetworkManager.Instance.ExitRealtime();
         }
-        if (NormalGameStateManager.Instance != null) {
-            NormalGameStateManager.Instance.StopAsRealtimeSpectator();
-        }
-        if (WindowsManager.Instance != null) {
-            WindowsManager.Instance.SwitchWindow("menu");
-        }
+        PostGameNavigator.ExitToFriend();
     }
 
     /// <summary>对外暴露按钮引用，供 GameRecordManager 等绑定 onClick。</summary>

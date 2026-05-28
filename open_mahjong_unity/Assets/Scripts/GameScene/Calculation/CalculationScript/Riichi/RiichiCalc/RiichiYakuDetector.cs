@@ -305,7 +305,7 @@ namespace Riichi {
         }
 
         private void DetectDora(List<RiichiSet> sets, DetectResult result) {
-            var allTiles = CollectAllTilesRaw(sets);
+            var allTiles = CollectAllTilesWithMasks(sets);
             int dora = 0;
             foreach (int ind in _ctx.DoraIndicators) {
                 int target = RiichiTileUtil.DoraFromIndicator(ind);
@@ -496,6 +496,16 @@ namespace Riichi {
 
         private static List<int> CollectAllTilesRaw(List<RiichiSet> sets) {
             return CollectAllTiles(sets);
+        }
+
+        private List<int> CollectAllTilesWithMasks(List<RiichiSet> sets) {
+            var allTiles = CollectAllTilesRaw(sets);
+            if (_ctx.CombinationMasks != null) {
+                foreach (var mask in _ctx.CombinationMasks) {
+                    allTiles.AddRange(RiichiTileUtil.TilesFromMask(mask));
+                }
+            }
+            return allTiles;
         }
     }
 

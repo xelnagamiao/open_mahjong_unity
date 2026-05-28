@@ -99,5 +99,22 @@ namespace Riichi {
         public static bool IsGreen(int tileId) {
             return GreenTiles.Contains(Normalize(tileId));
         }
+
+        public static List<int> TilesFromMask(int[] mask) {
+            var list = new List<int>();
+            if (mask == null) return list;
+            for (int i = 1; i < mask.Length; i += 2) {
+                if (mask[i] >= 10) list.Add(mask[i]);
+            }
+            return list;
+        }
+
+        public static int CountAkaInTiles(IEnumerable<int> tiles) {
+            int count = 0;
+            foreach (int t in tiles) {
+                if (IsRedFive(t)) count++;
+            }
+            return count;
+        }
     }
 }

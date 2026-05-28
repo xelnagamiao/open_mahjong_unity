@@ -353,8 +353,9 @@ public class TipsContainer : MonoBehaviour
         int hepaiTile,
         List<int> handList,
         List<string> combinationList) {
+        var combinationMasks = NormalGameStateManager.Instance.player_to_info["self"].combination_masks;
         RiichiHandResult ronResult = RiichiExternal.FullHepaiCheck(
-            handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: false));
+            handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: false, combinationMasks));
 
         RiichiHandResult displayResult = ronResult;
         string kindTag = "dianhe";
@@ -362,7 +363,7 @@ public class TipsContainer : MonoBehaviour
         if (!ronResult.IsValid || ronResult.Score <= 0) {
             // 点和不成立或番数不足 → 改按自摸重算
             var tsumoResult = RiichiExternal.FullHepaiCheck(
-                handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: true));
+                handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: true, combinationMasks));
             if (tsumoResult.IsValid && tsumoResult.Score > 0) {
                 displayResult = tsumoResult;
                 kindTag = "zimo";
@@ -382,11 +383,12 @@ public class TipsContainer : MonoBehaviour
     /// <summary>
     /// 从 NormalGameStateManager 读取必要字段构造立直和牌上下文（门风/场风/宝牌/立直态等）。
     /// </summary>
-    private RiichiHandContext BuildRiichiContext(bool isTsumo) {
+    private RiichiHandContext BuildRiichiContext(bool isTsumo, List<int[]> combinationMasks) {
         NormalGameStateManager gm = NormalGameStateManager.Instance;
         var ctx = new RiichiHandContext {
             IsTsumo = isTsumo,
             HasOpenTanyao = true,
+            CombinationMasks = combinationMasks,
         };
 
         string[] selfTags = gm.player_to_info["self"].tag_list;
@@ -398,8 +400,15 @@ public class TipsContainer : MonoBehaviour
             }
         }
 
-        int relativeFromDealer = ((gm.selfIndex - gm.dealerIndex) % 4 + 4) % 4;
-        ctx.PlayerWind = RiichiTileUtil.East + relativeFromDealer;
+        if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
+            ctx.IsPendingRiichi = true;
+            if (!ctx.IsRiichi) {
+                ctx.IsRiichi = true;
+                ctx.IsDaburuRiichi = IsDaburuRiichiCandidate(gm);
+            }
+        }
+
+        ctx.PlayerWind = RiichiTileUtil.East + gm.selfIndex;
         int roundWindOffset = Mathf.Clamp((gm.currentRound - 1) / 4, 0, 3);
         ctx.RoundWind = RiichiTileUtil.East + roundWindOffset;
 
@@ -407,6 +416,26 @@ public class TipsContainer : MonoBehaviour
         // 里宝仅立直者在和牌时才能看到；tips 阶段若已立直，允许展示理论值（服务端仍以结算为准）
         ctx.UraDoraIndicators = new List<int>();
         return ctx;
+    }
+
+    /// <summary>
+    /// 两立直条件：自家尚无理论弃牌，且其他玩家均无吃碰明杠。
+    /// </summary>
+    private static bool IsDaburuRiichiCandidate(NormalGameStateManager gm) {
+        var selfOrigin = gm.player_to_info["self"].discard_origin_tiles;
+        if (selfOrigin != null && selfOrigin.Count > 0) return false;
+
+        string[] others = { "left", "top", "right" };
+        foreach (string pos in others) {
+            var combos = gm.player_to_info[pos].combination_tiles;
+            if (combos == null) continue;
+            foreach (string combo in combos) {
+                if (combo.Length == 0) continue;
+                char sign = combo[0];
+                if (sign == 's' || sign == 'k' || sign == 'g') return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>

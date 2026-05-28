@@ -462,7 +462,7 @@ const buildStatsRows = (s) => [
 
   { label: '和牌率', value: ratio(s.win_count, s.total_rounds) },
 
-  { label: '自摸率', value: ratio(s.self_draw_count, s.total_rounds) },
+  { label: '自摸率', value: ratio(s.self_draw_count, s.win_count) },
 
   { label: '放铳率', value: ratio(s.deal_in_count, s.total_rounds) },
 

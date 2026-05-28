@@ -535,9 +535,9 @@ public class PlayerInfoPanel : MonoBehaviour {
             gameStatsList.Add(new KeyValuePair<string, string>("和牌率", "0.00%"));
         }
 
-        // 自摸率（自摸次数 / 总小局数）
-        if (stats.self_draw_count.HasValue && totalRounds > 0){
-            float selfDrawRate = (float)stats.self_draw_count.Value / totalRounds.Value * 100f;
+        // 自摸率（自摸次数 / 和牌次数）
+        if (stats.self_draw_count.HasValue && winCount > 0){
+            float selfDrawRate = (float)stats.self_draw_count.Value / winCount.Value * 100f;
             gameStatsList.Add(new KeyValuePair<string, string>("自摸率", $"{selfDrawRate:F2}%"));
         }
         else{

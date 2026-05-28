@@ -183,6 +183,7 @@ async def wait_action(self):
                     # 暗杠 4 张中可能含有赤 5（105/205/305），按归一化移除并记录真实牌 ID
                     removed = [_remove_by_normal(self.player_list[self.current_player_index].hand_tiles, normal_angang) for _ in range(4)]
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
+                    # 日麻暗杠：四张均牌背竖置，与两侧一致
                     mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
                     self.player_list[self.current_player_index].combination_mask.append(mask)
                     player_action_record_angang(self, angang_tile=normal_angang)
@@ -324,12 +325,13 @@ async def wait_action(self):
                         was_horizontal = discarder.discard_riichi_flags.pop(-1)
                         if was_horizontal:
                             discarder.riichi_marker_pending = True
-                    discarder.discard_origin_tiles.append(tile_id)
                     self.player_list[player_index].combination_mask.append(combination_mask)
                     self.current_player_index = player_index
                     player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id, action_player=player_index)
                     await broadcast_do_action(self, action_list=[action_type], action_player=self.current_player_index,
                                               combination_mask=combination_mask, combination_target=combination_target)
+                    if self.sync_furiten_tags():
+                        await broadcast_refresh_player_tag_list(self)
                     _clear_ippatsu(self)
                     # 食替：吃/碰后到本家切牌前不可丢回的牌（吃来源 + 两面搭子的筋）
                     if action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
@@ -450,6 +452,7 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
 
     player.hand_tiles.remove(tile_id)
     player.discard_tiles.append(tile_id)
+    player.discard_origin_tiles.append(tile_id)
     player.discard_riichi_flags.append(horizontal_flag)
     player.kuikae_forbidden_tiles = []
     player.riichi_marker_pending = False
@@ -457,6 +460,9 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
 
     if self.current_player_index == 0:
         self.xunmu += 1
+
+    if not is_riichi and "ippatsu" in player.tag_list:
+        player.tag_list.remove("ippatsu")
 
     if is_riichi:
         # 立直宣告后并未立刻收取立直棒——若本切牌未被荣和，则在 pass 后结算
@@ -486,9 +492,6 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
     # 自家切牌后由 sync_furiten_tags 统一调整 furiten tag（永久/同巡/立直振听归一显示）
     if self.sync_furiten_tags():
         await broadcast_refresh_player_tag_list(self)
-
-    # 清一发
-    _clear_ippatsu(self, keep_player_index=player_index if is_riichi else None)
 
     self.action_dict = check_action_after_cut(self, tile_id)
 
