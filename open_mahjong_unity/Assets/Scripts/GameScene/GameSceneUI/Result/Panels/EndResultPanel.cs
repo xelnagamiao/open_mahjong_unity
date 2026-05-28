@@ -181,55 +181,48 @@ public class EndResultPanel : MonoBehaviour {
         LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
 
         
-        // 显示玩家分数变化
-        foreach (var player in player_to_score){
-            if (NormalGameStateManager.Instance.indexToPosition[player.Key] == "self"){
-                SelfUserName.text = NormalGameStateManager.Instance.player_to_info["self"].username;
-                int SelfbeforeScore = NormalGameStateManager.Instance.player_to_info["self"].score;
-                if (SelfbeforeScore > player.Value) { 
-                    // 自己分数减少 当前分数 - 减少的分数
-                    SelfScore.text = player.Value.ToString() + "<color=red>-" + (SelfbeforeScore - player.Value) + "</color>";
-                } else if (SelfbeforeScore < player.Value) {
-                    // 自己分数增加 当前分数 + 增加的分数
-                    SelfScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - SelfbeforeScore) + "</color>";
-                } else {
-                    SelfScore.text = player.Value.ToString();
-                }
-            } else if (NormalGameStateManager.Instance.indexToPosition[player.Key] == "left") {
-                LeftUserName.text = NormalGameStateManager.Instance.player_to_info["left"].username;
-                int LeftbeforeScore = NormalGameStateManager.Instance.player_to_info["left"].score;
-                if (LeftbeforeScore > player.Value) { 
-                    LeftScore.text = player.Value.ToString() + "<color=red>-" + (LeftbeforeScore - player.Value) + "</color>";
-                } else if (LeftbeforeScore < player.Value) {
-                    LeftScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - LeftbeforeScore) + "</color>";
-                } else {
-                    LeftScore.text = player.Value.ToString();
-                }
-            } else if (NormalGameStateManager.Instance.indexToPosition[player.Key] == "top") {
-                TopUserName.text = NormalGameStateManager.Instance.player_to_info["top"].username;
-                int TopbeforeScore = NormalGameStateManager.Instance.player_to_info["top"].score;
-                if (TopbeforeScore > player.Value) { 
-                    TopScore.text = player.Value.ToString() + "<color=red>-" + (TopbeforeScore - player.Value) + "</color>";
-                } else if (TopbeforeScore < player.Value) {
-                    TopScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - TopbeforeScore) + "</color>";
-                } else {
-                    TopScore.text = player.Value.ToString();
-                }
-            } else if (NormalGameStateManager.Instance.indexToPosition[player.Key] == "right") {
-                RightUserName.text = NormalGameStateManager.Instance.player_to_info["right"].username;
-                int RightbeforeScore = NormalGameStateManager.Instance.player_to_info["right"].score;
-                if (RightbeforeScore > player.Value) { 
-                    RightScore.text = player.Value.ToString() + "<color=red>-" + (RightbeforeScore - player.Value) + "</color>";
-                } else if (RightbeforeScore < player.Value) {
-                    RightScore.text = player.Value.ToString() + "<color=green>+" + (player.Value - RightbeforeScore) + "</color>";
-                } else {
-                    RightScore.text = player.Value.ToString();
-                }
+        // 显示玩家分数变化（score_changes 按 original_player_index 索引）
+        foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
+            string pos = kvp.Value;
+            if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
+            int origIdx = playerInfo.original_player_index;
+            int beforeScore = playerInfo.score;
+            int delta = 0;
+            if (riichiExtras != null && riichiExtras.ScoreChanges != null && riichiExtras.ScoreChanges.TryGetValue(origIdx, out int change)) {
+                delta = change;
+            } else if (player_to_score != null && player_to_score.TryGetValue(origIdx, out int afterFromServer)) {
+                delta = afterFromServer - beforeScore;
+            }
+            int afterScore = beforeScore + delta;
+            string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
+            if (pos == "self") {
+                SelfUserName.text = playerInfo.username;
+                SelfScore.text = scoreText;
+            } else if (pos == "left") {
+                LeftUserName.text = playerInfo.username;
+                LeftScore.text = scoreText;
+            } else if (pos == "top") {
+                TopUserName.text = playerInfo.username;
+                TopScore.text = scoreText;
+            } else if (pos == "right") {
+                RightUserName.text = playerInfo.username;
+                RightScore.text = scoreText;
             }
         }
 
-        // 修改计分板
-        BoardCanvas.Instance.UpdatePlayerScores(player_to_score, NormalGameStateManager.Instance.indexToPosition);
+        // 修改计分板（player_to_score 键为 original_player_index）
+        if (player_to_score != null) {
+            var scoreBySeat = new Dictionary<int, int>();
+            foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
+                string pos = kvp.Value;
+                int seatIdx = kvp.Key;
+                if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
+                if (player_to_score.TryGetValue(playerInfo.original_player_index, out int score)) {
+                    scoreBySeat[seatIdx] = score;
+                }
+            }
+            BoardCanvas.Instance.UpdatePlayerScores(scoreBySeat, NormalGameStateManager.Instance.indexToPosition);
+        }
     }
 
     private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {

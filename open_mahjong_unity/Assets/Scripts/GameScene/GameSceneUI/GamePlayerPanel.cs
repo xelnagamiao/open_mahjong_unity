@@ -75,4 +75,17 @@ public class GamePlayerPanel : MonoBehaviour {
             }
         }
     }
+
+    public void Clear() {
+        playerNameText.text = "";
+        playerTitleText.text = "";
+        if (playerProfilePicture != null) {
+            Sprite profileSprite = Resources.Load<Sprite>("image/Profiles/1");
+            if (profileSprite != null) playerProfilePicture.sprite = profileSprite;
+            ProfileOnClick profileOnClick = playerProfilePicture.GetComponent<ProfileOnClick>();
+            if (profileOnClick != null) profileOnClick.user_id = 0;
+        }
+        UpdateTagList(null);
+        if (GoToRecordSelectButton != null) GoToRecordSelectButton.gameObject.SetActive(false);
+    }
 }

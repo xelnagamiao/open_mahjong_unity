@@ -440,10 +440,7 @@ public class NetworkManager : MonoBehaviour {
 
     private void HandleSpectatorRemoveResult(Response response) {
         Debug.Log($"观战移除: {response.message}");
-        if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
-            GameRecordManager.Instance.StopSpectating();
-        }
-        WindowsManager.Instance.SwitchWindow("menu");
+        PostGameNavigator.ExitToSpectator();
     }
 
     // 发送发布版版本号

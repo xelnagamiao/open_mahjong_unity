@@ -131,6 +131,7 @@ public partial class NormalGameStateManager {
                         // 加杠情况下收到的combination_target是原本刻子的字符串
                         // 替换combination_target的首字符改为加杠字符串
                         string combination_target_str = combination_target.Substring(1);
+                        ReplaceCombinationMask(player_to_info[GetCardPlayer], combination_target, combination_mask);
                         player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}"); // 存储组合牌
                         player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target); // 删除刻子组合牌
                         int tile_id = int.Parse(combination_target_str);
@@ -146,6 +147,7 @@ public partial class NormalGameStateManager {
                     else if (action == "angang"){
                         // 暗杠情况下需要删除完整手牌
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
                         List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
                         foreach (int tile_id in need_remove_list){
                             if (GetCardPlayer == "self"){
@@ -161,6 +163,7 @@ public partial class NormalGameStateManager {
                     else if (action == "gang"){
                         // 杠情况下需要删除3张手牌（相对于暗杠少删一张）
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
                         List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
                         need_remove_list.RemoveAt(need_remove_list.Count - 1); // 删除一张牌（杠相对于暗杠少删一张）
                         foreach (int tile_id in need_remove_list){
@@ -184,6 +187,7 @@ public partial class NormalGameStateManager {
                         player_to_info[CurrentPlayer].discard_origin_tiles.Add(lastCutCardID); // 添加上次切牌的理论弃牌
 
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
                         List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
                         need_remove_list.Remove(lastCutCardID); // 剔除上次切牌的ID
                         foreach (int tile_id in need_remove_list){
@@ -208,6 +212,21 @@ public partial class NormalGameStateManager {
         player_to_info["self"].hand_tiles_count = selfHandTiles.Count;
         // 切换行动者
         SwitchCurrentPlayer(GetCardPlayer,"doAction",0);
+    }
+
+    private static void AppendCombinationMask(PlayerInfoClass player, int[] mask) {
+        if (player.combination_masks == null) player.combination_masks = new List<int[]>();
+        player.combination_masks.Add(mask);
+    }
+
+    private static void ReplaceCombinationMask(PlayerInfoClass player, string oldCombo, int[] mask) {
+        if (player.combination_masks == null) player.combination_masks = new List<int[]>();
+        int idx = player.combination_tiles.IndexOf(oldCombo);
+        if (idx >= 0 && idx < player.combination_masks.Count) {
+            player.combination_masks[idx] = mask;
+        } else {
+            player.combination_masks.Add(mask);
+        }
     }
 
     private static List<string> BuildMingPaiAllowActionList(string[] action_list) {

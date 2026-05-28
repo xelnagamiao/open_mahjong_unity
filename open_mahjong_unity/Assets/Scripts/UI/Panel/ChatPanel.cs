@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+#if UNITY_WEBGL && !UNITY_EDITOR
+using WebGLSupport;
+#endif
 
 public class ChatPanel : MonoBehaviour {
     [SerializeField] private GameObject ThisChatPanel; // 当前聊天面板
@@ -96,13 +99,22 @@ public class ChatPanel : MonoBehaviour {
 
         // 调用 ChatManager 发送消息
         ChatManager.Instance.SendChatMessage(message, targetChannelId);
-        
-        // 清空输入框并重新激活焦点，保持输入框选中状态
-        if (MessageInputField != null) {
+        StartCoroutine(ClearInputAfterSendCoroutine());
+    }
+
+    private IEnumerator ClearInputAfterSendCoroutine() {
+        if (MessageInputField == null) yield break;
+        MessageInputField.SetTextWithoutNotify("");
+        yield return null;
+        MessageInputField.SetTextWithoutNotify("");
+#if UNITY_WEBGL && !UNITY_EDITOR
+        WebGLInput webGlInput = MessageInputField.GetComponent<WebGLInput>();
+        if (webGlInput != null) {
             MessageInputField.text = "";
-            // 延迟一帧后重新激活输入框，确保焦点保持
-            StartCoroutine(ReactivateInputFieldCoroutine());
+            webGlInput.SyncText(0);
         }
+#endif
+        MessageInputField.ActivateInputField();
     }
 
     // 显示聊天消息
@@ -174,14 +186,6 @@ public class ChatPanel : MonoBehaviour {
         }
     }
 
-    // 重新激活输入框焦点的协程
-    private IEnumerator ReactivateInputFieldCoroutine(){
-        yield return null; // 等待一帧
-        if (MessageInputField != null) {
-            MessageInputField.ActivateInputField(); // 重新激活输入框焦点
-        }
-    }
-
     // 输入框被选中事件
     private void OnInputFieldSelected(string text){
         ShowScrollbar();
@@ -190,8 +194,8 @@ public class ChatPanel : MonoBehaviour {
 
     // 输入框提交事件（仅按下回车时触发）
     private void OnInputFieldSubmit(string text){
-        // 按下回车时自动发送消息
-        OnSendButtonClick();
+        if (string.IsNullOrEmpty(text)) return;
+        SendChatMessage(text);
     }
 
     // 隐藏垂直滚动栏（x坐标设置为-600单位）

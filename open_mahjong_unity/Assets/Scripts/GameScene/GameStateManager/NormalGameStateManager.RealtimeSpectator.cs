@@ -14,7 +14,7 @@ public partial class NormalGameStateManager {
     }
 
     /// <summary>
-    /// 退出实时观战模式（主动 ExitRealtime / 被 Kick / 游戏结束）：清空标志位与底层按钮显示，调用方负责切回主菜单。
+    /// 退出实时观战模式：清空标志位与按钮显示，不销毁场景（由 PostGameNavigator 统一 teardown）。
     /// </summary>
     public void StopAsRealtimeSpectator() {
         IsRealtimeSpectator = false;
@@ -45,14 +45,12 @@ public partial class NormalGameStateManager {
     private void HandleRealtimeKicked(Response response) {
         if (!IsRealtimeSpectator) return;
         NotificationManager.Instance?.ShowTip("实时观战", false, response?.message ?? "您已被踢出实时观战");
-        StopAsRealtimeSpectator();
-        WindowsManager.Instance?.SwitchWindow("menu");
+        PostGameNavigator.ExitToFriend();
     }
 
     private void HandleRealtimeEnded(Response response) {
         if (!IsRealtimeSpectator) return;
         NotificationManager.Instance?.ShowTip("实时观战", true, response?.message ?? "被观战的对局已结束");
-        StopAsRealtimeSpectator();
-        WindowsManager.Instance?.SwitchWindow("menu");
+        PostGameNavigator.ExitToFriend();
     }
 }

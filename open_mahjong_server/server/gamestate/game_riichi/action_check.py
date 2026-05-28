@@ -238,9 +238,9 @@ def _is_menqianqing(combination_tiles: list) -> bool:
     return True
 
 
-def _is_furiten(player, discards_own: List[int]) -> bool:
-    """自家振听：听牌中任意一种在自家弃牌中出现过。"""
-    own_norm = {_normalize(t) for t in discards_own}
+def _is_furiten(player) -> bool:
+    """自家振听：听牌中任意一种在自家理论弃牌（discard_origin_tiles）中出现过。"""
+    own_norm = {_normalize(t) for t in player.discard_origin_tiles}
     for w in player.waiting_tiles:
         if w in own_norm:
             return True
@@ -317,7 +317,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
 
     # 荣和方振听判定（永久 / 同巡 / 立直）
     if hepai_type in ("ron", "chankan"):
-        if _is_furiten(player, player.discard_tiles) or player.temp_furiten or getattr(player, "riichi_furiten", False):
+        if _is_furiten(player) or player.temp_furiten or getattr(player, "riichi_furiten", False):
             return
 
     is_haitei = hepai_type == "tsumo" and len(self.tiles_list) <= self.dead_wall_count and not is_get_gang_tile
@@ -334,10 +334,10 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "is_chankan": hepai_type == "chankan",
         "is_haitei": is_haitei,
         "is_houtei": is_houtei,
-        "is_tenhou": is_first_action and hepai_type == "tsumo" and player.player_index == self.dealer_index and not player.combination_tiles,
-        "is_chiihou": is_first_action and hepai_type == "tsumo" and player.player_index != self.dealer_index and not player.combination_tiles,
-        "player_wind": (player.player_index - self.dealer_index) % 4,
-        "round_wind": 0 if self.current_round <= 4 else 1,
+        "is_tenhou": is_first_action and hepai_type == "tsumo" and player.player_index == 0 and not player.combination_tiles,
+        "is_chiihou": is_first_action and hepai_type == "tsumo" and player.player_index != 0 and not player.combination_tiles,
+        "player_wind": player.player_index,
+        "round_wind": min((self.current_round - 1) // 4, 3),
         "has_open_tanyao": True,
         "dora_indicators": self.dora_indicators + self.kan_dora_indicators,
         "ura_dora_indicators": ura_dora,
@@ -347,7 +347,8 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
     }
 
     result = self.calculation_service.Riichi_hepai_check(
-        tiles_list, player.combination_tiles, [], hepai_tile, ctx
+        tiles_list, player.combination_tiles, [], hepai_tile, ctx,
+        combination_masks=player.combination_mask,
     )
 
     if not result.get("is_valid"):

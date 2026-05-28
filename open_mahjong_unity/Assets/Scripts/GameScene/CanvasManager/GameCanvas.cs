@@ -98,8 +98,31 @@ public partial class GameCanvas : MonoBehaviour {
         }
     }
 
+    public void ClearHandCardQueue() {
+        StopAndClearChangeHandCardQueue();
+    }
+
+    /// <summary>
+    /// 退出对局/牌谱/观战后还原 2D 玩家信息与手牌区。
+    /// </summary>
+    public void ResetForExit() {
+        ClearHandCardQueue();
+        for (int i = handCardsContainer.childCount - 1; i >= 0; i--) {
+            Destroyer.Instance.AddToDestroyer(handCardsContainer.GetChild(i));
+        }
+        playerSelfPanel?.Clear();
+        playerLeftPanel?.Clear();
+        playerTopPanel?.Clear();
+        playerRightPanel?.Clear();
+        ClearActionButton();
+        SetScoreRecordOpen(false);
+        RefreshSelfFuritenIndicator();
+        gameObject.SetActive(false);
+    }
+
     // 初始化游戏UI
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
+        gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
@@ -149,6 +172,7 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 从牌谱记录初始化游戏UI
     public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
+        gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
