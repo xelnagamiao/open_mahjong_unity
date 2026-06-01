@@ -159,8 +159,8 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
         logger.info(f'牌谱记录已保存到 game_records 表，game_id: {game_id}')
         
         game_title = game_record.get("game_title") or {}
-        rule = game_title.get("rule") or "qingque"
-        sub_rule = game_title.get("sub_rule") or "qingque/standard"
+        rule = game_title["rule"]
+        sub_rule = game_title["sub_rule"]
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result

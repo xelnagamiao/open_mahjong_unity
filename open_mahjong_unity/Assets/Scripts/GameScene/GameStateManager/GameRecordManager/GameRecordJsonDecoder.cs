@@ -4,12 +4,8 @@ using Newtonsoft.Json.Linq;
 
 /// <summary>
 /// 专门负责解析牌谱 JSON，并把结果转换为结构化的牌谱数据。
-/// 使用 Newtonsoft.Json 进行 JSON 解析，直接转换为 GameRecord 数据结构。
 /// </summary>
 public static class GameRecordJsonDecoder {
-    /// <summary>
-    /// 解析完整的牌谱 JSON，返回结构化的 GameRecord 对象
-    /// </summary>
     public static GameRecord ParseGameRecord(string recordJson) {
         if (string.IsNullOrEmpty(recordJson)) {
             throw new ArgumentException("牌谱 JSON 字符串不能为空", nameof(recordJson));
@@ -59,70 +55,64 @@ public static class GameRecordJsonDecoder {
             }
 
             return gameRecord;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new Exception($"解析牌谱 JSON 失败: {e.Message}", e);
         }
     }
 
-    /// <summary>
-    /// 解析单个 round_index_x 的数据
-    /// </summary>
-    private static Round ParseRound(JObject roundData, int roundIndex, Dictionary<int, int> playerUserIds) {
-        Round round = new Round();
-
-        // 解析 round_index（如果存在，优先使用 JSON 中的值，否则使用传入的参数）
+    public static void ApplyRoundHeader(Round round, JObject roundData, int roundIndex) {
         if (roundData["round_index"] != null) {
             round.roundIndex = roundData["round_index"].Value<int>();
         } else {
             round.roundIndex = roundIndex;
         }
 
-        // 设置玩家 userid
-        if (playerUserIds.ContainsKey(0)) {
-            round.p0UserId = playerUserIds[0];
-        }
-        if (playerUserIds.ContainsKey(1)) {
-            round.p1UserId = playerUserIds[1];
-        }
-        if (playerUserIds.ContainsKey(2)) {
-            round.p2UserId = playerUserIds[2];
-        }
-        if (playerUserIds.ContainsKey(3)) {
-            round.p3UserId = playerUserIds[3];
-        }
-
-        // 解析 round_random_seed
         if (roundData["round_random_seed"] != null) {
             round.roundRandomSeed = roundData["round_random_seed"].Value<long>();
         }
-
-        // 解析 current_round
         if (roundData["current_round"] != null) {
             round.currentRound = roundData["current_round"].Value<int>();
         }
 
-        // 解析各玩家的手牌
-        if (roundData["p0_tiles"] != null) {
-            round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>();
+        if (roundData["seats"] == null) {
+            throw new Exception($"round_index_{roundIndex} 缺少 seats 字段");
         }
-        if (roundData["p1_tiles"] != null) {
-            round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>();
+        round.seats = roundData["seats"].ToObject<List<int>>();
+        if (round.seats == null || round.seats.Count != 4) {
+            throw new Exception($"round_index_{roundIndex} seats 必须为长度 4 的数组");
         }
-        if (roundData["p2_tiles"] != null) {
-            round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>();
+        if (roundData["dealer_index"] == null || roundData["start_player_index"] == null) {
+            throw new Exception($"round_index_{roundIndex} 缺少 dealer_index 或 start_player_index");
         }
-        if (roundData["p3_tiles"] != null) {
-            round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>();
+        round.dealerIndex = roundData["dealer_index"].Value<int>();
+        round.startPlayerIndex = roundData["start_player_index"].Value<int>();
+
+        if (roundData["riichi"] is JObject riichiObj) {
+            round.riichi = new RiichiRoundExtras {
+                honba = riichiObj["honba"]?.Value<int>() ?? 0,
+                riichiSticks = riichiObj["riichi_sticks"]?.Value<int>() ?? 0,
+            };
         }
 
-        // 解析 tiles_list（牌堆列表）
-        if (roundData["tiles_list"] != null) {
-            round.tilesList = roundData["tiles_list"].ToObject<List<int>>();
-        }
+        if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>();
+        if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>();
+        if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>();
+        if (roundData["p3_tiles"] != null) round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>();
+        if (roundData["tiles_list"] != null) round.tilesList = roundData["tiles_list"].ToObject<List<int>>();
+    }
 
-        // 解析 action_ticks（操作记录）
-        // end/hu_fan/score_changes 内含数组，不能直接用 List<List<string>> 反序列化，需手动解析
+    public static void ApplyPlayerUserIds(Round round, Dictionary<int, int> playerUserIds) {
+        if (playerUserIds.ContainsKey(0)) round.p0UserId = playerUserIds[0];
+        if (playerUserIds.ContainsKey(1)) round.p1UserId = playerUserIds[1];
+        if (playerUserIds.ContainsKey(2)) round.p2UserId = playerUserIds[2];
+        if (playerUserIds.ContainsKey(3)) round.p3UserId = playerUserIds[3];
+    }
+
+    private static Round ParseRound(JObject roundData, int roundIndex, Dictionary<int, int> playerUserIds) {
+        Round round = new Round();
+        ApplyPlayerUserIds(round, playerUserIds);
+        ApplyRoundHeader(round, roundData, roundIndex);
+
         JArray actionTicks = roundData["action_ticks"] as JArray;
         if (actionTicks != null) {
             round.actionTicks = new List<List<string>>();
@@ -139,17 +129,16 @@ public static class GameRecordJsonDecoder {
                 }
                 round.actionTicks.Add(tick);
 
-                // 和牌/流局动作 → 累加 scoreChanges（支持错和+正常和牌多次出现）
                 string act = tick[0];
                 if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
                     int[] sc = ParseScoreChangesFromTick(tick, 4);
-                    AccumulateScoreChanges(round, sc);
+                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
                 } else if (act == "hu_riichi" && tick.Count >= 7) {
                     int[] sc = ParseScoreChangesFromTick(tick, 6);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, roundIndex));
+                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
                 } else if (act == "ryuukyoku" && tick.Count >= 3) {
                     int[] sc = ParseScoreChangesFromTick(tick, 2);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, roundIndex));
+                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
                 }
             }
         }
@@ -169,23 +158,21 @@ public static class GameRecordJsonDecoder {
     }
 
     /// <summary>
-    /// 立直 tick 中 score_changes 按当局 playerIndex 排列，转换为 originalPlayerIndex 顺序以便计分表统一展示。
-    /// playerIndex = back^rotateSteps(original)，故 original = (playerIndex + rotateSteps) % 4。
+    /// tick 内 score_changes 按 player_index 排列，转换为 original 顺序。
+    /// seats[original_i] = player_index。
     /// </summary>
-    private static int[] ConvertPlayerIndexScoreChangesToOriginal(int[] byPlayerIndex, int roundIndex) {
-        if (byPlayerIndex == null) return null;
-        int rotateSteps = ((roundIndex - 1) % 4 + 4) % 4;
+    public static int[] ConvertPlayerIndexScoreChangesToOriginal(int[] byPlayerIndex, List<int> seats) {
+        if (byPlayerIndex == null || seats == null || seats.Count < 4) return null;
         int[] byOriginal = new int[4];
-        for (int pi = 0; pi < 4 && pi < byPlayerIndex.Length; pi++) {
-            int orig = (pi + rotateSteps) % 4;
-            byOriginal[orig] = byPlayerIndex[pi];
+        for (int orig = 0; orig < 4; orig++) {
+            int seat = seats[orig];
+            if (seat >= 0 && seat < byPlayerIndex.Length) {
+                byOriginal[orig] = byPlayerIndex[seat];
+            }
         }
         return byOriginal;
     }
 
-    /// <summary>
-    /// 从 tick 的指定索引解析 score_changes JSON 数组 → int[]
-    /// </summary>
     private static int[] ParseScoreChangesFromTick(List<string> tick, int index) {
         if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
         try {

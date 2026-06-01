@@ -18,14 +18,14 @@ from datetime import date, datetime
 def init_game_record(self):
     self.game_record["game_title"] = {
         "rule": self.room_rule,
-        "room_type": getattr(self, "room_type", "custom"),
+        "room_type": self.room_type,
         "game_random_seed": self.game_random_seed,
         "max_round": self.max_round,
         "start_time": datetime.now(),
         "open_cuohe": self.open_cuohe,
         "tips": self.tips,
         "is_player_set_random_seed": self.isPlayerSetRandomSeed,
-        "hepai_limit": getattr(self, "hepai_limit", None),
+        "hepai_limit": self.hepai_limit,
         "p0_uid": self.player_list[0].user_id,
         "p0_name": self.player_list[0].username,
         "p1_uid": self.player_list[1].user_id,
@@ -44,17 +44,37 @@ def end_game_record(self):
 # 牌谱记录对局头
 def init_game_round(self):
     self.player_action_tick = 0
-    self.game_record["game_round"][f"round_index_{self.round_index}"] = {
+    seats = [0] * 4
+    for p in self.player_list:
+        seats[p.original_player_index] = p.player_index
+    round_data = {
         "round_random_seed": self.round_random_seed,
         "current_round": self.current_round,
-        "p0_tiles": self.player_list[0].hand_tiles.copy(),  # 记录初始手牌
+        "seats": seats,
+        "dealer_index": 0,
+        "start_player_index": 0,
+        "p0_tiles": self.player_list[0].hand_tiles.copy(),
         "p1_tiles": self.player_list[1].hand_tiles.copy(),
         "p2_tiles": self.player_list[2].hand_tiles.copy(),
         "p3_tiles": self.player_list[3].hand_tiles.copy(),
-        "tiles_list": self.tiles_list.copy(),  # 记录初始牌堆（打乱后、分配手牌前的完整牌堆）
+        "tiles_list": self.tiles_list.copy(),
         "round_index": self.round_index,
-        "action_ticks": []
+        "action_ticks": [],
     }
+    if getattr(self, "room_rule", None) == "riichi":
+        round_data["riichi"] = {
+            "honba": self.honba,
+            "riichi_sticks": self.riichi_sticks,
+        }
+    self.game_record["game_round"][f"round_index_{self.round_index}"] = round_data
+
+
+def build_score_changes_by_seat(player_list, scores_before: Dict[int, int]) -> List[int]:
+    """牌谱 tick 内 score_changes 按 player_index 排列。"""
+    changes = [0, 0, 0, 0]
+    for p in player_list:
+        changes[p.player_index] = p.score - scores_before[p.original_player_index]
+    return changes
 
 # 牌谱记录补花
 def player_action_record_buhua(self,max_tile: int,action_player: int):

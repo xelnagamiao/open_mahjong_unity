@@ -27,12 +27,17 @@ public class SimpleRoundPanel : MonoBehaviour {
         else if (gameInfo.max_round == 4) GameRoundText.text = "全庄战";
         else GameRoundText.text = "未知轮数";
 
+        string baseRule = roomType;
+        int slash = roomType.IndexOf('/');
+        if (slash >= 0) {
+            baseRule = roomType.Substring(0, slash);
+        }
         Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao" || roomType == "guobiao/standard" || roomType == "guobiao/xiaolin") {
+        if (baseRule == "guobiao") {
             roundMap = RoundTextDictionary.CurrentRoundTextGB;
-        } else if (roomType == "qingque" || roomType == "qingque/standard") {
+        } else if (baseRule == "qingque") {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
-        } else if (roomType == "classical" || roomType == "classical/standard") {
+        } else if (baseRule == "classical") {
             roundMap = RoundTextDictionary.CurrentRoundTextClassical;
         }
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {

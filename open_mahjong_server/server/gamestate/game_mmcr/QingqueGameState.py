@@ -23,7 +23,7 @@ from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -617,9 +617,7 @@ class QingqueGameState:
                 player.score_history.append(score_change_str)
 
             # 牌谱记录本局各玩家分数变化 [p0, p1, p2, p3] 按 original_player_index 排列
-            score_changes = [0, 0, 0, 0]
-            for player in self.player_list:
-                score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
+            score_changes = build_score_changes_by_seat(self.player_list, scores_before)
 
             # 牌谱记录和牌/流局 + end 标记
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:

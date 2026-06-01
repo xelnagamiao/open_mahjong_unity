@@ -6,7 +6,25 @@ using TMPro;
 
 
 public partial class BoardCanvas {
-    
+
+    public void ResetForExit() {
+        if (flashCoroutine != null) {
+            StopCoroutine(flashCoroutine);
+            flashCoroutine = null;
+        }
+        if (scoreDifferenceCoroutine != null) {
+            StopCoroutine(scoreDifferenceCoroutine);
+            scoreDifferenceCoroutine = null;
+        }
+        isShowingScoreDifference = false;
+        RestoreBaselineScores();
+
+        player_self_current_image.gameObject.SetActive(false);
+        player_left_current_image.gameObject.SetActive(false);
+        player_top_current_image.gameObject.SetActive(false);
+        player_right_current_image.gameObject.SetActive(false);
+    }
+
     public void ShowCurrentPlayer(string currentPlayerIndex, int remainTiles){
         // 1. 如果存在旧的闪烁动画，则停止它
         if (flashCoroutine != null){

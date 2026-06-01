@@ -137,9 +137,66 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 预计算对象的平滑法线
     /// </summary>
     private void PrecalculateNormals(GameObject obj) {
+        EnsureTileCollider(obj);
         OutlineNormalsCalculator calculator = obj.GetComponent<OutlineNormalsCalculator>();
         if (calculator != null) {
             calculator.CalculateAndApplySmoothNormals(true);
+        }
+    }
+
+    public const int TilePhysicsLayer = 10;
+
+    public void RefreshTileCollider(GameObject obj) {
+        EnsureTileCollider(obj);
+        Tile3D tile3D = obj.GetComponent<Tile3D>();
+        tile3D?.RefreshPeekCollider();
+    }
+
+    private static void EnsureTileCollider(GameObject obj) {
+        Renderer renderer = obj.GetComponent<Renderer>() ?? obj.GetComponentInChildren<Renderer>();
+        if (renderer == null) return;
+
+        GameObject colliderHost = renderer.gameObject;
+        if (colliderHost != obj) {
+            BoxCollider staleRootBox = obj.GetComponent<BoxCollider>();
+            if (staleRootBox != null) {
+                Object.Destroy(staleRootBox);
+            }
+        }
+
+        BoxCollider box = colliderHost.GetComponent<BoxCollider>();
+        if (box == null) {
+            box = colliderHost.AddComponent<BoxCollider>();
+        }
+        box.isTrigger = false;
+        box.enabled = false;
+        FitBoxColliderFromMesh(box, renderer);
+        SetLayerRecursively(obj, TilePhysicsLayer);
+    }
+
+    private static void FitBoxColliderFromMesh(BoxCollider box, Renderer renderer) {
+        MeshFilter meshFilter = renderer.GetComponent<MeshFilter>();
+        if (meshFilter != null && meshFilter.sharedMesh != null) {
+            Bounds meshBounds = meshFilter.sharedMesh.bounds;
+            box.center = meshBounds.center;
+            box.size = meshBounds.size;
+            return;
+        }
+        Transform host = box.transform;
+        Bounds worldBounds = renderer.bounds;
+        Vector3 lossyScale = host.lossyScale;
+        box.center = host.InverseTransformPoint(worldBounds.center);
+        box.size = new Vector3(
+            worldBounds.size.x / Mathf.Max(Mathf.Abs(lossyScale.x), 0.001f),
+            worldBounds.size.y / Mathf.Max(Mathf.Abs(lossyScale.y), 0.001f),
+            worldBounds.size.z / Mathf.Max(Mathf.Abs(lossyScale.z), 0.001f));
+    }
+
+    private static void SetLayerRecursively(GameObject obj, int layer) {
+        obj.layer = layer;
+        Transform root = obj.transform;
+        for (int i = 0; i < root.childCount; i++) {
+            SetLayerRecursively(root.GetChild(i).gameObject, layer);
         }
     }
 
@@ -160,6 +217,7 @@ public class MahjongObjectPool : MonoBehaviour {
         tile.SetActive(true);
         tile.transform.position = position;
         tile.transform.rotation = rotation;
+        EnsureTileCollider(tile);
         ApplyCardTexture(tile, type);
         return tile;
     }
@@ -201,6 +259,7 @@ public class MahjongObjectPool : MonoBehaviour {
         }
         if (tile3D != null) {
             tile3D.isRiichiHorizontal = false;
+            tile3D.ResetConcealedState();
         }
 
         int blankId = BlankPoolTileId;

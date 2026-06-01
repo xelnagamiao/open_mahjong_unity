@@ -131,7 +131,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
         }
     }
 
-    private bool IsPointerOverExcludeRect() {
+    public bool IsPointerOverExcludeRect() {
         if (excludeRect == null) return false;
         if (EventSystem.current == null) return false;
 

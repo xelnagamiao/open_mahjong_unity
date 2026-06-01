@@ -42,7 +42,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `rule` | string | **游戏规则**，取自 `self.room_rule` |
-| `room_type` | string | **房间类型**，取自 `self.room_type`，默认 `custom` |
+| `room_type` | string | **房间类型**，取自 `self.room_type`（`custom`、`match`） |
 | `sub_rule` | string | 子规则，各 GameState 写入（如 `guobiao/standard`） |
 | `game_random_seed` | int | 整局随机种子 |
 | `max_round` | int | 风圈数（1=东风、2=半庄、4=全庄） |
@@ -54,7 +54,7 @@
 | `p0_uid` … `p3_uid` | int | 四个座位的用户 ID（**原始座位顺序**，整局不变） |
 | `p0_name` … `p3_name` | string | 对应用户名 |
 
-**座位约定：** `p0`～`p3` 对应该局创建时 `player_list[0..3]` 的 **original 座位**。每局 `p0_tiles` 等手牌也按此 original 索引存储；局内 `action_ticks` 里的 `action_player` 为当局 **轮转后的 player_index**。
+**座位约定：** `p0`～`p3` 对应创建对局时 **original 座位**（整局不变）。每局 `seats[original_i]` 给出当局 `player_index`；`p0_tiles`～`p3_tiles` 按 **当局 player_index** 存储；`action_ticks` 里的 `action_player` 亦为当局 **player_index**。
 
 ---
 
@@ -67,7 +67,11 @@
 | `round_index` | int | 局序号（1 起） |
 | `current_round` | int | 风圈内的局号（国标：1～4 为东，5～8 为南…） |
 | `round_random_seed` | int | 本局随机种子 |
-| `p0_tiles` … `p3_tiles` | int[] | 发牌后、补花前的初始手牌（original 座位） |
+| `seats` | int[4] | **必填**。`seats[original_i]` = 本局 `player_index` |
+| `dealer_index` | int | **必填**。本局庄家 `player_index` |
+| `start_player_index` | int | **必填**。补花结束后首行动 `player_index` |
+| `riichi` | object | 立直规则必填：`{ honba, riichi_sticks }` |
+| `p0_tiles` … `p3_tiles` | int[] | 发牌后、补花前的初始手牌（**player_index** 顺序） |
 | `tiles_list` | int[] | 洗牌后、发牌前的完整牌山 |
 | `action_ticks` | array[] | 按时间顺序的操作序列（见下节） |
 
@@ -99,7 +103,7 @@
 `[hu_class, hepai_player_index, hu_score, hu_fan[], score_changes[]]`
 
 - `hu_class`：`hu_self` / `hu_first` / `hu_second` / `hu_third` 等
-- `score_changes`：`[p0Δ, p1Δ, p2Δ, p3Δ]`，按 **original 座位** 顺序
+- `score_changes`：`[seat0Δ, seat1Δ, seat2Δ, seat3Δ]`，按 **当局 player_index** 顺序
 
 ### 5.3 古典（数和尾）
 
@@ -114,7 +118,7 @@
 | `ryuukyoku` | `["ryuukyoku", tenpai_flags[], score_changes[], reason]` |
 | `hu_riichi` | `["hu_riichi", hepai_idx, hu_class, han, fu, yaku[], score_changes[], dora[], ura_dora[], aka_count, honba, riichi_sticks]` |
 
-立直 tick 中 `score_changes` 按 **当局 player_index** 排列；客户端解码时会换算为 original 顺序。
+立直 tick 中 `score_changes` 同样按 **当局 player_index** 排列；客户端解码时经 `seats` 换算为 original 顺序累加 `Round.scoreChanges`。
 
 ### 5.5 其他
 
@@ -248,8 +252,9 @@ RecordPanel / RecordPrefab
 
 - 解析 `game_title` → `Dictionary<string, object>`
 - 顺序读取 `round_index_1`, `round_index_2`, … 直到键不存在
-- 每局解析手牌、牌山、`action_ticks`（嵌套数组转为字符串以便统一存储）
-- 从和牌/流局 tick 累加 `Round.scoreChanges`（original 顺序）
+- 每局解析 `seats` / `dealer_index` / `start_player_index` / `riichi`（立直）；**缺少 `seats` 或长度≠4 则拒绝加载**
+- 解析手牌、牌山、`action_ticks`（嵌套数组转为字符串以便统一存储）
+- 从和牌/流局 tick 累加 `Round.scoreChanges`（经 `seats` 转为 original 顺序）
 
 ### 8.2 `GameRecordManager.LoadRecord`
 
@@ -262,22 +267,26 @@ RecordPanel / RecordPrefab
 | 用途 | 读取字段 |
 |------|----------|
 | 规则分支（补花起点、和牌结算、局数按钮文案） | `game_title.rule` |
-| 国标固定换位、番表 | `game_title.sub_rule` |
+| 番表、子规则差异 | `game_title.sub_rule` |
 | 风圈/局名显示 | `rule` + `current_round`（`RoundTextDictionary`） |
+| 立直本场显示 | `round.riichi.honba` |
 | 计分板规则 | `RefreshRecordScoreTable` 等读 `game_title.rule` |
 
-**重要：** 回放逻辑 **不** 使用 API 顶层 `RecordDetail.rule`，只解析 JSON 内的 `game_title`。因此修复保存格式后，旧牌谱若 JSON 内 `rule` 仍为 `custom`，回放行为仍不正确。
+**重要：** 回放逻辑 **不** 使用 API 顶层 `RecordDetail.rule`，只解析 JSON 内的 `game_title`。
 
-### 8.4 座位与风位轮转（国标）
+### 8.4 座位映射
 
 `InitGameRound(roundIndex)`：
 
-1. **每局轮转：** `rotateSteps = (roundIndex - 1) % 4`，对每个 original 座位做 `BackCurrentNum`（0→3→2→1），得到当局 `playerIndex`。
-2. **固定换位：** 当 `sub_rule` 为 `guobiao/standard` 或 `guobiao/xiaolin`，且 `roundIndex` 为 5、9、13 时，按服务器 `next_game_round_switchseat` 规则覆盖 `playerIndex`。
-3. **手牌映射：** 读取 `p{original}_tiles`，按上述映射渲染到 3D 四方。
-4. **累计分数：** 前面各局 `scoreChanges` 累加得到进入本局前的分数。
+1. **座次：** `playerIndex = round.seats[originalPlayerIndex]`（唯一入口，不推理轮转/固定换位）
+2. **起手行动：** 跳过前缀 `bh`/`bd` 节点后，在 `startIndex` 处将 `currentPlayerIndex` 设为 `round.startPlayerIndex`
+3. **手牌映射：** 读取 `p{playerIndex}_tiles` 渲染到 3D 四方
+4. **累计分数：** 前面各局 `scoreChanges`（original 顺序）累加得到进入本局前的分数
+5. **tick 分数：** `score_changes` 按 player_index 写入，回放时 `MapTickScoreChangesToDeltas` 直接用 `rp.playerIndex` 取下标
 
 `current_round` 用于 UI 显示「东1局」「南2局」等，与 `round_index`（整局序号）不同。
+
+局头字段详见 [game_record_round_meta_examples.md](game_record_round_meta_examples.md)。
 
 ---
 
@@ -299,6 +308,9 @@ RecordPanel / RecordPrefab
     "round_index_1": {
       "round_index": 1,
       "current_round": 1,
+      "seats": [0, 1, 2, 3],
+      "dealer_index": 0,
+      "start_player_index": 0,
       "p0_tiles": [11, 12, 13, "..."]
     }
   }

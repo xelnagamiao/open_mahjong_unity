@@ -16,6 +16,10 @@ public static class GameSceneTeardown {
             AutoAction.Instance.gameObject.SetActive(false);
         }
 
+        if (BoardCanvas.Instance != null) {
+            BoardCanvas.Instance.ResetForExit();
+        }
+
         if (GameCanvas.Instance != null) {
             GameCanvas.Instance.ResetForExit();
         }

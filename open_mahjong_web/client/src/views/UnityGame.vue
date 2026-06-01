@@ -35,9 +35,34 @@ function removeUnityLoaderScript() {
   if (el) el.remove()
 }
 
-async function parseUnityConfig() {
+function appendCacheBust(url, token) {
+  if (!url) return url
+  const sep = url.includes('?') ? '&' : '?'
+  return `${url}${sep}_cb=${encodeURIComponent(token)}`
+}
+
+function buildTokenFromUrls(...urls) {
+  const joined = urls.filter(Boolean).join('|')
+  const hashes = [...joined.matchAll(/\.([a-f0-9]{8,})\./gi)].map((m) => m[1])
+  if (hashes.length > 0) return hashes.join('-')
+  return String(Date.now())
+}
+
+async function fetchUnityDeployToken() {
   try {
-    const response = await fetch('/unity-game/index.html')
+    const response = await fetch(`/unity-game/version.json?_=${Date.now()}`, { cache: 'no-store' })
+    if (!response.ok) return ''
+    const data = await response.json()
+    return data && data.build != null ? String(data.build) : ''
+  } catch {
+    return ''
+  }
+}
+
+async function parseUnityConfig(deployToken) {
+  try {
+    const manifestQuery = deployToken ? `?_=${encodeURIComponent(deployToken)}` : `?_=${Date.now()}`
+    const response = await fetch(`/unity-game/index.html${manifestQuery}`, { cache: 'no-store' })
     const html = await response.text()
 
     const loaderMatch = html.match(/var\s+loaderUrl\s*=\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
@@ -46,12 +71,18 @@ async function parseUnityConfig() {
     const codeMatch = html.match(/codeUrl:\s*buildUrl\s*\+\s*["']\/([^"']+)["']/)
 
     const buildUrl = '/unity-game/Build'
+    const loaderUrl = loaderMatch ? buildUrl + '/' + loaderMatch[1] : null
+    const dataUrl = dataMatch ? buildUrl + '/' + dataMatch[1] : null
+    const frameworkUrl = frameworkMatch ? buildUrl + '/' + frameworkMatch[1] : null
+    const codeUrl = codeMatch ? buildUrl + '/' + codeMatch[1] : null
+    const fileToken = buildTokenFromUrls(loaderUrl, dataUrl, frameworkUrl, codeUrl)
+    const cacheToken = deployToken ? `${deployToken}-${fileToken}` : fileToken
 
     return {
-      loaderUrl: loaderMatch ? buildUrl + '/' + loaderMatch[1] : null,
-      dataUrl: dataMatch ? buildUrl + '/' + dataMatch[1] : null,
-      frameworkUrl: frameworkMatch ? buildUrl + '/' + frameworkMatch[1] : null,
-      codeUrl: codeMatch ? buildUrl + '/' + codeMatch[1] : null
+      loaderUrl: appendCacheBust(loaderUrl, cacheToken),
+      dataUrl: appendCacheBust(dataUrl, cacheToken),
+      frameworkUrl: appendCacheBust(frameworkUrl, cacheToken),
+      codeUrl: appendCacheBust(codeUrl, cacheToken)
     }
   } catch (error) {
     console.error('解析Unity配置失败:', error)
@@ -123,7 +154,9 @@ async function loadUnityGame(gen) {
     loadingBar.style.display = 'block'
   }
 
-  const fileConfig = await parseUnityConfig()
+  const deployToken = await fetchUnityDeployToken()
+  if (gen !== unityMountGeneration) return
+  const fileConfig = await parseUnityConfig(deployToken)
   if (gen !== unityMountGeneration) return
 
   if (!fileConfig || !fileConfig.loaderUrl) {

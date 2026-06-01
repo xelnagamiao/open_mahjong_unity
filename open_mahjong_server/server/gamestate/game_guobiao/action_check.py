@@ -44,7 +44,9 @@ def check_action_after_cut(self,cut_tile):
     # 如果该牌是任意家的等待牌 且不是自己
     for item in self.player_list:
         if cut_tile in item.waiting_tiles and item.player_index != self.current_player_index:
-            check_hepai(self,temp_action_dict,cut_tile,item.player_index,"dianhe")
+            refresh_waiting_tiles(self, item.player_index)
+            if cut_tile in item.waiting_tiles:
+                check_hepai(self,temp_action_dict,cut_tile,item.player_index,"dianhe")
 
     # 如果玩家有操作 则添加pass
     for i in temp_action_dict:
@@ -68,7 +70,9 @@ def check_action_jiagang(self,jiagang_tile):
     # 如果该牌是任意家的等待牌 且不是自己
     for item in self.player_list:
         if jiagang_tile in item.waiting_tiles and item.player_index != self.current_player_index:
-            check_hepai(self,temp_action_dict,jiagang_tile,item.player_index,"qianggang")
+            refresh_waiting_tiles(self, item.player_index)
+            if jiagang_tile in item.waiting_tiles:
+                check_hepai(self,temp_action_dict,jiagang_tile,item.player_index,"qianggang")
     
     # 如果玩家有操作 则添加pass
     for i in temp_action_dict:
@@ -241,6 +245,9 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         result = self.calculation_service.GB_xiaolin_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     else:
         result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+
+    if result[0] == 0 and not result[1]:
+        return
 
     # 判断是否满足起和番限制，减去花牌的数量
     hepai_limit = getattr(self, 'hepai_limit', 8)
