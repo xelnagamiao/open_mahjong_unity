@@ -1,4 +1,4 @@
-    #=======================open_mahjong_unity ngnix配置==============
+        #=======================open_mahjong_unity ngnix配置==============
     # 网站名 / vue静态文件目录 / 入口文件
     server_name salasasa.cn;
     root /www/wwwroot/salasasa.cn/dist;
@@ -39,50 +39,70 @@
     #=======================node.js 路由==============================
     # node.js 服务 WebSocket salasasa:cn/api -> localhost:8082
     location ^~ /api/ {
-        proxy_pass http://127.0.0.1:8082/;
+        proxy_pass http://127.0.0.1:8082;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+    #=======================Unity WebGL 压缩配置==============================
+  
+    gzip_static on;
+        
+    location ~* \.wasm\.gz$ {
+        gzip off;
     
-    #=======================Unity压缩配置==============================
-    # .wasm.gz 给压缩文件配备消息头
-    location ~ \.wasm\.gz$ {
-        gzip off;                               
-        add_header Content-Encoding gzip always; 
-        default_type application/wasm;          
-        types { application/wasm .wasm.gz; }    
+        add_header Content-Encoding gzip always;
+        add_header Cache-Control "public,max-age=31536000,immutable" always;
+        add_header Vary "Accept-Encoding" always;
+    
+        default_type application/wasm;
     }
     
-    # .js.gz （wasm）
-    location ~ \.js\.gz$ {
+          
+    location ~* \.framework\.js(\.gz)?$ {
         gzip off;
+    
         add_header Content-Encoding gzip always;
+    
+        add_header Cache-Control "public,max-age=31536000,immutable" always;
+        add_header Vary "Accept-Encoding" always;
+    
         default_type application/javascript;
     }
     
-    # .data.gz 
-    location ~ \.(data|symbols\.json)\.gz$ {
+    location ~* \.data\.gz$ {
         gzip off;
+    
         add_header Content-Encoding gzip always;
+        add_header Cache-Control "public,max-age=31536000,immutable" always;
+        add_header Vary "Accept-Encoding" always;
+    
         default_type application/octet-stream;
     }
     
-    # 启用 gzip_static
-    gzip_static on;
-    
+    location ~* \.loader\.js$ {
+        expires off;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+    }
     #=========================Vue前端配置===========================
+
+    # index.html 每次检查更新
+    location ~* /index\.html$ {
+        expires off;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+    }
+    
     # 路由回退规则
     location / {
         try_files $uri $uri/ /index.html;
     }
-
-    # 静态资源缓存）
-    location ~* \.(?:ico|css|js|gif|jpe?g|png|svg|woff2?|ttf|eot)$ {
+    
+    # 静态资源长期缓存
+    location ~* \.(?:ico|css|gif|jpe?g|png|svg|woff2?|ttf|eot)$ {
         expires 1y;
         access_log off;
-        add_header Cache-Control "public";
+        add_header Cache-Control "public, immutable";
     }
-    
+        
     #======================open_mahjong_unity ngnix配置结束============
