@@ -48,8 +48,8 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
             return None
 
         game_title = game_record.get("game_title") or {}
-        rule = game_title.get("rule") or "riichi"
-        sub_rule = game_title.get("sub_rule") or "riichi/standard"
+        rule = game_title["rule"]
+        sub_rule = game_title["sub_rule"]
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result

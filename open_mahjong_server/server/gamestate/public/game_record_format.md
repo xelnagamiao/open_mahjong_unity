@@ -42,7 +42,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `rule` | string | **游戏规则**，取自 `self.room_rule` |
-| `room_type` | string | **房间类型**，取自 `self.room_type`，默认 `custom` |
+| `room_type` | string | **房间类型**，取自 `self.room_type`（`custom`、`match`） |
 | `sub_rule` | string | 子规则，各 GameState 写入（如 `guobiao/standard`） |
 | `game_random_seed` | int | 整局随机种子 |
 | `max_round` | int | 风圈数（1=东风、2=半庄、4=全庄） |

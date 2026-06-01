@@ -53,9 +53,11 @@ public class RoundPanel : MonoBehaviour {
     }
 
     private static bool IsRiichiLayout(GameInfo gameInfo, string roomRule) {
-        if (string.IsNullOrEmpty(roomRule)) return false;
-        if (roomRule == "riichi" || roomRule.StartsWith("riichi/")) return true;
-        if (gameInfo != null && gameInfo.room_rule == "riichi") return true;
+        if (!string.IsNullOrEmpty(roomRule) && (roomRule == "riichi" || roomRule.StartsWith("riichi/"))) return true;
+        if (gameInfo != null) {
+            if (!string.IsNullOrEmpty(gameInfo.sub_rule) && gameInfo.sub_rule.StartsWith("riichi")) return true;
+            if (gameInfo.room_rule == "riichi") return true;
+        }
         return false;
     }
 }

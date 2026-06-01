@@ -141,7 +141,7 @@ public partial class GameRecordManager
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
             RemoveNTiles(actingPlayer.tileList, angangTile, 4);
-            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
             int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);

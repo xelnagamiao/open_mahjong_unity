@@ -13,11 +13,6 @@ public static class RuleNameDictionary {
         { "guobiao/lanshi", "国标麻将(蓝十改)" },
         { "classical/standard", "古典麻雀" },
         { "riichi/standard", "立直麻将(标准)" },
-        // 从roomtype获得
-        { "guobiao", "国标麻将" },
-        { "qingque", "青雀" },
-        { "classical", "古典麻雀" },
-        { "riichi", "立直麻将" },
     };
 
     /// <summary>sub_rule -> 短显示名（预留，可按需补全）</summary>

@@ -18,14 +18,14 @@ from datetime import date, datetime
 def init_game_record(self):
     self.game_record["game_title"] = {
         "rule": self.room_rule,
-        "room_type": getattr(self, "room_type", "custom"),
+        "room_type": self.room_type,
         "game_random_seed": self.game_random_seed,
         "max_round": self.max_round,
         "start_time": datetime.now(),
         "open_cuohe": self.open_cuohe,
         "tips": self.tips,
         "is_player_set_random_seed": self.isPlayerSetRandomSeed,
-        "hepai_limit": getattr(self, "hepai_limit", None),
+        "hepai_limit": self.hepai_limit,
         "p0_uid": self.player_list[0].user_id,
         "p0_name": self.player_list[0].username,
         "p1_uid": self.player_list[1].user_id,

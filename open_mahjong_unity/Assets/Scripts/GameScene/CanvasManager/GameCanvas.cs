@@ -162,14 +162,7 @@ public partial class GameCanvas : MonoBehaviour {
         // 更新轮数面板信息
         if (roundPanel != null) {
             var gm = NormalGameStateManager.Instance;
-            string ruleForPanel = gm.subRule;
-            if (gameInfo != null && gameInfo.room_rule == "riichi") {
-                if (string.IsNullOrEmpty(ruleForPanel) || !ruleForPanel.StartsWith("riichi")) {
-                    ruleForPanel = "riichi/standard";
-                }
-            } else if (string.IsNullOrEmpty(ruleForPanel)) {
-                ruleForPanel = gm.roomRule;
-            }
+            string ruleForPanel = !string.IsNullOrEmpty(gm.subRule) ? gm.subRule : gameInfo?.sub_rule;
             roundPanel.UpdateRoomInfo(gameInfo, ruleForPanel);
         } else {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
@@ -243,12 +236,11 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 从牌谱记录更新左上房间信息
     public void UpdateRoomInfoFromRecord(GameRecord gameRecord, int currentRoundIndex) {
-        string roomType = ReadStringValue(gameRecord.gameTitle, "rule", "guobiao");
+        string roomRule = ReadStringValue(gameRecord.gameTitle, "rule", "");
+        string subRule = ReadStringValue(gameRecord.gameTitle, "sub_rule", "");
+        string recordRoomType = ReadStringValue(gameRecord.gameTitle, "room_type", "");
+        string ruleForPanel = subRule;
         int maxRound = ReadIntValue(gameRecord.gameTitle, "max_round", 0);
-        if (maxRound <= 0) {
-            int roundCount = gameRecord.gameRound.rounds.Count;
-            maxRound = Mathf.Clamp((roundCount + 3) / 4, 1, 4);
-        }
 
         int currentRound = currentRoundIndex;
         long roundRandomSeed = 0;
@@ -266,8 +258,10 @@ public partial class GameCanvas : MonoBehaviour {
         }
 
         GameInfo gameInfo = new GameInfo {
-            room_type = roomType,
-            room_rule = roomType,
+            room_type = recordRoomType,
+            room_rule = roomRule,
+            sub_rule = subRule,
+            hepai_limit = ReadIntValue(gameRecord.gameTitle, "hepai_limit", 0),
             max_round = maxRound,
             current_round = currentRound,
             round_random_seed = roundRandomSeed,
@@ -277,7 +271,7 @@ public partial class GameCanvas : MonoBehaviour {
             tips = ReadBoolValue(gameRecord.gameTitle, "tips", false),
             isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
         };
-        roundPanel.UpdateRoomInfo(gameInfo, roomType);
+        roundPanel.UpdateRoomInfo(gameInfo, ruleForPanel);
     }
 
     private static string ReadStringValue(Dictionary<string, object> source, string key, string defaultValue) {

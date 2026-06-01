@@ -32,14 +32,20 @@ open_mahjong_server/*
 
 # 保留 server 目录
 !open_mahjong_server/server/
-open_mahjong_server/server/__pycache__/*
 open_mahjong_server/server/error_log/*
-
-open_mahjong_server/server/chat_server/__pycache__/*
-open_mahjong_server/server/game_calculation/__pycache__/*
-open_mahjong_server/server/game_gb/__pycache__/*
-open_mahjong_server/server/database/__pycache__/*
 open_mahjong_server/server/local_config.py
+
+# Python 字节码与缓存（递归忽略 server 下所有子目录）
+open_mahjong_server/server/**/__pycache__/
+open_mahjong_server/server/**/*.py[cod]
+open_mahjong_server/server/**/*$py.class
+open_mahjong_server/server/**/.pytest_cache/
+open_mahjong_server/server/**/.mypy_cache/
+open_mahjong_server/server/**/.ruff_cache/
+open_mahjong_server/server/**/*.pyo
+
+# 服务端运行日志（勿提交）
+open_mahjong_server/logs/
 
 # 聊天服务器项目：不忽略任何文件和目录
 !open_mahjong_server/server/chat_server/
