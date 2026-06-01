@@ -19,6 +19,83 @@ public class Tile3D : MonoBehaviour
     /// 仅 SetType="Discard" 路径会写入；归还对象池时由 MahjongObjectPool 重置。</summary>
     public bool isRiichiHorizontal;
 
+    public bool IsConcealedFaceDown { get; private set; }
+
+    /// <summary>悬停时可临时翻面：已知牌 id（≥10）且当前为暗面展示（mask 方向位 2）。</summary>
+    public bool CanPeekOnHover => currentTileId >= 10 && IsConcealedFaceDown;
+
+    private Transform faceMeshTransform;
+    private Quaternion faceUpLocalRotation;
+    private Quaternion faceDownLocalRotation;
+    private bool hasFaceRotationBaseline;
+    private bool isPeekFaceUp;
+
+    private Transform GetFaceMeshTransform() {
+        InitializeComponents();
+        if (faceMeshTransform != null) return faceMeshTransform;
+        faceMeshTransform = cardRenderer != null ? cardRenderer.transform : transform;
+        return faceMeshTransform;
+    }
+
+    private void EnsureFaceRotationBaseline() {
+        if (hasFaceRotationBaseline) return;
+        Transform mesh = GetFaceMeshTransform();
+        faceUpLocalRotation = mesh.localRotation;
+        faceDownLocalRotation = faceUpLocalRotation * Quaternion.Euler(0f, 180f, 0f);
+        hasFaceRotationBaseline = true;
+    }
+
+    public void SetConcealedFaceDown(bool concealed) {
+        IsConcealedFaceDown = concealed;
+        isPeekFaceUp = false;
+        Transform mesh = GetFaceMeshTransform();
+        EnsureFaceRotationBaseline();
+        mesh.localRotation = concealed ? faceDownLocalRotation : faceUpLocalRotation;
+        RefreshPeekCollider();
+    }
+
+    /// <summary>
+    /// 副露 mask 方向位：0 竖 1 横 2 暗面 3 加杠。暗面一律翻面展示；能否 hover peek 见 CanPeekOnHover。
+    /// </summary>
+    public void ApplyCombinationPeekState(int tileId, int directionFlag) {
+        if (directionFlag == 2) {
+            SetConcealedFaceDown(true);
+        }
+    }
+
+    public void SetPeekFaceUp(bool peek) {
+        if (!IsConcealedFaceDown || !hasFaceRotationBaseline) return;
+        if (isPeekFaceUp == peek) return;
+        isPeekFaceUp = peek;
+        Transform mesh = GetFaceMeshTransform();
+        mesh.localRotation = peek ? faceUpLocalRotation : faceDownLocalRotation;
+    }
+
+    public void ResetConcealedState() {
+        IsConcealedFaceDown = false;
+        isPeekFaceUp = false;
+        if (hasFaceRotationBaseline) {
+            Transform mesh = GetFaceMeshTransform();
+            mesh.localRotation = faceUpLocalRotation;
+        }
+        hasFaceRotationBaseline = false;
+        faceMeshTransform = null;
+        RefreshPeekCollider();
+    }
+
+    /// <summary>按 CanPeekOnHover 开关碰撞盒，供暗面副露 hover peek 射线检测。</summary>
+    public void RefreshPeekCollider() {
+        BoxCollider box = GetPeekBoxCollider();
+        if (box == null) return;
+        box.enabled = CanPeekOnHover;
+    }
+
+    private BoxCollider GetPeekBoxCollider() {
+        InitializeComponents();
+        if (cardRenderer == null) return null;
+        return cardRenderer.GetComponent<BoxCollider>();
+    }
+
     private void Awake() {
         InitializeComponents();
     }
@@ -34,7 +111,8 @@ public class Tile3D : MonoBehaviour
         const int outlineLayer = 10;
         gameObject.layer = outlineLayer;
 
-        cardRenderer = GetComponent<Renderer>();
+        cardRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>();
+        if (cardRenderer == null) return;
         for (int i = 0; i < cardRenderer.materials.Length; i++) {
             if (cardRenderer.materials[i].shader.name == "Custom/ThreeDTiles") {
                 targetMaterial = cardRenderer.materials[i];

@@ -161,8 +161,16 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 更新轮数面板信息
         if (roundPanel != null) {
-            string roomRule = NormalGameStateManager.Instance.subRule;
-            roundPanel.UpdateRoomInfo(gameInfo, roomRule);
+            var gm = NormalGameStateManager.Instance;
+            string ruleForPanel = gm.subRule;
+            if (gameInfo != null && gameInfo.room_rule == "riichi") {
+                if (string.IsNullOrEmpty(ruleForPanel) || !ruleForPanel.StartsWith("riichi")) {
+                    ruleForPanel = "riichi/standard";
+                }
+            } else if (string.IsNullOrEmpty(ruleForPanel)) {
+                ruleForPanel = gm.roomRule;
+            }
+            roundPanel.UpdateRoomInfo(gameInfo, ruleForPanel);
         } else {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
@@ -244,18 +252,27 @@ public partial class GameCanvas : MonoBehaviour {
 
         int currentRound = currentRoundIndex;
         long roundRandomSeed = 0;
+        int honba = 0;
+        int riichiSticks = 0;
         if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
             if (roundData.currentRound > 0) {
                 currentRound = roundData.currentRound;
             }
             roundRandomSeed = roundData.roundRandomSeed;
+            if (roundData.riichi != null) {
+                honba = roundData.riichi.honba;
+                riichiSticks = roundData.riichi.riichiSticks;
+            }
         }
 
         GameInfo gameInfo = new GameInfo {
             room_type = roomType,
+            room_rule = roomType,
             max_round = maxRound,
             current_round = currentRound,
             round_random_seed = roundRandomSeed,
+            honba = honba,
+            riichi_sticks = riichiSticks,
             open_cuohe = ReadBoolValue(gameRecord.gameTitle, "open_cuohe", false),
             tips = ReadBoolValue(gameRecord.gameTitle, "tips", false),
             isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)

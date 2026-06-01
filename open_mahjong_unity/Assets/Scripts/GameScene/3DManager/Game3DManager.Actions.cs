@@ -54,17 +54,10 @@ public partial class Game3DManager : MonoBehaviour
         List<int> SetTileList = new List<int>();
         List<int> SignDirectionList = new List<int>();
 
-        // 解码combination_mask 获得需要放置的卡牌列表和卡牌朝向列表
-        foreach (int tileId in combination_mask)
-        {
-            if (tileId >= 10)
-            {
-                SetTileList.Add(tileId);
-            }
-            else if (tileId < 5)
-            {
-                SignDirectionList.Add(tileId);
-            }
+        // 解码 combination_mask：[方向, 牌id, 方向, 牌id, ...]；牌 id 可为 0（国标暗杠脱敏占位）
+        for (int i = 0; i + 1 < combination_mask.Length; i += 2) {
+            SignDirectionList.Add(combination_mask[i]);
+            SetTileList.Add(combination_mask[i + 1]);
         }
         // 倒转SetTileList和SignDirectionList 因为卡牌的逻辑顺序是从左到右，但我们需要从右到左放置
         SetTileList.Reverse();
@@ -157,8 +150,13 @@ public partial class Game3DManager : MonoBehaviour
                     continue;
                 }
 
-                // 从对象池获取麻将牌
-                cardObj = MahjongObjectPool.Instance.Spawn(SetTileList[i], TempPositionpoint, TempRotation);
+                // 从对象池获取麻将牌；奇数位 tileId==0 为国标暗杠脱敏占位，显示牌背
+                int tileId = SetTileList[i];
+                if (tileId == 0) {
+                    cardObj = MahjongObjectPool.Instance.SpawnBlankTile(TempPositionpoint, TempRotation, 0);
+                } else {
+                    cardObj = MahjongObjectPool.Instance.Spawn(tileId, TempPositionpoint, TempRotation);
+                }
                 if (cardObj == null)
                 {
                     Debug.LogError($"无法从对象池获取牌: {SetTileList[i]}");
@@ -167,30 +165,16 @@ public partial class Game3DManager : MonoBehaviour
                 // 注册到悬停管理器
                 if (Card3DHoverManager.Instance != null)
                 {
-                    Card3DHoverManager.Instance.RegisterCard(cardObj, SetTileList[i]);
+                    Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
                 }
                 // 设置父对象
                 cardObj.transform.SetParent(SetParent, worldPositionStays: true);
-
-                // 暗面翻转：仅翻面不改变位置（避免位置浮动）
-                if (SignDirectionList[i] == 2)
-                {
-                    // 仅翻转渲染子节点，不改父物体的世界位姿，避免位置偏移
-                    Transform mesh = cardObj.transform;
-                    // 如果预制有子节点，优先翻子节点
-                    if (cardObj.transform.childCount > 0)
-                    {
-                        mesh = cardObj.transform.GetChild(0);
-                    }
-                    var localEuler = mesh.localEulerAngles;
-                    localEuler.x += 180f; // 绕Z轴翻面
-                    mesh.localEulerAngles = localEuler;
-
-                    // 暗杠抬高：沿世界上方向抬高 0.8 个厚度，修正翻面造成的视觉浮动/穿插
-                    // cardObj.transform.position += UpDirection * (cardThickness * 0.6f);
-                    // 暗杠向右偏移 0.1 个宽度单位
-                    // cardObj.transform.position += RightDirection * (cardWidth * 0.25f);
+                if (MahjongObjectPool.Instance != null) {
+                    MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
                 }
+
+                Tile3D tile3D = cardObj.GetComponent<Tile3D>();
+                tile3D?.ApplyCombinationPeekState(tileId, SignDirectionList[i]);
             }
 
             // 将更新后的指针位置赋值给公共变量

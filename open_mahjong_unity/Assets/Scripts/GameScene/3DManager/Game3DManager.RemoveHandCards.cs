@@ -7,8 +7,8 @@ public partial class Game3DManager : MonoBehaviour {
         return selfPosPanel != null && cardPosition == selfPosPanel.cardsPosition;
     }
 
-    // 移除3D手牌显示
-    private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId = -1, int[] combinationMaskForSelf = null) {
+    // 移除3D手牌显示；skipRearrange 为 true 时仅删牌，收拢由调用方在出牌等操作完成后再执行
+    private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId = -1, int[] combinationMaskForSelf = null, bool skipRearrange = false) {
         if (IsSelfCardsPosition(cardPosition)) {
             yield return RemoveSelfHandCardsCoroutine(cardPosition, removeCount, cut_class, discardTileId, combinationMaskForSelf);
             yield break;
@@ -44,8 +44,9 @@ public partial class Game3DManager : MonoBehaviour {
             }
             Debug.Log($"组合删除完成: 已删除{removeCount}张卡牌");
 
-            // 重新排列动画
-            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            if (!skipRearrange) {
+                yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            }
         }
         // 如果removeCount <= 1，使用单张删除方法
         else {
@@ -82,15 +83,15 @@ public partial class Game3DManager : MonoBehaviour {
                 MahjongObjectPool.Instance.Return(-1, randomChild.gameObject);
             }
 
-            // 等待一帧，确保删除操作完成
             yield return null;
 
-            // 重新排列动画
-            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            if (!skipRearrange) {
+                yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            }
         }
     }
 
-    private IEnumerator RemoveSelfHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf) {
+    private IEnumerator RemoveSelfHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange = false) {
         if (removeCount > 1 && combinationMaskForSelf != null) {
             List<int> tilesToRemove = new List<int>();
             for (int i = 0; i + 1 < combinationMaskForSelf.Length; i += 2) {
@@ -103,8 +104,10 @@ public partial class Game3DManager : MonoBehaviour {
             foreach (int tid in tilesToRemove) {
                 RemoveOneSelfHandCardByTileId(cardPosition, tid);
             }
-            yield return null;
-            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            if (!skipRearrange) {
+                yield return null;
+                yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            }
             yield break;
         }
 
@@ -119,8 +122,10 @@ public partial class Game3DManager : MonoBehaviour {
             else if (discardTileId >= 2) {
                 RemoveOneSelfHandCardByTileId(cardPosition, discardTileId);
             }
-            yield return null;
-            yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            if (!skipRearrange) {
+                yield return null;
+                yield return StartCoroutine(Rearrange3DCardsWithAnimation(cardPosition));
+            }
         }
     }
 
@@ -153,7 +158,6 @@ public partial class Game3DManager : MonoBehaviour {
         Debug.LogWarning($"自家3D手牌未找到要删除的牌 id={tileId}");
     }
 
-    // 带动画的3D手牌重新排列
     private IEnumerator Rearrange3DCardsWithAnimation(Transform cardPosition) {
         Debug.Log($"3D手牌重新排列");
 

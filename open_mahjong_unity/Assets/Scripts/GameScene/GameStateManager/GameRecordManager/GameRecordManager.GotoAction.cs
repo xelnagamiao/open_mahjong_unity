@@ -15,7 +15,7 @@ public partial class GameRecordManager
         // 重置到局初始状态（UI/2D/3D）
         Game3DManager.Instance.Clear3DTile();
         currentNode = 0;
-        currentPlayerIndex = 0;
+        currentPlayerIndex = roundData.startPlayerIndex;
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
         
@@ -79,7 +79,9 @@ public partial class GameRecordManager
         }
 
         if (nodeIndex == startIndex) {
-            currentPlayerIndex = 0;
+            if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
+                currentPlayerIndex = roundData.startPlayerIndex;
+            }
         }
 
         int actingPlayerIndex = currentPlayerIndex;
@@ -139,7 +141,8 @@ public partial class GameRecordManager
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
             RemoveNTiles(actingPlayer.tileList, angangTile, 4);
-            int[] combinationMask = new int[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
+            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+            int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);
             nextPlayerIndex = actingPlayerIndex;

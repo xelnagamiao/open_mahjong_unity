@@ -1,0 +1,82 @@
+{
+  "game_title": {
+    "rule": "qingque",
+    "room_type": "custom",
+    "sub_rule": "qingque/standard",
+    "game_random_seed": 8822334455,
+    "max_round": 2,
+    "hepai_limit": 8,
+    "open_cuohe": false,
+    "tips": true,
+    "is_player_set_random_seed": false,
+    "p0_uid": 10000011,
+    "p0_name": "青雀A",
+    "p1_uid": 10000012,
+    "p1_name": "青雀B",
+    "p2_uid": 10000013,
+    "p2_name": "青雀C",
+    "p3_uid": 10000014,
+    "p3_name": "青雀D"
+  },
+  "game_round": {
+    "round_index_1": {
+      "round_index": 1,
+      "current_round": 1,
+      "round_random_seed": 900001000,
+      "seats": [0, 1, 2, 3],
+      "dealer_index": 0,
+      "start_player_index": 0,
+      "p0_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 56],
+      "p1_tiles": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "p2_tiles": [51, 52, 53, 54, 55, 57, 58, 59, 61, 62, 63, 64, 71],
+      "p3_tiles": [72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85],
+      "tiles_list": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 51, 52, 53, 54, 55, 57, 58, 59, 61, 62, 63, 64, 71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85],
+      "action_ticks": [
+        ["bh", 56, 0], //补花 [bh, 花牌tile_id, action_player]
+        ["bd", 55], //补花后摸牌 [bd, tile_id]
+        ["hu_self", 0, 8, ["混一色", "自摸"], [32, -8, -8, -8]], //自摸和 [hu_self, seat, 番分, 番种[], score_changes[]按player_index]
+        ["hu_first", 1, 6, ["混一色"], [18, -6, 0, -6]], //荣和-上家 [hu_first, ...]
+        ["hu_second", 2, 6, ["混一色"], [-6, -6, 18, -6]], //荣和-对家 [hu_second, ...]
+        ["hu_third", 3, 6, ["混一色"], [-6, -6, -6, 18]], //荣和-下家 [hu_third, ...]
+        ["liuju"], //流局 [liuju]
+
+        ["d", 21], //摸牌 [d, tile_id]
+        ["c", 21, "F"], //切牌 [c, tile_id, T摸切|F手切]
+        ["gd", 41], //杠后摸牌 [gd, tile_id]
+        ["cl", 22, 1], //吃左 [cl, tile_id, action_player]
+        ["cm", 23, 2], //吃中 [cm, tile_id, action_player]
+        ["cr", 25, 3], //吃右 [cr, tile_id, action_player]
+        ["p", 37, 1], //碰 [p, tile_id, action_player]
+        ["g", 38, 2], //明杠 [g, tile_id, action_player]
+        ["ag", 11], //暗杠 [ag, tile_id]
+        ["jg", 37], //加杠 [jg, tile_id]
+        ["end"] //本局结束 [end]
+      ]
+    },
+    "round_index_2": {
+      "round_index": 2,
+      "current_round": 5,
+      "round_random_seed": 900001002,
+      "seats": [2, 0, 3, 1],
+      "dealer_index": 0,
+      "start_player_index": 0,
+      "p0_tiles": [51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64],
+      "p1_tiles": [71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "p2_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24],
+      "p3_tiles": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "tiles_list": [51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64, 71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "action_ticks": [
+        ["d", 57],
+        ["c", 57, "F"],
+        ["d", 33],
+        ["c", 33, "T"],
+        ["p", 37, 2],
+        ["c", 36, "F"],
+        ["d", 42],
+        ["c", 42, "T"],
+        ["hu_second", 1, 6, ["混一色"], [-6, 18, -6, -6]],
+        ["end"]
+      ]
+    }
+  }
+}

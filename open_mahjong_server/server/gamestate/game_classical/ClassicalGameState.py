@@ -24,7 +24,7 @@ from ..public.logic_common import get_index_relative_position, next_current_inde
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat
 from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -541,9 +541,7 @@ class ClassicalGameState:
                 player.score_history.append(score_change_str)
                 player.round_number_history.append(self.current_round)
 
-            score_changes = [0, 0, 0, 0]
-            for player in self.player_list:
-                score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
+            score_changes = build_score_changes_by_seat(self.player_list, scores_before)
 
             if self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]:
                 player_action_record_hu(self, hu_class=self.hu_class, hu_score=actual_hu_score,

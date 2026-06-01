@@ -1,4 +1,5 @@
 # 通用逻辑方法 - 所有规则共享
+
 # 输入自身索引和他家索引，获取相对位置
 def get_index_relative_position(self_index: int, other_index: int) -> str:
     """

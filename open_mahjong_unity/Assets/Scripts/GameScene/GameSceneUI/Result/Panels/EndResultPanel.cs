@@ -181,19 +181,16 @@ public class EndResultPanel : MonoBehaviour {
         LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
 
         
-        // 显示玩家分数变化（score_changes 按 original_player_index 索引）
+        // 显示玩家分数变化
         foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
             string pos = kvp.Value;
+            int seatIdx = kvp.Key;
             if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
             int origIdx = playerInfo.original_player_index;
             int beforeScore = playerInfo.score;
-            int delta = 0;
-            if (riichiExtras != null && riichiExtras.ScoreChanges != null && riichiExtras.ScoreChanges.TryGetValue(origIdx, out int change)) {
-                delta = change;
-            } else if (player_to_score != null && player_to_score.TryGetValue(origIdx, out int afterFromServer)) {
-                delta = afterFromServer - beforeScore;
-            }
-            int afterScore = beforeScore + delta;
+            ShowResultPlayerScoreResolver.ResolveScoreChange(
+                beforeScore, seatIdx, origIdx,
+                riichiExtras?.ScoreChanges, player_to_score, out int afterScore);
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
             if (pos == "self") {
                 SelfUserName.text = playerInfo.username;
@@ -210,14 +207,14 @@ public class EndResultPanel : MonoBehaviour {
             }
         }
 
-        // 修改计分板（player_to_score 键为 original_player_index）
+        // 修改计分板
         if (player_to_score != null) {
             var scoreBySeat = new Dictionary<int, int>();
             foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
                 string pos = kvp.Value;
                 int seatIdx = kvp.Key;
                 if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
-                if (player_to_score.TryGetValue(playerInfo.original_player_index, out int score)) {
+                if (ShowResultPlayerScoreResolver.TryGetAfterScore(player_to_score, seatIdx, playerInfo.original_player_index, out int score)) {
                     scoreBySeat[seatIdx] = score;
                 }
             }
@@ -229,6 +226,7 @@ public class EndResultPanel : MonoBehaviour {
         // 显示番数
         string roomRuleForFan = NormalGameStateManager.Instance.subRule;
         bool isClassical = roomRuleForFan == "classical/standard";
+        bool isRiichi = roomRuleForFan == "riichi/standard" || roomRuleForFan == "riichi";
 
         if (isClassical && fu_fan_list != null) {
             // 古典麻将：先显示副番列表
@@ -248,12 +246,13 @@ public class EndResultPanel : MonoBehaviour {
 
         for (int i = 0; i < hu_fan.Length; i++) {
             yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
-            string fanName = hu_fan[i];
-            string fanDisplay = FanTextDictionary.GetFanDisplayText(roomRuleForFan, fanName);
+            string fanKey = hu_fan[i];
+            string fanDisplay = FanTextDictionary.GetFanDisplayText(roomRuleForFan, fanKey);
+            string fanLabel = isRiichi ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey) : fanKey;
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
             FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
             if (fanCount != null) {
-                fanCount.SetFanCount(fanName, fanDisplay);
+                fanCount.SetFanCount(fanLabel, fanDisplay);
                 fanCount.ApplyFanColor();
             }
         }
@@ -359,6 +358,7 @@ public class EndResultPanel : MonoBehaviour {
         }
 
         bool isClassical = roomType == "classical/standard";
+        bool isRiichi = roomType == "riichi/standard" || roomType == "riichi";
 
         // 古典麻将：显示副番列表
         if (isClassical && fu_fan_list != null) {
@@ -377,12 +377,13 @@ public class EndResultPanel : MonoBehaviour {
 
         if (hu_fan != null) {
             for (int i = 0; i < hu_fan.Length; i++) {
-                string fanName = hu_fan[i];
-                string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanName);
+                string fanKey = hu_fan[i];
+                string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanKey);
+                string fanLabel = isRiichi ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey) : fanKey;
                 GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
                 if (fanCount != null) {
-                    fanCount.SetFanCount(fanName, fanDisplay);
+                    fanCount.SetFanCount(fanLabel, fanDisplay);
                     fanCount.ApplyFanColor();
                 }
             }

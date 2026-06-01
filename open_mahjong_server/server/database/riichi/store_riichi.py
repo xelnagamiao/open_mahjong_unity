@@ -1,7 +1,5 @@
 """
-立直麻将游戏记录与统计数据存储。
-
-当前阶段提供接口骨架：如数据库未建表，方法打印日志后返回 None，不阻塞游戏流程。
+立直麻将游戏记录存储：与国标/古典相同，写入 game_records + game_player_records。
 """
 import json
 import logging
@@ -21,8 +19,6 @@ def _generate_game_id(length: int = GAME_ID_LENGTH) -> str:
 
 
 def store_riichi_game_record(db_manager, game_record: dict, player_list: list, room_type: str, match_type: str) -> Optional[str]:
-    """保存立直麻将牌谱与玩家对局记录。
-    若数据库未建对应表，捕获异常并返回 None 不阻塞游戏。"""
     if any(getattr(p, "user_id", 0) <= 10 for p in player_list):
         logger.info("立直对局包含机器人，跳过牌谱与对局记录保存")
         return None
@@ -31,83 +27,69 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
     try:
         conn = db_manager._get_connection()
         cursor = conn.cursor()
-        game_record_json = json.dumps(game_record, ensure_ascii=False, default=str)
 
+        game_record_json = json.dumps(game_record, ensure_ascii=False, default=str)
         max_retries = 5
         game_id = None
         for _ in range(max_retries):
             candidate_id = _generate_game_id()
             try:
                 cursor.execute(
-                    """
-                    INSERT INTO riichi_game_records
-                        (game_id, room_type, match_type, game_record, created_at)
-                    VALUES (%s, %s, %s, %s, NOW())
-                    ON CONFLICT (game_id) DO NOTHING
-                    RETURNING game_id;
-                    """,
-                    (candidate_id, room_type, match_type, game_record_json),
+                    "INSERT INTO game_records (game_id, record) VALUES (%s, %s)",
+                    (candidate_id, game_record_json),
                 )
-                row = cursor.fetchone()
-                if row:
-                    game_id = row[0]
-                    break
-            except Error as e:
-                logger.warning(f"立直牌谱写入失败，放弃并跳过: {e}")
+                game_id = candidate_id
+                break
+            except Error:
                 conn.rollback()
-                return None
+                continue
+        if game_id is None:
+            logger.error("立直牌谱多次生成 game_id 均失败")
+            return None
+
+        game_title = game_record.get("game_title") or {}
+        rule = game_title.get("rule") or "riichi"
+        sub_rule = game_title.get("sub_rule") or "riichi/standard"
+        saved_count = 0
+        for player in player_list:
+            rank = player.record_counter.rank_result
+            try:
+                cursor.execute("""
+                    INSERT INTO game_player_records (
+                        game_id, user_id, username, score, rank, rule, sub_rule, match_type,
+                        title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    game_id,
+                    player.user_id,
+                    player.username,
+                    player.score,
+                    rank,
+                    rule,
+                    sub_rule,
+                    match_type,
+                    getattr(player, "title_used", None),
+                    getattr(player, "character_used", None),
+                    getattr(player, "profile_used", None),
+                    getattr(player, "voice_used", None),
+                ))
+                saved_count += 1
+            except Error as e:
+                logger.warning(f"跳过立直玩家对局记录: user_id={player.user_id}, error={e}")
+
         conn.commit()
+        logger.info(f"立直牌谱已保存 game_id={game_id}，玩家记录 {saved_count} 条")
         return game_id
     except Exception as e:
-        logger.warning(f"立直牌谱存储异常（可能表未建立，跳过）: {e}")
+        logger.error(f"立直牌谱存储失败: {e}", exc_info=True)
         if conn:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
+            conn.rollback()
         return None
     finally:
         if conn:
-            db_manager._release_connection(conn)
+            db_manager._put_connection(conn)
 
 
 def store_riichi_game_stats(db_manager, game_id: str, player_list: list, room_type: str, max_round: int, total_rounds: int) -> None:
-    """保存立直对局玩家维度统计。底层表未建立时写入失败直接跳过。"""
-    conn = None
-    try:
-        conn = db_manager._get_connection()
-        cursor = conn.cursor()
-        for player in player_list:
-            try:
-                cursor.execute(
-                    """
-                    INSERT INTO riichi_history_stats
-                        (game_id, user_id, room_type, max_round, total_rounds, final_score, rank)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT DO NOTHING;
-                    """,
-                    (
-                        game_id,
-                        player.user_id,
-                        room_type,
-                        max_round,
-                        total_rounds,
-                        player.score,
-                        player.record_counter.rank_result,
-                    ),
-                )
-            except Error as e:
-                logger.warning(f"立直统计写入失败，跳过：user_id={player.user_id} {e}")
-                conn.rollback()
-                return
-        conn.commit()
-    except Exception as e:
-        logger.warning(f"立直统计存储异常（可能表未建立，跳过）: {e}")
-        if conn:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-    finally:
-        if conn:
-            db_manager._release_connection(conn)
+    """立直历史统计暂未接入，保留接口供后续扩展。"""
+    logger.debug(f"跳过立直聚合统计 game_id={game_id}")

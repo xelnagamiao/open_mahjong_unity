@@ -1,0 +1,87 @@
+{
+  "game_title": {
+    "rule": "riichi",
+    "room_type": "custom",
+    "sub_rule": "riichi/standard",
+    "game_random_seed": 9988776655,
+    "max_round": 2,
+    "hepai_limit": 1,
+    "open_cuohe": false,
+    "tips": false,
+    "is_player_set_random_seed": false,
+    "red_dora": true,
+    "hepai_way": "head_bump",
+    "p0_uid": 10000031,
+    "p0_name": "日麻东",
+    "p1_uid": 10000032,
+    "p1_name": "日麻南",
+    "p2_uid": 10000033,
+    "p2_name": "日麻西",
+    "p3_uid": 10000034,
+    "p3_name": "日麻北"
+  },
+  "game_round": {
+    "round_index_1": {
+      "round_index": 1,
+      "current_round": 1,
+      "round_random_seed": 22000001,
+      "seats": [0, 1, 2, 3],
+      "dealer_index": 0,
+      "start_player_index": 0,
+      "riichi": { "honba": 0, "riichi_sticks": 0 },
+      "p0_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25],
+      "p1_tiles": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "p2_tiles": [51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64],
+      "p3_tiles": [71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "tiles_list": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64, 71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "action_ticks": [
+        ["riichi", 0, 0], //立直 [riichi, player_index, is_daburu(0通常/1双立直)]
+        ["dora", 61], //宝牌指示牌 [dora, tile_id]
+        ["hu_riichi", 0, "hu_self", 2, 30, ["立直", "断幺"], [3900, -1300, -1300, -1300], [61], [], 0, 0, 0], //自摸和 [hu_riichi, seat, hu_class, 番, 符, 役[], score_changes[], 表宝牌[], 里宝牌[], 赤数, honba, 供托]
+        ["hu_riichi", 1, "hu_first", 3, 40, ["立直", "断幺"], [5200, -5200, 0, 0], [61], [], 0, 0, 0], //荣和-上家
+        ["hu_riichi", 2, "hu_second", 1, 30, ["断幺"], [1000, -1000, 0, 0], [61], [], 0, 0, 0], //荣和-对家
+        ["hu_riichi", 3, "hu_third", 2, 30, ["断幺", "平和"], [2000, -2000, 0, 0], [61], [], 0, 0, 0], //荣和-下家
+        ["ryuukyoku", [1, 0, 0, 0], [1000, -1000, 0, 0], "exhaustive"], //荒牌流局 [ryuukyoku, 听牌flag[4], score_changes[4], reason]
+
+        ["d", 25], //摸牌 [d, tile_id]
+        ["c", 21, "F"], //切牌 [c, tile_id, T|F]
+        ["c", 21, "F", "H"], //立直横置切牌 [c, tile_id, T|F, H]
+        ["gd", 41], //杠后摸牌 [gd, tile_id]
+        ["cl", 22, 1], //吃左 [cl, tile_id, action_player]
+        ["cm", 23, 2], //吃中 [cm, tile_id, action_player]
+        ["cr", 25, 3], //吃右 [cr, tile_id, action_player]
+        ["p", 37, 1], //碰 [p, tile_id, action_player]
+        ["g", 38, 2], //明杠 [g, tile_id, action_player]
+        ["ag", 11], //暗杠 [ag, tile_id]
+        ["jg", 37], //加杠 [jg, tile_id]
+        ["end"] //本局结束 [end]
+      ]
+    },
+    "round_index_2": {
+      "round_index": 2,
+      "current_round": 1,
+      "round_random_seed": 22000002,
+      "seats": [0, 1, 2, 3],
+      "dealer_index": 0,
+      "start_player_index": 0,
+      "riichi": { "honba": 1, "riichi_sticks": 0 },
+      "p0_tiles": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 26],
+      "p1_tiles": [31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44],
+      "p2_tiles": [51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64],
+      "p3_tiles": [71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "tiles_list": [11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 26, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 63, 64, 71, 72, 73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84],
+      "action_ticks": [
+        ["d", 26],
+        ["c", 26, "F"],
+        ["d", 35],
+        ["c", 35, "T"],
+        ["riichi", 0, 0],
+        ["c", 21, "F", "H"],
+        ["d", 42],
+        ["c", 42, "T"],
+        ["hu_riichi", 0, "hu_self", 2, 30, ["立直", "断幺"], [3900, -1300, -1300, -1300], [61], [], 0, 1, 0],
+        ["end"]
+      ]
+    }
+  }
+}

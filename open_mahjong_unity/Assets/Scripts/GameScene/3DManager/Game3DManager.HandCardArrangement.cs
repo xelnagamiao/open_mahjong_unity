@@ -61,18 +61,11 @@ public partial class Game3DManager {
 
     // 检测并排列所有玩家的3D手牌（公共方法，供外部调用）
     public void CheckAndRearrangeAllPlayersHandCards() {
-        // 检查并排列各家 3D 手牌（含自家明牌手牌）
-        if (NeedsRearrangement(leftPosPanel.cardsPosition)) {
-            StartCoroutine(Rearrange3DCardsWithAnimation(leftPosPanel.cardsPosition));
-        }
-        if (NeedsRearrangement(topPosPanel.cardsPosition)) {
-            StartCoroutine(Rearrange3DCardsWithAnimation(topPosPanel.cardsPosition));
-        }
-        if (NeedsRearrangement(rightPosPanel.cardsPosition)) {
-            StartCoroutine(Rearrange3DCardsWithAnimation(rightPosPanel.cardsPosition));
-        }
-        if (NeedsRearrangement(selfPosPanel.cardsPosition)) {
-            StartCoroutine(Rearrange3DCardsWithAnimation(selfPosPanel.cardsPosition));
+        foreach (string playerPosition in HandAnimPlayerPositions) {
+            PosPanel3D panel = GetPosPanel(playerPosition);
+            if (panel != null && NeedsRearrangement(panel.cardsPosition)) {
+                StartHandRearrange(playerPosition);
+            }
         }
     }
 }

@@ -32,6 +32,7 @@ public class FriendNetworkManager : MonoBehaviour {
 
     public void HandleFriendMessage(Response response) {
         if (response == null || string.IsNullOrEmpty(response.type)) return;
+        SyncFriendListCache(response);
         switch (response.type) {
             case "friend/list_following":
                 FriendPanel.Instance?.OnFollowingListResponse(response);
@@ -108,6 +109,12 @@ public class FriendNetworkManager : MonoBehaviour {
                 OnListRealtimeSpectatorsResp?.Invoke(response);
                 RealtimeSpectatorIndicator.Instance?.HandleSpectatorsChanged(response);
                 break;
+        }
+    }
+
+    private static void SyncFriendListCache(Response response) {
+        if (response?.friend_list != null) {
+            FriendRelationCache.ReplaceFromList(response.friend_list);
         }
     }
 

@@ -5,6 +5,11 @@ import asyncio
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
+from .combination_mask_view import (
+    get_combination_fields_for_viewer,
+    sanitize_angang_mask,
+    sanitize_combination_target_for_viewer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +56,7 @@ async def broadcast_game_start(self):
             # 为当前玩家构建玩家信息列表（当前玩家看到自己的手牌，其他人看不到）
             players_info_for_current = []
             for player in self.player_list:
+                combo_tiles, combo_masks = get_combination_fields_for_viewer(player, current_player.player_index)
                 player_info = {
                     'user_id': player.user_id,
                     'username': player.username,
@@ -58,8 +64,8 @@ async def broadcast_game_start(self):
                     'hand_tiles': player.hand_tiles if player.user_id == current_player.user_id else None,  # 只有自己的手牌
                     'discard_tiles': player.discard_tiles,
                     'discard_origin_tiles': player.discard_origin_tiles,
-                    'combination_tiles': player.combination_tiles,
-                    'combination_mask': player.combination_mask,
+                    'combination_tiles': combo_tiles,
+                    'combination_mask': combo_masks,
                     'huapai_list': player.huapai_list,
                     'remaining_time': player.remaining_time,
                     'player_index': player.player_index,
@@ -341,6 +347,14 @@ async def broadcast_do_action(
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
+                viewer_mask = combination_mask
+                viewer_target = combination_target
+                if action_list and "angang" in action_list:
+                    viewer_mask = sanitize_angang_mask(combination_mask, action_player, current_player.player_index)
+                    viewer_target = sanitize_combination_target_for_viewer(
+                        combination_target, action_player, current_player.player_index
+                    )
+
                 response = Response(
                     type="gamestate/guobiao/do_action",
                     success=True,
@@ -354,8 +368,8 @@ async def broadcast_do_action(
                         cut_tile_index = cut_tile_index,
                         deal_tile=deal_tile,
                         buhua_tile=buhua_tile,
-                        combination_mask=combination_mask,
-                        combination_target=combination_target,
+                        combination_mask=viewer_mask,
+                        combination_target=viewer_target,
                         is_claim=True if is_claim else None,
                         silent=True if silent else None,
                     )

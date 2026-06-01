@@ -72,6 +72,15 @@ def _normalize(tile: int) -> int:
     return tile
 
 
+def _count_bonus_yaku(names: List[str], base: str) -> int:
+    total = sum(1 for y in names if y == base)
+    prefix = f"{base}*"
+    for y in names:
+        if y.startswith(prefix):
+            total += int(y.split("*", 1)[1])
+    return total
+
+
 class RiichiRecordCounter:
     def __init__(self):
         self.fulu_times = 0
@@ -185,6 +194,8 @@ class RiichiGameState:
         # 立直专属配置
         self.red_dora: bool = room_data.get("red_dora", True)
         self.hepai_way: str = room_data.get("hepai_way", "head_bump")  # head_bump / multi_ron / three_ron_abort
+        self.open_xiru: bool = room_data.get("open_xiru", True)
+        self.open_tobi: bool = room_data.get("open_tobi", True)
 
         self.isPlayerSetRandomSeed = False
 
@@ -338,8 +349,14 @@ class RiichiGameState:
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["red_dora"] = self.red_dora
         self.game_record["game_title"]["hepai_way"] = self.hepai_way
+        self.game_record["game_title"]["open_xiru"] = self.open_xiru
+        self.game_record["game_title"]["open_tobi"] = self.open_tobi
 
-        while self.current_round <= self.max_round * 4:
+        scheduled_rounds = self.max_round * 4
+        while True:
+            if self.current_round > scheduled_rounds:
+                if self.max_round >= 4 or not self.open_xiru:
+                    break
             init_riichi_tiles(self)
             self._first_round_discards = []
             self._first_round_valid = True
@@ -519,9 +536,11 @@ class RiichiGameState:
                     break
 
             # 决定是否连庄
+            last_renchan = False
             if self._cuohe_triggered:
                 # 错和：亲家不变、本场不增、仅更新随机种子；等同于"不加本场的连庄"重打
                 self.round_index += 1
+                last_renchan = True
             else:
                 winner_index = self._hu_winner_index()
                 oya_win = winner_index == 0
@@ -532,6 +551,7 @@ class RiichiGameState:
                 # 特殊流局也连庄
                 if self.hu_class in ("jiuzhongjiupai", "four_wind_abort", "four_kan_abort", "four_riichi_abort", "three_ron_abort"):
                     renchan = True
+                last_renchan = renchan
 
                 if renchan:
                     self.honba += 1
@@ -544,6 +564,9 @@ class RiichiGameState:
                     self.current_round += 1
                     self.round_index += 1
                     self._rotate_seats()
+
+            if not self._cuohe_triggered and self._riichi_match_should_end(last_renchan):
+                break
 
             # 清理局内状态
             for p in self.player_list:
@@ -599,6 +622,35 @@ class RiichiGameState:
             await self.game_server.room_manager.destroy_room(self.room_id)
         else:
             await self.game_server.room_manager.finish_custom_game_room(self.room_id)
+
+    # ========== 对局终了（西入 / 击飞）==========
+
+    def _riichi_oya_rank(self) -> int:
+        ranked = sorted(self.player_list, key=lambda p: p.score, reverse=True)
+        for i, p in enumerate(ranked):
+            if p.player_index == 0:
+                return i + 1
+        return 4
+
+    def _riichi_match_should_end(self, renchan: bool) -> bool:
+        """非全庄西入延长战与击飞：判定整场是否在本局结束后终了。"""
+        if self.open_tobi and any(p.score < 0 for p in self.player_list):
+            return True
+        scheduled = self.max_round * 4
+        if self.max_round >= 4 or not self.open_xiru:
+            return False
+        if self.current_round < scheduled:
+            return False
+        if self.current_round == scheduled and renchan:
+            return False
+        oya = self.player_list[0]
+        oya_rank = self._riichi_oya_rank()
+        anyone_30k = any(p.score >= 30000 for p in self.player_list)
+        if oya_rank == 1 and oya.score >= 30000:
+            return True
+        if not renchan and anyone_30k:
+            return True
+        return False
 
     # ========== 结算 ==========
 
@@ -751,8 +803,8 @@ class RiichiGameState:
             han=han,
             fu=fu,
             aka_count=aka_count,
-            dora_count=sum(1 for y in yaku if y == "宝牌"),
-            ura_dora_count=sum(1 for y in yaku if y == "里宝牌"),
+            dora_count=_count_bonus_yaku(yaku, "宝牌"),
+            ura_dora_count=_count_bonus_yaku(yaku, "里宝牌"),
             dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
             ura_dora_indicators=list(self.ura_dora_indicators + self.ura_kan_dora_indicators) if "riichi" in self.player_list[winner_index].tag_list else [],
             honba=self.honba,
