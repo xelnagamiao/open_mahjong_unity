@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// 双向好友 UID 缓存，供 PlayerInfoPanel 等 UI 即时查询；由 FriendPanel 收到 friend_list 时同步。
+/// 双向好友 UID 缓存，供 PlayerInfoPanel 等 UI 即时查询；由 FriendNetworkManager 收到 friend_list 时同步。
 /// </summary>
 public static class FriendRelationCache {
     private static readonly HashSet<int> _friendUserIds = new HashSet<int>();

@@ -23,7 +23,7 @@ from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -258,7 +258,10 @@ class GuobiaoGameState:
                     }
                     
                     # 构建玩家信息列表
+                    from .combination_mask_view import get_combination_fields_for_viewer
+                    reconnect_player_index = p.player_index
                     for player in self.player_list:
+                        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, reconnect_player_index)
                         player_info = {
                             'user_id': player.user_id,
                             'username': player.username,
@@ -266,8 +269,8 @@ class GuobiaoGameState:
                             'hand_tiles': player.hand_tiles if player.user_id == user_id else None,  # 只有自己可见手牌
                             'discard_tiles': player.discard_tiles,
                             'discard_origin_tiles': player.discard_origin_tiles,
-                            'combination_tiles': player.combination_tiles,
-                            "combination_mask": player.combination_mask,
+                            'combination_tiles': combo_tiles,
+                            'combination_mask': combo_masks,
                             "huapai_list": player.huapai_list,
                             'remaining_time': player.remaining_time,
                             'player_index': player.player_index,
@@ -542,14 +545,11 @@ class GuobiaoGameState:
                             if self.hu_class == "hu_self":
                                 hepai_player_index = self.current_player_index
                             elif self.hu_class == "hu_first":
-                                hepai_player_index = next_current_num(self.current_player_index)
+                                hepai_player_index = back_current_num(self.current_player_index)
                             elif self.hu_class == "hu_second":
-                                hepai_player_index = next_current_num(self.current_player_index)
-                                hepai_player_index = next_current_num(hepai_player_index)
+                                hepai_player_index = next_current_num(next_current_num(self.current_player_index))
                             elif self.hu_class == "hu_third":
                                 hepai_player_index = next_current_num(self.current_player_index)
-                                hepai_player_index = next_current_num(hepai_player_index)
-                                hepai_player_index = next_current_num(hepai_player_index)
                             for i in self.player_list:
                                 if i.player_index == hepai_player_index:
                                     i.score -= 30
@@ -558,9 +558,7 @@ class GuobiaoGameState:
 
                             # 牌谱记录错和（无 end 标记，游戏继续）
                             cuohe_hu_fan = hu_fan + ["错和"]
-                            cuohe_score_changes = [0, 0, 0, 0]
-                            for player in self.player_list:
-                                cuohe_score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
+                            cuohe_score_changes = build_score_changes_by_seat(self.player_list, scores_before)
                             player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                                     hu_fan=cuohe_hu_fan, hepai_player_index=hepai_player_index,
                                                     score_changes=cuohe_score_changes)
@@ -584,8 +582,7 @@ class GuobiaoGameState:
                                                 hepai_player_huapai = self.player_list[hepai_player_index].huapai_list,
                                                 hepai_player_combination_mask = self.player_list[hepai_player_index].combination_mask
                                                 )
-                            # 等待5秒
-                            await asyncio.sleep(hu_result_ready_wait_seconds(len(hu_fan)))
+                            await asyncio.sleep(hu_result_ready_wait_seconds(len(cuohe_hu_fan), pre_panel_delay_sec=0))
 
                             # 错和尾处理
                             # 给错和玩家添加peida tag
@@ -599,14 +596,21 @@ class GuobiaoGameState:
                                 self.action_dict = check_action_hand_action(self,self.current_player_index)
                                 self.game_status = "waiting_hand_action"
                             elif self.hu_class in ["hu_first","hu_second","hu_third"]:
-                                # 他人和牌，倒带手牌并重新检测出牌操作
-                                tile_id = self.player_list[self.current_player_index].hand_tiles[-1]  # 获取最后一张牌（和牌牌）
-                                self.player_list[self.current_player_index].hand_tiles.pop(-1)  # 删除手牌中最后一张牌
-                                self.action_dict = check_action_after_cut(self,tile_id)
+                                # 荣和错和：撤销和牌方手牌中的舍牌，用实际打出的牌重新检测鸣牌/和牌
+                                cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+                                hepai_hand = self.player_list[hepai_player_index].hand_tiles
+                                if hepai_hand and hepai_hand[-1] == cut_tile:
+                                    hepai_hand.pop()
+                                elif cut_tile in hepai_hand:
+                                    hepai_hand.remove(cut_tile)
+                                self.action_dict = check_action_after_cut(self, cut_tile)
                                 if any(self.action_dict[i] for i in self.action_dict):
                                     self.game_status = "waiting_action_after_cut" # 转移行为
                                 else:
                                     self.game_status = "deal_card" # 历时行为
+
+                            for player in self.player_list:
+                                refresh_waiting_tiles(self, player.player_index)
 
                             # 删除和牌类型
                             self.hu_class = ""
@@ -750,9 +754,7 @@ class GuobiaoGameState:
                 player.score_history.append(score_change_str)
 
             # 牌谱记录本局各玩家分数变化 [p0, p1, p2, p3] 按 original_player_index 排列
-            score_changes = [0, 0, 0, 0]
-            for player in self.player_list:
-                score_changes[player.original_player_index] = player.score - scores_before[player.original_player_index]
+            score_changes = build_score_changes_by_seat(self.player_list, scores_before)
 
             # 牌谱记录和牌/流局 + end 标记
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:

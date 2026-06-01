@@ -39,10 +39,12 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 # 构建绝对路径的日志文件
 log_file_path = os.path.join(LOG_DIR, "app.log")
+LOG_MAX_BYTES = 512 * 1024  # 单文件 512KB
+LOG_BACKUP_COUNT = 99  # 保留 app.log.1 ~ app.log.99，共 100 个切片文件
 
 # 构建 handlers
 handlers = [
-    RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=25, encoding='utf-8')
+    RotatingFileHandler(log_file_path, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding='utf-8')
 ]
 
 if Config.logging_do_stream_handler:

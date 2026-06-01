@@ -337,7 +337,7 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
         "is_tenhou": is_first_action and hepai_type == "tsumo" and player.player_index == 0 and not player.combination_tiles,
         "is_chiihou": is_first_action and hepai_type == "tsumo" and player.player_index != 0 and not player.combination_tiles,
         "player_wind": player.player_index,
-        "round_wind": min((self.current_round - 1) // 4, 3),
+        "round_wind": (self.current_round - 1) // 4 % 4,
         "has_open_tanyao": True,
         "dora_indicators": self.dora_indicators + self.kan_dora_indicators,
         "ura_dora_indicators": ura_dora,

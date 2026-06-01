@@ -318,35 +318,14 @@ public partial class GameRecordManager : MonoBehaviour {
             userIdToScore[rp.userId] = rp.score;
         }
 
-        // 根据局数确定风位轮转：每局 back_current_num 一次（0→3→2→1），与服务器 next_game_round_switchseat 一致
-        int rotateSteps = ((roundIndex - 1) % 4 + 4) % 4;
-        foreach (var recordPlayer in recordPlayerList){
-            int idx = recordPlayer.originalPlayerIndex;
-            for (int i = 0; i < rotateSteps; i++) {
-                idx = BackCurrentNum(idx);
-            }
-            recordPlayer.playerIndex = idx;
-        }
-
-        // 国标固定换位：guobiao/standard 与 guobiao/xiaolin 在第 5、9、13 局应用固定换位（与 next_game_round_switchseat 一致）
-        string subRule = ReadGameTitleString(gameRecord?.gameTitle, "sub_rule", "").ToLowerInvariant();
-        bool useFixedSeat = (subRule == "guobiao/standard" || subRule == "guobiao/xiaolin") && (roundIndex == 5 || roundIndex == 9 || roundIndex == 13);
-        if (useFixedSeat) {
-            foreach (var recordPlayer in recordPlayerList) {
-                int orig = recordPlayer.originalPlayerIndex;
-                if (roundIndex == 5) {
-                    recordPlayer.playerIndex = (orig == 0 ? 1 : (orig == 1 ? 0 : (orig == 2 ? 3 : 2)));
-                } else if (roundIndex == 9) {
-                    recordPlayer.playerIndex = (orig == 0 ? 3 : (orig == 1 ? 2 : (orig == 2 ? 0 : 1)));
-                } else {
-                    recordPlayer.playerIndex = (orig == 0 ? 2 : (orig == 1 ? 3 : (orig == 2 ? 1 : 0)));
-                }
-            }
+        gameRecord.gameRound.rounds.TryGetValue(roundIndex, out Round roundDataForSeats);
+        foreach (var recordPlayer in recordPlayerList) {
+            recordPlayer.playerIndex = roundDataForSeats.seats[recordPlayer.originalPlayerIndex];
         }
 
         // 初始化牌山列表（当前牌山和原始牌山）
-        if (gameRecord.gameRound.rounds.TryGetValue(roundIndex, out Round roundData)) {
-            originalTilesList = roundData.tilesList != null ? new List<int>(roundData.tilesList) : new List<int>();
+        if (roundDataForSeats != null) {
+            originalTilesList = roundDataForSeats.tilesList != null ? new List<int>(roundDataForSeats.tilesList) : new List<int>();
             currentTilesList = new List<int>(originalTilesList);
             consumedFromFront = 0;
             consumedBackIndices = new HashSet<int>();
@@ -469,8 +448,8 @@ public partial class GameRecordManager : MonoBehaviour {
                     displayRound = currentRoundData.currentRound;
                 }
             }
-            string roomType = gameRecord.gameTitle["rule"].ToString().Trim().Trim('"').ToLowerInvariant();
-            BoardCanvas.Instance.InitializeBoardInfoFromRecord(recordPlayerList, indexToPosition, userIdToScore, roomType, displayRound, startRemainTiles);
+            string roomRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
+            BoardCanvas.Instance.InitializeBoardInfoFromRecord(recordPlayerList, indexToPosition, userIdToScore, roomRule, displayRound, startRemainTiles);
 
             // 初始化左上局数面板RoundPanel
             GameCanvas.Instance.UpdateRoomInfoFromRecord(gameRecord, currentRoundIndex);
@@ -480,8 +459,11 @@ public partial class GameRecordManager : MonoBehaviour {
             Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
         }
 
-        // 初始化当前action位置
+        // 初始化当前行动玩家
         currentPlayerIndex = 0;
+        if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundForStart)) {
+            currentPlayerIndex = roundForStart.startPlayerIndex;
+        }
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
         recordRiichiDoraIndicators.Clear();
@@ -551,7 +533,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
         string action = tick[0];
         if (currentNode == startIndex) {
-            currentPlayerIndex = 0;
+            currentPlayerIndex = roundData.startPlayerIndex;
             BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         }
         int previousPlayerIndex = currentPlayerIndex;
@@ -638,7 +620,8 @@ public partial class GameRecordManager : MonoBehaviour {
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
             RemoveNTiles(currentRecordPlayer.tileList, angangTile, 4);
-            int[] combinationMask = new int[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
+            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
+            int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
             currentRecordPlayer.combinationTiles.Add($"G{angangTile}");
             currentRecordPlayer.combinationMasks.Add(combinationMask);
             if (currentPlayerPosition == "self") {
@@ -689,7 +672,7 @@ public partial class GameRecordManager : MonoBehaviour {
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
-            string ruleName = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+            string ruleName = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
             if (ruleName == "classical") {
                 int hepaiPlayerIndexOnly = ParseTickInt(tick, 1);
                 if (indexToPosition.ContainsKey(hepaiPlayerIndexOnly)) {
@@ -733,7 +716,7 @@ public partial class GameRecordManager : MonoBehaviour {
             } else {
                 Round huRoundData = null;
                 gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out huRoundData);
-                string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+                string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
                 int fangchong = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : currentPlayerIndex;
                 deltas = ResolveScoreDeltas(huRoundData, recordRule, action, ParseTickDouble(tick, 2), hepaiPlayerIndex, fangchong);
             }
@@ -743,7 +726,7 @@ public partial class GameRecordManager : MonoBehaviour {
             GameSceneUIManager.Instance.UpdateScoreRecord();
         }
         else if (action == "shuhewei") {
-            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+            string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
             if (rule == "classical") {
                 int[] fuArray = ParseTickScoreChanges(tick, 1);
                 int[] changesArray = ParseTickScoreChanges(tick, 2);
@@ -855,20 +838,6 @@ public partial class GameRecordManager : MonoBehaviour {
         UpdateCurrentXunmuText();
     }
 
-    
-    /// <summary>
-    /// 倒退玩家索引 用于实现回合数前进 可放心使用
-    /// </summary>
-    /// <param name="num">当前玩家索引 (0-3)</param>
-    /// <returns>上一个玩家索引 (0-3)</returns>
-    private int BackCurrentNum(int num) {
-        if (num == 0) {
-            return 3;
-        } else {
-            return num - 1;
-        }
-    }
-
     /// <summary>
     /// 前进玩家索引（0->1->2->3->0）
     /// </summary>
@@ -934,15 +903,21 @@ public partial class GameRecordManager : MonoBehaviour {
     private void UpdateCurrentRoundText() {
         if (currentRoundText == null) return;
         int roundNo = currentRoundIndex;
+        int honba = 0;
         if (gameRecord != null &&
             gameRecord.gameRound != null &&
             gameRecord.gameRound.rounds != null &&
-            gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) &&
-            roundData.currentRound > 0) {
-            roundNo = roundData.currentRound;
+            gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
+            if (roundData.currentRound > 0) {
+                roundNo = roundData.currentRound;
+            }
+            if (roundData.riichi != null) {
+                honba = roundData.riichi.honba;
+            }
         }
-        string rule = ReadGameTitleString(gameRecord != null ? gameRecord.gameTitle : null, "rule", "guobiao").ToLowerInvariant();
-        currentRoundText.text = FormatRoundText(rule, roundNo);
+        string rule = ReadGameTitleString(gameRecord != null ? gameRecord.gameTitle : null, "rule", "").ToLowerInvariant();
+        string roundText = FormatRoundText(rule, roundNo);
+        currentRoundText.text = rule == "riichi" ? $"{roundText} {honba}本场" : roundText;
     }
 
     /// <summary>
@@ -1001,8 +976,7 @@ public partial class GameRecordManager : MonoBehaviour {
         var gt = gameRecord.gameTitle;
         string ruleKey = ReadGameTitleString(gt, "rule", "").ToLowerInvariant();
         string subRule = ReadGameTitleString(gt, "sub_rule", "");
-        string rule = RuleNameDictionary.GetWholeName(subRule);
-        if (string.IsNullOrEmpty(rule)) rule = (ruleKey.Contains("guobiao") ? "国标" : (ruleKey.Contains("qingque") ? "青雀" : (ruleKey.Contains("classical") ? "古典" : (ruleKey.Contains("riichi") ? "立直" : "未知规则"))));
+        string rule = RuleNameDictionary.GetWholeName(!string.IsNullOrEmpty(subRule) ? subRule : ruleKey);
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("【游戏信息】");
@@ -1078,14 +1052,11 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 推理每局分数变化。优先使用牌谱中的 scoreChanges，否则根据规则和和牌数据推理。
-    /// 返回 playerIndex(0-3) → 分数变化 的字典。
-    /// 注意：客户端推理无法感知"错和"罚分，含错和的局应依赖服务端 scoreChanges。
+    /// 从牌谱 round.scoreChanges 读取本局分数变化（由服务端 tick 累加）。
     /// </summary>
     private Dictionary<int, int> ResolveScoreDeltas(Round roundData, string rule,
         string huClass, double huScore, int hepaiPlayerIndex, int fangchongPlayerIndex) {
 
-        // 优先使用服务端记录的 scoreChanges
         if (roundData?.scoreChanges != null && roundData.scoreChanges.Count >= 4) {
             var deltas = new Dictionary<int, int>();
             foreach (var rp in recordPlayerList) {
@@ -1094,68 +1065,16 @@ public partial class GameRecordManager : MonoBehaviour {
             return deltas;
         }
 
-        // 客户端推理
-        if (rule == "guobiao") return InferGuobiaoScoreDeltas(huClass, (int)huScore, hepaiPlayerIndex, fangchongPlayerIndex);
-        if (rule == "qingque") return InferQingqueScoreDeltas(huClass, huScore, hepaiPlayerIndex, fangchongPlayerIndex);
         return new Dictionary<int, int> { {0,0}, {1,0}, {2,0}, {3,0} };
     }
 
     /// <summary>
-    /// 国标分数推理：
-    /// 自摸 → 赢家 +(score*3+24)，其余 -(score+8)
-    /// 荣和 → 赢家 +(score+24)，放铳 -(score+8)，其余 -8
-    /// </summary>
-    private static Dictionary<int, int> InferGuobiaoScoreDeltas(string huClass, int huScore, int winnerIdx, int fangchongIdx) {
-        var d = new Dictionary<int, int> { {0,0}, {1,0}, {2,0}, {3,0} };
-        if (huClass == "hu_self") {
-            for (int i = 0; i < 4; i++) d[i] = -(huScore + 8);
-            d[winnerIdx] += huScore * 4 + 32; // net: huScore*3+24
-        } else {
-            d[winnerIdx] = huScore + 24;
-            d[fangchongIdx] = -huScore;
-            for (int i = 0; i < 4; i++) {
-                if (i != winnerIdx) d[i] -= 8;
-            }
-        }
-        return d;
-    }
-
-    /// <summary>
-    /// 青雀分数推理：basePoint = Round(fan²)
-    /// 自摸 → 赢家 +basePoint*3，其余 -basePoint
-    /// 荣和 → 赢家 +basePoint*3，放铳 -basePoint*3
-    /// </summary>
-    private static Dictionary<int, int> InferQingqueScoreDeltas(string huClass, double fan, int winnerIdx, int fangchongIdx) {
-        int basePoint = (int)Math.Round(fan * fan);
-        var d = new Dictionary<int, int> { {0,0}, {1,0}, {2,0}, {3,0} };
-        if (huClass == "hu_self") {
-            for (int i = 0; i < 4; i++) d[i] = -basePoint;
-            d[winnerIdx] += basePoint * 4; // net: basePoint*3
-        } else {
-            d[winnerIdx] = basePoint * 3;
-            d[fangchongIdx] = -basePoint * 3;
-        }
-        return d;
-    }
-
-    /// <summary>
-    /// 立直麻将 tick 内 score_changes 按下标 playerIndex（当局座位）排列；
-    /// 国标/青雀/古典等按下标 originalPlayerIndex 排列。
-    /// </summary>
-    private bool IsScoreChangesByPlayerIndex() {
-        string rule = ReadGameTitleString(gameRecord?.gameTitle, "rule", "").ToLowerInvariant();
-        return rule == "riichi";
-    }
-
-    /// <summary>
-    /// 将 tick 中的 score_changes 数组映射为 playerIndex → delta。
+    /// 将 tick 中的 score_changes 数组（player_index 顺序）映射为 playerIndex → delta。
     /// </summary>
     private void MapTickScoreChangesToDeltas(int[] tickScoreChanges, Dictionary<int, int> deltas) {
         if (tickScoreChanges == null || tickScoreChanges.Length < 4) return;
-        bool byPlayerIndex = IsScoreChangesByPlayerIndex();
         foreach (var rp in recordPlayerList) {
-            int sourceIndex = byPlayerIndex ? rp.playerIndex : rp.originalPlayerIndex;
-            deltas[rp.playerIndex] = tickScoreChanges[sourceIndex];
+            deltas[rp.playerIndex] = tickScoreChanges[rp.playerIndex];
         }
     }
 
@@ -1256,10 +1175,7 @@ public partial class GameRecordManager : MonoBehaviour {
             }
         }
 
-        // 番表显示优先使用 sub_rule（如 guobiao/xiaolin），无则用 rule
-        string ruleFallback = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
-        string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
-        string roomType = !string.IsNullOrEmpty(subRule) ? subRule : ruleFallback;
+        string roomType = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
         if (indexToPosition.ContainsKey(hepaiPlayerIndex)) {
             string huPosition = indexToPosition[hepaiPlayerIndex];
             GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
@@ -1450,6 +1366,13 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
+    private static int[] BuildAngangCombinationMask(int angangTile, string rule) {
+        if (rule == "riichi") {
+            return new int[] { 2, angangTile, 0, angangTile, 0, angangTile, 2, angangTile };
+        }
+        return new int[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
+    }
+
     private int[] BuildJiagangMask(RecordPlayer recordPlayer, int jiagangTile) {
         for (int i = 0; i < recordPlayer.combinationTiles.Count; i++) {
             if (recordPlayer.combinationTiles[i] == $"k{jiagangTile}") {
@@ -1543,7 +1466,7 @@ public partial class GameRecordManager : MonoBehaviour {
             return;
         }
 
-        int simulateCurrentPlayerIndex = 0;
+        int simulateCurrentPlayerIndex = roundData.startPlayerIndex;
         int xunmu = 0;
         int selectedIndex = selectedPlayerIndex;
 
@@ -1595,7 +1518,6 @@ public partial class GameRecordManager : MonoBehaviour {
             return;
         }
         string rule = gameRecord.gameTitle["rule"].ToString().Trim().Trim('"').ToLowerInvariant();
-        Dictionary<int, int> roundToHonba = new Dictionary<int, int>();
         if (recordRoundItemPrefab == null) {
             Debug.LogError("BuildRoundNodeItems: recordRoundItemPrefab 未分配，无法创建局数按钮。");
             return;
@@ -1603,13 +1525,8 @@ public partial class GameRecordManager : MonoBehaviour {
         
         foreach (Round round in _roundsListForInspector) {
             int honba = 0;
-            if (rule == "riichi") {
-                if (!roundToHonba.ContainsKey(round.currentRound)) {
-                    roundToHonba[round.currentRound] = 0;
-                } else {
-                    roundToHonba[round.currentRound]++;
-                }
-                honba = roundToHonba[round.currentRound];
+            if (rule == "riichi" && round.riichi != null) {
+                honba = round.riichi.honba;
             }
             GameObject itemObj = Instantiate(recordRoundItemPrefab, recordRoundItemContainer);
             RecordRoundItem item = itemObj.GetComponent<RecordRoundItem>();
@@ -1626,40 +1543,21 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    private int AnalyzeInitialBuhuaResetNode(Round roundData) {
-        if (roundData == null || roundData.actionTicks == null || roundData.actionTicks.Count == 0) {
-            return -1;
-        }
-        // 仅在首条行为是补花时判定“初始补花轮”
-        List<string> firstTick = roundData.actionTicks[0];
-        if (firstTick == null || firstTick.Count == 0 || firstTick[0] != "bh") {
-            return -1;
-        }
-
-        for (int i = 0; i < roundData.actionTicks.Count; i++) {
-            List<string> tick = roundData.actionTicks[i];
-            if (tick == null || tick.Count == 0) continue;
-            string action = tick[0];
-            if (action != "bh" && action != "bd") {
-                return i;
-            }
-        }
-        return -1;
-    }
-
     private void InferAndMarkStartIndex() {
         startIndex = -1;
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
             return;
         }
-
-        string rule = gameRecord.gameTitle["rule"].ToString().Trim().Trim('"').ToLowerInvariant();
-        if (rule == "guobiao") {
-            startIndex = AnalyzeInitialBuhuaResetNode(roundData);
+        if (roundData.actionTicks == null || roundData.actionTicks.Count == 0) {
             return;
         }
-        if (rule == "qingque" || rule == "riichi") {
-            return; // 暂不处理，后续规则扩展在这里接入
+        for (int i = 0; i < roundData.actionTicks.Count; i++) {
+            List<string> tick = roundData.actionTicks[i];
+            if (tick == null || tick.Count == 0) continue;
+            string action = tick[0];
+            if (action == "bh" || action == "bd") continue;
+            startIndex = i;
+            break;
         }
     }
 
@@ -1668,7 +1566,7 @@ public partial class GameRecordManager : MonoBehaviour {
     /// </summary>
     public void RefreshRecordScoreTable() {
         if (gameRecord?.gameRound?.rounds == null || ScoreHistoryPanel.Instance == null) return;
-        string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "guobiao").ToLowerInvariant();
+        string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
         int p0Id = ReadGameTitleInt(gameRecord.gameTitle, "p0_uid", 0);
         int p1Id = ReadGameTitleInt(gameRecord.gameTitle, "p1_uid", 0);
         int p2Id = ReadGameTitleInt(gameRecord.gameTitle, "p2_uid", 0);

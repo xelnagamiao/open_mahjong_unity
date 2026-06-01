@@ -183,8 +183,8 @@ async def wait_action(self):
                     # 暗杠 4 张中可能含有赤 5（105/205/305），按归一化移除并记录真实牌 ID
                     removed = [_remove_by_normal(self.player_list[self.current_player_index].hand_tiles, normal_angang) for _ in range(4)]
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
-                    # 日麻暗杠：四张均牌背竖置，与两侧一致
-                    mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
+                    # 日麻暗杠：两侧暗面、中间两张竖置亮牌
+                    mask = [2, removed[0], 0, removed[1], 0, removed[2], 2, removed[3]]
                     self.player_list[self.current_player_index].combination_mask.append(mask)
                     player_action_record_angang(self, angang_tile=normal_angang)
                     await broadcast_do_action(self, action_list=["angang"], action_player=self.current_player_index,

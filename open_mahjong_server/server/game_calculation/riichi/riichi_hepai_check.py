@@ -342,8 +342,10 @@ class Riichi_Hepai_Check:
         aka_count = count_aka_in_tiles(all_tile_ids)
         dora_count = count_dora_in_tiles(all_tile_ids, context.get("dora_indicators", []))
         ura_count = count_dora_in_tiles(all_tile_ids, context.get("ura_dora_indicators", [])) if context.get("is_riichi") else 0
-        yaku_names.extend(["宝牌"] * dora_count)
-        yaku_names.extend(["里宝牌"] * ura_count)
+        if dora_count > 0:
+            yaku_names.append(f"宝牌*{dora_count}")
+        if ura_count > 0:
+            yaku_names.append(f"里宝牌*{ura_count}")
         if aka_count > 0:
             yaku_names.append(f"赤宝牌*{aka_count}")
 

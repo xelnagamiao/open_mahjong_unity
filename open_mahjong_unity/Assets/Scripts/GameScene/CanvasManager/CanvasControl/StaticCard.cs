@@ -31,10 +31,16 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         Sprite sprite = Resources.Load<Sprite>(path);
         if (sprite != null) {
             tileImage.sprite = sprite;
+            tileImage.color = Color.white;
             Debug.Log($"成功加载静态卡片图片: {path}");
         } else {
             Debug.LogError($"找不到牌面图片: {path}");
         }
+    }
+
+    public void SetTileImageColor(Color color) {
+        if (tileImage == null) return;
+        tileImage.color = color;
     }
 
     /// <summary>

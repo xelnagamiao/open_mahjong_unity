@@ -49,9 +49,12 @@ public partial class RoundEndPresentation {
             foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
                 int idx = kvp.Key;
                 string pos = kvp.Value;
-                usernameByPos[pos] = NormalGameStateManager.Instance.player_to_info[pos].username;
-                scoresByPos[pos] = player_to_score[idx];
-                deltaByPos[pos] = riichiExtras.ScoreChanges[idx];
+                var playerInfo = NormalGameStateManager.Instance.player_to_info[pos];
+                usernameByPos[pos] = playerInfo.username;
+                ShowResultPlayerScoreResolver.TryGetAfterScore(player_to_score, idx, playerInfo.original_player_index, out int afterScore);
+                scoresByPos[pos] = afterScore;
+                ShowResultPlayerScoreResolver.TryGetDelta(riichiExtras.ScoreChanges, idx, playerInfo.original_player_index, out int delta);
+                deltaByPos[pos] = delta;
             }
             PenaltyPanel.Instance.PreparePenaltyPanel(usernameByPos, scoresByPos, deltaByPos, PenaltyPresentation.AfterDrawNotenThreePhase);
             PenaltyPanel.Instance.PlayPreparedPenaltyPanel(usernameByPos, scoresByPos, deltaByPos, PenaltyPresentation.AfterDrawNotenThreePhase, DrawNotenPenaltyHoldSeconds);

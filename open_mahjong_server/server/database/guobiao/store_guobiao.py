@@ -154,8 +154,8 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         
         # 2. 存储玩家对局记录到 game_player_records 表（rule=游戏规则，match_type=局数类型）
         game_title = game_record.get("game_title") or {}
-        rule = game_title.get("rule") or "guobiao"
-        sub_rule = game_title.get("sub_rule") or "guobiao/standard"
+        rule = game_title["rule"]
+        sub_rule = game_title["sub_rule"]
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result  # 1-4

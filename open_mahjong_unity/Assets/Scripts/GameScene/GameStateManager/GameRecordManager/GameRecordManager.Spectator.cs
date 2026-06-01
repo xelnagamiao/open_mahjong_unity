@@ -647,22 +647,16 @@ public partial class GameRecordManager {
 
     private Round ParseSpectatorRound(JObject roundData, int roundIndex) {
         Round round = new Round();
-        round.roundIndex = roundData["round_index"]?.Value<int>() ?? roundIndex;
-        round.roundRandomSeed = roundData["round_random_seed"]?.Value<long>() ?? 0;
-        round.currentRound = roundData["current_round"]?.Value<int>() ?? 0;
-
         if (gameRecord?.gameTitle != null) {
-            round.p0UserId = SafeGetInt(gameRecord.gameTitle, "p0_uid");
-            round.p1UserId = SafeGetInt(gameRecord.gameTitle, "p1_uid");
-            round.p2UserId = SafeGetInt(gameRecord.gameTitle, "p2_uid");
-            round.p3UserId = SafeGetInt(gameRecord.gameTitle, "p3_uid");
+            var playerUserIds = new Dictionary<int, int> {
+                [0] = SafeGetInt(gameRecord.gameTitle, "p0_uid"),
+                [1] = SafeGetInt(gameRecord.gameTitle, "p1_uid"),
+                [2] = SafeGetInt(gameRecord.gameTitle, "p2_uid"),
+                [3] = SafeGetInt(gameRecord.gameTitle, "p3_uid"),
+            };
+            GameRecordJsonDecoder.ApplyPlayerUserIds(round, playerUserIds);
         }
-
-        round.p0Tiles = roundData["p0_tiles"]?.ToObject<List<int>>() ?? new List<int>();
-        round.p1Tiles = roundData["p1_tiles"]?.ToObject<List<int>>() ?? new List<int>();
-        round.p2Tiles = roundData["p2_tiles"]?.ToObject<List<int>>() ?? new List<int>();
-        round.p3Tiles = roundData["p3_tiles"]?.ToObject<List<int>>() ?? new List<int>();
-        round.tilesList = roundData["tiles_list"]?.ToObject<List<int>>() ?? new List<int>();
+        GameRecordJsonDecoder.ApplyRoundHeader(round, roundData, roundIndex);
 
         round.actionTicks = new List<List<string>>();
         JArray actionTicks = roundData["action_ticks"] as JArray;

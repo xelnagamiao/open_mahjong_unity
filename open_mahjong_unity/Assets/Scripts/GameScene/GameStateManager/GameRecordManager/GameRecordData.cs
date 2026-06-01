@@ -15,6 +15,15 @@ public class ActionTickDisplay {
 }
 
 /// <summary>
+/// 立直麻将单局扩展字段
+/// </summary>
+[Serializable]
+public class RiichiRoundExtras {
+    public int honba;
+    public int riichiSticks;
+}
+
+/// <summary>
 /// 单局数据
 /// </summary>
 [Serializable]
@@ -22,6 +31,10 @@ public class Round {
     public int roundIndex;
     public long roundRandomSeed;
     public int currentRound;
+    public List<int> seats;
+    public int dealerIndex;
+    public int startPlayerIndex;
+    public RiichiRoundExtras riichi;
     public int p0UserId;
     public int p1UserId;
     public int p2UserId;
@@ -34,7 +47,7 @@ public class Round {
     public List<List<string>> actionTicks;
 
     /// <summary>
-    /// 本局结算分数变化 [p0, p1, p2, p3]，从 hu_* 动作的 score_changes 累加
+    /// 本局结算分数变化 [original0..3]，从 hu_* / ryuukyoku 累加
     /// </summary>
     public List<int> scoreChanges;
 
@@ -52,6 +65,7 @@ public class Round {
         roundIndex = 0;
         roundRandomSeed = 0;
         currentRound = 0;
+        seats = new List<int>();
         p0Tiles = new List<int>();
         p1Tiles = new List<int>();
         p2Tiles = new List<int>();
@@ -95,4 +109,3 @@ public class GameRecord {
         gameRound = new GameRound();
     }
 }
-

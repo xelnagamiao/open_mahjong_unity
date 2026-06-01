@@ -44,6 +44,9 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
         Instance = this;
+        if (GetComponent<ConcealedTile3DPeekController>() == null) {
+            gameObject.AddComponent<ConcealedTile3DPeekController>();
+        }
         // 初始化配置
         this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
         this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x * 1.06f; // 卡片宽度（红色轴）
@@ -228,9 +231,8 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    // 3D手牌处理入口 协程并行执行，多个 Change3DTileCoroutine 可同时运行
-    // 本方法管理所有来自GameSceneManager的3D手牌处理请求 除了Clear3DTile清空面板；牌谱重建等可直调 ActionAnimationCoroutine
-    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false){
+    // 3D手牌处理入口：仅暗杠与暗杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
+    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
@@ -255,12 +257,16 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        // 直接启动协程，允许多个 Change3DTileCoroutine 并行执行
-        StartCoroutine(Change3DTileCoroutine(actionType,tileId,removeCount,PlayerPosition,cut_class,combination_mask, isRiichi));
+        if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask)) {
+            return;
+        }
+
+        StartCoroutine(Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound));
     }
 
     // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
     private void InitHandCardsImmediate() {
+        StopAllHandAnimationQueues();
         ClearAllRiichiTenbous();
         List<GameObject> objectsToReturn = new List<GameObject>();
         CollectChildren(leftPosPanel.cardsPosition, objectsToReturn);
@@ -285,123 +291,82 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
     
-    // Change3DTile 管理3D手牌组的变更行为
-    public IEnumerator Change3DTileCoroutine(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false){
-        // Change3DTile 所有类型：
-        // InitHandCards 初始化手牌 => ClearHandCardsCoroutine => Get3DTile
-        // GetCard 摸牌 => Get3DTile
-        // Discard 弃牌 => Set3DTile(discard) => RemoveHandCardsCoroutine
-        // Buhua 补花 => Set3DTile(buhua) => RemoveHandCardsCoroutine // 其实补花也有摸打补花的说法，后续需要优化这种情况
-        // 吃碰杠 => ActionAnimation => RemoveHandCardsCoroutine（含自家，按掩码删牌）
-
-        // 初始化手牌：统一走同步路径，避免协程 yield 期间与补花/摸牌广播交错产生多余手牌
-        if (actionType == "InitHandCards"){
-            InitHandCardsImmediate();
-            yield break;
-        }
-
-        if (actionType == "InitHandCardsFromRecord"){
+    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false) {
+        if (actionType == "InitHandCardsFromRecord") {
+            StopAllHandAnimationQueues();
             yield return StartCoroutine(ClearRecordHandCardsCoroutine());
             RenderRecordPlayerHand("left");
             RenderRecordPlayerHand("top");
             RenderRecordPlayerHand("right");
+            yield break;
         }
 
-        // 摸牌 
-        else if (actionType == "GetCard"){
+        PosPanel3D panel = GetPosPanel(PlayerPosition);
+        if (panel == null) {
+            yield break;
+        }
+
+        if (actionType == "GetCard") {
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
-                yield return StartCoroutine(RecordShowCardGetCoroutine(PlayerPosition, tileId));
+                yield return RecordShowCardGetCoroutine(PlayerPosition, tileId);
                 yield break;
             }
-            yield return StartCoroutine(Get3DTileCoroutine(PlayerPosition, "get", tileId));
+            yield return Get3DTileCoroutine(PlayerPosition, "get", tileId);
+            yield break;
         }
 
-        // 仅设置弃牌但不删除玩家手牌且无动画的牌谱转移和重连方法
-        else if (actionType == "SetDiscardWithoutAnimation"){
-            PosPanel3D panel = GetPosPanel(PlayerPosition);
-            Set3DTile(tileId, panel.discardsPosition, "DiscardWithoutAnimation", PlayerPosition, isMoqie: false, isRiichi: isRiichi); // 弃牌区增加弃牌
-        }
-
-        // 弃牌
-        else if (actionType == "Discard"){
-            PosPanel3D panel = GetPosPanel(PlayerPosition);
+        if (actionType == "Discard" || actionType == "RecordDiscard") {
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
-                yield return StartCoroutine(RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, cut_class));
-                yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, isMoqie: false, isRiichi: isRiichi));
-                RenderRecordPlayerHand(PlayerPosition);
+                yield return RecordDiscardShowCardsCoroutine(PlayerPosition, tileId, cut_class, isRiichi);
                 yield break;
             }
-            yield return StartCoroutine(RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null));
-            yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, isMoqie: false, isRiichi: isRiichi));
+            if (IsSelfCardsPosition(panel.cardsPosition)) {
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true);
+            }
+            else {
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true);
+            }
+            if (playCutPhysicsSound) {
+                SoundManager.Instance.PlayPhysicsSound("cut");
+            }
+            yield return Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, cut_class, isRiichi: isRiichi);
+            if (PlayerPosition != "self" && DiscardSettlePauseSec > 0f) {
+                yield return new WaitForSeconds(DiscardSettlePauseSec);
+            }
+            yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
+            yield break;
         }
 
-        // 牌谱弃牌（摸切显示灰色叠加）
-        else if (actionType == "RecordDiscard"){
-            PosPanel3D panel = GetPosPanel(PlayerPosition);
+        if (actionType == "Buhua") {
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
-                yield return StartCoroutine(RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, cut_class));
-                yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, cut_class, isRiichi: isRiichi));
-                yield return StartCoroutine(RearrangeRecordShowCardsWithAnimation(panel.ShowCardsPosition, PlayerPosition));
+                yield return RecordBuhuaShowCardsCoroutine(PlayerPosition, tileId);
                 yield break;
             }
-            yield return StartCoroutine(RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null));
-            yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, cut_class, isRiichi: isRiichi));
+            if (IsSelfCardsPosition(panel.cardsPosition)) {
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, false, tileId, null, skipRearrange: true);
+            }
+            else {
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, false, tileId, null, skipRearrange: true);
+            }
+            yield return Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition);
+            yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
+            yield break;
         }
 
-        // 仅设置补花但不删除玩家手牌且无动画的牌谱转移和重连方法
-        else if (actionType == "SetBuhuacardWithoutAnimation"){
-            PosPanel3D panel = GetPosPanel(PlayerPosition);
-            Set3DTile(tileId, panel.buhuaPosition, "BuhuaWithoutAnimation", PlayerPosition); // 补花区增加补花
-        }
-
-        // 补花
-        else if (actionType == "Buhua"){
-            PosPanel3D panel = GetPosPanel(PlayerPosition);
+        if (IsMeldHandAction(actionType)) {
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
-                yield return StartCoroutine(RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, false));
-                yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition));
-                yield return StartCoroutine(RearrangeRecordShowCardsWithAnimation(panel.ShowCardsPosition, PlayerPosition));
+                yield return RecordMeldShowCardsCoroutine(PlayerPosition, actionType, combination_mask);
                 yield break;
             }
-            yield return StartCoroutine(RemoveHandCardsCoroutine(panel.cardsPosition, 1, false, tileId, null));
-            // 删除完成后再创建补花
-            yield return StartCoroutine(Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition));
+            StartMeldPresentation(actionType, PlayerPosition, combination_mask);
+            if (IsSelfCardsPosition(panel.cardsPosition)) {
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, removeCount, false, -1, combination_mask, skipRearrange: true);
+            }
+            else {
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, false, -1, combination_mask, skipRearrange: true);
+            }
+            yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
         }
-
-        // 吃碰杠
-        else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right" ||
-                 actionType == "peng" || actionType == "gang" || actionType == "angang" || actionType == "jiagang"){   
-            // 删除上一张3D卡牌，归还到对象池
-            if (lastCut3DObject != null){
-                // 加杠和暗杠不需要删除上一张3D卡牌
-                if (actionType != "jiagang" && actionType != "angang"){
-                    // 若最后一张弃牌仍在飞行动画中，先终止动画避免复用后位置被改写
-                    if (_currentDiscardMoveCoroutine != null) {
-                        StopCoroutine(_currentDiscardMoveCoroutine);
-                        _currentDiscardMoveCoroutine = null;
-                    }
-                    MahjongObjectPool.Instance.Return(-1, lastCut3DObject);
-                    lastCut3DObject = null;
-                    // 等一帧再构建组合，避免卡牌位置仍被已中止的动画协程决定；组合动画是移动父物体，若牌的世界位置未刷新会错位
-                    yield return null;
-                }
-            }
-            else{
-                Debug.LogWarning("上一张3D卡牌为空");
-            }
-            PosPanel3D panel = GetPosPanel(PlayerPosition);
-            if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {
-                yield return StartCoroutine(RemoveRecordShowHandCardsByMaskCoroutine(panel.ShowCardsPosition, combination_mask));
-                yield return StartCoroutine(ActionAnimationCoroutine(PlayerPosition, actionType, combination_mask, true));
-                yield return StartCoroutine(RearrangeRecordShowCardsWithAnimation(panel.ShowCardsPosition, PlayerPosition));
-                yield break;
-            }
-            // 放置组合牌：删除手牌（含自家明牌手牌）后摆放副露
-            yield return StartCoroutine(RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, false, -1, combination_mask));
-            yield return StartCoroutine(ActionAnimationCoroutine(PlayerPosition, actionType, combination_mask,true));
-        }
-        
-        yield break;
     }
 
     
@@ -716,6 +681,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
 
         // 立直点棒与手牌展开 Animator 的清理：避免上一局立直棒/展开姿势残留到下一局。
+        StopAllHandAnimationQueues();
         ClearAllRiichiTenbous();
         ResetHandRevealAnimators();
     }
@@ -729,6 +695,7 @@ public partial class Game3DManager : MonoBehaviour {
             _currentDiscardMoveCoroutine = null;
         }
         lastCut3DObject = null;
+        StopAllHandAnimationQueues();
         StopAllCoroutines();
     }
     
