@@ -9,8 +9,9 @@ using System.Linq;
 /// 麻将牌UI组件
 /// 层级结构：
 /// TileCard (空物体)
+/// ├── fill（原槽位，仅点击出牌，不触发拖拽）
 /// ├── TileImage (Image组件)
-/// └── TileButton (Button组件)
+/// └── TileButton (Button组件，拖拽与点牌面)
 /// </summary>
 public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
     [Header("UI Components")]
@@ -25,6 +26,90 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private bool isHovering = false; // 是否正在悬停
     private bool isSelectable = true;
     private static int lastHandledPointerFrame = -1;
+    private static int lastGlobalPointerUpFrame = -1;
+    private static TileCard pointerDownCard;
+    private RectTransform slotHitRect;
+
+    private void Awake() {
+        if (tileButton != null) {
+            TileCardDragRelay relay = tileButton.GetComponent<TileCardDragRelay>();
+            if (relay == null) {
+                relay = tileButton.gameObject.AddComponent<TileCardDragRelay>();
+            }
+            relay.Bind(this);
+        }
+        EnsureSlotHitArea();
+    }
+
+    private void EnsureSlotHitArea() {
+        Transform slotTransform = transform.Find("fill");
+        if (slotTransform == null) {
+            slotTransform = transform.Find("SlotHitArea");
+        }
+        GameObject slotGo;
+        if (slotTransform != null) {
+            slotGo = slotTransform.gameObject;
+            if (slotTransform.name == "fill") {
+                Transform legacySlot = transform.Find("SlotHitArea");
+                if (legacySlot != null) {
+                    Destroy(legacySlot.gameObject);
+                }
+            }
+        }
+        else if (tileButton == null) {
+            return;
+        }
+        else {
+            RectTransform btnRt = tileButton.GetComponent<RectTransform>();
+            slotGo = new GameObject("fill", typeof(RectTransform), typeof(Image), typeof(TileCardSlotClickRelay));
+            slotGo.transform.SetParent(transform, false);
+            slotGo.transform.SetAsFirstSibling();
+            RectTransform slotRt = slotGo.GetComponent<RectTransform>();
+            slotRt.anchorMin = btnRt.anchorMin;
+            slotRt.anchorMax = btnRt.anchorMax;
+            slotRt.pivot = btnRt.pivot;
+            slotRt.sizeDelta = btnRt.sizeDelta;
+            slotRt.anchoredPosition = btnRt.anchoredPosition;
+            Image img = slotGo.GetComponent<Image>();
+            img.color = Color.clear;
+            img.raycastTarget = true;
+        }
+        Image slotImage = slotGo.GetComponent<Image>();
+        if (slotImage == null) {
+            slotImage = slotGo.AddComponent<Image>();
+            slotImage.color = Color.clear;
+        }
+        slotImage.raycastTarget = true;
+        slotHitRect = slotGo.GetComponent<RectTransform>();
+        TileCardSlotClickRelay slotRelay = slotGo.GetComponent<TileCardSlotClickRelay>();
+        if (slotRelay == null) {
+            slotRelay = slotGo.AddComponent<TileCardSlotClickRelay>();
+        }
+        slotRelay.Bind(this);
+    }
+
+    private Camera GetUICamera() {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay) {
+            return canvas.worldCamera;
+        }
+        return null;
+    }
+
+    public bool IsSelectableForCut() {
+        return isSelectable;
+    }
+
+    public void ForceExitHover() {
+        if (!isHovering) {
+            return;
+        }
+        isHovering = false;
+        TipsContainer.Instance.HideTips();
+        if (Card3DHoverManager.Instance != null) {
+            Card3DHoverManager.Instance.OnCardExit();
+        }
+    }
 
     private void OnEnable()
     {
@@ -34,16 +119,97 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 
     private void Update() {
+        if (HandCardDragController.IsDragging || HandCardDragController.SuppressPointerHover) {
+            return;
+        }
         if (Input.GetMouseButtonUp(0)) {
-            TryHandleRaycastClick(Input.mousePosition);
+            HandleGlobalPointerUp(Input.mousePosition);
         }
 
         for (int i = 0; i < Input.touchCount; i++) {
             Touch touch = Input.GetTouch(i);
             if (touch.phase == TouchPhase.Ended) {
-                TryHandleRaycastClick(touch.position);
+                HandleGlobalPointerUp(touch.position);
             }
         }
+    }
+
+    public static void NotifyPointerDown(TileCard card) {
+        pointerDownCard = card;
+    }
+
+    public static void NotifyPointerUp(TileCard card) {
+        if (pointerDownCard == card) {
+            pointerDownCard = null;
+        }
+    }
+
+    /// <summary>
+    /// 松手须仍在按下时的同一张牌上：命中该牌 UI，或落在该牌根节点手牌槽位内（含浮起下方的原位置）。
+    /// </summary>
+    public static bool TryCommitClick(TileCard pressCard, Vector2 releaseScreenPos) {
+        if (pressCard == null || !pressCard.IsSelectableForCut()) {
+            return false;
+        }
+        if (lastHandledPointerFrame == Time.frameCount) {
+            return false;
+        }
+        if (!pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
+            return false;
+        }
+        lastHandledPointerFrame = Time.frameCount;
+        HandCardDragController.MarkTileClickHandledThisFrame();
+        pressCard.TriggerClick();
+        return true;
+    }
+
+    private bool IsSameCardReleasePoint(Vector2 screenPosition) {
+        if (RaycastTopTileCard(screenPosition) == this) {
+            return true;
+        }
+        return IsScreenPointInHandSlot(screenPosition);
+    }
+
+    private bool IsScreenPointInHandSlot(Vector2 screenPosition) {
+        if (slotHitRect == null) {
+            return false;
+        }
+        return RectTransformUtility.RectangleContainsScreenPoint(slotHitRect, screenPosition, GetUICamera());
+    }
+
+    private static void HandleGlobalPointerUp(Vector2 screenPosition) {
+        if (pointerDownCard == null) {
+            return;
+        }
+        if (Time.frameCount <= HandCardDragController.BlockTileClickUntilFrame) {
+            pointerDownCard = null;
+            return;
+        }
+        if (lastGlobalPointerUpFrame == Time.frameCount) {
+            return;
+        }
+        lastGlobalPointerUpFrame = Time.frameCount;
+        TileCard pressCard = pointerDownCard;
+        pointerDownCard = null;
+        TryCommitClick(pressCard, screenPosition);
+    }
+
+    private static TileCard RaycastTopTileCard(Vector2 screenPosition) {
+        if (EventSystem.current == null) {
+            return null;
+        }
+        PointerEventData pointerData = new PointerEventData(EventSystem.current) {
+            position = screenPosition
+        };
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointerData, results);
+        foreach (RaycastResult result in results) {
+            TileCard tileCard = result.gameObject.GetComponentInParent<TileCard>();
+            if (tileCard != null) {
+                return tileCard;
+            }
+        }
+        return null;
     }
 
     /// <summary>
@@ -106,36 +272,15 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         OnTileClick();
     }
 
-    private void TryHandleRaycastClick(Vector2 screenPosition) {
-        if (!isSelectable) return;
-        if (lastHandledPointerFrame == Time.frameCount) return;
-        if (EventSystem.current == null) return;
-
-        PointerEventData pointerData = new PointerEventData(EventSystem.current)
-        {
-            position = screenPosition
-        };
-
-        List<RaycastResult> results = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(pointerData, results);
-
-        foreach (RaycastResult result in results) {
-            TileCard raycastTileCard = result.gameObject.GetComponentInParent<TileCard>();
-            if (raycastTileCard == null) continue;
-
-            if (raycastTileCard == this) {
-                lastHandledPointerFrame = Time.frameCount;
-                OnTileClick();
-            }
-            return;
-        }
-    }
     
     /// <summary>
     /// 鼠标进入时检测切牌后的听牌，并高亮所有相同tileId的3D卡牌
     /// </summary>
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (HandCardDragController.IsDragging || HandCardDragController.SuppressPointerHover) {
+            return;
+        }
         isHovering = true;
         // 异步检测切牌后的听牌
         CheckCutTileTips();
@@ -254,6 +399,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
         if (!isActiveAndEnabled) yield break;
         if (EventSystem.current == null) yield break;
+        if (HandCardDragController.SuppressPointerHover) yield break;
 
         // 构造一次 PointerEventData，进行 UI Raycast
         PointerEventData pointerData = new PointerEventData(EventSystem.current)
@@ -287,4 +433,68 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             Card3DHoverManager.Instance.OnCardExit();
         }
     }
-} 
+}
+
+/// <summary>
+/// 将 Button 上的指针事件转发给父级 TileCard，供手牌拖拽使用。
+/// </summary>
+public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler {
+    private TileCard owner;
+
+    public void Bind(TileCard card) {
+        owner = card;
+    }
+
+    public void OnPointerDown(PointerEventData eventData) {
+        if (owner == null) {
+            return;
+        }
+        TileCard.NotifyPointerDown(owner);
+        HandCardDragController.Instance.OnPointerDown(owner, eventData);
+    }
+
+    public void OnDrag(PointerEventData eventData) {
+        if (owner == null) {
+            return;
+        }
+        HandCardDragController.Instance.OnDrag(owner, eventData);
+    }
+
+    public void OnPointerUp(PointerEventData eventData) {
+        if (owner == null) {
+            return;
+        }
+        bool dragHandled = HandCardDragController.Instance.OnPointerUp(owner, eventData);
+        if (!dragHandled) {
+            TileCard.TryCommitClick(owner, eventData.position);
+        }
+        TileCard.NotifyPointerUp(owner);
+    }
+}
+
+/// <summary>
+/// 固定在原槽位的透明点击区：仅记录按下/松手并出牌，不转发拖拽。
+/// </summary>
+public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPointerUpHandler {
+    private TileCard owner;
+
+    public void Bind(TileCard card) {
+        owner = card;
+    }
+
+    public void OnPointerDown(PointerEventData eventData) {
+        if (owner != null) {
+            TileCard.NotifyPointerDown(owner);
+        }
+    }
+
+    public void OnPointerUp(PointerEventData eventData) {
+        if (owner == null) {
+            return;
+        }
+        if (Time.frameCount > HandCardDragController.BlockTileClickUntilFrame) {
+            TileCard.TryCommitClick(owner, eventData.position);
+        }
+        TileCard.NotifyPointerUp(owner);
+    }
+}

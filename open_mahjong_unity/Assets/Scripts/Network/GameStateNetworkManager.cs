@@ -318,6 +318,8 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// 添加观战
     /// </summary>
     public async void AddSpectator(string gamestate_id) {
+        if (GameSessionGuard.BlockIfExclusiveSession("进入观战")) return;
+
         try {
             var request = new AddSpectatorRequest {
                 type = "gamestate/GB/add_spectator",

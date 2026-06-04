@@ -180,4 +180,16 @@ public class LoginPanel : MonoBehaviour {
         touristButton.interactable = true;
         connectStatusText.text = "连接成功";
     }
+
+    /// <summary>
+    /// 断线后回到登录界面：恢复按钮并重新显示连接等待动画。
+    /// </summary>
+    public void PrepareForReconnect() {
+        loginButton.interactable = true;
+        touristButton.interactable = true;
+        if (serverConnectCoroutine != null) {
+            StopCoroutine(serverConnectCoroutine);
+        }
+        serverConnectCoroutine = StartCoroutine(ServerConnectCoroutine());
+    }
 } 

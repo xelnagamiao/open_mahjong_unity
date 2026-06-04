@@ -48,6 +48,8 @@ public partial class GameRecordManager : MonoBehaviour {
 
     public static GameRecordManager Instance { get; private set; }
     public RecordManagerMode CurrentMode { get; private set; } = RecordManagerMode.Record;
+    /// <summary>牌谱手摸切灰显；旧牌谱无字段时默认开启。</summary>
+    public bool ShowMoqieHint { get; private set; } = true;
     public bool IsSpectatorSession => CurrentMode == RecordManagerMode.Spectator || CurrentMode == RecordManagerMode.RecordOnSpectator;
     // 1.自身玩家id 用来确定默认的选中玩家
     public int selfPlayerId { get; private set; }
@@ -192,6 +194,9 @@ public partial class GameRecordManager : MonoBehaviour {
 
     // 加载牌谱
     public void LoadRecord(string recordJson, PlayerRecordInfo[] players_info = null) {
+        // 已在延时观战内的刷新（如对局结束重载完整牌谱）仍允许；其它互斥会话下禁止覆盖 UI
+        if (!IsSpectating && GameSessionGuard.BlockIfExclusiveSession("阅览牌谱")) return;
+
         CurrentMode = RecordManagerMode.Record;
         // 清空临时面板
         GameSceneUIManager.Instance.InitGameRecord();
@@ -233,6 +238,7 @@ public partial class GameRecordManager : MonoBehaviour {
         // 解析记录头
         gameRecord = GameRecordJsonDecoder.ParseGameRecord(recordJson);
         _gameRecordInspector = gameRecord;
+        ShowMoqieHint = ReadGameTitleBool(gameRecord.gameTitle, "show_moqie_hint", true);
         // 解析记录局
         _roundsListForInspector = gameRecord.gameRound.GetRoundsList();
         foreach (var round in _roundsListForInspector) {
@@ -982,29 +988,75 @@ public partial class GameRecordManager : MonoBehaviour {
         sb.AppendLine("【游戏信息】");
         sb.AppendLine($"规则: {rule}");
         if (!string.IsNullOrEmpty(subRule)) sb.AppendLine($"子规则: {subRule}");
-        int maxRound = ReadGameTitleInt(gt, "max_round", 0);
-        if (maxRound <= 0 && gameRecord.gameRound != null) maxRound = Mathf.Max(1, gameRecord.gameRound.rounds?.Count ?? 0);
-        if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
-        int hepaiLimit = ReadGameTitleInt(gt, "hepai_limit", 0);
-        if (hepaiLimit > 0) sb.AppendLine($"起和番: {hepaiLimit}");
+        AppendGameTitleOptionLines(sb, gt, ruleKey, gameRecord);
         int p0 = ReadGameTitleInt(gt, "p0_uid", 0), p1 = ReadGameTitleInt(gt, "p1_uid", 0), p2 = ReadGameTitleInt(gt, "p2_uid", 0), p3 = ReadGameTitleInt(gt, "p3_uid", 0);
         if (p0 != 0 || p1 != 0 || p2 != 0 || p3 != 0) {
-            string p0Name = userIdToUsername.TryGetValue(p0, out string n0) ? n0 : p0.ToString();
-            string p1Name = userIdToUsername.TryGetValue(p1, out string n1) ? n1 : p1.ToString();
-            string p2Name = userIdToUsername.TryGetValue(p2, out string n2) ? n2 : p2.ToString();
-            string p3Name = userIdToUsername.TryGetValue(p3, out string n3) ? n3 : p3.ToString();
+            string p0Name = userIdToUsername.TryGetValue(p0, out string n0) ? n0 : ReadGameTitleString(gt, "p0_name", p0.ToString());
+            string p1Name = userIdToUsername.TryGetValue(p1, out string n1) ? n1 : ReadGameTitleString(gt, "p1_name", p1.ToString());
+            string p2Name = userIdToUsername.TryGetValue(p2, out string n2) ? n2 : ReadGameTitleString(gt, "p2_name", p2.ToString());
+            string p3Name = userIdToUsername.TryGetValue(p3, out string n3) ? n3 : ReadGameTitleString(gt, "p3_name", p3.ToString());
             sb.AppendLine($"玩家0: {p0Name} (ID:{p0})");
             sb.AppendLine($"玩家1: {p1Name} (ID:{p1})");
             sb.AppendLine($"玩家2: {p2Name} (ID:{p2})");
             sb.AppendLine($"玩家3: {p3Name} (ID:{p3})");
         }
-        if (gt.ContainsKey("open_cuohe")) sb.AppendLine($"错和: {(ReadGameTitleBool(gt, "open_cuohe", false) ? "开" : "关")}");
-        if (gt.ContainsKey("tips")) sb.AppendLine($"提示: {(ReadGameTitleBool(gt, "tips", false) ? "开" : "关")}");
-        if (gt.ContainsKey("isPlayerSetRandomSeed")) sb.AppendLine($"复式: {(ReadGameTitleBool(gt, "isPlayerSetRandomSeed", false) ? "开" : "关")}");
         if (gt.ContainsKey("game_random_seed") && gt["game_random_seed"] != null) sb.AppendLine($"随机种子: {gt["game_random_seed"]}");
         if (gt.ContainsKey("start_time") && gt["start_time"] != null) sb.AppendLine($"开始时间: {gt["start_time"]}");
         if (gt.ContainsKey("end_time") && gt["end_time"] != null) sb.AppendLine($"结束时间: {gt["end_time"]}");
         return sb.ToString();
+    }
+
+    /// <summary>牌谱 game_title 中的房间/规则选项行（与 build_game_title_data 字段对应）。</summary>
+    private static void AppendGameTitleOptionLines(System.Text.StringBuilder sb, Dictionary<string, object> gt, string ruleKey, GameRecord record) {
+        string roomType = ReadGameTitleString(gt, "room_type", "");
+        if (!string.IsNullOrEmpty(roomType)) {
+            string roomTypeLabel = roomType switch {
+                "custom" => "自定义房",
+                "match" => "匹配房",
+                _ => roomType,
+            };
+            sb.AppendLine($"房间类型: {roomTypeLabel}");
+        }
+        int maxRound = ReadGameTitleInt(gt, "max_round", 0);
+        if (maxRound <= 0 && record?.gameRound != null) {
+            maxRound = Mathf.Max(1, record.gameRound.rounds?.Count ?? 0);
+        }
+        if (maxRound > 0) sb.AppendLine($"最大局数: {maxRound}局");
+        if (gt.ContainsKey("hepai_limit")) {
+            sb.AppendLine($"起和番: {ReadGameTitleInt(gt, "hepai_limit", 0)}");
+        }
+        if (gt.ContainsKey("open_cuohe")) sb.AppendLine($"错和: {(ReadGameTitleBool(gt, "open_cuohe", false) ? "开" : "关")}");
+        if (gt.ContainsKey("tips")) sb.AppendLine($"提示: {(ReadGameTitleBool(gt, "tips", false) ? "开" : "关")}");
+        if (gt.ContainsKey("show_moqie_hint")) sb.AppendLine($"手摸切显示: {(ReadGameTitleBool(gt, "show_moqie_hint", true) ? "开" : "关")}");
+        if (gt.ContainsKey("is_player_set_random_seed") || gt.ContainsKey("isPlayerSetRandomSeed")) {
+            bool isSetSeed = ReadGameTitleBool(gt, "is_player_set_random_seed", false)
+                || ReadGameTitleBool(gt, "isPlayerSetRandomSeed", false);
+            sb.AppendLine($"复式: {(isSetSeed ? "开" : "关")}");
+        }
+        if (ruleKey == "riichi") {
+            if (gt.ContainsKey("red_dora")) {
+                sb.AppendLine($"赤宝牌: {(ReadGameTitleBool(gt, "red_dora", false) ? "开" : "关")}");
+            }
+            string hepaiWay = ReadGameTitleString(gt, "hepai_way", "");
+            if (!string.IsNullOrEmpty(hepaiWay)) {
+                sb.AppendLine($"和牌方式: {FormatRecordHepaiWay(hepaiWay)}");
+            }
+            if (gt.ContainsKey("open_xiru")) {
+                sb.AppendLine($"西入: {(ReadGameTitleBool(gt, "open_xiru", false) ? "开" : "关")}");
+            }
+            if (gt.ContainsKey("open_tobi")) {
+                sb.AppendLine($"击飞: {(ReadGameTitleBool(gt, "open_tobi", false) ? "开" : "关")}");
+            }
+        }
+    }
+
+    private static string FormatRecordHepaiWay(string way) {
+        return way switch {
+            "head_bump" => "头跳",
+            "multi_ron" => "允许多家和",
+            "three_ron_abort" => "三家和了流局",
+            _ => way,
+        };
     }
 
     /// <summary>

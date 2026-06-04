@@ -14,58 +14,96 @@ from datetime import date, datetime
 # 流局: ["liuju"]
 # 回合结束: ["end"]（和牌或流局之后紧跟，错和除外）
 """
+def build_game_title_data(gs) -> Dict[str, Any]:
+    """构建 game_title（与落库牌谱 JSON 一致）。
+
+    与观战 record_game_title 共用，避免两处手写 game_title 字段不一致
+    （例如观战缺 seats 一类问题）。观战专用的 players_settings 仍在
+    SpectatorManager 中单独维护，不入落库牌谱。
+    """
+    title: Dict[str, Any] = {
+        # rule: 游戏规则 guobiao | qingque | classical | riichi
+        "rule": gs.room_rule,
+        # room_type: 房间类型 custom | match
+        "room_type": gs.room_type,
+        # sub_rule: 子规则，如 guobiao/standard、riichi/standard
+        "sub_rule": getattr(gs, "sub_rule", None),
+        # game_random_seed: 整局随机种子
+        "game_random_seed": gs.game_random_seed,
+        # max_round: 风圈数（1=东风、2=半庄、4=全庄）
+        "max_round": gs.max_round,
+        # open_cuohe: 是否开启错和
+        "open_cuohe": gs.open_cuohe,
+        # tips: 是否开启提示
+        "tips": gs.tips,
+        # show_moqie_hint: 是否显示手摸切灰显
+        "show_moqie_hint": getattr(gs, "show_moqie_hint", False),
+        # is_player_set_random_seed: 是否玩家指定随机种子（复式）
+        "is_player_set_random_seed": gs.isPlayerSetRandomSeed,
+    }
+    # hepai_limit: 起和番限制（国标/青雀/古典/立直，有该属性时写入）
+    if hasattr(gs, "hepai_limit"):
+        title["hepai_limit"] = gs.hepai_limit
+    # 以下字段仅立直麻将 room_rule == "riichi"
+    if getattr(gs, "room_rule", None) == "riichi":
+        # red_dora: 是否启用赤宝牌
+        title["red_dora"] = getattr(gs, "red_dora", False)
+        # hepai_way: 和牌方式 head_bump | multi_ron | three_ron_abort
+        title["hepai_way"] = getattr(gs, "hepai_way", None)
+        if hasattr(gs, "open_xiru"):
+            # open_xiru: 是否西入
+            title["open_xiru"] = gs.open_xiru
+        if hasattr(gs, "open_tobi"):
+            # open_tobi: 是否击飞
+            title["open_tobi"] = gs.open_tobi
+    # p0_uid … p3_uid / p0_name … p3_name: 原始座位 0～3 的用户 ID 与用户名（整局不变）
+    for i, player in enumerate(gs.player_list):
+        title[f"p{i}_uid"] = player.user_id
+        title[f"p{i}_name"] = player.username
+    return title
+
+
 # 牌谱记录游戏头
 def init_game_record(self):
-    self.game_record["game_title"] = {
-        "rule": self.room_rule,
-        "room_type": self.room_type,
-        "game_random_seed": self.game_random_seed,
-        "max_round": self.max_round,
-        "start_time": datetime.now(),
-        "open_cuohe": self.open_cuohe,
-        "tips": self.tips,
-        "is_player_set_random_seed": self.isPlayerSetRandomSeed,
-        "hepai_limit": self.hepai_limit,
-        "p0_uid": self.player_list[0].user_id,
-        "p0_name": self.player_list[0].username,
-        "p1_uid": self.player_list[1].user_id,
-        "p1_name": self.player_list[1].username,
-        "p2_uid": self.player_list[2].user_id,
-        "p2_name": self.player_list[2].username,
-        "p3_uid": self.player_list[3].user_id,
-        "p3_name": self.player_list[3].username,
-    }
+    self.game_record["game_title"] = build_game_title_data(self)
+    self.game_record["game_title"]["start_time"] = datetime.now()
     self.game_record["game_round"] = {}
 
 def end_game_record(self):
     # 记录对局结束时间
     self.game_record["game_title"]["end_time"] = datetime.now()
 
-# 牌谱记录对局头
-def init_game_round(self):
-    self.player_action_tick = 0
+def build_round_header_data(gs) -> Dict[str, Any]:
+    """构建局头快照（与牌谱 JSON 格式一致，供 init_game_round / 观战 record_round_start 共用）。"""
     seats = [0] * 4
-    for p in self.player_list:
+    for p in gs.player_list:
         seats[p.original_player_index] = p.player_index
-    round_data = {
-        "round_random_seed": self.round_random_seed,
-        "current_round": self.current_round,
+    round_data: Dict[str, Any] = {
+        "round_random_seed": gs.round_random_seed,
+        "current_round": gs.current_round,
         "seats": seats,
         "dealer_index": 0,
         "start_player_index": 0,
-        "p0_tiles": self.player_list[0].hand_tiles.copy(),
-        "p1_tiles": self.player_list[1].hand_tiles.copy(),
-        "p2_tiles": self.player_list[2].hand_tiles.copy(),
-        "p3_tiles": self.player_list[3].hand_tiles.copy(),
-        "tiles_list": self.tiles_list.copy(),
-        "round_index": self.round_index,
-        "action_ticks": [],
+        "p0_tiles": gs.player_list[0].hand_tiles.copy(),
+        "p1_tiles": gs.player_list[1].hand_tiles.copy(),
+        "p2_tiles": gs.player_list[2].hand_tiles.copy(),
+        "p3_tiles": gs.player_list[3].hand_tiles.copy(),
+        "tiles_list": gs.tiles_list.copy(),
+        "round_index": gs.round_index,
     }
-    if getattr(self, "room_rule", None) == "riichi":
+    if getattr(gs, "room_rule", None) == "riichi":
         round_data["riichi"] = {
-            "honba": self.honba,
-            "riichi_sticks": self.riichi_sticks,
+            "honba": gs.honba,
+            "riichi_sticks": gs.riichi_sticks,
         }
+    return round_data
+
+
+# 牌谱记录对局头
+def init_game_round(self):
+    self.player_action_tick = 0
+    round_data = build_round_header_data(self)
+    round_data["action_ticks"] = []
     self.game_record["game_round"][f"round_index_{self.round_index}"] = round_data
 
 

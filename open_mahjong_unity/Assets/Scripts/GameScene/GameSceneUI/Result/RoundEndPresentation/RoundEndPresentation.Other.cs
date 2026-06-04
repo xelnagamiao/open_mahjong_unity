@@ -19,7 +19,7 @@ public partial class RoundEndPresentation {
             HideSelfGameplayControl(!willRevealWinnerHand);
         }
         if (willRevealWinnerHand) {
-            yield return Game3DManager.Instance.RoundEndRevealWinnerHandAndPlayExpandAnimation(hepaiPlayerIndex.Value, hepaiPlayerHand);
+            yield return HepaiRevealDirector.Play(hepaiPlayerIndex.Value, hepaiPlayerHand, "hu_self", null);
         }
 
         PreparePresentationRoot(playPresentationEffects);

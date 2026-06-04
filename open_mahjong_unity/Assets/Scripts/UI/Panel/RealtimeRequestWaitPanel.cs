@@ -105,13 +105,16 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
         if (transition != null) transition.Hide();
         else gameObject.SetActive(false);
 
+        if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
+
         string gamestateId = response.realtime_gamestate_id;
         if (string.IsNullOrEmpty(gamestateId)) {
             Debug.LogWarning("realtime_started 缺少 gamestate_id");
             return;
         }
+        int hostUserId = response.realtime_to_user_id ?? 0;
         if (NormalGameStateManager.Instance != null) {
-            NormalGameStateManager.Instance.StartAsRealtimeSpectator(gamestateId);
+            NormalGameStateManager.Instance.StartAsRealtimeSpectator(gamestateId, hostUserId);
         }
         WindowsManager.Instance?.SwitchWindow("game");
     }

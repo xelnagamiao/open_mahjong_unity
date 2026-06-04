@@ -14,6 +14,7 @@ public class AutoAction : MonoBehaviour{
     [SerializeField] private TMP_Text autoBuhuaText; // 自动补花文本
 
     [Header("鸣牌展开")]
+    [SerializeField] private GameObject otherActionPanel; // 鸣牌展开及子选项（观战时隐藏整块）
     [SerializeField] private TMP_Text expandButtonText; // 展开按钮（附加按钮的文本）
     [SerializeField] private GameObject mingPaiPanel; // 鸣牌选项面板
     [SerializeField] private TMP_Text autoPassChiText; // 不吃文本
@@ -68,16 +69,81 @@ public class AutoAction : MonoBehaviour{
         isAutoPassPeng = false;
         isAutoPassGang = false;
         isAutoCutLocked = false;
-        // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的当前值
+        // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的 current值
 
         // 鸣牌面板初始隐藏
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
         isMingPaiPanelExpanded = false;
 
+        SetSpectatorOnlyLayout(false);
+
         // 更新显示
         UpdateAllTextColors();
         // 为每个文本添加点击功能
         AddClickListeners();
+    }
+
+    /// <summary>实时观战：仅保留自动排列手牌，其余自动操作与鸣牌展开隐藏且不起效。</summary>
+    public void InitializeForSpectator() {
+        gameObject.SetActive(true);
+
+        isAutoHepai = false;
+        isAutoPass = false;
+        isAutoCut = false;
+        isAutoPassChi = false;
+        isAutoPassPeng = false;
+        isAutoPassGang = false;
+        isAutoCutLocked = false;
+        isAutoBuhua = false;
+
+        if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+        isMingPaiPanelExpanded = false;
+
+        SetSpectatorOnlyLayout(true);
+
+        UpdateAllTextColors();
+        AddClickListeners();
+    }
+
+    private void SetSpectatorOnlyLayout(bool spectatorOnly) {
+        SetGameplayAutoActionsVisible(!spectatorOnly);
+        SetOtherActionPanelVisible(!spectatorOnly);
+        if (arrangeHandCardsText != null) {
+            arrangeHandCardsText.gameObject.SetActive(true);
+        }
+    }
+
+    private void SetGameplayAutoActionsVisible(bool visible) {
+        SetTextActive(autoHepaiText, visible);
+        SetTextActive(autoCutCardText, visible);
+        SetTextActive(autoPassText, visible);
+        SetTextActive(autoBuhuaText, visible);
+    }
+
+    private void SetOtherActionPanelVisible(bool visible) {
+        if (otherActionPanel != null) {
+            otherActionPanel.SetActive(visible);
+            if (!visible) {
+                if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+                isMingPaiPanelExpanded = false;
+            }
+            return;
+        }
+
+        SetTextActive(expandButtonText, visible);
+        if (!visible) {
+            if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+            isMingPaiPanelExpanded = false;
+        }
+        SetTextActive(autoPassChiText, visible);
+        SetTextActive(autoPassPengText, visible);
+        SetTextActive(autoPassGangText, visible);
+    }
+
+    private static void SetTextActive(TMP_Text text, bool visible) {
+        if (text != null) {
+            text.gameObject.SetActive(visible);
+        }
     }
 
     // 为每个文本添加点击监听器
@@ -114,7 +180,16 @@ public class AutoAction : MonoBehaviour{
 
     // 切换自动排列手牌
     private void ToggleArrangeHandCards(){
+        bool enabling = !isAutoArrangeHandCards;
         ToggleAutoOption(ref isAutoArrangeHandCards, arrangeHandCardsText);
+        if (enabling && isAutoArrangeHandCards && GameCanvas.Instance != null) {
+            GameCanvas.Instance.SortMainHandByTileIdIfNeeded();
+        }
+    }
+
+    public void SetAutoArrangeHandCards(bool value) {
+        isAutoArrangeHandCards = value;
+        UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
     }
 
     // 切换自动胡牌

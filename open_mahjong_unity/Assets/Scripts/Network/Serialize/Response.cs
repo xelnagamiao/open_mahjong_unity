@@ -25,6 +25,7 @@ public class RoomInfo {
     public bool is_game_running; // 游戏是否正在运行
     public int random_seed; // 随机种子
     public bool open_cuohe; // 是否开启错和
+    public bool show_moqie_hint; // 手摸切灰显（河牌摸切灰、手切正常）
     public bool tactical_call; // 战术鸣牌（国标/青雀）
     public bool? red_dora;  // 立直麻将专属：是否启用赤宝牌
     public string hepai_way; // 立直麻将专属：和牌方式 head_bump / multi_ron / three_ron_abort
@@ -162,6 +163,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     public int hepai_limit;             // 起和番限制（国标有效，默认8）
     public bool open_cuohe;             // 是否开启错和
+    public bool show_moqie_hint;        // 手摸切灰显
     public bool tactical_call;          // 战术鸣牌（国标/青雀）
     public bool isPlayerSetRandomSeed;  // 是否设置随机种子
     public PlayerInfo[] players_info;   // 玩家信息列表

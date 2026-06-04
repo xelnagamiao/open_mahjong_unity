@@ -327,4 +327,4 @@ open_mahjong_unity/
 - **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
 - **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
 
-*最后更新：2026年5月21日 dev ver 0.3.60.0 *
+*最后更新：2026年6月2日 dev ver 0.4.60.12 *

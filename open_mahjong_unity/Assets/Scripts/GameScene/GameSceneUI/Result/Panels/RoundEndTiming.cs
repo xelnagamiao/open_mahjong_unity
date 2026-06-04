@@ -4,6 +4,8 @@
 public static class RoundEndTiming {
     public const float RoundEndPresentationFadeSeconds = 0.35f;
     public const float RoundEndHandRevealSeconds = 1.5f;
+    /// <summary>与 <see cref="HepaiRevealTiming.TravelSeconds"/> 一致，供注释/对照服务端。</summary>
+    public const float HepaiTravelSeconds = 0.2f;
     public const float HuFanRevealIntervalSeconds = 0.5f;
     public const float HuBeforeTotalPanelSeconds = 0.5f;
     public const float HuConfirmCountdownSeconds = 8f;

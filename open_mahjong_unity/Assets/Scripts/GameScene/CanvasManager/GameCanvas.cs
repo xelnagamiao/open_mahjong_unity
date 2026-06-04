@@ -19,6 +19,7 @@ public partial class GameCanvas : MonoBehaviour {
 
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
+    [SerializeField] private HandCardDragController handCardDragController;
     [SerializeField] private TMP_Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
     [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
@@ -58,6 +59,10 @@ public partial class GameCanvas : MonoBehaviour {
     private float tileCardWidth; // 手牌预制体宽度
 
     public static GameCanvas Instance { get; private set; }
+    public Transform HandCardsContainer => handCardsContainer;
+    public RectTransform HandCardsContainerRect => handCardsContainer as RectTransform;
+    public bool IsChangeHandCardProcessing => isChangeHandCardProcessing;
+    public void SetHandArranged(bool value) { isArranged = value; }
     private bool _isScoreRecordOpen;
     
     private void Awake() {
@@ -66,6 +71,12 @@ public partial class GameCanvas : MonoBehaviour {
             return;
         }
         Instance = this;
+        if (handCardDragController == null) {
+            handCardDragController = GetComponent<HandCardDragController>();
+        }
+        if (handCardDragController == null) {
+            handCardDragController = gameObject.AddComponent<HandCardDragController>();
+        }
         // 获取tileCardPrefab的宽度 
         tileCardWidth = tileCardPrefab.GetComponent<RectTransform>().rect.width;
 
@@ -269,7 +280,8 @@ public partial class GameCanvas : MonoBehaviour {
             riichi_sticks = riichiSticks,
             open_cuohe = ReadBoolValue(gameRecord.gameTitle, "open_cuohe", false),
             tips = ReadBoolValue(gameRecord.gameTitle, "tips", false),
-            isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
+            isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "is_player_set_random_seed", false)
+                || ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
         };
         roundPanel.UpdateRoomInfo(gameInfo, ruleForPanel);
     }

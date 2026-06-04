@@ -215,6 +215,7 @@ def queue_type_to_room_config(queue_type: str) -> dict:
         "game_round": game_round,
         "tips": tips,
         "open_cuohe": open_cuohe,
+        "show_moqie_hint": False,
         "hepai_limit": 8,
         "round_timer": 20,
         "step_timer": 5,

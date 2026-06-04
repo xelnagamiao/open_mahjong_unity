@@ -21,6 +21,9 @@ public class MessagePrefab : MonoBehaviour {
         HeaderText.text = header;
         ContentText.text = content;
 
+        YesButton.onClick.RemoveAllListeners();
+        BackButton.onClick.RemoveAllListeners();
+
         if (type == "reconnect_ask") {
             YesButtonText.text = "重新连接";
             BackButtonText.text = "放弃比赛";
@@ -32,15 +35,15 @@ public class MessagePrefab : MonoBehaviour {
             YesButton.onClick.AddListener(CloseMessage);
             BackButton.onClick.AddListener(CloseMessage);
         } else if (type == "login_kickout") {
-            YesButtonText.text = "好的";
+            YesButtonText.text = "重新登陆";
             BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(CloseMessage);
-            BackButton.onClick.AddListener(CloseMessage);
+            YesButton.onClick.AddListener(DisconnectReconnectClick);
+            BackButton.onClick.AddListener(DisconnectCloseClick);
         } else if (type == "disconnect") {
-            YesButtonText.text = "好的";
+            YesButtonText.text = "重连";
             BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(CloseMessage);
-            BackButton.onClick.AddListener(CloseMessage);
+            YesButton.onClick.AddListener(DisconnectReconnectClick);
+            BackButton.onClick.AddListener(DisconnectCloseClick);
         }
 
         if (popupTransition != null) {
@@ -64,6 +67,16 @@ public class MessagePrefab : MonoBehaviour {
         } else if (type == "no") {
             NetworkManager.Instance.ReconnectResponse(false);
         }
+        CloseMessage();
+    }
+
+    private void DisconnectReconnectClick() {
+        AppSession.ResetToLogin();
+        CloseMessage();
+    }
+
+    private void DisconnectCloseClick() {
+        AppSession.QuitOrReconnectOnDisconnectClose();
         CloseMessage();
     }
 }

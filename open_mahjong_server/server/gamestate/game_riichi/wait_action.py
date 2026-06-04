@@ -473,7 +473,7 @@ async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cu
             player.tag_list.append("riichi")
         player.riichi_turn = self.xunmu
         player_action_record_riichi(self, player_index=player_index, is_daburu=player.pending_daburu)
-        await broadcast_declare_riichi(self, player_index)
+        await broadcast_declare_riichi(self, player_index, is_daburu=player.pending_daburu)
 
     await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
                               cut_tile=tile_id, cut_class=is_moqie, cut_tile_index=cut_tile_index,

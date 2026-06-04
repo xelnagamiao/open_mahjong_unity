@@ -5,6 +5,7 @@ using UnityEngine;
 public partial class NormalGameStateManager {
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
+        ClearPendingCuoheContinue();
         if (!IsRealtimeSpectator) {
             UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
         }
@@ -176,6 +177,13 @@ public partial class NormalGameStateManager {
         if (IsRealtimeSpectator) {
             if (gameInfo.view_player_index.HasValue) {
                 selfIndex = gameInfo.view_player_index.Value;
+            } else if (RealtimeSpectatorHostUserId > 0) {
+                foreach (var player in gameInfo.players_info) {
+                    if (player.user_id == RealtimeSpectatorHostUserId) {
+                        selfIndex = player.player_index;
+                        break;
+                    }
+                }
             } else {
                 foreach (var player in gameInfo.players_info) {
                     if (player.hand_tiles != null && player.hand_tiles.Length > 0) {
@@ -213,6 +221,7 @@ public partial class NormalGameStateManager {
         player_to_info["self"].hand_tiles_count = selfHandTiles.Count;
 
         tips = gameInfo.tips; // 存储是否提示
+        showMoqieHint = gameInfo.show_moqie_hint; // 手摸切灰显
         isOpenCuoHe = gameInfo.open_cuohe; // 存储是否开启错和
         isSetRandomSeed = gameInfo.isPlayerSetRandomSeed; // 存储是否设置随机种子
 

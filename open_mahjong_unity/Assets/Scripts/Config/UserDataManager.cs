@@ -66,11 +66,11 @@ public class UserDataManager : MonoBehaviour {
         if (string.IsNullOrEmpty(room_id)) room_id = ROOM_ID_NONE;
         // 如果房间ID发生变化
         if (this.RoomId != room_id){
-            if (this.RoomId != ROOM_ID_NONE){ // 如果房间本身不是空的,就说明房间变空了,需要退出房间聊天室
-                ChatManager.Instance.LeaveRoom(int.Parse(this.RoomId)); // 退出房间聊天室
+            if (this.RoomId != ROOM_ID_NONE && ChatManager.Instance != null) {
+                ChatManager.Instance.LeaveRoom(int.Parse(this.RoomId));
             }
-            else if (room_id != ROOM_ID_NONE){ // 如果房间本身是空的,就说明房间变非空了,需要加入房间聊天室
-                ChatManager.Instance.JoinRoom(int.Parse(room_id)); // 加入房间聊天室
+            else if (room_id != ROOM_ID_NONE && ChatManager.Instance != null) {
+                ChatManager.Instance.JoinRoom(int.Parse(room_id));
             }
             this.RoomId = room_id;
             OnRoomIdChanged?.Invoke();
@@ -94,6 +94,17 @@ public class UserDataManager : MonoBehaviour {
     public void UpdateGuobiaoRank(string newRank, float newScore) {
         GuobiaoRank = newRank;
         GuobiaoScore = newScore;
+    }
+
+    /// <summary>
+    /// 断线/登出时清空在线会话，保留本地保存的账号密码输入。
+    /// </summary>
+    public void ClearSessionState() {
+        Username = null;
+        Userkey = null;
+        UserId = 0;
+        SetGamestateId("");
+        SetRoomId(ROOM_ID_NONE);
     }
 
     // 缓存登录输入并持久化
