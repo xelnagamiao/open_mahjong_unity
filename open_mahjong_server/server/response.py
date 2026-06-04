@@ -45,6 +45,7 @@ class GameInfo(BaseModel):
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
     hepai_limit: Optional[int] = None  # 起和番限制（国标有效，默认8）
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
+    show_moqie_hint: Optional[bool] = False  # 是否显示手摸切灰显（河牌摸切灰、手切正常，默认关）
     tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     players_info: List[PlayerInfo]

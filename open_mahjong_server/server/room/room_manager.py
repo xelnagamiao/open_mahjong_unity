@@ -27,6 +27,16 @@ class RoomManager:
         self.Chinese_Hepai_Check = Chinese_Hepai_Check()
         self.Chinese_Tingpai_Check = Chinese_Tingpai_Check()
 
+    def _reject_if_in_active_game(self, user_id: int, action: str = "进入或创建房间") -> Optional[Response]:
+        """对局中的玩家不可创建/加入房间；退房、被踢等其它操作不受此限制。"""
+        if self.game_server.gamestate_manager.is_user_in_active_game(user_id):
+            return Response(
+                type="tips",
+                success=False,
+                message=f"您正在对局中，无法{action}",
+            )
+        return None
+
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
                            password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
         try:
@@ -47,6 +57,9 @@ class RoomManager:
                     message="请先登录"
                 )
             host_user_id = player.user_id  # 获取房主ID
+            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            if blocked:
+                return blocked
             host_name = player.username  # 获取房主名（用于显示）
 
             # 获取房主的设置信息
@@ -116,6 +129,7 @@ class RoomManager:
                 },  # 玩家ID到设置信息的映射
                 "has_password": has_password, # 是否有密码
                 "tips": tips, # 是否开启提示
+                "show_moqie_hint": False, # 手摸切灰显（创建房间 UI 后续可改）
                 "host_user_id": host_user_id, # 房主ID
                 "host_name": host_name, # 房主名（用于显示）
                 "is_game_running": False, # 游戏是否正在运行
@@ -174,6 +188,9 @@ class RoomManager:
                     message="请先登录"
                 )
             host_user_id = player.user_id  # 获取房主ID
+            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            if blocked:
+                return blocked
             host_name = player.username  # 获取房主名（用于显示）
 
             # 获取房主的设置信息
@@ -240,6 +257,7 @@ class RoomManager:
                 },  # 玩家ID到设置信息的映射
                 "has_password": has_password, # 是否有密码
                 "tips": tips, # 是否开启提示
+                "show_moqie_hint": False, # 手摸切灰显（创建房间 UI 后续可改）
                 "host_user_id": host_user_id, # 房主ID
                 "host_name": host_name, # 房主名（用于显示）
                 "is_game_running": False, # 游戏是否正在运行
@@ -285,6 +303,9 @@ class RoomManager:
             if not player.user_id:
                 return Response(type="tips", success=False, message="请先登录")
             host_user_id = player.user_id
+            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            if blocked:
+                return blocked
             host_name = player.username
 
             host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
@@ -332,6 +353,7 @@ class RoomManager:
                 },
                 "has_password": has_password,
                 "tips": tips,
+                "show_moqie_hint": False,
                 "host_user_id": host_user_id,
                 "host_name": host_name,
                 "is_game_running": False,
@@ -376,6 +398,9 @@ class RoomManager:
             if not player.user_id:
                 return Response(type="tips", success=False, message="请先登录")
             host_user_id = player.user_id
+            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            if blocked:
+                return blocked
             host_name = player.username
 
             host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
@@ -427,6 +452,7 @@ class RoomManager:
                 },
                 "has_password": has_password,
                 "tips": tips,
+                "show_moqie_hint": False,
                 "host_user_id": host_user_id,
                 "host_name": host_name,
                 "is_game_running": False,
@@ -515,6 +541,10 @@ class RoomManager:
                     success=False,
                     message="请先登录"
                 )
+
+            blocked = self._reject_if_in_active_game(player.user_id, "加入房间")
+            if blocked:
+                return blocked
             
             # 检查玩家是否已经在房间中
             if player.user_id in room_data["player_list"]:

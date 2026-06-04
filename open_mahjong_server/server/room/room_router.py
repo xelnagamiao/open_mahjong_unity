@@ -1,8 +1,25 @@
 # 房间路由处理器
 import logging
+from typing import Optional
 from ..response import Response
 
 logger = logging.getLogger(__name__)
+
+def _reject_room_entry(game_server, player) -> Optional[Response]:
+    """创建/加入房间前的统一拦截：已在房间，或仍在进行中的对局内。"""
+    if player.current_room_id:
+        return Response(
+            type="tips",
+            success=False,
+            message="已经处于一个房间中，请先退出房间再创建新房间",
+        )
+    if player.user_id and game_server.gamestate_manager.is_user_in_active_game(player.user_id):
+        return Response(
+            type="tips",
+            success=False,
+            message="您正在对局中，无法进入或创建房间",
+        )
+    return None
 
 async def handle_room_message(game_server, Connect_id: str, message: dict, websocket):
     """
@@ -48,13 +65,9 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
     # 检查玩家是否已经在房间中
     if Connect_id in game_server.players:
         player = game_server.players[Connect_id]
-        if player.current_room_id:
-            response = Response(
-                type="tips",
-                success=False,
-                message="已经处于一个房间中，请先退出房间再创建新房间"
-            )
-            await websocket.send_json(response.dict(exclude_none=True))
+        blocked = _reject_room_entry(game_server, player)
+        if blocked:
+            await websocket.send_json(blocked.dict(exclude_none=True))
             return
 
     response = await game_server.create_GB_room(
@@ -81,13 +94,9 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
     # 与国标相同：先检查是否已经在房间中
     if Connect_id in game_server.players:
         player = game_server.players[Connect_id]
-        if player.current_room_id:
-            response = Response(
-                type="tips",
-                success=False,
-                message="已经处于一个房间中，请先退出房间再创建新房间"
-            )
-            await websocket.send_json(response.dict(exclude_none=True))
+        blocked = _reject_room_entry(game_server, player)
+        if blocked:
+            await websocket.send_json(blocked.dict(exclude_none=True))
             return
 
     response = await game_server.create_Qingque_room(
@@ -111,13 +120,9 @@ async def handle_create_Classical_room(game_server, Connect_id: str, message: di
     logging.info(f"创建古典麻将房间请求 - 用户名: {Connect_id}")
     if Connect_id in game_server.players:
         player = game_server.players[Connect_id]
-        if player.current_room_id:
-            response = Response(
-                type="tips",
-                success=False,
-                message="已经处于一个房间中，请先退出房间再创建新房间"
-            )
-            await websocket.send_json(response.dict(exclude_none=True))
+        blocked = _reject_room_entry(game_server, player)
+        if blocked:
+            await websocket.send_json(blocked.dict(exclude_none=True))
             return
 
     response = await game_server.create_Classical_room(
@@ -140,13 +145,9 @@ async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict,
     logging.info(f"创建立直麻将房间请求 - 用户名: {Connect_id}")
     if Connect_id in game_server.players:
         player = game_server.players[Connect_id]
-        if player.current_room_id:
-            response = Response(
-                type="tips",
-                success=False,
-                message="已经处于一个房间中，请先退出房间再创建新房间"
-            )
-            await websocket.send_json(response.dict(exclude_none=True))
+        blocked = _reject_room_entry(game_server, player)
+        if blocked:
+            await websocket.send_json(blocked.dict(exclude_none=True))
             return
 
     response = await game_server.create_Riichi_room(

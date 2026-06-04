@@ -19,19 +19,23 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
     }
 
     public void OnPointerEnter(PointerEventData eventData) {
+        if (HandCardDragController.IsDragging || HandCardDragController.SuppressPointerHover) {
+            return;
+        }
         if (isHovering) return;
 
         isHovering = true;
-        // Image和Button一起上浮
         imageRect.localPosition += Vector3.up * hoverOffset;
         buttonRect.localPosition += Vector3.up * hoverOffset;
     }
 
     public void OnPointerExit(PointerEventData eventData) {
-        if (!isHovering) return;
+        ForceResetHover();
+    }
 
+    public void ForceResetHover() {
+        if (!isHovering) return;
         isHovering = false;
-        // Image和Button一起下降
         imageRect.localPosition -= Vector3.up * hoverOffset;
         buttonRect.localPosition -= Vector3.up * hoverOffset;
     }

@@ -242,7 +242,7 @@ public partial class Game3DManager : MonoBehaviour {
                 Set3DTile(tileId, panel.discardsPosition, "DiscardWithoutAnimation", PlayerPosition, isMoqie: false, isRiichi: isRiichi);
             }
             else if (actionType == "SetRecordDiscardWithoutAnimation"){
-                Set3DTile(tileId, panel.discardsPosition, "DiscardWithoutAnimation", PlayerPosition, cut_class, isRiichi: isRiichi);
+                Set3DTile(tileId, panel.discardsPosition, "DiscardWithoutAnimation", PlayerPosition, ShouldApplyMoqieDiscardGray(cut_class), isRiichi: isRiichi);
             }
             else {
                 Set3DTile(tileId, panel.buhuaPosition, "BuhuaWithoutAnimation", PlayerPosition);
@@ -329,7 +329,8 @@ public partial class Game3DManager : MonoBehaviour {
             if (playCutPhysicsSound) {
                 SoundManager.Instance.PlayPhysicsSound("cut");
             }
-            yield return Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, cut_class, isRiichi: isRiichi);
+            bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(cut_class);
+            yield return Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", PlayerPosition, moqieGrayOnDiscard, isRiichi: isRiichi);
             if (PlayerPosition != "self" && DiscardSettlePauseSec > 0f) {
                 yield return new WaitForSeconds(DiscardSettlePauseSec);
             }
@@ -370,6 +371,17 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     
+    /// <summary>河牌摸切灰显：牌谱读 game_title.show_moqie_hint（缺省开）；对局读 GameInfo（缺省关）。</summary>
+    private bool ShouldApplyMoqieDiscardGray(bool cutClass) {
+        if (!cutClass) return false;
+        var recordMgr = GameRecordManager.Instance;
+        if (recordMgr != null && recordMgr.gameRecord != null) {
+            return recordMgr.ShowMoqieHint;
+        }
+        var gsm = NormalGameStateManager.Instance;
+        return gsm != null && gsm.showMoqieHint;
+    }
+
     // 根据玩家位置获取对应的位置面板
     private PosPanel3D GetPosPanel(string playerPosition){
         switch (playerPosition){

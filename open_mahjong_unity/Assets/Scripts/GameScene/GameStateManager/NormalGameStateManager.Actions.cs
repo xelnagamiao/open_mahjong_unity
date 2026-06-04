@@ -6,6 +6,7 @@ public partial class NormalGameStateManager {
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time, int playerIndex, int remain_tiles, string[] action_list,
                               Dictionary<int, int[]> riichi_candidate_cuts = null, int[] forbidden_cut_tiles = null) {
+        TryResumeAfterCuoheContinue();
         string GetCardPlayer = indexToPosition[playerIndex];
         remainTiles = remain_tiles;
         // 立直麻将自家手牌可点状态依据：每次询问刷新
@@ -29,6 +30,7 @@ public partial class NormalGameStateManager {
 
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
     public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null){
+        TryResumeAfterCuoheContinue();
         // 立直麻将涉赤 5 的吃牌候选（键：方向，值：每条候选两张真实牌 ID）
         chiCandidates = chi_candidates ?? new Dictionary<string, int[][]>();
         // 询问鸣牌时不属于自家手牌行动阶段，清空立直/食替缓存防止旧值干扰可点状态
@@ -87,6 +89,7 @@ public partial class NormalGameStateManager {
                 // 切牌
                 case "cut": 
                     lastCutCardID = cut_tile.Value; // 存储上次切牌的ID
+                    lastDiscardPlayerPosition = GetCardPlayer;
                     player_to_info[GetCardPlayer].discard_tiles.Add(cut_tile.Value); // 存储弃牌
                     // 同步保存横置标记，用于他家鸣牌后下一张续横、重连/牌谱重建时还原立直横置弃牌
                     player_to_info[GetCardPlayer].discard_riichi_flags.Add(isRiichiHorizontalCut);

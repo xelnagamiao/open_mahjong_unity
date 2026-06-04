@@ -34,6 +34,7 @@ public partial class NormalGameStateManager {
             ApplyShowResultScores(player_to_score);
             RoundEndPresentation.Instance.PresentLiuju(GetRiichiSpecialLiujuCaption(hu_class));
         } else {
+            MarkPendingCuoheContinue(hepai_player_index, hu_fan);
             RoundEndPresentation.Instance.PresentHuResultSequence(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, isSilent);
         }
         // 更新分数记录
@@ -136,6 +137,7 @@ public partial class NormalGameStateManager {
         
         // 更新 GameCanvas 中的玩家面板显示
         GameCanvas.Instance.UpdatePlayerTagList(player_to_tag_list);
+        TryResumeAfterCuoheContinue();
         if (IsSelfRiichi()) {
             TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
             TipsContainer.Instance.HideRyuukyokuTenpaiChoice();

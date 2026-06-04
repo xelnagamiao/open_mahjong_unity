@@ -135,6 +135,7 @@ class QingqueGameState:
 
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
+        self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌
         self.hepai_limit = 1 # 青雀起和限制固定为1
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
@@ -187,20 +188,8 @@ class QingqueGameState:
         self.realtime_spectators = []
 
     async def send_to_realtime_spectators(self, player_index: int, response):
-        spectators = getattr(self, "realtime_spectators", None)
-        if not spectators:
-            return
-        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
-        for sp in list(spectators):
-            if sp.player_index != player_index:
-                continue
-            conn = self.game_server.user_id_to_connection.get(sp.user_id)
-            if conn is None:
-                continue
-            try:
-                await conn.websocket.send_json(payload)
-            except Exception:
-                pass
+        from ..public.spectator_rules import deliver_realtime_spectator_message
+        await deliver_realtime_spectator_message(self, player_index, response)
 
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
@@ -250,6 +239,7 @@ class QingqueGameState:
                         'sub_rule': self.sub_rule,
                         'hepai_limit': self.hepai_limit,
                         'open_cuohe': self.open_cuohe,
+                        'show_moqie_hint': self.show_moqie_hint,
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }

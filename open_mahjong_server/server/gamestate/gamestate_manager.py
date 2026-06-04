@@ -60,6 +60,17 @@ class GameStateManager:
         # 检查游戏是否已经在运行
         if room_data.get("is_game_running", False):
             return Response(type="error_message", success=False, message="游戏已在进行中")
+
+        # 任一在房玩家若仍在其他对局中，禁止重复开局
+        for player_id in room_data["player_list"]:
+            if player_id <= 10:
+                continue
+            if self.is_user_in_active_game(player_id):
+                return Response(
+                    type="error_message",
+                    success=False,
+                    message="有玩家正在对局中，无法开始游戏",
+                )
             
         # 设置游戏运行状态
         room_data["is_game_running"] = True
@@ -307,6 +318,19 @@ class GameStateManager:
             游戏状态对象，如果不存在返回None
         """
         return self.user_id_to_game_state.get(user_id)
+
+    def is_user_in_active_game(self, user_id: int) -> bool:
+        """
+        玩家是否处于尚未结束的对局（以 user_id_to_game_state 及座位名单为准）。
+        与 current_room_id 无关：退房后仍可处于对局中。
+        """
+        game_state = self.user_id_to_game_state.get(user_id)
+        if game_state is None:
+            return False
+        player_list = getattr(game_state, "player_list", None)
+        if player_list is not None:
+            return any(p.user_id == user_id for p in player_list)
+        return True
     
     def get_playing_rooms_count(self) -> int:
         """

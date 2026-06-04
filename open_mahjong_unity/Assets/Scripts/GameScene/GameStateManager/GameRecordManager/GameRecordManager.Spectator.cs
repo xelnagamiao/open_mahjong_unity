@@ -39,6 +39,8 @@ public partial class GameRecordManager {
     /// 开始观战：解析初始牌谱、剔除 ask 节点、快进到最新状态、启动自动播放
     /// </summary>
     public void StartSpectating(string recordJson) {
+        if (!IsSpectating && GameSessionGuard.BlockIfExclusiveSession("进入观战")) return;
+
         IsSpectating = true;
         IsLiveSpectatorMode = true;
         waitingForMoreTicks = false;

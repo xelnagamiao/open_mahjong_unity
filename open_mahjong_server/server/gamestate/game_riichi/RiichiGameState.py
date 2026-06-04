@@ -45,6 +45,7 @@ from ..public.round_end_timing import (
     ROUND_END_HAND_REVEAL_SEC,
     liuju_ready_wait_seconds,
 )
+from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.game_record_manager import (
     init_game_record,
     init_game_round,
@@ -187,6 +188,7 @@ class RiichiGameState:
 
         self.room_random_seed = room_data.get("random_seed", 0)
         self.open_cuohe = room_data.get("open_cuohe", False)
+        self.show_moqie_hint = room_data.get("show_moqie_hint", False)
         self.hepai_limit = room_data.get("hepai_limit", 1)
         self.tourist_limit = room_data.get("tourist_limit", False)
         self.allow_spectator_config = room_data.get("allow_spectator", True)
@@ -251,7 +253,7 @@ class RiichiGameState:
         self._last_kan_type: Optional[str] = None
         # 四杠散了：4 杠且由 ≥2 家开出 → 下一张弃牌无人和牌则流局。
         self._pending_four_kan_abort: bool = False
-        # 错和：和牌番数低于 hepai_limit 时触发，9000/家赔付并重打本局（亲家不变、本场不增、仅更新随机种子）
+        # 错和：和牌番数低于 hepai_limit 时触发，向其余 3 家各赔 3000（合计 9000）并重打本局
         self._cuohe_triggered: bool = False
 
         self.Debug = False
@@ -264,20 +266,8 @@ class RiichiGameState:
 
     async def send_to_realtime_spectators(self, player_index: int, response):
         """把同一份 Response 转发给挂在 player_index 座位上的所有实时观战者。"""
-        spectators = getattr(self, "realtime_spectators", None)
-        if not spectators:
-            return
-        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
-        for sp in list(spectators):
-            if sp.player_index != player_index:
-                continue
-            conn = self.game_server.user_id_to_connection.get(sp.user_id)
-            if conn is None:
-                continue
-            try:
-                await conn.websocket.send_json(payload)
-            except Exception:
-                pass
+        from ..public.spectator_rules import deliver_realtime_spectator_message
+        await deliver_realtime_spectator_message(self, player_index, response)
 
     async def player_disconnect(self, user_id: int):
         for p in self.player_list:
@@ -497,10 +487,7 @@ class RiichiGameState:
             if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
                 settle_result = self.result_dict.get(self.hu_class) or {}
                 fan_count = len(settle_result.get("yaku", []))
-                wait_time = hu_result_ready_wait_seconds(
-                    fan_count,
-                    pre_panel_delay_sec=ROUND_END_HAND_REVEAL_SEC,
-                )
+                await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
             elif self.hu_class == "ryuukyoku":
                 tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
                 noten_indexes = [p.player_index for p in self.player_list if not self._is_ryuukyoku_tenpai(p)]
@@ -518,22 +505,24 @@ class RiichiGameState:
                 wait_time = liuju_ready_wait_seconds()
             else:
                 wait_time = 8.0
-            deadline = time.time() + wait_time
-            self.action_dict = {}
-            for p in self.player_list:
-                if p.user_id <= 10:
-                    self.action_dict[p.player_index] = []
-                else:
-                    self.action_dict[p.player_index] = ["ready"]
-                    p.remaining_time = math.ceil(wait_time)
-            self.game_status = "waiting_ready"
-            await broadcast_ready_status(self)
-            while any(self.action_dict[i] for i in self.action_dict):
+
+            if self.hu_class not in ("hu_self", "hu_first", "hu_second", "hu_third"):
+                deadline = time.time() + wait_time
+                self.action_dict = {}
                 for p in self.player_list:
-                    if self.action_dict.get(p.player_index):
-                        p.remaining_time = max(0, int(deadline - time.time()))
-                if await wait_action(self) is False:
-                    break
+                    if p.user_id <= 10:
+                        self.action_dict[p.player_index] = []
+                    else:
+                        self.action_dict[p.player_index] = ["ready"]
+                        p.remaining_time = math.ceil(wait_time)
+                self.game_status = "waiting_ready"
+                await broadcast_ready_status(self)
+                while any(self.action_dict[i] for i in self.action_dict):
+                    for p in self.player_list:
+                        if self.action_dict.get(p.player_index):
+                            p.remaining_time = max(0, int(deadline - time.time()))
+                    if await wait_action(self) is False:
+                        break
 
             # 决定是否连庄
             last_renchan = False
@@ -815,26 +804,27 @@ class RiichiGameState:
 
     async def _settle_cuohe(self):
         """错和：宣告的和牌番数低于起和番数时，先照常展示牌型与番种再附"错和"标签，
-        由错和方向其余 3 家各赔付 9000 点；本局重打，亲家与本场棒不变，随机种子更新。"""
+        由错和方对其余 3 家各赔 3000 点（合计 9000）；本局重打，亲家与本场棒不变。"""
         result = self.result_dict.get(self.hu_class) or {}
         han = int(result.get("han", 0))
         fu = int(result.get("fu", 0))
         yaku = list(result.get("yaku", []))
         aka_count = int(result.get("aka_count", 0))
 
-        if self.hu_class == "hu_self":
-            offender_index = self.current_player_index
-        else:
-            offender_index = self.ron_player_index
+        offender_index = self._hu_winner_index()
+        if offender_index is None:
+            logger.error(f"错和结算无法确定和牌方 hu_class={self.hu_class}")
+            return
         self.hepai_player_index = offender_index
 
-        penalty_each = 9000
+        cuohe_total_penalty = 9000
+        pay_each = cuohe_total_penalty // 3
         score_changes = {i: 0 for i in range(4)}
         for i in range(4):
             if i == offender_index:
                 continue
-            score_changes[offender_index] -= penalty_each
-            score_changes[i] += penalty_each
+            score_changes[offender_index] -= pay_each
+            score_changes[i] += pay_each
 
         for p in self.player_list:
             p.score += score_changes[p.player_index]
@@ -871,7 +861,7 @@ class RiichiGameState:
             self,
             hepai_player_index=offender_index,
             player_to_score={p.original_player_index: p.score for p in self.player_list},
-            hu_score=penalty_each * 3,
+            hu_score=cuohe_total_penalty,
             hu_fan=yaku,
             hu_class=self.hu_class,
             hepai_player_hand=self.player_list[offender_index].hand_tiles,

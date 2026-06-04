@@ -50,7 +50,7 @@ class MatchManager:
             return Response(type="tips", success=False, message="您已在匹配队列中")
 
         # 正在游戏中
-        if user_id in self.game_server.gamestate_manager.user_id_to_game_state:
+        if self.game_server.gamestate_manager.is_user_in_active_game(user_id):
             return Response(type="tips", success=False, message="您正在游戏中，无法匹配")
 
         # 资格校验
@@ -197,6 +197,7 @@ class MatchManager:
             "step_timer": room_config["step_timer"],
             "random_seed": 0,
             "open_cuohe": room_config["open_cuohe"],
+            "show_moqie_hint": room_config.get("show_moqie_hint", False),
             "tactical_call": room_config.get("tactical_call", False),
             "match_queue_type": queue_type,
         }

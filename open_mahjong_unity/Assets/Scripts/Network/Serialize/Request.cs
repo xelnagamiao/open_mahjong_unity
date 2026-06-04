@@ -36,7 +36,7 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
     public bool tips;
     public string password;
     public int random_seed;
-    public bool open_cuohe; // 是否开启错和（错和罚 9000/家并重打本局）
+    public bool open_cuohe; // 是否开启错和（日麻：向其余三家各赔 3000 并重打本局；国标：罚分后继续本局）
     public int hepai_limit; // 自定义起和番数，低于该番数视为错和
     public bool red_dora; // 是否启用赤宝牌
     public string hepai_way; // 和牌方式：head_bump / multi_ron / three_ron_abort

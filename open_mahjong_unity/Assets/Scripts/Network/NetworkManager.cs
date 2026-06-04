@@ -48,6 +48,8 @@ public class NetworkManager : MonoBehaviour {
 
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
+    private bool _suppressDisconnectDialog;
+    private Coroutine _reconnectRoutine;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
@@ -61,69 +63,146 @@ public class NetworkManager : MonoBehaviour {
         Instance = this;
         playerId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的玩家ID
         websocket = new WebSocket($"{ConfigManager.gameUrl}/{playerId}"); // 初始化WebSocket
-        
-        // 配置WebSocket事件处理器
-        websocket.OnMessage += (bytes) => {
+        BindWebSocketEvents(websocket);
+    }
+
+    private void BindWebSocketEvents(WebSocket ws) {
+        ws.OnMessage += (bytes) => {
             lock(messageQueue) {
                 messageQueue.Enqueue(bytes);
             }
         };
-        
-        websocket.OnOpen += () => {
+
+        ws.OnOpen += () => {
             Debug.Log("WebSocket连接成功");
             isConnecting = false;
-            // 使用主线程调度器执行UI操作
+            _suppressDisconnectDialog = false;
             ExecuteOnMainThread(() => {
-                LoginPanel.Instance.ConnectOkText(); // 连接成功
+                LoginPanel.Instance?.ConnectOkText();
             });
-            // 发送发布版版本号
             SendReleaseVersion();
         };
-        
-        websocket.OnError += (errorMsg) => {
+
+        ws.OnError += (errorMsg) => {
             Debug.LogError($"WebSocket连接失败: {errorMsg}");
             isConnecting = false;
-            // 使用主线程调度器执行UI操作
+            _suppressDisconnectDialog = false;
             ExecuteOnMainThread(() => {
-                LoginPanel.Instance.ConnectErrorText(errorMsg); 
-                // 连接失败
-                // NotificationManager.Instance.ShowMessage(
-                //     "连接错误",
-                //     $"与服务器连接失败：{errorMsg}",
-                //     "disconnect"
-                // );
+                LoginPanel.Instance?.ConnectErrorText(errorMsg);
             });
         };
-        
-        websocket.OnClose += (code) => {
+
+        ws.OnClose += (code) => {
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
-            // 使用主线程调度器执行UI操作
             ExecuteOnMainThread(() => {
-                LoginPanel.Instance.ConnectErrorText("连接已关闭"); // 连接关闭
-                // 连接断开
+                LoginPanel.Instance?.ConnectErrorText("连接已关闭");
+                if (_suppressDisconnectDialog) return;
                 NotificationManager.Instance.ShowMessage(
                     "连接已断开",
-                    "与服务器的连接已断开，如正处于一场游戏对局中，重新启动客户端可进行重新连接，游客无法重连至游戏",
+                    "与服务器的连接已断开。如正处于一场游戏对局中，点击重连即可回到登录界面并尝试重新连接服务器；游客无法重连至游戏。",
                     "disconnect"
                 );
             });
         };
     }
 
-    // 2.Start方法用于连接到服务器
-    private async void Start(){
-        // 确保网络管理器唯一，并且没有在连接中
-        if (Instance == this && !isConnecting){
-            isConnecting = true;
-            try{
-                Debug.Log($"开始连接服务器，当前状态: {websocket.State}");
-                await websocket.Connect();
+    /// <summary>
+    /// 断线后软重置 WebSocket（主线程协程发起，不阻塞 Receive 循环）。
+    /// </summary>
+    public void RequestReconnectWebSocket() {
+        if (!isActiveAndEnabled) {
+            Debug.LogWarning("[NetworkManager] 无法重连：NetworkManager 未激活");
+            return;
+        }
+        if (_reconnectRoutine != null) {
+            StopCoroutine(_reconnectRoutine);
+        }
+        _reconnectRoutine = StartCoroutine(ReconnectWebSocketRoutine());
+    }
+
+    private IEnumerator ReconnectWebSocketRoutine() {
+        _suppressDisconnectDialog = true;
+        isConnecting = false;
+
+        if (websocket != null
+            && (websocket.State == WebSocketState.Open || websocket.State == WebSocketState.Connecting)) {
+            Task closeTask = null;
+            try {
+                closeTask = websocket.Close();
+            } catch (Exception e) {
+                Debug.LogWarning($"[NetworkManager] 关闭旧 WebSocket 时出错: {e.Message}");
             }
-            catch (Exception e){
-                Debug.LogError($"连接错误: {e.Message}");
+            if (closeTask != null) {
+                float closeWait = 0f;
+                while (!closeTask.IsCompleted && closeWait < 3f) {
+                    closeWait += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+            }
+        }
+
+        lock (messageQueue) {
+            messageQueue.Clear();
+        }
+
+        _latencyMs = -1;
+        _pingTimer = PingIntervalSeconds;
+        _lastPongElapsed = 0f;
+        _lastPingTs = 0;
+
+        playerId = System.Guid.NewGuid().ToString();
+        string url = $"{ConfigManager.gameUrl}/{playerId}";
+        WebSocket newSocket = new WebSocket(url);
+        websocket = newSocket;
+        BindWebSocketEvents(newSocket);
+
+        isConnecting = true;
+        Debug.Log($"[NetworkManager] 发起 WebSocket 重连: {url}, State={newSocket.State}");
+        RunConnectLoop(newSocket);
+
+        const float timeoutSeconds = 15f;
+        float elapsed = 0f;
+        while (elapsed < timeoutSeconds) {
+            if (newSocket.State == WebSocketState.Open) {
+                Debug.Log("[NetworkManager] WebSocket 重连成功");
+                _reconnectRoutine = null;
+                yield break;
+            }
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        Debug.LogError($"[NetworkManager] WebSocket 重连超时或失败，State={newSocket.State}");
+        isConnecting = false;
+        _suppressDisconnectDialog = false;
+        LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
+        _reconnectRoutine = null;
+    }
+
+    /// <summary>
+    /// 在后台维持 Connect/Receive 循环；Connect 建立后 OnOpen 会更新 UI。
+    /// </summary>
+    private async void RunConnectLoop(WebSocket ws) {
+        if (ws == null) return;
+        try {
+            await ws.Connect();
+        } catch (Exception e) {
+            Debug.LogError($"[NetworkManager] WebSocket Connect 异常: {e.Message}");
+            if (ws == websocket) {
                 isConnecting = false;
+                _suppressDisconnectDialog = false;
+                ExecuteOnMainThread(() => LoginPanel.Instance?.ConnectErrorText(e.Message));
             }
+        }
+    }
+
+    // 2.Start方法用于连接到服务器
+    private void Start() {
+        if (Instance == this && !isConnecting) {
+            isConnecting = true;
+            Debug.Log($"开始连接服务器，当前状态: {websocket.State}");
+            RunConnectLoop(websocket);
         }
     }
 
@@ -367,7 +446,11 @@ public class NetworkManager : MonoBehaviour {
                 case "message":
                     // 处理服务端发送的消息（版本不匹配、账户被顶替、重连提示等）
                     // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
-                    MessagePrefab messageInstance = NotificationManager.Instance.ShowMessage(
+                    if (response.message == "login_kickout") {
+                        // 被顶号后服务端会主动断开连接，避免再弹出断线面板
+                        _suppressDisconnectDialog = true;
+                    }
+                    NotificationManager.Instance.ShowMessage(
                         response.message_info.title, 
                         response.message_info.content, 
                         response.message
