@@ -321,17 +321,11 @@ async def _handle_list_realtime_spectators(game_server, user_id: int, websocket)
             ),
         )
         return
-    host_player_index = None
-    if hasattr(game_state, "player_list"):
-        for p in game_state.player_list:
-            if getattr(p, "user_id", None) == user_id:
-                host_player_index = getattr(p, "player_index", None)
-                break
     spectators = getattr(game_state, "realtime_spectators", [])
     entries = [
         RealtimeSpectatorEntry(user_id=sp.user_id, username=sp.username)
         for sp in spectators
-        if host_player_index is None or sp.player_index == host_player_index
+        if sp.host_user_id == user_id
     ]
     await _send(
         websocket,

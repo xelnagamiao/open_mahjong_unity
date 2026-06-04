@@ -153,7 +153,7 @@ public class GameSceneUIManager : MonoBehaviour
         RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }
 
-    /// <summary>实时观战进入对局：清空临时面板，隐藏自动操作。</summary>
+    /// <summary>实时观战进入对局：清空临时面板，仅显示自动排列手牌。</summary>
     public void InitRealtimeSpectatorStart() {
         EndResultPanel.Instance.ClearEndResultPanel();
         EndGamePanel.Instance.ClearEndGamePanel();
@@ -167,7 +167,7 @@ public class GameSceneUIManager : MonoBehaviour
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
         GameCanvas.Instance.SetScoreRecordOpen(false);
-        AutoAction.Instance.gameObject.SetActive(false);
+        AutoAction.Instance.InitializeForSpectator();
         RecordSetting.Instance.gameObject.SetActive(false);
         if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.ShowForRealtimeSpectator();
         RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();

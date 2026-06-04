@@ -8,6 +8,7 @@ class GBRoomValidator(BaseModel):
     step_timer: int
     random_seed: int
     open_cuohe: bool = False
+    show_moqie_hint: bool = False
     tactical_call: bool = False
     
     @validator('room_name')
@@ -47,6 +48,7 @@ class RiichiRoomValidator(BaseModel):
     step_timer: int
     random_seed: int
     open_cuohe: bool = False
+    show_moqie_hint: bool = False
     hepai_limit: int = 1  # 自定义起和番数，低于此番数视为错和（仅在 open_cuohe=True 时触发罚分）
     red_dora: bool = True
     hepai_way: str = "head_bump"  # head_bump / multi_ron / three_ron_abort

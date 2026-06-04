@@ -48,20 +48,10 @@ class SpectatorManager:
             return
         if self.game_title:
             return
+        from ..public.game_record_manager import build_game_title_data
+
         gs = self.gamestate
-        self.game_title = {
-            "rule": gs.room_rule,
-            "room_type": gs.room_type,
-            "sub_rule": gs.sub_rule,
-            "game_random_seed": gs.game_random_seed,
-            "max_round": gs.max_round,
-            "open_cuohe": gs.open_cuohe,
-            "tips": gs.tips,
-            "isPlayerSetRandomSeed": gs.isPlayerSetRandomSeed,
-        }
-        for i, player in enumerate(gs.player_list):
-            self.game_title[f"p{i}_uid"] = player.user_id
-            self.game_title[f"p{i}_name"] = player.username
+        self.game_title = build_game_title_data(gs)
 
         self.players_settings = []
         for player in gs.player_list:
@@ -78,21 +68,14 @@ class SpectatorManager:
         """记录局开始时的牌山与手牌快照"""
         if not self.enabled:
             return
+        from ..public.game_record_manager import build_round_header_data
+
         gs = self.gamestate
         round_idx = gs.round_index
         self.current_round_index = round_idx
         self.round_headers[round_idx] = {
             "timestamp": time.time(),
-            "data": {
-                "round_random_seed": gs.round_random_seed,
-                "current_round": gs.current_round,
-                "p0_tiles": gs.player_list[0].hand_tiles.copy(),
-                "p1_tiles": gs.player_list[1].hand_tiles.copy(),
-                "p2_tiles": gs.player_list[2].hand_tiles.copy(),
-                "p3_tiles": gs.player_list[3].hand_tiles.copy(),
-                "tiles_list": gs.tiles_list.copy(),
-                "round_index": round_idx,
-            }
+            "data": build_round_header_data(gs),
         }
         self.round_ticks[round_idx] = []
 
@@ -121,7 +104,11 @@ class SpectatorManager:
                 self.record_tick(["bd", kwargs.get("deal_tile")])
             elif action == "cut":
                 is_moqie = kwargs.get("cut_class", False)
-                self.record_tick(["c", kwargs.get("cut_tile"), "T" if is_moqie else "F"])
+                is_riichi_horizontal = kwargs.get("is_riichi_horizontal", False)
+                tick = ["c", kwargs.get("cut_tile"), "T" if is_moqie else "F"]
+                if is_riichi_horizontal:
+                    tick.append("H")
+                self.record_tick(tick)
             elif action == "buhua":
                 self.record_tick(["bh", kwargs.get("buhua_tile"), action_player])
             elif action in _ACTION_TO_TICK:

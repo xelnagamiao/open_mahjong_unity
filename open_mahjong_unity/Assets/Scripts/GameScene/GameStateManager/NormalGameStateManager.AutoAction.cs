@@ -6,6 +6,9 @@ using UnityEngine;
 public partial class NormalGameStateManager {
     // 等待自动操作
     private IEnumerator WaitAutoAction(string action){
+        if (IsRealtimeSpectator) {
+            yield break;
+        }
 
         // 鸣牌操作自动执行
         if (action == "AutoMingPaiAction"){

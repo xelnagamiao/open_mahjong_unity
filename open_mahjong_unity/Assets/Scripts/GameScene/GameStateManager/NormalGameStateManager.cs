@@ -47,11 +47,17 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public int currentRound; // 当前轮数
     public int maxRound; // 最大风圈数（1=东风 2=半庄 3=东西 4=全庄）
     public bool tips; // 提示
+    public bool showMoqieHint; // 手摸切灰显（对局河牌摸切灰、手切正常）
     public bool isOpenCuoHe; // 是否开启错和
+    /// <summary>错和结算已展示，等待 ready 结束后再恢复手牌与操作区。</summary>
+    public bool pendingCuoheContinueAfterReady;
+    public int pendingCuoheWinnerIndex = -1;
     public bool isSetRandomSeed; // 是否设置随机种子
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
+    /// <summary>上一张切牌玩家座位（荣和倒牌从河牌抓取时使用）。</summary>
+    public string lastDiscardPlayerPosition;
     public string CurrentPlayer; // 当前玩家字符串
     public List<int> selfHandTiles = new List<int>(); // 手牌列表
 
@@ -61,6 +67,8 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public bool IsGameActive { get; private set; }
     /// <summary>当前是否处于"实时观战"只读模式：接收完整 gamestate 广播，但所有发送动作的接口均早退。</summary>
     public bool IsRealtimeSpectator { get; private set; }
+    /// <summary>实时观战时被观战玩家的 user_id，用于每局解析 selfIndex（player_index 会轮转）。</summary>
+    public int RealtimeSpectatorHostUserId { get; private set; }
 
     // 玩家信息
     public Dictionary<string,PlayerInfoClass> player_to_info = new Dictionary<string,PlayerInfoClass>(); // 玩家信息

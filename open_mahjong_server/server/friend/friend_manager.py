@@ -30,7 +30,7 @@ class RealtimeSpectator:
     """挂在 game_state.realtime_spectators 上的一个实时观战者条目。"""
     user_id: int
     username: str
-    player_index: int  # 实时观战者"挂在"哪个座位（接收该座位的全部广播）
+    host_user_id: int  # 被观战玩家；其 player_index 每局轮转，发送时按 user_id 动态解析
 
 
 @dataclass
@@ -90,6 +90,9 @@ class FriendManager:
         game_state = self.game_server.gamestate_manager.get_game_state_by_user_id(friend_user_id)
         if game_state is None:
             return {"state": "online", "gamestate_id": None}
+        if hasattr(game_state, "player_list"):
+            if not any(p.user_id == friend_user_id for p in game_state.player_list):
+                return {"state": "online", "gamestate_id": None}
         spectator_allowed = True
         if hasattr(game_state, "spectator_enabled") and not game_state.spectator_enabled:
             spectator_allowed = False
@@ -398,7 +401,7 @@ class FriendManager:
                 RealtimeSpectator(
                     user_id=req.from_user_id,
                     username=req.from_username,
-                    player_index=req.player_index,
+                    host_user_id=req.to_user_id,
                 )
             )
 
@@ -457,17 +460,9 @@ class FriendManager:
                 success=False,
                 message="您当前不在游戏中",
             )
-        host_player_index = self._find_player_index(game_state, host_user_id)
-        if host_player_index is None:
-            return Response(
-                type="friend/realtime_kick_result",
-                success=False,
-                message="未找到您的座位",
-            )
-
         spectators: List[RealtimeSpectator] = getattr(game_state, "realtime_spectators", [])
         target = next(
-            (sp for sp in spectators if sp.user_id == spectator_user_id and sp.player_index == host_player_index),
+            (sp for sp in spectators if sp.user_id == spectator_user_id and sp.host_user_id == host_user_id),
             None,
         )
         if target is None:
@@ -509,22 +504,20 @@ class FriendManager:
             removed_as_spectator = len(spectators) != before_len
 
             # 2) 该 user_id 是该对局的座位玩家 → 挂在其座位的所有观战者下机
-            host_player_index = self._find_player_index(game_state, user_id)
             removed_as_host = False
-            if host_player_index is not None:
-                to_kick = [sp for sp in spectators if sp.player_index == host_player_index]
-                if to_kick:
-                    spectators[:] = [sp for sp in spectators if sp.player_index != host_player_index]
-                    removed_as_host = True
-                    for sp in to_kick:
-                        await self._send_to_user(
-                            sp.user_id,
-                            Response(
-                                type="friend/realtime_kicked",
-                                success=False,
-                                message="被观战玩家已离线，实时观战结束",
-                            ),
-                        )
+            to_kick = [sp for sp in spectators if sp.host_user_id == user_id]
+            if to_kick:
+                spectators[:] = [sp for sp in spectators if sp.host_user_id != user_id]
+                removed_as_host = True
+                for sp in to_kick:
+                    await self._send_to_user(
+                        sp.user_id,
+                        Response(
+                            type="friend/realtime_kicked",
+                            success=False,
+                            message="被观战玩家已离线，实时观战结束",
+                        ),
+                    )
 
             if removed_as_spectator or removed_as_host:
                 await self.broadcast_realtime_spectators_changed(game_state)
@@ -576,13 +569,16 @@ class FriendManager:
 
     async def _send_realtime_initial_state(self, game_state, req: PendingRealtimeRequest):
         """实时观战接入后，按被观战座位视角补发一次 game_start 与当前等待询问。"""
+        host_player_index = self._find_player_index(game_state, req.to_user_id)
+        if host_player_index is None:
+            return
         if hasattr(game_state, "send_realtime_spectator_snapshot"):
-            await game_state.send_realtime_spectator_snapshot(req.from_user_id, req.player_index)
+            await game_state.send_realtime_spectator_snapshot(req.from_user_id, host_player_index)
             return
         conn = self.game_server.user_id_to_connection.get(req.from_user_id)
         if conn is None:
             return
-        host_player = next((p for p in game_state.player_list if p.player_index == req.player_index), None)
+        host_player = next((p for p in game_state.player_list if p.user_id == req.to_user_id), None)
         if host_player is None:
             return
 
@@ -616,7 +612,7 @@ class FriendManager:
             kan_dora_indicators=list(getattr(game_state, "kan_dora_indicators", []) or []),
             hepai_way=getattr(game_state, "hepai_way", None),
             red_dora=getattr(game_state, "red_dora", None),
-            view_player_index=req.player_index,
+            view_player_index=host_player_index,
         )
         await conn.websocket.send_json(Response(
             type=response_type,
@@ -624,7 +620,7 @@ class FriendManager:
             message="实时观战初始化",
             game_info=game_info,
         ).dict(exclude_none=True))
-        await self._send_realtime_pending_ask(game_state, req)
+        await self._send_realtime_pending_ask(game_state, req, host_player_index)
 
     def _build_realtime_player_info(self, player, host_player) -> dict:
         return {
@@ -657,17 +653,17 @@ class FriendManager:
             return [tag for tag in tags if tag != "furiten"]
         return tags
 
-    async def _send_realtime_pending_ask(self, game_state, req: PendingRealtimeRequest):
+    async def _send_realtime_pending_ask(self, game_state, req: PendingRealtimeRequest, host_player_index: int):
         conn = self.game_server.user_id_to_connection.get(req.from_user_id)
         if conn is None:
             return
-        player = next((p for p in game_state.player_list if p.player_index == req.player_index), None)
+        player = next((p for p in game_state.player_list if p.player_index == host_player_index), None)
         if player is None:
             return
         t0 = getattr(game_state, "_ask_broadcast_time", None)
         remaining = player.remaining_time if t0 is None else max(0, player.remaining_time - int(max(0, time.time() - t0)))
         room_rule = getattr(game_state, "room_rule", "guobiao")
-        if game_state.game_status == "waiting_hand_action" and req.player_index == game_state.current_player_index:
+        if game_state.game_status == "waiting_hand_action" and host_player_index == game_state.current_player_index:
             await conn.websocket.send_json(Response(
                 type=f"gamestate/{room_rule}/broadcast_hand_action",
                 success=True,
@@ -676,13 +672,13 @@ class FriendManager:
                     remaining_time=remaining,
                     player_index=game_state.current_player_index,
                     remain_tiles=max(0, len(game_state.tiles_list) - getattr(game_state, "dead_wall_count", 0)),
-                    action_list=game_state.action_dict.get(req.player_index, []),
+                    action_list=game_state.action_dict.get(host_player_index, []),
                     action_tick=game_state.server_action_tick,
-                    riichi_candidate_cuts=getattr(player, "riichi_candidate_cuts", None) if "riichi_cut" in game_state.action_dict.get(req.player_index, []) else None,
+                    riichi_candidate_cuts=getattr(player, "riichi_candidate_cuts", None) if "riichi_cut" in game_state.action_dict.get(host_player_index, []) else None,
                     forbidden_cut_tiles=list(player.kuikae_forbidden_tiles) if getattr(player, "kuikae_forbidden_tiles", None) else None,
                 ),
             ).dict(exclude_none=True))
-        elif game_state.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and game_state.action_dict.get(req.player_index):
+        elif game_state.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and game_state.action_dict.get(host_player_index):
             cut_tile = game_state.player_list[game_state.current_player_index].discard_tiles[-1]
             await conn.websocket.send_json(Response(
                 type=f"gamestate/{room_rule}/ask_other_action",
@@ -690,7 +686,7 @@ class FriendManager:
                 message="实时观战补发鸣牌操作询问",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining,
-                    action_list=game_state.action_dict[req.player_index],
+                    action_list=game_state.action_dict[host_player_index],
                     cut_tile=cut_tile,
                     action_tick=game_state.server_action_tick,
                     chi_candidates=getattr(player, "chi_candidates", None) if getattr(player, "chi_candidates", None) else None,
@@ -698,20 +694,25 @@ class FriendManager:
             ).dict(exclude_none=True))
 
     async def broadcast_realtime_spectators_changed(self, game_state):
-        """把当前实时观战者列表推给桌上所有座位玩家。"""
+        """把当前实时观战者列表推给桌上各座位玩家（每人仅看到观战自己的列表）。"""
         spectators: List[RealtimeSpectator] = getattr(game_state, "realtime_spectators", [])
-        entries = [RealtimeSpectatorEntry(user_id=sp.user_id, username=sp.username) for sp in spectators]
-        payload = Response(
-            type="friend/realtime_spectators_changed",
-            success=True,
-            message="实时观战者列表更新",
-            realtime_spectators=entries,
-            realtime_gamestate_id=getattr(game_state, "gamestate_id", None),
-        )
         if not hasattr(game_state, "player_list"):
             return
+        gamestate_id = getattr(game_state, "gamestate_id", None)
         for p in game_state.player_list:
             uid = getattr(p, "user_id", None)
             if uid is None or uid <= 10:
                 continue
+            entries = [
+                RealtimeSpectatorEntry(user_id=sp.user_id, username=sp.username)
+                for sp in spectators
+                if sp.host_user_id == uid
+            ]
+            payload = Response(
+                type="friend/realtime_spectators_changed",
+                success=True,
+                message="实时观战者列表更新",
+                realtime_spectators=entries,
+                realtime_gamestate_id=gamestate_id,
+            )
             await self._send_to_user(uid, payload)

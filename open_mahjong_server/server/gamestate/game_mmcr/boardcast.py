@@ -29,6 +29,7 @@ async def broadcast_game_start(self):
         'sub_rule': getattr(self, 'sub_rule', 'qingque/standard'), # 子规则
         'hepai_limit': getattr(self, 'hepai_limit', 1), # 青雀起和固定 1
         'open_cuohe': self.open_cuohe, # 是否开启错和
+        'show_moqie_hint': getattr(self, 'show_moqie_hint', False), # 手摸切灰显
         'tactical_call': getattr(self, 'tactical_call', False), # 战术鸣牌
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息

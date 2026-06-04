@@ -4,8 +4,9 @@ public partial class NormalGameStateManager {
     /// 调用方应当先在 RealtimeRequestWaitPanel 收到 friend/realtime_started 后再调用此方法，
     /// 服务器随后会按 B 的座位转发完整 game_start + 后续广播。
     /// </summary>
-    public void StartAsRealtimeSpectator(string gamestateId) {
+    public void StartAsRealtimeSpectator(string gamestateId, int hostUserId = 0) {
         IsRealtimeSpectator = true;
+        RealtimeSpectatorHostUserId = hostUserId;
         UserDataManager.Instance.SetGamestateId(gamestateId);
         if (ExitButtonManager.Instance != null) {
             ExitButtonManager.Instance.ShowForRealtimeSpectator();
@@ -18,6 +19,7 @@ public partial class NormalGameStateManager {
     /// </summary>
     public void StopAsRealtimeSpectator() {
         IsRealtimeSpectator = false;
+        RealtimeSpectatorHostUserId = 0;
         UserDataManager.Instance.SetGamestateId("");
         if (ExitButtonManager.Instance != null) {
             ExitButtonManager.Instance.HideAll();

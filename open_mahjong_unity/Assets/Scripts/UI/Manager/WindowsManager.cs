@@ -50,6 +50,42 @@ public class WindowsManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 断线软重置：立即回到仅显示登录界面的布局（无渐变动画）。
+    /// </summary>
+    public void ResetToLoginUI() {
+        if (_switchRoutine != null) {
+            StopCoroutine(_switchRoutine);
+            _switchRoutine = null;
+        }
+        if (mainCanvas != null && !mainCanvas.activeSelf) {
+            mainCanvas.SetActive(true);
+        }
+        EnsureLoginCanvasActive();
+        ApplyColdBootHiddenState();
+        EnsurePanelVisible(loginPanel);
+        currentWindow = "login";
+        HeaderPanel.Instance?.UpdateButtonState("login");
+        Debug.Log("[WindowsManager] 已重置到登录界面");
+    }
+
+    private void EnsureLoginCanvasActive() {
+        if (loginPanel == null) return;
+        foreach (Canvas canvas in loginPanel.GetComponentsInParent<Canvas>(true)) {
+            if (canvas != null) canvas.gameObject.SetActive(true);
+        }
+    }
+
+    private static void EnsurePanelVisible(GameObject go) {
+        if (go == null) return;
+        go.SetActive(true);
+        CanvasGroup cg = go.GetComponent<CanvasGroup>();
+        if (cg == null) return;
+        cg.alpha = 1f;
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+    }
+
+    /// <summary>
     /// 冷启动：除登录界面外的一级窗口一律 SetActive(false)，不依赖渐变协程，避免未登录时 room/创建房等子脚本提前启动。
     /// </summary>
     private void ApplyColdBootHiddenState() {

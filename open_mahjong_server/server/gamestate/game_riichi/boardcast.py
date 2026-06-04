@@ -56,6 +56,7 @@ def _build_base_game_info(self) -> dict:
         "sub_rule": getattr(self, "sub_rule", "riichi/standard"),
         "hepai_limit": 1,
         "open_cuohe": self.open_cuohe,
+        "show_moqie_hint": getattr(self, "show_moqie_hint", False),
         "isPlayerSetRandomSeed": self.isPlayerSetRandomSeed,
         "honba": self.honba,
         "riichi_sticks": self.riichi_sticks,
@@ -322,7 +323,7 @@ async def broadcast_result(
             logger.error(f"riichi broadcast_result 失败: {e}")
 
 
-async def broadcast_declare_riichi(self, player_index: int):
+async def broadcast_declare_riichi(self, player_index: int, is_daburu: bool = False):
     """广播立直宣告"""
     self.server_action_tick += 1
     for cp in self.player_list:
@@ -347,7 +348,7 @@ async def broadcast_declare_riichi(self, player_index: int):
         except Exception as e:
             logger.error(f"riichi broadcast_declare_riichi 失败: {e}")
     if hasattr(self, "spectator_manager"):
-        self.spectator_manager.record_tick(["riichi", player_index])
+        self.spectator_manager.record_tick(["riichi", player_index, 1 if is_daburu else 0])
 
 
 async def broadcast_update_dora(self, new_indicator: int, is_kan_dora: bool = False):
@@ -376,7 +377,7 @@ async def broadcast_update_dora(self, new_indicator: int, is_kan_dora: bool = Fa
         except Exception as e:
             logger.error(f"riichi broadcast_update_dora 失败: {e}")
     if hasattr(self, "spectator_manager"):
-        self.spectator_manager.record_tick(["dora", new_indicator, 1 if is_kan_dora else 0])
+        self.spectator_manager.record_tick(["dora", new_indicator])
 
 
 async def broadcast_game_end(self):

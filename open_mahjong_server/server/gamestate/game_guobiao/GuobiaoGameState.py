@@ -21,7 +21,8 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
 from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
-from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
+from ..public.round_end_timing import liuju_ready_wait_seconds
+from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat
 from ...game_calculation.game_calculation_service import GameCalculationService
@@ -135,6 +136,7 @@ class GuobiaoGameState:
 
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
+        self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：开启后切牌/抢杠询问时附加 2 秒申请-打断阶段
         
@@ -190,20 +192,8 @@ class GuobiaoGameState:
         self.realtime_spectators = []
 
     async def send_to_realtime_spectators(self, player_index: int, response):
-        spectators = getattr(self, "realtime_spectators", None)
-        if not spectators:
-            return
-        payload = response.dict(exclude_none=True) if hasattr(response, "dict") else response
-        for sp in list(spectators):
-            if sp.player_index != player_index:
-                continue
-            conn = self.game_server.user_id_to_connection.get(sp.user_id)
-            if conn is None:
-                continue
-            try:
-                await conn.websocket.send_json(payload)
-            except Exception:
-                pass
+        from ..public.spectator_rules import deliver_realtime_spectator_message
+        await deliver_realtime_spectator_message(self, player_index, response)
 
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
@@ -253,6 +243,7 @@ class GuobiaoGameState:
                         'sub_rule': self.sub_rule,
                         'hepai_limit': self.hepai_limit,
                         'open_cuohe': self.open_cuohe,
+                        'show_moqie_hint': self.show_moqie_hint,
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
@@ -541,15 +532,8 @@ class GuobiaoGameState:
                             break
                         # 错和则执行错和程序
                         else:
-                            hepai_player_index = None
-                            if self.hu_class == "hu_self":
-                                hepai_player_index = self.current_player_index
-                            elif self.hu_class == "hu_first":
-                                hepai_player_index = back_current_num(self.current_player_index)
-                            elif self.hu_class == "hu_second":
-                                hepai_player_index = next_current_num(next_current_num(self.current_player_index))
-                            elif self.hu_class == "hu_third":
-                                hepai_player_index = next_current_num(self.current_player_index)
+                            hepai_player_index = self.resolve_hepai_player_index(self.hu_class)
+                            saved_hu_class = self.hu_class
                             for i in self.player_list:
                                 if i.player_index == hepai_player_index:
                                     i.score -= 30
@@ -582,40 +566,9 @@ class GuobiaoGameState:
                                                 hepai_player_huapai = self.player_list[hepai_player_index].huapai_list,
                                                 hepai_player_combination_mask = self.player_list[hepai_player_index].combination_mask
                                                 )
-                            await asyncio.sleep(hu_result_ready_wait_seconds(len(cuohe_hu_fan), pre_panel_delay_sec=0))
-
-                            # 错和尾处理
-                            # 给错和玩家添加peida tag
-                            self.player_list[hepai_player_index].tag_list.append("peida")
-                            # 广播玩家标签列表
-                            await self.broadcast_refresh_player_tag_list()
-
-                            # 根据和牌类型进行状态转移
-                            if self.hu_class == "hu_self":
-                                # 自摸和牌，重新等待当前玩家出牌
-                                self.action_dict = check_action_hand_action(self,self.current_player_index)
-                                self.game_status = "waiting_hand_action"
-                            elif self.hu_class in ["hu_first","hu_second","hu_third"]:
-                                # 荣和错和：撤销和牌方手牌中的舍牌，用实际打出的牌重新检测鸣牌/和牌
-                                cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
-                                hepai_hand = self.player_list[hepai_player_index].hand_tiles
-                                if hepai_hand and hepai_hand[-1] == cut_tile:
-                                    hepai_hand.pop()
-                                elif cut_tile in hepai_hand:
-                                    hepai_hand.remove(cut_tile)
-                                self.action_dict = check_action_after_cut(self, cut_tile)
-                                if any(self.action_dict[i] for i in self.action_dict):
-                                    self.game_status = "waiting_action_after_cut" # 转移行为
-                                else:
-                                    self.game_status = "deal_card" # 历时行为
-
-                            for player in self.player_list:
-                                refresh_waiting_tiles(self, player.player_index)
-
-                            # 删除和牌类型
-                            self.hu_class = ""
-                            # 清空和牌判断
-                            self.result_dict = {}
+                            # 与正常和牌相同：结算面板 + ready，全部确认后再恢复手牌并续局
+                            await self.run_hu_result_ready_phase(len(cuohe_hu_fan))
+                            await self.apply_cuohe_resume_after_ready(hepai_player_index, saved_hu_class)
 
                     # 如果没有匹配到
                     case _:
@@ -655,19 +608,13 @@ class GuobiaoGameState:
 
                 # 荣和他家
                 else:
-                    if self.hu_class == "hu_first": 
+                    if self.hu_class == "hu_first":
                         hu_score, hu_fan = self.result_dict["hu_first"]
-                        hepai_player_index = next_current_num(self.current_player_index)
                     elif self.hu_class == "hu_second":
                         hu_score, hu_fan = self.result_dict["hu_second"]
-                        hepai_player_index = next_current_num(self.current_player_index)
-                        hepai_player_index = next_current_num(hepai_player_index)
-                    else: # hu_third
+                    else:  # hu_third
                         hu_score, hu_fan = self.result_dict["hu_third"]
-                        hepai_player_index = next_current_num(self.current_player_index)
-                        hepai_player_index = next_current_num(hepai_player_index)
-                        hepai_player_index = next_current_num(hepai_player_index)
-
+                    hepai_player_index = self.resolve_hepai_player_index(self.hu_class)
                     logger.info(f"和牌玩家索引{hepai_player_index}")
                     self.result_dict = {}
 
@@ -776,26 +723,7 @@ class GuobiaoGameState:
                 await asyncio.sleep(liuju_ready_wait_seconds())
             else:
                 fan_count = len(hu_fan) if hu_fan else 0
-                wait_time = hu_result_ready_wait_seconds(fan_count)
-                ready_phase_deadline = time.time() + wait_time
-
-                self.action_dict = {}
-                for player in self.player_list:
-                    if player.user_id <= 10:
-                        self.action_dict[player.player_index] = []
-                    else:
-                        self.action_dict[player.player_index] = ["ready"]
-                        player.remaining_time = int(wait_time)
-
-                self.game_status = "waiting_ready"
-                await broadcast_ready_status(self)
-                while any(self.action_dict[i] for i in self.action_dict):
-                    # 每轮用剩余时间更新 remaining_time，保证总等待不超过 wait_time
-                    for p in self.player_list:
-                        if self.action_dict.get(p.player_index):
-                            p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
-                    if await wait_action(self) is False:
-                        break
+                await self.run_hu_result_ready_phase(fan_count)
 
             if self.current_round < self.max_round * 4:
                 next_game_round_switchseat(self)
@@ -899,6 +827,51 @@ class GuobiaoGameState:
         else:
             await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")
+
+    def resolve_hepai_player_index(self, hu_class: str) -> int:
+        """与局终正和一致：由切牌者与 hu_class 推算实际和牌玩家座位索引。"""
+        if hu_class == "hu_self":
+            return self.current_player_index
+        idx = next_current_num(self.current_player_index)
+        if hu_class == "hu_first":
+            return idx
+        idx = next_current_num(idx)
+        if hu_class == "hu_second":
+            return idx
+        return next_current_num(idx)
+
+    async def run_hu_result_ready_phase(self, fan_count: int) -> None:
+        """结算展示时长内进入 waiting_ready，与正常和牌局终流程一致。"""
+        await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
+
+    async def apply_cuohe_resume_after_ready(self, hepai_player_index: int, hu_class: str) -> None:
+        """错和 ready 结束后：陪打标记、撤销荣和误加入的手牌、回到本局继续打牌。"""
+        self.player_list[hepai_player_index].tag_list.append("peida")
+        await self.broadcast_refresh_player_tag_list()
+
+        if hu_class == "hu_self":
+            self.action_dict = check_action_hand_action(self, self.current_player_index)
+            self.game_status = "waiting_hand_action"
+        elif hu_class in ("hu_first", "hu_second", "hu_third"):
+            cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+            hepai_hand = self.player_list[hepai_player_index].hand_tiles
+            if hepai_hand and hepai_hand[-1] == cut_tile:
+                hepai_hand.pop()
+            elif cut_tile in hepai_hand:
+                hepai_hand.remove(cut_tile)
+            self.action_dict = check_action_after_cut(self, cut_tile)
+            if any(self.action_dict[i] for i in self.action_dict):
+                self.game_status = "waiting_action_after_cut"
+            else:
+                self.game_status = "deal_card"
+        else:
+            logger.error(f"错和续局未知 hu_class={hu_class}")
+            self.game_status = "deal_card"
+
+        for player in self.player_list:
+            refresh_waiting_tiles(self, player.player_index)
+        self.hu_class = ""
+        self.result_dict = {}
 
     # ========== 观战系统方法（委托给观战管理器） ==========
     
