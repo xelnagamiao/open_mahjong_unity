@@ -163,6 +163,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleShowResult(Response response) {
         Debug.Log($"收到显示结算结果消息: {response.show_result_info}");
         ShowResultInfo showresponse = response.show_result_info;
+        if (showresponse == null) return;
         RiichiEndResultExtras riichiExtras = BuildRiichiExtrasIfAny(showresponse);
         NormalGameStateManager.Instance.ShowResult(
             showresponse.hepai_player_index,
@@ -176,6 +177,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.base_fu,
             showresponse.fu_fan_list,
             riichiExtras,
+            showresponse.score_changes,
             showresponse.silent == true
         );
     }

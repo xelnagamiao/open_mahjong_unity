@@ -15,7 +15,7 @@ public class WindowsManager : MonoBehaviour {
     [SerializeField] private GameObject loginPanel; // 登录窗口
     [SerializeField] private GameObject menuPanel; // 菜单界面窗口
     [SerializeField] private GameObject recordPanel; // 游戏记录窗口
-    [SerializeField] private GameObject playerPanel; // 玩家信息窗口
+    [SerializeField] private GameObject playerPanel; // 玩家数据窗口（DataPanel）
     [SerializeField] private GameObject configPanel; // 玩家配置窗口
     [SerializeField] private GameObject noticePanel; // 公告窗口
     [SerializeField] private GameObject aboutUsPanel; // 关于我们窗口

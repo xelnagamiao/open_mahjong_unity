@@ -25,6 +25,18 @@ public static class MatchQueueDisplayText {
     };
 
     /// <summary>
+    /// 从 queue_type（如 beginner_quanzhuang）解析场次名（初级场等）。
+    /// </summary>
+    public static string GetTierTitle(string queueType) {
+        if (string.IsNullOrEmpty(queueType)) {
+            return "排位";
+        }
+        int u = queueType.LastIndexOf('_');
+        string tierKey = u > 0 ? queueType.Substring(0, u) : queueType;
+        return TierTitles.TryGetValue(tierKey, out string t) ? t : tierKey;
+    }
+
+    /// <summary>
     /// 匹配中 / 匹配成功面板上方的规则描述一行。
     /// </summary>
     public static string GetQueueTitle(string queueType) {

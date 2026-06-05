@@ -116,17 +116,30 @@ public class GameSceneUIManager : MonoBehaviour
     {
         if (ScoreHistoryPanel.Instance == null) return;
 
-        if (GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf && GameRecordManager.Instance.gameRecord != null)
+        var mgr = NormalGameStateManager.Instance;
+        var player_to_info = mgr?.player_to_info;
+        bool recordActive = GameRecordManager.Instance != null
+            && GameRecordManager.Instance.gameObject.activeSelf
+            && GameRecordManager.Instance.gameRecord != null;
+
+        if (player_to_info != null && player_to_info.Count >= 4
+            && mgr != null && (mgr.IsGameActive || mgr.roundSettlementHistory.Count > 0)) {
+            string rule = !string.IsNullOrEmpty(mgr.roomRule) ? mgr.roomRule : "UNKNOWN";
+            ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, mgr.roundSettlementHistory);
+            return;
+        }
+
+        if (recordActive)
         {
             GameRecordManager.Instance.RefreshRecordScoreTable();
             return;
         }
 
-        var player_to_info = NormalGameStateManager.Instance?.player_to_info;
         if (player_to_info == null || player_to_info.Count < 4) return;
 
-        string rule = NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.roomRule : "UNKNOWN";
-        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info);
+        string fallbackRule = mgr != null ? mgr.roomRule : "UNKNOWN";
+        var settlements = mgr?.roundSettlementHistory;
+        ScoreHistoryPanel.Instance.UpdateScoreRecord(fallbackRule, player_to_info, settlements);
     }
 
     /// <summary>

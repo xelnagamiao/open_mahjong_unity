@@ -5,7 +5,7 @@ using TMPro;
 /// <summary>
 /// 游戏页内的常驻按钮管理：延迟文本 + 规则书按钮 + 回到主菜单按钮。
 /// 延迟文本订阅 NetworkManager 的 ping/pong 事件，按 100ms / 200ms 阈值显示绿/黄/红。
-/// 规则书按钮交由 RulebookPanelController 弹出对应规则的入口面板。
+/// 规则书按钮：未打开时弹出入口面板，已打开时再次点击等同「返回」关闭。
 /// 回到主菜单按钮：切换到 menu 窗口，并由 HeaderPanel 显示「正在对局中」的红色返回入口。
 /// </summary>
 public class GamePageControl : MonoBehaviour {
@@ -69,6 +69,10 @@ public class GamePageControl : MonoBehaviour {
     }
 
     private void OnRulebookClicked() {
+        if (rulebookPanelController.IsOpen) {
+            rulebookPanelController.Close();
+            return;
+        }
         string rule = NormalGameStateManager.Instance.roomRule;
         rulebookPanelController.Open(rule);
     }

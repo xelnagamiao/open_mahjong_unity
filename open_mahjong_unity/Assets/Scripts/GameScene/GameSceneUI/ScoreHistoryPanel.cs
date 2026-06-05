@@ -1,14 +1,13 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
-
 public class ScoreHistoryPanel : MonoBehaviour
 {
     public static ScoreHistoryPanel Instance { get; private set; }
     [SerializeField] private GameObject Tmp_Text_Prefab;
     [SerializeField] private GameObject RoundIndexContainer;
+    [SerializeField] private Transform MainFanContainer;
+    [SerializeField] private ScoreHistoryFanTooltip fanTooltip;
     [SerializeField] private TMP_Text player0UserName;
     [SerializeField] private Transform player0RoundScoreContainer;
     [SerializeField] private Transform player0GameScoreContainer;
@@ -21,9 +20,7 @@ public class ScoreHistoryPanel : MonoBehaviour
     [SerializeField] private TMP_Text player3UserName;
     [SerializeField] private Transform player3RoundScoreContainer;
     [SerializeField] private Transform player3GameScoreContainer;
-    [SerializeField] private Button closeButton; // 关闭计分板按钮
 
-    // 规则到局数标签字典的映射（统一使用 RoundTextDictionary）
     private static readonly Dictionary<string, Dictionary<int, string>> RuleToRoundMap = new Dictionary<string, Dictionary<int, string>> {
         { "guobiao", RoundTextDictionary.CurrentRoundTextGB },
         { "qingque", RoundTextDictionary.CurrentRoundTextQingque },
@@ -40,16 +37,117 @@ public class ScoreHistoryPanel : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
+        }
+        EnsureReferences();
+    }
+
+    private void OnEnable()
+    {
+        var mgr = NormalGameStateManager.Instance;
+        if (mgr == null) return;
+        if (!mgr.IsGameActive && mgr.roundSettlementHistory.Count == 0) return;
+        GameSceneUIManager.Instance?.UpdateScoreRecord();
+    }
+
+    private void EnsureReferences()
+    {
+        EnsureMainFanColumnSetup();
+
+        if (fanTooltip == null) {
+            fanTooltip = ScoreHistoryFanTooltip.Instance;
+        }
+        if (fanTooltip == null) {
+            fanTooltip = FindFirstObjectByType<ScoreHistoryFanTooltip>(FindObjectsInactive.Include);
+        }
+        if (fanTooltip == null) {
+            fanTooltip = ScoreHistoryFanTooltip.CreateUnderCanvas(transform);
         }
     }
 
+    private static Transform CreateMainFanColumn(Transform roundIndexColumn)
+    {
+        Transform parent = roundIndexColumn.parent;
+        if (parent == null) return null;
+
+        var columnGo = new GameObject("MainFan", typeof(RectTransform));
+        Transform column = columnGo.transform;
+        column.SetParent(parent, false);
+
+        if (roundIndexColumn.TryGetComponent(out RectTransform srcRect)) {
+            RectTransform dst = columnGo.GetComponent<RectTransform>();
+            dst.anchorMin = srcRect.anchorMin;
+            dst.anchorMax = srcRect.anchorMax;
+            dst.pivot = srcRect.pivot;
+            dst.sizeDelta = srcRect.sizeDelta;
+            dst.anchoredPosition = srcRect.anchoredPosition + new Vector2(srcRect.sizeDelta.x, 0f);
+        }
+
+        if (roundIndexColumn.TryGetComponent(out UnityEngine.UI.GridLayoutGroup srcGrid)) {
+            var grid = columnGo.AddComponent<UnityEngine.UI.GridLayoutGroup>();
+            grid.padding = srcGrid.padding;
+            grid.cellSize = srcGrid.cellSize;
+            grid.spacing = srcGrid.spacing;
+            grid.startCorner = srcGrid.startCorner;
+            grid.startAxis = srcGrid.startAxis;
+            grid.childAlignment = srcGrid.childAlignment;
+            grid.constraint = srcGrid.constraint;
+            grid.constraintCount = srcGrid.constraintCount;
+        }
+
+        if (roundIndexColumn.TryGetComponent(out UnityEngine.UI.LayoutElement srcLayout)) {
+            var layout = columnGo.AddComponent<UnityEngine.UI.LayoutElement>();
+            layout.minWidth = srcLayout.minWidth;
+            layout.minHeight = srcLayout.minHeight;
+            layout.preferredWidth = srcLayout.preferredWidth;
+            layout.preferredHeight = srcLayout.preferredHeight;
+            layout.flexibleWidth = srcLayout.flexibleWidth;
+            layout.flexibleHeight = srcLayout.flexibleHeight;
+            layout.ignoreLayout = srcLayout.ignoreLayout;
+        }
+
+        column.SetSiblingIndex(roundIndexColumn.GetSiblingIndex() + 1);
+        return column;
+    }
+
     /// <summary>
-    /// 关闭分数记录面板：
-    /// - 依次清空各个 Container 的子元素（不删除 Container 本身）
-    /// - 将自身 SetActive(false)
+    /// 主番列必须与局数列并列；若误挂在局数列下，清空局数时会连主番格一起销毁。
     /// </summary>
+    private void EnsureMainFanColumnSetup()
+    {
+        if (RoundIndexContainer == null) return;
+        Transform roundColumn = RoundIndexContainer.transform;
+
+        if (MainFanContainer != null && MainFanContainer.IsChildOf(roundColumn)) {
+            Transform parent = roundColumn.parent;
+            if (parent != null) {
+                MainFanContainer.SetParent(parent, false);
+                MainFanContainer.SetSiblingIndex(roundColumn.GetSiblingIndex() + 1);
+            }
+        }
+
+        if (MainFanContainer == null) {
+            Transform parent = roundColumn.parent;
+            if (parent != null) {
+                foreach (string name in new[] { "MainFan", "GameMainFan", "MainFanContainer", "主番" }) {
+                    Transform found = parent.Find(name);
+                    if (found != null && !found.IsChildOf(roundColumn)) {
+                        MainFanContainer = found;
+                        break;
+                    }
+                }
+            }
+            if (MainFanContainer == null) {
+                MainFanContainer = CreateMainFanColumn(roundColumn);
+            }
+        }
+    }
+
     public void Close()
     {
+        EnsureMainFanColumnSetup();
+        ClearContainer(MainFanContainer);
+
         if (RoundIndexContainer != null)
         {
             ClearContainer(RoundIndexContainer.transform);
@@ -64,17 +162,22 @@ public class ScoreHistoryPanel : MonoBehaviour
         ClearContainer(player3RoundScoreContainer);
         ClearContainer(player3GameScoreContainer);
 
+        fanTooltip?.Hide();
         gameObject.SetActive(false);
     }
 
-    /// <summary>
-    /// 更新分数记录显示。由调用方传入规则与 player_to_info（含 score_history、original_player_index）。
-    /// </summary>
-    /// <param name="rule">规则类型（如 guobiao、qingque）</param>
-    /// <param name="player_to_info">四家玩家数据（可任意顺序，内部按 original_player_index 排序）</param>
     public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info)
     {
+        UpdateScoreRecord(rule, player_to_info, null);
+    }
+
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements)
+    {
         if (player_to_info == null || player_to_info.Count < 4) return;
+
+        if (roundSettlements == null || roundSettlements.Count == 0) {
+            roundSettlements = NormalGameStateManager.Instance?.roundSettlementHistory;
+        }
 
         var sorted = new List<PlayerInfoClass>(player_to_info.Values);
         sorted.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
@@ -85,40 +188,30 @@ public class ScoreHistoryPanel : MonoBehaviour
             sorted[1].original_player_index, sorted[1].username, sorted[1].score_history ?? new List<string>(),
             sorted[2].original_player_index, sorted[2].username, sorted[2].score_history ?? new List<string>(),
             sorted[3].original_player_index, sorted[3].username, sorted[3].score_history ?? new List<string>(),
-            roundNumberHistory);
+            roundNumberHistory,
+            roundSettlements);
     }
 
-    /// <summary>
-    /// 初始化分数记录显示
-    /// </summary>
-    /// <param name="rule">规则类型（如"GB"）</param>
-    /// <param name="originIndex0">玩家0的原始索引</param>
-    /// <param name="username0">玩家0的用户名</param>
-    /// <param name="scoreHistory0">玩家0的分数历史</param>
-    /// <param name="originIndex1">玩家1的原始索引</param>
-    /// <param name="username1">玩家1的用户名</param>
-    /// <param name="scoreHistory1">玩家1的分数历史</param>
-    /// <param name="originIndex2">玩家2的原始索引</param>
-    /// <param name="username2">玩家2的用户名</param>
-    /// <param name="scoreHistory2">玩家2的分数历史</param>
-    /// <param name="originIndex3">玩家3的原始索引</param>
-    /// <param name="username3">玩家3的用户名</param>
-    /// <param name="scoreHistory3">玩家3的分数历史</param>
     public void InitializeScoreRecord(
         string rule,
         int originIndex0, string username0, List<string> scoreHistory0,
         int originIndex1, string username1, List<string> scoreHistory1,
         int originIndex2, string username2, List<string> scoreHistory2,
         int originIndex3, string username3, List<string> scoreHistory3,
-        List<int> roundNumberHistory = null)
+        List<int> roundNumberHistory = null,
+        IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null)
     {
-        // 清空之前的局数索引容器
+        EnsureMainFanColumnSetup();
         if (RoundIndexContainer != null)
         {
             ClearContainer(RoundIndexContainer.transform);
         }
-        
-        // 子规则（如 guobiao/xiaolin、qingque/standard）映射为基础规则以查局数标签
+        ClearContainer(MainFanContainer);
+
+        if (roundSettlements == null || roundSettlements.Count == 0) {
+            roundSettlements = NormalGameStateManager.Instance?.roundSettlementHistory;
+        }
+
         string baseRule = rule ?? "";
         foreach (var kv in RuleToRoundMap) {
             if (baseRule.StartsWith(kv.Key)) { baseRule = kv.Key; break; }
@@ -129,27 +222,38 @@ public class ScoreHistoryPanel : MonoBehaviour
             return;
         }
 
-        // 在 RoundIndexContainer 中按实际历史生成局数标签（支持连庄出现相同局名）。
-        // 若服务端未提供历史，则回退为固定标签表。
+        string subRule = ScoreHistorySettlementHelper.ResolveSubRule(
+            rule,
+            NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.subRule : null);
+
         List<int> roundNumbers = roundNumberHistory ?? new List<int>();
         if (roundNumbers.Count == 0) {
             var fallbackKeys = new List<int>(roundMap.Keys);
             fallbackKeys.Sort();
             roundNumbers = fallbackKeys;
         }
-        foreach (int roundNumber in roundNumbers) {
+
+        int scoreHistoryCount = scoreHistory0 != null ? scoreHistory0.Count : 0;
+        if (scoreHistory1 != null) scoreHistoryCount = Mathf.Max(scoreHistoryCount, scoreHistory1.Count);
+        if (scoreHistory2 != null) scoreHistoryCount = Mathf.Max(scoreHistoryCount, scoreHistory2.Count);
+        if (scoreHistory3 != null) scoreHistoryCount = Mathf.Max(scoreHistoryCount, scoreHistory3.Count);
+
+        int roundCount = scoreHistoryCount;
+        if (roundSettlements != null && roundSettlements.Count > roundCount) {
+            roundCount = roundSettlements.Count;
+        }
+
+        for (int i = 0; i < roundCount; i++) {
+            int roundNumber = i < roundNumbers.Count ? roundNumbers[i] : (i + 1);
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
-                if (roundMap.TryGetValue(roundNumber, out string label)) {
-                    text.text = label;
-                } else {
-                    text.text = $"第{roundNumber}局";
-                }
+                text.text = roundMap.TryGetValue(roundNumber, out string label) ? label : $"第{roundNumber}局";
             }
+
+            CreateMainFanCell(i, scoreHistoryCount, roundCount, subRule, roundSettlements);
         }
-        
-        // 按照originalIndex的顺序组织玩家数据（originIndex应该已经是从0-3排序的）
+
         var players = new List<(int originIndex, string username, List<string> scoreHistory, TMP_Text userNameText, Transform roundScoreContainer, Transform gameScoreContainer)>
         {
             (originIndex0, username0, scoreHistory0 ?? new List<string>(), player0UserName, player0RoundScoreContainer, player0GameScoreContainer),
@@ -157,32 +261,25 @@ public class ScoreHistoryPanel : MonoBehaviour
             (originIndex2, username2, scoreHistory2 ?? new List<string>(), player2UserName, player2RoundScoreContainer, player2GameScoreContainer),
             (originIndex3, username3, scoreHistory3 ?? new List<string>(), player3UserName, player3RoundScoreContainer, player3GameScoreContainer)
         };
-        
-        // 按照originIndex排序
+
         players.Sort((a, b) => a.originIndex.CompareTo(b.originIndex));
-        
-        // 为每个玩家设置数据
+
         foreach (var player in players)
         {
-            // 设置用户名
             if (player.userNameText != null)
             {
                 player.userNameText.text = player.username;
             }
-            
-            // 清空容器
+
             ClearContainer(player.roundScoreContainer);
             ClearContainer(player.gameScoreContainer);
-            
-            // 累计分数（用于GameScoreContainer）
+
             int cumulativeScore = 0;
-            
-            // 显示每局分数变化
+
             for (int i = 0; i < player.scoreHistory.Count; i++)
             {
                 string scoreChange = player.scoreHistory[i];
-                
-                // 解析分数变化字符串（格式：+24、-08、0）
+
                 int scoreValue = 0;
                 if (scoreChange.StartsWith("+"))
                 {
@@ -197,13 +294,10 @@ public class ScoreHistoryPanel : MonoBehaviour
                 {
                     int.TryParse(scoreChange, out scoreValue);
                 }
-                
-                // 在RoundScoreContainer中显示分数变化（带颜色）
-                // 显示时去掉前导 0：例如 "-08" -> "-8"
+
                 string displayScoreChange = scoreChange;
                 if (scoreChange.StartsWith("+") || scoreChange.StartsWith("-"))
                 {
-                    // 保留符号，数值部分按 int 解析再转回字符串，自动去掉前导 0
                     if (int.TryParse(scoreChange.Substring(1), out int absValue))
                     {
                         displayScoreChange = (scoreChange.StartsWith("+") ? "+" : "-") + absValue.ToString();
@@ -226,8 +320,7 @@ public class ScoreHistoryPanel : MonoBehaviour
                         roundScoreText.text = displayScoreChange;
                     }
                 }
-                
-                // 累计分数并显示在GameScoreContainer中（总计栏目一律使用白色）
+
                 cumulativeScore += scoreValue;
                 GameObject gameScoreObj = Instantiate(Tmp_Text_Prefab, player.gameScoreContainer.transform);
                 TMP_Text gameScoreText = gameScoreObj.GetComponent<TMP_Text>();
@@ -249,15 +342,42 @@ public class ScoreHistoryPanel : MonoBehaviour
             }
         }
     }
-    
-    /// <summary>
-    /// 清空容器中的所有子对象
-    /// </summary>
+
+    private void CreateMainFanCell(int roundIndex, int scoreHistoryCount, int roundCount, string subRule, IReadOnlyList<RoundSettlementSnapshot> roundSettlements)
+    {
+        if (MainFanContainer == null || Tmp_Text_Prefab == null) {
+            EnsureMainFanColumnSetup();
+            if (MainFanContainer == null || Tmp_Text_Prefab == null) return;
+        }
+
+        if (roundSettlements == null || roundSettlements.Count == 0) {
+            roundSettlements = NormalGameStateManager.Instance?.roundSettlementHistory;
+        }
+
+        RoundSettlementSnapshot snapshot = ScoreHistorySettlementHelper.ResolveSettlementForRow(
+            roundIndex, scoreHistoryCount, roundSettlements);
+        if (!string.IsNullOrEmpty(snapshot?.subRule)) {
+            subRule = snapshot.subRule;
+        }
+
+        GameObject cellObj = Instantiate(Tmp_Text_Prefab, MainFanContainer);
+        string label = ScoreHistorySettlementHelper.GetMainFanColumnLabel(subRule, snapshot, roundIndex);
+        bool canHover = snapshot != null && snapshot.CanShowTooltip;
+        TMP_Text text = ScoreHistoryCellTextUtil.ApplyLabel(cellObj, label, canHover);
+        if (text == null) return;
+
+        ScoreHistoryFanTooltip tooltip = fanTooltip != null ? fanTooltip : ScoreHistoryFanTooltip.Instance;
+        var cell = text.GetComponent<ScoreHistoryMainFanCell>();
+        if (cell == null) {
+            cell = text.gameObject.AddComponent<ScoreHistoryMainFanCell>();
+        }
+        cell.Bind(snapshot, label, subRule, tooltip);
+    }
+
     private void ClearContainer(Transform container)
     {
         if (container == null) return;
 
-        // 只销毁 container 的子对象，不会影响 container 自身
         for (int i = container.childCount - 1; i >= 0; i--)
         {
             Transform child = container.GetChild(i);
@@ -266,5 +386,26 @@ public class ScoreHistoryPanel : MonoBehaviour
                 Destroy(child.gameObject);
             }
         }
+    }
+}
+
+internal static class ScoreHistoryCellTextUtil {
+    public static TMP_Text ApplyLabel(GameObject cellRoot, string label, bool raycastTarget) {
+        if (cellRoot == null) return null;
+        TMP_Text text = cellRoot.GetComponent<TMP_Text>();
+        if (text == null) text = cellRoot.GetComponentInChildren<TMP_Text>(true);
+        if (text == null) {
+            Debug.LogWarning($"[ScoreHistory] 单元格 prefab 上未找到 TMP_Text：{cellRoot.name}");
+            return null;
+        }
+        text.text = label ?? "";
+        text.raycastTarget = raycastTarget;
+        text.enabled = true;
+        if (text.color.a < 0.01f) {
+            Color c = text.color;
+            c.a = 1f;
+            text.color = c;
+        }
+        return text;
     }
 }

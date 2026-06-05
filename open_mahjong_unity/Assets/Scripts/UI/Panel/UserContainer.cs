@@ -28,8 +28,8 @@ public class UserContainer : MonoBehaviour {
     }
 
     // 设置用户信息（仅负责UI显示，数据由UserDataManager管理）
-    public void SetUserInfo(string username, string userkey, int user_id) {
-        UserDataManager.Instance.SetUserInfo(username, userkey, user_id);
+    public void SetUserInfo(string username, string userkey, int user_id, bool isTourist = false) {
+        UserDataManager.Instance.SetUserInfo(username, userkey, user_id, isTourist);
     }
 
     // 显示用户设置

@@ -90,6 +90,10 @@ public class MatchButton : MonoBehaviour {
     }
 
     private void OnClick() {
+        if (UserDataManager.Instance != null && UserDataManager.Instance.IsTourist) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
+            return;
+        }
         if (mask != null && mask.activeSelf) return;
         Debug.Log($"[MatchButton] 点击匹配按钮，queueType={QueueType}");
         MatchNetworkManager.Instance?.SendJoinQueue(QueueType);

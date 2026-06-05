@@ -3,7 +3,7 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, bool isSilent = false) {
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false) {
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 隐藏和牌提示
@@ -17,7 +17,10 @@ public partial class NormalGameStateManager {
         if (riichiExtras != null && IsHuClass(hu_class)) {
             OnRiichiSticksCollected(riichiExtras.RiichiSticksCollected);
         }
-        // 显示结算结果
+
+        AppendRoundSettlementSnapshot(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, score_changes);
+        GameSceneUIManager.Instance.UpdateScoreRecord();
+
         if (hu_class == "liuju") {
             RoundEndPresentation.Instance.PresentLiuju("流局");
         } else if (hu_class == "ryuukyoku") {
@@ -37,8 +40,86 @@ public partial class NormalGameStateManager {
             MarkPendingCuoheContinue(hepai_player_index, hu_fan);
             RoundEndPresentation.Instance.PresentHuResultSequence(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, isSilent);
         }
-        // 更新分数记录
-        GameSceneUIManager.Instance.UpdateScoreRecord();
+    }
+
+    private void AppendRoundSettlementSnapshot(
+        int hepai_player_index,
+        Dictionary<int, int> player_to_score,
+        int hu_score,
+        string[] hu_fan,
+        string hu_class,
+        int[] hepai_player_hand,
+        int[][] hepai_player_combination_mask,
+        int? base_fu,
+        string[] fu_fan_list,
+        RiichiEndResultExtras riichiExtras,
+        Dictionary<int, int> serverScoreChanges) {
+        string winnerUsername = "";
+        if (hepai_player_index >= 0 && indexToPosition.TryGetValue(hepai_player_index, out string huPos)
+            && player_to_info.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
+            winnerUsername = winnerInfo.username;
+        }
+
+        Dictionary<int, int> scoreChanges = serverScoreChanges;
+        if (scoreChanges == null || scoreChanges.Count == 0) {
+            scoreChanges = riichiExtras?.ScoreChanges;
+        }
+        if (scoreChanges == null || scoreChanges.Count == 0) {
+            scoreChanges = BuildScoreChangesFromPlayerToScore(player_to_score);
+        }
+
+        var snapshot = ScoreHistorySettlementHelper.CreateFromShowResult(
+            subRule, hu_class, hepai_player_index, winnerUsername, hu_score, hu_fan,
+            hepai_player_hand, hepai_player_combination_mask, base_fu, fu_fan_list,
+            riichiExtras, scoreChanges);
+        roundSettlementHistory.Add(snapshot);
+        ApplyLocalScoreHistoryFromSettlement(snapshot, scoreChanges);
+    }
+
+    private Dictionary<int, int> BuildScoreChangesFromPlayerToScore(Dictionary<int, int> playerToScoreAfter) {
+        if (playerToScoreAfter == null) return null;
+        var changes = new Dictionary<int, int>();
+        foreach (var kvp in indexToPosition) {
+            int seatIdx = kvp.Key;
+            string pos = kvp.Value;
+            if (!player_to_info.TryGetValue(pos, out PlayerInfoClass info)) continue;
+            if (ShowResultPlayerScoreResolver.TryGetAfterScore(playerToScoreAfter, seatIdx, info.original_player_index, out int afterScore)) {
+                changes[seatIdx] = afterScore - info.score;
+            }
+        }
+        return changes;
+    }
+
+    private void ApplyLocalScoreHistoryFromSettlement(RoundSettlementSnapshot snapshot, Dictionary<int, int> scoreChanges) {
+        if (scoreChanges == null || scoreChanges.Count == 0) {
+            if (!snapshot.isLiuju) return;
+            scoreChanges = new Dictionary<int, int>();
+            foreach (var kvp in indexToPosition) {
+                scoreChanges[kvp.Key] = 0;
+            }
+        }
+
+        foreach (var kvp in indexToPosition) {
+            int seatIdx = kvp.Key;
+            string pos = kvp.Value;
+            if (!player_to_info.TryGetValue(pos, out PlayerInfoClass info)) continue;
+            int delta = 0;
+            if (ShowResultPlayerScoreResolver.TryGetDelta(scoreChanges, seatIdx, info.original_player_index, out int resolvedDelta)) {
+                delta = resolvedDelta;
+            }
+            info.score_history ??= new List<string>();
+            info.score_history.Add(FormatLocalScoreChange(delta));
+        }
+        foreach (var info in player_to_info.Values) {
+            info.round_number_history ??= new List<int>();
+            info.round_number_history.Add(currentRound);
+        }
+    }
+
+    private static string FormatLocalScoreChange(int delta) {
+        if (delta > 0) return "+" + delta;
+        if (delta < 0) return delta.ToString();
+        return "0";
     }
 
     private void ApplyShowResultScores(Dictionary<int, int> player_to_score) {
@@ -101,6 +182,10 @@ public partial class NormalGameStateManager {
             }
         }
         RoundEndPresentation.Instance.PresentShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, hepai_player_index, hepai_player_hand, hepai_player_combination_mask);
+        ScoreHistorySettlementHelper.UpdateLastFromShuhewei(
+            roundSettlementHistory, hepai_player_index, player_fan, score_changes,
+            hepai_player_hand, hepai_player_combination_mask);
+        GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
     // 执行换位
