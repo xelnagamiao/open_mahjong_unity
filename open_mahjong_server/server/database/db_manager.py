@@ -106,6 +106,23 @@ class DatabaseManager:
                     cursor.execute("ROLLBACK TO SAVEPOINT sp_add_match_type;")
                 else:
                     raise
+            cursor.execute("SAVEPOINT sp_add_room_type;")
+            try:
+                cursor.execute("ALTER TABLE game_player_records ADD COLUMN room_type VARCHAR(16) NULL;")
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_room_type;")
+                else:
+                    raise
+            # 从牌谱 JSON 回填 room_type
+            cursor.execute("""
+                UPDATE game_player_records gpr
+                SET room_type = gr.record->'game_title'->>'room_type'
+                FROM game_records gr
+                WHERE gpr.game_id = gr.game_id
+                  AND (gpr.room_type IS NULL OR gpr.room_type = '')
+                  AND gr.record->'game_title'->>'room_type' IS NOT NULL;
+            """)
             # 迁移：若表中曾有 mode 列，将 mode 拷贝到 match_type 后丢弃 mode
             cursor.execute("""
                 SELECT 1 FROM information_schema.columns
@@ -443,9 +460,8 @@ class DatabaseManager:
                 );
             """)
 
-            # users 表迁移：添加 is_sponsor 和 is_mcrpl_qualified 字段
+            # users 表迁移：is_mcrpl_qualified、sponsor_expires_at（赞助到期时间，NULL 表示非赞助或已过期）
             for col_name, col_def in [
-                ("is_sponsor", "BOOLEAN NOT NULL DEFAULT FALSE"),
                 ("is_mcrpl_qualified", "BOOLEAN NOT NULL DEFAULT FALSE"),
             ]:
                 cursor.execute(f"SAVEPOINT sp_add_{col_name};")
@@ -456,6 +472,35 @@ class DatabaseManager:
                         cursor.execute(f"ROLLBACK TO SAVEPOINT sp_add_{col_name};")
                     else:
                         raise
+
+            cursor.execute("SAVEPOINT sp_add_sponsor_expires_at;")
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN sponsor_expires_at TIMESTAMP NULL;")
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_sponsor_expires_at;")
+                else:
+                    raise
+
+            # 旧版 is_sponsor 布尔字段迁移为 sponsor_expires_at 后删除
+            cursor.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'is_sponsor';
+            """)
+            if cursor.fetchone():
+                cursor.execute("""
+                    UPDATE users
+                    SET sponsor_expires_at = TIMESTAMP '2099-12-31 23:59:59'
+                    WHERE is_sponsor = TRUE AND sponsor_expires_at IS NULL;
+                """)
+                cursor.execute("SAVEPOINT sp_drop_is_sponsor;")
+                try:
+                    cursor.execute("ALTER TABLE users DROP COLUMN is_sponsor;")
+                except Error as e:
+                    if getattr(e, "pgcode", None) != "42703":
+                        cursor.execute("ROLLBACK TO SAVEPOINT sp_drop_is_sponsor;")
+                        raise
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_drop_is_sponsor;")
 
             # 创建通用段位数据表 rank_data
             cursor.execute("""
@@ -866,6 +911,7 @@ class DatabaseManager:
                     gpr.rule,
                     gpr.sub_rule,
                     gpr.match_type,
+                    gpr.room_type,
                     gpr.title_used,
                     gpr.character_used,
                     gpr.profile_used,
@@ -889,6 +935,7 @@ class DatabaseManager:
                         'rule': row['rule'],
                         'sub_rule': row.get('sub_rule'),
                         'match_type': row.get('match_type'),
+                        'room_type': row.get('room_type'),
                         'players': []
                     }
                 
@@ -948,9 +995,10 @@ class DatabaseManager:
             game_title = record_data.get('game_title') or {}
             rule = game_title.get('rule')
             sub_rule = game_title.get('sub_rule')
+            room_type = game_title.get('room_type')
             
             cursor.execute("""
-                SELECT user_id, username, score, rank, rule, sub_rule, title_used, character_used, profile_used, voice_used
+                SELECT user_id, username, score, rank, rule, sub_rule, room_type, title_used, character_used, profile_used, voice_used
                 FROM game_player_records
                 WHERE game_id = %s
                 ORDER BY rank
@@ -962,6 +1010,8 @@ class DatabaseManager:
                     rule = row['rule']
                 if sub_rule is None:
                     sub_rule = row.get('sub_rule')
+                if room_type is None:
+                    room_type = row.get('room_type')
                 players.append({
                     'user_id': row['user_id'],
                     'username': row['username'],
@@ -977,6 +1027,7 @@ class DatabaseManager:
                 'game_id': game_row['game_id'],
                 'rule': rule or '',
                 'sub_rule': sub_rule,
+                'room_type': room_type,
                 'record': record_data,
                 'created_at': str(game_row['created_at']),
                 'players': players
@@ -1564,7 +1615,11 @@ DatabaseManager.get_riichi_stats = get_riichi_stats
 
 # 挂载段位数据 CRUD 方法到 DatabaseManager 类
 from .guobiao.rank_data import get_rank_data, update_rank_data, get_user_sponsor_mcrpl
+from .guobiao.get_leaderboard import get_guobiao_leaderboard
+from .guobiao.get_rank_record_list import get_rank_record_list
 
 DatabaseManager.get_rank_data = get_rank_data
 DatabaseManager.update_rank_data = update_rank_data
 DatabaseManager.get_user_sponsor_mcrpl = get_user_sponsor_mcrpl
+DatabaseManager.get_guobiao_leaderboard = get_guobiao_leaderboard
+DatabaseManager.get_rank_record_list = get_rank_record_list

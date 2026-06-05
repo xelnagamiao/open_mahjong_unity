@@ -43,6 +43,9 @@ class MatchManager:
         if not player or not player.user_id:
             return Response(type="tips", success=False, message="请先登录")
 
+        if getattr(player, "is_tourist", False):
+            return Response(type="tips", success=False, message="游客无法进行排位匹配，请先注册账号")
+
         user_id = player.user_id
 
         # 已在队列中

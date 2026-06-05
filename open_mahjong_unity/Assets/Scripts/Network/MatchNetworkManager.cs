@@ -61,6 +61,10 @@ public class MatchNetworkManager : MonoBehaviour {
 
     // 发送加入匹配队列请求
     public async void SendJoinQueue(string queueType) {
+        if (UserDataManager.Instance != null && UserDataManager.Instance.IsTourist) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
+            return;
+        }
         isMatchFoundLocked = false;
         lastJoinedQueueType = queueType;
         if (NetworkManager.Instance == null) {

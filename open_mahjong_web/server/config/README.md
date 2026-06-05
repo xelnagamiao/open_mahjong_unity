@@ -27,6 +27,11 @@ PORT=3000
 FRONTEND_URL=https://salasasa.cn
 CORS_ORIGIN=https://salasasa.cn
 SOCKET_ORIGIN=https://salasasa.cn
+
+# 管理后台
+ADMIN_USER_IDS=10000001
+ADMIN_JWT_SECRET=请替换为长随机字符串
+ADMIN_JWT_EXPIRES_SEC=28800
 ```
 
 ### 方式二：系统环境变量（推荐生产环境）
@@ -74,6 +79,16 @@ SOCKET_ORIGIN=https://salasasa.cn
 | FRONTEND_URL | 前端访问地址 | https://salasasa.cn（生产）或 http://localhost:5173（开发） |
 | CORS_ORIGIN | CORS 允许的源 | 使用 FRONTEND_URL |
 | SOCKET_ORIGIN | Socket.IO 允许的源 | 使用 FRONTEND_URL |
+
+### 管理后台配置
+
+| 环境变量 | 说明 | 默认值 |
+|---------|------|--------|
+| ADMIN_USER_IDS | 允许登录管理后台的用户 ID，逗号分隔 | （空，无法登录） |
+| ADMIN_JWT_SECRET | JWT 签名密钥 | change-me-in-production |
+| ADMIN_JWT_EXPIRES_SEC | 登录令牌有效期（秒） | 28800（8 小时） |
+
+管理后台入口：`/admin/login`（前端路由），API 前缀：`/api/admin`。
 
 ## 配置优先级
 

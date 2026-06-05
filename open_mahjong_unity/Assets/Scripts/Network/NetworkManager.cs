@@ -287,8 +287,10 @@ public class NetworkManager : MonoBehaviour {
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
                 response.login_info.userkey,
-                response.login_info.user_id
+                response.login_info.user_id,
+                response.login_info.is_tourist
             );
+            HeaderPanel.Instance?.RefreshMatchButtonVisibility();
             // 保存用户信息
             if (response.user_settings != null) {
                 UserDataManager.Instance.SetUserSettings(
@@ -368,6 +370,8 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
                 case "data/get_classical_stats":
+                case "data/get_leaderboard":
+                case "data/get_rank_record_list":
                     DataNetworkManager.Instance?.HandleDataMessage(response);
                     break;
                 // 观战系统：初始牌谱 / 增量更新 → GameRecordManager

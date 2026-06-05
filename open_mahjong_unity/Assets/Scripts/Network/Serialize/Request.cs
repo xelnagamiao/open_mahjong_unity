@@ -93,6 +93,15 @@ public class GetRecordListRequest { // 获取游戏记录请求
     public string type;
 }
 
+public class GetRankRecordListRequest { // 获取天梯对局记录请求
+    public string type;
+    public int limit = 10;
+}
+
+public class GetLeaderboardRequest { // 获取国标段位排行榜请求
+    public string type;
+}
+
 public class GetPlayerInfoRequest { // 获取玩家信息请求
     public string type;
     public string userid;

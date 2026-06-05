@@ -44,6 +44,8 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private StaticCard[] RiichiUraDoraSlots;
 
     public static EndResultPanel Instance { get; private set; }
+    public GameObject CardPrefab => StaticCardPrefab;
+    public GameObject HideSplitPrefab => HideSplit;
     private const string StateNone = "";
     private const string StateGame = "gamestate";
     private const string StateRecord = "recordstate";

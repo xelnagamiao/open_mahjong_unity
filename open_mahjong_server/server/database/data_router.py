@@ -1,6 +1,6 @@
 # 数据路由处理器
 import logging
-from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings
+from ..response import Response, Rule_stats_response, Player_stats_info, Record_info, Record_detail, Player_record_info, Player_info_response, UserSettings, LeaderboardEntry
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,10 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_qingque_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_classical_stats":
         await handle_get_classical_stats(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_leaderboard":
+        await handle_get_leaderboard(game_server, Connect_id, message, websocket)
+    elif message_type == "data/get_rank_record_list":
+        await handle_get_rank_record_list(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的数据消息路径: {message_type}")
 
@@ -73,6 +77,109 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
             type="data/get_record_list",
             success=False,
             message="用户未登录"
+        )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_get_rank_record_list(game_server, Connect_id: str, message: dict, websocket):
+    """获取当前用户最近的天梯（排位）对局元数据；无记录时返回空列表，不中断连接。"""
+    response = Response(
+        type="data/get_rank_record_list",
+        success=False,
+        message="用户未登录",
+        record_list=[],
+    )
+    try:
+        player = game_server.players.get(Connect_id)
+        if not (player and player.user_id):
+            await websocket.send_json(response.dict(exclude_none=True))
+            return
+
+        limit = message.get("limit", 10)
+        try:
+            limit = max(1, min(50, int(limit)))
+        except (TypeError, ValueError):
+            limit = 10
+
+        getter = getattr(game_server.db_manager, "get_rank_record_list", None)
+        if getter is None:
+            logger.error("db_manager 未挂载 get_rank_record_list，请重启游戏服")
+            response = Response(
+                type="data/get_rank_record_list",
+                success=True,
+                message="获取到 0 局天梯对局",
+                record_list=[],
+            )
+            await websocket.send_json(response.dict(exclude_none=True))
+            return
+
+        records = getter(player.user_id, limit=limit) or []
+        record_list = []
+        for game_record in records:
+            players_info = []
+            for p in game_record.get("players") or []:
+                players_info.append(
+                    Player_record_info(
+                        user_id=p["user_id"],
+                        username=p.get("username") or "",
+                        score=p.get("score") if p.get("score") is not None else 0,
+                        rank=p.get("rank") if p.get("rank") is not None else 0,
+                    )
+                )
+            record_list.append(
+                Record_info(
+                    game_id=game_record["game_id"],
+                    rule=game_record.get("rule") or "",
+                    sub_rule=game_record.get("sub_rule"),
+                    match_type=game_record.get("match_type"),
+                    match_queue_type=game_record.get("match_queue_type"),
+                    created_at=game_record.get("created_at") or "",
+                    players=players_info,
+                )
+            )
+        response = Response(
+            type="data/get_rank_record_list",
+            success=True,
+            message=f"获取到 {len(record_list)} 局天梯对局",
+            record_list=record_list,
+        )
+    except Exception as e:
+        logger.error(f"处理天梯对局列表失败: {e}", exc_info=True)
+        response = Response(
+            type="data/get_rank_record_list",
+            success=True,
+            message="获取到 0 局天梯对局",
+            record_list=[],
+        )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+
+async def handle_get_leaderboard(game_server, Connect_id: str, message: dict, websocket):
+    """处理获取国标段位排行榜请求"""
+    player = game_server.players.get(Connect_id)
+    if player and player.user_id:
+        rows = game_server.db_manager.get_guobiao_leaderboard()
+        leaderboard_list = [
+            LeaderboardEntry(
+                rank_position=row["rank_position"],
+                user_id=row["user_id"],
+                username=row["username"],
+                profile_image_id=row["profile_image_id"],
+                guobiao_rank=row["guobiao_rank"],
+                guobiao_score=row["guobiao_score"],
+            )
+            for row in rows
+        ]
+        response = Response(
+            type="data/get_leaderboard",
+            success=True,
+            message=f"获取到 {len(leaderboard_list)} 名排行榜玩家",
+            leaderboard_list=leaderboard_list,
+        )
+    else:
+        response = Response(
+            type="data/get_leaderboard",
+            success=False,
+            message="用户未登录",
         )
     await websocket.send_json(response.dict(exclude_none=True))
 

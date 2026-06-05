@@ -13,8 +13,6 @@ public class TipsContainer : MonoBehaviour
     [SerializeField] private GameObject FanPrefab;
     [SerializeField] private GameObject FanContainer;
     [SerializeField] private GameObject ryuukyokuTenpaiChoicePanel;
-    [Header("听牌余量")]
-    [SerializeField] private Color exhaustedWaitingTileColor = new Color(0.55f, 0.55f, 0.55f, 1f);
     public static TipsContainer Instance { get; private set; }
     private Dictionary<int, int> _visibleTileCounts = new Dictionary<int, int>();
     public bool hasTips = false; // 是否有提示
@@ -203,7 +201,7 @@ public class TipsContainer : MonoBehaviour
         if (dianheFan - huapaiCount >= hepaiLimit) {
             InstantiateTipsTile(hepaiTile);
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel($"{dianheFan}番", hepaiTile), "dianhe");
+            SetTipsFanCount(fanObject, FormatTipsFanLabel($"{dianheFan}番", hepaiTile), "dianhe", hepaiTile);
         } else {
             // 番数未达起和，改为"自摸"重新计算
             List<string> zimoWayToHepai = new List<string>(wayToHepai);
@@ -222,11 +220,11 @@ public class TipsContainer : MonoBehaviour
             if (zimoFan - huapaiCount >= hepaiLimit) {
                 InstantiateTipsTile(hepaiTile);
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel("仅自摸", hepaiTile), "zimo");
+                SetTipsFanCount(fanObject, FormatTipsFanLabel("仅自摸", hepaiTile), "zimo", hepaiTile);
             } else {
                 InstantiateTipsTile(hepaiTile);
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel("未起和", hepaiTile), "wuyi");
+                SetTipsFanCount(fanObject, FormatTipsFanLabel("未起和", hepaiTile), "wuyi", hepaiTile);
             }
         }
         Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
@@ -253,7 +251,7 @@ public class TipsContainer : MonoBehaviour
             InstantiateTipsTile(hepaiTile);
             string fanDisplay = System.Math.Abs(dianheFan % 1) < 0.0001 ? $"{dianheFan:F0}番" : $"{dianheFan:F2}番".TrimEnd('0').TrimEnd('.');
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel(fanDisplay, hepaiTile), "dianhe");
+            SetTipsFanCount(fanObject, FormatTipsFanLabel(fanDisplay, hepaiTile), "dianhe", hepaiTile);
         } else {
             // 如果番数小于1，改为"自摸"重新计算
             List<string> zimoWayToHepai = new List<string>(wayToHepai);
@@ -275,11 +273,11 @@ public class TipsContainer : MonoBehaviour
                 InstantiateTipsTile(hepaiTile);
                 string fanDisplay = System.Math.Abs(zimoFan % 1) < 0.0001 ? $"{zimoFan:F0}番" : $"{zimoFan:F2}番".TrimEnd('0').TrimEnd('.');
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel(fanDisplay, hepaiTile), "zimo");
+                SetTipsFanCount(fanObject, FormatTipsFanLabel(fanDisplay, hepaiTile), "zimo", hepaiTile);
             } else {
                 InstantiateTipsTile(hepaiTile);
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel("无番", hepaiTile), "wuyi");
+                SetTipsFanCount(fanObject, FormatTipsFanLabel("无番", hepaiTile), "wuyi", hepaiTile);
             }
         }
         Debug.Log($"和牌张：{hepaiTile}，番数：{dianheFan}");
@@ -305,7 +303,7 @@ public class TipsContainer : MonoBehaviour
         if (dianheTotalFu >= hepaiLimit) {
             InstantiateTipsTile(hepaiTile);
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel($"{dianheTotalFu}副", hepaiTile), "dianhe");
+            SetTipsFanCount(fanObject, FormatTipsFanLabel($"{dianheTotalFu}副", hepaiTile), "dianhe", hepaiTile);
         } else {
             var zimoWay = ConvertToClassicalWay(new List<string>(wayToHepai));
             zimoWay.Insert(0, "和牌");
@@ -317,11 +315,11 @@ public class TipsContainer : MonoBehaviour
             if (zimoTotalFu >= hepaiLimit) {
                 InstantiateTipsTile(hepaiTile);
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel("仅自摸", hepaiTile), "zimo");
+                SetTipsFanCount(fanObject, FormatTipsFanLabel("仅自摸", hepaiTile), "zimo", hepaiTile);
             } else {
                 InstantiateTipsTile(hepaiTile);
                 GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-                fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel("无番", hepaiTile), "wuyi");
+                SetTipsFanCount(fanObject, FormatTipsFanLabel("无番", hepaiTile), "wuyi", hepaiTile);
             }
         }
     }
@@ -357,7 +355,7 @@ public class TipsContainer : MonoBehaviour
 
         GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
         string label = FormatRiichiFanLabel(displayResult);
-        fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel(label, hepaiTile), displayResult == null ? "wuyi" : kindTag);
+        SetTipsFanCount(fanObject, FormatTipsFanLabel(label, hepaiTile), displayResult == null ? "wuyi" : kindTag, hepaiTile);
     }
 
     /// <summary>
@@ -509,8 +507,11 @@ public class TipsContainer : MonoBehaviour
         GameObject tileObject = Instantiate(TilePrefab.gameObject, TileContainer.transform);
         StaticCard card = tileObject.GetComponent<StaticCard>();
         card.SetTileOnlyImage(hepaiTile);
-        int remaining = GetWaitingTileRemaining(hepaiTile);
-        card.SetTileImageColor(remaining <= 0 ? exhaustedWaitingTileColor : Color.white);
+    }
+
+    private void SetTipsFanCount(GameObject fanObject, string fanLabel, string kindTag, int hepaiTile) {
+        string colorType = GetWaitingTileRemaining(hepaiTile) <= 0 ? "exhausted" : kindTag;
+        fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(FormatTipsFanLabel(fanLabel, hepaiTile), colorType);
     }
 
     private string FormatTipsFanLabel(string fanLabel, int hepaiTile) {

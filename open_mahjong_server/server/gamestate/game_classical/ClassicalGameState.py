@@ -24,7 +24,7 @@ from ..public.logic_common import get_index_relative_position, next_current_inde
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict
 from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -497,6 +497,7 @@ class ClassicalGameState:
             else:
                 if self.hu_class != "jiuzhongjiupai":
                     self.hu_class = "liuju"
+                liuju_score_changes = build_score_changes_dict(self.player_list, scores_before)
                 await broadcast_result(self,
                                        hepai_player_index=None,
                                        player_to_score=None,
@@ -508,6 +509,7 @@ class ClassicalGameState:
                                        hepai_player_combination_mask=None,
                                        base_fu=None,
                                        fu_fan_list=None,
+                                       score_changes=liuju_score_changes,
                                        )
 
             shuhewei_extra_wait = 0.0

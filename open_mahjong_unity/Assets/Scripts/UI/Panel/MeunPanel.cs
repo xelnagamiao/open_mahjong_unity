@@ -14,8 +14,8 @@ public class MeunPanel : MonoBehaviour {
     }
 
     // 设置用户信息（通过UserContainer处理UI，UserDataManager管理数据）
-    public void SetUserInfo(string username, string userkey, int user_id) {
-        UserContainer.Instance.SetUserInfo(username, userkey, user_id);
+    public void SetUserInfo(string username, string userkey, int user_id, bool isTourist = false) {
+        UserContainer.Instance.SetUserInfo(username, userkey, user_id, isTourist);
     }
 
     // 显示服务器统计信息（通过NowPlayer显示）
