@@ -1650,7 +1650,8 @@ public partial class GameRecordManager : MonoBehaviour {
             { "top", new PlayerInfoClass { original_player_index = 2, username = name2, score_history = hist2 } },
             { "left", new PlayerInfoClass { original_player_index = 3, username = name3, score_history = hist3 } }
         };
-        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info);
+        var settlements = ScoreHistoryRecordSettlementExtractor.Extract(gameRecord);
+        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, settlements);
     }
 
     private static string FormatScoreChange(int delta) {

@@ -23,6 +23,7 @@ public class UserDataManager : MonoBehaviour {
     public float GuobiaoScore { get; private set; } = 0;
     public bool IsSponsor { get; private set; } = false;
     public bool IsMcrplQualified { get; private set; } = false;
+    public bool IsTourist { get; private set; } = false;
 
     // 登录时输入的账号密码缓存（用于下次启动自动填充）
     public string SavedLoginUsername { get; private set; }
@@ -44,10 +45,11 @@ public class UserDataManager : MonoBehaviour {
     }
 
     // 设置用户信息
-    public void SetUserInfo(string username,string userkey,int user_id) {
+    public void SetUserInfo(string username, string userkey, int user_id, bool isTourist = false) {
         Username = username;
         Userkey = userkey;
         UserId = user_id;
+        IsTourist = isTourist;
         ChatManager.Instance.LoginChatServer(username, userkey);
     }
 
@@ -103,6 +105,7 @@ public class UserDataManager : MonoBehaviour {
         Username = null;
         Userkey = null;
         UserId = 0;
+        IsTourist = false;
         SetGamestateId("");
         SetRoomId(ROOM_ID_NONE);
     }

@@ -34,7 +34,7 @@ PostgreSQL
 | username | VARCHAR(255) | UNIQUE NOT NULL | 用户名，唯一 |
 | password | VARCHAR(255) | NOT NULL | 密码哈希值（格式：salt:hash，使用 PBKDF2+SHA256，100000 次迭代）。游客账户密码为空字符串 |
 | is_tourist | BOOLEAN | DEFAULT FALSE | 是否为游客账户（游客账户可被删除） |
-| is_sponsor | BOOLEAN | NOT NULL DEFAULT FALSE | 是否为赞助者 |
+| sponsor_expires_at | TIMESTAMP | NULL | 赞助者到期时间；NULL 或已过期表示非有效赞助者 |
 | is_mcrpl_qualified | BOOLEAN | NOT NULL DEFAULT FALSE | 是否拥有 MCRPL 资格 |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 
@@ -78,6 +78,7 @@ PostgreSQL
 | rank | INT | NOT NULL CHECK (rank >= 1 AND rank <= 4) | 最终排名（1=一位，2=二位，3=三位，4=四位） |
 | rule | VARCHAR(10) | NOT NULL | 规则类型（guobiao=国标，riichi=立直，qingque=青雀） |
 | sub_rule | VARCHAR(32) | NULL | 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard），用于记录列表与牌谱展示 |
+| room_type | VARCHAR(16) | NULL | 对局类型（custom=自定义房，match=排位匹配） |
 | match_type | VARCHAR(24) | NULL | 局数/模式，由外部显式传入（如 4/4、1/4、1/4rank），对应统计表 mode |
 | title_used | INT | NULL | 使用的称号ID（可为空） |
 | character_used | INT | NULL | 使用的角色ID（可为空） |

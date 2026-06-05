@@ -123,7 +123,7 @@ class Show_result_info(BaseModel):
     ura_dora_indicators: Optional[List[int]] = None  # 里宝牌指示牌
     honba: Optional[int] = None  # 本场数
     riichi_sticks_collected: Optional[int] = None  # 和牌者收走的立直棒数
-    score_changes: Optional[Dict[int, int]] = None  # 各玩家点数变化（含本场/场供）
+    score_changes: Optional[Dict[int, int]] = None  # 各玩家点数变化 {original_player_index: delta}，全规则通用
     # 荒牌流局：各家听牌张（{player_index: [tile_id...]}，未听家给空列表或不出现），以及是否发生不听罚符点棒
     tenpai_tiles: Optional[Dict[int, List[int]]] = None
     # 荒牌流局：听牌家的实际手牌，用于客户端倒牌展示。
@@ -188,7 +188,8 @@ class Record_info(BaseModel):
     game_id: str  # 对局ID（base62字符串）
     rule: str  # 规则类型（GB/JP）
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin、qingque/standard）
-    match_type: Optional[str] = None  # 局数类型（如 1/4、2/4、4/4），用于区分全庄战、半庄战、天梯等
+    match_type: Optional[str] = None  # 局数类型（如 1/4、2/4、4/4_rank），用于区分全庄战、半庄战、天梯等
+    match_queue_type: Optional[str] = None  # 排位队列（如 beginner_quanzhuang），来自牌谱 game_title
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
 
@@ -292,11 +293,21 @@ class RealtimeSpectatorEntry(BaseModel):
     user_id: int
     username: str
 
+class LeaderboardEntry(BaseModel):
+    """国标段位排行榜条目"""
+    rank_position: int
+    user_id: int
+    username: str
+    profile_image_id: int = 1
+    guobiao_rank: str
+    guobiao_score: float
+
 class LoginInfo(BaseModel):
     """登录信息"""
     user_id: int  # 用户ID
     username: str  # 用户名
     userkey: str  # 用户名对应的秘钥
+    is_tourist: bool = False  # 是否为游客账户
 
 class MessageInfo(BaseModel):
     """消息信息"""
@@ -345,3 +356,4 @@ class Response(BaseModel):
     realtime_spectators: Optional[List[RealtimeSpectatorEntry]] = None
     friend_count: Optional[int] = None
     friend_max: Optional[int] = None
+    leaderboard_list: Optional[List[LeaderboardEntry]] = None

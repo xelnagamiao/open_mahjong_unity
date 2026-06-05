@@ -28,7 +28,9 @@ const db = require('./config/database');
 // 路由
 const mahjongRoutes = require('./routes/mahjong'); // mahjongRoutes: 处理麻将游戏相关的 API（如创建房间、开始游戏等）
 const playerRoutes = require('./routes/player'); // playerRoutes: 处理玩家数据查询相关的 API
+const adminRoutes = require('./routes/admin');
 const { createWindowLimiter } = require('./middleware/rateLimit');
+const { ensureAuditTable } = require('./utils/audit');
 
 // 数据库与多表聚合查询较贵：每 IP 每分钟约 24 次
 const playerQueryLimiter = createWindowLimiter({
@@ -45,6 +47,11 @@ const mahjongCalcLimiter = createWindowLimiter({
 
 app.use('/api/mahjong', mahjongCalcLimiter, mahjongRoutes);
 app.use('/api/player', playerQueryLimiter, playerRoutes);
+app.use('/api/admin', adminRoutes);
+
+if (config.admin.userIds.size === 0) {
+  console.warn('警告: ADMIN_USER_IDS 未配置，管理后台将无法登录');
+}
 
 // WebSocket连接处理
 io.on('connection', (socket) => {
@@ -89,7 +96,18 @@ app.use((err, req, res, next) => {
   });
 });
 
-server.listen(config.app.port, () => {
-  console.log(`服务器运行在端口 ${config.app.port}`);
-  console.log(`API地址: http://localhost:${config.app.port}/api`);
-}); 
+async function startServer() {
+  try {
+    await ensureAuditTable();
+    console.log('管理审计表已就绪');
+  } catch (err) {
+    console.error('管理审计表初始化失败:', err);
+  }
+  server.listen(config.app.port, () => {
+    console.log(`服务器运行在端口 ${config.app.port}`);
+    console.log(`API地址: http://localhost:${config.app.port}/api`);
+    console.log(`管理后台 API: http://localhost:${config.app.port}/api/admin`);
+  });
+}
+
+startServer(); 

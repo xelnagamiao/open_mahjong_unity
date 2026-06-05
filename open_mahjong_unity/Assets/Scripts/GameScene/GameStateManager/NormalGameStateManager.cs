@@ -73,6 +73,13 @@ public partial class NormalGameStateManager : MonoBehaviour{
     // 玩家信息
     public Dictionary<string,PlayerInfoClass> player_to_info = new Dictionary<string,PlayerInfoClass>(); // 玩家信息
 
+    /// <summary>每局结算快照，供计分板主番列与悬停详情（实时对局累积）。</summary>
+    public List<RoundSettlementSnapshot> roundSettlementHistory = new List<RoundSettlementSnapshot>();
+
+    public void ClearRoundSettlementHistory() {
+        roundSettlementHistory.Clear();
+    }
+
     // 上次摸牌类型
     public string lastDealTileType; // 上次摸牌类型
 

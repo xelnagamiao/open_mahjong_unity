@@ -25,6 +25,7 @@ public static class AppSession {
 
                 UserDataManager.Instance?.ClearSessionState();
                 HeaderPanel.Instance?.SetBackToGameVisible(false);
+                HeaderPanel.Instance?.RefreshMatchButtonVisibility();
             } catch (Exception cleanupEx) {
                 Debug.LogWarning($"[AppSession] 清理会话状态时出错（重连已发起）: {cleanupEx.Message}");
             }

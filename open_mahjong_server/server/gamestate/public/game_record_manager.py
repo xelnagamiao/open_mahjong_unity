@@ -56,6 +56,10 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         if hasattr(gs, "open_tobi"):
             # open_tobi: 是否击飞
             title["open_tobi"] = gs.open_tobi
+    # match_queue_type: 排位队列（如 beginner_quanzhuang），仅 match 房间写入，供天梯对局列表展示场次
+    match_queue_type = getattr(gs, "match_queue_type", None)
+    if match_queue_type:
+        title["match_queue_type"] = match_queue_type
     # p0_uid … p3_uid / p0_name … p3_name: 原始座位 0～3 的用户 ID 与用户名（整局不变）
     for i, player in enumerate(gs.player_list):
         title[f"p{i}_uid"] = player.user_id
@@ -113,6 +117,14 @@ def build_score_changes_by_seat(player_list, scores_before: Dict[int, int]) -> L
     for p in player_list:
         changes[p.player_index] = p.score - scores_before[p.original_player_index]
     return changes
+
+
+def build_score_changes_dict(player_list, scores_before: Dict[int, int]) -> Dict[int, int]:
+    """show_result 广播用 score_changes，键为 original_player_index（与日麻 broadcast 一致）。"""
+    return {
+        p.original_player_index: p.score - scores_before[p.original_player_index]
+        for p in player_list
+    }
 
 # 牌谱记录补花
 def player_action_record_buhua(self,max_tile: int,action_player: int):

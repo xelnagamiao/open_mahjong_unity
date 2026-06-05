@@ -23,7 +23,7 @@ from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 
@@ -554,6 +554,8 @@ class QingqueGameState:
                 he_huapai = self.player_list[hepai_player_index].huapai_list
                 he_combination_mask = self.player_list[hepai_player_index].combination_mask
 
+                score_changes_dict = build_score_changes_dict(self.player_list, scores_before)
+
                 # 广播和牌结算结果（使用实际和牌分数，而不是番数）
                 await broadcast_result(self,
                                        hepai_player_index = hepai_player_index, # 和牌玩家索引
@@ -563,7 +565,8 @@ class QingqueGameState:
                                        hu_class = self.hu_class, # 和牌类别
                                        hepai_player_hand = he_hand, # 和牌玩家手牌
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
-                                       hepai_player_combination_mask = he_combination_mask # 和牌玩家组合掩码
+                                       hepai_player_combination_mask = he_combination_mask, # 和牌玩家组合掩码
+                                       score_changes = score_changes_dict,
                                        )
                 # 显示和牌传参
                 print(f"hu_class: {self.hu_class}, result_dict: {self.result_dict}")
@@ -582,6 +585,7 @@ class QingqueGameState:
             # 广播流局结算结果
             else:
                 self.hu_class = "liuju"
+                liuju_score_changes = build_score_changes_dict(self.player_list, scores_before)
                 await broadcast_result(self,
                                        hepai_player_index = None, # 和牌玩家索引
                                        player_to_score = None, # 所有玩家分数
@@ -590,7 +594,8 @@ class QingqueGameState:
                                        hu_class = self.hu_class, # 和牌类别(流局)
                                        hepai_player_hand = None, # 和牌玩家手牌
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
-                                       hepai_player_combination_mask = None # 和牌玩家组合掩码
+                                       hepai_player_combination_mask = None, # 和牌玩家组合掩码
+                                       score_changes = liuju_score_changes,
                                        )
 
             # 记录分数变更到每个玩家的 score_history

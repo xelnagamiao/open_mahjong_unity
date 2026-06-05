@@ -1,0 +1,27 @@
+/* 管理后台筛选行：标签、输入框、按钮底对齐 */
+.admin-inline-form.el-form--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 16px;
+}
+
+.admin-inline-form.el-form--inline .el-form-item {
+  margin-right: 0;
+  margin-bottom: 0;
+  vertical-align: bottom;
+}
+
+.admin-inline-form .el-form-item__label {
+  height: 32px;
+  line-height: 32px;
+  padding-bottom: 0;
+}
+
+.admin-inline-form .el-form-item__content {
+  line-height: 32px;
+}
+
+.admin-inline-form .el-form-item__content > .el-button {
+  margin-bottom: 0;
+}

@@ -49,6 +49,12 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_classical_stats":
                 HandleGetClassicalStatsResponse(response);
                 break;
+            case "data/get_leaderboard":
+                HandleGetLeaderboardResponse(response);
+                break;
+            case "data/get_rank_record_list":
+                HandleGetRankRecordListResponse(response);
+                break;
             default:
                 Debug.LogWarning($"未知的数据消息类型: {response.type}");
                 break;
@@ -123,6 +129,16 @@ public class DataNetworkManager : MonoBehaviour {
         }
 
         PlayerInfoPanel.Instance.OnClassicalStatsReceived(response.success, response.message, response.rule_stats);
+    }
+
+    private void HandleGetLeaderboardResponse(Response response) {
+        Debug.Log($"收到排行榜: {response.message}");
+        DataPanel.Instance?.OnLeaderboardReceived(response.success, response.message, response.leaderboard_list);
+    }
+
+    private void HandleGetRankRecordListResponse(Response response) {
+        Debug.Log($"收到天梯对局列表: {response.message}");
+        DataPanel.Instance?.OnRankRecordListReceived(response.success, response.message, response.record_list);
     }
 
     /// <summary>
@@ -224,6 +240,32 @@ public class DataNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"获取古典麻将统计数据失败: {e.Message}");
             PlayerInfoPanel.Instance?.OnClassicalStatsReceived(false, e.Message, null);
+        }
+    }
+
+    public async void GetRankRecordList(int limit = 10) {
+        try {
+            var request = new GetRankRecordListRequest {
+                type = "data/get_rank_record_list",
+                limit = limit,
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取天梯对局列表失败: {e.Message}");
+            DataPanel.Instance?.OnRankRecordListReceived(false, e.Message, null);
+        }
+    }
+
+    public async void GetLeaderboard() {
+        try {
+            var request = new GetLeaderboardRequest {
+                type = "data/get_leaderboard"
+            };
+            Debug.Log($"发送获取排行榜消息: {request.type}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取排行榜失败: {e.Message}");
+            DataPanel.Instance?.OnLeaderboardReceived(false, e.Message, null);
         }
     }
 }

@@ -1,0 +1,434 @@
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+
+/// <summary>
+/// 从牌谱 JSON 提取每局结算快照（含轻量 tick 重放以还原和牌手牌）。
+/// </summary>
+public static class ScoreHistoryRecordSettlementExtractor {
+    private sealed class SimPlayer {
+        public List<int> tileList = new List<int>();
+        public List<int[]> combinationMasks = new List<int[]>();
+    }
+
+    public static List<RoundSettlementSnapshot> Extract(GameRecord gameRecord) {
+        var result = new List<RoundSettlementSnapshot>();
+        if (gameRecord?.gameRound?.rounds == null) return result;
+
+        string rule = ReadTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
+        string subRule = ReadTitleString(gameRecord.gameTitle, "sub_rule", "");
+        subRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRule);
+
+        foreach (Round round in gameRecord.gameRound.GetRoundsList()) {
+            result.Add(ExtractRound(round, subRule, gameRecord.gameTitle));
+        }
+        return result;
+    }
+
+    private static RoundSettlementSnapshot ExtractRound(
+        Round round,
+        string subRule,
+        Dictionary<string, object> gameTitle) {
+        var snapshot = new RoundSettlementSnapshot {
+            subRule = subRule,
+            isLiuju = true,
+            hasWin = false,
+        };
+
+        if (round?.actionTicks == null || round.seats == null || round.seats.Count < 4) {
+            return snapshot;
+        }
+
+        var players = new SimPlayer[4];
+        for (int i = 0; i < 4; i++) players[i] = new SimPlayer();
+
+        InitHands(players, round);
+        int lastDiscardPlayerIndex = -1;
+        int lastDiscardTileId = -1;
+
+        RoundSettlementSnapshot pendingHu = null;
+
+        foreach (List<string> tick in round.actionTicks) {
+            if (tick == null || tick.Count == 0) continue;
+            string action = tick[0];
+
+            int actingPlayerIndex = ResolveActingPlayerIndex(action, tick, round.startPlayerIndex);
+            SimPlayer actor = players[actingPlayerIndex];
+
+            switch (action) {
+                case "d":
+                case "gd":
+                case "bd":
+                    actor.tileList.Add(ParseInt(tick, 1));
+                    break;
+                case "c":
+                    RemoveTileForCut(actor.tileList, ParseInt(tick, 1), ParseBool(tick, 2));
+                    lastDiscardPlayerIndex = actingPlayerIndex;
+                    lastDiscardTileId = ParseInt(tick, 1);
+                    break;
+                case "bh":
+                    RemoveOneTile(actor.tileList, ParseInt(tick, 1));
+                    break;
+                case "ag": {
+                    int tile = ParseInt(tick, 1);
+                    RemoveNTiles(actor.tileList, tile, 4);
+                    actor.combinationMasks.Add(BuildAngangMask(tile, subRule));
+                    break;
+                }
+                case "jg": {
+                    int tile = ParseInt(tick, 1);
+                    RemoveOneTile(actor.tileList, tile);
+                    actor.combinationMasks.Add(BuildJiagangMask(actor, tile));
+                    break;
+                }
+                case "cl":
+                case "cm":
+                case "cr":
+                case "p":
+                case "g": {
+                    int mingTile = ParseInt(tick, 1);
+                    foreach (int t in BuildRemovedTilesForMingpai(action, mingTile)) {
+                        RemoveOneTile(actor.tileList, t);
+                    }
+                    int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : actingPlayerIndex;
+                    actor.combinationMasks.Add(BuildMingpaiMask(action, mingTile, actingPlayerIndex, discardPlayerIndex));
+                    break;
+                }
+                case "hu_self":
+                case "hu_first":
+                case "hu_second":
+                case "hu_third":
+                    pendingHu = BuildHuSnapshot(tick, action, subRule, round, actingPlayerIndex, players, lastDiscardTileId, action != "hu_self", gameTitle);
+                    break;
+                case "hu_riichi":
+                    pendingHu = BuildRiichiHuSnapshot(tick, subRule, round, players, lastDiscardTileId, gameTitle);
+                    break;
+                case "shuhewei":
+                    ApplyShuhewei(tick, pendingHu ?? snapshot);
+                    if (pendingHu != null) snapshot = pendingHu;
+                    break;
+                case "liuju":
+                case "ryuukyoku":
+                case "jiuzhongjiupai":
+                    return new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action };
+            }
+        }
+
+        if (pendingHu != null) {
+            snapshot = pendingHu;
+        }
+        return snapshot;
+    }
+
+    private static void InitHands(SimPlayer[] players, Round round) {
+        List<int>[] hands = { round.p0Tiles, round.p1Tiles, round.p2Tiles, round.p3Tiles };
+        for (int orig = 0; orig < 4; orig++) {
+            int seat = round.seats[orig];
+            if (seat < 0 || seat >= 4) continue;
+            List<int> src = hands[seat];
+            if (src != null) {
+                players[seat].tileList = new List<int>(src);
+            }
+        }
+    }
+
+    private static RoundSettlementSnapshot BuildHuSnapshot(
+        List<string> tick,
+        string huClass,
+        string subRule,
+        Round round,
+        int hepaiPlayerIndex,
+        SimPlayer[] players,
+        int lastDiscardTileId,
+        bool isRon,
+        Dictionary<string, object> gameTitle) {
+        string[] huFan = ParseFanList(tick, 3);
+        int huScore = ParseInt(tick, 2);
+        int? baseFu = tick.Count > 5 ? ParseInt(tick, 5) : (int?)null;
+        string[] fuFanList = tick.Count > 6 ? ParseFanList(tick, 6) : null;
+
+        SimPlayer huPlayer = players[hepaiPlayerIndex];
+        int[] hand = huPlayer.tileList.ToArray();
+        if (isRon && lastDiscardTileId >= 0) {
+            int[] extended = new int[hand.Length + 1];
+            Array.Copy(hand, extended, hand.Length);
+            extended[hand.Length] = lastDiscardTileId;
+            hand = extended;
+        }
+
+        int winnerDelta = 0;
+        int[] scoreChanges = ParseScoreChanges(tick, 4);
+        if (scoreChanges != null && hepaiPlayerIndex >= 0 && hepaiPlayerIndex < scoreChanges.Length) {
+            winnerDelta = scoreChanges[hepaiPlayerIndex];
+        }
+
+        string username = ResolveUsernameForSeat(hepaiPlayerIndex, round, gameTitle);
+
+        return new RoundSettlementSnapshot {
+            hasWin = huFan != null && huFan.Length > 0 && hand.Length > 0,
+            isLiuju = false,
+            huClass = huClass,
+            hepaiPlayerIndex = hepaiPlayerIndex,
+            winnerUsername = username,
+            huScore = huScore,
+            winnerScoreDelta = winnerDelta,
+            huFan = huFan,
+            fuFanList = fuFanList,
+            baseFu = baseFu,
+            hepaiPlayerHand = hand,
+            combinationMask = CloneMasks(huPlayer.combinationMasks),
+            subRule = subRule,
+        };
+    }
+
+    private static RoundSettlementSnapshot BuildRiichiHuSnapshot(
+        List<string> tick,
+        string subRule,
+        Round round,
+        SimPlayer[] players,
+        int lastDiscardTileId,
+        Dictionary<string, object> gameTitle) {
+        int hepaiPlayerIndex = ParseInt(tick, 1);
+        string huClass = tick.Count > 2 ? tick[2] : "hu_self";
+        int han = tick.Count > 3 ? ParseInt(tick, 3) : 0;
+        int fu = tick.Count > 4 ? ParseInt(tick, 4) : 0;
+        string[] yaku = tick.Count > 5 ? ParseFanList(tick, 5) : Array.Empty<string>();
+
+        SimPlayer huPlayer = players[hepaiPlayerIndex];
+        int[] hand = huPlayer.tileList.ToArray();
+        bool isRon = huClass != "hu_self" && lastDiscardTileId >= 0;
+        if (isRon) {
+            int[] extended = new int[hand.Length + 1];
+            Array.Copy(hand, extended, hand.Length);
+            extended[hand.Length] = lastDiscardTileId;
+            hand = extended;
+        }
+
+        int winnerDelta = 0;
+        int[] scoreChanges = tick.Count > 6 ? ParseScoreChanges(tick, 6) : null;
+        if (scoreChanges != null && hepaiPlayerIndex >= 0 && hepaiPlayerIndex < scoreChanges.Length) {
+            winnerDelta = scoreChanges[hepaiPlayerIndex];
+        }
+
+        return new RoundSettlementSnapshot {
+            hasWin = yaku.Length > 0 && hand.Length > 0,
+            isLiuju = false,
+            huClass = huClass,
+            hepaiPlayerIndex = hepaiPlayerIndex,
+            winnerUsername = ResolveUsernameForSeat(hepaiPlayerIndex, round, gameTitle),
+            huScore = winnerDelta,
+            winnerScoreDelta = winnerDelta,
+            huFan = yaku,
+            han = han,
+            fu = fu,
+            hepaiPlayerHand = hand,
+            combinationMask = CloneMasks(huPlayer.combinationMasks),
+            subRule = subRule,
+        };
+    }
+
+    private static void ApplyShuhewei(List<string> tick, RoundSettlementSnapshot target) {
+        if (tick.Count < 7) return;
+        int hepaiIndex = ParseInt(tick, 6);
+        if (hepaiIndex < 0) return;
+
+        string[][] fanMatrix = ParseFanMatrix(tick, 3);
+        if (fanMatrix != null && hepaiIndex < fanMatrix.Length && fanMatrix[hepaiIndex] != null && fanMatrix[hepaiIndex].Length > 0) {
+            target.huFan = fanMatrix[hepaiIndex];
+            target.hasWin = true;
+            target.isLiuju = false;
+        }
+
+        int[] changes = ParseScoreChanges(tick, 2);
+        if (changes != null && hepaiIndex < changes.Length) {
+            target.winnerScoreDelta = changes[hepaiIndex];
+        }
+        target.hepaiPlayerIndex = hepaiIndex;
+    }
+
+    private static int ResolveActingPlayerIndex(string action, List<string> tick, int fallback) {
+        if (action == "bh" && tick.Count >= 3) return ParseInt(tick, 2);
+        if ((action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") && tick.Count >= 3) {
+            return ParseInt(tick, 2);
+        }
+        if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "hu_riichi") && tick.Count >= 2) {
+            return ParseInt(tick, 1);
+        }
+        return fallback;
+    }
+
+    private static string ResolveUsernameForSeat(int seatIndex, Round round, Dictionary<string, object> gameTitle) {
+        if (round?.seats != null) {
+            for (int orig = 0; orig < round.seats.Count && orig < 4; orig++) {
+                if (round.seats[orig] != seatIndex) continue;
+                string key = $"p{orig}_name";
+                if (gameTitle != null && gameTitle.TryGetValue(key, out object nameObj) && nameObj != null) {
+                    return nameObj.ToString();
+                }
+                break;
+            }
+        }
+        return seatIndex.ToString();
+    }
+
+    private static int[][] CloneMasks(List<int[]> masks) {
+        if (masks == null) return Array.Empty<int[]>();
+        var result = new int[masks.Count][];
+        for (int i = 0; i < masks.Count; i++) {
+            result[i] = masks[i] != null ? (int[])masks[i].Clone() : Array.Empty<int>();
+        }
+        return result;
+    }
+
+    private static string ReadTitleString(Dictionary<string, object> title, string key, string fallback) {
+        if (title == null || !title.TryGetValue(key, out object val) || val == null) return fallback;
+        return val.ToString();
+    }
+
+    private static int ParseInt(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return 0;
+        int.TryParse(tick[index], out int val);
+        return val;
+    }
+
+    private static bool ParseBool(List<string> tick, int index) {
+        if (index >= tick.Count) return false;
+        return tick[index] == "T" || tick[index] == "True" || tick[index] == "true";
+    }
+
+    private static string[] ParseFanList(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return Array.Empty<string>();
+        string raw = tick[index].Trim();
+        if (raw.StartsWith("[") && raw.EndsWith("]")) {
+            try {
+                JArray arr = JArray.Parse(raw);
+                var fans = new string[arr.Count];
+                for (int i = 0; i < arr.Count; i++) fans[i] = arr[i]?.ToString() ?? "";
+                return fans;
+            } catch {
+                // fall through
+            }
+        }
+        if (raw.StartsWith("[") && raw.EndsWith("]") && raw.Length >= 2) {
+            raw = raw.Substring(1, raw.Length - 2);
+        }
+        string[] split = raw.Split(',');
+        var list = new List<string>();
+        foreach (string part in split) {
+            string fan = part.Trim().Trim('"').Trim('\'');
+            if (!string.IsNullOrEmpty(fan)) list.Add(fan);
+        }
+        return list.ToArray();
+    }
+
+    private static int[] ParseScoreChanges(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
+        try {
+            JArray arr = JArray.Parse(tick[index]);
+            int[] result = new int[arr.Count];
+            for (int i = 0; i < arr.Count; i++) result[i] = arr[i].Value<int>();
+            return result;
+        } catch {
+            return null;
+        }
+    }
+
+    private static string[][] ParseFanMatrix(List<string> tick, int index) {
+        if (index >= tick.Count || string.IsNullOrEmpty(tick[index])) return null;
+        try {
+            JArray outer = JArray.Parse(tick[index]);
+            var result = new string[outer.Count][];
+            for (int i = 0; i < outer.Count; i++) {
+                if (outer[i] is JArray inner) {
+                    result[i] = new string[inner.Count];
+                    for (int j = 0; j < inner.Count; j++) result[i][j] = inner[j]?.ToString() ?? "";
+                } else {
+                    result[i] = Array.Empty<string>();
+                }
+            }
+            return result;
+        } catch {
+            return null;
+        }
+    }
+
+    private static void RemoveOneTile(List<int> tileList, int tileId) {
+        int idx = tileList.IndexOf(tileId);
+        if (idx >= 0) tileList.RemoveAt(idx);
+    }
+
+    private static void RemoveNTiles(List<int> tileList, int tileId, int count) {
+        for (int i = 0; i < count; i++) {
+            int idx = tileList.IndexOf(tileId);
+            if (idx < 0) break;
+            tileList.RemoveAt(idx);
+        }
+    }
+
+    private static void RemoveTileForCut(List<int> tileList, int tileId, bool isMoqie) {
+        if (tileList.Count == 0) return;
+        if (isMoqie && tileList[tileList.Count - 1] == tileId) {
+            tileList.RemoveAt(tileList.Count - 1);
+            return;
+        }
+        RemoveOneTile(tileList, tileId);
+    }
+
+    private static List<int> BuildRemovedTilesForMingpai(string action, int tileId) {
+        if (action == "cl") return new List<int> { tileId - 1, tileId - 2 };
+        if (action == "cm") return new List<int> { tileId - 1, tileId + 1 };
+        if (action == "cr") return new List<int> { tileId + 1, tileId + 2 };
+        if (action == "p") return new List<int> { tileId, tileId };
+        return new List<int> { tileId, tileId, tileId };
+    }
+
+    private static int[] BuildAngangMask(int angangTile, string subRule) {
+        if (subRule.StartsWith("riichi")) {
+            return new[] { 2, angangTile, 0, angangTile, 0, angangTile, 2, angangTile };
+        }
+        return new[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
+    }
+
+    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile) {
+        int[] fallback = { 0, jiagangTile, 3, jiagangTile, 1, jiagangTile, 0, jiagangTile };
+        return fallback;
+    }
+
+    private static int[] BuildMingpaiMask(string action, int tileId, int actionPlayerIndex, int discardPlayerIndex) {
+        if (action == "cl") return new[] { 1, tileId, 0, tileId - 1, 0, tileId - 2 };
+        if (action == "cm") return new[] { 1, tileId, 0, tileId - 1, 0, tileId + 1 };
+        if (action == "cr") return new[] { 1, tileId, 0, tileId + 1, 0, tileId + 2 };
+
+        string relative = GetRelativePosition(actionPlayerIndex, discardPlayerIndex);
+        if (action == "p") {
+            if (relative == "left") return new[] { 1, tileId, 0, tileId, 0, tileId };
+            if (relative == "right") return new[] { 0, tileId, 0, tileId, 1, tileId };
+            return new[] { 0, tileId, 1, tileId, 0, tileId };
+        }
+        if (relative == "left") return new[] { 1, tileId, 0, tileId, 0, tileId, 0, tileId };
+        if (relative == "right") return new[] { 0, tileId, 0, tileId, 0, tileId, 1, tileId };
+        return new[] { 0, tileId, 1, tileId, 0, tileId, 0, tileId };
+    }
+
+    private static string GetRelativePosition(int selfIndex, int otherIndex) {
+        if (selfIndex == otherIndex) return "self";
+        if (selfIndex == 0) {
+            if (otherIndex == 1) return "right";
+            if (otherIndex == 2) return "top";
+            return "left";
+        }
+        if (selfIndex == 1) {
+            if (otherIndex == 0) return "left";
+            if (otherIndex == 2) return "right";
+            return "top";
+        }
+        if (selfIndex == 2) {
+            if (otherIndex == 0) return "top";
+            if (otherIndex == 1) return "left";
+            return "right";
+        }
+        if (otherIndex == 0) return "right";
+        if (otherIndex == 1) return "top";
+        return "left";
+    }
+}

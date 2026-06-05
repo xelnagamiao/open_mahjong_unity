@@ -59,6 +59,25 @@ const socketConfig = {
   credentials: true
 };
 
+// ==================== 管理后台配置 ====================
+function parseAdminUserIds(raw) {
+  if (!raw || !String(raw).trim()) {
+    return new Set();
+  }
+  return new Set(
+    String(raw)
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n))
+  );
+}
+
+const adminConfig = {
+  userIds: parseAdminUserIds(process.env.ADMIN_USER_IDS),
+  jwtSecret: process.env.ADMIN_JWT_SECRET || 'change-me-in-production',
+  jwtExpiresSec: parseInt(process.env.ADMIN_JWT_EXPIRES_SEC, 10) || 8 * 3600,
+};
+
 // ==================== 日志输出 ====================
 if (appConfig.isDebug) {
   console.log('=== 开发环境配置 ===');
@@ -72,6 +91,7 @@ console.log(`数据库: ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbC
 if (isProduction) {
   console.log(`前端地址: ${productionFrontendUrl}`);
 }
+console.log(`管理后台管理员数量: ${adminConfig.userIds.size}`);
 
 // ==================== 导出配置 ====================
 module.exports = {
@@ -89,6 +109,9 @@ module.exports = {
 
   // 计算服务器配置
   calcServer: calcServerConfig,
+
+  // 管理后台
+  admin: adminConfig,
   
   // 便捷访问
   isProduction: isProduction,

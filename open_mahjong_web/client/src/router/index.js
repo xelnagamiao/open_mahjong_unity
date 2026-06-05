@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import Home from '@/views/Home.vue'
 import ShantenAnalysis from '@/views/ShantenAnalysis.vue'
@@ -7,6 +8,14 @@ import PlayerData from '@/views/PlayerData.vue'
 import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
 import Paili from '@/views/Paili.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
+import AdminLogin from '@/views/admin/Login.vue'
+import AdminDashboard from '@/views/admin/Dashboard.vue'
+import AdminUsers from '@/views/admin/Users.vue'
+import AdminUserDetail from '@/views/admin/UserDetail.vue'
+import AdminRank from '@/views/admin/Rank.vue'
+import AdminGames from '@/views/admin/Games.vue'
+import AdminAudit from '@/views/admin/Audit.vue'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -75,6 +84,30 @@ const routes = [
       return false
     },
     meta: { title: 'GitHub 项目 - salasasa.cn' }
+  },
+  {
+    path: '/admin/login',
+    name: 'AdminLogin',
+    component: AdminLogin,
+    meta: { title: '管理后台登录', publicAdmin: true }
+  },
+  {
+    path: '/admin',
+    component: AdminLayout,
+    meta: { requiresAdmin: true },
+    children: [
+      { path: '', name: 'AdminDashboard', component: AdminDashboard, meta: { title: '管理仪表盘' } },
+      { path: 'users', name: 'AdminUsers', component: AdminUsers, meta: { title: '用户管理' } },
+      {
+        path: 'users/:userId',
+        name: 'AdminUserDetail',
+        component: AdminUserDetail,
+        meta: { title: '用户详情' }
+      },
+      { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
+      { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局管理' } },
+      { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } }
+    ]
   }
 ]
 
@@ -83,10 +116,22 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   if (to.meta.title) {
     document.title = to.meta.title
   }
+
+  if (to.path.startsWith('/admin')) {
+    const auth = useAdminAuthStore()
+    if (to.meta.publicAdmin) {
+      if (!auth.loaded) await auth.fetchMe()
+      if (auth.isLoggedIn) return next('/admin')
+      return next()
+    }
+    if (!auth.loaded) await auth.fetchMe()
+    if (!auth.isLoggedIn) return next({ path: '/admin/login', query: { redirect: to.fullPath } })
+  }
+
   next()
 })
 

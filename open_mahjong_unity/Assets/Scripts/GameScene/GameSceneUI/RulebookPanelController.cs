@@ -38,6 +38,9 @@ public class RulebookPanelController : MonoBehaviour {
         popup.Hide();
     }
 
+    /// <summary>规则书弹窗是否处于显示中（含收起动画尚未结束的阶段）。</summary>
+    public bool IsOpen => gameObject.activeSelf;
+
     private void ApplyTexts(string rule) {
         string ruleName = RuleDisplayName(rule);
         titleText.text = $"{ruleName}规则书";
