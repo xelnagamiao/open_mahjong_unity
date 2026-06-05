@@ -78,7 +78,14 @@ PORT=3000              # 服务器端口
 FRONTEND_URL=https://salasasa.cn    # 前端访问地址
 CORS_ORIGIN=https://salasasa.cn     # CORS 允许的源（可选，默认使用 FRONTEND_URL）
 SOCKET_ORIGIN=https://salasasa.cn   # Socket.IO 允许的源（可选，默认使用 FRONTEND_URL）
+
+# 管理后台
+ADMIN_USER_IDS=10000001             # 可登录后台的用户 ID，逗号分隔
+ADMIN_JWT_SECRET=长随机字符串        # 生产环境必改
+ADMIN_JWT_EXPIRES_SEC=28800
 ```
+
+访问管理后台：开发环境打开 `http://localhost:5173/admin/login`，使用已在 `ADMIN_USER_IDS` 中配置的游戏账号登录。
 
 3. **NODE_ENV 说明：**
    - `NODE_ENV=production`：生产环境模式

@@ -440,7 +440,7 @@ async def message_input(websocket: WebSocket, Connect_id: str):
     
     except Exception as e:
         # WebSocket 连接断开或其他异常
-        logging.error(f"WebSocket 连接异常: {Connect_id}, 错误: {e}")
+        logging.error(f"WebSocket 连接异常: {Connect_id}, 错误: {e}", exc_info=True)
     finally:
         # 确保在连接断开时调用 disconnect 方法
         asyncio.create_task(game_server.disconnect(Connect_id))
@@ -623,7 +623,8 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
     login_info = LoginInfo(
         user_id=user_id,
         username=username,
-        userkey=user_key
+        userkey=user_key,
+        is_tourist=is_tourist,
     )
     
     return Response(

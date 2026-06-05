@@ -6,6 +6,10 @@ public partial class NormalGameStateManager {
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         ClearPendingCuoheContinue();
+        string incomingGamestateId = gameInfo?.gamestate_id;
+        if (string.IsNullOrEmpty(gamestateId) || gamestateId != incomingGamestateId) {
+            ClearRoundSettlementHistory();
+        }
         if (!IsRealtimeSpectator) {
             UserDataManager.Instance.SetRoomId(gameInfo.room_id.ToString());
         }

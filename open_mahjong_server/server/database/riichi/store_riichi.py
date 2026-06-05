@@ -56,9 +56,9 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, sub_rule, match_type,
+                        game_id, user_id, username, score, rank, rule, sub_rule, match_type, room_type,
                         title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     player.user_id,
@@ -68,6 +68,7 @@ def store_riichi_game_record(db_manager, game_record: dict, player_list: list, r
                     rule,
                     sub_rule,
                     match_type,
+                    room_type,
                     getattr(player, "title_used", None),
                     getattr(player, "character_used", None),
                     getattr(player, "profile_used", None),

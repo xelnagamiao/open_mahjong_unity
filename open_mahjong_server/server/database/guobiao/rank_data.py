@@ -61,21 +61,32 @@ def update_rank_data(db_manager, user_id: int, guobiao_rank: str, guobiao_score:
 
 def get_user_sponsor_mcrpl(db_manager, user_id: int) -> dict:
     """
-    从 users 表获取 is_sponsor 和 is_mcrpl_qualified 字段
+    从 users 表获取赞助到期时间与 is_mcrpl_qualified 字段。
+    is_sponsor 由 sponsor_expires_at > 当前时间 动态计算。
     Returns:
-        {'is_sponsor': bool, 'is_mcrpl_qualified': bool} 或 None
+        {'is_sponsor': bool, 'sponsor_expires_at': datetime|None, 'is_mcrpl_qualified': bool} 或 None
     """
     conn = None
     try:
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT is_sponsor, is_mcrpl_qualified FROM users WHERE user_id = %s",
+            """
+            SELECT
+                (sponsor_expires_at IS NOT NULL AND sponsor_expires_at > CURRENT_TIMESTAMP) AS is_sponsor,
+                sponsor_expires_at,
+                is_mcrpl_qualified
+            FROM users WHERE user_id = %s
+            """,
             (user_id,)
         )
         row = cursor.fetchone()
         if row:
-            return {"is_sponsor": row[0], "is_mcrpl_qualified": row[1]}
+            return {
+                "is_sponsor": bool(row[0]),
+                "sponsor_expires_at": row[1],
+                "is_mcrpl_qualified": row[2],
+            }
         return None
     except Error as e:
         logger.error(f"获取赞助者/MCRPL字段失败: {e}")

@@ -8,6 +8,7 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'
 import router from './router'
 import './style.css'
+import './styles/admin-form.css'
 
 const app = createApp(App)
 

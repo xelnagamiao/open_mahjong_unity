@@ -18,8 +18,6 @@ public class HeaderPanel : MonoBehaviour {
     [SerializeField] private HeaderButton backToGameButton;
     [Tooltip("「正在对局中」的红色提醒按钮所使用的底色")]
     [SerializeField] private Color backToGameTintColor = new Color(0.92f, 0.34f, 0.34f);
-    [Tooltip("backToGameButton 的提示文本（可选）")]
-    [SerializeField] private TMPro.TMP_Text backToGameLabel;
     [Header("轮到自己操作时的提醒闪烁")]
     [Tooltip("回到主菜单后轮到自己操作，按钮在 turnFlashColorA 与 turnFlashColorB 之间渐变循环")]
     [SerializeField] private Color turnFlashColorA = new Color(0.94f, 0.32f, 0.32f);
@@ -57,7 +55,7 @@ public class HeaderPanel : MonoBehaviour {
         if (menuButton != null) menuButton.Button.onClick.AddListener(Menu);
         if (roomButton != null) roomButton.Button.onClick.AddListener(Room);
         if (recordButton != null) recordButton.Button.onClick.AddListener(Record);
-        if (playerDataButton != null) playerDataButton.Button.onClick.AddListener(PlayerInfo);
+        if (playerDataButton != null) playerDataButton.Button.onClick.AddListener(PlayerData);
         if (configButton != null) configButton.Button.onClick.AddListener(Config);
         if (aboutUsButton != null) aboutUsButton.Button.onClick.AddListener(AboutUs);
         if (noticeButton != null) noticeButton.Button.onClick.AddListener(Notice);
@@ -84,7 +82,6 @@ public class HeaderPanel : MonoBehaviour {
     private void ApplyBackToGameTint() {
         if (backToGameButton == null) return;
         backToGameButton.SetState(false, true, backToGameTintColor);
-        if (backToGameLabel != null) backToGameLabel.text = "正在对局中";
     }
 
     private void Update() {
@@ -98,7 +95,6 @@ public class HeaderPanel : MonoBehaviour {
         if (needFlash) {
             float t = Mathf.PingPong(Time.unscaledTime / Mathf.Max(0.05f, turnFlashCycleSeconds * 0.5f), 1f);
             backToGameButton.SetState(false, true, Color.Lerp(turnFlashColorA, turnFlashColorB, t));
-            if (backToGameLabel != null) backToGameLabel.text = "轮到你了！";
         } else {
             ApplyBackToGameTint();
         }
@@ -115,13 +111,31 @@ public class HeaderPanel : MonoBehaviour {
         WindowsManager.Instance.SwitchWindow("record");
         DataNetworkManager.Instance?.GetRecordList();
     }
-    private void PlayerInfo() => WindowsManager.Instance.SwitchWindow("player");
+    private void PlayerData() {
+        WindowsManager.Instance.SwitchWindow("player");
+        DataNetworkManager.Instance?.GetLeaderboard();
+    }
     private void Config() => WindowsManager.Instance.SwitchWindow("config");
     private void AboutUs() => WindowsManager.Instance.SwitchWindow("aboutUs");
     private void Notice() => WindowsManager.Instance.SwitchWindow("notice");
     private void SceneConfig() => WindowsManager.Instance.SwitchWindow("sceneConfig");
     private void Spectator() => WindowsManager.Instance.SwitchWindow("spectator");
-    private void Match() => WindowsManager.Instance.SwitchWindow("match");
+    private void Match() {
+        if (UserDataManager.Instance != null && UserDataManager.Instance.IsTourist) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
+            return;
+        }
+        WindowsManager.Instance.SwitchWindow("match");
+    }
+
+    /// <summary>
+    /// 游客账户隐藏排位匹配入口；登录成功后由 NetworkManager 调用。
+    /// </summary>
+    public void RefreshMatchButtonVisibility() {
+        if (matchButton == null) return;
+        bool visible = UserDataManager.Instance == null || !UserDataManager.Instance.IsTourist;
+        matchButton.gameObject.SetActive(visible);
+    }
     private void Friend() {
         WindowsManager.Instance.SwitchWindow("friend");
         FriendNetworkManager.Instance?.ListAllFriendPanels();

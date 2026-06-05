@@ -390,7 +390,8 @@ async def broadcast_result(self,
                           hepai_player_huapai: Optional[List[int]] = None,
                           hepai_player_combination_mask: Optional[List[List[int]]] = None,
                           base_fu: Optional[int] = None,
-                          fu_fan_list: Optional[List[str]] = None):
+                          fu_fan_list: Optional[List[str]] = None,
+                          score_changes: Optional[Dict[int, int]] = None):
     self.server_action_tick += 1
     for i, current_player in enumerate(self.player_list):
         try:
@@ -421,6 +422,7 @@ async def broadcast_result(self,
                         action_tick=self.server_action_tick,
                         base_fu=base_fu,
                         fu_fan_list=fu_fan_list,
+                        score_changes=score_changes,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
