@@ -3,7 +3,6 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
-import hashlib
 from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
 from .wait_action import wait_action
 from .boardcast import (
@@ -26,6 +25,7 @@ from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ..public.random_seed_manager import setup_random_seed_system
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +147,10 @@ class QingqueGameState:
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
         self.xunmu = 1 # 巡目
-        self.game_random_seed = 0 # 游戏随机种子(游戏结束后提供)
-        self.round_random_seed = 0 # 局内随机种子(每局向玩家提供)
+        self.master_seed: int = 0  # 主种子
+        self.salt = "" # 盐字符串
+        self.commitment: int = 0 # 承诺值
+        self.round_random_seed = 0 # 局内随机种子
         self.game_status = "waiting"  # waiting, playing, finished
         self.server_action_tick = 0 # 操作帧
         self.player_action_tick = 0 # 玩家操作帧
@@ -230,7 +232,8 @@ class QingqueGameState:
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
                         'tile_count': len(self.tiles_list),
-                        'round_random_seed': self.round_random_seed,
+                        'commitment': self.commitment,  # 承诺值
+                        'salt': self.salt,  # 盐字符串
                         'current_round': self.current_round,
                         'step_time': self.step_time,
                         'round_time': self.round_time,
@@ -333,18 +336,12 @@ class QingqueGameState:
 
         if not self.Debug:
             # 生成完整游戏随机种子
-            # 有效随机种子范围是 0 到 2^32 - 1（4,294,967,295）
-            # 如果房间数据中提供了 random_seed 且不为 0，则使用它；否则使用时间生成
-            if self.room_random_seed != 0:
-                self.game_random_seed = self.room_random_seed
-                self.isPlayerSetRandomSeed = True
-            else:
-                self.game_random_seed = int(time.time() * 1000000) % (2**32)
-                self.isPlayerSetRandomSeed = False
-            # 房间初始化 打乱玩家顺序（基于随机种子）
+            user_seed = self.room_random_seed if self.room_random_seed else None
+            self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
+            # 房间初始化 打乱玩家顺序（基于主种子）
             # 测试时不打乱玩家顺序
             # 使用随机种子创建独立的随机数生成器来打乱玩家顺序
-            rng = random.Random(self.game_random_seed)
+            rng = random.Random(self.master_seed)
             rng.shuffle(self.player_list)
 
             # 根据打乱的玩家顺序设置玩家索引
@@ -354,8 +351,7 @@ class QingqueGameState:
 
         else:
             # 测试
-            self.isPlayerSetRandomSeed = False
-            self.game_random_seed = int(time.time() * 1000000) % (2**32)
+            self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system()
             # 测试时不打乱玩家顺序
             for index, player in enumerate[QingquePlayer](self.player_list):
                 player.player_index = index
