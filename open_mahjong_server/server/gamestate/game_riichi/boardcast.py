@@ -47,7 +47,8 @@ def _build_base_game_info(self) -> dict:
         "action_tick": self.server_action_tick,
         "max_round": self.max_round,
         "tile_count": max(0, len(self.tiles_list) - self.dead_wall_count),
-        "round_random_seed": self.round_random_seed,
+        "commitment": self.commitment,
+        "salt": self.salt,
         "current_round": self.current_round,
         "step_time": self.step_time,
         "round_time": self.round_time,
@@ -402,7 +403,9 @@ async def broadcast_game_end(self):
                 success=True,
                 message="游戏结束",
                 game_end_info=Game_end_info(
-                    game_random_seed=self.game_random_seed,
+                    master_seed=self.master_seed,
+                    commitment=self.commitment,
+                    salt=self.salt,
                     player_final_data=player_final_data,
                 ),
             )

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import Dict, Optional, List
 
 
@@ -36,7 +36,9 @@ class GameInfo(BaseModel):
     action_tick: int
     max_round: int
     tile_count: int
-    round_random_seed: Optional[int] = None
+    master_seed: Optional[int] = None  # 主种子
+    commitment: Optional[int] = None   # 承诺值
+    salt: Optional[str] = None  # 盐字符串
     current_round: int
     step_time: int
     round_time: int
@@ -59,6 +61,14 @@ class GameInfo(BaseModel):
     red_dora: Optional[bool] = None  # 是否启用赤宝牌
     dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
     view_player_index: Optional[int] = None  # 实时观战/特殊视角：客户端以此座位作为 self 视角
+
+    # 在 Pydantic Model 中将 hex 字段序列化为十六进制字符串
+    @field_serializer('master_seed', when_used='unless-none')
+    def _ser_master_seed(self, v: int) -> str:
+        return str(v)
+    @field_serializer('commitment', when_used='unless-none')
+    def _ser_commitment(self, v: int) -> str:
+        return str(v)
 
 class Ask_hand_action_info(BaseModel):
     remaining_time: int
@@ -155,8 +165,18 @@ class Player_final_data(BaseModel):
 
 class Game_end_info(BaseModel):
     """游戏结束信息"""
-    game_random_seed: int  # 游戏随机种子（用于验证）
+    master_seed: int  # 主种子
+    commitment: int  # 承诺值
+    salt: str  # 盐字符串
     player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
+
+    # 在 Pydantic Model 中将 hex 字段序列化为十六进制字符串
+    @field_serializer('master_seed', when_used='unless-none')
+    def _ser_master_seed(self, v: int) -> str:
+        return str(v)
+    @field_serializer('commitment', when_used='unless-none')
+    def _ser_commitment(self, v: int) -> str:
+        return str(v)
 
 class Switch_seat_info(BaseModel):
     """换位信息"""

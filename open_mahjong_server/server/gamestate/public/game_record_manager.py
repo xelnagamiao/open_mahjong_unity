@@ -28,8 +28,12 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         "room_type": gs.room_type,
         # sub_rule: 子规则，如 guobiao/standard、riichi/standard
         "sub_rule": getattr(gs, "sub_rule", None),
-        # game_random_seed: 整局随机种子
-        "game_random_seed": gs.game_random_seed,
+        # master_seed_hex: 主种子，64 位 hex 字符串
+        "master_seed_hex": format(gs.master_seed, '064x'),
+        # commitment_hex: 承诺值，64 位 hex 字符串
+        "commitment_hex": format(gs.commitment, '064x'),
+        # salt: 盐字符串
+        "salt": gs.salt,
         # max_round: 风圈数（1=东风、2=半庄、4=全庄）
         "max_round": gs.max_round,
         # open_cuohe: 是否开启错和

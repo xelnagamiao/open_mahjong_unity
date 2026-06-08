@@ -28,7 +28,8 @@ async def broadcast_game_start(self):
         "action_tick": self.server_action_tick, # 操作帧
         'max_round': self.max_round, # 最大局数
         'tile_count': len(self.tiles_list), # 牌山剩余牌数
-        'round_random_seed': self.round_random_seed, # 单局随机种子
+        'commitment': self.commitment,  # 承诺值
+        'salt': self.salt, # 盐字符串
         'current_round': self.current_round, # 当前轮数
         'step_time': self.step_time, # 步时
         'round_time': self.round_time, # 局时
@@ -491,7 +492,9 @@ async def broadcast_game_end(self):
                     success=True,
                     message="游戏结束",
                     game_end_info=Game_end_info(
-                        game_random_seed=self.game_random_seed,  # 游戏结束时发送完整随机种子供验证
+                        master_seed=self.master_seed,  # 游戏结束时发送完整随机种子供验证
+                        commitment=self.commitment,
+                        salt=self.salt,
                         player_final_data=player_final_data
                     )
                 )

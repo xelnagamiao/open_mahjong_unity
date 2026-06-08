@@ -1,6 +1,6 @@
 # 国标麻将牌堆初始化
 import random
-import hashlib
+from ..public.random_seed_manager import derive_round_seed
 
 
 def init_guobiao_tiles(self):
@@ -27,9 +27,7 @@ def init_guobiao_tiles(self):
 
 def _shuffle_and_deal_guobiao(self) -> None:
     """国标：种子生成、洗牌、发牌（每人13张 + 庄家额外1张）"""
-    combined = f"{self.game_random_seed}_{self.current_round}".encode("utf-8")
-    hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
-    self.round_random_seed = hash_value % (2**32)
+    self.round_random_seed = derive_round_seed(self.master_seed, self.current_round)
     random.seed(self.round_random_seed)
     random.shuffle(self.tiles_list)
 
