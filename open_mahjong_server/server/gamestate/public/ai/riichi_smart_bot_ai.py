@@ -11,12 +11,27 @@ from typing import List, Set
 from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, evaluate_hand,
-    find_best_cut, find_best_cut_score, should_accept_hu,
+    find_best_cut, find_best_cut_score,
     normalize_tile, count_acceptance,
 )
-from .smart_bot_ai import _handle_qianggang, _handle_buhua_round
+from .smart_bot_ai import _handle_qianggang, _handle_buhua_round, _wait_until_actionable
 
 logger = logging.getLogger(__name__)
+
+
+def _riichi_should_accept_hu(game_state, hu_action: str) -> bool:
+    """日麻 AI 是否接受和牌：避免主动错和。
+    - 无役（no_yaku）：不接受（开启错和时人类可主动错和，但 AI 不应送人头）。
+    - 番数低于起和番数（hepai_limit）：不接受。
+    日麻 result_dict 存的是字典（与国标列表不同），故单独判定，避免误用 should_accept_hu 的 result[0]。"""
+    result = getattr(game_state, "result_dict", {}).get(hu_action)
+    if not isinstance(result, dict):
+        return True
+    if result.get("no_yaku"):
+        return False
+    han = int(result.get("han", 0))
+    limit = int(getattr(game_state, "hepai_limit", 1) or 1)
+    return han >= limit
 
 
 # ─── 食替（喰い替え）禁切牌 ─────────────────────────────────
@@ -169,7 +184,7 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
         return
 
-    if "hu_self" in action_list and should_accept_hu(game_state, player_index, "hu_self"):
+    if "hu_self" in action_list and _riichi_should_accept_hu(game_state, "hu_self"):
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 hu_self")
         await get_ai_action(game_state, player_index, "hu_self", None, None, None, None)
         return
@@ -274,8 +289,11 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     """他家切牌后的响应阶段：和牌 > 碰/吃/明杠评估 > pass
     红5归一化与食替禁切牌均在此函数内处理。
     """
+    if not await _wait_until_actionable(game_state, player_index):
+        logger.warning(f"日麻牌效AI {player_index} ({player.username}) 切牌后询问未进入 waiting_players_list，放弃操作")
+        return
     for hu_action in ("hu_first", "hu_second", "hu_third"):
-        if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
+        if hu_action in action_list and _riichi_should_accept_hu(game_state, hu_action):
             logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {hu_action}")
             await asyncio.sleep(0.5)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)

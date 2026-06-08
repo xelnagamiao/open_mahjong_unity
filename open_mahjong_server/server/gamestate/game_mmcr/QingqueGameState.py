@@ -18,7 +18,7 @@ from .boardcast import (
     broadcast_ready_status,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
+from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_strict_final_ranks
 from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
@@ -665,10 +665,8 @@ class QingqueGameState:
         end_game_record(self)
         logger.info(f"最终游戏记录: {self.game_record}")
 
-        # 按分数排序玩家
-        self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for index, player in enumerate[QingquePlayer](self.player_list):
-            player.record_counter.rank_result = index + 1
+        # 终局排名：同分按开局原始风位（东0→南1→西2→北3）拆分
+        assign_strict_final_ranks(self.player_list)
 
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息

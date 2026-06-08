@@ -155,6 +155,12 @@ public class KickPlayerFromRoomRequest { // 房主移除玩家请求
     public int target_user_id;
 }
 
+public class SetReadyRequest { // 设置准备状态请求
+    public string type;
+    public string room_id;
+    public bool ready;
+}
+
 public class GetSpectatorListRequest { // 获取观战列表请求
     public string type;
 }

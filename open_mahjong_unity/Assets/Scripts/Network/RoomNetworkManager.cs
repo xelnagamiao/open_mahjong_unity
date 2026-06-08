@@ -345,6 +345,23 @@ public class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 设置准备状态（非房主玩家可用）
+    /// </summary>
+    public async void SetReady(string roomId, bool ready) {
+        try {
+            var request = new SetReadyRequest {
+                type = "room/set_ready",
+                room_id = roomId,
+                ready = ready
+            };
+            Debug.Log($"发送准备状态消息: roomId={roomId}, ready={ready}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送准备状态请求失败: {e.Message}");
+        }
+    }
+
+    /// <summary>
     /// 从房间移除玩家（仅房主可用）
     /// </summary>
     public async void KickPlayerFromRoom(string roomId, int targetUserId) {

@@ -142,6 +142,7 @@ public static class FanTextDictionary {
         {"场风·东", "1番"}, {"场风·南", "1番"}, {"场风·西", "1番"}, {"场风·北", "1番"},
         {"岭上开花", "1番"}, {"枪杠", "1番"}, {"海底捞月", "1番"}, {"河底捞鱼", "1番"},
         {"一发", "1番"}, {"宝牌", "1番"}, {"赤宝牌", "1番"}, {"里宝牌", "1番"},
+        {"错和", "1番"},
         {"赤宝牌*1", "1番"}, {"赤宝牌*2", "2番"}, {"赤宝牌*3", "3番"},
         {"宝牌*1", "1番"}, {"宝牌*2", "2番"}, {"宝牌*3", "3番"}, {"宝牌*4", "4番"}, {"宝牌*5", "5番"},
         {"宝牌*6", "6番"}, {"宝牌*7", "7番"}, {"宝牌*8", "8番"}, {"宝牌*9", "9番"}, {"宝牌*10", "10番"},
@@ -249,7 +250,7 @@ public static class FanTextDictionary {
         else if (rule == "guobiao/xiaolin") map = FanToDisplayXiaolin;
         else if (rule == "guobiao/lanshi") map = FanToDisplayLanshi;
         else if (rule == "classical/standard") map = FanToDisplayClassical;
-        else if (rule == "riichi/standard" || rule == "riichi") {
+        else if (rule != null && rule.StartsWith("riichi")) {
             if (FanToDisplayRiichi.TryGetValue(fanName, out string riichiDisplay)) return riichiDisplay;
             if (FanToDisplayRiichiInactive.TryGetValue(fanName, out riichiDisplay)) return riichiDisplay;
             return "0番";

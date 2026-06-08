@@ -9,6 +9,7 @@ public class PlayerRoomPanel : MonoBehaviour {
     [SerializeField] private TMP_Text playerName;          // 玩家名文本
     [SerializeField] private Button playerinfoButton;      // 玩家信息按钮
     [SerializeField] private Button removePlayerButton;    // 移除玩家按钮
+    [SerializeField] private GameObject readyIcon;         // 准备图标（仅后3个非房主面板挂载，房主面板可为空）
 
     public int UserId;
 
@@ -33,6 +34,15 @@ public class PlayerRoomPanel : MonoBehaviour {
     }
 
     /// <summary>
+    /// 设置准备图标显示状态（房主面板未挂载图标时安全跳过）
+    /// </summary>
+    public void SetReady(bool ready) {
+        if (readyIcon != null) {
+            readyIcon.SetActive(ready);
+        }
+    }
+
+    /// <summary>
     /// 清空显示
     /// </summary>
     public void Clear() {
@@ -40,6 +50,9 @@ public class PlayerRoomPanel : MonoBehaviour {
         playerName.text = string.Empty;
         playerinfoButton.interactable = true;
         removePlayerButton.gameObject.SetActive(false);
+        if (readyIcon != null) {
+            readyIcon.SetActive(false);
+        }
     }
 
     private void OnPlayerInfoClicked() {

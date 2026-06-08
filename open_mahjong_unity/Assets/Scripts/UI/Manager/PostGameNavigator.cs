@@ -3,9 +3,19 @@
 /// </summary>
 public static class PostGameNavigator {
     public static void NavigateAfterGameEnd() {
+        // 匹配对局不依赖房间系统，结束后无房间可返回：直接回主菜单，并清除其仅用于聊天/协议的房间号。
+        bool wasMatch = NormalGameStateManager.Instance != null
+            && NormalGameStateManager.Instance.roomType == "match";
+
         UserDataManager.Instance.SetGamestateId("");
         GameSceneTeardown.ResetToIdle();
         HeaderPanel.Instance?.SetBackToGameVisible(false);
+
+        if (wasMatch) {
+            UserDataManager.Instance.SetRoomId("");
+            WindowsManager.Instance.ExitGameTo("menu");
+            return;
+        }
 
         if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
             WindowsManager.Instance.ExitGameTo("room");

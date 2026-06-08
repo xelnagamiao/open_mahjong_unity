@@ -148,6 +148,7 @@ class Player_final_data(BaseModel):
     score: int  # 玩家分数
     pt: float  # 段位 PT 变动
     username: str  # 用户名
+    original_player_index: Optional[int] = None  # 开局原始风位 0东1南2西3北，同分排序用
     rank_before: Optional[str] = None  # 对局前段位名
     score_before: Optional[float] = None  # 对局前段位分数
     rank_after: Optional[str] = None  # 对局后段位名
@@ -156,7 +157,7 @@ class Player_final_data(BaseModel):
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
+    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为玩家标识（国标为座位索引 "0"~"3"，可能并列名次）；展示请以 value.rank 为准
 
 class Switch_seat_info(BaseModel):
     """换位信息"""
@@ -178,6 +179,7 @@ class Player_record_info(BaseModel):
     username: str  # 用户名
     score: int  # 玩家分数
     rank: int  # 排名（1-4）
+    original_player_index: Optional[int] = None  # 开局原始风位 0东1南2西3北
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID

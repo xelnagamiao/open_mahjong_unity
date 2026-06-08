@@ -12,6 +12,7 @@ public class RoomInfo {
     public bool allow_spectator;  // 是否允许观战
     public int max_player;
     public int[] player_list;
+    public int[] ready_list; // 已准备玩家的 user_id 列表（房主不计入，机器人默认已准备不入列）
     // key: user_id (string in JSON) -> setting
     public Dictionary<string, UserSettings> player_settings;
     public bool has_password;
@@ -33,7 +34,7 @@ public class RoomInfo {
 
 public class GameEndInfo { // 显示游戏结束结果
     public long game_random_seed; // 游戏随机种子
-    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据，键为顺位 "1"～"4"，value 含 username、rank、score、pt 等
+    public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据，键为玩家标识（国标为座位索引，可能并列名次），value 含 username、rank、score、pt 等；展示请以 value["rank"] 排序
 }
 
 public class ShowResultInfo { // 显示结算结果
@@ -198,6 +199,7 @@ public class PlayerRecordInfo { // 玩家对局记录信息
     public string username;            // 用户名
     public int score;                   // 玩家分数
     public int rank;                    // 排名（1-4）
+    public int? original_player_index;  // 开局原始风位 0东1南2西3北
     public int? title_used;             // 使用的称号ID（可为空）
     public int? character_used;        // 使用的角色ID（可为空）
     public int? profile_used;           // 使用的头像ID（可为空）

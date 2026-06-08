@@ -11,8 +11,30 @@ public static class ScoreHistoryRecordSettlementExtractor {
         public List<int[]> combinationMasks = new List<int[]>();
     }
 
+    /// <summary>
+    /// 牌谱计分板单行：每次结算（含国标同一局内多次错和）各占一行，与实时对局逐次结算追加行的行为对齐。
+    /// </summary>
+    public sealed class RecordScoreRow {
+        public RoundSettlementSnapshot snapshot;
+        public int[] scoreChangesByOriginal; // 长度 4，按 original_player_index 排列
+        public int roundNumber;              // 局号(current_round)，连庄/错和会重复
+    }
+
+    /// <summary>仅返回主番快照（向后兼容）。每次结算一项，与 <see cref="ExtractScoreRows"/> 行序一致。</summary>
     public static List<RoundSettlementSnapshot> Extract(GameRecord gameRecord) {
         var result = new List<RoundSettlementSnapshot>();
+        foreach (RecordScoreRow row in ExtractScoreRows(gameRecord)) {
+            result.Add(row.snapshot);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 展开为"每次结算一行"的计分板行：分值变化、局号、主番快照三者严格对齐。
+    /// 国标同一 round_index 内的多次错和与最终和牌会各占一行（局号相同）。
+    /// </summary>
+    public static List<RecordScoreRow> ExtractScoreRows(GameRecord gameRecord) {
+        var result = new List<RecordScoreRow>();
         if (gameRecord?.gameRound?.rounds == null) return result;
 
         string rule = ReadTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
@@ -20,24 +42,21 @@ public static class ScoreHistoryRecordSettlementExtractor {
         subRule = ScoreHistorySettlementHelper.ResolveSubRule(rule, subRule);
 
         foreach (Round round in gameRecord.gameRound.GetRoundsList()) {
-            result.Add(ExtractRound(round, subRule, gameRecord.gameTitle));
+            ExtractRoundRows(round, subRule, gameRecord.gameTitle, result);
         }
         return result;
     }
 
-    private static RoundSettlementSnapshot ExtractRound(
+    private static void ExtractRoundRows(
         Round round,
         string subRule,
-        Dictionary<string, object> gameTitle) {
-        var snapshot = new RoundSettlementSnapshot {
-            subRule = subRule,
-            isLiuju = true,
-            hasWin = false,
-        };
-
+        Dictionary<string, object> gameTitle,
+        List<RecordScoreRow> output) {
         if (round?.actionTicks == null || round.seats == null || round.seats.Count < 4) {
-            return snapshot;
+            return;
         }
+
+        int roundNumber = round.currentRound > 0 ? round.currentRound : round.roundIndex;
 
         var players = new SimPlayer[4];
         for (int i = 0; i < 4; i++) players[i] = new SimPlayer();
@@ -45,8 +64,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
         InitHands(players, round);
         int lastDiscardPlayerIndex = -1;
         int lastDiscardTileId = -1;
-
-        RoundSettlementSnapshot pendingHu = null;
+        RecordScoreRow lastRow = null;
 
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
@@ -97,27 +115,62 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 case "hu_self":
                 case "hu_first":
                 case "hu_second":
-                case "hu_third":
-                    pendingHu = BuildHuSnapshot(tick, action, subRule, round, actingPlayerIndex, players, lastDiscardTileId, action != "hu_self", gameTitle);
+                case "hu_third": {
+                    RoundSettlementSnapshot snap = BuildHuSnapshot(tick, action, subRule, round, actingPlayerIndex, players, lastDiscardTileId, action != "hu_self", gameTitle);
+                    lastRow = new RecordScoreRow {
+                        snapshot = snap,
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 4), round.seats),
+                        roundNumber = roundNumber,
+                    };
+                    output.Add(lastRow);
                     break;
-                case "hu_riichi":
-                    pendingHu = BuildRiichiHuSnapshot(tick, subRule, round, players, lastDiscardTileId, gameTitle);
+                }
+                case "hu_riichi": {
+                    RoundSettlementSnapshot snap = BuildRiichiHuSnapshot(tick, subRule, round, players, lastDiscardTileId, gameTitle);
+                    lastRow = new RecordScoreRow {
+                        snapshot = snap,
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 6), round.seats),
+                        roundNumber = roundNumber,
+                    };
+                    output.Add(lastRow);
                     break;
-                case "shuhewei":
-                    ApplyShuhewei(tick, pendingHu ?? snapshot);
-                    if (pendingHu != null) snapshot = pendingHu;
+                }
+                case "shuhewei": {
+                    if (lastRow == null) {
+                        lastRow = new RecordScoreRow {
+                            snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = false, hasWin = false },
+                            roundNumber = roundNumber,
+                        };
+                        output.Add(lastRow);
+                    }
+                    ApplyShuhewei(tick, lastRow.snapshot);
+                    int[] shScores = ParseScoreChanges(tick, 2);
+                    if (shScores != null) {
+                        lastRow.scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(shScores, round.seats);
+                    }
                     break;
+                }
+                case "ryuukyoku": {
+                    lastRow = new RecordScoreRow {
+                        snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
+                        scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 2), round.seats),
+                        roundNumber = roundNumber,
+                    };
+                    output.Add(lastRow);
+                    break;
+                }
                 case "liuju":
-                case "ryuukyoku":
-                case "jiuzhongjiupai":
-                    return new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action };
+                case "jiuzhongjiupai": {
+                    lastRow = new RecordScoreRow {
+                        snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
+                        scoreChangesByOriginal = new int[4],
+                        roundNumber = roundNumber,
+                    };
+                    output.Add(lastRow);
+                    break;
+                }
             }
         }
-
-        if (pendingHu != null) {
-            snapshot = pendingHu;
-        }
-        return snapshot;
     }
 
     private static void InitHands(SimPlayer[] players, Round round) {

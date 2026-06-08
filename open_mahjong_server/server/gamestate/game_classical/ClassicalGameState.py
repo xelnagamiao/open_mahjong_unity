@@ -20,7 +20,7 @@ from .boardcast import (
     broadcast_shuhewei,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num
+from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
@@ -596,9 +596,7 @@ class ClassicalGameState:
         end_game_record(self)
         logger.info(f"最终游戏记录: {self.game_record}")
 
-        self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for index, player in enumerate[ClassicalPlayer](self.player_list):
-            player.record_counter.rank_result = index + 1
+        assign_strict_final_ranks(self.player_list)
 
         await self.broadcast_game_end()
 

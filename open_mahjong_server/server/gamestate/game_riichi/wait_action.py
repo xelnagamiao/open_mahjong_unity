@@ -10,6 +10,7 @@ from .action_check import (
     check_action_jiagang,
     refresh_waiting_tiles,
     compute_kuikae_forbidden,
+    _chi_pair_has_valid_discard,
 )
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_refresh_player_tag_list
 from ..public.logic_common import get_index_relative_position
@@ -264,6 +265,14 @@ async def wait_action(self):
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
                                             normal_tile - 1, normal_tile - 2,
                                             int(action_data.get("chi_combo_index") or 0))
+                    if self._kuikae_enabled() and not _chi_pair_has_valid_discard(
+                        self.player_list[player_index].hand_tiles, action_type, tile_id, r1, r2
+                    ):
+                        logger.warning(
+                            f"非法chi_left（食替无合法切牌）：player={player_index}, tile_id={tile_id}, "
+                            f"pair=({r1},{r2}), hand={self.player_list[player_index].hand_tiles}"
+                        )
+                        return
                     self.player_list[player_index].hand_tiles.remove(r1)
                     self.player_list[player_index].hand_tiles.remove(r2)
                     self.player_list[player_index].combination_tiles.append(f"s{normal_tile - 1}")
@@ -273,6 +282,14 @@ async def wait_action(self):
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
                                             normal_tile - 1, normal_tile + 1,
                                             int(action_data.get("chi_combo_index") or 0))
+                    if self._kuikae_enabled() and not _chi_pair_has_valid_discard(
+                        self.player_list[player_index].hand_tiles, action_type, tile_id, r1, r2
+                    ):
+                        logger.warning(
+                            f"非法chi_mid（食替无合法切牌）：player={player_index}, tile_id={tile_id}, "
+                            f"pair=({r1},{r2}), hand={self.player_list[player_index].hand_tiles}"
+                        )
+                        return
                     self.player_list[player_index].hand_tiles.remove(r1)
                     self.player_list[player_index].hand_tiles.remove(r2)
                     self.player_list[player_index].combination_tiles.append(f"s{normal_tile}")
@@ -282,6 +299,14 @@ async def wait_action(self):
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
                                             normal_tile + 1, normal_tile + 2,
                                             int(action_data.get("chi_combo_index") or 0))
+                    if self._kuikae_enabled() and not _chi_pair_has_valid_discard(
+                        self.player_list[player_index].hand_tiles, action_type, tile_id, r1, r2
+                    ):
+                        logger.warning(
+                            f"非法chi_right（食替无合法切牌）：player={player_index}, tile_id={tile_id}, "
+                            f"pair=({r1},{r2}), hand={self.player_list[player_index].hand_tiles}"
+                        )
+                        return
                     self.player_list[player_index].hand_tiles.remove(r1)
                     self.player_list[player_index].hand_tiles.remove(r2)
                     self.player_list[player_index].combination_tiles.append(f"s{normal_tile + 1}")
@@ -334,7 +359,8 @@ async def wait_action(self):
                         await broadcast_refresh_player_tag_list(self)
                     _clear_ippatsu(self)
                     # 食替：吃/碰后到本家切牌前不可丢回的牌（吃来源 + 两面搭子的筋）
-                    if action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
+                    # 浪涌麻将可食替：不设禁切牌，允许吃什么打什么。
+                    if self._kuikae_enabled() and action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
                         self.player_list[self.current_player_index].kuikae_forbidden_tiles = compute_kuikae_forbidden(
                             self.player_list[self.current_player_index]
                         )

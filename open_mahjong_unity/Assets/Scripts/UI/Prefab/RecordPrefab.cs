@@ -52,7 +52,13 @@ public class RecordPrefab : MonoBehaviour{
         TextMeshProUGUI[] scoreTexts = { Score1Text, Score2Text, Score3Text, Score4Text };
 
         if (players != null) {
-            System.Array.Sort(players, (a, b) => a.rank.CompareTo(b.rank));
+            System.Array.Sort(players, (a, b) => {
+                int rankCmp = a.rank.CompareTo(b.rank);
+                if (rankCmp != 0) return rankCmp;
+                int origA = a.original_player_index ?? int.MaxValue;
+                int origB = b.original_player_index ?? int.MaxValue;
+                return origA.CompareTo(origB);
+            });
             for (int i = 0; i < 4; i++) {
                 if (i < players.Length) {
                     rankTexts[i].text = $"{players[i].rank}位";

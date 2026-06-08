@@ -18,11 +18,13 @@ public class GamePlayerPanel : MonoBehaviour {
     }
 
 
-    // 设置玩家信息
-    public void SetPlayerInfo(PlayerInfo playerInfo, string state) {
-
-        // 设置玩家名称
-        playerNameText.text = playerInfo.username;
+    public void SetPlayerInfo(PlayerInfo playerInfo, string state, string position = null) {
+        if (state == "gamestate") {
+            playerNameText.text = StreamerModeHelper.FormatGamestatePlayerName(
+                playerInfo.username, position, playerInfo.user_id);
+        } else {
+            playerNameText.text = playerInfo.username;
+        }
         // 设置头衔
         playerTitleText.text = ConfigManager.GetTitleText(playerInfo.title_used);
 

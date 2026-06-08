@@ -56,11 +56,12 @@ public class Card3DHoverManager : MonoBehaviour
     /// 注册一个3D卡牌
     /// </summary>
     public void RegisterCard(GameObject cardObj, int tileId) {
-        if (!tileIdToCards.ContainsKey(tileId)) {
-            tileIdToCards[tileId] = new List<GameObject>();
+        int key = TileIdOrder.Normalize(tileId);
+        if (!tileIdToCards.ContainsKey(key)) {
+            tileIdToCards[key] = new List<GameObject>();
         }
-        if (!tileIdToCards[tileId].Contains(cardObj)) {
-            tileIdToCards[tileId].Add(cardObj);
+        if (!tileIdToCards[key].Contains(cardObj)) {
+            tileIdToCards[key].Add(cardObj);
             
             Renderer renderer = cardObj.GetComponent<Renderer>();
             Material mat = renderer.materials[0];
@@ -82,10 +83,11 @@ public class Card3DHoverManager : MonoBehaviour
     /// 取消注册一个3D卡牌
     /// </summary>
     public void UnregisterCard(GameObject cardObj, int tileId) {
-        if (tileIdToCards.ContainsKey(tileId)) {
-            tileIdToCards[tileId].Remove(cardObj);
-            if (tileIdToCards[tileId].Count == 0) {
-                tileIdToCards.Remove(tileId);
+        int key = TileIdOrder.Normalize(tileId);
+        if (tileIdToCards.ContainsKey(key)) {
+            tileIdToCards[key].Remove(cardObj);
+            if (tileIdToCards[key].Count == 0) {
+                tileIdToCards.Remove(key);
             }
         }
         cardMaterialData.Remove(cardObj);
@@ -121,13 +123,14 @@ public class Card3DHoverManager : MonoBehaviour
     /// 当鼠标悬停在某个tileId的卡牌上时调用
     /// </summary>
     public void OnCardHover(int tileId) {
-        if (currentHoveredTileId == tileId) return;
+        int key = TileIdOrder.Normalize(tileId);
+        if (currentHoveredTileId == key) return;
         if (currentHoveredTileId != -1) {
             RestoreCards(currentHoveredTileId);
         }
-        currentHoveredTileId = tileId;
-        if (tileIdToCards.ContainsKey(tileId)) {
-            SetCardsHovered(tileId);
+        currentHoveredTileId = key;
+        if (tileIdToCards.ContainsKey(key)) {
+            SetCardsHovered(key);
         }
     }
 

@@ -9,7 +9,6 @@ namespace Riichi {
         public bool IsTsumo;
         public bool IsRiichi;
         public bool IsDaburuRiichi;
-        public bool IsIppatsu;
         public bool IsRinshan;
         public bool IsChankan;
         public bool IsHaitei;

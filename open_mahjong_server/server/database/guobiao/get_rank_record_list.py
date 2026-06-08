@@ -49,6 +49,7 @@ def get_rank_record_list(db_manager, user_id: int, limit: int = 10) -> list:
                 gpr.username,
                 gpr.score,
                 gpr."rank" AS player_rank,
+                gpr.original_player_index,
                 gpr.rule,
                 gpr.sub_rule,
                 gpr.match_type,
@@ -57,7 +58,7 @@ def get_rank_record_list(db_manager, user_id: int, limit: int = 10) -> list:
             FROM game_player_records gpr
             INNER JOIN game_records gr ON gr.game_id = gpr.game_id
             WHERE gpr.game_id IN ({placeholders})
-            ORDER BY gr.created_at DESC, gpr."rank"
+            ORDER BY gr.created_at DESC, gpr."rank", gpr.original_player_index NULLS LAST, gpr.score DESC
             """,
             game_ids,
         )
@@ -81,6 +82,7 @@ def get_rank_record_list(db_manager, user_id: int, limit: int = 10) -> list:
                     "username": row.get("username") or "",
                     "score": row["score"] if row["score"] is not None else 0,
                     "rank": row["player_rank"],
+                    "original_player_index": row.get("original_player_index"),
                 }
             )
 

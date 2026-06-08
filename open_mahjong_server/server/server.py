@@ -227,6 +227,12 @@ class GameServer:
         response = await self.room_manager.kick_player_from_room(Connect_id, room_id, target_user_id)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
+    # 设置玩家准备状态
+    async def set_player_ready(self, Connect_id: str, room_id: str, ready: bool):
+        response = await self.room_manager.set_player_ready(Connect_id, room_id, ready)
+        if response:
+            await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+
     # 开始游戏
     async def start_game(self, Connect_id: str, room_id: str):
         """开始游戏（委托给游戏状态管理器）"""
@@ -243,7 +249,7 @@ class GameServer:
         获取服务器统计数据
         返回：在线人数、等待房间数、进行房间数
         """
-        # 在线人数：所有已连接的玩家 (骗人的，加2个人热闹点，快来逮捕我)
+        # 在线人数：所有已连接的玩家 (设置两名阴兵，谁懂)
         online_players = len(self.players) + 2
         
         # 进行房间数：正在运行游戏的房间

@@ -57,6 +57,7 @@ public class CreatePanel : MonoBehaviour {
             { CfgRandomSeed,     false },
             { CfgTouristLimit,   false },
             { CfgAllowSpectator, true },
+            { CfgSubRule,        0 }, // 子规则下拉索引（0=标准 1=浪涌）
             { CfgCuohe,          false },
             { CfgHepaiLimit,     1 },
             { CfgRedDora,        true }, // 赤宝牌：开
@@ -136,7 +137,8 @@ public class CreatePanel : MonoBehaviour {
         { "guobiao/xiaolin", "小林改版国标麻将，对国标麻将进行了番数平衡，还处于测试版，取消了8番起胡和底分，改为点和得分x2，自摸番三。非竞技规则，只为娱乐。" },
         { "guobiao/lanshi", "蓝十改版的国标麻将规则，对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。" },
         { "classical/standard", "本规则为根据《绘图麻雀牌谱》《想定宁波规则》等书籍文献资料汇总而成的，试图还原1920年代左右或以前的早期麻将样貌的麻将规则。相比现代规则，古典麻雀有番种体系简单、重刻杠幺九、未和牌家计分等特点，具有独特风味。" },
-        { "riichi/standard", "立直麻将参照天凤/雀魂规则进行设计，目前还在测试阶段" }
+        { "riichi/standard", "立直麻将参照天凤/雀魂规则进行设计，目前还在测试阶段" },
+        { "riichi/langyong", "浪涌麻将，等待填充介绍，byB站up主大理石狐自恧" }
     };
 
     private void Start() {
@@ -177,9 +179,13 @@ public class CreatePanel : MonoBehaviour {
             3 => "classical",
             _ => "guobiao"
         };
+        bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
+        if (hasSubRule) {
+            PopulateSubRuleDropdown(_ruleState);
+        }
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
-        if (_ruleState == "guobiao") {
+        if (hasSubRule) {
             OnSubRuleChanged(SubRuleDropdown.value);
         }
         RefreshSubRuleDescription();
@@ -251,8 +257,12 @@ public class CreatePanel : MonoBehaviour {
     private string GetCurrentSubRuleKey() {
         if (_ruleState == "qingque") return "qingque/standard";
         if (_ruleState == "classical") return "classical/standard";
-        if (_ruleState == "riichi") return "riichi/standard";
+        if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
         return GetSelectedSubRule();
+    }
+
+    private string GetSelectedRiichiSubRule() {
+        return SubRuleDropdown.value == 1 ? "riichi/langyong" : "riichi/standard";
     }
 
     private void RefreshSubRuleDescription() {
@@ -262,29 +272,41 @@ public class CreatePanel : MonoBehaviour {
     }
 
     private void InitSubRuleDropdown() {
-        SubRuleDropdown.ClearOptions();
-        // SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
-        SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)" });
-        SubRuleDropdown.value = 0;
+        PopulateSubRuleDropdown(_ruleState);
         OnSubRuleChanged(0);
     }
 
-    private void OnSubRuleChanged(int index) {
-        bool isXiaolin = (index == 1);
-        bool isLanshi = (index == 2);
-        RefreshSubRuleDescription();
-        if (isXiaolin) {
-            InputHepaiLimitToggle.isOn = false;
-            HepaiLimitInput.text = "1";
-            CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
-            CuoHeheToggle.isOn = false;
-            CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
+    /// <summary>按当前规则填充子规则下拉选项。仅含子规则的规则（国标 / 日麻）会用到。</summary>
+    private void PopulateSubRuleDropdown(string rule) {
+        SubRuleDropdown.ClearOptions();
+        if (rule == "riichi") {
+            SubRuleDropdown.AddOptions(new List<string> { "立直麻将(标准)", "浪涌麻将" });
         } else {
-            if (isLanshi) {
+            // 国标：SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
+            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)" });
+        }
+        SubRuleDropdown.value = 0;
+    }
+
+    private void OnSubRuleChanged(int index) {
+        RefreshSubRuleDescription();
+        // 日麻子规则（标准 / 浪涌）不涉及起和番/错和的二次收窄，仅国标需处理。
+        if (_ruleState == "guobiao") {
+            bool isXiaolin = (index == 1);
+            bool isLanshi = (index == 2);
+            if (isXiaolin) {
                 InputHepaiLimitToggle.isOn = false;
-                HepaiLimitInput.text = "5";
+                HepaiLimitInput.text = "1";
+                CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
+                CuoHeheToggle.isOn = false;
+                CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
             } else {
-                HepaiLimitInput.text = "8";
+                if (isLanshi) {
+                    InputHepaiLimitToggle.isOn = false;
+                    HepaiLimitInput.text = "5";
+                } else {
+                    HepaiLimitInput.text = "8";
+                }
             }
         }
         RefreshVisibility();
@@ -347,7 +369,7 @@ public class CreatePanel : MonoBehaviour {
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
             Rule = "riichi",
-            SubRule = "riichi/standard",
+            SubRule = GetSelectedRiichiSubRule(),
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,

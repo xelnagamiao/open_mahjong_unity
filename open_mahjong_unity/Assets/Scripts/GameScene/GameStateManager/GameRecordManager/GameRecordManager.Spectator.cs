@@ -189,6 +189,8 @@ public partial class GameRecordManager {
                         continue;
                     }
                     roundData.actionTicks.Add(tick);
+                    // 观战实时累计分值变化，确保计分板分值列随结算更新而非恒为 0
+                    GameRecordJsonDecoder.AccumulateScoreChangesFromTick(roundData, tick);
                     targetNode++;
                     if (roundIndex == currentRoundIndex) {
                         currentRoundChanged = true;
@@ -202,6 +204,10 @@ public partial class GameRecordManager {
             if (gameRecord.gameRound.rounds.ContainsKey(currentRoundIndex)) {
                 BuildXunmuToNodeAndCreateItems();
                 RefreshCurrentRecordTexts();
+            }
+            // 计分板若处于打开状态，随结算实时刷新分值列
+            if (ScoreHistoryPanel.Instance != null && ScoreHistoryPanel.Instance.gameObject.activeSelf) {
+                RefreshRecordScoreTable();
             }
         }
 
@@ -287,7 +293,9 @@ public partial class GameRecordManager {
             }
 
             string nextAction = PeekNextTickAction();
-            float delay = GetSpectatorDelay(nextAction);
+            // end tick 会清除上一条结算（和牌/流局）面板。这里需按结算面板的完整演出时长保持，
+            // 否则会出现“和牌面板一闪而过就进入下一局”的问题（应与真实玩家 8 秒确认倒计时一致）。
+            float delay = nextAction == "end" ? GetSpectatorEndHoldDelay() : GetSpectatorDelay(nextAction);
             yield return new WaitForSeconds(delay / autoPlaySpeed);
             if (!IsSpectating) yield break;
             SpectatorNextAction();
@@ -348,15 +356,61 @@ public partial class GameRecordManager {
             case "cr":
             case "p":
             case "g": return 0.6f;
+            // 和牌前仅短暂停留以展示和牌张/摸切张，真正的“面板停留”由其后的 end tick 保持（见 GetSpectatorEndHoldDelay）。
             case "hu_self":
             case "hu_first":
             case "hu_second":
-            case "hu_third": return 6.0f;
+            case "hu_third":
+            case "hu_riichi": return 1.0f;
             case "liuju":
             case "jiuzhongjiupai": return 2.0f;
             case "shuhewei": return 5.0f;
             case "end": return 0.5f;
             default: return 0.3f;
+        }
+    }
+
+    /// <summary>
+    /// 计算 end tick 的保持时长：end 会清除上一条结算面板，需保持到结算演出完成。
+    /// - 和牌：按番/符数量计算完整面板演出时长（含确认倒计时），与真实玩家观感一致；
+    /// - 流局/九种九牌：保持流局提示停留时间；
+    /// - 其它：沿用默认短延时。
+    /// </summary>
+    private float GetSpectatorEndHoldDelay() {
+        const float defaultDelay = 0.5f;
+        if (gameRecord?.gameRound?.rounds == null) return defaultDelay;
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) return defaultDelay;
+        if (roundData.actionTicks == null || currentNode <= 0 || currentNode > roundData.actionTicks.Count) return defaultDelay;
+
+        List<string> prevTick = roundData.actionTicks[currentNode - 1];
+        if (prevTick == null || prevTick.Count == 0) return defaultDelay;
+
+        string prev = prevTick[0];
+        switch (prev) {
+            case "hu_self":
+            case "hu_first":
+            case "hu_second":
+            case "hu_third": {
+                // tick: [hu_class, hepai_index, hu_score, hu_fan_json, score_changes_json, base_fu?, fu_fan_list?]
+                int fanCount = ParseHuFanList(prevTick, 3)?.Length ?? 0;
+                int fuFanCount = prevTick.Count > 6 ? (ParseHuFanList(prevTick, 6)?.Length ?? 0) : 0;
+                return RoundEndTiming.GetHuResultPanelDuration(fanCount, fuFanCount, 0f);
+            }
+            case "hu_riichi": {
+                // tick: [hu_riichi, hepai_index, hu_class, han, fu, yaku[], ...]
+                string huClass = prevTick.Count > 2 ? prevTick[2] : "hu_self";
+                if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
+                    return 2.0f;
+                }
+                int yakuCount = ParseHuFanList(prevTick, 5)?.Length ?? 0;
+                return RoundEndTiming.GetHuResultPanelDuration(yakuCount, 0, 0f);
+            }
+            case "liuju":
+            case "jiuzhongjiupai":
+            case "ryuukyoku":
+                return 2.0f;
+            default:
+                return defaultDelay;
         }
     }
 
@@ -391,7 +445,35 @@ public partial class GameRecordManager {
             currentNode++;
             UpdateCurrentXunmuText();
         } else {
+            // 国标错和不结束本局、不产生 end tick，其结算面板没有关闭时机。
+            // 当本局继续打牌的行动 tick 到来、且仍残留着上一条（错和）结算面板时，先关闭面板，避免观战画面被一直盖住而“卡住”。
+            if (IsContinuingPlayTickAction(action) && EndResultPanel.Instance != null
+                && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
+                EndResultPanel.Instance.ClearEndResultPanel();
+            }
             NextAction();
+        }
+    }
+
+    /// <summary>本局内继续推进牌局的行动 tick（摸/切/补花/吃碰杠/立直）；和牌/数和尾等结算 tick 不在其列。</summary>
+    private static bool IsContinuingPlayTickAction(string action) {
+        switch (action) {
+            case "d":
+            case "gd":
+            case "bd":
+            case "c":
+            case "bh":
+            case "ag":
+            case "jg":
+            case "cl":
+            case "cm":
+            case "cr":
+            case "p":
+            case "g":
+            case "riichi":
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -666,7 +748,10 @@ public partial class GameRecordManager {
             foreach (JToken tickToken in actionTicks) {
                 JArray tickArr = tickToken as JArray;
                 if (tickArr == null) continue;
-                round.actionTicks.Add(ConvertTickArrayToList(tickArr));
+                List<string> tick = ConvertTickArrayToList(tickArr);
+                round.actionTicks.Add(tick);
+                // 观战同样累计分值变化，避免计分板分值列全为 0
+                GameRecordJsonDecoder.AccumulateScoreChangesFromTick(round, tick);
             }
         }
 

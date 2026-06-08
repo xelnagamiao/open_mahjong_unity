@@ -172,10 +172,10 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, sub_rule, match_type, room_type, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    game_id, player.user_id, player.username, player.score, rank, rule, sub_rule, match_type, room_type,
+                    game_id, player.user_id, player.username, player.score, rank, player.original_player_index, rule, sub_rule, match_type, room_type,
                     title_used, character_used, profile_used, voice_used
                 ))
                 saved_count += 1
