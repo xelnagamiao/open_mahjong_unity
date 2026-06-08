@@ -371,11 +371,15 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     
-    /// <summary>河牌摸切灰显：牌谱读 game_title.show_moqie_hint（缺省开）；对局读 GameInfo（缺省关）。</summary>
+    /// <summary>河牌摸切灰显：牌谱阅览由左侧「手摸切」开关控制（缺省开）；对局读 GameInfo（缺省关）。</summary>
     private bool ShouldApplyMoqieDiscardGray(bool cutClass) {
         if (!cutClass) return false;
         var recordMgr = GameRecordManager.Instance;
         if (recordMgr != null && recordMgr.gameRecord != null) {
+            // 牌谱阅览：以左侧手摸切开关为准，覆盖牌谱内 show_moqie_hint 标记
+            if (RecordSetting.Instance != null) {
+                return RecordSetting.Instance.IsShowMoqieMode;
+            }
             return recordMgr.ShowMoqieHint;
         }
         var gsm = NormalGameStateManager.Instance;

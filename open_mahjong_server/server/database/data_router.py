@@ -50,6 +50,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                     username=player_data['username'],
                     score=player_data['score'],
                     rank=player_data['rank'],
+                    original_player_index=player_data.get('original_player_index'),
                     title_used=player_data.get('title_used'),
                     character_used=player_data.get('character_used'),
                     profile_used=player_data.get('profile_used'),
@@ -123,6 +124,7 @@ async def handle_get_rank_record_list(game_server, Connect_id: str, message: dic
                         username=p.get("username") or "",
                         score=p.get("score") if p.get("score") is not None else 0,
                         rank=p.get("rank") if p.get("rank") is not None else 0,
+                        original_player_index=p.get("original_player_index"),
                     )
                 )
             record_list.append(
@@ -220,6 +222,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
                 username=p['username'],
                 score=p['score'],
                 rank=p['rank'],
+                original_player_index=p.get('original_player_index'),
                 title_used=p.get('title_used'),
                 character_used=p.get('character_used'),
                 profile_used=p.get('profile_used'),

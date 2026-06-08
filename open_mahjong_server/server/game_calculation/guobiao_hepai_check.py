@@ -864,15 +864,22 @@ class Chinese_Hepai_Check:
 
             # 根据刻子标记的步进判断 一色三节高 一色四节高
             sign_pointer = int(save_kezi_sign[0])
-            sign_count = 0
+            sign_count = 1
             for sign in save_kezi_sign:
-                if int(sign) == sign_pointer and int(sign) <= 40:
+                sign_val = int(sign)
+                if sign_val == sign_pointer + 1 and sign_val <= 40:
                     sign_count += 1
-                    sign_pointer += 1
-            if sign_count == 3:
-                player_tiles.fan_list.append("yisesanjiegao") # 一色三节高
-            elif sign_count == 4:
+                    sign_pointer = sign_val
+                elif sign_val == sign_pointer:
+                    pass
+                else: # 步进不连续则重新开始计数
+                    if sign_count <= 2:
+                        sign_count = 1
+                        sign_pointer = sign_val
+            if sign_count >= 4:
                 player_tiles.fan_list.append("yisesijiegao") # 一色四节高
+            elif sign_count >= 3:
+                player_tiles.fan_list.append("yisesanjiegao") # 一色三节高
             
             # 根据刻子标记的值的尾数切片判断 全双刻 三同刻 双同刻 三色三节高
             wan_list = []

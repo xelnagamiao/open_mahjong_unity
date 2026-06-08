@@ -37,7 +37,7 @@ class Riichi_Tingpai_Check:
 
         if len(player_tiles.hand_tiles) == 13 and not player_tiles.combination_list:
             self.GS_check(player_tiles.hand_tiles)
-            self.QD_check(player_tiles.hand_tiles)
+            self.QD_check_without_dragon_seven_pairs(player_tiles.hand_tiles)
 
         self.normal_check(player_tiles)
         return self.waiting_tiles
@@ -59,7 +59,9 @@ class Riichi_Tingpai_Check:
                 for i in self.yaojiu:
                     self.waiting_tiles.add(i)
 
-    def QD_check(self, hand_tiles: List[int]):
+    def QD_check_without_dragon_seven_pairs(self, hand_tiles: List[int]):
+        """七对子听牌（不含龙七对）：仅 6 对 + 1 单张。
+        龙七对（dragon seven pairs）为 5 对 + 1 刻听第 4 张，和牌后同牌四张，非日麻七对子。"""
         tile_counts = {}
         for tile_id in hand_tiles:
             tile_counts[tile_id] = tile_counts.get(tile_id, 0) + 1
@@ -67,12 +69,16 @@ class Riichi_Tingpai_Check:
         single = 0
         waiting_tile = None
         for tile_id, count in tile_counts.items():
-            if count == 1 or count == 3:
+            if count == 1:
                 single += 1
                 waiting_tile = tile_id
+            elif count == 2:
+                continue
+            else:
+                return
             if single >= 2:
                 return
-        if single == 1:
+        if single == 1 and waiting_tile is not None:
             self.waiting_tiles.add(waiting_tile)
 
     def normal_check(self, player_tiles: PlayerTiles):
@@ -167,8 +173,10 @@ class Riichi_Tingpai_Check:
 
 
 if __name__ == "__main__":
-    test_hand_tiles = [11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47]
     checker = Riichi_Tingpai_Check()
+
+    # 国士
+    test_hand_tiles = [11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47]
     t0 = time()
     result = checker.tingpai_check(test_hand_tiles, [])
     t1 = time()
@@ -176,3 +184,20 @@ if __name__ == "__main__":
     print("手牌:", test_hand_tiles)
     print("听牌:", sorted(result))
     print("耗时:", t1 - t0)
+
+    # 标准七对子：6 对 + 1 单
+    std_qd = [12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18]
+    checker.waiting_tiles.clear()
+    checker.QD_check_without_dragon_seven_pairs(std_qd)
+    assert checker.waiting_tiles == {18}, f"标准七对听牌失败: {checker.waiting_tiles}"
+
+    # 龙七对型：5 对 + 1 刻，不应产生七对听牌
+    dragon_qd = [11, 11, 12, 12, 41, 41, 42, 42, 43, 43, 43, 44, 44]
+    checker.waiting_tiles.clear()
+    checker.QD_check_without_dragon_seven_pairs(dragon_qd)
+    assert checker.waiting_tiles == set(), f"龙七对误听牌: {checker.waiting_tiles}"
+
+    dragon_waits = checker.tingpai_check(dragon_qd, [])
+    assert 43 not in dragon_waits, f"龙七对误进入总听牌: {dragon_waits}"
+    print("龙七对听牌排除: OK")
+    print("标准七对听牌: OK")

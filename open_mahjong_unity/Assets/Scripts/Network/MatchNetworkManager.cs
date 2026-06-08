@@ -45,7 +45,9 @@ public class MatchNetworkManager : MonoBehaviour {
 
     private void HandleLeaveQueueDone(Response response) {
         isMatchFoundLocked = false;
-        MatchQueueingPanel.Instance?.Hide();
+        MatchStateManager.Instance?.StopQueueing();
+        MatchQueueingPanel.Instance?.HideImmediately();
+        MatchFoundedPanel.Instance?.StopCountdownAndHide();
     }
 
     private void HandleQueueStatus(Response response) {
@@ -56,6 +58,7 @@ public class MatchNetworkManager : MonoBehaviour {
 
     private void HandleMatchFound(Response response) {
         isMatchFoundLocked = true;
+        MatchQueueingPanel.Instance?.HideImmediately();
         MatchFoundedPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
     }
 
@@ -63,6 +66,21 @@ public class MatchNetworkManager : MonoBehaviour {
     public async void SendJoinQueue(string queueType) {
         if (UserDataManager.Instance != null && UserDataManager.Instance.IsTourist) {
             NotificationManager.Instance?.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
+            return;
+        }
+        // 已匹配成功正在进入对局时，禁止再次匹配（与服务端承诺锁一致，避免被拉入第二桌）
+        if (isMatchFoundLocked) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "已匹配到对局，正在进入游戏");
+            return;
+        }
+        // 仍处于进行中的对局 / 观战会话时，禁止匹配（防止当前一局未结束就开始下一局）
+        if (GameSessionGuard.HasExclusiveSession) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "当前对局尚未结束，无法匹配");
+            return;
+        }
+        // 处于房间中（自定义房等）时禁止匹配，需先退出房间
+        if (UserDataManager.Instance != null && UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "请先退出当前房间再进行排位匹配");
             return;
         }
         isMatchFoundLocked = false;

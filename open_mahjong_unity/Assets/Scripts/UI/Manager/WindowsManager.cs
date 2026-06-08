@@ -9,6 +9,7 @@ public class WindowsManager : MonoBehaviour {
     [Header("顶层窗口")]
     [SerializeField] private GameObject headerPanel; // 
     [SerializeField] private GameObject chatPanel; // 聊天窗口 保持窗口常开
+    [SerializeField] private GameObject streamerModePanel; // 主播模式面板
     [SerializeField] private GameObject gamePanel; // 游戏窗口
     
     [Header("一级窗口")]
@@ -40,13 +41,48 @@ public class WindowsManager : MonoBehaviour {
     private Coroutine _switchRoutine;
 
     private void Awake() {
-        if (Instance == null) {
-            Instance = this;
-        } else {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
+            return;
         }
+        Instance = this;
         ApplyColdBootHiddenState(); // 未登录前关掉场景中的一级窗口，避免子面板 Start 协程读到空用户名等
+        StreamerModeHelper.OnChanged += ApplyStreamerModePanels;
         SwitchWindow("login"); // 初始化窗口 游戏初始应当在mainCanvas中显示登录窗口
+    }
+
+    private void Start() {
+        ApplyStreamerModePanels();
+    }
+
+    private void OnDestroy() {
+        StreamerModeHelper.OnChanged -= ApplyStreamerModePanels;
+    }
+
+    public void ApplyStreamerModePanels() {
+        bool showStreamerPanel = StreamerModeHelper.IsEnabled;
+        GameObject chat = ResolveChatPanel();
+        GameObject streamer = ResolveStreamerModePanel();
+        if (chat != null) {
+            chat.SetActive(!showStreamerPanel);
+        }
+        if (streamer != null) {
+            streamer.SetActive(showStreamerPanel);
+        }
+    }
+
+    private GameObject ResolveChatPanel() {
+        if (chatPanel != null) {
+            return chatPanel;
+        }
+        return ChatPanel.Instance != null ? ChatPanel.Instance.gameObject : null;
+    }
+
+    private GameObject ResolveStreamerModePanel() {
+        if (streamerModePanel != null) {
+            return streamerModePanel;
+        }
+        return StreamerModePanel.Instance != null ? StreamerModePanel.Instance.gameObject : null;
     }
 
     /// <summary>

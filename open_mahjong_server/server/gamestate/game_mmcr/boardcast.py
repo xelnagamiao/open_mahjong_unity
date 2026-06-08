@@ -458,14 +458,15 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典，键为顺位字符串 "1"～"4"
+    # 构建玩家最终数据字典，键为座位索引 "0"～"3"（同分排序按 original_player_index）
     player_final_data = {}
     for player in self.player_list:
-        player_final_data[str(player.record_counter.rank_result)] = Player_final_data(
+        player_final_data[str(player.player_index)] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=0,
-            username=player.username
+            username=player.username,
+            original_player_index=player.original_player_index,
         )
     
     # 为每个玩家发送游戏结束信息

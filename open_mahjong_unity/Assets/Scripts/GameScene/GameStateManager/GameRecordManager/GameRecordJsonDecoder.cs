@@ -128,22 +128,31 @@ public static class GameRecordJsonDecoder {
                     }
                 }
                 round.actionTicks.Add(tick);
-
-                string act = tick[0];
-                if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
-                    int[] sc = ParseScoreChangesFromTick(tick, 4);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
-                } else if (act == "hu_riichi" && tick.Count >= 7) {
-                    int[] sc = ParseScoreChangesFromTick(tick, 6);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
-                } else if (act == "ryuukyoku" && tick.Count >= 3) {
-                    int[] sc = ParseScoreChangesFromTick(tick, 2);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
-                }
+                AccumulateScoreChangesFromTick(round, tick);
             }
         }
 
         return round;
+    }
+
+    /// <summary>
+    /// 从单条 tick 累计本局 score_changes（兼容 hu_* / hu_riichi / ryuukyoku，含国标错和 hu_* tick）。
+    /// 供牌谱初次解析与观战增量解析共用，确保观战分值列不为 0。
+    /// </summary>
+    public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
+        if (round == null || tick == null || tick.Count == 0) return;
+        string act = tick[0];
+        int[] sc;
+        if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
+            sc = ParseScoreChangesFromTick(tick, 4);
+        } else if (act == "hu_riichi" && tick.Count >= 7) {
+            sc = ParseScoreChangesFromTick(tick, 6);
+        } else if (act == "ryuukyoku" && tick.Count >= 3) {
+            sc = ParseScoreChangesFromTick(tick, 2);
+        } else {
+            return;
+        }
+        AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
     }
 
     private static void AccumulateScoreChanges(Round round, int[] sc) {

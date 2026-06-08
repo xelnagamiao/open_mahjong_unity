@@ -317,6 +317,33 @@ class Riichi_Hepai_Check:
             config=config,
         )
 
+        # 牌型成立但无役（如吃了牌却没有任何役、单纯宝牌无役）：日麻规则下不能正常和牌。
+        # 不再直接判为非法，而是返回 no_yaku=True 并附宝牌/赤宝/里宝信息，交由上层在开启错和时按"错和"处理。
+        # 注意：宝牌/赤宝/里宝不是役，故 han 记 0；错和的展示番数由结算层固定为"错和1番"。
+        if result.error == HandCalculator.ERR_NO_YAKU:
+            all_tile_ids = self._collect_all_tile_ids(hand_list, tiles_combination, combination_masks)
+            aka_count = count_aka_in_tiles(all_tile_ids)
+            dora_count = count_dora_in_tiles(all_tile_ids, context.get("dora_indicators", []))
+            ura_count = count_dora_in_tiles(all_tile_ids, context.get("ura_dora_indicators", [])) if context.get("is_riichi") else 0
+            no_yaku_yaku: List[str] = []
+            if dora_count > 0:
+                no_yaku_yaku.append(f"宝牌*{dora_count}")
+            if ura_count > 0:
+                no_yaku_yaku.append(f"里宝牌*{ura_count}")
+            if aka_count > 0:
+                no_yaku_yaku.append(f"赤宝牌*{aka_count}")
+            return {
+                "is_valid": True,
+                "no_yaku": True,
+                "han": 0,
+                "fu": 0,
+                "score": 0,
+                "yaku": no_yaku_yaku,
+                "cost": {},
+                "aka_count": int(aka_count),
+                "error": None,
+            }
+
         if result.error is not None or result.han is None:
             return {
                 "is_valid": False,

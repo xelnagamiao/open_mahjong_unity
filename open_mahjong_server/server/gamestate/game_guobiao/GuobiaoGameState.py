@@ -18,7 +18,7 @@ from .boardcast import (
     broadcast_ready_status,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
+from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_competition_final_ranks
 from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
 from ..public.round_end_timing import liuju_ready_wait_seconds
@@ -69,6 +69,7 @@ class GuobiaoPlayer:
         self.waiting_tiles = set[int]()               # 听牌
         self.record_counter = RecordCounter()          # 创建独立的记录计数器实例
         self.score_history = []                        # 分数历史变化列表，每局记录 +？、-？ 或 0
+        self.round_number_history = []                 # 每行分数对应的局号(current_round)，与日麻对齐：错和会出现同一局号多行
 
         self.title_used = 0 # 使用的称号ID
         self.profile_used = 0 # 使用的头像ID
@@ -272,6 +273,7 @@ class GuobiaoGameState:
                             'character_used': player.character_used,
                             'voice_used': player.voice_used,
                             'score_history': player.score_history,
+                            'round_number_history': player.round_number_history,
                             'tag_list': player.tag_list,
                         }
                         base_game_info['players_info'].append(player_info)
@@ -408,7 +410,7 @@ class GuobiaoGameState:
                             max_tile = max(self.player_list[self.current_player_index].hand_tiles) # 获取最大牌
                             self.player_list[self.current_player_index].hand_tiles.remove(max_tile) # 从手牌中移除最大牌
                             self.player_list[self.current_player_index].huapai_list.append(max_tile) # 将最大牌加入花牌列表
-                            self.player_list[self.current_player_index].get_tile(self.tiles_list) # 摸牌
+                            self.player_list[self.current_player_index].get_gang_tile(self.tiles_list, self) # 补花后从牌山末尾倒序摸牌（与杠摸牌/局中补花一致）
                             # 牌谱记录补花
                             player_action_record_buhua(self,max_tile = max_tile,action_player = self.current_player_index)
                             # 牌谱记录摸牌
@@ -552,6 +554,17 @@ class GuobiaoGameState:
                                                     score_changes=cuohe_score_changes)
                             if hasattr(self, 'spectator_manager'):
                                 self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, cuohe_hu_fan, cuohe_score_changes])
+                            # 错和与日麻对齐：作为计分板独立一行，记录本次罚分与所属局号(current_round)；
+                            # 由于错和不推进 current_round，故本局后续真正和牌会出现同一局号的第二行。
+                            for player in self.player_list:
+                                cuohe_change = player.score - scores_before[player.original_player_index]
+                                if cuohe_change > 0:
+                                    player.score_history.append(f"+{cuohe_change:02d}")
+                                elif cuohe_change < 0:
+                                    player.score_history.append(f"-{abs(cuohe_change):02d}")
+                                else:
+                                    player.score_history.append("0")
+                                player.round_number_history.append(self.current_round)
                             # 更新 scores_before 避免后续结算重复计算错和罚分
                             for player in self.player_list:
                                 scores_before[player.original_player_index] = player.score
@@ -709,6 +722,8 @@ class GuobiaoGameState:
                 else:
                     score_change_str = "0"
                 player.score_history.append(score_change_str)
+                # 与日麻对齐：记录该行对应的局号，供计分板局名列与预测占位使用
+                player.round_number_history.append(self.current_round)
 
             # 牌谱记录本局各玩家分数变化 [p0, p1, p2, p3] 按 original_player_index 排列
             score_changes = build_score_changes_by_seat(self.player_list, scores_before)
@@ -748,24 +763,36 @@ class GuobiaoGameState:
         end_game_record(self)
         logger.info(f"最终游戏记录: {self.game_record}")
 
-        # 按分数排序玩家
-        self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for index, player in enumerate[GuobiaoPlayer](self.player_list):
-            player.record_counter.rank_result = index + 1
+        # 终局排名：同分并列（竞赛排名 1,2,2,4），同分组内按开局原始风位排序
+        assign_competition_final_ranks(self.player_list)
+        player_count = len(self.player_list)
 
-        # 排位赛 PT 计算
+        # 排位赛 PT 计算（同名次均摊其占用名次区间的加/扣分）
         is_match = (self.room_type == "match")
         match_queue_type = getattr(self, 'match_queue_type', None)
         if is_match and match_queue_type:
-            from ...match.rank_calculator import calculate_pt, apply_pt, parse_queue_type, queue_type_to_match_type
+            from ...match.rank_calculator import calculate_pt, apply_pt, parse_queue_type
             parsed = parse_queue_type(match_queue_type)
             if parsed:
                 tier, game_type = parsed
-                for player in self.player_list:
+                for index, player in enumerate(self.player_list):
+                    # 计算该玩家所在并列分组占用的名次区间 [start+1, end+1]（1-indexed 名次）
+                    start = index
+                    while start > 0 and self.player_list[start - 1].score == player.score:
+                        start -= 1
+                    end = index
+                    while end < player_count - 1 and self.player_list[end + 1].score == player.score:
+                        end += 1
+
                     rank_data = self.db_manager.get_rank_data(player.user_id)
                     old_rank = rank_data["guobiao_rank"] if rank_data else "10级"
                     old_score = rank_data["guobiao_score"] if rank_data else 0
-                    pt = calculate_pt(tier, game_type, player.record_counter.rank_result, old_rank)
+                    # 对占用名次区间内每个名次分别算 PT 后取平均，实现同名次均摊加/扣分
+                    pt_values = [
+                        calculate_pt(tier, game_type, pos, old_rank)
+                        for pos in range(start + 1, end + 2)
+                    ]
+                    pt = round(sum(pt_values) / len(pt_values), 2)
                     new_rank, new_score = apply_pt(old_rank, old_score, pt)
                     # 存储到 player 对象供广播使用
                     player.pt = pt
@@ -775,7 +802,7 @@ class GuobiaoGameState:
                     player.score_after = new_score
                     # 更新数据库
                     self.db_manager.update_rank_data(player.user_id, new_rank, new_score)
-                    logger.info(f"排位 PT: {player.username} rank {player.record_counter.rank_result}, pt={pt}, {old_rank}({old_score}) -> {new_rank}({new_score})")
+                    logger.info(f"排位 PT: {player.username} rank {player.record_counter.rank_result} (名次区间 {start + 1}-{end + 1}), pt={pt}, {old_rank}({old_score}) -> {new_rank}({new_score})")
 
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息
@@ -825,15 +852,14 @@ class GuobiaoGameState:
                 self.max_round
             )
 
-        # 排位赛结束时更新匹配管理器的游戏中人数
-        if is_match and match_queue_type and hasattr(self.game_server, 'match_manager'):
-            self.game_server.match_manager.on_match_game_end(match_queue_type)
-
-        # 结束游戏生命周期：使用统一的清理方法
+        # 结束游戏生命周期：使用统一的清理方法。
+        # 排位匹配对局的匹配状态（承诺锁 / 游戏中人数 / 房间号）统一在 cleanup_game_state_complete
+        # 内通过 match_manager.release_match 释放，无需在此单独处理。
         await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
-        
+
         if self.room_type == "match":
-            await self.game_server.room_manager.destroy_room(self.room_id)
+            # 匹配对局不依赖房间系统（未注册到 room_manager.rooms），无需销毁房间
+            pass
         else:
             await self.game_server.room_manager.finish_custom_game_room(self.room_id)
         logger.info(f"游戏实例已清理，room_id: {self.room_id},goodbye!")

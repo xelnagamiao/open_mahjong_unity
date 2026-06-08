@@ -11,6 +11,7 @@ public partial class GameCanvas {
         return GameRecordManager.Instance != null && GameRecordManager.Instance.gameObject.activeSelf;
     }
 
+    // 服务端摸切判定用：返回带摸牌标记(currentGetTile)的牌（即便已被理牌拖入主列）。
     public TileCard GetDrawTile() {
         for (int i = 0; i < handCardsContainer.childCount; i++) {
             TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
@@ -21,11 +22,22 @@ public partial class GameCanvas {
         return null;
     }
 
+    // 布局用：返回固定显示在独立摸牌区(isDrawSlotPinned)的牌；被拖入主列后即不再返回。
+    public TileCard GetPinnedDrawTile() {
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tc != null && tc.isDrawSlotPinned) {
+                return tc;
+            }
+        }
+        return null;
+    }
+
     public List<TileCard> GetMainHandCardsOrdered(TileCard exclude = null) {
         List<TileCard> list = new List<TileCard>();
         for (int i = 0; i < handCardsContainer.childCount; i++) {
             TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
-            if (tc == null || tc == exclude || tc.currentGetTile) {
+            if (tc == null || tc == exclude || tc.isDrawSlotPinned) {
                 continue;
             }
             list.Add(tc);
@@ -55,7 +67,7 @@ public partial class GameCanvas {
             lastMainWidth = w;
             x += w;
         }
-        if (drawTileSeparate != null && drawTileSeparate.currentGetTile && drawTileSeparate != positionExclude) {
+        if (drawTileSeparate != null && drawTileSeparate.isDrawSlotPinned && drawTileSeparate != positionExclude) {
             RectTransform drawRt = drawTileSeparate.GetComponent<RectTransform>();
             float dw = GetCardWidth(drawRt);
             float lastHalf = mainOrdered.Count > 0 ? lastMainWidth * 0.5f : dw * 0.5f;
@@ -91,7 +103,7 @@ public partial class GameCanvas {
         if (gapInsertIndex == mainOrdered.Count) {
             x += gapWidth;
         }
-        if (drawTileSeparate != null && drawTileSeparate.currentGetTile) {
+        if (drawTileSeparate != null && drawTileSeparate.isDrawSlotPinned) {
             RectTransform drawRt = drawTileSeparate.GetComponent<RectTransform>();
             float dw = GetCardWidth(drawRt);
             float lastHalf = mainOrdered.Count > 0 ? lastMainWidth * 0.5f : dw * 0.5f;
@@ -112,7 +124,7 @@ public partial class GameCanvas {
             }
         }
         int sibling = mainOrdered.Count;
-        if (drawTileSeparate != null && drawTileSeparate.currentGetTile) {
+        if (drawTileSeparate != null && drawTileSeparate.isDrawSlotPinned) {
             drawTileSeparate.handSortIndex = mainOrdered.Count;
             drawTileSeparate.transform.SetSiblingIndex(sibling);
             RectTransform drawRt = drawTileSeparate.GetComponent<RectTransform>();
@@ -127,7 +139,7 @@ public partial class GameCanvas {
     /// </summary>
     public void LayoutHandCardsFromCurrentOrder() {
         List<TileCard> main = GetMainHandCardsOrdered();
-        TileCard draw = GetDrawTile();
+        TileCard draw = GetPinnedDrawTile();
         Dictionary<RectTransform, Vector2> positions = BuildHandLayoutPositions(main, draw, null);
         ApplyHandLayoutPositions(positions, main, draw);
     }
@@ -158,7 +170,7 @@ public partial class GameCanvas {
     private System.Collections.IEnumerator SortMainHandByTileIdCoroutine() {
         List<TileCard> main = GetMainHandCardsOrdered();
         main.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
-        TileCard draw = GetDrawTile();
+        TileCard draw = GetPinnedDrawTile();
         Dictionary<RectTransform, Vector2> targetPositions = BuildHandLayoutPositions(main, draw, null);
 
         bool needsAnimation = false;
@@ -173,7 +185,7 @@ public partial class GameCanvas {
             main[i].handSortIndex = i;
             main[i].transform.SetSiblingIndex(i);
         }
-        if (draw != null && draw.currentGetTile) {
+        if (draw != null && draw.isDrawSlotPinned) {
             draw.handSortIndex = main.Count;
             draw.transform.SetSiblingIndex(main.Count);
         }
@@ -195,7 +207,7 @@ public partial class GameCanvas {
     }
 
     public Vector2 GetDrawTileTargetPosition(List<TileCard> mainOrdered) {
-        TileCard draw = GetDrawTile();
+        TileCard draw = GetPinnedDrawTile();
         if (draw == null) {
             return Vector2.zero;
         }
@@ -211,5 +223,75 @@ public partial class GameCanvas {
             targets.Add(targetPositions[cards[i]]);
         }
         return StartCoroutine(AnimateCardsToPositions(cards, targets, duration));
+    }
+
+    /// <summary>
+    /// 出牌前收拢其余手牌（动画），打出牌保持当前视觉位置不被复位。
+    /// </summary>
+    public void AnimateHandLayoutForDiscard(TileCard discardCard) {
+        if (discardCard == null) {
+            return;
+        }
+        StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, null, null));
+    }
+
+    /// <summary>
+    /// 拖拽出牌时可传入已算好的 main/draw（含理牌顺序变更）。
+    /// </summary>
+    public void AnimateHandLayoutForDiscard(TileCard discardCard, List<TileCard> main, TileCard draw) {
+        if (discardCard == null) {
+            return;
+        }
+        StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, main, draw));
+    }
+
+    private IEnumerator AnimateHandLayoutForDiscardCoroutine(
+        TileCard discardCard,
+        List<TileCard> mainOverride,
+        TileCard drawOverride) {
+        List<TileCard> main = mainOverride ?? GetMainHandCardsOrdered(discardCard);
+        TileCard draw = drawOverride;
+        if (mainOverride == null) {
+            draw = discardCard.isDrawSlotPinned ? null : GetPinnedDrawTile();
+            if (draw == discardCard) {
+                draw = null;
+            }
+        }
+
+        Dictionary<RectTransform, Vector2> positions = BuildHandLayoutPositions(main, draw, discardCard);
+        for (int i = 0; i < main.Count; i++) {
+            main[i].handSortIndex = i;
+            main[i].transform.SetSiblingIndex(i);
+        }
+        if (draw != null && draw.isDrawSlotPinned) {
+            draw.handSortIndex = main.Count;
+            draw.transform.SetSiblingIndex(main.Count);
+        }
+
+        List<RectTransform> cards = new List<RectTransform>(positions.Keys);
+        List<Vector2> targets = new List<Vector2>(cards.Count);
+        for (int i = 0; i < cards.Count; i++) {
+            targets.Add(positions[cards[i]]);
+        }
+
+        bool needsAnimation = false;
+        for (int i = 0; i < cards.Count; i++) {
+            if (cards[i] == null) {
+                yield break;
+            }
+            if (Vector2.Distance(cards[i].anchoredPosition, targets[i]) > 0.01f) {
+                needsAnimation = true;
+                break;
+            }
+        }
+
+        if (needsAnimation) {
+            yield return AnimateCardsToPositions(cards, targets);
+        }
+        else {
+            foreach (var kvp in positions) {
+                kvp.Key.anchoredPosition = kvp.Value;
+            }
+        }
     }
 }

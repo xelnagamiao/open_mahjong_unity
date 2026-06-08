@@ -39,6 +39,9 @@ public class GameSceneMouseInputController : MonoBehaviour {
     private float _lastLeftClickTime = -1f;
     private const float DoubleClickThreshold = 0.3f;
 
+    private float _lastRightClickTime = -1f;
+    private const float RightClickDebounceInterval = 0.05f;
+
     private readonly List<RaycastResult> _uiRaycastResults = new List<RaycastResult>(16);
     private PointerEventData _pointerEventData;
 
@@ -61,6 +64,8 @@ public class GameSceneMouseInputController : MonoBehaviour {
         if (actionInputPhase == phase) return;
         actionInputPhase = phase;
         _lastLeftClickTime = -1f;
+        _lastRightClickTime = -1f;
+        HandCardSelectionController.Instance?.DisarmAll();
     }
 
     private void Update() {
@@ -98,11 +103,11 @@ public class GameSceneMouseInputController : MonoBehaviour {
 
         if (actionInputPhase == InputPhaseAskHand && gsm.allowActionList.Contains("cut")) {
             if (cfg.MoqieShortcutMode == 1) {
-                if (Input.GetMouseButtonDown(1)) {
+                if (Input.GetMouseButtonDown(1) && TryConsumeRightClickShortcut()) {
                     TryAutoMoqieFromSelfHand();
                 }
-            } else {
-                if (Input.GetMouseButtonDown(0)) {
+            } else if (cfg.MoqieShortcutMode == 0) {
+                if (Input.GetMouseButtonDown(0) && !IsPointerOverSelfHandCard()) {
                     float t = Time.unscaledTime;
                     if (t - _lastLeftClickTime <= DoubleClickThreshold) {
                         TryAutoMoqieFromSelfHand();
@@ -114,10 +119,10 @@ public class GameSceneMouseInputController : MonoBehaviour {
             }
         } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
             if (cfg.AskOtherPassShortcutMode == 0) {
-                if (Input.GetMouseButtonDown(1)) {
+                if (Input.GetMouseButtonDown(1) && TryConsumeRightClickShortcut()) {
                     GameCanvas.Instance.TrySendPassFromShortcut();
                 }
-            } else if (cfg.AskOtherPassShortcutMode == 2) {
+            } else if (cfg.AskOtherPassShortcutMode == 1) {
                 if (Input.GetMouseButtonDown(0)) {
                     float t = Time.unscaledTime;
                     if (t - _lastLeftClickTime <= DoubleClickThreshold) {
@@ -162,20 +167,20 @@ public class GameSceneMouseInputController : MonoBehaviour {
             ConfigManager cfg = ConfigManager.Instance;
             if (actionInputPhase == InputPhaseAskHand && gsm.allowActionList.Contains("cut")) {
                 if (cfg.MoqieShortcutMode == 1) {
-                    if (eventData.button == PointerEventData.InputButton.Right) {
+                    if (eventData.button == PointerEventData.InputButton.Right && TryConsumeRightClickShortcut()) {
                         TryAutoMoqieFromSelfHand();
                     }
-                } else {
+                } else if (cfg.MoqieShortcutMode == 0) {
                     if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                         TryAutoMoqieFromSelfHand();
                     }
                 }
             } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
                 if (cfg.AskOtherPassShortcutMode == 0) {
-                    if (eventData.button == PointerEventData.InputButton.Right) {
+                    if (eventData.button == PointerEventData.InputButton.Right && TryConsumeRightClickShortcut()) {
                         GameCanvas.Instance.TrySendPassFromShortcut();
                     }
-                } else if (cfg.AskOtherPassShortcutMode == 2) {
+                } else if (cfg.AskOtherPassShortcutMode == 1) {
                     if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                         GameCanvas.Instance.TrySendPassFromShortcut();
                     }
@@ -204,8 +209,22 @@ public class GameSceneMouseInputController : MonoBehaviour {
         worldCamera = cam;
     }
 
+    private bool TryConsumeRightClickShortcut() {
+        float t = Time.unscaledTime;
+        if (t - _lastRightClickTime < RightClickDebounceInterval) {
+            return false;
+        }
+        _lastRightClickTime = t;
+        return true;
+    }
+
     private void TryAutoMoqieFromSelfHand() {
         if (GameCanvas.Instance.TriggerMoqieHandCardClick()) return;
         Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
+    }
+
+    private bool IsPointerOverSelfHandCard() {
+        return GameCanvas.Instance != null
+            && GameCanvas.Instance.IsPointerOverSelfHandCard(Input.mousePosition);
     }
 }

@@ -7,6 +7,7 @@ public class RecordSetting : MonoBehaviour {
 
     [Header("牌谱手牌展示")]
     [SerializeField] private TMP_Text showCardsModeText; // 平躺明牌展示
+    [SerializeField] private TMP_Text showMoqieModeText; // 手摸切灰显
 
 
     [Header("颜色配置")]
@@ -15,6 +16,9 @@ public class RecordSetting : MonoBehaviour {
 
     private bool isShowCardsMode = true;
     public bool IsShowCardsMode { get => isShowCardsMode; }
+
+    private bool isShowMoqieMode = true;
+    public bool IsShowMoqieMode { get => isShowMoqieMode; }
 
     private void Awake() {
         if (Instance == null) {
@@ -27,6 +31,7 @@ public class RecordSetting : MonoBehaviour {
     public void Initialize() {
         gameObject.SetActive(true);
         AddClickListener(showCardsModeText, ToggleShowCardsMode);
+        AddClickListener(showMoqieModeText, ToggleShowMoqieMode);
         RefreshUI();
         Game3DManager.Instance.RefreshRecordHandDisplay();
     }
@@ -37,8 +42,21 @@ public class RecordSetting : MonoBehaviour {
         Game3DManager.Instance.RefreshRecordHandDisplay();
     }
 
+    private void ToggleShowMoqieMode() {
+        isShowMoqieMode = !isShowMoqieMode;
+        RefreshUI();
+        // 重建当前节点河牌，使已有牌面的手摸切灰显即时刷新
+        var recordMgr = GameRecordManager.Instance;
+        if (recordMgr != null) {
+            recordMgr.GotoAction(recordMgr.currentNode);
+        }
+    }
+
     private void RefreshUI() {
         showCardsModeText.color = isShowCardsMode ? trueColor : falseColor;
+        if (showMoqieModeText != null) {
+            showMoqieModeText.color = isShowMoqieMode ? trueColor : falseColor;
+        }
     }
 
     private void AddClickListener(TMP_Text text, UnityEngine.Events.UnityAction action) {

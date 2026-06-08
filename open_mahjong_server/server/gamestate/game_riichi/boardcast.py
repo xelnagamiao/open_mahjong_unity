@@ -384,11 +384,12 @@ async def broadcast_game_end(self):
     self.server_action_tick += 1
     player_final_data = {}
     for player in self.player_list:
-        player_final_data[str(player.record_counter.rank_result)] = Player_final_data(
+        player_final_data[str(player.player_index)] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=0,
             username=player.username,
+            original_player_index=player.original_player_index,
         )
     for cp in self.player_list:
         try:

@@ -114,6 +114,14 @@ class DatabaseManager:
                     cursor.execute("ROLLBACK TO SAVEPOINT sp_add_room_type;")
                 else:
                     raise
+            cursor.execute("SAVEPOINT sp_add_original_player_index;")
+            try:
+                cursor.execute("ALTER TABLE game_player_records ADD COLUMN original_player_index INT NULL CHECK (original_player_index >= 0 AND original_player_index <= 3);")
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_original_player_index;")
+                else:
+                    raise
             # 从牌谱 JSON 回填 room_type
             cursor.execute("""
                 UPDATE game_player_records gpr
@@ -908,6 +916,7 @@ class DatabaseManager:
                     gpr.username,
                     gpr.score,
                     gpr.rank,
+                    gpr.original_player_index,
                     gpr.rule,
                     gpr.sub_rule,
                     gpr.match_type,
@@ -920,7 +929,7 @@ class DatabaseManager:
                 FROM game_player_records gpr
                 INNER JOIN game_records gr ON gpr.game_id = gr.game_id
                 WHERE gpr.game_id IN ({placeholders})
-                ORDER BY gr.created_at DESC, gpr.rank
+                ORDER BY gr.created_at DESC, gpr.rank, gpr.original_player_index NULLS LAST, gpr.score DESC
             """, game_ids)
             
             games_dict = {}
@@ -944,6 +953,7 @@ class DatabaseManager:
                     'username': row['username'],
                     'score': row['score'],
                     'rank': row['rank'],
+                    'original_player_index': row.get('original_player_index'),
                     'title_used': row.get('title_used'),
                     'character_used': row.get('character_used'),
                     'profile_used': row.get('profile_used'),
@@ -998,10 +1008,10 @@ class DatabaseManager:
             room_type = game_title.get('room_type')
             
             cursor.execute("""
-                SELECT user_id, username, score, rank, rule, sub_rule, room_type, title_used, character_used, profile_used, voice_used
+                SELECT user_id, username, score, rank, original_player_index, rule, sub_rule, room_type, title_used, character_used, profile_used, voice_used
                 FROM game_player_records
                 WHERE game_id = %s
-                ORDER BY rank
+                ORDER BY rank, original_player_index NULLS LAST, score DESC
             """, (game_id.strip(),))
             
             players = []
@@ -1017,6 +1027,7 @@ class DatabaseManager:
                     'username': row['username'],
                     'score': row['score'],
                     'rank': row['rank'],
+                    'original_player_index': row.get('original_player_index'),
                     'title_used': row.get('title_used'),
                     'character_used': row.get('character_used'),
                     'profile_used': row.get('profile_used'),

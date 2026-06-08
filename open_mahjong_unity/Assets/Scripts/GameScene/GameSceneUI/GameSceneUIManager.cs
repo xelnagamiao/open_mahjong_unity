@@ -125,7 +125,8 @@ public class GameSceneUIManager : MonoBehaviour
         if (player_to_info != null && player_to_info.Count >= 4
             && mgr != null && (mgr.IsGameActive || mgr.roundSettlementHistory.Count > 0)) {
             string rule = !string.IsNullOrEmpty(mgr.roomRule) ? mgr.roomRule : "UNKNOWN";
-            ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, mgr.roundSettlementHistory);
+            bool maskPlayerNames = StreamerModeHelper.IsEnabled && !mgr.IsRealtimeSpectator;
+            ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, mgr.roundSettlementHistory, maskPlayerNames: maskPlayerNames);
             return;
         }
 
@@ -139,7 +140,8 @@ public class GameSceneUIManager : MonoBehaviour
 
         string fallbackRule = mgr != null ? mgr.roomRule : "UNKNOWN";
         var settlements = mgr?.roundSettlementHistory;
-        ScoreHistoryPanel.Instance.UpdateScoreRecord(fallbackRule, player_to_info, settlements);
+        bool maskNames = StreamerModeHelper.IsEnabled && mgr != null && !mgr.IsRealtimeSpectator;
+        ScoreHistoryPanel.Instance.UpdateScoreRecord(fallbackRule, player_to_info, settlements, maskPlayerNames: maskNames);
     }
 
     /// <summary>

@@ -192,12 +192,13 @@ public partial class GameCanvas{
 
         Debug.Log($"手牌重新排列");
 
-        // 手牌恢复为非摸切状态
+        // 手牌恢复为非摸切状态（同时清除摸牌区固定标记）
         for (int i = 0; i < handCardsContainer.childCount; i++){
             Transform child = handCardsContainer.GetChild(i);
             TileCard tileCard = child.GetComponent<TileCard>();
             if (tileCard != null){
                 tileCard.currentGetTile = false;
+                tileCard.isDrawSlotPinned = false;
             }
         }
 

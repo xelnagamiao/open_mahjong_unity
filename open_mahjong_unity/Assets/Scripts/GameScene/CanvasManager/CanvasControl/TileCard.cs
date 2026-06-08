@@ -20,7 +20,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     // 将私有字段改为公共属性
     public int tileId;   // 牌的ID（如"11"表示一万）
-    public bool currentGetTile;   // 是否是当前摸到的牌
+    public bool currentGetTile;   // 摸牌标记：仅用于服务端摸切/手切判定（拖入手牌排序后仍需保留）
+    public bool isDrawSlotPinned;   // 固定标记：是否固定显示在独立摸牌区（手动理牌拖入主列后清除，不影响 currentGetTile）
     public int handSortIndex;   // 手牌排序位置，数值越大越靠右
 
     private bool isHovering = false; // 是否正在悬停
@@ -157,9 +158,37 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         if (!pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
             return false;
         }
+
+        if (ShouldUseHandCutConfirm()) {
+            HandCardSelectionController selection = HandCardSelectionController.Instance;
+            if (selection == null || !selection.IsArmed(pressCard)) {
+                selection?.Arm(pressCard);
+                return false;
+            }
+            selection.CommitDiscard(pressCard);
+            if (GameCanvas.Instance != null) {
+                GameCanvas.Instance.AnimateHandLayoutForDiscard(pressCard);
+            }
+        } else {
+            HandCardSelectionController.Instance?.DisarmAll();
+        }
+
         lastHandledPointerFrame = Time.frameCount;
         HandCardDragController.MarkTileClickHandledThisFrame();
         pressCard.TriggerClick();
+        return true;
+    }
+
+    private static bool ShouldUseHandCutConfirm() {
+        if (ConfigManager.Instance == null || !ConfigManager.Instance.IsHandCutConfirmEnabled) {
+            return false;
+        }
+        if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
+            return false;
+        }
+        if (GameCanvas.Instance != null && GameCanvas.Instance.IsHandRecordPlayback()) {
+            return false;
+        }
         return true;
     }
 
@@ -218,6 +247,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void SetTile(int id,bool isCurrentGetTile) {
         tileId = id;
         currentGetTile = isCurrentGetTile;
+        isDrawSlotPinned = isCurrentGetTile;   // 新摸入牌默认固定在摸牌区，手动理牌时再清除
 
         int faceResourceId = id;
         if (ConfigManager.Instance.UseBlankWhiteDragonFace(id)) {
@@ -425,6 +455,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void OnDestroy()
     {
+        HandCardSelectionController.Instance?.OnCardDestroyed(this);
         // 隐藏提示（参照tips的设计模式）
         TipsContainer.Instance.HideTips();
         // 清除3D卡牌高亮效果（如果正在悬停）
@@ -438,7 +469,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 /// <summary>
 /// 将 Button 上的指针事件转发给父级 TileCard，供手牌拖拽使用。
 /// </summary>
-public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler {
+public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, IPointerClickHandler {
     private TileCard owner;
 
     public void Bind(TileCard card) {
@@ -446,7 +477,7 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
     }
 
     public void OnPointerDown(PointerEventData eventData) {
-        if (owner == null) {
+        if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
         TileCard.NotifyPointerDown(owner);
@@ -454,14 +485,15 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
     }
 
     public void OnDrag(PointerEventData eventData) {
-        if (owner == null) {
+        if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
         HandCardDragController.Instance.OnDrag(owner, eventData);
     }
 
     public void OnPointerUp(PointerEventData eventData) {
-        if (owner == null) {
+        // 手牌只接受左键的拖拽与点击出牌；右键/中键交由快捷键控制器处理，手牌本身不出牌。
+        if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
         bool dragHandled = HandCardDragController.Instance.OnPointerUp(owner, eventData);
@@ -470,12 +502,20 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
         }
         TileCard.NotifyPointerUp(owner);
     }
+
+    public void OnPointerClick(PointerEventData eventData) {
+        // 右键转发至快捷键控制器（摸切/Pass），不触发出牌。
+        if (eventData.button != PointerEventData.InputButton.Right) {
+            return;
+        }
+        GameSceneMouseInputController.Instance?.HandleExternalPointerClick(eventData);
+    }
 }
 
 /// <summary>
 /// 固定在原槽位的透明点击区：仅记录按下/松手并出牌，不转发拖拽。
 /// </summary>
-public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPointerUpHandler {
+public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler {
     private TileCard owner;
 
     public void Bind(TileCard card) {
@@ -483,18 +523,26 @@ public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPoint
     }
 
     public void OnPointerDown(PointerEventData eventData) {
-        if (owner != null) {
+        if (owner != null && eventData.button == PointerEventData.InputButton.Left) {
             TileCard.NotifyPointerDown(owner);
         }
     }
 
     public void OnPointerUp(PointerEventData eventData) {
-        if (owner == null) {
+        // 槽位点击区同样只接受左键出牌；右键不触发任何出牌。
+        if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
         if (Time.frameCount > HandCardDragController.BlockTileClickUntilFrame) {
             TileCard.TryCommitClick(owner, eventData.position);
         }
         TileCard.NotifyPointerUp(owner);
+    }
+
+    public void OnPointerClick(PointerEventData eventData) {
+        if (eventData.button != PointerEventData.InputButton.Right) {
+            return;
+        }
+        GameSceneMouseInputController.Instance?.HandleExternalPointerClick(eventData);
     }
 }

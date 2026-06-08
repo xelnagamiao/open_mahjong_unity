@@ -49,4 +49,17 @@ public partial class NormalGameStateManager {
             RoundPanel.Instance.RefreshRiichi(honba, riichiSticks, doraIndicators, kanDoraIndicators);
         }
     }
+
+    /// <summary>
+    /// 荒牌流局/特殊流局：清除场上立直棒 3D 表现；供托计数留场，由 RoundPanel 继续显示。
+    /// </summary>
+    public void OnRiichiSticksHideOnLiuju() {
+        Game3DManager.Instance.ClearAllRiichiTenbous();
+    }
+
+    public static bool ShouldHideRiichiSticksOnLiuju(string huClass) {
+        return huClass == "ryuukyoku"
+            || huClass == "jiuzhongjiupai"
+            || IsRiichiSpecialLiujuHuClass(huClass);
+    }
 }

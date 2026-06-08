@@ -85,7 +85,7 @@ public static class ScoreHistorySettlementHelper {
         if (snapshot == null) return "";
         var sb = new StringBuilder();
         bool isClassical = subRule == "classical/standard";
-        bool isRiichi = subRule == "riichi/standard" || subRule == "riichi";
+        bool isRiichi = subRule != null && subRule.StartsWith("riichi");
 
         if (isClassical && snapshot.fuFanList != null) {
             for (int i = 0; i < snapshot.fuFanList.Length; i++) {
@@ -118,7 +118,7 @@ public static class ScoreHistorySettlementHelper {
         if (snapshot == null || snapshot.isLiuju) return "";
 
         bool isClassical = subRule == "classical/standard";
-        bool isRiichi = subRule == "riichi/standard" || subRule == "riichi";
+        bool isRiichi = subRule != null && subRule.StartsWith("riichi");
 
         string fanPart;
         if (isRiichi && snapshot.han.HasValue) {

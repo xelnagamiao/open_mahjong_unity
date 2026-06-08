@@ -53,6 +53,20 @@ public class PanelPopupTransition : MonoBehaviour {
         _routine = StartCoroutine(RunHide(onComplete));
     }
 
+    /// <summary>
+    /// 立即隐藏面板（跳过渐出动画）。用于匹配成功等需要立刻让出界面的场景。
+    /// </summary>
+    public void HideImmediate() {
+        if (_routine != null) {
+            StopCoroutine(_routine);
+            _routine = null;
+        }
+        EnsureComponents();
+        _cg.alpha = 1f;
+        _rt.localScale = Vector3.one;
+        gameObject.SetActive(false);
+    }
+
     private IEnumerator RunShow(Action onComplete) {
         if (showDuration <= 0f) {
             _cg.alpha = 1f;

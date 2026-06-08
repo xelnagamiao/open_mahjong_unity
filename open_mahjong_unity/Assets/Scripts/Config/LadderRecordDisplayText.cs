@@ -25,7 +25,10 @@ public static class LadderRecordDisplayText {
         }
 
         if (record.players != null && record.players.Length > 0) {
-            var sorted = record.players.OrderBy(p => p.rank).ToArray();
+            var sorted = record.players
+                .OrderBy(p => p.rank)
+                .ThenBy(p => p.original_player_index ?? int.MaxValue)
+                .ToArray();
             foreach (var p in sorted) {
                 sb.Append(' ').Append(p.rank).Append(' ').Append(p.username ?? "");
             }

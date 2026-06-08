@@ -27,6 +27,7 @@ public class RiichiCutSelectionController : MonoBehaviour {
 
     public void EnterRiichiCutMode() {
         if (IsActive) return;
+        HandCardSelectionController.Instance?.DisarmAll();
         IsActive = true;
         GameCanvas.Instance.SetActionButtonContainerVisible(false);
         if (riichiCutPanelRoot != null) riichiCutPanelRoot.SetActive(true);

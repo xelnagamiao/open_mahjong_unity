@@ -77,6 +77,7 @@ async def broadcast_game_start(self):
                     'character_used': player.character_used,
                     'voice_used': player.voice_used,
                     'score_history': player.score_history,
+                    'round_number_history': player.round_number_history,
                     'tag_list': player.tag_list,
                 }
                 players_info_for_current.append(player_info)
@@ -456,15 +457,16 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典，键为顺位字符串 "1"～"4"
+    # 构建玩家最终数据字典，键为座位索引字符串 "0"～"3"（同分并列名次时 rank 可能重复，故不能用名次作键）
     player_final_data = {}
     for player in self.player_list:
         pt = getattr(player, 'pt', 0)
-        player_final_data[str(player.record_counter.rank_result)] = Player_final_data(
+        player_final_data[str(player.player_index)] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=pt,
             username=player.username,
+            original_player_index=player.original_player_index,
             rank_before=getattr(player, 'rank_before', None),
             score_before=getattr(player, 'score_before', None),
             rank_after=getattr(player, 'rank_after', None),
