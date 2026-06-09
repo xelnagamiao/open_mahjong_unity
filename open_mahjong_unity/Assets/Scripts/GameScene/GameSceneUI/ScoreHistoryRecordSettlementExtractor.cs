@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 public static class ScoreHistoryRecordSettlementExtractor {
     private sealed class SimPlayer {
         public List<int> tileList = new List<int>();
+        public List<string> combinationTiles = new List<string>();
         public List<int[]> combinationMasks = new List<int[]>();
     }
 
@@ -65,38 +66,66 @@ public static class ScoreHistoryRecordSettlementExtractor {
         int lastDiscardPlayerIndex = -1;
         int lastDiscardTileId = -1;
         RecordScoreRow lastRow = null;
+        int currentPlayerIndex = round.startPlayerIndex;
+        bool mainPhaseStarted = false;
 
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
+            if (action == "ask_hand" || action == "ask_other" || action == "end" || action == "dora" || action == "riichi") {
+                continue;
+            }
 
-            int actingPlayerIndex = ResolveActingPlayerIndex(action, tick, round.startPlayerIndex);
+            // 开局补花阶段：与 GameRecordManager.InferAndMarkStartIndex 对齐，不推进主巡目
+            if (action == "bh" || action == "bd") {
+                int flowerActingIndex = action == "bh" && tick.Count >= 3
+                    ? ParseInt(tick, 2)
+                    : currentPlayerIndex;
+                SimPlayer flowerActor = players[flowerActingIndex];
+                if (action == "bh") {
+                    RemoveOneTile(flowerActor.tileList, ParseInt(tick, 1));
+                } else {
+                    flowerActor.tileList.Add(ParseInt(tick, 1));
+                }
+                currentPlayerIndex = flowerActingIndex;
+                continue;
+            }
+
+            // 主局首个摸切/鸣牌前，巡目回到庄家（补花结束后并非最后补花者出牌）
+            if (!mainPhaseStarted) {
+                currentPlayerIndex = round.startPlayerIndex;
+                mainPhaseStarted = true;
+            }
+
+            int previousPlayerIndex = currentPlayerIndex;
+            int actingPlayerIndex = ResolveActingPlayerIndex(action, tick, currentPlayerIndex);
             SimPlayer actor = players[actingPlayerIndex];
 
             switch (action) {
                 case "d":
                 case "gd":
-                case "bd":
                     actor.tileList.Add(ParseInt(tick, 1));
+                    currentPlayerIndex = actingPlayerIndex;
                     break;
                 case "c":
                     RemoveTileForCut(actor.tileList, ParseInt(tick, 1), ParseBool(tick, 2));
                     lastDiscardPlayerIndex = actingPlayerIndex;
                     lastDiscardTileId = ParseInt(tick, 1);
-                    break;
-                case "bh":
-                    RemoveOneTile(actor.tileList, ParseInt(tick, 1));
+                    currentPlayerIndex = (actingPlayerIndex + 1) % 4;
                     break;
                 case "ag": {
                     int tile = ParseInt(tick, 1);
                     RemoveNTiles(actor.tileList, tile, 4);
+                    actor.combinationTiles.Add($"G{tile}");
                     actor.combinationMasks.Add(BuildAngangMask(tile, subRule));
+                    currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
                 case "jg": {
                     int tile = ParseInt(tick, 1);
                     RemoveOneTile(actor.tileList, tile);
-                    actor.combinationMasks.Add(BuildJiagangMask(actor, tile));
+                    BuildJiagangMask(actor, tile);
+                    currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
                 case "cl":
@@ -108,8 +137,10 @@ public static class ScoreHistoryRecordSettlementExtractor {
                     foreach (int t in BuildRemovedTilesForMingpai(action, mingTile)) {
                         RemoveOneTile(actor.tileList, t);
                     }
-                    int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : actingPlayerIndex;
+                    int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : previousPlayerIndex;
+                    actor.combinationTiles.Add(BuildCombinationTarget(action, mingTile));
                     actor.combinationMasks.Add(BuildMingpaiMask(action, mingTile, actingPlayerIndex, discardPlayerIndex));
+                    currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
                 case "hu_self":
@@ -143,7 +174,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                         };
                         output.Add(lastRow);
                     }
-                    ApplyShuhewei(tick, lastRow.snapshot);
+                    ApplyShuhewei(tick, lastRow.snapshot, players, lastDiscardTileId);
                     int[] shScores = ParseScoreChanges(tick, 2);
                     if (shScores != null) {
                         lastRow.scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(shScores, round.seats);
@@ -174,15 +205,11 @@ public static class ScoreHistoryRecordSettlementExtractor {
     }
 
     private static void InitHands(SimPlayer[] players, Round round) {
-        List<int>[] hands = { round.p0Tiles, round.p1Tiles, round.p2Tiles, round.p3Tiles };
-        for (int orig = 0; orig < 4; orig++) {
-            int seat = round.seats[orig];
-            if (seat < 0 || seat >= 4) continue;
-            List<int> src = hands[seat];
-            if (src != null) {
-                players[seat].tileList = new List<int>(src);
-            }
-        }
+        // 与 GameRecordManager 一致：pN_tiles 即当局 player_index N 的起手牌
+        if (round.p0Tiles != null) players[0].tileList = new List<int>(round.p0Tiles);
+        if (round.p1Tiles != null) players[1].tileList = new List<int>(round.p1Tiles);
+        if (round.p2Tiles != null) players[2].tileList = new List<int>(round.p2Tiles);
+        if (round.p3Tiles != null) players[3].tileList = new List<int>(round.p3Tiles);
     }
 
     private static RoundSettlementSnapshot BuildHuSnapshot(
@@ -201,13 +228,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
         string[] fuFanList = tick.Count > 6 ? ParseFanList(tick, 6) : null;
 
         SimPlayer huPlayer = players[hepaiPlayerIndex];
-        int[] hand = huPlayer.tileList.ToArray();
-        if (isRon && lastDiscardTileId >= 0) {
-            int[] extended = new int[hand.Length + 1];
-            Array.Copy(hand, extended, hand.Length);
-            extended[hand.Length] = lastDiscardTileId;
-            hand = extended;
-        }
+        int[] hand = BuildWinnerHandArray(huPlayer, isRon, lastDiscardTileId);
 
         int winnerDelta = 0;
         int[] scoreChanges = ParseScoreChanges(tick, 4);
@@ -248,14 +269,8 @@ public static class ScoreHistoryRecordSettlementExtractor {
         string[] yaku = tick.Count > 5 ? ParseFanList(tick, 5) : Array.Empty<string>();
 
         SimPlayer huPlayer = players[hepaiPlayerIndex];
-        int[] hand = huPlayer.tileList.ToArray();
         bool isRon = huClass != "hu_self" && lastDiscardTileId >= 0;
-        if (isRon) {
-            int[] extended = new int[hand.Length + 1];
-            Array.Copy(hand, extended, hand.Length);
-            extended[hand.Length] = lastDiscardTileId;
-            hand = extended;
-        }
+        int[] hand = BuildWinnerHandArray(huPlayer, isRon, lastDiscardTileId);
 
         int winnerDelta = 0;
         int[] scoreChanges = tick.Count > 6 ? ParseScoreChanges(tick, 6) : null;
@@ -280,10 +295,18 @@ public static class ScoreHistoryRecordSettlementExtractor {
         };
     }
 
-    private static void ApplyShuhewei(List<string> tick, RoundSettlementSnapshot target) {
+    private static void ApplyShuhewei(
+        List<string> tick,
+        RoundSettlementSnapshot target,
+        SimPlayer[] players,
+        int lastDiscardTileId) {
         if (tick.Count < 7) return;
         int hepaiIndex = ParseInt(tick, 6);
-        if (hepaiIndex < 0) return;
+        if (hepaiIndex < 0 || hepaiIndex >= players.Length) return;
+
+        if (tick.Count > 5 && !string.IsNullOrEmpty(tick[5])) {
+            target.huClass = tick[5];
+        }
 
         string[][] fanMatrix = ParseFanMatrix(tick, 3);
         if (fanMatrix != null && hepaiIndex < fanMatrix.Length && fanMatrix[hepaiIndex] != null && fanMatrix[hepaiIndex].Length > 0) {
@@ -297,9 +320,31 @@ public static class ScoreHistoryRecordSettlementExtractor {
             target.winnerScoreDelta = changes[hepaiIndex];
         }
         target.hepaiPlayerIndex = hepaiIndex;
+
+        SimPlayer huPlayer = players[hepaiIndex];
+        bool isRon = !string.IsNullOrEmpty(target.huClass)
+            && target.huClass != "hu_self"
+            && lastDiscardTileId >= 0;
+        target.hepaiPlayerHand = BuildWinnerHandArray(huPlayer, isRon, lastDiscardTileId);
+        target.combinationMask = CloneMasks(huPlayer.combinationMasks);
     }
 
-    private static int ResolveActingPlayerIndex(string action, List<string> tick, int fallback) {
+    /// <summary>荣和时和牌张不在手牌列表中，需追加到末尾（与 GameRecordManager / 服务端一致）。</summary>
+    private static int[] BuildWinnerHandArray(SimPlayer huPlayer, bool isRon, int lastDiscardTileId) {
+        if (huPlayer?.tileList == null) return Array.Empty<int>();
+        int[] hand = huPlayer.tileList.ToArray();
+        if (!isRon || lastDiscardTileId < 0) return hand;
+        for (int i = 0; i < hand.Length; i++) {
+            if (hand[i] == lastDiscardTileId) return hand;
+        }
+        int[] extended = new int[hand.Length + 1];
+        Array.Copy(hand, extended, hand.Length);
+        extended[hand.Length] = lastDiscardTileId;
+        return extended;
+    }
+
+    /// <summary>与 GameRecordManager.NextAction 一致：摸切/补花/副露/和牌等 tick 自带行动者，其余沿用当前巡目玩家。</summary>
+    private static int ResolveActingPlayerIndex(string action, List<string> tick, int currentPlayerIndex) {
         if (action == "bh" && tick.Count >= 3) return ParseInt(tick, 2);
         if ((action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") && tick.Count >= 3) {
             return ParseInt(tick, 2);
@@ -307,7 +352,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
         if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "hu_riichi") && tick.Count >= 2) {
             return ParseInt(tick, 1);
         }
-        return fallback;
+        return currentPlayerIndex;
     }
 
     private static string ResolveUsernameForSeat(int seatIndex, Round round, Dictionary<string, object> gameTitle) {
@@ -443,8 +488,32 @@ public static class ScoreHistoryRecordSettlementExtractor {
     }
 
     private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile) {
+        for (int i = 0; i < player.combinationTiles.Count; i++) {
+            if (player.combinationTiles[i] != $"k{jiagangTile}") continue;
+            player.combinationTiles[i] = $"g{jiagangTile}";
+            var updatedMask = new List<int>(player.combinationMasks[i]);
+            for (int j = 0; j < updatedMask.Count; j++) {
+                if (updatedMask[j] != 1) continue;
+                updatedMask.Insert(j, jiagangTile);
+                updatedMask.Insert(j, 3);
+                break;
+            }
+            player.combinationMasks[i] = updatedMask.ToArray();
+            return player.combinationMasks[i];
+        }
+
         int[] fallback = { 0, jiagangTile, 3, jiagangTile, 1, jiagangTile, 0, jiagangTile };
+        player.combinationTiles.Add($"g{jiagangTile}");
+        player.combinationMasks.Add(fallback);
         return fallback;
+    }
+
+    private static string BuildCombinationTarget(string action, int tileId) {
+        if (action == "cl") return $"s{tileId - 1}";
+        if (action == "cm") return $"s{tileId}";
+        if (action == "cr") return $"s{tileId + 1}";
+        if (action == "p") return $"k{tileId}";
+        return $"g{tileId}";
     }
 
     private static int[] BuildMingpaiMask(string action, int tileId, int actionPlayerIndex, int discardPlayerIndex) {

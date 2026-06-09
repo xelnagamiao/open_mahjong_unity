@@ -145,6 +145,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
     }
 
+    public static void ClearPendingPointerState() {
+        if (pointerDownCard != null) {
+            Debug.Log($"[HandInput] 清除跨回合左键按下缓存 | tileId={pointerDownCard.tileId}");
+        }
+        pointerDownCard = null;
+    }
+
     /// <summary>
     /// 松手须仍在按下时的同一张牌上：命中该牌 UI，或落在该牌根节点手牌槽位内（含浮起下方的原位置）。
     /// </summary>
@@ -156,6 +163,14 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             return false;
         }
         if (!pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
+            return false;
+        }
+        bool canCut = NormalGameStateManager.Instance != null && (
+            NormalGameStateManager.Instance.allowActionList.Contains("cut")
+            || (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive));
+        if (!canCut) {
+            Debug.LogWarning($"[HandInput] 左键出牌被拦截(无cut权限) | tileId={pressCard.tileId}");
+            pointerDownCard = null;
             return false;
         }
 
@@ -175,6 +190,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
         lastHandledPointerFrame = Time.frameCount;
         HandCardDragController.MarkTileClickHandledThisFrame();
+        Debug.Log($"[HandInput] 左键出牌提交 | tileId={pressCard.tileId} | moqie={pressCard.currentGetTile}");
         pressCard.TriggerClick();
         return true;
     }

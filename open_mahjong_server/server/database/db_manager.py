@@ -165,6 +165,7 @@ class DatabaseManager:
                     second_place_count INT NOT NULL DEFAULT 0,
                     third_place_count INT NOT NULL DEFAULT 0,
                     fourth_place_count INT NOT NULL DEFAULT 0,
+                    fulu_round_count INT NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, rule, mode)
@@ -189,6 +190,7 @@ class DatabaseManager:
                     second_place_count INT NOT NULL DEFAULT 0,
                     third_place_count INT NOT NULL DEFAULT 0,
                     fourth_place_count INT NOT NULL DEFAULT 0,
+                    fulu_round_count INT NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, rule, mode)
@@ -307,6 +309,7 @@ class DatabaseManager:
                     second_place_count INT NOT NULL DEFAULT 0,
                     third_place_count INT NOT NULL DEFAULT 0,
                     fourth_place_count INT NOT NULL DEFAULT 0,
+                    fulu_round_count INT NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, rule, mode)
@@ -434,6 +437,7 @@ class DatabaseManager:
                     second_place_count INT NOT NULL DEFAULT 0,
                     third_place_count INT NOT NULL DEFAULT 0,
                     fourth_place_count INT NOT NULL DEFAULT 0,
+                    fulu_round_count INT NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, rule, mode)
@@ -606,6 +610,25 @@ class DatabaseManager:
 
             logger.info('用户ID序列初始化完成')
             print('用户ID序列初始化完成')
+
+            # 迁移：各规则 history_stats 增加副露局数字段
+            for table_name in (
+                "guobiao_history_stats",
+                "qingque_history_stats",
+                "riichi_history_stats",
+                "classical_history_stats",
+            ):
+                cursor.execute(f"SAVEPOINT sp_fulu_{table_name};")
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE {table_name} "
+                        f"ADD COLUMN fulu_round_count INT NOT NULL DEFAULT 0;"
+                    )
+                except Error as e:
+                    if getattr(e, "pgcode", None) == "42701":
+                        cursor.execute(f"ROLLBACK TO SAVEPOINT sp_fulu_{table_name};")
+                    else:
+                        raise
 
             conn.commit() # 提交
             logger.info('数据表初始化成功')

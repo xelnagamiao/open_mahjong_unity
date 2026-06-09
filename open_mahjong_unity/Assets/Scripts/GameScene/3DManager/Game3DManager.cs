@@ -18,7 +18,7 @@ public partial class Game3DManager : MonoBehaviour {
     private Vector3 topSetCombinationsPoint;
     private Vector3 rightSetCombinationsPoint;
 
-    private GameObject lastCut3DObject; // 最后一张弃牌的3D对象
+    private GameObject lastCutJiagang3DObject; // 最后一张切牌或加杠牌的3D对象（荣和/抢杠倒牌演出用）
     private Coroutine _currentDiscardMoveCoroutine; // 当前出牌飞行动画协程，鸣牌时需终止
     private Vector3 lastRemove3DPosition; // 最后一张删除的3D对象
     private Dictionary<int,Vector3> pengToJiagangPosDict = new Dictionary<int,Vector3>(); // 碰牌的加杠预留指针
@@ -232,7 +232,7 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 3D手牌处理入口：仅暗杠与暗杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
-    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false){
+    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
@@ -257,7 +257,7 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask)) {
+        if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask, isMoGang)) {
             return;
         }
 
@@ -360,11 +360,13 @@ public partial class Game3DManager : MonoBehaviour {
                 yield break;
             }
             StartMeldPresentation(actionType, PlayerPosition, combination_mask);
+            bool meldCutClass = actionType == "jiagang" && cut_class;
+            int meldDiscardId = actionType == "jiagang" && tileId >= 2 ? tileId : -1;
             if (IsSelfCardsPosition(panel.cardsPosition)) {
-                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, removeCount, false, -1, combination_mask, skipRearrange: true);
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, false, -1, combination_mask, skipRearrange: true);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true);
             }
             yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
         }
@@ -375,7 +377,7 @@ public partial class Game3DManager : MonoBehaviour {
     private bool ShouldApplyMoqieDiscardGray(bool cutClass) {
         if (!cutClass) return false;
         var recordMgr = GameRecordManager.Instance;
-        if (recordMgr != null && recordMgr.gameRecord != null) {
+        if (recordMgr != null && recordMgr.gameObject.activeSelf && recordMgr.gameRecord != null) {
             // 牌谱阅览：以左侧手摸切开关为准，覆盖牌谱内 show_moqie_hint 标记
             if (RecordSetting.Instance != null) {
                 return RecordSetting.Instance.IsShowMoqieMode;
@@ -710,7 +712,7 @@ public partial class Game3DManager : MonoBehaviour {
             StopCoroutine(_currentDiscardMoveCoroutine);
             _currentDiscardMoveCoroutine = null;
         }
-        lastCut3DObject = null;
+        lastCutJiagang3DObject = null;
         StopAllHandAnimationQueues();
         StopAllCoroutines();
     }

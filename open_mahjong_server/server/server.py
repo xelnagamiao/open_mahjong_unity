@@ -195,8 +195,8 @@ class GameServer:
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
         return await self.room_manager.create_Classical_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator)
 
-    async def create_Riichi_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "riichi/standard", open_cuohe: bool = False, hepai_limit: int = 1, red_dora: bool = True, hepai_way: str = "head_bump", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
-        return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, hepai_way, tourist_limit, allow_spectator)
+    async def create_Riichi_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "riichi/standard", open_cuohe: bool = False, hepai_limit: int = 1, red_dora: bool = True, allow_kuikae: bool = False, open_xiru: bool = True, open_tobi: bool = True, hepai_way: str = "head_bump", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
+        return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, allow_kuikae, open_xiru, open_tobi, hepai_way, tourist_limit, allow_spectator)
 
     # 获取房间列表
     def get_room_list(self, show_tip: bool = False) -> Response:
@@ -247,22 +247,27 @@ class GameServer:
     def get_server_stats(self) -> Dict[str, int]:
         """
         获取服务器统计数据
-        返回：在线人数、等待房间数、进行房间数
+        返回：在线人数、等待房间数、进行房间数、匹配对局数
         """
         # 在线人数：所有已连接的玩家 (设置两名阴兵，谁懂)
         online_players = len(self.players) + 2
-        
-        # 进行房间数：正在运行游戏的房间
-        playing_rooms = self.gamestate_manager.get_playing_rooms_count()
-        
-        # 等待房间数：总房间数 - 进行房间数
-        total_rooms = len(self.room_manager.rooms)
-        waiting_rooms = total_rooms - playing_rooms
-        
+
+        # 自定义房间统计仅基于 room_manager.rooms；匹配对局不注册到房间列表
+        waiting_rooms = 0
+        playing_rooms = 0
+        for room_data in self.room_manager.rooms.values():
+            if room_data.get("is_game_running", False):
+                playing_rooms += 1
+            else:
+                waiting_rooms += 1
+
+        match_playing_games = self.gamestate_manager.get_match_playing_games_count()
+
         return {
             "online_players": online_players,
             "waiting_rooms": waiting_rooms,
-            "playing_rooms": playing_rooms
+            "playing_rooms": playing_rooms,
+            "match_playing_games": match_playing_games,
         }
 
 game_server = GameServer()
@@ -398,7 +403,8 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                 server_stats = ServerStatsInfo(
                     online_players=stats["online_players"],
                     waiting_rooms=stats["waiting_rooms"],
-                    playing_rooms=stats["playing_rooms"]
+                    playing_rooms=stats["playing_rooms"],
+                    match_playing_games=stats["match_playing_games"],
                 )
                 response = Response(
                     type="get_server_stats",

@@ -20,7 +20,7 @@ public class RoomConfigContainer : MonoBehaviour {
         { "riichi", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_cuohe", "has_password", "tourist_limit", "hepai_limit",
-            "red_dora", "hepai_way", "allow_spectator",
+            "red_dora", "allow_kuikae", "open_xiru", "open_tobi", "hepai_way", "allow_spectator",
         } },
         { "qingque", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -133,6 +133,22 @@ public class RoomConfigContainer : MonoBehaviour {
                 if (!roomInfo.red_dora.HasValue) return false;
                 displayName = "赤宝牌";
                 displayValue = roomInfo.red_dora.Value ? "开" : "关";
+                return true;
+            case "allow_kuikae":
+                if (roomInfo.sub_rule == "riichi/langyong") return false;
+                if (!roomInfo.allow_kuikae.HasValue) return false;
+                displayName = "禁止食替";
+                displayValue = roomInfo.allow_kuikae.Value ? "关" : "开";
+                return true;
+            case "open_xiru":
+                if (!roomInfo.open_xiru.HasValue) return false;
+                displayName = "西入";
+                displayValue = roomInfo.open_xiru.Value ? "开" : "关";
+                return true;
+            case "open_tobi":
+                if (!roomInfo.open_tobi.HasValue) return false;
+                displayName = "击飞";
+                displayValue = roomInfo.open_tobi.Value ? "开" : "关";
                 return true;
             case "hepai_way":
                 if (string.IsNullOrEmpty(roomInfo.hepai_way)) return false;

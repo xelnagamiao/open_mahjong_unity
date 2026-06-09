@@ -80,6 +80,21 @@ public partial class NormalGameStateManager : MonoBehaviour{
         roundSettlementHistory.Clear();
     }
 
+    /// <summary>
+    /// 清空计分板依赖的对局结算缓存（快照与各玩家 score_history），避免牌谱/退出后仍走对局分支。
+    /// </summary>
+    public void ClearScoreRecordSettlementCache() {
+        roundSettlementHistory.Clear();
+        if (player_to_info == null) return;
+        foreach (PlayerInfoClass player in player_to_info.Values) {
+            if (player == null) continue;
+            if (player.score_history != null) player.score_history.Clear();
+            else player.score_history = new List<string>();
+            if (player.round_number_history != null) player.round_number_history.Clear();
+            else player.round_number_history = new List<int>();
+        }
+    }
+
     // 上次摸牌类型
     public string lastDealTileType; // 上次摸牌类型
 

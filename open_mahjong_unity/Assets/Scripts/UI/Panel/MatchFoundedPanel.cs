@@ -27,6 +27,8 @@ public class MatchFoundedPanel : MonoBehaviour {
         MatchStateManager.Instance.MarkMatchFound();
         MatchQueueingPanel.Instance?.HideImmediately();
         gameObject.SetActive(true);
+        // 排队面板在层级上位于本面板之后，需置于同级最前以免挡住匹配成功 UI。
+        transform.SetAsLastSibling();
         foundedMatchTypeText.text = matchTypeName;
         fadeIn.PlayFadeIn();
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
@@ -41,6 +43,7 @@ public class MatchFoundedPanel : MonoBehaviour {
         MatchStateManager manager = MatchStateManager.Instance;
         if (manager == null || !manager.IsMatchFound) return;
         gameObject.SetActive(true);
+        transform.SetAsLastSibling();
         foundedMatchTypeText.text = manager.QueueTitle;
         fadeIn.PlayFadeIn();
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);

@@ -29,6 +29,9 @@ public partial class GameCanvas : MonoBehaviour {
     [Header("日麻：自家振听标记（仅操作区显示；服务器仅向本人同步 furiten）")]
     [SerializeField] private GameObject selfFuritenIndicator;
 
+    [Header("日麻·浪涌：浪潮模式标记（全局唯一，类似振听）")]
+    [SerializeField] private GameObject langyongWaveIndicator;
+
     [Header("预制体")]
     [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体[吃,碰,杠,胡,补花,抢杠]
     [SerializeField] private GameObject ActionBlockPrefab;  // 静态牌容器块(在操作按钮有多种结果时显示)
@@ -64,7 +67,12 @@ public partial class GameCanvas : MonoBehaviour {
     public Transform HandCardsContainer => handCardsContainer;
     public RectTransform HandCardsContainerRect => handCardsContainer as RectTransform;
     public bool IsChangeHandCardProcessing => isChangeHandCardProcessing;
+    public bool IsHandReflowAnimating => _handReflowAnimDepth > 0;
     public void SetHandArranged(bool value) { isArranged = value; }
+
+    private int _handReflowAnimDepth;
+    private Coroutine _sortMainHandCoroutine;
+    private Coroutine _discardLayoutCoroutine;
     private bool _isScoreRecordOpen;
     
     private void Awake() {
@@ -136,7 +144,8 @@ public partial class GameCanvas : MonoBehaviour {
         playerRightPanel?.Clear();
         ClearActionButton();
         SetScoreRecordOpen(false);
-        RefreshSelfFuritenIndicator();
+        if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
+        RefreshRiichiStatusIndicators();
         gameObject.SetActive(false);
     }
 
@@ -189,7 +198,7 @@ public partial class GameCanvas : MonoBehaviour {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
 
-        RefreshSelfFuritenIndicator();
+        RefreshRiichiStatusIndicators();
     }
 
     // 从牌谱记录初始化游戏UI
@@ -253,7 +262,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
-        RefreshSelfFuritenIndicator();
+        RefreshRiichiStatusIndicators();
     }
 
     // 从牌谱记录更新左上房间信息
@@ -366,7 +375,12 @@ public partial class GameCanvas : MonoBehaviour {
                 }
             }
         }
+        RefreshRiichiStatusIndicators();
+    }
+
+    public void RefreshRiichiStatusIndicators() {
         RefreshSelfFuritenIndicator();
+        RefreshLangyongWaveIndicator();
     }
 
     // 根据自家 tag_list 是否含 furiten 显示/隐藏操作区振听标记
@@ -395,6 +409,32 @@ public partial class GameCanvas : MonoBehaviour {
             }
         }
         selfFuritenIndicator.SetActive(show);
+    }
+
+    /// <summary>浪涌麻将：浪潮模式全局标记（任意玩家 tag 含 langyong_wave 即显示）。</summary>
+    public void RefreshLangyongWaveIndicator() {
+        if (langyongWaveIndicator == null) return;
+        bool waveActive = IsLangyongSubRule() && HasLangyongWaveTag();
+        langyongWaveIndicator.SetActive(waveActive);
+    }
+
+    private static bool IsLangyongSubRule() {
+        var gm = NormalGameStateManager.Instance;
+        if (gm == null) return false;
+        return gm.subRule == "riichi/langyong";
+    }
+
+    private static bool HasLangyongWaveTag() {
+        var gm = NormalGameStateManager.Instance;
+        if (gm?.player_to_info == null) return false;
+        foreach (var kvp in gm.player_to_info) {
+            string[] tags = kvp.Value?.tag_list;
+            if (tags == null) continue;
+            for (int i = 0; i < tags.Length; i++) {
+                if (tags[i] == "langyong_wave") return true;
+            }
+        }
+        return false;
     }
 
     public void ClearActionButton() {

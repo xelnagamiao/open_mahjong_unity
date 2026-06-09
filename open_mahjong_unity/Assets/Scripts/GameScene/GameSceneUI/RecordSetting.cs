@@ -33,7 +33,6 @@ public class RecordSetting : MonoBehaviour {
         AddClickListener(showCardsModeText, ToggleShowCardsMode);
         AddClickListener(showMoqieModeText, ToggleShowMoqieMode);
         RefreshUI();
-        Game3DManager.Instance.RefreshRecordHandDisplay();
     }
 
     private void ToggleShowCardsMode() {

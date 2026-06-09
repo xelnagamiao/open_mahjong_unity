@@ -104,7 +104,7 @@ public partial class Game3DManager : MonoBehaviour {
             yield break;
         }
         if (SetType == "Discard") {
-            lastCut3DObject = cardObj;
+            lastCutJiagang3DObject = cardObj;
         }
         // 立直横置标记写入 Tile3D，归还对象池时会被清掉
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
@@ -206,7 +206,7 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
         if (SetType == "Discard") {
-            lastCut3DObject = cardObj;
+            lastCutJiagang3DObject = cardObj;
         }
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) tile3D.isRiichiHorizontal = useHorizontalLayout;

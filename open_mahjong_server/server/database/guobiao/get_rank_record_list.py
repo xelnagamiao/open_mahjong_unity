@@ -8,9 +8,9 @@ from psycopg2.extras import RealDictCursor
 logger = logging.getLogger(__name__)
 
 
-def get_rank_record_list(db_manager, user_id: int, limit: int = 10) -> list:
+def get_rank_record_list(db_manager, limit: int = 20) -> list:
     """
-    获取用户最近 N 局天梯对局元数据（match_type 以 _rank 结尾，如 4/4_rank）。
+    获取全服最近 N 局天梯对局元数据（room_type = match），非按玩家过滤。
     场次名优先从牌谱 JSON game_title.match_queue_type 解析。
     无记录时返回空列表，不抛错。
     """
@@ -20,23 +20,24 @@ def get_rank_record_list(db_manager, user_id: int, limit: int = 10) -> list:
         conn = db_manager._get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-        # 子查询取最近 N 个 game_id（避免 DISTINCT + ORDER BY 歧义）
         cursor.execute(
             """
-            SELECT gpr.game_id
-            FROM game_player_records gpr
-            INNER JOIN game_records gr ON gr.game_id = gpr.game_id
-            WHERE gpr.user_id = %s
-              AND gpr.match_type IS NOT NULL
-              AND gpr.match_type ~ '_rank$'
+            SELECT gr.game_id
+            FROM game_records gr
+            WHERE EXISTS (
+                SELECT 1
+                FROM game_player_records gpr
+                WHERE gpr.game_id = gr.game_id
+                  AND gpr.room_type = 'match'
+            )
             ORDER BY gr.created_at DESC
             LIMIT %s
             """,
-            (user_id, limit),
+            (limit,),
         )
         game_rows = cursor.fetchall()
         if not game_rows:
-            logger.info(f"用户 {user_id} 暂无天梯对局记录")
+            logger.info("全服暂无天梯对局记录")
             return []
 
         game_ids = [row["game_id"] for row in game_rows]
@@ -91,7 +92,7 @@ def get_rank_record_list(db_manager, user_id: int, limit: int = 10) -> list:
             if gid in games_dict:
                 ordered.append(games_dict[gid])
 
-        logger.info(f"用户 {user_id} 天梯对局 {len(ordered)} 条")
+        logger.info(f"全服天梯对局 {len(ordered)} 条")
         return ordered
     except Exception as e:
         logger.error(f"获取天梯对局列表失败: {e}", exc_info=True)
