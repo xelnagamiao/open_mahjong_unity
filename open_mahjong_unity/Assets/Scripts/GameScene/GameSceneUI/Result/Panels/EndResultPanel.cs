@@ -194,17 +194,19 @@ public class EndResultPanel : MonoBehaviour {
                 beforeScore, seatIdx, origIdx,
                 riichiExtras?.ScoreChanges, player_to_score, out int afterScore);
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
+            string displayName = StreamerModeHelper.FormatGamestatePlayerName(
+                playerInfo.username, pos, playerInfo.userId);
             if (pos == "self") {
-                SelfUserName.text = playerInfo.username;
+                SelfUserName.text = displayName;
                 SelfScore.text = scoreText;
             } else if (pos == "left") {
-                LeftUserName.text = playerInfo.username;
+                LeftUserName.text = displayName;
                 LeftScore.text = scoreText;
             } else if (pos == "top") {
-                TopUserName.text = playerInfo.username;
+                TopUserName.text = displayName;
                 TopScore.text = scoreText;
             } else if (pos == "right") {
-                RightUserName.text = playerInfo.username;
+                RightUserName.text = displayName;
                 RightScore.text = scoreText;
             }
         }
@@ -228,7 +230,7 @@ public class EndResultPanel : MonoBehaviour {
         // 显示番数
         string roomRuleForFan = NormalGameStateManager.Instance.subRule;
         bool isClassical = roomRuleForFan == "classical/standard";
-        bool isRiichi = roomRuleForFan == "riichi/standard" || roomRuleForFan == "riichi";
+        bool isRiichi = roomRuleForFan != null && roomRuleForFan.StartsWith("riichi");
 
         if (isClassical && fu_fan_list != null) {
             // 古典麻将：先显示副番列表
@@ -360,7 +362,7 @@ public class EndResultPanel : MonoBehaviour {
         }
 
         bool isClassical = roomType == "classical/standard";
-        bool isRiichi = roomType == "riichi/standard" || roomType == "riichi";
+        bool isRiichi = roomType != null && roomType.StartsWith("riichi");
 
         // 古典麻将：显示副番列表
         if (isClassical && fu_fan_list != null) {
@@ -466,7 +468,7 @@ public class EndResultPanel : MonoBehaviour {
     private void ShowTotalPanel(string rule, int huScore, string[] huFan, int? baseFu, RiichiEndResultExtras riichiExtras = null) {
         FanCountTotalPanel.SetActive(true);
         bool isClassical = rule == "classical/standard";
-        bool isRiichi = rule == "riichi/standard" || rule == "riichi";
+        bool isRiichi = rule != null && rule.StartsWith("riichi");
 
         if (isRiichi && riichiExtras != null) {
             TotalFu.gameObject.SetActive(true);
@@ -500,7 +502,7 @@ public class EndResultPanel : MonoBehaviour {
     /// 本场棒 / 场供立直棒在 RoundPanel 中已有显示，此处不再重复。
     /// </summary>
     private void ShowRiichiExtrasPanel(string rule, RiichiEndResultExtras extras) {
-        bool isRiichi = rule == "riichi/standard" || rule == "riichi";
+        bool isRiichi = rule != null && rule.StartsWith("riichi");
         if (RiichiPanel != null) {
             RiichiPanel.SetActive(isRiichi);
         }

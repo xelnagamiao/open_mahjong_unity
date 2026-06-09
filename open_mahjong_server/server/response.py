@@ -100,6 +100,8 @@ class Do_action_info(BaseModel):
     is_claim: Optional[bool] = None
     # 战术鸣牌（国标/青雀）：silent 仅应用状态变化，不播放发声与字体动画
     silent: Optional[bool] = None
+    # 暗杠/加杠：True=摸杠（末张参与），False=手杠
+    is_mo_gang: Optional[bool] = None
 
 class Show_result_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
@@ -148,6 +150,7 @@ class Player_final_data(BaseModel):
     score: int  # 玩家分数
     pt: float  # 段位 PT 变动
     username: str  # 用户名
+    original_player_index: Optional[int] = None  # 开局原始风位 0东1南2西3北，同分排序用
     rank_before: Optional[str] = None  # 对局前段位名
     score_before: Optional[float] = None  # 对局前段位分数
     rank_after: Optional[str] = None  # 对局后段位名
@@ -156,7 +159,7 @@ class Player_final_data(BaseModel):
 class Game_end_info(BaseModel):
     """游戏结束信息"""
     game_random_seed: int  # 游戏随机种子（用于验证）
-    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为顺位 "1"～"4"
+    player_final_data: Dict[str, Player_final_data]  # 玩家最终数据，键为玩家标识（国标为座位索引 "0"~"3"，可能并列名次）；展示请以 value.rank 为准
 
 class Switch_seat_info(BaseModel):
     """换位信息"""
@@ -178,6 +181,7 @@ class Player_record_info(BaseModel):
     username: str  # 用户名
     score: int  # 玩家分数
     rank: int  # 排名（1-4）
+    original_player_index: Optional[int] = None  # 开局原始风位 0东1南2西3北
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID
@@ -218,6 +222,7 @@ class Player_stats_info(BaseModel):
     second_place_count: Optional[int] = None
     third_place_count: Optional[int] = None
     fourth_place_count: Optional[int] = None
+    fulu_round_count: Optional[int] = None  # 副露局数（有明副露的局数）
     # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
     fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
 
@@ -261,8 +266,9 @@ class RankData(BaseModel):
 class ServerStatsInfo(BaseModel):
     """服务器统计信息"""
     online_players: int  # 在线人数
-    waiting_rooms: int  # 等待房间数
-    playing_rooms: int  # 进行房间数
+    waiting_rooms: int  # 等待房间数（自定义房间）
+    playing_rooms: int  # 进行房间数（自定义房间）
+    match_playing_games: int = 0  # 进行中的排位匹配对局数
 
 class SpectatorInfo(BaseModel):
     """观战信息"""

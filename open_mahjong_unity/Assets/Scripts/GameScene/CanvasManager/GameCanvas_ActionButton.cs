@@ -42,11 +42,12 @@ public partial class GameCanvas : MonoBehaviour {
             }
             // 胡牌
             else if (action_list[i] == "hu_self"){
-                Debug.Log($"自摸");
+                string huSelfText = GetHuSelfActionText();
+                Debug.Log(huSelfText);
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "自摸";
-                Debug.Log($"自摸按钮: {ActionButtonObj}");
+                buttonText.text = huSelfText;
+                Debug.Log($"{huSelfText}按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){

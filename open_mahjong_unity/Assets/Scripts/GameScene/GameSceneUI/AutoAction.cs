@@ -20,6 +20,8 @@ public class AutoAction : MonoBehaviour{
     [SerializeField] private TMP_Text autoPassChiText; // 不吃文本
     [SerializeField] private TMP_Text autoPassPengText; // 不碰文本
     [SerializeField] private TMP_Text autoPassGangText; // 不杠文本
+    [SerializeField] private TMP_Text autoOnlyRonText; // 只和荣和文本
+    [SerializeField] private TMP_Text autoOnlyTsumoText; // 只和自摸文本
 
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white; // false时的颜色（白色）
@@ -34,6 +36,8 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoPassChi = false; // 是否不吃
     private bool isAutoPassPeng = false; // 是否不碰
     private bool isAutoPassGang = false; // 是否不杠
+    private bool isOnlyRon = false; // 是否只和荣和（自动胡牌时只胡别人点炮，不自摸）
+    private bool isOnlyTsumo = false; // 是否只和自摸（自动胡牌时只胡自摸，不荣和）
     private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
     private bool isAutoCutLocked = false; // 立直后自动摸切锁定
 
@@ -46,7 +50,23 @@ public class AutoAction : MonoBehaviour{
     public bool IsAutoPassChi { get => isAutoPassChi; }
     public bool IsAutoPassPeng { get => isAutoPassPeng; }
     public bool IsAutoPassGang { get => isAutoPassGang; }
+    public bool IsOnlyRon { get => isOnlyRon; }
+    public bool IsOnlyTsumo { get => isOnlyTsumo; }
     public bool IsAutoCutLocked { get => isAutoCutLocked; }
+
+    // 是否应当自动荣和（吃别人点炮的牌）：只和自摸时不荣和；只和荣和时荣和；否则跟随自动胡牌
+    public bool ShouldAutoWinRon() {
+        if (isOnlyTsumo) return false;
+        if (isOnlyRon) return true;
+        return isAutoHepai;
+    }
+
+    // 是否应当自动自摸：只和荣和时不自摸；只和自摸时自摸；否则跟随自动胡牌
+    public bool ShouldAutoWinTsumo() {
+        if (isOnlyRon) return false;
+        if (isOnlyTsumo) return true;
+        return isAutoHepai;
+    }
 
     private void Awake(){
         if (Instance == null){
@@ -68,6 +88,8 @@ public class AutoAction : MonoBehaviour{
         isAutoPassChi = false;
         isAutoPassPeng = false;
         isAutoPassGang = false;
+        isOnlyRon = false;
+        isOnlyTsumo = false;
         isAutoCutLocked = false;
         // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的 current值
 
@@ -93,6 +115,8 @@ public class AutoAction : MonoBehaviour{
         isAutoPassChi = false;
         isAutoPassPeng = false;
         isAutoPassGang = false;
+        isOnlyRon = false;
+        isOnlyTsumo = false;
         isAutoCutLocked = false;
         isAutoBuhua = false;
 
@@ -138,6 +162,8 @@ public class AutoAction : MonoBehaviour{
         SetTextActive(autoPassChiText, visible);
         SetTextActive(autoPassPengText, visible);
         SetTextActive(autoPassGangText, visible);
+        SetTextActive(autoOnlyRonText, visible);
+        SetTextActive(autoOnlyTsumoText, visible);
     }
 
     private static void SetTextActive(TMP_Text text, bool visible) {
@@ -157,10 +183,13 @@ public class AutoAction : MonoBehaviour{
         AddClickListener(autoPassChiText, ToggleAutoPassChi);
         AddClickListener(autoPassPengText, ToggleAutoPassPeng);
         AddClickListener(autoPassGangText, ToggleAutoPassGang);
+        AddClickListener(autoOnlyRonText, ToggleOnlyRon);
+        AddClickListener(autoOnlyTsumoText, ToggleOnlyTsumo);
     }
 
     // 为TMP_Text添加点击监听器
     private void AddClickListener(TMP_Text text, System.Action action){
+        if (text == null) return;
         // 检查是否已有Button组件
         Button button = text.GetComponent<Button>();
         if (button == null){
@@ -242,6 +271,26 @@ public class AutoAction : MonoBehaviour{
         ToggleAutoOption(ref isAutoPassGang, autoPassGangText);
     }
 
+    // 切换只和荣和（与只和自摸互斥）
+    private void ToggleOnlyRon(){
+        isOnlyRon = !isOnlyRon;
+        if (isOnlyRon && isOnlyTsumo){
+            isOnlyTsumo = false;
+            UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
+        }
+        UpdateTextColor(autoOnlyRonText, isOnlyRon);
+    }
+
+    // 切换只和自摸（与只和荣和互斥）
+    private void ToggleOnlyTsumo(){
+        isOnlyTsumo = !isOnlyTsumo;
+        if (isOnlyTsumo && isOnlyRon){
+            isOnlyRon = false;
+            UpdateTextColor(autoOnlyRonText, isOnlyRon);
+        }
+        UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
+    }
+
     // 更新单个文本颜色
     private void UpdateTextColor(TMP_Text text, bool value){
         if (text != null){
@@ -259,5 +308,7 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(autoPassChiText, isAutoPassChi);
         UpdateTextColor(autoPassPengText, isAutoPassPeng);
         UpdateTextColor(autoPassGangText, isAutoPassGang);
+        UpdateTextColor(autoOnlyRonText, isOnlyRon);
+        UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
     }
 }

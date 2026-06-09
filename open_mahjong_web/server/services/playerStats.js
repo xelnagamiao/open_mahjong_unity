@@ -14,7 +14,8 @@ const HISTORY_FIELDS = new Set([
   'user_id', 'rule', 'mode', 'total_games', 'total_rounds', 'win_count',
   'self_draw_count', 'deal_in_count', 'total_fan_score', 'total_win_turn',
   'total_fangchong_score', 'first_place_count', 'second_place_count',
-  'third_place_count', 'fourth_place_count', 'created_at', 'updated_at',
+  'third_place_count', 'fourth_place_count', 'fulu_round_count',
+  'created_at', 'updated_at',
 ]);
 
 function extractFanStats(fanRow) {
@@ -62,6 +63,7 @@ async function queryRuleStats(userId, rule) {
     second_place_count: row.second_place_count,
     third_place_count: row.third_place_count,
     fourth_place_count: row.fourth_place_count,
+    fulu_round_count: row.fulu_round_count,
     fan_stats: extractFanStats(fanByKey.get(`${row.rule}|${row.mode}`)),
   }));
 }

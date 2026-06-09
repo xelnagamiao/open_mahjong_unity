@@ -862,15 +862,22 @@ class Chinese_Hepai_Check:
 
             # 根据刻子标记的步进判断 一色三节高 一色四节高
             sign_pointer = int(save_kezi_sign[0])
-            sign_count = 0
+            sign_count = 1
             for sign in save_kezi_sign:
-                if int(sign) == sign_pointer and int(sign) <= 40:
+                sign_val = int(sign)
+                if sign_val == sign_pointer + 1 and sign_val <= 40:
                     sign_count += 1
-                    sign_pointer += 1
-            if sign_count == 3:
-                player_tiles.fan_list.append("yisesanjiegao") # 一色三节高
-            elif sign_count == 4:
+                    sign_pointer = sign_val
+                elif sign_val == sign_pointer:
+                    pass
+                else: # 步进不连续则重新开始计数
+                    if sign_count <= 2:
+                        sign_count = 1
+                        sign_pointer = sign_val
+            if sign_count >= 4:
                 player_tiles.fan_list.append("yisesijiegao") # 一色四节高
+            elif sign_count >= 3:
+                player_tiles.fan_list.append("yisesanjiegao") # 一色三节高
             
             # 根据刻子标记的值的尾数切片判断 全双刻 三同刻 双同刻 三色三节高
             wan_list = []
@@ -1546,7 +1553,7 @@ if __name__ == "__main__":
     # 三色三节高
     # test_save = [["k47","g39","k27"],[18,18,18,43,43],18,["自摸"]] # 25
     # test_save = [["k26","k17","k38"],[21,21,27,28,29],21,["点和","和单张"]] #10
-    # 3 test_save = [["k24","k16"],[31,32,33,35,35,35,41,41],41,["点和"]] #8
+    # test_save = [["k24","k16"],[31,32,33,35,35,35,41,41],41,["点和"]] #8
     # 无番和
     # test_save = [["k28","s13"],[13,14,15,35,36,37,42,42],15,["点和"]] # 8
     # 2 test_save = [["s22","s16","s27"],[32,33,34,44,44],32,["点和"]] 8
@@ -1689,7 +1696,7 @@ if __name__ == "__main__":
     # 45中,46白,47发 
 
 
-    test_save = [["s37"],[11,14,17,23,26,29,32,35,38,39,39],39,[]]
+    # test_save = [["s37"],[11,14,17,23,26,29,32,35,38,39,39],39,[]]
 
     
 

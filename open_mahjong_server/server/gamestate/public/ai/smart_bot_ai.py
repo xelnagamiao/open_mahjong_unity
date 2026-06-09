@@ -11,6 +11,22 @@ from .smart_bot_logic import (
 
 logger = logging.getLogger(__name__)
 
+
+async def _wait_until_actionable(game_state, player_index: int, attempts: int = 200, interval: float = 0.01) -> bool:
+    """等待 wait_action 完成 waiting_players_list 建立（清空队列/事件之后）再提交操作。
+
+    主循环为「broadcast_ask_other_action(create_task 派发机器人) -> wait_action」，
+    当房间内有真人时广播会让出事件循环，机器人可能在 wait_action 尚未建立
+    waiting_players_list 前抢先运行，导致 get_ai_action 因不在等待列表而丢弃操作、
+    机器人不再重试，最终只能等到超时（表现为加杠/鸣牌后卡住）。
+    与摸切机器人 _submit_pass_when_ready 保持一致，轮询等待后再提交。
+    """
+    for _ in range(attempts):
+        if player_index in getattr(game_state, "waiting_players_list", []):
+            return True
+        await asyncio.sleep(interval)
+    return False
+
 # 牌效AI机器人，支持补花询问，手牌询问，其他玩家询问，抢杠询问
 async def smart_bot_action(game_state, player_index: int, action_list: list, game_status: str):
     """
@@ -120,6 +136,10 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
 
 async def _handle_after_cut(game_state, player_index, action_list, player):
     """他家切牌后的响应阶段：和牌 > 碰/吃/明杠评估 > pass"""
+    # 等待 wait_action 建立 waiting_players_list 后再提交，避免操作被清空丢弃导致卡住
+    if not await _wait_until_actionable(game_state, player_index):
+        logger.warning(f"牌效AI {player_index} ({player.username}) 切牌后询问未进入 waiting_players_list，放弃操作")
+        return
     # 能和且满足起和番则和（避免错和）
     for hu_action in ("hu_first", "hu_second", "hu_third"):
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
@@ -201,6 +221,10 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
 
 async def _handle_qianggang(game_state, player_index, action_list, player):
     """他家加杠时的抢杠询问：能和就和，否则pass"""
+    # 等待 wait_action 建立 waiting_players_list 后再提交，避免抢杠操作被清空丢弃导致卡住
+    if not await _wait_until_actionable(game_state, player_index):
+        logger.warning(f"牌效AI {player_index} ({player.username}) 抢杠询问未进入 waiting_players_list，放弃操作")
+        return
     # 抢杠和（满足起和番才和）
     for hu_action in ("hu_first", "hu_second", "hu_third"):
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):

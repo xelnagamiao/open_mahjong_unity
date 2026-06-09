@@ -153,7 +153,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.combination_target,
             doresponse.is_riichi_horizontal,
             doresponse.is_claim == true,
-            doresponse.silent == true
+            doresponse.silent == true,
+            doresponse.is_mo_gang
         );
     }
     

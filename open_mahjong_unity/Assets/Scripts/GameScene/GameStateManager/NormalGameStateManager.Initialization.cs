@@ -17,6 +17,10 @@ public partial class NormalGameStateManager {
 
         gamestateId = gameInfo.gamestate_id;
         // 0.切换窗口
+        MatchStateManager.Instance?.StopQueueing();
+        MatchNetworkManager.Instance?.ResetMatchLock();
+        MatchQueueingPanel.Instance?.HideImmediately();
+        MatchFoundedPanel.Instance?.StopCountdownAndHide();
         WindowsManager.Instance.SwitchWindow("game"); // 切换到游戏场景
 
         Game3DManager.Instance.Clear3DTile(); // 清空3D手牌
@@ -51,6 +55,12 @@ public partial class NormalGameStateManager {
         // 重连/初始化时：tag_list 中含 riichi/daburu_riichi 的玩家直接放置立直棒（无飞行动画）
         RestoreRiichiTenbous(gameInfo);
 
+        // 重连时 server 仅向当前行动者补发 ask；其余玩家需从 game_info 恢复黄条
+        if (gameInfo != null && indexToPosition.TryGetValue(gameInfo.current_player_index, out string currentPos)) {
+            BoardCanvas.Instance.ShowCurrentPlayer(currentPos, remainTiles);
+            CurrentPlayer = currentPos;
+        }
+
         IsGameActive = true;
         IsSelfActionRequired = false;
         TipsContainer.Instance?.ResetRyuukyokuTenpaiChoiceForRound();
@@ -59,20 +69,14 @@ public partial class NormalGameStateManager {
 
     private void RestoreRiichiTenbous(GameInfo gameInfo){
         if (gameInfo == null || gameInfo.players_info == null) return;
-        int placedFromTags = 0;
         foreach (var player in gameInfo.players_info){
             if (player.tag_list == null || !indexToPosition.ContainsKey(player.player_index)) continue;
             for (int i = 0; i < player.tag_list.Length; i++){
                 if (player.tag_list[i] == "riichi" || player.tag_list[i] == "daburu_riichi"){
                     Game3DManager.Instance.PlaceRiichiTenbouAt(indexToPosition[player.player_index]);
-                    placedFromTags++;
                     break;
                 }
             }
-        }
-        int fieldSticks = (gameInfo.riichi_sticks ?? 0) - placedFromTags;
-        if (fieldSticks > 0) {
-            Game3DManager.Instance.PlaceFieldRiichiTenbous(fieldSticks);
         }
     }
 

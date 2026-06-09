@@ -54,10 +54,15 @@ public class SwitchSeatPanel : MonoBehaviour {
         int selfNum = BackCurrentNum(selfIndex);
 
         // 获取四个方向的用户名
-        SelfName.text = NormalGameStateManager.Instance.player_to_info["self"].username;
-        RightName.text = NormalGameStateManager.Instance.player_to_info["right"].username;
-        TopName.text = NormalGameStateManager.Instance.player_to_info["top"].username;
-        LeftName.text = NormalGameStateManager.Instance.player_to_info["left"].username;
+        var playerInfo = NormalGameStateManager.Instance.player_to_info;
+        SelfName.text = StreamerModeHelper.FormatGamestatePlayerName(
+            playerInfo["self"].username, "self", playerInfo["self"].userId);
+        RightName.text = StreamerModeHelper.FormatGamestatePlayerName(
+            playerInfo["right"].username, "right", playerInfo["right"].userId);
+        TopName.text = StreamerModeHelper.FormatGamestatePlayerName(
+            playerInfo["top"].username, "top", playerInfo["top"].userId);
+        LeftName.text = StreamerModeHelper.FormatGamestatePlayerName(
+            playerInfo["left"].username, "left", playerInfo["left"].userId);
 
         Dictionary<int, string> indexToOriginalPosition = new Dictionary<int, string>();
         // 获取所有人的原始初始位

@@ -18,7 +18,7 @@ from .boardcast import (
     broadcast_ready_status,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num
+from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_strict_final_ranks
 from .init_tiles import init_qingque_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
@@ -26,6 +26,7 @@ from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
 
@@ -573,14 +574,6 @@ class QingqueGameState:
                 print(f"player_list_hand_tiles: {self.player_list[hepai_player_index].hand_tiles}")
                 print(f"player_list_huapai_list: {self.player_list[hepai_player_index].huapai_list}")
                 print(f"player_list_combination_mask: {self.player_list[hepai_player_index].combination_mask}")
-                
-                # 记录玩家副露率
-                for i in self.player_list:
-                    # 检查combination_tiles中是否有以k、g、s开头的组合牌
-                    has_fulu = any(combo.startswith("k") or combo.startswith("g") or combo.startswith("s") 
-                                   for combo in i.combination_tiles)
-                    if has_fulu:
-                        i.record_counter.fulu_times += 1
 
             # 广播流局结算结果
             else:
@@ -597,6 +590,8 @@ class QingqueGameState:
                                        hepai_player_combination_mask = None, # 和牌玩家组合掩码
                                        score_changes = liuju_score_changes,
                                        )
+
+            record_fulu_rounds_for_players(self.player_list)
 
             # 记录分数变更到每个玩家的 score_history
             # 计算每个玩家本局的分数变化并记录
@@ -665,10 +660,8 @@ class QingqueGameState:
         end_game_record(self)
         logger.info(f"最终游戏记录: {self.game_record}")
 
-        # 按分数排序玩家
-        self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for index, player in enumerate[QingquePlayer](self.player_list):
-            player.record_counter.rank_result = index + 1
+        # 终局排名：同分按开局原始风位（东0→南1→西2→北3）拆分
+        assign_strict_final_ranks(self.player_list)
 
         # 发送游戏结算信息
         await self.broadcast_game_end() # 广播游戏结束信息

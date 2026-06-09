@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 public partial class GameCanvas : MonoBehaviour {
@@ -20,12 +21,16 @@ public partial class GameCanvas : MonoBehaviour {
     [Header("操作界面")]
     [SerializeField] private Transform handCardsContainer; // 手牌容器（显示手牌 水平布局组）
     [SerializeField] private HandCardDragController handCardDragController;
+    [SerializeField] private HandCardSelectionController handCardSelectionController;
     [SerializeField] private TMP_Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
     [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
     [Header("日麻：自家振听标记（仅操作区显示；服务器仅向本人同步 furiten）")]
     [SerializeField] private GameObject selfFuritenIndicator;
+
+    [Header("日麻·浪涌：浪潮模式标记（全局唯一，类似振听）")]
+    [SerializeField] private GameObject langyongWaveIndicator;
 
     [Header("预制体")]
     [SerializeField] private ActionButton ActionButtonPrefab;  // 询问操作按钮预制体[吃,碰,杠,胡,补花,抢杠]
@@ -62,7 +67,12 @@ public partial class GameCanvas : MonoBehaviour {
     public Transform HandCardsContainer => handCardsContainer;
     public RectTransform HandCardsContainerRect => handCardsContainer as RectTransform;
     public bool IsChangeHandCardProcessing => isChangeHandCardProcessing;
+    public bool IsHandReflowAnimating => _handReflowAnimDepth > 0;
     public void SetHandArranged(bool value) { isArranged = value; }
+
+    private int _handReflowAnimDepth;
+    private Coroutine _sortMainHandCoroutine;
+    private Coroutine _discardLayoutCoroutine;
     private bool _isScoreRecordOpen;
     
     private void Awake() {
@@ -76,6 +86,12 @@ public partial class GameCanvas : MonoBehaviour {
         }
         if (handCardDragController == null) {
             handCardDragController = gameObject.AddComponent<HandCardDragController>();
+        }
+        if (handCardSelectionController == null) {
+            handCardSelectionController = GetComponent<HandCardSelectionController>();
+        }
+        if (handCardSelectionController == null) {
+            handCardSelectionController = gameObject.AddComponent<HandCardSelectionController>();
         }
         // 获取tileCardPrefab的宽度 
         tileCardWidth = tileCardPrefab.GetComponent<RectTransform>().rect.width;
@@ -118,6 +134,7 @@ public partial class GameCanvas : MonoBehaviour {
     /// </summary>
     public void ResetForExit() {
         ClearHandCardQueue();
+        HandCardSelectionController.Instance?.DisarmAll();
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--) {
             Destroyer.Instance.AddToDestroyer(handCardsContainer.GetChild(i));
         }
@@ -127,7 +144,8 @@ public partial class GameCanvas : MonoBehaviour {
         playerRightPanel?.Clear();
         ClearActionButton();
         SetScoreRecordOpen(false);
-        RefreshSelfFuritenIndicator();
+        if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
+        RefreshRiichiStatusIndicators();
         gameObject.SetActive(false);
     }
 
@@ -135,6 +153,7 @@ public partial class GameCanvas : MonoBehaviour {
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
+        HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
             Transform child = handCardsContainer.GetChild(i);
@@ -162,7 +181,7 @@ public partial class GameCanvas : MonoBehaviour {
 
             // 调用面板的 SetPlayerInfo 方法
             if (targetPanel != null) {
-                targetPanel.SetPlayerInfo(player, "gamestate");
+                targetPanel.SetPlayerInfo(player, "gamestate", position);
             }
             else
             {
@@ -179,13 +198,14 @@ public partial class GameCanvas : MonoBehaviour {
             Debug.LogWarning("RoundPanel reference is not set in GameCanvas!");
         }
 
-        RefreshSelfFuritenIndicator();
+        RefreshRiichiStatusIndicators();
     }
 
     // 从牌谱记录初始化游戏UI
     public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
+        HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
             Transform child = handCardsContainer.GetChild(i);
@@ -242,7 +262,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.LogWarning($"未找到位置 {position} 对应的玩家面板");
             }
         }
-        RefreshSelfFuritenIndicator();
+        RefreshRiichiStatusIndicators();
     }
 
     // 从牌谱记录更新左上房间信息
@@ -355,7 +375,12 @@ public partial class GameCanvas : MonoBehaviour {
                 }
             }
         }
+        RefreshRiichiStatusIndicators();
+    }
+
+    public void RefreshRiichiStatusIndicators() {
         RefreshSelfFuritenIndicator();
+        RefreshLangyongWaveIndicator();
     }
 
     // 根据自家 tag_list 是否含 furiten 显示/隐藏操作区振听标记
@@ -384,6 +409,32 @@ public partial class GameCanvas : MonoBehaviour {
             }
         }
         selfFuritenIndicator.SetActive(show);
+    }
+
+    /// <summary>浪涌麻将：浪潮模式全局标记（任意玩家 tag 含 langyong_wave 即显示）。</summary>
+    public void RefreshLangyongWaveIndicator() {
+        if (langyongWaveIndicator == null) return;
+        bool waveActive = IsLangyongSubRule() && HasLangyongWaveTag();
+        langyongWaveIndicator.SetActive(waveActive);
+    }
+
+    private static bool IsLangyongSubRule() {
+        var gm = NormalGameStateManager.Instance;
+        if (gm == null) return false;
+        return gm.subRule == "riichi/langyong";
+    }
+
+    private static bool HasLangyongWaveTag() {
+        var gm = NormalGameStateManager.Instance;
+        if (gm?.player_to_info == null) return false;
+        foreach (var kvp in gm.player_to_info) {
+            string[] tags = kvp.Value?.tag_list;
+            if (tags == null) continue;
+            for (int i = 0; i < tags.Length; i++) {
+                if (tags[i] == "langyong_wave") return true;
+            }
+        }
+        return false;
     }
 
     public void ClearActionButton() {
@@ -438,9 +489,34 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     /// <summary>
+    /// 指针是否落在自家手牌容器内的 TileCard 上（含牌面/槽位等子 UI）。
+    /// </summary>
+    public bool IsPointerOverSelfHandCard(Vector2 screenPosition) {
+        if (handCardsContainer == null || EventSystem.current == null) {
+            return false;
+        }
+        PointerEventData pointerData = new PointerEventData(EventSystem.current) {
+            position = screenPosition
+        };
+        List<RaycastResult> results = new List<RaycastResult>(8);
+        EventSystem.current.RaycastAll(pointerData, results);
+        for (int i = 0; i < results.Count; i++) {
+            if (results[i].gameObject == null) {
+                continue;
+            }
+            TileCard tileCard = results[i].gameObject.GetComponentInParent<TileCard>();
+            if (tileCard != null && tileCard.transform.IsChildOf(handCardsContainer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
     /// 摸切快捷 / 自动出牌：优先打出摸牌张，否则打出 handSortIndex 最大的手牌。
     /// </summary>
     public bool TriggerMoqieHandCardClick() {
+        HandCardSelectionController.Instance?.DisarmAll();
         if (handCardsContainer == null) {
             Debug.LogWarning("手牌容器为空，无法触发自动出牌");
             return false;

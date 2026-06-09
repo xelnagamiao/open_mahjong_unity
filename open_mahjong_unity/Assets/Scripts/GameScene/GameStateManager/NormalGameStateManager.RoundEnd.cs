@@ -16,6 +16,8 @@ public partial class NormalGameStateManager {
         }
         if (riichiExtras != null && IsHuClass(hu_class)) {
             OnRiichiSticksCollected(riichiExtras.RiichiSticksCollected);
+        } else if (subRule != null && subRule.StartsWith("riichi/") && ShouldHideRiichiSticksOnLiuju(hu_class)) {
+            OnRiichiSticksHideOnLiuju();
         }
 
         AppendRoundSettlementSnapshot(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, score_changes);

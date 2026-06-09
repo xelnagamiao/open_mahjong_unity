@@ -50,6 +50,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                     username=player_data['username'],
                     score=player_data['score'],
                     rank=player_data['rank'],
+                    original_player_index=player_data.get('original_player_index'),
                     title_used=player_data.get('title_used'),
                     character_used=player_data.get('character_used'),
                     profile_used=player_data.get('profile_used'),
@@ -81,7 +82,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
     await websocket.send_json(response.dict(exclude_none=True))
 
 async def handle_get_rank_record_list(game_server, Connect_id: str, message: dict, websocket):
-    """获取当前用户最近的天梯（排位）对局元数据；无记录时返回空列表，不中断连接。"""
+    """获取全服最近的天梯（排位）对局元数据；无记录时返回空列表，不中断连接。"""
     response = Response(
         type="data/get_rank_record_list",
         success=False,
@@ -94,11 +95,11 @@ async def handle_get_rank_record_list(game_server, Connect_id: str, message: dic
             await websocket.send_json(response.dict(exclude_none=True))
             return
 
-        limit = message.get("limit", 10)
+        limit = message.get("limit", 20)
         try:
             limit = max(1, min(50, int(limit)))
         except (TypeError, ValueError):
-            limit = 10
+            limit = 20
 
         getter = getattr(game_server.db_manager, "get_rank_record_list", None)
         if getter is None:
@@ -112,7 +113,7 @@ async def handle_get_rank_record_list(game_server, Connect_id: str, message: dic
             await websocket.send_json(response.dict(exclude_none=True))
             return
 
-        records = getter(player.user_id, limit=limit) or []
+        records = getter(limit=limit) or []
         record_list = []
         for game_record in records:
             players_info = []
@@ -123,6 +124,7 @@ async def handle_get_rank_record_list(game_server, Connect_id: str, message: dic
                         username=p.get("username") or "",
                         score=p.get("score") if p.get("score") is not None else 0,
                         rank=p.get("rank") if p.get("rank") is not None else 0,
+                        original_player_index=p.get("original_player_index"),
                     )
                 )
             record_list.append(
@@ -220,6 +222,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
                 username=p['username'],
                 score=p['score'],
                 rank=p['rank'],
+                original_player_index=p.get('original_player_index'),
                 title_used=p.get('title_used'),
                 character_used=p.get('character_used'),
                 profile_used=p.get('profile_used'),
@@ -302,6 +305,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
             second_place_count=stats_row.get('second_place_count'),
             third_place_count=stats_row.get('third_place_count'),
             fourth_place_count=stats_row.get('fourth_place_count'),
+            fulu_round_count=stats_row.get('fulu_round_count'),
             fan_stats=None  # 历史统计不包含番种数据
         ))
     
@@ -360,10 +364,33 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
                 guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
     
-    # TODO: 实现立直统计数据获取
+    from .riichi.get_riichi_stats import get_riichi_history_stats
+
+    history_stats_rows = get_riichi_history_stats(game_server.db_manager, target_user_id)
+    history_stats_list = []
+    for stats_row in history_stats_rows:
+        history_stats_list.append(Player_stats_info(
+            rule=stats_row.get('rule', 'riichi'),
+            mode=stats_row.get('mode'),
+            total_games=stats_row.get('total_games'),
+            total_rounds=stats_row.get('total_rounds'),
+            win_count=stats_row.get('win_count'),
+            self_draw_count=stats_row.get('self_draw_count'),
+            deal_in_count=stats_row.get('deal_in_count'),
+            total_fan_score=stats_row.get('total_fan_score'),
+            total_win_turn=stats_row.get('total_win_turn'),
+            total_fangchong_score=stats_row.get('total_fangchong_score'),
+            first_place_count=stats_row.get('first_place_count'),
+            second_place_count=stats_row.get('second_place_count'),
+            third_place_count=stats_row.get('third_place_count'),
+            fourth_place_count=stats_row.get('fourth_place_count'),
+            fulu_round_count=stats_row.get('fulu_round_count'),
+            fan_stats=None,
+        ))
+
     rule_stats_response = Rule_stats_response(
         rule="riichi",
-        history_stats=[],
+        history_stats=history_stats_list,
         total_fan_stats=None
     )
     
@@ -435,6 +462,7 @@ async def handle_get_qingque_stats(game_server, Connect_id: str, message: dict, 
             second_place_count=stats_row.get('second_place_count'),
             third_place_count=stats_row.get('third_place_count'),
             fourth_place_count=stats_row.get('fourth_place_count'),
+            fulu_round_count=stats_row.get('fulu_round_count'),
             fan_stats=None
         ))
     
@@ -512,6 +540,7 @@ async def handle_get_classical_stats(game_server, Connect_id: str, message: dict
             second_place_count=stats_row.get('second_place_count'),
             third_place_count=stats_row.get('third_place_count'),
             fourth_place_count=stats_row.get('fourth_place_count'),
+            fulu_round_count=stats_row.get('fulu_round_count'),
             fan_stats=None
         ))
 

@@ -39,6 +39,9 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
     public bool open_cuohe; // 是否开启错和（日麻：向其余三家各赔 3000 并重打本局；国标：罚分后继续本局）
     public int hepai_limit; // 自定义起和番数，低于该番数视为错和
     public bool red_dora; // 是否启用赤宝牌
+    public bool allow_kuikae; // 是否允许食替（吃什么打什么）
+    public bool open_xiru; // 是否西入
+    public bool open_tobi; // 是否击飞
     public string hepai_way; // 和牌方式：head_bump / multi_ron / three_ron_abort
     public bool tourist_limit;
     public bool allow_spectator;
@@ -93,9 +96,9 @@ public class GetRecordListRequest { // 获取游戏记录请求
     public string type;
 }
 
-public class GetRankRecordListRequest { // 获取天梯对局记录请求
+public class GetRankRecordListRequest { // 获取全服最近天梯对局记录请求
     public string type;
-    public int limit = 10;
+    public int limit = 20;
 }
 
 public class GetLeaderboardRequest { // 获取国标段位排行榜请求
@@ -153,6 +156,12 @@ public class KickPlayerFromRoomRequest { // 房主移除玩家请求
     public string type;
     public string room_id;
     public int target_user_id;
+}
+
+public class SetReadyRequest { // 设置准备状态请求
+    public string type;
+    public string room_id;
+    public bool ready;
 }
 
 public class GetSpectatorListRequest { // 获取观战列表请求

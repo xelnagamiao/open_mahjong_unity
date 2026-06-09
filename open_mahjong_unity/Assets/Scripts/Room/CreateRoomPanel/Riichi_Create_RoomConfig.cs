@@ -18,6 +18,9 @@ public class Riichi_Create_RoomConfig {
     public bool CuoHe { get; set; }
     public int HepaiLimit { get; set; }
     public bool RedDora { get; set; }
+    public bool AllowKuikae { get; set; }
+    public bool OpenXiru { get; set; }
+    public bool OpenTobi { get; set; }
     public string HepaiWay { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {

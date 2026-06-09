@@ -179,7 +179,9 @@ public class EndShuheWeiPanel : MonoBehaviour {
         for (int i = 0; i < playerPanels.Count; i++) {
             ShuheweiPlayerPanel panel = playerPanels[i];
             string posKey = GetPositionKey(panel.Position);
-            panel.SetUserName(player_to_info.ContainsKey(posKey) ? player_to_info[posKey].username : "");
+            string username = player_to_info.ContainsKey(posKey) ? player_to_info[posKey].username : "";
+            int userId = player_to_info.ContainsKey(posKey) ? player_to_info[posKey].userId : 0;
+            panel.SetUserName(StreamerModeHelper.FormatGamestatePlayerName(username, posKey, userId));
             panel.ResetRoundStats();
             panel.SetReady(false);
             panel.ClearFanContainer();
