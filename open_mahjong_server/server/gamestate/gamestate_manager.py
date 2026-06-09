@@ -56,6 +56,10 @@ class GameStateManager:
         # 检查人数是否满足
         if len(room_data["player_list"]) != 4:
             return Response(type="error_message", success=False, message="人数不足")
+
+        # 检查除房主外的所有玩家是否都已准备（机器人默认已准备）
+        if not self.game_server.room_manager.all_players_ready(room_data):
+            return Response(type="error_message", success=False, message="有玩家尚未准备")
         
         # 检查游戏是否已经在运行
         if room_data.get("is_game_running", False):
@@ -340,6 +344,13 @@ class GameStateManager:
             正在进行的游戏房间数量
         """
         return len(self.gamestate_id_to_game_state)
+
+    def get_match_playing_games_count(self) -> int:
+        """获取正在进行的排位匹配对局数量（不写入 room_manager.rooms）。"""
+        return sum(
+            1 for game_state in self.gamestate_id_to_game_state.values()
+            if getattr(game_state, "room_type", None) == "match"
+        )
     
     def get_spectator_list(self) -> list:
         """
@@ -430,7 +441,16 @@ class GameStateManager:
             del self.gamestate_id_to_game_state[gamestate_id]
         
         logger.info(f"已清理所有映射关系，gamestate_id: {gamestate_id}, room_id: {game_state.room_id}")
-        
+
+        # 排位匹配：在对局彻底清理时释放匹配状态（承诺锁 / 游戏中人数 / 房间号）。
+        # 该清理同时覆盖“正常结束”与“全员掉线清理”两条路径，确保玩家不会被永久锁定，
+        # 也保证只有在当前一局真正结束后才能再次匹配。
+        if getattr(game_state, "room_type", None) == "match" and getattr(self.game_server, "match_manager", None):
+            try:
+                self.game_server.match_manager.release_match(gamestate_id)
+            except Exception as exc:
+                logger.warning(f"release_match 异常: {exc}")
+
         # 通知挂在该对局的实时观战者下机
         if getattr(self.game_server, "friend_manager", None):
             try:

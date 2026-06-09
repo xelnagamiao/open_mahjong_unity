@@ -10,19 +10,24 @@ public class GamePlayerPanel : MonoBehaviour {
     [SerializeField] private Image playerProfileEdgePicture;   // 玩家头像边框
     [SerializeField] private Image playerIslossconnPicture; // 玩家是否掉线图片
     [SerializeField] private GameObject playerIsPeidaPicture; // 玩家是否陪打图片
+    [SerializeField] private GameObject playerLangyongBadge; // 浪涌麻将：鸣牌次数标记（tag: langyong_N）
+    [SerializeField] private TMP_Text playerLangyongCountText; // 浪涌鸣牌次数文字（可选）
     [SerializeField] private Button GoToRecordSelectButton; // 牌谱模式下切换到该玩家视角
 
     private void Awake() {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
+        if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
     }
 
 
-    // 设置玩家信息
-    public void SetPlayerInfo(PlayerInfo playerInfo, string state) {
-
-        // 设置玩家名称
-        playerNameText.text = playerInfo.username;
+    public void SetPlayerInfo(PlayerInfo playerInfo, string state, string position = null) {
+        if (state == "gamestate") {
+            playerNameText.text = StreamerModeHelper.FormatGamestatePlayerName(
+                playerInfo.username, position, playerInfo.user_id);
+        } else {
+            playerNameText.text = playerInfo.username;
+        }
         // 设置头衔
         playerTitleText.text = ConfigManager.GetTitleText(playerInfo.title_used);
 
@@ -59,18 +64,33 @@ public class GamePlayerPanel : MonoBehaviour {
         }
     }
 
-    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处仅处理掉线、陪打等）
+    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处处理掉线、陪打、浪涌鸣牌次数等）
     public void UpdateTagList(string[] tag_list) {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
+        if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
+        if (playerLangyongCountText != null) playerLangyongCountText.text = "";
 
         if (tag_list != null) {
+            int langyongCount = -1;
             foreach(var item in tag_list) {
                 if (item == "offline") {
                     playerIslossconnPicture.gameObject.SetActive(true);
                 }
                 if (item == "peida") {
                     playerIsPeidaPicture.gameObject.SetActive(true);
+                }
+                // langyong_wave 由 GameCanvas 全局显示；此处仅显示该玩家个人鸣牌次数 langyong_N
+                if (item != null && item.StartsWith("langyong_") && item != "langyong_wave") {
+                    if (int.TryParse(item.Substring("langyong_".Length), out int count)) {
+                        langyongCount = count;
+                    }
+                }
+            }
+            if (langyongCount >= 0 && playerLangyongBadge != null) {
+                playerLangyongBadge.SetActive(true);
+                if (playerLangyongCountText != null) {
+                    playerLangyongCountText.text = $"浪涌点数*{langyongCount}";
                 }
             }
         }

@@ -77,6 +77,7 @@ async def broadcast_game_start(self):
                     'character_used': player.character_used,
                     'voice_used': player.voice_used,
                     'score_history': player.score_history,
+                    'round_number_history': player.round_number_history,
                     'tag_list': player.tag_list,
                 }
                 players_info_for_current.append(player_info)
@@ -320,6 +321,7 @@ async def broadcast_do_action(
     combination_mask: List[int] = None,
     is_claim: bool = False,
     silent: bool = False,
+    is_mo_gang: bool = None,
     ):
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
@@ -373,6 +375,7 @@ async def broadcast_do_action(
                         combination_target=viewer_target,
                         is_claim=True if is_claim else None,
                         silent=True if silent else None,
+                        is_mo_gang=is_mo_gang,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -390,7 +393,8 @@ async def broadcast_do_action(
             action_list, action_player,
             cut_tile=cut_tile, cut_class=cut_class,
             deal_tile=deal_tile, buhua_tile=buhua_tile,
-            combination_mask=combination_mask
+            combination_mask=combination_mask,
+            is_mo_gang=is_mo_gang,
         )
 
 # 广播结算结果
@@ -456,15 +460,16 @@ async def broadcast_game_end(self):
     """广播游戏结束信息"""
     self.server_action_tick += 1
     
-    # 构建玩家最终数据字典，键为顺位字符串 "1"～"4"
+    # 构建玩家最终数据字典，键为座位索引字符串 "0"～"3"（同分并列名次时 rank 可能重复，故不能用名次作键）
     player_final_data = {}
     for player in self.player_list:
         pt = getattr(player, 'pt', 0)
-        player_final_data[str(player.record_counter.rank_result)] = Player_final_data(
+        player_final_data[str(player.player_index)] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=pt,
             username=player.username,
+            original_player_index=player.original_player_index,
             rank_before=getattr(player, 'rank_before', None),
             score_before=getattr(player, 'score_before', None),
             rank_after=getattr(player, 'rank_after', None),

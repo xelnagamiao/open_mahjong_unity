@@ -60,8 +60,12 @@ public static class RoundTextDictionary {
     /// <summary>根据服务端 match_type（如 1/4、2/4、4/4）返回局数显示名（东风战/东南战/全庄战等）</summary>
     public static string GetMatchTypeDisplay(string match_type) {
         if (string.IsNullOrEmpty(match_type)) return "";
-        int slash = match_type.IndexOf('/');
-        if (slash < 0 || !int.TryParse(match_type.Substring(0, slash), out int rounds))
+        string normalized = match_type;
+        if (normalized.EndsWith("_rank")) {
+            normalized = normalized.Substring(0, normalized.Length - "_rank".Length);
+        }
+        int slash = normalized.IndexOf('/');
+        if (slash < 0 || !int.TryParse(normalized.Substring(0, slash), out int rounds))
             return "";
         return GetMaxRoundText(rounds);
     }

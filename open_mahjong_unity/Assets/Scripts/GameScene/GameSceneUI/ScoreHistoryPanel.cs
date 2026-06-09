@@ -44,10 +44,20 @@ public class ScoreHistoryPanel : MonoBehaviour
 
     private void OnEnable()
     {
+        if (GameSceneUIManager.Instance == null) return;
+
+        bool recordActive = GameRecordManager.Instance != null
+            && GameRecordManager.Instance.gameObject.activeSelf
+            && GameRecordManager.Instance.gameRecord != null;
+        if (recordActive) {
+            GameSceneUIManager.Instance.UpdateScoreRecord();
+            return;
+        }
+
         var mgr = NormalGameStateManager.Instance;
         if (mgr == null) return;
         if (!mgr.IsGameActive && mgr.roundSettlementHistory.Count == 0) return;
-        GameSceneUIManager.Instance?.UpdateScoreRecord();
+        GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
     private void EnsureReferences()
@@ -171,7 +181,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         UpdateScoreRecord(rule, player_to_info, null);
     }
 
-    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements)
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false)
     {
         if (player_to_info == null || player_to_info.Count < 4) return;
 
@@ -179,17 +189,40 @@ public class ScoreHistoryPanel : MonoBehaviour
             roundSettlements = NormalGameStateManager.Instance?.roundSettlementHistory;
         }
 
+        // 总局数（用于预测未来局名占位）：优先用调用方传入，其次回退到实时对局的 maxRound（风圈数）*4
+        if (totalRounds <= 0) {
+            var mgr = NormalGameStateManager.Instance;
+            if (mgr != null && mgr.maxRound > 0) {
+                totalRounds = mgr.maxRound * 4;
+            }
+        }
+
         var sorted = new List<PlayerInfoClass>(player_to_info.Values);
         sorted.Sort((a, b) => a.original_player_index.CompareTo(b.original_player_index));
         List<int> roundNumberHistory = sorted[0].round_number_history ?? new List<int>();
 
+        string ResolveDisplayName(PlayerInfoClass player) {
+            string position = null;
+            foreach (var kv in player_to_info) {
+                if (kv.Value == player) {
+                    position = kv.Key;
+                    break;
+                }
+            }
+            if (maskPlayerNames) {
+                return StreamerModeHelper.FormatGamestatePlayerName(player.username, position, player.userId);
+            }
+            return player.username;
+        }
+
         InitializeScoreRecord(rule,
-            sorted[0].original_player_index, sorted[0].username, sorted[0].score_history ?? new List<string>(),
-            sorted[1].original_player_index, sorted[1].username, sorted[1].score_history ?? new List<string>(),
-            sorted[2].original_player_index, sorted[2].username, sorted[2].score_history ?? new List<string>(),
-            sorted[3].original_player_index, sorted[3].username, sorted[3].score_history ?? new List<string>(),
+            sorted[0].original_player_index, ResolveDisplayName(sorted[0]), sorted[0].score_history ?? new List<string>(),
+            sorted[1].original_player_index, ResolveDisplayName(sorted[1]), sorted[1].score_history ?? new List<string>(),
+            sorted[2].original_player_index, ResolveDisplayName(sorted[2]), sorted[2].score_history ?? new List<string>(),
+            sorted[3].original_player_index, ResolveDisplayName(sorted[3]), sorted[3].score_history ?? new List<string>(),
             roundNumberHistory,
-            roundSettlements);
+            roundSettlements,
+            totalRounds);
     }
 
     public void InitializeScoreRecord(
@@ -199,7 +232,8 @@ public class ScoreHistoryPanel : MonoBehaviour
         int originIndex2, string username2, List<string> scoreHistory2,
         int originIndex3, string username3, List<string> scoreHistory3,
         List<int> roundNumberHistory = null,
-        IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null)
+        IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null,
+        int totalRounds = 0)
     {
         EnsureMainFanColumnSetup();
         if (RoundIndexContainer != null)
@@ -243,8 +277,10 @@ public class ScoreHistoryPanel : MonoBehaviour
             roundCount = roundSettlements.Count;
         }
 
+        int maxPlayedRoundNumber = 0;
         for (int i = 0; i < roundCount; i++) {
             int roundNumber = i < roundNumbers.Count ? roundNumbers[i] : (i + 1);
+            if (roundNumber > maxPlayedRoundNumber) maxPlayedRoundNumber = roundNumber;
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();
             if (text != null) {
@@ -252,6 +288,25 @@ public class ScoreHistoryPanel : MonoBehaviour
             }
 
             CreateMainFanCell(i, scoreHistoryCount, roundCount, subRule, roundSettlements);
+        }
+
+        // 预测局名占位：计分板尚未自动延伸到的后续局，用灰色局名 + 空白单元格补齐，
+        // 与日麻"对局列表依次递增"一致（连庄/错和会出现同一局名多行，预测从已用最大局号+1 起）。
+        var predictedRoundNumbers = new List<int>();
+        if (totalRounds > 0) {
+            for (int rn = maxPlayedRoundNumber + 1; rn <= totalRounds; rn++) {
+                predictedRoundNumbers.Add(rn);
+            }
+        }
+        foreach (int rn in predictedRoundNumbers) {
+            GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
+            TMP_Text text = textObj.GetComponent<TMP_Text>();
+            if (text != null) {
+                string label = roundMap.TryGetValue(rn, out string mapped) ? mapped : $"第{rn}局";
+                text.text = $"<color=#7A7A7A>{label}</color>";
+                text.raycastTarget = false;
+            }
+            AddEmptyCell(MainFanContainer);
         }
 
         var players = new List<(int originIndex, string username, List<string> scoreHistory, TMP_Text userNameText, Transform roundScoreContainer, Transform gameScoreContainer)>
@@ -340,6 +395,30 @@ public class ScoreHistoryPanel : MonoBehaviour
                     }
                 }
             }
+
+            // 该家历史短于已结算行数时补空白，保证各列行数一致（与局名列对齐）
+            for (int i = player.scoreHistory.Count; i < roundCount; i++) {
+                AddEmptyCell(player.roundScoreContainer);
+                AddEmptyCell(player.gameScoreContainer);
+            }
+
+            // 预测局：分值列留空白占位，仅展示后续局名
+            for (int p = 0; p < predictedRoundNumbers.Count; p++) {
+                AddEmptyCell(player.roundScoreContainer);
+                AddEmptyCell(player.gameScoreContainer);
+            }
+        }
+    }
+
+    /// <summary>在指定列追加一个空白单元格，用于预测局/补齐行数时保持各列对齐。</summary>
+    private void AddEmptyCell(Transform container)
+    {
+        if (container == null || Tmp_Text_Prefab == null) return;
+        GameObject obj = Instantiate(Tmp_Text_Prefab, container);
+        TMP_Text text = obj.GetComponent<TMP_Text>();
+        if (text != null) {
+            text.text = "";
+            text.raycastTarget = false;
         }
     }
 

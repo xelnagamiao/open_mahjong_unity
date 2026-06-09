@@ -1,5 +1,32 @@
 # 通用逻辑方法 - 所有规则共享
 
+def final_rank_sort_key(player) -> tuple:
+    """终局排名排序：分数降序，同分按开局原始风位 original_player_index（东0→南1→西2→北3）。"""
+    return (-player.score, player.original_player_index)
+
+
+def sort_players_for_final_ranking(player_list) -> None:
+    """按终局排名规则就地排序 player_list。"""
+    player_list.sort(key=final_rank_sort_key)
+
+
+def assign_strict_final_ranks(player_list) -> None:
+    """终局严格名次 1-4（同分按原始风位拆分，不并列）。"""
+    sort_players_for_final_ranking(player_list)
+    for index, player in enumerate(player_list):
+        player.record_counter.rank_result = index + 1
+
+
+def assign_competition_final_ranks(player_list) -> None:
+    """终局竞赛排名（同分同名次 1,2,2,4；组内顺序按原始风位）。"""
+    sort_players_for_final_ranking(player_list)
+    for index, player in enumerate(player_list):
+        if index > 0 and player.score == player_list[index - 1].score:
+            player.record_counter.rank_result = player_list[index - 1].record_counter.rank_result
+        else:
+            player.record_counter.rank_result = index + 1
+
+
 # 输入自身索引和他家索引，获取相对位置
 def get_index_relative_position(self_index: int, other_index: int) -> str:
     """

@@ -56,8 +56,8 @@ public class RoomItem : MonoBehaviour {
         this.needPassword = hasPw;
 
         roomID.text = $"房间号:{rid}";
-        roomName.text = $"房间名:{rname}";
-        hostName.text = $"房主:{host}";
+        roomName.text = StreamerModeHelper.FormatRoomLabel("房间名:", rname);
+        hostName.text = StreamerModeHelper.FormatRoomLabel("房主:", host);
         playerCount.text = $"玩家数{pCount}/4";
 
         gameStatus.text = isRunning ? "游戏中" : "等待中";

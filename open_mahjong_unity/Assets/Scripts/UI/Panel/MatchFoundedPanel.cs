@@ -24,15 +24,44 @@ public class MatchFoundedPanel : MonoBehaviour {
     }
 
     public void Show(string matchTypeName) {
-        MatchQueueingPanel.Instance?.Hide();
+        MatchStateManager.Instance.MarkMatchFound();
+        MatchQueueingPanel.Instance?.HideImmediately();
         gameObject.SetActive(true);
+        // 排队面板在层级上位于本面板之后，需置于同级最前以免挡住匹配成功 UI。
+        transform.SetAsLastSibling();
         foundedMatchTypeText.text = matchTypeName;
         fadeIn.PlayFadeIn();
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
         countdownCoroutine = StartCoroutine(CountdownRoutine());
     }
 
+    /// <summary>
+    /// 切回匹配窗口时若已匹配成功，恢复展示该面板（标题取自常驻 <see cref="MatchStateManager"/>）。
+    /// 由 <see cref="MatchPanel.OnEnable"/> 调用。
+    /// </summary>
+    public void RestoreIfMatchFound() {
+        MatchStateManager manager = MatchStateManager.Instance;
+        if (manager == null || !manager.IsMatchFound) return;
+        gameObject.SetActive(true);
+        transform.SetAsLastSibling();
+        foundedMatchTypeText.text = manager.QueueTitle;
+        fadeIn.PlayFadeIn();
+        if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
+        countdownCoroutine = StartCoroutine(CountdownRoutine());
+    }
+
     public void StopCountdownAndHide() {
+        if (countdownCoroutine != null) {
+            StopCoroutine(countdownCoroutine);
+            countdownCoroutine = null;
+        }
+        gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// 立即隐藏面板，但不结束匹配成功状态（供离开匹配窗口时隐藏视图用）。
+    /// </summary>
+    public void HideImmediately() {
         if (countdownCoroutine != null) {
             StopCoroutine(countdownCoroutine);
             countdownCoroutine = null;

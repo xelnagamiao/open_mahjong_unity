@@ -14,17 +14,21 @@ public class ChatTextItem : MonoBehaviour
     private Coroutine fadeCoroutine; // 渐隐协程引用
     private CanvasGroup canvasGroup; // CanvasGroup 引用
 
-    // Awake 在对象创建时立即调用
     void Awake()
     {
-        // 获取或创建 CanvasGroup
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null)
         {
             canvasGroup = gameObject.AddComponent<CanvasGroup>();
         }
-        
-        // 启动渐隐协程
+    }
+
+    public void StartFadeOut()
+    {
+        if (fadeCoroutine != null)
+        {
+            StopCoroutine(fadeCoroutine);
+        }
         fadeCoroutine = StartCoroutine(FadeOutCoroutine());
     }
 

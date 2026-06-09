@@ -294,7 +294,8 @@ public class PlayerInfoPanel : MonoBehaviour {
                         first_place_count = 0,
                         second_place_count = 0,
                         third_place_count = 0,
-                        fourth_place_count = 0
+                        fourth_place_count = 0,
+                        fulu_round_count = 0
                     };
                 }
                 
@@ -340,7 +341,8 @@ public class PlayerInfoPanel : MonoBehaviour {
             first_place_count = 0,
             second_place_count = 0,
             third_place_count = 0,
-                        fourth_place_count = 0
+                        fourth_place_count = 0,
+                        fulu_round_count = 0
                     };
                 }
                 
@@ -383,7 +385,8 @@ public class PlayerInfoPanel : MonoBehaviour {
                         first_place_count = 0,
                         second_place_count = 0,
                         third_place_count = 0,
-                        fourth_place_count = 0
+                        fourth_place_count = 0,
+                        fulu_round_count = 0
                     };
                 }
                 
@@ -425,7 +428,8 @@ public class PlayerInfoPanel : MonoBehaviour {
                         first_place_count = 0,
                         second_place_count = 0,
                         third_place_count = 0,
-                        fourth_place_count = 0
+                        fourth_place_count = 0,
+                        fulu_round_count = 0
                     };
                 }
 
@@ -525,6 +529,29 @@ public class PlayerInfoPanel : MonoBehaviour {
 
         // 累计回合数
         gameStatsList.Add(new KeyValuePair<string, string>("累计回合数", stats.total_rounds?.ToString() ?? "0"));
+
+        // 平均顺位（1~4 位加权平均）
+        if (totalGames > 0) {
+            int rankWeighted = (stats.first_place_count ?? 0) * 1
+                + (stats.second_place_count ?? 0) * 2
+                + (stats.third_place_count ?? 0) * 3
+                + (stats.fourth_place_count ?? 0) * 4;
+            float avgRank = (float)rankWeighted / totalGames.Value;
+            gameStatsList.Add(new KeyValuePair<string, string>("平均顺位", $"{avgRank:F2}"));
+        }
+        else {
+            gameStatsList.Add(new KeyValuePair<string, string>("平均顺位", "0.00"));
+        }
+
+        // 副露率（副露局数 / 累计回合数）
+        int? fuluRounds = stats.fulu_round_count ?? 0;
+        if (totalRounds > 0) {
+            float fuluRate = (float)fuluRounds.Value / totalRounds.Value * 100f;
+            gameStatsList.Add(new KeyValuePair<string, string>("副露率", $"{fuluRate:F2}%"));
+        }
+        else {
+            gameStatsList.Add(new KeyValuePair<string, string>("副露率", "0.00%"));
+        }
 
         // 和牌率（和牌次数 / 总小局数）
         if (stats.win_count.HasValue && totalRounds > 0){

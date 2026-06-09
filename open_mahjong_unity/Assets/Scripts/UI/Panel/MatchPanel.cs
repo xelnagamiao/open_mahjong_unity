@@ -24,10 +24,16 @@ public class MatchPanel : MonoBehaviour {
         }
         RefreshAllButtons();
         NetworkPollingManager.Instance.StartMatchQueuePolling();
+        // 切回匹配窗口时，若仍处于排队/已匹配状态，恢复对应面板显示（计时由 MatchStateManager 常驻维护，不会中断）
+        MatchFoundedPanel.Instance?.RestoreIfMatchFound();
+        MatchQueueingPanel.Instance?.RestoreIfQueueing();
     }
 
     private void OnDisable() {
         NetworkPollingManager.Instance.StopMatchQueuePolling();
+        // 仅隐藏视图，不结束排队状态：排队计时由常驻的 MatchStateManager 继续维护
+        MatchQueueingPanel.Instance?.HideImmediately();
+        MatchFoundedPanel.Instance?.HideImmediately();
     }
 
     private void RefreshAllButtons() {

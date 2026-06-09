@@ -172,10 +172,10 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, rule, sub_rule, match_type, room_type, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    game_id, player.user_id, player.username, player.score, rank, rule, sub_rule, match_type, room_type,
+                    game_id, player.user_id, player.username, player.score, rank, player.original_player_index, rule, sub_rule, match_type, room_type,
                     title_used, character_used, profile_used, voice_used
                 ))
                 saved_count += 1
@@ -218,7 +218,7 @@ def store_qingque_game_stats(db_manager, game_id: str, player_list: list, room_t
             "total_games", "total_rounds", "win_count", "self_draw_count",
             "deal_in_count", "total_fan_score", "total_win_turn",
             "total_fangchong_score", "first_place_count", "second_place_count",
-            "third_place_count", "fourth_place_count"
+            "third_place_count", "fourth_place_count", "fulu_round_count",
         ]
         
         for player in player_list:
@@ -245,7 +245,8 @@ def store_qingque_game_stats(db_manager, game_id: str, player_list: list, room_t
                 "first_place_count": 1 if counter.rank_result == 1 else 0,
                 "second_place_count": 1 if counter.rank_result == 2 else 0,
                 "third_place_count": 1 if counter.rank_result == 3 else 0,
-                "fourth_place_count": 1 if counter.rank_result == 4 else 0
+                "fourth_place_count": 1 if counter.rank_result == 4 else 0,
+                "fulu_round_count": counter.fulu_times,
             }
             
             insert_columns = ["user_id", "rule", "mode"] + stats_columns

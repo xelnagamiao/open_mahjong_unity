@@ -278,7 +278,6 @@ namespace Riichi {
             } else if (_ctx.IsRiichi) {
                 result.Yaku.Add(new YakuEntry { Name = "立直", Han = 1 });
             }
-            if (_ctx.IsIppatsu) result.Yaku.Add(new YakuEntry { Name = "一发", Han = 1 });
             if (_ctx.IsTsumo && result.IsClosed) result.Yaku.Add(new YakuEntry { Name = "门前清自摸", Han = 1 });
             if (_ctx.IsHaitei) result.Yaku.Add(new YakuEntry { Name = "海底摸月", Han = 1 });
             if (_ctx.IsHoutei) result.Yaku.Add(new YakuEntry { Name = "河底捞鱼", Han = 1 });

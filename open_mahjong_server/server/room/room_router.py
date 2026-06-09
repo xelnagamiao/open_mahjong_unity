@@ -19,6 +19,17 @@ def _reject_room_entry(game_server, player) -> Optional[Response]:
             success=False,
             message="您正在对局中，无法进入或创建房间",
         )
+    # 已匹配成功但对局尚未结束（含开局前 5 秒空窗）的玩家，同样禁止创建/加入房间
+    if (
+        player.user_id
+        and getattr(game_server, "match_manager", None)
+        and game_server.match_manager.is_user_committed(player.user_id)
+    ):
+        return Response(
+            type="tips",
+            success=False,
+            message="您已匹配到对局，请完成当前对局后再进入或创建房间",
+        )
     return None
 
 async def handle_room_message(game_server, Connect_id: str, message: dict, websocket):
@@ -56,6 +67,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_add_smart_bot_to_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/kick_player":
         await handle_kick_player_from_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/set_ready":
+        await handle_set_ready(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的房间消息路径: {message_type}")
 
@@ -163,6 +176,9 @@ async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict,
         message.get("open_cuohe", False),
         message.get("hepai_limit", 1),
         message.get("red_dora", True),
+        message.get("allow_kuikae", False),
+        message.get("open_xiru", True),
+        message.get("open_tobi", True),
         message.get("hepai_way", "head_bump"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
@@ -199,4 +215,8 @@ async def handle_add_smart_bot_to_room(game_server, Connect_id: str, message: di
 async def handle_kick_player_from_room(game_server, Connect_id: str, message: dict, websocket):
     """处理房主移除玩家请求"""
     await game_server.kick_player_from_room(Connect_id, message["room_id"], message["target_user_id"])
+
+async def handle_set_ready(game_server, Connect_id: str, message: dict, websocket):
+    """处理玩家准备状态变更请求"""
+    await game_server.set_player_ready(Connect_id, message["room_id"], message.get("ready", True))
 

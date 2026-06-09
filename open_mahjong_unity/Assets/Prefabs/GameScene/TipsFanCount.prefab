@@ -65,7 +65,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "0\u756A"
+  m_text: "1\u756A"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
   m_sharedMaterial: {fileID: -228896018595606784, guid: bae11b662bda1504e8546327cf07ae25, type: 2}
@@ -109,7 +109,7 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_TextWrappingMode: 1
+  m_TextWrappingMode: 0
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
@@ -231,3 +231,4 @@ MonoBehaviour:
   dianheColor: {r: 0.10096828, g: 0.6150943, b: 0.2769965, a: 1}
   zimoColor: {r: 1, g: 0.64705884, b: 0, a: 1}
   wuyiColor: {r: 0.6509804, g: 0, b: 0, a: 1}
+  exhaustedColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}

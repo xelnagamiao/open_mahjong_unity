@@ -60,6 +60,14 @@ const socketConfig = {
 };
 
 // ==================== 管理后台配置 ====================
+function requireEnv(name) {
+  const value = process.env[name];
+  if (value === undefined || value === null || !String(value).trim()) {
+    throw new Error(`缺少必需环境变量: ${name}`);
+  }
+  return String(value).trim();
+}
+
 function parseAdminUserIds(raw) {
   if (!raw || !String(raw).trim()) {
     return new Set();
@@ -72,11 +80,25 @@ function parseAdminUserIds(raw) {
   );
 }
 
-const adminConfig = {
-  userIds: parseAdminUserIds(process.env.ADMIN_USER_IDS),
-  jwtSecret: process.env.ADMIN_JWT_SECRET || 'change-me-in-production',
-  jwtExpiresSec: parseInt(process.env.ADMIN_JWT_EXPIRES_SEC, 10) || 8 * 3600,
-};
+function loadAdminConfig() {
+  const userIds = parseAdminUserIds(requireEnv('ADMIN_USER_IDS'));
+  if (userIds.size === 0) {
+    throw new Error('ADMIN_USER_IDS 未包含有效的用户 ID');
+  }
+
+  const jwtExpiresSec = parseInt(requireEnv('ADMIN_JWT_EXPIRES_SEC'), 10);
+  if (Number.isNaN(jwtExpiresSec) || jwtExpiresSec <= 0) {
+    throw new Error('ADMIN_JWT_EXPIRES_SEC 必须是正整数');
+  }
+
+  return {
+    userIds,
+    jwtSecret: requireEnv('ADMIN_JWT_SECRET'),
+    jwtExpiresSec,
+  };
+}
+
+const adminConfig = loadAdminConfig();
 
 // ==================== 日志输出 ====================
 if (appConfig.isDebug) {
