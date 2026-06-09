@@ -425,6 +425,13 @@ public class HandCardDragController : MonoBehaviour {
         }
     }
 
+    /// <summary>
+    /// 出牌重排等全局手牌动画开始前调用，避免让位动画(0.15s)与重排动画(0.3s)并发导致中途瞬移。
+    /// </summary>
+    public void CancelGapLayoutAnimation() {
+        StopGapAnimation();
+    }
+
     private void StopGapAnimation() {
         if (gapAnimCoroutine != null) {
             gameCanvas.StopCoroutine(gapAnimCoroutine);

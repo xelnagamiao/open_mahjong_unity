@@ -119,11 +119,13 @@ class SpectatorManager:
             elif action == "angang":
                 mask = kwargs.get("combination_mask") or []
                 tile = mask[1] if len(mask) > 1 else 0
-                self.record_tick(["ag", tile])
+                is_mo_gang = kwargs.get("is_mo_gang", False)
+                self.record_tick(["ag", tile, "T" if is_mo_gang else "F"])
             elif action == "jiagang":
                 mask = kwargs.get("combination_mask") or []
                 tile = mask[1] if len(mask) > 1 else 0
-                self.record_tick(["jg", tile])
+                is_mo_gang = kwargs.get("is_mo_gang", False)
+                self.record_tick(["jg", tile, "T" if is_mo_gang else "F"])
 
     def record_ask_hand(self, player_index: int, action_list: list):
         """记录询问手牌操作事件"""

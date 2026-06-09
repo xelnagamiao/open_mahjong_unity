@@ -100,6 +100,8 @@ class Do_action_info(BaseModel):
     is_claim: Optional[bool] = None
     # 战术鸣牌（国标/青雀）：silent 仅应用状态变化，不播放发声与字体动画
     silent: Optional[bool] = None
+    # 暗杠/加杠：True=摸杠（末张参与），False=手杠
+    is_mo_gang: Optional[bool] = None
 
 class Show_result_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
@@ -220,6 +222,7 @@ class Player_stats_info(BaseModel):
     second_place_count: Optional[int] = None
     third_place_count: Optional[int] = None
     fourth_place_count: Optional[int] = None
+    fulu_round_count: Optional[int] = None  # 副露局数（有明副露的局数）
     # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
     fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
 
@@ -263,8 +266,9 @@ class RankData(BaseModel):
 class ServerStatsInfo(BaseModel):
     """服务器统计信息"""
     online_players: int  # 在线人数
-    waiting_rooms: int  # 等待房间数
-    playing_rooms: int  # 进行房间数
+    waiting_rooms: int  # 等待房间数（自定义房间）
+    playing_rooms: int  # 进行房间数（自定义房间）
+    match_playing_games: int = 0  # 进行中的排位匹配对局数
 
 class SpectatorInfo(BaseModel):
     """观战信息"""

@@ -59,6 +59,7 @@ from ..public.game_record_manager import (
 )
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +196,7 @@ class RiichiGameState:
 
         # 立直专属配置
         self.red_dora: bool = room_data.get("red_dora", True)
+        self.allow_kuikae: bool = room_data.get("allow_kuikae", False)  # 允许食替（吃什么打什么）
         self.hepai_way: str = room_data.get("hepai_way", "head_bump")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
@@ -338,6 +340,8 @@ class RiichiGameState:
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["red_dora"] = self.red_dora
+        if not self._is_langyong():
+            self.game_record["game_title"]["allow_kuikae"] = self.allow_kuikae
         self.game_record["game_title"]["hepai_way"] = self.hepai_way
         self.game_record["game_title"]["open_xiru"] = self.open_xiru
         self.game_record["game_title"]["open_tobi"] = self.open_tobi
@@ -357,6 +361,7 @@ class RiichiGameState:
             self._cuohe_triggered = False
 
             await self.broadcast_game_start()
+            await self._broadcast_langyong_tags_if_changed()
             init_game_round(self)
 
             self.game_status = "waiting_hand_action"
@@ -466,6 +471,8 @@ class RiichiGameState:
             # 结算
             scores_before = {p.original_player_index: p.score for p in self.player_list}
             await self._settle_round()
+
+            record_fulu_rounds_for_players(self.player_list)
 
             for p in self.player_list:
                 delta = p.score - scores_before[p.original_player_index]
@@ -578,8 +585,8 @@ class RiichiGameState:
                 p.chi_candidates = {}
                 p.kuikae_forbidden_tiles = []
                 p.riichi_marker_pending = False
-                for tag in ("riichi", "daburu_riichi", "ippatsu", "furiten"):
-                    if tag in p.tag_list:
+                for tag in list(p.tag_list):
+                    if tag in ("riichi", "daburu_riichi", "ippatsu", "furiten") or tag.startswith("langyong_"):
                         p.tag_list.remove(tag)
 
             logger.info(f"进入下一局 current_round={self.current_round} honba={self.honba} riichi_sticks={self.riichi_sticks}")
@@ -617,8 +624,16 @@ class RiichiGameState:
         return self.sub_rule == "riichi/langyong"
 
     def _kuikae_enabled(self) -> bool:
-        """是否启用食替禁切；浪涌麻将允许食替（即吃什么打什么），故关闭禁切。"""
-        return not self._is_langyong()
+        """是否启用食替禁切。浪涌由子规则内置可食替；标准日麻由 allow_kuikae 房间项控制。"""
+        if self._is_langyong():
+            return False
+        return not self.allow_kuikae
+
+    def _can_declare_riichi_by_score(self, score: int) -> bool:
+        """击飞开启时立直后点数不得 < 0，须 score >= 1000（恰 1000 可立直变 0 分）；关闭击飞时允许负分立直。"""
+        if self.open_tobi:
+            return score >= 1000
+        return True
 
     def _starting_score(self) -> int:
         return 50000 if self._is_langyong() else 25000
@@ -642,6 +657,36 @@ class RiichiGameState:
         winner = self.player_list[winner_index]
         surge = 1 if self._langyong_surge_active() else 0
         return 1 + self._langyong_call_count(payer) + self._langyong_call_count(winner) + surge
+
+    def sync_langyong_tags(self) -> bool:
+        """浪涌麻将：同步各玩家鸣牌次数 tag（langyong_N）及浪潮 tag（langyong_wave）。"""
+        if not self._is_langyong():
+            return False
+        changed = False
+        surge = self._langyong_surge_active()
+        for p in self.player_list:
+            count = self._langyong_call_count(p)
+            new_count_tag = f"langyong_{count}"
+            old_langyong = [t for t in p.tag_list if t.startswith("langyong_")]
+            for t in list(old_langyong):
+                if t != new_count_tag and t != "langyong_wave":
+                    p.tag_list.remove(t)
+                    changed = True
+            if new_count_tag not in p.tag_list:
+                p.tag_list.append(new_count_tag)
+                changed = True
+            has_wave = "langyong_wave" in p.tag_list
+            if surge and not has_wave:
+                p.tag_list.append("langyong_wave")
+                changed = True
+            elif not surge and has_wave:
+                p.tag_list.remove("langyong_wave")
+                changed = True
+        return changed
+
+    async def _broadcast_langyong_tags_if_changed(self) -> None:
+        if self.sync_langyong_tags():
+            await self.broadcast_refresh_player_tag_list()
 
     # ========== 对局终了（西入 / 击飞）==========
 

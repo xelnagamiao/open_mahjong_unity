@@ -259,11 +259,14 @@ public class RoomNetworkManager : MonoBehaviour {
                 open_cuohe = config.CuoHe,
                 hepai_limit = config.HepaiLimit,
                 red_dora = config.RedDora,
+                allow_kuikae = config.AllowKuikae,
+                open_xiru = config.OpenXiru,
+                open_tobi = config.OpenTobi,
                 hepai_way = config.HepaiWay ?? "head_bump",
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator
             };
-            Debug.Log($"发送创建立直麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, cuohe={config.CuoHe}, hepai_limit={config.HepaiLimit}, red_dora={config.RedDora}, hepai_way={config.HepaiWay}");
+            Debug.Log($"发送创建立直麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, cuohe={config.CuoHe}, hepai_limit={config.HepaiLimit}, red_dora={config.RedDora}, allow_kuikae={config.AllowKuikae}, open_xiru={config.OpenXiru}, open_tobi={config.OpenTobi}, hepai_way={config.HepaiWay}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);

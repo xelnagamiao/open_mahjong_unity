@@ -44,10 +44,20 @@ public class ScoreHistoryPanel : MonoBehaviour
 
     private void OnEnable()
     {
+        if (GameSceneUIManager.Instance == null) return;
+
+        bool recordActive = GameRecordManager.Instance != null
+            && GameRecordManager.Instance.gameObject.activeSelf
+            && GameRecordManager.Instance.gameRecord != null;
+        if (recordActive) {
+            GameSceneUIManager.Instance.UpdateScoreRecord();
+            return;
+        }
+
         var mgr = NormalGameStateManager.Instance;
         if (mgr == null) return;
         if (!mgr.IsGameActive && mgr.roundSettlementHistory.Count == 0) return;
-        GameSceneUIManager.Instance?.UpdateScoreRecord();
+        GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
     private void EnsureReferences()

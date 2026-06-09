@@ -42,6 +42,11 @@ public class GameSceneMouseInputController : MonoBehaviour {
     private float _lastRightClickTime = -1f;
     private const float RightClickDebounceInterval = 0.05f;
 
+    // 右键按下瞬间的快照。手牌 OnPointerClick 在抬起时触发，须对照按下时而非抬起时的 phase/权限。
+    private string _rightPressSnapshotPhase = InputPhaseNone;
+    private bool _rightPressMoqieEligible;
+    private bool _rightPressPassEligible;
+
     private readonly List<RaycastResult> _uiRaycastResults = new List<RaycastResult>(16);
     private PointerEventData _pointerEventData;
 
@@ -62,14 +67,35 @@ public class GameSceneMouseInputController : MonoBehaviour {
 
     public void SetActionInputPhase(string phase) {
         if (actionInputPhase == phase) return;
+        string prev = actionInputPhase;
         actionInputPhase = phase;
+        ClearStaleHandInput($"phase {prev} -> {phase}");
+    }
+
+    /// <summary>
+    /// 回合切换时清理手牌输入残留（指针按下缓存、右键阶段快照等）。
+    /// phase 未变时 SetActionInputPhase 不会调用，须由 doAction/ClearAction 等显式触发。
+    /// </summary>
+    public void ClearStaleHandInput(string reason) {
         _lastLeftClickTime = -1f;
         _lastRightClickTime = -1f;
+        _rightPressSnapshotPhase = InputPhaseNone;
+        _rightPressMoqieEligible = false;
+        _rightPressPassEligible = false;
         HandCardSelectionController.Instance?.DisarmAll();
+        TileCard.ClearPendingPointerState();
+        Debug.Log($"[HandInput] 清理输入缓存 | 原因={reason} | phase={actionInputPhase}");
     }
 
     private void Update() {
         if (IsPointerOverExcludeRect()) return;
+
+        if (state == StateGame && Input.GetMouseButtonDown(1)) {
+            _rightPressSnapshotPhase = actionInputPhase;
+            _rightPressMoqieEligible = actionInputPhase == InputPhaseAskHand && HasCutPermission();
+            _rightPressPassEligible = actionInputPhase == InputPhaseAskOther && HasPassPermission();
+            Debug.Log($"[HandInput] 右键按下 | pressPhase={_rightPressSnapshotPhase} | moqieEligible={_rightPressMoqieEligible} | passEligible={_rightPressPassEligible}");
+        }
 
         if (state == StateRecord) {
             if (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
@@ -94,6 +120,14 @@ public class GameSceneMouseInputController : MonoBehaviour {
             }
         } else if (state == StateGame) {
             HandleGameStateMouseShortcutsFromInput();
+        }
+    }
+
+    private void LateUpdate() {
+        if (state == StateGame && !Input.GetMouseButton(1)) {
+            _rightPressSnapshotPhase = InputPhaseNone;
+            _rightPressMoqieEligible = false;
+            _rightPressPassEligible = false;
         }
     }
 
@@ -165,22 +199,38 @@ public class GameSceneMouseInputController : MonoBehaviour {
         if (state == StateGame) {
             NormalGameStateManager gsm = NormalGameStateManager.Instance;
             ConfigManager cfg = ConfigManager.Instance;
-            if (actionInputPhase == InputPhaseAskHand && gsm.allowActionList.Contains("cut")) {
-                if (cfg.MoqieShortcutMode == 1) {
-                    if (eventData.button == PointerEventData.InputButton.Right && TryConsumeRightClickShortcut()) {
+            if (eventData.button == PointerEventData.InputButton.Right) {
+                string pressPhase = _rightPressSnapshotPhase;
+                string releasePhase = actionInputPhase;
+                Debug.Log($"[HandInput] 手牌右键抬起 | pressPhase={pressPhase} | releasePhase={releasePhase} | cut={HasCutPermission()}");
+                if (_rightPressMoqieEligible) {
+                    if (cfg.MoqieShortcutMode == 1 && TryConsumeRightClickShortcut()) {
+                        Debug.Log("[HandInput] 触发摸切(手牌抬起路径) | 依据=按下时快照");
                         TryAutoMoqieFromSelfHand();
                     }
-                } else if (cfg.MoqieShortcutMode == 0) {
+                } else if (_rightPressPassEligible) {
+                    if (cfg.AskOtherPassShortcutMode == 0 && TryConsumeRightClickShortcut()) {
+                        Debug.Log("[HandInput] 触发过牌(手牌抬起路径) | 依据=按下时快照");
+                        GameCanvas.Instance.TrySendPassFromShortcut();
+                    }
+                } else if (pressPhase != releasePhase) {
+                    Debug.LogWarning($"[HandInput] 拦截跨阶段右键抬起 | pressPhase={pressPhase} | releasePhase={releasePhase}");
+                } else {
+                    Debug.Log($"[HandInput] 右键抬起未触发快捷 | pressPhase={pressPhase}");
+                }
+                _rightPressSnapshotPhase = InputPhaseNone;
+                _rightPressMoqieEligible = false;
+                _rightPressPassEligible = false;
+                return;
+            }
+            if (actionInputPhase == InputPhaseAskHand && gsm.allowActionList.Contains("cut")) {
+                if (cfg.MoqieShortcutMode == 0) {
                     if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                         TryAutoMoqieFromSelfHand();
                     }
                 }
             } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
-                if (cfg.AskOtherPassShortcutMode == 0) {
-                    if (eventData.button == PointerEventData.InputButton.Right && TryConsumeRightClickShortcut()) {
-                        GameCanvas.Instance.TrySendPassFromShortcut();
-                    }
-                } else if (cfg.AskOtherPassShortcutMode == 1) {
+                if (cfg.AskOtherPassShortcutMode == 1) {
                     if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                         GameCanvas.Instance.TrySendPassFromShortcut();
                     }
@@ -219,8 +269,19 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     private void TryAutoMoqieFromSelfHand() {
+        Debug.Log("[HandInput] 触发摸切(Update按下路径)");
         if (GameCanvas.Instance.TriggerMoqieHandCardClick()) return;
-        Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
+        Debug.LogWarning("[HandInput] 摸切失败：手牌容器中没有可出的牌");
+    }
+
+    private bool HasCutPermission() {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        return gsm != null && gsm.allowActionList.Contains("cut");
+    }
+
+    private bool HasPassPermission() {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        return gsm != null && gsm.allowActionList.Contains("pass");
     }
 
     private bool IsPointerOverSelfHandCard() {

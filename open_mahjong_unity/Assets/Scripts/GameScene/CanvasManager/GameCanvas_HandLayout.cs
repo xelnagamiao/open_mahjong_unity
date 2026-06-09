@@ -158,13 +158,43 @@ public partial class GameCanvas {
     /// 主列按牌值排序并布局，摸牌张保持独立不参与排序；与发牌后理牌相同使用移动动画。
     /// </summary>
     public void SortMainHandByTileIdIfNeeded() {
-        if (IsHandRecordPlayback() || IsChangeHandCardProcessing) {
+        if (IsHandRecordPlayback() || IsChangeHandCardProcessing || IsHandReflowAnimating) {
             return;
         }
         if (IsMainHandSortedByTileId()) {
             return;
         }
-        StartCoroutine(SortMainHandByTileIdCoroutine());
+        if (_sortMainHandCoroutine != null) {
+            return;
+        }
+        _sortMainHandCoroutine = StartCoroutine(SortMainHandByTileIdWrapped());
+    }
+
+    private IEnumerator SortMainHandByTileIdWrapped() {
+        CancelCompetingHandReflowAnimations("主列排序");
+        yield return RunHandReflowAnim(SortMainHandByTileIdCoroutine());
+    }
+
+    private void CancelCompetingHandReflowAnimations(string reason) {
+        if (_sortMainHandCoroutine != null) {
+            StopCoroutine(_sortMainHandCoroutine);
+            _sortMainHandCoroutine = null;
+            Debug.Log($"[HandLayout] 取消主列排序动画 | 原因={reason}");
+        }
+        if (_discardLayoutCoroutine != null) {
+            StopCoroutine(_discardLayoutCoroutine);
+            _discardLayoutCoroutine = null;
+            Debug.Log($"[HandLayout] 取消出牌收拢动画 | 原因={reason}");
+        }
+        if (handCardDragController != null) {
+            handCardDragController.CancelGapLayoutAnimation();
+        }
+    }
+
+    private IEnumerator RunHandReflowAnim(IEnumerator inner) {
+        _handReflowAnimDepth++;
+        yield return inner;
+        _handReflowAnimDepth--;
     }
 
     private System.Collections.IEnumerator SortMainHandByTileIdCoroutine() {
@@ -204,6 +234,7 @@ public partial class GameCanvas {
             }
         }
         SetHandArranged(true);
+        _sortMainHandCoroutine = null;
     }
 
     public Vector2 GetDrawTileTargetPosition(List<TileCard> mainOrdered) {
@@ -232,7 +263,10 @@ public partial class GameCanvas {
         if (discardCard == null) {
             return;
         }
-        StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, null, null));
+        if (_discardLayoutCoroutine != null) {
+            StopCoroutine(_discardLayoutCoroutine);
+        }
+        _discardLayoutCoroutine = StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, null, null));
     }
 
     /// <summary>
@@ -242,7 +276,10 @@ public partial class GameCanvas {
         if (discardCard == null) {
             return;
         }
-        StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, main, draw));
+        if (_discardLayoutCoroutine != null) {
+            StopCoroutine(_discardLayoutCoroutine);
+        }
+        _discardLayoutCoroutine = StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, main, draw));
     }
 
     private IEnumerator AnimateHandLayoutForDiscardCoroutine(
@@ -293,5 +330,6 @@ public partial class GameCanvas {
                 kvp.Key.anchoredPosition = kvp.Value;
             }
         }
+        _discardLayoutCoroutine = null;
     }
 }

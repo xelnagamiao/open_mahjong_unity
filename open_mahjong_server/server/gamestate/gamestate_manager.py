@@ -344,6 +344,13 @@ class GameStateManager:
             正在进行的游戏房间数量
         """
         return len(self.gamestate_id_to_game_state)
+
+    def get_match_playing_games_count(self) -> int:
+        """获取正在进行的排位匹配对局数量（不写入 room_manager.rooms）。"""
+        return sum(
+            1 for game_state in self.gamestate_id_to_game_state.values()
+            if getattr(game_state, "room_type", None) == "match"
+        )
     
     def get_spectator_list(self) -> list:
         """

@@ -26,6 +26,7 @@ public static class LadderRecordDisplayText {
 
         if (record.players != null && record.players.Length > 0) {
             var sorted = record.players
+                .Where(p => p != null)
                 .OrderBy(p => p.rank)
                 .ThenBy(p => p.original_player_index ?? int.MaxValue)
                 .ToArray();

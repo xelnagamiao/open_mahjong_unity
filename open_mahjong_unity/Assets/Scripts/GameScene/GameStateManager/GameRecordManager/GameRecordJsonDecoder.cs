@@ -94,11 +94,11 @@ public static class GameRecordJsonDecoder {
             };
         }
 
-        if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>();
-        if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>();
-        if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>();
-        if (roundData["p3_tiles"] != null) round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>();
-        if (roundData["tiles_list"] != null) round.tilesList = roundData["tiles_list"].ToObject<List<int>>();
+        if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["p3_tiles"] != null) round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["tiles_list"] != null) round.tilesList = roundData["tiles_list"].ToObject<List<int>>() ?? new List<int>();
     }
 
     public static void ApplyPlayerUserIds(Round round, Dictionary<int, int> playerUserIds) {
@@ -128,6 +128,7 @@ public static class GameRecordJsonDecoder {
                     }
                 }
                 round.actionTicks.Add(tick);
+                ValidateKanMoGangTick(tick, $"round_index_{roundIndex}");
                 AccumulateScoreChangesFromTick(round, tick);
             }
         }
@@ -180,6 +181,31 @@ public static class GameRecordJsonDecoder {
             }
         }
         return byOriginal;
+    }
+
+    /// <summary>
+    /// 解析暗杠/加杠 tick 第三段 T/F（必填，不接受两段格式）。
+    /// </summary>
+    public static bool ParseKanMoGangFlag(List<string> tick) {
+        if (tick == null || tick.Count < 3) {
+            throw new Exception($"暗杠/加杠 tick 缺少摸杠/手杠标记: [{string.Join(", ", tick ?? new List<string>())}]");
+        }
+        string flag = tick[2].ToUpperInvariant();
+        if (flag != "T" && flag != "F") {
+            throw new Exception($"暗杠/加杠 tick 第三段必须为 T 或 F: [{string.Join(", ", tick)}]");
+        }
+        return flag == "T";
+    }
+
+    public static void ValidateKanMoGangTick(List<string> tick, string context) {
+        if (tick == null || tick.Count == 0) return;
+        string act = tick[0];
+        if (act != "ag" && act != "jg") return;
+        try {
+            ParseKanMoGangFlag(tick);
+        } catch (Exception e) {
+            throw new Exception($"{context}: {e.Message}", e);
+        }
     }
 
     private static int[] ParseScoreChangesFromTick(List<string> tick, int index) {

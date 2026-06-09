@@ -319,7 +319,12 @@ public class NetworkManager : MonoBehaviour {
     // 显示服务器统计信息（简化版，直接使用服务器返回的数据）
     private void DisplayServerStats(ServerStatsInfo stats) {
         if (stats != null) {
-            MeunPanel.Instance.DisplayServerStats(stats.online_players, stats.waiting_rooms, stats.playing_rooms);
+            MeunPanel.Instance.DisplayServerStats(
+                stats.online_players,
+                stats.waiting_rooms,
+                stats.playing_rooms,
+                stats.match_playing_games
+            );
         }
     }
 
@@ -439,6 +444,10 @@ public class NetworkManager : MonoBehaviour {
                 case "get_player_info":
                     Debug.Log($"收到玩家信息: {response.message}");
                     NotificationManager.Instance.OpenPlayerInfoPanel(response.success, response.message, response.player_info);
+                    break;
+
+                case "game_tip":
+                    NotificationManager.Instance.ShowTip("验证", false, response.message);
                     break;
 
                 case "tips":

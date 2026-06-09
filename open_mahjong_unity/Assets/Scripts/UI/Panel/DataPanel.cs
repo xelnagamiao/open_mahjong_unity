@@ -78,7 +78,7 @@ public class DataPanel : MonoBehaviour {
 
     /// <summary>
 
-    /// 切换到本面板时拉取最近 10 局天梯对局。
+    /// 切换到本面板时拉取全服最近 20 局天梯对局。
 
     /// </summary>
 
@@ -92,7 +92,7 @@ public class DataPanel : MonoBehaviour {
 
         }
 
-        DataNetworkManager.Instance?.GetRankRecordList(10);
+        DataNetworkManager.Instance?.GetRankRecordList(20);
 
     }
 

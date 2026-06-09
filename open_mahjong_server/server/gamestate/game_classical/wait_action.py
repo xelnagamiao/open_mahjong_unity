@@ -12,6 +12,8 @@ from ..public.game_record_manager import (
     player_action_record_chipenggang,
     
 )
+from ..public.hand_action_notify import apply_player_cut
+from ..public.hand_slot_utils import remove_cut_tile, remove_angang_tiles, resolve_is_mo_gang, normalize_tile
 
 logger = logging.getLogger(__name__)
 
@@ -145,19 +147,15 @@ async def wait_action(self):
         case "waiting_hand_action":
             if action_data:
                 if action_type == "cut": # 切牌
-                    is_moqie = action_data.get("cutClass")  # 获取手模切布尔值
                     tile_id = action_data.get("TileId") # 获取切牌id
-                    cut_tile_index = action_data.get("cutIndex") # 获取卡牌顺位
+                    cut_tile_index = action_data.get("cutIndex")
 
-                    # 验证 tile_id 是否有效
                     if tile_id not in self.player_list[player_index].hand_tiles:
                         logger.error(f"严重错误：tile_id {tile_id} 不在玩家 {player_index} 的手牌中，action_data={action_data}, hand_tiles={self.player_list[player_index].hand_tiles}")
-                        # 数据污染严重，抛出异常中断游戏
                         raise ValueError(f"数据污染：tile_id {tile_id} 无效，玩家 {player_index} 手牌: {self.player_list[player_index].hand_tiles}")
 
-                    self.player_list[player_index].hand_tiles.remove(tile_id) # 从手牌中移除切牌
+                    tile_id, is_moqie, cut_tile_index = await apply_player_cut(self, player_index, action_data)
                     self.player_list[player_index].discard_tiles.append(tile_id) # 将切牌加入弃牌堆
-                    # 牌谱记录切牌
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌操作
                     if self.current_player_index == 0:
@@ -175,22 +173,20 @@ async def wait_action(self):
 
                 
                 elif action_type == "angang": 
-                    # 暗杠
-                    angang_tile = action_data.get("target_tile") # 获取暗杠牌
-                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile) # 从手牌中移除暗杠牌
-                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile)
-                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile)
-                    self.player_list[self.current_player_index].hand_tiles.remove(angang_tile)
-                    self.player_list[self.current_player_index].combination_tiles.append(f"G{angang_tile}") # 将暗杠牌加入组合牌
-                    add_combination_mask = [2,angang_tile,2,angang_tile,2,angang_tile,2,angang_tile] # 组合掩码
-                    self.player_list[self.current_player_index].combination_mask.append(add_combination_mask) # 添加组合掩码
-                    # 牌谱记录暗杠
-                    player_action_record_angang(self,angang_tile = angang_tile)
-                    # 广播暗杠动画
+                    angang_tile = action_data.get("target_tile")
+                    normal_angang = normalize_tile(angang_tile)
+                    hand = self.player_list[self.current_player_index].hand_tiles
+                    is_mo_gang = resolve_is_mo_gang(hand, normal_angang)
+                    removed = remove_angang_tiles(hand, normal_angang)
+                    self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
+                    add_combination_mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
+                    self.player_list[self.current_player_index].combination_mask.append(add_combination_mask)
+                    player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang)
                     await broadcast_do_action(self,action_list = ["angang"],
                                                   action_player = self.current_player_index,
                                                   combination_mask = add_combination_mask,
-                                                  combination_target = f"G{angang_tile}") # 大写G代表暗杠
+                                                  combination_target = f"G{normal_angang}",
+                                                  is_mo_gang=is_mo_gang)
                     
                     # 切换到杠后发牌历时行为
                     self.game_status = "deal_card_after_gang"
@@ -198,11 +194,15 @@ async def wait_action(self):
                 elif action_type == "jiagang": # 加杠
                     # 加杠
                     jiagang_tile = action_data.get("target_tile") # 获取加杠牌
+                    normal_jia = normalize_tile(jiagang_tile)
+                    hand = self.player_list[self.current_player_index].hand_tiles
+                    is_mo_gang = resolve_is_mo_gang(hand, normal_jia)
+                    actual_jia = remove_cut_tile(hand, jiagang_tile, is_mo_gang)
 
                     combination_index = -1
                     # 寻找当前玩家的组合牌是否有k+加杠牌 有则将相同位置的索引记录
                     for i,combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
-                        if combination == f"k{jiagang_tile}":
+                        if combination == f"k{normal_jia}":
                             combination_index = i
                             break
 
@@ -210,25 +210,25 @@ async def wait_action(self):
                     for i, mask in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
                         if mask == 1:  # 找到数组下标 [0,Tile,0,Tile,1,Tile] 获取1的位置 1代表碰牌横牌的位置
                             # 在碰牌横牌的后面插入加杠牌和3 如 结果[0,Tile,0,Tile,1,{Tile,3,}Tile]
-                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, jiagang_tile)
+                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, actual_jia)
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3) # 插入3代表加杠牌
                             break
 
-                    self.player_list[self.current_player_index].hand_tiles.remove(jiagang_tile) # 从手牌中移除加杠牌
-                    self.player_list[self.current_player_index].combination_tiles.remove(f"k{jiagang_tile}") # 从组合牌中移除刻子
-                    self.player_list[self.current_player_index].combination_tiles.append(f"g{jiagang_tile}") # 将明杠牌加入组合牌 (小写g代表明杠)
+                    self.player_list[self.current_player_index].combination_tiles.remove(f"k{normal_jia}") # 从组合牌中移除刻子
+                    self.player_list[self.current_player_index].combination_tiles.append(f"g{normal_jia}") # 将明杠牌加入组合牌 (小写g代表明杠)
 
                     # 牌谱记录加杠
-                    player_action_record_jiagang(self,jiagang_tile = jiagang_tile)
+                    player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)
 
                     await broadcast_do_action(self,action_list = ["jiagang"],
                                                   action_player = self.current_player_index,
                                                   combination_mask = self.player_list[self.current_player_index].combination_mask[combination_index],
-                                                  combination_target = f"k{jiagang_tile}"
+                                                  combination_target = f"k{normal_jia}",
+                                                  is_mo_gang=is_mo_gang,
                                                   ) # 广播加杠动画
 
-                    self.jiagang_tile = jiagang_tile # 存储抢杠牌
-                    self.action_dict = check_action_jiagang(self,jiagang_tile) # 检查是否有人可以抢杠
+                    self.jiagang_tile = normal_jia # 存储抢杠牌
+                    self.action_dict = check_action_jiagang(self,normal_jia) # 检查是否有人可以抢杠
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                     else:
@@ -251,12 +251,11 @@ async def wait_action(self):
                     return
             # 超时自动摸切
             else:
-                # 摸切 action_type == "cut"
-                is_moqie = True # 模切
-                tile_id = self.player_list[self.current_player_index].hand_tiles[-1] # 最后一张手牌是最晚摸到的牌 获取最后一张手牌
-                self.player_list[self.current_player_index].hand_tiles.remove(tile_id) # 从手牌中移除摸切牌
-                self.player_list[self.current_player_index].discard_tiles.append(tile_id) # 将摸切牌加入弃牌堆
-                # 牌谱记录摸切
+                is_moqie = True
+                hand = self.player_list[self.current_player_index].hand_tiles
+                tile_id = hand[-1]
+                remove_cut_tile(hand, tile_id, True)
+                self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                 # 广播摸切操作
                 if self.current_player_index == 0:
@@ -399,11 +398,11 @@ async def wait_action(self):
         case "onlycut_after_action":
             if action_data:
                 if action_type == "cut": # 切牌
-                    is_moqie = action_data.get("cutClass")  # 获取手模切布尔值
-                    tile_id = action_data.get("TileId") # 获取切牌id
-                    self.player_list[self.current_player_index].hand_tiles.remove(tile_id) # 从手牌中移除切牌
-                    self.player_list[self.current_player_index].discard_tiles.append(tile_id) # 将切牌加入弃牌堆
-                    # 牌谱记录切牌
+                    tile_id = action_data.get("TileId")
+                    if tile_id not in self.player_list[self.current_player_index].hand_tiles:
+                        raise ValueError(f"onlycut 切牌无效 tile_id={tile_id}")
+                    tile_id, is_moqie, _ = await apply_player_cut(self, self.current_player_index, action_data)
+                    self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌动画
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)

@@ -321,6 +321,7 @@ async def broadcast_do_action(
     combination_mask: List[int] = None,
     is_claim: bool = False,
     silent: bool = False,
+    is_mo_gang: bool = None,
     ):
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
@@ -374,6 +375,7 @@ async def broadcast_do_action(
                         combination_target=viewer_target,
                         is_claim=True if is_claim else None,
                         silent=True if silent else None,
+                        is_mo_gang=is_mo_gang,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -391,7 +393,8 @@ async def broadcast_do_action(
             action_list, action_player,
             cut_tile=cut_tile, cut_class=cut_class,
             deal_tile=deal_tile, buhua_tile=buhua_tile,
-            combination_mask=combination_mask
+            combination_mask=combination_mask,
+            is_mo_gang=is_mo_gang,
         )
 
 # 广播结算结果

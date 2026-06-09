@@ -121,19 +121,33 @@ public partial class Game3DManager {
 
     private IEnumerator RemoveHandCardsFromQueue(Transform cardPosition, HandAnimOp op) {
         if (IsSelfCardsPosition(cardPosition)) {
-            yield return RemoveSelfHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, -1, op.CombinationMask, skipRearrange: true);
+            yield return RemoveSelfHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, op.TileId, op.CombinationMask, skipRearrange: true);
         }
         else {
-            yield return RemoveHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, -1, op.CombinationMask, skipRearrange: true);
+            yield return RemoveHandCardsCoroutine(cardPosition, op.RemoveCount, op.CutClass, op.TileId, op.CombinationMask, skipRearrange: true);
         }
     }
 
-    private void EnqueueAnkanHandWork(string playerPosition, int[] combinationMask) {
-        EnqueueHandAnimOp(playerPosition, new HandAnimOp {
-            Kind = HandAnimOpKind.RemoveCards,
-            RemoveCount = 4,
-            CombinationMask = combinationMask,
-        });
+    private void EnqueueAnkanHandWork(string playerPosition, int[] combinationMask, bool isMoGang = false, int angangTileId = 0) {
+        if (isMoGang) {
+            EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+                Kind = HandAnimOpKind.RemoveCards,
+                RemoveCount = 1,
+                CutClass = true,
+                TileId = angangTileId,
+            });
+            EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+                Kind = HandAnimOpKind.RemoveCards,
+                RemoveCount = 3,
+                CombinationMask = combinationMask,
+            });
+        } else {
+            EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+                Kind = HandAnimOpKind.RemoveCards,
+                RemoveCount = 4,
+                CombinationMask = combinationMask,
+            });
+        }
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.Rearrange,
         });
@@ -148,13 +162,13 @@ public partial class Game3DManager {
 
     /// <summary>吃碰明杠等：回收河牌切子并启动副露动画（不进入暗杠手牌队列）。</summary>
     private void StartMeldPresentation(string actionType, string playerPosition, int[] combinationMask) {
-        if (lastCut3DObject != null && actionType != "jiagang" && actionType != "angang") {
+        if (lastCutJiagang3DObject != null && actionType != "jiagang" && actionType != "angang") {
             if (_currentDiscardMoveCoroutine != null) {
                 StopCoroutine(_currentDiscardMoveCoroutine);
                 _currentDiscardMoveCoroutine = null;
             }
-            MahjongObjectPool.Instance.Return(-1, lastCut3DObject);
-            lastCut3DObject = null;
+            MahjongObjectPool.Instance.Return(-1, lastCutJiagang3DObject);
+            lastCutJiagang3DObject = null;
         }
         StartCoroutine(ActionAnimationCoroutine(playerPosition, actionType, combinationMask, true));
     }
@@ -189,15 +203,19 @@ public partial class Game3DManager {
     }
 
     /// <returns>true 表示已处理（暗杠链或暗杠后摸牌），不再走 Change3DTileCoroutine。</returns>
-    private bool TryEnqueueAnkanHandChange(string actionType, int tileId, int removeCount, string playerPosition, int[] combinationMask) {
+    private bool TryEnqueueAnkanHandChange(string actionType, int tileId, int removeCount, string playerPosition, int[] combinationMask, bool isMoGang = false) {
         if (actionType == "angang") {
+            int angangTileId = tileId;
+            if (angangTileId < 2 && combinationMask != null && combinationMask.Length > 1) {
+                angangTileId = combinationMask[1];
+            }
             if (IsRecordShowCardsModeActive() && playerPosition != "self") {
                 StartCoroutine(RecordMeldShowCardsCoroutine(playerPosition, actionType, combinationMask));
                 return true;
             }
             _ankanPendingDrawByPlayer[playerPosition] = true;
             StartMeldPresentation(actionType, playerPosition, combinationMask);
-            EnqueueAnkanHandWork(playerPosition, combinationMask);
+            EnqueueAnkanHandWork(playerPosition, combinationMask, isMoGang, angangTileId);
             return true;
         }
         if (actionType == "GetCard" && _ankanPendingDrawByPlayer[playerPosition]) {
@@ -213,4 +231,4 @@ public partial class Game3DManager {
         return false;
     }
 }
-
+

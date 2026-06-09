@@ -9,6 +9,8 @@ public static class PostGameNavigator {
 
         UserDataManager.Instance.SetGamestateId("");
         GameSceneTeardown.ResetToIdle();
+        // 兜底：确保对局结束后匹配承诺锁已释放，否则将无法再次匹配。
+        MatchNetworkManager.Instance?.ResetMatchLock();
         HeaderPanel.Instance?.SetBackToGameVisible(false);
 
         if (wasMatch) {

@@ -189,6 +189,7 @@ public partial class GameRecordManager {
                         continue;
                     }
                     roundData.actionTicks.Add(tick);
+                    GameRecordJsonDecoder.ValidateKanMoGangTick(tick, $"round_index_{roundIndex} tick#{targetNode}");
                     // 观战实时累计分值变化，确保计分板分值列随结算更新而非恒为 0
                     GameRecordJsonDecoder.AccumulateScoreChangesFromTick(roundData, tick);
                     targetNode++;
@@ -750,6 +751,7 @@ public partial class GameRecordManager {
                 if (tickArr == null) continue;
                 List<string> tick = ConvertTickArrayToList(tickArr);
                 round.actionTicks.Add(tick);
+                GameRecordJsonDecoder.ValidateKanMoGangTick(tick, $"round_index_{roundIndex}");
                 // 观战同样累计分值变化，避免计分板分值列全为 0
                 GameRecordJsonDecoder.AccumulateScoreChangesFromTick(round, tick);
             }

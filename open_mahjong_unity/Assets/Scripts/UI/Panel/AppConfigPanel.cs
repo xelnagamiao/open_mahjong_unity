@@ -22,6 +22,8 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown handCutConfirmDropdown;
     [SerializeField] private TMP_Dropdown handSortSuitDropdown;
     [SerializeField] private TMP_Dropdown handSortHonorDropdown;
+    [SerializeField] private TMP_Dropdown handSortDragonDropdown;
+    [SerializeField] private TMP_Dropdown handSortRiichiDragonDropdown;
 
     private void Awake() {
         Instance = this;
@@ -30,6 +32,8 @@ public class AppConfigPanel : MonoBehaviour {
         EnsureHandCutConfirmDropdown();
         EnsureHandSortSuitDropdown();
         EnsureHandSortHonorDropdown();
+        EnsureHandSortDragonDropdown();
+        EnsureHandSortRiichiDragonDropdown();
         InitializeGameplayDropdownOptions();
         whiteDragonFaceDropdown.onValueChanged.AddListener(OnWhiteDragonFaceDropdownChanged);
         moqieShortcutDropdown.onValueChanged.AddListener(OnMoqieShortcutDropdownChanged);
@@ -45,6 +49,12 @@ public class AppConfigPanel : MonoBehaviour {
         }
         if (handSortHonorDropdown != null) {
             handSortHonorDropdown.onValueChanged.AddListener(OnHandSortHonorDropdownChanged);
+        }
+        if (handSortDragonDropdown != null) {
+            handSortDragonDropdown.onValueChanged.AddListener(OnHandSortDragonDropdownChanged);
+        }
+        if (handSortRiichiDragonDropdown != null) {
+            handSortRiichiDragonDropdown.onValueChanged.AddListener(OnHandSortRiichiDragonDropdownChanged);
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
@@ -87,6 +97,14 @@ public class AppConfigPanel : MonoBehaviour {
             handSortHonorDropdown.ClearOptions();
             handSortHonorDropdown.AddOptions(new List<string>(TileIdOrder.HonorOrderOptions));
         }
+        if (handSortDragonDropdown != null) {
+            handSortDragonDropdown.ClearOptions();
+            handSortDragonDropdown.AddOptions(new List<string>(TileIdOrder.DragonOrderOptions));
+        }
+        if (handSortRiichiDragonDropdown != null) {
+            handSortRiichiDragonDropdown.ClearOptions();
+            handSortRiichiDragonDropdown.AddOptions(new List<string>(TileIdOrder.RiichiDragonOrderOptions));
+        }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.ClearOptions();
         List<string> frameRateOptions = new List<string>();
@@ -119,6 +137,14 @@ public class AppConfigPanel : MonoBehaviour {
         if (handSortHonorDropdown != null) {
             handSortHonorDropdown.SetValueWithoutNotify(ConfigManager.Instance.HandSortHonorOrderMode);
             handSortHonorDropdown.RefreshShownValue();
+        }
+        if (handSortDragonDropdown != null) {
+            handSortDragonDropdown.SetValueWithoutNotify(ConfigManager.Instance.HandSortDragonOrderMode);
+            handSortDragonDropdown.RefreshShownValue();
+        }
+        if (handSortRiichiDragonDropdown != null) {
+            handSortRiichiDragonDropdown.SetValueWithoutNotify(ConfigManager.Instance.HandSortRiichiDragonOrderMode);
+            handSortRiichiDragonDropdown.RefreshShownValue();
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
@@ -167,6 +193,14 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnHandSortHonorDropdownChanged(int value) {
         ConfigManager.Instance.SetHandSortHonorOrderMode(value);
+    }
+
+    private void OnHandSortDragonDropdownChanged(int value) {
+        ConfigManager.Instance.SetHandSortDragonOrderMode(value);
+    }
+
+    private void OnHandSortRiichiDragonDropdownChanged(int value) {
+        ConfigManager.Instance.SetHandSortRiichiDragonOrderMode(value);
     }
 
     private void EnsureStreamerModeDropdown() {
@@ -269,6 +303,22 @@ public class AppConfigPanel : MonoBehaviour {
             handSortSuitDropdown != null ? handSortSuitDropdown : moqieShortcutDropdown,
             "HandSortHonorRow",
             "自动理牌字牌位置");
+    }
+
+    private void EnsureHandSortDragonDropdown() {
+        handSortDragonDropdown = CloneDropdownRow(
+            handSortDragonDropdown,
+            handSortHonorDropdown != null ? handSortHonorDropdown : handSortSuitDropdown,
+            "HandSortDragonRow",
+            "三元牌排序方式");
+    }
+
+    private void EnsureHandSortRiichiDragonDropdown() {
+        handSortRiichiDragonDropdown = CloneDropdownRow(
+            handSortRiichiDragonDropdown,
+            handSortDragonDropdown != null ? handSortDragonDropdown : handSortHonorDropdown,
+            "HandSortRiichiDragonRow",
+            "日麻排序方式");
     }
 
     /// <summary>

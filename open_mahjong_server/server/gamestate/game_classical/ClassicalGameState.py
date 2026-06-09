@@ -28,6 +28,7 @@ from ..public.game_record_manager import init_game_record, init_game_round, play
 from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
 
@@ -488,12 +489,6 @@ class ClassicalGameState:
                     self.player_list[self.current_player_index].record_counter.fangchong_times += 1
                     self.player_list[self.current_player_index].record_counter.fangchong_score += total_fu
 
-                for i in self.player_list:
-                    has_fulu = any(combo.startswith("k") or combo.startswith("g") or combo.startswith("s")
-                                   for combo in i.combination_tiles)
-                    if has_fulu:
-                        i.record_counter.fulu_times += 1
-
             else:
                 if self.hu_class != "jiuzhongjiupai":
                     self.hu_class = "liuju"
@@ -521,6 +516,8 @@ class ClassicalGameState:
                     hepai_fu_types=hu_fu_fan_list,
                     hu_class=self.hu_class,
                 )
+
+            record_fulu_rounds_for_players(self.player_list)
 
             for player in self.player_list:
                 score_change = player.score - scores_before[player.original_player_index]

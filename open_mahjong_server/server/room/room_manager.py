@@ -390,6 +390,9 @@ class RoomManager:
                                  open_cuohe: bool = False,
                                  hepai_limit: int = 1,
                                  red_dora: bool = True,
+                                 allow_kuikae: bool = False,
+                                 open_xiru: bool = True,
+                                 open_tobi: bool = True,
                                  hepai_way: str = "head_bump",
                                  tourist_limit: bool = False,
                                  allow_spectator: bool = True) -> Response:
@@ -424,6 +427,9 @@ class RoomManager:
                 "open_cuohe": open_cuohe,
                 "hepai_limit": hepai_limit,
                 "red_dora": red_dora,
+                "allow_kuikae": allow_kuikae,
+                "open_xiru": open_xiru,
+                "open_tobi": open_tobi,
                 "hepai_way": hepai_way,
             }
 

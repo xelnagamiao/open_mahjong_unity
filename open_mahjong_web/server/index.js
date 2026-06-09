@@ -49,10 +49,6 @@ app.use('/api/mahjong', mahjongCalcLimiter, mahjongRoutes);
 app.use('/api/player', playerQueryLimiter, playerRoutes);
 app.use('/api/admin', adminRoutes);
 
-if (config.admin.userIds.size === 0) {
-  console.warn('警告: ADMIN_USER_IDS 未配置，管理后台将无法登录');
-}
-
 // WebSocket连接处理
 io.on('connection', (socket) => {
   console.log('用户连接:', socket.id);

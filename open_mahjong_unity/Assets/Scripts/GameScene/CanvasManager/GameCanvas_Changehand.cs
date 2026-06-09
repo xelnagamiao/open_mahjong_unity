@@ -189,8 +189,13 @@ public partial class GameCanvas{
 
     // 带动画的手牌重新排列
     private IEnumerator RearrangeHandCardsWithAnimation(){
+        CancelCompetingHandReflowAnimations("出牌重排");
+        yield return RunHandReflowAnim(RearrangeHandCardsWithAnimationCore());
+    }
 
-        Debug.Log($"手牌重新排列");
+    private IEnumerator RearrangeHandCardsWithAnimationCore(){
+
+        Debug.Log($"[HandLayout] 手牌重新排列");
 
         // 手牌恢复为非摸切状态（同时清除摸牌区固定标记）
         for (int i = 0; i < handCardsContainer.childCount; i++){

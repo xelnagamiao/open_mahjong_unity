@@ -28,6 +28,20 @@ public class GameSceneUIManager : MonoBehaviour
         // ClearTemporaryPanels();
     }
 
+    /// <summary>关闭计分板 UI（不清对局结算缓存，用于新开对局/观战初始化）。</summary>
+    public void ClearScoreRecordUi() {
+        ScoreHistoryPanel.Instance?.Close();
+        if (GameCanvas.Instance != null) {
+            GameCanvas.Instance.SetScoreRecordOpen(false);
+        }
+    }
+
+    /// <summary>关闭计分板并清空对局结算缓存，用于退出对局/牌谱/观战及切换牌谱。</summary>
+    public void ClearScoreRecordState() {
+        ClearScoreRecordUi();
+        NormalGameStateManager.Instance?.ClearScoreRecordSettlementCache();
+    }
+
     /// <summary>
     /// 清空所有临时面板
     /// </summary>
@@ -40,12 +54,11 @@ public class GameSceneUIManager : MonoBehaviour
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
-        ScoreHistoryPanel.Instance.Close();                 // 关闭分数记录面板
+        ClearScoreRecordState();
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false); // 隐藏牌谱设置组件
-        GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         RoundEndPresentation.Instance.StopActiveSequence();
     }
 
@@ -122,17 +135,16 @@ public class GameSceneUIManager : MonoBehaviour
             && GameRecordManager.Instance.gameObject.activeSelf
             && GameRecordManager.Instance.gameRecord != null;
 
+        if (recordActive) {
+            GameRecordManager.Instance.RefreshRecordScoreTable();
+            return;
+        }
+
         if (player_to_info != null && player_to_info.Count >= 4
             && mgr != null && (mgr.IsGameActive || mgr.roundSettlementHistory.Count > 0)) {
             string rule = !string.IsNullOrEmpty(mgr.roomRule) ? mgr.roomRule : "UNKNOWN";
             bool maskPlayerNames = StreamerModeHelper.IsEnabled && !mgr.IsRealtimeSpectator;
             ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, mgr.roundSettlementHistory, maskPlayerNames: maskPlayerNames);
-            return;
-        }
-
-        if (recordActive)
-        {
-            GameRecordManager.Instance.RefreshRecordScoreTable();
             return;
         }
 
@@ -156,10 +168,9 @@ public class GameSceneUIManager : MonoBehaviour
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
-        ScoreHistoryPanel.Instance.Close();                 // 关闭分数记录面板
+        ClearScoreRecordUi();
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
-        GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         AutoAction.Instance.gameObject.SetActive(true);
         AutoAction.Instance.Initialize(); // 初始化自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false);
@@ -178,10 +189,9 @@ public class GameSceneUIManager : MonoBehaviour
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel();
         StartGamePanel.Instance.ClearStartGamePanel();
         GameRecordManager.Instance.HideGameRecord();
-        ScoreHistoryPanel.Instance.Close();
+        ClearScoreRecordUi();
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
-        GameCanvas.Instance.SetScoreRecordOpen(false);
         AutoAction.Instance.InitializeForSpectator();
         RecordSetting.Instance.gameObject.SetActive(false);
         if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.ShowForRealtimeSpectator();
@@ -197,13 +207,12 @@ public class GameSceneUIManager : MonoBehaviour
         EndShuheWeiPanel.Instance.ClearEndShuheWeiPanel(); // 清空数和尾面板
         StartGamePanel.Instance.ClearStartGamePanel();   // 清空开始游戏面板
         GameRecordManager.Instance.HideGameRecord();     // 隐藏游戏牌谱面板
-        ScoreHistoryPanel.Instance.Close();                 // 关闭分数记录面板
+        ClearScoreRecordState();
         TipsBlock.Instance.HideTipsBlock(); // 隐藏提示面板
         TipsContainer.Instance.HideTips(); // 隐藏提示容器
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
         RecordSetting.Instance.gameObject.SetActive(true);
         RecordSetting.Instance.Initialize();
-        GameCanvas.Instance.SetScoreRecordOpen(false);    // 隐藏计分板
         GameRecordManager.Instance.gameObject.SetActive(true); // 显示牌谱组件
         RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }

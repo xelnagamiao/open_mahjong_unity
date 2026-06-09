@@ -322,7 +322,8 @@ async def broadcast_do_action(
     deal_tile: int = None,
     buhua_tile: int = None,
     combination_target: str = None,
-    combination_mask: List[int] = None
+    combination_mask: List[int] = None,
+    is_mo_gang: bool = None,
     ):
     self.server_action_tick += 1
     if hasattr(self, "_ask_broadcast_time"):
@@ -358,7 +359,8 @@ async def broadcast_do_action(
                         deal_tile=deal_tile,
                         buhua_tile=buhua_tile,
                         combination_mask=combination_mask,
-                        combination_target=combination_target
+                        combination_target=combination_target,
+                        is_mo_gang=is_mo_gang,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -376,7 +378,8 @@ async def broadcast_do_action(
             action_list, action_player,
             cut_tile=cut_tile, cut_class=cut_class,
             deal_tile=deal_tile, buhua_tile=buhua_tile,
-            combination_mask=combination_mask
+            combination_mask=combination_mask,
+            is_mo_gang=is_mo_gang,
         )
 
 # 广播结算结果（古典麻将：额外携带 base_fu 和 fu_fan_list）

@@ -252,6 +252,7 @@ public partial class GameRecordManager : MonoBehaviour {
         if (players_info != null && players_info.Length > 0) {
             // 解析玩家信息
             foreach (var player in players_info) {
+                if (player == null) continue;
                 PlayerSetting setting = new PlayerSetting {
                     userId = player.user_id,
                     title_used = player.title_used ?? 1,
@@ -625,26 +626,37 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
             RemoveNTiles(currentRecordPlayer.tileList, angangTile, 4);
             string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
             int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
             currentRecordPlayer.combinationTiles.Add($"G{angangTile}");
             currentRecordPlayer.combinationMasks.Add(combinationMask);
             if (currentPlayerPosition == "self") {
-                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
+                if (isMoGang) {
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", angangTile, null, null);
+                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile }, null);
+                } else {
+                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
+                }
             }
-            Game3DManager.Instance.Change3DTile("angang", 0, 4, currentPlayerPosition, false, combinationMask);
+            Game3DManager.Instance.Change3DTile("angang", angangTile, 4, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jg") {
             int jiagangTile = ParseTickInt(tick, 1);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
             RemoveNTiles(currentRecordPlayer.tileList, jiagangTile, 1);
             int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile);
             if (currentPlayerPosition == "self") {
-                GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
+                if (isMoGang) {
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", jiagangTile, null, null);
+                } else {
+                    GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
+                }
             }
-            Game3DManager.Instance.Change3DTile("jiagang", jiagangTile, 1, currentPlayerPosition, false, combinationMask);
+            Game3DManager.Instance.Change3DTile("jiagang", jiagangTile, 1, currentPlayerPosition, isMoGang, combinationMask);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -1039,6 +1051,10 @@ public partial class GameRecordManager : MonoBehaviour {
         if (ruleKey == "riichi") {
             if (gt.ContainsKey("red_dora")) {
                 sb.AppendLine($"赤宝牌: {(ReadGameTitleBool(gt, "red_dora", false) ? "开" : "关")}");
+            }
+            string recordSubRule = ReadGameTitleString(gt, "sub_rule", "");
+            if (recordSubRule != "riichi/langyong" && gt.ContainsKey("allow_kuikae")) {
+                sb.AppendLine($"食替: {(ReadGameTitleBool(gt, "allow_kuikae", false) ? "开" : "关")}");
             }
             string hepaiWay = ReadGameTitleString(gt, "hepai_way", "");
             if (!string.IsNullOrEmpty(hepaiWay)) {

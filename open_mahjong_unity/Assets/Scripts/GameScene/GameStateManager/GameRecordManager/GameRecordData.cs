@@ -91,7 +91,10 @@ public class GameRound {
     /// 获取所有局的列表（按 roundIndex 排序）
     /// </summary>
     public List<Round> GetRoundsList() {
-        var result = new List<Round>(rounds.Values);
+        var result = new List<Round>();
+        foreach (var round in rounds.Values) {
+            if (round != null) result.Add(round);
+        }
         result.Sort((a, b) => a.roundIndex.CompareTo(b.roundIndex));
         return result;
     }

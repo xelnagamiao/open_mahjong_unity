@@ -81,6 +81,7 @@ public partial class NormalGameStateManager {
 
         // 选择行动
         else if (SwitchType == "ClearAction"){
+            GameSceneMouseInputController.Instance.ClearStaleHandInput("ClearAction");
             // 停止计时器
             GameCanvas.Instance.StopTimeRunning();
             // 清空操作按钮
@@ -96,6 +97,7 @@ public partial class NormalGameStateManager {
 
         // 时间耗尽
         else if (SwitchType == "TimeOut"){
+            GameSceneMouseInputController.Instance.ClearStaleHandInput("TimeOut");
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();
             if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
