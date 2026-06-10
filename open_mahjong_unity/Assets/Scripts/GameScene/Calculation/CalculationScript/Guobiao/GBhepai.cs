@@ -1180,20 +1180,32 @@ public class Chinese_Hepai_Check {
             {
                 // 根据刻子标记的步进判断 一色三节高 一色四节高
                 int sign_pointer = int.Parse(save_kezi_sign[0]);
-                int sign_count = 0;
+                int sign_count = 1;
                 foreach (var sign in save_kezi_sign)
                 {
                     int sign_val = int.Parse(sign);
-                    if (sign_val == sign_pointer && sign_val <= 40)
+                    if (sign_val == sign_pointer + 1 && sign_val <= 40)
                     {
                         sign_count++;
-                        sign_pointer++;
+                        sign_pointer = sign_val;
+                    }
+                    else if (sign_val == sign_pointer)
+                    {
+                        // 重复标记，跳过
+                    }
+                    else // 步进不连续则重新开始计数
+                    {
+                        if (sign_count <= 2)
+                        {
+                            sign_count = 1;
+                            sign_pointer = sign_val;
+                        }
                     }
                 }
-                if (sign_count == 3)
-                    player_tiles.fan_list.Add("yisesanjiegao"); // 一色三节高
-                else if (sign_count == 4)
+                if (sign_count >= 4)
                     player_tiles.fan_list.Add("yisesijiegao"); // 一色四节高
+                else if (sign_count >= 3)
+                    player_tiles.fan_list.Add("yisesanjiegao"); // 一色三节高
 
                 // 根据刻子标记的值的尾数切片判断 全双刻 三同刻 双同刻 三色三节高
                 var kezi_wan_list = new List<string>();

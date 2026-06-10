@@ -21,7 +21,12 @@ public class LeaderboardItem : MonoBehaviour {
         if (usernameText != null) usernameText.text = entry.username ?? "";
         if (uidText != null) uidText.text = $"UID: {entry.user_id}";
         if (rankNameText != null) rankNameText.text = entry.guobiao_rank ?? "";
-        if (scoreText != null) scoreText.text = $"{entry.guobiao_score:F1}";
+        if (scoreText != null) {
+            string rank = entry.guobiao_rank ?? "10级";
+            int idx = RankConfig.GetRankIndex(rank);
+            var (_, _, promoteScore) = RankConfig.RankTable[idx];
+            scoreText.text = $"{entry.guobiao_score:F1}/{promoteScore}";
+        }
 
         LoadAvatar(entry.profile_image_id);
         EnsureAvatarClickable();

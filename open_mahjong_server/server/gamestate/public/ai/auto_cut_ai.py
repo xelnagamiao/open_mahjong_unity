@@ -69,14 +69,13 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 return
 
         elif game_status == "onlycut_after_action":
-            # 转移行为后切牌：选择cut（切牌）
+            # 转移行为后切牌：选择cut（吃碰后无摸牌区，手切）
             if "cut" in action_list:
-                # 选择最后一张手牌（摸切）
                 if current_player.hand_tiles:
                     tile_id = current_player.hand_tiles[-1]
                     cut_index = len(current_player.hand_tiles) - 1
                     logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}")
-                    await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
+                    await get_ai_action(game_state, player_index, "cut", False, tile_id, cut_index, None)
                     return
 
         elif game_status == "waiting_buhua_round":

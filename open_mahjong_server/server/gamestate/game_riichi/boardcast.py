@@ -214,6 +214,7 @@ async def broadcast_do_action(
     combination_target: str = None,
     combination_mask: List[int] = None,
     is_riichi_horizontal: bool = None,
+    is_mo_gang: bool = None,
 ):
     self.server_action_tick += 1
     if hasattr(self, "_ask_broadcast_time"):
@@ -241,6 +242,7 @@ async def broadcast_do_action(
                     combination_mask=combination_mask,
                     combination_target=combination_target,
                     is_riichi_horizontal=is_riichi_horizontal,
+                    is_mo_gang=is_mo_gang,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
@@ -254,6 +256,7 @@ async def broadcast_do_action(
             deal_tile=deal_tile, buhua_tile=buhua_tile,
             combination_mask=combination_mask,
             is_riichi_horizontal=is_riichi_horizontal,
+            is_mo_gang=is_mo_gang,
         )
 
 
@@ -385,11 +388,12 @@ async def broadcast_game_end(self):
     self.server_action_tick += 1
     player_final_data = {}
     for player in self.player_list:
-        player_final_data[str(player.record_counter.rank_result)] = Player_final_data(
+        player_final_data[str(player.player_index)] = Player_final_data(
             rank=player.record_counter.rank_result,
             score=player.score,
             pt=0,
             username=player.username,
+            original_player_index=player.original_player_index,
         )
     for cp in self.player_list:
         try:

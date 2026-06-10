@@ -38,7 +38,7 @@ public class EndGamePanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 参数 key 为顺位字符串 "1"～"4"，按顺位升序显示。
+    /// 参数 key 为玩家标识（座位索引），按 rank 升序、原始风位升序、分数降序显示。
     /// </summary>
     public void ShowGameEndPanel(
         long game_random_seed,
@@ -47,14 +47,22 @@ public class EndGamePanel : MonoBehaviour {
         fadeInEffect?.PlayFadeIn();
 
         var sorted = player_final_data
-            .OrderBy(kv => System.Convert.ToInt32(kv.Key))
             .Select(kv => kv.Value)
+            .OrderBy(v => System.Convert.ToInt32(v["rank"]))
+            .ThenBy(v => v.ContainsKey("original_player_index") && v["original_player_index"] != null
+                ? System.Convert.ToInt32(v["original_player_index"])
+                : int.MaxValue)
+            .ThenByDescending(v => System.Convert.ToInt32(v["score"]))
             .ToList();
 
         for (int i = 0; i < sorted.Count && i < rankDisplays.Length; i++) {
             var playerData = sorted[i];
             var display = rankDisplays[i];
-            display.username.text = playerData["username"].ToString();
+            string username = playerData["username"].ToString();
+            int userId = playerData.ContainsKey("user_id") && playerData["user_id"] != null
+                ? System.Convert.ToInt32(playerData["user_id"])
+                : 0;
+            display.username.text = StreamerModeHelper.FormatGamestatePlayerName(username, null, userId);
             display.score.text = playerData["score"].ToString();
             display.rank.text = playerData["rank"].ToString();
             display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F1}";

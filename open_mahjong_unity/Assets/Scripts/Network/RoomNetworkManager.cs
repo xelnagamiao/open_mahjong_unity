@@ -259,11 +259,14 @@ public class RoomNetworkManager : MonoBehaviour {
                 open_cuohe = config.CuoHe,
                 hepai_limit = config.HepaiLimit,
                 red_dora = config.RedDora,
+                allow_kuikae = config.AllowKuikae,
+                open_xiru = config.OpenXiru,
+                open_tobi = config.OpenTobi,
                 hepai_way = config.HepaiWay ?? "head_bump",
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator
             };
-            Debug.Log($"发送创建立直麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, cuohe={config.CuoHe}, hepai_limit={config.HepaiLimit}, red_dora={config.RedDora}, hepai_way={config.HepaiWay}");
+            Debug.Log($"发送创建立直麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, cuohe={config.CuoHe}, hepai_limit={config.HepaiLimit}, red_dora={config.RedDora}, allow_kuikae={config.AllowKuikae}, open_xiru={config.OpenXiru}, open_tobi={config.OpenTobi}, hepai_way={config.HepaiWay}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
@@ -342,6 +345,23 @@ public class RoomNetworkManager : MonoBehaviour {
             room_id = roomId
         };
         await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+    }
+
+    /// <summary>
+    /// 设置准备状态（非房主玩家可用）
+    /// </summary>
+    public async void SetReady(string roomId, bool ready) {
+        try {
+            var request = new SetReadyRequest {
+                type = "room/set_ready",
+                room_id = roomId,
+                ready = ready
+            };
+            Debug.Log($"发送准备状态消息: roomId={roomId}, ready={ready}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送准备状态请求失败: {e.Message}");
+        }
     }
 
     /// <summary>

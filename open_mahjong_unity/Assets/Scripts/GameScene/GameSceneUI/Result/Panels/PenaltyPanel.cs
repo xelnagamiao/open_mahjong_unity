@@ -124,7 +124,7 @@ public class PenaltyPanel : MonoBehaviour {
         Dictionary<string, string> usernameByPos,
         Dictionary<string, int> scoreByPos,
         Dictionary<string, int> deltaByPos) {
-        userNameText.text = usernameByPos[pos];
+        userNameText.text = StreamerModeHelper.FormatGamestatePlayerName(usernameByPos[pos], pos);
         scoreText.text = scoreByPos[pos].ToString();
         int d = deltaByPos[pos];
         deltaText.text = d > 0 ? $"+{d}" : d.ToString();
@@ -154,7 +154,7 @@ public class PenaltyPanel : MonoBehaviour {
         Dictionary<string, int> scoresAfter,
         Dictionary<string, int> deltas) {
         int delta = deltas[pos];
-        userNameText.text = usernameByPos[pos];
+        userNameText.text = StreamerModeHelper.FormatGamestatePlayerName(usernameByPos[pos], pos);
         SetRowScoreDelta(scoreText, deltaText, scoresAfter[pos] - delta, delta);
     }
 

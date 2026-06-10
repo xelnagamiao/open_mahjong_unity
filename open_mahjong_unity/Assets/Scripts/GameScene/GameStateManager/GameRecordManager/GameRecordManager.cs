@@ -252,6 +252,7 @@ public partial class GameRecordManager : MonoBehaviour {
         if (players_info != null && players_info.Length > 0) {
             // 解析玩家信息
             foreach (var player in players_info) {
+                if (player == null) continue;
                 PlayerSetting setting = new PlayerSetting {
                     userId = player.user_id,
                     title_used = player.title_used ?? 1,
@@ -625,26 +626,37 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
             RemoveNTiles(currentRecordPlayer.tileList, angangTile, 4);
             string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
             int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
             currentRecordPlayer.combinationTiles.Add($"G{angangTile}");
             currentRecordPlayer.combinationMasks.Add(combinationMask);
             if (currentPlayerPosition == "self") {
-                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
+                if (isMoGang) {
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", angangTile, null, null);
+                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile }, null);
+                } else {
+                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
+                }
             }
-            Game3DManager.Instance.Change3DTile("angang", 0, 4, currentPlayerPosition, false, combinationMask);
+            Game3DManager.Instance.Change3DTile("angang", angangTile, 4, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jg") {
             int jiagangTile = ParseTickInt(tick, 1);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
             RemoveNTiles(currentRecordPlayer.tileList, jiagangTile, 1);
             int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile);
             if (currentPlayerPosition == "self") {
-                GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
+                if (isMoGang) {
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", jiagangTile, null, null);
+                } else {
+                    GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
+                }
             }
-            Game3DManager.Instance.Change3DTile("jiagang", jiagangTile, 1, currentPlayerPosition, false, combinationMask);
+            Game3DManager.Instance.Change3DTile("jiagang", jiagangTile, 1, currentPlayerPosition, isMoGang, combinationMask);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -781,10 +793,12 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         else if (action == "liuju") {
             RoundEndPresentation.Instance.PresentLiuju("流局", false);
+            HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "jiuzhongjiupai") {
             RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);
+            HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "riichi") {
@@ -824,6 +838,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
             RoundEndPresentation.Instance.PresentLiuju(text, false);
+            HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
         else if (action == "hu_riichi") {
@@ -1036,6 +1051,10 @@ public partial class GameRecordManager : MonoBehaviour {
         if (ruleKey == "riichi") {
             if (gt.ContainsKey("red_dora")) {
                 sb.AppendLine($"赤宝牌: {(ReadGameTitleBool(gt, "red_dora", false) ? "开" : "关")}");
+            }
+            string recordSubRule = ReadGameTitleString(gt, "sub_rule", "");
+            if (recordSubRule != "riichi/langyong" && gt.ContainsKey("allow_kuikae")) {
+                sb.AppendLine($"食替: {(ReadGameTitleBool(gt, "allow_kuikae", false) ? "开" : "关")}");
             }
             string hepaiWay = ReadGameTitleString(gt, "hepai_way", "");
             if (!string.IsNullOrEmpty(hepaiWay)) {
@@ -1260,6 +1279,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
             RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
             return;
         }
@@ -1319,6 +1339,14 @@ public partial class GameRecordManager : MonoBehaviour {
         GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, yaku, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
             playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, null, null, extras);
+        if (riichiSticksCollected > 0) {
+            Game3DManager.Instance.ClearAllRiichiTenbous();
+        }
+    }
+
+    /// <summary>流局时清除 3D 立直棒；本场/供托由牌谱 round.riichi 元数据在切局时刷新 UI。</summary>
+    private static void HideRecordRiichiSticksOnLiuju() {
+        Game3DManager.Instance.ClearAllRiichiTenbous();
     }
 
     /// <summary>
@@ -1631,27 +1659,30 @@ public partial class GameRecordManager : MonoBehaviour {
         var hist1 = new List<string>();
         var hist2 = new List<string>();
         var hist3 = new List<string>();
-        foreach (Round round in gameRecord.gameRound.GetRoundsList()) {
-            if (round.scoreChanges != null && round.scoreChanges.Count >= 4) {
-                hist0.Add(FormatScoreChange(round.scoreChanges[0]));
-                hist1.Add(FormatScoreChange(round.scoreChanges[1]));
-                hist2.Add(FormatScoreChange(round.scoreChanges[2]));
-                hist3.Add(FormatScoreChange(round.scoreChanges[3]));
-            } else {
-                hist0.Add("0");
-                hist1.Add("0");
-                hist2.Add("0");
-                hist3.Add("0");
-            }
+        // 每行对应的局号(current_round)，与日麻/国标对齐：连庄或错和会出现同一局号多行
+        var roundNumberHistory = new List<int>();
+        // 每次结算一行展开（国标同局多次错和各占一行），分值、局号、主番快照严格对齐
+        var rows = ScoreHistoryRecordSettlementExtractor.ExtractScoreRows(gameRecord);
+        var settlements = new List<RoundSettlementSnapshot>();
+        foreach (var row in rows) {
+            int[] sc = row.scoreChangesByOriginal;
+            hist0.Add(FormatScoreChange(sc != null && sc.Length > 0 ? sc[0] : 0));
+            hist1.Add(FormatScoreChange(sc != null && sc.Length > 1 ? sc[1] : 0));
+            hist2.Add(FormatScoreChange(sc != null && sc.Length > 2 ? sc[2] : 0));
+            hist3.Add(FormatScoreChange(sc != null && sc.Length > 3 ? sc[3] : 0));
+            roundNumberHistory.Add(row.roundNumber > 0 ? row.roundNumber : roundNumberHistory.Count + 1);
+            settlements.Add(row.snapshot);
         }
         var player_to_info = new Dictionary<string, PlayerInfoClass> {
-            { "self", new PlayerInfoClass { original_player_index = 0, username = name0, score_history = hist0 } },
-            { "right", new PlayerInfoClass { original_player_index = 1, username = name1, score_history = hist1 } },
-            { "top", new PlayerInfoClass { original_player_index = 2, username = name2, score_history = hist2 } },
-            { "left", new PlayerInfoClass { original_player_index = 3, username = name3, score_history = hist3 } }
+            { "self", new PlayerInfoClass { original_player_index = 0, username = name0, score_history = hist0, round_number_history = new List<int>(roundNumberHistory) } },
+            { "right", new PlayerInfoClass { original_player_index = 1, username = name1, score_history = hist1, round_number_history = new List<int>(roundNumberHistory) } },
+            { "top", new PlayerInfoClass { original_player_index = 2, username = name2, score_history = hist2, round_number_history = new List<int>(roundNumberHistory) } },
+            { "left", new PlayerInfoClass { original_player_index = 3, username = name3, score_history = hist3, round_number_history = new List<int>(roundNumberHistory) } }
         };
-        var settlements = ScoreHistoryRecordSettlementExtractor.Extract(gameRecord);
-        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, settlements);
+        // 总局数：牌谱标题 max_round（风圈数 1~4）* 4；缺省则用已记录局的最大局号兜底
+        int recordMaxRound = ReadGameTitleInt(gameRecord.gameTitle, "max_round", 0);
+        int totalRounds = recordMaxRound > 0 ? recordMaxRound * 4 : 0;
+        ScoreHistoryPanel.Instance.UpdateScoreRecord(rule, player_to_info, settlements, totalRounds);
     }
 
     private static string FormatScoreChange(int delta) {

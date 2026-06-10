@@ -1,6 +1,8 @@
 # 玩家操作处理
 import logging
 
+from ..hand_slot_utils import hand_contains_tile
+
 logger = logging.getLogger(__name__)
 
 def _normalize_tile(tile: int) -> int:
@@ -82,7 +84,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
         # 操作合法，将操作数据放入队列
         if action_type in ("cut", "riichi_cut"): # 切牌/立直切
             # 验证切牌的TileId是否在玩家手牌中
-            if TileId not in current_player.hand_tiles:
+            if not hand_contains_tile(current_player.hand_tiles, TileId):
                 logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
                 return  # 丢弃命令
             if _is_kuikae_forbidden_cut(current_player, TileId):
@@ -178,7 +180,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         # 操作合法，将操作数据放入队列
         if action_type in ("cut", "riichi_cut"): # 切牌/立直切
             # 验证切牌的TileId是否在玩家手牌中
-            if TileId not in current_player.hand_tiles:
+            if not hand_contains_tile(current_player.hand_tiles, TileId):
                 logger.warning(f"错误：切牌操作的TileId不在玩家手牌中，player_index={player_index}, user_id={user_id}, TileId={TileId}, hand_tiles={current_player.hand_tiles}")
                 return  # 丢弃命令
             if _is_kuikae_forbidden_cut(current_player, TileId):

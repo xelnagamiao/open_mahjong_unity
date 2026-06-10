@@ -101,8 +101,8 @@ public partial class Game3DManager : MonoBehaviour {
                     tilesToRemove.Add(tid);
                 }
             }
-            foreach (int tid in tilesToRemove) {
-                RemoveOneSelfHandCardByTileId(cardPosition, tid);
+            for (int i = 0; i < tilesToRemove.Count && i < removeCount; i++) {
+                RemoveOneSelfHandCardByTileId(cardPosition, tilesToRemove[i]);
             }
             if (!skipRearrange) {
                 yield return null;

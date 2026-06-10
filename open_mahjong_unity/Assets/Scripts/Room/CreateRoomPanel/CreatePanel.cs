@@ -26,6 +26,9 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgCuohe          = "cuohe";            // 错和
     private const string CfgHepaiLimit     = "hepai_limit";      // 自定义起和番数（整数；Toggle 与 Input 成组显隐）
     private const string CfgRedDora        = "red_dora";         // 赤宝牌
+    private const string CfgAllowKuikae    = "allow_kuikae";    // 禁止食替 Toggle：开=禁切（allow_kuikae 关）
+    private const string CfgOpenXiru       = "open_xiru";       // 西入
+    private const string CfgOpenTobi       = "open_tobi";       // 击飞
     private const string CfgHepaiWay       = "hepai_way";        // 和牌方式下拉索引
     private const string CfgTacticalCall   = "tactical_call";    // 战术鸣牌（国标 / 青雀）
 
@@ -57,9 +60,13 @@ public class CreatePanel : MonoBehaviour {
             { CfgRandomSeed,     false },
             { CfgTouristLimit,   false },
             { CfgAllowSpectator, true },
+            { CfgSubRule,        0 }, // 子规则下拉索引（0=标准 1=浪涌）
             { CfgCuohe,          false },
             { CfgHepaiLimit,     1 },
             { CfgRedDora,        true }, // 赤宝牌：开
+            { CfgAllowKuikae,    false }, // 禁止食替：开（allow_kuikae 关，标准日麻禁切）
+            { CfgOpenXiru,       true }, // 西入：开
+            { CfgOpenTobi,       true }, // 击飞：开
             { CfgHepaiWay,       0 }, // 0=多家和了 1=三家和了流局 2=头跳
         } },
         { "qingque", new Dictionary<string, object> {
@@ -110,6 +117,9 @@ public class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle InputHepaiLimitToggle;
     [SerializeField] private Toggle AllowSpectatorToggle;
     [SerializeField] private Toggle RedDoraToggle;
+    [SerializeField] private Toggle KuikaeToggle;
+    [SerializeField] private Toggle XiruToggle;
+    [SerializeField] private Toggle TobiToggle;
     [SerializeField] private Toggle TacticalCallToggle;
 
     [Header("面板")]
@@ -136,7 +146,8 @@ public class CreatePanel : MonoBehaviour {
         { "guobiao/xiaolin", "小林改版国标麻将，对国标麻将进行了番数平衡，还处于测试版，取消了8番起胡和底分，改为点和得分x2，自摸番三。非竞技规则，只为娱乐。" },
         { "guobiao/lanshi", "蓝十改版的国标麻将规则，对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。" },
         { "classical/standard", "本规则为根据《绘图麻雀牌谱》《想定宁波规则》等书籍文献资料汇总而成的，试图还原1920年代左右或以前的早期麻将样貌的麻将规则。相比现代规则，古典麻雀有番种体系简单、重刻杠幺九、未和牌家计分等特点，具有独特风味。" },
-        { "riichi/standard", "立直麻将参照天凤/雀魂规则进行设计，目前还在测试阶段" }
+        { "riichi/standard", "立直麻将参照天凤/雀魂规则进行设计，无双倍役满" },
+        { "riichi/langyong", "让每一局，都像海浪般汹涌滔滔｜一、每吃、碰、杠一次，自己的浪涌点数+1（初始为0）。｜二、每1点浪涌，结算时输赢倍数+1。｜三、当全场浪涌累计达到4点，进入“浪潮模式”，结算时倍数再+1。｜四、规则内置可食替｜规则提供：b站up大理石狐自恧" }
     };
 
     private void Start() {
@@ -161,6 +172,7 @@ public class CreatePanel : MonoBehaviour {
 
         roomNameInput.text = GetDefaultRoomName();
 
+        EnsureRiichiOptionToggles();
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
@@ -177,9 +189,13 @@ public class CreatePanel : MonoBehaviour {
             3 => "classical",
             _ => "guobiao"
         };
+        bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
+        if (hasSubRule) {
+            PopulateSubRuleDropdown(_ruleState);
+        }
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
-        if (_ruleState == "guobiao") {
+        if (hasSubRule) {
             OnSubRuleChanged(SubRuleDropdown.value);
         }
         RefreshSubRuleDescription();
@@ -211,6 +227,9 @@ public class CreatePanel : MonoBehaviour {
                 HepaiLimitInput.text = ((int)value).ToString();
                 break;
             case CfgRedDora:        RedDoraToggle.isOn = (bool)value; break;
+            case CfgAllowKuikae:    if (KuikaeToggle != null) KuikaeToggle.isOn = !(bool)value; break;
+            case CfgOpenXiru:       if (XiruToggle != null) XiruToggle.isOn = (bool)value; break;
+            case CfgOpenTobi:       if (TobiToggle != null) TobiToggle.isOn = (bool)value; break;
             case CfgHepaiWay:       HepaiWayDropdown.value = (int)value; break;
             case CfgTacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
         }
@@ -232,9 +251,10 @@ public class CreatePanel : MonoBehaviour {
 
         SubRuleDropdown.gameObject.SetActive(visible.ContainsKey(CfgSubRule));
 
-        // 国标子规则对错和 / 起和番自定义做进一步收窄
+        // 国标子规则对错和 / 起和番自定义做进一步收窄；浪涌子规则固定可食替，不暴露食替开关
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 2;
+        bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
 
         bool showCuohe = visible.ContainsKey(CfgCuohe) && !isXiaolin;
         CuoHeheToggle.gameObject.SetActive(showCuohe);
@@ -244,6 +264,9 @@ public class CreatePanel : MonoBehaviour {
         InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn);
 
         RedDoraToggle.gameObject.SetActive(visible.ContainsKey(CfgRedDora));
+        if (KuikaeToggle != null) KuikaeToggle.gameObject.SetActive(visible.ContainsKey(CfgAllowKuikae) && !isLangyong);
+        if (XiruToggle != null) XiruToggle.gameObject.SetActive(visible.ContainsKey(CfgOpenXiru));
+        if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CfgOpenTobi));
         HepaiWayPanel.SetActive(visible.ContainsKey(CfgHepaiWay));
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CfgTacticalCall));
     }
@@ -251,8 +274,12 @@ public class CreatePanel : MonoBehaviour {
     private string GetCurrentSubRuleKey() {
         if (_ruleState == "qingque") return "qingque/standard";
         if (_ruleState == "classical") return "classical/standard";
-        if (_ruleState == "riichi") return "riichi/standard";
+        if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
         return GetSelectedSubRule();
+    }
+
+    private string GetSelectedRiichiSubRule() {
+        return SubRuleDropdown.value == 1 ? "riichi/langyong" : "riichi/standard";
     }
 
     private void RefreshSubRuleDescription() {
@@ -262,29 +289,41 @@ public class CreatePanel : MonoBehaviour {
     }
 
     private void InitSubRuleDropdown() {
-        SubRuleDropdown.ClearOptions();
-        // SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
-        SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)" });
-        SubRuleDropdown.value = 0;
+        PopulateSubRuleDropdown(_ruleState);
         OnSubRuleChanged(0);
     }
 
-    private void OnSubRuleChanged(int index) {
-        bool isXiaolin = (index == 1);
-        bool isLanshi = (index == 2);
-        RefreshSubRuleDescription();
-        if (isXiaolin) {
-            InputHepaiLimitToggle.isOn = false;
-            HepaiLimitInput.text = "1";
-            CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
-            CuoHeheToggle.isOn = false;
-            CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
+    /// <summary>按当前规则填充子规则下拉选项。仅含子规则的规则（国标 / 日麻）会用到。</summary>
+    private void PopulateSubRuleDropdown(string rule) {
+        SubRuleDropdown.ClearOptions();
+        if (rule == "riichi") {
+            SubRuleDropdown.AddOptions(new List<string> { "立直麻将(标准)", "浪涌麻将" });
         } else {
-            if (isLanshi) {
+            // 国标：SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
+            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)" });
+        }
+        SubRuleDropdown.value = 0;
+    }
+
+    private void OnSubRuleChanged(int index) {
+        RefreshSubRuleDescription();
+        // 日麻子规则（标准 / 浪涌）不涉及起和番/错和的二次收窄，仅国标需处理。
+        if (_ruleState == "guobiao") {
+            bool isXiaolin = (index == 1);
+            bool isLanshi = (index == 2);
+            if (isXiaolin) {
                 InputHepaiLimitToggle.isOn = false;
-                HepaiLimitInput.text = "5";
+                HepaiLimitInput.text = "1";
+                CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
+                CuoHeheToggle.isOn = false;
+                CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
             } else {
-                HepaiLimitInput.text = "8";
+                if (isLanshi) {
+                    InputHepaiLimitToggle.isOn = false;
+                    HepaiLimitInput.text = "5";
+                } else {
+                    HepaiLimitInput.text = "8";
+                }
             }
         }
         RefreshVisibility();
@@ -296,6 +335,27 @@ public class CreatePanel : MonoBehaviour {
             2 => "guobiao/lanshi",
             _ => "guobiao/standard"
         };
+    }
+
+    /// <summary>运行时从赤宝牌开关克隆日麻专属选项，避免场景内重复手工挂接。</summary>
+    private void EnsureRiichiOptionToggles() {
+        if (RedDoraToggle == null) return;
+        KuikaeToggle = EnsureClonedToggle(RedDoraToggle, KuikaeToggle, "UseKuikae", "禁止食替", true);
+        Toggle xiruTemplate = KuikaeToggle != null ? KuikaeToggle : RedDoraToggle;
+        XiruToggle = EnsureClonedToggle(xiruTemplate, XiruToggle, "UseXiru", "西入", true);
+        Toggle tobiTemplate = XiruToggle != null ? XiruToggle : xiruTemplate;
+        TobiToggle = EnsureClonedToggle(tobiTemplate, TobiToggle, "UseTobi", "击飞", true);
+    }
+
+    private static Toggle EnsureClonedToggle(Toggle template, Toggle existing, string goName, string labelText, bool defaultOn) {
+        if (existing != null) return existing;
+        if (template == null) return null;
+        var clone = Instantiate(template, template.transform.parent);
+        clone.name = goName;
+        clone.isOn = defaultOn;
+        var label = clone.GetComponentInChildren<TMP_Text>();
+        if (label != null) label.text = labelText;
+        return clone;
     }
 
     private void ClosePanel() {
@@ -347,7 +407,7 @@ public class CreatePanel : MonoBehaviour {
             Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
             RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
             Rule = "riichi",
-            SubRule = "riichi/standard",
+            SubRule = GetSelectedRiichiSubRule(),
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
@@ -356,6 +416,9 @@ public class CreatePanel : MonoBehaviour {
             CuoHe = CuoHeheToggle.isOn,
             HepaiLimit = hepaiLimit,
             RedDora = RedDoraToggle.isOn,
+            AllowKuikae = KuikaeToggle != null && !KuikaeToggle.isOn,
+            OpenXiru = XiruToggle != null ? XiruToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenXiru],
+            OpenTobi = TobiToggle != null ? TobiToggle.isOn : (bool)RuleConfigs["riichi"][CfgOpenTobi],
             HepaiWay = hepaiWay,
         };
 

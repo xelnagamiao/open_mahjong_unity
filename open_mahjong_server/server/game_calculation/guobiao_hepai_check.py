@@ -8,6 +8,7 @@ class PlayerTiles:
     def __init__(self, tiles_list, combination_list,complete_step):
         self.hand_tiles = sorted(tiles_list)
         self.combination_list = combination_list
+        self.initial_combination_count = len(combination_list)
         self.complete_step = complete_step # +3 +3 +3 +3 +2 = 14
         self.fan_list = []
         self.point_count_dict = {} # 存储和牌得分
@@ -17,6 +18,7 @@ class PlayerTiles:
         new_instance = PlayerTiles(self.hand_tiles[:],
                                  self.combination_list[:],
                                  self.complete_step)
+        new_instance.initial_combination_count = self.initial_combination_count
         new_instance.fan_list = self.fan_list[:]
         return new_instance
 
@@ -517,7 +519,7 @@ class Chinese_Hepai_Check:
                     rank = i % 10
                     save_list.append(rank)
                 self.debug_print(save_list)
-                if save_list == self.jiulianbaodeng_list:
+                if player_tiles.initial_combination_count == 0 and save_list == self.jiulianbaodeng_list:
                     player_tiles.fan_list.append("jiulianbaodeng") # 九莲宝灯
                 else:
                     player_tiles.fan_list.append("qingyise") # 清一色
@@ -862,15 +864,22 @@ class Chinese_Hepai_Check:
 
             # 根据刻子标记的步进判断 一色三节高 一色四节高
             sign_pointer = int(save_kezi_sign[0])
-            sign_count = 0
+            sign_count = 1
             for sign in save_kezi_sign:
-                if int(sign) == sign_pointer and int(sign) <= 40:
+                sign_val = int(sign)
+                if sign_val == sign_pointer + 1 and sign_val <= 40:
                     sign_count += 1
-                    sign_pointer += 1
-            if sign_count == 3:
-                player_tiles.fan_list.append("yisesanjiegao") # 一色三节高
-            elif sign_count == 4:
+                    sign_pointer = sign_val
+                elif sign_val == sign_pointer:
+                    pass
+                else: # 步进不连续则重新开始计数
+                    if sign_count <= 2:
+                        sign_count = 1
+                        sign_pointer = sign_val
+            if sign_count >= 4:
                 player_tiles.fan_list.append("yisesijiegao") # 一色四节高
+            elif sign_count >= 3:
+                player_tiles.fan_list.append("yisesanjiegao") # 一色三节高
             
             # 根据刻子标记的值的尾数切片判断 全双刻 三同刻 双同刻 三色三节高
             wan_list = []
@@ -1431,6 +1440,8 @@ if __name__ == "__main__":
     # 2 test_save = [[],[21,21,21,22,23,24,25,26,27,28,29,29,29,23],23,["自摸"]] 90
     # 3 test_save = [[],[31,31,31,32,33,34,35,36,37,38,39,39,39,36],36,["点和"]] 89
     # 4 test_save = [[],[21,21,21,22,23,24,25,26,27,28,29,29,29,25],25,["自摸"]] 92
+    # 九莲宝灯牌型副露
+    # 1 test_save = [["s28"],[21,21,21,22,23,24,25,26,29,29,24],24,["点和"]] 26 # 有副露，不计九莲宝灯
     # 四杠
     # 1 test_save = [["G16","G28","G32","G44"],[29,29],29,["点和"]] 153
     # 2 test_save = [["G36","g31","G38","G12"],[35,35],35,["自摸"]] 108

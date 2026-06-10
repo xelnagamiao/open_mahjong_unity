@@ -17,6 +17,10 @@ class RoomManager:
         # 存储房间信息和房间密码
         self.rooms: Dict[str, dict] = {}
         self.room_passwords: Dict[str, str] = {}
+        # 已分配给排位匹配对局的房间号集合。匹配对局不依赖房间系统（不进入 self.rooms、
+        # 不出现在房间列表、不可被加入），但仍占用一个唯一房间号用于对局内映射与聊天频道，
+        # 需在此登记以避免与自定义房间号发生冲突。
+        self.match_room_ids: set = set()
         # 房间的合法性验证器
         self.room_validators = {
             "guobiao": GBRoomValidator,
@@ -386,6 +390,9 @@ class RoomManager:
                                  open_cuohe: bool = False,
                                  hepai_limit: int = 1,
                                  red_dora: bool = True,
+                                 allow_kuikae: bool = False,
+                                 open_xiru: bool = True,
+                                 open_tobi: bool = True,
                                  hepai_way: str = "head_bump",
                                  tourist_limit: bool = False,
                                  allow_spectator: bool = True) -> Response:
@@ -420,6 +427,9 @@ class RoomManager:
                 "open_cuohe": open_cuohe,
                 "hepai_limit": hepai_limit,
                 "red_dora": red_dora,
+                "allow_kuikae": allow_kuikae,
+                "open_xiru": open_xiru,
+                "open_tobi": open_tobi,
                 "hepai_way": hepai_way,
             }
 
@@ -647,6 +657,9 @@ class RoomManager:
 
             # 更新房间信息
             room_data["player_list"].remove(player.user_id)
+            # 同步移除其准备状态
+            if player.user_id in room_data.get("ready_list", []):
+                room_data["ready_list"].remove(player.user_id)
 
             # 更新玩家信息
             player.current_room_id = None
@@ -839,6 +852,9 @@ class RoomManager:
 
             # 从房间玩家列表中移除
             room_data["player_list"].remove(target_user_id)
+            # 同步移除其准备状态
+            if target_user_id in room_data.get("ready_list", []):
+                room_data["ready_list"].remove(target_user_id)
 
             # 更新房间中的玩家设置信息
             # 普通玩家：直接删除其设置信息
@@ -893,12 +909,77 @@ class RoomManager:
                 message=f"移除玩家失败: {str(e)}"
             )
 
+    async def set_player_ready(self, Connect_id: str, room_id: str, ready: bool) -> Optional[Response]:
+        """设置玩家准备状态。房主无需准备；机器人默认视为已准备，不进入 ready_list。
+        成功时返回 None（状态通过 refresh_room_info 广播刷新），失败时返回错误 Response。"""
+        try:
+            if room_id not in self.rooms:
+                return Response(type="error_message", success=False, message="房间不存在")
+
+            room_data = self.rooms[room_id]
+
+            if room_data.get("is_game_running", False):
+                return Response(type="error_message", success=False, message="游戏进行中，无法更改准备状态")
+
+            player = self.game_server.players.get(Connect_id)
+            if not player or not player.user_id:
+                return Response(type="error_message", success=False, message="请先登录")
+
+            if player.user_id not in room_data["player_list"]:
+                return Response(type="error_message", success=False, message="玩家不在房间中")
+
+            # 房主无需准备
+            if player.user_id == room_data["player_list"][0]:
+                return Response(type="tips", success=False, message="房主无需准备")
+
+            ready_list = room_data.setdefault("ready_list", [])
+            if ready:
+                if player.user_id not in ready_list:
+                    ready_list.append(player.user_id)
+            else:
+                if player.user_id in ready_list:
+                    ready_list.remove(player.user_id)
+
+            await self._broadcast_room_info(room_id)
+            return None
+
+        except Exception as e:
+            logger.error(f"设置准备状态失败: {e}", exc_info=True)
+            return Response(type="error_message", success=False, message=f"更改准备状态失败: {str(e)}")
+
+    def all_players_ready(self, room_data: dict) -> bool:
+        """除房主外，所有真人玩家是否都已准备（机器人 user_id<=10 默认视为已准备）。"""
+        player_list = room_data.get("player_list", [])
+        ready_list = room_data.get("ready_list", [])
+        for idx, user_id in enumerate(player_list):
+            if idx == 0:
+                continue  # 房主无需准备
+            if user_id <= 10:
+                continue  # 机器人默认已准备
+            if user_id not in ready_list:
+                return False
+        return True
+
     def _generate_room_id(self) -> str:
-        """生成房间ID"""
+        """生成房间ID（同时避开已被匹配对局占用的房间号）"""
         for i in range(1, 9999):
-            if str(i) not in self.rooms:
-                return str(i)
+            rid = str(i)
+            if rid not in self.rooms and rid not in self.match_room_ids:
+                return rid
         raise ValueError("无法创建更多房间")
+
+    def allocate_match_room_id(self) -> str:
+        """为排位匹配对局分配一个唯一房间号（不写入 self.rooms，仅登记到 match_room_ids）。"""
+        for i in range(1, 9999):
+            rid = str(i)
+            if rid not in self.rooms and rid not in self.match_room_ids:
+                self.match_room_ids.add(rid)
+                return rid
+        raise ValueError("无法创建更多匹配房间号")
+
+    def release_match_room_id(self, room_id: str):
+        """匹配对局结束后释放其占用的房间号。"""
+        self.match_room_ids.discard(room_id)
 
     def _sync_room_host(self, room_data: dict):
         """player_list 首位为在房最久的玩家，同步 host 字段供客户端与权限校验使用。"""
@@ -918,6 +999,8 @@ class RoomManager:
 
         room_data = self.rooms[room_id]
         room_data["is_game_running"] = False
+        # 对局结束后清空准备状态，要求重新准备才能再次开局
+        room_data["ready_list"] = []
         self._sync_room_host(room_data)
         await self._broadcast_room_info(room_id)
         logger.info(f"自定义房 {room_id} 对局结束，已恢复等待态")
@@ -925,6 +1008,8 @@ class RoomManager:
     async def _broadcast_room_info(self, room_id: str):
         """广播房间信息给所有房间内的玩家"""
         room_data = self.rooms[room_id]
+        # 确保准备列表存在，使客户端始终能收到该字段
+        room_data.setdefault("ready_list", [])
         
         response = Response(
             type = "room/refresh_room_info",

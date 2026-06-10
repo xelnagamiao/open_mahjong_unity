@@ -93,8 +93,8 @@
 | `cl` / `cm` / `cr` | 吃 | `[code, tile_id, action_player]` |
 | `p` | 碰 | `["p", tile_id, action_player]` |
 | `g` | 明杠 | `["g", tile_id, action_player]` |
-| `ag` | 暗杠 | `["ag", tile_id]` |
-| `jg` | 加杠 | `["jg", tile_id]` |
+| `ag` | 暗杠 | `["ag", tile_id, "T"\|"F"]`（必填第三段；客户端拒绝两段格式） |
+| `jg` | 加杠 | `["jg", tile_id, "T"\|"F"]`（必填第三段；客户端拒绝两段格式） |
 | `liuju` | 流局 | `["liuju"]` |
 | `end` | 本局结束 | `["end"]`（和牌/流局后紧跟；错和无 `end`，对局继续） |
 

@@ -374,7 +374,6 @@ public class TipsContainer : MonoBehaviour
             foreach (var tag in selfTags) {
                 if (tag == "riichi") ctx.IsRiichi = true;
                 else if (tag == "daburu_riichi") { ctx.IsDaburuRiichi = true; ctx.IsRiichi = true; }
-                else if (tag == "ippatsu") ctx.IsIppatsu = true;
             }
         }
 

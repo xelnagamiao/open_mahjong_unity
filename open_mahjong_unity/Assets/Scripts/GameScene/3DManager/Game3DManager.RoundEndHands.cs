@@ -318,9 +318,9 @@ public partial class Game3DManager {
 
     private GameObject TryTakeLastDiscardObjectForRon(int expectedTileId, string discardPlayerPosition) {
 
-        if (lastCut3DObject == null) return null;
+        if (lastCutJiagang3DObject == null) return null;
 
-        Tile3D tile3D = lastCut3DObject.GetComponent<Tile3D>();
+        Tile3D tile3D = lastCutJiagang3DObject.GetComponent<Tile3D>();
 
         if (tile3D != null && tile3D.GetTileId() != expectedTileId) {
 
@@ -330,9 +330,9 @@ public partial class Game3DManager {
 
 
 
-        GameObject obj = lastCut3DObject;
+        GameObject obj = lastCutJiagang3DObject;
 
-        lastCut3DObject = null;
+        lastCutJiagang3DObject = null;
 
         return obj;
 

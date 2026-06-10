@@ -34,11 +34,11 @@ public partial class NormalGameStateManager {
         if (!pendingCuoheContinueAfterReady) return;
         pendingCuoheContinueAfterReady = false;
 
+        // RoundEndPresentation 仅是承载各结算子面板的容器节点（无自身可见图形），正常对局全程都保持 active。
+        // 这里只需停止正在播放的结算演出协程，真正的和牌面板由 EndResultPanel.ClearEndResultPanel() 自行隐藏；
+        // 不要把容器整个 SetActive(false)，否则后续在未激活节点上 StartCoroutine 会失败，导致错和后的下一次和牌面板不显示。
         if (RoundEndPresentation.Instance != null) {
             RoundEndPresentation.Instance.StopActiveSequence();
-            if (RoundEndPresentation.Instance.gameObject.activeSelf) {
-                RoundEndPresentation.Instance.gameObject.SetActive(false);
-            }
         }
         if (EndResultPanel.Instance != null) {
             EndResultPanel.Instance.ClearEndResultPanel();

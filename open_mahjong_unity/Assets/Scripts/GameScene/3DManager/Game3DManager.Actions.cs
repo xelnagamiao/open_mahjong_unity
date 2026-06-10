@@ -90,6 +90,7 @@ public partial class Game3DManager : MonoBehaviour
                     }
                     // 设置父对象
                     cardObj.transform.SetParent(SetParent, worldPositionStays: true);
+                    lastCutJiagang3DObject = cardObj;
                     // 加杠动画：将加杠牌移动到3个卡牌宽度以左，然后移回原位
                     if (doAnimation)
                     {

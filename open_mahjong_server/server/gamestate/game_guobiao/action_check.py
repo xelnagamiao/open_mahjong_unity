@@ -171,7 +171,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
     # 抢杠和
     if hepai_type == "qianggang":
-        temp_action_dict[player_index].append("抢杠和")
+        way_to_hepai.append("抢杠和")
+        way_to_hepai.append("点和")
 
     # 荣和
     elif hepai_type == "dianhe":
