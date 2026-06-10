@@ -59,6 +59,7 @@ from ..public.game_record_manager import (
 )
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ..public.random_seed_manager import setup_random_seed_system
 from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
@@ -210,7 +211,9 @@ class RiichiGameState:
         self.tiles_list = []
         self.current_player_index = 0
         self.xunmu = 1
-        self.game_random_seed = 0
+        self.master_seed: int = 0
+        self.commitment: int = 0
+        self.salt = ""
         self.round_random_seed = 0
         self.game_status = "waiting"
         self.server_action_tick = 0
@@ -326,14 +329,10 @@ class RiichiGameState:
             await self.cleanup_game_state()
 
     async def game_loop_riichi(self):
+        user_seed = self.room_random_seed if self.room_random_seed else None
+        self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
         # 随机座位
-        if self.room_random_seed != 0:
-            self.game_random_seed = self.room_random_seed
-            self.isPlayerSetRandomSeed = True
-        else:
-            self.game_random_seed = int(time.time() * 1000000) % (2**32)
-            self.isPlayerSetRandomSeed = False
-        rng = random.Random(self.game_random_seed)
+        rng = random.Random(self.master_seed)
         rng.shuffle(self.player_list)
         for i, p in enumerate(self.player_list):
             p.player_index = i

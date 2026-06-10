@@ -37,9 +37,23 @@ class GBRoomValidator(BaseModel):
     
     @validator('random_seed')
     def validate_random_seed(cls, v):
-        if v < 0 or v > 4294967295:
-            raise ValueError('随机种子必须在0-4294967295之间')
-        return v
+        if v is None:
+            return 0
+        if isinstance(v, int):
+            if v < 0:
+                raise ValueError('随机种子不能为负数')
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "" or v == "0":
+                return 0
+            if len(v) == 64 and all(c in '0123456789abcdefABCDEF' for c in v):
+                return int(v, 16)
+            try:
+                return int(v)
+            except ValueError:
+                raise ValueError('随机种子必须是整数或十六进制字符串')
+        raise ValueError('随机种子类型无效')
 
 class RiichiRoomValidator(BaseModel):
     room_name: str
@@ -82,9 +96,23 @@ class RiichiRoomValidator(BaseModel):
 
     @validator('random_seed')
     def validate_random_seed(cls, v):
-        if v < 0 or v > 4294967295:
-            raise ValueError('随机种子必须在0-4294967295之间')
-        return v
+        if v is None:
+            return 0
+        if isinstance(v, int):
+            if v < 0:
+                raise ValueError('随机种子不能为负数')
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "" or v == "0":
+                return 0
+            if len(v) == 64 and all(c in '0123456789abcdefABCDEF' for c in v):
+                return int(v, 16)
+            try:
+                return int(v)
+            except ValueError:
+                raise ValueError('随机种子必须是整数或十六进制字符串')
+        raise ValueError('随机种子类型无效')
 
     @validator('hepai_way')
     def validate_hepai_way(cls, v):

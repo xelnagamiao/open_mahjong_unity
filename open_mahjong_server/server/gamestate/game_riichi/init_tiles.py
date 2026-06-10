@@ -4,7 +4,7 @@
 - 牌山在洗牌后，最后 14 张作为王牌（dead wall），王牌倒数第 6 张为宝牌指示牌。
 """
 import random
-import hashlib
+from ..public.random_seed_manager import derive_round_seed
 
 
 def init_riichi_tiles(self):
@@ -29,9 +29,7 @@ def init_riichi_tiles(self):
 
 
 def _shuffle_and_deal(self) -> None:
-    combined = f"{self.game_random_seed}_{self.round_index}".encode("utf-8")
-    hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
-    self.round_random_seed = hash_value % (2**32)
+    self.round_random_seed = derive_round_seed(self.master_seed, self.round_index)
     random.seed(self.round_random_seed)
     random.shuffle(self.tiles_list)
 
