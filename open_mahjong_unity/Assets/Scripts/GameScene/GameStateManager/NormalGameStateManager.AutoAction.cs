@@ -18,8 +18,8 @@ public partial class NormalGameStateManager {
             // 从允许操作列表中找到实际存在的和牌操作
             string actualHupaiAction = allowActionList.FirstOrDefault(a => allowHupaiAction.Contains(a));
 
-            // 如果开启自动胡牌，则判断
-            if (AutoAction.Instance.IsAutoHepai){
+            // 如果开启自动荣和（自动胡牌且未限制为只和自摸），则判断
+            if (AutoAction.Instance.ShouldAutoWinRon()){
                 // 如果允许操作列表中有和牌，则执行自动胡牌
                 if (!string.IsNullOrEmpty(actualHupaiAction)){
                     yield return new WaitForSeconds(0.2f);
@@ -62,8 +62,8 @@ public partial class NormalGameStateManager {
         else if (action == "AutoHandAction"){
             // 如果允许操作列表有hu_self
             if (allowActionList.Contains("hu_self")){
-                // 如果开启自动胡牌，则执行自动胡牌
-                if (AutoAction.Instance.IsAutoHepai){
+                // 如果开启自动自摸（自动胡牌且未限制为只和荣和），则执行自动胡牌
+                if (AutoAction.Instance.ShouldAutoWinTsumo()){
                     yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction("hu_self", 0);
                     yield return null;

@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 """
 # 牌谱格式示例
-# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌 bh=补花 c=切牌 ag=暗杠 jg=加杠 cl/cm/cr=吃 p=碰 g=明杠
+# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌 bh=补花 c=切牌 ag=暗杠(第3段 T=摸杠/F=手杠) jg=加杠(第3段 T=摸杠/F=手杠) cl/cm/cr=吃 p=碰 g=明杠
 
 
 
@@ -52,6 +52,9 @@ def build_game_title_data(gs) -> Dict[str, Any]:
     if getattr(gs, "room_rule", None) == "riichi":
         # red_dora: 是否启用赤宝牌
         title["red_dora"] = getattr(gs, "red_dora", False)
+        # allow_kuikae: 是否允许食替（仅标准日麻；浪涌由子规则内置）
+        if getattr(gs, "sub_rule", None) != "riichi/langyong":
+            title["allow_kuikae"] = getattr(gs, "allow_kuikae", False)
         # hepai_way: 和牌方式 head_bump | multi_ron | three_ron_abort
         title["hepai_way"] = getattr(gs, "hepai_way", None)
         if hasattr(gs, "open_xiru"):
@@ -153,18 +156,18 @@ def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_rii
         entry.append("H")
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
-# 牌谱记录暗杠
-def player_action_record_angang(self,angang_tile: int):
+# 牌谱记录暗杠；is_mo_gang True=摸杠 False=手杠
+def player_action_record_angang(self, angang_tile: int, is_mo_gang: bool = False):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["ag",angang_tile]
+        ["ag", angang_tile, "T" if is_mo_gang else "F"]
     )
 
-# 牌谱记录加杠
-def player_action_record_jiagang(self,jiagang_tile: int):
+# 牌谱记录加杠；is_mo_gang True=摸杠 False=手杠
+def player_action_record_jiagang(self, jiagang_tile: int, is_mo_gang: bool = False):
     self.player_action_tick += 1
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["jg",jiagang_tile]
+        ["jg", jiagang_tile, "T" if is_mo_gang else "F"]
     )
 
 # 游戏逻辑动作名 → 牌谱短码

@@ -19,7 +19,7 @@ public class MeunPanel : MonoBehaviour {
     }
 
     // 显示服务器统计信息（通过NowPlayer显示）
-    public void DisplayServerStats(int onlinePlayerCount, int waitingRoomCount, int playingRoomCount) {
-        NowPlayer.Instance.DisplayServerStats(onlinePlayerCount, waitingRoomCount, playingRoomCount);
+    public void DisplayServerStats(int onlinePlayerCount, int waitingRoomCount, int playingRoomCount, int matchPlayingGames) {
+        NowPlayer.Instance.DisplayServerStats(onlinePlayerCount, waitingRoomCount, playingRoomCount, matchPlayingGames);
     }
 }

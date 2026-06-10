@@ -64,6 +64,61 @@ def _enumerate_chi_pairs(hand_tiles: List[int], req_a: int, req_b: int) -> List[
     return results
 
 
+def _kuikae_forbidden_norms_for_chi(chi_type: str, called_tile_norm: int) -> set:
+    """指定吃法与鸣牌归一化牌号，返回食替禁切归一化集合（与 compute_kuikae_forbidden 口径一致）。"""
+    forbidden = set(_expand_with_red_dora(called_tile_norm))
+    if called_tile_norm >= 40:
+        return forbidden
+    swap = None
+    if chi_type == "chi_left":
+        swap = called_tile_norm - 3
+    elif chi_type == "chi_right":
+        swap = called_tile_norm + 3
+    if swap is not None:
+        suit = called_tile_norm // 10
+        if swap // 10 == suit and 1 <= swap % 10 <= 9:
+            forbidden.update(_expand_with_red_dora(swap))
+    return forbidden
+
+
+def _chi_pair_has_valid_discard(
+    hand_tiles: List[int], chi_type: str, called_tile: int, r1: int, r2: int
+) -> bool:
+    """吃完并移除 r1/r2 后，是否仍存在至少一张可合法切出的牌（非食替禁张）。"""
+    remaining = list(hand_tiles)
+    remaining.remove(r1)
+    remaining.remove(r2)
+    forbidden = {_normalize(t) for t in _kuikae_forbidden_norms_for_chi(chi_type, _normalize(called_tile))}
+    return any(_normalize(t) not in forbidden for t in remaining)
+
+
+def _filter_chi_pairs_by_kuikae(
+    hand_tiles: List[int], chi_type: str, called_tile: int, pairs: List[List[int]]
+) -> List[List[int]]:
+    """过滤掉吃完后无合法切牌的吃牌候选组合。"""
+    return [
+        pair for pair in pairs
+        if _chi_pair_has_valid_discard(hand_tiles, chi_type, called_tile, pair[0], pair[1])
+    ]
+
+
+def _maybe_add_chi_action(
+    player, cut_tile: int, chi_type: str, req_a: int, req_b: int, temp_action_dict: Dict[int, list],
+    enforce_kuikae: bool = True,
+) -> None:
+    """若存在至少一组合法吃牌候选，才向 action_dict 加入对应吃操作。
+    enforce_kuikae=False（浪涌麻将可食替）时不按食替过滤，保留全部吃牌候选。"""
+    pairs = _enumerate_chi_pairs(player.hand_tiles, req_a, req_b)
+    if enforce_kuikae:
+        valid_pairs = _filter_chi_pairs_by_kuikae(player.hand_tiles, chi_type, cut_tile, pairs)
+    else:
+        valid_pairs = pairs
+    if not valid_pairs:
+        return
+    temp_action_dict[player.player_index].append(chi_type)
+    player.chi_candidates[chi_type] = valid_pairs
+
+
 def check_action_after_cut(self, cut_tile: int):
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
     normal_cut = _normalize(cut_tile)
@@ -75,6 +130,9 @@ def check_action_after_cut(self, cut_tile: int):
     for p in self.player_list:
         p.chi_candidates = {}
 
+    # 浪涌麻将 / 房间开启食替：吃牌候选不按食替过滤
+    enforce_kuikae = self._kuikae_enabled()
+
     # 立直宣言后不能吃/碰/杠（除非听牌不变的暗杠，这里作为简化，立直者不主动鸣牌）
     if len(self.tiles_list) > self.dead_wall_count:
         next_player_index = next_current_num(self.current_player_index)
@@ -82,14 +140,11 @@ def check_action_after_cut(self, cut_tile: int):
         if normal_cut < 40 and "riichi" not in np.tag_list:
             hand_norm = [_normalize(t) for t in np.hand_tiles]
             if (normal_cut - 2) in hand_norm and (normal_cut - 1) in hand_norm:
-                temp_action_dict[next_player_index].append("chi_left")
-                np.chi_candidates["chi_left"] = _enumerate_chi_pairs(np.hand_tiles, normal_cut - 1, normal_cut - 2)
+                _maybe_add_chi_action(np, cut_tile, "chi_left", normal_cut - 1, normal_cut - 2, temp_action_dict, enforce_kuikae)
             if (normal_cut - 1) in hand_norm and (normal_cut + 1) in hand_norm:
-                temp_action_dict[next_player_index].append("chi_mid")
-                np.chi_candidates["chi_mid"] = _enumerate_chi_pairs(np.hand_tiles, normal_cut - 1, normal_cut + 1)
+                _maybe_add_chi_action(np, cut_tile, "chi_mid", normal_cut - 1, normal_cut + 1, temp_action_dict, enforce_kuikae)
             if (normal_cut + 1) in hand_norm and (normal_cut + 2) in hand_norm:
-                temp_action_dict[next_player_index].append("chi_right")
-                np.chi_candidates["chi_right"] = _enumerate_chi_pairs(np.hand_tiles, normal_cut + 1, normal_cut + 2)
+                _maybe_add_chi_action(np, cut_tile, "chi_right", normal_cut + 1, normal_cut + 2, temp_action_dict, enforce_kuikae)
 
         for item in self.player_list:
             if item.player_index == self.current_player_index:
@@ -102,8 +157,14 @@ def check_action_after_cut(self, cut_tile: int):
             if kan_allowed and hand_norm.count(normal_cut) >= 3 and len(self.tiles_list) > self.dead_wall_count:
                 temp_action_dict[item.player_index].append("gang")
 
+    # 与国标一致：仅当舍牌在听牌表中才进入和牌判定，判定前先刷新听牌
     for item in self.player_list:
-        if item.player_index != self.current_player_index:
+        if item.player_index == self.current_player_index:
+            continue
+        if normal_cut not in item.waiting_tiles:
+            continue
+        refresh_waiting_tiles(self, item.player_index)
+        if normal_cut in item.waiting_tiles:
             check_hepai(self, temp_action_dict, cut_tile, item.player_index, "ron")
 
     for i in temp_action_dict:
@@ -123,6 +184,9 @@ def check_action_jiagang(self, jiagang_tile: int):
     for item in self.player_list:
         if item.player_index == self.current_player_index:
             continue
+        if normal_tile not in item.waiting_tiles:
+            continue
+        refresh_waiting_tiles(self, item.player_index)
         if normal_tile in item.waiting_tiles:
             check_hepai(self, temp_action_dict, jiagang_tile, item.player_index, "chankan")
     for i in temp_action_dict:
@@ -175,12 +239,12 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
 
     temp_action_dict[player_index].append("cut")
 
-    # 立直宣告：门前清 + 听牌 + 点数≥1000 + 未立直；并要求剩余可摸牌 ≥4（即剩余 ≤3 时禁止立直），
+    # 立直宣告：门前清 + 听牌 + 击飞时点数须≥1000 + 未立直；并要求剩余可摸牌 ≥4（即剩余 ≤3 时禁止立直），
     # 与广播给客户端的 remain_tiles = max(0, len(tiles_list) - dead_wall_count) 同一口径。
     can_declare_riichi = (
         _is_menqianqing(player_item.combination_tiles)
         and not is_riichi
-        and player_item.score >= 1000
+        and self._can_declare_riichi_by_score(player_item.score)
         and (len(self.tiles_list) - self.dead_wall_count) >= 4
     )
     if can_declare_riichi:
@@ -188,46 +252,46 @@ def check_action_hand_action(self, player_index: int, is_get_gang_tile: bool = F
         if player_item.riichi_candidate_cuts:
             temp_action_dict[player_index].append("riichi_cut")
 
-    # 自摸和
+    # 自摸和：与国标 check_action_hand_action 相同，依赖发牌前已刷新的 waiting_tiles
     last_tile = player_item.hand_tiles[-1]
     normal_last = _normalize(last_tile)
     if normal_last in player_item.waiting_tiles:
         check_hepai(self, temp_action_dict, last_tile, player_index, "tsumo", is_first_action, is_get_gang_tile)
-    else:
-        logger.info(
-            f"[riichi tsumo skip] player={player_index} last_tile={last_tile} normal={normal_last} "
-            f"waiting_tiles={sorted(player_item.waiting_tiles)} hand={player_item.hand_tiles} "
-            f"combos={player_item.combination_tiles}"
-        )
 
     return temp_action_dict
 
 
 def refresh_waiting_tiles(self, player_index: int, is_first_action: bool = False):
+    """刷新听牌表。与国标相同：在摸牌前调用（13 张手牌）；归一化后写入 waiting_tiles。"""
     player_item = self.player_list[player_index]
     current_hand = [_normalize(t) for t in player_item.hand_tiles]
-    if is_first_action and len(current_hand) == 14:
+    # 听牌算法输入应为 13 张（或 3n+1）；若误在摸牌后 14 张时调用则去掉刚摸入的一张
+    if len(current_hand) == 14:
         current_hand = current_hand[:-1]
     waiting = self.calculation_service.Riichi_tingpai_check(current_hand, player_item.combination_tiles)
-    player_item.waiting_tiles = waiting
+    if waiting != player_item.waiting_tiles:
+        player_item.waiting_tiles = waiting
+        logger.info(f"玩家{player_index}的等待牌更新为{sorted(player_item.waiting_tiles)}")
 
 
 def refresh_waiting_tiles_after_cut(self, player_index: int):
-    """枚举每张手牌切出后的听牌集合，得到立直可切牌及其听牌。"""
+    """枚举每张手牌切出后的听牌集合，得到立直可切牌及其听牌。
+    普通 5 与赤 5 听牌结构相同，但客户端需按真实 tile_id 选牌，故同归一化值的每张实牌都要列入候选。
+    """
     player_item = self.player_list[player_index]
     candidates: Dict[int, list] = {}
     hand = list(player_item.hand_tiles)
-    seen = set()
+    checked_norm: Dict[int, list] = {}
     for i, tile in enumerate(hand):
         key = _normalize(tile)
-        if key in seen:
-            continue
-        seen.add(key)
-        temp = hand[:i] + hand[i + 1:]
-        temp_norm = [_normalize(t) for t in temp]
-        waits = self.calculation_service.Riichi_tingpai_check(temp_norm, player_item.combination_tiles)
+        if key not in checked_norm:
+            temp = hand[:i] + hand[i + 1:]
+            temp_norm = [_normalize(t) for t in temp]
+            waits = self.calculation_service.Riichi_tingpai_check(temp_norm, player_item.combination_tiles)
+            checked_norm[key] = sorted(list(waits)) if waits else []
+        waits = checked_norm[key]
         if waits:
-            candidates[tile] = sorted(list(waits))
+            candidates[tile] = waits
     player_item.riichi_candidate_cuts = candidates
 
 
@@ -315,9 +379,16 @@ def check_hepai(self, temp_action_dict, hepai_tile: int, player_index: int, hepa
     if hepai_type != "tsumo":
         tiles_list.append(hepai_tile)
 
-    # 荣和方振听判定（永久 / 同巡 / 立直）
+    # 荣和方振听判定（永久 / 同巡 / 立直）：任一成立都不能荣和/抢杠和（只能自摸），按规则正确拦截
     if hepai_type in ("ron", "chankan"):
-        if _is_furiten(player) or player.temp_furiten or getattr(player, "riichi_furiten", False):
+        permanent_furiten = _is_furiten(player)
+        if permanent_furiten or player.temp_furiten or getattr(player, "riichi_furiten", False):
+            logger.info(
+                f"[riichi furiten block] player={player_index} type={hepai_type} tile={hepai_tile} "
+                f"permanent={permanent_furiten} temp={player.temp_furiten} "
+                f"riichi_furiten={getattr(player, 'riichi_furiten', False)} "
+                f"waiting={sorted(player.waiting_tiles)} discards={player.discard_origin_tiles}"
+            )
             return
 
     is_haitei = hepai_type == "tsumo" and len(self.tiles_list) <= self.dead_wall_count and not is_get_gang_tile

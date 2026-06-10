@@ -94,11 +94,11 @@ public static class GameRecordJsonDecoder {
             };
         }
 
-        if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>();
-        if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>();
-        if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>();
-        if (roundData["p3_tiles"] != null) round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>();
-        if (roundData["tiles_list"] != null) round.tilesList = roundData["tiles_list"].ToObject<List<int>>();
+        if (roundData["p0_tiles"] != null) round.p0Tiles = roundData["p0_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["p1_tiles"] != null) round.p1Tiles = roundData["p1_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["p2_tiles"] != null) round.p2Tiles = roundData["p2_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["p3_tiles"] != null) round.p3Tiles = roundData["p3_tiles"].ToObject<List<int>>() ?? new List<int>();
+        if (roundData["tiles_list"] != null) round.tilesList = roundData["tiles_list"].ToObject<List<int>>() ?? new List<int>();
     }
 
     public static void ApplyPlayerUserIds(Round round, Dictionary<int, int> playerUserIds) {
@@ -128,22 +128,32 @@ public static class GameRecordJsonDecoder {
                     }
                 }
                 round.actionTicks.Add(tick);
-
-                string act = tick[0];
-                if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
-                    int[] sc = ParseScoreChangesFromTick(tick, 4);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
-                } else if (act == "hu_riichi" && tick.Count >= 7) {
-                    int[] sc = ParseScoreChangesFromTick(tick, 6);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
-                } else if (act == "ryuukyoku" && tick.Count >= 3) {
-                    int[] sc = ParseScoreChangesFromTick(tick, 2);
-                    AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
-                }
+                ValidateKanMoGangTick(tick, $"round_index_{roundIndex}");
+                AccumulateScoreChangesFromTick(round, tick);
             }
         }
 
         return round;
+    }
+
+    /// <summary>
+    /// 从单条 tick 累计本局 score_changes（兼容 hu_* / hu_riichi / ryuukyoku，含国标错和 hu_* tick）。
+    /// 供牌谱初次解析与观战增量解析共用，确保观战分值列不为 0。
+    /// </summary>
+    public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
+        if (round == null || tick == null || tick.Count == 0) return;
+        string act = tick[0];
+        int[] sc;
+        if (tick.Count >= 5 && (act == "hu_self" || act == "hu_first" || act == "hu_second" || act == "hu_third")) {
+            sc = ParseScoreChangesFromTick(tick, 4);
+        } else if (act == "hu_riichi" && tick.Count >= 7) {
+            sc = ParseScoreChangesFromTick(tick, 6);
+        } else if (act == "ryuukyoku" && tick.Count >= 3) {
+            sc = ParseScoreChangesFromTick(tick, 2);
+        } else {
+            return;
+        }
+        AccumulateScoreChanges(round, ConvertPlayerIndexScoreChangesToOriginal(sc, round.seats));
     }
 
     private static void AccumulateScoreChanges(Round round, int[] sc) {
@@ -171,6 +181,31 @@ public static class GameRecordJsonDecoder {
             }
         }
         return byOriginal;
+    }
+
+    /// <summary>
+    /// 解析暗杠/加杠 tick 第三段 T/F（必填，不接受两段格式）。
+    /// </summary>
+    public static bool ParseKanMoGangFlag(List<string> tick) {
+        if (tick == null || tick.Count < 3) {
+            throw new Exception($"暗杠/加杠 tick 缺少摸杠/手杠标记: [{string.Join(", ", tick ?? new List<string>())}]");
+        }
+        string flag = tick[2].ToUpperInvariant();
+        if (flag != "T" && flag != "F") {
+            throw new Exception($"暗杠/加杠 tick 第三段必须为 T 或 F: [{string.Join(", ", tick)}]");
+        }
+        return flag == "T";
+    }
+
+    public static void ValidateKanMoGangTick(List<string> tick, string context) {
+        if (tick == null || tick.Count == 0) return;
+        string act = tick[0];
+        if (act != "ag" && act != "jg") return;
+        try {
+            ParseKanMoGangFlag(tick);
+        } catch (Exception e) {
+            throw new Exception($"{context}: {e.Message}", e);
+        }
     }
 
     private static int[] ParseScoreChangesFromTick(List<string> tick, int index) {

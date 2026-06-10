@@ -310,7 +310,7 @@ const EMPTY_TOTAL = {
 
   total_fangchong_score: 0, first_place_count: 0, second_place_count: 0,
 
-  third_place_count: 0, fourth_place_count: 0, fan_stats: {}
+  third_place_count: 0, fourth_place_count: 0, fulu_round_count: 0, fan_stats: {}
 
 }
 
@@ -416,6 +416,8 @@ const totalStats = computed(() => {
 
     total.fourth_place_count += stat.fourth_place_count || 0
 
+    total.fulu_round_count += stat.fulu_round_count || 0
+
     if (stat.fan_stats) {
 
       for (const [k, v] of Object.entries(stat.fan_stats)) {
@@ -454,11 +456,35 @@ const avg = (numerator, denominator) => {
 
 
 
+const avgRank = (s) => {
+
+  const games = s.total_games || 0
+
+  if (!games) return '0.00'
+
+  const weighted = (s.first_place_count || 0) * 1
+
+    + (s.second_place_count || 0) * 2
+
+    + (s.third_place_count || 0) * 3
+
+    + (s.fourth_place_count || 0) * 4
+
+  return (weighted / games).toFixed(2)
+
+}
+
+
+
 const buildStatsRows = (s) => [
 
   { label: '总对局数', value: String(s.total_games || 0) },
 
   { label: '累计回合数', value: String(s.total_rounds || 0) },
+
+  { label: '平均顺位', value: avgRank(s) },
+
+  { label: '副露率', value: ratio(s.fulu_round_count, s.total_rounds) },
 
   { label: '和牌率', value: ratio(s.win_count, s.total_rounds) },
 

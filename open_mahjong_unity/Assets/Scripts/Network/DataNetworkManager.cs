@@ -72,7 +72,7 @@ public class DataNetworkManager : MonoBehaviour {
             NotificationManager.Instance.ShowTip("牌谱", false, response.message);
             return;
         }
-        RecordPanel.Instance.OnRecordDetailReceived(response.record_detail);
+        RecordPanel.OpenRecord(response.record_detail);
     }
     
     /// <summary>
@@ -243,7 +243,7 @@ public class DataNetworkManager : MonoBehaviour {
         }
     }
 
-    public async void GetRankRecordList(int limit = 10) {
+    public async void GetRankRecordList(int limit = 20) {
         try {
             var request = new GetRankRecordListRequest {
                 type = "data/get_rank_record_list",

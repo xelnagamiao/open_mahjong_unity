@@ -19,7 +19,7 @@ namespace Riichi {
 
             if (normalized.Count == 13) {
                 GsCheck(normalized);
-                QdCheck(normalized);
+                QdCheckWithoutDragonSevenPairs(normalized);
             }
 
             int completeStep = combinationList.Count * 3;
@@ -62,7 +62,11 @@ namespace Riichi {
             }
         }
 
-        private void QdCheck(List<int> handTiles) {
+        /// <summary>
+        /// 七对子听牌（不含龙七对 dragon seven pairs）：仅 6 对 + 1 单张。
+        /// 5 对 + 1 刻听第 4 张和牌后为同牌四张，非日麻七对子。
+        /// </summary>
+        private void QdCheckWithoutDragonSevenPairs(List<int> handTiles) {
             var counts = new Dictionary<int, int>();
             foreach (int t in handTiles) {
                 counts[t] = counts.TryGetValue(t, out int c) ? c + 1 : 1;
@@ -70,10 +74,15 @@ namespace Riichi {
             int single = 0;
             int waitingTile = -1;
             foreach (var kv in counts) {
-                if (kv.Value == 1 || kv.Value == 3) {
+                if (kv.Value == 1) {
                     single++;
                     waitingTile = kv.Key;
-                } else if (kv.Value > 2) {
+                } else if (kv.Value == 2) {
+                    continue;
+                } else {
+                    return;
+                }
+                if (single >= 2) {
                     return;
                 }
             }

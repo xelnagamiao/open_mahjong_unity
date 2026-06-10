@@ -11,32 +11,62 @@ public class HoverEventTrigger : MonoBehaviour, IPointerEnterHandler, IPointerEx
 
     private RectTransform imageRect;
     private RectTransform buttonRect;
-    private bool isHovering;
+    private bool isHoverLifted;
+    private bool isArmedLifted;
+    private bool isVisuallyLifted;
 
     private void Awake() {
         imageRect = tileImage.GetComponent<RectTransform>();
         buttonRect = tileButton.GetComponent<RectTransform>();
     }
 
+    private bool IsHoverLiftDisabled() {
+        return ConfigManager.Instance != null && ConfigManager.Instance.IsHandCutConfirmEnabled;
+    }
+
     public void OnPointerEnter(PointerEventData eventData) {
         if (HandCardDragController.IsDragging || HandCardDragController.SuppressPointerHover) {
             return;
         }
-        if (isHovering) return;
-
-        isHovering = true;
-        imageRect.localPosition += Vector3.up * hoverOffset;
-        buttonRect.localPosition += Vector3.up * hoverOffset;
+        SetHoverLift(true);
     }
 
     public void OnPointerExit(PointerEventData eventData) {
-        ForceResetHover();
+        SetHoverLift(false);
     }
 
     public void ForceResetHover() {
-        if (!isHovering) return;
-        isHovering = false;
-        imageRect.localPosition -= Vector3.up * hoverOffset;
-        buttonRect.localPosition -= Vector3.up * hoverOffset;
+        SetHoverLift(false);
     }
-} 
+
+    public void SetArmedLift(bool armed) {
+        if (isArmedLifted == armed) {
+            return;
+        }
+        isArmedLifted = armed;
+        RefreshVisualLift();
+    }
+
+    private void SetHoverLift(bool hover) {
+        if (isHoverLifted == hover) {
+            return;
+        }
+        isHoverLifted = hover;
+        RefreshVisualLift();
+    }
+
+    private void RefreshVisualLift() {
+        bool wantLift = isArmedLifted || (isHoverLifted && !IsHoverLiftDisabled());
+        ApplyVisualLift(wantLift);
+    }
+
+    private void ApplyVisualLift(bool lift) {
+        if (isVisuallyLifted == lift) {
+            return;
+        }
+        Vector3 delta = Vector3.up * hoverOffset * (lift ? 1f : -1f);
+        imageRect.localPosition += delta;
+        buttonRect.localPosition += delta;
+        isVisuallyLifted = lift;
+    }
+}

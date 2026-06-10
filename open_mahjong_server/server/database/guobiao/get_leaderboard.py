@@ -52,7 +52,7 @@ def get_guobiao_leaderboard(db_manager, limit: int = LEADERBOARD_LIMIT) -> list:
         entries = entries[:limit]
 
         result = []
-        for pos, e in enumerate(entries):
+        for pos, e in enumerate(entries, start=1):
             result.append({
                 "rank_position": pos,
                 "user_id": e["user_id"],

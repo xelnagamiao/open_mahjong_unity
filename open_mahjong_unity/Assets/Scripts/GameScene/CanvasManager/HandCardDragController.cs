@@ -47,7 +47,7 @@ public class HandCardDragController : MonoBehaviour {
     private int snapshotDragIndex;                 // 拖拽牌在 snapshotOrder 中的索引
     private int snapshotMainGapIndex;              // 拖拽牌在 layoutMain 中的空位索引
     private Dictionary<TileCard, int> snapshotSortIndex;
-    private Dictionary<TileCard, bool> snapshotGetTile;
+    private Dictionary<TileCard, bool> snapshotPinned;
 
     private Canvas dragCanvas;
     private Coroutine gapAnimCoroutine;
@@ -76,9 +76,10 @@ public class HandCardDragController : MonoBehaviour {
         UpdateDragCardScreenPosition(Input.mousePosition, pointerPressCamera);
     }
 
+    // 仅当指针实际移动超过阈值时才进入拖拽；停留不动（无论按住多久）一律视为点击，
+    // 避免左击稍久即激活拖拽会话、松手复位导致"卡牌缩回、需再次点击才出牌"的不一致。
     private bool ShouldActivate(Vector2 screenPos) {
-        return Vector2.Distance(screenPos, dragStartScreenPos) >= clickMoveThreshold
-            || Time.unscaledTime - pressStartUnscaledTime >= dragActivationDelay;
+        return Vector2.Distance(screenPos, dragStartScreenPos) >= clickMoveThreshold;
     }
 
     public bool CanStartDrag() {
@@ -122,6 +123,7 @@ public class HandCardDragController : MonoBehaviour {
         dragSessionActive = true;
         IsDragging = true;
         SuppressPointerHover = true;
+        HandCardSelectionController.Instance?.DisarmAll();
         ClearAllHandHover();
         dragCard.transform.SetAsLastSibling();
         EnsureDragCanvas(dragCard);
@@ -204,7 +206,7 @@ public class HandCardDragController : MonoBehaviour {
         TileCard draw;
         if (OrderChanged(activeGapIndex, activeMergeDraw)) {
             main = BuildOrderForInsert(activeGapIndex, activeMergeDraw);
-            draw = gameCanvas.GetDrawTile();
+            draw = gameCanvas.GetPinnedDrawTile();
             gameCanvas.SetHandArranged(true);
             if (AutoAction.Instance != null && AutoAction.Instance.IsAutoArrangeHandCards) {
                 AutoAction.Instance.SetAutoArrangeHandCards(false);
@@ -214,8 +216,7 @@ public class HandCardDragController : MonoBehaviour {
             RestoreSnapshotData();
             SplitSnapshot(out main, out draw);
         }
-        Dictionary<RectTransform, Vector2> positions = gameCanvas.BuildHandLayoutPositions(main, draw, discardCard);
-        gameCanvas.ApplyHandLayoutPositions(positions, main, draw);
+        gameCanvas.AnimateHandLayoutForDiscard(discardCard, main, draw);
     }
 
     private IEnumerator FinishCommitDrag(TileCard card, int insertIndex, bool mergeDraw) {
@@ -338,11 +339,11 @@ public class HandCardDragController : MonoBehaviour {
     /// </summary>
     private void ResolveInsert(float probeX, out int insertIndex, out bool mergeDraw) {
         mergeDraw = false;
-        TileCard draw = gameCanvas.GetDrawTile();
+        TileCard draw = gameCanvas.GetPinnedDrawTile();
         if (draw != null && draw != dragCard) {
             float drawCenter = GetSnapshotCenterX(draw);
             float drawLeft = drawCenter - GameCanvas.GetCardWidth(draw.GetComponent<RectTransform>()) * 0.5f;
-            if (!dragCard.currentGetTile) {
+            if (!dragCard.isDrawSlotPinned) {
                 if (probeX >= drawLeft && probeX < drawCenter) {
                     insertIndex = activeGapIndex >= 0 ? activeGapIndex : snapshotMainGapIndex;
                     return;
@@ -354,7 +355,7 @@ public class HandCardDragController : MonoBehaviour {
         List<float> centers = new List<float>();
         for (int i = 0; i < snapshotOrder.Count; i++) {
             TileCard tc = snapshotOrder[i];
-            if (tc.currentGetTile && !mergeDraw && tc != dragCard) {
+            if (tc.isDrawSlotPinned && !mergeDraw && tc != dragCard) {
                 continue;
             }
             centers.Add(snapshotCenterXs[i]);
@@ -393,7 +394,7 @@ public class HandCardDragController : MonoBehaviour {
     private List<TileCard> BuildLayoutMainList(bool mergeDraw) {
         List<TileCard> main = gameCanvas.GetMainHandCardsOrdered(dragCard);
         if (mergeDraw) {
-            TileCard draw = gameCanvas.GetDrawTile();
+            TileCard draw = gameCanvas.GetPinnedDrawTile();
             if (draw != null && !main.Contains(draw)) {
                 main.Add(draw);
                 main.Sort((a, b) => a.handSortIndex.CompareTo(b.handSortIndex));
@@ -406,7 +407,11 @@ public class HandCardDragController : MonoBehaviour {
         activeGapIndex = gapIndex;
         activeMergeDraw = mergeDraw;
         List<TileCard> layoutMain = BuildLayoutMainList(mergeDraw);
-        TileCard layoutDraw = mergeDraw ? null : gameCanvas.GetDrawTile();
+        TileCard layoutDraw = mergeDraw ? null : gameCanvas.GetPinnedDrawTile();
+        // 若被拖拽的就是摸牌张：让位动画不再把它固定回摸牌区，由拖拽位置跟随指针。
+        if (layoutDraw == dragCard) {
+            layoutDraw = null;
+        }
         Dictionary<RectTransform, Vector2> targets = gameCanvas.BuildHandLayoutWithGap(
             layoutMain, gapIndex, dragCardWidth, layoutDraw);
         if (animate) {
@@ -420,6 +425,13 @@ public class HandCardDragController : MonoBehaviour {
         }
     }
 
+    /// <summary>
+    /// 出牌重排等全局手牌动画开始前调用，避免让位动画(0.15s)与重排动画(0.3s)并发导致中途瞬移。
+    /// </summary>
+    public void CancelGapLayoutAnimation() {
+        StopGapAnimation();
+    }
+
     private void StopGapAnimation() {
         if (gapAnimCoroutine != null) {
             gameCanvas.StopCoroutine(gapAnimCoroutine);
@@ -430,7 +442,7 @@ public class HandCardDragController : MonoBehaviour {
     private void CommitReorder(int insertIndex, bool mergeDraw) {
         StopGapAnimation();
         List<TileCard> order = BuildOrderForInsert(insertIndex, mergeDraw);
-        TileCard draw = gameCanvas.GetDrawTile();
+        TileCard draw = gameCanvas.GetPinnedDrawTile();
         Dictionary<RectTransform, Vector2> positions = gameCanvas.BuildHandLayoutPositions(order, draw, null);
         gameCanvas.ApplyHandLayoutPositions(positions, order, draw);
         gameCanvas.SetHandArranged(true);
@@ -441,16 +453,17 @@ public class HandCardDragController : MonoBehaviour {
 
     private List<TileCard> BuildOrderForInsert(int insertIndex, bool mergeDraw) {
         List<TileCard> main = gameCanvas.GetMainHandCardsOrdered(dragCard);
-        TileCard draw = gameCanvas.GetDrawTile();
+        TileCard draw = gameCanvas.GetPinnedDrawTile();
+        // 仅清除"摸牌区固定标记"，保留 currentGetTile（摸切/手切判定仍需要）。
         if (mergeDraw && draw != null) {
-            draw.currentGetTile = false;
+            draw.isDrawSlotPinned = false;
             if (!main.Contains(draw)) {
                 main.Add(draw);
             }
             main.Sort((a, b) => a.handSortIndex.CompareTo(b.handSortIndex));
         }
-        if (dragCard.currentGetTile) {
-            dragCard.currentGetTile = false;
+        if (dragCard.isDrawSlotPinned) {
+            dragCard.isDrawSlotPinned = false;
         }
         insertIndex = Mathf.Clamp(insertIndex, 0, main.Count);
         main.Insert(insertIndex, dragCard);
@@ -463,7 +476,7 @@ public class HandCardDragController : MonoBehaviour {
 
     private void TakeSnapshot() {
         snapshotSortIndex = new Dictionary<TileCard, int>();
-        snapshotGetTile = new Dictionary<TileCard, bool>();
+        snapshotPinned = new Dictionary<TileCard, bool>();
         snapshotOrder = new List<TileCard>();
         snapshotCenterXs = new List<float>();
         snapshotDragIndex = 0;
@@ -474,7 +487,7 @@ public class HandCardDragController : MonoBehaviour {
                 continue;
             }
             snapshotSortIndex[tc] = tc.handSortIndex;
-            snapshotGetTile[tc] = tc.currentGetTile;
+            snapshotPinned[tc] = tc.isDrawSlotPinned;
             snapshotOrder.Add(tc);
         }
         snapshotOrder.Sort((a, b) => a.handSortIndex.CompareTo(b.handSortIndex));
@@ -487,7 +500,7 @@ public class HandCardDragController : MonoBehaviour {
         }
         snapshotMainGapIndex = 0;
         for (int i = 0; i < snapshotDragIndex; i++) {
-            if (!snapshotOrder[i].currentGetTile) {
+            if (!snapshotOrder[i].isDrawSlotPinned) {
                 snapshotMainGapIndex++;
             }
         }
@@ -500,8 +513,8 @@ public class HandCardDragController : MonoBehaviour {
         foreach (var kvp in snapshotSortIndex) {
             kvp.Key.handSortIndex = kvp.Value;
         }
-        foreach (var kvp in snapshotGetTile) {
-            kvp.Key.currentGetTile = kvp.Value;
+        foreach (var kvp in snapshotPinned) {
+            kvp.Key.isDrawSlotPinned = kvp.Value;
         }
     }
 
@@ -516,7 +529,7 @@ public class HandCardDragController : MonoBehaviour {
         main = new List<TileCard>();
         draw = null;
         foreach (TileCard tc in snapshotOrder) {
-            if (tc.currentGetTile) {
+            if (tc.isDrawSlotPinned) {
                 draw = tc;
             }
             else {
@@ -531,6 +544,7 @@ public class HandCardDragController : MonoBehaviour {
         if (Card3DHoverManager.Instance != null) {
             Card3DHoverManager.Instance.OnCardExit();
         }
+        HandCardSelectionController.Instance?.DisarmAll();
         for (int i = 0; i < gameCanvas.HandCardsContainer.childCount; i++) {
             Transform child = gameCanvas.HandCardsContainer.GetChild(i);
             child.GetComponent<TileCard>()?.ForceExitHover();

@@ -22,7 +22,7 @@ from .action_check import (
     refresh_waiting_tiles,
     check_jiuzhongjiupai,
 )
-from .wait_action import wait_action
+from .wait_action import wait_action, _commit_pending_riichi
 from ..public.spectator_rules import too_many_ai_for_spectator
 from .init_tiles import init_riichi_tiles
 from .boardcast import (
@@ -39,7 +39,7 @@ from .boardcast import (
     broadcast_declare_riichi,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import next_current_num, next_current_index, back_current_num
+from ..public.logic_common import next_current_num, next_current_index, back_current_num, assign_strict_final_ranks
 from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
     ROUND_END_HAND_REVEAL_SEC,
@@ -60,6 +60,7 @@ from ..public.game_record_manager import (
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
+from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
 
@@ -140,15 +141,19 @@ class RiichiPlayer:
         # 立直家本应横置的下一张弃牌待标记位：宣告立直时置 True；本次切完归 False；
         # 若立直宣告的横置弃牌被他家吃/碰则在 chi/peng/gang 处理处再次置 True，使下一张续横
         self.riichi_marker_pending: bool = False
+        self.has_draw_slot = False
 
-    def get_tile(self, tiles_list):
+    def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         element = tiles_list.pop(0)
         self.hand_tiles.append(element)
+        if mark_draw_slot:
+            self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         # 从王牌区取岭上牌（王牌最靠右的那张）；同时从牌山头取一张补到王牌
         element = tiles_list.pop(-1)
         self.hand_tiles.append(element)
+        self.has_draw_slot = True
         gamestate.rinshan_count += 1
 
 
@@ -196,6 +201,7 @@ class RiichiGameState:
 
         # 立直专属配置
         self.red_dora: bool = room_data.get("red_dora", True)
+        self.allow_kuikae: bool = room_data.get("allow_kuikae", False)  # 允许食替（吃什么打什么）
         self.hepai_way: str = room_data.get("hepai_way", "head_bump")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
@@ -331,12 +337,14 @@ class RiichiGameState:
         for i, p in enumerate(self.player_list):
             p.player_index = i
             p.original_player_index = i
-            p.score = 25000
+            p.score = self._starting_score()
         self.player_list.sort(key=lambda x: x.player_index)
 
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["red_dora"] = self.red_dora
+        if not self._is_langyong():
+            self.game_record["game_title"]["allow_kuikae"] = self.allow_kuikae
         self.game_record["game_title"]["hepai_way"] = self.hepai_way
         self.game_record["game_title"]["open_xiru"] = self.open_xiru
         self.game_record["game_title"]["open_tobi"] = self.open_tobi
@@ -356,6 +364,7 @@ class RiichiGameState:
             self._cuohe_triggered = False
 
             await self.broadcast_game_start()
+            await self._broadcast_langyong_tags_if_changed()
             init_game_round(self)
 
             self.game_status = "waiting_hand_action"
@@ -465,6 +474,8 @@ class RiichiGameState:
             # 结算
             scores_before = {p.original_player_index: p.score for p in self.player_list}
             await self._settle_round()
+
+            record_fulu_rounds_for_players(self.player_list)
 
             for p in self.player_list:
                 delta = p.score - scores_before[p.original_player_index]
@@ -577,16 +588,14 @@ class RiichiGameState:
                 p.chi_candidates = {}
                 p.kuikae_forbidden_tiles = []
                 p.riichi_marker_pending = False
-                for tag in ("riichi", "daburu_riichi", "ippatsu", "furiten"):
-                    if tag in p.tag_list:
+                for tag in list(p.tag_list):
+                    if tag in ("riichi", "daburu_riichi", "ippatsu", "furiten") or tag.startswith("langyong_"):
                         p.tag_list.remove(tag)
 
             logger.info(f"进入下一局 current_round={self.current_round} honba={self.honba} riichi_sticks={self.riichi_sticks}")
 
         end_game_record(self)
-        self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for i, p in enumerate(self.player_list):
-            p.record_counter.rank_result = i + 1
+        assign_strict_final_ranks(self.player_list)
         await self.broadcast_game_end()
 
         if hasattr(self, "spectator_manager"):
@@ -611,6 +620,77 @@ class RiichiGameState:
         else:
             await self.game_server.room_manager.finish_custom_game_room(self.room_id)
 
+    # ========== 浪涌麻将（riichi/langyong）子规则 ==========
+
+    def _is_langyong(self) -> bool:
+        """浪涌麻将：日麻泛用子规则——可食替、吃碰杠累计影响结算倍数、起始 50000。"""
+        return self.sub_rule == "riichi/langyong"
+
+    def _kuikae_enabled(self) -> bool:
+        """是否启用食替禁切。浪涌由子规则内置可食替；标准日麻由 allow_kuikae 房间项控制。"""
+        if self._is_langyong():
+            return False
+        return not self.allow_kuikae
+
+    def _can_declare_riichi_by_score(self, score: int) -> bool:
+        """击飞开启时立直后点数不得 < 0，须 score >= 1000（恰 1000 可立直变 0 分）；关闭击飞时允许负分立直。"""
+        if self.open_tobi:
+            return score >= 1000
+        return True
+
+    def _starting_score(self) -> int:
+        return 50000 if self._is_langyong() else 25000
+
+    def _xiru_target_score(self) -> int:
+        """西入延长/终了的目标分，随起始点数等比缩放（25000→30000，50000→60000）。"""
+        return 60000 if self._is_langyong() else 30000
+
+    def _langyong_call_count(self, player) -> int:
+        """该玩家本局吃/碰/杠（含暗杠）次数；每个副露算一次（加杠由碰升级仍记一次）。"""
+        return len(player.combination_tiles)
+
+    def _langyong_surge_active(self) -> bool:
+        """浪潮：全场累计吃碰杠次数 ≥ 阈值（日麻 4）时进入，所有人结算倍数再 +1。"""
+        total = sum(self._langyong_call_count(p) for p in self.player_list)
+        return total >= 4
+
+    def _langyong_multiplier(self, payer_index: int, winner_index: int) -> int:
+        """浪涌结算倍数 = 1 + 支付家吃碰杠次数 + 和牌家吃碰杠次数 + 浪潮加成(0/1)。"""
+        payer = self.player_list[payer_index]
+        winner = self.player_list[winner_index]
+        surge = 1 if self._langyong_surge_active() else 0
+        return 1 + self._langyong_call_count(payer) + self._langyong_call_count(winner) + surge
+
+    def sync_langyong_tags(self) -> bool:
+        """浪涌麻将：同步各玩家鸣牌次数 tag（langyong_N）及浪潮 tag（langyong_wave）。"""
+        if not self._is_langyong():
+            return False
+        changed = False
+        surge = self._langyong_surge_active()
+        for p in self.player_list:
+            count = self._langyong_call_count(p)
+            new_count_tag = f"langyong_{count}"
+            old_langyong = [t for t in p.tag_list if t.startswith("langyong_")]
+            for t in list(old_langyong):
+                if t != new_count_tag and t != "langyong_wave":
+                    p.tag_list.remove(t)
+                    changed = True
+            if new_count_tag not in p.tag_list:
+                p.tag_list.append(new_count_tag)
+                changed = True
+            has_wave = "langyong_wave" in p.tag_list
+            if surge and not has_wave:
+                p.tag_list.append("langyong_wave")
+                changed = True
+            elif not surge and has_wave:
+                p.tag_list.remove("langyong_wave")
+                changed = True
+        return changed
+
+    async def _broadcast_langyong_tags_if_changed(self) -> None:
+        if self.sync_langyong_tags():
+            await self.broadcast_refresh_player_tag_list()
+
     # ========== 对局终了（西入 / 击飞）==========
 
     def _riichi_oya_rank(self) -> int:
@@ -633,10 +713,11 @@ class RiichiGameState:
             return False
         oya = self.player_list[0]
         oya_rank = self._riichi_oya_rank()
-        anyone_30k = any(p.score >= 30000 for p in self.player_list)
-        if oya_rank == 1 and oya.score >= 30000:
+        target = self._xiru_target_score()
+        anyone_target = any(p.score >= target for p in self.player_list)
+        if oya_rank == 1 and oya.score >= target:
             return True
-        if not renchan and anyone_30k:
+        if not renchan and anyone_target:
             return True
         return False
 
@@ -659,7 +740,10 @@ class RiichiGameState:
         self.hepai_player_index = None
         if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
             result = self.result_dict.get(self.hu_class) or {}
-            if int(result.get("han", 0)) < int(self.hepai_limit) and self.open_cuohe:
+            # 错和：①牌型成立但无役（no_yaku，0番不能正常和牌）②和牌番数低于起和番数。
+            # 两者均仅在开启错和（open_cuohe）时才允许宣告并走错和罚分流程。
+            needs_cuohe = bool(result.get("no_yaku")) or int(result.get("han", 0)) < int(self.hepai_limit)
+            if needs_cuohe and self.open_cuohe:
                 await self._settle_cuohe()
             else:
                 await self._settle_hu()
@@ -679,7 +763,8 @@ class RiichiGameState:
             await broadcast_result(self, hu_class="three_ron_abort")
             player_action_record_liuju(self)
         else:
-            # 荒牌流局：听牌家均分 3000 分
+            # 荒牌流局：听牌家均分 3000 分；供托立直棒留场，先结算尚未提交的立直供托
+            _commit_pending_riichi(self)
             self.hu_class = "ryuukyoku"
             changes = await self._settle_ryuukyoku()
             tenpai_indexes = [p.player_index for p in self.player_list if self._is_ryuukyoku_tenpai(p)]
@@ -690,8 +775,10 @@ class RiichiGameState:
             await broadcast_result(
                 self,
                 hu_class="ryuukyoku",
-                score_changes={i: changes.get(i, 0) for i in range(4)},
-                player_to_score={p.original_player_index: p.score for p in self.player_list},
+                # player_to_score 按当局座位 player_index 为键，score_changes 按 original_player_index 为键
+                # （与国标约定及客户端解析器 TryGetAfterScore/TryGetDelta 的偏好一致），避免过庄后座位错位。
+                score_changes={p.original_player_index: changes.get(p.player_index, 0) for p in self.player_list},
+                player_to_score={p.player_index: p.score for p in self.player_list},
                 tenpai_tiles=tenpai_tiles,
                 tenpai_hands=tenpai_hands,
                 exhaustive_penalty=has_penalty,
@@ -716,6 +803,12 @@ class RiichiGameState:
         self.hepai_player_index = winner_index
         is_dealer_win = (winner_index == 0)
 
+        # 浪涌麻将：吃碰杠累计影响结算倍数，仅作用于和牌基础点（本场棒/立直棒不乘）
+        langyong = self._is_langyong()
+
+        def _mult(payer_index: int) -> int:
+            return self._langyong_multiplier(payer_index, winner_index) if langyong else 1
+
         score_changes = {i: 0 for i in range(4)}
         if self.hu_class == "hu_self":
             # 自摸：每家支付，本场每家 +100
@@ -724,24 +817,23 @@ class RiichiGameState:
                 for i in range(4):
                     if i == winner_index:
                         continue
-                    score_changes[i] -= main_each + self.honba * 100
-                    score_changes[winner_index] += main_each + self.honba * 100
+                    pay = main_each * _mult(i)
+                    score_changes[i] -= pay + self.honba * 100
+                    score_changes[winner_index] += pay + self.honba * 100
             else:
                 main = score_info.get("main", 0)  # 亲家支付
                 add = score_info.get("additional", 0)  # 子家支付
                 for i in range(4):
                     if i == winner_index:
                         continue
-                    if i == 0:
-                        score_changes[i] -= main + self.honba * 100
-                        score_changes[winner_index] += main + self.honba * 100
-                    else:
-                        score_changes[i] -= add + self.honba * 100
-                        score_changes[winner_index] += add + self.honba * 100
+                    base = main if i == 0 else add
+                    pay = base * _mult(i)
+                    score_changes[i] -= pay + self.honba * 100
+                    score_changes[winner_index] += pay + self.honba * 100
         else:
             # 荣和：出铳家全额支付 + 全部本场
             loser_index = self.current_player_index
-            total = score_info.get("main", 0)
+            total = score_info.get("main", 0) * _mult(loser_index)
             score_changes[loser_index] -= total + self.honba * 300
             score_changes[winner_index] += total + self.honba * 300
 
@@ -782,7 +874,9 @@ class RiichiGameState:
         await broadcast_result(
             self,
             hepai_player_index=winner_index,
-            player_to_score={p.original_player_index: p.score for p in self.player_list},
+            # player_to_score 按当局座位 player_index 为键（与 hepai_player_index / 客户端 indexToPosition 一致）；
+            # score_changes 按 original_player_index 为键。与国标 boardcast 约定保持一致，避免过庄后座位错位。
+            player_to_score={p.player_index: p.score for p in self.player_list},
             hu_score=result.get("score", 0),
             hu_fan=yaku,
             hu_class=self.hu_class,
@@ -805,7 +899,9 @@ class RiichiGameState:
         """错和：宣告的和牌番数低于起和番数时，先照常展示牌型与番种再附"错和"标签，
         由错和方对其余 3 家各赔 3000 点（合计 9000）；本局重打，亲家与本场棒不变。"""
         result = self.result_dict.get(self.hu_class) or {}
-        han = int(result.get("han", 0))
+        no_yaku = bool(result.get("no_yaku"))
+        # 无役错和：牌型成立但没有任何役，固定显示"错和1番"，其后再列宝牌/赤宝/里宝（库已写入 yaku）。
+        han = 1 if no_yaku else int(result.get("han", 0))
         fu = int(result.get("fu", 0))
         yaku = list(result.get("yaku", []))
         aka_count = int(result.get("aka_count", 0))
@@ -828,10 +924,22 @@ class RiichiGameState:
         for p in self.player_list:
             p.score += score_changes[p.player_index]
 
+        # 错和标签：无役错和把"错和"排在最前（其后展示宝牌/红宝），其余情况照旧附在番种末尾。
         if "错和" not in yaku:
-            yaku.append("错和")
+            if no_yaku:
+                yaku.insert(0, "错和")
+            else:
+                yaku.append("错和")
 
         self._cuohe_triggered = True
+
+        # 错和也展示宝牌/里宝指示牌：番数由 yaku 内的"宝牌*N/里宝牌*N"统计得出，立直家才显示里宝。
+        cuohe_ura_indicators = (
+            list(self.ura_dora_indicators + self.ura_kan_dora_indicators)
+            if "riichi" in self.player_list[offender_index].tag_list else []
+        )
+        cuohe_dora_count = _count_bonus_yaku(yaku, "宝牌")
+        cuohe_ura_count = _count_bonus_yaku(yaku, "里宝牌")
 
         player_action_record_hu_riichi(
             self,
@@ -842,7 +950,7 @@ class RiichiGameState:
             yaku=yaku,
             score_changes=[score_changes.get(i, 0) for i in range(4)],
             dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
-            ura_dora_indicators=[],
+            ura_dora_indicators=cuohe_ura_indicators,
             aka_count=aka_count,
             honba=self.honba,
             riichi_sticks_collected=0,
@@ -853,13 +961,14 @@ class RiichiGameState:
                 "hu_riichi", offender_index, self.hu_class, han, fu, yaku,
                 [score_changes.get(i, 0) for i in range(4)],
                 list(self.dora_indicators) + list(self.kan_dora_indicators),
-                [], aka_count, self.honba, 0,
+                cuohe_ura_indicators, aka_count, self.honba, 0,
             ])
 
         await broadcast_result(
             self,
             hepai_player_index=offender_index,
-            player_to_score={p.original_player_index: p.score for p in self.player_list},
+            # player_to_score 按当局座位 player_index 为键，score_changes 按 original_player_index 为键（与国标约定一致）。
+            player_to_score={p.player_index: p.score for p in self.player_list},
             hu_score=cuohe_total_penalty,
             hu_fan=yaku,
             hu_class=self.hu_class,
@@ -868,10 +977,10 @@ class RiichiGameState:
             han=han,
             fu=fu,
             aka_count=aka_count,
-            dora_count=0,
-            ura_dora_count=0,
+            dora_count=cuohe_dora_count,
+            ura_dora_count=cuohe_ura_count,
             dora_indicators=list(self.dora_indicators) + list(self.kan_dora_indicators),
-            ura_dora_indicators=[],
+            ura_dora_indicators=cuohe_ura_indicators,
             honba=self.honba,
             riichi_sticks_collected=0,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},

@@ -48,8 +48,8 @@
         ["cr", 25, 3], //吃右 [cr, tile_id, action_player]
         ["p", 37, 1], //碰 [p, tile_id, action_player]
         ["g", 38, 2], //明杠 [g, tile_id, action_player]
-        ["ag", 11], //暗杠 [ag, tile_id]
-        ["jg", 37], //加杠 [jg, tile_id]
+        ["ag", 11], //暗杠 [ag, tile_id, T摸杠|F手杠]
+        ["jg", 37], //加杠 [jg, tile_id, T摸杠|F手杠]
         ["end"] //本局结束 [end]
       ]
     },

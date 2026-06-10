@@ -19,8 +19,8 @@ public partial class NormalGameStateManager {
                 if (AutoAction.Instance != null) {
                     AutoAction.Instance.SetAutoCutLocked(IsSelfRiichi());
                 }
-                // 如果开启自动胡牌、自动补花或者自动出牌，则启动协程
-                if (AutoAction.Instance != null && (AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut)){
+                // 如果开启自动自摸、自动补花或者自动出牌，则启动协程
+                if (AutoAction.Instance != null && (AutoAction.Instance.ShouldAutoWinTsumo() || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut)){
                     StartCoroutine(WaitAutoAction("AutoHandAction"));
                 }
                 // 询问操作时隐藏提示块
@@ -45,8 +45,8 @@ public partial class NormalGameStateManager {
             GameCanvas.Instance.ClearActionButton();
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
-            // 如果开启自动过牌或自动胡牌，则启动协程
-            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
+            // 如果开启自动过牌或自动荣和，则启动协程
+            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.ShouldAutoWinRon() || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
             IsSelfActionRequired = true;
@@ -81,6 +81,7 @@ public partial class NormalGameStateManager {
 
         // 选择行动
         else if (SwitchType == "ClearAction"){
+            GameSceneMouseInputController.Instance.ClearStaleHandInput("ClearAction");
             // 停止计时器
             GameCanvas.Instance.StopTimeRunning();
             // 清空操作按钮
@@ -96,6 +97,7 @@ public partial class NormalGameStateManager {
 
         // 时间耗尽
         else if (SwitchType == "TimeOut"){
+            GameSceneMouseInputController.Instance.ClearStaleHandInput("TimeOut");
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();
             if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();

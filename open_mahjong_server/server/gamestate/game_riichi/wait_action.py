@@ -10,6 +10,7 @@ from .action_check import (
     check_action_jiagang,
     refresh_waiting_tiles,
     compute_kuikae_forbidden,
+    _chi_pair_has_valid_discard,
 )
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_declare_riichi, broadcast_refresh_player_tag_list
 from ..public.logic_common import get_index_relative_position
@@ -19,6 +20,15 @@ from ..public.game_record_manager import (
     player_action_record_jiagang,
     player_action_record_chipenggang,
     player_action_record_riichi,
+)
+from ..public.hand_action_notify import apply_player_cut
+from ..public.hand_slot_utils import (
+    clear_draw_slot,
+    has_draw_slot,
+    pick_timeout_discard_tile,
+    remove_angang_tiles,
+    remove_cut_tile,
+    resolve_is_mo_gang,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,7 +104,12 @@ async def wait_action(self):
                 if action_data.get("action_type") == "cut":
                     await _do_cut(self, cur, dict(action_data), is_riichi=False)
                     return
-            await _execute_cut(self, cur, cur_player.hand_tiles[-1], is_moqie=True, cut_tile_index=None, is_riichi=False)
+            forced_tile = _pick_timeout_cut_tile(cur_player)
+            draw_slot = has_draw_slot(cur_player)
+            is_moqie = draw_slot
+            remove_cut_tile(cur_player.hand_tiles, forced_tile, is_moqie, draw_slot=draw_slot)
+            clear_draw_slot(cur_player)
+            await _execute_cut(self, cur, forced_tile, is_moqie, None, is_riichi=False, already_removed=True)
             return
 
     for player_index, action_list in self.action_dict.items():
@@ -175,20 +190,31 @@ async def wait_action(self):
                     await _do_cut(self, player_index, action_data, is_riichi=False)
                     return
                 elif action_type == "riichi_cut":
+                    player_score = self.player_list[player_index].score
+                    if not self._can_declare_riichi_by_score(player_score):
+                        logger.warning(
+                            f"非法立直（击飞开启且点数不足 1000）：player={player_index}, score={player_score}"
+                        )
+                        return
                     await _do_cut(self, player_index, action_data, is_riichi=True)
                     return
                 elif action_type == "angang":
                     angang_tile = action_data.get("target_tile")
                     normal_angang = _normalize(angang_tile)
-                    # 暗杠 4 张中可能含有赤 5（105/205/305），按归一化移除并记录真实牌 ID
-                    removed = [_remove_by_normal(self.player_list[self.current_player_index].hand_tiles, normal_angang) for _ in range(4)]
+                    player = self.player_list[self.current_player_index]
+                    hand = player.hand_tiles
+                    draw_slot = has_draw_slot(player)
+                    is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
+                    removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
+                    clear_draw_slot(player)
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
-                    # 日麻暗杠：两侧暗面、中间两张竖置亮牌
                     mask = [2, removed[0], 0, removed[1], 0, removed[2], 2, removed[3]]
                     self.player_list[self.current_player_index].combination_mask.append(mask)
-                    player_action_record_angang(self, angang_tile=normal_angang)
+                    player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang)
                     await broadcast_do_action(self, action_list=["angang"], action_player=self.current_player_index,
-                                              combination_mask=mask, combination_target=f"G{normal_angang}")
+                                              combination_mask=mask, combination_target=f"G{normal_angang}",
+                                              is_mo_gang=is_mo_gang)
+                    await self._broadcast_langyong_tags_if_changed()
                     # 立直一发消失
                     _clear_ippatsu(self)
                     self._last_kan_type = "ankan"
@@ -197,13 +223,17 @@ async def wait_action(self):
                 elif action_type == "jiagang":
                     jiagang_tile = action_data.get("target_tile")
                     normal_jia = _normalize(jiagang_tile)
+                    player = self.player_list[self.current_player_index]
+                    hand = player.hand_tiles
+                    draw_slot = has_draw_slot(player)
+                    is_mo_gang = resolve_is_mo_gang(hand, normal_jia, draw_slot=draw_slot)
+                    actual_jia = remove_cut_tile(hand, jiagang_tile, is_mo_gang, draw_slot=draw_slot)
+                    clear_draw_slot(player)
                     combination_index = -1
                     for i, combo in enumerate(self.player_list[self.current_player_index].combination_tiles):
                         if combo == f"k{normal_jia}":
                             combination_index = i
                             break
-                    # 按归一化从手牌中移除加杠牌，得到真实牌 ID（可能是 105/205/305）
-                    actual_jia = _remove_by_normal(self.player_list[self.current_player_index].hand_tiles, normal_jia)
                     for i, m in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
                         if m == 1:
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, actual_jia)
@@ -212,11 +242,12 @@ async def wait_action(self):
 
                     self.player_list[self.current_player_index].combination_tiles.remove(f"k{normal_jia}")
                     self.player_list[self.current_player_index].combination_tiles.append(f"g{normal_jia}")
-                    player_action_record_jiagang(self, jiagang_tile=normal_jia)
+                    player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)
                     await broadcast_do_action(self, action_list=["jiagang"],
                                               action_player=self.current_player_index,
                                               combination_mask=self.player_list[self.current_player_index].combination_mask[combination_index],
-                                              combination_target=f"k{normal_jia}")
+                                              combination_target=f"k{normal_jia}",
+                                              is_mo_gang=is_mo_gang)
                     _clear_ippatsu(self)
                     self._last_kan_type = "shouminkan"
                     self.jiagang_tile = normal_jia
@@ -237,10 +268,13 @@ async def wait_action(self):
                     logger.error(f"waiting_hand_action 阶段未知动作: {action_type}")
                     return
             else:
-                # 超时摸切
-                is_moqie = True
-                tile_id = _pick_timeout_cut_tile(self.player_list[self.current_player_index])
-                await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
+                player = self.player_list[self.current_player_index]
+                draw_slot = has_draw_slot(player)
+                is_moqie = draw_slot
+                tile_id = player.hand_tiles[-1] if draw_slot else _pick_timeout_cut_tile(player)
+                remove_cut_tile(player.hand_tiles, tile_id, is_moqie, draw_slot=draw_slot)
+                clear_draw_slot(player)
+                await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False, already_removed=True)
                 return
 
         case "waiting_action_after_cut":
@@ -264,6 +298,14 @@ async def wait_action(self):
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
                                             normal_tile - 1, normal_tile - 2,
                                             int(action_data.get("chi_combo_index") or 0))
+                    if self._kuikae_enabled() and not _chi_pair_has_valid_discard(
+                        self.player_list[player_index].hand_tiles, action_type, tile_id, r1, r2
+                    ):
+                        logger.warning(
+                            f"非法chi_left（食替无合法切牌）：player={player_index}, tile_id={tile_id}, "
+                            f"pair=({r1},{r2}), hand={self.player_list[player_index].hand_tiles}"
+                        )
+                        return
                     self.player_list[player_index].hand_tiles.remove(r1)
                     self.player_list[player_index].hand_tiles.remove(r2)
                     self.player_list[player_index].combination_tiles.append(f"s{normal_tile - 1}")
@@ -273,6 +315,14 @@ async def wait_action(self):
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
                                             normal_tile - 1, normal_tile + 1,
                                             int(action_data.get("chi_combo_index") or 0))
+                    if self._kuikae_enabled() and not _chi_pair_has_valid_discard(
+                        self.player_list[player_index].hand_tiles, action_type, tile_id, r1, r2
+                    ):
+                        logger.warning(
+                            f"非法chi_mid（食替无合法切牌）：player={player_index}, tile_id={tile_id}, "
+                            f"pair=({r1},{r2}), hand={self.player_list[player_index].hand_tiles}"
+                        )
+                        return
                     self.player_list[player_index].hand_tiles.remove(r1)
                     self.player_list[player_index].hand_tiles.remove(r2)
                     self.player_list[player_index].combination_tiles.append(f"s{normal_tile}")
@@ -282,6 +332,14 @@ async def wait_action(self):
                     r1, r2 = _pick_chi_pair(self.player_list[player_index], action_type,
                                             normal_tile + 1, normal_tile + 2,
                                             int(action_data.get("chi_combo_index") or 0))
+                    if self._kuikae_enabled() and not _chi_pair_has_valid_discard(
+                        self.player_list[player_index].hand_tiles, action_type, tile_id, r1, r2
+                    ):
+                        logger.warning(
+                            f"非法chi_right（食替无合法切牌）：player={player_index}, tile_id={tile_id}, "
+                            f"pair=({r1},{r2}), hand={self.player_list[player_index].hand_tiles}"
+                        )
+                        return
                     self.player_list[player_index].hand_tiles.remove(r1)
                     self.player_list[player_index].hand_tiles.remove(r2)
                     self.player_list[player_index].combination_tiles.append(f"s{normal_tile + 1}")
@@ -326,15 +384,18 @@ async def wait_action(self):
                         if was_horizontal:
                             discarder.riichi_marker_pending = True
                     self.player_list[player_index].combination_mask.append(combination_mask)
+                    clear_draw_slot(self.player_list[player_index])
                     self.current_player_index = player_index
                     player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id, action_player=player_index)
                     await broadcast_do_action(self, action_list=[action_type], action_player=self.current_player_index,
                                               combination_mask=combination_mask, combination_target=combination_target)
                     if self.sync_furiten_tags():
                         await broadcast_refresh_player_tag_list(self)
+                    await self._broadcast_langyong_tags_if_changed()
                     _clear_ippatsu(self)
                     # 食替：吃/碰后到本家切牌前不可丢回的牌（吃来源 + 两面搭子的筋）
-                    if action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
+                    # 浪涌麻将可食替：不设禁切牌，允许吃什么打什么。
+                    if self._kuikae_enabled() and action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
                         self.player_list[self.current_player_index].kuikae_forbidden_tiles = compute_kuikae_forbidden(
                             self.player_list[self.current_player_index]
                         )
@@ -371,14 +432,17 @@ async def wait_action(self):
 
         case "onlycut_after_action":
             if action_data and action_type == "cut":
-                is_moqie = action_data.get("cutClass")
-                tile_id = action_data.get("TileId")
-                await _execute_cut(self, self.current_player_index, tile_id, is_moqie, action_data.get("cutIndex"), is_riichi=False)
+                await _do_cut(self, self.current_player_index, action_data, is_riichi=False)
                 return
             else:
-                is_moqie = True
-                tile_id = _pick_timeout_cut_tile(self.player_list[self.current_player_index])
-                await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False)
+                player = self.player_list[self.current_player_index]
+                forbidden = {
+                    _normalize(t) for t in (getattr(player, "kuikae_forbidden_tiles", None) or [])
+                }
+                tile_id = pick_timeout_discard_tile(player.hand_tiles, forbidden)
+                remove_cut_tile(player.hand_tiles, tile_id, False, draw_slot=False)
+                clear_draw_slot(player)
+                await _execute_cut(self, self.current_player_index, tile_id, False, None, is_riichi=False, already_removed=True)
                 return
 
         case "waiting_action_qianggang":
@@ -430,27 +494,43 @@ async def _broadcast_hu_and_end(self, player_index: int, action_type: str, tile_
 
 
 async def _do_cut(self, player_index: int, action_data: dict, is_riichi: bool):
-    is_moqie = action_data.get("cutClass")
     tile_id = action_data.get("TileId")
-    cut_tile_index = action_data.get("cutIndex")
-    return await _execute_cut(self, player_index, tile_id, is_moqie, cut_tile_index, is_riichi=is_riichi)
-
-
-async def _execute_cut(self, player_index: int, tile_id: int, is_moqie: bool, cut_tile_index, is_riichi: bool):
-    """切牌/立直切，更新振听并广播。
-    立直家被鸣后续切的牌也需横置，由 player.riichi_marker_pending 触发——和 is_riichi 任一为真都会让本次弃牌标记为横置。"""
     player = self.player_list[player_index]
     if tile_id not in player.hand_tiles:
         logger.error(f"tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
         raise ValueError("非法切牌")
-
     if _is_kuikae_forbidden_cut(player, tile_id):
         logger.error(f"player {player_index} 试图食替切回禁牌 {tile_id}, forbidden={player.kuikae_forbidden_tiles}")
         return False
+    removed, is_moqie, cut_tile_index = await apply_player_cut(self, player_index, action_data)
+    return await _execute_cut(
+        self, player_index, removed, is_moqie, cut_tile_index, is_riichi=is_riichi, already_removed=True
+    )
+
+
+async def _execute_cut(
+    self,
+    player_index: int,
+    tile_id: int,
+    is_moqie: bool,
+    cut_tile_index,
+    is_riichi: bool,
+    already_removed: bool = False,
+):
+    """切牌/立直切，更新振听并广播。
+    立直家被鸣后续切的牌也需横置，由 player.riichi_marker_pending 触发——和 is_riichi 任一为真都会让本次弃牌标记为横置。"""
+    player = self.player_list[player_index]
+    if not already_removed:
+        if tile_id not in player.hand_tiles:
+            logger.error(f"tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
+            raise ValueError("非法切牌")
+        if _is_kuikae_forbidden_cut(player, tile_id):
+            logger.error(f"player {player_index} 试图食替切回禁牌 {tile_id}, forbidden={player.kuikae_forbidden_tiles}")
+            return False
+        tile_id = remove_cut_tile(player.hand_tiles, tile_id, is_moqie, draw_slot=has_draw_slot(player))
 
     horizontal_flag = bool(is_riichi or player.riichi_marker_pending)
 
-    player.hand_tiles.remove(tile_id)
     player.discard_tiles.append(tile_id)
     player.discard_origin_tiles.append(tile_id)
     player.discard_riichi_flags.append(horizontal_flag)
@@ -530,6 +610,12 @@ def _is_first_discard_untouched(self, player_index: int) -> bool:
 def _commit_pending_riichi(self):
     for p in self.player_list:
         if getattr(p, "pending_riichi", False):
+            if not self._can_declare_riichi_by_score(p.score):
+                logger.warning(
+                    f"跳过立直棒结算（击飞开启且点数不足 1000）：player={p.player_index}, score={p.score}"
+                )
+                p.pending_riichi = False
+                continue
             p.pending_riichi = False
             p.score -= 1000
             self.riichi_sticks += 1

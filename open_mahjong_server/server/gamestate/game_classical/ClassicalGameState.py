@@ -19,7 +19,7 @@ from .boardcast import (
     broadcast_shuhewei,
     reconnected_send_pending_ask,
 )
-from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num
+from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
@@ -28,6 +28,7 @@ from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_w
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
+from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,13 @@ class ClassicalPlayer:
         self.profile_used = 0
         self.character_used = 0
         self.voice_used = 0
+        self.has_draw_slot = False
 
-    def get_tile(self, tiles_list):
+    def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         element = tiles_list.pop(0)
         self.hand_tiles.append(element)
+        if mark_draw_slot:
+            self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         if len(tiles_list) <= 1 or gamestate.backward_tiles_list_type == "single":
@@ -82,6 +86,7 @@ class ClassicalPlayer:
         else:
             element = tiles_list.pop(-2)
         self.hand_tiles.append(element)
+        self.has_draw_slot = True
         gamestate.backward_tiles_list_type = "single" if gamestate.backward_tiles_list_type == "double" else "double"
 
 
@@ -486,12 +491,6 @@ class ClassicalGameState:
                     self.player_list[self.current_player_index].record_counter.fangchong_times += 1
                     self.player_list[self.current_player_index].record_counter.fangchong_score += total_fu
 
-                for i in self.player_list:
-                    has_fulu = any(combo.startswith("k") or combo.startswith("g") or combo.startswith("s")
-                                   for combo in i.combination_tiles)
-                    if has_fulu:
-                        i.record_counter.fulu_times += 1
-
             else:
                 if self.hu_class != "jiuzhongjiupai":
                     self.hu_class = "liuju"
@@ -519,6 +518,8 @@ class ClassicalGameState:
                     hepai_fu_types=hu_fu_fan_list,
                     hu_class=self.hu_class,
                 )
+
+            record_fulu_rounds_for_players(self.player_list)
 
             for player in self.player_list:
                 score_change = player.score - scores_before[player.original_player_index]
@@ -594,9 +595,7 @@ class ClassicalGameState:
         end_game_record(self)
         logger.info(f"最终游戏记录: {self.game_record}")
 
-        self.player_list.sort(key=lambda x: x.score, reverse=True)
-        for index, player in enumerate[ClassicalPlayer](self.player_list):
-            player.record_counter.rank_result = index + 1
+        assign_strict_final_ranks(self.player_list)
 
         await self.broadcast_game_end()
 

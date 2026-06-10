@@ -53,11 +53,11 @@ def _shuffle_and_deal_guobiao(self) -> None:
         for player in self.player_list:
             if not player.hand_tiles:
                 for _ in range(13):
-                    player.get_tile(self.tiles_list)
+                    player.get_tile(self.tiles_list, mark_draw_slot=False)
     else:
         # 分配每位玩家13张牌
         for player in self.player_list:
             for _ in range(13):
-                player.get_tile(self.tiles_list)
+                player.get_tile(self.tiles_list, mark_draw_slot=False)
         # 国标：庄家额外摸一张
-        self.player_list[0].get_tile(self.tiles_list)
+        self.player_list[0].get_tile(self.tiles_list, mark_draw_slot=True)

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 public class RecordPanel : MonoBehaviour {
 
@@ -106,8 +107,37 @@ public class RecordPanel : MonoBehaviour {
     }
 
     public void OnRecordDetailReceived(RecordDetail detail) {
-        string recordJson = JsonConvert.SerializeObject(detail.record);
-        WindowsManager.Instance.SwitchWindow("recordscene");
-        GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
+        OpenRecord(detail);
+    }
+
+    /// <summary>
+    /// 打开牌谱回放（天梯列表、牌谱面板等入口共用）。
+    /// </summary>
+    public static void OpenRecord(RecordDetail detail) {
+        if (detail == null || detail.record == null) {
+            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱数据为空");
+            return;
+        }
+
+        // Dictionary 内嵌 JArray 时不能直接 SerializeObject，需经 JToken 还原
+        string recordJson = JToken.FromObject(detail.record).ToString(Formatting.None);
+
+        if (string.IsNullOrWhiteSpace(recordJson)) {
+            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱内容为空");
+            return;
+        }
+
+        WindowsManager.Instance?.SwitchWindow("recordscene");
+        if (GameRecordManager.Instance == null) {
+            NotificationManager.Instance?.ShowTip("牌谱", false, "牌谱场景未就绪");
+            return;
+        }
+
+        try {
+            GameRecordManager.Instance.LoadRecord(recordJson, detail.players);
+        } catch (System.Exception e) {
+            Debug.LogError($"加载牌谱失败: {e.Message}");
+            NotificationManager.Instance?.ShowTip("牌谱", false, $"解析牌谱失败: {e.Message}");
+        }
     }
 }

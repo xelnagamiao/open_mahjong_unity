@@ -44,7 +44,7 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
@@ -141,16 +141,22 @@ public partial class NormalGameStateManager {
                         player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}"); // 存储组合牌
                         player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target); // 删除刻子组合牌
                         int tile_id = int.Parse(combination_target_str);
+                        bool isMoGang = is_mo_gang == true;
                         if (GetCardPlayer == "self"){
                             selfHandTiles.Remove(tile_id); // 删除手牌
-                            GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard",tile_id,null,null); // 2D加杠行为
+                            if (isMoGang) {
+                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard", tile_id, null, null);
+                            } else {
+                                GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", tile_id, null, null);
+                            }
                         }
                         else{
                             player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
                         }
-                        Game3DManager.Instance.Change3DTile("jiagang",tile_id,1,GetCardPlayer,false,combination_mask); // 3D加杠行为
+                        Game3DManager.Instance.Change3DTile("jiagang", tile_id, 1, GetCardPlayer, isMoGang, combination_mask); // 3D加杠行为
                     }
                     else if (action == "angang"){
+                        bool isMoGang = is_mo_gang == true;
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target);
                         AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
                         if (GetCardPlayer == "self"){
@@ -158,11 +164,19 @@ public partial class NormalGameStateManager {
                             foreach (int tile_id in need_remove_list){
                                 selfHandTiles.Remove(tile_id);
                             }
-                            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray(),null);
+                            if (isMoGang && need_remove_list.Count > 0) {
+                                int angangTile = need_remove_list[0];
+                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard", angangTile, null, null);
+                                if (need_remove_list.Count > 1) {
+                                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, need_remove_list.Skip(1).Take(3).ToArray(), null);
+                                }
+                            } else {
+                                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, need_remove_list.ToArray(), null);
+                            }
                         } else {
                             player_to_info[GetCardPlayer].hand_tiles_count -= 4;
                         }
-                        Game3DManager.Instance.Change3DTile(action,0,4,GetCardPlayer,false,combination_mask);
+                        Game3DManager.Instance.Change3DTile(action, 0, 4, GetCardPlayer, false, combination_mask, isMoGang: isMoGang);
                     }
                     else if (action == "gang"){
                         // 杠情况下需要删除3张手牌（相对于暗杠少删一张）

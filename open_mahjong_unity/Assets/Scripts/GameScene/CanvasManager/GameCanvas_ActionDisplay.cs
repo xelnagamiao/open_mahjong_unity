@@ -34,6 +34,15 @@ public partial class GameCanvas{
         StartCoroutine(FadeOutActionDisplay(actionTextObj,displayPos));
     }
 
+    private string GetHuSelfActionText(string roomRule = null) {
+        string rule = !string.IsNullOrEmpty(roomRule) ? roomRule : NormalGameStateManager.Instance?.roomRule;
+        string subRule = NormalGameStateManager.Instance?.subRule;
+        if (rule == "guobiao" || (subRule != null && subRule.StartsWith("guobiao/"))) {
+            return "和";
+        }
+        return "自摸";
+    }
+
     private string GetActionDisplayText(string actionType, string roomRule) {
         if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             return "吃";
@@ -44,8 +53,7 @@ public partial class GameCanvas{
         } else if (actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             string rule = !string.IsNullOrEmpty(roomRule) ? roomRule : NormalGameStateManager.Instance.roomRule;
             if (actionType == "hu_self"){
-                if (rule == "guobiao") return "和";
-                return "自摸";
+                return GetHuSelfActionText(roomRule);
             }
             if (rule == "riichi") return "荣";
             return "和";

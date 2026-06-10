@@ -163,6 +163,15 @@ public class ChatPanel : MonoBehaviour {
         TextMeshProUGUI textComponent = chatText.GetComponent<TextMeshProUGUI>();
         textComponent.text = $"{title}: {content}";
         textComponent.color = color;
+
+        ChatTextItem chatTextItem = chatText.GetComponent<ChatTextItem>();
+        if (chatTextItem != null) {
+            if (isScrollbarVisible) {
+                chatTextItem.SetAlpha(1f);
+            } else {
+                chatTextItem.StartFadeOut();
+            }
+        }
         
         // 将聊天窗口滚动到底部
         StartCoroutine(ScrollChatToBottomCoroutine());
