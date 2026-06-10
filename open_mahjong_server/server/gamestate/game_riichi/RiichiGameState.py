@@ -140,15 +140,19 @@ class RiichiPlayer:
         # 立直家本应横置的下一张弃牌待标记位：宣告立直时置 True；本次切完归 False；
         # 若立直宣告的横置弃牌被他家吃/碰则在 chi/peng/gang 处理处再次置 True，使下一张续横
         self.riichi_marker_pending: bool = False
+        self.has_draw_slot = False
 
-    def get_tile(self, tiles_list):
+    def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         element = tiles_list.pop(0)
         self.hand_tiles.append(element)
+        if mark_draw_slot:
+            self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         # 从王牌区取岭上牌（王牌最靠右的那张）；同时从牌山头取一张补到王牌
         element = tiles_list.pop(-1)
         self.hand_tiles.append(element)
+        self.has_draw_slot = True
         gamestate.rinshan_count += 1
 
 

@@ -72,10 +72,13 @@ class ClassicalPlayer:
         self.profile_used = 0
         self.character_used = 0
         self.voice_used = 0
+        self.has_draw_slot = False
 
-    def get_tile(self, tiles_list):
+    def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         element = tiles_list.pop(0)
         self.hand_tiles.append(element)
+        if mark_draw_slot:
+            self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         if len(tiles_list) <= 1 or gamestate.backward_tiles_list_type == "single":
@@ -83,6 +86,7 @@ class ClassicalPlayer:
         else:
             element = tiles_list.pop(-2)
         self.hand_tiles.append(element)
+        self.has_draw_slot = True
         gamestate.backward_tiles_list_type = "single" if gamestate.backward_tiles_list_type == "double" else "double"
 
 

@@ -3,6 +3,7 @@
 # 能和则和、能补花则补花、切牌/吃碰根据评分决策
 import asyncio
 import logging
+from ..hand_slot_utils import has_draw_slot
 from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, evaluate_hand,
@@ -129,8 +130,9 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
     # 切牌：枚举每张手牌切出后的评分，选最优
     if "cut" in action_list and hand:
         tile_id, cut_index = find_best_cut(hand, meld_count, visible)
+        is_moqie = has_draw_slot(player)
         logger.info(f"牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}")
-        await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
+        await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
         return
 
 

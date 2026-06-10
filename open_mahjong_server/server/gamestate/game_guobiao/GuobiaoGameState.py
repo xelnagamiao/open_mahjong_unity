@@ -76,10 +76,13 @@ class GuobiaoPlayer:
         self.profile_used = 0 # 使用的头像ID
         self.character_used = 0 # 使用的角色ID
         self.voice_used = 0 # 使用的音色ID
+        self.has_draw_slot = False  # 本巡是否刚摸入一张（吃碰杠后为 False）
 
-    def get_tile(self, tiles_list):
+    def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌
         self.hand_tiles.append(element)
+        if mark_draw_slot:
+            self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
         if len(tiles_list) <= 1 or gamestate.backward_tiles_list_type == "single":
@@ -87,6 +90,7 @@ class GuobiaoPlayer:
         else:
             element = tiles_list.pop(-2) # 从牌堆中获取倒数第二张牌
         self.hand_tiles.append(element)
+        self.has_draw_slot = True
         # 切换倒序摸牌状态
         gamestate.backward_tiles_list_type = "single" if gamestate.backward_tiles_list_type == "double" else "double"
 
