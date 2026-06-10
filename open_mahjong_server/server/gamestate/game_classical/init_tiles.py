@@ -52,9 +52,9 @@ def _shuffle_and_deal(self) -> None:
         for player in self.player_list:
             if not player.hand_tiles:
                 for _ in range(13):
-                    player.get_tile(self.tiles_list)
+                    player.get_tile(self.tiles_list, mark_draw_slot=False)
     else:
         # 分配每位玩家13张牌（青雀不在此处给庄家额外发牌）
         for player in self.player_list:
             for _ in range(13):
-                player.get_tile(self.tiles_list)
+                player.get_tile(self.tiles_list, mark_draw_slot=False)

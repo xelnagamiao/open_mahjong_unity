@@ -8,6 +8,7 @@ import asyncio
 import logging
 from typing import List, Set
 
+from ..hand_slot_utils import has_draw_slot
 from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, evaluate_hand,
@@ -245,8 +246,9 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
     if is_riichi and "cut" in action_list and player.hand_tiles:
         tile_id = player.hand_tiles[-1]
         cut_index = len(player.hand_tiles) - 1
+        is_moqie = has_draw_slot(player)
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 立直后选择摸切, tile_id={tile_id}")
-        await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
+        await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
         return
 
     # 切牌：枚举每张手牌切出后的评分，选最优（吃碰后需排除食替禁切牌）
@@ -254,8 +256,9 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
         forbidden = set(kuikae_forbidden or set())
         forbidden.update(normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or []))
         tile_id, cut_index = find_best_cut(hand, meld_count, visible, forbidden)
+        is_moqie = has_draw_slot(player)
         logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}, forbidden={sorted(forbidden)}")
-        await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
+        await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
         return
 
 

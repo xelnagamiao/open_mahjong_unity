@@ -3,6 +3,8 @@
 """
 import logging
 
+from ..public.hand_slot_utils import hand_contains_tile
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,7 +22,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
         current_player = game_state.player_list[player_index]
 
         if action_type in ("cut", "riichi_cut"):
-            if TileId not in current_player.hand_tiles:
+            if not hand_contains_tile(current_player.hand_tiles, TileId):
                 return
             await game_state.action_queues[player_index].put({
                 "action_type": action_type,
@@ -73,7 +75,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
             return
 
         if action_type in ("cut", "riichi_cut"):
-            if TileId not in current_player.hand_tiles:
+            if not hand_contains_tile(current_player.hand_tiles, TileId):
                 return
             await game_state.action_queues[player_index].put({
                 "action_type": action_type,
