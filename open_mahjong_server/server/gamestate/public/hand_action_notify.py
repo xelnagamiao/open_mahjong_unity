@@ -5,6 +5,8 @@ from typing import Optional, Tuple
 from ...response import Response
 from .hand_slot_utils import (
     CUT_CLASS_TIP_MESSAGE,
+    clear_draw_slot,
+    has_draw_slot,
     remove_cut_tile,
     resolve_cut_class,
 )
@@ -52,9 +54,11 @@ async def apply_player_cut(
     hand = player.hand_tiles
     tile_id = action_data.get("TileId")
     cut_index = action_data.get("cutIndex")
+    draw_slot = has_draw_slot(player)
     is_moqie, corrected = resolve_cut_class(
-        hand, tile_id, action_data.get("cutClass"), cut_index
+        hand, tile_id, action_data.get("cutClass"), cut_index, draw_slot=draw_slot
     )
     await notify_cut_class_corrected(gamestate, player_index, corrected)
-    removed = remove_cut_tile(hand, tile_id, is_moqie)
+    removed = remove_cut_tile(hand, tile_id, is_moqie, draw_slot=draw_slot)
+    clear_draw_slot(player)
     return removed, is_moqie, cut_index

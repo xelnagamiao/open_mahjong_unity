@@ -38,7 +38,7 @@ def _shuffle_and_deal(self) -> None:
     # 每人 13 张
     for player in self.player_list:
         for _ in range(13):
-            player.get_tile(self.tiles_list)
+            player.get_tile(self.tiles_list, mark_draw_slot=False)
 
     # 王牌区（dead wall）：最后 14 张固定保留；倒数第 6 张为首张宝牌指示牌，倒数第 5 张为首张里宝牌指示牌。
     self.dead_wall_count = 14
