@@ -1,6 +1,6 @@
 # 古典麻将牌堆初始化（136张：万筒索 + 东南西北中发白，每种4张）
 import random
-import hashlib
+from ..public.random_seed_manager import derive_round_seed
 
 
 def init_classical_tiles(self):
@@ -24,10 +24,7 @@ def init_classical_tiles(self):
 
 def _shuffle_and_deal(self) -> None:
     """种子生成、洗牌、发牌（每人13张，不额外发牌）"""
-    # 使用 round_index 作为每手唯一递增因子，连庄时 current_round 不变也会换种子。
-    combined = f"{self.game_random_seed}_{self.round_index}".encode("utf-8")
-    hash_value = int(hashlib.md5(combined).hexdigest()[:8], 16)
-    self.round_random_seed = hash_value % (2**32)
+    self.round_random_seed = derive_round_seed(self.master_seed, self.round_index)
     random.seed(self.round_random_seed)
     random.shuffle(self.tiles_list)
 

@@ -1,6 +1,7 @@
 import random
 from typing import Dict
 from ..public.logic_common import back_current_num
+from .random_seed_manager import derive_round_seed
 
 def next_game_round_switchseat(self):
     """进入下一局游戏"""
@@ -126,8 +127,8 @@ def next_game_round_random_switchseat(self, keep_current_round: bool = False, ke
             i.player_index = back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
 
     if (not keep_dealer_seat) and self.current_round in (5, 9, 13):
-        seed = getattr(self, "game_random_seed", 0)
-        rng = random.Random((seed * 1009 + self.current_round * 9176) & 0xFFFFFFFF)
+        seed = derive_round_seed(self.master_seed, self.current_round)
+        rng = random.Random(seed)
         players = list(self.player_list)
         rng.shuffle(players)
         for idx, p in enumerate(players):

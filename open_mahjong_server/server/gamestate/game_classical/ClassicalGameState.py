@@ -3,7 +3,6 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
-import hashlib
 import math
 from .action_check import check_action_after_cut, check_action_jiagang, check_action_buhua, check_action_hand_action, refresh_waiting_tiles, check_kokushi, check_jiuzhongjiupai
 from .wait_action import wait_action
@@ -28,6 +27,7 @@ from ..public.game_record_manager import init_game_record, init_game_round, play
 from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
+from ..public.random_seed_manager import setup_random_seed_system
 from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
@@ -136,7 +136,9 @@ class ClassicalGameState:
         self.tiles_list = []
         self.current_player_index = 0
         self.xunmu = 1
-        self.game_random_seed = 0
+        self.master_seed = 0
+        self.commitment = 0
+        self.salt = ""
         self.round_random_seed = 0
         self.game_status = "waiting"
         self.server_action_tick = 0
@@ -211,7 +213,8 @@ class ClassicalGameState:
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
                         'tile_count': max(0, len(self.tiles_list) - self.dead_wall_count),
-                        'round_random_seed': self.round_random_seed,
+                        'commitment': self.commitment,
+                        'salt': self.salt,
                         'current_round': self.current_round,
                         'step_time': self.step_time,
                         'round_time': self.round_time,
@@ -300,20 +303,15 @@ class ClassicalGameState:
     async def game_loop_classical(self):
 
         if not self.Debug:
-            if self.room_random_seed != 0:
-                self.game_random_seed = self.room_random_seed
-                self.isPlayerSetRandomSeed = True
-            else:
-                self.game_random_seed = int(time.time() * 1000000) % (2**32)
-                self.isPlayerSetRandomSeed = False
-            rng = random.Random(self.game_random_seed)
+            user_seed = self.room_random_seed if self.room_random_seed else None
+            self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
+            rng = random.Random(self.master_seed)
             rng.shuffle(self.player_list)
             for index, player in enumerate[ClassicalPlayer](self.player_list):
                 player.player_index = index
                 player.original_player_index = index
         else:
-            self.isPlayerSetRandomSeed = False
-            self.game_random_seed = int(time.time() * 1000000) % (2**32)
+            self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system()
             for index, player in enumerate[ClassicalPlayer](self.player_list):
                 player.player_index = index
                 player.original_player_index = index
