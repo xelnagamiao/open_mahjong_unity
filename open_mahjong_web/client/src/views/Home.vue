@@ -44,6 +44,7 @@ import {
   Document,
   Link,
   Key,
+  Iphone,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -57,6 +58,15 @@ const features = ref([
     color: '#007bff',
     type: 'route',
     route: '/game-unity',
+  },
+  {
+    id: 10,
+    title: '手机版下载',
+    description: '下载测试版 Android APK，可能会经常更新，可注意群906497522动态',
+    icon: Iphone,
+    color: '#67c23a',
+    type: 'route',
+    route: '/mobile-download',
   },
   {
     id: 8,
