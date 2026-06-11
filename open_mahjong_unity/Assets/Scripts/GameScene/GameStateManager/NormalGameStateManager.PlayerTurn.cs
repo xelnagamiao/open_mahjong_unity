@@ -46,7 +46,7 @@ public partial class NormalGameStateManager {
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             // 如果开启自动过牌或自动荣和，则启动协程
-            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.ShouldAutoWinRon() || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
+            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.ShouldAutoWinRon() || AutoAction.Instance.ShouldAutoPassForCurrentDiscard() || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
                 StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
             }
             IsSelfActionRequired = true;
@@ -59,6 +59,7 @@ public partial class NormalGameStateManager {
             Debug.Log($"doAction行动者: {GetCardPlayer}");
             // 如果行动者是自己
             if (GetCardPlayer == "self"){
+                ClearQiangGangAskState();
                 // 停止计时器
                 GameCanvas.Instance.StopTimeRunning();
                 // 清空允许操作列表
@@ -81,6 +82,7 @@ public partial class NormalGameStateManager {
 
         // 选择行动
         else if (SwitchType == "ClearAction"){
+            ClearQiangGangAskState();
             GameSceneMouseInputController.Instance.ClearStaleHandInput("ClearAction");
             // 停止计时器
             GameCanvas.Instance.StopTimeRunning();
@@ -97,6 +99,7 @@ public partial class NormalGameStateManager {
 
         // 时间耗尽
         else if (SwitchType == "TimeOut"){
+            ClearQiangGangAskState();
             GameSceneMouseInputController.Instance.ClearStaleHandInput("TimeOut");
             // 清空操作按钮
             GameCanvas.Instance.ClearActionButton();

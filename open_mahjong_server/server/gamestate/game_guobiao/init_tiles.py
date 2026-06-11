@@ -59,5 +59,7 @@ def _shuffle_and_deal_guobiao(self) -> None:
         for player in self.player_list:
             for _ in range(13):
                 player.get_tile(self.tiles_list, mark_draw_slot=False)
-        # 国标：庄家额外摸一张
-        self.player_list[0].get_tile(self.tiles_list, mark_draw_slot=True)
+        # 国标：庄家额外摸一张。
+        # 不标记摸牌区：客户端 InitHandCards 把 14 张平铺展示（无 currentGetTile 标记），
+        # 庄家首打一律按手切处理，否则首打恰为服务端末张时会误判为摸切（手摸切不一致）。
+        self.player_list[0].get_tile(self.tiles_list, mark_draw_slot=False)

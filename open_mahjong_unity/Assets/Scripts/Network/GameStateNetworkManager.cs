@@ -166,6 +166,7 @@ public class GameStateNetworkManager : MonoBehaviour {
         ShowResultInfo showresponse = response.show_result_info;
         if (showresponse == null) return;
         RiichiEndResultExtras riichiExtras = BuildRiichiExtrasIfAny(showresponse);
+        GuobiaoEndResultExtras guobiaoExtras = BuildGuobiaoExtrasIfAny(showresponse);
         NormalGameStateManager.Instance.ShowResult(
             showresponse.hepai_player_index,
             showresponse.player_to_score,
@@ -179,8 +180,14 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.fu_fan_list,
             riichiExtras,
             showresponse.score_changes,
-            showresponse.silent == true
+            showresponse.silent == true,
+            guobiaoExtras
         );
+    }
+
+    private static GuobiaoEndResultExtras BuildGuobiaoExtrasIfAny(ShowResultInfo info) {
+        if (info.revealed_angang_masks == null || info.revealed_angang_masks.Count == 0) return null;
+        return new GuobiaoEndResultExtras { RevealedAngangMasks = info.revealed_angang_masks };
     }
 
     /// <summary>
@@ -207,6 +214,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             TenpaiTiles = info.tenpai_tiles,
             TenpaiHands = info.tenpai_hands,
             NotenPenaltyAfterDraw = info.exhaustive_penalty ?? false,
+            LangyongScoredPoints = info.langyong_scored_points ?? 0,
+            LangyongMultiplier = info.langyong_multiplier ?? 0,
         };
     }
     
@@ -217,7 +226,9 @@ public class GameStateNetworkManager : MonoBehaviour {
         Debug.Log($"收到游戏结束消息: {response.game_end_info}");
         GameEndInfo gameendresponse = response.game_end_info;
         NormalGameStateManager.Instance.GameEnd(
-            gameendresponse.game_random_seed,
+            gameendresponse.master_seed,
+            gameendresponse.commitment,
+            gameendresponse.salt,
             gameendresponse.player_final_data
         );
     }

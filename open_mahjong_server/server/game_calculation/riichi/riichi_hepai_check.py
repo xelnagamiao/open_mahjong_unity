@@ -188,7 +188,13 @@ class Riichi_Hepai_Check:
         for i, combo in enumerate(tiles_combination):
             meld_type, tile_ids = convert_combination(combo)
             if combination_masks and i < len(combination_masks):
-                tile_ids = tiles_from_mask(combination_masks[i])
+                mask_tiles = tiles_from_mask(combination_masks[i])
+                if mask_tiles:
+                    tile_ids = mask_tiles
+            # combination_mask 中的牌序取决于鸣牌来源方位（上家在首位/对家居中/下家在末位），
+            # 吃副露经常是乱序（如 [37,36,35]）；mahjong 库按升序匹配顺子，
+            # 乱序的 Meld 会导致整手被判 hand_not_winning（自摸/荣和全部失败），必须排序。
+            tile_ids = sorted(tile_ids, key=tile_id_to_34)
             tiles_136 = []
             for tid in tile_ids:
                 tiles_136.append(alloc_136_for_tile(tid, used_136))

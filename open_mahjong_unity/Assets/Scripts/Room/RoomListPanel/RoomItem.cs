@@ -48,7 +48,6 @@ public class RoomItem : MonoBehaviour {
         string roomType = roomData.room_type ?? "";
         string subRule = roomData.sub_rule ?? "";
         bool isRunning = roomData.is_game_running;
-        int randomSeed = roomData.random_seed;
         bool tipsOn = roomData.tips;
         bool openCuohe = roomData.open_cuohe;
 
@@ -104,7 +103,9 @@ public class RoomItem : MonoBehaviour {
 
         // 对局轮数：从 RoundTextDictionary 获取（东风战/东南战/东西战/全庄战）
         if (this.gameRound != null) this.gameRound.text = RoundTextDictionary.GetMaxRoundText(gameRound);
-        if (fushiText != null) fushiText.text = randomSeed == 0 ? "复式:关" : "复式:开";
+        if (fushiText != null) {
+            fushiText.text = roomData.is_player_set_random_seed ? "复式:开" : "复式:关";
+        }
         if (tipsText != null) tipsText.text = tipsOn ? "提示:开" : "提示:关";
         if (cuoheText != null) cuoheText.text = openCuohe ? "错和:开" : "错和:关";
     }

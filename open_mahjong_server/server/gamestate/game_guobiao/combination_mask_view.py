@@ -62,6 +62,16 @@ def sanitize_combination_masks_for_viewer(
     return result
 
 
+def build_revealed_angang_masks(player_list) -> Optional[dict]:
+    """局终亮杠：player_index -> 暗杠 mask 列表（不含对局中脱敏）。"""
+    result = {}
+    for p in player_list:
+        kongs = [list(m) for m in p.combination_mask if _is_full_concealed_kong_mask(m)]
+        if kongs:
+            result[p.player_index] = kongs
+    return result or None
+
+
 def get_combination_fields_for_viewer(player, viewer_player_index: int) -> Tuple[List[str], List[List[int]]]:
     owner = player.player_index
     tiles = sanitize_combination_tiles_for_viewer(player.combination_tiles, owner, viewer_player_index)

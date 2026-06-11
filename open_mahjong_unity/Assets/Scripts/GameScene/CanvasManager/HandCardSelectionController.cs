@@ -72,5 +72,7 @@ public class HandCardSelectionController : MonoBehaviour {
         if (hover != null) {
             hover.SetArmedLift(armed);
         }
+        // 立起后同步显示该牌的听牌提示（确认出牌模式下悬停不弹起，提示改由立起驱动）
+        card.OnArmedStateChanged(armed);
     }
 }

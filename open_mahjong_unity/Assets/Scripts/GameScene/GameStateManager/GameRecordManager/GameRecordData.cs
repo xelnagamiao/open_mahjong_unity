@@ -29,7 +29,6 @@ public class RiichiRoundExtras {
 [Serializable]
 public class Round {
     public int roundIndex;
-    public long roundRandomSeed;
     public int currentRound;
     public List<int> seats;
     public int dealerIndex;
@@ -63,7 +62,6 @@ public class Round {
 
     public Round() {
         roundIndex = 0;
-        roundRandomSeed = 0;
         currentRound = 0;
         seats = new List<int>();
         p0Tiles = new List<int>();

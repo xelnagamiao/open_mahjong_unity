@@ -30,7 +30,7 @@
 | `honba` | int | 本局**开场**本场棒数 |
 | `riichi_sticks` | int | 本局**开场**场供（立直棒）数 |
 
-国标/青雀/古典不写 `riichi` 对象。
+国标/青雀/古典不写 `riichi` 对象。新牌谱局头**不再**写入 `round_random_seed`（旧字段仅历史牌谱）。
 
 ---
 
@@ -60,8 +60,8 @@ playerIndex         = seats[K]
 
 | 规则 | dealer_index | seats 变化 | riichi |
 |------|--------------|------------|--------|
-| guobiao | 0 | 每局 back 轮转；5/9/13 固定换位 | 不写 |
-| qingque | 0 | 每局 back；5/9/13 **随机**换位 | 不写 |
+| guobiao | 0 | 每局 back 轮转；5/9/13 **固定规则**换位 | 不写 |
+| qingque | 0 | 每局 back 轮转；5/9/13 用 `derive_round_seed` **随机**换位 | 不写 |
 | classical | 0（庄家恒 seat0） | 连庄不变；过庄轮转 | 不写 |
 | riichi | 亲家 seat | **整局 seats 通常不变** | 每局写入 |
 

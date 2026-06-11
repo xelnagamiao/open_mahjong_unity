@@ -8,6 +8,7 @@ import PlayerData from '@/views/PlayerData.vue'
 import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
 import Paili from '@/views/Paili.vue'
+import SeedVerify from '@/views/SeedVerify.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
@@ -58,6 +59,12 @@ const routes = [
         name: 'Rulebook',
         component: Rulebook,
         meta: { title: '规则书 - salasasa.cn' }
+      },
+      {
+        path: 'seed-verify',
+        name: 'SeedVerify',
+        component: SeedVerify,
+        meta: { title: '随机种子验证 - salasasa.cn' }
       }
     ]
   },

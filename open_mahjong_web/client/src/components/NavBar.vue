@@ -50,6 +50,11 @@
           <span>规则书</span>
         </el-menu-item>
 
+        <el-menu-item index="/seed-verify">
+          <el-icon><Key /></el-icon>
+          <span>种子验证</span>
+        </el-menu-item>
+
         <el-menu-item index="/docs">
           <el-icon><Document /></el-icon>
           <span>开发手册</span>
@@ -71,6 +76,7 @@ import {
   Reading,
   Document,
   Link,
+  Key,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

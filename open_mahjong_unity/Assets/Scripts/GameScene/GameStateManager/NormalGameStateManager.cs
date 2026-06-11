@@ -52,10 +52,15 @@ public partial class NormalGameStateManager : MonoBehaviour{
     /// <summary>错和结算已展示，等待 ready 结束后再恢复手牌与操作区。</summary>
     public bool pendingCuoheContinueAfterReady;
     public int pendingCuoheWinnerIndex = -1;
+    /// <summary>国标局终亮杠快照，供和牌/流局结算面板读取。</summary>
+    public GuobiaoEndResultExtras lastGuobiaoEndExtras;
     public bool isSetRandomSeed; // 是否设置随机种子
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
+    /// <summary>当前鸣牌询问是否来自他人加杠（抢杠和）。</summary>
+    public bool IsQiangGangAsk { get; private set; }
+    private bool pendingAskFromJiagang;
     /// <summary>上一张切牌玩家座位（荣和倒牌从河牌抓取时使用）。</summary>
     public string lastDiscardPlayerPosition;
     public string CurrentPlayer; // 当前玩家字符串

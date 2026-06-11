@@ -49,7 +49,6 @@ public class NetworkManager : MonoBehaviour {
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
     private bool _suppressDisconnectDialog;
-    private Coroutine _reconnectRoutine;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
@@ -115,10 +114,12 @@ public class NetworkManager : MonoBehaviour {
             Debug.LogWarning("[NetworkManager] 无法重连：NetworkManager 未激活");
             return;
         }
-        if (_reconnectRoutine != null) {
-            StopCoroutine(_reconnectRoutine);
-        }
-        _reconnectRoutine = StartCoroutine(ReconnectWebSocketRoutine());
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance.RunNamed(
+            CoroutineKeys.NetworkReconnect,
+            ReconnectWebSocketRoutine(),
+            restartIfRunning: true
+        );
     }
 
     private IEnumerator ReconnectWebSocketRoutine() {
@@ -166,7 +167,6 @@ public class NetworkManager : MonoBehaviour {
         while (elapsed < timeoutSeconds) {
             if (newSocket.State == WebSocketState.Open) {
                 Debug.Log("[NetworkManager] WebSocket 重连成功");
-                _reconnectRoutine = null;
                 yield break;
             }
             elapsed += Time.unscaledDeltaTime;
@@ -177,7 +177,6 @@ public class NetworkManager : MonoBehaviour {
         isConnecting = false;
         _suppressDisconnectDialog = false;
         LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
-        _reconnectRoutine = null;
     }
 
     /// <summary>

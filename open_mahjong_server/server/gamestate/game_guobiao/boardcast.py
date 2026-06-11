@@ -43,6 +43,8 @@ async def broadcast_game_start(self):
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
+    from ..public.game_record_manager import build_player_entry_order_fields
+    base_game_info.update(build_player_entry_order_fields(self))
     # 为每个玩家发送消息，并为每个玩家缓存不同的数据
     for current_player in self.player_list:
         try:
@@ -409,6 +411,7 @@ async def broadcast_result(self,
                           hepai_player_huapai: Optional[List[int]] = None,
                           hepai_player_combination_mask: Optional[List[List[int]]] = None,
                           score_changes: Optional[Dict[int, int]] = None,
+                          revealed_angang_masks: Optional[dict] = None,
                           silent: bool = False):
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
     if not silent and getattr(self, "_tactical_silent_action", False):
@@ -445,6 +448,7 @@ async def broadcast_result(self,
                         hepai_player_combination_mask=hepai_player_combination_mask, # 和牌玩家组合掩码
                         action_tick=self.server_action_tick,
                         score_changes=score_changes,
+                        revealed_angang_masks=revealed_angang_masks,
                         silent=True if silent else None,
                     )
                 )

@@ -14,6 +14,8 @@ public partial class NormalGameStateManager {
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();
         chiCandidates.Clear();
+        IsQiangGangAsk = false;
+        pendingAskFromJiagang = false;
 
         if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
             RiichiCutSelectionController.Instance.ExitRiichiCutMode();

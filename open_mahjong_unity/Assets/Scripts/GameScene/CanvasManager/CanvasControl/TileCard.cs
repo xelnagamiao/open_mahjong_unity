@@ -154,15 +154,16 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     /// <summary>
     /// 松手须仍在按下时的同一张牌上：命中该牌 UI，或落在该牌根节点手牌槽位内（含浮起下方的原位置）。
+    /// skipSameCardCheck=true 供微点击路径使用：调用方已确认按下与松手在同一张牌上（悬停浮起已被拖拽会话清除，射线可能落空）。
     /// </summary>
-    public static bool TryCommitClick(TileCard pressCard, Vector2 releaseScreenPos) {
+    public static bool TryCommitClick(TileCard pressCard, Vector2 releaseScreenPos, bool skipSameCardCheck = false) {
         if (pressCard == null || !pressCard.IsSelectableForCut()) {
             return false;
         }
         if (lastHandledPointerFrame == Time.frameCount) {
             return false;
         }
-        if (!pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
+        if (!skipSameCardCheck && !pressCard.IsSameCardReleasePoint(releaseScreenPos)) {
             return false;
         }
         bool canCut = NormalGameStateManager.Instance != null && (
@@ -178,6 +179,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             HandCardSelectionController selection = HandCardSelectionController.Instance;
             if (selection == null || !selection.IsArmed(pressCard)) {
                 selection?.Arm(pressCard);
+                // 消费本帧：同一次松手会经由 Relay 与全局 Update 两条路径进入，
+                // 否则第二条路径会把刚立起的牌当成"二次确认"直接打出。
+                lastHandledPointerFrame = Time.frameCount;
                 return false;
             }
             selection.CommitDiscard(pressCard);
@@ -301,6 +305,19 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 
     /// <summary>
+    /// 两次点击确认：选中立起/取消时由 HandCardSelectionController 回调。
+    /// 立起时无论指针悬停与否都显示该牌的切牌听牌提示；取消且未悬停时收起提示。
+    /// </summary>
+    public void OnArmedStateChanged(bool armed) {
+        if (armed) {
+            CheckCutTileTips(ignoreHoverGate: true);
+        }
+        else if (!isHovering) {
+            TipsContainer.Instance.HideTips();
+        }
+    }
+
+    /// <summary>
     /// 控制本卡牌是否可点击；不可选时整体调灰（保留 alpha=1，仅 RGB 调暗），用于立直选牌/食替禁切/立直锁定。
     /// </summary>
     public void SetSelectable(bool selectable) {
@@ -353,9 +370,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
     
     /// <summary>
-    /// 检测切牌后的听牌提示
+    /// 检测切牌后的听牌提示。ignoreHoverGate=true 用于两次点击确认的立起提示（不要求指针悬停）。
     /// </summary>
-    private void CheckCutTileTips()
+    private void CheckCutTileTips(bool ignoreHoverGate = false)
     {
         // 检查是否开启了提示功能
         if (!NormalGameStateManager.Instance.tips){
@@ -415,8 +432,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             waitingTiles = new HashSet<int>();
         }
         
-        // 检查是否还在悬停状态（避免异步返回时已经离开）
-        if (!isHovering)
+        // 检查是否还在悬停状态（避免异步返回时已经离开）；立起提示不受悬停限制
+        if (!isHovering && !ignoreHoverGate)
         {
             return;
         }

@@ -117,9 +117,9 @@ public class GameSceneUIManager : MonoBehaviour
     /// <summary>
     /// 显示游戏结束面板
     /// </summary>
-    public void ShowEndGame(long game_random_seed, Dictionary<string, Dictionary<string, object>> player_final_data)
+    public void ShowEndGame(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data)
     {
-        EndGamePanel.Instance.ShowGameEndPanel(game_random_seed, player_final_data);
+        EndGamePanel.Instance.ShowGameEndPanel(master_seed, commitment, salt, player_final_data);
     }
 
     /// <summary>

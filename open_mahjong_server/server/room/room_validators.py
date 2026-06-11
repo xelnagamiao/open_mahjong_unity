@@ -1,12 +1,14 @@
 from pydantic import BaseModel, validator
-from typing import List, Optional
+from typing import List, Optional, Union
+
+from ..gamestate.public.random_seed_manager import parse_user_master_seed
 
 class GBRoomValidator(BaseModel):
     room_name: str
     game_round: int
     round_timer: int
     step_timer: int
-    random_seed: int
+    random_seed: Union[int, str] = 0
     open_cuohe: bool = False
     show_moqie_hint: bool = False
     tactical_call: bool = False
@@ -37,30 +39,17 @@ class GBRoomValidator(BaseModel):
     
     @validator('random_seed')
     def validate_random_seed(cls, v):
-        if v is None:
-            return 0
-        if isinstance(v, int):
-            if v < 0:
-                raise ValueError('随机种子不能为负数')
-            return v
-        if isinstance(v, str):
-            v = v.strip()
-            if v == "" or v == "0":
-                return 0
-            if len(v) == 64 and all(c in '0123456789abcdefABCDEF' for c in v):
-                return int(v, 16)
-            try:
-                return int(v)
-            except ValueError:
-                raise ValueError('随机种子必须是整数或十六进制字符串')
-        raise ValueError('随机种子类型无效')
+        try:
+            return parse_user_master_seed(v)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
 
 class RiichiRoomValidator(BaseModel):
     room_name: str
     game_round: int
     round_timer: int
     step_timer: int
-    random_seed: int
+    random_seed: Union[int, str] = 0
     open_cuohe: bool = False
     show_moqie_hint: bool = False
     hepai_limit: int = 1  # 自定义起和番数，低于此番数视为错和（仅在 open_cuohe=True 时触发罚分）
@@ -96,23 +85,10 @@ class RiichiRoomValidator(BaseModel):
 
     @validator('random_seed')
     def validate_random_seed(cls, v):
-        if v is None:
-            return 0
-        if isinstance(v, int):
-            if v < 0:
-                raise ValueError('随机种子不能为负数')
-            return v
-        if isinstance(v, str):
-            v = v.strip()
-            if v == "" or v == "0":
-                return 0
-            if len(v) == 64 and all(c in '0123456789abcdefABCDEF' for c in v):
-                return int(v, 16)
-            try:
-                return int(v)
-            except ValueError:
-                raise ValueError('随机种子必须是整数或十六进制字符串')
-        raise ValueError('随机种子类型无效')
+        try:
+            return parse_user_master_seed(v)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
 
     @validator('hepai_way')
     def validate_hepai_way(cls, v):

@@ -47,6 +47,7 @@ from ..public.round_end_timing import (
 )
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.game_record_manager import (
+    capture_player_entry_order,
     init_game_record,
     init_game_round,
     player_action_record_deal,
@@ -331,6 +332,7 @@ class RiichiGameState:
     async def game_loop_riichi(self):
         user_seed = self.room_random_seed if self.room_random_seed else None
         self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
+        capture_player_entry_order(self)
         # 随机座位
         rng = random.Random(self.master_seed)
         rng.shuffle(self.player_list)
@@ -810,6 +812,8 @@ class RiichiGameState:
             return self._langyong_multiplier(payer_index, winner_index) if langyong else 1
 
         score_changes = {i: 0 for i in range(4)}
+        langyong_multiplier = None
+        langyong_scored_points = None
         if self.hu_class == "hu_self":
             # 自摸：每家支付，本场每家 +100
             if is_dealer_win:
@@ -836,6 +840,37 @@ class RiichiGameState:
             total = score_info.get("main", 0) * _mult(loser_index)
             score_changes[loser_index] -= total + self.honba * 300
             score_changes[winner_index] += total + self.honba * 300
+
+        if langyong:
+            scored = 0
+            max_mult = 1
+            if self.hu_class == "hu_self":
+                if is_dealer_win:
+                    main_each = score_info.get("main", 0)
+                    for i in range(4):
+                        if i == winner_index:
+                            continue
+                        m = _mult(i)
+                        max_mult = max(max_mult, m)
+                        scored += main_each * m
+                else:
+                    main = score_info.get("main", 0)
+                    add = score_info.get("additional", 0)
+                    for i in range(4):
+                        if i == winner_index:
+                            continue
+                        base = main if i == 0 else add
+                        m = _mult(i)
+                        max_mult = max(max_mult, m)
+                        scored += base * m
+            else:
+                loser_index = self.current_player_index
+                m = _mult(loser_index)
+                max_mult = m
+                scored = score_info.get("main", 0) * m
+            if max_mult > 1:
+                langyong_multiplier = max_mult
+                langyong_scored_points = scored
 
         # 场供立直棒给予胜者
         collected = self.riichi_sticks
@@ -892,6 +927,8 @@ class RiichiGameState:
             honba=self.honba,
             riichi_sticks_collected=collected,
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
+            langyong_multiplier=langyong_multiplier,
+            langyong_scored_points=langyong_scored_points,
             silent=True,
         )
 

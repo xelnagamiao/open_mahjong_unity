@@ -31,16 +31,19 @@ public partial class NormalGameStateManager {
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
     public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null){
         TryResumeAfterCuoheContinue();
-        // 立直麻将涉赤 5 的吃牌候选（键：方向，值：每条候选两张真实牌 ID）
         chiCandidates = chi_candidates ?? new Dictionary<string, int[][]>();
-        // 询问鸣牌时不属于自家手牌行动阶段，清空立直/食替缓存防止旧值干扰可点状态
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();
-        // 如果列表中有服务器提供的可用操作，则显示倒计时
+        IsQiangGangAsk = pendingAskFromJiagang;
         if (action_list.Length > 0){
             allowActionList = BuildMingPaiAllowActionList(action_list);
             SwitchCurrentPlayer("self","askMingPaiAction",remaining_time);
         }
+    }
+
+    private void ClearQiangGangAskState() {
+        IsQiangGangAsk = false;
+        pendingAskFromJiagang = false;
     }
 
     // 执行行动
@@ -88,6 +91,7 @@ public partial class NormalGameStateManager {
                 
                 // 切牌
                 case "cut": 
+                    pendingAskFromJiagang = false;
                     lastCutCardID = cut_tile.Value; // 存储上次切牌的ID
                     lastDiscardPlayerPosition = GetCardPlayer;
                     player_to_info[GetCardPlayer].discard_tiles.Add(cut_tile.Value); // 存储弃牌
@@ -134,6 +138,7 @@ public partial class NormalGameStateManager {
                 // 吃碰杠
                 case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang": case "peng": case "gang":
                     if (action == "jiagang"){
+                        pendingAskFromJiagang = true;
                         // 加杠情况下收到的combination_target是原本刻子的字符串
                         // 替换combination_target的首字符改为加杠字符串
                         string combination_target_str = combination_target.Substring(1);

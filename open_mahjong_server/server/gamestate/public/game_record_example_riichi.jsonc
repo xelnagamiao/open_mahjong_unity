@@ -3,12 +3,14 @@
     "rule": "riichi",
     "room_type": "custom",
     "sub_rule": "riichi/standard",
-    "game_random_seed": 9988776655,
+    "commitment_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "salt": "abcdef0123456789abcdef0123456789",
     "max_round": 2,
     "hepai_limit": 1,
     "open_cuohe": false,
     "tips": false,
     "is_player_set_random_seed": false,
+    "player_entry_order": [10000034, 10000031, 10000032, 10000033],
     "red_dora": true,
     "hepai_way": "head_bump",
     "p0_uid": 10000031,
@@ -24,7 +26,6 @@
     "round_index_1": {
       "round_index": 1,
       "current_round": 1,
-      "round_random_seed": 22000001,
       "seats": [0, 1, 2, 3],
       "dealer_index": 0,
       "start_player_index": 0,
@@ -54,20 +55,23 @@
         ["c", 21, "F"], //切牌 [c, tile_id, T|F]
         ["c", 21, "F", "H"], //立直横置切牌 [c, tile_id, T|F, H]
         ["gd", 41], //杠后摸牌 [gd, tile_id]
-        ["cl", 22, 1], //吃左 [cl, tile_id, action_player]
-        ["cm", 23, 2], //吃中 [cm, tile_id, action_player]
-        ["cr", 25, 3], //吃右 [cr, tile_id, action_player]
-        ["p", 37, 1], //碰 [p, tile_id, action_player]
-        ["g", 38, 2], //明杠 [g, tile_id, action_player]
-        ["ag", 11], //暗杠 [ag, tile_id, T摸杠|F手杠]
-        ["jg", 37], //加杠 [jg, tile_id, T摸杠|F手杠]
+        ["cl", 22, 1, 20, 21], //吃左 [cl, tile_id, action_player, h1, h2]（示意）
+        ["cl", 16, 1, 14, 105], //吃左·含赤5万：打16(6万)，手牌14(4万)+105(赤5万) → 456万
+        ["cr", 14, 2, 105, 16], //吃右·含赤5万：打14(4万)，手牌105(赤5万)+16(6万) → 456万
+        ["cm", 105, 3, 14, 16], //吃中·被鸣牌为赤5万：打105，手牌14+16（中间位只能是5，手牌不能出第二个5）
+        ["cr", 25, 3, 26, 27], //吃右 [cr, tile_id, action_player, h1, h2]
+        ["p", 25, 1, 25, 205], //碰·含赤5饼：打25，手牌25+205
+        ["g", 35, 2, 35, 35, 305], //明杠·含赤5索：打35，手牌35+35+305
+        ["ag", 11, "F"], //暗杠手杠 [ag, tile_id, F]
+        ["ag", 15, "T"], //暗杠摸杠（tile_id 为归一化5万；mask 中可含105）
+        ["jg", 37, "F"], //加杠手杠 [jg, tile_id, F]
+        ["jg", 37, "T"], //加杠摸杠 [jg, tile_id, T]
         ["end"] //本局结束 [end]
       ]
     },
     "round_index_2": {
       "round_index": 2,
       "current_round": 1,
-      "round_random_seed": 22000002,
       "seats": [0, 1, 2, 3],
       "dealer_index": 0,
       "start_player_index": 0,

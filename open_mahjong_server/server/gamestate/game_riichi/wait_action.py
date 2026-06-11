@@ -24,6 +24,7 @@ from ..public.game_record_manager import (
 from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import (
     clear_draw_slot,
+    hand_contains_tile,
     has_draw_slot,
     pick_timeout_discard_tile,
     remove_angang_tiles,
@@ -66,7 +67,7 @@ def _is_valid_cut_action(self, player_index: int, action_data: dict) -> bool:
         return True
     player = self.player_list[player_index]
     tile_id = action_data.get("TileId")
-    if tile_id not in player.hand_tiles:
+    if not hand_contains_tile(player.hand_tiles, tile_id):
         logger.warning(f"丢弃非法切牌：tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
         return False
     if _is_kuikae_forbidden_cut(player, tile_id):
@@ -386,7 +387,8 @@ async def wait_action(self):
                     self.player_list[player_index].combination_mask.append(combination_mask)
                     clear_draw_slot(self.player_list[player_index])
                     self.current_player_index = player_index
-                    player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id, action_player=player_index)
+                    player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id,
+                                                     action_player=player_index, combination_mask=combination_mask)
                     await broadcast_do_action(self, action_list=[action_type], action_player=self.current_player_index,
                                               combination_mask=combination_mask, combination_target=combination_target)
                     if self.sync_furiten_tags():
@@ -494,15 +496,17 @@ async def _broadcast_hu_and_end(self, player_index: int, action_type: str, tile_
 
 
 async def _do_cut(self, player_index: int, action_data: dict, is_riichi: bool):
-    tile_id = action_data.get("TileId")
     player = self.player_list[player_index]
-    if tile_id not in player.hand_tiles:
-        logger.error(f"tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
-        raise ValueError("非法切牌")
-    if _is_kuikae_forbidden_cut(player, tile_id):
-        logger.error(f"player {player_index} 试图食替切回禁牌 {tile_id}, forbidden={player.kuikae_forbidden_tiles}")
+    if _is_kuikae_forbidden_cut(player, action_data.get("TileId")):
+        logger.error(
+            f"player {player_index} 试图食替切回禁牌 {action_data.get('TileId')}, "
+            f"forbidden={player.kuikae_forbidden_tiles}"
+        )
         return False
-    removed, is_moqie, cut_tile_index = await apply_player_cut(self, player_index, action_data)
+    cut_result = await apply_player_cut(self, player_index, action_data)
+    if cut_result is None:
+        return False
+    removed, is_moqie, cut_tile_index = cut_result
     return await _execute_cut(
         self, player_index, removed, is_moqie, cut_tile_index, is_riichi=is_riichi, already_removed=True
     )
@@ -521,13 +525,20 @@ async def _execute_cut(
     立直家被鸣后续切的牌也需横置，由 player.riichi_marker_pending 触发——和 is_riichi 任一为真都会让本次弃牌标记为横置。"""
     player = self.player_list[player_index]
     if not already_removed:
-        if tile_id not in player.hand_tiles:
+        if not hand_contains_tile(player.hand_tiles, tile_id):
             logger.error(f"tile_id {tile_id} 不在玩家{player_index}手牌 {player.hand_tiles}")
-            raise ValueError("非法切牌")
+            return False
         if _is_kuikae_forbidden_cut(player, tile_id):
             logger.error(f"player {player_index} 试图食替切回禁牌 {tile_id}, forbidden={player.kuikae_forbidden_tiles}")
             return False
-        tile_id = remove_cut_tile(player.hand_tiles, tile_id, is_moqie, draw_slot=has_draw_slot(player))
+        removed = remove_cut_tile(
+            player.hand_tiles, tile_id, is_moqie, draw_slot=has_draw_slot(player)
+        )
+        if removed is None:
+            logger.error(f"remove_cut_tile 失败 player={player_index} tile_id={tile_id}")
+            return False
+        tile_id = removed
+        clear_draw_slot(player)
 
     horizontal_flag = bool(is_riichi or player.riichi_marker_pending)
 

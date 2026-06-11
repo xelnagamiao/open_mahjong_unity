@@ -43,6 +43,7 @@ import {
   Reading,
   Document,
   Link,
+  Key,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -112,6 +113,15 @@ const features = ref([
     color: '#a78bfa',
     type: 'route',
     route: '/rulebook',
+  },
+  {
+    id: 9,
+    title: '随机种子验证',
+    description: '输入对局公布的主种子与盐值，在本地复现随机座位与每局配牌，验证服务器未更换种子。',
+    icon: Key,
+    color: '#e6a23c',
+    type: 'route',
+    route: '/seed-verify',
   },
   {
     id: 7,

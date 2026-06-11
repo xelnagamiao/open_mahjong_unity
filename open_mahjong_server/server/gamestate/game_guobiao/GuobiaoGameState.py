@@ -23,7 +23,7 @@ from ..public.next_game_round import next_game_round_switchseat
 from ..public.round_end_timing import liuju_ready_wait_seconds
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -256,6 +256,8 @@ class GuobiaoGameState:
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
+                    from ..public.game_record_manager import build_player_entry_order_fields
+                    base_game_info.update(build_player_entry_order_fields(self))
                     
                     # 构建玩家信息列表
                     from .combination_mask_view import get_combination_fields_for_viewer
@@ -353,6 +355,7 @@ class GuobiaoGameState:
             
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
             
+            capture_player_entry_order(self)
             # 房间初始化 打乱玩家顺序（基于主种子）
             # 测试时不打乱玩家顺序
             # 使用随机种子创建独立的随机数生成器来打乱玩家顺序
@@ -367,6 +370,7 @@ class GuobiaoGameState:
         else:
             # 测试
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system()
+            capture_player_entry_order(self)
             # 测试时不打乱玩家顺序
             for index, player in enumerate[GuobiaoPlayer](self.player_list):
                 player.player_index = index
@@ -669,6 +673,8 @@ class GuobiaoGameState:
                 he_combination_mask = self.player_list[hepai_player_index].combination_mask
 
                 score_changes_dict = build_score_changes_dict(self.player_list, scores_before)
+                from .combination_mask_view import build_revealed_angang_masks
+                revealed_angang = build_revealed_angang_masks(self.player_list)
 
                 # 广播和牌结算结果
                 await broadcast_result(self,
@@ -681,6 +687,7 @@ class GuobiaoGameState:
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = he_combination_mask, # 和牌玩家组合掩码
                                        score_changes = score_changes_dict,
+                                       revealed_angang_masks = revealed_angang,
                                        )
                 # 显示和牌传参
                 print(f"hu_class: {self.hu_class}, result_dict: {self.result_dict}")
@@ -692,6 +699,8 @@ class GuobiaoGameState:
             else:
                 self.hu_class = "liuju"
                 liuju_score_changes = build_score_changes_dict(self.player_list, scores_before)
+                from .combination_mask_view import build_revealed_angang_masks
+                revealed_angang = build_revealed_angang_masks(self.player_list)
                 await broadcast_result(self,
                                        hepai_player_index = None, # 和牌玩家索引
                                        player_to_score = None, # 所有玩家分数
@@ -702,6 +711,7 @@ class GuobiaoGameState:
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = None, # 和牌玩家组合掩码
                                        score_changes = liuju_score_changes,
+                                       revealed_angang_masks = revealed_angang,
                                        )
 
             record_fulu_rounds_for_players(self.player_list)

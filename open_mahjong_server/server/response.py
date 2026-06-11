@@ -50,6 +50,7 @@ class GameInfo(BaseModel):
     show_moqie_hint: Optional[bool] = False  # 是否显示手摸切灰显（河牌摸切灰、手切正常，默认关）
     tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
+    player_entry_order: Optional[List[int]] = None  # shuffle 前对局入场顺序 user_id[4]
     players_info: List[PlayerInfo]
     self_hand_tiles: Optional[List[int]] = None
     # 立直麻将专用字段
@@ -143,6 +144,11 @@ class Show_result_info(BaseModel):
     exhaustive_penalty: Optional[bool] = None
     # 战术鸣牌（国标/青雀）：silent 标志和牌字体动画与音效已由战术鸣牌申请阶段播放，本次结算跳过 ShowActionDisplay/PlayActionSound
     silent: Optional[bool] = None
+    # 国标局终亮杠：{player_index: [[2,tile,2,tile,2,tile,2,tile], ...]}，错和不传
+    revealed_angang_masks: Optional[Dict[int, List[List[int]]]] = None
+    # 浪涌麻将：和牌基础点乘倍数后的收分（不含本场/供托）；倍数已含浪潮 +1
+    langyong_multiplier: Optional[int] = None
+    langyong_scored_points: Optional[int] = None
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
