@@ -116,6 +116,7 @@ public class EndResultPanel : MonoBehaviour {
         currentState = StateGame;
         gameObject.SetActive(true);
         FanCountTotalPanel.SetActive(false);
+        EndButton.gameObject.SetActive(true);
         EndButton.interactable = false;
         EndButtonText.text = "确定";
 

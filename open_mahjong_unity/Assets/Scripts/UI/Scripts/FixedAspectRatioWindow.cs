@@ -202,8 +202,10 @@ public class FixedAspectRatio : MonoBehaviour {
     }
 
     private void ApplyCameraViewport() {
-        bool shouldLetterbox = IsWindowMaximized();
-        Rect targetRect = shouldLetterbox ? GetTargetViewport(Screen.width / (float)Screen.height) : new Rect(0f, 0f, 1f, 1f);
+        bool shouldLetterbox = ShouldLetterbox();
+        float aspect = Screen.width / (float)Screen.height;
+        if (aspect < 1f) aspect = 1f / aspect;
+        Rect targetRect = shouldLetterbox ? GetTargetViewport(aspect) : new Rect(0f, 0f, 1f, 1f);
 
         currentCameraRect = targetRect;
         Camera[] cameras = GetTargetCameras();
@@ -301,9 +303,11 @@ public class FixedAspectRatio : MonoBehaviour {
         return rect.bottom - rect.top;
     }
 
-    private bool IsWindowMaximized() {
+    private bool ShouldLetterbox() {
 #if USE_WINAPI
         return IsZoomed(hwnd);
+#elif UNITY_ANDROID
+        return true;
 #else
         return false;
 #endif

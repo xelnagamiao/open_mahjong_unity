@@ -11,6 +11,11 @@
         <p>salasasa 麻将平台测试群：906497522</p>
         <p>open mahjong unity 项目交流：1084537740</p>
         <p>网站管理员：Q1448826180</p>
+        <p>
+          <button type="button" class="footer-link" @click="openMobileDownload">
+            Android 手机版下载
+          </button>
+        </p>
       </div>
 
       <div class="footer-section">
@@ -28,6 +33,11 @@
 </template>
 
 <script setup>
+import { promptMobileDownload } from '@/utils/mobileDownload'
+
+const openMobileDownload = () => {
+  promptMobileDownload()
+}
 </script>
 
 <style scoped>
@@ -66,6 +76,21 @@
   line-height: 1.75;
   font-size: 17px;
   color: #dfe6e9;
+}
+
+.footer-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #5dade2;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footer-link:hover {
+  color: #85c1e9;
 }
 
 .footer-bottom {

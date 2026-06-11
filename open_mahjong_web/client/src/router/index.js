@@ -17,6 +17,7 @@ import AdminUserDetail from '@/views/admin/UserDetail.vue'
 import AdminRank from '@/views/admin/Rank.vue'
 import AdminGames from '@/views/admin/Games.vue'
 import AdminAudit from '@/views/admin/Audit.vue'
+import { promptMobileDownload } from '@/utils/mobileDownload'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -91,6 +92,15 @@ const routes = [
       return false
     },
     meta: { title: 'GitHub 项目 - salasasa.cn' }
+  },
+  {
+    path: '/mobile-download',
+    name: 'MobileDownload',
+    beforeEnter: () => {
+      promptMobileDownload()
+      return false
+    },
+    meta: { title: '手机版下载 - salasasa.cn' }
   },
   {
     path: '/admin/login',

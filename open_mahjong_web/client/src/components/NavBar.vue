@@ -20,6 +20,11 @@
           <span>对战平台</span>
         </el-menu-item>
 
+        <el-menu-item index="/mobile-download">
+          <el-icon><Iphone /></el-icon>
+          <span>手机版</span>
+        </el-menu-item>
+
         <el-menu-item index="/github">
           <el-icon><Link /></el-icon>
           <span>GitHub</span>
@@ -77,6 +82,7 @@ import {
   Document,
   Link,
   Key,
+  Iphone,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -86,6 +92,7 @@ const activeMenu = computed(() => {
   if (p === '/' || p === '') return '/'
   if (p.startsWith('/rulebook')) return '/rulebook'
   if (p === '/github') return '/github'
+  if (p === '/mobile-download') return '/mobile-download'
   return p
 })
 </script>
