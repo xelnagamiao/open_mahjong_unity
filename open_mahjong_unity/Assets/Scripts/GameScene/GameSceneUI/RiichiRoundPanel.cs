@@ -4,17 +4,16 @@ using UnityEngine;
 
 /// <summary>
 /// 立直麻将专用轮数面板。
-/// 除常规规则/圈局/随机种子显示外，展示：
+/// 除常规规则/圈局外，展示：
 /// - 本场棒数（honba）/ 场供立直棒数（riichi sticks）
 /// - 宝牌指示槽位（固定 N 个，N 由 inspector 拖入的 StaticCard 数量决定；未翻开的位置显示牌背 0）
-/// - 和牌方式（头跳 / 允许多家和牌 / 三家和流局）/ 是否启用赤宝牌
+/// 承诺值 / 盐值由 RoundPanel 统管，点击 RoundPanel 区域后另行展示。
 /// </summary>
 public class RiichiRoundPanel : MonoBehaviour {
     [Header("房间信息显示")]
     [SerializeField] private TMP_Text ruleText;
     [SerializeField] private TMP_Text GameRoundText;
     [SerializeField] private TMP_Text roomNowRoundText;
-    [SerializeField] private TMP_Text randomSeedText;
 
     [Header("场况显示：数量")]
     [Tooltip("场供立直棒（1000点棒）数量，显示如 x0 / x1")]
@@ -48,14 +47,11 @@ public class RiichiRoundPanel : MonoBehaviour {
             }
         }
 
-        if (randomSeedText != null) randomSeedText.text = $"{gameInfo.round_random_seed}";
-
         int honba = gameInfo.honba ?? 0;
         int sticks = gameInfo.riichi_sticks ?? 0;
         var indicators = gameInfo.dora_indicators != null
             ? new List<int>(gameInfo.dora_indicators)
             : new List<int>();
-        // 服务器杠宝牌指示通过追加到 dora_indicators 末尾体现（1 张默认 + N 张杠宝）
         if (gameInfo.kan_dora_indicators != null) {
             foreach (int t in gameInfo.kan_dora_indicators) indicators.Add(t);
         }

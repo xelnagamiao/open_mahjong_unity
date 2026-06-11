@@ -39,7 +39,7 @@ def _player_to_tag_list_for_viewer(player_list, viewer_player_index: int) -> dic
 
 
 def _build_base_game_info(self) -> dict:
-    return {
+    info = {
         "room_id": self.room_id,
         "gamestate_id": self.gamestate_id,
         "tips": self.tips,
@@ -66,6 +66,9 @@ def _build_base_game_info(self) -> dict:
         "hepai_way": self.hepai_way,
         "red_dora": self.red_dora,
     }
+    from ..public.game_record_manager import build_player_entry_order_fields
+    info.update(build_player_entry_order_fields(self))
+    return info
 
 
 def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dict:
@@ -282,6 +285,8 @@ async def broadcast_result(
     tenpai_tiles: Optional[Dict[int, List[int]]] = None,
     tenpai_hands: Optional[Dict[int, List[int]]] = None,
     exhaustive_penalty: Optional[bool] = None,
+    langyong_multiplier: Optional[int] = None,
+    langyong_scored_points: Optional[int] = None,
     silent: bool = False,
 ):
     self.server_action_tick += 1
@@ -318,6 +323,8 @@ async def broadcast_result(
                     tenpai_tiles=tenpai_tiles,
                     tenpai_hands=tenpai_hands,
                     exhaustive_penalty=exhaustive_penalty,
+                    langyong_multiplier=langyong_multiplier,
+                    langyong_scored_points=langyong_scored_points,
                     silent=True if silent else None,
                 ),
             )

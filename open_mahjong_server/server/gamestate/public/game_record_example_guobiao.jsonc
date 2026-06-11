@@ -3,12 +3,14 @@
     "rule": "guobiao",
     "room_type": "custom",
     "sub_rule": "guobiao/standard",
-    "game_random_seed": 4212994277,
+    "commitment_hex": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "salt": "0123456789abcdef0123456789abcdef",
     "max_round": 2,
     "hepai_limit": 8,
     "open_cuohe": false,
     "tips": true,
     "is_player_set_random_seed": false,
+    "player_entry_order": [10000004, 10000001, 10000002, 10000003],
     "p0_uid": 10000001,
     "p0_name": "玩家A",
     "p1_uid": 10000002,
@@ -22,7 +24,6 @@
     "round_index_1": {
       "round_index": 1,
       "current_round": 1,
-      "round_random_seed": 4068050480,
       "seats": [0, 1, 2, 3],
       "dealer_index": 0,
       "start_player_index": 0,
@@ -43,20 +44,21 @@
         ["d", 21], //摸牌 [d, tile_id]
         ["c", 21, "F"], //切牌 [c, tile_id, T摸切|F手切]
         ["gd", 41], //杠后摸牌 [gd, tile_id]
-        ["cl", 22, 1], //吃左 [cl, tile_id, action_player]
-        ["cm", 23, 2], //吃中 [cm, tile_id, action_player]
-        ["cr", 25, 3], //吃右 [cr, tile_id, action_player]
-        ["p", 37, 1], //碰 [p, tile_id, action_player]
-        ["g", 38, 2], //明杠 [g, tile_id, action_player]
-        ["ag", 11], //暗杠 [ag, tile_id, T摸杠|F手杠]
-        ["jg", 37], //加杠 [jg, tile_id, T摸杠|F手杠]
+        ["cl", 22, 1, 20, 21], //吃左 [cl, tile_id, action_player, h1, h2]
+        ["cm", 23, 2, 22, 24], //吃中 [cm, tile_id, action_player, h1, h2]
+        ["cr", 25, 3, 26, 27], //吃右 [cr, tile_id, action_player, h1, h2]
+        ["p", 37, 1, 37, 37], //碰 [p, tile_id, action_player, h1, h2]
+        ["g", 38, 2, 38, 38, 38], //明杠 [g, tile_id, action_player, h1, h2, h3]
+        ["ag", 11, "F"], //暗杠手杠 [ag, tile_id, F]
+        ["jg", 37, "F"], //加杠手杠 [jg, tile_id, F]
+        ["ag", 11, "T"], //暗杠摸杠 [ag, tile_id, T]
+        ["jg", 37, "T"], //加杠摸杠 [jg, tile_id, T]
         ["end"] //本局结束 [end]（错和罚分后无 end，对局继续）
       ]
     },
     "round_index_2": {
       "round_index": 2,
       "current_round": 2,
-      "round_random_seed": 1752449488,
       "seats": [3, 0, 1, 2],
       "dealer_index": 0,
       "start_player_index": 0,

@@ -55,6 +55,9 @@ public class RoomListPanel : MonoBehaviour {
 
     // 1.点击创建房间按钮 打开房间面板
     private void OpenCreatePanel() {
+        if (LobbyStateGuard.BlockIfInMatchQueueForRoom()) {
+            return;
+        }
         if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
             NotificationManager.Instance.ShowTip("create_room", false, "必须先退出当前房间才能创建房间");
             return;
@@ -65,6 +68,9 @@ public class RoomListPanel : MonoBehaviour {
 
     // 2.点击加入房间按钮 加入房间
     private void JoinRoom() {
+        if (LobbyStateGuard.BlockIfInMatchQueueForRoom()) {
+            return;
+        }
         if (string.IsNullOrEmpty(RoomIdInput.text)) {
             NotificationManager.Instance.ShowTip("tips",false,"房间ID不能为空");
             return;
@@ -116,6 +122,9 @@ public class RoomListPanel : MonoBehaviour {
     // 接收到房间预制体的加入房间点击事件和预制体的roomid,needPassword
     // 如果需要密码 则打开密码输入面板 并保存roomId 否则直接调用joinRoom
     public void JoinClicked(string roomId, bool needPassword) {
+        if (LobbyStateGuard.BlockIfInMatchQueueForRoom()) {
+            return;
+        }
         if (needPassword) {
             this.roomId = roomId;
             passwordInputPanel.Show();

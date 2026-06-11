@@ -135,3 +135,8 @@ def next_game_round_random_switchseat(self, keep_current_round: bool = False, ke
             p.player_index = idx
 
     self.player_list.sort(key=lambda x: x.player_index)
+
+
+def next_game_round_qingque_switchseat(self):
+    """青雀：每局 back 轮转；5/9/13 风圈切换时用 derive_round_seed 随机重排座位。"""
+    next_game_round_random_switchseat(self)

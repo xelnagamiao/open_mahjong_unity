@@ -3,7 +3,8 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false) {
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null) {
+        lastGuobiaoEndExtras = guobiaoExtras;
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         // 隐藏和牌提示
@@ -236,13 +237,13 @@ public partial class NormalGameStateManager {
     }
 
     // 游戏结束
-    public void GameEnd(long game_random_seed, Dictionary<string, Dictionary<string, object>> player_final_data){
+    public void GameEnd(string master_seed, string commitment, string salt, Dictionary<string, Dictionary<string, object>> player_final_data){
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
         IsGameActive = false;
         SwitchSeatPanel.Instance.ClearSwitchSeatPanel();
         IsSelfActionRequired = false;
         TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
-        RoundEndPresentation.Instance.PresentEndGame(game_random_seed, player_final_data);
+        RoundEndPresentation.Instance.PresentEndGame(master_seed, commitment, salt, player_final_data);
     }
 }

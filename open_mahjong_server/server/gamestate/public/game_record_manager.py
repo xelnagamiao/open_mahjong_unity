@@ -1,6 +1,19 @@
 from typing import Dict, Any, List
 from datetime import date, datetime
 
+
+def capture_player_entry_order(gs) -> None:
+    """在 master_seed shuffle 前调用，记录对局入场顺序（自定义房/匹配通用，供验证随机座位）。"""
+    gs.player_entry_order = [p.user_id for p in gs.player_list]
+
+
+def build_player_entry_order_fields(gs) -> Dict[str, Any]:
+    """GameInfo / 牌谱共用的 shuffle 前玩家入场顺序字段。"""
+    order = getattr(gs, "player_entry_order", None)
+    if order and len(order) == 4:
+        return {"player_entry_order": list(order)}
+    return {}
+
 """
 # 牌谱格式示例
 # 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌 bh=补花 c=切牌 ag=暗杠(第3段 T=摸杠/F=手杠) jg=加杠(第3段 T=摸杠/F=手杠) cl/cm/cr=吃 p=碰 g=明杠
@@ -28,11 +41,9 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         "room_type": gs.room_type,
         # sub_rule: 子规则，如 guobiao/standard、riichi/standard
         "sub_rule": getattr(gs, "sub_rule", None),
-        # master_seed_hex: 主种子，64 位 hex 字符串
-        "master_seed_hex": format(gs.master_seed, '064x'),
-        # commitment_hex: 承诺值，64 位 hex 字符串
+        # commitment_hex: 承诺值，64 位 hex 字符串（对局内广播，用于事后验证）
         "commitment_hex": format(gs.commitment, '064x'),
-        # salt: 盐字符串
+        # salt: 盐字符串（128 位 hex）
         "salt": gs.salt,
         # max_round: 风圈数（1=东风、2=半庄、4=全庄）
         "max_round": gs.max_round,
@@ -67,7 +78,11 @@ def build_game_title_data(gs) -> Dict[str, Any]:
     match_queue_type = getattr(gs, "match_queue_type", None)
     if match_queue_type:
         title["match_queue_type"] = match_queue_type
-    # p0_uid … p3_uid / p0_name … p3_name: 原始座位 0～3 的用户 ID 与用户名（整局不变）
+    # player_entry_order: shuffle 前对局入场顺序（user_id[4]，用于验证 master_seed 随机座位）
+    player_entry_order = getattr(gs, "player_entry_order", None)
+    if player_entry_order and len(player_entry_order) == 4:
+        title["player_entry_order"] = list(player_entry_order)
+    # p0_uid … p3_uid / p0_name … p3_name: 随机座位分配后的 original 0～3（整局不变）
     for i, player in enumerate(gs.player_list):
         title[f"p{i}_uid"] = player.user_id
         title[f"p{i}_name"] = player.username
@@ -90,7 +105,6 @@ def build_round_header_data(gs) -> Dict[str, Any]:
     for p in gs.player_list:
         seats[p.original_player_index] = p.player_index
     round_data: Dict[str, Any] = {
-        "round_random_seed": gs.round_random_seed,
         "current_round": gs.current_round,
         "seats": seats,
         "dealer_index": 0,
@@ -176,13 +190,29 @@ _ACTION_TO_RECORD = {
     "peng": "p", "gang": "g",
 }
 
-# 牌谱记录吃碰杠牌
-def player_action_record_chipenggang(self,action_type: str,mingpai_tile: int,action_player: int):
+def _extract_hand_tiles_from_mingpai_mask(combination_mask, mingpai_tile: int):
+    """从 combination_mask 提取从手牌打出的真实牌 ID（跳过 direction==1 的被鸣牌位）。"""
+    if not combination_mask:
+        return []
+    hand_tiles = []
+    for i in range(0, len(combination_mask) - 1, 2):
+        if combination_mask[i] == 1:
+            continue
+        tid = combination_mask[i + 1]
+        if isinstance(tid, int) and tid > 10:
+            hand_tiles.append(tid)
+    return hand_tiles
+
+
+# 牌谱记录吃碰杠牌；combination_mask 存在时追加手牌侧真实 ID（含赤 5 的 105/205/305）
+def player_action_record_chipenggang(self, action_type: str, mingpai_tile: int, action_player: int,
+                                     combination_mask=None):
     self.player_action_tick += 1
     record_code = _ACTION_TO_RECORD.get(action_type, action_type)
-    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        [record_code,mingpai_tile,action_player]
-    )
+    entry = [record_code, mingpai_tile, action_player]
+    if combination_mask:
+        entry.extend(_extract_hand_tiles_from_mingpai_mask(combination_mask, mingpai_tile))
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
 # 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes, base_fu?, fu_fan_list?]
 def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,

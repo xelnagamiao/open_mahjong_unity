@@ -3,12 +3,14 @@
     "rule": "classical",
     "room_type": "custom",
     "sub_rule": "classical/standard",
-    "game_random_seed": 5566778899,
+    "commitment_hex": "c0ffee0000000000000000000000000000000000000000000000000000000001",
+    "salt": "fedcba9876543210fedcba9876543210",
     "max_round": 2,
     "hepai_limit": 1,
     "open_cuohe": false,
     "tips": false,
     "is_player_set_random_seed": false,
+    "player_entry_order": [10000024, 10000021, 10000022, 10000023],
     "p0_uid": 10000021,
     "p0_name": "古典东",
     "p1_uid": 10000022,
@@ -22,7 +24,6 @@
     "round_index_1": {
       "round_index": 1,
       "current_round": 1,
-      "round_random_seed": 11000001,
       "seats": [0, 1, 2, 3],
       "dealer_index": 0,
       "start_player_index": 0,
@@ -44,20 +45,21 @@
         ["d", 21], //摸牌 [d, tile_id]
         ["c", 21, "F"], //切牌 [c, tile_id, T|F]
         ["gd", 41], //杠后摸牌 [gd, tile_id]
-        ["cl", 22, 1], //吃左 [cl, tile_id, action_player]
-        ["cm", 23, 2], //吃中 [cm, tile_id, action_player]
-        ["cr", 25, 3], //吃右 [cr, tile_id, action_player]
-        ["p", 37, 1], //碰 [p, tile_id, action_player]
-        ["g", 38, 2], //明杠 [g, tile_id, action_player]
-        ["ag", 11], //暗杠 [ag, tile_id, T摸杠|F手杠]
-        ["jg", 37], //加杠 [jg, tile_id, T摸杠|F手杠]
+        ["cl", 22, 1, 20, 21], //吃左 [cl, tile_id, action_player, h1, h2]
+        ["cm", 23, 2, 22, 24], //吃中 [cm, tile_id, action_player, h1, h2]
+        ["cr", 25, 3, 26, 27], //吃右 [cr, tile_id, action_player, h1, h2]
+        ["p", 37, 1, 37, 37], //碰 [p, tile_id, action_player, h1, h2]
+        ["g", 38, 2, 38, 38, 38], //明杠 [g, tile_id, action_player, h1, h2, h3]
+        ["ag", 11, "F"], //暗杠手杠 [ag, tile_id, F]
+        ["jg", 37, "F"], //加杠手杠 [jg, tile_id, F]
+        ["ag", 11, "T"], //暗杠摸杠 [ag, tile_id, T]
+        ["jg", 37, "T"], //加杠摸杠 [jg, tile_id, T]
         ["end"] //本局结束 [end]
       ]
     },
     "round_index_2": {
       "round_index": 2,
       "current_round": 1,
-      "round_random_seed": 11000002,
       "seats": [0, 1, 2, 3],
       "dealer_index": 0,
       "start_player_index": 0,
@@ -71,7 +73,7 @@
         ["c", 22, "F"],
         ["d", 35],
         ["c", 35, "T"],
-        ["p", 37, 1],
+        ["p", 37, 1, 37, 37], //碰 [p, tile_id, action_player, h1, h2]
         ["c", 36, "F"],
         ["d", 42],
         ["c", 42, "T"],

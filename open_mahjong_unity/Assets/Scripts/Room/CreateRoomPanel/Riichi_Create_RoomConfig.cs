@@ -33,12 +33,8 @@ public class Riichi_Create_RoomConfig {
                 error = "随机种子不能为空";
                 return false;
             }
-            if (!long.TryParse(RandomSeed, out long parsedSeed)) {
-                error = "随机种子是0-4294967295之间的整数";
-                return false;
-            }
-            if (parsedSeed < 0 || parsedSeed > 4294967295) {
-                error = "随机种子是0-4294967295之间的整数";
+            if (!MasterSeedInputValidator.TryNormalizeHex(RandomSeed, out _, out string seedError)) {
+                error = seedError;
                 return false;
             }
         }

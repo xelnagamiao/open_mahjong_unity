@@ -18,8 +18,11 @@ public class EndGamePanel : MonoBehaviour {
 
     [SerializeField] private TextMeshProUGUI gameRandomSeed;
     [SerializeField] private Button goHomeButton;
+    [SerializeField] private Button copyMasterSeedButton;
 
     public static EndGamePanel Instance { get; private set; }
+
+    private string normalizedMasterSeed = "-";
 
     // 排位赛段位变动数据（当前玩家）
     private bool isRankedMatch;
@@ -41,7 +44,9 @@ public class EndGamePanel : MonoBehaviour {
     /// 参数 key 为玩家标识（座位索引），按 rank 升序、原始风位升序、分数降序显示。
     /// </summary>
     public void ShowGameEndPanel(
-        long game_random_seed,
+        string master_seed,
+        string commitment,
+        string salt,
         Dictionary<string, Dictionary<string, object>> player_final_data) {
         gameObject.SetActive(true);
         fadeInEffect?.PlayFadeIn();
@@ -67,8 +72,10 @@ public class EndGamePanel : MonoBehaviour {
             display.rank.text = playerData["rank"].ToString();
             display.pt.text = $"{System.Convert.ToSingle(playerData["pt"]):F1}";
         }
-        // 显示游戏随机种子
-        gameRandomSeed.text = "游戏随机种子: " + game_random_seed.ToString();
+        normalizedMasterSeed = CommitmentSaltDisplay.NormalizeCommitment(master_seed);
+        gameRandomSeed.text = "主种子: " + normalizedMasterSeed
+            + "\n承诺: " + CommitmentSaltDisplay.NormalizeCommitment(commitment)
+            + "\n盐: " + (string.IsNullOrEmpty(salt) ? "-" : salt);
 
         // 检测是否为排位赛（当前玩家有 rank_before 字段）
         isRankedMatch = false;
@@ -91,6 +98,15 @@ public class EndGamePanel : MonoBehaviour {
         // 设置按钮点击事件
         goHomeButton.onClick.RemoveAllListeners();
         goHomeButton.onClick.AddListener(OnGoHomeButtonClick);
+        if (copyMasterSeedButton != null) {
+            copyMasterSeedButton.onClick.RemoveAllListeners();
+            copyMasterSeedButton.onClick.AddListener(OnCopyMasterSeedClick);
+        }
+    }
+
+    private void OnCopyMasterSeedClick() {
+        ClipboardUtility.Copy(normalizedMasterSeed);
+        NotificationManager.Instance.ShowTip("主种子", true, "已复制随机主种子");
     }
 
     private void OnGoHomeButtonClick() {

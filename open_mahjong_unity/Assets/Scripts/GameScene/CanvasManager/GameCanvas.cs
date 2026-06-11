@@ -274,14 +274,12 @@ public partial class GameCanvas : MonoBehaviour {
         int maxRound = ReadIntValue(gameRecord.gameTitle, "max_round", 0);
 
         int currentRound = currentRoundIndex;
-        long roundRandomSeed = 0;
         int honba = 0;
         int riichiSticks = 0;
         if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
             if (roundData.currentRound > 0) {
                 currentRound = roundData.currentRound;
             }
-            roundRandomSeed = roundData.roundRandomSeed;
             if (roundData.riichi != null) {
                 honba = roundData.riichi.honba;
                 riichiSticks = roundData.riichi.riichiSticks;
@@ -295,7 +293,8 @@ public partial class GameCanvas : MonoBehaviour {
             hepai_limit = ReadIntValue(gameRecord.gameTitle, "hepai_limit", 0),
             max_round = maxRound,
             current_round = currentRound,
-            round_random_seed = roundRandomSeed,
+            commitment = CommitmentSaltDisplay.ReadCommitmentFromGameTitle(gameRecord.gameTitle),
+            salt = CommitmentSaltDisplay.ReadSaltFromGameTitle(gameRecord.gameTitle),
             honba = honba,
             riichi_sticks = riichiSticks,
             open_cuohe = ReadBoolValue(gameRecord.gameTitle, "open_cuohe", false),

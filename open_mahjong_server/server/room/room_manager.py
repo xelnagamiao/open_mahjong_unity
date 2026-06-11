@@ -41,6 +41,33 @@ class RoomManager:
             )
         return None
 
+    def _reject_if_in_match_queue(self, user_id: int, action: str = "进入或创建房间") -> Optional[Response]:
+        """匹配等待队列中的玩家不可创建/加入房间。"""
+        match_manager = getattr(self.game_server, "match_manager", None)
+        if match_manager and match_manager.is_user_in_queue(user_id):
+            return Response(
+                type="tips",
+                success=False,
+                message="您正在匹配队列中，请先取消匹配再进入或创建房间",
+            )
+        return None
+
+    def _reject_room_entry_conflicts(self, user_id: int, action: str = "进入或创建房间") -> Optional[Response]:
+        blocked = self._reject_if_in_active_game(user_id, action)
+        if blocked:
+            return blocked
+        blocked = self._reject_if_in_match_queue(user_id, action)
+        if blocked:
+            return blocked
+        match_manager = getattr(self.game_server, "match_manager", None)
+        if match_manager and match_manager.is_user_committed(user_id):
+            return Response(
+                type="tips",
+                success=False,
+                message="您已匹配到对局，请完成当前对局后再进入或创建房间",
+            )
+        return None
+
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
                            password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
         try:
@@ -61,7 +88,7 @@ class RoomManager:
                     message="请先登录"
                 )
             host_user_id = player.user_id  # 获取房主ID
-            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
             if blocked:
                 return blocked
             host_name = player.username  # 获取房主名（用于显示）
@@ -141,6 +168,7 @@ class RoomManager:
 
             # 将房间数据尾 添加到room_data中
             room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             # 存储room_data到房间字典中 如果有密码保存密码
             self.rooms[room_id] = room_data
@@ -192,7 +220,7 @@ class RoomManager:
                     message="请先登录"
                 )
             host_user_id = player.user_id  # 获取房主ID
-            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
             if blocked:
                 return blocked
             host_name = player.username  # 获取房主名（用于显示）
@@ -269,6 +297,7 @@ class RoomManager:
 
             # 将房间数据尾 添加到room_data中
             room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             # 存储room_data到房间字典中 如果有密码保存密码
             self.rooms[room_id] = room_data
@@ -307,7 +336,7 @@ class RoomManager:
             if not player.user_id:
                 return Response(type="tips", success=False, message="请先登录")
             host_user_id = player.user_id
-            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
             if blocked:
                 return blocked
             host_name = player.username
@@ -364,6 +393,7 @@ class RoomManager:
             }
 
             room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             self.rooms[room_id] = room_data
             if has_password:
@@ -405,7 +435,7 @@ class RoomManager:
             if not player.user_id:
                 return Response(type="tips", success=False, message="请先登录")
             host_user_id = player.user_id
-            blocked = self._reject_if_in_active_game(host_user_id, "创建房间")
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
             if blocked:
                 return blocked
             host_name = player.username
@@ -469,6 +499,7 @@ class RoomManager:
             }
 
             room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
 
             self.rooms[room_id] = room_data
             if has_password:
@@ -552,7 +583,7 @@ class RoomManager:
                     message="请先登录"
                 )
 
-            blocked = self._reject_if_in_active_game(player.user_id, "加入房间")
+            blocked = self._reject_room_entry_conflicts(player.user_id, "加入房间")
             if blocked:
                 return blocked
             

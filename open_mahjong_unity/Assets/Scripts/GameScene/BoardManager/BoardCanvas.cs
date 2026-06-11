@@ -35,8 +35,6 @@ public partial class BoardCanvas : MonoBehaviour {
     };
 
     public static BoardCanvas Instance { get; private set; }
-    private Coroutine flashCoroutine; // 闪烁协程
-    private Coroutine scoreDifferenceCoroutine; // 分差显示协程
     private Dictionary<TMP_Text, string> originalScores = new Dictionary<TMP_Text, string>(); // 运行时临时还原用（每次展示前由 baseline 复制）
 
     // 基准分数（永远保存“真实分数”，不允许被分差文本污染）
@@ -164,15 +162,13 @@ public partial class BoardCanvas : MonoBehaviour {
 
     // 显示玩家分数分差
     public void ShowScoreDifference() {
-        // 如果当前正在显示分差，先强制恢复到基准分数，避免“分差文本”被当作原始分数保存
-        if (scoreDifferenceCoroutine != null) {
-            StopCoroutine(scoreDifferenceCoroutine);
-            scoreDifferenceCoroutine = null;
-        }
         RestoreBaselineScores();
-
-        // 启动显示分差的协程（每次点击都重置 3 秒计时）
-        scoreDifferenceCoroutine = StartCoroutine(ShowScoreDifferenceCoroutine());
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance.RunNamed(
+            CoroutineKeys.BoardScoreDifference,
+            ShowScoreDifferenceCoroutine(),
+            restartIfRunning: true
+        );
     }
 
     private IEnumerator ShowScoreDifferenceCoroutine() {
@@ -207,7 +203,6 @@ public partial class BoardCanvas : MonoBehaviour {
         // 恢复基准分数文本
         RestoreBaselineScores();
         isShowingScoreDifference = false;
-        scoreDifferenceCoroutine = null; // 协程结束，清空引用
     }
 
     private void EnsureBaselineScores()
@@ -263,9 +258,8 @@ public partial class BoardCanvas : MonoBehaviour {
     // 更新玩家分数（用于结算后更新计分板）
     public void UpdatePlayerScores(Dictionary<int, int> player_to_score, Dictionary<int, string> indexToPosition) {
         // 如果正在显示分差，先恢复到基准分数
-        if (isShowingScoreDifference && scoreDifferenceCoroutine != null) {
-            StopCoroutine(scoreDifferenceCoroutine);
-            scoreDifferenceCoroutine = null;
+        if (isShowingScoreDifference) {
+            CoroutineManager.Instance?.StopNamed(CoroutineKeys.BoardScoreDifference);
             RestoreBaselineScores();
             isShowingScoreDifference = false;
         }

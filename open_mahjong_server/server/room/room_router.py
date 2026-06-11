@@ -5,22 +5,6 @@ from ..response import Response
 
 logger = logging.getLogger(__name__)
 
-def _parse_seed_value(raw) -> int:
-    """将客户端传入的随机种子统一转为 int"""
-    if raw is None:
-        return 0
-    if isinstance(raw, int):
-        return 0 if raw < 0 else raw
-    s = str(raw).strip()
-    if s == "" or s == "0":
-        return 0
-    if len(s) == 64 and all(c in '0123456789abcdefABCDEF' for c in s):
-        return int(s, 16)
-    try:
-        return int(s)
-    except ValueError:
-        return 0
-
 def _reject_room_entry(game_server, player) -> Optional[Response]:
     """创建/加入房间前的统一拦截：已在房间，或仍在进行中的对局内。"""
     if player.current_room_id:
@@ -45,6 +29,17 @@ def _reject_room_entry(game_server, player) -> Optional[Response]:
             type="tips",
             success=False,
             message="您已匹配到对局，请完成当前对局后再进入或创建房间",
+        )
+    # 正在匹配等待队列中的玩家，禁止创建/加入房间
+    if (
+        player.user_id
+        and getattr(game_server, "match_manager", None)
+        and game_server.match_manager.is_user_in_queue(player.user_id)
+    ):
+        return Response(
+            type="tips",
+            success=False,
+            message="您正在匹配队列中，请先取消匹配再进入或创建房间",
         )
     return None
 
@@ -107,7 +102,7 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         message["roundTimerValue"],
         message["stepTimerValue"],
         message["tips"],
-        _parse_seed_value(message["random_seed"]),
+        message.get("random_seed", 0),
         message["open_cuohe"],
         message.get("sub_rule", "guobiao/standard"),
         message.get("hepai_limit", 8),
@@ -136,7 +131,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message["roundTimerValue"],
         message["stepTimerValue"],
         message["tips"],
-        _parse_seed_value(message["random_seed"]),
+        message.get("random_seed", 0),
         message.get("sub_rule", "qingque/standard"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
@@ -162,7 +157,7 @@ async def handle_create_Classical_room(game_server, Connect_id: str, message: di
         message["roundTimerValue"],
         message["stepTimerValue"],
         message["tips"],
-        _parse_seed_value(message["random_seed"]),
+        message.get("random_seed", 0),
         message.get("sub_rule", "classical/standard"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
@@ -187,7 +182,7 @@ async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict,
         message["roundTimerValue"],
         message["stepTimerValue"],
         message["tips"],
-        _parse_seed_value(message["random_seed"]),
+        message.get("random_seed", 0),
         message.get("sub_rule", "riichi/standard"),
         message.get("open_cuohe", False),
         message.get("hepai_limit", 1),

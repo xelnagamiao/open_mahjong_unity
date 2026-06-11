@@ -106,7 +106,12 @@ public class HeaderPanel : MonoBehaviour {
     }
 
     private void Menu() => WindowsManager.Instance.SwitchWindow("menu");
-    private void Room() => WindowsManager.Instance.SwitchWindow("room");
+    private void Room() {
+        if (!LobbyStateGuard.IsInRoom && LobbyStateGuard.BlockIfInMatchQueueForRoom()) {
+            return;
+        }
+        WindowsManager.Instance.SwitchWindow("room");
+    }
     private void Record() {
         WindowsManager.Instance.SwitchWindow("record");
         DataNetworkManager.Instance?.GetRecordList();
@@ -123,6 +128,9 @@ public class HeaderPanel : MonoBehaviour {
     private void Match() {
         if (UserDataManager.Instance != null && UserDataManager.Instance.IsTourist) {
             NotificationManager.Instance?.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
+            return;
+        }
+        if (LobbyStateGuard.BlockIfInRoomForMatch()) {
             return;
         }
         WindowsManager.Instance.SwitchWindow("match");

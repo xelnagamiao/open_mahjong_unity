@@ -29,6 +29,10 @@ public static class ScoreHistorySettlementHelper {
 
     public static string PickMainFanName(string subRule, string[] huFan) {
         if (huFan == null || huFan.Length == 0) return "";
+        // 错和结算时主番固定为"错和"（国标附在番种末尾，日麻有役错和亦然），不应取最大番。
+        foreach (string fanKey in huFan) {
+            if (fanKey == "错和") return "错和";
+        }
         // 服务端已按番数从大到小排序，花牌乘算项排在末尾；直接取第一个非花牌项即可。
         foreach (string fanKey in huFan) {
             if (ShouldExcludeFromMainFanPick(fanKey)) continue;

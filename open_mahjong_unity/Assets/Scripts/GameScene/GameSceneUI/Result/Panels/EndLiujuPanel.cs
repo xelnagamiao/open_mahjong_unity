@@ -13,6 +13,9 @@ public class EndLiujuPanel : MonoBehaviour {
 
     [SerializeField] private TextMeshProUGUI liujuText;
 
+    [Header("国标局终亮杠（默认隐藏）")]
+    [SerializeField] private TextMeshProUGUI guobiaoAngangCheckText;
+
     [Header("听牌标记容器（按方位）：未听家容器整体隐藏，听牌家容器内填充听张 StaticCard")]
     [SerializeField] private GameObject tenpaiMarkerContainerSelf;
     [SerializeField] private GameObject tenpaiMarkerContainerLeft;
@@ -48,6 +51,7 @@ public class EndLiujuPanel : MonoBehaviour {
             autoHideCoroutine = null;
         }
         if (liujuText != null) liujuText.text = displayText;
+        GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance?.lastGuobiaoEndExtras, null);
         ClearTenpaiMarkers();
         ApplyTenpaiMarkers(tenpaiTilesByPlayerIndex);
         gameObject.SetActive(true);
@@ -67,6 +71,7 @@ public class EndLiujuPanel : MonoBehaviour {
             autoHideCoroutine = null;
         }
         ClearTenpaiMarkers();
+        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
         gameObject.SetActive(false);
     }
 

@@ -155,7 +155,7 @@ public partial class GameRecordManager
         }
         else if (action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") {
             int mingpaiTile = ParseTickInt(tick, 1);
-            List<int> removedTiles = BuildRemovedTilesForMingpai(action, mingpaiTile);
+            List<int> removedTiles = GameRecordMeldCodec.ResolveHandTiles(tick, action, mingpaiTile);
             foreach (int tileId in removedTiles) {
                 RemoveOneTile(actingPlayer.tileList, tileId);
             }
@@ -170,8 +170,9 @@ public partial class GameRecordManager
             }
 
             int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : currentPlayerIndex;
-            int[] combinationMask = BuildMingpaiMask(action, mingpaiTile, actingPlayerIndex, discardPlayerIndex);
-            actingPlayer.combinationTiles.Add(BuildCombinationTarget(action, mingpaiTile));
+            string relative = GetRelativePosition(actingPlayerIndex, discardPlayerIndex);
+            int[] combinationMask = GameRecordMeldCodec.BuildMingpaiMask(action, mingpaiTile, removedTiles, relative);
+            actingPlayer.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingpaiTile));
             actingPlayer.combinationMasks.Add(combinationMask);
             nextPlayerIndex = actingPlayerIndex;
         }

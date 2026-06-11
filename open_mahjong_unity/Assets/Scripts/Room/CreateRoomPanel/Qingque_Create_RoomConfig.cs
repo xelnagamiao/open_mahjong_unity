@@ -27,14 +27,8 @@ public class Qingque_Create_RoomConfig {
                 error = "随机种子不能为空";
                 return false;
             }
-            // 检查是否是纯数字
-            if (!long.TryParse(RandomSeed, out long parsedSeed)) {
-                error = "随机种子是0-4294967295之间的整数";
-                return false;
-            }
-            // 有效随机种子范围是 0 到 2^32 - 1（4,294,967,295）
-            if (parsedSeed < 0 || parsedSeed > 4294967295) {
-                error = "随机种子是0-4294967295之间的整数";
+            if (!MasterSeedInputValidator.TryNormalizeHex(RandomSeed, out _, out string seedError)) {
+                error = seedError;
                 return false;
             }
         }

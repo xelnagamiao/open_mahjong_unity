@@ -12,33 +12,29 @@ public partial class NormalGameStateManager {
 
         // 鸣牌操作自动执行
         if (action == "AutoMingPaiAction"){
-            // 和牌不属于不吃碰杠
             List<string> allowHupaiAction = new List<string>{"hu_first","hu_second","hu_third"};
-
-            // 从允许操作列表中找到实际存在的和牌操作
             string actualHupaiAction = allowActionList.FirstOrDefault(a => allowHupaiAction.Contains(a));
 
-            // 如果开启自动荣和（自动胡牌且未限制为只和自摸），则判断
-            if (AutoAction.Instance.ShouldAutoWinRon()){
-                // 如果允许操作列表中有和牌，则执行自动胡牌
-                if (!string.IsNullOrEmpty(actualHupaiAction)){
-                    yield return new WaitForSeconds(0.2f);
-                    GameCanvas.Instance.ChooseAction(actualHupaiAction, 0);
-                    yield return null;
-                }
+            // 牌张设置：勾选牌自动过（含荣和；抢杠且未开「无视抢杠」时仍正常询问）
+            if (AutoAction.Instance.ShouldAutoPassForCurrentDiscard()){
+                yield return new WaitForSeconds(0.2f);
+                GameCanvas.Instance.ChooseAction("pass", 0);
+                yield return null;
             }
-
-            // 如果和牌列表为空（没有可用的和牌操作）
-            if (string.IsNullOrEmpty(actualHupaiAction)){
-                // 如果开启自动过牌，则直接pass
+            // 自动荣和（牌张未命中时）
+            else if (AutoAction.Instance.ShouldAutoWinRon() && !string.IsNullOrEmpty(actualHupaiAction)){
+                yield return new WaitForSeconds(0.2f);
+                GameCanvas.Instance.ChooseAction(actualHupaiAction, 0);
+                yield return null;
+            }
+            // 无和牌选项时的其余自动过逻辑
+            else if (string.IsNullOrEmpty(actualHupaiAction)){
                 if (AutoAction.Instance.IsAutoPass){
-                    yield return new WaitForSeconds(0.2f); // (如果玩家后悔了，希望玩家手速够快)
+                    yield return new WaitForSeconds(0.2f);
                     GameCanvas.Instance.ChooseAction("pass", 0);
                     yield return null;
                 }
                 else{
-                    // 按不吃/不碰/不杠筛选：不吃排除 chi_*，不碰排除 peng，不杠排除 gang
-                    // 如果筛选后剩余操作列表为空（或只剩 pass），则自动pass
                     List<string> remaining = new List<string>(allowActionList);
                     if (AutoAction.Instance.IsAutoPassChi)
                         remaining.RemoveAll(a => a == "chi_left" || a == "chi_mid" || a == "chi_right");

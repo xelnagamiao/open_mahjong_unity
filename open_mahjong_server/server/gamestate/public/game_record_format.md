@@ -44,17 +44,34 @@
 | `rule` | string | **游戏规则**，取自 `self.room_rule` |
 | `room_type` | string | **房间类型**，取自 `self.room_type`（`custom`、`match`） |
 | `sub_rule` | string | 子规则，各 GameState 写入（如 `guobiao/standard`） |
-| `game_random_seed` | int | 整局随机种子 |
+| `commitment_hex` | string | 承诺值，64 位 hex 字符串；每局 `game_start` 广播，对局内不暴露主种子 |
+| `salt` | string | 盐字符串，128 位 hex；与承诺值一同广播 |
+| `game_random_seed` | int? | **旧格式**整局随机种子，仅历史牌谱兼容 |
 | `max_round` | int | 风圈数（1=东风、2=半庄、4=全庄） |
 | `start_time` / `end_time` | datetime | 对局起止时间 |
 | `open_cuohe` | bool | 是否开启错和 |
 | `tips` | bool | 是否开启提示 |
 | `is_player_set_random_seed` | bool | 是否玩家指定种子 |
+| `player_entry_order` | int[4] | **shuffle 前**对局入场顺序（user_id，自定义房/匹配通用），用于验证 `master_seed` 随机座位 |
 | `hepai_limit` | int? | 起和番限制（国标等） |
-| `p0_uid` … `p3_uid` | int | 四个座位的用户 ID（**原始座位顺序**，整局不变） |
+| `p0_uid` … `p3_uid` | int | 随机座位分配后 original 0～3 的用户 ID（整局不变） |
 | `p0_name` … `p3_name` | string | 对应用户名 |
 
-**座位约定：** `p0`～`p3` 对应创建对局时 **original 座位**（整局不变）。每局 `seats[original_i]` 给出当局 `player_index`；`p0_tiles`～`p3_tiles` 按 **当局 player_index** 存储；`action_ticks` 里的 `action_player` 亦为当局 **player_index**。
+**座位约定：** `player_entry_order` 记录 `master_seed` shuffle **之前**的对局入场顺序；`p0`～`p3` 为 shuffle **之后**的 original 座位（整局不变）。每局 `seats[original_i]` 给出当局 `player_index`；`p0_tiles`～`p3_tiles` 按 **当局 player_index** 存储；`action_ticks` 里的 `action_player` 亦为当局 **player_index**。
+
+### 3.1 WebSocket 对局字段（`GameInfo` / 每局 `game_start`）
+
+与牌谱表头不同，实时对局在**每局开始**广播以下字段（不含主种子）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `commitment` | string | 承诺值（256 位，JSON 为十进制字符串） |
+| `salt` | string | 盐字符串（128 位 hex） |
+| `player_entry_order` | int[4] | shuffle 前对局入场顺序 user_id |
+| `isPlayerSetRandomSeed` | bool | 是否玩家指定主种子（复式） |
+| `round_random_seed` | — | **已废弃**，旧客户端字段 |
+
+整局结束时 `Game_end_info` 额外公布 `master_seed`、`commitment`、`salt`，供验证 `SHA256(master_seed_hex + salt) == commitment`。
 
 ---
 
@@ -66,7 +83,7 @@
 |------|------|------|
 | `round_index` | int | 局序号（1 起） |
 | `current_round` | int | 风圈内的局号（国标：1～4 为东，5～8 为南…） |
-| `round_random_seed` | int | 本局随机种子 |
+| `round_random_seed` | int? | **旧格式**本局随机种子；新牌谱不再写入 |
 | `seats` | int[4] | **必填**。`seats[original_i]` = 本局 `player_index` |
 | `dealer_index` | int | **必填**。本局庄家 `player_index` |
 | `start_player_index` | int | **必填**。补花结束后首行动 `player_index` |
@@ -90,13 +107,17 @@
 | `gd` | 杠后摸牌 | `["gd", tile_id]` |
 | `bd` | 补花后摸牌 | `["bd", tile_id]` |
 | `c` | 切牌 | `["c", tile_id, "T"\|"F"]` 或带 `"H"` 表示立直横置 |
-| `cl` / `cm` / `cr` | 吃 | `[code, tile_id, action_player]` |
-| `p` | 碰 | `["p", tile_id, action_player]` |
-| `g` | 明杠 | `["g", tile_id, action_player]` |
-| `ag` | 暗杠 | `["ag", tile_id, "T"\|"F"]`（必填第三段；客户端拒绝两段格式） |
-| `jg` | 加杠 | `["jg", tile_id, "T"\|"F"]`（必填第三段；客户端拒绝两段格式） |
+| `cl` / `cm` / `cr` | 吃 | `[code, tile_id, action_player, h1, h2]`（`h1/h2` 为从手牌打出的**真实**牌 ID，含赤 5 的 105/205/305） |
+| `p` | 碰 | `["p", tile_id, action_player, h1, h2]` |
+| `g` | 明杠 | `["g", tile_id, action_player, h1, h2, h3]` |
+| `ag` | 暗杠 | `["ag", tile_id, "T"\|"F"]`（必填第三段；`T`=摸杠 / `F`=手杠；客户端拒绝两段格式） |
+| `jg` | 加杠 | `["jg", tile_id, "T"\|"F"]`（必填第三段；`T`=摸杠 / `F`=手杠；客户端拒绝两段格式） |
 | `liuju` | 流局 | `["liuju"]` |
 | `end` | 本局结束 | `["end"]`（和牌/流局后紧跟；错和无 `end`，对局继续） |
+
+**吃碰杠兼容：** 旧牌谱仅 3 段 `[code, tile_id, action_player]` 时，客户端按归一化后的 `tile_id±1` 算术回退推导手牌侧 ID。
+
+**日麻赤 5 吃牌：** 105/205/305 与同点数 15/25/35 等价，但顺子仍须 456 三张不同点数。赤 5 只能作顺子的「5」位，故 `cm` 被鸣牌为 15 时手牌应为 `14+16` 而非 `14+105`；手牌出赤 5 时通常为 `cl`/`cr`（如打 16 手牌 14+105，或打 14 手牌 105+16），或 `cm` 被鸣牌为 105 且手牌 14+16。
 
 ### 5.2 国标和牌
 
@@ -298,6 +319,8 @@ RecordPanel / RecordPrefab
     "rule": "guobiao",
     "room_type": "custom",
     "sub_rule": "guobiao/standard",
+    "commitment_hex": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "salt": "0123456789abcdef0123456789abcdef",
     "max_round": 4,
     "hepai_limit": 8,
     "p0_uid": 10000001,

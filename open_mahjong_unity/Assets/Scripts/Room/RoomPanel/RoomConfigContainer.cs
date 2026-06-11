@@ -99,7 +99,7 @@ public class RoomConfigContainer : MonoBehaviour {
                 return true;
             case "random_seed":
                 displayName = "复式";
-                displayValue = FormatRandomSeed(roomInfo.random_seed);
+                displayValue = FormatRandomSeed(roomInfo);
                 return true;
             case "tips":
                 displayName = "提示";
@@ -169,8 +169,8 @@ public class RoomConfigContainer : MonoBehaviour {
         return stepTimer.ToString();
     }
 
-    private string FormatRandomSeed(int randomSeed) {
-        return randomSeed == 0 ? "关" : "开";
+    private string FormatRandomSeed(RoomInfo roomInfo) {
+        return roomInfo.is_player_set_random_seed ? "开" : "关";
     }
 
     private string FormatTips(bool tips) {

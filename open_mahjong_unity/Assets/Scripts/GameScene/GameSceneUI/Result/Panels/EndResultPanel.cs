@@ -43,6 +43,9 @@ public class EndResultPanel : MonoBehaviour {
     [Tooltip("里宝牌指示槽位（手动拖入 StaticCard）。未翻开位置显示牌背 0。")]
     [SerializeField] private StaticCard[] RiichiUraDoraSlots;
 
+    [Header("国标局终亮杠（默认隐藏）")]
+    [SerializeField] private TextMeshProUGUI guobiaoAngangCheckText;
+
     public static EndResultPanel Instance { get; private set; }
     public GameObject CardPrefab => StaticCardPrefab;
     public GameObject HideSplitPrefab => HideSplit;
@@ -125,6 +128,7 @@ public class EndResultPanel : MonoBehaviour {
 
         // 立直规则：和牌画面出现的瞬间立刻翻开宝牌/里宝牌（含里宝来自立直家），其余槽位仍渲染牌背 0
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, riichiExtras);
+        GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance?.lastGuobiaoEndExtras, hu_fan);
 
         SelfReady.gameObject.SetActive(false);
         LeftReady.gameObject.SetActive(false);
@@ -395,6 +399,7 @@ public class EndResultPanel : MonoBehaviour {
 
         ShowTotalPanel(roomType, hu_score, hu_fan, base_fu, riichiExtras);
         ShowRiichiExtrasPanel(roomType, riichiExtras);
+        GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, null, hu_fan);
 
         // 回放模式仅显示确认按钮，点击后关闭并切到下一局；观战模式不显示确认，由 end tick 驱动
         EndButton.interactable = !isSpectator;
@@ -474,7 +479,11 @@ public class EndResultPanel : MonoBehaviour {
             TotalFu.gameObject.SetActive(true);
             TotalFu.text = $"{riichiExtras.Fu}符";
             TotalFan.text = $"{riichiExtras.Han}番";
-            TotalScore.text = $"{huScore}点";
+            if (riichiExtras.LangyongMultiplier > 1) {
+                TotalScore.text = $"{huScore}点*{riichiExtras.LangyongMultiplier}";
+            } else {
+                TotalScore.text = $"{huScore}点";
+            }
             TotalLimitDisplay.gameObject.SetActive(false);
             return;
         }
@@ -559,6 +568,7 @@ public class EndResultPanel : MonoBehaviour {
         }
         FillDoraSlots(RiichiDoraSlots, null);
         FillDoraSlots(RiichiUraDoraSlots, null);
+        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
 
         // 清空结算
         foreach (Transform child in EndTilescontainer.transform){

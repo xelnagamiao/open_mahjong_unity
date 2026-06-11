@@ -1,8 +1,16 @@
 """
-手牌槽位工具：摸切/手切校验、按槽位删牌、暗杠摸杠/手杠判定。
-服务端 hand_tiles 按摸入/发牌顺序 append，不做排序。
-has_draw_slot=True 时末张 hand[-1] 为摸牌区；吃碰杠后无摸牌区，仅按牌值删牌。
-删牌与客户端 TryRemoveCutHandCard 对齐：先按切型在本区找，再跨区兜底，始终能出牌。
+手牌槽位工具：摸切/手切判定、按槽位删牌、暗杠摸杠/手杠判定。一切以 tileId 为核心。
+服务端 hand_tiles 按摸入/发牌顺序 append，不做排序；
+has_draw_slot=True 时末张 hand[-1] 为摸牌区；吃碰杠后无摸牌区。
+cutIndex 不参与服务端任何判定与删牌，仅由 apply_player_cut 原样回传客户端。
+
+摸切/手切判定规则（与客户端 currentGetTile 标记对齐）：
+- 客户端声称摸切且摸牌区正是该 tileId → 摸切；
+- 客户端声称手切且手牌区存在该 tileId → 手切（同 id 多张时信任客户端声称）；
+- 声称与该 tileId 实际所在区冲突时，以服务端槽位为准静默校正（由调用方记录日志，不打断对局）。
+
+删牌规则：先按切型在对应区删，再跨区兜底；区内精确 tileId 优先、赤五归一化兜底；
+找不到则返回 None（不误删其它牌）。
 """
 from __future__ import annotations
 
@@ -11,7 +19,7 @@ from typing import List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
-CUT_CLASS_TIP_MESSAGE = "检测到客户端和服务器手摸切验证出现问题"
+TILE_NOT_IN_HAND_TIP_MESSAGE = "此牌不在您的手牌中"
 
 # 赤 5 → 归一化 5
 _AKA_OFFSET = 100
@@ -52,12 +60,7 @@ def is_last_slot_tile(hand: List[int], tile_id: int) -> bool:
 
 def has_tile_in_hand_zone(hand: List[int], tile_id: int) -> bool:
     """手牌区（非末张槽位）是否存在该牌。"""
-    if len(hand) <= 1:
-        return False
-    for i in range(len(hand) - 1):
-        if tiles_equal(hand[i], tile_id):
-            return True
-    return False
+    return _find_index(hand, tile_id, 0, len(hand) - 1) >= 0
 
 
 def resolve_cut_class(
@@ -69,10 +72,9 @@ def resolve_cut_class(
     draw_slot: bool = True,
 ) -> Tuple[bool, bool]:
     """
-    校正摸切/手切类型（cutIndex 不参与判定，仅回传客户端）。
-    同牌多张时：客户端手切且手牌区有该牌则信任手切，不因末张也有同牌而改摸切。
-    仅当客户端声称的切型在对应区找不到牌时才校正，并触发 game_tip。
-    返回 (server_is_moqie, was_corrected)。
+    以 tileId 判定摸切/手切（cutIndex 不参与判定，仅原样回传客户端）。
+    同 tileId 多张时信任客户端声称的切型，不强行校正。
+    返回 (server_is_moqie, was_corrected)；was_corrected=True 表示声称与槽位冲突、已按服务端校正。
     """
     _ = cut_index  # 不参与服务端判定
     client_moqie = bool(client_is_moqie)
@@ -80,21 +82,32 @@ def resolve_cut_class(
         return client_moqie, False
 
     if not draw_slot:
+        # 吃碰后无摸牌区：只能手切
         return False, client_moqie
 
     in_draw = is_last_slot_tile(hand, tile_id)
     in_hand = has_tile_in_hand_zone(hand, tile_id)
 
     if client_moqie:
-        if in_draw:
-            return True, False
-        return False, True
-
+        # 声称摸切：摸牌区确为该牌则采纳；否则只可能是手切
+        return (True, False) if in_draw else (False, True)
+    # 声称手切：手牌区有该牌则采纳；仅摸牌区有则校正为摸切
     if in_hand:
         return False, False
-    if in_draw:
-        return True, True
-    return False, False
+    return (True, True) if in_draw else (False, False)
+
+
+def _find_index(hand: List[int], tile_id: int, lo: int, hi: int) -> int:
+    """在 hand[lo:hi] 内从后往前找 tileId：精确匹配优先，赤五归一化兜底。返回 -1 表示未找到。"""
+    if lo >= hi:
+        return -1
+    for i in range(hi - 1, lo - 1, -1):
+        if hand[i] == tile_id:
+            return i
+    for i in range(hi - 1, lo - 1, -1):
+        if tiles_equal(hand[i], tile_id):
+            return i
+    return -1
 
 
 def _remove_from_draw_zone(hand: List[int], tile_id: int) -> Optional[int]:
@@ -104,23 +117,15 @@ def _remove_from_draw_zone(hand: List[int], tile_id: int) -> Optional[int]:
 
 
 def _remove_from_hand_zone(hand: List[int], tile_id: int) -> Optional[int]:
-    """从非末张槽位移除一张（手牌区），从后往前。"""
-    for i in range(len(hand) - 2, -1, -1):
-        if tiles_equal(hand[i], tile_id):
-            return hand.pop(i)
-    return None
+    """从手牌区（非末张槽位）移除一张，精确 tileId 优先。"""
+    idx = _find_index(hand, tile_id, 0, len(hand) - 1)
+    return hand.pop(idx) if idx >= 0 else None
 
 
-def _remove_one_by_value(hand: List[int], tile_id: int) -> int:
-    """按牌值移除一张（不区分区），从后往前。"""
-    for i in range(len(hand) - 1, -1, -1):
-        if tiles_equal(hand[i], tile_id):
-            return hand.pop(i)
-    for i, t in enumerate(hand):
-        if tiles_equal(t, tile_id):
-            return hand.pop(i)
-    logger.error("_remove_one_by_value: hand 中未找到 tile_id=%s, hand=%s", tile_id, hand)
-    return hand.pop() if hand else tile_id
+def _remove_one_by_value(hand: List[int], tile_id: int) -> Optional[int]:
+    """按牌值移除一张（不区分区），精确 tileId 优先。"""
+    idx = _find_index(hand, tile_id, 0, len(hand))
+    return hand.pop(idx) if idx >= 0 else None
 
 
 def remove_cut_tile(
@@ -129,17 +134,24 @@ def remove_cut_tile(
     is_moqie: bool,
     *,
     draw_slot: bool = True,
-) -> int:
+) -> Optional[int]:
     """
     从 hand 移除切牌，与客户端 TryRemoveCutHandCard 一致：
-    先按切型在本区删，找不到则跨区兜底，最后按 tileId 任意删。始终出牌。
+    先按切型在本区删，找不到则跨区兜底；仍找不到则返回 None（不删除其它牌）。
     """
     if not hand:
         logger.error("remove_cut_tile: 空 hand, tile_id=%s", tile_id)
-        return tile_id
+        return None
 
     if not draw_slot:
-        return _remove_one_by_value(hand, tile_id)
+        removed = _remove_one_by_value(hand, tile_id)
+        if removed is None:
+            logger.error(
+                "remove_cut_tile: 无摸牌区且 hand 中未找到 tile_id=%s, hand=%s",
+                tile_id,
+                hand,
+            )
+        return removed
 
     if is_moqie:
         removed = _remove_from_draw_zone(hand, tile_id)
@@ -147,7 +159,7 @@ def remove_cut_tile(
             return removed
         removed = _remove_from_hand_zone(hand, tile_id)
         if removed is not None:
-            logger.debug("摸切跨区兜底(手牌区): tile_id=%s", tile_id)
+            logger.warning("摸切跨区兜底(手牌区): tile_id=%s hand=%s", tile_id, hand)
             return removed
     else:
         removed = _remove_from_hand_zone(hand, tile_id)
@@ -155,10 +167,19 @@ def remove_cut_tile(
             return removed
         removed = _remove_from_draw_zone(hand, tile_id)
         if removed is not None:
-            logger.debug("手切跨区兜底(摸牌区): tile_id=%s", tile_id)
+            logger.warning("手切跨区兜底(摸牌区): tile_id=%s hand=%s", tile_id, hand)
             return removed
 
-    return _remove_one_by_value(hand, tile_id)
+    removed = _remove_one_by_value(hand, tile_id)
+    if removed is None:
+        logger.error(
+            "remove_cut_tile: hand 中未找到 tile_id=%s, hand=%s, is_moqie=%s, draw_slot=%s",
+            tile_id,
+            hand,
+            is_moqie,
+            draw_slot,
+        )
+    return removed
 
 
 def pick_timeout_discard_tile(

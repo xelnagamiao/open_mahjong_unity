@@ -125,17 +125,30 @@ public class RoomNetworkManager : MonoBehaviour {
     }
     
     // ========== 房间相关的发送方法 ==========
+
+    private static bool BlockRoomEntryRequest() {
+        return LobbyStateGuard.BlockIfInMatchQueueForRoom();
+    }
     
+    /// <summary>解析复式主种子；未开启复式时返回空字符串。</summary>
+    private static bool TryResolveRandomSeed(string raw, out string seedHex, out string error) {
+        seedHex = "";
+        error = null;
+        if (string.IsNullOrEmpty(raw)) {
+            return true;
+        }
+        return MasterSeedInputValidator.TryNormalizeHex(raw, out seedHex, out error);
+    }
+
     /// <summary>
     /// 创建国标房间
     /// </summary>
     public async void Create_GB_Room(GB_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
         try {
-            int randomSeed = 0;
-            if (!string.IsNullOrEmpty(config.RandomSeed)) {
-                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
-                    randomSeed = 0;
-                }
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
             }
             
             var request = new CreateGBRoomRequest {
@@ -166,12 +179,11 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 创建青雀房间（规则字符串使用 qingque13，去掉错和配置，其他与国标类似）
     /// </summary>
     public async void Create_Qingque_Room(Qingque_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
         try {
-            int randomSeed = 0;
-            if (!string.IsNullOrEmpty(config.RandomSeed)) {
-                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
-                    randomSeed = 0;
-                }
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
             }
 
             var request = new CreateGBRoomRequest {
@@ -202,12 +214,11 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 创建古典麻将房间
     /// </summary>
     public async void Create_Classical_Room(Qingque_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
         try {
-            int randomSeed = 0;
-            if (!string.IsNullOrEmpty(config.RandomSeed)) {
-                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
-                    randomSeed = 0;
-                }
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
             }
 
             var request = new CreateGBRoomRequest {
@@ -237,12 +248,11 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 创建立直麻将房间
     /// </summary>
     public async void Create_Riichi_Room(Riichi_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
         try {
-            int randomSeed = 0;
-            if (!string.IsNullOrEmpty(config.RandomSeed)) {
-                if (!int.TryParse(config.RandomSeed, out randomSeed)) {
-                    randomSeed = 0;
-                }
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
             }
 
             var request = new CreateRiichiRoomRequest {
@@ -294,6 +304,7 @@ public class RoomNetworkManager : MonoBehaviour {
     /// 加入房间
     /// </summary>
     public async void JoinRoom(string roomId, string password) {
+        if (BlockRoomEntryRequest()) return;
         var request = new JoinRoomRequest {
             type = "room/join_room",
             room_id = roomId,
