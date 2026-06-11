@@ -23,7 +23,7 @@ from ..public.logic_common import get_index_relative_position, next_current_inde
 from .init_tiles import init_classical_tiles
 from ..public.next_game_round import next_game_round_random_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict
+from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order
 from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -227,6 +227,8 @@ class ClassicalGameState:
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
+                    from ..public.game_record_manager import build_player_entry_order_fields
+                    base_game_info.update(build_player_entry_order_fields(self))
 
                     for player in self.player_list:
                         player_info = {
@@ -305,6 +307,7 @@ class ClassicalGameState:
         if not self.Debug:
             user_seed = self.room_random_seed if self.room_random_seed else None
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
+            capture_player_entry_order(self)
             rng = random.Random(self.master_seed)
             rng.shuffle(self.player_list)
             for index, player in enumerate[ClassicalPlayer](self.player_list):
@@ -312,6 +315,7 @@ class ClassicalGameState:
                 player.original_player_index = index
         else:
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system()
+            capture_player_entry_order(self)
             for index, player in enumerate[ClassicalPlayer](self.player_list):
                 player.player_index = index
                 player.original_player_index = index

@@ -134,10 +134,14 @@ public class SoundManager : MonoBehaviour {
     /// <summary>
     /// 播放立直宣告语音；按指定方位玩家的音色挑选 riichi 资源，加载失败时回退默认音色。
     /// </summary>
-    public void PlayRiichiVoice(string playerPosition) {
+    public void PlayRiichiVoice(string playerPosition, int? voiceIdOverride = null) {
         int voiceId = 1;
-        if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
+        if (voiceIdOverride.HasValue) {
+            voiceId = voiceIdOverride.Value;
+        } else if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.player_to_info.ContainsKey(playerPosition)) {
             voiceId = NormalGameStateManager.Instance.player_to_info[playerPosition].voice_used;
+        } else if (UserDataManager.Instance != null) {
+            voiceId = UserDataManager.Instance.VoiceId;
         }
         string voicePath = voiceIdToPath.ContainsKey(voiceId) ? voiceIdToPath[voiceId] : voiceIdToPath[1];
         AudioClip clip = Resources.Load<AudioClip>($"Sound/{voicePath}/riichi");

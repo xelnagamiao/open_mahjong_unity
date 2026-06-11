@@ -57,6 +57,8 @@ class MatchManager:
         # 已在房间中（自定义房等）不允许排位匹配，需先退出房间
         if getattr(player, "current_room_id", None):
             return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
+        if self._is_user_in_custom_room(user_id):
+            return Response(type="tips", success=False, message="请先退出当前房间再进行排位匹配")
 
         # 已在队列中
         if user_id in self.user_to_queue:
@@ -133,6 +135,17 @@ class MatchManager:
     def is_user_committed(self, user_id: int) -> bool:
         """玩家是否已匹配成功且对局尚未结束。"""
         return user_id in self.committed_users
+
+    def is_user_in_queue(self, user_id: int) -> bool:
+        """玩家是否仍在匹配等待队列中。"""
+        return user_id in self.user_to_queue
+
+    def _is_user_in_custom_room(self, user_id: int) -> bool:
+        """兜底：current_room_id 未同步时，仍按房间成员表判断是否已在自定义房。"""
+        for room_data in self.game_server.room_manager.rooms.values():
+            if user_id in room_data.get("player_list", []):
+                return True
+        return False
 
     def get_queue_status(self) -> dict:
         """获取所有队列的等待人数和游戏中人数"""

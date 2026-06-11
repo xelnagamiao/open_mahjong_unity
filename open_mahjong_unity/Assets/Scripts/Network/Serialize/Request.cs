@@ -17,7 +17,7 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public int stepTimerValue; // 服务器期望的字段名
     public bool tips;
     public string password;
-    public int random_seed; // 随机种子
+    public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和
     public int hepai_limit; // 起和番限制
     public bool tourist_limit; // 游客限制
@@ -35,7 +35,7 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
     public int stepTimerValue;
     public bool tips;
     public string password;
-    public int random_seed;
+    public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和（日麻：向其余三家各赔 3000 并重打本局；国标：罚分后继续本局）
     public int hepai_limit; // 自定义起和番数，低于该番数视为错和
     public bool red_dora; // 是否启用赤宝牌

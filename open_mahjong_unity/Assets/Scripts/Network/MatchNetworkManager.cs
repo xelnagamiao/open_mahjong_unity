@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using Newtonsoft.Json;
 using NativeWebSocket;
@@ -46,7 +45,8 @@ public class MatchNetworkManager : MonoBehaviour {
             ShowMatchFoundedUi();
             return;
         }
-        StartCoroutine(ShowQueueingPanelNextFrameIfStillNeeded());
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance.RunNextFrame(ShowQueueingPanelIfStillNeeded, CoroutineKeys.MatchQueueingPanelDelay);
     }
 
     private bool IsMatchUiLocked() {
@@ -59,14 +59,11 @@ public class MatchNetworkManager : MonoBehaviour {
         MatchFoundedPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
     }
 
-    /// <summary>
-    /// 延迟一帧再决定是否展示排队面板，给同批到达的 match_found 留出处理机会。
-    /// </summary>
-    private IEnumerator ShowQueueingPanelNextFrameIfStillNeeded() {
-        yield return null;
+    /// <summary>延迟一帧再决定是否展示排队面板，给同批到达的 match_found 留出处理机会。</summary>
+    private void ShowQueueingPanelIfStillNeeded() {
         if (IsMatchUiLocked()) {
             ShowMatchFoundedUi();
-            yield break;
+            return;
         }
         MatchQueueingPanel.Instance?.Show(MatchQueueDisplayText.GetQueueTitle(lastJoinedQueueType));
     }
@@ -114,8 +111,12 @@ public class MatchNetworkManager : MonoBehaviour {
             return;
         }
         // 处于房间中（自定义房等）时禁止匹配，需先退出房间
-        if (UserDataManager.Instance != null && UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
-            NotificationManager.Instance?.ShowTip("匹配", false, "请先退出当前房间再进行排位匹配");
+        if (LobbyStateGuard.BlockIfInRoomForMatch()) {
+            return;
+        }
+        // 已在排队中时不重复发送加入请求
+        if (MatchStateManager.Instance != null && MatchStateManager.Instance.IsQueueing) {
+            NotificationManager.Instance?.ShowTip("匹配", false, "您已在匹配队列中");
             return;
         }
         isMatchFoundLocked = false;

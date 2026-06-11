@@ -4,6 +4,7 @@ using TMPro;
 
 /// <summary>
 /// 匹配已成功（found）后的进入游戏倒计时面板，与 <see cref="MatchQueueingPanel"/> 区分。显示时使用 <see cref="CanvasGroupFadeIn"/> 渐入。
+/// 倒计时协程由 <see cref="CoroutineManager"/> 统一管理。
 /// </summary>
 public class MatchFoundedPanel : MonoBehaviour {
     public static MatchFoundedPanel Instance { get; private set; }
@@ -11,8 +12,6 @@ public class MatchFoundedPanel : MonoBehaviour {
     [SerializeField] private CanvasGroupFadeIn fadeIn;
     [SerializeField] private TMP_Text foundedMatchTypeText;
     [SerializeField] private TMP_Text foundedCountdownText;
-
-    private Coroutine countdownCoroutine;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -27,12 +26,10 @@ public class MatchFoundedPanel : MonoBehaviour {
         MatchStateManager.Instance.MarkMatchFound();
         MatchQueueingPanel.Instance?.HideImmediately();
         gameObject.SetActive(true);
-        // 排队面板在层级上位于本面板之后，需置于同级最前以免挡住匹配成功 UI。
         transform.SetAsLastSibling();
         foundedMatchTypeText.text = matchTypeName;
         fadeIn.PlayFadeIn();
-        if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
-        countdownCoroutine = StartCoroutine(CountdownRoutine());
+        StartFoundedCountdown();
     }
 
     /// <summary>
@@ -46,15 +43,11 @@ public class MatchFoundedPanel : MonoBehaviour {
         transform.SetAsLastSibling();
         foundedMatchTypeText.text = manager.QueueTitle;
         fadeIn.PlayFadeIn();
-        if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
-        countdownCoroutine = StartCoroutine(CountdownRoutine());
+        StartFoundedCountdown();
     }
 
     public void StopCountdownAndHide() {
-        if (countdownCoroutine != null) {
-            StopCoroutine(countdownCoroutine);
-            countdownCoroutine = null;
-        }
+        StopFoundedCountdown();
         gameObject.SetActive(false);
     }
 
@@ -62,19 +55,30 @@ public class MatchFoundedPanel : MonoBehaviour {
     /// 立即隐藏面板，但不结束匹配成功状态（供离开匹配窗口时隐藏视图用）。
     /// </summary>
     public void HideImmediately() {
-        if (countdownCoroutine != null) {
-            StopCoroutine(countdownCoroutine);
-            countdownCoroutine = null;
-        }
+        StopFoundedCountdown();
         gameObject.SetActive(false);
+    }
+
+    private void StartFoundedCountdown() {
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance.RunNamed(
+            CoroutineKeys.MatchFoundedCountdown,
+            CountdownRoutine(),
+            restartIfRunning: true
+        );
+    }
+
+    private void StopFoundedCountdown() {
+        CoroutineManager.Instance?.StopNamed(CoroutineKeys.MatchFoundedCountdown);
     }
 
     private IEnumerator CountdownRoutine() {
         for (int i = 5; i > 0; i--) {
-            foundedCountdownText.text = $"{i} 秒后进入游戏...";
+            if (foundedCountdownText != null) {
+                foundedCountdownText.text = $"{i} 秒后进入游戏...";
+            }
             yield return new WaitForSeconds(1f);
         }
         gameObject.SetActive(false);
-        countdownCoroutine = null;
     }
 }

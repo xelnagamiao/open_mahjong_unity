@@ -62,6 +62,36 @@ def validate_master_seed_hex(seed_hex: str) -> bool:
         return False
 
 
+def parse_user_master_seed(raw) -> int:
+    """
+    解析复式（玩家指定）主种子。
+    0 表示未指定；非 0 必须为 256 位，以 64 位十六进制字符串提交。
+    """
+    if raw is None:
+        return 0
+    if isinstance(raw, bool):
+        raise ValueError("随机种子类型无效")
+    if isinstance(raw, int):
+        if raw == 0:
+            return 0
+        raise ValueError(f"主种子必须为{MASTER_SEED_BITS // 4}位十六进制字符串")
+    text = str(raw).strip()
+    if text == "" or text == "0":
+        return 0
+    if text.lower().startswith("0x"):
+        text = text[2:]
+    text = text.lower()
+    hex_len = MASTER_SEED_BITS // 4
+    if len(text) != hex_len:
+        raise ValueError(f"主种子必须为{hex_len}位十六进制字符串")
+    if not all(c in "0123456789abcdef" for c in text):
+        raise ValueError("主种子必须为十六进制字符（0-9、a-f）")
+    seed = int(text, 16)
+    if seed.bit_length() > MASTER_SEED_BITS:
+        raise ValueError(f"主种子不能超过{MASTER_SEED_BITS}位")
+    return seed
+
+
 def verify_commitment(master_seed: int, salt: str, commitment: int) -> bool:
     """验证承诺值。"""
     return compute_commitment(master_seed, salt) == commitment
@@ -80,6 +110,8 @@ def setup_random_seed_system(user_seed: Optional[int] = None) -> Tuple[int, str,
         (master_seed: int, salt: str, commitment: int, is_player_set: bool)
     """
     if user_seed is not None and user_seed != 0:
+        if user_seed.bit_length() > MASTER_SEED_BITS:
+            raise ValueError(f"主种子不能超过{MASTER_SEED_BITS}位")
         master_seed = user_seed
         is_player_set = True
     else:

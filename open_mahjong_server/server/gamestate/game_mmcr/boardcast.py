@@ -35,6 +35,8 @@ async def broadcast_game_start(self):
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
+    from ..public.game_record_manager import build_player_entry_order_fields
+    base_game_info.update(build_player_entry_order_fields(self))
 
     # 为每个玩家发送消息
     for current_player in self.player_list:

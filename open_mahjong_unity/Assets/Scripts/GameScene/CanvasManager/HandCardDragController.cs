@@ -24,6 +24,9 @@ public class HandCardDragController : MonoBehaviour {
     [SerializeField] private float dragActivationDelay = 0.12f;
     [SerializeField] private float gapShiftAnimDuration = 0.15f;
     [SerializeField] private float snapAnimDuration = 0.2f;
+    // 误入拖拽会话的"微点击"判定：位移与按压时长都很小且顺序未变时按点击出牌处理
+    [SerializeField] private float microClickMaxDistance = 16f;
+    [SerializeField] private float microClickMaxDuration = 0.35f;
 
     private GameCanvas gameCanvas;
     private TileCard dragCard;
@@ -36,6 +39,7 @@ public class HandCardDragController : MonoBehaviour {
     private bool dragSessionActive;
     private bool isFinishingDrag;
     private bool hadPointerMove;
+    private bool wasArmedAtPress;   // 按下瞬间该牌是否处于"确认出牌"选中态（拖拽会话会清除选中，微点击提交时需还原）
     private int activeGapIndex = -1;
     private bool activeMergeDraw;
     private float pressStartUnscaledTime;
@@ -64,6 +68,12 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private void Update() {
+        // 看门狗：按住/拖拽中的卡牌被销毁（补花、出牌移除等）时不会再收到 OnPointerUp，
+        // 若不复位会让 IsDragging/SuppressPointerHover 永久卡住，表现为"鼠标放在牌上不再弹起"。
+        if ((pendingPress || dragSessionActive) && !isFinishingDrag && dragCardRect == null) {
+            AbortPressSession();
+            return;
+        }
         if (!pendingPress || isFinishingDrag) {
             return;
         }
@@ -74,6 +84,15 @@ public class HandCardDragController : MonoBehaviour {
             return;
         }
         UpdateDragCardScreenPosition(Input.mousePosition, pointerPressCamera);
+    }
+
+    private void AbortPressSession() {
+        Debug.LogWarning("[HandInput] 拖拽/按压中的卡牌已销毁，强制复位输入状态");
+        StopGapAnimation();
+        dragCanvas = null;   // 画布组件随卡牌一同销毁
+        ResetState();
+        SuppressPointerHover = false;
+        TileCard.ClearPendingPointerState();
     }
 
     // 仅当指针实际移动超过阈值时才进入拖拽；停留不动（无论按住多久）一律视为点击，
@@ -110,6 +129,8 @@ public class HandCardDragController : MonoBehaviour {
         dragSessionActive = false;
         isFinishingDrag = false;
         hadPointerMove = false;
+        wasArmedAtPress = HandCardSelectionController.Instance != null
+            && HandCardSelectionController.Instance.IsArmed(card);
         dragStartScreenPos = eventData.position;
         pointerPressCamera = eventData.pressEventCamera;
         pressStartUnscaledTime = Time.unscaledTime;
@@ -179,6 +200,10 @@ public class HandCardDragController : MonoBehaviour {
             FinishDiscardImmediate(card);
             return true;
         }
+        if (!OrderChanged(activeGapIndex, activeMergeDraw) && IsMicroClick(eventData.position)) {
+            FinishMicroClickDiscard(card, eventData.position);
+            return true;
+        }
         if (OrderChanged(activeGapIndex, activeMergeDraw)) {
             StartCoroutine(FinishCommitDrag(card, activeGapIndex, activeMergeDraw));
         }
@@ -186,6 +211,28 @@ public class HandCardDragController : MonoBehaviour {
             StartCoroutine(FinishRevertDrag(card));
         }
         return true;
+    }
+
+    private bool IsMicroClick(Vector2 releaseScreenPos) {
+        return Vector2.Distance(releaseScreenPos, dragStartScreenPos) < microClickMaxDistance
+            && Time.unscaledTime - pressStartUnscaledTime <= microClickMaxDuration;
+    }
+
+    /// <summary>
+    /// 快速点击时指针轻微抖动（≥clickMoveThreshold）会误入拖拽会话，原逻辑松手只复位不出牌，
+    /// 且会话激活时已 DisarmAll，确认模式下表现为"牌能浮起就是打不出去"。
+    /// 顺序未变 + 位移小 + 按压短：立即复位布局并按点击提交（还原按下时的确认选中态）。
+    /// </summary>
+    private void FinishMicroClickDiscard(TileCard card, Vector2 releaseScreenPos) {
+        isFinishingDrag = true;
+        bool armed = wasArmedAtPress;
+        RestoreSnapshotLayout();
+        EndFinishDrag();
+        if (armed) {
+            HandCardSelectionController.Instance?.Arm(card);
+        }
+        Debug.Log($"[HandInput] 微点击按出牌处理 | tileId={card.tileId} | armedAtPress={armed}");
+        TileCard.TryCommitClick(card, releaseScreenPos, skipSameCardCheck: true);
     }
 
     // 出牌区松手：立即出牌；仅收拢其余牌布局，打出牌保持松手时的位置，避免闪回槽位
@@ -252,11 +299,13 @@ public class HandCardDragController : MonoBehaviour {
     private void ResetState() {
         dragCard = null;
         dragCardRect = null;
+        pendingPress = false;
         dragSessionActive = false;
         isFinishingDrag = false;
         IsDragging = false;
         activeGapIndex = -1;
         activeMergeDraw = false;
+        wasArmedAtPress = false;
     }
 
     private IEnumerator EnableHoverNextFrame() {

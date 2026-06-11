@@ -18,6 +18,7 @@ from .friend.friend_manager import FriendManager
 from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
 from .chat_server.chat_server import ChatServer
+from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
 from .match.match_manager import MatchManager
 import secrets,hashlib
@@ -56,6 +57,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=handlers
 )
+
+setup_critical_logging(LOG_DIR)
 
 logger = logging.getLogger(__name__)
 

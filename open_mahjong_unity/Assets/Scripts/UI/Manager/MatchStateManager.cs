@@ -4,8 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 匹配排队状态与计时的持久化管理器。
-/// 计时协程不再挂在会被关闭的面板上，而是放在常驻（DontDestroyOnLoad）对象上，
-/// 这样在排队过程中切换到其它一级窗口再切回来，排队计时不会中断。
+/// 计时协程由 <see cref="CoroutineManager"/> 统一驱动，不挂在会被关闭的面板上。
 /// <para>用法：把本脚本拖到一个常驻 GameObject 上即可；若场景中不存在，也会在首次访问 <see cref="Instance"/> 时自动创建。</para>
 /// 面板（<see cref="MatchQueueingPanel"/> / <see cref="MatchFoundedPanel"/>）仅作为视图，
 /// 从这里读取状态并订阅 <see cref="OnElapsedTick"/> 刷新显示。
@@ -36,8 +35,6 @@ public class MatchStateManager : MonoBehaviour {
     /// <summary>每秒触发一次，参数为最新的已排队秒数，供面板刷新文本。</summary>
     public event Action<float> OnElapsedTick;
 
-    private Coroutine timerCoroutine;
-
     private void Awake() {
         if (_instance != null && _instance != this) {
             Destroy(gameObject);
@@ -45,6 +42,7 @@ public class MatchStateManager : MonoBehaviour {
         }
         _instance = this;
         DontDestroyOnLoad(gameObject);
+        CoroutineManager.Ensure();
     }
 
     /// <summary>开始（重新）排队：重置计时并启动持久计时协程。</summary>
@@ -72,15 +70,11 @@ public class MatchStateManager : MonoBehaviour {
     }
 
     private void RestartTimer() {
-        StopTimer();
-        timerCoroutine = StartCoroutine(TimerRoutine());
+        CoroutineManager.Instance.RunNamed(CoroutineKeys.MatchQueueTimer, TimerRoutine(), restartIfRunning: true);
     }
 
     private void StopTimer() {
-        if (timerCoroutine != null) {
-            StopCoroutine(timerCoroutine);
-            timerCoroutine = null;
-        }
+        CoroutineManager.Instance.StopNamed(CoroutineKeys.MatchQueueTimer);
     }
 
     private IEnumerator TimerRoutine() {

@@ -160,16 +160,22 @@ public partial class Game3DManager {
         });
     }
 
+    /// <summary>吃碰明杠等：被鸣牌来自河牌时回收 lastCutJiagang3DObject（加杠/暗杠除外）。</summary>
+    private void TryReturnLastCutTileForMeld(string actionType) {
+        if (lastCutJiagang3DObject == null || actionType == "jiagang" || actionType == "angang") {
+            return;
+        }
+        if (_currentDiscardMoveCoroutine != null) {
+            StopCoroutine(_currentDiscardMoveCoroutine);
+            _currentDiscardMoveCoroutine = null;
+        }
+        MahjongObjectPool.Instance.Return(-1, lastCutJiagang3DObject);
+        lastCutJiagang3DObject = null;
+    }
+
     /// <summary>吃碰明杠等：回收河牌切子并启动副露动画（不进入暗杠手牌队列）。</summary>
     private void StartMeldPresentation(string actionType, string playerPosition, int[] combinationMask) {
-        if (lastCutJiagang3DObject != null && actionType != "jiagang" && actionType != "angang") {
-            if (_currentDiscardMoveCoroutine != null) {
-                StopCoroutine(_currentDiscardMoveCoroutine);
-                _currentDiscardMoveCoroutine = null;
-            }
-            MahjongObjectPool.Instance.Return(-1, lastCutJiagang3DObject);
-            lastCutJiagang3DObject = null;
-        }
+        TryReturnLastCutTileForMeld(actionType);
         StartCoroutine(ActionAnimationCoroutine(playerPosition, actionType, combinationMask, true));
     }
 
@@ -190,6 +196,7 @@ public partial class Game3DManager {
 
     private IEnumerator RecordMeldShowCardsCoroutine(string playerPosition, string actionType, int[] combinationMask) {
         PosPanel3D panel = GetPosPanel(playerPosition);
+        TryReturnLastCutTileForMeld(actionType);
         yield return RemoveRecordShowHandCardsByMaskCoroutine(panel.ShowCardsPosition, combinationMask);
         yield return ActionAnimationCoroutine(playerPosition, actionType, combinationMask, true);
         yield return RearrangeRecordShowCardsWithAnimation(panel.ShowCardsPosition, playerPosition);

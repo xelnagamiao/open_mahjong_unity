@@ -4,6 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 通用轮数面板：用于国标/青雀/古典规则。
+/// 承诺值 / 盐值由 RoundPanel 统管，点击 RoundPanel 区域后另行展示。
 /// </summary>
 public class SimpleRoundPanel : MonoBehaviour {
     [Header("Header")]
@@ -15,7 +16,6 @@ public class SimpleRoundPanel : MonoBehaviour {
     [SerializeField] private TMP_Text isSetRandomSeedText;
     [Header("Setting2")]
     [SerializeField] private TMP_Text roomNowRoundText;
-    [SerializeField] private TMP_Text randomSeedText;
 
     public void UpdateRoomInfo(GameInfo gameInfo, string roomType) {
         string rule = RuleNameDictionary.GetWholeName(roomType);
@@ -46,7 +46,6 @@ public class SimpleRoundPanel : MonoBehaviour {
             roomNowRoundText.text = "未知轮数";
         }
 
-        randomSeedText.text = $"{gameInfo.round_random_seed}";
         isCuoheOpenText.text = gameInfo.open_cuohe ? "错和:开" : "错和:关";
         isTipsOpenText.text = gameInfo.tips ? "提示:开" : "提示:关";
         isSetRandomSeedText.text = gameInfo.isPlayerSetRandomSeed ? "复式:开" : "复式:关";

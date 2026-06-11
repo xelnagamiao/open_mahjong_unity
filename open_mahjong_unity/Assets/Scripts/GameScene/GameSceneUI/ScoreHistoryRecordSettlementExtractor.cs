@@ -134,12 +134,14 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 case "p":
                 case "g": {
                     int mingTile = ParseInt(tick, 1);
-                    foreach (int t in BuildRemovedTilesForMingpai(action, mingTile)) {
+                    List<int> removedTiles = GameRecordMeldCodec.ResolveHandTiles(tick, action, mingTile);
+                    foreach (int t in removedTiles) {
                         RemoveOneTile(actor.tileList, t);
                     }
                     int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : previousPlayerIndex;
-                    actor.combinationTiles.Add(BuildCombinationTarget(action, mingTile));
-                    actor.combinationMasks.Add(BuildMingpaiMask(action, mingTile, actingPlayerIndex, discardPlayerIndex));
+                    string relative = GetRelativePosition(actingPlayerIndex, discardPlayerIndex);
+                    actor.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingTile));
+                    actor.combinationMasks.Add(GameRecordMeldCodec.BuildMingpaiMask(action, mingTile, removedTiles, relative));
                     currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
@@ -472,14 +474,6 @@ public static class ScoreHistoryRecordSettlementExtractor {
         RemoveOneTile(tileList, tileId);
     }
 
-    private static List<int> BuildRemovedTilesForMingpai(string action, int tileId) {
-        if (action == "cl") return new List<int> { tileId - 1, tileId - 2 };
-        if (action == "cm") return new List<int> { tileId - 1, tileId + 1 };
-        if (action == "cr") return new List<int> { tileId + 1, tileId + 2 };
-        if (action == "p") return new List<int> { tileId, tileId };
-        return new List<int> { tileId, tileId, tileId };
-    }
-
     private static int[] BuildAngangMask(int angangTile, string subRule) {
         if (subRule.StartsWith("riichi")) {
             return new[] { 2, angangTile, 0, angangTile, 0, angangTile, 2, angangTile };
@@ -506,30 +500,6 @@ public static class ScoreHistoryRecordSettlementExtractor {
         player.combinationTiles.Add($"g{jiagangTile}");
         player.combinationMasks.Add(fallback);
         return fallback;
-    }
-
-    private static string BuildCombinationTarget(string action, int tileId) {
-        if (action == "cl") return $"s{tileId - 1}";
-        if (action == "cm") return $"s{tileId}";
-        if (action == "cr") return $"s{tileId + 1}";
-        if (action == "p") return $"k{tileId}";
-        return $"g{tileId}";
-    }
-
-    private static int[] BuildMingpaiMask(string action, int tileId, int actionPlayerIndex, int discardPlayerIndex) {
-        if (action == "cl") return new[] { 1, tileId, 0, tileId - 1, 0, tileId - 2 };
-        if (action == "cm") return new[] { 1, tileId, 0, tileId - 1, 0, tileId + 1 };
-        if (action == "cr") return new[] { 1, tileId, 0, tileId + 1, 0, tileId + 2 };
-
-        string relative = GetRelativePosition(actionPlayerIndex, discardPlayerIndex);
-        if (action == "p") {
-            if (relative == "left") return new[] { 1, tileId, 0, tileId, 0, tileId };
-            if (relative == "right") return new[] { 0, tileId, 0, tileId, 1, tileId };
-            return new[] { 0, tileId, 1, tileId, 0, tileId };
-        }
-        if (relative == "left") return new[] { 1, tileId, 0, tileId, 0, tileId, 0, tileId };
-        if (relative == "right") return new[] { 0, tileId, 0, tileId, 0, tileId, 1, tileId };
-        return new[] { 0, tileId, 1, tileId, 0, tileId, 0, tileId };
     }
 
     private static string GetRelativePosition(int selfIndex, int otherIndex) {

@@ -17,6 +17,7 @@ public class AutoAction : MonoBehaviour{
     [SerializeField] private GameObject otherActionPanel; // 鸣牌展开及子选项（观战时隐藏整块）
     [SerializeField] private TMP_Text expandButtonText; // 展开按钮（附加按钮的文本）
     [SerializeField] private GameObject mingPaiPanel; // 鸣牌选项面板
+    [SerializeField] private TilePassSettingPanel tilePassSettingPanel; // 牌张设置面板（可运行时生成）
     [SerializeField] private TMP_Text autoPassChiText; // 不吃文本
     [SerializeField] private TMP_Text autoPassPengText; // 不碰文本
     [SerializeField] private TMP_Text autoPassGangText; // 不杠文本
@@ -93,8 +94,13 @@ public class AutoAction : MonoBehaviour{
         isAutoCutLocked = false;
         // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的 current值
 
-        // 鸣牌面板初始隐藏
+        // 鸣牌/牌张面板初始隐藏
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+        EnsureTilePassSettingPanel();
+        if (tilePassSettingPanel != null) {
+            tilePassSettingPanel.Initialize();
+            tilePassSettingPanel.SetPanelVisible(false);
+        }
         isMingPaiPanelExpanded = false;
 
         SetSpectatorOnlyLayout(false);
@@ -121,6 +127,7 @@ public class AutoAction : MonoBehaviour{
         isAutoBuhua = false;
 
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+        if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
         isMingPaiPanelExpanded = false;
 
         SetSpectatorOnlyLayout(true);
@@ -149,6 +156,7 @@ public class AutoAction : MonoBehaviour{
             otherActionPanel.SetActive(visible);
             if (!visible) {
                 if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+                if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
                 isMingPaiPanelExpanded = false;
             }
             return;
@@ -157,6 +165,7 @@ public class AutoAction : MonoBehaviour{
         SetTextActive(expandButtonText, visible);
         if (!visible) {
             if (mingPaiPanel != null) mingPaiPanel.SetActive(false);
+            if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
             isMingPaiPanelExpanded = false;
         }
         SetTextActive(autoPassChiText, visible);
@@ -250,10 +259,22 @@ public class AutoAction : MonoBehaviour{
         ToggleAutoOption(ref isAutoBuhua, autoBuhuaText);
     }
 
-    // 切换鸣牌面板展开/收起
+    // 切换鸣牌/牌张面板展开/收起
     private void ToggleMingPaiPanel(){
         isMingPaiPanelExpanded = !isMingPaiPanelExpanded;
         if (mingPaiPanel != null) mingPaiPanel.SetActive(isMingPaiPanelExpanded);
+        if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(isMingPaiPanelExpanded);
+    }
+
+    /// <summary>当前河牌/加杠牌是否在牌张设置的自动过列表中。</summary>
+    public bool ShouldAutoPassForCurrentDiscard() {
+        return tilePassSettingPanel != null && tilePassSettingPanel.ShouldAutoPassForCurrentDiscard();
+    }
+
+    private void EnsureTilePassSettingPanel() {
+        if (tilePassSettingPanel == null) {
+            tilePassSettingPanel = GetComponentInChildren<TilePassSettingPanel>(true);
+        }
     }
 
     // 切换不吃

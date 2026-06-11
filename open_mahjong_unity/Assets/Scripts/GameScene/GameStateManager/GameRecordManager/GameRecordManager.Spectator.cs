@@ -595,12 +595,10 @@ public partial class GameRecordManager {
         int currentRoundActionCount = 0;
         int tileWallCount = 0;
         int currentRoundLabel = 0;
-        long roundSeed = 0;
         if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round rd)) {
             currentRoundActionCount = rd.actionTicks?.Count ?? 0;
             tileWallCount = rd.tilesList?.Count ?? 0;
             currentRoundLabel = rd.currentRound;
-            roundSeed = rd.roundRandomSeed;
         }
 
         int p0 = ReadGameTitleInt(gameRecord.gameTitle, "p0_uid", 0);
@@ -627,7 +625,7 @@ public partial class GameRecordManager {
         sb.AppendLine($"当前行动玩家Index: {currentPlayerIndex}");
         sb.AppendLine($"当前视角玩家Index: {selectedPlayerIndex} (UID:{selectedPlayerUserid})");
         sb.AppendLine($"牌山剩余: {tileWallCount}");
-        sb.AppendLine($"本局随机种子: {roundSeed}");
+        AppendCommitmentSaltLines(sb, gameRecord.gameTitle);
         sb.AppendLine($"直播询问缓存: {liveAskQueue.Count}");
         sb.AppendLine($"玩家0: {p0Name} (ID:{p0})");
         sb.AppendLine($"玩家1: {p1Name} (ID:{p1})");

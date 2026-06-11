@@ -19,10 +19,10 @@ from .boardcast import (
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_strict_final_ranks
 from .init_tiles import init_qingque_tiles
-from ..public.next_game_round import next_game_round_random_switchseat
+from ..public.next_game_round import next_game_round_qingque_switchseat
 from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict
+from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -251,6 +251,8 @@ class QingqueGameState:
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
+                    from ..public.game_record_manager import build_player_entry_order_fields
+                    base_game_info.update(build_player_entry_order_fields(self))
                     
                     # 构建玩家信息列表
                     for player in self.player_list:
@@ -343,6 +345,7 @@ class QingqueGameState:
             # 生成完整游戏随机种子
             user_seed = self.room_random_seed if self.room_random_seed else None
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
+            capture_player_entry_order(self)
             # 房间初始化 打乱玩家顺序（基于主种子）
             # 测试时不打乱玩家顺序
             # 使用随机种子创建独立的随机数生成器来打乱玩家顺序
@@ -357,6 +360,7 @@ class QingqueGameState:
         else:
             # 测试
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system()
+            capture_player_entry_order(self)
             # 测试时不打乱玩家顺序
             for index, player in enumerate[QingquePlayer](self.player_list):
                 player.player_index = index
@@ -650,7 +654,7 @@ class QingqueGameState:
                         break
 
             # 开启下一局的准备工作
-            next_game_round_random_switchseat(self)   
+            next_game_round_qingque_switchseat(self)   
 
             logger.info(f"重新开始下一局")
             # ↑ 重新开始下一局循环

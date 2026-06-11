@@ -24,7 +24,7 @@ public class RoomInfo {
     public int round_timer;
     public int step_timer;
     public bool is_game_running; // 游戏是否正在运行
-    public int random_seed; // 随机种子
+    public bool is_player_set_random_seed; // 复式：是否玩家指定主种子
     public bool open_cuohe; // 是否开启错和
     public bool show_moqie_hint; // 手摸切灰显（河牌摸切灰、手切正常）
     public bool tactical_call; // 战术鸣牌（国标/青雀）
@@ -36,7 +36,9 @@ public class RoomInfo {
 }
 
 public class GameEndInfo { // 显示游戏结束结果
-    public long game_random_seed; // 游戏随机种子
+    public string master_seed; // 主种子（256 位，JSON 为十进制或 hex 字符串）
+    public string commitment; // 承诺值
+    public string salt; // 盐字符串
     public Dictionary<string, Dictionary<string, object>> player_final_data; // endgame数据，键为玩家标识（国标为座位索引，可能并列名次），value 含 username、rank、score、pt 等；展示请以 value["rank"] 排序
 }
 
@@ -70,6 +72,11 @@ public class ShowResultInfo { // 显示结算结果
     public bool? exhaustive_penalty;
     // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时跳过
     public bool? silent;
+    // 国标局终亮杠：{player_index: [[2,tile,...], ...]}
+    public Dictionary<int, int[][]> revealed_angang_masks;
+    // 浪涌麻将：和牌基础点乘倍数后的收分（不含本场/供托）；倍数已含浪潮 +1
+    public int? langyong_multiplier;
+    public int? langyong_scored_points;
 }
 
 public class ShowShuheWeiInfo { // 数和尾结算信息
@@ -160,7 +167,8 @@ public class GameInfo { // 游戏开始时传递房间信息
     public int action_tick;             // 操作帧
     public int max_round;               // 最大局数
     public int tile_count;              // 牌山剩余牌数
-    public long round_random_seed;       // 局内随机种子
+    public string commitment;           // 承诺值（对局内广播，256 位）
+    public string salt;                   // 盐字符串
     public int current_round;           // 当前轮数
     public int step_time;               // 步时
     public int round_time;              // 局时
@@ -172,6 +180,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool show_moqie_hint;        // 手摸切灰显
     public bool tactical_call;          // 战术鸣牌（国标/青雀）
     public bool isPlayerSetRandomSeed;  // 是否设置随机种子
+    public int[] player_entry_order;    // shuffle 前对局入场顺序 user_id[4]
     public PlayerInfo[] players_info;   // 玩家信息列表
     public int[] self_hand_tiles;       // 当前玩家手牌 (可选)
 

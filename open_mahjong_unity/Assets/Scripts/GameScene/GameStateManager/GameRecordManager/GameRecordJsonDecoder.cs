@@ -67,9 +67,6 @@ public static class GameRecordJsonDecoder {
             round.roundIndex = roundIndex;
         }
 
-        if (roundData["round_random_seed"] != null) {
-            round.roundRandomSeed = roundData["round_random_seed"].Value<long>();
-        }
         if (roundData["current_round"] != null) {
             round.currentRound = roundData["current_round"].Value<int>();
         }

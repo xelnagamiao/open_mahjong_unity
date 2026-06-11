@@ -300,14 +300,10 @@ async def wait_action(self):
         case "waiting_hand_action":
             if action_data:
                 if action_type == "cut": # 切牌
-                    tile_id = action_data.get("TileId")
-                    cut_tile_index = action_data.get("cutIndex")
-
-                    if tile_id not in self.player_list[player_index].hand_tiles:
-                        logger.error(f"严重错误：tile_id {tile_id} 不在玩家 {player_index} 的手牌中，action_data={action_data}, hand_tiles={self.player_list[player_index].hand_tiles}")
-                        raise ValueError(f"数据污染：tile_id {tile_id} 无效，玩家 {player_index} 手牌: {self.player_list[player_index].hand_tiles}")
-
-                    tile_id, is_moqie, cut_tile_index = await apply_player_cut(self, player_index, action_data)
+                    cut_result = await apply_player_cut(self, player_index, action_data)
+                    if cut_result is None:
+                        return
+                    tile_id, is_moqie, cut_tile_index = cut_result
                     self.player_list[player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌操作
@@ -538,7 +534,8 @@ async def wait_action(self):
                     clear_draw_slot(self.player_list[player_index])
                     self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
                     # 牌谱记录吃碰杠牌
-                    player_action_record_chipenggang(self,action_type = action_type,mingpai_tile = tile_id,action_player = player_index)
+                    player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id,
+                                                     action_player=player_index, combination_mask=combination_mask)
                     # 广播吃碰杠动画
                     await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask,combination_target = combination_target)
                     if action_type == "gang":
@@ -560,10 +557,10 @@ async def wait_action(self):
         case "onlycut_after_action":
             if action_data:
                 if action_type == "cut": # 切牌
-                    tile_id = action_data.get("TileId")
-                    if tile_id not in self.player_list[self.current_player_index].hand_tiles:
-                        raise ValueError(f"onlycut 切牌无效 tile_id={tile_id}")
-                    tile_id, is_moqie, cut_tile_index = await apply_player_cut(self, self.current_player_index, action_data)
+                    cut_result = await apply_player_cut(self, self.current_player_index, action_data)
+                    if cut_result is None:
+                        return
+                    tile_id, is_moqie, cut_tile_index = cut_result
                     self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌动画
