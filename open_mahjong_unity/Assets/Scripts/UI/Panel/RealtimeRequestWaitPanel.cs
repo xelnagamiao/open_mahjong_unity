@@ -105,6 +105,7 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
         if (transition != null) transition.Hide();
         else gameObject.SetActive(false);
 
+        if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
         if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
 
         string gamestateId = response.realtime_gamestate_id;

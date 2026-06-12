@@ -161,6 +161,12 @@ class FriendManager:
                 success=False,
                 message="不能实时观战自己",
             )
+        if self.game_server.match_manager.blocks_spectator(from_user_id):
+            return Response(
+                type="friend/realtime_request_result",
+                success=False,
+                message="正在匹配队列中，请先取消匹配再进入观战",
+            )
         if not self.game_server.db_manager.are_mutual_friends(from_user_id, target_user_id):
             return Response(
                 type="friend/realtime_request_result",
@@ -374,6 +380,23 @@ class FriendManager:
             )
 
         # 接受：把 A 加到 game_state.realtime_spectators
+        if self.game_server.match_manager.blocks_spectator(req.from_user_id):
+            await self._send_to_user(
+                req.from_user_id,
+                Response(
+                    type="friend/realtime_request_declined",
+                    success=False,
+                    message="正在匹配队列中，请先取消匹配再进入观战",
+                    realtime_request_id=request_id,
+                ),
+            )
+            return Response(
+                type="friend/realtime_request_respond_result",
+                success=False,
+                message="对方正在匹配队列中，无法开始实时观战",
+                realtime_request_id=request_id,
+            )
+
         game_state = self.game_server.gamestate_manager.get_game_state_by_gamestate_id(req.gamestate_id)
         if game_state is None:
             await self._send_to_user(

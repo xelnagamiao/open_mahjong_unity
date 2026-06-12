@@ -6,8 +6,8 @@ using UnityEngine;
 /// 匹配排队状态与计时的持久化管理器。
 /// 计时协程由 <see cref="CoroutineManager"/> 统一驱动，不挂在会被关闭的面板上。
 /// <para>用法：把本脚本拖到一个常驻 GameObject 上即可；若场景中不存在，也会在首次访问 <see cref="Instance"/> 时自动创建。</para>
-/// 面板（<see cref="MatchQueueingPanel"/> / <see cref="MatchFoundedPanel"/>）仅作为视图，
-/// 从这里读取状态并订阅 <see cref="OnElapsedTick"/> 刷新显示。
+/// 面板仅作为视图：<see cref="MatchQueueingPanel"/> 随匹配页显隐；
+/// <see cref="MatchFoundedPanel"/> 在 OverlayCanvas 上独立显示。计时状态由此处维护。
 /// </summary>
 public class MatchStateManager : MonoBehaviour {
     public static MatchStateManager Instance {
@@ -56,7 +56,10 @@ public class MatchStateManager : MonoBehaviour {
     }
 
     /// <summary>匹配成功：停止计时但保留排队标记，便于面板恢复显示。</summary>
-    public void MarkMatchFound() {
+    public void MarkMatchFound(string queueTitle = null) {
+        if (!string.IsNullOrEmpty(queueTitle)) {
+            QueueTitle = queueTitle;
+        }
         IsMatchFound = true;
         StopTimer();
     }

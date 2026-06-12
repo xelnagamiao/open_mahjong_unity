@@ -26,4 +26,11 @@ public static class LobbyStateGuard {
         NotificationManager.Instance?.ShowTip("房间", false, "正在匹配队列中，请先取消匹配再进入或创建房间");
         return true;
     }
+
+    /// <summary>若正在匹配队列中则提示并返回 true（应中止进入观战）。</summary>
+    public static bool BlockIfInMatchQueueForSpectator() {
+        if (!IsInMatchQueue) return false;
+        NotificationManager.Instance?.ShowTip("观战", false, "正在匹配队列中，请先取消匹配再进入观战");
+        return true;
+    }
 }

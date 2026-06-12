@@ -140,6 +140,10 @@ class MatchManager:
         """玩家是否仍在匹配等待队列中。"""
         return user_id in self.user_to_queue
 
+    def blocks_spectator(self, user_id: int) -> bool:
+        """匹配排队中或已匹配成功（对局尚未结束）时不允许进入观战。"""
+        return user_id in self.user_to_queue or user_id in self.committed_users
+
     def _is_user_in_custom_room(self, user_id: int) -> bool:
         """兜底：current_room_id 未同步时，仍按房间成员表判断是否已在自定义房。"""
         for room_data in self.game_server.room_manager.rooms.values():

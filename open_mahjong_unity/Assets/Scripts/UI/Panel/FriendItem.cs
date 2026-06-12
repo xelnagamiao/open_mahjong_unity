@@ -143,6 +143,7 @@ public class FriendItem : MonoBehaviour {
             NotificationManager.Instance?.ShowTip("实时观战", false, "对方当前不在对局中");
             return;
         }
+        if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
         if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
         if (RealtimeRequestWaitPanel.Instance != null) {
             RealtimeRequestWaitPanel.Instance.ShowWaiting(_info.user_id, _info.username);

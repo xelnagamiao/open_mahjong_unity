@@ -8,6 +8,7 @@ const usersRoutes = require('./users');
 const rankRoutes = require('./rank');
 const gamesRoutes = require('./games');
 const auditRoutes = require('./audit');
+const messagesRoutes = require('./messages');
 
 const router = express.Router();
 
@@ -29,5 +30,6 @@ router.use('/users', usersRoutes);
 router.use('/rank', rankRoutes);
 router.use('/games', gamesRoutes);
 router.use('/audit', auditRoutes);
+router.use('/messages', messagesRoutes);
 
 module.exports = router;

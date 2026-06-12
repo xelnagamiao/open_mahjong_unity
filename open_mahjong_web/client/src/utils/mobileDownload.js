@@ -1,32 +1,22 @@
-import { ElMessage, ElMessageBox } from 'element-plus'
-
-/** 蓝奏云 Android 安装包（大文件外链，不占本站带宽） */
+/** 静态目录：client/public/android-game/（与 unity-game 并列） */
 export const MOBILE_DOWNLOAD = {
-  url: 'https://wwavc.lanzoue.com/i6wXV3rose6d',
-  password: '3ro1',
-  title: 'salasasa 手机版下载',
+  path: '/android-game/open_mahjong_unity.apk',
+  filename: 'open_mahjong_unity.apk',
+  label: 'Android APK',
+  hint: '适用于 Android 手机与平板，下载后直接安装即可。',
 }
 
-export function promptMobileDownload() {
-  ElMessageBox.confirm(
-    `解压 / 访问密码：<strong style="font-size:1.1em;letter-spacing:0.08em;">${MOBILE_DOWNLOAD.password}</strong><br><br>` +
-      `点击「前往下载」在新标签页打开；若浏览器拦截，请允许弹窗后重试。`,
-    MOBILE_DOWNLOAD.title,
-    {
-      confirmButtonText: '前往下载',
-      cancelButtonText: '复制密码',
-      dangerouslyUseHTMLString: true,
-      distinguishCancelAndClose: true,
-    }
-  )
-    .then(() => {
-      window.open(MOBILE_DOWNLOAD.url, '_blank', 'noopener,noreferrer')
-    })
-    .catch((action) => {
-      if (action !== 'cancel') return
-      navigator.clipboard
-        .writeText(MOBILE_DOWNLOAD.password)
-        .then(() => ElMessage.success('密码已复制到剪贴板'))
-        .catch(() => ElMessage.warning(`请手动复制密码：${MOBILE_DOWNLOAD.password}`))
-    })
+export const MOBILE_DOWNLOAD_PAGE = {
+  title: '手机版下载',
+  description: '下载测试版 Android APK，可能会经常更新，可注意群906497522动态',
+}
+
+export function openMobileDownload() {
+  const link = document.createElement('a')
+  link.href = MOBILE_DOWNLOAD.path
+  link.download = MOBILE_DOWNLOAD.filename
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }

@@ -115,16 +115,21 @@ public static class ScoreHistoryRecordSettlementExtractor {
                     break;
                 case "ag": {
                     int tile = ParseInt(tick, 1);
-                    RemoveNTiles(actor.tileList, tile, 4);
+                    bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
+                    List<int> removedTiles = GameRecordMeldCodec.ResolveAngangRemovedTiles(
+                        tick, actor.tileList, tile, isMoGang);
                     actor.combinationTiles.Add($"G{tile}");
-                    actor.combinationMasks.Add(BuildAngangMask(tile, subRule));
+                    actor.combinationMasks.Add(GameRecordMeldCodec.BuildAngangMaskFromRemoved(removedTiles, subRule));
                     currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
                 case "jg": {
                     int tile = ParseInt(tick, 1);
-                    RemoveOneTile(actor.tileList, tile);
-                    BuildJiagangMask(actor, tile);
+                    bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
+                    List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
+                        actor.tileList, tile, 1, preferDrawSlotFirst: isMoGang);
+                    int actualJia = removedTiles.Count > 0 ? removedTiles[0] : tile;
+                    BuildJiagangMask(actor, tile, actualJia);
                     currentPlayerIndex = actingPlayerIndex;
                     break;
                 }
@@ -457,14 +462,6 @@ public static class ScoreHistoryRecordSettlementExtractor {
         if (idx >= 0) tileList.RemoveAt(idx);
     }
 
-    private static void RemoveNTiles(List<int> tileList, int tileId, int count) {
-        for (int i = 0; i < count; i++) {
-            int idx = tileList.IndexOf(tileId);
-            if (idx < 0) break;
-            tileList.RemoveAt(idx);
-        }
-    }
-
     private static void RemoveTileForCut(List<int> tileList, int tileId, bool isMoqie) {
         if (tileList.Count == 0) return;
         if (isMoqie && tileList[tileList.Count - 1] == tileId) {
@@ -474,21 +471,14 @@ public static class ScoreHistoryRecordSettlementExtractor {
         RemoveOneTile(tileList, tileId);
     }
 
-    private static int[] BuildAngangMask(int angangTile, string subRule) {
-        if (subRule.StartsWith("riichi")) {
-            return new[] { 2, angangTile, 0, angangTile, 0, angangTile, 2, angangTile };
-        }
-        return new[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
-    }
-
-    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile) {
+    private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile, int actualJiaTile) {
         for (int i = 0; i < player.combinationTiles.Count; i++) {
             if (player.combinationTiles[i] != $"k{jiagangTile}") continue;
             player.combinationTiles[i] = $"g{jiagangTile}";
             var updatedMask = new List<int>(player.combinationMasks[i]);
             for (int j = 0; j < updatedMask.Count; j++) {
                 if (updatedMask[j] != 1) continue;
-                updatedMask.Insert(j, jiagangTile);
+                updatedMask.Insert(j, actualJiaTile);
                 updatedMask.Insert(j, 3);
                 break;
             }
@@ -496,7 +486,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
             return player.combinationMasks[i];
         }
 
-        int[] fallback = { 0, jiagangTile, 3, jiagangTile, 1, jiagangTile, 0, jiagangTile };
+        int[] fallback = { 0, jiagangTile, 3, actualJiaTile, 1, jiagangTile, 0, jiagangTile };
         player.combinationTiles.Add($"g{jiagangTile}");
         player.combinationMasks.Add(fallback);
         return fallback;

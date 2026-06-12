@@ -171,11 +171,13 @@ def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_rii
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
 # 牌谱记录暗杠；is_mo_gang True=摸杠 False=手杠
-def player_action_record_angang(self, angang_tile: int, is_mo_gang: bool = False):
+# combination_mask 存在时追加 4 张手牌侧真实 ID（含赤 5 的 105/205/305），与吃碰杠口径一致
+def player_action_record_angang(self, angang_tile: int, is_mo_gang: bool = False, combination_mask=None):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["ag", angang_tile, "T" if is_mo_gang else "F"]
-    )
+    entry = ["ag", angang_tile, "T" if is_mo_gang else "F"]
+    if combination_mask:
+        entry.extend(_extract_hand_tiles_from_mingpai_mask(combination_mask, angang_tile))
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
 # 牌谱记录加杠；is_mo_gang True=摸杠 False=手杠
 def player_action_record_jiagang(self, jiagang_tile: int, is_mo_gang: bool = False):

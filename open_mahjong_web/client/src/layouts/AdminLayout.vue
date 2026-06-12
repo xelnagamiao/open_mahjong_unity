@@ -8,6 +8,7 @@
         <el-menu-item index="/admin/rank">段位</el-menu-item>
         <el-menu-item index="/admin/games">对局</el-menu-item>
         <el-menu-item index="/admin/audit">审计</el-menu-item>
+        <el-menu-item index="/admin/messages">消息</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

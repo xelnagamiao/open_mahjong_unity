@@ -306,7 +306,7 @@ public class FixedAspectRatio : MonoBehaviour {
     private bool ShouldLetterbox() {
 #if USE_WINAPI
         return IsZoomed(hwnd);
-#elif UNITY_ANDROID
+#elif UNITY_ANDROID || UNITY_IOS
         return true;
 #else
         return false;

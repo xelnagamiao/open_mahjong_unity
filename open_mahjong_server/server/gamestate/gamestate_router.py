@@ -178,6 +178,15 @@ async def handle_add_spectator(game_server, Connect_id: str, message: dict, webs
             )
             await websocket.send_json(response.dict(exclude_none=True))
             return
+
+        if game_server.match_manager.blocks_spectator(user_id):
+            response = Response(
+                type="spectator/add_spectator",
+                success=False,
+                message="正在匹配队列中，请先取消匹配再进入观战"
+            )
+            await websocket.send_json(response.dict(exclude_none=True))
+            return
         
         # 检查是否已经是玩家
         is_player = any(p.user_id == user_id for p in guobiao_game_state.player_list)

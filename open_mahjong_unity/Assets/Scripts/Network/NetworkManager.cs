@@ -49,6 +49,10 @@ public class NetworkManager : MonoBehaviour {
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
     private bool _suppressDisconnectDialog;
+    // 断线弹窗：仅「曾连上且已断线、尚未弹窗」时显示（启动连接中不弹）
+    private bool _hasEstablishedConnection;
+    private bool _isDisconnected;
+    private bool _disconnectDialogShown;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
@@ -75,7 +79,7 @@ public class NetworkManager : MonoBehaviour {
         ws.OnOpen += () => {
             Debug.Log("WebSocket连接成功");
             isConnecting = false;
-            _suppressDisconnectDialog = false;
+            OnConnectionEstablished();
             ExecuteOnMainThread(() => {
                 LoginPanel.Instance?.ConnectOkText();
             });
@@ -96,14 +100,52 @@ public class NetworkManager : MonoBehaviour {
             isConnecting = false;
             ExecuteOnMainThread(() => {
                 LoginPanel.Instance?.ConnectErrorText("连接已关闭");
-                if (_suppressDisconnectDialog) return;
-                NotificationManager.Instance.ShowMessage(
-                    "连接已断开",
-                    "与服务器的连接已断开。如正处于一场游戏对局中，点击重连即可回到登录界面并尝试重新连接服务器；游客无法重连至游戏。",
-                    "disconnect"
-                );
+                MarkDisconnected();
             });
         };
+    }
+
+    private void OnConnectionEstablished() {
+        _hasEstablishedConnection = true;
+        _isDisconnected = false;
+        _disconnectDialogShown = false;
+        _suppressDisconnectDialog = false;
+    }
+
+    private void MarkDisconnected() {
+        if (!_hasEstablishedConnection) return;
+        _isDisconnected = true;
+        TryShowDisconnectDialog();
+    }
+
+    private void TryShowDisconnectDialog() {
+        if (!_hasEstablishedConnection) return;
+        if (!_isDisconnected) return;
+        if (_disconnectDialogShown) return;
+        if (_suppressDisconnectDialog) return;
+        _disconnectDialogShown = true;
+        NotificationManager.Instance.ShowMessage(
+            "连接已断开",
+            "与服务器的连接已断开。如正处于一场游戏对局中，点击重连即可回到登录界面并尝试重新连接服务器；游客无法重连至游戏。",
+            "disconnect"
+        );
+    }
+
+    private void OnApplicationPause(bool pause) {
+        if (pause) return;
+        CheckDisconnectOnForeground();
+    }
+
+    private void CheckDisconnectOnForeground() {
+        if (!_hasEstablishedConnection) return;
+        if (_disconnectDialogShown) return;
+        if (_suppressDisconnectDialog || isConnecting) return;
+#if !UNITY_WEBGL || UNITY_EDITOR
+        websocket?.DispatchMessageQueue();
+#endif
+        if (websocket == null || websocket.State != WebSocketState.Open) {
+            MarkDisconnected();
+        }
     }
 
     /// <summary>
@@ -114,6 +156,7 @@ public class NetworkManager : MonoBehaviour {
             Debug.LogWarning("[NetworkManager] 无法重连：NetworkManager 未激活");
             return;
         }
+        _disconnectDialogShown = false;
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNamed(
             CoroutineKeys.NetworkReconnect,
