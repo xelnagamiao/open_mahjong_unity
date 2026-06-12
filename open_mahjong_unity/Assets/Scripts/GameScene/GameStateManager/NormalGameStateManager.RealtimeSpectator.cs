@@ -5,6 +5,8 @@ public partial class NormalGameStateManager {
     /// 服务器随后会按 B 的座位转发完整 game_start + 后续广播。
     /// </summary>
     public void StartAsRealtimeSpectator(string gamestateId, int hostUserId = 0) {
+        if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
+        if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
         IsRealtimeSpectator = true;
         RealtimeSpectatorHostUserId = hostUserId;
         UserDataManager.Instance.SetGamestateId(gamestateId);

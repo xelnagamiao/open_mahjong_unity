@@ -9,6 +9,7 @@ import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
 import Paili from '@/views/Paili.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
+import MobileDownload from '@/views/MobileDownload.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
@@ -17,7 +18,7 @@ import AdminUserDetail from '@/views/admin/UserDetail.vue'
 import AdminRank from '@/views/admin/Rank.vue'
 import AdminGames from '@/views/admin/Games.vue'
 import AdminAudit from '@/views/admin/Audit.vue'
-import { promptMobileDownload } from '@/utils/mobileDownload'
+import AdminMessages from '@/views/admin/Messages.vue'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -66,6 +67,12 @@ const routes = [
         name: 'SeedVerify',
         component: SeedVerify,
         meta: { title: '随机种子验证 - salasasa.cn' }
+      },
+      {
+        path: 'mobile-download',
+        name: 'MobileDownload',
+        component: MobileDownload,
+        meta: { title: '手机版下载 - salasasa.cn' }
       }
     ]
   },
@@ -94,15 +101,6 @@ const routes = [
     meta: { title: 'GitHub 项目 - salasasa.cn' }
   },
   {
-    path: '/mobile-download',
-    name: 'MobileDownload',
-    beforeEnter: () => {
-      promptMobileDownload()
-      return false
-    },
-    meta: { title: '手机版下载 - salasasa.cn' }
-  },
-  {
     path: '/admin/login',
     name: 'AdminLogin',
     component: AdminLogin,
@@ -123,7 +121,8 @@ const routes = [
       },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局管理' } },
-      { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } }
+      { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
+      { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } }
     ]
   }
 ]

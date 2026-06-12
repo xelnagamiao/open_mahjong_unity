@@ -152,21 +152,18 @@ public static class ScoreHistorySettlementHelper {
         string[] fuFanList,
         RiichiEndResultExtras riichiExtras,
         Dictionary<int, int> scoreChanges) {
+        // show_result 广播的 score_changes 键为 original_player_index，与牌谱 tick 按 seat 排列不同
         int winnerDelta = 0;
-        if (scoreChanges != null) {
-            if (scoreChanges.TryGetValue(hepaiPlayerIndex, out int bySeat)) {
-                winnerDelta = bySeat;
-            } else if (NormalGameStateManager.Instance != null
-                && NormalGameStateManager.Instance.player_to_info != null) {
-                foreach (var kv in NormalGameStateManager.Instance.indexToPosition) {
-                    if (kv.Key != hepaiPlayerIndex) continue;
-                    if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(kv.Value, out var info)) continue;
-                    if (scoreChanges.TryGetValue(info.original_player_index, out int byOrig)) {
-                        winnerDelta = byOrig;
-                    }
-                    break;
-                }
+        if (scoreChanges != null && hepaiPlayerIndex >= 0) {
+            int originalPlayerIndex = hepaiPlayerIndex;
+            if (NormalGameStateManager.Instance != null
+                && NormalGameStateManager.Instance.indexToPosition != null
+                && NormalGameStateManager.Instance.indexToPosition.TryGetValue(hepaiPlayerIndex, out string huPos)
+                && NormalGameStateManager.Instance.player_to_info != null
+                && NormalGameStateManager.Instance.player_to_info.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
+                originalPlayerIndex = winnerInfo.original_player_index;
             }
+            ShowResultPlayerScoreResolver.TryGetDelta(scoreChanges, hepaiPlayerIndex, originalPlayerIndex, out winnerDelta);
         }
 
         bool isLiuju = huClass == "liuju" || huClass == "ryuukyoku"

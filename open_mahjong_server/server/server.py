@@ -276,7 +276,9 @@ class GameServer:
 game_server = GameServer()
 
 from .webapi.calc import register_calc_routes
+from .webapi.admin_message import register_admin_message_routes
 register_calc_routes(app, game_server)
+register_admin_message_routes(app, game_server)
 
 @app.websocket("/game/{Connect_id}")
 async def message_input(websocket: WebSocket, Connect_id: str):

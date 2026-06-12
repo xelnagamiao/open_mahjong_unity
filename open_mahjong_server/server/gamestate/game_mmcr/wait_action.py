@@ -313,7 +313,8 @@ async def wait_action(self):
                     self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
                     add_combination_mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
                     self.player_list[self.current_player_index].combination_mask.append(add_combination_mask)
-                    player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang)
+                    player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang,
+                                                combination_mask=add_combination_mask)
                     await broadcast_do_action(self,action_list = ["angang"],
                                                   action_player = self.current_player_index,
                                                   combination_mask = add_combination_mask,

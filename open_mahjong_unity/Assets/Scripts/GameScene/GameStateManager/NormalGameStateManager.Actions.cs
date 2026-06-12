@@ -139,16 +139,15 @@ public partial class NormalGameStateManager {
                 case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang": case "peng": case "gang":
                     if (action == "jiagang"){
                         pendingAskFromJiagang = true;
-                        // 加杠情况下收到的combination_target是原本刻子的字符串
-                        // 替换combination_target的首字符改为加杠字符串
                         string combination_target_str = combination_target.Substring(1);
                         ReplaceCombinationMask(player_to_info[GetCardPlayer], combination_target, combination_mask);
-                        player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}"); // 存储组合牌
-                        player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target); // 删除刻子组合牌
-                        int tile_id = int.Parse(combination_target_str);
+                        player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}");
+                        player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target);
+                        int? jiagangTileFromMask = GameRecordMeldCodec.ExtractTileByFlag(combination_mask, 3);
+                        int tile_id = jiagangTileFromMask ?? int.Parse(combination_target_str);
                         bool isMoGang = is_mo_gang == true;
                         if (GetCardPlayer == "self"){
-                            selfHandTiles.Remove(tile_id); // 删除手牌
+                            selfHandTiles.Remove(tile_id);
                             if (isMoGang) {
                                 GameCanvas.Instance.ChangeHandCards("RemoveGetCard", tile_id, null, null);
                             } else {
@@ -156,75 +155,46 @@ public partial class NormalGameStateManager {
                             }
                         }
                         else{
-                            player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
+                            player_to_info[GetCardPlayer].hand_tiles_count -= 1;
                         }
-                        Game3DManager.Instance.Change3DTile("jiagang", tile_id, 1, GetCardPlayer, isMoGang, combination_mask); // 3D加杠行为
+                        Game3DManager.Instance.Change3DTile("jiagang", tile_id, 1, GetCardPlayer, isMoGang, combination_mask);
                     }
                     else if (action == "angang"){
                         bool isMoGang = is_mo_gang == true;
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target);
                         AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
+                        List<int> angangRemoveList = GameRecordMeldCodec.ExtractHandTilesFromMask(combination_mask);
                         if (GetCardPlayer == "self"){
-                            List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList();
-                            foreach (int tile_id in need_remove_list){
+                            foreach (int tile_id in angangRemoveList){
                                 selfHandTiles.Remove(tile_id);
                             }
-                            if (isMoGang && need_remove_list.Count > 0) {
-                                int angangTile = need_remove_list[0];
-                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard", angangTile, null, null);
-                                if (need_remove_list.Count > 1) {
-                                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, need_remove_list.Skip(1).Take(3).ToArray(), null);
-                                }
-                            } else {
-                                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, need_remove_list.ToArray(), null);
-                            }
+                            ApplyAngangHandCardRemoval(angangRemoveList, isMoGang);
                         } else {
-                            player_to_info[GetCardPlayer].hand_tiles_count -= 4;
+                            player_to_info[GetCardPlayer].hand_tiles_count -= angangRemoveList.Count;
                         }
-                        Game3DManager.Instance.Change3DTile(action, 0, 4, GetCardPlayer, false, combination_mask, isMoGang: isMoGang);
-                    }
-                    else if (action == "gang"){
-                        // 杠情况下需要删除3张手牌（相对于暗杠少删一张）
-                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
-                        AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
-                        List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
-                        need_remove_list.RemoveAt(need_remove_list.Count - 1); // 删除一张牌（杠相对于暗杠少删一张）
-                        foreach (int tile_id in need_remove_list){
-                            if (GetCardPlayer == "self"){
-                                selfHandTiles.Remove(tile_id); // 删除手牌
-                                GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray(),null); // 2D手牌行为
-                            }
-                            else{
-                                player_to_info[GetCardPlayer].hand_tiles_count -= 3; // 减少手牌（3张）
-                            }
-                        }
-                        Game3DManager.Instance.Change3DTile(action,0,3,GetCardPlayer,false,combination_mask); // 3D杠行为
+                        Game3DManager.Instance.Change3DTile(action, 0, angangRemoveList.Count, GetCardPlayer, false, combination_mask, isMoGang: isMoGang);
                     }
                     else{
-                        // 正常情况 "chi_left" "chi_mid" "chi_right" "peng" "gang" 均为场地魔法 需要剔除上次切牌的ID
-                        player_to_info[CurrentPlayer].discard_tiles.Remove(lastCutCardID); // 剔除上次切牌的ID
-                        // 同步移除最后一张弃牌的横置标记，与服务器 discard_riichi_flags.pop(-1) 行为一致
+                        // 吃 / 碰 / 明杠：河牌被取走，按掩码 flag!=1 删手牌侧真实 ID
+                        player_to_info[CurrentPlayer].discard_tiles.Remove(lastCutCardID);
                         if (player_to_info[CurrentPlayer].discard_riichi_flags.Count > 0){
                             player_to_info[CurrentPlayer].discard_riichi_flags.RemoveAt(player_to_info[CurrentPlayer].discard_riichi_flags.Count - 1);
                         }
-                        player_to_info[CurrentPlayer].discard_origin_tiles.Add(lastCutCardID); // 添加上次切牌的理论弃牌
+                        player_to_info[CurrentPlayer].discard_origin_tiles.Add(lastCutCardID);
 
-                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target); // 存储组合牌
+                        player_to_info[GetCardPlayer].combination_tiles.Add(combination_target);
                         AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
-                        List<int> need_remove_list = combination_mask.Where(x => x > 10).ToList(); // 获取组合牌列表
-                        need_remove_list.Remove(lastCutCardID); // 剔除上次切牌的ID
-                        foreach (int tile_id in need_remove_list){
-                            if (GetCardPlayer == "self"){
-                                selfHandTiles.Remove(tile_id); // 删除手牌
-                            }
-                            else{
-                                player_to_info[GetCardPlayer].hand_tiles_count -= 1; // 减少手牌
-                            }
-                        }
+                        List<int> need_remove_list = GameRecordMeldCodec.ExtractHandTilesFromMask(combination_mask);
                         if (GetCardPlayer == "self"){
-                            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard",0,need_remove_list.ToArray(),null); // 2D手牌行为
+                            foreach (int tile_id in need_remove_list){
+                                selfHandTiles.Remove(tile_id);
+                            }
+                            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, need_remove_list.ToArray(), null);
                         }
-                        Game3DManager.Instance.Change3DTile(action,0,need_remove_list.Count,GetCardPlayer,false,combination_mask); // 3D吃碰杠行为
+                        else{
+                            player_to_info[GetCardPlayer].hand_tiles_count -= need_remove_list.Count;
+                        }
+                        Game3DManager.Instance.Change3DTile(action, 0, need_remove_list.Count, GetCardPlayer, false, combination_mask);
                     }
                     break;
                 default:
@@ -249,6 +219,19 @@ public partial class NormalGameStateManager {
             player.combination_masks[idx] = mask;
         } else {
             player.combination_masks.Add(mask);
+        }
+    }
+
+    private static void ApplyAngangHandCardRemoval(List<int> handTiles, bool isMoGang) {
+        if (handTiles == null || handTiles.Count == 0) return;
+        if (isMoGang) {
+            GameCanvas.Instance.ChangeHandCards("RemoveGetCard", handTiles[0], null, null);
+            if (handTiles.Count > 1) {
+                GameCanvas.Instance.ChangeHandCards(
+                    "RemoveCombinationCard", 0, handTiles.Skip(1).ToArray(), null);
+            }
+        } else {
+            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, handTiles.ToArray(), null);
         }
     }
 

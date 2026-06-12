@@ -1,10 +1,6 @@
 using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// 淡入动画
-/// </summary>
-
 [RequireComponent(typeof(CanvasGroup))]
 public class CanvasGroupFadeIn : MonoBehaviour {
     [SerializeField] private float duration = 0.2f;
@@ -23,7 +19,7 @@ public class CanvasGroupFadeIn : MonoBehaviour {
     }
 
     private IEnumerator FadeInRoutine() {
-        float targetAlpha = canvasGroup.alpha <= 0f ? 1f : canvasGroup.alpha;
+        const float targetAlpha = 1f;
         canvasGroup.alpha = 0f;
 
         if (duration <= 0f) {

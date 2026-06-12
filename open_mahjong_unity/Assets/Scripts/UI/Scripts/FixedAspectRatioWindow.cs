@@ -17,6 +17,8 @@ public class FixedAspectRatio : MonoBehaviour {
     [SerializeField] private Camera[] targetCameras;
 
     private const string BlackBarCanvasName = "FixedAspectRatio Black Bars";
+    /// <summary>最大化 letterbox 时需随相机视口裁剪的 Overlay 根 Canvas（还原后必须回到 Screen Space - Overlay）。</summary>
+    private static readonly string[] LetterboxOverlayRootNames = { "OverlayCanvas", "MainCanvas", "#GameCanvas" };
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT {
@@ -65,11 +67,14 @@ public class FixedAspectRatio : MonoBehaviour {
     private Rect currentCameraRect = new Rect(0f, 0f, 1f, 1f);
     private bool isLetterboxActive;
     private readonly Dictionary<Canvas, CanvasState> overlayCanvasStates = new Dictionary<Canvas, CanvasState>();
+    private Canvas[] letterboxRootCanvases;
 
     private struct CanvasState {
         public RenderMode renderMode;
         public Camera worldCamera;
         public float planeDistance;
+        public int sortingLayerID;
+        public int sortingOrder;
     }
 
     void Start() {
@@ -78,7 +83,21 @@ public class FixedAspectRatio : MonoBehaviour {
         HookWindowProc();
 #endif
         SetupBlackBars();
+        CacheLetterboxRootCanvases();
         ApplyCameraViewport();
+    }
+
+    private void CacheLetterboxRootCanvases() {
+        var roots = new List<Canvas>(LetterboxOverlayRootNames.Length);
+        for (int i = 0; i < LetterboxOverlayRootNames.Length; i++) {
+            GameObject root = GameObject.Find(LetterboxOverlayRootNames[i]);
+            if (root == null) continue;
+            Canvas canvas = root.GetComponent<Canvas>();
+            if (canvas != null && canvas != blackBarCanvas) {
+                roots.Add(canvas);
+            }
+        }
+        letterboxRootCanvases = roots.ToArray();
     }
 
     private void Update() {
@@ -219,40 +238,88 @@ public class FixedAspectRatio : MonoBehaviour {
 
     private void ApplyCanvasViewport(bool shouldLetterbox) {
         if (shouldLetterbox) {
-            Camera canvasCamera = GetCanvasCamera();
-            Canvas[] canvases = FindObjectsByType<Canvas>();
-            for (int i = 0; i < canvases.Length; i++) {
-                Canvas canvas = canvases[i];
-                if (canvas == blackBarCanvas || canvas.renderMode != RenderMode.ScreenSpaceOverlay) continue;
-
-                if (!overlayCanvasStates.ContainsKey(canvas)) {
-                    overlayCanvasStates.Add(canvas, new CanvasState {
-                        renderMode = canvas.renderMode,
-                        worldCamera = canvas.worldCamera,
-                        planeDistance = canvas.planeDistance,
-                    });
-                }
-
-                canvas.renderMode = RenderMode.ScreenSpaceCamera;
-                canvas.worldCamera = canvasCamera;
-            }
-
-            isLetterboxActive = true;
+            ActivateLetterboxCanvasMode();
             return;
         }
 
-        if (!isLetterboxActive) return;
+        DeactivateLetterboxCanvasMode();
+        EnsureOverlayRootsUseOverlayMode();
+    }
+
+    private static CanvasState CaptureCanvasState(Canvas canvas) {
+        return new CanvasState {
+            renderMode = canvas.renderMode,
+            worldCamera = canvas.worldCamera,
+            planeDistance = canvas.planeDistance,
+            sortingLayerID = canvas.sortingLayerID,
+            sortingOrder = canvas.sortingOrder,
+        };
+    }
+
+    private static void ApplyCanvasState(Canvas canvas, CanvasState state) {
+        canvas.renderMode = state.renderMode;
+        canvas.worldCamera = state.worldCamera;
+        canvas.planeDistance = state.planeDistance;
+        canvas.sortingLayerID = state.sortingLayerID;
+        canvas.sortingOrder = state.sortingOrder;
+    }
+
+    private void ActivateLetterboxCanvasMode() {
+        Camera canvasCamera = GetCanvasCamera();
+        Canvas[] canvases = FindObjectsByType<Canvas>();
+        for (int i = 0; i < canvases.Length; i++) {
+            Canvas canvas = canvases[i];
+            if (canvas == null || canvas == blackBarCanvas) continue;
+            if (canvas.renderMode != RenderMode.ScreenSpaceOverlay) continue;
+
+            if (!overlayCanvasStates.ContainsKey(canvas)) {
+                overlayCanvasStates.Add(canvas, CaptureCanvasState(canvas));
+            }
+
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = canvasCamera;
+        }
+
+        isLetterboxActive = true;
+    }
+
+    private void DeactivateLetterboxCanvasMode() {
+        if (!isLetterboxActive && overlayCanvasStates.Count == 0) return;
 
         foreach (KeyValuePair<Canvas, CanvasState> pair in overlayCanvasStates) {
             if (pair.Key == null) continue;
-
-            pair.Key.renderMode = pair.Value.renderMode;
-            pair.Key.worldCamera = pair.Value.worldCamera;
-            pair.Key.planeDistance = pair.Value.planeDistance;
+            ApplyCanvasState(pair.Key, pair.Value);
         }
 
         overlayCanvasStates.Clear();
         isLetterboxActive = false;
+    }
+
+    /// <summary>
+    /// 窗口还原后若 Canvas 仍卡在 Screen Space - Camera，Main(Overlay) 会整层盖住 Overlay(Camera)。
+    /// 每帧在非最大化状态下强制根 Canvas 回到 Overlay 模式，修复最大化→还原后的「混合态」。
+    /// </summary>
+    private void EnsureOverlayRootsUseOverlayMode() {
+        if (letterboxRootCanvases == null || letterboxRootCanvases.Length == 0) {
+            CacheLetterboxRootCanvases();
+        }
+
+        for (int i = 0; i < letterboxRootCanvases.Length; i++) {
+            Canvas canvas = letterboxRootCanvases[i];
+            if (canvas == null) {
+                CacheLetterboxRootCanvases();
+                return;
+            }
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay) continue;
+
+            if (overlayCanvasStates.TryGetValue(canvas, out CanvasState saved)) {
+                ApplyCanvasState(canvas, saved);
+                continue;
+            }
+
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.worldCamera = null;
+        }
     }
 
     private void ApplyBlackBars(Rect targetRect) {
@@ -306,7 +373,7 @@ public class FixedAspectRatio : MonoBehaviour {
     private bool ShouldLetterbox() {
 #if USE_WINAPI
         return IsZoomed(hwnd);
-#elif UNITY_ANDROID
+#elif UNITY_ANDROID || UNITY_IOS
         return true;
 #else
         return false;

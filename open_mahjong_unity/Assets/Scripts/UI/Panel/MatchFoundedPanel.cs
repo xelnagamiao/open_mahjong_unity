@@ -3,8 +3,8 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// 匹配已成功（found）后的进入游戏倒计时面板，与 <see cref="MatchQueueingPanel"/> 区分。显示时使用 <see cref="CanvasGroupFadeIn"/> 渐入。
-/// 倒计时协程由 <see cref="CoroutineManager"/> 统一管理。
+/// 匹配已成功（found）后的进入游戏倒计时面板，与 <see cref="MatchQueueingPanel"/> 区分。
+/// 应挂在 OverlayCanvas 上，不随 <see cref="MatchPanel"/> 窗口切换而隐藏。
 /// </summary>
 public class MatchFoundedPanel : MonoBehaviour {
     public static MatchFoundedPanel Instance { get; private set; }
@@ -13,50 +13,73 @@ public class MatchFoundedPanel : MonoBehaviour {
     [SerializeField] private TMP_Text foundedMatchTypeText;
     [SerializeField] private TMP_Text foundedCountdownText;
 
+    private CanvasGroup _canvasGroup;
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        _canvasGroup = GetComponent<CanvasGroup>();
         gameObject.SetActive(false);
     }
 
     public void Show(string matchTypeName) {
-        MatchStateManager.Instance.MarkMatchFound();
+        MatchStateManager.Instance.MarkMatchFound(matchTypeName);
         MatchQueueingPanel.Instance?.HideImmediately();
-        gameObject.SetActive(true);
-        transform.SetAsLastSibling();
-        foundedMatchTypeText.text = matchTypeName;
-        fadeIn.PlayFadeIn();
-        StartFoundedCountdown();
-    }
-
-    /// <summary>
-    /// 切回匹配窗口时若已匹配成功，恢复展示该面板（标题取自常驻 <see cref="MatchStateManager"/>）。
-    /// 由 <see cref="MatchPanel.OnEnable"/> 调用。
-    /// </summary>
-    public void RestoreIfMatchFound() {
-        MatchStateManager manager = MatchStateManager.Instance;
-        if (manager == null || !manager.IsMatchFound) return;
-        gameObject.SetActive(true);
-        transform.SetAsLastSibling();
-        foundedMatchTypeText.text = manager.QueueTitle;
-        fadeIn.PlayFadeIn();
-        StartFoundedCountdown();
+        Present(matchTypeName);
     }
 
     public void StopCountdownAndHide() {
         StopFoundedCountdown();
+        ResetCanvasGroupBeforeHide();
         gameObject.SetActive(false);
     }
 
-    /// <summary>
-    /// 立即隐藏面板，但不结束匹配成功状态（供离开匹配窗口时隐藏视图用）。
-    /// </summary>
-    public void HideImmediately() {
-        StopFoundedCountdown();
-        gameObject.SetActive(false);
+    private void Present(string matchTypeName) {
+        gameObject.SetActive(true);
+        transform.SetAsLastSibling();
+        EnsureCanvasGroupInteractive();
+        if (foundedMatchTypeText != null) {
+            foundedMatchTypeText.text = matchTypeName;
+        }
+        if (fadeIn != null) {
+            fadeIn.PlayFadeIn();
+        } else {
+            EnsureCanvasGroupOpaque();
+        }
+        StartFoundedCountdown();
+    }
+
+    private CanvasGroup GetCanvasGroup() {
+        if (_canvasGroup == null) {
+            _canvasGroup = GetComponent<CanvasGroup>();
+        }
+        return _canvasGroup;
+    }
+
+    private void EnsureCanvasGroupInteractive() {
+        CanvasGroup cg = GetCanvasGroup();
+        if (cg == null) return;
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+    }
+
+    private void EnsureCanvasGroupOpaque() {
+        CanvasGroup cg = GetCanvasGroup();
+        if (cg == null) return;
+        cg.alpha = 1f;
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
+    }
+
+    private void ResetCanvasGroupBeforeHide() {
+        CanvasGroup cg = GetCanvasGroup();
+        if (cg == null) return;
+        cg.alpha = 1f;
+        cg.interactable = true;
+        cg.blocksRaycasts = true;
     }
 
     private void StartFoundedCountdown() {
@@ -79,6 +102,7 @@ public class MatchFoundedPanel : MonoBehaviour {
             }
             yield return new WaitForSeconds(1f);
         }
+        ResetCanvasGroupBeforeHide();
         gameObject.SetActive(false);
     }
 }

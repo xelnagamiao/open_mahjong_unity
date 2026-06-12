@@ -140,17 +140,22 @@ public partial class GameRecordManager
         }
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
-            RemoveNTiles(actingPlayer.tileList, angangTile, 4);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
             string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
-            int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
+            List<int> removedTiles = GameRecordMeldCodec.ResolveAngangRemovedTiles(
+                tick, actingPlayer.tileList, angangTile, isMoGang);
+            int[] combinationMask = GameRecordMeldCodec.BuildAngangMaskFromRemoved(removedTiles, rule);
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jg") {
             int jiagangTile = ParseTickInt(tick, 1);
-            RemoveNTiles(actingPlayer.tileList, jiagangTile, 1);
-            BuildJiagangMask(actingPlayer, jiagangTile);
+            bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
+            List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
+                actingPlayer.tileList, jiagangTile, 1, preferDrawSlotFirst: isMoGang);
+            int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
+            BuildJiagangMask(actingPlayer, jiagangTile, actualJia);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") {

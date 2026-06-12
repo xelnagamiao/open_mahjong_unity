@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Linq;
+using Riichi;
 
 
 public class ActionButton : MonoBehaviour {
@@ -122,22 +123,15 @@ public class ActionButton : MonoBehaviour {
                     List<int> TipsCardsList = new List<int>();
                     switch (actionType) {
                         case "angang":
-                            HashSet<int> processedTileIDs = new HashSet<int>();
-                            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                                if (!processedTileIDs.Contains(tileID) && NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
-                                    processedTileIDs.Add(tileID);
-                                    List<int> angangCards = new List<int> { tileID, tileID, tileID, tileID };
-                                    CreateActionCards(angangCards, actionType,tileID);
-                                }
+                            foreach (var angangOption in CollectAngangOptions(NormalGameStateManager.Instance.selfHandTiles)) {
+                                CreateActionCards(angangOption.displayTiles, actionType, angangOption.targetTile);
                             }
                             break;
                         case "jiagang":
-                            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                                int normalTile = NormalizeRiichiTile(tileID);
-                                if (NormalGameStateManager.Instance.player_to_info["self"].combination_tiles.Contains($"k{normalTile}")){
-                                    List<int> jiagangCards = new List<int> { tileID, tileID, tileID, tileID };
-                                    CreateActionCards(jiagangCards, actionType,normalTile);
-                                }
+                            foreach (var jiagangOption in CollectJiagangOptions(
+                                NormalGameStateManager.Instance.selfHandTiles,
+                                NormalGameStateManager.Instance.player_to_info["self"].combination_tiles)) {
+                                CreateActionCards(jiagangOption.displayTiles, actionType, jiagangOption.targetTile);
                             }
                             break;
                     }
@@ -157,40 +151,55 @@ public class ActionButton : MonoBehaviour {
         if (actionTypeList[0] == "jiagang"){
             Debug.Log($"选择了行动 {actionTypeList[0]}");
             int targetTile = FindJiagangTargetTile();
-            GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+            GameCanvas.Instance.ChooseAction(actionTypeList[0], targetTile);
         } else if (actionTypeList[0] == "angang"){
             Debug.Log($"选择了行动 {actionTypeList[0]}");
-            int targetTile = 0;
-            foreach (int tileID in NormalGameStateManager.Instance.selfHandTiles){
-                if (NormalGameStateManager.Instance.selfHandTiles.Count(x => x == tileID) == 4){
-                    targetTile = tileID;
-                    break;
-                }
-            }
-            GameCanvas.Instance.ChooseAction(actionTypeList[0],targetTile);
+            int targetTile = FindAngangTargetTile();
+            GameCanvas.Instance.ChooseAction(actionTypeList[0], targetTile);
         } else {
             Debug.Log($"选择了行动 {actionTypeList[0]}");
             GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
         }
     }
 
-    private int FindJiagangTargetTile(){
-        List<int> handTiles = NormalGameStateManager.Instance.selfHandTiles;
-        List<string> combinations = NormalGameStateManager.Instance.player_to_info["self"].combination_tiles;
-        foreach (int tileID in handTiles){
-            int normalTile = NormalizeRiichiTile(tileID);
-            if (combinations.Contains($"k{normalTile}")){
-                return normalTile;
-            }
-        }
-        return 0;
+    private int FindJiagangTargetTile() {
+        var options = CollectJiagangOptions(
+            NormalGameStateManager.Instance.selfHandTiles,
+            NormalGameStateManager.Instance.player_to_info["self"].combination_tiles);
+        return options.Count > 0 ? options[0].targetTile : 0;
     }
 
-    private static int NormalizeRiichiTile(int tileID){
-        if (tileID == 105) return 15;
-        if (tileID == 205) return 25;
-        if (tileID == 305) return 35;
-        return tileID;
+    private int FindAngangTargetTile() {
+        var options = CollectAngangOptions(NormalGameStateManager.Instance.selfHandTiles);
+        return options.Count > 0 ? options[0].targetTile : 0;
+    }
+
+    private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
+        var options = new List<(int, List<int>)>();
+        var processedNorms = new HashSet<int>();
+        foreach (int tileID in handTiles) {
+            int norm = RiichiTileUtil.Normalize(tileID);
+            if (processedNorms.Contains(norm)) continue;
+            processedNorms.Add(norm);
+            if (GameRecordMeldCodec.CountNormalizedTiles(handTiles, norm) != 4) continue;
+            var actualTiles = handTiles.Where(t => RiichiTileUtil.Normalize(t) == norm).ToList();
+            options.Add((norm, actualTiles));
+        }
+        return options;
+    }
+
+    private static List<(int targetTile, List<int> displayTiles)> CollectJiagangOptions(
+        List<int> handTiles, List<string> combinations) {
+        var options = new List<(int, List<int>)>();
+        var processedNorms = new HashSet<int>();
+        foreach (int tileID in handTiles) {
+            int norm = RiichiTileUtil.Normalize(tileID);
+            if (processedNorms.Contains(norm)) continue;
+            if (!combinations.Contains($"k{norm}")) continue;
+            processedNorms.Add(norm);
+            options.Add((tileID, new List<int> { tileID, tileID, tileID, tileID }));
+        }
+        return options;
     }
 
     private void CreateActionCards(List<int> TipsCardsList,string actionType,int targetTile) {

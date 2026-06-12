@@ -12,9 +12,9 @@
         <p>open mahjong unity 项目交流：1084537740</p>
         <p>网站管理员：Q1448826180</p>
         <p>
-          <button type="button" class="footer-link" @click="openMobileDownload">
-            Android 手机版下载
-          </button>
+          <router-link to="/mobile-download" class="footer-link">
+            手机版下载（Android）
+          </router-link>
         </p>
       </div>
 
@@ -31,14 +31,6 @@
     </div>
   </footer>
 </template>
-
-<script setup>
-import { promptMobileDownload } from '@/utils/mobileDownload'
-
-const openMobileDownload = () => {
-  promptMobileDownload()
-}
-</script>
 
 <style scoped>
 .app-footer {
@@ -78,7 +70,8 @@ const openMobileDownload = () => {
   color: #dfe6e9;
 }
 
-.footer-link {
+.footer-link,
+a.footer-link {
   padding: 0;
   border: none;
   background: none;

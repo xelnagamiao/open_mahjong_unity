@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 段位匹配主面板：队列人数按钮等。排队中 UI 见 <see cref="MatchQueueingPanel"/>，匹配成功倒计时见 <see cref="MatchFoundedPanel"/>。
+/// 段位匹配主面板：队列人数按钮等。排队中 UI 见 <see cref="MatchQueueingPanel"/>；匹配成功倒计时见 OverlayCanvas 上的 <see cref="MatchFoundedPanel"/>。
 /// </summary>
 public class MatchPanel : MonoBehaviour {
     public static MatchPanel Instance { get; private set; }
@@ -24,8 +24,7 @@ public class MatchPanel : MonoBehaviour {
         }
         RefreshAllButtons();
         NetworkPollingManager.Instance.StartMatchQueuePolling();
-        // 切回匹配窗口时，若仍处于排队/已匹配状态，恢复对应面板显示（计时由 MatchStateManager 常驻维护，不会中断）
-        MatchFoundedPanel.Instance?.RestoreIfMatchFound();
+        // 切回匹配窗口时，若仍在排队则恢复排队面板（成功面板在 OverlayCanvas，不随本窗口显隐）
         MatchQueueingPanel.Instance?.RestoreIfQueueing();
     }
 
@@ -33,7 +32,6 @@ public class MatchPanel : MonoBehaviour {
         NetworkPollingManager.Instance.StopMatchQueuePolling();
         // 仅隐藏视图，不结束排队状态：排队计时由常驻的 MatchStateManager 继续维护
         MatchQueueingPanel.Instance?.HideImmediately();
-        MatchFoundedPanel.Instance?.HideImmediately();
     }
 
     private void RefreshAllButtons() {

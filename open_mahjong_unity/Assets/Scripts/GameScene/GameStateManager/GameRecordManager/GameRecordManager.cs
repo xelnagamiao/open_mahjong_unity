@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
@@ -631,36 +632,34 @@ public partial class GameRecordManager : MonoBehaviour {
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
             bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
-            RemoveNTiles(currentRecordPlayer.tileList, angangTile, 4);
             string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
-            int[] combinationMask = BuildAngangCombinationMask(angangTile, rule);
+            List<int> removedTiles = GameRecordMeldCodec.ResolveAngangRemovedTiles(
+                tick, currentRecordPlayer.tileList, angangTile, isMoGang);
+            int[] combinationMask = GameRecordMeldCodec.BuildAngangMaskFromRemoved(removedTiles, rule);
             currentRecordPlayer.combinationTiles.Add($"G{angangTile}");
             currentRecordPlayer.combinationMasks.Add(combinationMask);
             if (currentPlayerPosition == "self") {
-                if (isMoGang) {
-                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", angangTile, null, null);
-                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile }, null);
-                } else {
-                    GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, new int[] { angangTile, angangTile, angangTile, angangTile }, null);
-                }
+                ApplyRecordAngangHandCardRemoval(removedTiles, isMoGang);
             }
-            Game3DManager.Instance.Change3DTile("angang", angangTile, 4, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
+            Game3DManager.Instance.Change3DTile("angang", angangTile, removedTiles.Count, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jg") {
             int jiagangTile = ParseTickInt(tick, 1);
             bool isMoGang = GameRecordJsonDecoder.ParseKanMoGangFlag(tick);
-            RemoveNTiles(currentRecordPlayer.tileList, jiagangTile, 1);
-            int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile);
+            List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
+                currentRecordPlayer.tileList, jiagangTile, 1, preferDrawSlotFirst: isMoGang);
+            int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
+            int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile, actualJia);
             if (currentPlayerPosition == "self") {
                 if (isMoGang) {
-                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", jiagangTile, null, null);
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", actualJia, null, null);
                 } else {
-                    GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", jiagangTile, null, null);
+                    GameCanvas.Instance.ChangeHandCards("RemoveJiagangCard", actualJia, null, null);
                 }
             }
-            Game3DManager.Instance.Change3DTile("jiagang", jiagangTile, 1, currentPlayerPosition, isMoGang, combinationMask);
+            Game3DManager.Instance.Change3DTile("jiagang", actualJia, 1, currentPlayerPosition, isMoGang, combinationMask);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -1468,29 +1467,27 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
-    private void RemoveNTiles(List<int> tileList, int tileId, int count) {
-        for (int i = 0; i < count; i++) {
-            int index = tileList.IndexOf(tileId);
-            if (index < 0) break;
-            tileList.RemoveAt(index);
+    private static void ApplyRecordAngangHandCardRemoval(List<int> removedTiles, bool isMoGang) {
+        if (removedTiles == null || removedTiles.Count == 0) return;
+        if (isMoGang) {
+            GameCanvas.Instance.ChangeHandCards("RemoveGetCard", removedTiles[0], null, null);
+            if (removedTiles.Count > 1) {
+                GameCanvas.Instance.ChangeHandCards(
+                    "RemoveCombinationCard", 0, removedTiles.Skip(1).ToArray(), null);
+            }
+        } else {
+            GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, removedTiles.ToArray(), null);
         }
     }
 
-    private static int[] BuildAngangCombinationMask(int angangTile, string rule) {
-        if (rule == "riichi") {
-            return new int[] { 2, angangTile, 0, angangTile, 0, angangTile, 2, angangTile };
-        }
-        return new int[] { 2, angangTile, 2, angangTile, 2, angangTile, 2, angangTile };
-    }
-
-    private int[] BuildJiagangMask(RecordPlayer recordPlayer, int jiagangTile) {
+    private int[] BuildJiagangMask(RecordPlayer recordPlayer, int jiagangTile, int actualJiaTile) {
         for (int i = 0; i < recordPlayer.combinationTiles.Count; i++) {
             if (recordPlayer.combinationTiles[i] == $"k{jiagangTile}") {
                 recordPlayer.combinationTiles[i] = $"g{jiagangTile}";
                 List<int> updatedMask = new List<int>(recordPlayer.combinationMasks[i]);
                 for (int j = 0; j < updatedMask.Count; j++) {
                     if (updatedMask[j] == 1) {
-                        updatedMask.Insert(j, jiagangTile);
+                        updatedMask.Insert(j, actualJiaTile);
                         updatedMask.Insert(j, 3);
                         break;
                     }
@@ -1499,7 +1496,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 return recordPlayer.combinationMasks[i];
             }
         }
-        int[] fallbackMask = new int[] { 0, jiagangTile, 3, jiagangTile, 1, jiagangTile, 0, jiagangTile };
+        int[] fallbackMask = new int[] { 0, jiagangTile, 3, actualJiaTile, 1, jiagangTile, 0, jiagangTile };
         recordPlayer.combinationTiles.Add($"g{jiagangTile}");
         recordPlayer.combinationMasks.Add(fallbackMask);
         return fallbackMask;
