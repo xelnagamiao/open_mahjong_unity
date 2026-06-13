@@ -48,11 +48,9 @@ public class NetworkManager : MonoBehaviour {
 
     // 主线程调度器
     private Queue<Action> mainThreadActions = new Queue<Action>();
-    private bool _suppressDisconnectDialog;
-    // 断线弹窗：仅「曾连上且已断线、尚未弹窗」时显示（启动连接中不弹）
-    private bool _hasEstablishedConnection;
-    private bool _isDisconnected;
-    private bool _disconnectDialogShown;
+    // 断线弹窗状态：仅 Disconnected 时弹窗；NoMatch 等状态不弹
+    private enum DisconnectDialogState { Start, Connected, Disconnected, Shown, NoMatch }
+    private DisconnectDialogState _disconnectDialogState = DisconnectDialogState.Start;
     // 解析后的 WebSocket URL（用于存储 DNS 解析结果）
 
 
@@ -89,7 +87,7 @@ public class NetworkManager : MonoBehaviour {
         ws.OnError += (errorMsg) => {
             Debug.LogError($"WebSocket连接失败: {errorMsg}");
             isConnecting = false;
-            _suppressDisconnectDialog = false;
+            _disconnectDialogState = DisconnectDialogState.Start;
             ExecuteOnMainThread(() => {
                 LoginPanel.Instance?.ConnectErrorText(errorMsg);
             });
@@ -106,24 +104,18 @@ public class NetworkManager : MonoBehaviour {
     }
 
     private void OnConnectionEstablished() {
-        _hasEstablishedConnection = true;
-        _isDisconnected = false;
-        _disconnectDialogShown = false;
-        _suppressDisconnectDialog = false;
+        _disconnectDialogState = DisconnectDialogState.Start;
     }
 
     private void MarkDisconnected() {
-        if (!_hasEstablishedConnection) return;
-        _isDisconnected = true;
+        if (_disconnectDialogState != DisconnectDialogState.Connected) return;
+        _disconnectDialogState = DisconnectDialogState.Disconnected;
         TryShowDisconnectDialog();
     }
 
     private void TryShowDisconnectDialog() {
-        if (!_hasEstablishedConnection) return;
-        if (!_isDisconnected) return;
-        if (_disconnectDialogShown) return;
-        if (_suppressDisconnectDialog) return;
-        _disconnectDialogShown = true;
+        if (_disconnectDialogState != DisconnectDialogState.Disconnected) return;
+        _disconnectDialogState = DisconnectDialogState.Shown;
         NotificationManager.Instance.ShowMessage(
             "连接已断开",
             "与服务器的连接已断开。如正处于一场游戏对局中，点击重连即可回到登录界面并尝试重新连接服务器；游客无法重连至游戏。",
@@ -137,9 +129,8 @@ public class NetworkManager : MonoBehaviour {
     }
 
     private void CheckDisconnectOnForeground() {
-        if (!_hasEstablishedConnection) return;
-        if (_disconnectDialogShown) return;
-        if (_suppressDisconnectDialog || isConnecting) return;
+        if (_disconnectDialogState != DisconnectDialogState.Connected) return;
+        if (isConnecting) return;
 #if !UNITY_WEBGL || UNITY_EDITOR
         websocket?.DispatchMessageQueue();
 #endif
@@ -156,7 +147,7 @@ public class NetworkManager : MonoBehaviour {
             Debug.LogWarning("[NetworkManager] 无法重连：NetworkManager 未激活");
             return;
         }
-        _disconnectDialogShown = false;
+        _disconnectDialogState = DisconnectDialogState.Start;
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNamed(
             CoroutineKeys.NetworkReconnect,
@@ -166,7 +157,7 @@ public class NetworkManager : MonoBehaviour {
     }
 
     private IEnumerator ReconnectWebSocketRoutine() {
-        _suppressDisconnectDialog = true;
+        _disconnectDialogState = DisconnectDialogState.Start;
         isConnecting = false;
 
         if (websocket != null
@@ -218,7 +209,6 @@ public class NetworkManager : MonoBehaviour {
 
         Debug.LogError($"[NetworkManager] WebSocket 重连超时或失败，State={newSocket.State}");
         isConnecting = false;
-        _suppressDisconnectDialog = false;
         LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
     }
 
@@ -233,7 +223,6 @@ public class NetworkManager : MonoBehaviour {
             Debug.LogError($"[NetworkManager] WebSocket Connect 异常: {e.Message}");
             if (ws == websocket) {
                 isConnecting = false;
-                _suppressDisconnectDialog = false;
                 ExecuteOnMainThread(() => LoginPanel.Instance?.ConnectErrorText(e.Message));
             }
         }
@@ -501,9 +490,10 @@ public class NetworkManager : MonoBehaviour {
                 case "message":
                     // 处理服务端发送的消息（版本不匹配、账户被顶替、重连提示等）
                     // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
-                    if (response.message == "login_kickout") {
-                        // 被顶号后服务端会主动断开连接，避免再弹出断线面板
-                        _suppressDisconnectDialog = true;
+                    if (response.message == "error_version") {
+                        _disconnectDialogState = DisconnectDialogState.NoMatch;
+                    } else if (response.message == "login_kickout") {
+                        _disconnectDialogState = DisconnectDialogState.Shown;
                     }
                     NotificationManager.Instance.ShowMessage(
                         response.message_info.title, 
@@ -590,6 +580,9 @@ public class NetworkManager : MonoBehaviour {
             };
             Debug.Log($"发送发布版本号: {request.release_version}");
             await websocket.SendText(JsonConvert.SerializeObject(request));
+            if (_disconnectDialogState == DisconnectDialogState.Start) {
+                _disconnectDialogState = DisconnectDialogState.Connected;
+            }
         }
         catch (Exception e)
         {
