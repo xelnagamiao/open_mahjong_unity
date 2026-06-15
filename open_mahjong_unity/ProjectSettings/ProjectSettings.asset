@@ -900,10 +900,18 @@ PlayerSettings:
   scriptingBackend:
     Server: 1
     Standalone: 0
-  il2cppCompilerConfiguration: {}
-  il2cppCodeGeneration: {}
-  il2cppStacktraceInformation: {}
+  il2cppCompilerConfiguration:
+    Standalone: 2
+    Android: 2
+  il2cppCodeGeneration:
+    Standalone: 1
+    Android: 1
+  il2cppStacktraceInformation:
+    Standalone: 1
+    Android: 1
   managedStrippingLevel:
+    Standalone: 1
+    Android: 1
     EmbeddedLinux: 1
     GameCoreScarlett: 1
     GameCoreXboxOne: 1
@@ -918,7 +926,9 @@ PlayerSettings:
     XboxOne: 1
     iPhone: 1
     tvOS: 1
-  incrementalIl2cppBuild: {}
+  incrementalIl2cppBuild:
+    Standalone: 1
+    Android: 1
   suppressCommonWarnings: 1
   allowUnsafeCode: 0
   useDeterministicCompilation: 1
