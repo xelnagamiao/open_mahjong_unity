@@ -119,28 +119,24 @@ public partial class GameCanvas{
             TryRemoveCutHandCard(tileId, isMoqie: false, cutTileIndex: cut_tile_index);
         }
 
-        // 补花 删除手牌区手牌
+        // 补花 删除手牌区手牌（只删一张：判空 + 命中即停，避免理牌期间非 TileCard 子物体触发空引用中断、或边遍历边 SetParent 改集合导致补花牌残留手牌）
         else if (ChangeType == "RemoveBuhuaCard"){
-            foreach (Transform child in handCardsContainer){
-                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
-                if (needToRemoveTileCard.tileId == tileId){
-                    // 如果补花牌是摸牌区手牌 设置ChangeType = "RemoveGetCard" 代表后续不用执行动画
+            for (int i = 0; i < handCardsContainer.childCount; i++){
+                TileCard needToRemoveTileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+                if (needToRemoveTileCard != null && needToRemoveTileCard.tileId == tileId){
+                    // 如果补花牌是摸牌区手牌 设置ChangeType = "RemoveBuhuaGetCard" 代表后续不用执行动画
                     if (needToRemoveTileCard.currentGetTile){
                         ChangeType = "RemoveBuhuaGetCard";
                     }
-                    Destroyer.Instance.AddToDestroyer(child);
+                    Destroyer.Instance.AddToDestroyer(needToRemoveTileCard.transform);
+                    break;
                 }
             }
         }
 
-        // 加杠 删除手牌区手牌
+        // 加杠 删除手牌区手牌（只删一张：判空 + 命中即停，避免理牌期间非 TileCard 子物体触发空引用中断、或边遍历边 SetParent 改集合漏删）
         else if (ChangeType == "RemoveJiagangCard"){
-            foreach (Transform child in handCardsContainer){
-                TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
-                if (needToRemoveTileCard.tileId == tileId){
-                    Destroyer.Instance.AddToDestroyer(child);
-                }
-            }
+            RemoveOneHandCardByTileId(tileId);
         }
 
         // 删除组合牌 在手牌中删除全部组合牌
@@ -150,10 +146,10 @@ public partial class GameCanvas{
                 yield break;
             }
             foreach (int tileToRemove in TilesList){
-                foreach (Transform child in handCardsContainer){
-                    TileCard needToRemoveTileCard = child.GetComponent<TileCard>();
-                    if (needToRemoveTileCard.tileId == tileToRemove){
-                        Destroyer.Instance.AddToDestroyer(child);
+                for (int i = 0; i < handCardsContainer.childCount; i++){
+                    TileCard needToRemoveTileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+                    if (needToRemoveTileCard != null && needToRemoveTileCard.tileId == tileToRemove){
+                        Destroyer.Instance.AddToDestroyer(needToRemoveTileCard.transform);
                         break;
                     }
                 }
@@ -401,6 +397,24 @@ public partial class GameCanvas{
         }
 
         Debug.LogWarning($"切牌删牌失败: tileId={tileId}, moqie={isMoqie}, index={cutTileIndex}");
+        return false;
+    }
+
+    /// <summary>
+    /// 从手牌中按 tileId 删除一张（命中即停）。用于加杠等「必然只删一张」的场景：
+    /// 判空跳过非 TileCard 子物体（理牌拖拽期间可能短暂存在），命中后立即返回，
+    /// 避免原 foreach 边遍历边 SetParent 改集合、或空引用抛异常中断协程导致加杠牌残留手牌。
+    /// </summary>
+    private bool RemoveOneHandCardByTileId(int tileId) {
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            Transform child = handCardsContainer.GetChild(i);
+            TileCard tc = child.GetComponent<TileCard>();
+            if (tc != null && tc.tileId == tileId) {
+                Destroyer.Instance.AddToDestroyer(child);
+                return true;
+            }
+        }
+        Debug.LogWarning($"RemoveOneHandCardByTileId 未找到要删除的牌 tileId={tileId}");
         return false;
     }
 

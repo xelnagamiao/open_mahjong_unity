@@ -36,7 +36,7 @@ FAN_NAME_TO_FIELD = {
     "一色四节高": "yisesijiegao",
     "一色四步高": "yisesibugao",
     "混幺九": "hunyaojiu",
-    "七对子": "qiduizi",
+    "七对": "qiduizi",
     "七星不靠": "qixingbukao",
     "全双刻": "quanshuangke",
     "清一色": "qingyise",

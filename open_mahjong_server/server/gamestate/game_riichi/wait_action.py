@@ -31,6 +31,13 @@ from ..public.hand_slot_utils import (
     remove_cut_tile,
     resolve_is_mo_gang,
 )
+from .ron_resolution import (
+    RON_HU_ACTIONS,
+    collect_ron_mode,
+    record_ron_claim,
+    resolve_collected_rons,
+    should_interrupt_wait_for_action,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +85,7 @@ def _is_valid_cut_action(self, player_index: int, action_data: dict) -> bool:
 
 async def wait_action(self):
     self.waiting_players_list = []
+    self._pending_ron_claims = {}
     used_time = 0
 
     for i in range(4):
@@ -162,11 +170,12 @@ async def wait_action(self):
                 if temp_player_index in self.waiting_players_list:
                     self.waiting_players_list.remove(temp_player_index)
 
-                do_interrupt = True
-                for check_player_index in self.waiting_players_list:
-                    for action in self.action_dict[check_player_index]:
-                        if self.action_priority[temp_action_type] < self.action_priority[action]:
-                            do_interrupt = False
+                if temp_action_type in RON_HU_ACTIONS and collect_ron_mode(getattr(self, "hepai_way", "head_bump")):
+                    record_ron_claim(self, temp_player_index, temp_action_type)
+
+                do_interrupt = should_interrupt_wait_for_action(
+                    self, temp_action_type, self.waiting_players_list, self.action_dict
+                )
 
                 if not action_data:
                     action_data = dict(temp_action_data)
@@ -288,6 +297,10 @@ async def wait_action(self):
                 pi for pi, acts in self.action_dict.items()
                 if any(a in ("hu_first", "hu_second", "hu_third") for a in acts)
             ]
+            if self._pending_ron_claims:
+                if await resolve_collected_rons(self, tile_id, ron_eligible_indexes):
+                    return
+
             if action_data:
                 refresh_waiting_tiles(self, player_index)
                 normal_tile = _normalize(tile_id)
@@ -456,6 +469,9 @@ async def wait_action(self):
             ]
             temp_jiagang_tile = self.jiagang_tile
             self.jiagang_tile = None
+            if self._pending_ron_claims:
+                if await resolve_collected_rons(self, temp_jiagang_tile, chankan_eligible_indexes):
+                    return
             if action_data:
                 if action_type in ("hu_first", "hu_second", "hu_third"):
                     await _broadcast_hu_and_end(self, player_index, action_type, temp_jiagang_tile)

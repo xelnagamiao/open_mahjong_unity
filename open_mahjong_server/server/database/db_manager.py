@@ -196,6 +196,22 @@ class DatabaseManager:
                     PRIMARY KEY (user_id, rule, mode)
                 );
             """)
+
+            from .riichi.store_riichi import FAN_FIELDS as RIICHI_FAN_FIELDS
+            riichi_fan_columns = ",\n                    ".join(
+                f"{field} INT NOT NULL DEFAULT 0" for field in RIICHI_FAN_FIELDS
+            )
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS riichi_fan_stats (
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    rule VARCHAR(10) NOT NULL,
+                    mode VARCHAR(20) NOT NULL,
+                    {riichi_fan_columns},
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, rule, mode)
+                );
+            """)
             
             # 创建表guobiao_fan_stats（国标麻将番种统计表）
             cursor.execute("""
@@ -629,6 +645,13 @@ class DatabaseManager:
                         cursor.execute(f"ROLLBACK TO SAVEPOINT sp_fulu_{table_name};")
                     else:
                         raise
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS data_migrations (
+                    migration_id VARCHAR(64) PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
 
             conn.commit() # 提交
             logger.info('数据表初始化成功')
@@ -1626,6 +1649,14 @@ DatabaseManager.store_guobiao_game_record = store_guobiao_game_record
 DatabaseManager.store_guobiao_game_stats = store_guobiao_game_stats
 DatabaseManager.store_guobiao_fan_stats = store_guobiao_fan_stats
 
+from .guobiao.backfill_qiduizi_stats import backfill_qiduizi_stats
+
+DatabaseManager.backfill_qiduizi_stats = backfill_qiduizi_stats
+
+from .guobiao.backfill_auto_promote import backfill_auto_promote
+
+DatabaseManager.backfill_auto_promote = backfill_auto_promote
+
 # 挂载青雀麻将相关方法到 DatabaseManager 类
 from .qingque.store_qingque import store_qingque_game_record, store_qingque_game_stats, store_qingque_fan_stats
 
@@ -1640,11 +1671,12 @@ DatabaseManager.store_classical_game_record = store_classical_game_record
 DatabaseManager.store_classical_game_stats = store_classical_game_stats
 DatabaseManager.store_classical_fan_stats = store_classical_fan_stats
 
-from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats
+from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats, store_riichi_fan_stats
 from .riichi.get_riichi_stats import get_riichi_stats
 
 DatabaseManager.store_riichi_game_record = store_riichi_game_record
 DatabaseManager.store_riichi_game_stats = store_riichi_game_stats
+DatabaseManager.store_riichi_fan_stats = store_riichi_fan_stats
 DatabaseManager.get_riichi_stats = get_riichi_stats
 
 # 挂载段位数据 CRUD 方法到 DatabaseManager 类

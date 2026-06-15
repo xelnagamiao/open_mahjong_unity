@@ -29,6 +29,64 @@ public static class FanTextDictionary {
         {"连六*1", "1番"}, {"连六*2", "2番"}, {"连六*3", "3番"}, {"连六*4", "4番"},
     };
 
+    /// <summary>
+    /// 国标麻将（标准）番数英文显示，key 与 <see cref="FanToDisplayGuobiao"/> 一致。
+    /// 暂未接入 UI，供后续多语言显示使用。
+    /// </summary>
+    public static readonly Dictionary<string, string> FanToDisplayGuobiaoEnglish = new Dictionary<string, string> {
+        {"大四喜", "88Fan"}, {"大三元", "88Fan"}, {"绿一色", "88Fan"}, {"九莲宝灯", "88Fan"}, {"四杠", "88Fan"},
+        {"连七对", "88Fan"}, {"十三幺", "88Fan"},
+        {"清幺九", "64Fan"}, {"小四喜", "64Fan"}, {"小三元", "64Fan"}, {"字一色", "64Fan"}, {"四暗刻", "64Fan"}, {"一色双龙会", "64Fan"},
+        {"一色四同顺", "48Fan"}, {"一色四节高", "48Fan"}, {"一色四步高", "32Fan"}, {"三杠", "32Fan"}, {"混幺九", "32Fan"},
+        {"七对", "24Fan"}, {"七星不靠", "24Fan"}, {"全双刻", "24Fan"},
+        {"清一色", "24Fan"}, {"一色三同顺", "24Fan"}, {"一色三节高", "24Fan"}, {"全大", "24Fan"}, {"全中", "24Fan"}, {"全小", "24Fan"},
+        {"清龙", "16Fan"}, {"三色双龙会", "16Fan"}, {"一色三步高", "16Fan"}, {"全带五", "16Fan"}, {"三同刻", "16Fan"}, {"三暗刻", "16Fan"},
+        {"全不靠", "12Fan"}, {"组合龙", "12Fan"}, {"大于五", "12Fan"}, {"小于五", "12Fan"}, {"三风刻", "12Fan"},
+        {"花龙", "8Fan"}, {"推不倒", "8Fan"}, {"三色三同顺", "8Fan"}, {"三色三节高", "8Fan"}, {"无番和", "8Fan"}, {"妙手回春", "8Fan"}, {"海底捞月", "8Fan"},
+        {"杠上开花", "8Fan"}, {"抢杠和", "8Fan"}, {"碰碰和", "6Fan"}, {"混一色", "6Fan"}, {"三色三步高", "6Fan"}, {"五门齐", "6Fan"}, {"全求人", "6Fan"}, {"双暗杠", "6Fan"}, {"双箭刻", "6Fan"},
+        {"全带幺", "4Fan"}, {"不求人", "4Fan"}, {"双明杠", "4Fan"}, {"和绝张", "4Fan"}, {"箭刻", "2Fan"}, {"圈风刻", "2Fan"}, {"门风刻", "2Fan"}, {"门前清", "2Fan"},
+        {"平和", "2Fan"}, {"双暗刻", "2Fan"}, {"暗杠", "2Fan"}, {"断幺", "2Fan"},
+        {"老少副", "1Fan"}, {"明杠", "1Fan"}, {"缺一门", "1Fan"}, {"无字", "1Fan"}, {"边张", "1Fan"},
+        {"嵌张", "1Fan"}, {"单钓将", "1Fan"}, {"自摸", "1Fan"}, {"明暗杠", "5Fan"},
+        {"错和", "0Fan"},
+        {"花牌*1", "1Fan"}, {"花牌*2", "2Fan"}, {"花牌*3", "3Fan"}, {"花牌*4", "4Fan"}, {"花牌*5", "5Fan"}, {"花牌*6", "6Fan"}, {"花牌*7", "7Fan"}, {"花牌*8", "8Fan"},
+        {"四归一*1", "2Fan"}, {"四归一*2", "4Fan"}, {"四归一*3", "6Fan"}, {"四归一*4", "8Fan"},
+        {"双同刻*1", "2Fan"}, {"双同刻*2", "4Fan"}, {"双同刻*3", "6Fan"}, {"双同刻*4", "8Fan"},
+        {"一般高*1", "1Fan"}, {"一般高*2", "2Fan"}, {"一般高*3", "3Fan"}, {"一般高*4", "4Fan"},
+        {"喜相逢*1", "1Fan"}, {"喜相逢*2", "2Fan"}, {"喜相逢*3", "3Fan"}, {"喜相逢*4", "4Fan"},
+        {"幺九刻*1", "1Fan"}, {"幺九刻*2", "2Fan"}, {"幺九刻*3", "3Fan"}, {"幺九刻*4", "4Fan"},
+        {"连六*1", "1Fan"}, {"连六*2", "2Fan"}, {"连六*3", "3Fan"}, {"连六*4", "4Fan"},
+    };
+
+    /// <summary>
+    /// 国标麻将（标准）番种英文名，key 与 <see cref="FanToDisplayGuobiao"/> 一致。
+    /// 暂未接入 UI，供后续多语言显示使用。
+    /// </summary>
+    public static readonly Dictionary<string, string> FanNameToEnglishGuobiao = new Dictionary<string, string> {
+        {"大四喜", "Big Four Winds"}, {"大三元", "Big Three Dragons"}, {"绿一色", "All Green"}, {"九莲宝灯", "Nine Gates"}, {"四杠", "Four Kongs"},
+        {"连七对", "Seven Shifted Pairs"}, {"十三幺", "Thirteen Orphans"},
+        {"清幺九", "All Terminals"}, {"小四喜", "Little Four Winds"}, {"小三元", "Little Three Dragons"}, {"字一色", "All Honors"}, {"四暗刻", "Four Concealed Pungs"}, {"一色双龙会", "Pure Terminal Chows"},
+        {"一色四同顺", "Quadruple Chow"}, {"一色四节高", "Four Pure Shifted Pungs"}, {"一色四步高", "Four Pure Shifted Chows"}, {"三杠", "Three Kongs"}, {"混幺九", "All Terminals and Honors"},
+        {"七对", "Seven Pairs"}, {"七星不靠", "Greater Honors and Knitted Tiles"}, {"全双刻", "All Even Pungs"},
+        {"清一色", "Full Flush"}, {"一色三同顺", "Pure Triple Chow"}, {"一色三节高", "Pure Shifted Pungs"}, {"全大", "Upper Tiles"}, {"全中", "Middle Tiles"}, {"全小", "Lower Tiles"},
+        {"清龙", "Pure Straight"}, {"三色双龙会", "Three-Suited Terminal Chows"}, {"一色三步高", "Pure Shifted Chows"}, {"全带五", "All Fives"}, {"三同刻", "Triple Pung"}, {"三暗刻", "Three Concealed Pungs"},
+        {"全不靠", "Lesser Honors and Knitted Tiles"}, {"组合龙", "Knitted Straight"}, {"大于五", "Upper Five"}, {"小于五", "Lower Five"}, {"三风刻", "Big Three Winds"},
+        {"花龙", "Mixed Straight"}, {"推不倒", "Reversible Tiles"}, {"三色三同顺", "Mixed Triple Chow"}, {"三色三节高", "Mixed Shifted Pungs"}, {"无番和", "Chicken Hand"}, {"妙手回春", "Last Tile Draw"}, {"海底捞月", "Last Tile Claim"},
+        {"杠上开花", "Out with Replacement Tile"}, {"抢杠和", "Robbing The Kong"}, {"碰碰和", "All Pungs"}, {"混一色", "Half Flush"}, {"三色三步高", "Mixed Shifted Chows"}, {"五门齐", "All Types"}, {"全求人", "Melded Hand"}, {"双暗杠", "Two Concealed Kongs"}, {"双箭刻", "Two Dragon Pungs"},
+        {"全带幺", "Outside Hand"}, {"不求人", "Fully Concealed Hand"}, {"双明杠", "Two Melded Kongs"}, {"和绝张", "Last Tile"}, {"箭刻", "Dragon Pung"}, {"圈风刻", "Prevalent Wind"}, {"门风刻", "Seat Wind"}, {"门前清", "Concealed Hand"},
+        {"平和", "All Chows"}, {"双暗刻", "Two Concealed Pungs"}, {"暗杠", "Concealed Kong"}, {"断幺", "All Simples"},
+        {"老少副", "Two Terminal Chows"}, {"明杠", "Melded Kong"}, {"缺一门", "One Voided Suit"}, {"无字", "No Honors"}, {"边张", "Edge Wait"},
+        {"嵌张", "Closed Wait"}, {"单钓将", "Single Waiting"}, {"自摸", "Self-Drawn"}, {"明暗杠", "Mixed Exposed-Concealed Kong"},
+        {"错和", "Wrong Win"},
+        {"花牌*1", "Flower Tiles*1"}, {"花牌*2", "Flower Tiles*2"}, {"花牌*3", "Flower Tiles*3"}, {"花牌*4", "Flower Tiles*4"}, {"花牌*5", "Flower Tiles*5"}, {"花牌*6", "Flower Tiles*6"}, {"花牌*7", "Flower Tiles*7"}, {"花牌*8", "Flower Tiles*8"},
+        {"四归一*1", "Tile Hog*1"}, {"四归一*2", "Tile Hog*2"}, {"四归一*3", "Tile Hog*3"}, {"四归一*4", "Tile Hog*4"},
+        {"双同刻*1", "Double Pung*1"}, {"双同刻*2", "Double Pung*2"}, {"双同刻*3", "Double Pung*3"}, {"双同刻*4", "Double Pung*4"},
+        {"一般高*1", "Pure Double Chow*1"}, {"一般高*2", "Pure Double Chow*2"}, {"一般高*3", "Pure Double Chow*3"}, {"一般高*4", "Pure Double Chow*4"},
+        {"喜相逢*1", "Mixed Double Chow*1"}, {"喜相逢*2", "Mixed Double Chow*2"}, {"喜相逢*3", "Mixed Double Chow*3"}, {"喜相逢*4", "Mixed Double Chow*4"},
+        {"幺九刻*1", "Pung of Terminals or Honors*1"}, {"幺九刻*2", "Pung of Terminals or Honors*2"}, {"幺九刻*3", "Pung of Terminals or Honors*3"}, {"幺九刻*4", "Pung of Terminals or Honors*4"},
+        {"连六*1", "Short Straight*1"}, {"连六*2", "Short Straight*2"}, {"连六*3", "Short Straight*3"}, {"连六*4", "Short Straight*4"},
+    };
+
     public static readonly Dictionary<string, string> FanToDisplayQingque = new Dictionary<string, string> {
         {"和牌", "精算"}, {"天和", "精算"}, {"地和", "精算"}, {"岭上开花", "精算"}, {"海底捞月", "精算"},
         {"河底捞鱼", "精算"}, {"抢杠", "精算"}, {"七对", "精算"}, {"门前清", "精算"}, {"四暗杠", "精算"},
@@ -80,6 +138,34 @@ public static class FanTextDictionary {
         {"喜相逢*1", "1番"}, {"喜相逢*2", "2番"}, {"喜相逢*3", "3番"}, {"喜相逢*4", "4番"},
         {"幺九刻*1", "0番"}, {"幺九刻*2", "0番"}, {"幺九刻*3", "0番"}, {"幺九刻*4", "0番"},
         {"连六*1", "1番"}, {"连六*2", "2番"}, {"连六*3", "3番"}, {"连六*4", "4番"},
+    };
+
+    /// <summary>
+    /// K神规则番表（与 guobiao_hepai_check-kshen.py 一致）
+    /// </summary>
+    public static readonly Dictionary<string, string> FanToDisplayKshen = new Dictionary<string, string> {
+        {"大四喜", "160番"}, {"大三元", "64番"}, {"九莲宝灯", "160番"}, {"四杠", "160番"},
+        {"十三幺", "64番"}, {"清幺九", "120番"}, {"小四喜", "120番"}, {"小三元", "24番"}, {"字一色", "120番"},
+        {"四暗刻", "64番"}, {"一色四同顺", "160番"}, {"一色四步高", "48番"}, {"三杠", "48番"}, {"混幺九", "32番"},
+        {"七对", "16番"}, {"七星不靠", "16番"}, {"清一色", "32番"}, {"一色三同顺", "48番"}, {"一色三连刻", "24番"},
+        {"全大", "32番"}, {"全中", "32番"}, {"全小", "32番"}, {"清龙", "16番"}, {"一色三步高", "16番"},
+        {"全带五", "16番"}, {"三同刻", "32番"}, {"三暗刻", "16番"}, {"全不靠", "8番"}, {"大于五", "16番"}, {"小于五", "16番"},
+        {"三风刻", "32番"}, {"花龙", "12番"}, {"三色三同顺", "12番"}, {"三色连刻", "16番"},
+        {"妙手回春", "8番"}, {"海底捞月", "8番"}, {"杠上开花", "8番"}, {"抢杠和", "8番"},
+        {"碰碰和/对对和", "12番"}, {"混一色", "16番"}, {"三色三步高", "4番"}, {"五门齐", "4番"},
+        {"混全带幺", "12番"}, {"役牌/箭刻", "4番"}, {"役牌/门风刻", "4番"}, {"门前清", "4番"},
+        {"平和", "2番"}, {"四归一", "4番"}, {"两同刻/双同刻", "4番"}, {"暗刻×2/双暗刻", "4番"},
+        {"断幺", "2番"}, {"一般高", "4番"}, {"喜相逢", "2番"}, {"缺一门", "2番"},
+        {"独听·边张", "2番"}, {"独听·嵌张", "2番"}, {"独听·单钓", "2番"}, {"自摸", "2番"},
+        {"暗刻", "2番"}, {"杠", "4番"}, {"清·全带幺", "24番"}, {"全单", "12番"}, {"全双", "24番"},
+        {"四连刻", "120番"}, {"镜同·双喜同刻", "16番"}, {"镜同·两般高", "32番"}, {"镜同·双龙会", "32番"},
+        {"错和", "0番"},
+        {"花牌*1", "1番"}, {"花牌*2", "2番"}, {"花牌*3", "3番"}, {"花牌*4", "4番"}, {"花牌*5", "5番"}, {"花牌*6", "6番"}, {"花牌*7", "7番"}, {"花牌*8", "8番"},
+        {"四归一*1", "4番"}, {"四归一*2", "8番"}, {"四归一*3", "12番"}, {"四归一*4", "16番"},
+        {"两同刻/双同刻*1", "4番"}, {"两同刻/双同刻*2", "8番"}, {"两同刻/双同刻*3", "12番"}, {"两同刻/双同刻*4", "16番"},
+        {"一般高*1", "4番"}, {"一般高*2", "8番"}, {"一般高*3", "12番"}, {"一般高*4", "16番"},
+        {"喜相逢*1", "2番"}, {"喜相逢*2", "4番"}, {"喜相逢*3", "6番"}, {"喜相逢*4", "8番"},
+        {"杠*1", "4番"}, {"杠*2", "8番"},
     };
 
     /// <summary>
@@ -241,13 +327,39 @@ public static class FanTextDictionary {
     }
 
     /// <summary>
+    /// 根据规则与番种名称返回展示名称；国标标准在英语模式下返回英文名。
+    /// </summary>
+    public static string GetFanNameDisplayText(string rule, string fanName) {
+        if (string.IsNullOrEmpty(fanName)) {
+            return fanName;
+        }
+        if (rule == "guobiao/standard" && ConfigManager.IsEnglish) {
+            if (FanNameToEnglishGuobiao.TryGetValue(fanName, out string englishName)) {
+                return englishName;
+            }
+        }
+        if (rule != null && rule.StartsWith("riichi")) {
+            return GetRiichiYakuDisplayName(fanName);
+        }
+        return fanName;
+    }
+
+    /// <summary>
     /// 根据规则与番种名称返回显示文本（如 "88番"），未命中时返回 "0番"。
     /// </summary>
     public static string GetFanDisplayText(string rule, string fanName) {
+        if (rule == "guobiao/standard" && ConfigManager.IsEnglish) {
+            if (FanToDisplayGuobiaoEnglish.TryGetValue(fanName, out string englishDisplay)) {
+                return englishDisplay;
+            }
+            return "0Fan";
+        }
+
         Dictionary<string, string> map = null;
         if (rule == "guobiao/standard") map = FanToDisplayGuobiao;
         else if (rule == "qingque/standard") map = FanToDisplayQingque;
         else if (rule == "guobiao/xiaolin") map = FanToDisplayXiaolin;
+        else if (rule == "guobiao/kshen") map = FanToDisplayKshen;
         else if (rule == "guobiao/lanshi") map = FanToDisplayLanshi;
         else if (rule == "classical/standard") map = FanToDisplayClassical;
         else if (rule != null && rule.StartsWith("riichi")) {

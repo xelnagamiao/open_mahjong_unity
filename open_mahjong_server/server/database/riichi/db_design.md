@@ -21,19 +21,27 @@
 | second_place_count | INT | NOT NULL DEFAULT 0 | 二位次数 |
 | third_place_count | INT | NOT NULL DEFAULT 0 | 三位次数 |
 | fourth_place_count | INT | NOT NULL DEFAULT 0 | 四位次数 |
+| fulu_round_count | INT | NOT NULL DEFAULT 0 | 副露局数 |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
 | PRIMARY KEY | (user_id, rule, mode) | 复合主键 | 每个用户每个规则每个模式一条记录 |
 
-## riichi_fan_stats 立直麻将番种统计表
+## riichi_fan_stats 立直麻将役种统计表
 
-专门用于存储立直麻将的番种统计数据，每个用户一条记录，只存储番种累计次数。
-
-> **注意**：立直麻将的番种字段待定义，此表结构预留。
+基于 `FanTextDictionary.FanToDisplayRiichi` 与 `FanToDisplayRiichiInactive` 的役名，记录各役在和牌中的出现次数（不含错和）。
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| user_id | BIGINT | PRIMARY KEY, REFERENCES users(user_id) ON DELETE CASCADE | 用户 ID |
+| user_id | BIGINT | NOT NULL REFERENCES users(user_id) ON DELETE CASCADE | 用户 ID |
+| rule | VARCHAR(10) | NOT NULL | 规则标识（riichi） |
+| mode | VARCHAR(20) | NOT NULL | 数据模式 |
+| riichi … sashikomi | INT | DEFAULT 0 | 各役累计次数（见 store_riichi.py `FAN_NAME_TO_FIELD`） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
+| PRIMARY KEY | (user_id, rule, mode) | 复合主键 | |
 
+**说明：**
+
+- 宝牌 / 里宝牌 / 赤宝牌支持 `宝牌*N` 形式累加。
+- 错和不计入役种统计。
+- 门清/食下变体（如 `一气通贯（门清）`）单独计列。

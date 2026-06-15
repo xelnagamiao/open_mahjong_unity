@@ -267,7 +267,7 @@ public partial class Game3DManager : MonoBehaviour {
             foreach (Transform card in cardList) {
                 targetPosList.Add(targetPositions[card]);
             }
-            yield return StartCoroutine(Animate3DCardsToPositions(cardList, targetPosList));
+            yield return StartCoroutine(Animate3DCardsToPositions(cardList, targetPosList, cardPosition));
         }
     }
 }

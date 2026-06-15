@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using TMPro;
@@ -10,7 +10,7 @@ using TMPro;
 /// 设计要点：头部 <see cref="RuleConfigs"/> 为每条规则"全量"登记需要的配置项及默认值。
 /// - 若某规则的字典里含有某个键 → 该配置项对此规则可见，并在切换到此规则时重置到默认值。
 /// - 若某规则的字典里不含某个键 → 该配置项对此规则隐藏，发送房间配置时使用 <c>CreateRoom</c> 内的硬编码缺省值。
-/// - 国标的错和/起和番仍受子规则（小林/蓝十）的二次收窄。
+/// - 国标的错和/起和番仍受子规则二次收窄：小林规隐藏错和；蓝十隐藏起和番自定义；标准/K神/小林均可配置起和番（K神默认8、小林默认1）。
 /// </summary>
 public class CreatePanel : MonoBehaviour {
     // ===== 配置键：所有可能出现的配置项（含公共与差异） =====
@@ -140,16 +140,6 @@ public class CreatePanel : MonoBehaviour {
     [SerializeField] private Button createButton;
     [SerializeField] private Button addRuleButton;
 
-    private static readonly Dictionary<string, string> SubRuleDescriptions = new Dictionary<string, string> {
-        { "qingque/standard", "青雀是由莫莫柴编写的一款麻雀规则，旨在寻求一种在传统麻将行牌规则框架内的做大、抢和、兜牌防守三者平衡的麻雀游戏，同时试图为各类和牌提供基于美感和难度评估的赋分参照；如在测试中发现设计问题或有任何建议，可以联系规则制定人莫莫柴Q1107574，提交bug可在群906497522提交" },
-        { "guobiao/standard", "国标麻将源于国家体育总局于1998年11月出台的《中国竞技麻将比赛规则(试行)》、是中国唯一由官方确立的竞技麻将规则；本平台参照Natsuki编著的新编MCR撰写运行逻辑，已通过所有牌例验证，如发现测试过程中出现了不符合国标麻将规则预期的行为，请向Q群906497522反馈。" },
-        { "guobiao/xiaolin", "小林改版国标麻将，对国标麻将进行了番数平衡，还处于测试版，取消了8番起胡和底分，改为点和得分x2，自摸番三。非竞技规则，只为娱乐。" },
-        { "guobiao/lanshi", "蓝十改版的国标麻将规则，对国标麻将的番种表进行了全面的修改，并根据番种的难度调整了评分，5分起和，授受制为半全铳半分付。如在测试中发现设计问题或有任何建议，可以联系规则制定人蓝十QQ1002094810。" },
-        { "classical/standard", "本规则为根据《绘图麻雀牌谱》《想定宁波规则》等书籍文献资料汇总而成的，试图还原1920年代左右或以前的早期麻将样貌的麻将规则。相比现代规则，古典麻雀有番种体系简单、重刻杠幺九、未和牌家计分等特点，具有独特风味。" },
-        { "riichi/standard", "立直麻将参照天凤/雀魂规则进行设计，无双倍役满" },
-        { "riichi/langyong", "让每一局，都像海浪般汹涌滔滔｜一、每吃、碰、杠一次，自己的浪涌点数+1（初始为0）。｜二、每1点浪涌，结算时输赢倍数+1。｜三、当全场浪涌累计达到4点，进入“浪潮模式”，结算时倍数再+1。｜四、规则内置可食替｜规则提供：b站up大理石狐自恧" }
-    };
-
     private void Start() {
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         closeButton.onClick.AddListener(ClosePanel);
@@ -244,22 +234,23 @@ public class CreatePanel : MonoBehaviour {
 
     /// <summary>
     /// 根据 <see cref="RuleConfigs"/> 驱动配置项控件的显隐。
-    /// 国标的子规则（小林/蓝十）对错和/起和番自定义做进一步收窄。
+    /// 国标子规则对错和 / 起和番自定义做进一步收窄；浪涌子规则固定可食替，不暴露食替开关。
     /// </summary>
     private void RefreshVisibility() {
         Dictionary<string, object> visible = RuleConfigs[_ruleState];
 
         SubRuleDropdown.gameObject.SetActive(visible.ContainsKey(CfgSubRule));
 
-        // 国标子规则对错和 / 起和番自定义做进一步收窄；浪涌子规则固定可食替，不暴露食替开关
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
-        bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 2;
+        bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
 
+        // 小林规仍隐藏错和；K神/标准规可开错和
         bool showCuohe = visible.ContainsKey(CfgCuohe) && !isXiaolin;
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
-        bool showHepaiLimit = visible.ContainsKey(CfgHepaiLimit) && !isXiaolin && !isLanshi;
+        // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
+        bool showHepaiLimit = visible.ContainsKey(CfgHepaiLimit) && !isLanshi;
         InputHepaiLimitToggle.gameObject.SetActive(showHepaiLimit);
         InputHepaiLimitPlane.SetActive(showHepaiLimit && InputHepaiLimitToggle.isOn);
 
@@ -283,9 +274,7 @@ public class CreatePanel : MonoBehaviour {
     }
 
     private void RefreshSubRuleDescription() {
-        if (SubRuleDescriptions.TryGetValue(GetCurrentSubRuleKey(), out string desc)) {
-            SubRuleDescriptionText.text = desc;
-        }
+        SubRuleDescriptionText.text = SubRuleDescriptionDictionary.GetDescription(GetCurrentSubRuleKey());
     }
 
     private void InitSubRuleDropdown() {
@@ -300,7 +289,7 @@ public class CreatePanel : MonoBehaviour {
             SubRuleDropdown.AddOptions(new List<string> { "立直麻将(标准)", "浪涌麻将" });
         } else {
             // 国标：SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
-            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)" });
+            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "K神麻将" });
         }
         SubRuleDropdown.value = 0;
     }
@@ -310,20 +299,20 @@ public class CreatePanel : MonoBehaviour {
         // 日麻子规则（标准 / 浪涌）不涉及起和番/错和的二次收窄，仅国标需处理。
         if (_ruleState == "guobiao") {
             bool isXiaolin = (index == 1);
-            bool isLanshi = (index == 2);
+            bool isKshen = (index == 2);
+            bool isLanshi = (index == 3);
+            InputHepaiLimitToggle.isOn = false;
             if (isXiaolin) {
-                InputHepaiLimitToggle.isOn = false;
                 HepaiLimitInput.text = "1";
                 CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
                 CuoHeheToggle.isOn = false;
                 CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
+            } else if (isKshen) {
+                HepaiLimitInput.text = "8";
+            } else if (isLanshi) {
+                HepaiLimitInput.text = "5";
             } else {
-                if (isLanshi) {
-                    InputHepaiLimitToggle.isOn = false;
-                    HepaiLimitInput.text = "5";
-                } else {
-                    HepaiLimitInput.text = "8";
-                }
+                HepaiLimitInput.text = "8";
             }
         }
         RefreshVisibility();
@@ -332,7 +321,8 @@ public class CreatePanel : MonoBehaviour {
     private string GetSelectedSubRule() {
         return SubRuleDropdown.value switch {
             1 => "guobiao/xiaolin",
-            2 => "guobiao/lanshi",
+            2 => "guobiao/kshen",
+            3 => "guobiao/lanshi",
             _ => "guobiao/standard"
         };
     }
@@ -435,18 +425,25 @@ public class CreatePanel : MonoBehaviour {
         return (string.IsNullOrEmpty(name) ? "未知用户" : name) + "的游戏";
     }
 
+    private int GetGuobiaoSubRuleDefaultHepaiLimit(string subRule) {
+        return subRule switch {
+            "guobiao/xiaolin" => 1,
+            "guobiao/kshen" => 8,
+            "guobiao/lanshi" => 5,
+            _ => 8
+        };
+    }
+
+    private int ResolveGuobiaoHepaiLimit(string subRule) {
+        int hepaiLimit = GetGuobiaoSubRuleDefaultHepaiLimit(subRule);
+        if (InputHepaiLimitToggle.isOn && int.TryParse(HepaiLimitInput.text.Trim(), out int inputLimit))
+            hepaiLimit = Mathf.Clamp(inputLimit, 1, 64);
+        return hepaiLimit;
+    }
+
     private void CreateGBRoom() {
-        int hepaiLimit = (int)RuleConfigs["guobiao"][CfgHepaiLimit];
         string subRule = GetSelectedSubRule();
-        if (subRule == "guobiao/xiaolin") {
-            hepaiLimit = 1;
-        } else if (subRule == "guobiao/lanshi") {
-            hepaiLimit = 5; // 蓝十默认 5 分起和
-        }
-        if (subRule != "guobiao/xiaolin" && InputHepaiLimitToggle.isOn) {
-            if (int.TryParse(HepaiLimitInput.text.Trim(), out int inputLimit))
-                hepaiLimit = Mathf.Clamp(inputLimit, 1, 64);
-        }
+        int hepaiLimit = ResolveGuobiaoHepaiLimit(subRule);
 
         var config = new GB_Create_RoomConfig {
             RoomName = roomNameInput.text.Trim(),
@@ -565,8 +562,12 @@ public class CreatePanel : MonoBehaviour {
     private void ToggleInputHepaiLimit(bool isOn) {
         InputHepaiLimitPlane.SetActive(isOn);
         if (!isOn) {
-            int fallback = (int)RuleConfigs[_ruleState].GetValueOrDefault(CfgHepaiLimit, 8);
-            HepaiLimitInput.text = fallback.ToString();
+            if (_ruleState == "guobiao")
+                HepaiLimitInput.text = GetGuobiaoSubRuleDefaultHepaiLimit(GetSelectedSubRule()).ToString();
+            else {
+                int fallback = (int)RuleConfigs[_ruleState].GetValueOrDefault(CfgHepaiLimit, 8);
+                HepaiLimitInput.text = fallback.ToString();
+            }
         }
     }
 

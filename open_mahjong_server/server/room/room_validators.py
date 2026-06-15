@@ -55,7 +55,7 @@ class RiichiRoomValidator(BaseModel):
     hepai_limit: int = 1  # 自定义起和番数，低于此番数视为错和（仅在 open_cuohe=True 时触发罚分）
     red_dora: bool = True
     allow_kuikae: bool = False  # 允许食替（吃什么打什么）；默认关即标准日麻禁切
-    hepai_way: str = "head_bump"  # head_bump / multi_ron / three_ron_abort
+    hepai_way: str = "multi_ron"  # head_bump / multi_ron / three_ron_abort
     open_xiru: bool = True   # 西入（非全庄时预定局数打完后按点数/连庄延长）
     open_tobi: bool = True   # 击飞（任一家低于 0 分则本局结束后整场终了）
 

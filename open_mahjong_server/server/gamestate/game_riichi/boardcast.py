@@ -218,10 +218,13 @@ async def broadcast_do_action(
     combination_mask: List[int] = None,
     is_riichi_horizontal: bool = None,
     is_mo_gang: bool = None,
+    is_claim: bool = False,
+    silent: bool = False,
 ):
-    self.server_action_tick += 1
-    if hasattr(self, "_ask_broadcast_time"):
-        delattr(self, "_ask_broadcast_time")
+    if not is_claim:
+        self.server_action_tick += 1
+        if hasattr(self, "_ask_broadcast_time"):
+            delattr(self, "_ask_broadcast_time")
     for cp in self.player_list:
         try:
             if "offline" in cp.tag_list or cp.user_id == 0:
@@ -246,13 +249,15 @@ async def broadcast_do_action(
                     combination_target=combination_target,
                     is_riichi_horizontal=is_riichi_horizontal,
                     is_mo_gang=is_mo_gang,
+                    is_claim=True if is_claim else None,
+                    silent=True if silent else None,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))
             await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_do_action 失败: {e}")
-    if hasattr(self, "spectator_manager"):
+    if hasattr(self, "spectator_manager") and not is_claim:
         self.spectator_manager.record_do_action_ticks(
             action_list, action_player,
             cut_tile=cut_tile, cut_class=cut_class,

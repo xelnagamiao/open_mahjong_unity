@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class HeaderPanel : MonoBehaviour {
     public static HeaderPanel Instance { get; private set; }
@@ -62,9 +63,13 @@ public class HeaderPanel : MonoBehaviour {
         if (sceneConfigButton != null) sceneConfigButton.Button.onClick.AddListener(SceneConfig);
         if (spectatorButton != null) spectatorButton.Button.onClick.AddListener(Spectator);
         if (friendButton != null) friendButton.Button.onClick.AddListener(Friend);
+
+        ConfigManager.OnLanguageChanged += RefreshHeaderLabels;
+        RefreshHeaderLabels();
     }
 
     private void OnDestroy() {
+        ConfigManager.OnLanguageChanged -= RefreshHeaderLabels;
         if (UserDataManager.Instance != null) {
             UserDataManager.Instance.OnRoomIdChanged -= RefreshButtonAppearance;
         }
@@ -174,5 +179,31 @@ public class HeaderPanel : MonoBehaviour {
 
     private static bool IsInRoom() {
         return UserDataManager.Instance != null && UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE;
+    }
+
+    private void RefreshHeaderLabels() {
+        SetButtonLabel(menuButton, HeaderNavItem.Menu);
+        SetButtonLabel(roomButton, HeaderNavItem.Room);
+        SetButtonLabel(friendButton, HeaderNavItem.Friend);
+        SetButtonLabel(spectatorButton, HeaderNavItem.Spectator);
+        SetButtonLabel(playerDataButton, HeaderNavItem.PlayerData);
+        SetButtonLabel(recordButton, HeaderNavItem.Record);
+        SetButtonLabel(matchButton, HeaderNavItem.Match);
+        SetButtonLabel(sceneConfigButton, HeaderNavItem.SceneConfig);
+        SetButtonLabel(aboutUsButton, HeaderNavItem.AboutUs);
+        SetButtonLabel(noticeButton, HeaderNavItem.Notice);
+        SetButtonLabel(configButton, HeaderNavItem.Config);
+        SetButtonLabel(backToGameButton, HeaderNavItem.BackToGame);
+    }
+
+    private static void SetButtonLabel(HeaderButton button, HeaderNavItem item) {
+        if (button == null) {
+            return;
+        }
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label == null) {
+            return;
+        }
+        label.text = AppLanguageTexts.GetHeaderNavLabel(item);
     }
 }

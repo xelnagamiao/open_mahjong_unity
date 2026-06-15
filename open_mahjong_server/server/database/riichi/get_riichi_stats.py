@@ -47,6 +47,36 @@ def get_riichi_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
             db_manager._put_connection(conn)
 
 
+def get_riichi_fan_stats_total(db_manager, user_id: int) -> dict:
+    """获取指定用户的立直役种统计数据汇总（所有 mode 合计）。"""
+    from .store_riichi import FAN_FIELDS
+
+    conn = None
+    try:
+        conn = db_manager._get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        fan_columns = ", ".join(f"COALESCE(SUM({field}), 0) AS {field}" for field in FAN_FIELDS)
+        cursor.execute(
+            f"""
+            SELECT {fan_columns}
+            FROM riichi_fan_stats
+            WHERE user_id = %s
+            """,
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return {k: v for k, v in dict(row).items() if v is not None}
+        return {}
+    except Exception as e:
+        logger.error("获取立直役种统计数据汇总失败: %s", e, exc_info=True)
+        return {}
+    finally:
+        if conn:
+            cursor.close()
+            db_manager._put_connection(conn)
+
+
 def get_riichi_stats(db_manager, user_id: int) -> dict:
     """根据 user_id 获取立直麻将历史统计。"""
     conn = None

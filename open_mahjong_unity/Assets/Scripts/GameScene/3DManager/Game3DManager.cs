@@ -20,13 +20,6 @@ public partial class Game3DManager : MonoBehaviour {
 
     private GameObject lastCutJiagang3DObject; // 最后一张切牌或加杠牌的3D对象（荣和/抢杠倒牌演出用）
 
-    /// <summary>最后一张切牌/加杠牌对应的牌 id（原始 id，含赤 105/205/305）；无对象时返回 -1。</summary>
-    public int GetLastCutJiagangTileId() {
-        if (lastCutJiagang3DObject == null) return -1;
-        Tile3D tile3D = lastCutJiagang3DObject.GetComponent<Tile3D>();
-        if (tile3D == null) return -1;
-        return tile3D.GetTileId();
-    }
     private Coroutine _currentDiscardMoveCoroutine; // 当前出牌飞行动画协程，鸣牌时需终止
     private Vector3 lastRemove3DPosition; // 最后一张删除的3D对象
     private Dictionary<int,Vector3> pengToJiagangPosDict = new Dictionary<int,Vector3>(); // 碰牌的加杠预留指针
@@ -567,7 +560,7 @@ public partial class Game3DManager : MonoBehaviour {
             targetPositions.Add(startPos + direction.normalized * widthSpacing * i);
         }
 
-        yield return StartCoroutine(Animate3DCardsToPositions(cards, targetPositions));
+        yield return StartCoroutine(Animate3DCardsToPositions(cards, targetPositions, showCardsPosition));
     }
 
     /// <summary>

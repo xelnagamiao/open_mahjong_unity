@@ -52,9 +52,11 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 3D卡牌移动动画协程
+    /// 3D卡牌移动动画协程。
+    /// expectedParent 不为空时，每帧跳过已被其他协程「抢走」的牌（归还对象池→失活，或已被移入副露区→换父），
+    /// 避免补花/出牌的收拢动画在与吃碰动画重叠时，把对象池里同一张牌从副露/删除处拖回手牌造成残留多牌。
     /// </summary>
-    private IEnumerator Animate3DCardsToPositions(List<Transform> cards, List<Vector3> targetPositions) {
+    private IEnumerator Animate3DCardsToPositions(List<Transform> cards, List<Vector3> targetPositions, Transform expectedParent = null) {
         float animationDuration = 0.3f;
         float elapsedTime = 0f;
 
@@ -69,7 +71,7 @@ public partial class Game3DManager : MonoBehaviour {
             float smoothProgress = 1f - Mathf.Pow(1f - progress, 3f);
 
             for (int i = 0; i < cards.Count; i++) {
-                if (cards[i] != null) {
+                if (IsCardDrivable(cards[i], expectedParent)) {
                     Vector3 currentPos = Vector3.Lerp(startPositions[i], targetPositions[i], smoothProgress);
                     cards[i].position = currentPos;
                 }
@@ -78,10 +80,21 @@ public partial class Game3DManager : MonoBehaviour {
         }
 
         for (int i = 0; i < cards.Count; i++) {
-            if (cards[i] != null) {
+            if (IsCardDrivable(cards[i], expectedParent)) {
                 cards[i].position = targetPositions[i];
             }
         }
+    }
+
+    /// <summary>当前协程是否仍可驱动该牌：对象存活、激活，且（指定时）父节点仍是预期容器。</summary>
+    private static bool IsCardDrivable(Transform card, Transform expectedParent) {
+        if (card == null || !card.gameObject.activeInHierarchy) {
+            return false;
+        }
+        if (expectedParent != null && card.parent != expectedParent) {
+            return false;
+        }
+        return true;
     }
 }
 

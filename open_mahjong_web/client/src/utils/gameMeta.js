@@ -13,6 +13,7 @@ const RULE_LABELS = {
 const SUB_RULE_LABELS = {
   'guobiao/standard': '国标麻将(标准)',
   'guobiao/xiaolin': '国标麻将(小林改)',
+  'guobiao/kshen': 'K神麻将',
   'guobiao/lanshi': '国标麻将(蓝十改)',
   'qingque/standard': '青雀',
   'classical/standard': '古典麻雀',

@@ -19,9 +19,13 @@ public partial class GameCanvas{
         } else if (playerPosition == "top"){
             displayPos = TopActionDisplayPos;
         }
+        if (displayPos == null) return;
         
         string displayText = GetActionDisplayText(actionType, roomRule);
         if (string.IsNullOrEmpty(displayText)) return;
+
+        // 同一座位上若已有操作文本（含未走完渐隐协程的残留），先清掉再显示，避免叠字/卡死
+        ClearActionDisplayAt(displayPos);
 
         // 实例化操作显示文本
         GameObject actionTextObj = Instantiate(ActionDisplayText, displayPos);
@@ -32,6 +36,30 @@ public partial class GameCanvas{
         
         // 启动渐变消失协程
         StartCoroutine(FadeOutActionDisplay(actionTextObj,displayPos));
+    }
+
+    /// <summary>销毁指定座位锚点下所有操作文本实例（不依赖渐隐协程）。</summary>
+    private void ClearActionDisplayAt(Transform displayPos) {
+        if (displayPos == null) return;
+        for (int i = displayPos.childCount - 1; i >= 0; i--) {
+            Transform child = displayPos.GetChild(i);
+            if (child != null) {
+                Destroy(child.gameObject);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 清空四个座位的全部操作文本（补花/碰/吃/杠/和等）。
+    /// 退出对局/牌谱/观战、初始化与跳转回放时调用：FadeOutActionDisplay 协程依附于本 GameCanvas，
+    /// 在 gameObject 被 SetActive(false) 时会被中断而不销毁文本实例，导致「补花」等字残留卡死，
+    /// 这里直接销毁实例兜底。
+    /// </summary>
+    public void ClearActionDisplay() {
+        ClearActionDisplayAt(SelfActionDisplayPos);
+        ClearActionDisplayAt(LeftActionDisplayPos);
+        ClearActionDisplayAt(RightActionDisplayPos);
+        ClearActionDisplayAt(TopActionDisplayPos);
     }
 
     private string GetHuSelfActionText(string roomRule = null) {

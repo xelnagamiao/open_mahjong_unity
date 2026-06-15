@@ -364,7 +364,7 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
                 guobiao_score=rank_data.get('guobiao_score', 0.0) if rank_data else 0.0
             )
     
-    from .riichi.get_riichi_stats import get_riichi_history_stats
+    from .riichi.get_riichi_stats import get_riichi_history_stats, get_riichi_fan_stats_total
 
     history_stats_rows = get_riichi_history_stats(game_server.db_manager, target_user_id)
     history_stats_list = []
@@ -388,10 +388,12 @@ async def handle_get_riichi_stats(game_server, Connect_id: str, message: dict, w
             fan_stats=None,
         ))
 
+    total_fan_stats = get_riichi_fan_stats_total(game_server.db_manager, target_user_id)
+
     rule_stats_response = Rule_stats_response(
         rule="riichi",
         history_stats=history_stats_list,
-        total_fan_stats=None
+        total_fan_stats=total_fan_stats
     )
     
     response = Response(

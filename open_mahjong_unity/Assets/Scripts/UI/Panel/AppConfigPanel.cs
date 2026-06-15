@@ -13,6 +13,9 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private ConfigSlider soundEffectVolumeSlider;
     [SerializeField] private ConfigSlider voiceVolumeSlider;
 
+    [Header("语言")]
+    [SerializeField] private TMP_Dropdown languageDropdown;
+
     [Header("对局显示与操作")]
     [SerializeField] private TMP_Dropdown whiteDragonFaceDropdown;
     [SerializeField] private TMP_Dropdown moqieShortcutDropdown;
@@ -28,6 +31,7 @@ public class AppConfigPanel : MonoBehaviour {
     private void Awake() {
         Instance = this;
         InitializeVolumeManager();
+        EnsureLanguageDropdown();
         EnsureStreamerModeDropdown();
         EnsureHandCutConfirmDropdown();
         EnsureHandSortSuitDropdown();
@@ -35,6 +39,9 @@ public class AppConfigPanel : MonoBehaviour {
         EnsureHandSortDragonDropdown();
         EnsureHandSortRiichiDragonDropdown();
         InitializeGameplayDropdownOptions();
+        if (languageDropdown != null) {
+            languageDropdown.onValueChanged.AddListener(OnLanguageDropdownChanged);
+        }
         whiteDragonFaceDropdown.onValueChanged.AddListener(OnWhiteDragonFaceDropdownChanged);
         moqieShortcutDropdown.onValueChanged.AddListener(OnMoqieShortcutDropdownChanged);
         askOtherPassShortcutDropdown.onValueChanged.AddListener(OnAskOtherPassShortcutDropdownChanged);
@@ -75,6 +82,10 @@ public class AppConfigPanel : MonoBehaviour {
     }
 
     private void InitializeGameplayDropdownOptions() {
+        if (languageDropdown != null) {
+            languageDropdown.ClearOptions();
+            languageDropdown.AddOptions(new List<string>(ConfigManager.LanguageOptionLabels));
+        }
         whiteDragonFaceDropdown.ClearOptions();
         whiteDragonFaceDropdown.AddOptions(new List<string> { "纯白", "回形" });
         moqieShortcutDropdown.ClearOptions();
@@ -116,6 +127,10 @@ public class AppConfigPanel : MonoBehaviour {
     }
 
     private void SyncGameplayDropdownsFromConfig() {
+        if (languageDropdown != null) {
+            languageDropdown.SetValueWithoutNotify((int)ConfigManager.Instance.LanguageMode);
+            languageDropdown.RefreshShownValue();
+        }
         whiteDragonFaceDropdown.SetValueWithoutNotify(ConfigManager.Instance.WhiteDragonFaceMode);
         whiteDragonFaceDropdown.RefreshShownValue();
         moqieShortcutDropdown.SetValueWithoutNotify(ConfigManager.Instance.MoqieShortcutMode);
@@ -201,6 +216,54 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnHandSortRiichiDragonDropdownChanged(int value) {
         ConfigManager.Instance.SetHandSortRiichiDragonOrderMode(value);
+    }
+
+    private void OnLanguageDropdownChanged(int value) {
+        ConfigManager.Instance.SetLanguageMode(value);
+    }
+
+    private void EnsureLanguageDropdown() {
+        if (languageDropdown != null) {
+            return;
+        }
+        TMP_Dropdown templateDropdown = whiteDragonFaceDropdown != null
+            ? whiteDragonFaceDropdown
+            : moqieShortcutDropdown;
+        if (templateDropdown == null) {
+            return;
+        }
+
+        Transform templateRow = templateDropdown.transform.parent;
+        Transform rowContainer = templateRow != null ? templateRow.parent : null;
+        if (templateRow == null || rowContainer == null) {
+            return;
+        }
+
+        Transform existingRow = rowContainer.Find("LanguageRow");
+        if (existingRow != null) {
+            languageDropdown = existingRow.GetComponentInChildren<TMP_Dropdown>(true);
+            return;
+        }
+
+        Transform newRowTransform = Instantiate(templateRow, rowContainer);
+        newRowTransform.name = "LanguageRow";
+        newRowTransform.SetSiblingIndex(0);
+
+        languageDropdown = newRowTransform.GetComponentInChildren<TMP_Dropdown>(true);
+        if (languageDropdown == null) {
+            return;
+        }
+        languageDropdown.onValueChanged.RemoveAllListeners();
+
+        TMP_Text[] labels = newRowTransform.GetComponentsInChildren<TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++) {
+            TMP_Dropdown dropdown = labels[i].GetComponentInParent<TMP_Dropdown>();
+            if (dropdown == languageDropdown) {
+                continue;
+            }
+            labels[i].text = "语言";
+            break;
+        }
     }
 
     private void EnsureStreamerModeDropdown() {

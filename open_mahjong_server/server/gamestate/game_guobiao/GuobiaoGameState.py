@@ -606,6 +606,7 @@ class GuobiaoGameState:
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
+                is_kshen = (self.sub_rule == "guobiao/kshen")
 
                 # 自摸
                 if self.hu_class == "hu_self":
@@ -613,8 +614,8 @@ class GuobiaoGameState:
                     hepai_player_index = self.current_player_index
                     self.result_dict = {}
 
-                    if is_xiaolin:
-                        # 小林规自摸：对另外三家各x1，无基础8分
+                    if is_xiaolin or is_kshen:
+                        # 小林规/K神规自摸：对另外三家各付 n，无基础 8 分
                         self.player_list[hepai_player_index].score += hu_score * 3
                         for i in self.player_list:
                             if i.player_index != hepai_player_index:
@@ -643,9 +644,22 @@ class GuobiaoGameState:
                     self.result_dict = {}
 
                     if is_xiaolin:
-                        # 小林规点和：全铳制，点和x2，无基础8分
+                        # 小林规点和：全铳制，点和 x2，无基础 8 分
                         self.player_list[hepai_player_index].score += hu_score * 2
                         self.player_list[self.current_player_index].score -= hu_score * 2
+                    elif is_kshen:
+                        # K神规点和：12 分以下三家各付 n；12 分以上两家各付 12，放炮者付 3n-12
+                        fangpao_index = self.current_player_index
+                        self.player_list[hepai_player_index].score += hu_score * 3
+                        if hu_score < 12:
+                            for i in self.player_list:
+                                if i.player_index != hepai_player_index:
+                                    i.score -= hu_score
+                        else:
+                            for i in self.player_list:
+                                if i.player_index != hepai_player_index and i.player_index != fangpao_index:
+                                    i.score -= 12
+                            self.player_list[fangpao_index].score -= hu_score * 3 - 12
                     else:
                         # 标准国标荣和
                         self.player_list[hepai_player_index].score += hu_score + 24
@@ -833,11 +847,13 @@ class GuobiaoGameState:
         # 判断是否应该保存对局数据和番种统计
         # 小林规或修改了起和番限制的对局不保存统计数据，仅保存牌谱
         is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
+        is_kshen = (self.sub_rule == "guobiao/kshen")
         is_custom_hepai = (self.hepai_limit != 8)
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         
-        if is_xiaolin:
-            logger.info(f'小林规对局，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
+        if is_xiaolin or is_kshen:
+            rule_label = "小林规" if is_xiaolin else "K神规"
+            logger.info(f'{rule_label}对局，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
         elif is_custom_hepai:
             logger.info(f'自定义起和番限制({self.hepai_limit})，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
         elif has_ai_player:

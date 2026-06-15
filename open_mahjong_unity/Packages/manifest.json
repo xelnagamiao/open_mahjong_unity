@@ -17,9 +17,12 @@
     "com.unity.ugui": "1.0.0",
     "com.unity.xr.management": "4.5.4",
     "com.yasirkula.nativefilepicker": "https://github.com/yasirkula/UnityNativeFilePicker.git",
+    "com.yasirkula.nativegallery": "https://github.com/yasirkula/UnityNativeGallery.git",
     "com.unity.modules.androidjni": "1.0.0",
     "com.unity.modules.animation": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
-    "com.unity.modules.imageconversion": "1.0.0"
+    "com.unity.modules.imageconversion": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.modules.unitywebrequesttexture": "1.0.0"
   }
 }
