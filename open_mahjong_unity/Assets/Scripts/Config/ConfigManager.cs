@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -21,15 +22,15 @@ public class ConfigManager : MonoBehaviour {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            releaseVersion = 5; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 6; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
-            releaseVersion = 5;
+            releaseVersion = 6;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.60.4"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.66.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
@@ -58,6 +59,12 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_HAND_SORT_HONOR_ORDER = "HandSortHonorOrderMode";
     private const string KEY_HAND_SORT_DRAGON_ORDER = "HandSortDragonOrderMode";
     private const string KEY_HAND_SORT_RIICHI_DRAGON_ORDER = "HandSortRiichiDragonOrderMode";
+    private const string KEY_LANGUAGE = "AppLanguage";
+
+    private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
+    public static event Action OnLanguageChanged;
+    public static bool IsEnglish => _languageMode == AppLanguage.English;
+    public static AppLanguage CurrentLanguage => _languageMode;
 
     /// <summary>图集中空白/纯白牌面资源编号（与 2D CardFaceImage_xuefun 一致）。</summary>
     public const int BlankFaceImageId = 2;
@@ -91,8 +98,10 @@ public class ConfigManager : MonoBehaviour {
     public int MusicVolume { get; private set; }
     public int SoundEffectVolume { get; private set; }
     public int VoiceVolume { get; private set; }
+    public AppLanguage LanguageMode => _languageMode;
 
     public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
+    public static readonly string[] LanguageOptionLabels = { "简体中文", "繁体中文", "English" };
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     private const int DefaultTargetFrameRate = 60;
@@ -127,6 +136,7 @@ public class ConfigManager : MonoBehaviour {
         HandSortHonorOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_HONOR_ORDER, 0), 0, TileIdOrder.HonorOrderOptions.Length - 1);
         HandSortDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_DRAGON_ORDER, 0), 0, TileIdOrder.DragonOrderOptions.Length - 1);
         HandSortRiichiDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, 2), 0, TileIdOrder.RiichiDragonOrderOptions.Length - 1);
+        _languageMode = (AppLanguage)Mathf.Clamp(PlayerPrefs.GetInt(KEY_LANGUAGE, (int)AppLanguage.SimplifiedChinese), 0, 2);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
 #if UNITY_WEBGL && !UNITY_EDITOR
         TargetFrameRate = WebLockedFrameRate;
@@ -285,6 +295,17 @@ public class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, HandSortRiichiDragonOrderMode);
         PlayerPrefs.Save();
         ApplyHandSortRule();
+    }
+
+    public void SetLanguageMode(int mode) {
+        var language = (AppLanguage)Mathf.Clamp(mode, 0, 2);
+        if (_languageMode == language) {
+            return;
+        }
+        _languageMode = language;
+        PlayerPrefs.SetInt(KEY_LANGUAGE, (int)language);
+        PlayerPrefs.Save();
+        OnLanguageChanged?.Invoke();
     }
 
     // 应用排序规则到 TileIdOrder，并在对局中开启自动理牌时立即按新规则重排当前手牌。

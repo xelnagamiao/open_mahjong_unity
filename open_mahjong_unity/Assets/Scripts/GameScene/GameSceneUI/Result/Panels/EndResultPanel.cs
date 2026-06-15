@@ -257,7 +257,9 @@ public class EndResultPanel : MonoBehaviour {
             yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
             string fanKey = hu_fan[i];
             string fanDisplay = FanTextDictionary.GetFanDisplayText(roomRuleForFan, fanKey);
-            string fanLabel = isRiichi ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey) : fanKey;
+            string fanLabel = isRiichi
+                ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey)
+                : FanTextDictionary.GetFanNameDisplayText(roomRuleForFan, fanKey);
             GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
             FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
             if (fanCount != null) {
@@ -388,7 +390,9 @@ public class EndResultPanel : MonoBehaviour {
             for (int i = 0; i < hu_fan.Length; i++) {
                 string fanKey = hu_fan[i];
                 string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanKey);
-                string fanLabel = isRiichi ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey) : fanKey;
+                string fanLabel = isRiichi
+                    ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey)
+                    : FanTextDictionary.GetFanNameDisplayText(roomType, fanKey);
                 GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
                 FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
                 if (fanCount != null) {

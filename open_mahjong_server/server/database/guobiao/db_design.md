@@ -61,7 +61,7 @@
 | yisesijiegao | 一色四节高次数 |
 | yisesibugao | 一色四步高次数 |
 | hunyaojiu | 混幺九次数 |
-| qiduizi | 七对子次数 |
+| qiduizi | 七对次数 |
 | qixingbukao | 七星不靠次数 |
 | quanshuangke | 全双刻次数 |
 | qingyise | 清一色次数 |

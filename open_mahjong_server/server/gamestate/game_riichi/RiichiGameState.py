@@ -203,9 +203,14 @@ class RiichiGameState:
         # 立直专属配置
         self.red_dora: bool = room_data.get("red_dora", True)
         self.allow_kuikae: bool = room_data.get("allow_kuikae", False)  # 允许食替（吃什么打什么）
-        self.hepai_way: str = room_data.get("hepai_way", "head_bump")  # head_bump / multi_ron / three_ron_abort
+        self.hepai_way: str = room_data.get("hepai_way", "multi_ron")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
+
+        self._pending_ron_claims: dict = {}
+        self.multi_ron_queue: Optional[list] = None
+        self._multi_ron_ready_done: bool = False
+        self._multi_ron_any_oya_win: bool = False
 
         self.isPlayerSetRandomSeed = False
 
@@ -375,6 +380,9 @@ class RiichiGameState:
             self.hu_class = None
             self.result_dict = {}
             self.ron_player_index = None
+            self.multi_ron_queue = None
+            self._multi_ron_ready_done = False
+            self._multi_ron_any_oya_win = False
 
             # 亲家（player_index=0）摸第 14 张
             self.refresh_waiting_tiles(self.current_player_index)
@@ -496,7 +504,9 @@ class RiichiGameState:
             # 准备阶段
             # 与客户端 RoundEndPresentation / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
             # 避免动画结束后还要在空白界面再等几秒。和牌画面较长（需阅读番符），其它流局以演出时长 + 0.5s 余量为准。
-            if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
+            if self._multi_ron_ready_done:
+                self._multi_ron_ready_done = False
+            elif self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
                 settle_result = self.result_dict.get(self.hu_class) or {}
                 fan_count = len(settle_result.get("yaku", []))
                 await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
@@ -544,7 +554,8 @@ class RiichiGameState:
                 last_renchan = True
             else:
                 winner_index = self._hu_winner_index()
-                oya_win = winner_index == 0
+                oya_win = winner_index == 0 or self._multi_ron_any_oya_win
+                self._multi_ron_any_oya_win = False
                 oya_tenpai = False
                 if self.hu_class == "ryuukyoku":
                     oya_tenpai = self._is_ryuukyoku_tenpai(self.player_list[0])
@@ -613,6 +624,8 @@ class RiichiGameState:
                     total_rounds = len(self.game_record.get("game_round", {}))
                     if hasattr(self.db_manager, "store_riichi_game_stats"):
                         self.db_manager.store_riichi_game_stats(game_id, self.player_list, self.room_type, self.max_round, total_rounds)
+                    if hasattr(self.db_manager, "store_riichi_fan_stats"):
+                        self.db_manager.store_riichi_fan_stats(game_id, self.player_list, self.room_type, self.max_round)
             except Exception as e:
                 logger.error(f"riichi 存储牌谱异常: {e}")
 
@@ -740,7 +753,11 @@ class RiichiGameState:
 
     async def _settle_round(self):
         self.hepai_player_index = None
-        if self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
+        multi_queue = getattr(self, "multi_ron_queue", None)
+        if multi_queue and len(multi_queue) > 1:
+            await self._settle_multi_ron_sequence(multi_queue)
+            self.multi_ron_queue = None
+        elif self.hu_class in ("hu_self", "hu_first", "hu_second", "hu_third"):
             result = self.result_dict.get(self.hu_class) or {}
             # 错和：①牌型成立但无役（no_yaku，0番不能正常和牌）②和牌番数低于起和番数。
             # 两者均仅在开启错和（open_cuohe）时才允许宣告并走错和罚分流程。
@@ -786,7 +803,39 @@ class RiichiGameState:
                 exhaustive_penalty=has_penalty,
             )
 
-    async def _settle_hu(self):
+    async def _settle_multi_ron_sequence(self, queue: list) -> None:
+        """多家荣和：一起喊荣后按 hu_first → hu_second → hu_third 顺序依次结算，每家确认后再下一家。"""
+        from .boardcast import broadcast_do_action
+
+        self._multi_ron_any_oya_win = any(player_index == 0 for player_index, _ in queue)
+
+        for index, (winner_index, hu_class) in enumerate(queue):
+            self.hu_class = hu_class
+            self.ron_player_index = winner_index
+            is_first = index == 0
+
+            await broadcast_do_action(
+                self,
+                action_list=[hu_class],
+                action_player=winner_index,
+                silent=True,
+            )
+
+            result = self.result_dict.get(hu_class)
+            if not result:
+                logger.error(f"多家荣和结算缺少结果: {hu_class} winner={winner_index}")
+                continue
+
+            fan_count = len(result.get("yaku", []))
+            await self._settle_hu(
+                apply_honba=is_first,
+                apply_riichi_sticks=is_first,
+            )
+            await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
+
+        self._multi_ron_ready_done = True
+
+    async def _settle_hu(self, apply_honba: bool = True, apply_riichi_sticks: bool = True):
         result = self.result_dict.get(self.hu_class)
         if not result:
             logger.error("和牌结算未获得结果")
@@ -835,11 +884,12 @@ class RiichiGameState:
                     score_changes[i] -= pay + self.honba * 100
                     score_changes[winner_index] += pay + self.honba * 100
         else:
-            # 荣和：出铳家全额支付 + 全部本场
+            # 荣和：出铳家全额支付；本场棒仅第一家荣和者收取
             loser_index = self.current_player_index
             total = score_info.get("main", 0) * _mult(loser_index)
-            score_changes[loser_index] -= total + self.honba * 300
-            score_changes[winner_index] += total + self.honba * 300
+            honba_bonus = self.honba * 300 if apply_honba else 0
+            score_changes[loser_index] -= total + honba_bonus
+            score_changes[winner_index] += total + honba_bonus
 
         if langyong:
             scored = 0
@@ -872,14 +922,27 @@ class RiichiGameState:
                 langyong_multiplier = max_mult
                 langyong_scored_points = scored
 
-        # 场供立直棒给予胜者
-        collected = self.riichi_sticks
-        score_changes[winner_index] += collected * 1000
-        self.riichi_sticks = 0
+        # 场供立直棒给予第一家荣和胜者
+        collected = self.riichi_sticks if apply_riichi_sticks else 0
+        if apply_riichi_sticks:
+            score_changes[winner_index] += collected * 1000
+            self.riichi_sticks = 0
 
         # 应用
         for p in self.player_list:
             p.score += score_changes[p.player_index]
+
+        winner = self.player_list[winner_index]
+        stats_yaku = [y for y in yaku if y != "错和"]
+        winner.record_counter.recorded_fans.append(stats_yaku)
+        winner.record_counter.win_score += han
+        winner.record_counter.win_turn += self.xunmu
+        if self.hu_class == "hu_self":
+            winner.record_counter.zimo_times += 1
+        else:
+            winner.record_counter.dianhe_times += 1
+            self.player_list[self.current_player_index].record_counter.fangchong_times += 1
+            self.player_list[self.current_player_index].record_counter.fangchong_score += han
 
         # 记录
         player_action_record_hu_riichi(

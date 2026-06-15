@@ -238,7 +238,7 @@ public partial class NormalGameStateManager {
         riichiSticks = gameInfo.riichi_sticks ?? 0;
         doraIndicators = gameInfo.dora_indicators != null ? new List<int>(gameInfo.dora_indicators) : new List<int>();
         kanDoraIndicators = gameInfo.kan_dora_indicators != null ? new List<int>(gameInfo.kan_dora_indicators) : new List<int>();
-        hepaiWay = gameInfo.hepai_way ?? "head_bump";
+        hepaiWay = gameInfo.hepai_way ?? "multi_ron";
         redDora = gameInfo.red_dora ?? false;
         dealerIndex = gameInfo.dealer_index ?? 0;
         if (isOpenCuoHe){

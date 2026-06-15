@@ -65,6 +65,8 @@ public static class ScoreHistoryRecordSettlementExtractor {
         InitHands(players, round);
         int lastDiscardPlayerIndex = -1;
         int lastDiscardTileId = -1;
+        // 荣和追加用的和牌张：普通荣和=最后弃牌，抢杠和=被抢加杠牌；避免抢杠误用过期弃牌
+        int lastWinnableTileId = -1;
         RecordScoreRow lastRow = null;
         int currentPlayerIndex = round.startPlayerIndex;
         bool mainPhaseStarted = false;
@@ -111,6 +113,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                     RemoveTileForCut(actor.tileList, ParseInt(tick, 1), ParseBool(tick, 2));
                     lastDiscardPlayerIndex = actingPlayerIndex;
                     lastDiscardTileId = ParseInt(tick, 1);
+                    lastWinnableTileId = ParseInt(tick, 1);
                     currentPlayerIndex = (actingPlayerIndex + 1) % 4;
                     break;
                 case "ag": {
@@ -129,6 +132,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                     List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
                         actor.tileList, tile, 1, preferDrawSlotFirst: isMoGang);
                     int actualJia = removedTiles.Count > 0 ? removedTiles[0] : tile;
+                    lastWinnableTileId = actualJia;
                     BuildJiagangMask(actor, tile, actualJia);
                     currentPlayerIndex = actingPlayerIndex;
                     break;
@@ -143,6 +147,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                     foreach (int t in removedTiles) {
                         RemoveOneTile(actor.tileList, t);
                     }
+                    lastWinnableTileId = -1;
                     int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : previousPlayerIndex;
                     string relative = GetRelativePosition(actingPlayerIndex, discardPlayerIndex);
                     actor.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingTile));
@@ -154,7 +159,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 case "hu_first":
                 case "hu_second":
                 case "hu_third": {
-                    RoundSettlementSnapshot snap = BuildHuSnapshot(tick, action, subRule, round, actingPlayerIndex, players, lastDiscardTileId, action != "hu_self", gameTitle);
+                    RoundSettlementSnapshot snap = BuildHuSnapshot(tick, action, subRule, round, actingPlayerIndex, players, lastWinnableTileId, action != "hu_self", gameTitle);
                     lastRow = new RecordScoreRow {
                         snapshot = snap,
                         scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 4), round.seats),
@@ -164,7 +169,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                     break;
                 }
                 case "hu_riichi": {
-                    RoundSettlementSnapshot snap = BuildRiichiHuSnapshot(tick, subRule, round, players, lastDiscardTileId, gameTitle);
+                    RoundSettlementSnapshot snap = BuildRiichiHuSnapshot(tick, subRule, round, players, lastWinnableTileId, gameTitle);
                     lastRow = new RecordScoreRow {
                         snapshot = snap,
                         scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(ParseScoreChanges(tick, 6), round.seats),
@@ -336,14 +341,15 @@ public static class ScoreHistoryRecordSettlementExtractor {
         target.combinationMask = CloneMasks(huPlayer.combinationMasks);
     }
 
-    /// <summary>荣和时和牌张不在手牌列表中，需追加到末尾（与 GameRecordManager / 服务端一致）。</summary>
+    /// <summary>
+    /// 荣和时和牌张需追加到数组末尾供 UI 拆分展示（暗手 | 副露 | 和牌张）。
+    /// 牌谱重放不会在 hu tick 把荣和张写入 tileList，即使手牌中已有同 id 牌也必须追加，
+    /// 否则末位可能是刚摸未切的那张，和牌张会显示错误（如荣和 9p 却显示 3p）。
+    /// </summary>
     private static int[] BuildWinnerHandArray(SimPlayer huPlayer, bool isRon, int lastDiscardTileId) {
         if (huPlayer?.tileList == null) return Array.Empty<int>();
         int[] hand = huPlayer.tileList.ToArray();
         if (!isRon || lastDiscardTileId < 0) return hand;
-        for (int i = 0; i < hand.Length; i++) {
-            if (hand[i] == lastDiscardTileId) return hand;
-        }
         int[] extended = new int[hand.Length + 1];
         Array.Copy(hand, extended, hand.Length);
         extended[hand.Length] = lastDiscardTileId;

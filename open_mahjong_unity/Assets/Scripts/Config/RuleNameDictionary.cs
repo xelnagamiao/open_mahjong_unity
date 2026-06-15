@@ -10,6 +10,7 @@ public static class RuleNameDictionary {
         { "qingque/standard", "青雀" },
         { "guobiao/standard", "国标麻将(标准)" },
         { "guobiao/xiaolin", "国标麻将(小林改)" },
+        { "guobiao/kshen", "K神麻将" },
         { "guobiao/lanshi", "国标麻将(蓝十改)" },
         { "classical/standard", "古典麻雀" },
         { "riichi/standard", "立直麻将(标准)" },
@@ -20,6 +21,7 @@ public static class RuleNameDictionary {
     public static readonly Dictionary<string, string> ShortName = new Dictionary<string, string> {
         { "guobiao/standard", "国标" },
         { "guobiao/xiaolin", "小林" },
+        { "guobiao/kshen", "K神" },
         { "guobiao/lanshi", "蓝十" },
         { "qingque/standard", "青雀" },
         { "classical/standard", "古典" },

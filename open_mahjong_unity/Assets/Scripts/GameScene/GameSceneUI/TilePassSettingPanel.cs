@@ -71,26 +71,13 @@ public class TilePassSettingPanel : MonoBehaviour {
         gameObject.SetActive(visible);
     }
 
-    public bool ShouldAutoPassForDiscardTile(int tileId) {
-        if (tileId <= 0) return false;
-        return passTileIds.Contains(tileId);
-    }
-
     public bool ShouldAutoPassForCurrentDiscard() {
-        if (NormalGameStateManager.Instance != null
-            && NormalGameStateManager.Instance.IsQiangGangAsk
-            && !ignoreRobKong) {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm != null && gsm.IsQiangGangAsk && !ignoreRobKong) {
             return false;
         }
-
-        int tileId = -1;
-        if (Game3DManager.Instance != null) {
-            tileId = Game3DManager.Instance.GetLastCutJiagangTileId();
-        }
-        if (tileId <= 0 && NormalGameStateManager.Instance != null) {
-            tileId = NormalGameStateManager.Instance.lastCutCardID;
-        }
-        return ShouldAutoPassForDiscardTile(tileId);
+        if (gsm == null || gsm.currentAskCutTileId <= 0) return false;
+        return passTileIds.Contains(gsm.currentAskCutTileId);
     }
 
     private void WireIfNeeded() {

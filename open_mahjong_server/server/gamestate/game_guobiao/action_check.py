@@ -244,6 +244,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     print(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     if hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/xiaolin":
         result = self.calculation_service.GB_xiaolin_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+    elif hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/kshen":
+        result = self.calculation_service.GB_kshen_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     else:
         result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 

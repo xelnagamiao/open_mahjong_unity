@@ -35,6 +35,7 @@ public partial class NormalGameStateManager {
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();
         IsQiangGangAsk = pendingAskFromJiagang;
+        currentAskCutTileId = cut_tile;
         if (action_list.Length > 0){
             allowActionList = BuildMingPaiAllowActionList(action_list);
             SwitchCurrentPlayer("self","askMingPaiAction",remaining_time);
@@ -44,6 +45,7 @@ public partial class NormalGameStateManager {
     private void ClearQiangGangAskState() {
         IsQiangGangAsk = false;
         pendingAskFromJiagang = false;
+        currentAskCutTileId = 0;
     }
 
     // 执行行动
@@ -252,7 +254,10 @@ public partial class NormalGameStateManager {
     // 战术鸣牌：处理 is_claim 申请广播
     // 仅播放发声、字体动画并启动战术鸣牌面板倒计时，不修改任何游戏状态
     private void HandleTacticalClaim(string actor, string[] action_list) {
-        TacticalCallPanel.Instance.ShowClaim();
+        // 日麻多家荣和/三家和了：仅播发声与字体，不弹出战术鸣牌倒计时面板
+        if (roomRule != "riichi") {
+            TacticalCallPanel.Instance.ShowClaim();
+        }
         foreach (string action in action_list) {
             SoundManager.Instance.PlayActionSound(actor, action);
             SoundManager.Instance.PlayPhysicsSound(action);

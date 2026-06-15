@@ -190,7 +190,7 @@ async def handle_create_Riichi_room(game_server, Connect_id: str, message: dict,
         message.get("allow_kuikae", False),
         message.get("open_xiru", True),
         message.get("open_tobi", True),
-        message.get("hepai_way", "head_bump"),
+        message.get("hepai_way", "multi_ron"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
     )

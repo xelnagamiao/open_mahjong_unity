@@ -58,6 +58,8 @@ public partial class NormalGameStateManager : MonoBehaviour{
 
     public List<string> allowActionList = new List<string>(); // 允许操作列表
     public int lastCutCardID; // 上一张切牌的ID
+    /// <summary>当前鸣牌询问对应的切牌 id（仅来自 ask_other_action.cut_tile）。</summary>
+    public int currentAskCutTileId;
     /// <summary>当前鸣牌询问是否来自他人加杠（抢杠和）。</summary>
     public bool IsQiangGangAsk { get; private set; }
     private bool pendingAskFromJiagang;

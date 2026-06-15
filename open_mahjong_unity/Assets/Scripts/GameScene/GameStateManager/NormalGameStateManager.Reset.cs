@@ -8,6 +8,7 @@ public partial class NormalGameStateManager {
         selfHandTiles.Clear();
         allowActionList.Clear();
         lastCutCardID = 0;
+        currentAskCutTileId = 0;
         lastDiscardPlayerPosition = null;
         CurrentPlayer = null;
         lastDealTileType = null;

@@ -66,6 +66,9 @@ public partial class GameRecordManager : MonoBehaviour {
     public int currentPlayerIndex;
     private int lastDiscardPlayerIndex = -1;
     private int lastDiscardTileId = -1;
+    // 荣和时供和牌张追加用：普通荣和=最后一张弃牌，抢杠和=被抢的加杠牌。
+    // 与 lastDiscardTileId 分开维护，避免抢杠时误用早前过期的弃牌（如全数牌和牌里冒出一张西）。
+    private int lastWinnableTileId = -1;
     // 5.当前局数
     public int currentRoundIndex;
     // 立直麻将当前局已翻开的宝牌指示牌（含杠宝牌），用于回放 hu_riichi 结算展示
@@ -474,6 +477,7 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
+        lastWinnableTileId = -1;
         recordRiichiDoraIndicators.Clear();
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);    
     }
@@ -616,6 +620,7 @@ public partial class GameRecordManager : MonoBehaviour {
             Game3DManager.Instance.Change3DTile("RecordDiscard", cutTile, 0, currentPlayerPosition, isMoqie, null, isRiichiHorizontal);
             lastDiscardPlayerIndex = actingPlayerIndex;
             lastDiscardTileId = cutTile;
+            lastWinnableTileId = cutTile;
             nextPlayerIndex = (actingPlayerIndex + 1) % 4;
         }
         else if (action == "bh") {
@@ -651,6 +656,8 @@ public partial class GameRecordManager : MonoBehaviour {
             List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
                 currentRecordPlayer.tileList, jiagangTile, 1, preferDrawSlotFirst: isMoGang);
             int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
+            // 抢杠和：被抢的加杠牌即和牌张，登记为可和牌张供随后 hu_* 追加
+            lastWinnableTileId = actualJia;
             int[] combinationMask = BuildJiagangMask(currentRecordPlayer, jiagangTile, actualJia);
             if (currentPlayerPosition == "self") {
                 if (isMoGang) {
@@ -686,6 +693,8 @@ public partial class GameRecordManager : MonoBehaviour {
             int[] combinationMask = GameRecordMeldCodec.BuildMingpaiMask(action, mingpaiTile, removedTiles, relative);
             currentRecordPlayer.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingpaiTile));
             currentRecordPlayer.combinationMasks.Add(combinationMask);
+            // 弃牌已被吃/碰/明杠取走，不再是可荣和牌张，清除避免后续误追加
+            lastWinnableTileId = -1;
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("RemoveCombinationCard", 0, removedTiles.ToArray(), null);
             }
@@ -721,11 +730,12 @@ public partial class GameRecordManager : MonoBehaviour {
             string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
             RecordPlayer huPlayer = recordPlayer_to_info[huPosition];
             int[] hepaiPlayerHand = huPlayer.tileList.ToArray();
-            // 荣和时，和牌张不在手牌中，需追加到末尾供 EndResultPanel 显示
-            if (action != "hu_self" && lastDiscardTileId >= 0) {
+            // 荣和时，和牌张不在手牌中，需追加到末尾供 EndResultPanel 显示。
+            // 用 lastWinnableTileId（弃牌或抢杠加杠牌）而非 lastDiscardTileId，避免抢杠时追加过期弃牌。
+            if (action != "hu_self" && lastWinnableTileId >= 0) {
                 int[] newHand = new int[hepaiPlayerHand.Length + 1];
                 Array.Copy(hepaiPlayerHand, newHand, hepaiPlayerHand.Length);
-                newHand[hepaiPlayerHand.Length] = lastDiscardTileId;
+                newHand[hepaiPlayerHand.Length] = lastWinnableTileId;
                 hepaiPlayerHand = newHand;
             }
             int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
@@ -1324,10 +1334,11 @@ public partial class GameRecordManager : MonoBehaviour {
         string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
         RecordPlayer huPlayer = recordPlayer_to_info[huPosition];
         int[] hepaiPlayerHand = huPlayer.tileList.ToArray();
-        if (huClass != "hu_self" && lastDiscardTileId >= 0) {
+        // 槍槓（抢杠和）时和牌张为被抢的加杠牌，用 lastWinnableTileId 避免追加过期弃牌
+        if (huClass != "hu_self" && lastWinnableTileId >= 0) {
             int[] newHand = new int[hepaiPlayerHand.Length + 1];
             Array.Copy(hepaiPlayerHand, newHand, hepaiPlayerHand.Length);
-            newHand[hepaiPlayerHand.Length] = lastDiscardTileId;
+            newHand[hepaiPlayerHand.Length] = lastWinnableTileId;
             hepaiPlayerHand = newHand;
         }
         int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();

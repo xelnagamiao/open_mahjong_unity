@@ -12,12 +12,15 @@ public partial class GameRecordManager
 
         // 重新推理手牌前清空所有正在执行的3D动画，避免与重建画面冲突
         Game3DManager.Instance.StopAllRunningAnimations();
+        // 跳转/快进会中断渐隐协程，先销毁残留的操作文本，避免「补花」等字卡死
+        GameCanvas.Instance.ClearActionDisplay();
         // 重置到局初始状态（UI/2D/3D）
         Game3DManager.Instance.Clear3DTile();
         currentNode = 0;
         currentPlayerIndex = roundData.startPlayerIndex;
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
+        lastWinnableTileId = -1;
         
         // 重置牌山列表到初始状态
         if (roundData.tilesList != null) {
@@ -130,6 +133,7 @@ public partial class GameRecordManager
             actingPlayer.discardRiichiFlags.Add(isRiichiHorizontal);
             lastDiscardPlayerIndex = actingPlayerIndex;
             lastDiscardTileId = cutTile;
+            lastWinnableTileId = cutTile;
             nextPlayerIndex = (actingPlayerIndex + 1) % 4;
         }
         else if (action == "bh") {
@@ -155,6 +159,7 @@ public partial class GameRecordManager
             List<int> removedTiles = GameRecordMeldCodec.RemoveNTilesByNormalized(
                 actingPlayer.tileList, jiagangTile, 1, preferDrawSlotFirst: isMoGang);
             int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
+            lastWinnableTileId = actualJia;
             BuildJiagangMask(actingPlayer, jiagangTile, actualJia);
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -164,6 +169,7 @@ public partial class GameRecordManager
             foreach (int tileId in removedTiles) {
                 RemoveOneTile(actingPlayer.tileList, tileId);
             }
+            lastWinnableTileId = -1;
 
             if (lastDiscardPlayerIndex >= 0 && indexToPosition.ContainsKey(lastDiscardPlayerIndex)) {
                 string discardPlayerPosition = indexToPosition[lastDiscardPlayerIndex];

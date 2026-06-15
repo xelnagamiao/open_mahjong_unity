@@ -143,6 +143,8 @@ public partial class GameCanvas : MonoBehaviour {
         playerTopPanel?.Clear();
         playerRightPanel?.Clear();
         ClearActionButton();
+        // 退出前在 SetActive(false) 之前销毁残留的操作文本，避免「补花」等字卡死下次进入
+        ClearActionDisplay();
         SetScoreRecordOpen(false);
         if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
         RefreshRiichiStatusIndicators();
@@ -153,6 +155,7 @@ public partial class GameCanvas : MonoBehaviour {
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
+        ClearActionDisplay();
         HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
@@ -205,6 +208,7 @@ public partial class GameCanvas : MonoBehaviour {
     public void InitializeUIInfoFromRecord(List<GameRecordManager.RecordPlayer> recordPlayerList, Dictionary<int, string> indexToPosition, Dictionary<int, string> userIdToUsername) {
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
+        ClearActionDisplay();
         HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){

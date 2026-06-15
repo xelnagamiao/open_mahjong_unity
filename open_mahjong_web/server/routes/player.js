@@ -9,7 +9,7 @@ const guobiaoFanDict = {
   qingyaojiu: '清幺九', xiaosixi: '小四喜', xiaosanyuan: '小三元', ziyise: '字一色',
   sianke: '四暗刻', yiseshuanglonghui: '一色双龙会', yisesitongshun: '一色四同顺',
   yisesijiegao: '一色四节高', yisesibugao: '一色四步高', hunyaojiu: '混幺九',
-  qiduizi: '七对子', qixingbukao: '七星不靠', quanshuangke: '全双刻', qingyise: '清一色',
+  qiduizi: '七对', qixingbukao: '七星不靠', quanshuangke: '全双刻', qingyise: '清一色',
   yisesantongshun: '一色三同顺', yisesanjiegao: '一色三节高', quanda: '全大',
   quanzhong: '全中', quanxiao: '全小', qinglong: '清龙', sanseshuanglonghui: '三色双龙会',
   yisesanbugao: '一色三步高', quandaiwu: '全带五', santongke: '三同刻', sananke: '三暗刻',
@@ -67,6 +67,33 @@ const classicalFanDict = {
   jiulianbaodeng: '九莲宝灯', guoshiwushuang: '国士无双'
 };
 
+const riichiFanDict = {
+  riichi: '立直', menzen_tsumo: '门前清自摸和', pinfu: '平和', tanyao: '断幺九',
+  iipeikou: '一杯口', yakuhai_haku: '役牌·白', yakuhai_hatsu: '役牌·发', yakuhai_chun: '役牌·中',
+  jikaze_ton: '自风·东', jikaze_nan: '自风·南', jikaze_sha: '自风·西', jikaze_pe: '自风·北',
+  bakaze_ton: '场风·东', bakaze_nan: '场风·南', bakaze_sha: '场风·西', bakaze_pe: '场风·北',
+  rinshan: '岭上开花', chankan: '枪杠', haitei: '海底捞月', houtei: '河底捞鱼',
+  ippatsu: '一发', dora: '宝牌', akadora: '赤宝牌', uradora: '里宝牌',
+  daburi_riichi: '双立直', sanshoku_doukou: '三色同刻', san_kantsu: '三杠子', toitoi: '对对和',
+  sanankou: '三暗刻', shousangen: '小三元', honroutou: '混老头', chiitoitsu: '七对子',
+  chanta: '混全带幺九', ittsu: '一气通贯', sanshoku_doujun: '三色同顺',
+  ittsu_menzen: '一气通贯（门清）', ittsu_shitachi: '一气通贯（食下）',
+  sanshoku_doujun_menzen: '三色同顺（门清）', sanshoku_doujun_shitachi: '三色同顺（食下）',
+  chanta_menzen: '混全带幺九（门清）', chanta_shitachi: '混全带幺九（食下）',
+  junchan_menzen: '纯全带幺九（门清）', junchan_shitachi: '纯全带幺九（食下）',
+  honitsu_menzen: '混一色（门清）', honitsu_shitachi: '混一色（食下）',
+  chinitsu_menzen: '清一色（门清）', chinitsu_shitachi: '清一色（食下）',
+  ryanpeikou: '二杯口', junchan: '纯全带幺九', honitsu: '混一色', chinitsu: '清一色',
+  tenhou: '天和', chiihou: '地和', daisangen: '大三元', suuankou: '四暗刻',
+  tsuuiisou: '字一色', ryuuiisou: '绿一色', chinroutou: '清老头', kokushi: '国士无双',
+  shousuushii: '小四喜', suukantsu: '四杠子', chuuren: '九莲宝灯',
+  suuankou_tanki: '四暗刻单骑', kokushi_juusan: '国士无双十三面',
+  chuuren_junsei: '纯正九莲宝灯', daisuushii: '大四喜',
+  open_riichi: '开立直', double_open_riichi: '双倍开立直', renhou: '人和',
+  nagashi_mangan: '流局满贯', daichisei: '大七星', daisharin: '大车轮',
+  paarenchan: '八连庄', sashikomi: '包牌'
+};
+
 const ruleConfig = {
   guobiao: {
     historyTable: 'guobiao_history_stats',
@@ -75,8 +102,8 @@ const ruleConfig = {
   },
   riichi: {
     historyTable: 'riichi_history_stats',
-    fanTable: null,
-    fanDict: {}
+    fanTable: 'riichi_fan_stats',
+    fanDict: riichiFanDict
   },
   qingque: {
     historyTable: 'qingque_history_stats',

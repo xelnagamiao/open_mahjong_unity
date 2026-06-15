@@ -79,6 +79,8 @@ chat_server = ChatServer()
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
+    db_manager.backfill_qiduizi_stats()
+    db_manager.backfill_auto_promote()
     # 只生成秘钥文件，不启动聊天服务器
     # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
     await chat_server.generate_secret_key()

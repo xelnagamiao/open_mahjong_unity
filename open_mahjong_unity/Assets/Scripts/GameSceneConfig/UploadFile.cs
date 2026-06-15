@@ -53,13 +53,13 @@ public class UploadFile : MonoBehaviour {
 
         // ========== 平台分发处理 ==========
 
-#if UNITY_ANDROID || UNITY_IOS
-        // 移动平台：使用NativeFilePicker
-        NativeFilePicker.PickFile(path => {
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+        // 移动平台：从相册选择图片
+        NativeGallery.GetImageFromGallery(path => {
             if (!string.IsNullOrEmpty(path)) {
                 SaveFileToPath(path, resolvedSavePath);
             }
-        }, new string[] { "png", "jpg", "jpeg" });
+        }, "选择图片", "image/*");
 
 #elif UNITY_WEBGL && !UNITY_EDITOR
         // WebGL平台：使用JS插件

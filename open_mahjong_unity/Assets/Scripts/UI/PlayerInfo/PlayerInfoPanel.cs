@@ -657,6 +657,8 @@ public class PlayerInfoPanel : MonoBehaviour {
         Dictionary<string, string> currentFanDict = RankConfig.GuobiaoFanTranslation;
         if (stats?.rule == "qingque") {
             currentFanDict = RankConfig.QingqueFanTranslation;
+        } else if (stats?.rule == "riichi") {
+            currentFanDict = RankConfig.RiichiFanTranslation;
         }
 
         // 显示所有番种，包括值为0的

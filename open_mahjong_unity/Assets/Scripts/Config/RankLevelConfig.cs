@@ -6,8 +6,8 @@ using System.Collections.Generic;
 public static class RankLevelConfig {
     public static readonly (string name, int startScore, int promoteScore)[] RankTable = {
         ("10级", 0, 20), ("9级", 0, 20), ("8级", 0, 20), ("7级", 0, 20),
-        ("6级", 0, 40), ("5级", 0, 60), ("4级", 0, 80),
-        ("3级", 0, 100), ("2级", 0, 100), ("1级", 0, 100),
+        ("6级", 0, 40), ("5级", 0, 40), ("4级", 0, 60),
+        ("3级", 0, 60), ("2级", 0, 80), ("1级", 0, 100),
         ("初段", 200, 400), ("二段", 400, 800), ("三段", 600, 1200),
         ("四段", 800, 1600), ("五段", 1000, 2000), ("六段", 1200, 2400),
         ("七段", 1400, 2800), ("八段", 1600, 3200), ("九段", 2000, 4000),
@@ -25,7 +25,7 @@ public static class RankLevelConfig {
     // 场次基础均得分（全庄）
     public static readonly Dictionary<string, float> TierBaseGainPt = new Dictionary<string, float> {
         {"beginner", 30f},
-        {"intermediate", 55f},
+        {"intermediate", 65f},
         {"advanced", 95f},
         {"mcrpl", 135f},
     };
