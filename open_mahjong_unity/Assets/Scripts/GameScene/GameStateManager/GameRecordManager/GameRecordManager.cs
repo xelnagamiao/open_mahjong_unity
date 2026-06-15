@@ -5,7 +5,6 @@ using UnityEngine.UI;
 using System;
 using TMPro;
 using Newtonsoft.Json.Linq;
-using Unity.Entities.UniversalDelegates;
 
 /// <summary>
 /// 极简牌谱管理器：
