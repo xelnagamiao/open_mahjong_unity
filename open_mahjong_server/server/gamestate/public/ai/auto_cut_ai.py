@@ -2,11 +2,28 @@
 # 最简单的机器人AI：摸牌后切最后一张（摸切），其他操作全部pass
 import asyncio
 import logging
+from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
 from .get_action import get_ai_action
+from .smart_bot_logic import first_dingque_tile
 
 logger = logging.getLogger(__name__)
 
 _PASS_WAIT_STATUSES = ("waiting_action_after_cut", "waiting_action_qianggang")
+
+
+def _pick_auto_cut_tile(player):
+    """摸切优先；手牌仍含定缺花色时先切第一张定缺牌（与服务端 _enforce_dingque_first 一致）。"""
+    hand = player.hand_tiles
+    dingque = getattr(player, "dingque_suit", 0)
+    dingque_tile = first_dingque_tile(hand, dingque)
+    if dingque_tile is not None:
+        tile_id = dingque_tile
+        cut_index = next(i for i, t in enumerate(hand) if t == tile_id)
+    else:
+        tile_id = hand[-1]
+        cut_index = len(hand) - 1
+    is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
+    return tile_id, cut_index, is_moqie
 
 
 async def _submit_pass_when_ready(game_state, player_index: int, action_list: list, current_player) -> bool:
@@ -56,12 +73,10 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
                 return
             # 手牌操作：选择cut（切牌）
             if "cut" in action_list:
-                # 选择最后一张手牌（摸切）
                 if current_player.hand_tiles:
-                    tile_id = current_player.hand_tiles[-1]
-                    cut_index = len(current_player.hand_tiles) - 1
-                    logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}")
-                    await get_ai_action(game_state, player_index, "cut", True, tile_id, cut_index, None)
+                    tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
+                    logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
+                    await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
                     return
             if "pass" in action_list:
                 logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass（手牌阶段无cut）")
@@ -72,10 +87,9 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
             # 转移行为后切牌：选择cut（吃碰后无摸牌区，手切）
             if "cut" in action_list:
                 if current_player.hand_tiles:
-                    tile_id = current_player.hand_tiles[-1]
-                    cut_index = len(current_player.hand_tiles) - 1
-                    logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}")
-                    await get_ai_action(game_state, player_index, "cut", False, tile_id, cut_index, None)
+                    tile_id, cut_index, is_moqie = _pick_auto_cut_tile(current_player)
+                    logger.info(f"机器人 {player_index} ({current_player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
+                    await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
                     return
 
         elif game_status == "waiting_buhua_round":

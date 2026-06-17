@@ -27,6 +27,9 @@ class PlayerInfo(BaseModel):
     round_number_history: Optional[List[int]] = None  # 实际每手对应局数（支持连庄重复）
     tag_list: Optional[List[str]] = None  # 标签列表
     discard_riichi_flags: Optional[List[bool]] = None  # 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
+    # 四川麻将（血战到底）专用
+    dingque_suit: Optional[int] = None  # 定缺花色：1=万 2=饼 3=条，0/None=未定缺
+    is_hu: Optional[bool] = None  # 血战：本盘是否已和牌退场
 
 class GameInfo(BaseModel):
     room_id: int
@@ -62,6 +65,8 @@ class GameInfo(BaseModel):
     red_dora: Optional[bool] = None  # 是否启用赤宝牌
     dealer_index: Optional[int] = None  # 当前亲家索引（原始座位）
     view_player_index: Optional[int] = None  # 实时观战/特殊视角：客户端以此座位作为 self 视角
+    # 四川麻将（血战到底）专用
+    blood_battle: Optional[bool] = None  # 是否开启血战到底（关=一家和牌即结束本盘）
 
     # 在 Pydantic Model 中将 hex 字段序列化为十六进制字符串
     @field_serializer('master_seed', when_used='unless-none')
@@ -113,6 +118,11 @@ class Do_action_info(BaseModel):
     silent: Optional[bool] = None
     # 暗杠/加杠：True=摸杠（末张参与），False=手杠
     is_mo_gang: Optional[bool] = None
+    # 四川麻将（血战到底）专用
+    dingque_suit: Optional[int] = None  # 定缺广播：仅对应玩家收到自己的定缺花色（1万2饼3条）
+    player_to_dingque: Optional[Dict[int, int]] = None  # 定缺完成广播：{player_index: suit}
+    gang_score_changes: Optional[Dict[int, int]] = None  # 刮风下雨即时分变 {player_index: delta}
+    gang_score_type: Optional[str] = None  # 刮风下雨类型：guafeng/xiayu1/xiayu2
 
 class Show_result_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引
@@ -149,6 +159,30 @@ class Show_result_info(BaseModel):
     # 浪涌麻将：和牌基础点乘倍数后的收分（不含本场/供托）；倍数已含浪潮 +1
     langyong_multiplier: Optional[int] = None
     langyong_scored_points: Optional[int] = None
+    # 四川麻将（血战到底）专用
+    player_to_dingque: Optional[Dict[int, int]] = None  # 定缺完成广播：{player_index: suit(1万/2饼/3条)}
+    round_continues: Optional[bool] = None  # 血战：本盘是否继续（True=还有玩家未和且牌墙未空）
+    win_player_index: Optional[int] = None  # 血战逐次和牌：本次和牌玩家索引
+    is_zimo: Optional[bool] = None  # 本次和牌是否自摸
+    hepai_tile: Optional[int] = None  # 和牌张（自摸时仅和牌者视角下发真实 id，他人为 0）
+    multi_ron: Optional[bool] = None  # 一炮多响事件标志（客户端每家补花区摆 1 张变暗牌）
+    is_qianggang: Optional[bool] = None  # 抢杠和：和牌张为加杠牌，客户端透明克隆且不提前收走加杠牌
+    recycle_discard: Optional[bool] = None  # 点炮和牌动画结束后回收河牌（单家=true；多响仅最后一家=true）
+    suppress_hand_reveal: Optional[bool] = None  # 血战：和牌时不展开手牌，仅补花区标记
+    defer_score_settlement: Optional[bool] = None  # 血战：和牌时不展示分数面板，终局再结算
+    ron_discarder_index: Optional[int] = None  # 点炮/一炮多响：点炮者 player_index
+    liuju_hu_hands: Optional[Dict[int, List[int]]] = None  # 查牌：先展示已和玩家完整手牌 {player_index: hand}
+    cha_payer_index: Optional[int] = None  # 查牌：没叫/花猪向已和玩家付分的付款方
+    # 流局查大叫/查花猪：{player_index: delta}，以及听牌家最大番/花猪标记
+    cha_dajiao_changes: Optional[Dict[int, int]] = None
+    tenpai_max_fan: Optional[Dict[int, int]] = None  # {player_index: 理论最大番}
+    hua_zhu_players: Optional[List[int]] = None  # 花猪玩家索引列表
+    gang_refund_changes: Optional[Dict[int, int]] = None  # 流局退税（刮风下雨退回）{player_index: delta}
+    tenpai_tiles_sichuan: Optional[Dict[int, List[int]]] = None  # 各家听牌张（流局亮牌用）
+    liuju_status: Optional[Dict[int, str]] = None  # 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu"}
+    liuju_hands: Optional[Dict[int, List[int]]] = None  # 流局未和家手牌（亮牌+状态面板用）
+    liuju_step: Optional[str] = None  # 流局/终局演出：reveal_hu/settle_hu/chajiao/cha_refund/final
+    liuju_status_final: Optional[bool] = None  # 流局逐家状态面板是否为最后一条（客户端在此条应用最终分数）
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
@@ -346,6 +380,11 @@ class MessageInfo(BaseModel):
     title: str  # 消息标题
     content: str  # 消息内容
 
+class Sticker_info(BaseModel):
+    """对局表情包广播"""
+    player_index: int
+    sticker: str  # 格式 pack/id，如 turtle/3
+
 class Response(BaseModel):
     type: str
     success: bool
@@ -389,3 +428,4 @@ class Response(BaseModel):
     friend_count: Optional[int] = None
     friend_max: Optional[int] = None
     leaderboard_list: Optional[List[LeaderboardEntry]] = None
+    sticker_info: Optional[Sticker_info] = None

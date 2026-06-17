@@ -7,6 +7,7 @@ public partial class NormalGameStateManager {
     public void AskHandAction(int remaining_time, int playerIndex, int remain_tiles, string[] action_list,
                               Dictionary<int, int[]> riichi_candidate_cuts = null, int[] forbidden_cut_tiles = null) {
         TryResumeAfterCuoheContinue();
+        TryResumeAfterSichuanContinue();
         string GetCardPlayer = indexToPosition[playerIndex];
         remainTiles = remain_tiles;
         // 立直麻将自家手牌可点状态依据：每次询问刷新
@@ -16,6 +17,7 @@ public partial class NormalGameStateManager {
             : new HashSet<int>();
         // 如果行动者是自己
         if (playerIndex == selfIndex){
+            allowActionList.Clear();
             // 存储全部可用行动；riichi_cut 在 UI 上以「立直」按钮展示
             string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self" , "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
             foreach (string action in action_list){
@@ -31,6 +33,7 @@ public partial class NormalGameStateManager {
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
     public void AskMingPaiAction(int remaining_time,string[] action_list,int cut_tile, Dictionary<string, int[][]> chi_candidates = null){
         TryResumeAfterCuoheContinue();
+        TryResumeAfterSichuanContinue();
         chiCandidates = chi_candidates ?? new Dictionary<string, int[][]>();
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();
@@ -49,7 +52,7 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
@@ -106,7 +109,7 @@ public partial class NormalGameStateManager {
                             GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null,null); // 2D摸切行为
                         }
                         else{
-                            GameCanvas.Instance.ChangeHandCards("RemoveHandCard",cut_tile.Value,null,cut_tile_index.Value); // 2D手切行为
+                            GameCanvas.Instance.ChangeHandCards("RemoveHandCard", cut_tile.Value, null, cut_tile_index); // 2D手切；定缺纠正时 cut_tile_index 可为 null，按 tileId 删牌
                         }
                     }
                     else{
@@ -207,6 +210,68 @@ public partial class NormalGameStateManager {
         player_to_info["self"].hand_tiles_count = selfHandTiles.Count;
         // 切换行动者
         SwitchCurrentPlayer(GetCardPlayer,"doAction",0);
+        RefreshTableTipsAfterAction(action_list, GetCardPlayer);
+        if (!isClaim && !isSilent && IsSichuanRule() && ContainsGangAction(action_list)
+            && GameCanvas.HasNonZeroGangScoreChanges(gangScoreChanges)) {
+            ApplyGangScoreDeltas(gangScoreChanges);
+            GameCanvas.Instance.ShowGangScoreFloats(gangScoreChanges);
+        }
+    }
+
+    public void ApplyGangScoreDeltas(Dictionary<int, int> changes) {
+        if (changes == null || changes.Count == 0) return;
+        var scoreBySeat = new Dictionary<int, int>();
+        foreach (var kvp in indexToPosition) {
+            int seatIdx = kvp.Key;
+            string pos = kvp.Value;
+            if (!player_to_info.TryGetValue(pos, out PlayerInfoClass info)) continue;
+            int delta = changes.ContainsKey(seatIdx) ? changes[seatIdx] : 0;
+            if (delta == 0) {
+                scoreBySeat[seatIdx] = info.score;
+                continue;
+            }
+            info.score += delta;
+            scoreBySeat[seatIdx] = info.score;
+        }
+        if (scoreBySeat.Count > 0) {
+            BoardCanvas.Instance.UpdatePlayerScores(scoreBySeat, indexToPosition);
+        }
+    }
+
+    private static bool ContainsGangAction(string[] actionList) {
+        if (actionList == null) return false;
+        foreach (string action in actionList) {
+            if (action == "angang" || action == "jiagang" || action == "gang") return true;
+        }
+        return false;
+    }
+
+    private static bool ActionAffectsVisibleTiles(string action) {
+        switch (action) {
+            case "cut":
+            case "chi_left":
+            case "chi_mid":
+            case "chi_right":
+            case "peng":
+            case "gang":
+            case "jiagang":
+            case "angang":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>他家操作改变牌桌可见牌时，刷新已缓存的听牌提示（绝张/余张/番数）。</summary>
+    private void RefreshTableTipsAfterAction(string[] action_list, string actionPlayer) {
+        if (!tips || actionPlayer == "self") return;
+        if (TipsBlock.Instance == null || !TipsBlock.Instance.IsBlockActive) return;
+        foreach (string action in action_list) {
+            if (ActionAffectsVisibleTiles(action)) {
+                TipsContainer.Instance?.RefreshTenpaiTipsIfCached();
+                return;
+            }
+        }
     }
 
     private static void AppendCombinationMask(PlayerInfoClass player, int[] mask) {
@@ -240,7 +305,7 @@ public partial class NormalGameStateManager {
     private static List<string> BuildMingPaiAllowActionList(string[] action_list) {
         string[] allowOtherActionCheck = new string[] {
             "chi_left", "chi_mid", "chi_right", "peng", "gang",
-            "hu_first", "hu_second", "hu_third", "pass"
+            "hu", "hu_first", "hu_second", "hu_third", "pass"
         };
         List<string> result = new List<string>();
         foreach (string action in action_list) {

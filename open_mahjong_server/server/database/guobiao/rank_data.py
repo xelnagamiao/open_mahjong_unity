@@ -37,16 +37,19 @@ def get_rank_data(db_manager, user_id: int) -> dict:
 
 
 def update_rank_data(db_manager, user_id: int, guobiao_rank: str, guobiao_score: float):
-    """更新用户段位数据"""
+    """更新用户段位数据（无记录时自动插入）"""
     conn = None
     try:
         conn = db_manager._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE rank_data
-            SET guobiao_rank = %s, guobiao_score = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE user_id = %s
-        """, (guobiao_rank, guobiao_score, user_id))
+            INSERT INTO rank_data (user_id, guobiao_rank, guobiao_score)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET
+                guobiao_rank = EXCLUDED.guobiao_rank,
+                guobiao_score = EXCLUDED.guobiao_score,
+                updated_at = CURRENT_TIMESTAMP
+        """, (user_id, guobiao_rank, guobiao_score))
         conn.commit()
         logger.info(f"用户 {user_id} 段位更新: {guobiao_rank} / {guobiao_score}")
     except Error as e:

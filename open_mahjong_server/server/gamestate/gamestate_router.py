@@ -1,9 +1,15 @@
 # 游戏状态路由处理器
 import logging
+import re
+import time
 from .public.ai.get_action import get_action
+from .public.sticker import broadcast_sticker
 from ..response import Response, SpectatorInfo
 
 logger = logging.getLogger(__name__)
+
+STICKER_PATTERN = re.compile(r"^[a-zA-Z0-9_]+/[1-9]$")
+STICKER_SEND_INTERVAL_SECONDS = 5.0
 
 async def handle_gamestate_message(game_server, Connect_id: str, message: dict, websocket):
     """
@@ -36,6 +42,8 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_remove_spectator(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/get_spectator_list":
         await handle_get_spectator_list(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/send_sticker":
+        await handle_send_sticker(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的游戏状态消息路径: {message_type}")
 
@@ -109,6 +117,57 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
         )
     except Exception as e:
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)
+
+async def handle_send_sticker(game_server, Connect_id: str, message: dict, websocket):
+    """处理对局表情包发送请求（仅对局玩家可发）。"""
+    try:
+        gamestate_id = message.get("gamestate_id")
+        sticker = (message.get("sticker") or "").strip()
+        if not gamestate_id or not sticker:
+            logger.warning(f"表情包请求缺少参数: {message}")
+            return
+        if not STICKER_PATTERN.match(sticker):
+            logger.warning(f"表情包格式非法: {sticker}")
+            return
+
+        game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+        if not game_state:
+            logger.warning(f"gamestate_id {gamestate_id} 的游戏状态不存在")
+            return
+
+        if Connect_id not in game_server.players:
+            logger.warning(f"连接 {Connect_id} 不存在")
+            return
+        player_connection = game_server.players[Connect_id]
+        user_id = player_connection.user_id
+        if not user_id:
+            logger.warning(f"连接 {Connect_id} 未登录")
+            return
+
+        sender_index = None
+        for player in game_state.player_list:
+            if player.user_id == user_id:
+                sender_index = player.player_index
+                break
+        if sender_index is None:
+            logger.warning(f"用户 {user_id} 不是对局玩家，拒绝发送表情包")
+            return
+
+        last_send_map = getattr(game_state, "sticker_last_send_mono", None)
+        if last_send_map is None:
+            last_send_map = {}
+            game_state.sticker_last_send_mono = last_send_map
+        now = time.monotonic()
+        last_send = last_send_map.get(user_id, 0.0)
+        if now - last_send < STICKER_SEND_INTERVAL_SECONDS:
+            logger.info(f"用户 {user_id} 表情包发送过于频繁，间隔需 {STICKER_SEND_INTERVAL_SECONDS}s")
+            return
+        last_send_map[user_id] = now
+
+        await broadcast_sticker(game_state, sender_index, sticker)
+        logger.info(f"用户 {user_id} 发送表情包: {sticker}, player_index={sender_index}")
+    except Exception as e:
+        logger.error(f"处理表情包请求失败: {e}", exc_info=True)
 
 async def handle_set_ryuukyoku_tenpai(game_server, Connect_id: str, message: dict, websocket):
     """设置立直麻将荒牌流局时的听牌申报。"""

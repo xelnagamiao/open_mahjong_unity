@@ -1,7 +1,7 @@
 # 玩家操作处理
 import logging
 
-from ..hand_slot_utils import hand_contains_tile
+from ..hand_slot_utils import hand_contains_tile, has_draw_slot, infer_bot_cut_class
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +90,16 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             if _is_kuikae_forbidden_cut(current_player, TileId):
                 logger.warning(f"食替禁切：丢弃机器人非法切牌, player_index={player_index}, TileId={TileId}, forbidden={current_player.kuikae_forbidden_tiles}")
                 return
-            
+
+            cut_class = infer_bot_cut_class(
+                current_player.hand_tiles,
+                TileId,
+                cutIndex,
+                draw_slot=has_draw_slot(current_player),
+            )
             action_data_to_queue = {
                 "action_type": action_type,
-                "cutClass": cutClass,
+                "cutClass": cut_class,
                 "TileId": TileId,
                 "cutIndex": cutIndex
             }

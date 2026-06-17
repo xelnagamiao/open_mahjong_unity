@@ -86,6 +86,9 @@ public partial class GameCanvas{
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
             Vector2 targetPosition = GetDrawTileTargetPosition(main);
             yield return StartCoroutine(AnimateGetCard(cardRect, targetPosition));
+            if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsSelfActionRequired) {
+                RefreshHandTileSelectability();
+            }
         }
 
             // 摸牌 添加摸牌区手牌
@@ -96,11 +99,21 @@ public partial class GameCanvas{
             int handCardCount = handCardsContainer.childCount - 1;
             tileCard.handSortIndex = handCardCount;
             LayoutHandCardsFromCurrentOrder();
+            if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsSelfActionRequired) {
+                RefreshHandTileSelectability();
+            }
         }
 
         // 摸切 删除摸牌区手牌
         else if (ChangeType == "RemoveGetCard"){
             TryRemoveCutHandCard(tileId, isMoqie: true, cutTileIndex: null);
+        }
+
+        // 四川血战自摸和牌：仅移除和牌张，不触发全手重排（避免 2D 手牌区闪烁）
+        else if (ChangeType == "RemoveHuWinTile"){
+            TryRemoveCutHandCard(tileId, isMoqie: true, cutTileIndex: null);
+            isArranged = true;
+            yield break;
         }
 
         // 牌谱模式手切：仅按 tileId 删除一张，逻辑独立无 dataIndex/重排

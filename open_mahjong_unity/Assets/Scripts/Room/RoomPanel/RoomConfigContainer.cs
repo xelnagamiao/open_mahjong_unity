@@ -30,6 +30,10 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "sichuan", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "blood_battle", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+        } },
     };
 
     private static readonly List<string> DefaultDisplayFields = new List<string> {
@@ -112,6 +116,10 @@ public class RoomConfigContainer : MonoBehaviour {
             case "tactical_call":
                 displayName = "战术鸣牌";
                 displayValue = roomInfo.tactical_call ? "开" : "关";
+                return true;
+            case "blood_battle":
+                displayName = "血战到底";
+                displayValue = (roomInfo.blood_battle ?? true) ? "开" : "关";
                 return true;
             case "has_password":
                 displayName = "密码";

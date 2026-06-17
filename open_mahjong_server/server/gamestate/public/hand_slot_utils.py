@@ -63,6 +63,30 @@ def has_tile_in_hand_zone(hand: List[int], tile_id: int) -> bool:
     return _find_index(hand, tile_id, 0, len(hand) - 1) >= 0
 
 
+def infer_bot_cut_class(
+    hand: List[int],
+    tile_id: int,
+    cut_index: Optional[int] = None,
+    *,
+    draw_slot: bool = True,
+) -> bool:
+    """
+    机器人提交切牌时推断 cutClass（True=摸切），与服务端 resolve_cut_class 结论对齐。
+    优先根据 cut_index 是否指向末张摸牌槽位；无 cut_index 时按 tileId 所在区推断。
+    """
+    if not draw_slot or not hand:
+        return False
+
+    if cut_index is not None and 0 <= cut_index < len(hand):
+        return cut_index == len(hand) - 1 and tiles_equal(hand[cut_index], tile_id)
+
+    in_draw = is_last_slot_tile(hand, tile_id)
+    in_hand = has_tile_in_hand_zone(hand, tile_id)
+    if in_hand:
+        return False
+    return in_draw
+
+
 def resolve_cut_class(
     hand: List[int],
     tile_id: int,

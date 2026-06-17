@@ -10,6 +10,9 @@ using Newtonsoft.Json;
 public class DataNetworkManager : MonoBehaviour {
     
     public static DataNetworkManager Instance { get; private set; }
+
+    private int _recordListPendingOffset;
+    public const int RecordListPageSize = 20;
     
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -63,7 +66,12 @@ public class DataNetworkManager : MonoBehaviour {
     
     private void HandleGetRecordListResponse(Response response) {
         Debug.Log($"收到游戏记录列表: {response.message}");
-        RecordPanel.Instance.GetRecordListResponse(response.success, response.message, response.record_list);
+        RecordPanel.Instance?.GetRecordListResponse(
+            response.success,
+            response.message,
+            response.record_list,
+            _recordListPendingOffset
+        );
     }
     
     private void HandleGetRecordByIdResponse(Response response) {
@@ -151,16 +159,19 @@ public class DataNetworkManager : MonoBehaviour {
     
     // ========== 数据相关的发送方法 ==========
     
-    public async void GetRecordList() {
+    public async void GetRecordList(int offset = 0) {
         try {
+            _recordListPendingOffset = offset;
             var request = new GetRecordListRequest {
-                type = "data/get_record_list"
+                type = "data/get_record_list",
+                limit = RecordListPageSize,
+                offset = offset
             };
-            Debug.Log($"发送获取游戏记录列表消息: {request.type}");
+            Debug.Log($"发送获取游戏记录列表消息: {request.type}, offset={offset}, limit={RecordListPageSize}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取游戏记录列表失败: {e.Message}");
-            RecordPanel.Instance?.GetRecordListResponse(false, e.Message, null);
+            RecordPanel.Instance?.GetRecordListResponse(false, e.Message, null, offset);
         }
     }
     

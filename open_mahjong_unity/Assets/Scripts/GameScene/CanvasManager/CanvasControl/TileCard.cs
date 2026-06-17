@@ -288,6 +288,10 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private void OnTileClick()
     {
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
+        if (!IsSelectableForCut()) {
+            Debug.Log("该牌不可出（定缺/食替/立直限制）");
+            return;
+        }
         // 立直选牌模式优先：仅向服务器发送 riichi_cut 请求；候选过滤已由 SetSelectable 完成。
         if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
             int cutIndex = transform.GetSiblingIndex();
@@ -318,7 +322,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 
     /// <summary>
-    /// 控制本卡牌是否可点击；不可选时整体调灰（保留 alpha=1，仅 RGB 调暗），用于立直选牌/食替禁切/立直锁定。
+    /// 控制本卡牌是否可点击；不可选时整体调灰（保留 alpha=1，仅 RGB 调暗），用于立直选牌/食替禁切/立直锁定/四川定缺。
+    /// 与日麻一致：只改 tileImage.color + Button.interactable，不碰 targetGraphic（否则牌面会变白不可见）。
     /// </summary>
     public void SetSelectable(bool selectable) {
         isSelectable = selectable;
@@ -420,6 +425,17 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                     false
                 );
             }
+            else if (NormalGameStateManager.Instance.roomRule == "sichuan"){
+                waitingTiles = SichuanExternal.TingpaiCheck(
+                    tempHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>()
+                );
+                // 四川：和牌张不得为定缺花色
+                int dingque = NormalGameStateManager.Instance.selfDingqueSuit;
+                if (dingque == 1 || dingque == 2 || dingque == 3){
+                    waitingTiles.RemoveWhere(w => (w / 10) == dingque);
+                }
+            }
             else
             {
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
@@ -443,7 +459,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             Debug.Log($"显示切牌提示，听牌列表数量：{waitingTiles.Count}");
             // 这里传入“切掉当前牌后的手牌”tempHandTiles，避免多算一张牌
-            TipsContainer.Instance.SetTipsWithHand(tempHandTiles, waitingTiles.ToList());
+            TipsContainer.Instance.SetTipsWithHand(tempHandTiles, waitingTiles.ToList(), tileId);
             TipsContainer.Instance.hasTips = true;
             TipsContainer.Instance.ShowTips();
         }

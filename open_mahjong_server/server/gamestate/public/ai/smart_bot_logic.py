@@ -20,6 +20,29 @@ except ImportError:
 # 34-index: 0-8(万) 9-17(筒) 18-26(索) 27(东) 28(南) 29(西) 30(北) 31(白) 32(发) 33(中)
 _HONOR_MAP = {41: 27, 42: 28, 43: 29, 44: 30, 45: 33, 46: 32, 47: 31}
 
+def tile_suit(tile_id: int) -> int:
+    return tile_id // 10
+
+
+def cut_candidate_hand(hand_tiles: List[int], dingque_suit: int) -> List[int]:
+    """手牌仍含定缺花色时，只能在定缺牌中切牌（与四川 action_check / 服务端纠正一致）。"""
+    if dingque_suit not in (1, 2, 3):
+        return hand_tiles
+    if not any(tile_suit(t) == dingque_suit for t in hand_tiles):
+        return hand_tiles
+    return [t for t in hand_tiles if tile_suit(t) == dingque_suit]
+
+
+def first_dingque_tile(hand_tiles: List[int], dingque_suit: int) -> Optional[int]:
+    """返回手牌中第一张定缺花色牌（与 _enforce_dingque_first 顺序一致）。"""
+    if dingque_suit not in (1, 2, 3):
+        return None
+    for tile in hand_tiles:
+        if tile_suit(tile) == dingque_suit:
+            return tile
+    return None
+
+
 def normalize_tile(tile_id: int) -> int:
     """红5归一化：105->15, 205->25, 305->35。其他牌原值返回。"""
     if tile_id == 105:

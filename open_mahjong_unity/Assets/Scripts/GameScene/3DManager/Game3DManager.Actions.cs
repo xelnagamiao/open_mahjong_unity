@@ -73,20 +73,26 @@ public partial class Game3DManager : MonoBehaviour
                 if (SignDirectionList[i] == 3)
                 {
                     GameObject cardObj;
-                    Vector3 TempPositionpoint = pengToJiagangPosDict[SetTileList[i]]; // 获取加杠位置
+                    int jiagangTileId = SetTileList[i];
+                    // 位置缓存于碰牌时 flag=1 的横置河牌 ID，与加杠 flag=3 的手牌 ID 可能不同（如赤5碰、普通5加杠）
+                    int lookupKey = GameRecordMeldCodec.ExtractTileByFlag(combination_mask, 1) ?? jiagangTileId;
+                    if (!pengToJiagangPosDict.TryGetValue(lookupKey, out Vector3 TempPositionpoint)) {
+                        Debug.LogError($"加杠位置未找到: lookupKey={lookupKey}, jiagangTileId={jiagangTileId}");
+                        continue;
+                    }
                     Quaternion TempRotation = Quaternion.Euler(0, 90, 0) * rotation; // 横
                     TempPositionpoint += JiagangDirection * cardWidth; // 加杠向上一个宽度单位
                     // 从对象池获取麻将牌
-                    cardObj = MahjongObjectPool.Instance.Spawn(SetTileList[i], TempPositionpoint, TempRotation);
+                    cardObj = MahjongObjectPool.Instance.Spawn(jiagangTileId, TempPositionpoint, TempRotation);
                     if (cardObj == null)
                     {
-                        Debug.LogError($"无法从对象池获取牌: {SetTileList[i]}");
+                        Debug.LogError($"无法从对象池获取牌: {jiagangTileId}");
                         continue;
                     }
                     // 注册到悬停管理器
                     if (Card3DHoverManager.Instance != null)
                     {
-                        Card3DHoverManager.Instance.RegisterCard(cardObj, SetTileList[i]);
+                        Card3DHoverManager.Instance.RegisterCard(cardObj, jiagangTileId);
                     }
                     // 设置父对象
                     cardObj.transform.SetParent(SetParent, worldPositionStays: true);

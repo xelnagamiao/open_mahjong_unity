@@ -17,6 +17,8 @@ try:
     from .classical.classical_fushu_check import Classical_Fushu_Check
     from .riichi.riichi_hepai_check import Riichi_Hepai_Check
     from .riichi.riichi_tingpai_check import Riichi_Tingpai_Check
+    from .sichuan.sichuan_hepai_check import Sichuan_Hepai_Check, sichuan_base_from_fan
+    from .sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check
 except ImportError:
     from guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
     from guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check  # type: ignore
@@ -27,6 +29,8 @@ except ImportError:
     from classical.classical_fushu_check import Classical_Fushu_Check  # type: ignore
     from riichi.riichi_hepai_check import Riichi_Hepai_Check  # type: ignore
     from riichi.riichi_tingpai_check import Riichi_Tingpai_Check  # type: ignore
+    from sichuan.sichuan_hepai_check import Sichuan_Hepai_Check, sichuan_base_from_fan  # type: ignore
+    from sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check  # type: ignore
 
 # Qingque13 C# 桥接模块
 try:
@@ -65,6 +69,8 @@ class GameCalculationService:
         self._classical_fushu_check = Classical_Fushu_Check()
         self._riichi_hepai_check = Riichi_Hepai_Check()
         self._riichi_tingpai_check = Riichi_Tingpai_Check()
+        self._sichuan_hepai_check = Sichuan_Hepai_Check()
+        self._sichuan_tingpai_check = Sichuan_Tingpai_Check()
 
     def Qingque_hepai_check(
         self,
@@ -236,6 +242,38 @@ class GameCalculationService:
         """
         with self._lock:
             return self._riichi_tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Sichuan_hepai_check(
+        self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str],
+        get_tile: int, dingque_suit: int = 0,
+    ) -> Tuple[int, List[str]]:
+        """
+        四川麻将（血战到底）和牌检查。
+        返回 (总番数, 番名列表)；不能和或含定缺花色返回 (0, [])。
+        基本分由 Sichuan_base_from_fan(番) 计算（2 ** min(番,3)，3 番封顶）。
+        way_to_hepai 情境番：杠上花、杠上炮、抢杠、海底。
+        dingque_suit: 1=万 2=饼 3=条，0=不校验。
+        """
+        with self._lock:
+            return self._sichuan_hepai_check.hepai_check(
+                hand_list, tiles_combination, way_to_hepai, get_tile, dingque_suit
+            )
+
+    def Sichuan_tingpai_check(self, hand_tile_list: List[int], combination_list: List[str]) -> Set[int]:
+        """四川麻将听牌检查（一般型 + 七对）。不做定缺过滤。"""
+        with self._lock:
+            return self._sichuan_tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Sichuan_base_from_fan(self, fan: int, fan_list: List[str] = None) -> int:
+        """四川计分：基本分 = 2 ** min(番, 3)；仅平和时基本分为 1。"""
+        return sichuan_base_from_fan(fan, fan_list)
+
+    def Sichuan_max_fan_for_chajiao(
+        self, hand_tile_list: List[int], combination_list: List[str], dingque_suit: int = 0,
+    ) -> Tuple[int, List[str]]:
+        """查大叫：遍历听牌所有和牌张返回理论最大番（不计情境番）。返回 (最大番, 番名列表)。"""
+        with self._lock:
+            return self._sichuan_hepai_check.max_hepai_fan(hand_tile_list, combination_list, dingque_suit)
 
     def Classical_fushu_check(
         self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int

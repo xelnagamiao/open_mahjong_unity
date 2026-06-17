@@ -151,6 +151,7 @@ public partial class GameRecordManager
             int[] combinationMask = GameRecordMeldCodec.BuildAngangMaskFromRemoved(removedTiles, rule);
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);
+            ApplyRecordGangScoreDeltasFromTick(tick);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jg") {
@@ -161,6 +162,7 @@ public partial class GameRecordManager
             int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
             lastWinnableTileId = actualJia;
             BuildJiagangMask(actingPlayer, jiagangTile, actualJia);
+            ApplyRecordGangScoreDeltasFromTick(tick);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") {
@@ -185,6 +187,9 @@ public partial class GameRecordManager
             int[] combinationMask = GameRecordMeldCodec.BuildMingpaiMask(action, mingpaiTile, removedTiles, relative);
             actingPlayer.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingpaiTile));
             actingPlayer.combinationMasks.Add(combinationMask);
+            if (action == "g") {
+                ApplyRecordGangScoreDeltasFromTick(tick);
+            }
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {

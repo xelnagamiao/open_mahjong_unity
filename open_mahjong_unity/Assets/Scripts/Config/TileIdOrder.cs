@@ -94,6 +94,13 @@ public static class TileIdOrder {
         TileIdOrder.riichiDragonOrderMode = riichiDragonOrderMode;
     }
 
+    /// <summary>按手牌排序设置返回花色 id 顺序（1=万 2=筒 3=条）。</summary>
+    public static int[] GetOrderedSuitIds(int suitOrderMode) {
+        if (suitOrderMode < 0 || suitOrderMode >= SuitPermutations.Length) suitOrderMode = 0;
+        int[] order = SuitPermutations[suitOrderMode];
+        return new[] { order[0] + 1, order[1] + 1, order[2] + 1 };
+    }
+
     public static int Compare(int a, int b) {
         int ka = SortKey(a);
         int kb = SortKey(b);

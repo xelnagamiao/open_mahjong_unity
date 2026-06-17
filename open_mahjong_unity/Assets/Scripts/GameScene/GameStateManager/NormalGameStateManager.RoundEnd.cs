@@ -3,7 +3,7 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null) {
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null, string liuju_step = null, Dictionary<int, string> liuju_status = null, Dictionary<int, int[]> liuju_hands = null, bool liuju_status_final = false, int? hepai_tile = null, bool? multi_ron = null, bool? suppress_hand_reveal = null, Dictionary<int, int[]> liuju_hu_hands = null, bool? defer_score_settlement = null, int? cha_payer_index = null, int? ron_discarder_index = null, bool? recycle_discard = null, Dictionary<int, int> gang_refund_changes = null, bool? is_qianggang = null) {
         lastGuobiaoEndExtras = guobiaoExtras;
         // 重置自身命令
         SwitchCurrentPlayer("None","ClearAction",0);
@@ -21,11 +21,52 @@ public partial class NormalGameStateManager {
             OnRiichiSticksHideOnLiuju();
         }
 
-        AppendRoundSettlementSnapshot(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, score_changes);
-        GameSceneUIManager.Instance.UpdateScoreRecord();
+        bool deferScore = defer_score_settlement == true;
+        bool isMidGameSichuanHu = deferScore && IsSichuanRule() && IsHuClass(hu_class);
+        ApplySichuanGangRefundIfAny(gang_refund_changes, liuju_step);
+        if (!isMidGameSichuanHu) {
+            AppendRoundSettlementSnapshot(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, score_changes);
+            GameSceneUIManager.Instance.UpdateScoreRecord();
+        }
 
         if (hu_class == "liuju") {
-            RoundEndPresentation.Instance.PresentLiuju("流局");
+            if (IsSichuanRule() && liuju_step == "reveal_hu" && liuju_hu_hands != null && liuju_hu_hands.Count > 0) {
+                RoundEndPresentation.Instance.ResetSichuanEndgameQueue();
+                RoundEndPresentation.Instance.EnqueueSichuanRevealHu(liuju_hu_hands);
+            } else if (IsSichuanRule() && liuju_step == "chajiao" && liuju_status != null) {
+                int focusIndex = hepai_player_index;
+                string statusKey = "no_ting";
+                int[] hand = null;
+                if (liuju_status.TryGetValue(focusIndex, out string st)) {
+                    statusKey = st;
+                }
+                if (liuju_hands != null && liuju_hands.TryGetValue(focusIndex, out int[] focusedHand)) {
+                    hand = focusedHand;
+                }
+                RoundEndPresentation.Instance.EnqueueSichuanChajiao(
+                    focusIndex, statusKey, hand, hepai_player_combination_mask, player_to_score, score_changes, liuju_status_final);
+                if (player_to_score != null) {
+                    ApplyShowResultScores(player_to_score);
+                }
+            } else if (IsSichuanRule() && liuju_step == "cha_refund") {
+                if (player_to_score != null) {
+                    ApplyShowResultScores(player_to_score);
+                }
+                if (GameCanvas.HasNonZeroGangScoreChanges(score_changes)) {
+                    GameCanvas.Instance.ShowGangScoreFloats(score_changes);
+                }
+                RoundEndPresentation.Instance.EnqueueSichuanChaRefund(
+                    player_to_score, score_changes, liuju_status_final);
+            } else if (IsSichuanRule() && liuju_step == "final") {
+                if (player_to_score != null) {
+                    ApplyShowResultScores(player_to_score);
+                }
+            } else if (IsSichuanRule() && string.IsNullOrEmpty(liuju_step)) {
+                // 兼容旧版单次流局包
+                RoundEndPresentation.Instance.PresentLiuju("流局");
+            } else if (!IsSichuanRule()) {
+                RoundEndPresentation.Instance.PresentLiuju("流局");
+            }
         } else if (hu_class == "ryuukyoku") {
             foreach (var kvp in indexToPosition) {
                 int idx = kvp.Key;
@@ -40,8 +81,37 @@ public partial class NormalGameStateManager {
             ApplyShowResultScores(player_to_score);
             RoundEndPresentation.Instance.PresentLiuju(GetRiichiSpecialLiujuCaption(hu_class));
         } else {
-            MarkPendingCuoheContinue(hepai_player_index, hu_fan);
-            RoundEndPresentation.Instance.PresentHuResultSequence(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, isSilent);
+            if (IsSichuanRule() && liuju_step == "settle_hu") {
+                RoundEndPresentation.Instance.EnqueueSichuanSettleHu(
+                    hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
+                    hepai_player_hand, hepai_player_combination_mask, score_changes, liuju_status_final);
+                if (player_to_score != null) {
+                    ApplyShowResultScores(player_to_score);
+                }
+            } else {
+            if (!IsSichuanRule() || liuju_step != "settle_hu") {
+                MarkPendingCuoheContinue(hepai_player_index, hu_fan);
+            }
+            bool suppressHand = suppress_hand_reveal == true;
+            bool recycleDiscard = recycle_discard == true;
+            if (!recycle_discard.HasValue && deferScore && IsHuClass(hu_class) && hu_class != "hu_self") {
+                recycleDiscard = multi_ron != true;
+            }
+            bool isQianggang = is_qianggang == true || ContainsSichuanQianggangFan(hu_fan);
+            RoundEndPresentation.Instance.PresentHuResultSequence(
+                hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
+                hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
+                base_fu, fu_fan_list, riichiExtras, score_changes, isSilent,
+                playPresentationEffects: true,
+                suppressHandReveal: suppressHand,
+                hepaiTile: hepai_tile ?? 0,
+                multiRon: multi_ron == true,
+                deferScoreSettlement: deferScore,
+                ronDiscarderIndex: ron_discarder_index,
+                recycleDiscard: recycleDiscard,
+                isQianggang: isQianggang,
+                endgameScoreOnly: false);
+            }
         }
     }
 
@@ -139,6 +209,22 @@ public partial class NormalGameStateManager {
         BoardCanvas.Instance.UpdatePlayerScores(player_to_score, indexToPosition);
     }
 
+    private static bool ContainsSichuanQianggangFan(string[] huFan) {
+        if (huFan == null) return false;
+        for (int i = 0; i < huFan.Length; i++) {
+            if (huFan[i] == "抢杠") return true;
+        }
+        return false;
+    }
+
+    /// <summary>血战中途和牌/抢杠：杠上炮等即时退回刮风下雨分并飘字（流局 cha_refund 由面板分支单独处理）。</summary>
+    private void ApplySichuanGangRefundIfAny(Dictionary<int, int> gangRefundChanges, string liujuStep) {
+        if (!IsSichuanRule() || liujuStep == "cha_refund") return;
+        if (!GameCanvas.HasNonZeroGangScoreChanges(gangRefundChanges)) return;
+        ApplyGangScoreDeltas(gangRefundChanges);
+        GameCanvas.Instance.ShowGangScoreFloats(gangRefundChanges);
+    }
+
     public static bool IsRiichiSpecialLiujuHuClass(string hu_class) {
         return hu_class == "four_kan_abort"
             || hu_class == "four_wind_abort"
@@ -226,6 +312,7 @@ public partial class NormalGameStateManager {
         // 更新 GameCanvas 中的玩家面板显示
         GameCanvas.Instance.UpdatePlayerTagList(player_to_tag_list);
         TryResumeAfterCuoheContinue();
+        TryResumeAfterSichuanContinue();
         if (IsSelfRiichi()) {
             TipsContainer.Instance.ResetRyuukyokuTenpaiChoiceForRound();
             TipsContainer.Instance.HideRyuukyokuTenpaiChoice();

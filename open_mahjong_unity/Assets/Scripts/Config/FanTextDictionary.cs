@@ -310,6 +310,23 @@ public static class FanTextDictionary {
 
 
     /// <summary>
+    /// 四川麻将（血战到底）番数说明：番数为累加制，3番封顶（基本分=2^min(总番,3)）。
+    /// </summary>
+    public static readonly Dictionary<string, string> FanToDisplaySichuan = new Dictionary<string, string> {
+        {"平和", "1番"},
+        {"杠", "1番"},
+        {"根", "1番"},
+        {"大对子", "1番"},
+        {"金钩钓", "1番"},
+        {"清一色", "2番"},
+        {"七对", "2番"},
+        {"杠上花", "1番"},
+        {"杠上炮", "1番"},
+        {"抢杠", "1番"},
+        {"海底", "1番"},
+    };
+
+    /// <summary>
     /// 古典规则：根据副种名称返回副数显示文本（如 "10副"），未命中时返回 "0副"。
     /// </summary>
     public static string GetFuDisplayText(string fuName) {
@@ -362,6 +379,7 @@ public static class FanTextDictionary {
         else if (rule == "guobiao/kshen") map = FanToDisplayKshen;
         else if (rule == "guobiao/lanshi") map = FanToDisplayLanshi;
         else if (rule == "classical/standard") map = FanToDisplayClassical;
+        else if (rule == "sichuan/standard") map = FanToDisplaySichuan;
         else if (rule != null && rule.StartsWith("riichi")) {
             if (FanToDisplayRiichi.TryGetValue(fanName, out string riichiDisplay)) return riichiDisplay;
             if (FanToDisplayRiichiInactive.TryGetValue(fanName, out riichiDisplay)) return riichiDisplay;

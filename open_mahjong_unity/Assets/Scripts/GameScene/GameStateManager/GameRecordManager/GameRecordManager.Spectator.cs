@@ -439,7 +439,11 @@ public partial class GameRecordManager {
                 GotoSelectRound(nextRound, false);
             }
         } else if (action == "liuju") {
-            RoundEndPresentation.Instance.PresentLiuju("流局", false);
+            if (tick.Count >= 2 && IsSichuanBloodBattleRecord()) {
+                HandleSichuanLiujuStepReplay(tick);
+            } else {
+                RoundEndPresentation.Instance.PresentLiuju("流局", false);
+            }
             currentNode++;
             UpdateCurrentXunmuText();
         } else if (action == "jiuzhongjiupai") {

@@ -245,6 +245,40 @@ public class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 创建四川麻将（血战到底）房间
+    /// </summary>
+    public async void Create_Sichuan_Room(Sichuan_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+
+            var request = new CreateSichuanRoomRequest {
+                type = "room/create_Sichuan_room",
+                rule = config.Rule,
+                sub_rule = config.SubRule ?? "sichuan/standard",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator,
+                tactical_call = config.TacticalCall,
+                blood_battle = config.BloodBattle
+            };
+            Debug.Log($"发送创建四川麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, blood_battle={config.BloodBattle}, tactical_call={config.TacticalCall}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
+
+    /// <summary>
     /// 创建立直麻将房间
     /// </summary>
     public async void Create_Riichi_Room(Riichi_Create_RoomConfig config) {

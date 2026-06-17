@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator
 from ..response import Response
 from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
@@ -25,7 +25,8 @@ class RoomManager:
         self.room_validators = {
             "guobiao": GBRoomValidator,
             "mmc": MMCValidator,
-            "riichi": RiichiRoomValidator
+            "riichi": RiichiRoomValidator,
+            "sichuan": SichuanRoomValidator
         }
         # 不同规则挂载的游戏验证器
         self.Chinese_Hepai_Check = Chinese_Hepai_Check()
@@ -368,6 +369,98 @@ class RoomManager:
                 "room_id": room_id,
                 "room_type": "custom",
                 "room_rule": "classical",
+                "sub_rule": sub_rule,
+                "hepai_limit": 1,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": allow_spectator,
+                "max_player": 4,
+                "player_list": [host_user_id],
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1)
+                    }
+                },
+                "has_password": has_password,
+                "tips": tips,
+                "show_moqie_hint": False,
+                "host_user_id": host_user_id,
+                "host_name": host_name,
+                "is_game_running": False,
+            }
+
+            room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
+
+            self.rooms[room_id] = room_data
+            if has_password:
+                self.room_passwords[room_id] = password
+
+            player.current_room_id = room_id
+
+            await self._broadcast_room_info(room_id)
+
+            return Response(
+                type="room/create_room_done",
+                success=True,
+                message="房间创建成功",
+                room_info=room_data
+            )
+
+        except Exception as e:
+            return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
+
+    async def create_Sichuan_room(self, player_id: str, room_name: str, gameround: int,
+                                  password: str, roundTimerValue: int, stepTimerValue: int,
+                                  tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard",
+                                  tourist_limit: bool = False, allow_spectator: bool = True,
+                                  tactical_call: bool = False, blood_battle: bool = True) -> Response:
+        """创建四川麻将（血战到底）房间。blood_battle 为可选开关。"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            host_user_id = player.user_id
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
+            if blocked:
+                return blocked
+            host_name = player.username
+
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+
+            has_password = password != ""
+
+            room_config = {
+                "room_name": room_name,
+                "game_round": gameround,
+                "round_timer": roundTimerValue,
+                "step_timer": stepTimerValue,
+                "random_seed": random_seed,
+                "tactical_call": tactical_call,
+                "blood_battle": blood_battle,
+            }
+
+            try:
+                validator_class = self.room_validators["sichuan"]
+                validated_config = validator_class(**room_config)
+            except ValueError as e:
+                return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
+
+            room_id = self._generate_room_id()
+
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "sichuan",
                 "sub_rule": sub_rule,
                 "hepai_limit": 1,
                 "tourist_limit": tourist_limit,

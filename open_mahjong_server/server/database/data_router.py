@@ -40,7 +40,18 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
     """处理获取游戏记录列表请求（仅返回元数据，不含完整牌谱）"""
     player = game_server.players.get(Connect_id)
     if player and player.user_id:
-        records = game_server.db_manager.get_record_list(player.user_id, limit=20)
+        limit = message.get("limit", 20)
+        offset = message.get("offset", 0)
+        try:
+            limit = max(1, min(50, int(limit)))
+        except (TypeError, ValueError):
+            limit = 20
+        try:
+            offset = max(0, int(offset))
+        except (TypeError, ValueError):
+            offset = 0
+
+        records = game_server.db_manager.get_record_list(player.user_id, limit=limit, offset=offset)
         record_list = []
         for game_record in records:
             players_info = []

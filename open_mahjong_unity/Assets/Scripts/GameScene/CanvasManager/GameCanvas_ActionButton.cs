@@ -50,7 +50,7 @@ public partial class GameCanvas : MonoBehaviour {
                 Debug.Log($"{huSelfText}按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
-            else if (action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
+            else if (action_list[i] == "hu" || action_list[i] == "hu_first" || action_list[i] == "hu_second" || action_list[i] == "hu_third"){
                 Debug.Log($"和牌");
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 TMP_Text buttonText = ActionButtonObj.TextObject;

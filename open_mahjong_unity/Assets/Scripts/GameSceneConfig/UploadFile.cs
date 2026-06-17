@@ -134,17 +134,22 @@ public class UploadFile : MonoBehaviour {
         }
 
         try {
-            // 处理目录路径：自动添加文件名
+            // 处理目录路径：使用时间戳生成唯一文件名，避免覆盖已有文件
             if (Directory.Exists(targetPath) || string.IsNullOrEmpty(Path.GetExtension(targetPath))) {
-                string sourceFileName = Path.GetFileName(sourcePath);
-                targetPath = Path.Combine(targetPath, sourceFileName);
+                string extension = Path.GetExtension(sourcePath);
+                if (string.IsNullOrEmpty(extension)) {
+                    extension = ".jpg";
+                }
+                string typePrefix = targetPath.Contains("TableEdges") ? "TableEdge" : "Tablecloth";
+                string fileName = $"{typePrefix}_{DateTime.Now:yyyyMMddHHmmssfff}{extension}";
+                targetPath = Path.Combine(targetPath, fileName);
             }
 
             // 创建目标目录
             EnsureDirectoryExists(targetPath);
 
             // 执行文件复制
-            File.Copy(sourcePath, targetPath, true);
+            File.Copy(sourcePath, targetPath, false);
             Debug.Log("文件保存成功: " + targetPath);
 
             // 通知SceneConfigPanel刷新当前页面
@@ -186,9 +191,11 @@ public class UploadFile : MonoBehaviour {
             NotifyPanelRefresh();
 #else
             // 其他平台：保存到文件系统
-            // 处理目录路径：自动添加文件名
+            // 处理目录路径：使用时间戳生成唯一文件名
             if (Directory.Exists(targetPath) || !Path.HasExtension(targetPath)) {
-                string fileName = "uploaded_texture" + fileExtension;
+                string typePrefix = isTableCloth ? "Tablecloth" : "TableEdge";
+                string extension = string.IsNullOrEmpty(fileExtension) ? ".jpg" : fileExtension;
+                string fileName = $"{typePrefix}_{DateTime.Now:yyyyMMddHHmmssfff}{extension}";
                 targetPath = Path.Combine(targetPath, fileName);
             }
 

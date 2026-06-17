@@ -30,7 +30,8 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgOpenXiru       = "open_xiru";       // 西入
     private const string CfgOpenTobi       = "open_tobi";       // 击飞
     private const string CfgHepaiWay       = "hepai_way";        // 和牌方式下拉索引
-    private const string CfgTacticalCall   = "tactical_call";    // 战术鸣牌（国标 / 青雀）
+    private const string CfgTacticalCall   = "tactical_call";    // 战术鸣牌（国标 / 青雀 / 四川）
+    private const string CfgBloodBattle    = "blood_battle";     // 血战到底（四川）
 
     /// <summary>
     /// 每条规则需要显示的全部配置项与默认值。
@@ -90,6 +91,18 @@ public class CreatePanel : MonoBehaviour {
             { CfgTouristLimit,   false },
             { CfgAllowSpectator, true },
         } },
+        { "sichuan", new Dictionary<string, object> {
+            { CfgGameRound,      4 },
+            { CfgRoundTimer,     2 },
+            { CfgStepTimer,      1 },
+            { CfgTips,           true },
+            { CfgPassword,       false },
+            { CfgRandomSeed,     false },
+            { CfgTouristLimit,   false },
+            { CfgAllowSpectator, true },
+            { CfgTacticalCall,   false }, // 战术鸣牌
+            { CfgBloodBattle,    true },  // 血战到底：默认开
+        } },
     };
 
     /// <summary>规则状态：guobiao / riichi / qingque / classical，与 chooseRule 下拉索引对应 0/1/2/3。</summary>
@@ -121,6 +134,7 @@ public class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle XiruToggle;
     [SerializeField] private Toggle TobiToggle;
     [SerializeField] private Toggle TacticalCallToggle;
+    [SerializeField] private Toggle BloodBattleToggle;
 
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
@@ -177,6 +191,7 @@ public class CreatePanel : MonoBehaviour {
             1 => "riichi",
             2 => "qingque",
             3 => "classical",
+            4 => "sichuan",
             _ => "guobiao"
         };
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
@@ -222,6 +237,7 @@ public class CreatePanel : MonoBehaviour {
             case CfgOpenTobi:       if (TobiToggle != null) TobiToggle.isOn = (bool)value; break;
             case CfgHepaiWay:       HepaiWayDropdown.value = (int)value; break;
             case CfgTacticalCall:   TacticalCallToggle.isOn = (bool)value; break;
+            case CfgBloodBattle:    if (BloodBattleToggle != null) BloodBattleToggle.isOn = (bool)value; break;
         }
     }
 
@@ -260,11 +276,13 @@ public class CreatePanel : MonoBehaviour {
         if (TobiToggle != null) TobiToggle.gameObject.SetActive(visible.ContainsKey(CfgOpenTobi));
         HepaiWayPanel.SetActive(visible.ContainsKey(CfgHepaiWay));
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CfgTacticalCall));
+        if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CfgBloodBattle));
     }
 
     private string GetCurrentSubRuleKey() {
         if (_ruleState == "qingque") return "qingque/standard";
         if (_ruleState == "classical") return "classical/standard";
+        if (_ruleState == "sichuan") return "sichuan/standard";
         if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
         return GetSelectedSubRule();
     }
@@ -374,6 +392,11 @@ public class CreatePanel : MonoBehaviour {
 
         if (_ruleState == "classical") {
             CreateClassicalRoom();
+            return;
+        }
+
+        if (_ruleState == "sichuan") {
+            CreateSichuanRoom();
         }
     }
 
@@ -515,6 +538,35 @@ public class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Classical_Room(config);
+    }
+
+    private void CreateSichuanRoom() {
+        bool bloodBattle = BloodBattleToggle != null
+            ? BloodBattleToggle.isOn
+            : (bool)RuleConfigs["sichuan"][CfgBloodBattle];
+
+        var config = new Sichuan_Create_RoomConfig {
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "sichuan",
+            SubRule = "sichuan/standard",
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = AllowSpectatorToggle.isOn,
+            TacticalCall = TacticalCallToggle.isOn,
+            BloodBattle = bloodBattle,
+        };
+
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Sichuan_Room(config);
     }
 
     private int GetSelectedGameTime() {
