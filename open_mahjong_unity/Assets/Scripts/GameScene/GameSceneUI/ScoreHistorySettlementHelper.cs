@@ -15,6 +15,7 @@ public static class ScoreHistorySettlementHelper {
             "qingque" => "qingque/standard",
             "classical" => "classical/standard",
             "riichi" => "riichi/standard",
+            "sichuan" => "sichuan/standard",
             _ => r
         };
     }
@@ -123,6 +124,7 @@ public static class ScoreHistorySettlementHelper {
 
         bool isClassical = subRule == "classical/standard";
         bool isRiichi = subRule != null && subRule.StartsWith("riichi");
+        bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
 
         string fanPart;
         if (isRiichi && snapshot.han.HasValue) {
@@ -130,6 +132,8 @@ public static class ScoreHistorySettlementHelper {
         } else if (isClassical) {
             int fanTotal = CalculateClassicalFanTotal(subRule, snapshot.huFan);
             fanPart = fanTotal >= 0 ? $"{fanTotal}番" : "满贯";
+        } else if (isSichuan) {
+            fanPart = $"{CalculateSichuanFanTotal(subRule, snapshot.huFan)}番";
         } else {
             fanPart = $"{snapshot.huScore}番";
         }
@@ -242,6 +246,18 @@ public static class ScoreHistorySettlementHelper {
             return fuVal;
         }
         return 0;
+    }
+
+    public static int CalculateSichuanFanTotal(string subRule, string[] huFan) {
+        if (huFan == null) return 0;
+        int total = 0;
+        foreach (string fan in huFan) {
+            string display = FanTextDictionary.GetFanDisplayText(subRule, fan);
+            if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) {
+                total += val;
+            }
+        }
+        return total;
     }
 
     private static int CalculateClassicalFanTotal(string subRule, string[] huFan) {

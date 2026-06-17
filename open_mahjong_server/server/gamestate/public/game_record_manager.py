@@ -170,21 +170,35 @@ def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_rii
         entry.append("H")
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
+def _append_gang_score_changes(entry: list, gang_score_changes=None) -> list:
+    """四川刮风下雨：tick 末尾追加 gs 标记 + 四家分变（全 0 则不追加）。"""
+    if not gang_score_changes:
+        return entry
+    deltas = [gang_score_changes.get(i, 0) for i in range(4)]
+    if not any(deltas):
+        return entry
+    entry.append("gs")
+    entry.extend(deltas)
+    return entry
+
+
 # 牌谱记录暗杠；is_mo_gang True=摸杠 False=手杠
 # combination_mask 存在时追加 4 张手牌侧真实 ID（含赤 5 的 105/205/305），与吃碰杠口径一致
-def player_action_record_angang(self, angang_tile: int, is_mo_gang: bool = False, combination_mask=None):
+def player_action_record_angang(self, angang_tile: int, is_mo_gang: bool = False, combination_mask=None,
+                                gang_score_changes=None):
     self.player_action_tick += 1
     entry = ["ag", angang_tile, "T" if is_mo_gang else "F"]
     if combination_mask:
         entry.extend(_extract_hand_tiles_from_mingpai_mask(combination_mask, angang_tile))
+    entry = _append_gang_score_changes(entry, gang_score_changes)
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
 # 牌谱记录加杠；is_mo_gang True=摸杠 False=手杠
-def player_action_record_jiagang(self, jiagang_tile: int, is_mo_gang: bool = False):
+def player_action_record_jiagang(self, jiagang_tile: int, is_mo_gang: bool = False, gang_score_changes=None):
     self.player_action_tick += 1
-    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
-        ["jg", jiagang_tile, "T" if is_mo_gang else "F"]
-    )
+    entry = ["jg", jiagang_tile, "T" if is_mo_gang else "F"]
+    entry = _append_gang_score_changes(entry, gang_score_changes)
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
 # 游戏逻辑动作名 → 牌谱短码
 _ACTION_TO_RECORD = {
@@ -208,24 +222,50 @@ def _extract_hand_tiles_from_mingpai_mask(combination_mask, mingpai_tile: int):
 
 # 牌谱记录吃碰杠牌；combination_mask 存在时追加手牌侧真实 ID（含赤 5 的 105/205/305）
 def player_action_record_chipenggang(self, action_type: str, mingpai_tile: int, action_player: int,
-                                     combination_mask=None):
+                                     combination_mask=None, gang_score_changes=None):
     self.player_action_tick += 1
     record_code = _ACTION_TO_RECORD.get(action_type, action_type)
     entry = [record_code, mingpai_tile, action_player]
     if combination_mask:
         entry.extend(_extract_hand_tiles_from_mingpai_mask(combination_mask, mingpai_tile))
+    entry = _append_gang_score_changes(entry, gang_score_changes)
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(entry)
 
-# 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes, base_fu?, fu_fan_list?]
+# 牌谱记录和牌 [hu_class, hepai_player_index, hu_score, hu_fan, score_changes, base_fu?, fu_fan_list?, hepai_tile?, multi_ron?, ron_discarder_index?, recycle_discard?]
 def player_action_record_hu(self, hu_class: str, hu_score, hu_fan: list,
                             hepai_player_index: int, score_changes: List[int],
-                            base_fu=None, fu_fan_list=None):
+                            base_fu=None, fu_fan_list=None,
+                            hepai_tile=None, multi_ron=None, ron_discarder_index=None,
+                            recycle_discard=None):
     self.player_action_tick += 1
     tick = [hu_class, hepai_player_index, hu_score, hu_fan, score_changes]
     if base_fu is not None:
         tick.append(base_fu)
         tick.append(fu_fan_list or [])
+    if hepai_tile is not None:
+        tick.append(hepai_tile)
+    if multi_ron is not None:
+        tick.append(1 if multi_ron else 0)
+    if ron_discarder_index is not None:
+        tick.append(ron_discarder_index)
+    if recycle_discard is not None:
+        tick.append(1 if recycle_discard else 0)
     self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(tick)
+
+# 四川血战·杠分即时退税（杠上炮/抢杠）["gr", "gs", d0, d1, d2, d3]
+def player_action_record_gang_refund(self, gang_score_changes):
+    self.player_action_tick += 1
+    deltas = [gang_score_changes.get(i, 0) for i in range(4)]
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["gr", "gs", *deltas]
+    )
+
+# 四川血战·流局/终局分步牌谱 ["liuju", step, ...payload]
+def player_action_record_sichuan_liuju_step(self, step: str, *payload):
+    self.player_action_tick += 1
+    self.game_record["game_round"][f"round_index_{self.round_index}"]["action_ticks"].append(
+        ["liuju", step, *payload]
+    )
 
 # 牌谱记录九老峰回流局 ["jiuzhongjiupai"]
 def player_action_record_jiuzhongjiupai(self):

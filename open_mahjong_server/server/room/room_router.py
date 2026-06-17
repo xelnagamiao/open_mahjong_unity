@@ -62,6 +62,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_create_Qingque_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Classical_room":
         await handle_create_Classical_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/create_Sichuan_room":
+        await handle_create_Sichuan_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Riichi_room":
         await handle_create_Riichi_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/get_room_list":
@@ -161,6 +163,33 @@ async def handle_create_Classical_room(game_server, Connect_id: str, message: di
         message.get("sub_rule", "classical/standard"),
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict, websocket):
+    """处理创建四川麻将（血战到底）房间请求"""
+    logging.info(f"创建四川麻将房间请求 - 用户名: {Connect_id}")
+    if Connect_id in game_server.players:
+        player = game_server.players[Connect_id]
+        blocked = _reject_room_entry(game_server, player)
+        if blocked:
+            await websocket.send_json(blocked.dict(exclude_none=True))
+            return
+
+    response = await game_server.create_Sichuan_room(
+        Connect_id,
+        message["roomname"],
+        message["gameround"],
+        message["password"],
+        message["roundTimerValue"],
+        message["stepTimerValue"],
+        message["tips"],
+        message.get("random_seed", 0),
+        message.get("sub_rule", "sichuan/standard"),
+        message.get("tourist_limit", False),
+        message.get("allow_spectator", True),
+        message.get("tactical_call", False),
+        message.get("blood_battle", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

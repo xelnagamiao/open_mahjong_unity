@@ -26,6 +26,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         { "qingque", RoundTextDictionary.CurrentRoundTextQingque },
         { "riichi", RoundTextDictionary.CurrentRoundTextRiichi },
         { "classical", RoundTextDictionary.CurrentRoundTextClassical },
+        { "sichuan", RoundTextDictionary.CurrentRoundTextSichuan },
     };
 
     private void Awake()

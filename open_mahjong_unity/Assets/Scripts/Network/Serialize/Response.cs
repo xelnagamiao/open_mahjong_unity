@@ -33,6 +33,7 @@ public class RoomInfo {
     public bool? open_xiru; // 立直麻将专属：是否西入
     public bool? open_tobi; // 立直麻将专属：是否击飞
     public string hepai_way; // 立直麻将专属：和牌方式 head_bump / multi_ron / three_ron_abort
+    public bool? blood_battle; // 四川麻将专属：是否开启血战到底
 }
 
 public class GameEndInfo { // 显示游戏结束结果
@@ -77,6 +78,31 @@ public class ShowResultInfo { // 显示结算结果
     // 浪涌麻将：和牌基础点乘倍数后的收分（不含本场/供托）；倍数已含浪潮 +1
     public int? langyong_multiplier;
     public int? langyong_scored_points;
+    // 四川麻将：定缺完成广播携带的各家定缺花色 {player_index: suit(1万/2饼/3条)}
+    public Dictionary<int, int> player_to_dingque;
+    // 四川麻将·血战到底：本盘是否继续（多家和牌逐次结算）、本次和牌玩家、是否自摸
+    public bool? round_continues;
+    public int? win_player_index;
+    public bool? is_zimo;
+    public int? hepai_tile;                       // 和牌张（自摸时仅和牌者可见真实 id）
+    public bool? multi_ron;                       // 一炮多响事件标志（客户端每家补花区摆 1 张变暗牌）
+    public bool? is_qianggang;                    // 抢杠和：透明克隆加杠牌，不提前收走
+    public bool? recycle_discard;                 // 和牌动画结束后回收河牌（多响仅最后一家为 true）
+    public bool? suppress_hand_reveal;            // 血战：和牌时不展开手牌
+    public bool? defer_score_settlement;          // 血战：和牌时不展示分数，终局再结算
+    public int? ron_discarder_index;              // 点炮/一炮多响：点炮者 seat
+    public Dictionary<int, int[]> liuju_hu_hands; // 查牌：已和玩家完整手牌
+    public int? cha_payer_index;                  // 查牌：没叫/花猪向已和玩家付分的付款方
+    // 四川麻将·流局结算：查大叫/查花猪/退税分变与听牌信息
+    public Dictionary<int, int> cha_dajiao_changes;
+    public Dictionary<int, int> tenpai_max_fan;
+    public int[] hua_zhu_players;
+    public Dictionary<int, int> gang_refund_changes;
+    public Dictionary<int, int[]> tenpai_tiles_sichuan;
+    public Dictionary<int, string> liuju_status; // 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu"}
+    public Dictionary<int, int[]> liuju_hands;    // 流局未和家手牌（亮牌+状态面板用）
+    public string liuju_step;                     // reveal_hu/settle_hu/chajiao/cha_refund/final
+    public bool liuju_status_final;               // 流局逐家状态是否为最后一条
 }
 
 public class ShowShuheWeiInfo { // 数和尾结算信息
@@ -132,6 +158,9 @@ public class DoActionInfo { // 执行操作
     public bool? silent;
     // 暗杠/加杠：True=摸杠（末张参与），False=手杠
     public bool? is_mo_gang;
+    // 四川刮风下雨：即时分变 {player_index: delta}
+    public Dictionary<int, int> gang_score_changes;
+    public string gang_score_type; // guafeng / xiayu1 / xiayu2
 }
 
 public class PlayerInfo { // 房间信息中单个玩家信息
@@ -157,6 +186,8 @@ public class PlayerInfo { // 房间信息中单个玩家信息
     public int[] round_number_history;  // 实际每手对应局数（支持连庄重复）
     public string[] tag_list;           // 标签列表
     public bool[] discard_riichi_flags; // 立直规则：与 discard_tiles 同序的横置标记，重连/牌谱重建时还原横置弃牌
+    public int dingque_suit;            // 四川麻将：定缺花色（1万/2饼/3条，0=未定缺），重连/初始同步
+    public bool? is_hu;                 // 四川麻将·血战到底：该玩家本盘是否已和牌退场
 }
 
 public class GameInfo { // 游戏开始时传递房间信息
@@ -193,6 +224,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool? red_dora;              // 是否启用赤宝牌
     public int? dealer_index;           // 当前亲家索引
     public int? view_player_index;      // 实时观战视角座位（客户端作为 self 渲染）
+    public bool? blood_battle;          // 四川麻将：是否开启血战到底
 }
 
 public class SwitchSeatInfo { // 换位信息
@@ -356,6 +388,11 @@ public class LeaderboardEntry { // 国标段位排行榜条目
     public float guobiao_score;
 }
 
+public class StickerInfo {
+    public int player_index;
+    public string sticker;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
@@ -403,5 +440,6 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public int[] dora_indicators; // update_dora 顶层字段：初始宝牌指示牌
     public int[] kan_dora_indicators; // update_dora 顶层字段：杠宝牌指示牌
     public LeaderboardEntry[] leaderboard_list; // 国标段位排行榜
+    public StickerInfo sticker_info; // 对局表情包广播
 }
 

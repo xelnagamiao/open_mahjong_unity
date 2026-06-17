@@ -62,4 +62,53 @@ public static class HepaiRevealDirector {
         }
         return false;
     }
+
+    /// <summary>四川血战·中途和牌：按 hu_class / multiRon / 抢杠 选择补花区摆牌策略。</summary>
+    public static HepaiPresentationRequest BuildSichuanMidGameRequest(
+        string winnerPosition,
+        string huClass,
+        int hepaiTile,
+        bool multiRon,
+        int? ronDiscarderIndex,
+        bool recycleDiscard,
+        bool isQianggang = false) {
+        HepaiWinTilePresentMode mode;
+        if (huClass == "hu_self") {
+            mode = HepaiWinTilePresentMode.SichuanZimoToBuhuaFaceDown;
+        } else if (multiRon || isQianggang) {
+            // 一炮多响 / 抢杠和：透明克隆，保留河牌或加杠牌直至最后回收
+            mode = HepaiWinTilePresentMode.SichuanRonMultiToBuhua;
+        } else {
+            mode = HepaiWinTilePresentMode.SichuanRonSingleToBuhua;
+        }
+
+        return new HepaiPresentationRequest {
+            WinnerPosition = winnerPosition,
+            HuClass = huClass,
+            HepaiTile = hepaiTile,
+            WinTileMode = mode,
+            RecycleDiscardAfterPresent = recycleDiscard,
+            IsQianggang = isQianggang,
+            DiscardPlayerPosition = NormalGameStateManager.Instance?.ResolveRonDiscarderPosition(ronDiscarderIndex),
+        };
+    }
+
+    public static IEnumerator PlaySichuanMidGame(
+        int hepaiPlayerIndex,
+        string huClass,
+        int hepaiTile,
+        bool multiRon,
+        int? ronDiscarderIndex,
+        bool recycleDiscard,
+        bool isQianggang = false) {
+        if (NormalGameStateManager.Instance == null
+            || !NormalGameStateManager.Instance.indexToPosition.TryGetValue(hepaiPlayerIndex, out string winnerPos)) {
+            yield break;
+        }
+        if (Game3DManager.Instance == null) yield break;
+
+        HepaiPresentationRequest request = BuildSichuanMidGameRequest(
+            winnerPos, huClass, hepaiTile, multiRon, ronDiscarderIndex, recycleDiscard, isQianggang);
+        yield return Game3DManager.Instance.PlaySichuanMidGameHu(request);
+    }
 }

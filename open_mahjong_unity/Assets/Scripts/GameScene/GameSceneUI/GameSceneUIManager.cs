@@ -60,6 +60,7 @@ public class GameSceneUIManager : MonoBehaviour
         AutoAction.Instance.gameObject.SetActive(false); // 隐藏自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false); // 隐藏牌谱设置组件
         RoundEndPresentation.Instance.StopActiveSequence();
+        RoundEndPresentation.Instance.ResetSichuanEndgameQueue();
     }
 
     /// <summary>

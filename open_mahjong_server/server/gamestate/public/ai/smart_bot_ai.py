@@ -3,10 +3,10 @@
 # 能和则和、能补花则补花、切牌/吃碰根据评分决策
 import asyncio
 import logging
-from ..hand_slot_utils import has_draw_slot
+from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
 from .get_action import get_ai_action
 from .smart_bot_logic import (
-    count_melds, count_visible_tiles, evaluate_hand,
+    count_melds, count_visible_tiles, cut_candidate_hand, evaluate_hand,
     find_best_cut, find_best_cut_score, should_accept_hu,
 )
 
@@ -127,11 +127,14 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
                         await get_ai_action(game_state, player_index, "jiagang", None, None, None, ktile)
                         return
 
-    # 切牌：枚举每张手牌切出后的评分，选最优
+    # 切牌：枚举每张手牌切出后的评分，选最优（四川定缺：手牌含定缺花色时只在定缺牌中选）
     if "cut" in action_list and hand:
-        tile_id, cut_index = find_best_cut(hand, meld_count, visible)
-        is_moqie = has_draw_slot(player)
-        logger.info(f"牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}")
+        dingque = getattr(player, "dingque_suit", 0)
+        cut_hand = cut_candidate_hand(hand, dingque)
+        tile_id, _ = find_best_cut(cut_hand, meld_count, visible)
+        cut_index = hand.index(tile_id)
+        is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
+        logger.info(f"牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
         await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
         return
 

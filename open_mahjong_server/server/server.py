@@ -79,8 +79,8 @@ chat_server = ChatServer()
 async def lifespan(app: FastAPI):
     # 启动时执行
     db_manager.init_database()
-    db_manager.backfill_qiduizi_stats()
-    db_manager.backfill_auto_promote()
+    db_manager.backfill_rank_data()
+    db_manager.backfill_user_settings_config()
     # 只生成秘钥文件，不启动聊天服务器
     # 聊天服务器应由 supervisor/systemd 等进程管理工具独立管理
     await chat_server.generate_secret_key()
@@ -202,6 +202,10 @@ class GameServer:
 
     async def create_Riichi_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "riichi/standard", open_cuohe: bool = False, hepai_limit: int = 1, red_dora: bool = True, allow_kuikae: bool = False, open_xiru: bool = True, open_tobi: bool = True, hepai_way: str = "head_bump", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
         return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, allow_kuikae, open_xiru, open_tobi, hepai_way, tourist_limit, allow_spectator)
+
+    # 创建四川麻将（血战到底）房间
+    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True) -> Response:
+        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle)
 
     # 获取房间列表
     def get_room_list(self, show_tip: bool = False) -> Response:

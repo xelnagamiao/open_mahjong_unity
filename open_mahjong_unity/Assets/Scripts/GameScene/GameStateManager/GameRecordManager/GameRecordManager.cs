@@ -648,6 +648,7 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             Game3DManager.Instance.Change3DTile("angang", angangTile, removedTiles.Count, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
+            PlayRecordGangScoreChanges(tick);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "jg") {
@@ -668,6 +669,7 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             Game3DManager.Instance.Change3DTile("jiagang", actualJia, 1, currentPlayerPosition, isMoGang, combinationMask);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
+            PlayRecordGangScoreChanges(tick);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") {
@@ -700,6 +702,9 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             Game3DManager.Instance.Change3DTile(displayAction, 0, removedTiles.Count, currentPlayerPosition, false, combinationMask);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, displayAction);
+            if (action == "g") {
+                PlayRecordGangScoreChanges(tick);
+            }
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
@@ -754,7 +759,21 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             ApplyScoreDeltas(deltas, out Dictionary<int, int> playerToScoreBefore, out Dictionary<int, int> playerToScoreAfter);
 
-            ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList);
+            TryParseSichuanHuTickExtras(tick, out int parsedHepaiTile, out bool multiRonFlag, out int? ronDiscarderIndex, out bool recycleDiscardFlag);
+            int resolvedHepaiTile = ResolveRecordHepaiTile(action, hepaiPlayerIndex, parsedHepaiTile, huPlayer);
+            bool isDeferredMidGameHu = IsSichuanBloodBattleRecord()
+                && IsDeferredSichuanHuScore(huScore, tickScoreChanges);
+            bool isQianggangHu = ContainsSichuanQianggangFan(huFan);
+
+            if (isDeferredMidGameHu) {
+                bool recycleDiscard = recycleDiscardFlag
+                    || (!multiRonFlag && action != "hu_self");
+                PlaySichuanMidGameHuRecord(
+                    action, hepaiPlayerIndex, resolvedHepaiTile, multiRonFlag, ronDiscarderIndex,
+                    recycleDiscard, isQianggangHu);
+            } else {
+                ShowRecordResult(action, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList);
+            }
             GameSceneUIManager.Instance.UpdateScoreRecord();
         }
         else if (action == "shuhewei") {
@@ -805,10 +824,18 @@ public partial class GameRecordManager : MonoBehaviour {
                 }
             }
         }
+        else if (action == "gr") {
+            PlayRecordGangRefundTick(tick);
+            StartCoroutine(AutoNextActionAfterDelay(1.8f));
+        }
         else if (action == "liuju") {
-            RoundEndPresentation.Instance.PresentLiuju("流局", false);
-            HideRecordRiichiSticksOnLiuju();
-            StartCoroutine(AutoNextActionAfterDelay(2f));
+            if (tick.Count >= 2 && IsSichuanBloodBattleRecord()) {
+                HandleSichuanLiujuStepReplay(tick);
+            } else {
+                RoundEndPresentation.Instance.PresentLiuju("流局", false);
+                HideRecordRiichiSticksOnLiuju();
+                StartCoroutine(AutoNextActionAfterDelay(2f));
+            }
         }
         else if (action == "jiuzhongjiupai") {
             RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);

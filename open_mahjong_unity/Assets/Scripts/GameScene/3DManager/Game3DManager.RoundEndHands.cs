@@ -108,20 +108,6 @@ public partial class Game3DManager {
 
     /// <summary>
 
-    /// 兼容旧调用；请改用 <see cref="HepaiRevealDirector.Play"/>。
-
-    /// </summary>
-
-    public IEnumerator RoundEndRevealWinnerHandAndPlayExpandAnimation(int hepaiPlayerIndex, int[] hepaiPlayerHand) {
-
-        yield return HepaiRevealDirector.Play(hepaiPlayerIndex, hepaiPlayerHand, "hu_self", null);
-
-    }
-
-
-
-    /// <summary>
-
     /// 国标荣和错和：倒牌仅为展示，恢复继续对局时的 3D 手牌区（不改动河牌）。
 
     /// </summary>

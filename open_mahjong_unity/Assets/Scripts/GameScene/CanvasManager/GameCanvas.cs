@@ -106,6 +106,7 @@ public partial class GameCanvas : MonoBehaviour {
         });
         SetScoreRecordOpen(false); // 初始化按钮文字与状态
         remianTimeText.text = ""; // 清空剩余时间文本
+        InitializeStickerUi();
     }
 
     // 计分板被外部关闭时调整
@@ -145,6 +146,9 @@ public partial class GameCanvas : MonoBehaviour {
         ClearActionButton();
         // 退出前在 SetActive(false) 之前销毁残留的操作文本，避免「补花」等字卡死下次进入
         ClearActionDisplay();
+        HideStickerPanel();
+        ClearAllStickers();
+        HideDingqueSelection();
         SetScoreRecordOpen(false);
         if (langyongWaveIndicator != null) langyongWaveIndicator.SetActive(false);
         RefreshRiichiStatusIndicators();
@@ -156,6 +160,15 @@ public partial class GameCanvas : MonoBehaviour {
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
         ClearActionDisplay();
+        HideStickerPanel();
+        ClearAllStickers();
+        SetStickerUiForRecordMode(false);
+        HideDingqueSelection();
+        // 新一局开始先清空各家定缺标记，待服务端定缺同步后再显示
+        playerSelfPanel?.SetDingque(0);
+        playerLeftPanel?.SetDingque(0);
+        playerTopPanel?.SetDingque(0);
+        playerRightPanel?.SetDingque(0);
         HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
@@ -209,6 +222,9 @@ public partial class GameCanvas : MonoBehaviour {
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
         ClearActionDisplay();
+        HideStickerPanel();
+        ClearAllStickers();
+        SetStickerUiForRecordMode(true);
         HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
@@ -458,10 +474,21 @@ public partial class GameCanvas : MonoBehaviour {
         ActionButtonContainer.gameObject.SetActive(visible);
     }
 
+    /// <summary>四川：UI 手牌中是否仍含定缺花色（与 selfHandTiles 双源校验，避免列表不同步导致无法置灰）。</summary>
+    public bool SelfHandHasDingqueSuitTile(int dingqueSuit) {
+        if (handCardsContainer == null || dingqueSuit < 1 || dingqueSuit > 3) return false;
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tc != null && tc.tileId / 10 == dingqueSuit) return true;
+        }
+        return false;
+    }
+
     /// <summary>
-    /// 根据当前立直/食替/已立直锁手状态统一刷新自家手牌的可点状态：
+    /// 根据当前立直/食替/已立直锁手/四川定缺状态统一刷新自家手牌的可点状态：
     /// - 处于立直选牌模式：仅 riichi_candidate_cuts 中存在的 tile_id 可点；
     /// - 自家已立直（tag_list 含 riichi/daburu_riichi）：仅最右摸入牌（currentGetTile=true）可点，其余全部置灰；
+    /// - 四川定缺：手牌仍含定缺花色时仅定缺花色可点（须优先打出）；
     /// - 普通切牌阶段：按服务端下发的 forbidden_cut_tiles 禁点（食替）。
     /// </summary>
     public void RefreshHandTileSelectability() {
@@ -469,6 +496,7 @@ public partial class GameCanvas : MonoBehaviour {
         bool inRiichiCutMode = RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive;
         var candidates = NormalGameStateManager.Instance.selfRiichiCandidateCuts;
         var forbidden = NormalGameStateManager.Instance.selfForbiddenCutTiles;
+        bool mustCutDingque = NormalGameStateManager.Instance.MustCutDingqueFirst();
         bool selfRiichi = false;
         var selfTags = NormalGameStateManager.Instance.player_to_info["self"].tag_list;
         if (selfTags != null) {
@@ -484,6 +512,8 @@ public partial class GameCanvas : MonoBehaviour {
                 selectable = candidates.ContainsKey(tc.tileId);
             } else if (selfRiichi) {
                 selectable = tc.currentGetTile;
+            } else if (mustCutDingque) {
+                selectable = NormalGameStateManager.Instance.IsDingqueSuitTile(tc.tileId);
             } else {
                 selectable = !forbidden.Contains(tc.tileId);
             }
@@ -517,6 +547,7 @@ public partial class GameCanvas : MonoBehaviour {
 
     /// <summary>
     /// 摸切快捷 / 自动出牌：优先打出摸牌张，否则打出 handSortIndex 最大的手牌。
+    /// 四川定缺：手牌仍含定缺花色时强制打出定缺牌（与服务端 _enforce_dingque_first 一致）。
     /// </summary>
     public bool TriggerMoqieHandCardClick() {
         HandCardSelectionController.Instance?.DisarmAll();
@@ -525,9 +556,14 @@ public partial class GameCanvas : MonoBehaviour {
             return false;
         }
 
+        var gsm = NormalGameStateManager.Instance;
+        bool mustCutDingque = gsm != null && gsm.MustCutDingqueFirst();
+
         TileCard drawTileCard = null;
         TileCard rightmostTileCard = null;
+        TileCard rightmostDingqueTileCard = null;
         int maxHandSortIndex = -1;
+        int maxDingqueHandSortIndex = -1;
 
         for (int i = 0; i < handCardsContainer.childCount; i++) {
             TileCard tileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
@@ -539,16 +575,26 @@ public partial class GameCanvas : MonoBehaviour {
                 maxHandSortIndex = tileCard.handSortIndex;
                 rightmostTileCard = tileCard;
             }
+            if (mustCutDingque && gsm.IsDingqueSuitTile(tileCard.tileId)
+                && tileCard.handSortIndex > maxDingqueHandSortIndex) {
+                maxDingqueHandSortIndex = tileCard.handSortIndex;
+                rightmostDingqueTileCard = tileCard;
+            }
         }
 
-        TileCard targetTileCard = drawTileCard ?? rightmostTileCard;
-        if (targetTileCard == null) {
+        TileCard targetTileCard;
+        if (mustCutDingque) {
+            targetTileCard = rightmostDingqueTileCard;
+        } else {
+            targetTileCard = drawTileCard ?? rightmostTileCard;
+        }
+        if (targetTileCard == null || !targetTileCard.IsSelectableForCut()) {
             Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
             return false;
         }
 
         targetTileCard.TriggerClick();
-        Debug.Log($"自动出牌：触发牌ID {targetTileCard.tileId}，摸切={targetTileCard.currentGetTile}，排序位置={targetTileCard.handSortIndex}");
+        Debug.Log($"自动出牌：触发牌ID {targetTileCard.tileId}，摸切={targetTileCard.currentGetTile}，排序位置={targetTileCard.handSortIndex}，定缺优先={mustCutDingque}");
         return true;
     }
 

@@ -8,6 +8,9 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
 {
     // showtipsblock代表提示棱形，TipsContainer代表提示容器
     public static TipsBlock Instance { get; private set; }
+
+    public bool IsBlockActive => gameObject.activeSelf;
+
     private void Awake()
     {
         if (Instance == null)
@@ -45,16 +48,20 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         // 如果听牌列表不为空，则显示提示
         TipsContainer.Instance.UpdateRyuukyokuTenpaiChoice(waitingTiles);
         if (waitingTiles.Count > 0){
+            var waitingList = waitingTiles.ToList();
             gameObject.SetActive(true);
-            TipsContainer.Instance.SetTips(waitingTiles.ToList());
+            TipsContainer.Instance.CacheTenpaiTips(selfHandTiles, waitingList);
+            TipsContainer.Instance.SetTipsWithHand(selfHandTiles, waitingList);
         }
         else{
             gameObject.SetActive(false);
+            TipsContainer.Instance.ClearTenpaiTipsCache();
         }
     }
 
     public void HideTipsBlock(){
         gameObject.SetActive(false);
+        TipsContainer.Instance.ClearTenpaiTipsCache();
     }
 
     public void OnPointerEnter(PointerEventData eventData){

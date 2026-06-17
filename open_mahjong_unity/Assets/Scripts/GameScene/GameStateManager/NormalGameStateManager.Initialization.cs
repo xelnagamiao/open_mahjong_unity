@@ -6,6 +6,7 @@ public partial class NormalGameStateManager {
     // 初始化游戏
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         ClearPendingCuoheContinue();
+        ClearPendingSichuanContinue();
         string incomingGamestateId = gameInfo?.gamestate_id;
         if (string.IsNullOrEmpty(gamestateId) || gamestateId != incomingGamestateId) {
             ClearRoundSettlementHistory();
@@ -28,6 +29,7 @@ public partial class NormalGameStateManager {
         InitializeSetInfo(gameInfo); // 初始化对局数据
         GameCanvas.Instance.InitializeUIInfo(gameInfo,indexToPosition); // 初始化面板信息
         BoardCanvas.Instance.InitializeBoardInfo(gameInfo,indexToPosition); // 初始化桌面信息
+        RestoreSichuanDingque(gameInfo); // 四川：重连/进局中时恢复各家定缺标记
 
         // 获取自己的手牌信息（从 PlayerInfo 中获取）
         PlayerInfo selfPlayerInfo = GetSelfPlayerInfo(gameInfo);

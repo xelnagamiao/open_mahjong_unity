@@ -32,6 +32,13 @@ public static class RoundTextDictionary {
         {13, "北一局"}, {14, "北二局"}, {15, "北三局"}, {16, "北四局"},
     };
 
+    public static readonly Dictionary<int, string> CurrentRoundTextSichuan = new Dictionary<int, string>() {
+        {1, "东一局"}, {2, "东二局"}, {3, "东三局"}, {4, "东四局"},
+        {5, "南一局"}, {6, "南二局"}, {7, "南三局"}, {8, "南四局"},
+        {9, "西一局"}, {10, "西二局"}, {11, "西三局"}, {12, "西四局"},
+        {13, "北一局"}, {14, "北二局"}, {15, "北三局"}, {16, "北四局"},
+    };
+
     /// <summary>局数（当前第几局）显示名</summary>
     public static string GetRoundName(string rule, int currentRound) {
         Dictionary<int, string> roundMap = null;
@@ -39,6 +46,7 @@ public static class RoundTextDictionary {
         else if (rule == "qingque") roundMap = CurrentRoundTextQingque;
         else if (rule == "riichi") roundMap = CurrentRoundTextRiichi;
         else if (rule == "classical") roundMap = CurrentRoundTextClassical;
+        else if (rule == "sichuan") roundMap = CurrentRoundTextSichuan;
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string roundName)) {
             return roundName;
         }

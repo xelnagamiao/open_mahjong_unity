@@ -13,6 +13,7 @@ public static class RuleNameDictionary {
         { "guobiao/kshen", "K神麻将" },
         { "guobiao/lanshi", "国标麻将(蓝十改)" },
         { "classical/standard", "古典麻雀" },
+        { "sichuan/standard", "四川麻将(血战到底)" },
         { "riichi/standard", "立直麻将(标准)" },
         { "riichi/langyong", "浪涌麻将(日麻)" },
     };
@@ -25,6 +26,7 @@ public static class RuleNameDictionary {
         { "guobiao/lanshi", "蓝十" },
         { "qingque/standard", "青雀" },
         { "classical/standard", "古典" },
+        { "sichuan/standard", "四川" },
         { "riichi/standard", "立直" },
         { "riichi/langyong", "浪涌" },
     };

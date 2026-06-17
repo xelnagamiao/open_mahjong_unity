@@ -47,6 +47,23 @@ public class CreateRiichiRoomRequest { // 创建立直麻将房间请求
     public bool allow_spectator;
 }
 
+public class CreateSichuanRoomRequest { // 创建四川麻将（血战到底）房间请求
+    public string type;
+    public string rule;
+    public string sub_rule;
+    public string roomname;
+    public int gameround;
+    public int roundTimerValue;
+    public int stepTimerValue;
+    public bool tips;
+    public string password;
+    public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
+    public bool tourist_limit;
+    public bool allow_spectator;
+    public bool tactical_call; // 战术鸣牌
+    public bool blood_battle; // 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
+}
+
 public class GetRoomListRequest { // 获取房间列表请求
     public string type;
     public bool show_tip; // True=手动刷新显示tips，False=静默刷新
@@ -94,6 +111,8 @@ public class SetRyuukyokuTenpaiRequest {
 
 public class GetRecordListRequest { // 获取游戏记录请求
     public string type;
+    public int limit = 20;
+    public int offset = 0;
 }
 
 public class GetRankRecordListRequest { // 获取全服最近天梯对局记录请求
@@ -176,4 +195,10 @@ public class AddSpectatorRequest { // 添加观战请求
 public class RemoveSpectatorRequest { // 移除观战请求
     public string type;
     public string gamestate_id;
+}
+
+public class SendStickerRequest {
+    public string type;
+    public string gamestate_id;
+    public string sticker;
 }

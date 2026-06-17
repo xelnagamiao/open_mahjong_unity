@@ -15,8 +15,39 @@ public class TipsContainer : MonoBehaviour
     [SerializeField] private GameObject ryuukyokuTenpaiChoicePanel;
     public static TipsContainer Instance { get; private set; }
     private Dictionary<int, int> _visibleTileCounts = new Dictionary<int, int>();
+    /// <summary>切牌悬停预览时，模拟即将打出的牌进入弃牌区（+1 在场）。</summary>
+    private int? _pendingCutTileId;
+    private readonly List<int> _cachedHandTiles = new List<int>();
+    private readonly List<int> _cachedWaitingTiles = new List<int>();
+    private bool _hasCachedTenpaiTips;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
+
+    /// <summary>保存出牌后听牌棱形的稳定层快照（手牌 + 听牌张），供牌桌可见信息变化时刷新番数/绝张/余张。</summary>
+    public void CacheTenpaiTips(List<int> handTiles, List<int> waitingTileList) {
+        _cachedHandTiles.Clear();
+        _cachedHandTiles.AddRange(handTiles);
+        _cachedWaitingTiles.Clear();
+        _cachedWaitingTiles.AddRange(waitingTileList);
+        _hasCachedTenpaiTips = waitingTileList.Count > 0;
+        waitingTiles.Clear();
+        waitingTiles.AddRange(waitingTileList);
+    }
+
+    public void ClearTenpaiTipsCache() {
+        _hasCachedTenpaiTips = false;
+        _cachedHandTiles.Clear();
+        _cachedWaitingTiles.Clear();
+        waitingTiles.Clear();
+    }
+
+    /// <summary>牌桌弃牌/副露变化后重算提示 UI，不重跑听牌检测。</summary>
+    public void RefreshTenpaiTipsIfCached() {
+        if (!_hasCachedTenpaiTips || _cachedWaitingTiles.Count == 0) return;
+        NormalGameStateManager gameManager = NormalGameStateManager.Instance;
+        if (gameManager == null || !gameManager.tips) return;
+        SetTipsWithHand(_cachedHandTiles, _cachedWaitingTiles);
+    }
 
     private void Awake()
     {
@@ -40,9 +71,11 @@ public class TipsContainer : MonoBehaviour
     /// 新入口：外部显式传入“当前手牌列表” + waitingTiles，用于切牌提示等场景
     /// handTiles: 作为和牌基础的手牌（比如已经移除将要切掉的那一张）
     /// waitingTiles: 听牌后的所有和牌张
+    /// pendingCutTileId: 切牌悬停预览时传入，将该牌计为 +1 在场（弃牌区）
     /// </summary>
-    public void SetTipsWithHand(List<int> handTiles, List<int> waitingTiles)
+    public void SetTipsWithHand(List<int> handTiles, List<int> waitingTiles, int? pendingCutTileId = null)
     {
+        _pendingCutTileId = pendingCutTileId;
         UpdateRyuukyokuTenpaiChoice(waitingTiles);
 
         // 收集子对象
@@ -137,6 +170,11 @@ public class TipsContainer : MonoBehaviour
                     showTilesCount += 1;
                 }
             }
+
+            // 切牌悬停预览：即将打出的牌进入弃牌区
+            if (_pendingCutTileId.HasValue && _pendingCutTileId.Value == hepaiTile) {
+                showTilesCount += 1;
+            }
             
             // 判断是否和绝张
             if (showTilesCount == 3) {
@@ -168,6 +206,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessClassicalTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai);
             } else if (gameManager.roomRule == "riichi") {
                 ProcessRiichiTile(hepaiTile, handList, combinationList);
+            } else if (gameManager.roomRule == "sichuan") {
+                ProcessSichuanTile(hepaiTile, handList, combinationList);
             } else {
                 Debug.LogWarning($"未知的规则类型: {gameManager.roomRule}");
             }
@@ -329,6 +369,22 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
+    /// 处理四川规则的和牌提示：本地按 SichuanExternal 计番（不计情境番）。四川任何合法牌型均可和，
+    /// 平和=1番（仅平和时基本分仍为1），故每张听牌张直接展示其番数；含定缺花色的和牌张已在听牌阶段过滤。
+    /// </summary>
+    private void ProcessSichuanTile(
+        int hepaiTile,
+        List<int> handList,
+        List<string> combinationList) {
+        int dingque = NormalGameStateManager.Instance.selfDingqueSuit;
+        var result = SichuanExternal.HepaiCheck(handList, combinationList, new List<string>(), hepaiTile, dingque, false);
+        int fan = result.Item1;
+        InstantiateTipsTile(hepaiTile);
+        GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+        SetTipsFanCount(fanObject, FormatTipsFanLabel($"{fan}番", hepaiTile), "dianhe", hepaiTile);
+    }
+
+    /// <summary>
     /// 处理立直规则的和牌提示：本地完整计番，展示"番-符 点数"（役满直接显示"役满"）。
     /// 先以荣和上下文计算，若不成立再按自摸上下文重算。
     /// </summary>
@@ -447,6 +503,9 @@ public class TipsContainer : MonoBehaviour
         string roomRule = gameManager.roomRule;
         foreach (int tile in selfHandTiles) {
             AddVisibleTile(tile, roomRule);
+        }
+        if (_pendingCutTileId.HasValue) {
+            AddVisibleTile(_pendingCutTileId.Value, roomRule);
         }
         foreach (var playerInfo in gameManager.player_to_info.Values) {
             if (playerInfo.discard_tiles != null) {

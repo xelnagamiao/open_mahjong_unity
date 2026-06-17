@@ -12,7 +12,7 @@ public partial class NormalGameStateManager {
 
         // 鸣牌操作自动执行
         if (action == "AutoMingPaiAction"){
-            List<string> allowHupaiAction = new List<string>{"hu_first","hu_second","hu_third"};
+            List<string> allowHupaiAction = new List<string>{"hu", "hu_first", "hu_second", "hu_third"};
             string actualHupaiAction = allowActionList.FirstOrDefault(a => allowHupaiAction.Contains(a));
 
             // 牌张设置：勾选牌自动过（含荣和；抢杠且未开「无视抢杠」时仍正常询问）

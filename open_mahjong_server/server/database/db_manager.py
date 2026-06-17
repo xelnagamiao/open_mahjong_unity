@@ -920,13 +920,14 @@ class DatabaseManager:
         # 比较计算哈希与存储哈希
         return secrets.compare_digest(computed_hash, stored_hash_hex)
     
-    def get_record_list(self, user_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_record_list(self, user_id: int, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """
-        获取指定用户的最近N局游戏记录元数据（不含完整牌谱），按 game_id 分组打包
+        获取指定用户的最近 N 局游戏记录元数据（不含完整牌谱），按 created_at 倒序分页。
         
         Args:
             user_id: 用户ID
             limit: 返回游戏数量限制，默认20
+            offset: 跳过的局数，用于滚动加载更多
         
         Returns:
             游戏记录列表，每个记录包含：
@@ -941,18 +942,20 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
             cursor.execute("""
-                SELECT DISTINCT game_id
-                FROM game_player_records
-                WHERE user_id = %s
-                ORDER BY game_id DESC
-                LIMIT %s
-            """, (user_id, limit))
+                SELECT gpr.game_id, gr.created_at
+                FROM game_player_records gpr
+                INNER JOIN game_records gr ON gpr.game_id = gr.game_id
+                WHERE gpr.user_id = %s
+                ORDER BY gr.created_at DESC, gpr.game_id DESC
+                LIMIT %s OFFSET %s
+            """, (user_id, limit, offset))
             
-            game_ids = [row['game_id'] for row in cursor.fetchall()]
-            
-            if not game_ids:
-                logger.info(f'用户 {user_id} 没有游戏记录')
+            id_rows = cursor.fetchall()
+            if not id_rows:
+                logger.info(f'用户 {user_id} 在 offset={offset} 处没有更多游戏记录')
                 return []
+            
+            game_ids = [row['game_id'] for row in id_rows]
             
             placeholders = ','.join(['%s'] * len(game_ids))
             cursor.execute(f"""
@@ -975,7 +978,7 @@ class DatabaseManager:
                 FROM game_player_records gpr
                 INNER JOIN game_records gr ON gpr.game_id = gr.game_id
                 WHERE gpr.game_id IN ({placeholders})
-                ORDER BY gr.created_at DESC, gpr.rank, gpr.original_player_index NULLS LAST, gpr.score DESC
+                ORDER BY gpr.rank, gpr.original_player_index NULLS LAST, gpr.score DESC
             """, game_ids)
             
             games_dict = {}
@@ -1006,9 +1009,9 @@ class DatabaseManager:
                     'voice_used': row.get('voice_used')
                 })
             
-            records = list(games_dict.values())
+            records = [games_dict[gid] for gid in game_ids if gid in games_dict]
             
-            logger.info(f'获取用户 {user_id} 的 {len(records)} 局游戏记录元数据')
+            logger.info(f'获取用户 {user_id} 的 {len(records)} 局游戏记录元数据 (offset={offset}, limit={limit})')
             return records
             
         except Error as e:
@@ -1649,13 +1652,13 @@ DatabaseManager.store_guobiao_game_record = store_guobiao_game_record
 DatabaseManager.store_guobiao_game_stats = store_guobiao_game_stats
 DatabaseManager.store_guobiao_fan_stats = store_guobiao_fan_stats
 
-from .guobiao.backfill_qiduizi_stats import backfill_qiduizi_stats
+from .guobiao.backfill_rank_data import backfill_rank_data
 
-DatabaseManager.backfill_qiduizi_stats = backfill_qiduizi_stats
+DatabaseManager.backfill_rank_data = backfill_rank_data
 
-from .guobiao.backfill_auto_promote import backfill_auto_promote
+from .guobiao.backfill_user_settings_config import backfill_user_settings_config
 
-DatabaseManager.backfill_auto_promote = backfill_auto_promote
+DatabaseManager.backfill_user_settings_config = backfill_user_settings_config
 
 # 挂载青雀麻将相关方法到 DatabaseManager 类
 from .qingque.store_qingque import store_qingque_game_record, store_qingque_game_stats, store_qingque_fan_stats
@@ -1670,6 +1673,11 @@ from .classical.store_classical import store_classical_game_record, store_classi
 DatabaseManager.store_classical_game_record = store_classical_game_record
 DatabaseManager.store_classical_game_stats = store_classical_game_stats
 DatabaseManager.store_classical_fan_stats = store_classical_fan_stats
+
+# 挂载四川麻将（血战到底）相关方法到 DatabaseManager 类（牌谱写通用表，无需专用统计表）
+from .sichuan.store_sichuan import store_sichuan_game_record
+
+DatabaseManager.store_sichuan_game_record = store_sichuan_game_record
 
 from .riichi.store_riichi import store_riichi_game_record, store_riichi_game_stats, store_riichi_fan_stats
 from .riichi.get_riichi_stats import get_riichi_stats

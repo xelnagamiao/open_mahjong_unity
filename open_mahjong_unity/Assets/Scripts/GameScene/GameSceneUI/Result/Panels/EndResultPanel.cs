@@ -6,6 +6,12 @@ using System;
 using UnityEngine.UI;
 
 public class EndResultPanel : MonoBehaviour {
+    public enum EndResultTileLayout {
+        /// <summary>国标和牌：暗手 + 分隔 + 副露 + 分隔 + 和牌张。</summary>
+        HuWithWinTile,
+        /// <summary>查叫：手牌 + 分隔 + 副露（无和牌张）。</summary>
+        ClosedHandWithMelds,
+    }
     [SerializeField] private GameObject FanCountPrefab;
     [SerializeField] private Transform FanCountContainer;
 
@@ -74,23 +80,111 @@ public class EndResultPanel : MonoBehaviour {
             showResultCoroutine = null;
         }
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
-        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras));
+        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
+            RoundEndTiming.HuConfirmCountdownSeconds, resumeSichuanContinueAfterClose: false));
     }
 
-    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null) {
+    public void PrepareShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
-        InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
+        InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras, scoreChanges, suppressHandReveal, tileLayout);
     }
 
     public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        PlayPreparedShowResult(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
+            RoundEndTiming.HuConfirmCountdownSeconds, resumeSichuanContinueAfterClose: false);
+    }
+
+    public void PlayPreparedShowResult(int hu_score, string[] hu_fan, int? base_fu, string[] fu_fan_list,
+        RiichiEndResultExtras riichiExtras, float confirmCountdownSeconds, bool resumeSichuanContinueAfterClose,
+        bool allowConfirmClick = true) {
         if (showResultCoroutine != null) {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
-        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras));
+        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(
+            hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras, confirmCountdownSeconds,
+            resumeSichuanContinueAfterClose, allowConfirmClick));
+    }
+
+    /// <summary>四川终局 settle_hu：准备面板（手牌+副露+和牌张，与国标容器一致）。</summary>
+    public void PrepareSichuanSettleHuSingle(
+        int hepaiPlayerIndex,
+        Dictionary<int, int> player_to_score,
+        int huScore,
+        string[] huFan,
+        string huClass,
+        int[] hepaiPlayerHand,
+        int[][] hepaiPlayerCombinationMask,
+        Dictionary<int, int> scoreChanges) {
+        InitializeShowResult(
+            hepaiPlayerIndex, player_to_score, huScore, huFan, huClass,
+            hepaiPlayerHand, null, hepaiPlayerCombinationMask, null, scoreChanges,
+            suppressHandReveal: false, EndResultTileLayout.HuWithWinTile);
+    }
+
+    public IEnumerator CoPlaySichuanSettleHuRoutine(int huScore, string[] huFan, bool isFinalPanel) {
+        float confirmSeconds = isFinalPanel
+            ? RoundEndTiming.HuConfirmCountdownSeconds
+            : RoundEndTiming.SichuanMidPanelConfirmSeconds;
+        yield return PlayShowResultRoutine(
+            huScore, huFan, null, null, null, confirmSeconds, resumeSichuanContinueAfterClose: false,
+            allowConfirmClick: isFinalPanel);
+    }
+
+    /// <summary>四川查叫：准备面板（手牌+副露，无和牌张）。</summary>
+    public void PrepareSichuanChajiaoSingle(
+        int focusPlayerIndex,
+        string statusKey,
+        int[] hand,
+        int[][] combinationMask,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> scoreChanges) {
+        InitializeShowResult(
+            focusPlayerIndex, player_to_score, 0, System.Array.Empty<string>(), "liuju",
+            hand, null, combinationMask, null, scoreChanges,
+            suppressHandReveal: hand == null || hand.Length == 0,
+            EndResultTileLayout.ClosedHandWithMelds);
+    }
+
+    public IEnumerator CoPlaySichuanChajiaoRoutine(string statusKey, bool isFinalPanel) {
+        yield return CoPlaySichuanChajiaoStatusAndCountdown(statusKey, isFinalPanel);
+    }
+
+    public void PrepareSichuanChaRefundSingle(
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> scoreChanges) {
+        currentState = StateGame;
+        gameObject.SetActive(true);
+        EndButton.gameObject.SetActive(false);
+        EndButton.interactable = false;
+        EndButtonText.text = "确定";
+        FanCountTotalPanel.SetActive(false);
+
+        foreach (Transform child in EndTilescontainer.transform) Destroy(child.gameObject);
+        foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
+
+        ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
+        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
+        SelfReady.gameObject.SetActive(false);
+        LeftReady.gameObject.SetActive(false);
+        TopReady.gameObject.SetActive(false);
+        RightReady.gameObject.SetActive(false);
+
+        ApplyScoreChangesToPanel(player_to_score, scoreChanges);
+
+        GameObject statusFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount statusFanCount = statusFanInstance.GetComponent<FanCount>();
+        if (statusFanCount != null) {
+            statusFanCount.SetFanCount("刮风下雨", "退税");
+            statusFanCount.ApplyFanColor();
+        }
+    }
+
+    public IEnumerator CoPlaySichuanChaRefundRoutine(bool isFinalPanel) {
+        yield return CoPlaySichuanChaRefundCountdown(isFinalPanel);
     }
 
     public void StartRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
@@ -109,10 +203,11 @@ public class EndResultPanel : MonoBehaviour {
 
     public IEnumerator ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         InitializeShowResult(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask, riichiExtras);
-        yield return PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras);
+        yield return PlayShowResultRoutine(hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
+            RoundEndTiming.HuConfirmCountdownSeconds, resumeSichuanContinueAfterClose: false);
     }
 
-    public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null) {
+    public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
         currentState = StateGame;
         gameObject.SetActive(true);
         FanCountTotalPanel.SetActive(false);
@@ -136,59 +231,15 @@ public class EndResultPanel : MonoBehaviour {
         TopReady.gameObject.SetActive(false);
         RightReady.gameObject.SetActive(false);
 
-        // 获取手牌列表最后一个int 并且删除最后一个int
-        int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
-        Array.Resize(ref hepai_player_hand, hepai_player_hand.Length - 1);
+        bool showHandInPanel = !suppressHandReveal
+            && hepai_player_hand != null && hepai_player_hand.Length > 0;
 
-        // 显示手牌
-
-        // 对剩余手牌排序
-        Array.Sort(hepai_player_hand, TileIdOrder.Comparer);
-        
-        Debug.Log("hepai_player_hand: " + hepai_player_hand.Length);
-        for (int i = 0; i < hepai_player_hand.Length; i++){
-            GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-            staticCard.transform.SetParent(EndTilescontainer.transform);
-            staticCard.GetComponent<StaticCard>().SetTileOnlyImage(hepai_player_hand[i]);
+        if (showHandInPanel) {
+            PopulateEndTilesContainer(hepai_player_hand, hepai_player_combination_mask, tileLayout);
         }
 
-        GameObject hideSplitInstance = Instantiate(HideSplit, EndTilescontainer.transform); // 分割
-        hideSplitInstance.transform.SetParent(EndTilescontainer.transform);
-
-        // 显示组合牌
-        Debug.Log("hepai_player_combination_mask: " + hepai_player_combination_mask.Length);
-        for (int list = 0; list < hepai_player_combination_mask.Length; list++){
-            for (int mask = 1; mask < hepai_player_combination_mask[list].Length; mask+=2){
-                GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-                staticCard.transform.SetParent(EndTilescontainer.transform);
-                staticCard.GetComponent<StaticCard>().SetTileOnlyImage(hepai_player_combination_mask[list][mask]);
-            }
-        }
-
-        GameObject hideSplitInstance2 = Instantiate(HideSplit, EndTilescontainer.transform); // 分割
-        hideSplitInstance2.transform.SetParent(EndTilescontainer.transform);
-
-        // 显示花牌 未来将花牌单独放在一个容器显示，目前先注释。
-        /*
-        Debug.Log("hepai_player_huapai: " + hepai_player_huapai.Length);
-        for (int i = 0; i < hepai_player_huapai.Length; i++){
-            GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-            staticCard.transform.SetParent(EndTilescontainer.transform);
-            staticCard.GetComponent<StaticCard>().SetTileOnlyImage(hepai_player_huapai[i]);
-        }
-
-        GameObject hideSplitInstance3 = Instantiate(HideSplit, EndTilescontainer.transform); // 分割
-        hideSplitInstance3.transform.SetParent(EndTilescontainer.transform);
-        */
-
-        // 显示和牌张
-        Debug.Log("lastCard: " + lastCard);
-        GameObject LastCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-        LastCard.transform.SetParent(EndTilescontainer.transform);
-        LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
-
-        
         // 显示玩家分数变化
+        var effectiveScoreChanges = scoreChanges ?? riichiExtras?.ScoreChanges;
         foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
             string pos = kvp.Value;
             int seatIdx = kvp.Key;
@@ -197,7 +248,8 @@ public class EndResultPanel : MonoBehaviour {
             int beforeScore = playerInfo.score;
             ShowResultPlayerScoreResolver.ResolveScoreChange(
                 beforeScore, seatIdx, origIdx,
-                riichiExtras?.ScoreChanges, player_to_score, out int afterScore);
+                effectiveScoreChanges, player_to_score, out int afterScore);
+            playerInfo.score = afterScore;
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
             string displayName = StreamerModeHelper.FormatGamestatePlayerName(
                 playerInfo.username, pos, playerInfo.userId);
@@ -231,7 +283,12 @@ public class EndResultPanel : MonoBehaviour {
         }
     }
 
-    private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+    private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
+        RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f, bool resumeSichuanContinueAfterClose = false,
+        bool allowConfirmClick = true) {
+        if (confirmCountdownSeconds < 0f) {
+            confirmCountdownSeconds = RoundEndTiming.HuConfirmCountdownSeconds;
+        }
         // 显示番数
         string roomRuleForFan = NormalGameStateManager.Instance.subRule;
         bool isClassical = roomRuleForFan == "classical/standard";
@@ -271,10 +328,20 @@ public class EndResultPanel : MonoBehaviour {
         yield return new WaitForSeconds(RoundEndTiming.HuBeforeTotalPanelSeconds);
         ShowTotalPanel(roomRuleForFan, hu_score, hu_fan, base_fu, riichiExtras);
 
-        EndButton.interactable = true;
-        int countdown = Mathf.RoundToInt(RoundEndTiming.HuConfirmCountdownSeconds);
+        yield return CoPlayEndButtonCountdown(confirmCountdownSeconds, allowConfirmClick);
+        if (resumeSichuanContinueAfterClose && currentState == StateGame && NormalGameStateManager.Instance != null) {
+            NormalGameStateManager.Instance.TryResumeAfterSichuanContinue();
+        }
+    }
+
+    /// <summary>确定按钮倒计时：始终显示数字；仅 allowConfirmClick 时可点击。</summary>
+    private IEnumerator CoPlayEndButtonCountdown(float confirmCountdownSeconds, bool allowConfirmClick) {
+        EndButton.gameObject.SetActive(true);
+        EndButton.interactable = false;
+        int countdown = Mathf.Max(1, Mathf.RoundToInt(confirmCountdownSeconds));
         for (int i = countdown; i > 0; i--) {
             EndButtonText.text = $"确定({i})";
+            EndButton.interactable = allowConfirmClick;
             yield return new WaitForSeconds(1f);
         }
         EndButtonText.text = "确定(0)";
@@ -412,6 +479,214 @@ public class EndResultPanel : MonoBehaviour {
         EndButtonText.text = "确认";
     }
 
+    /// <summary>
+    /// 四川查叫：单家面板（有叫/没叫/花猪 + 合并分数变更）。
+    /// </summary>
+    [System.Obsolete("Use PrepareSichuanChajiaoSingle + CoPlaySichuanChajiaoRoutine")]
+    public IEnumerator PlaySichuanChajiaoSingle(
+        int focusPlayerIndex,
+        string statusKey,
+        int[] hand,
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> scoreChanges,
+        bool isFinalPanel) {
+        PrepareSichuanChajiaoSingle(focusPlayerIndex, statusKey, hand, null, player_to_score, scoreChanges);
+        yield return CoPlaySichuanChajiaoRoutine(statusKey, isFinalPanel);
+    }
+
+    private IEnumerator CoPlaySichuanChajiaoStatusAndCountdown(string statusKey, bool isFinalPanel) {
+        EndButton.gameObject.SetActive(true);
+        EndButton.interactable = false;
+        EndButtonText.text = "确定";
+        FanCountTotalPanel.SetActive(false);
+
+        string statusLabel = StatusKeyToLabel(statusKey);
+        GameObject statusFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount statusFanCount = statusFanInstance.GetComponent<FanCount>();
+        if (statusFanCount != null) {
+            statusFanCount.SetFanCount(statusLabel, "—");
+            statusFanCount.ApplyFanColor();
+        }
+
+        yield return new WaitForSeconds(RoundEndTiming.SichuanChajiaoStatusHoldSeconds);
+
+        if (isFinalPanel) {
+            yield return CoPlayLiujuFinalConfirmCountdown();
+        } else {
+            yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
+        }
+    }
+
+    /// <summary>四川查叫退税：末步可确认进入下一局。</summary>
+    [System.Obsolete("Use PrepareSichuanChaRefundSingle + CoPlaySichuanChaRefundRoutine")]
+    public IEnumerator PlaySichuanChaRefundSingle(
+        Dictionary<int, int> player_to_score,
+        Dictionary<int, int> scoreChanges,
+        bool isFinalPanel) {
+        PrepareSichuanChaRefundSingle(player_to_score, scoreChanges);
+        yield return CoPlaySichuanChaRefundRoutine(isFinalPanel);
+    }
+
+    private IEnumerator CoPlaySichuanChaRefundCountdown(bool isFinalPanel) {
+        EndButton.gameObject.SetActive(true);
+        EndButton.interactable = false;
+        EndButtonText.text = "确定";
+        FanCountTotalPanel.SetActive(false);
+
+        if (isFinalPanel) {
+            yield return CoPlayLiujuFinalConfirmCountdown();
+        } else {
+            yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
+        }
+    }
+
+    private IEnumerator CoPlayLiujuFinalConfirmCountdown() {
+        yield return CoPlayEndButtonCountdown(RoundEndTiming.HuConfirmCountdownSeconds, allowConfirmClick: true);
+    }
+
+    private void PopulateEndTilesContainer(int[] hand, int[][] combinationMask, EndResultTileLayout layout) {
+        if (hand == null || hand.Length == 0) return;
+
+        if (layout == EndResultTileLayout.ClosedHandWithMelds) {
+            int[] sortedHand = (int[])hand.Clone();
+            System.Array.Sort(sortedHand, TileIdOrder.Comparer);
+            for (int i = 0; i < sortedHand.Length; i++) {
+                SpawnStaticTile(sortedHand[i]);
+            }
+            SpawnHideSplit();
+            SpawnCombinationTiles(combinationMask);
+            return;
+        }
+
+        int lastCard = hand[hand.Length - 1];
+        int[] closedHand = (int[])hand.Clone();
+        System.Array.Resize(ref closedHand, closedHand.Length - 1);
+        System.Array.Sort(closedHand, TileIdOrder.Comparer);
+
+        for (int i = 0; i < closedHand.Length; i++) {
+            SpawnStaticTile(closedHand[i]);
+        }
+        SpawnHideSplit();
+        SpawnCombinationTiles(combinationMask);
+        SpawnHideSplit();
+        SpawnStaticTile(lastCard);
+    }
+
+    private void SpawnStaticTile(int tileId) {
+        GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+        staticCard.transform.SetParent(EndTilescontainer.transform);
+        staticCard.GetComponent<StaticCard>().SetTileOnlyImage(tileId);
+    }
+
+    private void SpawnHideSplit() {
+        GameObject hideSplitInstance = Instantiate(HideSplit, EndTilescontainer.transform);
+        hideSplitInstance.transform.SetParent(EndTilescontainer.transform);
+    }
+
+    private void SpawnCombinationTiles(int[][] combinationMask) {
+        if (combinationMask == null) return;
+        for (int list = 0; list < combinationMask.Length; list++) {
+            for (int mask = 1; mask < combinationMask[list].Length; mask += 2) {
+                SpawnStaticTile(combinationMask[list][mask]);
+            }
+        }
+    }
+
+    private static string StatusKeyToLabel(string statusKey) {
+        if (statusKey == "ting") return "有叫";
+        if (statusKey == "hua_zhu") return "花猪";
+        return "没叫";
+    }
+
+    private void ApplyScoreChangesToPanel(Dictionary<int, int> player_to_score, Dictionary<int, int> scoreChanges) {
+        var scoreBySeat = new Dictionary<int, int>();
+        foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
+            string pos = kvp.Value;
+            int seatIdx = kvp.Key;
+            if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
+            int beforeScore = playerInfo.score;
+            ShowResultPlayerScoreResolver.ResolveScoreChange(
+                beforeScore, seatIdx, playerInfo.original_player_index,
+                scoreChanges, player_to_score, out int afterScore);
+            string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
+            string displayName = StreamerModeHelper.FormatGamestatePlayerName(playerInfo.username, pos, playerInfo.userId);
+            if (pos == "self") { SelfUserName.text = displayName; SelfScore.text = scoreText; }
+            else if (pos == "left") { LeftUserName.text = displayName; LeftScore.text = scoreText; }
+            else if (pos == "top") { TopUserName.text = displayName; TopScore.text = scoreText; }
+            else if (pos == "right") { RightUserName.text = displayName; RightScore.text = scoreText; }
+            scoreBySeat[seatIdx] = afterScore;
+        }
+        BoardCanvas.Instance.UpdatePlayerScores(scoreBySeat, NormalGameStateManager.Instance.indexToPosition);
+    }
+
+    /// <summary>
+    /// 四川流局（旧批量演出用，保留供牌谱等场景调用）。
+    /// </summary>
+    public void ShowSichuanLiujuStatus(int playerIndex, Dictionary<int, int> player_to_score, string statusLabel, int[] hand) {
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
+        currentState = StateGame;
+        gameObject.SetActive(true);
+        EndButton.gameObject.SetActive(false);
+
+        foreach (Transform child in EndTilescontainer.transform) Destroy(child.gameObject);
+        foreach (Transform child in FanCountContainer) Destroy(child.gameObject);
+
+        ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
+        GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
+        SelfReady.gameObject.SetActive(false);
+        LeftReady.gameObject.SetActive(false);
+        TopReady.gameObject.SetActive(false);
+        RightReady.gameObject.SetActive(false);
+
+        // 该玩家手牌整体显示（流局无和牌张，不做末张拆分）
+        if (hand != null && hand.Length > 0) {
+            int[] sorted = (int[])hand.Clone();
+            Array.Sort(sorted, TileIdOrder.Comparer);
+            for (int i = 0; i < sorted.Length; i++) {
+                GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
+                staticCard.GetComponent<StaticCard>().SetTileOnlyImage(sorted[i]);
+            }
+        }
+
+        // 全员分数（before=局前本地分，after=服务端最终分），并把计分板更新到最终分
+        var scoreBySeat = new Dictionary<int, int>();
+        foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
+            string pos = kvp.Value;
+            int seatIdx = kvp.Key;
+            if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
+            int beforeScore = playerInfo.score;
+            ShowResultPlayerScoreResolver.ResolveScoreChange(
+                beforeScore, seatIdx, playerInfo.original_player_index,
+                null, player_to_score, out int afterScore);
+            string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
+            string displayName = StreamerModeHelper.FormatGamestatePlayerName(playerInfo.username, pos, playerInfo.userId);
+            if (pos == "self") { SelfUserName.text = displayName; SelfScore.text = scoreText; }
+            else if (pos == "left") { LeftUserName.text = displayName; LeftScore.text = scoreText; }
+            else if (pos == "top") { TopUserName.text = displayName; TopScore.text = scoreText; }
+            else if (pos == "right") { RightUserName.text = displayName; RightScore.text = scoreText; }
+            scoreBySeat[seatIdx] = afterScore;
+        }
+        BoardCanvas.Instance.UpdatePlayerScores(scoreBySeat, NormalGameStateManager.Instance.indexToPosition);
+
+        // 状态番：statusLabel + 0番
+        GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
+        if (fanCount != null) {
+            fanCount.SetFanCount(statusLabel, "0番");
+            fanCount.ApplyFanColor();
+        }
+
+        // 总计：0番 0点
+        FanCountTotalPanel.SetActive(true);
+        TotalFu.gameObject.SetActive(false);
+        TotalFan.text = "0番";
+        TotalScore.text = "0点";
+        TotalLimitDisplay.gameObject.SetActive(false);
+    }
+
     private static string FormatScoreWithDiff(int before, int after) {
         int diff = after - before;
         if (diff > 0) {
@@ -424,6 +699,9 @@ public class EndResultPanel : MonoBehaviour {
 
     // 按钮点击以后发送准备消息
     public void EndButtonClick(){
+        if (!EndButton.interactable) {
+            return;
+        }
         EndButton.interactable = false;
         if (currentState == StateRecord) {
             HandleRecordStateConfirm();
@@ -437,7 +715,7 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleGameStateConfirm() {
-        // 对局状态：发送准备消息到服务器
+        gameObject.SetActive(false);
         GameStateNetworkManager.Instance.SendAction("ready", 0);
     }
 
@@ -479,6 +757,7 @@ public class EndResultPanel : MonoBehaviour {
         FanCountTotalPanel.SetActive(true);
         bool isClassical = rule == "classical/standard";
         bool isRiichi = rule != null && rule.StartsWith("riichi");
+        bool isSichuan = rule != null && rule.StartsWith("sichuan");
 
         if (isRiichi && riichiExtras != null) {
             TotalFu.gameObject.SetActive(true);
@@ -500,6 +779,8 @@ public class EndResultPanel : MonoBehaviour {
         if (isClassical) {
             int fanTotal = CalculateClassicalFanTotal(huFan);
             TotalFan.text = fanTotal >= 0 ? $"{fanTotal}番" : "满贯";
+        } else if (isSichuan) {
+            TotalFan.text = $"{ScoreHistorySettlementHelper.CalculateSichuanFanTotal(rule, huFan)}番";
         } else {
             TotalFan.text = $"{huScore}番";
         }

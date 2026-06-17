@@ -81,7 +81,7 @@ public class SoundManager : MonoBehaviour {
             }
             return "zimo";
         }
-        if (actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third") {
+        if (actionType == "hu" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third") {
             if (roomRule == "riichi" || (subRule != null && subRule.StartsWith("riichi/"))) {
                 return "rong";
             }
