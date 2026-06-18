@@ -99,10 +99,11 @@ public class ShowResultInfo { // 显示结算结果
     public int[] hua_zhu_players;
     public Dictionary<int, int> gang_refund_changes;
     public Dictionary<int, int[]> tenpai_tiles_sichuan;
-    public Dictionary<int, string> liuju_status; // 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu"}
+    public Dictionary<int, string> liuju_status; // 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu_passive"/"hua_zhu_active"/"hua_zhu"(旧)}
     public Dictionary<int, int[]> liuju_hands;    // 流局未和家手牌（亮牌+状态面板用）
-    public string liuju_step;                     // reveal_hu/settle_hu/chajiao/cha_refund/final
+    public string liuju_step;                     // reveal_hu/settle_hu/chajiao/final（cha_refund 已并入 chajiao）
     public bool liuju_status_final;               // 流局逐家状态是否为最后一条
+    public bool liuju_refund;                     // 该查叫面板内含刮风下雨退税（加“退税”标签 +0.5s）
 }
 
 public class ShowShuheWeiInfo { // 数和尾结算信息
@@ -389,7 +390,8 @@ public class LeaderboardEntry { // 国标段位排行榜条目
 }
 
 public class StickerInfo {
-    public int player_index;
+    public int player_index; // 当局座位索引（兼容旧逻辑）
+    public int original_player_index; // 开局固定风位，结算换座期间按此定位面板
     public string sticker;
 }
 

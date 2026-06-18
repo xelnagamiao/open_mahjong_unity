@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 仅暗杠手牌删收拢与暗杠后岭上摸牌走各家串行队列，保证「删 4 张 → 收拢 → 摸牌」顺序正确。
-/// 出牌 / 普通摸牌 / 吃碰杠等仍走 Change3DTileCoroutine，避免多家快速出牌时队列互相拖慢。
+/// 暗杠/加杠手牌删收拢与杠后岭上摸牌走各家串行队列，保证「删牌 → 收拢 → 摸牌」顺序正确。
+/// 出牌 / 普通摸牌 / 吃碰明杠等仍走 Change3DTileCoroutine，避免多家快速出牌时队列互相拖慢。
 /// </summary>
 public partial class Game3DManager {
     private enum HandAnimOpKind {
@@ -33,7 +33,7 @@ public partial class Game3DManager {
 
     private readonly Dictionary<string, Coroutine> _handAnimProcessors = new Dictionary<string, Coroutine>();
 
-    /// <summary>暗杠广播后，下一笔该玩家的 GetCard（岭上摸牌）须入队。</summary>
+    /// <summary>暗杠/加杠广播后，下一笔该玩家的 GetCard（岭上摸牌）须入队。</summary>
     private readonly Dictionary<string, bool> _ankanPendingDrawByPlayer = new Dictionary<string, bool> {
         { "self", false },
         { "left", false },
@@ -153,10 +153,22 @@ public partial class Game3DManager {
         });
     }
 
-    private void EnqueueAnkanDraw(string playerPosition, int tileId) {
+    private void EnqueueGangDraw(string playerPosition, int tileId) {
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.DrawCard,
             TileId = tileId,
+        });
+    }
+
+    private void EnqueueJiagangHandWork(string playerPosition, int jiagangTileId, bool isMoGang) {
+        EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+            Kind = HandAnimOpKind.RemoveCards,
+            RemoveCount = 1,
+            CutClass = isMoGang,
+            TileId = jiagangTileId,
+        });
+        EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+            Kind = HandAnimOpKind.Rearrange,
         });
     }
 
@@ -209,7 +221,7 @@ public partial class Game3DManager {
         }
     }
 
-    /// <returns>true 表示已处理（暗杠链或暗杠后摸牌），不再走 Change3DTileCoroutine。</returns>
+    /// <returns>true 表示已处理（暗杠/加杠链或杠后摸牌），不再走 Change3DTileCoroutine。</returns>
     private bool TryEnqueueAnkanHandChange(string actionType, int tileId, int removeCount, string playerPosition, int[] combinationMask, bool isMoGang = false) {
         if (actionType == "angang") {
             int angangTileId = tileId;
@@ -225,6 +237,20 @@ public partial class Game3DManager {
             EnqueueAnkanHandWork(playerPosition, combinationMask, isMoGang, angangTileId);
             return true;
         }
+        if (actionType == "jiagang") {
+            int jiagangTileId = tileId >= 2 ? tileId : 0;
+            if (jiagangTileId < 2 && combinationMask != null) {
+                jiagangTileId = GameRecordMeldCodec.ExtractTileByFlag(combinationMask, 3) ?? jiagangTileId;
+            }
+            if (IsRecordShowCardsModeActive() && playerPosition != "self") {
+                StartCoroutine(RecordMeldShowCardsCoroutine(playerPosition, actionType, combinationMask));
+                return true;
+            }
+            _ankanPendingDrawByPlayer[playerPosition] = true;
+            StartMeldPresentation(actionType, playerPosition, combinationMask);
+            EnqueueJiagangHandWork(playerPosition, jiagangTileId, isMoGang);
+            return true;
+        }
         if (actionType == "GetCard" && _ankanPendingDrawByPlayer[playerPosition]) {
             if (IsRecordShowCardsModeActive() && playerPosition != "self") {
                 StartCoroutine(RecordShowCardGetCoroutine(playerPosition, tileId));
@@ -232,7 +258,7 @@ public partial class Game3DManager {
                 return true;
             }
             _ankanPendingDrawByPlayer[playerPosition] = false;
-            EnqueueAnkanDraw(playerPosition, tileId);
+            EnqueueGangDraw(playerPosition, tileId);
             return true;
         }
         return false;

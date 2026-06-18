@@ -232,7 +232,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    // 3D手牌处理入口：仅暗杠与暗杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
+    // 3D手牌处理入口：暗杠/加杠与杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
@@ -258,7 +258,9 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask, isMoGang)) {
+        // 加杠把 isMoGang 传入 cut_class 位；暗杠走命名参数 isMoGang
+        bool queueMoGang = actionType == "jiagang" ? cut_class : isMoGang;
+        if (TryEnqueueAnkanHandChange(actionType, tileId, removeCount, PlayerPosition, combination_mask, queueMoGang)) {
             return;
         }
 

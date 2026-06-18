@@ -8,7 +8,7 @@ namespace Riichi {
     ///   底符 20
     ///   门前清荣和 +10（门前清且荣和，非平和成立时）
     ///   自摸 +2（非平和自摸）
-    ///   七对子固定 25 符（不再叠加其他符）
+    ///   七对子 / 国士无双固定 25 符（不再叠加其他符）
     ///   雀头役牌 +2（三元/自风/场风；同为自风+场风双倍 +4）
     ///   刻子/杠：
     ///     明刻中张 2 / 明刻幺九 4
@@ -24,7 +24,7 @@ namespace Riichi {
                                      RiichiHandContext ctx, RiichiYakuDetector.DetectResult detect,
                                      HandShape shape) {
             if (shape == HandShape.Chiitoitsu) return 25;
-            if (shape == HandShape.Kokushi) return 20;
+            if (shape == HandShape.Kokushi) return 25;
 
             bool hasPinfu = detect.Yaku.Any(y => y.Name == "平和");
             if (hasPinfu) return ctx.IsTsumo ? 20 : 30;

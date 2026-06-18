@@ -177,10 +177,13 @@ public class ActionButton : MonoBehaviour {
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {
         var options = new List<(int, List<int>)>();
         var processedNorms = new HashSet<int>();
+        var gsm = NormalGameStateManager.Instance;
+        int dingqueSuit = gsm != null && gsm.IsSichuanRule() ? gsm.selfDingqueSuit : 0;
         foreach (int tileID in handTiles) {
             int norm = RiichiTileUtil.Normalize(tileID);
             if (processedNorms.Contains(norm)) continue;
             processedNorms.Add(norm);
+            if (dingqueSuit >= 1 && dingqueSuit <= 3 && norm / 10 == dingqueSuit) continue;
             if (GameRecordMeldCodec.CountNormalizedTiles(handTiles, norm) != 4) continue;
             var actualTiles = handTiles.Where(t => RiichiTileUtil.Normalize(t) == norm).ToList();
             options.Add((norm, actualTiles));

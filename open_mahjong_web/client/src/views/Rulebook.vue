@@ -62,7 +62,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Trophy, Promotion, Star, Coffee, Document } from '@element-plus/icons-vue'
+import { Trophy, Promotion, Star, Coffee, Document, Place, Collection } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -86,6 +86,12 @@ const rules = [
         desc: '社区修改的一种麻将规则',
         url: '/rulebooks/guobiao-kobayashi.pdf',
         filename: '中国麻将（小林改版）规则书.pdf'
+      },
+      {
+        title: 'K神麻将',
+        desc: '国标K神改。',
+        url: '/rulebooks/guobiao-kshen.pdf',
+        filename: 'K神麻雀规则_v2.61版_规范说明书.pdf'
       }
     ]
   },
@@ -128,6 +134,36 @@ const rules = [
         desc: '包含青雀规则的行牌逻辑和概念解释。',
         url: '/rulebooks/qingque-rulebook.pdf',
         filename: '青雀 12.5-a1.pdf'
+      }
+    ]
+  },
+  {
+    key: 'sichuan',
+    label: '四川麻将',
+    description: 'MIL比赛规则。',
+    gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 55%, #fecfef 100%)',
+    icon: Place,
+    docs: [
+      {
+        title: '四川麻将（SBR）竞赛规则',
+        desc: '四川麻将（SBR）竞赛规则（试行 2025 版）。',
+        url: '/rulebooks/sichuan-sbr.pdf',
+        filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf'
+      }
+    ]
+  },
+  {
+    key: 'shiyangjin',
+    label: '十样锦麻将',
+    description: '尚未实装该规则，此处仅提供规则书查阅。',
+    gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    icon: Collection,
+    docs: [
+      {
+        title: '十样锦麻将规则书',
+        desc: '十样锦麻将规则说明。',
+        url: '/rulebooks/shiyangjin.pdf',
+        filename: '十样锦麻将规则书.pdf'
       }
     ]
   },

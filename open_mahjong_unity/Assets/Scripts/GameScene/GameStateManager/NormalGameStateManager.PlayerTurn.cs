@@ -21,7 +21,7 @@ public partial class NormalGameStateManager {
                 }
                 // 如果开启自动自摸、自动补花或者自动出牌，则启动协程
                 if (AutoAction.Instance != null && (AutoAction.Instance.ShouldAutoWinTsumo() || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut)){
-                    StartCoroutine(WaitAutoAction("AutoHandAction"));
+                    StartWaitAutoAction("AutoHandAction");
                 }
                 // 询问操作时隐藏提示块
                 TipsBlock.Instance.HideTipsBlock();
@@ -47,7 +47,7 @@ public partial class NormalGameStateManager {
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
             // 如果开启自动过牌或自动荣和，则启动协程
             if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.ShouldAutoWinRon() || AutoAction.Instance.ShouldAutoPassForCurrentDiscard() || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
-                StartCoroutine(WaitAutoAction("AutoMingPaiAction"));
+                StartWaitAutoAction("AutoMingPaiAction");
             }
             IsSelfActionRequired = true;
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskOther);
@@ -55,6 +55,9 @@ public partial class NormalGameStateManager {
 
         // 执行行动
         else if (SwitchType == "doAction"){
+            if (GetCardPlayer == "self") {
+                CancelWaitAutoAction("doAction");
+            }
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
             Debug.Log($"doAction行动者: {GetCardPlayer}");
             // 如果行动者是自己
@@ -82,6 +85,7 @@ public partial class NormalGameStateManager {
 
         // 选择行动
         else if (SwitchType == "ClearAction"){
+            CancelWaitAutoAction("ClearAction");
             ClearQiangGangAskState();
             GameSceneMouseInputController.Instance.ClearStaleHandInput("ClearAction");
             // 停止计时器
@@ -99,6 +103,7 @@ public partial class NormalGameStateManager {
 
         // 时间耗尽
         else if (SwitchType == "TimeOut"){
+            CancelWaitAutoAction("TimeOut");
             ClearQiangGangAskState();
             GameSceneMouseInputController.Instance.ClearStaleHandInput("TimeOut");
             // 清空操作按钮

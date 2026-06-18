@@ -52,6 +52,30 @@ public class EndResultPanel : MonoBehaviour {
     [Header("国标局终亮杠（默认隐藏）")]
     [SerializeField] private TextMeshProUGUI guobiaoAngangCheckText;
 
+    [Header("玩家面板背景（按状态着色：正常蓝/准备橙/被检查深红）")]
+    [Tooltip("各座位的面板背景 Image。未拖入时回退到旧版 Ready 图标显隐。")]
+    [SerializeField] private Image SelfPanelBackground;
+    [SerializeField] private Image LeftPanelBackground;
+    [SerializeField] private Image TopPanelBackground;
+    [SerializeField] private Image RightPanelBackground;
+
+    [Header("玩家面板背景配色（可在 Inspector 自由调整）")]
+    [Tooltip("正常状态：默认蓝")]
+    [SerializeField] private Color SeatColorNormal = new Color(0.20f, 0.45f, 0.85f, 1f);
+    [Tooltip("已准备状态：默认橙")]
+    [SerializeField] private Color SeatColorReady = new Color(0.95f, 0.55f, 0.10f, 1f);
+    [Tooltip("被检查状态（川麻查牌/查叫）：默认深红")]
+    [SerializeField] private Color SeatColorChecked = new Color(0.62f, 0.09f, 0.11f, 1f);
+
+    private enum SeatVisual { Normal, Ready, Checked }
+
+    // 最近一次准备状态缓存（按 player_index），用于面板重建/服务端逐步驱动时保持准备色不丢失
+    private readonly Dictionary<int, bool> cachedReadyStatus = new Dictionary<int, bool>();
+    // 当前“被检查”的座位 player_index（川麻终局逐家查牌/查叫高亮）；-1 表示无
+    private int checkedFocusSeat = -1;
+    // 当前查叫面板是否含退税（用于补“退税”标签与延长停留）
+    private bool chajiaoHasRefund = false;
+
     public static EndResultPanel Instance { get; private set; }
     public GameObject CardPrefab => StaticCardPrefab;
     public GameObject HideSplitPrefab => HideSplit;
@@ -62,6 +86,14 @@ public class EndResultPanel : MonoBehaviour {
     private Coroutine showResultCoroutine;
 
     public bool IsAwaitingRecordResultConfirm => currentState == StateRecord && gameObject.activeSelf;
+
+    /// <summary>中断番种渐显/确认倒计时等局内结算协程（四川终局步间切换时调用）。</summary>
+    public void StopActivePresentation() {
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
+    }
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -123,15 +155,23 @@ public class EndResultPanel : MonoBehaviour {
             hepaiPlayerIndex, player_to_score, huScore, huFan, huClass,
             hepaiPlayerHand, null, hepaiPlayerCombinationMask, null, scoreChanges,
             suppressHandReveal: false, EndResultTileLayout.HuWithWinTile);
+        // 川麻终局逐家查牌：高亮当前正在检查的和牌玩家面板（深红）
+        SetCheckedFocusSeat(hepaiPlayerIndex);
     }
 
     public IEnumerator CoPlaySichuanSettleHuRoutine(int huScore, string[] huFan, bool isFinalPanel) {
-        float confirmSeconds = isFinalPanel
-            ? RoundEndTiming.HuConfirmCountdownSeconds
-            : RoundEndTiming.SichuanMidPanelConfirmSeconds;
-        yield return PlayShowResultRoutine(
-            huScore, huFan, null, null, null, confirmSeconds, resumeSichuanContinueAfterClose: false,
-            allowConfirmClick: isFinalPanel);
+        if (showResultCoroutine != null) {
+            StopCoroutine(showResultCoroutine);
+            showResultCoroutine = null;
+        }
+        showResultCoroutine = StartCoroutine(PlayShowResultRoutine(
+            huScore, huFan, null, null, null,
+            RoundEndTiming.HuConfirmCountdownSeconds,
+            resumeSichuanContinueAfterClose: false,
+            allowConfirmClick: isFinalPanel,
+            skipConfirmCountdown: !isFinalPanel));
+        yield return showResultCoroutine;
+        showResultCoroutine = null;
     }
 
     /// <summary>四川查叫：准备面板（手牌+副露，无和牌张）。</summary>
@@ -141,15 +181,24 @@ public class EndResultPanel : MonoBehaviour {
         int[] hand,
         int[][] combinationMask,
         Dictionary<int, int> player_to_score,
-        Dictionary<int, int> scoreChanges) {
+        Dictionary<int, int> scoreChanges,
+        bool isFinalPanel = false,
+        bool hasRefund = false) {
+        chajiaoHasRefund = hasRefund;
         InitializeShowResult(
             focusPlayerIndex, player_to_score, 0, System.Array.Empty<string>(), "liuju",
             hand, null, combinationMask, null, scoreChanges,
             suppressHandReveal: hand == null || hand.Length == 0,
             EndResultTileLayout.ClosedHandWithMelds);
+        // 川麻终局逐家查叫：高亮当前正在检查的未和玩家面板（深红）
+        SetCheckedFocusSeat(focusPlayerIndex);
+        // 与面板显示同步：确认按钮只在末步出现，避免渐显期间“先现后隐”的闪烁
+        EndButton.gameObject.SetActive(isFinalPanel);
+        EndButton.interactable = false;
     }
 
-    public IEnumerator CoPlaySichuanChajiaoRoutine(string statusKey, bool isFinalPanel) {
+    public IEnumerator CoPlaySichuanChajiaoRoutine(string statusKey, bool isFinalPanel, bool hasRefund = false) {
+        chajiaoHasRefund = hasRefund;
         yield return CoPlaySichuanChajiaoStatusAndCountdown(statusKey, isFinalPanel);
     }
 
@@ -223,13 +272,14 @@ public class EndResultPanel : MonoBehaviour {
         }
 
         // 立直规则：和牌画面出现的瞬间立刻翻开宝牌/里宝牌（含里宝来自立直家），其余槽位仍渲染牌背 0
-        ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, riichiExtras);
+        string roomRuleForFan = NormalGameStateManager.Instance.subRule;
+        ShowRiichiExtrasPanel(roomRuleForFan, riichiExtras);
         GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance?.lastGuobiaoEndExtras, hu_fan);
+        TryPlayGongHuSound(roomRuleForFan, hu_fan);
 
-        SelfReady.gameObject.SetActive(false);
-        LeftReady.gameObject.SetActive(false);
-        TopReady.gameObject.SetActive(false);
-        RightReady.gameObject.SetActive(false);
+        // 面板重建：清除被检查高亮，按缓存准备状态重绘座位配色（川麻 Prepare 会随后设置被检查座位）
+        checkedFocusSeat = -1;
+        ApplySeatVisuals();
 
         bool showHandInPanel = !suppressHandReveal
             && hepai_player_hand != null && hepai_player_hand.Length > 0;
@@ -285,7 +335,7 @@ public class EndResultPanel : MonoBehaviour {
 
     private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
         RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f, bool resumeSichuanContinueAfterClose = false,
-        bool allowConfirmClick = true) {
+        bool allowConfirmClick = true, bool skipConfirmCountdown = false) {
         if (confirmCountdownSeconds < 0f) {
             confirmCountdownSeconds = RoundEndTiming.HuConfirmCountdownSeconds;
         }
@@ -328,6 +378,11 @@ public class EndResultPanel : MonoBehaviour {
         yield return new WaitForSeconds(RoundEndTiming.HuBeforeTotalPanelSeconds);
         ShowTotalPanel(roomRuleForFan, hu_score, hu_fan, base_fu, riichiExtras);
 
+        if (skipConfirmCountdown) {
+            yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
+            yield break;
+        }
+
         yield return CoPlayEndButtonCountdown(confirmCountdownSeconds, allowConfirmClick);
         if (resumeSichuanContinueAfterClose && currentState == StateGame && NormalGameStateManager.Instance != null) {
             NormalGameStateManager.Instance.TryResumeAfterSichuanContinue();
@@ -346,7 +401,10 @@ public class EndResultPanel : MonoBehaviour {
         }
         EndButtonText.text = "确定(0)";
         EndButton.interactable = false;
-        gameObject.SetActive(false);
+        // 可点击确认的对局结算：面板保留至下一局 game_start 由 InitGameStart 清理
+        if (!allowConfirmClick) {
+            gameObject.SetActive(false);
+        }
     }
 
     /// <summary>
@@ -472,6 +530,7 @@ public class EndResultPanel : MonoBehaviour {
         ShowTotalPanel(roomType, hu_score, hu_fan, base_fu, riichiExtras);
         ShowRiichiExtrasPanel(roomType, riichiExtras);
         GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, null, hu_fan);
+        TryPlayGongHuSound(roomType, hu_fan);
 
         // 回放模式仅显示确认按钮，点击后关闭并切到下一局；观战模式不显示确认，由 end tick 驱动
         EndButton.interactable = !isSpectator;
@@ -495,7 +554,7 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private IEnumerator CoPlaySichuanChajiaoStatusAndCountdown(string statusKey, bool isFinalPanel) {
-        EndButton.gameObject.SetActive(true);
+        EndButton.gameObject.SetActive(isFinalPanel);
         EndButton.interactable = false;
         EndButtonText.text = "确定";
         FanCountTotalPanel.SetActive(false);
@@ -508,12 +567,26 @@ public class EndResultPanel : MonoBehaviour {
             statusFanCount.ApplyFanColor();
         }
 
+        // 没叫/花猪开杠者的刮风下雨退税并入本面板：补“退税”标签（分变已含在 score_changes 中）
+        if (chajiaoHasRefund) {
+            GameObject refundFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
+            FanCount refundFanCount = refundFanInstance.GetComponent<FanCount>();
+            if (refundFanCount != null) {
+                refundFanCount.SetFanCount("刮风下雨", "退税");
+                refundFanCount.ApplyFanColor();
+            }
+        }
+
         yield return new WaitForSeconds(RoundEndTiming.SichuanChajiaoStatusHoldSeconds);
 
         if (isFinalPanel) {
             yield return CoPlayLiujuFinalConfirmCountdown();
         } else {
-            yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
+            float midHold = RoundEndTiming.SichuanMidPanelConfirmSeconds;
+            if (chajiaoHasRefund) {
+                midHold += RoundEndTiming.SichuanChajiaoRefundExtraSeconds;
+            }
+            yield return CoPlayEndButtonCountdown(midHold, allowConfirmClick: false);
         }
     }
 
@@ -528,15 +601,13 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private IEnumerator CoPlaySichuanChaRefundCountdown(bool isFinalPanel) {
-        EndButton.gameObject.SetActive(true);
+        EndButton.gameObject.SetActive(isFinalPanel);
         EndButton.interactable = false;
         EndButtonText.text = "确定";
         FanCountTotalPanel.SetActive(false);
 
         if (isFinalPanel) {
             yield return CoPlayLiujuFinalConfirmCountdown();
-        } else {
-            yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
         }
     }
 
@@ -594,6 +665,8 @@ public class EndResultPanel : MonoBehaviour {
 
     private static string StatusKeyToLabel(string statusKey) {
         if (statusKey == "ting") return "有叫";
+        if (statusKey == "hua_zhu_passive") return "被动花猪";
+        if (statusKey == "hua_zhu_active") return "主动花猪";
         if (statusKey == "hua_zhu") return "花猪";
         return "没叫";
     }
@@ -715,7 +788,6 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleGameStateConfirm() {
-        gameObject.SetActive(false);
         GameStateNetworkManager.Instance.SendAction("ready", 0);
     }
 
@@ -726,26 +798,70 @@ public class EndResultPanel : MonoBehaviour {
         }
     }
     
-    // 更新准备状态显示
+    // 更新准备状态显示：缓存最新准备状态并按缓存重绘座位配色（修复机器人/罗伯特已准备却不显示准备色）
     public void UpdateReadyStatus(Dictionary<int, bool> playerToReady) {
-        foreach (var kvp in playerToReady) {
-            int playerIndex = kvp.Key;
-            bool isReady = kvp.Value;
-            
-            // 根据玩家索引找到对应的位置
-            string position = NormalGameStateManager.Instance.indexToPosition.ContainsKey(playerIndex) 
-                ? NormalGameStateManager.Instance.indexToPosition[playerIndex] 
-                : null;
-            
-            if (position == "self") {
-                SelfReady.gameObject.SetActive(isReady);
-            } else if (position == "left") {
-                LeftReady.gameObject.SetActive(isReady);
-            } else if (position == "top") {
-                TopReady.gameObject.SetActive(isReady);
-            } else if (position == "right") {
-                RightReady.gameObject.SetActive(isReady);
+        if (playerToReady != null) {
+            foreach (var kvp in playerToReady) {
+                cachedReadyStatus[kvp.Key] = kvp.Value;
             }
+        }
+        ApplySeatVisuals();
+    }
+
+    private Image SeatBackground(string position) {
+        switch (position) {
+            case "self": return SelfPanelBackground;
+            case "left": return LeftPanelBackground;
+            case "top": return TopPanelBackground;
+            case "right": return RightPanelBackground;
+            default: return null;
+        }
+    }
+
+    private Image SeatReadyImage(string position) {
+        switch (position) {
+            case "self": return SelfReady;
+            case "left": return LeftReady;
+            case "top": return TopReady;
+            case "right": return RightReady;
+            default: return null;
+        }
+    }
+
+    /// <summary>设置“被检查”的座位（川麻终局逐家查牌/查叫高亮深红），并立即重绘。</summary>
+    private void SetCheckedFocusSeat(int playerIndex) {
+        checkedFocusSeat = playerIndex;
+        ApplySeatVisuals();
+    }
+
+    /// <summary>按 缓存准备状态 + 被检查座位 重绘所有座位面板配色。</summary>
+    private void ApplySeatVisuals() {
+        if (NormalGameStateManager.Instance == null) return;
+        foreach (var kvp in NormalGameStateManager.Instance.indexToPosition) {
+            int seat = kvp.Key;
+            string position = kvp.Value;
+            bool isReady = cachedReadyStatus.TryGetValue(seat, out bool r) && r;
+            // 准备色优先于被检查色：末步等待准备时仍能直观看到谁已准备
+            SeatVisual visual = isReady
+                ? SeatVisual.Ready
+                : (seat == checkedFocusSeat ? SeatVisual.Checked : SeatVisual.Normal);
+            ApplySeatVisual(position, visual);
+        }
+    }
+
+    private void ApplySeatVisual(string position, SeatVisual visual) {
+        Image bg = SeatBackground(position);
+        if (bg != null) {
+            // 背景已配置：用颜色表达状态，并隐藏旧版 Ready 图标
+            bg.color = visual == SeatVisual.Ready ? SeatColorReady
+                : visual == SeatVisual.Checked ? SeatColorChecked
+                : SeatColorNormal;
+            Image readyImg = SeatReadyImage(position);
+            if (readyImg != null) readyImg.gameObject.SetActive(false);
+        } else {
+            // 背景未配置（未在 Inspector 拖入）：回退到旧版 Ready 图标显隐
+            Image readyImg = SeatReadyImage(position);
+            if (readyImg != null) readyImg.gameObject.SetActive(visual == SeatVisual.Ready);
         }
     }
 
@@ -828,6 +944,15 @@ public class EndResultPanel : MonoBehaviour {
     /// <summary>
     /// 计算古典麻将翻数总和。若包含"满贯"级别役种则返回 -1 表示满贯。
     /// </summary>
+    private static void TryPlayGongHuSound(string rule, string[] huFan) {
+        if (!FanTextDictionary.ShouldPlayGongHuSound(rule, huFan)) {
+            return;
+        }
+        if (SoundManager.Instance != null) {
+            SoundManager.Instance.PlayPhysicsSound("Gong_hu");
+        }
+    }
+
     private static int CalculateClassicalFanTotal(string[] huFan) {
         int total = 0;
         foreach (string fan in huFan) {
@@ -846,6 +971,10 @@ public class EndResultPanel : MonoBehaviour {
             showResultCoroutine = null;
         }
         currentState = StateNone;
+        // 新一局：清空准备缓存与被检查高亮，座位配色复位
+        cachedReadyStatus.Clear();
+        checkedFocusSeat = -1;
+        chajiaoHasRefund = false;
 
         gameObject.SetActive(false);
         FanCountTotalPanel.SetActive(false);

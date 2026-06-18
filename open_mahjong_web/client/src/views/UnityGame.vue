@@ -21,6 +21,8 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 
 const unityCanvas = ref(null)
 const hintVisible = ref(true)
@@ -28,7 +30,71 @@ const hintText = ref('正在准备 WebGL，界面可能短暂无响应属正常�
 
 let unityInstance = null
 let unityMountGeneration = 0
+let skipLeaveConfirm = false
+let androidPopStateHandler = null
 const UNITY_LOADER_SCRIPT_ID = 'unity-webgl-loader-script'
+
+function isAndroidWeb() {
+  return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '')
+}
+
+async function confirmLeavePlatform() {
+  try {
+    await ElMessageBox.confirm('退出salasasa平台？', '', {
+      confirmButtonText: '确认',
+      cancelButtonText: '返回',
+      type: 'warning',
+      showClose: false,
+      closeOnClickModal: false,
+      closeOnPressEscape: false,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function installAndroidLeaveGuard() {
+  if (!isAndroidWeb()) return
+
+  history.pushState({ unityGameLeaveGuard: true }, '')
+
+  androidPopStateHandler = async () => {
+    if (skipLeaveConfirm) return
+
+    const ok = await confirmLeavePlatform()
+    if (ok) {
+      skipLeaveConfirm = true
+      history.back()
+    } else {
+      history.pushState({ unityGameLeaveGuard: true }, '')
+    }
+  }
+
+  window.addEventListener('popstate', androidPopStateHandler)
+}
+
+function removeAndroidLeaveGuard() {
+  if (androidPopStateHandler) {
+    window.removeEventListener('popstate', androidPopStateHandler)
+    androidPopStateHandler = null
+  }
+}
+
+onBeforeRouteLeave(async (_to, _from, next) => {
+  if (!isAndroidWeb() || skipLeaveConfirm) {
+    next()
+    return
+  }
+
+  const ok = await confirmLeavePlatform()
+  if (ok) {
+    skipLeaveConfirm = true
+    next()
+  } else {
+    next(false)
+  }
+})
 
 function removeUnityLoaderScript() {
   const el = document.getElementById(UNITY_LOADER_SCRIPT_ID)
@@ -211,6 +277,7 @@ onMounted(() => {
   adjustUnityContainer()
   window.addEventListener('resize', adjustUnityContainer)
   window.addEventListener('orientationchange', onOrientationChange)
+  installAndroidLeaveGuard()
 
   nextTick(() => {
     requestAnimationFrame(() => {
@@ -227,6 +294,7 @@ onUnmounted(() => {
   unityMountGeneration++
   window.removeEventListener('resize', adjustUnityContainer)
   window.removeEventListener('orientationchange', onOrientationChange)
+  removeAndroidLeaveGuard()
   removeUnityLoaderScript()
   if (unityInstance) {
     try {

@@ -21,12 +21,25 @@ public partial class GameCanvas {
     private Coroutine _dingqueCountdownCoroutine;
     private bool _dingqueSelected;
 
+    /// <summary>实时观战 / 牌谱阅览 / 延时观战时不弹出定缺选择面板（只读，不可操作）。</summary>
+    private static bool IsDingqueSelectionSuppressed() {
+        var gsm = NormalGameStateManager.Instance;
+        if (gsm != null && gsm.IsRealtimeSpectator) return true;
+        var grm = GameRecordManager.Instance;
+        if (grm != null && grm.gameObject.activeSelf) return true;
+        return false;
+    }
+
     /// <summary>
     /// 显示定缺选择面板并开启倒计时（默认 10 秒，类比国标补花轮）。
     /// 玩家点击三个按钮之一即提交；超时自动选择手牌中数量最少的花色（并列取序号最小者）。
     /// 由状态机收到服务端定缺询问（gamestate/sichuan/ask_dingque）时调用。
     /// </summary>
     public void ShowDingqueSelection(int seconds = 5) {
+        if (IsDingqueSelectionSuppressed()) {
+            HideDingqueSelection();
+            return;
+        }
         if (dingqueSelectionPanel == null) {
             Debug.LogWarning("定缺面板未配置，自动按手牌最少花色提交定缺");
             SubmitDingque(ComputeFewestSuitFromSelfHand());
@@ -154,6 +167,41 @@ public partial class GameCanvas {
             case "top":   return playerTopPanel;
             case "left":  return playerLeftPanel;
             default:      return null;
+        }
+    }
+
+    [Header("四川·顺和标记（仅本人操作区，类似日麻振听）")]
+    [SerializeField] private GameObject selfShunheIndicator;
+    [SerializeField] private TMP_Text selfShunheText;
+
+    /// <summary>根据自家 tag_list 中的 shunhe_N 显示顺和跳过番（不可点和≤N番，听牌出牌后生效，摸牌解除）。</summary>
+    public void RefreshSelfShunheIndicator() {
+        if (selfShunheIndicator == null) return;
+        var gm = NormalGameStateManager.Instance;
+        if (gm == null || !gm.IsSichuanRule()) {
+            selfShunheIndicator.SetActive(false);
+            return;
+        }
+        string[] tags = gm.player_to_info != null && gm.player_to_info.ContainsKey("self")
+            ? gm.player_to_info["self"].tag_list
+            : null;
+        int? capFan = null;
+        if (tags != null) {
+            for (int i = 0; i < tags.Length; i++) {
+                string tag = tags[i];
+                if (tag != null && tag.StartsWith("shunhe_")
+                    && int.TryParse(tag.Substring("shunhe_".Length), out int fan)) {
+                    if (!capFan.HasValue || fan > capFan.Value) capFan = fan;
+                }
+            }
+        }
+        if (!capFan.HasValue) {
+            selfShunheIndicator.SetActive(false);
+            return;
+        }
+        selfShunheIndicator.SetActive(true);
+        if (selfShunheText != null) {
+            selfShunheText.text = $"顺和:{capFan.Value}番";
         }
     }
 }

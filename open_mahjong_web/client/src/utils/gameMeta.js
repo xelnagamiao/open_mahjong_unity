@@ -8,6 +8,7 @@ const RULE_LABELS = {
   riichi: '立直',
   qingque: '青雀',
   classical: '古典',
+  sichuan: '四川',
 }
 
 const SUB_RULE_LABELS = {
@@ -17,6 +18,7 @@ const SUB_RULE_LABELS = {
   'guobiao/lanshi': '国标麻将(蓝十改)',
   'qingque/standard': '青雀',
   'classical/standard': '古典麻雀',
+  'sichuan/standard': '四川麻将(血战到底)',
   'riichi/standard': '立直麻将(标准)',
 }
 

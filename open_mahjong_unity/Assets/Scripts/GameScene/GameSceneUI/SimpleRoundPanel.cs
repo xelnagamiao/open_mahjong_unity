@@ -21,11 +21,7 @@ public class SimpleRoundPanel : MonoBehaviour {
         string rule = RuleNameDictionary.GetWholeName(roomType);
         ruleText.text = rule;
 
-        if (gameInfo.max_round == 1) GameRoundText.text = "东风战";
-        else if (gameInfo.max_round == 2) GameRoundText.text = "东南战";
-        else if (gameInfo.max_round == 3) GameRoundText.text = "西风战";
-        else if (gameInfo.max_round == 4) GameRoundText.text = "全庄战";
-        else GameRoundText.text = "未知轮数";
+        GameRoundText.text = RoundTextDictionary.GetMaxRoundText(gameInfo.max_round);
 
         string baseRule = roomType;
         int slash = roomType.IndexOf('/');
@@ -39,6 +35,8 @@ public class SimpleRoundPanel : MonoBehaviour {
             roundMap = RoundTextDictionary.CurrentRoundTextQingque;
         } else if (baseRule == "classical") {
             roundMap = RoundTextDictionary.CurrentRoundTextClassical;
+        } else if (baseRule == "sichuan") {
+            roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
         }
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
             roomNowRoundText.text = roundText;

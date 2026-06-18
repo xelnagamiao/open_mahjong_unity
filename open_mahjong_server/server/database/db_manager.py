@@ -646,13 +646,6 @@ class DatabaseManager:
                     else:
                         raise
 
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS data_migrations (
-                    migration_id VARCHAR(64) PRIMARY KEY,
-                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
             conn.commit() # 提交
             logger.info('数据表初始化成功')
             print('数据表初始化成功')
@@ -1651,14 +1644,6 @@ from .guobiao.store_guobiao import store_guobiao_game_record, store_guobiao_game
 DatabaseManager.store_guobiao_game_record = store_guobiao_game_record
 DatabaseManager.store_guobiao_game_stats = store_guobiao_game_stats
 DatabaseManager.store_guobiao_fan_stats = store_guobiao_fan_stats
-
-from .guobiao.backfill_rank_data import backfill_rank_data
-
-DatabaseManager.backfill_rank_data = backfill_rank_data
-
-from .guobiao.backfill_user_settings_config import backfill_user_settings_config
-
-DatabaseManager.backfill_user_settings_config = backfill_user_settings_config
 
 # 挂载青雀麻将相关方法到 DatabaseManager 类
 from .qingque.store_qingque import store_qingque_game_record, store_qingque_game_stats, store_qingque_fan_stats

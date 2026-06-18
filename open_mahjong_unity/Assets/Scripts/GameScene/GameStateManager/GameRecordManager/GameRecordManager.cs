@@ -1004,6 +1004,40 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 牌谱/观战激活时，从 gameTitle 读取 rule/sub_rule，供报声与操作文案与对局逻辑对齐。
+    /// </summary>
+    public bool TryGetActiveRecordRuleContext(out string roomRule, out string subRule) {
+        roomRule = null;
+        subRule = null;
+        if (!gameObject.activeSelf || gameRecord?.gameTitle == null) return false;
+        roomRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
+        subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
+        return !string.IsNullOrEmpty(roomRule) || !string.IsNullOrEmpty(subRule);
+    }
+
+    /// <summary>
+    /// 解析操作报声/文案用的规则上下文：优先显式传入，其次牌谱/观战 gameTitle，最后对局 NormalGameStateManager。
+    /// </summary>
+    public static void ResolveActionRuleContext(string roomRuleOverride, string subRuleOverride, out string roomRule, out string subRule) {
+        roomRule = roomRuleOverride;
+        subRule = subRuleOverride;
+        GameRecordManager grm = Instance;
+        if (grm != null && grm.gameObject.activeSelf && grm.TryGetActiveRecordRuleContext(out string recordRule, out string recordSubRule)) {
+            if (string.IsNullOrEmpty(roomRule)) roomRule = recordRule;
+            if (string.IsNullOrEmpty(subRule)) subRule = recordSubRule;
+            return;
+        }
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null) return;
+        if (string.IsNullOrEmpty(roomRule)) roomRule = gsm.roomRule;
+        if (string.IsNullOrEmpty(subRule)) subRule = gsm.subRule;
+    }
+
+    public static bool IsGuobiaoRule(string roomRule, string subRule) {
+        return roomRule == "guobiao" || (!string.IsNullOrEmpty(subRule) && subRule.StartsWith("guobiao/"));
+    }
+
+    /// <summary>
     /// 从 gameTitle 字典读取字符串
     /// </summary>
     private static string ReadGameTitleString(Dictionary<string, object> gameTitle, string key, string defaultValue = "") {
@@ -1519,20 +1553,20 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     private int[] BuildJiagangMask(RecordPlayer recordPlayer, int jiagangTile, int actualJiaTile) {
-        for (int i = 0; i < recordPlayer.combinationTiles.Count; i++) {
-            if (recordPlayer.combinationTiles[i] == $"k{jiagangTile}") {
-                recordPlayer.combinationTiles[i] = $"g{jiagangTile}";
-                List<int> updatedMask = new List<int>(recordPlayer.combinationMasks[i]);
-                for (int j = 0; j < updatedMask.Count; j++) {
-                    if (updatedMask[j] == 1) {
-                        updatedMask.Insert(j, actualJiaTile);
-                        updatedMask.Insert(j, 3);
-                        break;
-                    }
+        string kCombo = GameRecordMeldCodec.BuildCombinationKey('k', jiagangTile);
+        int idx = GameRecordMeldCodec.FindCombinationIndex(recordPlayer.combinationTiles, kCombo);
+        if (idx >= 0) {
+            recordPlayer.combinationTiles[idx] = GameRecordMeldCodec.BuildCombinationKey('g', jiagangTile);
+            List<int> updatedMask = new List<int>(recordPlayer.combinationMasks[idx]);
+            for (int j = 0; j < updatedMask.Count; j++) {
+                if (updatedMask[j] == 1) {
+                    updatedMask.Insert(j, actualJiaTile);
+                    updatedMask.Insert(j, 3);
+                    break;
                 }
-                recordPlayer.combinationMasks[i] = updatedMask.ToArray();
-                return recordPlayer.combinationMasks[i];
             }
+            recordPlayer.combinationMasks[idx] = updatedMask.ToArray();
+            return recordPlayer.combinationMasks[idx];
         }
         int[] fallbackMask = new int[] { 0, jiagangTile, 3, actualJiaTile, 1, jiagangTile, 0, jiagangTile };
         recordPlayer.combinationTiles.Add($"g{jiagangTile}");

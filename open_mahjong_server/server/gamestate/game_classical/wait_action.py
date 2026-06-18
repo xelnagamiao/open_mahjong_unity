@@ -211,22 +211,25 @@ async def wait_action(self):
                     clear_draw_slot(player)
 
                     combination_index = -1
-                    # 寻找当前玩家的组合牌是否有k+加杠牌 有则将相同位置的索引记录
-                    for i,combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
-                        if combination == f"k{normal_jia}":
+                    for i, combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
+                        if combination.startswith("k") and normalize_tile(int(combination[1:])) == normal_jia:
                             combination_index = i
                             break
 
-                    # 通过组合位置找到掩码位置
+                    if combination_index < 0:
+                        logger.error(
+                            f"非法jiagang：未找到可加杠的刻子 normal_jia={normal_jia}, combination_tiles={self.player_list[self.current_player_index].combination_tiles}"
+                        )
+                        self.game_status = "deal_card"
+                        return
+
                     for i, mask in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
-                        if mask == 1:  # 找到数组下标 [0,Tile,0,Tile,1,Tile] 获取1的位置 1代表碰牌横牌的位置
-                            # 在碰牌横牌的后面插入加杠牌和3 如 结果[0,Tile,0,Tile,1,{Tile,3,}Tile]
+                        if mask == 1:
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, actual_jia)
-                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3) # 插入3代表加杠牌
+                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3)
                             break
 
-                    self.player_list[self.current_player_index].combination_tiles.remove(f"k{normal_jia}") # 从组合牌中移除刻子
-                    self.player_list[self.current_player_index].combination_tiles.append(f"g{normal_jia}") # 将明杠牌加入组合牌 (小写g代表明杠)
+                    self.player_list[self.current_player_index].combination_tiles[combination_index] = f"g{normal_jia}"
 
                     # 牌谱记录加杠
                     player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)

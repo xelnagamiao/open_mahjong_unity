@@ -97,9 +97,12 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
     meld_count = count_melds(combs)
     visible = count_visible_tiles(game_state)
 
-    # 评估暗杠：暗杠后手牌不变差则执行
+    # 评估暗杠：暗杠后手牌不变差则执行（定缺花色不可暗杠）
     if "angang" in action_list:
+        dingque = getattr(player, "dingque_suit", 0)
         for tile in set(hand):
+            if dingque in (1, 2, 3) and tile // 10 == dingque:
+                continue
             if hand.count(tile) >= 4:
                 test_hand = [t for t in hand if t != tile]
                 base_score = evaluate_hand(hand, meld_count, visible)

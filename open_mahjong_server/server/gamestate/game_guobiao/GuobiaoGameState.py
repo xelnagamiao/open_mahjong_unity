@@ -144,7 +144,7 @@ class GuobiaoGameState:
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
-        self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：开启后切牌/抢杠询问时附加 2 秒申请-打断阶段
+        self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：吃牌固定 1.5 秒申请-打断；碰/和/杠/加杠仅在有更高优先级竞争者时询问
         
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
@@ -352,9 +352,9 @@ class GuobiaoGameState:
 
         if not self.Debug:
             user_seed = self.room_random_seed if self.room_random_seed else None
-            
+
             self.master_seed, self.salt, self.commitment, self.isPlayerSetRandomSeed = setup_random_seed_system(user_seed)
-            
+
             capture_player_entry_order(self)
             # 房间初始化 打乱玩家顺序（基于主种子）
             # 测试时不打乱玩家顺序

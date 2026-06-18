@@ -22,16 +22,56 @@ logger = logging.getLogger(__name__)
 # 战术鸣牌每次申请后固定打断等待的秒数
 TACTICAL_GRACE_SECONDS = 1.5
 
+_CHI_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right"})
+
+
+def _is_chi_action(action_type: str) -> bool:
+    return action_type in _CHI_ACTIONS
+
+
+def _get_higher_priority_snapshot(self, action_type, player_index):
+    """从战术快照中筛出对当前行为拥有更高优先级选项的其他玩家。"""
+    current_priority = self.action_priority[action_type]
+    higher_action_dict = {pid: [] for pid in range(4)}
+    any_higher = False
+    source = getattr(self, "_tactical_action_snapshot", None) or self.action_dict
+    for pid in range(4):
+        if pid == player_index:
+            continue
+        filtered = [
+            a for a in source.get(pid, [])
+            if a != "pass" and self.action_priority[a] > current_priority
+        ]
+        if filtered:
+            higher_action_dict[pid] = filtered + ["pass"]
+            any_higher = True
+    return higher_action_dict, any_higher
+
+
+def _should_enter_tactical_grace(self, action_type, player_index) -> bool:
+    """吃牌固定进入战术等待；碰/和/杠/加杠仅在有更高优先级竞争者时进入。"""
+    if _is_chi_action(action_type):
+        return True
+    _, any_higher = _get_higher_priority_snapshot(self, action_type, player_index)
+    return any_higher
+
 
 async def _tactical_grace_phase(self, action_type, player_index, action_data, cut_tile):
     """战术鸣牌打断阶段：
-    1. 广播当前申请（is_claim=True，仅播放音效与字体动画，无状态变化）。
-    2. 重新询问拥有更高优先级行为的玩家。
-    3. 固定等待 2 秒，期间允许更高优先级行为打断。
-    4. 若被打断则回到第 1 步，否则返回最终决策。
+    吃牌：固定播报申请并等待 1.5 秒进度条，期间允许更高优先级行为打断。
+    碰/和/杠/加杠：仅在有更高优先级竞争者时播报申请并询问；无竞争者则直接执行。
+    若被打断则按新行为重新判断，否则返回最终决策。
     返回 (final_action_type, final_player_index, final_action_data)。
     """
     while True:
+        higher_action_dict, any_higher = _get_higher_priority_snapshot(
+            self, action_type, player_index
+        )
+
+        # 碰/和/杠/加杠：无更高优先级竞争者时不播报申请、不等待进度条
+        if not _is_chi_action(action_type) and not any_higher:
+            return action_type, player_index, action_data
+
         # 战术鸣牌只对真实的鸣牌/胡进行申请广播，pass 不申请
         if action_type != "pass":
             await broadcast_do_action(
@@ -43,19 +83,6 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
             )
 
         current_priority = self.action_priority[action_type]
-        higher_action_dict = {pid: [] for pid in range(4)}
-        any_higher = False
-        source = getattr(self, "_tactical_action_snapshot", None) or self.action_dict
-        for pid in range(4):
-            if pid == player_index:
-                continue
-            filtered = [
-                a for a in source.get(pid, [])
-                if a != "pass" and self.action_priority[a] > current_priority
-            ]
-            if filtered:
-                higher_action_dict[pid] = filtered + ["pass"]
-                any_higher = True
         self.action_dict = higher_action_dict
         # 同步刷新等待玩家列表，使 get_action 接受这些玩家在 2 秒窗口内的抢断行为
         self.waiting_players_list = [pid for pid, alist in higher_action_dict.items() if alist]
@@ -262,12 +289,13 @@ async def wait_action(self):
     else:
         logger.info(f"操作超时")
 
-    # 战术鸣牌：在切牌后/抢杠询问阶段，先进入 2 秒申请-打断阶段
+    # 战术鸣牌：吃牌固定进入申请-打断阶段；碰/和/杠/加杠仅在有更高优先级竞争者时进入
     if (
         getattr(self, "tactical_call", False)
         and action_data
         and action_type != "pass"
         and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+        and _should_enter_tactical_grace(self, action_type, player_index)
     ):
         cut_tile_for_claim = self.player_list[self.current_player_index].discard_tiles[-1]
         action_type, player_index, action_data = await _tactical_grace_phase(
@@ -356,11 +384,18 @@ async def wait_action(self):
                     clear_draw_slot(player)
 
                     combination_index = -1
-                    # 寻找当前玩家的组合牌是否有k+加杠牌 有则将相同位置的索引记录
-                    for i,combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
-                        if combination == f"k{normal_jia}":
+                    # 寻找当前玩家的组合牌是否有 k+加杠牌（归一化匹配，兼容 k105 / k15）
+                    for i, combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
+                        if combination.startswith("k") and normalize_tile(int(combination[1:])) == normal_jia:
                             combination_index = i
                             break
+
+                    if combination_index < 0:
+                        logger.error(
+                            f"非法jiagang：未找到可加杠的刻子 normal_jia={normal_jia}, combination_tiles={self.player_list[self.current_player_index].combination_tiles}"
+                        )
+                        self.game_status = "deal_card"
+                        return
 
                     # 通过组合位置找到掩码位置
                     for i, mask in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
@@ -370,8 +405,7 @@ async def wait_action(self):
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3) # 插入3代表加杠牌
                             break
 
-                    self.player_list[self.current_player_index].combination_tiles.remove(f"k{normal_jia}") # 从组合牌中移除刻子
-                    self.player_list[self.current_player_index].combination_tiles.append(f"g{normal_jia}") # 将明杠牌加入组合牌 (小写g代表明杠)
+                    self.player_list[self.current_player_index].combination_tiles[combination_index] = f"g{normal_jia}"
 
                     # 牌谱记录加杠
                     player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)
@@ -477,19 +511,25 @@ async def wait_action(self):
                 
                 elif action_type == "peng": # [tile_id',tile_id',tile_id]
                     print("peng")
-                    # 保护：必须至少有两张 tile_id
-                    if self.player_list[player_index].hand_tiles.count(tile_id) < 2:
+                    normal_tile = normalize_tile(tile_id)
+                    # 保护：必须至少有两张 tile_id（含赤宝等价）
+                    if sum(1 for t in self.player_list[player_index].hand_tiles if normalize_tile(t) == normal_tile) < 2:
                         logger.error(
-                            f"非法peng：玩家{player_index}手牌不足，tile_id={tile_id}, count={self.player_list[player_index].hand_tiles.count(tile_id)}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法peng：玩家{player_index}手牌不足，tile_id={tile_id}, normal={normal_tile}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].combination_tiles.append(f"k{tile_id}")
+                    removed = 0
+                    while removed < 2:
+                        for t in list(self.player_list[player_index].hand_tiles):
+                            if normalize_tile(t) == normal_tile:
+                                self.player_list[player_index].hand_tiles.remove(t)
+                                removed += 1
+                                break
+                    self.player_list[player_index].combination_tiles.append(f"k{normal_tile}")
                     # 获取相对位置 (操作者, 出牌者)
                     relative_position = get_index_relative_position(player_index, self.current_player_index)
-                    combination_target = f"k{tile_id}"
+                    combination_target = f"k{normal_tile}"
                     if relative_position == "left":
                         combination_mask = [1,tile_id,0,tile_id,0,tile_id]
                     elif relative_position == "right":
@@ -498,20 +538,25 @@ async def wait_action(self):
                         combination_mask = [0,tile_id,1,tile_id,0,tile_id]
 
                 elif action_type == "gang": # [tile_id',tile_id,tile_id',tile_id]
-                    # 保护：明杠需要至少三张 tile_id
-                    if self.player_list[player_index].hand_tiles.count(tile_id) < 3:
+                    normal_tile = normalize_tile(tile_id)
+                    # 保护：明杠需要至少三张（含赤宝等价）
+                    if sum(1 for t in self.player_list[player_index].hand_tiles if normalize_tile(t) == normal_tile) < 3:
                         logger.error(
-                            f"非法gang：玩家{player_index}手牌不足，tile_id={tile_id}, count={self.player_list[player_index].hand_tiles.count(tile_id)}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法gang：玩家{player_index}手牌不足，tile_id={tile_id}, normal={normal_tile}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].combination_tiles.append(f"g{tile_id}")
+                    removed = 0
+                    while removed < 3:
+                        for t in list(self.player_list[player_index].hand_tiles):
+                            if normalize_tile(t) == normal_tile:
+                                self.player_list[player_index].hand_tiles.remove(t)
+                                removed += 1
+                                break
+                    self.player_list[player_index].combination_tiles.append(f"g{normal_tile}")
                     # 获取相对位置 (操作者, 出牌者)
                     relative_position = get_index_relative_position(player_index, self.current_player_index)
-                    combination_target = f"g{tile_id}"
+                    combination_target = f"g{normal_tile}"
                     if relative_position == "left":
                         combination_mask = [1,tile_id,0,tile_id,0,tile_id,0,tile_id]
                     elif relative_position == "right":

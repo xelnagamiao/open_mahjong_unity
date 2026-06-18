@@ -73,8 +73,8 @@ public class GamePageControl : MonoBehaviour {
             rulebookPanelController.Close();
             return;
         }
-        string rule = NormalGameStateManager.Instance.roomRule;
-        rulebookPanelController.Open(rule);
+        var gsm = NormalGameStateManager.Instance;
+        rulebookPanelController.Open(gsm.roomRule, gsm.subRule);
     }
 
     private void OnBackToMenuClicked() {

@@ -3,6 +3,7 @@ public partial class NormalGameStateManager {
     /// 退出对局/牌谱/观战后清理本局运行时状态，不销毁 Manager 单例本身。
     /// </summary>
     public void ResetForExit() {
+        CancelWaitAutoAction("ResetForExit");
         IsGameActive = false;
         IsSelfActionRequired = false;
         selfHandTiles.Clear();

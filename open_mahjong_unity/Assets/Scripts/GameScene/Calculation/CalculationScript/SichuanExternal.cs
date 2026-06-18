@@ -29,7 +29,7 @@ public static class SichuanExternal {
         return new SichuanTingpaiCheck().TingpaiCheck(handTileList, combinationList);
     }
 
-    /// <summary>基本分 = 2^min(番数,3)；仅平和时基本分为 1。</summary>
+    /// <summary>基本分 = 2^min(番数,3)；仅平和(0番)时基本分为 1。</summary>
     public static int BaseFromFan(int fan, List<string> fanList = null) {
         return SichuanHepaiCheck.BaseFromFan(fan, fanList);
     }

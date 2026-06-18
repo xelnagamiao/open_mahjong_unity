@@ -14,7 +14,7 @@ public partial class GameCanvas {
     [SerializeField] private Button[] stickerButtons = new Button[9];
 
     private const string DefaultStickerPack = "turtle";
-    private const float StickerSendCooldownSeconds = 7f;
+    private const float StickerSendCooldownSeconds = 5f;
     private static readonly Color StickerButtonLockedColor = new Color(0.35f, 0.35f, 0.35f, 1f);
     private bool _stickerUiBuilt;
     private bool _hideStickerButtonForRecord;
@@ -182,15 +182,29 @@ public partial class GameCanvas {
         SetStickerButtonsLocked(false);
     }
 
-    public void ShowSticker(int playerIndex, string sticker) {
+    public void ShowSticker(int originalPlayerIndex, int playerIndex, string sticker) {
         if (string.IsNullOrEmpty(sticker)) return;
         var mgr = NormalGameStateManager.Instance;
-        if (mgr == null || !mgr.indexToPosition.TryGetValue(playerIndex, out string position)) {
-            Debug.LogWarning($"ShowSticker: 未知 player_index={playerIndex}");
+        if (mgr == null) return;
+
+        string position = FindPositionByOriginalPlayerIndex(mgr, originalPlayerIndex);
+        if (position == null && !mgr.indexToPosition.TryGetValue(playerIndex, out position)) {
+            Debug.LogWarning(
+                $"ShowSticker: 未知 original_player_index={originalPlayerIndex}, player_index={playerIndex}");
             return;
         }
         GamePlayerPanel panel = GetPlayerPanelByPosition(position);
         panel?.ShowSticker(sticker);
+    }
+
+    private static string FindPositionByOriginalPlayerIndex(NormalGameStateManager mgr, int originalPlayerIndex) {
+        if (mgr.player_to_info == null) return null;
+        foreach (var kvp in mgr.player_to_info) {
+            if (kvp.Value != null && kvp.Value.original_player_index == originalPlayerIndex) {
+                return kvp.Key;
+            }
+        }
+        return null;
     }
 
     private GamePlayerPanel GetPlayerPanelByPosition(string position) {

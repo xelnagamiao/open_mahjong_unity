@@ -87,6 +87,8 @@ public partial class BoardCanvas : MonoBehaviour {
             roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
         } else if (roomType == "classical") {
             roundMap = RoundTextDictionary.CurrentRoundTextClassical;
+        } else if (roomType == "sichuan") {
+            roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
         }
 
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {
@@ -146,6 +148,8 @@ public partial class BoardCanvas : MonoBehaviour {
             roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
         } else if (roomType == "classical") {
             roundMap = RoundTextDictionary.CurrentRoundTextClassical;
+        } else if (roomType == "sichuan") {
+            roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
         }
 
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string currentRoundStr)) {

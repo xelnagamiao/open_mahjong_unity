@@ -144,6 +144,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleDingqueAsk(Response response) {
         Debug.Log($"收到定缺询问: {response.ask_hand_action_info}");
         if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
+        if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) return;
         GameCanvas.Instance?.ShowDingqueSelection(10);
     }
 
@@ -236,7 +237,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.ron_discarder_index,
             showresponse.recycle_discard,
             showresponse.gang_refund_changes,
-            showresponse.is_qianggang
+            showresponse.is_qianggang,
+            showresponse.liuju_refund
         );
         // 四川·血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打
         if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsSichuanRule()) {
@@ -395,7 +397,10 @@ public class GameStateNetworkManager : MonoBehaviour {
 
     private void HandleBroadcastSticker(Response response) {
         if (response?.sticker_info == null) return;
-        GameCanvas.Instance?.ShowSticker(response.sticker_info.player_index, response.sticker_info.sticker);
+        GameCanvas.Instance?.ShowSticker(
+            response.sticker_info.original_player_index,
+            response.sticker_info.player_index,
+            response.sticker_info.sticker);
     }
     
     /// <summary>
@@ -507,7 +512,8 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleReadyStatus(Response response) {
         Debug.Log($"收到准备状态更新: {response.message}");
         if (response.ready_status_info != null) {
-            if (EndResultPanel.Instance != null && EndResultPanel.Instance.gameObject.activeSelf) {
+            // 始终缓存准备状态（即使面板此刻未激活，例如川麻终局步间切换），重建面板时按缓存重绘准备色
+            if (EndResultPanel.Instance != null) {
                 EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
             }
             if (EndShuheWeiPanel.Instance != null && EndShuheWeiPanel.Instance.gameObject.activeSelf) {

@@ -221,7 +221,7 @@ namespace Sichuan {
             }
 
             if (bestFan < 0) return Tuple.Create(0, new List<string>());
-            if (bestFan == 0) return Tuple.Create(1, new List<string> { "平和" });
+            if (bestFan == 0) return Tuple.Create(0, new List<string> { "平和" });
             return Tuple.Create(bestFan, bestNames);
         }
 

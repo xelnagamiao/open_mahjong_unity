@@ -10,13 +10,21 @@ import asyncio
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
+from .shunhe import tag_list_for_viewer
 
 logger = logging.getLogger(__name__)
 
 
 def _build_players_info(self, viewer_user_id: Optional[int]):
+    viewer_index = None
+    if viewer_user_id is not None:
+        for p in self.player_list:
+            if p.user_id == viewer_user_id:
+                viewer_index = p.player_index
+                break
     players_info = []
     for player in self.player_list:
+        tags = tag_list_for_viewer(player.tag_list, player.player_index, viewer_index)
         players_info.append({
             'user_id': player.user_id,
             'username': player.username,
@@ -37,7 +45,7 @@ def _build_players_info(self, viewer_user_id: Optional[int]):
             'voice_used': player.voice_used,
             'score_history': player.score_history,
             'round_number_history': player.round_number_history,
-            'tag_list': player.tag_list,
+            'tag_list': tags,
             'dingque_suit': getattr(player, 'dingque_suit', 0),
             'is_hu': getattr(player, 'is_hu', False),
         })
@@ -380,13 +388,18 @@ async def broadcast_game_end(self):
 
 
 async def broadcast_refresh_player_tag_list(self):
-    player_to_tag_list = {p.player_index: p.tag_list for p in self.player_list}
-    refresh_tag_info = Refresh_player_tag_list_info(player_to_tag_list=player_to_tag_list)
     for current_player in self.player_list:
         try:
             if "offline" in current_player.tag_list or current_player.user_id == 0:
                 continue
             if current_player.user_id in self.game_server.user_id_to_connection:
+                player_to_tag_list = {
+                    p.player_index: tag_list_for_viewer(
+                        p.tag_list, p.player_index, current_player.player_index,
+                    )
+                    for p in self.player_list
+                }
+                refresh_tag_info = Refresh_player_tag_list_info(player_to_tag_list=player_to_tag_list)
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
                 response = Response(type="refresh_player_tag_list", success=True,
                                     message="刷新玩家标签列表", refresh_player_tag_list_info=refresh_tag_info)

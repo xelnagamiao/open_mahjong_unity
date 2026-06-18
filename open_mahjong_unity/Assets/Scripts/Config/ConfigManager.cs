@@ -22,15 +22,15 @@ public class ConfigManager : MonoBehaviour {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            releaseVersion = 6; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 7; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
-            releaseVersion = 6;
+            releaseVersion = 7;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.66.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.68.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
@@ -112,6 +112,12 @@ public class ConfigManager : MonoBehaviour {
     public static bool IsTargetFrameRateLocked => false;
 #endif
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private const int DefaultHandCutConfirmMode = 1;
+#else
+    private const int DefaultHandCutConfirmMode = 0;
+#endif
+
     private void Awake() {
         if (Instance != null && Instance != this) {
             Destroy(gameObject);
@@ -131,7 +137,7 @@ public class ConfigManager : MonoBehaviour {
         MoqieShortcutMode = PlayerPrefs.GetInt(KEY_MOQIE_SHORTCUT, 0);
         AskOtherPassShortcutMode = LoadAskOtherPassShortcutMode();
         StreamerModeEnabled = PlayerPrefs.GetInt(KEY_STREAMER_MODE, 0) == 1;
-        HandCutConfirmMode = PlayerPrefs.GetInt(KEY_HAND_CUT_CONFIRM, 0);
+        HandCutConfirmMode = PlayerPrefs.GetInt(KEY_HAND_CUT_CONFIRM, DefaultHandCutConfirmMode);
         HandSortSuitOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_SUIT_ORDER, 0), 0, TileIdOrder.SuitOrderOptions.Length - 1);
         HandSortHonorOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_HONOR_ORDER, 0), 0, TileIdOrder.HonorOrderOptions.Length - 1);
         HandSortDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_DRAGON_ORDER, 0), 0, TileIdOrder.DragonOrderOptions.Length - 1);

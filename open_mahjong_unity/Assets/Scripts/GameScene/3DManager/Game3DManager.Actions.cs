@@ -74,10 +74,11 @@ public partial class Game3DManager : MonoBehaviour
                 {
                     GameObject cardObj;
                     int jiagangTileId = SetTileList[i];
-                    // 位置缓存于碰牌时 flag=1 的横置河牌 ID，与加杠 flag=3 的手牌 ID 可能不同（如赤5碰、普通5加杠）
-                    int lookupKey = GameRecordMeldCodec.ExtractTileByFlag(combination_mask, 1) ?? jiagangTileId;
+                    // 碰时按归一化河牌 id 存位置；加杠时用 mask 里 flag=1 的河牌 id 归一化后查表（105/15 等同）
+                    int? riverTileId = GameRecordMeldCodec.ExtractTileByFlag(combination_mask, 1);
+                    int lookupKey = GameRecordMeldCodec.NormalizeMeldsLookupTileId(riverTileId ?? jiagangTileId);
                     if (!pengToJiagangPosDict.TryGetValue(lookupKey, out Vector3 TempPositionpoint)) {
-                        Debug.LogError($"加杠位置未找到: lookupKey={lookupKey}, jiagangTileId={jiagangTileId}");
+                        Debug.LogError($"加杠位置未找到: lookupKey={lookupKey}, jiagangTileId={jiagangTileId}, riverTileId={riverTileId}");
                         continue;
                     }
                     Quaternion TempRotation = Quaternion.Euler(0, 90, 0) * rotation; // 横
@@ -138,7 +139,8 @@ public partial class Game3DManager : MonoBehaviour
                     TempPositionpoint += (-JiagangDirection) * 0.2f * cardWidth;
                     if (actionType == "peng")
                     {
-                        pengToJiagangPosDict.Add(SetTileList[i], TempPositionpoint); // 碰牌的加杠预留指针 保存在碰牌int id的横置位置
+                        int pengDictKey = GameRecordMeldCodec.NormalizeMeldsLookupTileId(SetTileList[i]);
+                        pengToJiagangPosDict[pengDictKey] = TempPositionpoint;
                     }
                 }
                 // 卡牌暗面 指针增加一个宽度单位

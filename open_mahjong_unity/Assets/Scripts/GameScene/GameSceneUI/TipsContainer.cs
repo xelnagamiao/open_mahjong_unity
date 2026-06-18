@@ -370,7 +370,7 @@ public class TipsContainer : MonoBehaviour
 
     /// <summary>
     /// 处理四川规则的和牌提示：本地按 SichuanExternal 计番（不计情境番）。四川任何合法牌型均可和，
-    /// 平和=1番（仅平和时基本分仍为1），故每张听牌张直接展示其番数；含定缺花色的和牌张已在听牌阶段过滤。
+    /// 平和=0番（仅平和时基本分仍为1），故每张听牌张直接展示其番数；含定缺花色的和牌张已在听牌阶段过滤。
     /// </summary>
     private void ProcessSichuanTile(
         int hepaiTile,
