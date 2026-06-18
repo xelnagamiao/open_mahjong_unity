@@ -164,6 +164,69 @@ export function parseNotationText(input) {
   return result
 }
 
+/** 解析副露槽位简写，返回可自动锁定或待选的副露类型 */
+export function parseMeldSlotInput(text) {
+  const raw = (text || '').replace(/\s+/g, '').toLowerCase()
+  if (!raw) return { auto: null, options: [] }
+
+  const numSuit = raw.match(/^(\d+)([mps])$/)
+  if (numSuit) {
+    const [, digits, suit] = numSuit
+    const nums = [...digits].map((d) => parseInt(d, 10))
+    const base = suit === 'm' ? 10 : suit === 'p' ? 20 : 30
+
+    if (nums.length === 3 && nums[0] + 1 === nums[1] && nums[1] + 1 === nums[2]) {
+      const center = base + nums[1]
+      if (center % 10 >= 2 && center % 10 <= 8) {
+        return { auto: { kind: 's', tileId: center, label: '明顺' }, options: [] }
+      }
+    }
+    if (nums.length === 3 && nums.every((n) => n === nums[0]) && nums[0] >= 1 && nums[0] <= 9) {
+      const tileId = base + nums[0]
+      return { auto: null, options: [{ kind: 'k', tileId, label: '明刻' }] }
+    }
+    if (nums.length === 4 && nums.every((n) => n === nums[0]) && nums[0] >= 1 && nums[0] <= 9) {
+      const tileId = base + nums[0]
+      return {
+        auto: null,
+        options: [
+          { kind: 'g', tileId, label: '明杠' },
+          { kind: 'G', tileId, label: '暗杠' },
+        ],
+      }
+    }
+  }
+
+  const zSuit = raw.match(/^(\d+)(z)$/)
+  if (zSuit) {
+    const [, digits] = zSuit
+    const nums = [...digits].map((d) => parseInt(d, 10))
+    const zMap = { 1: 41, 2: 42, 3: 43, 4: 44, 5: 46, 6: 47, 7: 45 }
+    if (nums.length === 3 && nums.every((n) => n === nums[0]) && zMap[nums[0]]) {
+      return { auto: null, options: [{ kind: 'k', tileId: zMap[nums[0]], label: '明刻' }] }
+    }
+    if (nums.length === 4 && nums.every((n) => n === nums[0]) && zMap[nums[0]]) {
+      const tileId = zMap[nums[0]]
+      return {
+        auto: null,
+        options: [
+          { kind: 'g', tileId, label: '明杠' },
+          { kind: 'G', tileId, label: '暗杠' },
+        ],
+      }
+    }
+  }
+
+  return { auto: null, options: [] }
+}
+
+/** 副露展示用牌面列表 */
+export function meldDisplayTiles(kind, tileId) {
+  if (kind === 's' || kind === 'S') return [tileId - 1, tileId, tileId + 1]
+  if (kind === 'g' || kind === 'G') return [tileId, tileId, tileId, tileId]
+  return [tileId, tileId, tileId]
+}
+
 /** 从完整 136 张牌墙中随机抽取 count 张（每种牌至多 4 张） */
 export function randomHandTiles(count) {
   const wall = []

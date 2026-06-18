@@ -5,10 +5,12 @@
 - 已和退场玩家 player.is_hu=True：不再行动、不被询问、不被点炮。
 - 和牌优先级 > 碰/杠（priority: hu_self=6, hu=5, peng/gang=2）。
 - 一炮多响：本次弃牌所有可和玩家结果都暂存到 self.sichuan_hu_results[idx]。
+- 顺和：跳过自摸/点炮/抢杠（含碰杠放弃）记录番数；听牌出牌后至下次摸牌前不可点和≤跳过番的牌（自摸不受限，tag: shunhe_N，仅本人可见）。
 """
 from typing import Dict, List
 import logging
 from ..public.logic_common import get_index_relative_position, next_current_num
+from .shunhe import is_blocked_by_shunhe
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,12 @@ def check_hepai(self, temp_action_dict, hepai_tile, player_index, hepai_type, is
         tiles_list, player.combination_tiles, way, hepai_tile, dingque
     )
     if not fan_list:
+        return
+    if hepai_type in ("dianhe", "qianggang") and is_blocked_by_shunhe(player, fan):
+        logger.info(
+            f"四川顺和拦截：player={player_index} type={hepai_type} tile={hepai_tile} "
+            f"fan={fan} cap={getattr(player, 'shunhe_passed_max_fan', None)}"
+        )
         return
 
     is_zimo = (hepai_type == "handgot")
@@ -136,19 +144,17 @@ def check_action_jiagang(self, jiagang_tile):
 
 
 def check_action_hand_action(self, player_index, is_get_gang_tile=False, is_first_action=False):
-    """摸牌后检查本家操作：自摸/暗杠/加杠/切牌。定缺约束：手牌仍含定缺花色时只能切牌。"""
+    """摸牌后检查本家操作：自摸/暗杠/加杠/切牌。
+    定缺约束：手牌仍含定缺花色时须优先切定缺牌、不可和牌，但仍可对非定缺花色暗杠与加杠。"""
     temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
     player = self.player_list[player_index]
     dingque = getattr(player, "dingque_suit", 0)
-
-    # 手牌仍含定缺花色 → 必须先打出，仅允许切牌
     has_dingque_in_hand = dingque in (1, 2, 3) and any(_suit(t) == dingque for t in player.hand_tiles)
-    if has_dingque_in_hand:
-        temp_action_dict[player_index].append("cut")
-        return temp_action_dict
 
     wall_ok = len(self.tiles_list) > self.dead_wall_count
     if wall_ok:
+        # 定缺约束只针对“和牌/打出”，开杠不受限：手牌仍含定缺花色时，
+        # 对非定缺花色的暗杠与加杠都允许（加杠的本质是补齐已有碰的牌，不影响定缺出清）。
         processed = set()
         for tile in player.hand_tiles:
             if tile not in processed and player.hand_tiles.count(tile) == 4 and _suit(tile) != dingque:
@@ -162,7 +168,7 @@ def check_action_hand_action(self, player_index, is_get_gang_tile=False, is_firs
 
     temp_action_dict[player_index].append("cut")
 
-    if player.hand_tiles and player.hand_tiles[-1] in player.waiting_tiles:
+    if not has_dingque_in_hand and player.hand_tiles and player.hand_tiles[-1] in player.waiting_tiles:
         check_hepai(self, temp_action_dict, player.hand_tiles[-1], player_index, "handgot",
                     is_get_gang_tile=is_get_gang_tile)
 

@@ -478,18 +478,19 @@ public static class ScoreHistoryRecordSettlementExtractor {
     }
 
     private static int[] BuildJiagangMask(SimPlayer player, int jiagangTile, int actualJiaTile) {
-        for (int i = 0; i < player.combinationTiles.Count; i++) {
-            if (player.combinationTiles[i] != $"k{jiagangTile}") continue;
-            player.combinationTiles[i] = $"g{jiagangTile}";
-            var updatedMask = new List<int>(player.combinationMasks[i]);
+        string kCombo = GameRecordMeldCodec.BuildCombinationKey('k', jiagangTile);
+        int idx = GameRecordMeldCodec.FindCombinationIndex(player.combinationTiles, kCombo);
+        if (idx >= 0) {
+            player.combinationTiles[idx] = GameRecordMeldCodec.BuildCombinationKey('g', jiagangTile);
+            var updatedMask = new List<int>(player.combinationMasks[idx]);
             for (int j = 0; j < updatedMask.Count; j++) {
                 if (updatedMask[j] != 1) continue;
                 updatedMask.Insert(j, actualJiaTile);
                 updatedMask.Insert(j, 3);
                 break;
             }
-            player.combinationMasks[i] = updatedMask.ToArray();
-            return player.combinationMasks[i];
+            player.combinationMasks[idx] = updatedMask.ToArray();
+            return player.combinationMasks[idx];
         }
 
         int[] fallback = { 0, jiagangTile, 3, actualJiaTile, 1, jiagangTile, 0, jiagangTile };

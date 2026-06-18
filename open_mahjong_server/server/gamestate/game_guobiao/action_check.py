@@ -1,6 +1,7 @@
 from typing import Dict
 import logging
 from ..public.logic_common import get_index_relative_position, next_current_num
+from ..public.hand_slot_utils import normalize_tile
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +118,8 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
         # 如果组合牌中有加杠 则可以加杠
         for combination_tile in player_item.combination_tiles:
             if combination_tile[0] == "k":
-                jiagang_index = int(combination_tile[1:])  # 提取所有数字
-                if jiagang_index in player_item.hand_tiles:
+                jiagang_norm = normalize_tile(int(combination_tile[1:]))
+                if any(normalize_tile(t) == jiagang_norm for t in player_item.hand_tiles):
                     if self.tiles_list != []:
                         temp_action_dict[player_index].append("jiagang")
 
@@ -180,13 +181,12 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         if len(self.tiles_list) == 0:
             way_to_hepai.append("海底捞月")
 
-    # 自摸 岭上开花
+    # 自摸 / 杠上开花（杠上开花需同时传自摸，计番侧据此判不求人）
     elif hepai_type == "handgot":
         tiles_list = tiles_list[:-1] # 删除最后一张牌
+        way_to_hepai.append("自摸")
         if is_get_gang_tile:
             way_to_hepai.append("杠上开花")
-        else:
-            way_to_hepai.append("自摸")
         if len(self.tiles_list) == 0:
             way_to_hepai.append("妙手回春")
 

@@ -265,7 +265,7 @@ class GameCalculationService:
             return self._sichuan_tingpai_check.tingpai_check(hand_tile_list, combination_list)
 
     def Sichuan_base_from_fan(self, fan: int, fan_list: List[str] = None) -> int:
-        """四川计分：基本分 = 2 ** min(番, 3)；仅平和时基本分为 1。"""
+        """四川计分：基本分 = 2 ** min(番, 3)；仅平和(0番)时基本分为 1。"""
         return sichuan_base_from_fan(fan, fan_list)
 
     def Sichuan_max_fan_for_chajiao(

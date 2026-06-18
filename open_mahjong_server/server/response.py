@@ -179,10 +179,11 @@ class Show_result_info(BaseModel):
     hua_zhu_players: Optional[List[int]] = None  # 花猪玩家索引列表
     gang_refund_changes: Optional[Dict[int, int]] = None  # 流局退税（刮风下雨退回）{player_index: delta}
     tenpai_tiles_sichuan: Optional[Dict[int, List[int]]] = None  # 各家听牌张（流局亮牌用）
-    liuju_status: Optional[Dict[int, str]] = None  # 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu"}
+    liuju_status: Optional[Dict[int, str]] = None  # 流局未和家展示状态 {player_index: "ting"/"no_ting"/"hua_zhu_passive"/"hua_zhu_active"}
     liuju_hands: Optional[Dict[int, List[int]]] = None  # 流局未和家手牌（亮牌+状态面板用）
-    liuju_step: Optional[str] = None  # 流局/终局演出：reveal_hu/settle_hu/chajiao/cha_refund/final
+    liuju_step: Optional[str] = None  # 流局/终局演出：reveal_hu/settle_hu/chajiao/final（cha_refund 已并入 chajiao）
     liuju_status_final: Optional[bool] = None  # 流局逐家状态面板是否为最后一条（客户端在此条应用最终分数）
+    liuju_refund: Optional[bool] = None  # 该查叫面板内含刮风下雨退税（客户端加“退税”标签并多停 0.5s）
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
@@ -382,7 +383,8 @@ class MessageInfo(BaseModel):
 
 class Sticker_info(BaseModel):
     """对局表情包广播"""
-    player_index: int
+    player_index: int  # 当局座位索引（兼容旧客户端）
+    original_player_index: int  # 开局固定风位，结算换座期间客户端按此定位面板
     sticker: str  # 格式 pack/id，如 turtle/3
 
 class Response(BaseModel):

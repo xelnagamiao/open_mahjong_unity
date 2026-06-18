@@ -5,13 +5,22 @@ from ...response import Response, Sticker_info
 logger = logging.getLogger(__name__)
 
 
-async def broadcast_sticker(game_state, player_index: int, sticker: str) -> None:
+async def broadcast_sticker(
+    game_state,
+    player_index: int,
+    original_player_index: int,
+    sticker: str,
+) -> None:
     """向对局内所有在线玩家与实时观战者广播表情包。"""
     response = Response(
         type="gamestate/broadcast_sticker",
         success=True,
         message="",
-        sticker_info=Sticker_info(player_index=player_index, sticker=sticker),
+        sticker_info=Sticker_info(
+            player_index=player_index,
+            original_player_index=original_player_index,
+            sticker=sticker,
+        ),
     )
     payload = response.dict(exclude_none=True)
     game_server = game_state.game_server

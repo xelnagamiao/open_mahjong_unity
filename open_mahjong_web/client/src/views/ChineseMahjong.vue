@@ -1,9 +1,9 @@
-<!-- 国标麻将算分与拆解：单列紧凑，结果嵌在输入与按钮之间 -->
+<!-- 国标计算器：单列紧凑，结果嵌在输入与按钮之间 -->
 <template>
   <div class="chinese">
     <div class="page-header">
-      <h1>国标算分</h1>
-      <p class="subtitle">选择手牌、副露、和牌张和和牌方式，自动计算番种、得分以及全部和牌拆解形态。</p>
+      <h1>国标计算器</h1>
+      <p class="subtitle">选择 14 张牌（含右侧和牌张）、副露与和牌方式，自动计算番种、得分以及全部和牌拆解形态。</p>
     </div>
 
     <MahjongNotationHelp />
@@ -18,7 +18,7 @@
         <label class="row-label">牌面简写</label>
         <el-input
           v-model="textInput"
-          placeholder="如 11122333m44455p66z (含和牌张)"
+          placeholder="如 11122333m44455p66z + 和牌张"
           size="small"
           clearable
           @keydown.enter.prevent="calculateScore"
@@ -28,62 +28,94 @@
 
       <div class="row block">
         <div class="row-line">
-          <span class="row-label">手牌（含和牌张） {{ form.hand.length }}/{{ expectedHandCount }}</span>
+          <span class="row-label">手牌 {{ handCountText }}</span>
           <el-tag size="small" :type="handCountTagType" effect="plain">{{ handCountText }}</el-tag>
         </div>
-        <div class="hand-bar">
-          <TileChip
-            v-for="(id, idx) in form.hand"
-            :key="'h-' + idx"
-            :tile-id="id"
-            :highlighted="id === form.getTile && idx === lastGetTileIndex"
-            size="sm"
-            @click="removeHandTile(idx)"
-          />
-          <span v-if="form.hand.length === 0" class="hint">点击下方牌面或输入文本添加手牌</span>
-        </div>
-      </div>
-
-      <div class="row block">
-        <div class="row-line">
-          <span class="row-label">副露 / 暗刻 / 暗杠 ({{ form.fulus.length }}/4)</span>
-          <el-button type="primary" plain size="small" :disabled="form.fulus.length >= 4" @click="addFulu">
-            添加
-          </el-button>
-        </div>
-        <div v-if="form.fulus.length === 0" class="hint">门清和牌时无需添加副露</div>
-        <div v-else class="fulu-list">
-          <div v-for="(fulu, idx) in form.fulus" :key="idx" class="fulu-item">
-            <el-select v-model="fulu.kind" size="small" style="width: 110px;" @change="onFuluKindChange(idx)">
-              <el-option label="明刻 (碰)" value="k" />
-              <el-option label="暗刻" value="K" />
-              <el-option label="明杠" value="g" />
-              <el-option label="暗杠" value="G" />
-              <el-option label="明顺 (吃)" value="s" />
-              <el-option label="暗顺" value="S" />
-            </el-select>
-            <span class="fulu-tile" v-if="fulu.tileId">
-              <TileChip :tile-id="fulu.tileId" size="sm" highlighted />
-            </span>
-            <span v-else class="hint warn">未选中心牌</span>
-            <el-button type="danger" link size="small" @click="removeFulu(idx)">删除</el-button>
-            <TilePalette :size="'sm'" class="palette-inline" @pick="setFuluTile(idx, $event)" />
+        <div class="hand-row">
+          <div class="hand-bar">
+            <TileChip
+              v-for="(id, idx) in form.hand"
+              :key="'h-' + idx"
+              :tile-id="id"
+              size="sm"
+              @click="removeHandTile(idx)"
+            />
+            <span v-if="form.hand.length === 0" class="hint">点击下方牌面或输入文本添加手牌</span>
+          </div>
+          <div class="get-tile-box" :class="{ filled: form.getTile }">
+            <span class="get-tile-label">和牌</span>
+            <TileChip
+              v-if="form.getTile"
+              :tile-id="form.getTile"
+              size="sm"
+              highlighted
+              @click="clearGetTile"
+            />
+            <span v-else class="hint">第 14 张</span>
           </div>
         </div>
       </div>
 
       <div class="row block">
-        <div class="row-line"><span class="row-label">花牌（每张 1 番）</span></div>
-        <div class="hand-bar small">
-          <TileChip
-            v-for="(id, idx) in form.flowers"
-            :key="'f-' + idx"
-            :tile-id="id"
-            size="sm"
-            @click="removeFlower(idx)"
-          />
-          <span v-if="form.flowers.length === 0" class="hint">无花牌</span>
+        <div class="row-line">
+          <span class="row-label">副露（{{ lockedFuluCount }}/4）</span>
         </div>
+        <div class="fulu-slots">
+          <div
+            v-for="(slot, idx) in fuluSlots"
+            :key="idx"
+            class="fulu-slot"
+            :class="{ locked: slot.locked }"
+          >
+            <span class="slot-index">#{{ idx + 1 }}</span>
+            <template v-if="slot.locked">
+              <el-tag size="small" type="info" effect="plain" class="fulu-kind">{{ slot.locked.label }}</el-tag>
+              <div class="fulu-tiles">
+                <TileChip
+                  v-for="(tid, tIdx) in slot.locked.displayTiles"
+                  :key="tIdx"
+                  :tile-id="tid"
+                  size="sm"
+                  highlighted
+                />
+              </div>
+              <el-button type="danger" link size="small" class="fulu-clear" @click="clearFuluSlot(idx)">清除</el-button>
+            </template>
+            <template v-else>
+              <el-input
+                v-model="slot.input"
+                :placeholder="FULU_SLOT_HINTS[idx]"
+                size="small"
+                clearable
+                class="fulu-input"
+                @input="onFuluSlotInput(idx)"
+              />
+              <div v-if="slot.options.length" class="fulu-options">
+                <el-button
+                  v-for="(opt, oIdx) in slot.options"
+                  :key="oIdx"
+                  type="primary"
+                  plain
+                  size="small"
+                  @click="lockFuluSlot(idx, opt)"
+                >
+                  {{ opt.label }}
+                </el-button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="row-label">花牌（每张 1 番）</span>
+        <el-input-number
+          v-model="form.flowerCount"
+          :min="0"
+          :max="8"
+          size="small"
+          controls-position="right"
+        />
       </div>
 
       <div class="row block">
@@ -101,7 +133,6 @@
           </el-select>
         </div>
         <div class="ways flags nowrap-scroll">
-          <el-checkbox v-model="form.flagSet.heDanZhang" size="small">和单张</el-checkbox>
           <el-checkbox v-model="form.flagSet.heJueZhang" size="small">和绝张</el-checkbox>
           <el-checkbox v-model="form.flagSet.gangShangKaiHua" size="small">杠上开花</el-checkbox>
           <el-checkbox v-model="form.flagSet.qiangGangHe" size="small">抢杠和</el-checkbox>
@@ -171,19 +202,8 @@
       </div>
 
       <div class="row block">
-        <div class="row-line">
-          <span class="row-label">点击添加</span>
-          <el-radio-group v-model="palette.target" size="small">
-            <el-radio-button label="hand">手牌</el-radio-button>
-            <el-radio-button label="get_tile">和牌张</el-radio-button>
-            <el-radio-button label="flower">花牌</el-radio-button>
-          </el-radio-group>
-        </div>
-        <TilePalette
-          :size="'sm'"
-          :include-flowers="palette.target === 'flower'"
-          @pick="onPalettePick"
-        />
+        <div class="row-line"><span class="row-label">点击添加到手牌 / 和牌</span></div>
+        <TilePalette :size="'sm'" @pick="onPalettePick" />
       </div>
 
       <div class="actions">
@@ -211,21 +231,34 @@ import {
   combinationLabel,
   parseNotationText,
   tilesToNotationText,
+  parseMeldSlotInput,
+  meldDisplayTiles,
 } from '@/composables/useMahjongTiles'
+
+const FULU_SLOT_COUNT = 4
+const FULU_SLOT_HINTS = ['123m 明顺', '333p 明刻', '3333s 明杠', '3333m 暗杠']
+
+const createEmptyFuluSlot = () => ({
+  input: '',
+  options: [],
+  locked: null,
+})
+
+const fuluSlots = reactive(
+  Array.from({ length: FULU_SLOT_COUNT }, () => createEmptyFuluSlot())
+)
 
 const textInput = ref('')
 
 // ======== 表单数据 ========
 const form = reactive({
-  hand: [],          // 手牌（含和牌张），number[]
-  fulus: [],         // 副露：[{ kind: 'k'|'K'|'g'|'G'|'s'|'S', tileId: number }]
-  flowers: [],       // 花牌
+  hand: [],
+  flowerCount: 0,
   getTile: null,     // 和牌张
   hepaiType: 'dianhe',
   changFeng: '场风东',
   menFeng: '自风东',
   flagSet: {
-    heDanZhang: false,
     heJueZhang: false,
     gangShangKaiHua: false,
     qiangGangHe: false,
@@ -234,55 +267,68 @@ const form = reactive({
   }
 })
 
-const palette = reactive({ target: 'hand' })
-
 const loading = ref(false)
 const result = ref(null)
 
-// ======== 计算属性 ========
-// 用于高亮和牌张：取手牌顺序中最后一次出现的和牌张
-const lastGetTileIndex = computed(() => {
-  if (!form.getTile) return -1
-  for (let i = form.hand.length - 1; i >= 0; i--) {
-    if (form.hand[i] === form.getTile) return i
-  }
-  return -1
-})
+const buildFlowerTiles = () =>
+  Array.from({ length: form.flowerCount }, (_, i) => 51 + i)
 
-const expectedHandCount = computed(() => 14 - form.fulus.length * 3)
-const handCountText = computed(() => `${form.hand.length}/${expectedHandCount.value}`)
+const lockedFuluList = computed(() =>
+  fuluSlots.filter((s) => s.locked).map((s) => s.locked)
+)
+const lockedFuluCount = computed(() => lockedFuluList.value.length)
+
+// ======== 计算属性 ========
+// 手牌栏 13 张 + 右侧和牌 1 张；每副露占 3 张
+const expectedHandCount = computed(() => 13 - lockedFuluCount.value * 3)
+const expectedTotalCount = computed(() => 14 - lockedFuluCount.value * 3)
+const filledTileCount = computed(() => form.hand.length + (form.getTile ? 1 : 0))
+const handCountText = computed(() => `${filledTileCount.value}/${expectedTotalCount.value}`)
 const handCountTagType = computed(() => {
-  if (form.hand.length === expectedHandCount.value) return 'success'
-  if (form.hand.length > expectedHandCount.value) return 'danger'
+  if (filledTileCount.value === expectedTotalCount.value) return 'success'
+  if (filledTileCount.value > expectedTotalCount.value) return 'danger'
   return 'warning'
 })
 
-const ensureReadyForSubmit = () => {
+const syncTextInput = () => {
+  const tiles = form.getTile ? [...form.hand, form.getTile] : [...form.hand]
+  textInput.value = tilesToNotationText(tiles)
+}
+
+const applyParsedTiles = (parsed) => {
   const exp = expectedHandCount.value
+  if (parsed.length === exp + 1) {
+    form.hand = parsed.slice(0, -1)
+    form.getTile = parsed[parsed.length - 1]
+  } else if (parsed.length <= exp) {
+    form.hand = parsed
+    form.getTile = null
+  } else {
+    throw new Error(`手牌应为 ${expectedTotalCount.value} 张（含和牌张），当前简写解析为 ${parsed.length} 张`)
+  }
+  syncTextInput()
+}
+
+const ensureReadyForSubmit = () => {
+  const expHand = expectedHandCount.value
+  const expTotal = expectedTotalCount.value
   if (textInput.value?.trim()) {
     try {
       const parsed = parseNotationText(textInput.value)
-      if (parsed.length > exp) {
-        ElMessage.error(`手牌应为 ${exp} 张（含和牌张），当前简写解析为 ${parsed.length} 张`)
-        return false
-      }
-      form.hand = parsed
-      textInput.value = tilesToNotationText(form.hand)
+      applyParsedTiles(parsed)
     } catch (e) {
       ElMessage.error(`简写解析失败：${e.message}`)
       return false
     }
   }
-  if (form.hand.length !== exp) {
-    ElMessage.error(`手牌须恰好 ${exp} 张（当前 ${form.hand.length} 张）`)
-    return false
-  }
-  if (!form.getTile || !form.hand.includes(form.getTile)) {
-    ElMessage.warning('请选择「和牌张」（须与手牌中某张一致，可先点选「和牌张」再点牌面）')
-    return false
-  }
-  if (form.fulus.length > 0 && !form.fulus.every(f => f.tileId)) {
-    ElMessage.warning('请为每条副露选中心牌，或删除多余副露')
+  if (filledTileCount.value !== expTotal) {
+    if (form.hand.length !== expHand) {
+      ElMessage.error(`手牌栏须 ${expHand} 张（当前 ${form.hand.length} 张）`)
+    } else if (!form.getTile) {
+      ElMessage.warning('请填写右侧和牌张（手牌栏满后点下方牌面自动填入）')
+    } else {
+      ElMessage.error(`手牌须凑满 ${expTotal} 张（当前 ${filledTileCount.value} 张，含和牌张）`)
+    }
     return false
   }
   return true
@@ -290,116 +336,140 @@ const ensureReadyForSubmit = () => {
 
 // ======== 操作方法 ========
 const onPalettePick = (id) => {
-  switch (palette.target) {
-    case 'hand':
-      addHandTile(id)
-      break
-    case 'get_tile':
-      addHandTile(id)
-      form.getTile = id
-      break
-    case 'flower':
-      if (id >= 51 && id <= 58) {
-        form.flowers.push(id)
-      } else {
-        ElMessage.warning('请选择花牌（51-58）')
-      }
-      break
+  if (id >= 51 && id <= 58) return
+  if (form.hand.length < expectedHandCount.value) {
+    addHandTile(id)
+  } else {
+    setGetTile(id)
   }
 }
 
+const setGetTile = (id) => {
+  const prev = form.getTile
+  form.getTile = null
+  if (countTileEverywhere(id) >= 4) {
+    form.getTile = prev
+    ElMessage.warning(`牌 ${TILE_NAME[id]} 已达 4 张上限`)
+    return
+  }
+  form.getTile = id
+  syncTextInput()
+}
+
+const clearGetTile = () => {
+  form.getTile = null
+  syncTextInput()
+}
+
 const addHandTile = (id) => {
-  if (id >= 51 && id <= 58) {
-    form.flowers.push(id)
-    return
-  }
   if (form.hand.length >= expectedHandCount.value) {
-    ElMessage.warning(`手牌已达上限 ${expectedHandCount.value} 张，请先调整副露或删除手牌`)
+    setGetTile(id)
     return
   }
-  // 牌堆约束：每种牌不超过 4 张（含副露中的同号牌、花牌数量不限于此）
-  const totalCount = countTileEverywhere(id)
-  if (totalCount >= 4) {
+  if (countTileEverywhere(id) >= 4) {
     ElMessage.warning(`牌 ${TILE_NAME[id]} 已达 4 张上限`)
     return
   }
   form.hand.push(id)
-  textInput.value = tilesToNotationText(form.hand)
+  syncTextInput()
 }
 
 const removeHandTile = (idx) => {
-  const id = form.hand[idx]
   form.hand.splice(idx, 1)
-  textInput.value = tilesToNotationText(form.hand)
-  if (form.getTile === id && !form.hand.includes(id)) {
-    form.getTile = null
+  syncTextInput()
+}
+
+const countMeldTiles = (meld, tileId) => {
+  if (!meld) return 0
+  if (meld.kind === 's' || meld.kind === 'S') {
+    if (meld.tileId === tileId || meld.tileId - 1 === tileId || meld.tileId + 1 === tileId) return 1
+    return 0
+  }
+  if (meld.kind === 'g' || meld.kind === 'G') return meld.tileId === tileId ? 4 : 0
+  if (meld.kind === 'k' || meld.kind === 'K') return meld.tileId === tileId ? 3 : 0
+  return 0
+}
+
+const wouldExceedTileLimit = (meld, excludeSlotIdx = -1) => {
+  const tiles = meldDisplayTiles(meld.kind, meld.tileId)
+  const unique = [...new Set(tiles)]
+  for (const tid of unique) {
+    let count = form.hand.filter((t) => t === tid).length
+    if (form.getTile === tid) count += 1
+    for (let i = 0; i < fuluSlots.length; i++) {
+      if (i === excludeSlotIdx) continue
+      count += countMeldTiles(fuluSlots[i].locked, tid)
+    }
+    count += tiles.filter((t) => t === tid).length
+    if (count > 4) return tid
+  }
+  return null
+}
+
+const buildLockedMeld = (opt, input) => ({
+  kind: opt.kind,
+  tileId: opt.tileId,
+  label: opt.label,
+  code: `${opt.kind}${opt.tileId}`,
+  input,
+  displayTiles: meldDisplayTiles(opt.kind, opt.tileId),
+})
+
+const lockFuluSlot = (idx, opt) => {
+  const slot = fuluSlots[idx]
+  const meld = buildLockedMeld(opt, slot.input)
+  const overflow = wouldExceedTileLimit(meld, idx)
+  if (overflow) {
+    ElMessage.warning(`牌 ${TILE_NAME[overflow]} 已达 4 张上限`)
+    return
+  }
+  slot.locked = meld
+  slot.options = []
+  trimHandIfNeeded()
+}
+
+const clearFuluSlot = (idx) => {
+  const slot = fuluSlots[idx]
+  slot.input = ''
+  slot.options = []
+  slot.locked = null
+}
+
+const onFuluSlotInput = (idx) => {
+  const slot = fuluSlots[idx]
+  if (slot.locked) return
+  const { auto, options } = parseMeldSlotInput(slot.input)
+  slot.options = options
+  if (auto) {
+    lockFuluSlot(idx, auto)
   }
 }
 
-const removeFlower = (idx) => {
-  form.flowers.splice(idx, 1)
-}
-
-const addFulu = () => {
-  if (form.fulus.length >= 4) return
-  form.fulus.push({ kind: 'k', tileId: null })
-}
-
-const removeFulu = (idx) => {
-  form.fulus.splice(idx, 1)
-}
-
-const setFuluTile = (idx, tileId) => {
-  const fulu = form.fulus[idx]
-  if (fulu.kind === 's' || fulu.kind === 'S') {
-    // 顺子中心牌：仅允许 12-18 / 22-28 / 32-38
-    if (tileId > 40 || tileId % 10 === 1 || tileId % 10 === 9) {
-      ElMessage.warning('顺子中心牌应在 2-8 之间且不能为字牌')
-      return
-    }
-  }
-  fulu.tileId = tileId
-}
-
-const onFuluKindChange = (idx) => {
-  // 如果切换到顺子但当前 tileId 不合法，清空
-  const fulu = form.fulus[idx]
-  if ((fulu.kind === 's' || fulu.kind === 'S') && fulu.tileId) {
-    const tileId = fulu.tileId
-    if (tileId > 40 || tileId % 10 === 1 || tileId % 10 === 9) {
-      fulu.tileId = null
-    }
+const trimHandIfNeeded = () => {
+  const max = expectedHandCount.value
+  if (form.hand.length > max) {
+    form.hand.splice(max)
+    syncTextInput()
   }
 }
 
 const countTileEverywhere = (id) => {
   let count = form.hand.filter(t => t === id).length
-  for (const fulu of form.fulus) {
-    if (!fulu.tileId) continue
-    if (fulu.kind === 's' || fulu.kind === 'S') {
-      // 顺子：中心牌 ± 1 也要计数
-      if (fulu.tileId === id || fulu.tileId - 1 === id || fulu.tileId + 1 === id) {
-        count += 1
-      }
-    } else if (fulu.kind === 'g' || fulu.kind === 'G') {
-      if (fulu.tileId === id) count += 4
-    } else if (fulu.kind === 'k' || fulu.kind === 'K') {
-      if (fulu.tileId === id) count += 3
-    }
+  if (form.getTile === id) count += 1
+  for (const meld of lockedFuluList.value) {
+    count += countMeldTiles(meld, id)
   }
   return count
 }
 
 const resetAll = () => {
   form.hand = []
-  form.fulus = []
-  form.flowers = []
+  form.flowerCount = 0
   form.getTile = null
   form.hepaiType = 'dianhe'
   form.changFeng = '场风东'
   form.menFeng = '自风东'
   form.flagSet = {
-    heDanZhang: false,
     heJueZhang: false,
     gangShangKaiHua: false,
     qiangGangHe: false,
@@ -408,20 +478,33 @@ const resetAll = () => {
   }
   textInput.value = ''
   result.value = null
+  for (let i = 0; i < FULU_SLOT_COUNT; i++) {
+    clearFuluSlot(i)
+  }
 }
 
 // ======== 接口调用 ========
-const buildRequestBody = () => {
-  const tilesCombination = form.fulus
-    .filter(f => f.tileId)
-    .map(f => `${f.kind}${f.tileId}`)
+const buildRequestBody = async () => {
+  const tilesCombination = lockedFuluList.value.map((m) => m.code)
 
-  // 顺子请求时直接送 sNN（NN 为中心牌号），后端用同样的字典查询
   const wayToHepai = []
   wayToHepai.push(form.hepaiType === 'zimo' ? '自摸' : '点和')
   if (form.changFeng) wayToHepai.push(form.changFeng)
   if (form.menFeng) wayToHepai.push(form.menFeng)
-  if (form.flagSet.heDanZhang) wayToHepai.push('和单张')
+
+  // 前 13 张听牌检测：待牌唯一时自动判定和单张
+  try {
+    const tingResp = await axios.post('/api/mahjong/gb/tingpai', {
+      hand_tiles: [...form.hand],
+      tiles_combination: tilesCombination,
+    })
+    if (tingResp.data?.success && tingResp.data.data?.waiting_tiles?.length === 1) {
+      wayToHepai.push('和单张')
+    }
+  } catch (e) {
+    console.warn('和单张自动判定失败，将跳过', e)
+  }
+
   if (form.flagSet.heJueZhang) wayToHepai.push('和绝张')
   if (form.flagSet.gangShangKaiHua) wayToHepai.push('杠上开花')
   if (form.flagSet.qiangGangHe) wayToHepai.push('抢杠和')
@@ -429,11 +512,11 @@ const buildRequestBody = () => {
   if (form.flagSet.haiDiLaoYue) wayToHepai.push('海底捞月')
 
   return {
-    hand_tiles: [...form.hand],
+    hand_tiles: [...form.hand, form.getTile],
     tiles_combination: tilesCombination,
     way_to_hepai: wayToHepai,
     get_tile: form.getTile,
-    flower_tiles: [...form.flowers]
+    flower_tiles: buildFlowerTiles()
   }
 }
 
@@ -442,7 +525,7 @@ const calculateScore = async () => {
   loading.value = true
   result.value = null
   try {
-    const resp = await axios.post('/api/mahjong/gb/score', buildRequestBody())
+    const resp = await axios.post('/api/mahjong/gb/score', await buildRequestBody())
     if (!resp.data.success) {
       ElMessage.error(resp.data.message || '计算失败')
       return
@@ -462,7 +545,7 @@ const calculateDecompose = async () => {
   loading.value = true
   result.value = null
   try {
-    const resp = await axios.post('/api/mahjong/gb/decompose', buildRequestBody())
+    const resp = await axios.post('/api/mahjong/gb/decompose', await buildRequestBody())
     if (!resp.data.success) {
       ElMessage.error(resp.data.message || '计算失败')
       return
@@ -591,6 +674,8 @@ function renderDecomposition(combinations) {
   flex-wrap: wrap;
   gap: 4px;
   min-height: 48px;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 6px;
   background: var(--omu-surface-soft, #f5f7fa);
   border-radius: 6px;
@@ -598,17 +683,106 @@ function renderDecomposition(combinations) {
 }
 .hand-bar.small { min-height: 36px; }
 
-.fulu-list { display: flex; flex-direction: column; gap: 8px; }
-.fulu-item {
+.hand-row {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: stretch;
   gap: 8px;
-  padding: 8px;
+}
+
+.get-tile-box {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 56px;
+  padding: 6px 8px;
+  background: #fffbeb;
+  border-radius: 6px;
+  border: 2px dashed #fbbf24;
+}
+.get-tile-box.filled {
+  border-style: solid;
+  background: #fef3c7;
+}
+.get-tile-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #b45309;
+  letter-spacing: 0.5px;
+}
+
+.fulu-slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.fulu-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px;
   background: var(--omu-surface-soft, #f5f7fa);
   border-radius: 6px;
-  border: 1px solid var(--omu-border, #ebeef5);
+  border: 1px dashed var(--omu-border, #ebeef5);
+  min-height: 64px;
+  min-width: 0;
 }
+
+.fulu-slot.locked {
+  border-style: solid;
+  background: #f0f9ff;
+}
+
+.slot-index {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--omu-text-muted, #94a3b8);
+  line-height: 1;
+}
+
+.fulu-kind {
+  align-self: flex-start;
+}
+
+.fulu-input {
+  width: 100%;
+}
+
+.fulu-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.fulu-clear {
+  align-self: center;
+  padding: 0;
+  height: auto;
+}
+
+.fulu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fulu-options .el-button {
+  width: 100%;
+  margin: 0;
+  padding: 4px 0;
+}
+
+@media (max-width: 640px) {
+  .fulu-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .fulu-tile { display: inline-flex; }
 .palette-inline { flex-basis: 100%; margin-top: 6px; }
 

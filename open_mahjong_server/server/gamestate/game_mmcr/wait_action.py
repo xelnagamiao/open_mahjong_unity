@@ -26,10 +26,50 @@ logger = logging.getLogger(__name__)
 
 TACTICAL_GRACE_SECONDS = 1.5
 
+_CHI_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right"})
+
+
+def _is_chi_action(action_type: str) -> bool:
+    return action_type in _CHI_ACTIONS
+
+
+def _get_higher_priority_snapshot(self, action_type, player_index):
+    """从战术快照中筛出对当前行为拥有更高优先级选项的其他玩家。"""
+    current_priority = self.action_priority[action_type]
+    higher_action_dict = {pid: [] for pid in range(4)}
+    any_higher = False
+    source = getattr(self, "_tactical_action_snapshot", None) or self.action_dict
+    for pid in range(4):
+        if pid == player_index:
+            continue
+        filtered = [
+            a for a in source.get(pid, [])
+            if a != "pass" and self.action_priority[a] > current_priority
+        ]
+        if filtered:
+            higher_action_dict[pid] = filtered + ["pass"]
+            any_higher = True
+    return higher_action_dict, any_higher
+
+
+def _should_enter_tactical_grace(self, action_type, player_index) -> bool:
+    """吃牌固定进入战术等待；碰/和/杠/加杠仅在有更高优先级竞争者时进入。"""
+    if _is_chi_action(action_type):
+        return True
+    _, any_higher = _get_higher_priority_snapshot(self, action_type, player_index)
+    return any_higher
+
 
 async def _tactical_grace_phase(self, action_type, player_index, action_data, cut_tile):
     """战术鸣牌打断阶段：详见国标麻将同名函数。"""
     while True:
+        higher_action_dict, any_higher = _get_higher_priority_snapshot(
+            self, action_type, player_index
+        )
+
+        if not _is_chi_action(action_type) and not any_higher:
+            return action_type, player_index, action_data
+
         if action_type != "pass":
             await broadcast_do_action(
                 self,
@@ -40,19 +80,6 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
             )
 
         current_priority = self.action_priority[action_type]
-        higher_action_dict = {pid: [] for pid in range(4)}
-        any_higher = False
-        source = getattr(self, "_tactical_action_snapshot", None) or self.action_dict
-        for pid in range(4):
-            if pid == player_index:
-                continue
-            filtered = [
-                a for a in source.get(pid, [])
-                if a != "pass" and self.action_priority[a] > current_priority
-            ]
-            if filtered:
-                higher_action_dict[pid] = filtered + ["pass"]
-                any_higher = True
         self.action_dict = higher_action_dict
         # 同步刷新等待玩家列表，使 get_action 接受这些玩家在 2 秒窗口内的抢断行为
         self.waiting_players_list = [pid for pid, alist in higher_action_dict.items() if alist]
@@ -259,12 +286,13 @@ async def wait_action(self):
     else:
         logger.info(f"操作超时")
 
-    # 战术鸣牌：在切牌后/抢杠询问阶段，先进入 2 秒申请-打断阶段
+    # 战术鸣牌：吃牌固定进入申请-打断阶段；碰/和/杠/加杠仅在有更高优先级竞争者时进入
     if (
         getattr(self, "tactical_call", False)
         and action_data
         and action_type != "pass"
         and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+        and _should_enter_tactical_grace(self, action_type, player_index)
     ):
         cut_tile_for_claim = self.player_list[self.current_player_index].discard_tiles[-1]
         action_type, player_index, action_data = await _tactical_grace_phase(
@@ -336,22 +364,25 @@ async def wait_action(self):
                     clear_draw_slot(player)
 
                     combination_index = -1
-                    # 寻找当前玩家的组合牌是否有k+加杠牌 有则将相同位置的索引记录
-                    for i,combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
-                        if combination == f"k{normal_jia}":
+                    for i, combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
+                        if combination.startswith("k") and normalize_tile(int(combination[1:])) == normal_jia:
                             combination_index = i
                             break
 
-                    # 通过组合位置找到掩码位置
+                    if combination_index < 0:
+                        logger.error(
+                            f"非法jiagang：未找到可加杠的刻子 normal_jia={normal_jia}, combination_tiles={self.player_list[self.current_player_index].combination_tiles}"
+                        )
+                        self.game_status = "deal_card"
+                        return
+
                     for i, mask in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
-                        if mask == 1:  # 找到数组下标 [0,Tile,0,Tile,1,Tile] 获取1的位置 1代表碰牌横牌的位置
-                            # 在碰牌横牌的后面插入加杠牌和3 如 结果[0,Tile,0,Tile,1,{Tile,3,}Tile]
+                        if mask == 1:
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, actual_jia)
-                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3) # 插入3代表加杠牌
+                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3)
                             break
 
-                    self.player_list[self.current_player_index].combination_tiles.remove(f"k{normal_jia}") # 从组合牌中移除刻子
-                    self.player_list[self.current_player_index].combination_tiles.append(f"g{normal_jia}") # 将明杠牌加入组合牌 (小写g代表明杠)
+                    self.player_list[self.current_player_index].combination_tiles[combination_index] = f"g{normal_jia}"
 
                     # 牌谱记录加杠
                     player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)

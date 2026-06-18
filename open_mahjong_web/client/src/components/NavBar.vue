@@ -40,14 +40,9 @@
           <span>牌理</span>
         </el-menu-item>
 
-        <el-menu-item index="/shanten">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>听牌判断</span>
-        </el-menu-item>
-
         <el-menu-item index="/chinese">
-          <el-icon><Trophy /></el-icon>
-          <span>国标麻将</span>
+          <el-icon><Operation /></el-icon>
+          <span>国标计算器</span>
         </el-menu-item>
 
         <el-menu-item index="/rulebook">
@@ -76,8 +71,7 @@ import {
   VideoPlay,
   User,
   Histogram,
-  DataAnalysis,
-  Trophy,
+  Operation,
   Reading,
   Document,
   Link,

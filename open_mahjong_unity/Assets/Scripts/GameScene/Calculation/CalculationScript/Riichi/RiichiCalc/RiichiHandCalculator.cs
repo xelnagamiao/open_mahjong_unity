@@ -64,7 +64,7 @@ namespace Riichi {
                     YakumanMultiplier = mult,
                 });
                 int han = 0;
-                int fu = 20;
+                int fu = 25;
                 int score = RiichiScoreCalc.CalculateTotalScore(han, fu,
                     context.PlayerWind == RiichiTileUtil.East, context.IsTsumo, mult);
                 if (score > bestScore) {
@@ -107,6 +107,10 @@ namespace Riichi {
                 result.IsValid = false;
                 result.Error = "无役";
                 return result;
+            }
+
+            if (bestDetect.YakumanMultiplier > 0) {
+                bestFu = 25;
             }
 
             result.IsValid = true;

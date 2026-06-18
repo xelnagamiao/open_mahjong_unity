@@ -313,7 +313,7 @@ public static class FanTextDictionary {
     /// 四川麻将（血战到底）番数说明：番数为累加制，3番封顶（基本分=2^min(总番,3)）。
     /// </summary>
     public static readonly Dictionary<string, string> FanToDisplaySichuan = new Dictionary<string, string> {
-        {"平和", "1番"},
+        {"平和", "0番"},
         {"杠", "1番"},
         {"根", "1番"},
         {"大对子", "1番"},
@@ -387,5 +387,46 @@ public static class FanTextDictionary {
         }
         if (map != null && map.TryGetValue(fanName, out string display)) return display;
         return "0番";
+    }
+
+    /// <summary>
+    /// 国标：任一单项番数 ≥48；日麻：含役满（含双倍役满）时，和牌面板出现应播放 Gong_hu 音效。
+    /// </summary>
+    public static bool ShouldPlayGongHuSound(string rule, string[] huFan) {
+        if (huFan == null || huFan.Length == 0 || string.IsNullOrEmpty(rule)) {
+            return false;
+        }
+
+        bool isGuobiao = rule.StartsWith("guobiao/");
+        bool isRiichi = rule.StartsWith("riichi");
+        if (!isGuobiao && !isRiichi) {
+            return false;
+        }
+
+        foreach (string fanKey in huFan) {
+            string display = GetFanDisplayText(rule, fanKey);
+            if (isRiichi) {
+                if (display.Contains("役满")) {
+                    return true;
+                }
+            } else if (TryParseSingleFanValue(display, out int fan) && fan >= 48) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool TryParseSingleFanValue(string display, out int fan) {
+        fan = 0;
+        if (string.IsNullOrEmpty(display)) {
+            return false;
+        }
+        if (display.EndsWith("番") && int.TryParse(display.Substring(0, display.Length - 1), out fan)) {
+            return true;
+        }
+        if (display.EndsWith("Fan") && int.TryParse(display.Substring(0, display.Length - 3), out fan)) {
+            return true;
+        }
+        return false;
     }
 }

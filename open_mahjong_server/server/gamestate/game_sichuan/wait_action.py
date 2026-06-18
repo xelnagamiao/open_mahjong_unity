@@ -2,7 +2,7 @@
 
 事件/优先级引擎沿用古典实现；动作处理替换为四川逻辑：
 - 无吃牌；
-- 切牌强制先打定缺花色；
+- 切牌强制先打定缺花色（非定缺花色暗杠除外）；
 - 刮风下雨（点杠/摸杠加杠/暗杠）即时收分并记录用于退税；
 - 和牌（自摸/点炮/抢杠）不立即结束，交由主循环 settle_win 处理血战续打。
 """
@@ -10,6 +10,12 @@ import asyncio
 import time
 import logging
 from .action_check import check_action_after_cut, check_action_jiagang, refresh_waiting_tiles
+from .boardcast import broadcast_refresh_player_tag_list
+from .shunhe import (
+    activate_shunhe_if_tenpai_discard,
+    apply_passed_win_shunhe,
+    record_passed_self_draw_shunhe,
+)
 from .boardcast import broadcast_do_action, broadcast_ready_status
 from ..public.game_record_manager import (
     player_action_record_cut, player_action_record_angang,
@@ -60,6 +66,12 @@ def _prepare_dingque_cut_action(player, action_data: dict):
     )
     out["cutIndex"] = None
     return out, True
+
+
+async def _handle_cut_shunhe(self, player, was_tenpai: bool):
+    """听牌出牌后激活待生效顺和。"""
+    if activate_shunhe_if_tenpai_discard(player, was_tenpai):
+        await broadcast_refresh_player_tag_list(self)
 
 
 async def wait_action(self):
@@ -142,6 +154,9 @@ async def wait_action(self):
             if action_data:
                 if action_type == "cut":
                     player = self.player_list[player_index]
+                    was_tenpai = bool(player.waiting_tiles)
+                    if record_passed_self_draw_shunhe(self, player_index):
+                        await broadcast_refresh_player_tag_list(self)
                     cut_action_data, dingque_corrected = _prepare_dingque_cut_action(player, action_data)
                     cut_result = await apply_player_cut(self, player_index, cut_action_data)
                     if cut_result is None:
@@ -149,6 +164,7 @@ async def wait_action(self):
                     tile_id, is_moqie, cut_tile_index = cut_result
                     if dingque_corrected:
                         cut_tile_index = None
+                    await _handle_cut_shunhe(self, player, was_tenpai)
                     self.player_list[player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
                     if self.current_player_index == self.dealer_index:
@@ -165,14 +181,23 @@ async def wait_action(self):
                         self.game_status = "deal_card"
 
                 elif action_type == "angang":
+                    if record_passed_self_draw_shunhe(self, self.current_player_index):
+                        await broadcast_refresh_player_tag_list(self)
                     angang_tile = normalize_tile(action_data.get("target_tile"))
                     player = self.player_list[self.current_player_index]
+                    dingque = getattr(player, "dingque_suit", 0)
+                    if dingque in (1, 2, 3) and _suit(angang_tile) == dingque:
+                        logger.warning(
+                            f"四川暗杠失败：不能暗杠定缺花色, player_index={self.current_player_index}, "
+                            f"tile={angang_tile}, dingque={dingque}"
+                        )
+                        return
                     draw_slot = has_draw_slot(player)
                     is_mo_gang = resolve_is_mo_gang(player.hand_tiles, angang_tile, draw_slot=draw_slot)
                     removed = remove_angang_tiles(player.hand_tiles, angang_tile, draw_slot=draw_slot)
                     clear_draw_slot(player)
                     player.combination_tiles.append(f"G{angang_tile}")
-                    add_mask = [2, removed[0], 2, removed[1], 2, removed[2], 2, removed[3]]
+                    add_mask = [2, removed[0], 0, removed[1], 0, removed[2], 2, removed[3]]
                     player.combination_mask.append(add_mask)
                     # 下雨2：暗杠收未和牌每人 2 分
                     gang_changes = self._record_gang_score(self.current_player_index, angang_tile, "xiayu2")
@@ -185,6 +210,8 @@ async def wait_action(self):
                     self.game_status = "deal_card_after_gang"
 
                 elif action_type == "jiagang":
+                    if record_passed_self_draw_shunhe(self, self.current_player_index):
+                        await broadcast_refresh_player_tag_list(self)
                     jiagang_tile = normalize_tile(action_data.get("target_tile"))
                     player = self.player_list[self.current_player_index]
                     draw_slot = has_draw_slot(player)
@@ -235,6 +262,9 @@ async def wait_action(self):
             else:
                 # 超时自动出牌（强制定缺优先）
                 player = self.player_list[self.current_player_index]
+                was_tenpai = bool(player.waiting_tiles)
+                if record_passed_self_draw_shunhe(self, self.current_player_index):
+                    await broadcast_refresh_player_tag_list(self)
                 draw_slot = has_draw_slot(player)
                 is_moqie = draw_slot
                 tile_id = player.hand_tiles[-1] if draw_slot else pick_timeout_discard_tile(player.hand_tiles)
@@ -243,6 +273,7 @@ async def wait_action(self):
                     is_moqie = False
                 remove_cut_tile(player.hand_tiles, tile_id, is_moqie, draw_slot=draw_slot)
                 clear_draw_slot(player)
+                await _handle_cut_shunhe(self, player, was_tenpai)
                 player.discard_tiles.append(tile_id)
                 player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
                 if self.current_player_index == self.dealer_index:
@@ -261,10 +292,17 @@ async def wait_action(self):
 
         case "waiting_action_after_cut":
             tile_id = self.player_list[self.current_player_index].discard_tiles[-1]
+            hu_eligible_indexes = [
+                pi for pi, acts in self.action_dict.items() if "hu" in acts
+            ]
             combination_mask = []
             combination_target = ""
             if action_data:
                 refresh_waiting_tiles(self, player_index)
+                if action_type in ("peng", "gang") and apply_passed_win_shunhe(
+                    self, [player_index] if player_index in hu_eligible_indexes else []
+                ):
+                    await broadcast_refresh_player_tag_list(self)
                 if action_type == "peng":
                     if self.player_list[player_index].hand_tiles.count(tile_id) < 2:
                         self.game_status = "deal_card"
@@ -333,10 +371,14 @@ async def wait_action(self):
                     return
 
                 if action_type == "pass":
+                    if apply_passed_win_shunhe(self, [player_index] if player_index in hu_eligible_indexes else []):
+                        await broadcast_refresh_player_tag_list(self)
                     self._clear_paofen_pending(self.current_player_index)
                     self.game_status = "deal_card"
                     return
             else:
+                if apply_passed_win_shunhe(self, hu_eligible_indexes):
+                    await broadcast_refresh_player_tag_list(self)
                 self._clear_paofen_pending(self.current_player_index)
                 self.game_status = "deal_card"
                 return
@@ -344,6 +386,7 @@ async def wait_action(self):
         case "onlycut_after_action":
             if action_data and action_type == "cut":
                 player = self.player_list[self.current_player_index]
+                was_tenpai = bool(player.waiting_tiles)
                 cut_action_data, dingque_corrected = _prepare_dingque_cut_action(player, action_data)
                 cut_result = await apply_player_cut(self, self.current_player_index, cut_action_data)
                 if cut_result is None:
@@ -351,6 +394,7 @@ async def wait_action(self):
                 tile_id, is_moqie, cut_tile_index = cut_result
                 if dingque_corrected:
                     cut_tile_index = None
+                await _handle_cut_shunhe(self, player, was_tenpai)
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
                 self.last_action_was_gang = False
@@ -365,10 +409,12 @@ async def wait_action(self):
                 return
             else:
                 player = self.player_list[self.current_player_index]
+                was_tenpai = bool(player.waiting_tiles)
                 tile_id = pick_timeout_discard_tile(player.hand_tiles)
                 tile_id = _enforce_dingque_first(player, tile_id)
                 remove_cut_tile(player.hand_tiles, tile_id, False, draw_slot=False)
                 clear_draw_slot(player)
+                await _handle_cut_shunhe(self, player, was_tenpai)
                 player.discard_tiles.append(tile_id)
                 player_action_record_cut(self, cut_tile=tile_id, is_moqie=False)
                 self.last_action_was_gang = False
@@ -384,6 +430,9 @@ async def wait_action(self):
 
         case "waiting_action_qianggang":
             temp_jiagang_tile = self.jiagang_tile
+            hu_eligible_indexes = [
+                pi for pi, acts in self.action_dict.items() if "hu" in acts
+            ]
             self.jiagang_tile = None
             if action_data and action_type == "hu":
                 # 抢杠：加杠不成立 → 退回该加杠下雨分，杠回退为碰，并将牌判给抢杠者
@@ -406,6 +455,8 @@ async def wait_action(self):
                 self.game_status = "settle_win"
                 return
             else:
+                if apply_passed_win_shunhe(self, hu_eligible_indexes):
+                    await broadcast_refresh_player_tag_list(self)
                 self.game_status = "deal_card_after_gang"
                 return
 

@@ -390,6 +390,9 @@ class Riichi_Hepai_Check:
             (y.han_open if is_open else y.han_closed) >= 13 for y in result.yaku
             if y.name not in ("Dora", "Aka Dora", "Ura Dora", "Uradora")
         )
+        # 库对国士等例外牌型返回 fu=0；展示与七对子一致，役满统一记 25 符（不影响役满固定点数）
+        if is_yakuman:
+            fu = 25
         score_info = ScoresCalculator.calculate_scores(han, fu, config, is_yakuman)
         if not context.get("is_tsumo", False):
             score = int(score_info.get("main", 0))

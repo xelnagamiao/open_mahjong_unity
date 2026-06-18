@@ -225,6 +225,11 @@ public partial class GameCanvas : MonoBehaviour {
         HideStickerPanel();
         ClearAllStickers();
         SetStickerUiForRecordMode(true);
+        HideDingqueSelection();
+        playerSelfPanel?.SetDingque(0);
+        playerLeftPanel?.SetDingque(0);
+        playerTopPanel?.SetDingque(0);
+        playerRightPanel?.SetDingque(0);
         HandCardSelectionController.Instance?.DisarmAll();
         // 清空手牌容器 - 倒序遍历避免SetParent影响
         for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
@@ -399,6 +404,7 @@ public partial class GameCanvas : MonoBehaviour {
 
     public void RefreshRiichiStatusIndicators() {
         RefreshSelfFuritenIndicator();
+        RefreshSelfShunheIndicator();
         RefreshLangyongWaveIndicator();
     }
 

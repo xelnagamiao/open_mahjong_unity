@@ -71,18 +71,16 @@ public class SoundManager : MonoBehaviour {
     }
 
     private static string ResolveActionVoiceKey(string actionType) {
-        NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        string roomRule = gsm != null ? gsm.roomRule : null;
-        string subRule = gsm != null ? gsm.subRule : null;
+        GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
 
         if (actionType == "hu_self") {
-            if (roomRule == "guobiao" || (subRule != null && subRule.StartsWith("guobiao/"))) {
+            if (GameRecordManager.IsGuobiaoRule(roomRule, subRule)) {
                 return "hu";
             }
             return "zimo";
         }
         if (actionType == "hu" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third") {
-            if (roomRule == "riichi" || (subRule != null && subRule.StartsWith("riichi/"))) {
+            if (roomRule == "riichi" || (!string.IsNullOrEmpty(subRule) && subRule.StartsWith("riichi/"))) {
                 return "rong";
             }
             return "hu";
@@ -155,13 +153,15 @@ public class SoundManager : MonoBehaviour {
     }
 
     public void PlayPhysicsSound(/* Vector3 position, 物理音效发出位置 */string actionType){
-
-        if (actionType == "cut"){
-            actionType = "SFX_UI_Click_Organic_Plastic_Select_2";
+        string fileName;
+        if (actionType == "cut") {
+            fileName = "SFX_UI_Click_Organic_Plastic_Select_2";
+        } else if (actionType == "Gong_hu") {
+            fileName = "Gong_hu";
         } else {
             return;
         }
-        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + actionType);
+        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/" + fileName);
         if (soundToPlay == null) {
             Debug.LogWarning($"未找到物理音效文件: {actionType}");
             return;

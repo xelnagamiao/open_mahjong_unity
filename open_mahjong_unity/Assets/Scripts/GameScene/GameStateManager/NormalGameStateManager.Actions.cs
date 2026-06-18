@@ -56,7 +56,7 @@ public partial class NormalGameStateManager {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
-            // 战术鸣牌申请：仅播放发声+字体动画+战术倒计时面板，不改变任何游戏状态
+            // 战术鸣牌申请：仅吃牌固定播放；碰/和/杠仅在有更高优先级竞争者时由服务端下发
             HandleTacticalClaim(GetCardPlayer, action_list);
             return;
         }
@@ -144,15 +144,26 @@ public partial class NormalGameStateManager {
                 case "chi_left": case"chi_mid": case"chi_right": case "angang": case "jiagang": case "peng": case "gang":
                     if (action == "jiagang"){
                         pendingAskFromJiagang = true;
-                        string combination_target_str = combination_target.Substring(1);
-                        ReplaceCombinationMask(player_to_info[GetCardPlayer], combination_target, combination_mask);
-                        player_to_info[GetCardPlayer].combination_tiles.Add($"g{combination_target_str}");
-                        player_to_info[GetCardPlayer].combination_tiles.Remove(combination_target);
-                        int? jiagangTileFromMask = GameRecordMeldCodec.ExtractTileByFlag(combination_mask, 3);
-                        int tile_id = jiagangTileFromMask ?? int.Parse(combination_target_str);
+                        var meldPlayer = player_to_info[GetCardPlayer];
+                        int meldIdx = GameRecordMeldCodec.FindCombinationIndex(meldPlayer.combination_tiles, combination_target);
+                        string gCombo = GameRecordMeldCodec.BuildCombinationKey('g',
+                            GameRecordMeldCodec.NormalizeCombinationTileId(combination_target));
+                        if (meldIdx >= 0) {
+                            ReplaceCombinationMaskAtIndex(meldPlayer, meldIdx, combination_mask);
+                            meldPlayer.combination_tiles[meldIdx] = gCombo;
+                        } else {
+                            ReplaceCombinationMask(meldPlayer, combination_target, combination_mask);
+                            meldPlayer.combination_tiles.Add(gCombo);
+                            meldPlayer.combination_tiles.Remove(combination_target);
+                        }
+                        int normJia = GameRecordMeldCodec.NormalizeCombinationTileId(combination_target);
+                        int? actualJia = GameRecordMeldCodec.ExtractTileByFlag(combination_mask, 3);
                         bool isMoGang = is_mo_gang == true;
+                        int tile_id = actualJia ?? normJia;
                         if (GetCardPlayer == "self"){
-                            selfHandTiles.Remove(tile_id);
+                            var removed = GameRecordMeldCodec.RemoveOneJiagangTile(
+                                selfHandTiles, actualJia, normJia, isMoGang);
+                            if (removed.Count > 0) tile_id = removed[0];
                             if (isMoGang) {
                                 GameCanvas.Instance.ChangeHandCards("RemoveGetCard", tile_id, null, null);
                             } else {
@@ -281,10 +292,17 @@ public partial class NormalGameStateManager {
 
     private static void ReplaceCombinationMask(PlayerInfoClass player, string oldCombo, int[] mask) {
         if (player.combination_masks == null) player.combination_masks = new List<int[]>();
-        int idx = player.combination_tiles.IndexOf(oldCombo);
+        int idx = GameRecordMeldCodec.FindCombinationIndex(player.combination_tiles, oldCombo);
+        if (idx < 0) idx = player.combination_tiles.IndexOf(oldCombo);
+        ReplaceCombinationMaskAtIndex(player, idx, mask);
+    }
+
+    private static void ReplaceCombinationMaskAtIndex(PlayerInfoClass player, int idx, int[] mask) {
+        if (player.combination_masks == null) player.combination_masks = new List<int[]>();
         if (idx >= 0 && idx < player.combination_masks.Count) {
             player.combination_masks[idx] = mask;
         } else {
+            Debug.LogWarning($"ReplaceCombinationMask: 副露索引无效 idx={idx}, masks={player.combination_masks?.Count ?? 0}");
             player.combination_masks.Add(mask);
         }
     }

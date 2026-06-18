@@ -485,6 +485,7 @@ public partial class GameRecordManager {
 
     private void ClearSpectatorAskUI() {
         GameCanvas.Instance.ClearActionButton();
+        GameCanvas.Instance.HideDingqueSelection();
     }
 
     private void HandleSpectatorAskHand(List<string> tick) {

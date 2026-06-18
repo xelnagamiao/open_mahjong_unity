@@ -9,7 +9,7 @@ from ..response import Response, SpectatorInfo
 logger = logging.getLogger(__name__)
 
 STICKER_PATTERN = re.compile(r"^[a-zA-Z0-9_]+/[1-9]$")
-STICKER_SEND_INTERVAL_SECONDS = 5.0
+STICKER_SEND_INTERVAL_SECONDS = 3.0
 
 async def handle_gamestate_message(game_server, Connect_id: str, message: dict, websocket):
     """
@@ -145,9 +145,11 @@ async def handle_send_sticker(game_server, Connect_id: str, message: dict, webso
             return
 
         sender_index = None
+        sender_original_index = None
         for player in game_state.player_list:
             if player.user_id == user_id:
                 sender_index = player.player_index
+                sender_original_index = player.original_player_index
                 break
         if sender_index is None:
             logger.warning(f"用户 {user_id} 不是对局玩家，拒绝发送表情包")
@@ -164,8 +166,11 @@ async def handle_send_sticker(game_server, Connect_id: str, message: dict, webso
             return
         last_send_map[user_id] = now
 
-        await broadcast_sticker(game_state, sender_index, sticker)
-        logger.info(f"用户 {user_id} 发送表情包: {sticker}, player_index={sender_index}")
+        await broadcast_sticker(game_state, sender_index, sender_original_index, sticker)
+        logger.info(
+            f"用户 {user_id} 发送表情包: {sticker}, "
+            f"player_index={sender_index}, original_player_index={sender_original_index}"
+        )
     except Exception as e:
         logger.error(f"处理表情包请求失败: {e}", exc_info=True)
 

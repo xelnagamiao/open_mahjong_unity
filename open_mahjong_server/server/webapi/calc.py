@@ -123,6 +123,31 @@ def _build_paili_response(hand_tiles: List[int], tiles_combination: List[str]) -
     }
 
 
+def _augment_way_with_he_dan_zhang(
+    way_to_hepai: List[str],
+    hand_tiles: List[int],
+    get_tile: int,
+    tiles_combination: List[str],
+    calc_service,
+) -> List[str]:
+    """前 13 张听牌检测：待牌唯一时自动追加和单张（与对局逻辑一致）。"""
+    augmented = list(way_to_hepai)
+    if "和单张" in augmented:
+        return augmented
+    hand_13 = list(hand_tiles)
+    if get_tile in hand_13:
+        hand_13.remove(get_tile)
+    elif len(hand_13) > 13:
+        hand_13 = hand_13[:13]
+    try:
+        waiting = calc_service.GB_tingpai_check(hand_13, list(tiles_combination))
+        if len(waiting) == 1:
+            augmented.append("和单张")
+    except Exception:
+        logging.debug("和单张自动判定跳过", exc_info=True)
+    return augmented
+
+
 def register_calc_routes(app: FastAPI, game_server) -> None:
     """将 /calc/* 路由挂到已创建的 FastAPI app 上。"""
     calc = game_server.calculation_service
@@ -131,6 +156,9 @@ def register_calc_routes(app: FastAPI, game_server) -> None:
     async def calc_gb_score(req: GBCalcRequest):
         try:
             way = _augment_way_with_flowers(req.way_to_hepai, req.flower_tiles)
+            way = _augment_way_with_he_dan_zhang(
+                way, list(req.hand_tiles), req.get_tile, req.tiles_combination, calc
+            )
             score, fan_list = calc.GB_hepai_check(
                 list(req.hand_tiles),
                 list(req.tiles_combination),
@@ -159,6 +187,9 @@ def register_calc_routes(app: FastAPI, game_server) -> None:
     async def calc_gb_decompose(req: GBCalcRequest):
         try:
             way = _augment_way_with_flowers(req.way_to_hepai, req.flower_tiles)
+            way = _augment_way_with_he_dan_zhang(
+                way, list(req.hand_tiles), req.get_tile, req.tiles_combination, calc
+            )
             decompositions = calc.GB_hepai_decompose(
                 list(req.hand_tiles),
                 list(req.tiles_combination),

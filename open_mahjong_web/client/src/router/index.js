@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import Home from '@/views/Home.vue'
-import ShantenAnalysis from '@/views/ShantenAnalysis.vue'
 import ChineseMahjong from '@/views/ChineseMahjong.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import UnityGame from '@/views/UnityGame.vue'
@@ -34,9 +33,7 @@ const routes = [
       },
       {
         path: 'shanten',
-        name: 'ShantenAnalysis',
-        component: ShantenAnalysis,
-        meta: { title: '听牌待牌判断 - salasasa.cn' }
+        redirect: '/paili'
       },
       {
         path: 'paili',
@@ -48,7 +45,7 @@ const routes = [
         path: 'chinese',
         name: 'ChineseMahjong',
         component: ChineseMahjong,
-        meta: { title: '国标麻将牌型解算 - salasasa.cn' }
+        meta: { title: '国标计算器 - salasasa.cn' }
       },
       {
         path: 'player-data',

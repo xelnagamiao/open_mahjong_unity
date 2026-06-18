@@ -208,8 +208,8 @@ def queue_type_to_room_config(queue_type: str) -> dict:
     # 初级场有提示无错和，中级场及以上无提示有错和
     tips = (tier == "beginner")
     open_cuohe = (tier != "beginner")
-    # 高级场与 MCRPL 启用战术鸣牌
-    tactical_call = tier in ("advanced", "mcrpl")
+    # 中级场及以上启用战术鸣牌
+    tactical_call = tier in ("intermediate", "advanced", "mcrpl")
     return {
         "game_round": game_round,
         "tips": tips,

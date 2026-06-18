@@ -242,17 +242,24 @@ async def wait_action(self):
                     clear_draw_slot(player)
                     combination_index = -1
                     for i, combo in enumerate(self.player_list[self.current_player_index].combination_tiles):
-                        if combo == f"k{normal_jia}":
+                        if combo.startswith("k") and _normalize(int(combo[1:])) == normal_jia:
                             combination_index = i
                             break
+                    if combination_index < 0:
+                        logger.error(
+                            "非法jiagang：未找到可加杠的刻子 normal_jia=%s, combination_tiles=%s",
+                            normal_jia,
+                            self.player_list[self.current_player_index].combination_tiles,
+                        )
+                        self.game_status = "deal_card_after_gang"
+                        return
                     for i, m in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
                         if m == 1:
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, actual_jia)
                             self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3)
                             break
 
-                    self.player_list[self.current_player_index].combination_tiles.remove(f"k{normal_jia}")
-                    self.player_list[self.current_player_index].combination_tiles.append(f"g{normal_jia}")
+                    self.player_list[self.current_player_index].combination_tiles[combination_index] = f"g{normal_jia}"
                     player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)
                     await broadcast_do_action(self, action_list=["jiagang"],
                                               action_player=self.current_player_index,
