@@ -580,12 +580,25 @@ public partial class GameRecordManager {
         foreach (var kvp in gameRecord.gameRound.rounds) {
             if (kvp.Key > lastRound) lastRound = kvp.Key;
         }
-        if (gameRecord.gameRound.rounds.TryGetValue(lastRound, out Round roundData) &&
-            roundData.actionTicks != null && roundData.actionTicks.Count > 0) {
-            currentRoundIndex = lastRound;
-            InitGameRound(lastRound);
-            GotoAction(roundData.actionTicks.Count);
+        currentRoundIndex = lastRound;
+        InitGameRound(lastRound);
+        SyncSpectatorLiveToRoundTail(lastRound);
+    }
+
+    /// <summary>
+    /// 直播观战自动切局：快进到该局已有 tick 末尾并保持直播模式（避免 node=0 被误判为牌谱阅览）。
+    /// </summary>
+    private void SyncSpectatorLiveToRoundTail(int roundIndex) {
+        if (!IsSpectating) return;
+        int tickCount = 0;
+        if (gameRecord.gameRound.rounds.TryGetValue(roundIndex, out Round roundData) && roundData.actionTicks != null) {
+            tickCount = roundData.actionTicks.Count;
         }
+        if (tickCount > 0) {
+            GotoAction(tickCount);
+        }
+        SetSpectatorModeFlags(true);
+        waitingForMoreTicks = tickCount == 0;
     }
 
     private string BuildSpectatorInfoString() {

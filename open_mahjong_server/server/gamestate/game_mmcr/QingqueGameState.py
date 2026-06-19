@@ -618,15 +618,9 @@ class QingqueGameState:
                 player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
                                         score_changes=score_changes)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, hu_fan, score_changes])
             else:
                 player_action_record_liuju(self)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick(["liuju"])
             player_action_record_round_end(self)
-            if hasattr(self, 'spectator_manager'):
-                self.spectator_manager.record_tick(["end"])
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":

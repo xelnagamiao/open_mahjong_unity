@@ -70,6 +70,11 @@ public static class ScoreHistoryRecordSettlementExtractor {
         RecordScoreRow lastRow = null;
         int currentPlayerIndex = round.startPlayerIndex;
         bool mainPhaseStarted = false;
+        bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
+        bool isSichuanBlood = isSichuan && ReadTitleString(gameTitle, "blood_battle", "true") != "false";
+        int sichuanHuCount = 0;
+        bool sichuanHadChajiao = false;
+        int[] sichuanAccumBySeat = null;
 
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
@@ -159,6 +164,17 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 case "hu_first":
                 case "hu_second":
                 case "hu_third": {
+                    if (isSichuanBlood && IsDeferredSichuanHuTick(tick)) break;
+                    if (isSichuan) {
+                        int[] scoreChanges = ParseScoreChanges(tick, 4);
+                        lastRow = new RecordScoreRow {
+                            snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, null),
+                            scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(scoreChanges, round.seats),
+                            roundNumber = roundNumber,
+                        };
+                        output.Add(lastRow);
+                        break;
+                    }
                     RoundSettlementSnapshot snap = BuildHuSnapshot(tick, action, subRule, round, actingPlayerIndex, players, lastWinnableTileId, action != "hu_self", gameTitle);
                     lastRow = new RecordScoreRow {
                         snapshot = snap,
@@ -204,6 +220,42 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 }
                 case "liuju":
                 case "jiuzhongjiupai": {
+                    if (action == "liuju" && tick.Count >= 2 && isSichuanBlood) {
+                        string step = tick[1];
+                        if (step == "reveal_hu") {
+                            sichuanHuCount = 0;
+                            sichuanHadChajiao = false;
+                            sichuanAccumBySeat = new int[4];
+                            break;
+                        }
+                        if (step == "settle_hu") {
+                            sichuanHuCount++;
+                            AccumulateSeatScores(sichuanAccumBySeat, ParseScoreChanges(tick, 6));
+                            if (tick.Count > 7 && ParseInt(tick, 7) != 0 && !sichuanHadChajiao) {
+                                FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
+                            }
+                            break;
+                        }
+                        if (step == "chajiao") {
+                            sichuanHadChajiao = true;
+                            AccumulateSeatScores(sichuanAccumBySeat, ParseScoreChanges(tick, 5));
+                            if (tick.Count > 6 && ParseInt(tick, 6) != 0) {
+                                FlushSichuanEndgameRow(output, roundNumber, subRule, sichuanHuCount, sichuanHadChajiao, sichuanAccumBySeat, round);
+                            }
+                            break;
+                        }
+                        if (step == "final" || step == "cha_refund") break;
+                    }
+                    if (isSichuan) {
+                        lastRow = new RecordScoreRow {
+                            snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(
+                                subRule, SichuanRoundLabel.Liuju),
+                            scoreChangesByOriginal = new int[4],
+                            roundNumber = roundNumber,
+                        };
+                        output.Add(lastRow);
+                        break;
+                    }
                     lastRow = new RecordScoreRow {
                         snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
                         scoreChangesByOriginal = new int[4],
@@ -214,6 +266,40 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 }
             }
         }
+    }
+
+    private static bool IsDeferredSichuanHuTick(List<string> tick) {
+        if (ParseInt(tick, 2) != 0) return false;
+        int[] scoreChanges = ParseScoreChanges(tick, 4);
+        if (scoreChanges == null) return true;
+        foreach (int change in scoreChanges) {
+            if (change != 0) return false;
+        }
+        return true;
+    }
+
+    private static void AccumulateSeatScores(int[] accumBySeat, int[] delta) {
+        if (accumBySeat == null || delta == null) return;
+        for (int i = 0; i < accumBySeat.Length && i < delta.Length; i++) {
+            accumBySeat[i] += delta[i];
+        }
+    }
+
+    private static void FlushSichuanEndgameRow(
+        List<RecordScoreRow> output,
+        int roundNumber,
+        string subRule,
+        int huCount,
+        bool hadChajiao,
+        int[] accumBySeat,
+        Round round) {
+        string label = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(huCount, hadChajiao);
+        output.Add(new RecordScoreRow {
+            snapshot = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, label),
+            scoreChangesByOriginal = GameRecordJsonDecoder.ConvertPlayerIndexScoreChangesToOriginal(
+                accumBySeat ?? new int[4], round.seats),
+            roundNumber = roundNumber,
+        });
     }
 
     private static void InitHands(SimPlayer[] players, Round round) {
@@ -236,11 +322,19 @@ public static class ScoreHistoryRecordSettlementExtractor {
         Dictionary<string, object> gameTitle) {
         string[] huFan = ParseFanList(tick, 3);
         int huScore = ParseInt(tick, 2);
-        int? baseFu = tick.Count > 5 ? ParseInt(tick, 5) : (int?)null;
-        string[] fuFanList = tick.Count > 6 ? ParseFanList(tick, 6) : null;
+        int? baseFu = null;
+        string[] fuFanList = null;
+        if (subRule != null && subRule.StartsWith("classical")) {
+            baseFu = tick.Count > 5 ? ParseInt(tick, 5) : (int?)null;
+            fuFanList = tick.Count > 6 ? ParseFanList(tick, 6) : null;
+        }
 
         SimPlayer huPlayer = players[hepaiPlayerIndex];
-        int[] hand = BuildWinnerHandArray(huPlayer, isRon, lastDiscardTileId);
+        string rule = gameTitle != null && gameTitle.TryGetValue("rule", out object ruleObj) && ruleObj != null
+            ? ruleObj.ToString() : subRule;
+        RecordHuHandBuilder.TryParseHepaiTile(tick, rule, out int parsedHepaiTile);
+        int[] hand = RecordHuHandBuilder.BuildDisplayHand(
+            huPlayer.tileList, huClass, parsedHepaiTile, lastDiscardTileId);
 
         int winnerDelta = 0;
         int[] scoreChanges = ParseScoreChanges(tick, 4);
@@ -281,8 +375,9 @@ public static class ScoreHistoryRecordSettlementExtractor {
         string[] yaku = tick.Count > 5 ? ParseFanList(tick, 5) : Array.Empty<string>();
 
         SimPlayer huPlayer = players[hepaiPlayerIndex];
-        bool isRon = huClass != "hu_self" && lastDiscardTileId >= 0;
-        int[] hand = BuildWinnerHandArray(huPlayer, isRon, lastDiscardTileId);
+        RecordHuHandBuilder.TryParseHepaiTile(tick, subRule, out int parsedHepaiTile);
+        int[] hand = RecordHuHandBuilder.BuildDisplayHand(
+            huPlayer.tileList, huClass, parsedHepaiTile, lastDiscardTileId);
 
         int winnerDelta = 0;
         int[] scoreChanges = tick.Count > 6 ? ParseScoreChanges(tick, 6) : null;
@@ -334,26 +429,10 @@ public static class ScoreHistoryRecordSettlementExtractor {
         target.hepaiPlayerIndex = hepaiIndex;
 
         SimPlayer huPlayer = players[hepaiIndex];
-        bool isRon = !string.IsNullOrEmpty(target.huClass)
-            && target.huClass != "hu_self"
-            && lastDiscardTileId >= 0;
-        target.hepaiPlayerHand = BuildWinnerHandArray(huPlayer, isRon, lastDiscardTileId);
+        string huClass = string.IsNullOrEmpty(target.huClass) ? "hu_self" : target.huClass;
+        target.hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHand(
+            huPlayer.tileList, huClass, 0, lastDiscardTileId);
         target.combinationMask = CloneMasks(huPlayer.combinationMasks);
-    }
-
-    /// <summary>
-    /// 荣和时和牌张需追加到数组末尾供 UI 拆分展示（暗手 | 副露 | 和牌张）。
-    /// 牌谱重放不会在 hu tick 把荣和张写入 tileList，即使手牌中已有同 id 牌也必须追加，
-    /// 否则末位可能是刚摸未切的那张，和牌张会显示错误（如荣和 9p 却显示 3p）。
-    /// </summary>
-    private static int[] BuildWinnerHandArray(SimPlayer huPlayer, bool isRon, int lastDiscardTileId) {
-        if (huPlayer?.tileList == null) return Array.Empty<int>();
-        int[] hand = huPlayer.tileList.ToArray();
-        if (!isRon || lastDiscardTileId < 0) return hand;
-        int[] extended = new int[hand.Length + 1];
-        Array.Copy(hand, extended, hand.Length);
-        extended[hand.Length] = lastDiscardTileId;
-        return extended;
     }
 
     /// <summary>与 GameRecordManager.NextAction 一致：摸切/补花/副露/和牌等 tick 自带行动者，其余沿用当前巡目玩家。</summary>

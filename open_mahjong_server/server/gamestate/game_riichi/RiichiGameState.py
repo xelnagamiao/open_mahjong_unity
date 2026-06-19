@@ -498,8 +498,6 @@ class RiichiGameState:
                 p.round_number_history.append(self.current_round)
 
             player_action_record_round_end(self)
-            if hasattr(self, "spectator_manager"):
-                self.spectator_manager.record_tick(["end"])
 
             # 准备阶段
             # 与客户端 RoundEndPresentation / EndLiujuPanel / PenaltyPanel 的演出时长保持同步，
@@ -960,15 +958,6 @@ class RiichiGameState:
             riichi_sticks_collected=collected,
         )
 
-        if hasattr(self, "spectator_manager"):
-            self.spectator_manager.record_tick([
-                "hu_riichi", winner_index, self.hu_class, han, fu, yaku,
-                [score_changes.get(i, 0) for i in range(4)],
-                list(self.dora_indicators) + list(self.kan_dora_indicators),
-                list(self.ura_dora_indicators + self.ura_kan_dora_indicators) if "riichi" in self.player_list[winner_index].tag_list else [],
-                aka_count, self.honba, collected,
-            ])
-
         await broadcast_result(
             self,
             hepai_player_index=winner_index,
@@ -1056,14 +1045,6 @@ class RiichiGameState:
             riichi_sticks_collected=0,
         )
 
-        if hasattr(self, "spectator_manager"):
-            self.spectator_manager.record_tick([
-                "hu_riichi", offender_index, self.hu_class, han, fu, yaku,
-                [score_changes.get(i, 0) for i in range(4)],
-                list(self.dora_indicators) + list(self.kan_dora_indicators),
-                cuohe_ura_indicators, aka_count, self.honba, 0,
-            ])
-
         await broadcast_result(
             self,
             hepai_player_index=offender_index,
@@ -1106,8 +1087,6 @@ class RiichiGameState:
             p.score += changes[p.player_index]
         tenpai_flags = [1 if self._is_ryuukyoku_tenpai(p) else 0 for p in self.player_list]
         player_action_record_ryuukyoku(self, tenpai_flags=tenpai_flags, score_changes=[changes.get(i, 0) for i in range(4)], reason="exhaustive")
-        if hasattr(self, "spectator_manager"):
-            self.spectator_manager.record_tick(["ryuukyoku", tenpai_flags, [changes.get(i, 0) for i in range(4)], "exhaustive"])
         return changes
 
     def _is_ryuukyoku_tenpai(self, player: RiichiPlayer) -> bool:

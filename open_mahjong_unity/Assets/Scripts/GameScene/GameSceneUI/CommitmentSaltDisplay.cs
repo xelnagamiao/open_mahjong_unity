@@ -31,6 +31,18 @@ public static class CommitmentSaltDisplay {
         return TryReadString(gameTitle, "salt", out string salt) ? salt : "";
     }
 
+    /// <summary>牌谱整局结束后写入的主种子（master_seed_hex 或 master_seed）。</summary>
+    public static string ReadMasterSeedFromGameTitle(Dictionary<string, object> gameTitle) {
+        if (gameTitle == null) return "";
+        if (TryReadString(gameTitle, "master_seed_hex", out string hex)) return hex;
+        if (TryReadString(gameTitle, "master_seed", out string seed)) return seed;
+        return "";
+    }
+
+    public static string NormalizeMasterSeed(string masterSeed) {
+        return NormalizeCommitment(masterSeed);
+    }
+
     public static string NormalizeCommitment(string commitment) {
         if (string.IsNullOrWhiteSpace(commitment)) return "-";
         string value = commitment.Trim();

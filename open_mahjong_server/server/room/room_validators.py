@@ -10,6 +10,7 @@ class GBRoomValidator(BaseModel):
     step_timer: int
     random_seed: Union[int, str] = 0
     open_cuohe: bool = False
+    cuohe_type: int = 0  # 0=错和者-30/其余+10；1=错和者-40/其余+0
     show_moqie_hint: bool = False
     tactical_call: bool = False
     
@@ -43,6 +44,12 @@ class GBRoomValidator(BaseModel):
             return parse_user_master_seed(v)
         except ValueError as e:
             raise ValueError(str(e)) from e
+
+    @validator('cuohe_type')
+    def validate_cuohe_type(cls, v):
+        if v not in (0, 1):
+            raise ValueError('错和形式必须在 0 或 1 之间')
+        return v
 
 class RiichiRoomValidator(BaseModel):
     room_name: str

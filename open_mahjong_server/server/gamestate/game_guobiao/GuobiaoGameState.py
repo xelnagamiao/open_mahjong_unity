@@ -142,6 +142,7 @@ class GuobiaoGameState:
 
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
+        self.cuohe_type = room_data.get("cuohe_type", 0) # 错和形式：0=-30/+10，1=-40/+0
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：吃牌固定 1.5 秒申请-打断；碰/和/杠/加杠仅在有更高优先级竞争者时询问
@@ -542,11 +543,15 @@ class GuobiaoGameState:
                         else:
                             hepai_player_index = self.resolve_hepai_player_index(self.hu_class)
                             saved_hu_class = self.hu_class
+                            if self.cuohe_type == 1:
+                                cuohe_penalty, others_bonus = 40, 0
+                            else:
+                                cuohe_penalty, others_bonus = 30, 10
                             for i in self.player_list:
                                 if i.player_index == hepai_player_index:
-                                    i.score -= 30
+                                    i.score -= cuohe_penalty
                                 else:
-                                    i.score += 10
+                                    i.score += others_bonus
 
                             # 牌谱记录错和（无 end 标记，游戏继续）
                             cuohe_hu_fan = hu_fan + ["错和"]
@@ -558,8 +563,6 @@ class GuobiaoGameState:
                             player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                                     hu_fan=cuohe_hu_fan, hepai_player_index=hepai_player_index,
                                                     score_changes=cuohe_score_changes)
-                            if hasattr(self, 'spectator_manager'):
-                                self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, cuohe_hu_fan, cuohe_score_changes])
                             # 错和与日麻对齐：作为计分板独立一行，记录本次罚分与所属局号(current_round)；
                             # 由于错和不推进 current_round，故本局后续真正和牌会出现同一局号的第二行。
                             for player in self.player_list:
@@ -753,15 +756,9 @@ class GuobiaoGameState:
                 player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
                                         score_changes=score_changes)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, hu_score, hu_fan, score_changes])
             else:
                 player_action_record_liuju(self)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick(["liuju"])
             player_action_record_round_end(self)
-            if hasattr(self, 'spectator_manager'):
-                self.spectator_manager.record_tick(["end"])
             
             # 根据和牌类型处理等待逻辑
             if self.hu_class == "liuju":

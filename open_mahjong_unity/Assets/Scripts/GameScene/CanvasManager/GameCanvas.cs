@@ -327,7 +327,10 @@ public partial class GameCanvas : MonoBehaviour {
             isPlayerSetRandomSeed = ReadBoolValue(gameRecord.gameTitle, "is_player_set_random_seed", false)
                 || ReadBoolValue(gameRecord.gameTitle, "isPlayerSetRandomSeed", false)
         };
-        roundPanel.UpdateRoomInfo(gameInfo, ruleForPanel);
+        roundPanel.UpdateRoomInfo(
+            gameInfo,
+            ruleForPanel,
+            CommitmentSaltDisplay.ReadMasterSeedFromGameTitle(gameRecord.gameTitle));
     }
 
     private static string ReadStringValue(Dictionary<string, object> source, string key, string defaultValue) {

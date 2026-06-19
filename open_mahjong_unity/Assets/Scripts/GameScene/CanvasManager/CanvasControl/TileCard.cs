@@ -26,6 +26,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private bool isHovering = false; // 是否正在悬停
     private bool isSelectable = true;
+    private bool hasDangerOverlay;
+    private static readonly Color DangerOverlayColor = new Color(1f, 0.65f, 0.65f, 1f);
     private static int lastHandledPointerFrame = -1;
     private static int lastGlobalPointerUpFrame = -1;
     private static TileCard pointerDownCard;
@@ -328,9 +330,26 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void SetSelectable(bool selectable) {
         isSelectable = selectable;
         if (tileButton != null) tileButton.interactable = selectable;
-        if (tileImage != null) {
-            tileImage.color = selectable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
+        ApplyDisplayColor();
+    }
+
+    public void SetDangerOverlay(bool on) {
+        hasDangerOverlay = on;
+        ApplyDisplayColor();
+    }
+
+    public void ClearDangerOverlay() {
+        hasDangerOverlay = false;
+        ApplyDisplayColor();
+    }
+
+    private void ApplyDisplayColor() {
+        if (tileImage == null) return;
+        if (!isSelectable) {
+            tileImage.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+            return;
         }
+        tileImage.color = hasDangerOverlay ? DangerOverlayColor : Color.white;
     }
 
     /// <summary>

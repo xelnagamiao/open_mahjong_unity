@@ -64,20 +64,6 @@ public partial class GameRecordManager {
         return true;
     }
 
-    private void TryParseSichuanHuTickExtras(List<string> tick, out int hepaiTile, out bool multiRon, out int? ronDiscarderIndex, out bool recycleDiscard) {
-        hepaiTile = 0;
-        multiRon = false;
-        ronDiscarderIndex = null;
-        recycleDiscard = false;
-        if (tick == null || tick.Count <= 5) return;
-        string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
-        if (rule == "classical") return;
-        hepaiTile = ParseTickInt(tick, 5);
-        if (tick.Count > 6) multiRon = ParseTickInt(tick, 6) != 0;
-        if (tick.Count > 7) ronDiscarderIndex = ParseTickInt(tick, 7);
-        if (tick.Count > 8) recycleDiscard = ParseTickInt(tick, 8) != 0;
-    }
-
     private static bool ContainsSichuanQianggangFan(string[] huFan) {
         if (huFan == null) return false;
         for (int i = 0; i < huFan.Length; i++) {
@@ -195,6 +181,7 @@ public partial class GameRecordManager {
 
     private void HandleSichuanRecordRevealHu(List<string> tick) {
         if (tick.Count < 3) return;
+        NormalGameStateManager.Instance?.BeginSichuanEndgameScoreAccum();
         Dictionary<int, int[]> allHands = ParseRecordHuHandsJson(tick[2]);
         if (allHands.Count > 0) {
             RoundEndPresentation.Instance.ResetSichuanEndgameQueue();
@@ -214,11 +201,18 @@ public partial class GameRecordManager {
         ApplyScoreDeltas(deltas, out Dictionary<int, int> before, out Dictionary<int, int> after);
         BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
 
+        var mgr = NormalGameStateManager.Instance;
+        mgr?.AccumulateSichuanEndgameScore(deltas);
+        mgr?.RecordSichuanEndgameHu();
+        bool isFinal = tick.Count > 7 && ParseTickInt(tick, 7) != 0;
+        if (isFinal && mgr != null && mgr.TryFlushSichuanEndgameScoreToHistory()) {
+            GameSceneUIManager.Instance.UpdateScoreRecord();
+        }
+
         RoundEndPresentation.Instance.EnqueueSichuanSettleHu(
             winner, after, huScore, huFan, huClass,
-            null, null, deltas, isFinalPanel: false);
-        GameSceneUIManager.Instance.UpdateScoreRecord();
-        float wait = RoundEndTiming.GetSichuanSettleHuPanelDuration(huFan?.Length ?? 0, isFinalPanel: false);
+            null, null, deltas, isFinalPanel: isFinal);
+        float wait = RoundEndTiming.GetSichuanSettleHuPanelDuration(huFan?.Length ?? 0, isFinalPanel: isFinal);
         StartCoroutine(AutoNextActionAfterDelay(wait));
     }
 
@@ -233,9 +227,16 @@ public partial class GameRecordManager {
         ApplyScoreDeltas(scoreChanges, out _, out Dictionary<int, int> after);
         BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
         bool isFinal = tick.Count > 6 && ParseTickInt(tick, 6) != 0;
+
+        var mgr = NormalGameStateManager.Instance;
+        mgr?.MarkSichuanEndgameChajiaoStep();
+        mgr?.AccumulateSichuanEndgameScore(scoreChanges);
+        if (isFinal && mgr != null && mgr.TryFlushSichuanEndgameScoreToHistory()) {
+            GameSceneUIManager.Instance.UpdateScoreRecord();
+        }
+
         RoundEndPresentation.Instance.EnqueueSichuanChajiao(
             focusIndex, statusKey, hand, null, after, scoreChanges, isFinal);
-        GameSceneUIManager.Instance.UpdateScoreRecord();
         float wait = RoundEndTiming.GetSichuanChajiaoPanelDuration(isFinal);
         StartCoroutine(AutoNextActionAfterDelay(wait));
     }

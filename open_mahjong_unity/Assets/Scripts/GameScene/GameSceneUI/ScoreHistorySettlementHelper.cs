@@ -22,10 +22,31 @@ public static class ScoreHistorySettlementHelper {
 
     public static string GetMainFanColumnLabel(string subRule, RoundSettlementSnapshot snapshot, int rowIndex = -1) {
         if (snapshot == null) return "—";
+        if (!string.IsNullOrEmpty(snapshot.sichuanRoundLabel)) {
+            return SichuanRoundLabel.ToDisplayText(snapshot.sichuanRoundLabel);
+        }
+        if (subRule != null && subRule.StartsWith("sichuan")) return "—";
         if (snapshot.isLiuju) return "流局";
         if (snapshot.huFan == null || snapshot.huFan.Length == 0) return "—";
         string mainFan = PickMainFanName(subRule, snapshot.huFan);
         return string.IsNullOrEmpty(mainFan) ? "—" : mainFan;
+    }
+
+    /// <summary>四川血战终局：根据和牌家数与是否查叫，确定计分板主番类型。</summary>
+    public static string ResolveSichuanEndgameRoundLabel(int huCount, bool hadChajiaoStep) {
+        if (hadChajiaoStep) return SichuanRoundLabel.Chajiao;
+        if (huCount >= 3) return SichuanRoundLabel.ThreeHu;
+        return SichuanRoundLabel.Liuju;
+    }
+
+    public static RoundSettlementSnapshot CreateSichuanScoreboardSnapshot(string subRule, string roundLabel) {
+        return new RoundSettlementSnapshot {
+            subRule = subRule,
+            sichuanRoundLabel = roundLabel,
+            hasWin = false,
+            isLiuju = roundLabel == SichuanRoundLabel.Liuju,
+            huClass = roundLabel == SichuanRoundLabel.Liuju ? "liuju" : null,
+        };
     }
 
     public static string PickMainFanName(string subRule, string[] huFan) {
@@ -120,7 +141,8 @@ public static class ScoreHistorySettlementHelper {
     }
 
     public static string BuildScoreSummaryText(string subRule, RoundSettlementSnapshot snapshot) {
-        if (snapshot == null || snapshot.isLiuju) return "";
+        if (snapshot == null || !string.IsNullOrEmpty(snapshot.sichuanRoundLabel)) return "";
+        if (snapshot.isLiuju) return "";
 
         bool isClassical = subRule == "classical/standard";
         bool isRiichi = subRule != null && subRule.StartsWith("riichi");

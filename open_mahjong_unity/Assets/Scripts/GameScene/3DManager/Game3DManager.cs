@@ -448,6 +448,55 @@ public partial class Game3DManager : MonoBehaviour {
 
     public void RefreshRecordHandDisplay(){
         Change3DTile("InitHandCardsFromRecord",0,0,null,false,null);
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.RefreshRecordChongHint();
+        }
+    }
+
+    /// <summary>牌谱明牌模式：对 ShowCardsPosition 下的手牌施加铳牌红色遮罩。</summary>
+    public void ApplyRecordChongHintToShowHands(
+        Dictionary<string, GameRecordManager.RecordPlayer> players,
+        string roomRule,
+        HashSet<string> hiddenHandPositions) {
+        if (players == null || Card3DHoverManager.Instance == null) return;
+        if (RecordSetting.Instance == null || !RecordSetting.Instance.IsShowCardsMode) return;
+
+        Color overlayColor = Card3DHoverManager.Instance.DangerOverlayColor;
+        float intensity = Card3DHoverManager.Instance.DangerOverlayIntensity;
+
+        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity);
+        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity);
+        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity);
+    }
+
+    private static void ApplyChongHintForPosition(
+        string position,
+        Transform showCardsPosition,
+        Dictionary<string, GameRecordManager.RecordPlayer> players,
+        string roomRule,
+        HashSet<string> hiddenHandPositions,
+        Color overlayColor,
+        float intensity) {
+        if (hiddenHandPositions != null && hiddenHandPositions.Contains(position)) return;
+        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule);
+        if (dangerTileIds.Count == 0) return;
+        ApplyChongHintToShowCardsTransform(showCardsPosition, dangerTileIds, overlayColor, intensity);
+    }
+
+    private static void ApplyChongHintToShowCardsTransform(
+        Transform showCardsPosition,
+        HashSet<int> dangerTileIds,
+        Color overlayColor,
+        float intensity) {
+        if (showCardsPosition == null) return;
+        for (int i = 0; i < showCardsPosition.childCount; i++) {
+            Transform child = showCardsPosition.GetChild(i);
+            Tile3D tile3D = child.GetComponent<Tile3D>();
+            if (tile3D == null) continue;
+            int tileId = TileIdOrder.Normalize(tile3D.GetTileId());
+            if (!dangerTileIds.Contains(tileId)) continue;
+            Card3DHoverManager.Instance.SetCardDangerOverlay(child.gameObject, overlayColor, intensity);
+        }
     }
 
     private void RenderRecordPlayerHand(string playerPosition){

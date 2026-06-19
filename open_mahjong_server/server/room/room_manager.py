@@ -70,7 +70,7 @@ class RoomManager:
         return None
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, cuohe_type: int = 0) -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -112,6 +112,7 @@ class RoomManager:
             
             # 校验起和番限制（1-64）
             hepai_limit = max(1, min(64, hepai_limit))
+            cuohe_type = 0 if cuohe_type not in (0, 1) else cuohe_type
 
             # 传参配置 传入的参数
             room_config = {
@@ -121,6 +122,7 @@ class RoomManager:
                 "step_timer": stepTimerValue, # 步时
                 "random_seed": random_seed, # 随机种子
                 "open_cuohe": open_cuohe, # 是否开启错和
+                "cuohe_type": cuohe_type, # 错和形式
                 "tactical_call": tactical_call, # 战术鸣牌
             }
 

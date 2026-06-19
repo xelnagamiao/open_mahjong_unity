@@ -3,6 +3,10 @@
 /// </summary>
 public static class GameSceneTeardown {
     public static void ResetToIdle() {
+        if (GameRecordManager.Instance != null) {
+            GameRecordManager.Instance.ClearRecordChongHintVisuals();
+        }
+
         if (Game3DManager.Instance != null) {
             Game3DManager.Instance.StopAllRunningAnimations();
             Game3DManager.Instance.Clear3DTile();

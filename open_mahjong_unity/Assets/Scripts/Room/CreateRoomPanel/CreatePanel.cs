@@ -24,6 +24,7 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgAllowSpectator = "allow_spectator";  // 允许旁观
     private const string CfgSubRule        = "sub_rule";         // 子规则下拉索引（国标）
     private const string CfgCuohe          = "cuohe";            // 错和
+    private const string CfgCuoheType      = "cuohe_type";       // 错和形式（国标）：0=错和者-30/其余+10，1=错和者-40/其余+0
     private const string CfgHepaiLimit     = "hepai_limit";      // 自定义起和番数（整数；Toggle 与 Input 成组显隐）
     private const string CfgRedDora        = "red_dora";         // 赤宝牌
     private const string CfgAllowKuikae    = "allow_kuikae";    // 禁止食替 Toggle：开=禁切（allow_kuikae 关）
@@ -49,6 +50,7 @@ public class CreatePanel : MonoBehaviour {
             { CfgAllowSpectator, true }, // 允许旁观
             { CfgSubRule,        0 }, // 子规则下拉索引（国标）
             { CfgCuohe,          false }, // 错和
+            { CfgCuoheType,      0 }, // 错和形式
             { CfgHepaiLimit,     8 }, // 起和番数
             { CfgTacticalCall,   false }, // 战术鸣牌
         } },
@@ -142,6 +144,8 @@ public class CreatePanel : MonoBehaviour {
     [SerializeField] private GameObject InputHepaiLimitPlane;
     [SerializeField] private GameObject HepaiWayPanel;
     [SerializeField] private TMP_Dropdown HepaiWayDropdown;
+    [SerializeField] private GameObject CuoheTypePanel;
+    [SerializeField] private TMP_Dropdown CuoheTypeDropdown;
 
     [Header("输入字段")]
     [SerializeField] private TMP_InputField roomNameInput;
@@ -163,6 +167,7 @@ public class CreatePanel : MonoBehaviour {
         SetRandomSeedPanel.SetActive(false);
         PasswordPanel.SetActive(false);
         InputHepaiLimitPlane.SetActive(false);
+        if (CuoheTypePanel != null) CuoheTypePanel.SetActive(false);
 
         HepaiWayDropdown.ClearOptions();
         HepaiWayDropdown.AddOptions(new List<string> { "允许多家和牌", "三家和了流局", "头跳" });
@@ -177,6 +182,8 @@ public class CreatePanel : MonoBehaviour {
         roomNameInput.text = GetDefaultRoomName();
 
         EnsureRiichiOptionToggles();
+        EnsureCuoheTypePanel();
+        InitCuoheTypeDropdown();
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
@@ -226,6 +233,9 @@ public class CreatePanel : MonoBehaviour {
             case CfgAllowSpectator: AllowSpectatorToggle.isOn = (bool)value; break;
             case CfgSubRule:        SubRuleDropdown.value = (int)value; break;
             case CfgCuohe:          CuoHeheToggle.isOn = (bool)value; break;
+            case CfgCuoheType:
+                if (CuoheTypeDropdown != null) CuoheTypeDropdown.value = (int)value;
+                break;
             case CfgHepaiLimit:
                 // 切换规则时同步收起"自定义起和番"面板，避免前一条规则的开启状态带入当前规则
                 InputHepaiLimitToggle.isOn = false;
@@ -277,6 +287,7 @@ public class CreatePanel : MonoBehaviour {
         HepaiWayPanel.SetActive(visible.ContainsKey(CfgHepaiWay));
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CfgTacticalCall));
         if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CfgBloodBattle));
+        RefreshCuoheTypePanelVisibility();
     }
 
     private string GetCurrentSubRuleKey() {
@@ -364,6 +375,35 @@ public class CreatePanel : MonoBehaviour {
         var label = clone.GetComponentInChildren<TMP_Text>();
         if (label != null) label.text = labelText;
         return clone;
+    }
+
+    private void InitCuoheTypeDropdown() {
+        if (CuoheTypeDropdown == null) return;
+        CuoheTypeDropdown.ClearOptions();
+        CuoheTypeDropdown.AddOptions(new List<string> {
+            "-30/+10",
+            "-40/0",
+        });
+        CuoheTypeDropdown.value = 0;
+    }
+
+    /// <summary>运行时从和牌方式面板克隆错和形式面板，避免场景内重复手工挂接。</summary>
+    private void EnsureCuoheTypePanel() {
+        if (CuoheTypePanel != null && CuoheTypeDropdown != null) return;
+        if (HepaiWayPanel == null || HepaiWayDropdown == null) return;
+
+        Transform parent = InputHepaiLimitPlane != null
+            ? InputHepaiLimitPlane.transform.parent
+            : HepaiWayPanel.transform.parent;
+        CuoheTypePanel = Instantiate(HepaiWayPanel, parent);
+        CuoheTypePanel.name = "CuoheTypePanel";
+        CuoheTypePanel.SetActive(false);
+        CuoheTypeDropdown = CuoheTypePanel.GetComponentInChildren<TMP_Dropdown>(true);
+        foreach (TMP_Text label in CuoheTypePanel.GetComponentsInChildren<TMP_Text>(true)) {
+            if (label.GetComponentInParent<TMP_Dropdown>() != null) continue;
+            label.text = "错和形式";
+            break;
+        }
     }
 
     private void ClosePanel() {
@@ -479,6 +519,7 @@ public class CreatePanel : MonoBehaviour {
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
             CuoHe = CuoHeheToggle.isOn,
+            CuoheType = GetSelectedCuoheType(),
             HepaiLimit = hepaiLimit,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
@@ -623,7 +664,23 @@ public class CreatePanel : MonoBehaviour {
         }
     }
 
+    private int GetSelectedCuoheType() {
+        if (CuoheTypeDropdown == null) return 0;
+        return Mathf.Clamp(CuoheTypeDropdown.value, 0, 1);
+    }
+
+    private void RefreshCuoheTypePanelVisibility() {
+        if (CuoheTypePanel == null) return;
+        bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
+        bool showPanel = _ruleState == "guobiao"
+            && RuleConfigs[_ruleState].ContainsKey(CfgCuohe)
+            && !isXiaolin
+            && CuoHeheToggle.isOn;
+        CuoheTypePanel.SetActive(showPanel);
+    }
+
     private void ToggleCuoHehe(bool isOn) {
+        RefreshCuoheTypePanelVisibility();
         if (!isOn) return;
         tipsToggle.onValueChanged.RemoveListener(ToggleTips);
         tipsToggle.isOn = false;
@@ -635,5 +692,6 @@ public class CreatePanel : MonoBehaviour {
         CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
         CuoHeheToggle.isOn = false;
         CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
+        RefreshCuoheTypePanelVisibility();
     }
 }
