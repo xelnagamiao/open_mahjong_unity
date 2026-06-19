@@ -27,7 +27,7 @@ namespace Qingque13.Criteria
             byte cnt = 0;
             foreach (var tile in fanTiles)
             {
-                if (counter.Count(tile) > 0) cnt++;
+                if (counter.Count(tile) > 1) cnt++;
                 if (counter.Count(tile) == 4 && decomposition.IsSevenPairs) cnt++;
             }
             
