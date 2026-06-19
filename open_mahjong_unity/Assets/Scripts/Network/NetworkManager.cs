@@ -41,6 +41,10 @@ public class NetworkManager : MonoBehaviour {
     private long _lastPingTs;
     private float _lastPongElapsed; // 距离上次收到 pong 的时间，用于检测超时
     private int _latencyMs = -1; // -1 表示尚未取得测量
+
+    // AutoReconnect 探活
+    public bool ProbePongReceived { get; private set; }
+
     /// <summary>最近一次 ping/pong 测得的延迟（毫秒）。-1 表示未测得，>=0 为有效值。</summary>
     public int LatencyMs => _latencyMs;
     /// <summary>延迟变更事件。每次收到 pong 或 ping 超时时触发，参数为最新延迟（毫秒）。</summary>
@@ -97,6 +101,7 @@ public class NetworkManager : MonoBehaviour {
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
             ExecuteOnMainThread(() => {
+                if (AutoReconnect.TryHandleOnClose()) return;
                 LoginPanel.Instance?.ConnectErrorText("连接已关闭");
                 MarkDisconnected();
             });
@@ -113,6 +118,11 @@ public class NetworkManager : MonoBehaviour {
         TryShowDisconnectDialog();
     }
 
+    public void ForceShowDisconnectDialog() {
+        _disconnectDialogState = DisconnectDialogState.Disconnected;
+        TryShowDisconnectDialog();
+    }
+
     private void TryShowDisconnectDialog() {
         if (_disconnectDialogState != DisconnectDialogState.Disconnected) return;
         _disconnectDialogState = DisconnectDialogState.Shown;
@@ -124,8 +134,32 @@ public class NetworkManager : MonoBehaviour {
     }
 
     private void OnApplicationPause(bool pause) {
-        if (pause) return;
-        CheckDisconnectOnForeground();
+        if (pause) {
+            AutoReconnect.OnEnterBackground();
+            return;
+        }
+        // 先派发积压消息让 OnClose 尽早触发，再交 AutoReconnect 处理
+#if !UNITY_WEBGL || UNITY_EDITOR
+        websocket?.DispatchMessageQueue();
+#endif
+        AutoReconnect.OnEnterForeground();
+        if (!AutoReconnect.IsActive) {
+            CheckDisconnectOnForeground();
+        }
+    }
+
+    private void OnApplicationFocus(bool hasFocus) {
+        if (hasFocus) {
+#if !UNITY_WEBGL || UNITY_EDITOR
+            websocket?.DispatchMessageQueue();
+#endif
+            AutoReconnect.OnEnterForeground();
+            if (!AutoReconnect.IsActive) {
+                CheckDisconnectOnForeground();
+            }
+        } else {
+            AutoReconnect.OnEnterBackground();
+        }
     }
 
     private void CheckDisconnectOnForeground() {
@@ -135,8 +169,36 @@ public class NetworkManager : MonoBehaviour {
         websocket?.DispatchMessageQueue();
 #endif
         if (websocket == null || websocket.State != WebSocketState.Open) {
+            if (AutoReconnect.TryHandleForegroundDisconnect()) return;
             MarkDisconnected();
         }
+    }
+
+    public WebSocket BeginNewConnection() {
+        if (websocket != null) {
+            try { var _ = websocket.Close(); } catch { }
+        }
+
+        lock (messageQueue) { messageQueue.Clear(); }
+
+        _latencyMs = -1;
+        _pingTimer = PingIntervalSeconds;
+        _lastPongElapsed = 0f;
+        _lastPingTs = 0;
+        _disconnectDialogState = DisconnectDialogState.Start;
+        isConnecting = false;
+
+        playerId = System.Guid.NewGuid().ToString();
+        string url = $"{ConfigManager.gameUrl}/{playerId}";
+        WebSocket newSocket = new WebSocket(url);
+        websocket = newSocket;
+        BindWebSocketEvents(newSocket);
+
+        isConnecting = true;
+        Debug.Log($"[NetworkManager] 新建 WebSocket 连接：{url}");
+        RunConnectLoop(newSocket);
+
+        return newSocket;
     }
 
     /// <summary>
@@ -241,10 +303,10 @@ public class NetworkManager : MonoBehaviour {
     // 网络管理器实例在 Update 中处理消息队列
     private void Update(){
         // 非WebGL平台需要调用DispatchMessageQueue来处理WebSocket消息
-        #if !UNITY_WEBGL || UNITY_EDITOR
+#if !UNITY_WEBGL || UNITY_EDITOR
         websocket?.DispatchMessageQueue();
-        #endif
-        
+#endif
+
         // 处理消息队列
         if (messageQueue.Count > 0) {
             byte[] message;
@@ -253,7 +315,7 @@ public class NetworkManager : MonoBehaviour {
             }
             Get_Message(message);
         }
-        
+
         // 处理主线程调度器
         if (mainThreadActions.Count > 0) {
             Action action;
@@ -300,7 +362,29 @@ public class NetworkManager : MonoBehaviour {
         int rtt = (int)Math.Max(0, now - sendTs);
         _latencyMs = rtt;
         _lastPongElapsed = 0f;
+        ProbePongReceived = true;
         OnLatencyChanged?.Invoke(_latencyMs);
+    }
+
+    public void ResetProbePongFlag() {
+        ProbePongReceived = false;
+    }
+
+    public bool SendProbePing() {
+        if (websocket == null || websocket.State != WebSocketState.Open) return false;
+        try {
+            ProbePongReceived = false;
+            _lastPingTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var request = new PingRequest {
+                type = "ping",
+                client_ts = _lastPingTs,
+            };
+            // fire-and-forget，异常由 SendPing 内部处理
+            _ = websocket.SendText(JsonConvert.SerializeObject(request));
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     // 主线程调度器方法
@@ -312,8 +396,11 @@ public class NetworkManager : MonoBehaviour {
 
     // 处理登录响应
     private void HandleLoginResponse(Response response){
+        AutoReconnect.OnLoginResponse(response.success);
         if (response.success) {
-            WindowsManager.Instance.SwitchWindow("menu");
+            if (!AutoReconnect.ShouldSkipLoginUiChanges()) {
+                WindowsManager.Instance.SwitchWindow("menu");
+            }
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -378,7 +465,9 @@ public class NetworkManager : MonoBehaviour {
             switch (response.type){
                 case "login":
                     HandleLoginResponse(response);
-                    NotificationManager.Instance.ShowTip("login",true,"登录成功");
+                    if (!AutoReconnect.ShouldSuppressLoginTip()) {
+                        NotificationManager.Instance.ShowTip("login",true,"登录成功");
+                    }
                     break;
                 case "get_server_stats": // 获取服务器统计信息
                     DisplayServerStats(response.server_stats);
@@ -493,12 +582,21 @@ public class NetworkManager : MonoBehaviour {
 
                 case "tips":
                     // 服务端验证失败的提示并重置按钮
+                    // AutoReconnect 时，视为登录失败信号
+                    if (AutoReconnect.IsActive) {
+                        AutoReconnect.OnLoginResponse(false);
+                    }
                     NotificationManager.Instance.ShowTip("验证", false, response.message);
                     LoginPanel.Instance.ResetLoginButton();
                     break;
 
                 case "message":
                     // 处理服务端发送的消息（版本不匹配、账户被顶替、重连提示等）
+                    // AutoReconnect 时静默接受 reconnect_ask
+                    if (response.message == "reconnect_ask" && AutoReconnect.ShouldAutoAcceptReconnectAsk()) {
+                        ReconnectResponse(true);
+                        break;
+                    }
                     // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
                     if (response.message == "error_version") {
                         _disconnectDialogState = DisconnectDialogState.NoMatch;
