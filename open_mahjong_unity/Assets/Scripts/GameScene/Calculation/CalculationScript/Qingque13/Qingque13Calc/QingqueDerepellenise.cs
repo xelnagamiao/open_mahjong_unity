@@ -21,12 +21,13 @@ namespace Qingque13
             // Remove trivial
             result.Remove(QingqueFan.Trivial);
 
-            // Apply coverage rules from C++ lines 1350-1442
-
             // Heavenly/Earthly/Seven Pairs cover Concealed Hand
             Cover(fans, result, QingqueFan.HeavenlyHand, QingqueFan.ConcealedHand);
             Cover(fans, result, QingqueFan.EarthlyHand, QingqueFan.ConcealedHand);
             Cover(fans, result, QingqueFan.SevenPairs, QingqueFan.ConcealedHand);
+
+            // Thirteen Orphans
+            Cover(fans, result, QingqueFan.ThirteenOrphans, QingqueFan.ConcealedHand, QingqueFan.AllTerminalsAndHonours);
 
             // Concealed Kongs coverage
             Cover(fans, result, QingqueFan.FourConcealedKongs,
@@ -61,14 +62,12 @@ namespace Qingque13
                 QingqueFan.HalfFlush, QingqueFan.FanTile1T);
             Cover(fans, result, QingqueFan.LittleFourWinds, 
                 QingqueFan.ThreeWindTriplets, QingqueFan.HalfFlush, QingqueFan.FanTile1P);
-            Cover(fans, result, QingqueFan.FourWindPairs, QingqueFan.FourWindPairs2, QingqueFan.FanTile1P);
+            Cover(fans, result, QingqueFan.FourWindPairs, QingqueFan.FanTile1P);
             Cover(fans, result, QingqueFan.SevenWindPairs, 
-                QingqueFan.SixWindPairs, QingqueFan.FiveWindPairs, QingqueFan.FourWindPairs2, QingqueFan.FourWindPairs,
+                QingqueFan.SixWindPairs, QingqueFan.FourWindPairs,
                 QingqueFan.FanTile1P, QingqueFan.AllHonours, QingqueFan.TwelveHog, QingqueFan.ThreeDoublePairs);
             Cover(fans, result, QingqueFan.SixWindPairs, 
-                QingqueFan.FiveWindPairs, QingqueFan.FourWindPairs2,
                 QingqueFan.HalfFlush, QingqueFan.MixedOneNumber, QingqueFan.EightHog, QingqueFan.TwoDoublePairs);
-            Cover(fans, result, QingqueFan.FiveWindPairs, QingqueFan.FourWindPairs2, QingqueFan.DoublePair);
 
             // Dragon coverage
             Cover(fans, result, QingqueFan.BigThreeDragons, QingqueFan.FanTile3T);

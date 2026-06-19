@@ -19,19 +19,16 @@ namespace Qingque13
             // Register all criteria in enum order (matching QingqueFan.cs)
             criteria = new List<IQingqueCriterion>
             {
-                // 0: Trivial
                 new TrivialCriterion(),
-                // 1-7: Win conditions
                 new HeavenlyHandCriterion(),
                 new EarthlyHandCriterion(),
                 new OutWithReplacementTileCriterion(),
                 new LastTileDrawCriterion(),
                 new LastTileClaimCriterion(),
                 new RobbingTheKongCriterion(),
-                // 8-9: Special hands & concealed
+                new ThirteenOrphansCriterion(),
                 new SevenPairsCriterion(),
                 new ConcealedHandCriterion(),
-                // 10-16: Kong patterns
                 new FourConcealedKongsCriterion(),
                 new ThreeConcealedKongsCriterion(),
                 new TwoConcealedKongsCriterion(),
@@ -39,17 +36,14 @@ namespace Qingque13
                 new FourKongsCriterion(),
                 new ThreeKongsCriterion(),
                 new TwoKongsCriterion(),
-                // 17-19: Triplet patterns
                 new FourConcealedTripletsCriterion(),
                 new ThreeConcealedTripletsCriterion(),
                 new AllTripletsCriterion(),
-                // 20-24: Hog & double pairs
                 new TwelveHogCriterion(),
                 new EightHogCriterion(),
                 new ThreeDoublePairsCriterion(),
                 new TwoDoublePairsCriterion(),
                 new DoublePairCriterion(),
-                // 25-37: Honor tiles
                 new AllHonoursCriterion(),
                 new BigFourWindsCriterion(),
                 new LittleFourWindsCriterion(),
@@ -57,13 +51,10 @@ namespace Qingque13
                 new ThreeWindTripletsCriterion(),
                 new SevenWindPairsCriterion(),
                 new SixWindPairsCriterion(),
-                new FiveWindPairsCriterion(),
-                new FourWindPairs2Criterion(),
                 new BigThreeDragonsCriterion(),
                 new LittleThreeDragonsCriterion(),
                 new SixDragonPairsCriterion(),
                 new ThreeDragonPairsCriterion(),
-                // 38-48: Fan tiles
                 new FanTile4TCriterion(),
                 new FanTile3TCriterion(),
                 new FanTile2TCriterion(),
@@ -75,16 +66,13 @@ namespace Qingque13
                 new FanTile3PCriterion(),
                 new FanTile2PCriterion(),
                 new FanTile1PCriterion(),
-                // 49-52: Terminal patterns
                 new AllTerminalsCriterion(),
                 new AllTerminalsAndHonoursCriterion(),
                 new PureOutsideHandCriterion(),
                 new MixedOutsideHandCriterion(),
-                // 53-55: Flush patterns
                 new NineGatesCriterion(),
                 new FullFlushCriterion(),
                 new HalfFlushCriterion(),
-                // 56-66: Number patterns
                 new AllTypesCriterion(),
                 new MixedOneNumberCriterion(),
                 new TwoNumbersCriterion(),
@@ -96,27 +84,21 @@ namespace Qingque13
                 new ReflectedHandCriterion(),
                 new ReflectedHand2Criterion(),
                 new CommonNumberCriterion(),
-                // 67-71: Sequence patterns
                 new QuadrupleSequenceCriterion(),
                 new TripleSequenceCriterion(),
                 new TwoDoubleSequencesCriterion(),
                 new DoubleSequenceCriterion(),
-                // 72-75: Shifted triplets
                 new FourShiftedTripletsCriterion(),
                 new ThreeShiftedTripletsCriterion(),
-                // 76-79: Shifted sequences
                 new FourShiftedSequencesCriterion(),
                 new ThreeShiftedSequencesCriterion(),
-                // 80-82: Chained patterns
                 new FourChainedSequencesCriterion(),
                 new ThreeChainedSequencesCriterion(),
                 new PureStraightCriterion(),
-                // 83-86: Shifted pairs
                 new SevenShiftedPairsCriterion(),
                 new SixShiftedPairsCriterion(),
                 new FiveShiftedPairsCriterion(),
                 new FourShiftedPairsCriterion(),
-                // 87-92: Mixed patterns
                 new MixedTripleTripletCriterion(),
                 new MixedTripleSequenceCriterion(),
                 new TwoTriplePairsCriterion(),
