@@ -28,7 +28,7 @@ namespace Qingque13.Criteria
             // Check if any fan tile is present
             foreach (var tile in fanTiles)
             {
-                if (counter.Count(tile) > 0) return true;
+                if (counter.Count(tile) > 1) return true;
             }
             
             return false;

@@ -16,6 +16,7 @@ namespace Qingque13
         LastTileDraw,                   // 海底捞月
         LastTileClaim,                  // 河底捞鱼
         RobbingTheKong,                 // 抢杠
+        ThirteenOrphans,                // 十三幺
         SevenPairs,                     // 七对
         ConcealedHand,                  // 门前清
         FourConcealedKongs,             // 四暗杠
@@ -40,8 +41,6 @@ namespace Qingque13
         ThreeWindTriplets,              // 风牌三刻
         SevenWindPairs,                 // 风牌七对
         SixWindPairs,                   // 风牌六对
-        FiveWindPairs,                  // 风牌五对
-        FourWindPairs2,                 // 风牌四对
         BigThreeDragons,                // 大三元
         LittleThreeDragons,             // 小三元
         SixDragonPairs,                 // 三元六对
@@ -137,6 +136,7 @@ namespace Qingque13
             { QingqueFan.LastTileDraw, "海底捞月" },
             { QingqueFan.LastTileClaim, "河底捞鱼" },
             { QingqueFan.RobbingTheKong, "抢杠" },
+            { QingqueFan.ThirteenOrphans, "十三幺" },
             { QingqueFan.SevenPairs, "七对" },
             { QingqueFan.ConcealedHand, "门前清" },
             { QingqueFan.FourConcealedKongs, "四暗杠" },
@@ -161,8 +161,6 @@ namespace Qingque13
             { QingqueFan.ThreeWindTriplets, "风牌三刻" },
             { QingqueFan.SevenWindPairs, "风牌七对" },
             { QingqueFan.SixWindPairs, "风牌六对" },
-            { QingqueFan.FiveWindPairs, "风牌五对" },
-            { QingqueFan.FourWindPairs2, "风牌四对" },
             { QingqueFan.BigThreeDragons, "大三元" },
             { QingqueFan.LittleThreeDragons, "小三元" },
             { QingqueFan.SixDragonPairs, "三元六对" },
