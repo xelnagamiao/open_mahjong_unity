@@ -15,6 +15,68 @@ public partial class NormalGameStateManager {
     // 血战到底：收到 round_continues=true 的和牌结算后挂起，待下次询问时恢复行牌
     public bool pendingSichuanContinueAfterResult;
 
+    /// <summary>血战终局：合并 reveal_hu / settle_hu / chajiao 分步结算，终局只写一行计分板。</summary>
+    private Dictionary<int, int> _sichuanEndgameScoreAccum;
+    private int _sichuanEndgameHuCount;
+    private bool _sichuanEndgameHadChajiao;
+
+    public void ResetSichuanEndgameScoreAccum() {
+        _sichuanEndgameScoreAccum = null;
+        _sichuanEndgameHuCount = 0;
+        _sichuanEndgameHadChajiao = false;
+    }
+
+    public void BeginSichuanEndgameScoreAccum() {
+        _sichuanEndgameScoreAccum = new Dictionary<int, int>();
+        _sichuanEndgameHuCount = 0;
+        _sichuanEndgameHadChajiao = false;
+    }
+
+    public void AccumulateSichuanEndgameScore(Dictionary<int, int> deltas) {
+        if (deltas == null || deltas.Count == 0) return;
+        _sichuanEndgameScoreAccum ??= new Dictionary<int, int>();
+        foreach (var kvp in deltas) {
+            if (!_sichuanEndgameScoreAccum.ContainsKey(kvp.Key)) {
+                _sichuanEndgameScoreAccum[kvp.Key] = 0;
+            }
+            _sichuanEndgameScoreAccum[kvp.Key] += kvp.Value;
+        }
+    }
+
+    public void RecordSichuanEndgameHu() {
+        _sichuanEndgameScoreAccum ??= new Dictionary<int, int>();
+        _sichuanEndgameHuCount++;
+    }
+
+    public void MarkSichuanEndgameChajiaoStep() {
+        _sichuanEndgameHadChajiao = true;
+    }
+
+    /// <summary>终局末步：将累积的分差写入计分板（一局一行，主番仅 三家和/查叫/流局）。</summary>
+    public bool TryFlushSichuanEndgameScoreToHistory() {
+        if (_sichuanEndgameScoreAccum == null) return false;
+        var merged = new Dictionary<int, int>(_sichuanEndgameScoreAccum);
+        string roundLabel = ScoreHistorySettlementHelper.ResolveSichuanEndgameRoundLabel(
+            _sichuanEndgameHuCount, _sichuanEndgameHadChajiao);
+        RoundSettlementSnapshot snap = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, roundLabel);
+        roundSettlementHistory.Add(snap);
+        ApplyLocalScoreHistoryFromSettlement(snap, merged);
+        ResetSichuanEndgameScoreAccum();
+        return true;
+    }
+
+    public bool IsSichuanEndgameScoreStep(string liujuStep) {
+        return liujuStep == "reveal_hu" || liujuStep == "settle_hu" || liujuStep == "chajiao";
+    }
+
+    /// <summary>非血战终局或即时和牌：四川计分板不写番种/手牌，主番留空。</summary>
+    public void AppendSichuanSimpleScoreboardSnapshot(string huClass, Dictionary<int, int> scoreChanges) {
+        string roundLabel = huClass == "liuju" ? SichuanRoundLabel.Liuju : null;
+        RoundSettlementSnapshot snap = ScoreHistorySettlementHelper.CreateSichuanScoreboardSnapshot(subRule, roundLabel);
+        roundSettlementHistory.Add(snap);
+        ApplyLocalScoreHistoryFromSettlement(snap, scoreChanges);
+    }
+
     // 四川流局：由 HandleShowResult 在调用 ShowResult 前写入，供流局演出按未和家逐个显示状态
     public Dictionary<int, string> sichuanLiujuStatus;
     public Dictionary<int, int[]> sichuanLiujuHands;

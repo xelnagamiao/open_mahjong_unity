@@ -22,15 +22,15 @@ public class ConfigManager : MonoBehaviour {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            releaseVersion = 7; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 8; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
-            releaseVersion = 7;
+            releaseVersion = 8;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.68.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.68.1"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
@@ -86,9 +86,9 @@ public class ConfigManager : MonoBehaviour {
     public int HandSortSuitOrderMode { get; private set; }
     /// <summary>自动理牌字牌位置：0 最后(默认) 1 第三 2 第二 3 最前（索引对应 TileIdOrder.HonorOrderOptions）</summary>
     public int HandSortHonorOrderMode { get; private set; }
-    /// <summary>三元牌排序：0 中发白(默认)，索引对应 TileIdOrder.DragonOrderOptions（非日麻对局使用）</summary>
+    /// <summary>三元牌排序：0 中发白(45→47→46，默认)，索引对应 TileIdOrder.DragonOrderOptions（非日麻对局使用）</summary>
     public int HandSortDragonOrderMode { get; private set; }
-    /// <summary>日麻三元牌排序：2 白发中(默认)，索引对应 TileIdOrder.RiichiDragonOrderOptions（日麻对局使用）</summary>
+    /// <summary>日麻三元牌排序：2 白发中(46→47→45，默认)，索引对应 TileIdOrder.RiichiDragonOrderOptions（日麻对局使用）</summary>
     public int HandSortRiichiDragonOrderMode { get; private set; }
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>

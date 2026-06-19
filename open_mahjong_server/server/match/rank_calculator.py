@@ -17,7 +17,7 @@ RANK_TABLE = [
     ("4级",  0, 60, False),
     ("3级",  0, 60, True),
     ("2级",  0, 80, True),
-    ("1级",  0, 100, True),
+    ("1级",  1, 100, True),
     ("初段", 200, 400, True),
     ("二段", 400, 800, True),
     ("三段", 600, 1200, True),
@@ -64,9 +64,9 @@ RANK_AVG_LOSS_PT = {
     "初段": 45,
     "二段": 55,
     "三段": 65,
-    "四段": 95,
-    "五段": 105,
-    "六段": 120,
+    "四段": 90,
+    "五段": 100,
+    "六段": 110,
     "七段": 150,
     "八段": 175,
     "九段": 200,
@@ -118,42 +118,37 @@ def calculate_pt(tier: str, game_type: str, rank_position: int, rank_name: str) 
 
 def apply_pt(rank_name: str, score: float, pt: float) -> Tuple[str, float]:
     """
-    将 PT 应用到当前分数，处理升降段
-    Args:
-        rank_name: 当前段位名
-        score: 当前分数
-        pt: PT 变动值
-    Returns:
-        (新段位名, 新分数)
+    将 PT 应用到当前分数，处理升降段。
+
+    规则：
+    - 升段：分数 >= 升段分数时升一段，溢出分带到下一段起始分（可溢出，单局最多升一段）
+    - 降段：分数 < 0 时降一段；若目标段有起始分则落到起始分，否则按上一段升段分往回扣
+    - 单次结算最多升/降一段
+    - 不可降段时分数封底为 0
     """
     rank_idx = get_rank_index(rank_name)
-    _, start_score, promote_score, can_demote = RANK_TABLE[rank_idx]
+    _, _, promote_score, can_demote = RANK_TABLE[rank_idx]
     new_score = score + pt
 
-    # 单次结算最多升/降一段：升段把溢出带到下一段起始分，降段把缺口从上一段升段分往回扣
     if new_score >= promote_score and rank_idx < len(RANK_TABLE) - 1:
-        # 升段
         overflow = new_score - promote_score
         rank_idx += 1
         next_start, next_promote = RANK_TABLE[rank_idx][1], RANK_TABLE[rank_idx][2]
         new_score = next_start + overflow
-        # 封顶到新段升段线，避免一次跨两段
         if new_score > next_promote:
             new_score = next_promote
-    elif new_score < start_score and can_demote and rank_idx > 0:
-        # 降段
-        deficit = start_score - new_score
+    elif new_score < 0 and can_demote and rank_idx > 0:
+        deficit = -new_score
         rank_idx -= 1
         prev_start, prev_promote = RANK_TABLE[rank_idx][1], RANK_TABLE[rank_idx][2]
-        new_score = prev_promote - deficit
-        # 封底到上一段起始分，避免一次跌两段
-        if new_score < prev_start:
+        if prev_start > 0:
             new_score = prev_start
-
-    # 分数不能低于当前段位起始分（不可降段 / 已是最低段的情况）
-    _, start_score, _, _ = RANK_TABLE[rank_idx]
-    if new_score < start_score:
-        new_score = start_score
+        else:
+            new_score = prev_promote - deficit
+            if new_score < 0:
+                new_score = 0
+    elif new_score < 0:
+        new_score = 0
 
     return RANK_TABLE[rank_idx][0], round(new_score, 2)
 

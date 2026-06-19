@@ -1,8 +1,3 @@
-"""
-立直麻将观战管理器：结构与古典相同（增量牌谱）
-"""
-from ..game_classical.spectator_manager import SpectatorManager as ClassicalSpectatorManager
+from ..public.spectator_manager import SpectatorManager
 
-
-class SpectatorManager(ClassicalSpectatorManager):
-    pass
+__all__ = ["SpectatorManager"]

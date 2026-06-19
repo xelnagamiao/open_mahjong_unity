@@ -543,19 +543,11 @@ class ClassicalGameState:
                                         hu_fan=hu_fan, hepai_player_index=hepai_player_index,
                                         score_changes=score_changes,
                                         base_fu=hu_base_fu, fu_fan_list=hu_fu_fan_list)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick([self.hu_class, hepai_player_index, actual_hu_score, hu_fan, score_changes])
             elif self.hu_class == "jiuzhongjiupai":
                 player_action_record_jiuzhongjiupai(self)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick(["jiuzhongjiupai"])
             else:
                 player_action_record_liuju(self)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick(["liuju"])
             player_action_record_round_end(self)
-            if hasattr(self, 'spectator_manager'):
-                self.spectator_manager.record_tick(["end"])
 
             if self.hu_class == "jiuzhongjiupai":
                 await asyncio.sleep(liuju_ready_wait_seconds())
@@ -791,12 +783,6 @@ class ClassicalGameState:
             hu_class or "",
             -1 if hepai_player_index is None else hepai_player_index,
         )
-        if hasattr(self, 'spectator_manager'):
-            fu_list = [player_fu.get(i, 0) for i in range(4)]
-            changes_list = [shuhewei_changes.get(i, 0) for i in range(4)]
-            fan_lists = [player_fan.get(i, []) for i in range(4)]
-            fu_type_lists = [player_fu_types.get(i, []) for i in range(4)]
-            self.spectator_manager.record_tick(["shuhewei", fu_list, changes_list, fan_lists, fu_type_lists, hu_class or "", -1 if hepai_player_index is None else hepai_player_index])
         await self.broadcast_shuhewei(
             player_fu,
             player_to_score,

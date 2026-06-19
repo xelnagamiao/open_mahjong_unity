@@ -26,7 +26,11 @@ public class MatchFoundedPanel : MonoBehaviour {
     }
 
     public void Show(string matchTypeName) {
+        bool firstFound = MatchStateManager.Instance == null || !MatchStateManager.Instance.IsMatchFound;
         MatchStateManager.Instance.MarkMatchFound(matchTypeName);
+        if (firstFound) {
+            SoundManager.Instance?.PlayGameStartSound();
+        }
         MatchQueueingPanel.Instance?.HideImmediately();
         Present(matchTypeName);
     }

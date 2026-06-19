@@ -375,16 +375,6 @@ async def broadcast_do_action(
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
 
-    # 为观战系统记录 do_action tick
-    if hasattr(self, 'spectator_manager'):
-        self.spectator_manager.record_do_action_ticks(
-            action_list, action_player,
-            cut_tile=cut_tile, cut_class=cut_class,
-            deal_tile=deal_tile, buhua_tile=buhua_tile,
-            combination_mask=combination_mask,
-            is_mo_gang=is_mo_gang,
-        )
-
 # 广播结算结果（古典麻将：额外携带 base_fu 和 fu_fan_list）
 async def broadcast_result(self, 
                           hepai_player_index: Optional[int] = None, 

@@ -1,78 +1,179 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+
 using UnityEngine.UI;
+
 using UnityEngine.EventSystems;
 
+
+
 public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
+
     [SerializeField] private Image tileImage;
+
     
-    private int tileId = -1; // 当前卡牌的tileId
 
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    private int tileId = -1;
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    private bool hasDangerTint;
+
+    private bool hasZimoTint;
+
+    private static readonly Color DangerTintColor = new Color(1f, 0.65f, 0.65f, 1f);
+
+    private static readonly Color ZimoTintColor = new Color(0.65f, 0.8f, 1f, 1f);
+
+
+
+    public int TileId => tileId;
+
+
 
     public void SetTileOnlyImage(int tile) {
+
         tileId = tile;
+
+        hasDangerTint = false;
+
+        hasZimoTint = false;
+
         int faceResourceId = tile;
+
         if (ConfigManager.Instance.UseBlankWhiteDragonFace(tile)) {
+
             faceResourceId = ConfigManager.BlankFaceImageId;
+
         }
+
         string path = $"image/CardFaceImage_xuefun/{faceResourceId}";
+
         Sprite sprite = Resources.Load<Sprite>(path);
+
         if (sprite != null) {
+
             tileImage.sprite = sprite;
-            tileImage.color = Color.white;
-            Debug.Log($"成功加载静态卡片图片: {path}");
+
+            ApplyWallVisual(1f, false, false);
+
         } else {
+
             Debug.LogError($"找不到牌面图片: {path}");
+
         }
+
     }
+
+
 
     public void SetTileImageColor(Color color) {
+
         if (tileImage == null) return;
+
         tileImage.color = color;
+
     }
 
-    /// <summary>
-    /// 设置卡牌不透明度（用于牌山视图中已摸走的牌变灰）
-    /// </summary>
-    /// <param name="alpha">0~1，1 为完全不透明</param>
+
+
     public void SetOpacity(float alpha) {
+
+        ApplyWallVisual(alpha, hasDangerTint, hasZimoTint);
+
+    }
+
+
+
+    public void SetDangerTint(bool on) {
+
+        hasDangerTint = on;
+
+        float alpha = tileImage != null ? tileImage.color.a : 1f;
+
+        ApplyWallVisual(alpha, on, hasZimoTint);
+
+    }
+
+
+
+    public void ClearDangerTint() {
+
+        hasDangerTint = false;
+
+        float alpha = tileImage != null ? tileImage.color.a : 1f;
+
+        ApplyWallVisual(alpha, false, hasZimoTint);
+
+    }
+
+
+
+    public void ClearWallTints() {
+
+        hasDangerTint = false;
+
+        hasZimoTint = false;
+
+        float alpha = tileImage != null ? tileImage.color.a : 1f;
+
+        ApplyWallVisual(alpha, false, false);
+
+    }
+
+
+
+    public void ApplyWallVisual(float alpha, bool dangerTint, bool zimoTint) {
+
         if (tileImage == null) return;
-        Color c = tileImage.color;
+
+        hasDangerTint = dangerTint;
+
+        hasZimoTint = zimoTint;
+
+
+
+        Color c = Color.white;
+
+        if (dangerTint) {
+
+            c = DangerTintColor;
+
+        }
+
+        else if (zimoTint) {
+
+            c = ZimoTintColor;
+
+        }
+
         c.a = Mathf.Clamp01(alpha);
+
         tileImage.color = c;
+
     }
 
-    /// <summary>
-    /// 鼠标进入时，高亮所有相同tileId的3D卡牌
-    /// </summary>
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        if (tileId != -1 && Card3DHoverManager.Instance != null)
-        {
+
+
+    public void OnPointerEnter(PointerEventData eventData) {
+
+        if (tileId != -1 && Card3DHoverManager.Instance != null) {
+
             Card3DHoverManager.Instance.OnCardHover(tileId);
+
         }
+
     }
 
-    /// <summary>
-    /// 鼠标离开时，恢复所有3D卡牌
-    /// </summary>
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        if (Card3DHoverManager.Instance != null)
-        {
+
+
+    public void OnPointerExit(PointerEventData eventData) {
+
+        if (Card3DHoverManager.Instance != null) {
+
             Card3DHoverManager.Instance.OnCardExit();
+
         }
+
     }
+
 }
+
+

@@ -441,35 +441,9 @@ public class EndResultPanel : MonoBehaviour {
         TopReady.gameObject.SetActive(false);
         RightReady.gameObject.SetActive(false);
 
-        // 显示和牌玩家手牌（同 ShowResult 的逻辑）
+        // 显示和牌玩家手牌（与实时对局 PopulateEndTilesContainer 一致）
         if (hepai_player_hand != null && hepai_player_hand.Length > 0) {
-            int lastCard = hepai_player_hand[hepai_player_hand.Length - 1];
-            int[] handWithoutLast = new int[hepai_player_hand.Length - 1];
-            Array.Copy(hepai_player_hand, handWithoutLast, handWithoutLast.Length);
-            Array.Sort(handWithoutLast, TileIdOrder.Comparer);
-
-            for (int i = 0; i < handWithoutLast.Length; i++) {
-                GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-                staticCard.GetComponent<StaticCard>().SetTileOnlyImage(handWithoutLast[i]);
-            }
-
-            GameObject hideSplitInstance = Instantiate(HideSplit, EndTilescontainer.transform);
-
-            // 显示组合牌
-            if (hepai_player_combination_mask != null) {
-                for (int list = 0; list < hepai_player_combination_mask.Length; list++) {
-                    for (int mask = 1; mask < hepai_player_combination_mask[list].Length; mask += 2) {
-                        GameObject staticCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-                        staticCard.GetComponent<StaticCard>().SetTileOnlyImage(hepai_player_combination_mask[list][mask]);
-                    }
-                }
-            }
-
-            GameObject hideSplitInstance2 = Instantiate(HideSplit, EndTilescontainer.transform);
-
-            // 显示和牌张
-            GameObject LastCard = Instantiate(StaticCardPrefab, EndTilescontainer.transform);
-            LastCard.GetComponent<StaticCard>().SetTileOnlyImage(lastCard);
+            PopulateEndTilesContainer(hepai_player_hand, hepai_player_combination_mask, EndResultTileLayout.HuWithWinTile);
         }
 
         // 显示各玩家分数变化
@@ -658,7 +632,9 @@ public class EndResultPanel : MonoBehaviour {
         if (combinationMask == null) return;
         for (int list = 0; list < combinationMask.Length; list++) {
             for (int mask = 1; mask < combinationMask[list].Length; mask += 2) {
-                SpawnStaticTile(combinationMask[list][mask]);
+                int tileId = combinationMask[list][mask];
+                if (tileId <= 10) continue;
+                SpawnStaticTile(tileId);
             }
         }
     }

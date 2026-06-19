@@ -23,8 +23,22 @@ public partial class NormalGameStateManager {
 
         bool deferScore = defer_score_settlement == true;
         bool isMidGameSichuanHu = deferScore && IsSichuanRule() && IsHuClass(hu_class);
+        bool isSichuanEndgameScoreStep = IsSichuanRule() && IsSichuanEndgameScoreStep(liuju_step);
         ApplySichuanGangRefundIfAny(gang_refund_changes, liuju_step);
-        if (!isMidGameSichuanHu) {
+        if (isSichuanEndgameScoreStep) {
+            if (liuju_step == "reveal_hu") {
+                BeginSichuanEndgameScoreAccum();
+            } else if (liuju_step == "settle_hu") {
+                AccumulateSichuanEndgameScore(score_changes);
+                RecordSichuanEndgameHu();
+            } else if (liuju_step == "chajiao") {
+                MarkSichuanEndgameChajiaoStep();
+                AccumulateSichuanEndgameScore(score_changes);
+            }
+            if (liuju_status_final && TryFlushSichuanEndgameScoreToHistory()) {
+                GameSceneUIManager.Instance.UpdateScoreRecord();
+            }
+        } else if (!isMidGameSichuanHu) {
             AppendRoundSettlementSnapshot(hepai_player_index, player_to_score, hu_score, hu_fan, hu_class, hepai_player_hand, hepai_player_combination_mask, base_fu, fu_fan_list, riichiExtras, score_changes);
             GameSceneUIManager.Instance.UpdateScoreRecord();
         }
@@ -139,6 +153,11 @@ public partial class NormalGameStateManager {
         }
         if (scoreChanges == null || scoreChanges.Count == 0) {
             scoreChanges = BuildScoreChangesFromPlayerToScore(player_to_score);
+        }
+
+        if (IsSichuanRule()) {
+            AppendSichuanSimpleScoreboardSnapshot(hu_class, scoreChanges);
+            return;
         }
 
         var snapshot = ScoreHistorySettlementHelper.CreateFromShowResult(

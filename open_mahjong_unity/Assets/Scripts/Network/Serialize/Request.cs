@@ -19,6 +19,7 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public string password;
     public string random_seed; // 复式主种子：64 位 hex 字符串，空或 "0" 表示关
     public bool open_cuohe; // 是否开启错和
+    public int cuohe_type; // 错和形式：0=错和者-30/其余+10，1=错和者-40/其余+0（仅国标）
     public int hepai_limit; // 起和番限制
     public bool tourist_limit; // 游客限制
     public bool allow_spectator; // 允许观战

@@ -2,7 +2,7 @@
 
 要点：
 - 108 张（万/饼/条），庄家 14 张其余 13 张，不允许吃牌。
-- 定缺阶段：四家同时选缺门花色。
+- 定缺阶段：庄家先摸第 14 张，四家同时选缺门花色。
 - 血战到底（可选 blood_battle）：开=和牌后退场续打至三家和或流局；关=一家和牌即结束本盘。
 - 一炮多响：同一弃牌所有可和家均和。
 - 刮风下雨：点杠/摸杠加杠/暗杠即时收分，流局没叫者退税、杠上炮/抢杠退税。
@@ -312,18 +312,13 @@ class SichuanGameState:
             await self.broadcast_game_start()
             init_game_round(self)
 
-            # 定缺阶段
+            # 定缺阶段（庄家已在发牌时摸好第 14 张）
             await self._dingque_phase()
             await broadcast_dingque_done(self)
 
-            # 庄家摸第 14 张
             self.current_player_index = self.dealer_index
             self.game_status = "waiting_hand_action"
-            refresh_waiting_tiles(self, self.current_player_index)
-            self.player_list[self.current_player_index].get_tile(self.tiles_list)
-            player_action_record_deal(self, deal_tile=self.player_list[self.current_player_index].hand_tiles[-1], deal_type="d")
-            await self.broadcast_do_action(action_list=["deal_tile"], action_player=self.current_player_index,
-                                           deal_tile=self.player_list[self.current_player_index].hand_tiles[-1])
+            refresh_waiting_tiles(self, self.current_player_index, is_first_action=True)
             self.action_dict = check_action_hand_action(self, self.current_player_index, is_first_action=True)
             await self.broadcast_ask_hand_action()
             await self.wait_action()
@@ -389,13 +384,9 @@ class SichuanGameState:
             if self.ended_by == "liuju":
                 await self._settle_liuju()
                 player_action_record_round_end(self)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick(["end"])
                 await self._ready_phase(liuju=True)
             else:
                 player_action_record_round_end(self)
-                if hasattr(self, 'spectator_manager'):
-                    self.spectator_manager.record_tick(["end"])
                 await self._ready_phase(liuju=False)
 
             # 定庄
@@ -699,9 +690,6 @@ class SichuanGameState:
                 ron_discarder_index=discarder if not is_zimo else None,
                 recycle_discard=recycle_discard if not is_zimo else None,
             )
-            # 观战延迟缓冲：与持久牌谱保持一致（一炮多响逐家各记一帧）
-            if hasattr(self, 'spectator_manager'):
-                self.spectator_manager.record_tick([hu_class, w, base, fan_list, hu_changes_list])
             player_to_score = {p.player_index: p.score for p in self.player_list}
             await broadcast_result(
                 self, hu_class=hu_class,
@@ -846,7 +834,7 @@ class SichuanGameState:
     def _max_fan_for_no_ting_payer_hand(
         self, payer: SichuanPlayer, *, strip_dingque: bool = False,
     ) -> Tuple[int, List[str]]:
-        """没叫/花猪向已和玩家付分：按付分者手牌遍历所有和牌可能取理论最大番。"""
+        """（遗留）按付分者手牌遍历和牌可能取理论最大番；查叫收分应使用听牌家的 tenpai_max_fan。"""
         hand = list(payer.hand_tiles)
         if strip_dingque:
             hand = self._hand_without_dingque_suit(hand, payer.dingque_suit)
@@ -904,7 +892,7 @@ class SichuanGameState:
     # │ 检查顺序一律按本局 player_index 从 0 递增；先看“和牌玩家”，再看“流局     │
     # │ （未和）玩家”。每家手牌只展示一次面板。                                  │
     # │                                                                         │
-    # │ 以四家 A/B/C/D 为例（player_index: A=0,B=1,C=2,D=3；A/B/C 和，D 没叫）： │
+    # │ 以四家 A/B/C/D 为例（player_index: A=0,B=1,C=2,D=3；A 和，B 听牌未和，C/D 没叫）： │
     # │   ① reveal_hu    — 四家同时亮完整手牌（3D，无计分面板）                  │
     # │   ② settle_hu×N  — 先看和牌玩家：按 player_index 升序逐笔入账并播面板：   │
     # │        · A(0) 的和牌结算 → B(1) → C(2)                                   │
@@ -912,7 +900,9 @@ class SichuanGameState:
     # │      （注：付分对象由各自 hu_order 决定，与展示顺序无关，分数不受影响）   │
     # │   ③ chajiao×M  — 再看流局玩家：按 player_index 升序逐家展示手牌+状态：    │
     # │        · 每家仅 1 次面板，合并该家全部查叫收支（禁止同一家连播多次）       │
-    # │        · D(3) 没叫 → 向 A/B/C 各付理论最大番（合并显示在一个面板里）       │
+    # │        · B(1) 听牌未和 → C/D 各向其付 B 的理论最大番（在 B 的面板合并展示） │
+    # │        · 已和玩家不参与查叫收分；三家和且无退税时跳过查叫                     │
+    # │        · 三家和但末家有待退税：仅播末家查叫面板（叫况 + 退税）                 │
     # │        · 有叫/没叫/花猪 均须展示，即使分数变动为 0 也不可省略             │
     # │        · 没叫/花猪开杠者本副“刮风下雨”退税并入本家面板：标“退税”、多 0.5s │
     # │      非末步 3s；仅最后一家显示 8s 可点确定。                              │
@@ -968,10 +958,18 @@ class SichuanGameState:
         ting_players = [idx for idx, s in status.items() if s == "ting"]
         noting_players = [idx for idx, s in status.items() if s == "no_ting"]
 
+        hu_players = [p for p in self.player_list if p.is_hu]
+        # 三家和：仅剩一家未和，通常无需查叫；若该家本副有刮风下雨待退税，仍播其查叫面板（展示叫况 + 退税）
+        three_hu_one_left = len(hu_players) >= 3 and len(non_hu) == 1
+        last_non_hu = non_hu[0] if three_hu_one_left else None
+        needs_refund_chajiao = (
+            three_hu_one_left and last_non_hu is not None and bool(last_non_hu.gang_score_records)
+        )
+        skip_chajiao = three_hu_one_left and not needs_refund_chajiao
+
         if not self.blood_battle:
             player_action_record_liuju(self)
 
-        hu_players = [p for p in self.player_list if p.is_hu]
         all_hands = {p.player_index: self._reveal_hand_payload(p) for p in self.player_list}
         player_scores = {p.player_index: p.score for p in self.player_list}
 
@@ -1003,14 +1001,15 @@ class SichuanGameState:
                 )
                 player_scores = {p.player_index: p.score for p in self.player_list}
                 is_last_settle = settle_idx == len(deferred_sorted) - 1
-                # settle_hu 仅在「无未和家」时为末步；否则查叫才是 8s 末步（退税已并入查叫）
-                is_final_panel = is_last_settle and not non_hu
+                # settle_hu 为末步：无未和家，或三家和且无需退税查叫
+                is_final_panel = is_last_settle and (not non_hu or skip_chajiao)
                 if is_final_panel:
                     self._liuju_final_panel_shown = True
                 if self.blood_battle:
                     player_action_record_sichuan_liuju_step(
                         self, "settle_hu", rec["hu_class"], w, rec["base"], rec["fan_list"],
                         [changes.get(i, 0) for i in range(4)],
+                        1 if is_final_panel else 0,
                     )
                 await broadcast_result(
                     self,
@@ -1031,42 +1030,31 @@ class SichuanGameState:
                     liuju_status_final=is_final_panel,
                     round_continues=False,
                 )
-                if hasattr(self, "spectator_manager"):
-                    self.spectator_manager.record_tick(
-                        [rec["hu_class"], w, rec["base"], rec["fan_list"], [changes.get(i, 0) for i in range(4)]]
-                    )
                 await asyncio.sleep(
                     sichuan_settle_hu_panel_wait_seconds(len(rec["fan_list"]), is_final=is_final_panel)
                 )
 
         # 3) 再看流局玩家：按 player_index 升序逐家展示，每家仅 1 次面板（合并该家全部查叫收支）
+        # 三家和且无退税时整段跳过；有退税时仅播最后一家面板（查叫况 + 退税，不计听牌赔付）。
         # 禁止 skip/early-return：即使全员同状态或分数变动为 0，也必须播完所有未和家面板。
         # 没叫/花猪开杠者本副“刮风下雨”退税并入本家面板（不再单独 cha_refund 步）。
-        non_hu_ordered = sorted(non_hu, key=lambda p: p.player_index)
+        if needs_refund_chajiao:
+            chajiao_targets = [last_non_hu]
+        elif skip_chajiao:
+            chajiao_targets = []
+        else:
+            chajiao_targets = sorted(non_hu, key=lambda p: p.player_index)
 
-        for chajiao_idx, n_p in enumerate(non_hu_ordered):
+        for chajiao_idx, n_p in enumerate(chajiao_targets):
             panel_changes: Dict[int, int] = {i: 0 for i in range(4)}
             p_idx = n_p.player_index
             p_display = display_status.get(p_idx, "no_ting")
-
-            if status.get(p_idx) == "no_ting" and hu_players_sorted:
-                strip_dingque = p_display in ("hua_zhu_passive", "hua_zhu_active")
-                mf, mf_names = self._max_fan_for_no_ting_payer_hand(
-                    n_p, strip_dingque=strip_dingque,
-                )
-                base = self.calculation_service.Sichuan_base_from_fan(mf, mf_names)
-                if base > 0:
-                    for h_p in hu_players_sorted:
-                        self.player_list[p_idx].score -= base
-                        panel_changes[p_idx] -= base
-                        self.player_list[h_p.player_index].score += base
-                        panel_changes[h_p.player_index] += base
 
             if p_display == "hua_zhu_active":
                 self.player_list[p_idx].score -= SICHUAN_ACTIVE_HUAZHU_PENALTY
                 panel_changes[p_idx] -= SICHUAN_ACTIVE_HUAZHU_PENALTY
 
-            if status.get(p_idx) == "ting" and noting_players:
+            if status.get(p_idx) == "ting" and noting_players and not needs_refund_chajiao:
                 mf = tenpai_max_fan.get(p_idx, 0)
                 mf_names = tenpai_max_fan_names.get(p_idx, [])
                 base = self.calculation_service.Sichuan_base_from_fan(mf, mf_names)
@@ -1087,7 +1075,7 @@ class SichuanGameState:
                     panel_has_refund = True
 
             player_scores = {p.player_index: p.score for p in self.player_list}
-            is_final_panel = chajiao_idx == len(non_hu_ordered) - 1
+            is_final_panel = chajiao_idx == len(chajiao_targets) - 1
             if is_final_panel:
                 self._liuju_final_panel_shown = True
             liuju_status = {p_idx: p_display}
@@ -1114,8 +1102,6 @@ class SichuanGameState:
                 liuju_refund=True if panel_has_refund else None,
                 round_continues=False,
             )
-            if hasattr(self, "spectator_manager"):
-                self.spectator_manager.record_tick(["chajiao"])
             if not is_final_panel:
                 await asyncio.sleep(
                     sichuan_chajiao_panel_wait_seconds(is_final=False, has_refund=panel_has_refund)

@@ -163,12 +163,13 @@ public class RoomNetworkManager : MonoBehaviour {
                 password = config.Password,
                 random_seed = randomSeed,
                 open_cuohe = config.CuoHe,
+                cuohe_type = config.CuoheType,
                 hepai_limit = config.HepaiLimit,
                 tourist_limit = config.TouristLimit,
                 allow_spectator = config.AllowSpectator,
                 tactical_call = config.TacticalCall
             };
-            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}, HepaiLimit: {config.HepaiLimit}");
+            Debug.Log($"发送创建房间消息: {config.RoomName}, {config.GameRound}, {config.Password}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}, CuoheType: {config.CuoheType}, HepaiLimit: {config.HepaiLimit}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);

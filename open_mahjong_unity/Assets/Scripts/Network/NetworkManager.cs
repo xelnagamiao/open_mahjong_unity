@@ -89,9 +89,7 @@ public class NetworkManager : MonoBehaviour {
             isConnecting = false;
             _disconnectDialogState = DisconnectDialogState.Start;
             ExecuteOnMainThread(() => {
-                if (!AndroidAutoReconnect.ShouldSuppressDisconnectUi()) {
-                    LoginPanel.Instance?.ConnectErrorText(errorMsg);
-                }
+                LoginPanel.Instance?.ConnectErrorText(errorMsg);
             });
         };
 
@@ -99,10 +97,6 @@ public class NetworkManager : MonoBehaviour {
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
             ExecuteOnMainThread(() => {
-                if (AndroidAutoReconnect.ShouldSuppressDisconnectUi()) {
-                    AndroidAutoReconnect.OnBackgroundDisconnect();
-                    return;
-                }
                 LoginPanel.Instance?.ConnectErrorText("连接已关闭");
                 MarkDisconnected();
             });
@@ -121,7 +115,6 @@ public class NetworkManager : MonoBehaviour {
 
     private void TryShowDisconnectDialog() {
         if (_disconnectDialogState != DisconnectDialogState.Disconnected) return;
-        if (AndroidAutoReconnect.ShouldSuppressDisconnectUi()) return;
         _disconnectDialogState = DisconnectDialogState.Shown;
         NotificationManager.Instance.ShowMessage(
             "连接已断开",
@@ -130,31 +123,9 @@ public class NetworkManager : MonoBehaviour {
         );
     }
 
-    /// <summary>
-    /// Android 自动重连失败后，回退为手动断线弹窗。
-    /// </summary>
-    public void ShowDisconnectDialogAfterAutoReconnectFailed() {
-        if (_disconnectDialogState == DisconnectDialogState.Connected) {
-            _disconnectDialogState = DisconnectDialogState.Disconnected;
-        }
-        TryShowDisconnectDialog();
-    }
-
     private void OnApplicationPause(bool pause) {
-        if (pause) {
-            AndroidAutoReconnect.OnEnterBackground();
-            return;
-        }
-        AndroidAutoReconnect.OnEnterForeground();
+        if (pause) return;
         CheckDisconnectOnForeground();
-    }
-
-    private void OnApplicationFocus(bool hasFocus) {
-        if (hasFocus) {
-            AndroidAutoReconnect.OnEnterForeground();
-        } else {
-            AndroidAutoReconnect.OnEnterBackground();
-        }
     }
 
     private void CheckDisconnectOnForeground() {
@@ -164,9 +135,6 @@ public class NetworkManager : MonoBehaviour {
         websocket?.DispatchMessageQueue();
 #endif
         if (websocket == null || websocket.State != WebSocketState.Open) {
-            if (AndroidAutoReconnect.TryStartOnForegroundDisconnect()) {
-                return;
-            }
             MarkDisconnected();
         }
     }
@@ -241,9 +209,7 @@ public class NetworkManager : MonoBehaviour {
 
         Debug.LogError($"[NetworkManager] WebSocket 重连超时或失败，State={newSocket.State}");
         isConnecting = false;
-        if (!AndroidAutoReconnect.IsActive) {
-            LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
-        }
+        LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
     }
 
     /// <summary>
@@ -346,12 +312,8 @@ public class NetworkManager : MonoBehaviour {
 
     // 处理登录响应
     private void HandleLoginResponse(Response response){
-        AndroidAutoReconnect.OnLoginResponse(response.success);
-
         if (response.success) {
-            if (!AndroidAutoReconnect.ShouldSkipLoginUiChanges()) {
-                WindowsManager.Instance.SwitchWindow("menu");
-            }
+            WindowsManager.Instance.SwitchWindow("menu");
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -416,9 +378,7 @@ public class NetworkManager : MonoBehaviour {
             switch (response.type){
                 case "login":
                     HandleLoginResponse(response);
-                    if (!AndroidAutoReconnect.ShouldSuppressLoginTip()) {
-                        NotificationManager.Instance.ShowTip("login", true, "登录成功");
-                    }
+                    NotificationManager.Instance.ShowTip("login",true,"登录成功");
                     break;
                 case "get_server_stats": // 获取服务器统计信息
                     DisplayServerStats(response.server_stats);
@@ -533,20 +493,12 @@ public class NetworkManager : MonoBehaviour {
 
                 case "tips":
                     // 服务端验证失败的提示并重置按钮
-                    if (AndroidAutoReconnect.IsActive) {
-                        AndroidAutoReconnect.OnLoginResponse(false);
-                    }
                     NotificationManager.Instance.ShowTip("验证", false, response.message);
                     LoginPanel.Instance.ResetLoginButton();
                     break;
 
                 case "message":
                     // 处理服务端发送的消息（版本不匹配、账户被顶替、重连提示等）
-                    if (response.message == "reconnect_ask" && AndroidAutoReconnect.ShouldAutoAcceptReconnectAsk()) {
-                        AndroidAutoReconnect.OnReconnectAsk();
-                        ReconnectResponse(true);
-                        break;
-                    }
                     // 传入 title, content 以及 message 标识符 (error_version/login_kickout/reconnect_ask)
                     if (response.message == "error_version") {
                         _disconnectDialogState = DisconnectDialogState.NoMatch;

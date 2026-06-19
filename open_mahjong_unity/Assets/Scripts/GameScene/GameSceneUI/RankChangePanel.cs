@@ -73,14 +73,16 @@ public class RankChangePanel : MonoBehaviour {
             // 降段
             for (int i = oldIdx; i >= newIdx; i--) {
                 if (i == oldIdx) {
-                    // 当前段降到底
-                    yield return AnimateProgress(i, oldScore, RankConfig.RankTable[i].startScore, 0.6f);
+                    // 当前段掉到 0（只有低于 0 才会掉段）
+                    yield return AnimateProgress(i, oldScore, 0, 0.6f);
                 } else if (i == newIdx) {
-                    // 新段位从满值回退到目标分
+                    // 新段位落到目标分
                     rankNameText.text = RankConfig.RankTable[i].name;
-                    SetProgressBar(i, RankConfig.RankTable[i].promoteScore);
+                    var (_, startScore, promoteScore) = RankConfig.RankTable[i];
+                    float animFrom = startScore > 0 ? startScore : promoteScore;
+                    SetProgressBar(i, animFrom);
                     yield return new WaitForSeconds(0.3f);
-                    yield return AnimateProgress(i, RankConfig.RankTable[i].promoteScore, newScore, 0.6f);
+                    yield return AnimateProgress(i, animFrom, newScore, 0.6f);
                 } else {
                     // 中间段位快速跳过
                     rankNameText.text = RankConfig.RankTable[i].name;

@@ -27,6 +27,13 @@ public class Card3DHoverManager : MonoBehaviour
     public Color MoqieOverlayColor => moqieOverlayColor;
     public float MoqieOverlayIntensity => moqieOverlayIntensity;
 
+    [Header("牌谱铳牌红色叠加")]
+    [SerializeField] private Color dangerOverlayColor = new Color(1f, 0.2f, 0.2f);
+    [SerializeField, Range(0f, 1f)] private float dangerOverlayIntensity = 0.45f;
+
+    public Color DangerOverlayColor => dangerOverlayColor;
+    public float DangerOverlayIntensity => dangerOverlayIntensity;
+
     // 存储每个卡牌的原始材质属性
     private Dictionary<GameObject, CardMaterialData> cardMaterialData = new Dictionary<GameObject, CardMaterialData>();
 
@@ -42,6 +49,9 @@ public class Card3DHoverManager : MonoBehaviour
         public bool hasGrayOverlay;
         public Color grayOverlayColor;
         public float grayOverlayIntensity;
+        public bool hasDangerOverlay;
+        public Color dangerOverlayColor;
+        public float dangerOverlayIntensity;
     }
 
     private void Awake() {
@@ -178,9 +188,15 @@ public class Card3DHoverManager : MonoBehaviour
     /// 获取基础显示颜色：原始色 + 灰色叠加（如有）
     /// </summary>
     private static Color GetBaseColor(Color originalColor, CardMaterialData data) {
-        if (!data.hasGrayOverlay) return originalColor;
-        Color c = Color.Lerp(originalColor, data.grayOverlayColor, data.grayOverlayIntensity);
-        c.a = originalColor.a;
+        Color c = originalColor;
+        if (data.hasGrayOverlay) {
+            c = Color.Lerp(c, data.grayOverlayColor, data.grayOverlayIntensity);
+            c.a = originalColor.a;
+        }
+        if (data.hasDangerOverlay) {
+            c = Color.Lerp(c, data.dangerOverlayColor, data.dangerOverlayIntensity);
+            c.a = originalColor.a;
+        }
         return c;
     }
 
@@ -220,6 +236,39 @@ public class Card3DHoverManager : MonoBehaviour
         data.hasGrayOverlay = true;
         data.grayOverlayColor = overlayColor;
         data.grayOverlayIntensity = intensity;
+        ApplyCardBaseColors(cardObj, data);
+    }
+
+    public void SetCardDangerOverlay(GameObject cardObj, Color overlayColor, float intensity) {
+        if (!cardMaterialData.ContainsKey(cardObj)) return;
+        CardMaterialData data = cardMaterialData[cardObj];
+        data.hasDangerOverlay = true;
+        data.dangerOverlayColor = overlayColor;
+        data.dangerOverlayIntensity = intensity;
+        ApplyCardBaseColors(cardObj, data);
+    }
+
+    public void ClearCardDangerOverlay(GameObject cardObj) {
+        if (!cardMaterialData.ContainsKey(cardObj)) return;
+        CardMaterialData data = cardMaterialData[cardObj];
+        if (!data.hasDangerOverlay) return;
+        data.hasDangerOverlay = false;
+        ApplyCardBaseColors(cardObj, data);
+    }
+
+    public void ClearAllDangerOverlays() {
+        foreach (var kvp in cardMaterialData) {
+            CardMaterialData data = kvp.Value;
+            if (!data.hasDangerOverlay) continue;
+            data.hasDangerOverlay = false;
+            ApplyCardBaseColors(kvp.Key, data);
+        }
+        if (currentHoveredTileId != -1) {
+            SetCardsHovered(currentHoveredTileId);
+        }
+    }
+
+    private void ApplyCardBaseColors(GameObject cardObj, CardMaterialData data) {
         if (data.material.HasProperty("_FrontColor")) {
             data.material.SetColor("_FrontColor", GetBaseColor(data.originalFrontColor, data));
         }

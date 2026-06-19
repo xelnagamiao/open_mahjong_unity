@@ -11,6 +11,8 @@ public class GB_Create_RoomConfig {
     public bool Tips { get; set; }
     public string RandomSeed { get; set; }
     public bool CuoHe { get; set; }
+    /// <summary>错和形式：0=错和者扣30/其余各加10；1=错和者扣40/其余不加分。</summary>
+    public int CuoheType { get; set; }
     public int HepaiLimit { get; set; }
     public bool TouristLimit { get; set; }
     public bool AllowSpectator { get; set; }

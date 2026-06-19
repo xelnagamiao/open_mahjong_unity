@@ -14,6 +14,7 @@ public class CommitmentSaltDetailPanel : MonoBehaviour {
 
     private string _commitment = "-";
     private string _salt = "-";
+    private string _masterSeed = "";
 
     private void Awake() {
         gameObject.SetActive(false);
@@ -22,20 +23,29 @@ public class CommitmentSaltDetailPanel : MonoBehaviour {
         }
     }
 
-    public void SetContent(string commitment, string salt) {
+    public void SetContent(string commitment, string salt, string masterSeed = null) {
         _commitment = CommitmentSaltDisplay.NormalizeCommitment(commitment);
         _salt = CommitmentSaltDisplay.FormatSaltLabel(salt);
+        _masterSeed = string.IsNullOrEmpty(masterSeed)
+            ? ""
+            : CommitmentSaltDisplay.NormalizeMasterSeed(masterSeed);
         if (commitmentText != null) {
             commitmentText.text = _commitment;
         }
         if (saltText != null) {
-            saltText.text = _salt;
+            saltText.text = string.IsNullOrEmpty(_masterSeed)
+                ? _salt
+                : $"{_salt}\n主种子: {_masterSeed}";
         }
     }
 
     private void OnCopyButtonClick() {
-        ClipboardUtility.Copy($"承诺值：{_commitment} 盐值：{_salt}");
-        NotificationManager.Instance.ShowTip("承诺值", true, "已复制承诺值与盐值");
+        string copyText = string.IsNullOrEmpty(_masterSeed)
+            ? $"承诺值：{_commitment} 盐值：{_salt}"
+            : $"承诺值：{_commitment} 盐值：{_salt} 主种子：{_masterSeed}";
+        ClipboardUtility.Copy(copyText);
+        NotificationManager.Instance.ShowTip("承诺值", true,
+            string.IsNullOrEmpty(_masterSeed) ? "已复制承诺值与盐值" : "已复制承诺值、盐值与主种子");
         // 重置浮层隐藏计时，避免点完按钮立刻消失
         RoundPanel.Instance?.RequestShowCommitmentSaltDetail();
     }

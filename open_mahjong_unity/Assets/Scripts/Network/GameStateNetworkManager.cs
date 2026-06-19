@@ -118,7 +118,6 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     private void HandleGameStart(Response response) {
         Debug.Log($"游戏开始: {response.message}");
-        AndroidAutoReconnect.OnGameRestored();
         NormalGameStateManager.Instance.InitializeGame(response.success, response.message, response.game_info);
     }
     

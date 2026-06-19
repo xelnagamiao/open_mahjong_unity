@@ -46,20 +46,20 @@ public static class TileIdOrder {
         new[] { 2, 1, 0 }, // 条饼万
     };
 
-    // 三元牌排列：索引 0=中 1=白 2=发。
+    // 三元牌排列：与 DragonOrderOptions 文案一致，从左到右；45=中 46=白 47=发。
     private static readonly int[][] DragonPermutations = {
-        new[] { Chun, Haku, Hatsu }, // 中发白
-        new[] { Chun, Hatsu, Haku }, // 中白发
-        new[] { Hatsu, Chun, Haku }, // 发中白
-        new[] { Hatsu, Haku, Chun }, // 发白中
-        new[] { Haku, Chun, Hatsu }, // 白中发
-        new[] { Haku, Hatsu, Chun }, // 白发中
+        new[] { Chun, Hatsu, Haku }, // 中发白 → 45,47,46
+        new[] { Chun, Haku, Hatsu }, // 中白发 → 45,46,47
+        new[] { Hatsu, Chun, Haku }, // 发中白 → 47,45,46
+        new[] { Hatsu, Haku, Chun }, // 发白中 → 47,46,45
+        new[] { Haku, Chun, Hatsu }, // 白中发 → 46,45,47
+        new[] { Haku, Hatsu, Chun }, // 白发中 → 46,47,45
     };
 
     private static readonly int[][] RiichiDragonPermutations = {
-        new[] { Chun, Hatsu, Haku }, // 中白发
-        new[] { Hatsu, Chun, Haku }, // 发中白
-        new[] { Haku, Hatsu, Chun }, // 白发中
+        new[] { Chun, Haku, Hatsu }, // 中白发 → 45,46,47
+        new[] { Hatsu, Chun, Haku }, // 发中白 → 47,45,46
+        new[] { Haku, Hatsu, Chun }, // 白发中 → 46,47,45
     };
 
     // suit -> 组排名（越小越靠左）。索引：0 万 1 饼 2 条 3 字牌 4 花牌/其它。
@@ -132,13 +132,13 @@ public static class TileIdOrder {
     }
 
     private static bool IsRiichiContext() {
-        if (NormalGameStateManager.Instance != null) {
-            if (IsRiichiRule(NormalGameStateManager.Instance.roomRule, NormalGameStateManager.Instance.subRule)) {
-                return true;
-            }
-        }
+        // 牌谱/观战回放：以 gameTitle 为准，避免误读上一局残留的 roomRule。
         if (TryGetRecordRule(out string recordRule, out string recordSubRule)) {
             return IsRiichiRule(recordRule, recordSubRule);
+        }
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm != null && gsm.IsGameActive) {
+            return IsRiichiRule(gsm.roomRule, gsm.subRule);
         }
         return false;
     }

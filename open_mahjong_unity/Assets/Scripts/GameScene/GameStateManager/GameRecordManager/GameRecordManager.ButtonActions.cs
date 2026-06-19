@@ -148,10 +148,11 @@ public partial class GameRecordManager {
     private void ShowTileList() {
         bool shouldShow = !tileListView.activeSelf;
         if (shouldShow) {
-            UpdateTileListOpacity();
             tileListView.SetActive(true);
+            RefreshRecordChongHint();
         } else {
             tileListView.SetActive(false);
+            RefreshRecordChongHint();
         }
     }
 

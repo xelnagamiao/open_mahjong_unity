@@ -152,6 +152,16 @@ public class SoundManager : MonoBehaviour {
         audioSource.PlayOneShot(clip, volume);
     }
 
+    public void PlayGameStartSound() {
+        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/gamestart");
+        if (soundToPlay == null) {
+            Debug.LogWarning("未找到匹配成功音效: Sound/Physics/gamestart");
+            return;
+        }
+        float volume = ConfigManager.Instance != null ? ConfigManager.Instance.GetSoundEffectVolumeRatio() : 1.0f;
+        audioSource.PlayOneShot(soundToPlay, volume * 0.4f);
+    }
+
     public void PlayPhysicsSound(/* Vector3 position, 物理音效发出位置 */string actionType){
         string fileName;
         if (actionType == "cut") {

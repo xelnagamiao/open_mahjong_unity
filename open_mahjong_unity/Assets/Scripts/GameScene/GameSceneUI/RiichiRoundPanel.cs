@@ -16,9 +16,9 @@ public class RiichiRoundPanel : MonoBehaviour {
     [SerializeField] private TMP_Text roomNowRoundText;
 
     [Header("场况显示：数量")]
-    [Tooltip("场供立直棒（1000点棒）数量，显示如 x0 / x1")]
+    [Tooltip("场供立直棒（1000点棒）数量")]
     [SerializeField] private TMP_Text riichiSticksCountText;
-    [Tooltip("本场（300点棒/100点棒）数量，显示如 x0 / x1")]
+    [Tooltip("本场（300点棒/100点棒）数量")]
     [SerializeField] private TMP_Text honbaCountText;
 
     [Header("场况显示：宝牌指示槽位（手动拖入 StaticCard）")]
@@ -62,8 +62,8 @@ public class RiichiRoundPanel : MonoBehaviour {
     /// 更新场况显示。传入的 doraIndicators 已合并了初始宝牌与已翻开的杠宝牌。
     /// </summary>
     public void RefreshFieldState(int honba, int riichiSticks, List<int> doraIndicators) {
-        if (honbaCountText != null) honbaCountText.text = $"x{honba}";
-        if (riichiSticksCountText != null) riichiSticksCountText.text = $"x{riichiSticks}";
+        if (honbaCountText != null) honbaCountText.text = honba.ToString();
+        if (riichiSticksCountText != null) riichiSticksCountText.text = riichiSticks.ToString();
 
         if (doraSlots == null) return;
         for (int i = 0; i < doraSlots.Length; i++) {

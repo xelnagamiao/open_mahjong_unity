@@ -257,15 +257,6 @@ async def broadcast_do_action(
             await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_do_action 失败: {e}")
-    if hasattr(self, "spectator_manager") and not is_claim:
-        self.spectator_manager.record_do_action_ticks(
-            action_list, action_player,
-            cut_tile=cut_tile, cut_class=cut_class,
-            deal_tile=deal_tile, buhua_tile=buhua_tile,
-            combination_mask=combination_mask,
-            is_riichi_horizontal=is_riichi_horizontal,
-            is_mo_gang=is_mo_gang,
-        )
 
 
 async def broadcast_result(
@@ -363,8 +354,6 @@ async def broadcast_declare_riichi(self, player_index: int, is_daburu: bool = Fa
             await self.send_to_realtime_spectators(cp.player_index, response)
         except Exception as e:
             logger.error(f"riichi broadcast_declare_riichi 失败: {e}")
-    if hasattr(self, "spectator_manager"):
-        self.spectator_manager.record_tick(["riichi", player_index, 1 if is_daburu else 0])
 
 
 async def broadcast_update_dora(self, new_indicator: int, is_kan_dora: bool = False):
@@ -392,8 +381,6 @@ async def broadcast_update_dora(self, new_indicator: int, is_kan_dora: bool = Fa
             await self.send_to_realtime_spectators(cp.player_index, dict_data)
         except Exception as e:
             logger.error(f"riichi broadcast_update_dora 失败: {e}")
-    if hasattr(self, "spectator_manager"):
-        self.spectator_manager.record_tick(["dora", new_indicator])
 
 
 async def broadcast_game_end(self):

@@ -20,9 +20,14 @@ public class RoundSettlementSnapshot {
     public int[] hepaiPlayerHand;
     public int[][] combinationMask;
     public string subRule;
+    /// <summary>四川：计分板主番 simplified 类型（three_hu / chajiao / liuju）。</summary>
+    public string sichuanRoundLabel;
 
     public bool CanShowTooltip =>
-        hasWin && huFan != null && huFan.Length > 0;
+        string.IsNullOrEmpty(sichuanRoundLabel)
+        && hasWin
+        && huFan != null
+        && huFan.Length > 0;
 
     public bool CanShowHandPreview =>
         hepaiPlayerHand != null && hepaiPlayerHand.Length > 0;

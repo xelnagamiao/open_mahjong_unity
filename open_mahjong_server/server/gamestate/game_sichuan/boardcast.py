@@ -321,11 +321,6 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
                 await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 do_action 广播失败 {current_player.user_id}: {e}")
-    if hasattr(self, 'spectator_manager'):
-        self.spectator_manager.record_do_action_ticks(
-            action_list, action_player, cut_tile=cut_tile, cut_class=cut_class,
-            deal_tile=deal_tile, combination_mask=combination_mask, is_mo_gang=is_mo_gang,
-        )
 
 
 async def broadcast_result(self, hu_class: str, **kwargs):

@@ -21,6 +21,7 @@ public partial class GameRecordManager
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
         lastWinnableTileId = -1;
+        waitingForDrawAfterCut = false;
         
         // 重置牌山列表到初始状态
         if (roundData.tilesList != null) {
@@ -33,6 +34,7 @@ public partial class GameRecordManager
         currentOriginalIndices = new List<int>();
         for (int i = 0; i < originalTilesList.Count; i++) currentOriginalIndices.Add(i);
         backwardTilesType = "double";
+        ResetRecordRiichiFieldState(roundData);
 
         // 重置 RecordPlayer.score 到本局开始时的累计分数
         if (gameRecord?.gameRound?.rounds != null) {
@@ -63,9 +65,14 @@ public partial class GameRecordManager
         
         Game3DManager.Instance.Change3DTile("InitHandCardsFromRecord", 0, 0, null, false, null);
         RebuildRecord3DTableWithoutAnimation();
+        if (recordRiichiTenbousClearedAfterHu) {
+            Game3DManager.Instance.ClearAllRiichiTenbous();
+        }
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         RefreshTileListViewIfVisible();
+        RefreshRecordRiichiRoundPanel();
         UpdateCurrentXunmuText();
+        RefreshRecordChongHint();
     }
 
     // 推演行动节点
@@ -101,6 +108,7 @@ public partial class GameRecordManager
         if (action == "d" || action == "gd" || action == "bd") {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
+            waitingForDrawAfterCut = false;
             
             if (currentTilesList.Count > 0) {
                 if (action == "gd" || action == "bd") {
@@ -134,6 +142,8 @@ public partial class GameRecordManager
             lastDiscardPlayerIndex = actingPlayerIndex;
             lastDiscardTileId = cutTile;
             lastWinnableTileId = cutTile;
+            waitingForDrawAfterCut = true;
+            OnRecordPlayerCut(actingPlayer);
             nextPlayerIndex = (actingPlayerIndex + 1) % 4;
         }
         else if (action == "bh") {
@@ -193,6 +203,8 @@ public partial class GameRecordManager
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
+            int hepaiPlayerIndex = ParseTickInt(tick, 1);
+            MarkRecordPlayerHu(hepaiPlayerIndex);
             int[] sc = ParseTickScoreChanges(tick, 4);
             if (sc != null && sc.Length >= 4) {
                 var deltas = new Dictionary<int, int>();
@@ -207,6 +219,11 @@ public partial class GameRecordManager
                 MapTickScoreChangesToDeltas(sc, deltas);
                 ApplyScoreDeltas(deltas, out _, out _);
             }
+            int riichiSticksCollected = tick.Count > 11 ? ParseTickInt(tick, 11) : 0;
+            ApplyRecordRiichiSticksCollected(riichiSticksCollected);
+        }
+        else if (action == "dora") {
+            ApplyRecordRiichiDoraTick(ParseTickInt(tick, 1));
         }
         else if (action == "ryuukyoku") {
             int[] sc = ParseTickScoreChanges(tick, 2);
@@ -232,6 +249,7 @@ public partial class GameRecordManager
             foreach (var rp in recordPlayerList){
                 if (rp.playerIndex == riichiPlayer){ rp.isRiichi = true; break; }
             }
+            ApplyRecordRiichiDeclare();
         }
 
         currentPlayerIndex = nextPlayerIndex;
