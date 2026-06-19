@@ -297,6 +297,7 @@ public static class AutoReconnect {
                 Debug.LogWarning("[AutoReconnect] 未收到 reconnect_ask，对局已不存在");
                 UserDataManager.Instance?.SetGamestateId("");
                 UserDataManager.Instance?.SetRoomId(UserDataManager.ROOM_ID_NONE);
+                GameSceneTeardown.ResetToIdle();
                 WindowsManager.Instance?.SwitchWindow("menu");
                 NotificationManager.Instance?.ShowTip("重连", false, "对局已结束");
                 OnSucceeded(skipAllTips: true);
@@ -315,6 +316,7 @@ public static class AutoReconnect {
                 Debug.LogWarning("[AutoReconnect] 重回对局超时，清理残留会话状态");
                 UserDataManager.Instance?.SetGamestateId("");
                 UserDataManager.Instance?.SetRoomId(UserDataManager.ROOM_ID_NONE);
+                GameSceneTeardown.ResetToIdle();
                 WindowsManager.Instance?.SwitchWindow("menu");
                 NotificationManager.Instance?.ShowTip("重连", false, "重回对局超时");
                 OnSucceeded(skipAllTips: true);
