@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Qingque13.Core;
+using Qingque13.Criteria;
+#if UNITY_2017_1_OR_NEWER
 using UnityEngine;
+#endif
 
 namespace Qingque13
 {
@@ -14,12 +17,20 @@ namespace Qingque13
     {
         private static void Log(string message)
         {
+#if UNITY_2017_1_OR_NEWER
             Debug.Log(message);
+#else
+            Console.WriteLine(message);
+#endif
         }
 
         private static void LogError(string message)
         {
+#if UNITY_2017_1_OR_NEWER
             Debug.LogError(message);
+#else
+            Console.Error.WriteLine(message);
+#endif
         }
 
         public static int GetBasePoint(double fan)
@@ -81,6 +92,17 @@ namespace Qingque13
                 // Evaluate fans
                 var evaluator = new QingqueFanEvaluator();
                 var allFans = evaluator.EvaluateFans(hand, ignoreOccasional: false);
+
+                // Thirteen orphans is a special hand that doesn't follow the
+                // normal 4-melds-1-pair decomposition. If no decompositions
+                // were found but the hand matches thirteen orphans, create
+                // a synthetic fan set with the appropriate fans.
+                if (allFans.Count == 0 && ThirteenOrphansCriterion.IsThirteenOrphans(hand))
+                {
+                    var fans = new HashSet<QingqueFan> { QingqueFan.Trivial, QingqueFan.ThirteenOrphans };
+                    AddOccasionalFans(fans, winType);
+                    allFans.Add(fans);
+                }
 
                 if (debug)
                 {
@@ -243,6 +265,38 @@ namespace Qingque13
                 seatWind: seatWind,
                 prevalentWind: prevalentWind
             );
+        }
+
+        /// <summary>
+        /// Adds applicable occasional fans to a fan set based on the win type.
+        /// Used when a special hand (like thirteen orphans) has no decompositions,
+        /// so the normal criterion-based evaluation can't run.
+        /// </summary>
+        private static void AddOccasionalFans(HashSet<QingqueFan> fans, QingqueWinType winType)
+        {
+            // Heavenly hand: dealer wins on initial deal
+            if (winType.HasFlags(QingqueWinType.HeavenlyOrEarthlyHand | QingqueWinType.SelfDrawn))
+                fans.Add(QingqueFan.HeavenlyHand);
+
+            // Earthly hand: non-dealer wins on first draw
+            if (winType.HasFlags(QingqueWinType.HeavenlyOrEarthlyHand, QingqueWinType.SelfDrawn))
+                fans.Add(QingqueFan.EarthlyHand);
+
+            // Out with replacement tile (岭上开花)
+            if (winType.HasFlags(QingqueWinType.KongRelated | QingqueWinType.SelfDrawn))
+                fans.Add(QingqueFan.OutWithReplacementTile);
+
+            // Last tile draw (海底捞月)
+            if (winType.HasFlags(QingqueWinType.FinalTile | QingqueWinType.SelfDrawn))
+                fans.Add(QingqueFan.LastTileDraw);
+
+            // Last tile claim (河底捞鱼)
+            if (!winType.IsSelfDrawn && winType.IsFinalTile)
+                fans.Add(QingqueFan.LastTileClaim);
+
+            // Robbing the kong (抢杠)
+            if (!winType.IsSelfDrawn && winType.HasFlags(QingqueWinType.KongRelated))
+                fans.Add(QingqueFan.RobbingTheKong);
         }
     }
 }
