@@ -100,7 +100,7 @@ class Ask_other_action_info(BaseModel):
 
 class Do_action_info(BaseModel):
     # 存储操作列表 包含 切牌 吃 碰 杠 胡 补花 [chi_left,chi_mid,chi_right,peng,gang,angang,hu,buhua,cut,deal_tile] 
-    # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_tile]
+    # 暗杠会表现为 [angang,deal_tile] 补花会表现为 [buhua,deal_buhua_tile]（is_mo_buhua 标注摸补/手补）
     action_list: List[str] 
     action_player: int # 存储操作玩家索引
     cut_tile: Optional[int] = None # 在切牌时广播切牌
@@ -118,6 +118,8 @@ class Do_action_info(BaseModel):
     silent: Optional[bool] = None
     # 暗杠/加杠：True=摸杠（末张参与），False=手杠
     is_mo_gang: Optional[bool] = None
+    # 补花：True=摸补（末张花牌），False=手补
+    is_mo_buhua: Optional[bool] = None
     # 四川麻将（血战到底）专用
     dingque_suit: Optional[int] = None  # 定缺广播：仅对应玩家收到自己的定缺花色（1万2饼3条）
     player_to_dingque: Optional[Dict[int, int]] = None  # 定缺完成广播：{player_index: suit}
@@ -284,6 +286,7 @@ class Player_stats_info(BaseModel):
     third_place_count: Optional[int] = None
     fourth_place_count: Optional[int] = None
     fulu_round_count: Optional[int] = None  # 副露局数（有明副露的局数）
+    cuohe_count: Optional[int] = None  # 错和次数（国标）
     # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
     fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
 

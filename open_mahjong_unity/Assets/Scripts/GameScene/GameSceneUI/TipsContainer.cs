@@ -20,6 +20,7 @@ public class TipsContainer : MonoBehaviour
     private readonly List<int> _cachedHandTiles = new List<int>();
     private readonly List<int> _cachedWaitingTiles = new List<int>();
     private bool _hasCachedTenpaiTips;
+    private RecordTipsContext _recordTipsContext;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
 
@@ -47,6 +48,12 @@ public class TipsContainer : MonoBehaviour
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null || !gameManager.tips) return;
         SetTipsWithHand(_cachedHandTiles, _cachedWaitingTiles);
+    }
+
+    /// <summary>牌谱/观战：牌桌可见信息变化后重算已缓存的听牌提示 UI。</summary>
+    public void RefreshRecordTenpaiTipsIfCached(RecordTipsContext ctx) {
+        if (!_hasCachedTenpaiTips || _cachedWaitingTiles.Count == 0 || ctx == null) return;
+        SetTipsWithRecordContext(ctx, _cachedHandTiles, _cachedWaitingTiles);
     }
 
     private void Awake()
@@ -214,6 +221,154 @@ public class TipsContainer : MonoBehaviour
         }
     }
 
+    /// <summary>牌谱/延时观战：基于 RecordTipsContext 展示听牌与番数提示。</summary>
+    public void SetTipsWithRecordContext(RecordTipsContext ctx, List<int> handTiles, List<int> waitingTiles, int? pendingCutTileId = null) {
+        if (ctx == null) return;
+        _recordTipsContext = ctx;
+        _pendingCutTileId = pendingCutTileId;
+
+        List<Transform> toDestroy = new List<Transform>();
+        foreach (Transform child in TileContainer.transform) {
+            toDestroy.Add(child);
+        }
+        foreach (Transform child in FanContainer.transform) {
+            toDestroy.Add(child);
+        }
+        foreach (Transform child in toDestroy) {
+            Destroyer.Instance.AddToDestroyer(child);
+        }
+
+        BuildVisibleTileCountsFromRecord(ctx, handTiles);
+
+        List<string> wayToHepai = BuildWayToHepaiForRecord(ctx, waitingTiles);
+        waitingTiles.Sort();
+
+        foreach (int hepaiTile in waitingTiles) {
+            int showTilesCount = 0;
+            List<string> singleTilewayToHepai = new List<string>();
+            List<string> nowCombinations = new List<string>();
+
+            foreach (var playerInfo in ctx.PlayersByPosition.Values) {
+                if (playerInfo?.DiscardTiles != null) {
+                    showTilesCount += playerInfo.DiscardTiles.Count(t => t == hepaiTile);
+                }
+                if (playerInfo?.CombinationTiles != null) {
+                    nowCombinations.AddRange(playerInfo.CombinationTiles);
+                }
+            }
+
+            foreach (string combination in nowCombinations) {
+                if (combination.Contains($"k{hepaiTile}")) showTilesCount += 3;
+                if (combination.Contains($"s{hepaiTile - 1}")) showTilesCount += 1;
+                if (combination.Contains($"s{hepaiTile}")) showTilesCount += 1;
+                if (combination.Contains($"s{hepaiTile + 1}")) showTilesCount += 1;
+            }
+
+            if (_pendingCutTileId.HasValue && _pendingCutTileId.Value == hepaiTile) {
+                showTilesCount += 1;
+            }
+
+            if (showTilesCount == 3) {
+                singleTilewayToHepai.Add("和绝张");
+            }
+
+            List<string> mergedWayToHepai = new List<string>(wayToHepai);
+            mergedWayToHepai.AddRange(singleTilewayToHepai);
+            mergedWayToHepai.Add("点和");
+
+            List<int> handList = new List<int>(handTiles);
+            handList.Add(hepaiTile);
+            List<string> combinationList = new List<string>();
+            if (ctx.PlayersByPosition.TryGetValue("self", out RecordTipsPlayerVisible selfVisible)
+                && selfVisible?.CombinationTiles != null) {
+                combinationList.AddRange(selfVisible.CombinationTiles);
+            }
+            int huapaiCount = ctx.SelfHuapaiList?.Count ?? 0;
+
+            if (ctx.RoomRule == "qingque") {
+                ProcessQingqueTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
+            } else if (ctx.RoomRule == "guobiao") {
+                ProcessGuobiaoTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai, huapaiCount);
+            } else if (ctx.RoomRule == "classical") {
+                ProcessClassicalTile(hepaiTile, handList, combinationList, wayToHepai, singleTilewayToHepai, mergedWayToHepai);
+            } else if (ctx.RoomRule == "riichi") {
+                ProcessRiichiTile(hepaiTile, handList, combinationList);
+            } else if (ctx.RoomRule == "sichuan") {
+                ProcessSichuanTile(hepaiTile, handList, combinationList);
+            } else {
+                Debug.LogWarning($"未知的规则类型: {ctx.RoomRule}");
+            }
+        }
+
+        _recordTipsContext = null;
+    }
+
+    private static List<string> BuildWayToHepaiForRecord(RecordTipsContext ctx, List<int> waitingTiles) {
+        var wayToHepai = new List<string>();
+        if (ctx.SelfHuapaiList != null) {
+            foreach (int _ in ctx.SelfHuapaiList) {
+                wayToHepai.Add("花牌");
+            }
+        }
+
+        int currentRound = ctx.CurrentRound;
+        if (currentRound <= 4) wayToHepai.Add("场风东");
+        else if (currentRound <= 8) wayToHepai.Add("场风南");
+        else if (currentRound <= 12) wayToHepai.Add("场风西");
+        else if (currentRound <= 16) wayToHepai.Add("场风北");
+
+        switch (ctx.SelfPlayerIndex) {
+            case 0: wayToHepai.Add("自风东"); break;
+            case 1: wayToHepai.Add("自风南"); break;
+            case 2: wayToHepai.Add("自风西"); break;
+            case 3: wayToHepai.Add("自风北"); break;
+        }
+
+        if (waitingTiles.Count == 1) {
+            wayToHepai.Add("和单张");
+        }
+        return wayToHepai;
+    }
+
+    private void BuildVisibleTileCountsFromRecord(RecordTipsContext ctx, List<int> selfHandTiles) {
+        _visibleTileCounts.Clear();
+        string roomRule = ctx.RoomRule;
+        foreach (int tile in selfHandTiles) {
+            AddVisibleTile(tile, roomRule);
+        }
+        if (_pendingCutTileId.HasValue) {
+            AddVisibleTile(_pendingCutTileId.Value, roomRule);
+        }
+        if (ctx.PlayersByPosition == null) return;
+        foreach (var playerInfo in ctx.PlayersByPosition.Values) {
+            if (playerInfo?.DiscardTiles != null) {
+                foreach (int tile in playerInfo.DiscardTiles) {
+                    AddVisibleTile(tile, roomRule);
+                }
+            }
+            if (playerInfo?.CombinationTiles == null) continue;
+            foreach (string combination in playerInfo.CombinationTiles) {
+                AddVisibleTilesFromCombination(combination, roomRule);
+            }
+        }
+    }
+
+    private string GetActiveSubRule() {
+        return _recordTipsContext?.SubRule ?? NormalGameStateManager.Instance.subRule;
+    }
+
+    private int GetActiveHepaiLimit() {
+        return _recordTipsContext?.HepaiLimit ?? NormalGameStateManager.Instance.hepaiLimit;
+    }
+
+    private string GetActiveRoomRule() {
+        return _recordTipsContext?.RoomRule ?? NormalGameStateManager.Instance.roomRule;
+    }
+
+    private int GetActiveSelfDingqueSuit() {
+        return _recordTipsContext?.SelfDingqueSuit ?? NormalGameStateManager.Instance.selfDingqueSuit;
+    }
+
     /// <summary>
     /// 处理国标规则的和牌提示：guobiao/standard 用 GBhepai，guobiao/xiaolin 用 GBhepaiXiaolin，guobiao/kshen 用 GBhepaiKshen。
     /// </summary>
@@ -226,7 +381,7 @@ public class TipsContainer : MonoBehaviour
         List<string> mergedWayToHepai,
         int huapaiCount)
     {
-        string subRule = NormalGameStateManager.Instance.subRule;
+        string subRule = GetActiveSubRule();
 
         Tuple<int, List<string>> dianheResult;
         if (subRule == "guobiao/xiaolin") {
@@ -238,7 +393,7 @@ public class TipsContainer : MonoBehaviour
             dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         }
         int dianheFan = dianheResult.Item1;
-        int hepaiLimit = NormalGameStateManager.Instance.hepaiLimit;
+        int hepaiLimit = GetActiveHepaiLimit();
 
         if (dianheFan - huapaiCount >= hepaiLimit) {
             InstantiateTipsTile(hepaiTile);
@@ -342,7 +497,7 @@ public class TipsContainer : MonoBehaviour
         classicalWay.Insert(0, "和牌");
         var dianheResult = ClassicalExternal.HepaiCheck(handList, combinationList, classicalWay, hepaiTile, false);
         int dianheTotalFu = dianheResult.Item2;
-        int hepaiLimit = NormalGameStateManager.Instance.hepaiLimit;
+        int hepaiLimit = GetActiveHepaiLimit();
 
         if (dianheTotalFu >= hepaiLimit) {
             InstantiateTipsTile(hepaiTile);
@@ -376,7 +531,7 @@ public class TipsContainer : MonoBehaviour
         int hepaiTile,
         List<int> handList,
         List<string> combinationList) {
-        int dingque = NormalGameStateManager.Instance.selfDingqueSuit;
+        int dingque = GetActiveSelfDingqueSuit();
         var result = SichuanExternal.HepaiCheck(handList, combinationList, new List<string>(), hepaiTile, dingque, false);
         int fan = result.Item1;
         InstantiateTipsTile(hepaiTile);
@@ -392,17 +547,24 @@ public class TipsContainer : MonoBehaviour
         int hepaiTile,
         List<int> handList,
         List<string> combinationList) {
-        var combinationMasks = NormalGameStateManager.Instance.player_to_info["self"].combination_masks;
+        List<int[]> combinationMasks = _recordTipsContext?.SelfCombinationMasks
+            ?? NormalGameStateManager.Instance.player_to_info["self"].combination_masks;
+        RiichiHandContext ronContext = _recordTipsContext != null
+            ? BuildRiichiContextFromRecord(_recordTipsContext, false, combinationMasks)
+            : BuildRiichiContext(isTsumo: false, combinationMasks);
+
         RiichiHandResult ronResult = RiichiExternal.FullHepaiCheck(
-            handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: false, combinationMasks));
+            handList, combinationList, hepaiTile, ronContext);
 
         RiichiHandResult displayResult = ronResult;
         string kindTag = "dianhe";
 
         if (!ronResult.IsValid || ronResult.Score <= 0) {
-            // 点和不成立或番数不足 → 改按自摸重算
+            RiichiHandContext tsumoContext = _recordTipsContext != null
+                ? BuildRiichiContextFromRecord(_recordTipsContext, true, combinationMasks)
+                : BuildRiichiContext(isTsumo: true, combinationMasks);
             var tsumoResult = RiichiExternal.FullHepaiCheck(
-                handList, combinationList, hepaiTile, BuildRiichiContext(isTsumo: true, combinationMasks));
+                handList, combinationList, hepaiTile, tsumoContext);
             if (tsumoResult.IsValid && tsumoResult.Score > 0) {
                 displayResult = tsumoResult;
                 kindTag = "zimo";
@@ -451,6 +613,23 @@ public class TipsContainer : MonoBehaviour
 
         ctx.DoraIndicators = gm.doraIndicators != null ? new List<int>(gm.doraIndicators) : new List<int>();
         // 里宝仅立直者在和牌时才能看到；tips 阶段若已立直，允许展示理论值（服务端仍以结算为准）
+        ctx.UraDoraIndicators = new List<int>();
+        return ctx;
+    }
+
+    private RiichiHandContext BuildRiichiContextFromRecord(RecordTipsContext recordCtx, bool isTsumo, List<int[]> combinationMasks) {
+        var ctx = new RiichiHandContext {
+            IsTsumo = isTsumo,
+            HasOpenTanyao = true,
+            CombinationMasks = combinationMasks,
+        };
+        if (recordCtx.SelfIsRiichi) {
+            ctx.IsRiichi = true;
+        }
+        ctx.PlayerWind = RiichiTileUtil.East + recordCtx.SelfPlayerIndex;
+        int roundWindOffset = Mathf.Clamp((recordCtx.CurrentRound - 1) / 4, 0, 3);
+        ctx.RoundWind = RiichiTileUtil.East + roundWindOffset;
+        ctx.DoraIndicators = recordCtx.DoraIndicators != null ? new List<int>(recordCtx.DoraIndicators) : new List<int>();
         ctx.UraDoraIndicators = new List<int>();
         return ctx;
     }
@@ -560,7 +739,7 @@ public class TipsContainer : MonoBehaviour
     }
 
     private int GetWaitingTileRemaining(int waitingTile) {
-        int key = GetVisibleCountKey(waitingTile, NormalGameStateManager.Instance.roomRule);
+        int key = GetVisibleCountKey(waitingTile, GetActiveRoomRule());
         int used = _visibleTileCounts.TryGetValue(key, out int count) ? count : 0;
         return 4 - used;
     }

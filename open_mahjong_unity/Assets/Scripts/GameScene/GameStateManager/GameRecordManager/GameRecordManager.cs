@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -125,6 +126,8 @@ public partial class GameRecordManager : MonoBehaviour {
         public bool isHu;
         /// <summary>四川：定缺花色（1万/2饼/3条，0=未定缺）。</summary>
         public int dingqueSuit;
+        /// <summary>展开明牌模式：末张摸牌须显示在独立摸牌区（摸牌/杠摸/补摸后为 true，摸切/摸补/摸杠消耗后为 false）。</summary>
+        public bool showHandDrawSlotActive;
         public List<int> huapaiList = new List<int>();
         public List<string> combinationTiles = new List<string>();
         public List<int[]> combinationMasks = new List<int[]>();
@@ -417,6 +420,7 @@ public partial class GameRecordManager : MonoBehaviour {
             recordPlayer.isRiichi = false;
             recordPlayer.isHu = false;
             recordPlayer.dingqueSuit = 0;
+            recordPlayer.showHandDrawSlotActive = false;
             recordPlayer.huapaiList.Clear();
             recordPlayer.combinationTiles.Clear();
             recordPlayer.combinationMasks.Clear();
@@ -497,6 +501,7 @@ public partial class GameRecordManager : MonoBehaviour {
         BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         RefreshRecordRiichiRoundPanel();
         RefreshRecordChongHint();
+        RefreshRecordTips();
     }
     
     // 选择选中巡目
@@ -568,16 +573,7 @@ public partial class GameRecordManager : MonoBehaviour {
             BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
         }
         int previousPlayerIndex = currentPlayerIndex;
-        int actingPlayerIndex = currentPlayerIndex;
-        if (action == "bh" && tick.Count >= 3) {
-            actingPlayerIndex = ParseTickInt(tick, 2);
-        } else if ((action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") && tick.Count >= 3) {
-            actingPlayerIndex = ParseTickInt(tick, 2);
-        } else if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") && tick.Count >= 2) {
-            actingPlayerIndex = ParseTickInt(tick, 1);
-        } else if (action == "riichi" && tick.Count >= 2) {
-            actingPlayerIndex = ParseTickInt(tick, 1);
-        }
+        int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
 
         string currentPlayerPosition = indexToPosition[actingPlayerIndex];
         RecordPlayer currentRecordPlayer = recordPlayer_to_info[currentPlayerPosition];
@@ -591,6 +587,7 @@ public partial class GameRecordManager : MonoBehaviour {
         if (action == "d" || action == "gd" || action == "bd") {
             int dealTile = ParseTickInt(tick, 1);
             currentRecordPlayer.tileList.Add(dealTile);
+            currentRecordPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
             
             if (currentTilesList.Count > 0) {
@@ -626,6 +623,7 @@ public partial class GameRecordManager : MonoBehaviour {
             // 牌谱第 4 段为可选 "H" 标识立直横置弃牌（含立直宣告与续横情况），缺省视为非横置
             bool isRiichiHorizontal = tick.Count > 3 && tick[3] == "H";
             int cutIndex = RemoveTileForCut(currentRecordPlayer.tileList, cutTile, isMoqie);
+            currentRecordPlayer.showHandDrawSlotActive = false;
             currentRecordPlayer.discardTiles.Add(cutTile);
             currentRecordPlayer.discardIsMoqie.Add(isMoqie);
             currentRecordPlayer.discardRiichiFlags.Add(isRiichiHorizontal);
@@ -647,12 +645,20 @@ public partial class GameRecordManager : MonoBehaviour {
         }
         else if (action == "bh") {
             int buhuaTile = ParseTickInt(tick, 1);
-            RemoveOneTile(currentRecordPlayer.tileList, buhuaTile);
+            bool isMoBuhua = GameRecordJsonDecoder.ParseBuhuaMoFlag(tick);
+            RemoveTileForBuhua(currentRecordPlayer.tileList, buhuaTile, isMoBuhua);
+            if (isMoBuhua) {
+                currentRecordPlayer.showHandDrawSlotActive = false;
+            }
             currentRecordPlayer.huapaiList.Add(buhuaTile);
             if (currentPlayerPosition == "self") {
-                GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhuaTile, null, null);
+                if (isMoBuhua) {
+                    GameCanvas.Instance.ChangeHandCards("RemoveGetCard", buhuaTile, null, null);
+                } else {
+                    GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhuaTile, null, null);
+                }
             }
-            Game3DManager.Instance.Change3DTile("Buhua", buhuaTile, 0, currentPlayerPosition, false, null);
+            Game3DManager.Instance.Change3DTile("Buhua", buhuaTile, 0, currentPlayerPosition, isMoBuhua, null);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "buhua");
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -669,6 +675,9 @@ public partial class GameRecordManager : MonoBehaviour {
                 ApplyRecordAngangHandCardRemoval(removedTiles, isMoGang);
             }
             Game3DManager.Instance.Change3DTile("angang", angangTile, removedTiles.Count, currentPlayerPosition, false, combinationMask, isMoGang: isMoGang);
+            if (isMoGang) {
+                currentRecordPlayer.showHandDrawSlotActive = false;
+            }
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "angang");
             PlayRecordGangScoreChanges(tick);
             nextPlayerIndex = actingPlayerIndex;
@@ -690,6 +699,9 @@ public partial class GameRecordManager : MonoBehaviour {
                 }
             }
             Game3DManager.Instance.Change3DTile("jiagang", actualJia, 1, currentPlayerPosition, isMoGang, combinationMask);
+            if (isMoGang) {
+                currentRecordPlayer.showHandDrawSlotActive = false;
+            }
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "jiagang");
             PlayRecordGangScoreChanges(tick);
             nextPlayerIndex = actingPlayerIndex;
@@ -717,6 +729,7 @@ public partial class GameRecordManager : MonoBehaviour {
             int[] combinationMask = GameRecordMeldCodec.BuildMingpaiMask(action, mingpaiTile, removedTiles, relative);
             currentRecordPlayer.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingpaiTile));
             currentRecordPlayer.combinationMasks.Add(combinationMask);
+            currentRecordPlayer.showHandDrawSlotActive = false;
             // 弃牌已被吃/碰/明杠取走，不再是可荣和牌张，清除避免后续误追加
             lastWinnableTileId = -1;
             if (currentPlayerPosition == "self") {
@@ -745,6 +758,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 RefreshTileListViewIfVisible();
                 UpdateCurrentXunmuText();
                 RefreshRecordChongHint();
+                RefreshRecordTips();
                 return;
             }
 
@@ -926,6 +940,7 @@ public partial class GameRecordManager : MonoBehaviour {
         RefreshTileListViewIfVisible();
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
+        RefreshRecordTips();
     }
 
     /// <summary>
@@ -1371,10 +1386,18 @@ public partial class GameRecordManager : MonoBehaviour {
         return fans.ToArray();
     }
 
+    private string ResolveRecordHepaiRuleKey() {
+        string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
+        string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
+        if (HepaiRevealDirector.IsGuobiaoRuleKey(subRule)) return subRule;
+        if (!string.IsNullOrEmpty(rule)) return rule;
+        return subRule;
+    }
+
     private void ShowRecordResult(string huClass, int huScore, string[] huFan, int hepaiPlayerIndex,
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
-        int? baseFu = null, string[] fuFanList = null) {
+        int? baseFu = null, string[] fuFanList = null, RiichiEndResultExtras riichiExtras = null) {
         if (huClass == "jiuzhongjiupai" || NormalGameStateManager.IsRiichiSpecialLiujuHuClass(huClass)) {
             if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
                 BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
@@ -1383,6 +1406,16 @@ public partial class GameRecordManager : MonoBehaviour {
             return;
         }
 
+        StartCoroutine(CoShowRecordResultWithPresentation(
+            huClass, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
+            hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, riichiExtras));
+    }
+
+    private IEnumerator CoShowRecordResultWithPresentation(
+        string huClass, int huScore, string[] huFan, int hepaiPlayerIndex,
+        int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
+        Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
+        int? baseFu, string[] fuFanList, RiichiEndResultExtras riichiExtras) {
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
         foreach (var kv in recordPlayer_to_info) {
             int uid = kv.Value.userId;
@@ -1394,19 +1427,33 @@ public partial class GameRecordManager : MonoBehaviour {
         }
 
         string roomType = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
-        if (indexToPosition.ContainsKey(hepaiPlayerIndex)) {
-            string huPosition = indexToPosition[hepaiPlayerIndex];
-            GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
+        if (string.IsNullOrEmpty(roomType)) {
+            roomType = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
         }
 
-        // 更新中心盘分数
+        string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
+        GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
+        SoundManager.Instance.PlayActionSound(huPosition, huClass);
+
         if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
             BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
         }
 
+        string recordRule = ResolveRecordHepaiRuleKey();
+        bool showCardsExpanded = HepaiRevealDirector.IsRecordShowCardsExpanded(huPosition);
+        string discardPos = ResolveRecordRonDiscarderPosition(
+            lastDiscardPlayerIndex >= 0 ? (int?)lastDiscardPlayerIndex : null);
+        int hepaiTile = hepaiPlayerHand != null && hepaiPlayerHand.Length > 0
+            ? hepaiPlayerHand[hepaiPlayerHand.Length - 1]
+            : -1;
+
+        HepaiPresentationRequest request = HepaiRevealDirector.BuildRecordRequest(
+            huPosition, huClass, hepaiPlayerHand, huFan, recordRule, showCardsExpanded, hepaiTile, discardPos);
+        yield return HepaiRevealDirector.PlayRecord(request);
+
         GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
-            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList);
+            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList, riichiExtras);
     }
 
     /// <summary>
@@ -1469,20 +1516,8 @@ public partial class GameRecordManager : MonoBehaviour {
             ScoreChanges = deltas,
         };
 
-        Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
-        foreach (var kv in recordPlayer_to_info) {
-            int uid = kv.Value.userId;
-            positionToUsername[kv.Key] = userIdToUsername.TryGetValue(uid, out string username) ? username : uid.ToString();
-        }
-
-        string roomType = "riichi/standard";
-        GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
-        SoundManager.Instance.PlayActionSound(huPosition, huClass);
-        BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
-
-        GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, yaku, huClass, roomType,
-            indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
-            playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, null, null, extras);
+        ShowRecordResult(huClass, huScore, yaku, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
+            hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, null, null, extras);
         if (riichiSticksCollected > 0) {
             Game3DManager.Instance.ClearAllRiichiTenbous();
         }
@@ -1582,6 +1617,15 @@ public partial class GameRecordManager : MonoBehaviour {
         }
     }
 
+    private void RemoveTileForBuhua(List<int> tileList, int tileId, bool isMoBuhua) {
+        if (tileList.Count == 0) return;
+        if (isMoBuhua && tileList[tileList.Count - 1] == tileId) {
+            tileList.RemoveAt(tileList.Count - 1);
+            return;
+        }
+        RemoveOneTile(tileList, tileId);
+    }
+
     private static void ApplyRecordAngangHandCardRemoval(List<int> removedTiles, bool isMoGang) {
         if (removedTiles == null || removedTiles.Count == 0) return;
         if (isMoGang) {
@@ -1677,8 +1721,9 @@ public partial class GameRecordManager : MonoBehaviour {
                 simulateCurrentPlayerIndex = (simulateCurrentPlayerIndex + 1) % 4;
             } else if (action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") {
                 simulateCurrentPlayerIndex = ParseTickInt(tick, 2);
-            } else if (action == "bh" && tick.Count >= 3) {
-                simulateCurrentPlayerIndex = ParseTickInt(tick, 2);
+            } else if (action == "bh" || action == "bd") {
+                simulateCurrentPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
+                    tick, action, simulateCurrentPlayerIndex);
             }
         }
 

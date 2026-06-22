@@ -31,6 +31,12 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI EndButtonText;
     [SerializeField] private Button EndButton;
 
+    [Header("面板显隐（仅控制 CanvasGroup.alpha，不 SetActive）")]
+    [SerializeField] private Button PanelVisibilityToggleButton;
+    [SerializeField] private TextMeshProUGUI PanelVisibilityToggleButtonText;
+    [Tooltip("除显隐按钮外的结算内容根节点。")]
+    [SerializeField] private GameObject PanelContentRoot;
+
     [SerializeField] private GameObject EndTilescontainer;
     [SerializeField] private GameObject StaticCardPrefab;
     [SerializeField] private GameObject HideSplit;
@@ -84,6 +90,11 @@ public class EndResultPanel : MonoBehaviour {
     private const string StateRecord = "recordstate";
     private string currentState = StateNone;
     private Coroutine showResultCoroutine;
+    private CanvasGroup panelContentCanvasGroup;
+    private bool isPanelContentVisible = true;
+    private bool endButtonConfirmed = false;
+    private const string HidePanelButtonText = "隐藏面板";
+    private const string ShowPanelButtonText = "显示面板";
 
     public bool IsAwaitingRecordResultConfirm => currentState == StateRecord && gameObject.activeSelf;
 
@@ -104,6 +115,41 @@ public class EndResultPanel : MonoBehaviour {
         // 非激活状态按钮
         EndButton.onClick.AddListener(EndButtonClick);
         EndButton.interactable = false;
+        if (PanelVisibilityToggleButton != null) {
+            PanelVisibilityToggleButton.onClick.AddListener(TogglePanelContentVisibility);
+        }
+        ResetPanelContentVisibility();
+    }
+
+    private CanvasGroup GetPanelContentCanvasGroup() {
+        if (panelContentCanvasGroup != null) return panelContentCanvasGroup;
+        if (PanelContentRoot == null) return null;
+        panelContentCanvasGroup = PanelContentRoot.GetComponent<CanvasGroup>();
+        if (panelContentCanvasGroup == null) {
+            panelContentCanvasGroup = PanelContentRoot.AddComponent<CanvasGroup>();
+        }
+        return panelContentCanvasGroup;
+    }
+
+    private void TogglePanelContentVisibility() {
+        SetPanelContentVisible(!isPanelContentVisible);
+    }
+
+    private void SetPanelContentVisible(bool visible) {
+        isPanelContentVisible = visible;
+        CanvasGroup cg = GetPanelContentCanvasGroup();
+        if (cg != null) {
+            cg.alpha = visible ? 1f : 0f;
+            cg.blocksRaycasts = visible;
+            cg.interactable = visible;
+        }
+        if (PanelVisibilityToggleButtonText != null) {
+            PanelVisibilityToggleButtonText.text = visible ? HidePanelButtonText : ShowPanelButtonText;
+        }
+    }
+
+    private void ResetPanelContentVisibility() {
+        SetPanelContentVisible(true);
     }
 
     public void StartShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
@@ -207,6 +253,7 @@ public class EndResultPanel : MonoBehaviour {
         Dictionary<int, int> scoreChanges) {
         currentState = StateGame;
         gameObject.SetActive(true);
+        ResetPanelContentVisibility();
         EndButton.gameObject.SetActive(false);
         EndButton.interactable = false;
         EndButtonText.text = "确定";
@@ -259,6 +306,8 @@ public class EndResultPanel : MonoBehaviour {
     public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
         currentState = StateGame;
         gameObject.SetActive(true);
+        ResetPanelContentVisibility();
+        endButtonConfirmed = false;
         FanCountTotalPanel.SetActive(false);
         EndButton.gameObject.SetActive(true);
         EndButton.interactable = false;
@@ -391,16 +440,18 @@ public class EndResultPanel : MonoBehaviour {
 
     /// <summary>确定按钮倒计时：始终显示数字；仅 allowConfirmClick 时可点击。</summary>
     private IEnumerator CoPlayEndButtonCountdown(float confirmCountdownSeconds, bool allowConfirmClick) {
+        endButtonConfirmed = false;
         EndButton.gameObject.SetActive(true);
-        EndButton.interactable = false;
+        EndButton.interactable = allowConfirmClick;
         int countdown = Mathf.Max(1, Mathf.RoundToInt(confirmCountdownSeconds));
         for (int i = countdown; i > 0; i--) {
             EndButtonText.text = $"确定({i})";
-            EndButton.interactable = allowConfirmClick;
             yield return new WaitForSeconds(1f);
         }
-        EndButtonText.text = "确定(0)";
-        EndButton.interactable = false;
+        if (!endButtonConfirmed) {
+            EndButtonText.text = "确定(0)";
+            EndButton.interactable = false;
+        }
         // 可点击确认的对局结算：面板保留至下一局 game_start 由 InitGameStart 清理
         if (!allowConfirmClick) {
             gameObject.SetActive(false);
@@ -419,6 +470,8 @@ public class EndResultPanel : MonoBehaviour {
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
         currentState = StateRecord;
         gameObject.SetActive(true);
+        ResetPanelContentVisibility();
+        endButtonConfirmed = false;
         FanCountTotalPanel.SetActive(false);
 
         // 清空旧内容，避免与上一条结算叠加
@@ -678,6 +731,8 @@ public class EndResultPanel : MonoBehaviour {
         }
         currentState = StateGame;
         gameObject.SetActive(true);
+        ResetPanelContentVisibility();
+        endButtonConfirmed = false;
         EndButton.gameObject.SetActive(false);
 
         foreach (Transform child in EndTilescontainer.transform) Destroy(child.gameObject);
@@ -751,7 +806,9 @@ public class EndResultPanel : MonoBehaviour {
         if (!EndButton.interactable) {
             return;
         }
+        endButtonConfirmed = true;
         EndButton.interactable = false;
+        EndButtonText.text = "确定";
         if (currentState == StateRecord) {
             HandleRecordStateConfirm();
             return;
@@ -951,7 +1008,9 @@ public class EndResultPanel : MonoBehaviour {
         cachedReadyStatus.Clear();
         checkedFocusSeat = -1;
         chajiaoHasRefund = false;
+        endButtonConfirmed = false;
 
+        ResetPanelContentVisibility();
         gameObject.SetActive(false);
         FanCountTotalPanel.SetActive(false);
         if (RiichiPanel != null) {

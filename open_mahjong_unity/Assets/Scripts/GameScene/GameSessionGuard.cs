@@ -13,7 +13,7 @@ public static class GameSessionGuard {
                 return true;
             }
             var grm = GameRecordManager.Instance;
-            return grm != null && grm.IsSpectating;
+            return grm != null && (grm.IsSpectating || grm.HasPendingDelayedSpectatorSession);
         }
     }
 
@@ -31,7 +31,8 @@ public static class GameSessionGuard {
         var gsm = NormalGameStateManager.Instance;
         if (gsm != null && gsm.IsRealtimeSpectator) return "正在实时观战中";
         var grm = GameRecordManager.Instance;
-        if (grm != null && grm.IsSpectating) return "正在观战中";
+        if (grm != null && grm.HasPendingDelayedSpectatorSession) return "正在加入延时观战";
+        if (grm != null && grm.IsSpectating) return "正在延时观战中";
         if (gsm != null && gsm.IsGameActive) return "正在对局中";
         return "处于进行中的对局或观战";
     }

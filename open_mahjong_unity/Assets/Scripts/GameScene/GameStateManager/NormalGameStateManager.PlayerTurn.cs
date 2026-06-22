@@ -23,9 +23,11 @@ public partial class NormalGameStateManager {
                 if (AutoAction.Instance != null && (AutoAction.Instance.ShouldAutoWinTsumo() || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut)){
                     StartWaitAutoAction("AutoHandAction");
                 }
-                // 询问操作时隐藏提示块
-                TipsBlock.Instance.HideTipsBlock();
-                TipsContainer.Instance.HideTips();
+                // 询问操作时隐藏提示块（实时观战保持与切牌后一致的听牌提示）
+                if (!IsRealtimeSpectator) {
+                    TipsBlock.Instance.HideTipsBlock();
+                    TipsContainer.Instance.HideTips();
+                }
                 IsSelfActionRequired = true;
                 GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskHand);
             }

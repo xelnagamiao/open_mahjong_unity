@@ -195,7 +195,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.is_claim == true,
             doresponse.silent == true,
             doresponse.is_mo_gang,
-            doresponse.gang_score_changes
+            doresponse.gang_score_changes,
+            doresponse.is_mo_buhua
         );
     }
     
@@ -424,9 +425,10 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     public async void AddSpectator(string gamestate_id) {
         if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
-        if (GameSessionGuard.BlockIfExclusiveSession("进入观战")) return;
+        if (GameSessionGuard.BlockIfExclusiveSession("进入延时观战")) return;
 
         try {
+            GameRecordManager.Instance?.PrepareDelayedSpectatorSession(gamestate_id);
             var request = new AddSpectatorRequest {
                 type = "gamestate/GB/add_spectator",
                 gamestate_id = gamestate_id

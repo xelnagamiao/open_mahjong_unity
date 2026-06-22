@@ -87,7 +87,7 @@ class Chinese_Hepai_Check:
         "quanbukao_dianhe":["menqianqing"],"quanbukao_zimo":["buqiuren"], # 全不靠 点和/自摸
         "zuhelong":[],"dayuwu":["wuzi"],"xiaoyuwu":["wuzi"],"sanfengke":[], # 组合龙 大于五 小于五 三风刻
         "hualong":[],"tuibudao":["queyimen"],"sansesantongshun":[],"sansesanjiegao":[], # 花龙 推不倒 三色三同顺 三色三节高
-        "wufanhe":[],"miaoshouhuichun":[],"haidilaoyue":[],"gangshangkaihua":["zimo"], # 无番和 妙手回春 海底捞月 杠上开花
+        "wufanhe":[],"miaoshouhuichun":["zimo"],"haidilaoyue":[],"gangshangkaihua":["zimo"], # 无番和 妙手回春 海底捞月 杠上开花
         "qiangganghe":["hejuezhang"],"pengpenghe":[],"hunyise":[],"sansesanbugao":[], # 抢杠和 碰碰和 混一色 一色三步高
         "wumenqi":[],"quanqiuren":["dandiaojiang"],"shuangangang":["shuanganke"], # 五门齐 全求人 双暗杠
         "shuangjianke":["yaojiuke"]*2,"quandaiyao":[],"buqiuren":["zimo"], # 双箭刻 全带幺 不求人
@@ -993,9 +993,11 @@ class Chinese_Hepai_Check:
                     all_list.append(sign[1])
             
             if len(all_list) == 4:
-                if all(i in ["2","4","6","8"] for i in all_list):
-                    if save_quetou_sign[0][1] in ["2","4","6","8"]:
-                        player_tiles.fan_list.append("quanshuangke") # 全双刻
+                if all(i in ("2","4","6","8") for i in all_list):
+                    if save_quetou_sign:
+                        quetou_id = int(save_quetou_sign[0])
+                        if quetou_id < 40 and quetou_id % 10 in (2, 4, 6, 8):
+                            player_tiles.fan_list.append("quanshuangke") # 全双刻
 
             already_count_list = []
             self.debug_print(all_list)

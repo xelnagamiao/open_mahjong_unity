@@ -21,6 +21,8 @@
 | second_place_count | INT | NOT NULL DEFAULT 0 | 二位次数 |
 | third_place_count | INT | NOT NULL DEFAULT 0 | 三位次数 |
 | fourth_place_count | INT | NOT NULL DEFAULT 0 | 四位次数 |
+| fulu_round_count | INT | NOT NULL DEFAULT 0 | 副露局数 |
+| cuohe_count | INT | NOT NULL DEFAULT 0 | 错和次数 |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最近更新时间 |
 | PRIMARY KEY | (user_id, rule, mode) | 复合主键 | 每个用户每个规则每个模式一条记录 |

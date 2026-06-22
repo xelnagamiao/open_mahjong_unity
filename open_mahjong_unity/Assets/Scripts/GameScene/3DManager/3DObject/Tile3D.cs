@@ -21,6 +21,9 @@ public class Tile3D : MonoBehaviour
 
     public bool IsConcealedFaceDown { get; private set; }
 
+    /// <summary>牌谱展开明牌：固定在独立摸牌区（对齐 2D TileCard.isDrawSlotPinned）。</summary>
+    public bool isRecordDrawSlotPinned;
+
     /// <summary>悬停时可临时翻面：已知牌 id（≥10）且当前为暗面展示（mask 方向位 2）。</summary>
     public bool CanPeekOnHover => currentTileId >= 10 && IsConcealedFaceDown;
 
@@ -73,6 +76,7 @@ public class Tile3D : MonoBehaviour
 
     public void ResetConcealedState() {
         IsConcealedFaceDown = false;
+        isRecordDrawSlotPinned = false;
         isPeekFaceUp = false;
         if (hasFaceRotationBaseline) {
             Transform mesh = GetFaceMeshTransform();

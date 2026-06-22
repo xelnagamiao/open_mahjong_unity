@@ -161,7 +161,7 @@ public class Chinese_Hepai_Check {
             { "sansesantongshun", new List<string>() },
             { "sansesanjiegao", new List<string>() },
             { "wufanhe", new List<string>() },
-            { "miaoshouhuichun", new List<string>() },
+            { "miaoshouhuichun", new List<string> { "zimo" } },
             { "haidilaoyue", new List<string>() },
             { "gangshangkaihua", new List<string> { "zimo" } },
             { "qiangganghe", new List<string> { "hejuezhang" } },
@@ -1235,8 +1235,13 @@ public class Chinese_Hepai_Check {
                 {
                     if (all_list.All(i => new[] { "2", "4", "6", "8" }.Contains(i)))
                     {
-                        if (save_quetou_sign.Count > 0 && new[] { "2", "4", "6", "8" }.Contains(save_quetou_sign[0][1].ToString()))
-                            player_tiles.fan_list.Add("quanshuangke"); // 全双刻
+                        if (save_quetou_sign.Count > 0)
+                        {
+                            int quetouId = int.Parse(save_quetou_sign[0]);
+                            int quetouRank = quetouId % 10;
+                            if (quetouId < 40 && (quetouRank == 2 || quetouRank == 4 || quetouRank == 6 || quetouRank == 8))
+                                player_tiles.fan_list.Add("quanshuangke"); // 全双刻
+                        }
                     }
                 }
 

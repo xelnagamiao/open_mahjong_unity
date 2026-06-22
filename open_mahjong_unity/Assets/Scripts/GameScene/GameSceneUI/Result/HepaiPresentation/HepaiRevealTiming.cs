@@ -10,4 +10,7 @@ public static class HepaiRevealTiming {
 
     /// <summary>倒牌阶段总时长 = 位移动画 + 展开停留；服务端 pre_panel_delay 与此对齐。</summary>
     public static float PrePanelTotalSeconds => TravelSeconds + ExpandHoldSeconds;
+
+    /// <summary>牌谱展开明牌：和牌 display 后等待再弹出结算面板。</summary>
+    public const float RecordShowCardsPanelDelaySeconds = 1f;
 }

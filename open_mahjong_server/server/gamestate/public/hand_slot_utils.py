@@ -225,6 +225,13 @@ def resolve_is_mo_gang(hand: List[int], kan_tile: int, *, draw_slot: bool = True
     return tiles_equal(hand[-1], kan_tile)
 
 
+def resolve_is_mo_buhua(hand: List[int], buhua_tile: int, *, draw_slot: bool = True) -> bool:
+    """摸补：有摸牌区且补花张为末张；开局补花轮或手牌区花牌为手补。"""
+    if not draw_slot or not hand:
+        return False
+    return tiles_equal(hand[-1], buhua_tile)
+
+
 def remove_angang_tiles(hand: List[int], normal_tile: int, *, draw_slot: bool = True) -> List[int]:
     """
     从 hand 移除暗杠 4 张（归一化匹配），返回 4 张真实 ID（供 combination_mask）。

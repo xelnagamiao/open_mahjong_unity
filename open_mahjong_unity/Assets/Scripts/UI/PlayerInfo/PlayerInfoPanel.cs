@@ -295,7 +295,8 @@ public class PlayerInfoPanel : MonoBehaviour {
                         second_place_count = 0,
                         third_place_count = 0,
                         fourth_place_count = 0,
-                        fulu_round_count = 0
+                        fulu_round_count = 0,
+                        cuohe_count = 0
                     };
                 }
                 
@@ -560,6 +561,19 @@ public class PlayerInfoPanel : MonoBehaviour {
         }
         else{
             gameStatsList.Add(new KeyValuePair<string, string>("和牌率", "0.00%"));
+        }
+
+        // 错和率（错和次数 / 宣告和牌次数），仅国标
+        if (stats.rule == "guobiao") {
+            int? cuoheCount = stats.cuohe_count ?? 0;
+            int declareWinCount = winCount.Value + cuoheCount.Value;
+            if (declareWinCount > 0) {
+                float cuoheRate = (float)cuoheCount.Value / declareWinCount * 100f;
+                gameStatsList.Add(new KeyValuePair<string, string>("错和率", $"{cuoheRate:F2}%"));
+            }
+            else {
+                gameStatsList.Add(new KeyValuePair<string, string>("错和率", "0.00%"));
+            }
         }
 
         // 自摸率（自摸次数 / 和牌次数）

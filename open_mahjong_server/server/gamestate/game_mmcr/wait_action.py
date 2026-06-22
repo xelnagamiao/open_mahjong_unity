@@ -68,7 +68,7 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
         )
 
         if not _is_chi_action(action_type) and not any_higher:
-            return action_type, player_index, action_data
+            return action_type, player_index, action_data, False
 
         if action_type != "pass":
             await broadcast_do_action(
@@ -142,7 +142,7 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
                 break
 
         if new_claim is None:
-            return action_type, player_index, action_data
+            return action_type, player_index, action_data, True
 
         _, action_type, player_index, action_data = new_claim
 
@@ -295,11 +295,12 @@ async def wait_action(self):
         and _should_enter_tactical_grace(self, action_type, player_index)
     ):
         cut_tile_for_claim = self.player_list[self.current_player_index].discard_tiles[-1]
-        action_type, player_index, action_data = await _tactical_grace_phase(
+        action_type, player_index, action_data, claim_broadcasted = await _tactical_grace_phase(
             self, action_type, player_index, action_data, cut_tile_for_claim
         )
         self._tactical_action_snapshot = None
-        self._tactical_silent_action = True
+        if claim_broadcasted:
+            self._tactical_silent_action = True
 
     # 情形处理
     match self.game_status:

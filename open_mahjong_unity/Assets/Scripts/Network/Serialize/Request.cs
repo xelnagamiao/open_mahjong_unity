@@ -70,6 +70,10 @@ public class GetRoomListRequest { // 获取房间列表请求
     public bool show_tip; // True=手动刷新显示tips，False=静默刷新
 }
 
+public class SyncMyRoomRequest { // 同步当前玩家房间状态（重连后拉取权威房间信息）
+    public string type;
+}
+
 public class JoinRoomRequest { // 加入房间请求
     public string type;
     public string room_id;

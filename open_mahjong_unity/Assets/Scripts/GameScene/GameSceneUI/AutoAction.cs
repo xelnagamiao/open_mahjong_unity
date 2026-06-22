@@ -38,7 +38,7 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoPassPeng = false; // 是否不碰
     private bool isAutoPassGang = false; // 是否不杠
     private bool isOnlyRon = false; // 是否只和荣和（自动胡牌时只胡别人点炮，不自摸）
-    private bool isOnlyTsumo = false; // 是否只和自摸（自动胡牌时只胡自摸，不荣和）
+    private bool isOnlyTsumo = false; // 跳过荣和：不自动荣和，也不自动自摸
     private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
     private bool isAutoCutLocked = false; // 立直后自动摸切锁定
 
@@ -55,17 +55,16 @@ public class AutoAction : MonoBehaviour{
     public bool IsOnlyTsumo { get => isOnlyTsumo; }
     public bool IsAutoCutLocked { get => isAutoCutLocked; }
 
-    // 是否应当自动荣和（吃别人点炮的牌）：只和自摸时不荣和；只和荣和时荣和；否则跟随自动胡牌
+    // 是否应当自动荣和：只和自摸时不荣和；只和荣和时荣和；否则跟随自动胡牌
     public bool ShouldAutoWinRon() {
         if (isOnlyTsumo) return false;
         if (isOnlyRon) return true;
         return isAutoHepai;
     }
 
-    // 是否应当自动自摸：只和荣和时不自摸；只和自摸时自摸；否则跟随自动胡牌
+    // 是否应当自动自摸：只和荣和/只和自摸时均不自摸；否则跟随自动胡牌
     public bool ShouldAutoWinTsumo() {
-        if (isOnlyRon) return false;
-        if (isOnlyTsumo) return true;
+        if (isOnlyRon || isOnlyTsumo) return false;
         return isAutoHepai;
     }
 

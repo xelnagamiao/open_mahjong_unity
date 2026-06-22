@@ -85,12 +85,12 @@ public static class ScoreHistoryRecordSettlementExtractor {
 
             // 开局补花阶段：与 GameRecordManager.InferAndMarkStartIndex 对齐，不推进主巡目
             if (action == "bh" || action == "bd") {
-                int flowerActingIndex = action == "bh" && tick.Count >= 3
-                    ? ParseInt(tick, 2)
-                    : currentPlayerIndex;
+                int flowerActingIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
+                    tick, action, currentPlayerIndex);
                 SimPlayer flowerActor = players[flowerActingIndex];
                 if (action == "bh") {
-                    RemoveOneTile(flowerActor.tileList, ParseInt(tick, 1));
+                    bool isMoBuhua = GameRecordJsonDecoder.ParseBuhuaMoFlag(tick);
+                    RemoveTileForBuhua(flowerActor.tileList, ParseInt(tick, 1), isMoBuhua);
                 } else {
                     flowerActor.tileList.Add(ParseInt(tick, 1));
                 }
@@ -437,14 +437,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
 
     /// <summary>与 GameRecordManager.NextAction 一致：摸切/补花/副露/和牌等 tick 自带行动者，其余沿用当前巡目玩家。</summary>
     private static int ResolveActingPlayerIndex(string action, List<string> tick, int currentPlayerIndex) {
-        if (action == "bh" && tick.Count >= 3) return ParseInt(tick, 2);
-        if ((action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") && tick.Count >= 3) {
-            return ParseInt(tick, 2);
-        }
-        if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third" || action == "hu_riichi") && tick.Count >= 2) {
-            return ParseInt(tick, 1);
-        }
-        return currentPlayerIndex;
+        return GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
     }
 
     private static string ResolveUsernameForSeat(int seatIndex, Round round, Dictionary<string, object> gameTitle) {
@@ -545,6 +538,15 @@ public static class ScoreHistoryRecordSettlementExtractor {
     private static void RemoveOneTile(List<int> tileList, int tileId) {
         int idx = tileList.IndexOf(tileId);
         if (idx >= 0) tileList.RemoveAt(idx);
+    }
+
+    private static void RemoveTileForBuhua(List<int> tileList, int tileId, bool isMoBuhua) {
+        if (tileList.Count == 0) return;
+        if (isMoBuhua && tileList[tileList.Count - 1] == tileId) {
+            tileList.RemoveAt(tileList.Count - 1);
+            return;
+        }
+        RemoveOneTile(tileList, tileId);
     }
 
     private static void RemoveTileForCut(List<int> tileList, int tileId, bool isMoqie) {

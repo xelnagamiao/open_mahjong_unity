@@ -317,6 +317,7 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
             third_place_count=stats_row.get('third_place_count'),
             fourth_place_count=stats_row.get('fourth_place_count'),
             fulu_round_count=stats_row.get('fulu_round_count'),
+            cuohe_count=stats_row.get('cuohe_count'),
             fan_stats=None  # 历史统计不包含番种数据
         ))
     

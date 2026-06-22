@@ -38,6 +38,13 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             else if (NormalGameStateManager.Instance.roomRule == "riichi"){
                 waitingTiles = RiichiExternal.TingpaiCheck(selfHandTiles, combinationTiles, false);
             }
+            else if (NormalGameStateManager.Instance.roomRule == "sichuan"){
+                waitingTiles = SichuanExternal.TingpaiCheck(selfHandTiles, combinationTiles);
+                int dingque = NormalGameStateManager.Instance.selfDingqueSuit;
+                if (dingque == 1 || dingque == 2 || dingque == 3) {
+                    waitingTiles.RemoveWhere(w => (w / 10) == dingque);
+                }
+            }
             else{
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
                 waitingTiles = new HashSet<int>();
@@ -57,6 +64,16 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             gameObject.SetActive(false);
             TipsContainer.Instance.ClearTenpaiTipsCache();
         }
+    }
+
+    public void ShowRecordTips(RecordTipsContext ctx, List<int> handTiles, List<int> waitingTiles) {
+        if (ctx == null || waitingTiles == null || waitingTiles.Count == 0) {
+            HideTipsBlock();
+            return;
+        }
+        gameObject.SetActive(true);
+        TipsContainer.Instance.CacheTenpaiTips(handTiles, waitingTiles);
+        TipsContainer.Instance.SetTipsWithRecordContext(ctx, handTiles, waitingTiles);
     }
 
     public void HideTipsBlock(){

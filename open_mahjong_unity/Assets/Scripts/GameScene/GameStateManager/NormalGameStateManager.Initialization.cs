@@ -67,6 +67,10 @@ public partial class NormalGameStateManager {
         IsSelfActionRequired = false;
         TipsContainer.Instance?.ResetRyuukyokuTenpaiChoiceForRound();
         TipsContainer.Instance?.HideRyuukyokuTenpaiChoice();
+        if (IsRealtimeSpectator && tips && TipsBlock.Instance != null
+            && player_to_info.TryGetValue("self", out PlayerInfoClass selfInfo)) {
+            TipsBlock.Instance.ShowTipsBlock(selfHandTiles, selfInfo.combination_tiles ?? new List<string>());
+        }
     }
 
     private void RestoreRiichiTenbous(GameInfo gameInfo){

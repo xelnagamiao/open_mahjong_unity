@@ -166,6 +166,7 @@ class DatabaseManager:
                     third_place_count INT NOT NULL DEFAULT 0,
                     fourth_place_count INT NOT NULL DEFAULT 0,
                     fulu_round_count INT NOT NULL DEFAULT 0,
+                    cuohe_count INT NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, rule, mode)
@@ -645,6 +646,19 @@ class DatabaseManager:
                         cursor.execute(f"ROLLBACK TO SAVEPOINT sp_fulu_{table_name};")
                     else:
                         raise
+
+            # 迁移：国标 history_stats 增加错和次数字段
+            cursor.execute("SAVEPOINT sp_cuohe_guobiao_history_stats;")
+            try:
+                cursor.execute(
+                    "ALTER TABLE guobiao_history_stats "
+                    "ADD COLUMN cuohe_count INT NOT NULL DEFAULT 0;"
+                )
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_cuohe_guobiao_history_stats;")
+                else:
+                    raise
 
             conn.commit() # 提交
             logger.info('数据表初始化成功')

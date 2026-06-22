@@ -398,9 +398,7 @@ public class NetworkManager : MonoBehaviour {
     private void HandleLoginResponse(Response response){
         AutoReconnect.OnLoginResponse(response.success);
         if (response.success) {
-            if (!AutoReconnect.ShouldSkipLoginUiChanges()) {
-                WindowsManager.Instance.SwitchWindow("menu");
-            }
+            WindowsManager.Instance.SwitchWindow("menu");
             // 设置用户信息
             MeunPanel.Instance.SetUserInfo(
                 response.login_info.username,
@@ -484,6 +482,7 @@ public class NetworkManager : MonoBehaviour {
                 case "room/create_room_done":
                 case "room/get_room_list":
                 case "room/refresh_room_info":
+                case "room/sync_not_in_room":
                 case "room/join_room_done":
                 case "room/leave_room_done":
                     RoomNetworkManager.Instance?.HandleRoomMessage(response);
@@ -629,33 +628,50 @@ public class NetworkManager : MonoBehaviour {
     private void HandleSpectatorRecordInit(Response response) {
         if (!response.success) {
             Debug.LogWarning($"观战初始数据失败: {response.message}");
+            GameRecordManager.Instance?.ClearDelayedSpectatorSession();
             return;
         }
         string recordJson = response.message_info?.content;
         if (string.IsNullOrEmpty(recordJson)) {
             Debug.LogError("观战初始数据为空");
+            GameRecordManager.Instance?.ClearDelayedSpectatorSession();
+            return;
+        }
+        var grm = GameRecordManager.Instance;
+        if (grm == null) return;
+        if (BlocksIncomingDelayedSpectatorSession()) {
+            Debug.Log("忽略延时观战 record_init：当前已在匹配或对局/其它观战会话中");
+            grm.AbandonDelayedSpectatorSessionOnServer();
+            return;
+        }
+        grm.StartSpectating(recordJson);
+        if (!grm.IsSpectating) {
+            grm.AbandonDelayedSpectatorSessionOnServer();
             return;
         }
         WindowsManager.Instance.SwitchWindow("game");
-        GameRecordManager.Instance.StartSpectating(recordJson);
     }
 
     private void HandleSpectatorRecordUpdate(Response response) {
         if (!response.success) return;
         string updatesJson = response.message_info?.content;
         if (string.IsNullOrEmpty(updatesJson)) return;
-        GameRecordManager.Instance.AppendSpectatorTicks(updatesJson);
+        GameRecordManager.Instance?.AppendSpectatorTicks(updatesJson);
     }
 
     private void HandleSpectatorRecordComplete(Response response) {
+        if (GameRecordManager.Instance == null) return;
+        if (!GameRecordManager.Instance.IsSpectating) {
+            Debug.Log("忽略迟到的延时观战 record_complete（已退出延时观战）");
+            return;
+        }
+
         string msg = string.IsNullOrEmpty(response.message) ? "游戏对局结束，已获取全部对局记录" : response.message;
         NotificationManager.Instance?.ShowTip("观战", true, msg);
-        if (GameRecordManager.Instance == null) return;
 
         string recordJson = response.message_info?.content;
         if (!string.IsNullOrEmpty(recordJson)) {
             try {
-                WindowsManager.Instance.SwitchWindow("game");
                 GameRecordManager.Instance.StartSpectating(recordJson);
             } catch (Exception e) {
                 Debug.LogError($"加载完整观战牌谱失败: {e.Message}");
@@ -664,19 +680,36 @@ public class NetworkManager : MonoBehaviour {
         if (GameRecordManager.Instance.IsSpectating) {
             GameRecordManager.Instance.SwitchToRecordMode();
         }
+        GameRecordManager.Instance.ClearDelayedSpectatorSession();
     }
 
     private void HandleSpectatorAddResult(Response response) {
         if (response.success) {
             NotificationManager.Instance?.ShowTip("观战", true, response.message);
         } else {
+            GameRecordManager.Instance?.ClearDelayedSpectatorSession();
             NotificationManager.Instance?.ShowTip("观战", false, response.message);
         }
     }
 
     private void HandleSpectatorRemoveResult(Response response) {
         Debug.Log($"观战移除: {response.message}");
-        PostGameNavigator.ExitToSpectator();
+        GameRecordManager.Instance?.ClearDelayedSpectatorSession();
+        if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
+            PostGameNavigator.ExitToSpectator();
+        }
+    }
+
+    /// <summary>
+    /// 是否应拒绝延时观战 record_init：不含「已发出 add_spectator、等待 record_init」的待加入状态。
+    /// </summary>
+    private static bool BlocksIncomingDelayedSpectatorSession() {
+        if (LobbyStateGuard.IsInMatchQueue) return true;
+        var gsm = NormalGameStateManager.Instance;
+        if (gsm != null && (gsm.IsGameActive || gsm.IsRealtimeSpectator)) return true;
+        var grm = GameRecordManager.Instance;
+        if (grm != null && grm.IsSpectating) return true;
+        return false;
     }
 
     // 发送发布版版本号

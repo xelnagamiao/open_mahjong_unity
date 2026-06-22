@@ -171,29 +171,47 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         bool canCut = NormalGameStateManager.Instance != null && (
             NormalGameStateManager.Instance.allowActionList.Contains("cut")
             || (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive));
-        if (!canCut) {
-            Debug.LogWarning($"[HandInput] 左键出牌被拦截(无cut权限) | tileId={pressCard.tileId}");
-            pointerDownCard = null;
-            return false;
-        }
 
         if (ShouldUseHandCutConfirm()) {
             HandCardSelectionController selection = HandCardSelectionController.Instance;
-            if (selection == null || !selection.IsArmed(pressCard)) {
+            bool armed = selection != null && selection.IsArmed(pressCard);
+            if (!armed) {
+                // 自由立起：两次点击仅用于避免手机端误触，单击只是立起并显示该牌出牌提示，
+                // 不论是否轮到自己、是否有 cut 权限都允许立起。
                 selection?.Arm(pressCard);
                 // 消费本帧：同一次松手会经由 Relay 与全局 Update 两条路径进入，
                 // 否则第二条路径会把刚立起的牌当成"二次确认"直接打出。
                 lastHandledPointerFrame = Time.frameCount;
                 return false;
             }
+            // 已立起，二次点击才真正出牌；无 cut 权限（非自己回合等）时取消立起。
+            if (!canCut) {
+                Debug.Log($"[HandInput] 二次点击但无cut权限，取消立起 | tileId={pressCard.tileId}");
+                selection.DisarmAll();
+                lastHandledPointerFrame = Time.frameCount;
+                pointerDownCard = null;
+                return false;
+            }
             selection.CommitDiscard(pressCard);
+            lastHandledPointerFrame = Time.frameCount;
+            HandCardDragController.MarkTileClickHandledThisFrame();
+            Debug.Log($"[HandInput] 左键出牌提交(确认) | tileId={pressCard.tileId} | moqie={pressCard.currentGetTile}");
+            // 必须先出牌再做收拢预览：AnimateHandLayoutForDiscard 会即时重排兄弟节点索引，
+            // 若在 TriggerClick 之前调用，OnTileClick 读取到的 GetSiblingIndex 会被打乱，导致服务端切牌位置错乱。
+            pressCard.TriggerClick();
             if (GameCanvas.Instance != null) {
                 GameCanvas.Instance.AnimateHandLayoutForDiscard(pressCard);
             }
-        } else {
-            HandCardSelectionController.Instance?.DisarmAll();
+            return true;
         }
 
+        // 非确认模式：单击直接出牌，必须有 cut 权限。
+        if (!canCut) {
+            Debug.LogWarning($"[HandInput] 左键出牌被拦截(无cut权限) | tileId={pressCard.tileId}");
+            pointerDownCard = null;
+            return false;
+        }
+        HandCardSelectionController.Instance?.DisarmAll();
         lastHandledPointerFrame = Time.frameCount;
         HandCardDragController.MarkTileClickHandledThisFrame();
         Debug.Log($"[HandInput] 左键出牌提交 | tileId={pressCard.tileId} | moqie={pressCard.currentGetTile}");
@@ -369,8 +387,12 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             return;
         }
         isHovering = true;
-        // 异步检测切牌后的听牌
-        CheckCutTileTips();
+        // 两次点击确认模式下提示由"单击立起"驱动，悬停不再显示提示（也不在摸牌后因悬停而固定显示）。
+        if (!ShouldUseHandCutConfirm())
+        {
+            // 异步检测切牌后的听牌
+            CheckCutTileTips();
+        }
         // 高亮所有相同tileId的3D卡牌
         if (tileId != -1 && Card3DHoverManager.Instance != null)
         {
@@ -384,8 +406,14 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovering = false;
-        // 直接隐藏提示容器（内部会先清空内容）
-        TipsContainer.Instance.HideTips();
+        // 已立起的牌其提示由立起态驱动，悬停离开不应隐藏，否则确认模式下移开鼠标提示会消失。
+        bool isArmed = HandCardSelectionController.Instance != null
+            && HandCardSelectionController.Instance.IsArmed(this);
+        if (!isArmed)
+        {
+            // 直接隐藏提示容器（内部会先清空内容）
+            TipsContainer.Instance.HideTips();
+        }
         // 恢复所有3D卡牌
         if (Card3DHoverManager.Instance != null)
         {

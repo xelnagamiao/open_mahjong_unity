@@ -16,7 +16,7 @@ def build_player_entry_order_fields(gs) -> Dict[str, Any]:
 
 """
 # 牌谱格式示例
-# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌 bh=补花 c=切牌 ag=暗杠(第3段 T=摸杠/F=手杠) jg=加杠(第3段 T=摸杠/F=手杠) cl/cm/cr=吃 p=碰 g=明杠
+# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌(含 action_player) bh=补花(含 action_player, 第4段 T=摸补/F=手补) c=切牌 ag=暗杠(第3段 T=摸杠/F=手杠) jg=加杠(第3段 T=摸杠/F=手杠) cl/cm/cr=吃 p=碰 g=明杠
 
 
 
@@ -179,13 +179,18 @@ def resolve_hepai_tile_for_record(gs, hu_class: str, hepai_player_index: int):
     return tile if isinstance(tile, int) and tile > 10 else None
 
 
-# 牌谱记录补花
-def player_action_record_buhua(self,max_tile: int,action_player: int):
-    append_action_tick(self, ["bh", max_tile, action_player])
+# 牌谱记录补花；is_mo_buhua True=摸补 False=手补（与暗杠/加杠 T/F 口径一致）
+def player_action_record_buhua(self, max_tile: int, action_player: int, is_mo_buhua: bool = False):
+    append_action_tick(self, ["bh", max_tile, action_player, "T" if is_mo_buhua else "F"])
 
-# 牌谱记录摸牌 deal_type: "d" 普通摸牌, "gd" 杠后摸牌, "bd" 补花后摸牌
-def player_action_record_deal(self, deal_tile: int, deal_type: str = "d"):
-    append_action_tick(self, [deal_type, deal_tile])
+# 牌谱记录摸牌 deal_type: "d" 普通摸牌, "gd" 杠后摸牌, "bd" 补花后摸牌（须带 action_player）
+def player_action_record_deal(self, deal_tile: int, deal_type: str = "d", action_player: int = None):
+    if deal_type == "bd":
+        if action_player is None:
+            action_player = self.current_player_index
+        append_action_tick(self, [deal_type, deal_tile, action_player])
+    else:
+        append_action_tick(self, [deal_type, deal_tile])
 
 # 牌谱记录切牌
 def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_riichi_horizontal: bool = False):

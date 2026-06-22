@@ -5,6 +5,7 @@ public static class GameSceneTeardown {
     public static void ResetToIdle() {
         if (GameRecordManager.Instance != null) {
             GameRecordManager.Instance.ClearRecordChongHintVisuals();
+            GameRecordManager.Instance.HideRecordTips();
         }
 
         if (Game3DManager.Instance != null) {

@@ -21,7 +21,7 @@ public static class RankConfig {
     public static bool CanPlayTier(int rankLevel, string tier, bool isMcrplQualified) {
         switch (tier) {
             case "beginner": return true;
-            case "intermediate": return rankLevel >= 9;   // 1级
+            case "intermediate": return rankLevel >= 7;   // 3级
             case "advanced": return rankLevel >= 13;       // 四段
             case "mcrpl": return isMcrplQualified;
             default: return false;

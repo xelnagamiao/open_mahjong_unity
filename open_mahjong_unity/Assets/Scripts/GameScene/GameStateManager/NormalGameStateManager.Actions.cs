@@ -52,7 +52,7 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
@@ -121,15 +121,20 @@ public partial class NormalGameStateManager {
                 // 补花
                 case "buhua":
                     int buhua_tile_id = buhua_tile.Value;
-                    player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id); // 存储花牌
+                    bool isMoBuhua = is_mo_buhua == true;
+                    player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id);
                     if (GetCardPlayer == "self"){
-                        selfHandTiles.Remove(buhua_tile_id); // 删除手牌
-                        GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard",buhua_tile_id,null,null); // 2D补花行为
+                        selfHandTiles.Remove(buhua_tile_id);
+                        if (isMoBuhua) {
+                            GameCanvas.Instance.ChangeHandCards("RemoveGetCard", buhua_tile_id, null, null);
+                        } else {
+                            GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhua_tile_id, null, null);
+                        }
                     }
                     else{
-                        player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                        player_to_info[GetCardPlayer].hand_tiles_count--;
                     }
-                    Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
+                    Game3DManager.Instance.Change3DTile("Buhua", buhua_tile_id, 0, GetCardPlayer, false, null);
                     break;
 
                 // 和牌：语音与动作文字已在 do_action 阶段播放

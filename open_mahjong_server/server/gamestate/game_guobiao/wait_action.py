@@ -61,7 +61,8 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
     吃牌：固定播报申请并等待 1.5 秒进度条，期间允许更高优先级行为打断。
     碰/和/杠/加杠：仅在有更高优先级竞争者时播报申请并询问；无竞争者则直接执行。
     若被打断则按新行为重新判断，否则返回最终决策。
-    返回 (final_action_type, final_player_index, final_action_data)。
+    返回 (final_action_type, final_player_index, final_action_data, claim_broadcasted)。
+    claim_broadcasted 为 True 表示本轮已播报 is_claim 申请，实际行为应静默执行。
     """
     while True:
         higher_action_dict, any_higher = _get_higher_priority_snapshot(
@@ -70,7 +71,7 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
 
         # 碰/和/杠/加杠：无更高优先级竞争者时不播报申请、不等待进度条
         if not _is_chi_action(action_type) and not any_higher:
-            return action_type, player_index, action_data
+            return action_type, player_index, action_data, False
 
         # 战术鸣牌只对真实的鸣牌/胡进行申请广播，pass 不申请
         if action_type != "pass":
@@ -145,7 +146,7 @@ async def _tactical_grace_phase(self, action_type, player_index, action_data, cu
                 break
 
         if new_claim is None:
-            return action_type, player_index, action_data
+            return action_type, player_index, action_data, True
 
         _, action_type, player_index, action_data = new_claim
 
@@ -298,12 +299,13 @@ async def wait_action(self):
         and _should_enter_tactical_grace(self, action_type, player_index)
     ):
         cut_tile_for_claim = self.player_list[self.current_player_index].discard_tiles[-1]
-        action_type, player_index, action_data = await _tactical_grace_phase(
+        action_type, player_index, action_data, claim_broadcasted = await _tactical_grace_phase(
             self, action_type, player_index, action_data, cut_tile_for_claim
         )
         self._tactical_action_snapshot = None
-        # 战术鸣牌的实际行为静默执行，避免与申请阶段重复发声/字体动画
-        self._tactical_silent_action = True
+        # 仅在本轮战术阶段已播报 is_claim 申请时静默实际行为，避免重复发声/字体动画
+        if claim_broadcasted:
+            self._tactical_silent_action = True
 
     # 情形处理
     match self.game_status:

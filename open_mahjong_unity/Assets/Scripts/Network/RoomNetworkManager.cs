@@ -40,6 +40,9 @@ public class RoomNetworkManager : MonoBehaviour {
             case "room/refresh_room_info":
                 HandleGetRoomInfoResponse(response);
                 break;
+            case "room/sync_not_in_room":
+                HandleSyncNotInRoomResponse(response);
+                break;
             case "room/join_room_done":
                 HandleJoinRoomResponse(response);
                 break;
@@ -86,9 +89,21 @@ public class RoomNetworkManager : MonoBehaviour {
             response.room_info
         );
         UserDataManager.Instance.SetRoomId(response.room_info.room_id);
+        AutoReconnect.OnRoomSyncDone();
+    }
+
+    private void HandleSyncNotInRoomResponse(Response response) {
+        Debug.Log($"房间同步: {response.message}");
+        if (AutoReconnect.IsActive && AutoReconnect.ExpectGameRestore) {
+            ClearStaleLobbyState();
+        } else {
+            ApplyLeftRoomState(silent: AutoReconnect.IsActive);
+        }
+        AutoReconnect.OnRoomSyncDone();
     }
 
     private static bool ShouldNavigateToRoomOnRefresh() {
+        if (AutoReconnect.IsActive && AutoReconnect.ExpectGameRestore) return false;
         if (WindowsManager.Instance != null && WindowsManager.Instance.GetCurrentWindow() == "game") {
             return false;
         }
@@ -111,16 +126,23 @@ public class RoomNetworkManager : MonoBehaviour {
         Debug.Log($"离开房间响应: {response.success}, {response.message}");
         if (response.success) {
             ApplyLeftRoomState();
-            NotificationManager.Instance.ShowTip("leave_room", true, "离开房间成功");
         }
     }
 
     /// <summary>
     /// 离开/解散房间后重置客户端房间状态与 UI。
     /// </summary>
-    public void ApplyLeftRoomState() {
-        UserDataManager.Instance.SetRoomId("");
+    public void ApplyLeftRoomState(bool silent = false) {
+        ClearStaleLobbyState();
         RoomWindowsManager.Instance?.SwitchRoomWindow("createRoom");
+        if (!silent) {
+            NotificationManager.Instance.ShowTip("leave_room", true, "离开房间成功");
+        }
+    }
+
+    /// <summary>仅清理房间 ID 与 RoomPanel，不切换窗口（对局恢复期间用）。</summary>
+    public void ClearStaleLobbyState() {
+        UserDataManager.Instance.SetRoomId("");
         RoomPanel.Instance?.ClearRoomState();
     }
     
@@ -332,6 +354,18 @@ public class RoomNetworkManager : MonoBehaviour {
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             RoomListPanel.Instance.GetRoomListResponse(false, e.Message, null);
+        }
+    }
+
+    /// <summary>重连后向服务端查询当前玩家是否在房间内，并同步 RoomPanel。</summary>
+    public async void SyncMyRoom() {
+        try {
+            var request = new SyncMyRoomRequest { type = "room/sync_my_room" };
+            Debug.Log("发送房间同步请求");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送房间同步请求失败: {e.Message}");
+            AutoReconnect.OnRoomSyncDone();
         }
     }
     

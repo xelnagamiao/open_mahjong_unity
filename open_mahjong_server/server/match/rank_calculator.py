@@ -75,7 +75,7 @@ RANK_AVG_LOSS_PT = {
 # 场次准入段位等级（索引值，越大段位越高）
 TIER_MIN_RANK_INDEX = {
     "beginner": 0,       # 所有人
-    "intermediate": 9,   # 1级（index 9）
+    "intermediate": 7,   # 3级（index 7）
     "advanced": 13,      # 四段（index 13）
     "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
 }

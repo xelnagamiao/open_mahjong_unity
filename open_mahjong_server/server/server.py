@@ -209,6 +209,9 @@ class GameServer:
     def get_room_list(self, show_tip: bool = False) -> Response:
         return self.room_manager.get_room_list(show_tip=show_tip)
 
+    async def sync_my_room(self, Connect_id: str) -> Response:
+        return await self.room_manager.sync_my_room(Connect_id)
+
     # 加入房间
     async def join_room(self, Connect_id: str, room_id: str, password: str):
         response = await self.room_manager.join_room(Connect_id, room_id, password)

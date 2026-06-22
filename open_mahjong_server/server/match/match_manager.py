@@ -73,6 +73,9 @@ class MatchManager:
         if self.game_server.gamestate_manager.is_user_in_active_game(user_id):
             return Response(type="tips", success=False, message="您正在游戏中，无法匹配")
 
+        # 加入匹配前解除延时观战订阅，避免对局结束后仍向该连接推送牌谱
+        await self.game_server.gamestate_manager.remove_spectator_from_all_games(user_id)
+
         # 资格校验
         parsed = parse_queue_type(queue_type)
         if not parsed:
@@ -177,6 +180,7 @@ class MatchManager:
                 del self.user_to_queue[uid]
             # 立即上锁：从匹配成功这一刻起，玩家被绑定到本局，关闭“开局前 5 秒空窗”被再次匹配的可能
             self.committed_users.add(uid)
+            await self.game_server.gamestate_manager.remove_spectator_from_all_games(uid)
 
         logger.info(f"匹配成功: {queue_type}, 玩家: {matched_users}")
 

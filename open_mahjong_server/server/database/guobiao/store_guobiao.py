@@ -245,6 +245,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
             "third_place_count",
             "fourth_place_count",
             "fulu_round_count",
+            "cuohe_count",
         ]
         
         # 更新每个玩家的基础统计数据
@@ -277,6 +278,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
                 "third_place_count": 1 if counter.rank_result == 3 else 0,
                 "fourth_place_count": 1 if counter.rank_result == 4 else 0,
                 "fulu_round_count": counter.fulu_times,
+                "cuohe_count": counter.cuohe_times,
             }
             
             insert_columns = ["user_id", "rule", "mode"] + stats_columns

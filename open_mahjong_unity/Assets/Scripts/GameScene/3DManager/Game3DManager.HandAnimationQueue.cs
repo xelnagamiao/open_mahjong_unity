@@ -191,27 +191,45 @@ public partial class Game3DManager {
         StartCoroutine(ActionAnimationCoroutine(playerPosition, actionType, combinationMask, true));
     }
 
-    private IEnumerator RecordDiscardShowCardsCoroutine(string playerPosition, int tileId, bool cutClass, bool isRiichi) {
+    private IEnumerator RecordDiscardShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot, bool isRiichi) {
         PosPanel3D panel = GetPosPanel(playerPosition);
-        yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, cutClass);
-        bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(cutClass);
+        yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, fromDrawSlot);
+        if (fromDrawSlot) {
+            ClearRecordPlayerDrawSlotState(playerPosition);
+        }
+        bool moqieGrayOnDiscard = ShouldApplyMoqieDiscardGray(fromDrawSlot);
         yield return Set3DTileCoroutine(tileId, panel.discardsPosition, "Discard", playerPosition, moqieGrayOnDiscard, isRiichi: isRiichi);
-        RenderRecordPlayerHand(playerPosition);
+        yield return RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, playerPosition);
     }
 
-    private IEnumerator RecordBuhuaShowCardsCoroutine(string playerPosition, int tileId) {
+    private IEnumerator RecordBuhuaShowCardsCoroutine(string playerPosition, int tileId, bool fromDrawSlot) {
         PosPanel3D panel = GetPosPanel(playerPosition);
-        yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, false);
+        yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, tileId, fromDrawSlot);
+        if (fromDrawSlot) {
+            ClearRecordPlayerDrawSlotState(playerPosition);
+        }
         yield return Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", playerPosition);
-        yield return RearrangeRecordShowCardsWithAnimation(panel.ShowCardsPosition, playerPosition);
+        if (!fromDrawSlot) {
+            yield return RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, playerPosition);
+        }
     }
 
-    private IEnumerator RecordMeldShowCardsCoroutine(string playerPosition, string actionType, int[] combinationMask) {
+    private IEnumerator RecordMeldShowCardsCoroutine(
+        string playerPosition,
+        string actionType,
+        int[] combinationMask,
+        bool removeDrawSlotFirst = false,
+        int drawSlotTileId = 0) {
         PosPanel3D panel = GetPosPanel(playerPosition);
         TryReturnLastCutTileForMeld(actionType);
+        if (removeDrawSlotFirst) {
+            yield return RemoveRecordShowHandCardCoroutine(panel.ShowCardsPosition, drawSlotTileId, fromDrawSlot: true);
+            ClearRecordPlayerDrawSlotState(playerPosition);
+        }
         yield return RemoveRecordShowHandCardsByMaskCoroutine(panel.ShowCardsPosition, combinationMask);
         yield return ActionAnimationCoroutine(playerPosition, actionType, combinationMask, true);
-        yield return RearrangeRecordShowCardsWithAnimation(panel.ShowCardsPosition, playerPosition);
+        ClearRecordPlayerDrawSlotState(playerPosition);
+        yield return RearrangeRecordShowMergeAllWithAnimation(panel.ShowCardsPosition, playerPosition);
     }
 
     private void StartHandRearrange(string playerPosition) {
@@ -229,7 +247,7 @@ public partial class Game3DManager {
                 angangTileId = combinationMask[1];
             }
             if (IsRecordShowCardsModeActive() && playerPosition != "self") {
-                StartCoroutine(RecordMeldShowCardsCoroutine(playerPosition, actionType, combinationMask));
+                StartCoroutine(RecordMeldShowCardsCoroutine(playerPosition, actionType, combinationMask, isMoGang, angangTileId));
                 return true;
             }
             _ankanPendingDrawByPlayer[playerPosition] = true;
@@ -243,7 +261,7 @@ public partial class Game3DManager {
                 jiagangTileId = GameRecordMeldCodec.ExtractTileByFlag(combinationMask, 3) ?? jiagangTileId;
             }
             if (IsRecordShowCardsModeActive() && playerPosition != "self") {
-                StartCoroutine(RecordMeldShowCardsCoroutine(playerPosition, actionType, combinationMask));
+                StartCoroutine(RecordMeldShowCardsCoroutine(playerPosition, actionType, combinationMask, isMoGang, jiagangTileId));
                 return true;
             }
             _ankanPendingDrawByPlayer[playerPosition] = true;

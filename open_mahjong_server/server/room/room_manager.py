@@ -1131,6 +1131,33 @@ class RoomManager:
         await self._broadcast_room_info(room_id)
         logger.info(f"自定义房 {room_id} 对局结束，已恢复等待态")
 
+    async def sync_my_room(self, Connect_id: str) -> Response:
+        """按服务端权威数据同步当前玩家所在房间；不在任何房间时返回 sync_not_in_room。"""
+        if Connect_id not in self.game_server.players:
+            return Response(type="tips", success=False, message="连接无效")
+        player = self.game_server.players[Connect_id]
+        if not player.user_id:
+            return Response(type="tips", success=False, message="请先登录")
+
+        user_id = player.user_id
+        for room_id, room_data in self.rooms.items():
+            if user_id in room_data.get("player_list", []):
+                player.current_room_id = room_id
+                room_data.setdefault("ready_list", [])
+                return Response(
+                    type="room/refresh_room_info",
+                    success=True,
+                    message="房间信息更新",
+                    room_info=room_data,
+                )
+
+        player.current_room_id = None
+        return Response(
+            type="room/sync_not_in_room",
+            success=True,
+            message="不在任何房间",
+        )
+
     async def _broadcast_room_info(self, room_id: str):
         """广播房间信息给所有房间内的玩家"""
         room_data = self.rooms[room_id]

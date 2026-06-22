@@ -45,6 +45,14 @@ public class HandCardDragController : MonoBehaviour {
     private float pressStartUnscaledTime;
     private float handRowHalfHeight;
 
+    // 看门狗：物理指针抬起却仍处于按压/拖拽（漏掉 OnPointerUp、触摸丢失等）后强制复位的依据
+    private float lastPointerDownUnscaledTime;
+    private float finishStartUnscaledTime;
+    // 物理指针抬起后允许的宽限（避免与同帧到来的合法 OnPointerUp 抢跑）
+    private const float LostPointerGraceSeconds = 0.2f;
+    // 收尾动画最长存活时间，远大于实际动画时长，仅用于协程异常中断后的兜底复位
+    private const float FinishWatchdogTimeoutSeconds = 1.5f;
+
     // 按下瞬间的快照：用于原始顺序、分界判定与复位
     private List<TileCard> snapshotOrder;          // 全部手牌按 handSortIndex 升序（含摸牌、含拖拽牌）
     private List<float> snapshotCenterXs;          // 与 snapshotOrder 对应的中心 X
@@ -68,10 +76,35 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private void Update() {
-        // 看门狗：按住/拖拽中的卡牌被销毁（补花、出牌移除等）时不会再收到 OnPointerUp，
+        // 看门狗1：按住/拖拽中的卡牌被销毁（补花、出牌移除等）时不会再收到 OnPointerUp，
         // 若不复位会让 IsDragging/SuppressPointerHover 永久卡住，表现为"鼠标放在牌上不再弹起"。
         if ((pendingPress || dragSessionActive) && !isFinishingDrag && dragCardRect == null) {
-            AbortPressSession();
+            AbortPressSession("按压中的卡牌已销毁");
+            return;
+        }
+        // 看门狗2：物理指针已抬起但仍处于按压/拖拽会话（漏掉 OnPointerUp、触摸丢失、左右键同时按等），
+        // 否则 dragCard 会被永久绑定，点击它只会走拖拽收尾分支而无法出牌（需重连才能恢复）。
+        if ((pendingPress || dragSessionActive) && !isFinishingDrag) {
+            if (IsPhysicalPointerDown()) {
+                lastPointerDownUnscaledTime = Time.unscaledTime;
+            } else if (Time.unscaledTime - lastPointerDownUnscaledTime > LostPointerGraceSeconds) {
+                AbortPressSession("指针已抬起但拖拽状态未复位");
+                return;
+            }
+        }
+        // 看门狗3：收尾动画因卡牌被并发销毁/重排而中断、未能跑到 ResetState 时，超时兜底复位。
+        if (isFinishingDrag && Time.unscaledTime - finishStartUnscaledTime > FinishWatchdogTimeoutSeconds) {
+            Debug.LogWarning("[HandInput] 收尾动画超时未结束，强制复位拖拽状态");
+            StopGapAnimation();
+            if (dragCard != null && dragCardRect != null) {
+                RemoveDragCanvas(dragCard);
+            } else {
+                dragCanvas = null;
+            }
+            ResetState();
+            SuppressPointerHover = false;
+            BlockTileClickUntilFrame = Time.frameCount;
+            TileCard.ClearPendingPointerState();
             return;
         }
         if (!pendingPress || isFinishingDrag) {
@@ -86,13 +119,53 @@ public class HandCardDragController : MonoBehaviour {
         UpdateDragCardScreenPosition(Input.mousePosition, pointerPressCamera);
     }
 
-    private void AbortPressSession() {
-        Debug.LogWarning("[HandInput] 拖拽/按压中的卡牌已销毁，强制复位输入状态");
+    private static bool IsPhysicalPointerDown() {
+        if (Input.GetMouseButton(0)) {
+            return true;
+        }
+        for (int i = 0; i < Input.touchCount; i++) {
+            TouchPhase phase = Input.GetTouch(i).phase;
+            if (phase != TouchPhase.Ended && phase != TouchPhase.Canceled) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 外部（回合切换 / 右键摸切 / 清理输入残留）强制中止尚未松手的按压或拖拽会话，
+    /// 避免与左键拖拽并发时把某张牌永久绑定为 dragCard 而无法出牌。收尾动画进行中不打断。
+    /// </summary>
+    public void AbortActivePress(string reason) {
+        if ((pendingPress || dragSessionActive) && !isFinishingDrag) {
+            AbortPressSession(reason);
+        }
+    }
+
+    private void AbortPressSession(string reason) {
+        Debug.LogWarning($"[HandInput] 强制复位拖拽输入状态 | 原因={reason}");
         StopGapAnimation();
-        dragCanvas = null;   // 画布组件随卡牌一同销毁
+        TileCard card = dragCard;
+        bool wasDragging = dragSessionActive;
+        if (card != null && dragCardRect != null) {
+            RemoveDragCanvas(card);
+        } else {
+            dragCanvas = null;   // 画布组件随卡牌一同销毁
+        }
         ResetState();
         SuppressPointerHover = false;
+        BlockTileClickUntilFrame = Time.frameCount;
         TileCard.ClearPendingPointerState();
+        // 拖拽会话被异常中止时，按快照标记复位并按当前顺序重新布局，避免被拖拽牌悬浮/错位。
+        if (wasDragging && gameCanvas != null && gameCanvas.HandCardsContainer != null
+            && !gameCanvas.IsChangeHandCardProcessing) {
+            try {
+                RestoreSnapshotData();
+                gameCanvas.LayoutHandCardsFromCurrentOrder();
+            } catch (System.Exception e) {
+                Debug.LogWarning($"[HandInput] 中止拖拽后复位布局失败: {e.Message}");
+            }
+        }
     }
 
     // 仅当指针实际移动超过阈值时才进入拖拽；停留不动（无论按住多久）一律视为点击，
@@ -134,6 +207,7 @@ public class HandCardDragController : MonoBehaviour {
         dragStartScreenPos = eventData.position;
         pointerPressCamera = eventData.pressEventCamera;
         pressStartUnscaledTime = Time.unscaledTime;
+        lastPointerDownUnscaledTime = Time.unscaledTime;
         TakeSnapshot();
     }
 
@@ -224,7 +298,7 @@ public class HandCardDragController : MonoBehaviour {
     /// 顺序未变 + 位移小 + 按压短：立即复位布局并按点击提交（还原按下时的确认选中态）。
     /// </summary>
     private void FinishMicroClickDiscard(TileCard card, Vector2 releaseScreenPos) {
-        isFinishingDrag = true;
+        MarkFinishingDrag();
         bool armed = wasArmedAtPress;
         RestoreSnapshotLayout();
         EndFinishDrag();
@@ -237,7 +311,7 @@ public class HandCardDragController : MonoBehaviour {
 
     // 出牌区松手：立即出牌；仅收拢其余牌布局，打出牌保持松手时的位置，避免闪回槽位
     private void FinishDiscardImmediate(TileCard card) {
-        isFinishingDrag = true;
+        MarkFinishingDrag();
         if (!CanTryDiscard(card)) {
             StartCoroutine(FinishRevertDrag(card));
             return;
@@ -267,27 +341,37 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private IEnumerator FinishCommitDrag(TileCard card, int insertIndex, bool mergeDraw) {
-        isFinishingDrag = true;
+        MarkFinishingDrag();
         ApplyGapLayout(insertIndex, mergeDraw, false);   // 其余牌瞬间到位，避免提交时跳动
         yield return AnimateDragCardTo(GetDragCardTargetPosition(insertIndex, mergeDraw));
-        CommitReorder(insertIndex, mergeDraw);
+        // 动画途中卡牌被并发销毁/重排时直接复位，避免在已销毁对象上重排抛异常导致状态卡死。
+        if (dragCardRect != null) {
+            CommitReorder(insertIndex, mergeDraw);
+        }
         EndFinishDrag();
     }
 
     private IEnumerator FinishRevertDrag(TileCard card) {
-        isFinishingDrag = true;
+        MarkFinishingDrag();
         RestoreSnapshotData();
         SplitSnapshot(out List<TileCard> main, out TileCard draw);
         Dictionary<RectTransform, Vector2> positions = gameCanvas.BuildHandLayoutPositions(main, draw, null);
-        Vector2 dragTarget = positions[dragCardRect];
+        Vector2 dragTarget = positions.TryGetValue(dragCardRect, out Vector2 t) ? t : Vector2.zero;
         foreach (var kvp in positions) {
             if (kvp.Key != dragCardRect) {
                 kvp.Key.anchoredPosition = kvp.Value;
             }
         }
         yield return AnimateDragCardTo(dragTarget);
-        gameCanvas.ApplyHandLayoutPositions(positions, main, draw);
+        if (dragCardRect != null) {
+            gameCanvas.ApplyHandLayoutPositions(positions, main, draw);
+        }
         EndFinishDrag();
+    }
+
+    private void MarkFinishingDrag() {
+        isFinishingDrag = true;
+        finishStartUnscaledTime = Time.unscaledTime;
     }
 
     private void EndFinishDrag() {

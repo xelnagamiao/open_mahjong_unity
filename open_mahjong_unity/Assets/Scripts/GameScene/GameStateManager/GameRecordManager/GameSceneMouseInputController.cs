@@ -84,6 +84,8 @@ public class GameSceneMouseInputController : MonoBehaviour {
         _rightPressPassEligible = false;
         HandCardSelectionController.Instance?.DisarmAll();
         TileCard.ClearPendingPointerState();
+        // 同步中止尚未松手的拖拽/按压会话，避免左右键同时点击、回合切换时某张牌被永久绑定为 dragCard 无法出牌。
+        HandCardDragController.Instance?.AbortActivePress($"ClearStaleHandInput:{reason}");
         Debug.Log($"[HandInput] 清理输入缓存 | 原因={reason} | phase={actionInputPhase}");
     }
 

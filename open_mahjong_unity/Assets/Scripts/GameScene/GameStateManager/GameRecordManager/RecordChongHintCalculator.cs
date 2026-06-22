@@ -162,9 +162,6 @@ public static class RecordChongHintCalculator {
       }
 
       if (action == "bh") {
-        if (tick.Count >= 3) {
-          actingPlayer = ParseTickInt(tick, 2);
-        }
         continue;
       }
 
@@ -251,15 +248,7 @@ public static class RecordChongHintCalculator {
   }
 
   private static int ResolveActingPlayerIndex(List<string> tick, string action, int defaultPlayer) {
-    if ((action == "bh" || action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g")
-        && tick.Count >= 3) {
-      return ParseTickInt(tick, 2);
-    }
-    if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third"
-         || action == "riichi") && tick.Count >= 2) {
-      return ParseTickInt(tick, 1);
-    }
-    return defaultPlayer;
+    return GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, defaultPlayer);
   }
 
   private static bool TryPeekDrawOriginalIndex(WallSimState wall, string action, out int originalIndex) {
