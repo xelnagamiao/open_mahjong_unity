@@ -52,6 +52,7 @@ class GameInfo(BaseModel):
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
     show_moqie_hint: Optional[bool] = False  # 是否显示手摸切灰显（河牌摸切灰、手切正常，默认关）
     tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
+    claim_protection: Optional[bool] = True  # 鸣牌保护：无鸣牌权玩家延迟看到切牌/鸣牌过程（国标有效）
     isPlayerSetRandomSeed: Optional[bool] = False  # 是否玩家设置了随机种子（默认为False）
     player_entry_order: Optional[List[int]] = None  # shuffle 前对局入场顺序 user_id[4]
     players_info: List[PlayerInfo]

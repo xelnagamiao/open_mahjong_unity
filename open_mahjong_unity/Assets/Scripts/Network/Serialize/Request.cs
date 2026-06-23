@@ -106,6 +106,7 @@ public class SendActionRequest { // 发送国标游戏操作请求
     public int? TileId; // 切牌
     public string gamestate_id; // 游戏状态ID
     public int? chiComboIndex; // 立直麻将赤宝牌吃牌候选索引，默认 0 表示优先非赤 5
+    public int? action_tick; // 本次操作所回应的询问帧；服务端用于丢弃战术鸣牌前的过期提交
 }
 
 public class SetRyuukyokuTenpaiRequest {

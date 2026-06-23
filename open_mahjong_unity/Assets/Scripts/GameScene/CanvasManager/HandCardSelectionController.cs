@@ -44,6 +44,10 @@ public class HandCardSelectionController : MonoBehaviour {
             return;
         }
         if (armedCard == card) {
+            // 必须同时落下立起视觉再清空：出牌请求发出后该牌通常会被服务端回包销毁，
+            // 但若销毁延迟（疯狂点击/网络慢），仅清空 armedCard 会让这张牌一直悬浮，
+            // 且因 armedCard 已为空，立起其它牌也无法把它落下（表现为需点两下才能再出）。
+            SetArmedVisual(armedCard, false);
             armedCard = null;
             return;
         }

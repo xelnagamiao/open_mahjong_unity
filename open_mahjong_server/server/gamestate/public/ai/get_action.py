@@ -135,7 +135,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
         raise Exception(f"处理机器人操作时发生错误: {e}") # 出现问题时中断游戏
 
 # 获取玩家行动
-async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0):
+async def get_action(game_state, player_id: str, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0, action_tick: int = None):
     try:
         # 检测行动合法性
         # 从游戏服务器的PlayerConnection中获取user_id
@@ -181,6 +181,20 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         # 验证操作是否合法（检查操作是否在允许的操作列表中）
         if action_type not in game_state.action_dict.get(player_index, []):
             logger.warning(f"不是该玩家的合法行动, player_index={player_index}, action_type={action_type}, allowed_actions={game_state.action_dict.get(player_index, [])}")
+            return
+
+        # 战术鸣牌防过期：在切牌后询问 / 抢杠询问阶段，客户端会回传本轮询问的 action_tick。
+        # 若与当前询问帧不一致，说明这是上一轮询问的延迟到达提交（如战术鸣牌开启前点的取消/碰），予以丢弃，
+        # 避免错误地消费掉本轮战术抢断（如战术碰断别人吃）的机会。
+        if (
+            action_tick is not None
+            and game_state.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+            and action_tick != getattr(game_state, "server_action_tick", action_tick)
+        ):
+            logger.info(
+                f"丢弃过期操作：player_index={player_index}, action_type={action_type}, "
+                f"client_tick={action_tick}, server_tick={getattr(game_state, 'server_action_tick', None)}"
+            )
             return
 
         # 操作合法，将操作数据放入队列

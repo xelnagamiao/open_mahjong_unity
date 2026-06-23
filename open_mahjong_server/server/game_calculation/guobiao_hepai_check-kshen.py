@@ -942,9 +942,9 @@ class Chinese_Hepai_Check:
 
             for lst in [wan_list,bing_list,tiao_list]:
                 if len(lst) >= 2:
-                    for i in lst:
-                        i = int(i)
-                        if str(i + 3) in lst:
+                    for rank in range(1, 7):
+                        pair_count = min(lst.count(str(rank)), lst.count(str(rank + 3)))
+                        for _ in range(pair_count):
                             player_tiles.fan_list.append("lianliu") # 连六
                 min_count = min(lst.count("2"),lst.count("8"))
                 if min_count != 0:

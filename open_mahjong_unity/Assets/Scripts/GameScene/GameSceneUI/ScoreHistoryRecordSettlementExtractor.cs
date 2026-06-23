@@ -79,7 +79,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
-            if (action == "ask_hand" || action == "ask_other" || action == "end" || action == "dora" || action == "riichi") {
+            if (action == "ask_hand" || action == "ask_other" || action == "ca" || action == "end" || action == "dora" || action == "riichi") {
                 continue;
             }
 

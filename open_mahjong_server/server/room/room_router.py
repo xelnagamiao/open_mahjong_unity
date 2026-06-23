@@ -113,6 +113,7 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
         message.get("tactical_call", False),
+        message.get("claim_protection", True),
         message.get("cuohe_type", 0),
     )
     await websocket.send_json(response.dict(exclude_none=True))
@@ -141,6 +142,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
         message.get("tactical_call", False),
+        message.get("claim_protection", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -193,6 +195,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         message.get("allow_spectator", True),
         message.get("tactical_call", False),
         message.get("blood_battle", True),
+        message.get("claim_protection", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

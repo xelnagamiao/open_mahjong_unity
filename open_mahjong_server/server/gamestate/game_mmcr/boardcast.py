@@ -5,6 +5,22 @@ import asyncio
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
+from ..game_guobiao.combination_mask_view import (
+    sanitize_angang_mask,
+    sanitize_combination_target_for_viewer,
+)
+from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..public.claim_protection import (
+    claim_protection_enabled,
+    is_protected_viewer,
+    stash_protected_cut_payload,
+    arm_claim_protection_timer,
+    flush_protected_cut,
+    end_claim_protection_interval,
+    schedule_protected_meld_send,
+    get_meld_followup_gap,
+    REAL_MELD_ACTIONS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +48,7 @@ async def broadcast_game_start(self):
         'open_cuohe': self.open_cuohe, # 是否开启错和
         'show_moqie_hint': getattr(self, 'show_moqie_hint', False), # 手摸切灰显
         'tactical_call': getattr(self, 'tactical_call', False), # 战术鸣牌
+        'claim_protection': getattr(self, 'claim_protection', False), # 鸣牌保护
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
@@ -321,6 +338,69 @@ async def reconnected_send_pending_ask(self, user_id: int):
 
 
 # 广播操作
+def _build_do_action_payload(
+    self,
+    action_list,
+    action_player,
+    viewer_index,
+    *,
+    cut_tile=None,
+    cut_class=None,
+    cut_tile_index=None,
+    deal_tile=None,
+    buhua_tile=None,
+    combination_mask=None,
+    combination_target=None,
+    is_claim=False,
+    silent=False,
+    is_mo_gang=None,
+):
+    viewer_mask = combination_mask
+    viewer_target = combination_target
+    if action_list and "angang" in action_list:
+        viewer_mask = sanitize_angang_mask(combination_mask, action_player, viewer_index)
+        viewer_target = sanitize_combination_target_for_viewer(
+            combination_target, action_player, viewer_index
+        )
+    viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
+    return {
+        "action_list": action_list,
+        "action_player": action_player,
+        "action_tick": self.server_action_tick,
+        "cut_tile": cut_tile,
+        "cut_class": cut_class,
+        "cut_tile_index": cut_tile_index,
+        "deal_tile": viewer_deal_tile,
+        "buhua_tile": buhua_tile,
+        "combination_mask": viewer_mask,
+        "combination_target": viewer_target,
+        "is_claim": True if is_claim else None,
+        "silent": True if silent else None,
+        "is_mo_gang": is_mo_gang,
+    }
+
+
+async def _send_do_action_payload_to_viewer(
+    self, viewer_index: int, payload: dict, msg_type: str = "gamestate/qingque/do_action"
+):
+    current_player = self.player_list[viewer_index]
+    if "offline" in current_player.tag_list:
+        return
+    if current_player.user_id < 10:
+        return
+    if current_player.user_id not in self.game_server.user_id_to_connection:
+        return
+    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+    response = Response(
+        type=msg_type,
+        success=True,
+        message="返回操作内容",
+        do_action_info=Do_action_info(**payload),
+    )
+    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+    await self.send_to_realtime_spectators(current_player.player_index, response)
+
+
 async def broadcast_do_action(
     self, 
     action_list: List[str],
@@ -345,51 +425,86 @@ async def broadcast_do_action(
         self.server_action_tick += 1
         if hasattr(self, "_ask_broadcast_time"):
             delattr(self, "_ask_broadcast_time")
-    print(f"广播操作: action_list={action_list}, action_player={action_player}, cut_tile={cut_tile}, cut_class={cut_class}, cut_tile_index={cut_tile_index}, deal_tile={deal_tile}, buhua_tile={buhua_tile}, combination_target={combination_target}, combination_mask={combination_mask}, is_claim={is_claim}, silent={silent}")
-    # 遍历列表时获取索引
+    if not is_claim:
+        self.server_action_tick += 1
+        if hasattr(self, "_ask_broadcast_time"):
+            delattr(self, "_ask_broadcast_time")
+    elif action_list and cut_tile is not None:
+        from ..public.game_record_manager import track_claim_application
+        track_claim_application(self, action_player, action_list[0], cut_tile)
+
+    interval_active = claim_protection_enabled(self) and getattr(self, "_cp_active", False)
+    is_cut = bool(action_list) and action_list[0] == "cut"
+    is_real_meld = (not is_claim) and bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
+    cut_already_revealed = getattr(self, "_cp_cut_flushed", False)
+
+    protected_meld_delay = 0.0
+    if interval_active and is_real_meld:
+        flushed_now = await flush_protected_cut(
+            self,
+            _send_do_action_payload_to_viewer,
+            silent_cut=not cut_already_revealed,
+        )
+        protected_meld_delay = get_meld_followup_gap(self) if flushed_now else 0.0
+
     for i, current_player in enumerate(self.player_list):
         try:
-            # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
-
-            # 机器人占用 user_id < 10 的保留段，无需网络广播
             if current_player.user_id < 10:
                 continue
-            
-            # 发送通用信息
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
-                response = Response(
-                    type="gamestate/qingque/do_action",
-                    success=True,
-                    message="返回操作内容",
-                    do_action_info=Do_action_info(
-                        action_list=action_list,
-                        action_player=action_player,
-                        action_tick=self.server_action_tick,
-                        cut_tile=cut_tile,
-                        cut_class=cut_class,
-                        cut_tile_index = cut_tile_index,
-                        deal_tile=deal_tile,
-                        buhua_tile=buhua_tile,
-                        combination_mask=combination_mask,
-                        combination_target=combination_target,
-                        is_claim=True if is_claim else None,
-                        silent=True if silent else None,
-                        is_mo_gang=is_mo_gang,
-                    )
+            protected = interval_active and is_protected_viewer(self, i)
+
+            if is_claim and protected and not getattr(self, "_cp_cut_flushed", False):
+                continue
+
+            if protected and is_real_meld:
+                viewer_silent = silent if cut_already_revealed else False
+            else:
+                viewer_silent = silent
+
+            payload = _build_do_action_payload(
+                self,
+                action_list,
+                action_player,
+                i,
+                cut_tile=cut_tile,
+                cut_class=cut_class,
+                cut_tile_index=cut_tile_index,
+                deal_tile=deal_tile,
+                buhua_tile=buhua_tile,
+                combination_mask=combination_mask,
+                combination_target=combination_target,
+                is_claim=is_claim,
+                silent=viewer_silent,
+                is_mo_gang=is_mo_gang,
+            )
+
+            if protected and is_cut:
+                stash_protected_cut_payload(self, i, payload)
+                continue
+
+            if protected and is_real_meld and protected_meld_delay > 0:
+                schedule_protected_meld_send(
+                    self, i, payload, protected_meld_delay, _send_do_action_payload_to_viewer,
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+                continue
+
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                await _send_do_action_payload_to_viewer(self, i, payload)
                 logger.info(f"已向玩家 {current_player.username} 广播操作信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播操作信息失败: {e}")
-            # 允许广播出错，继续向其他玩家广播
+
+    if interval_active and is_cut:
+        arm_claim_protection_timer(self, _send_do_action_payload_to_viewer)
+
+    if interval_active and is_real_meld:
+        end_claim_protection_interval(self)
 
 # 广播结算结果
 async def broadcast_result(self, 

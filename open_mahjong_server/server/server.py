@@ -6,7 +6,8 @@ import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from .response import Response
 from .room.room_manager import RoomManager
 from .room.room_router import handle_room_message
@@ -17,6 +18,8 @@ from .friend.friend_router import handle_friend_message
 from .friend.friend_manager import FriendManager
 from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
+from .public.client_ip import get_client_ip_from_websocket
+from .public.ip_registration_limiter import IpRegistrationLimiter
 from .chat_server.chat_server import ChatServer
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
@@ -75,6 +78,22 @@ db_manager = DatabaseManager(
 # 创建聊天服务器实例
 chat_server = ChatServer()
 
+# 进程内 IP 注册限流（每日 04:00 Asia/Shanghai 清空）
+ip_registration_limiter = IpRegistrationLimiter()
+
+
+async def _daily_ip_limit_reset_loop() -> None:
+    tz = ZoneInfo("Asia/Shanghai")
+    while True:
+        now = datetime.now(tz)
+        next_reset = now.replace(hour=4, minute=0, second=0, microsecond=0)
+        if now >= next_reset:
+            next_reset += timedelta(days=1)
+        await asyncio.sleep((next_reset - now).total_seconds())
+        ip_registration_limiter.reset()
+        logging.info("IP 注册限流缓存已清空（Asia/Shanghai 04:00）")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动时执行
@@ -85,7 +104,13 @@ async def lifespan(app: FastAPI):
     # 测试环境下启动聊天服务器
     if Config.auto_create_chatserver:
         await chat_server.start_chat_server()
+    reset_task = asyncio.create_task(_daily_ip_limit_reset_loop())
     yield
+    reset_task.cancel()
+    try:
+        await reset_task
+    except asyncio.CancelledError:
+        pass
     # 关闭时执行（如果需要清理资源，在这里添加）
 
 # 创建游戏服务器实例
@@ -176,6 +201,34 @@ class GameServer:
             del self.players[Connect_id]
             logging.info(f"玩家 {Connect_id} 已断开连接")
 
+    async def kick_user_by_id(self, user_id: int, reason: str) -> bool:
+        """管理员强制踢下线：发送提示后断开 WebSocket。"""
+        player = self.user_id_to_connection.get(user_id)
+        if player is None:
+            return False
+        connect_id = player.Connect_id
+        try:
+            from .response import MessageInfo
+            kick_message = Response(
+                type="message",
+                success=False,
+                message="login_kickout",
+                message_info=MessageInfo(
+                    title="账号已被踢下线",
+                    content=reason or "管理员已将您的账号踢下线",
+                ),
+            )
+            await player.websocket.send_json(kick_message.dict(exclude_none=True))
+        except Exception as exc:
+            logging.warning(f"向 user_id={user_id} 发送踢下线消息失败: {exc}")
+        await self.disconnect(connect_id)
+        try:
+            await player.websocket.close()
+        except Exception:
+            pass
+        logging.info(f"已踢下线 user_id={user_id}, Connect_id={connect_id}")
+        return True
+
     # 玩家登录：存储用户ID和用户名到玩家连接的映射
     def store_player_session(self, Connect_id: str, user_id: int, username: str, is_tourist: bool = False):
         if Connect_id in self.players:
@@ -187,12 +240,12 @@ class GameServer:
             logging.info(f"已存储{'游客' if is_tourist else '玩家'} user_id={user_id}, username={username} 的会话数据")
 
     # 创建国标房间
-    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, cuohe_type: int = 0) -> Response:
-        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, cuohe_type)
+    async def create_GB_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0) -> Response:
+        return await self.room_manager.create_GB_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, open_cuohe, sub_rule, hepai_limit, tourist_limit, allow_spectator, tactical_call, claim_protection, cuohe_type)
 
     # 创建青雀房间
-    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
-        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call)
+    async def create_Qingque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True) -> Response:
+        return await self.room_manager.create_Qingque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, False, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection)
 
     # 创建古典麻将房间
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True) -> Response:
@@ -202,8 +255,8 @@ class GameServer:
         return await self.room_manager.create_Riichi_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, open_cuohe, hepai_limit, red_dora, allow_kuikae, open_xiru, open_tobi, hepai_way, tourist_limit, allow_spectator)
 
     # 创建四川麻将（血战到底）房间
-    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True) -> Response:
-        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle)
+    async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True) -> Response:
+        return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection)
 
     # 获取房间列表
     def get_room_list(self, show_tip: bool = False) -> Response:
@@ -284,8 +337,10 @@ game_server = GameServer()
 
 from .webapi.calc import register_calc_routes
 from .webapi.admin_message import register_admin_message_routes
+from .webapi.admin_user import register_admin_user_routes
 register_calc_routes(app, game_server)
 register_admin_message_routes(app, game_server)
+register_admin_user_routes(app, game_server)
 
 @app.websocket("/game/{Connect_id}")
 async def message_input(websocket: WebSocket, Connect_id: str):
@@ -320,17 +375,18 @@ async def message_input(websocket: WebSocket, Connect_id: str):
 
             if message["type"] == "login":
                 is_tourist = message.get("is_tourist", False)
+                client_ip = get_client_ip_from_websocket(websocket)
                 
                 if is_tourist:
                     # 游客登录：创建新账户，不需要密码验证
-                    logging.info(f"游客登录请求 - Connect_id: {Connect_id}")
-                    response = await player_login("", "", is_tourist=True)
+                    logging.info(f"游客登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
+                    response = await player_login("", "", is_tourist=True, client_ip=client_ip)
                 else:
                     # 普通用户登录：需要用户名和密码
                     username = message.get("username", "")
                     password = message.get("password", "")
-                    logging.info(f"登录请求 - 用户名: {username}, 密码: {password}")
-                    response = await player_login(username, password, is_tourist=False)
+                    logging.info(f"登录请求 - 用户名: {username}, IP: {client_ip}")
+                    response = await player_login(username, password, is_tourist=False, client_ip=client_ip)
                 
                 if response.success and response.login_info:
                     user_id = response.login_info.user_id
@@ -523,7 +579,12 @@ def validate_password(password: str) -> Optional[str]:
     
     return None
 
-async def player_login(username: str, password: str, is_tourist: bool = False) -> Response:
+async def player_login(
+    username: str,
+    password: str,
+    is_tourist: bool = False,
+    client_ip: str = "unknown",
+) -> Response:
     """
     玩家登录/注册功能
     如果用户不存在则自动注册，存在则验证密码
@@ -535,6 +596,14 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
     Returns:
         Response 对象，包含登录结果和用户信息
     """
+    ip_ban = db_manager.get_active_ip_ban(client_ip)
+    if ip_ban:
+        return Response(
+            type="tips",
+            success=False,
+            message=db_manager.build_ip_ban_message(ip_ban),
+        )
+
     # 如果是游客登录，生成随机用户名并使用空密码
     if is_tourist:
         max_attempts = 100  # 最大尝试次数，避免无限循环
@@ -587,6 +656,12 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
         # 用户存在，验证密码
         stored_password_hash = player.get('password')
         if stored_password_hash and db_manager.verify_password(password, stored_password_hash):
+            if db_manager.is_login_ban_active(player):
+                return Response(
+                    type="tips",
+                    success=False,
+                    message=db_manager.build_login_ban_message(player)
+                )
             user_id = player.get('user_id')
         else:
             return Response(
@@ -596,6 +671,12 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
             )
     else:
         # 用户不存在，创建新用户
+        if not is_tourist and not ip_registration_limiter.can_register(client_ip):
+            return Response(
+                type="tips",
+                success=False,
+                message="该 IP 今日注册次数已达上限（3 次），请明日再试",
+            )
         user_id = db_manager.create_user(username, password, is_tourist=is_tourist)
         if not user_id:
             return Response(
@@ -604,6 +685,10 @@ async def player_login(username: str, password: str, is_tourist: bool = False) -
                 message="注册失败",
                 username=username
             )
+        if not is_tourist:
+            ip_registration_limiter.record_registration(client_ip)
+    
+    db_manager.record_user_login_ip(user_id, client_ip)
     
     # 生成用户秘钥
     user_key = await chat_server.hash_username(username)

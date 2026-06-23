@@ -17,6 +17,7 @@
         <el-button @click="$router.push('/admin/games')">对局查询</el-button>
         <el-button @click="$router.push('/admin/audit')">操作审计</el-button>
         <el-button @click="$router.push('/admin/messages')">消息推送</el-button>
+        <el-button @click="$router.push('/admin/ip-bans')">IP 封禁</el-button>
       </el-space>
     </el-card>
   </div>

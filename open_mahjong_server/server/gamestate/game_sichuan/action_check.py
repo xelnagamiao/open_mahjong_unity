@@ -10,6 +10,7 @@
 from typing import Dict, List
 import logging
 from ..public.logic_common import get_index_relative_position, next_current_num
+from ..public.hand_slot_utils import normalize_tile
 from .shunhe import is_blocked_by_shunhe
 
 logger = logging.getLogger(__name__)
@@ -160,11 +161,15 @@ def check_action_hand_action(self, player_index, is_get_gang_tile=False, is_firs
             if tile not in processed and player.hand_tiles.count(tile) == 4 and _suit(tile) != dingque:
                 temp_action_dict[player_index].append("angang")
                 processed.add(tile)
+        jiagang_added = False
         for combo in player.combination_tiles:
-            if combo[0] == "k":
-                jiatile = int(combo[1:])
-                if jiatile in player.hand_tiles and _suit(jiatile) != dingque:
+            if combo.startswith("k") and not jiagang_added:
+                jia_norm = normalize_tile(int(combo[1:]))
+                if _suit(jia_norm) != dingque and any(
+                    normalize_tile(t) == jia_norm for t in player.hand_tiles
+                ):
                     temp_action_dict[player_index].append("jiagang")
+                    jiagang_added = True
 
     temp_action_dict[player_index].append("cut")
 

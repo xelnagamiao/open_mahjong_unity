@@ -11,10 +11,6 @@ public partial class NormalGameStateManager {
         TipsBlock.Instance.HideTipsBlock();
         TipsContainer.Instance.HideTips();
         TipsContainer.Instance.HideRyuukyokuTenpaiChoice();
-        if (isSilent) {
-            // 战术鸣牌：和牌字体动画/音效已在申请阶段播放，结算时直接关闭面板
-            TacticalCallPanel.Instance.HidePanel();
-        }
         if (riichiExtras != null && IsHuClass(hu_class)) {
             OnRiichiSticksCollected(riichiExtras.RiichiSticksCollected);
         } else if (subRule != null && subRule.StartsWith("riichi/") && ShouldHideRiichiSticksOnLiuju(hu_class)) {
@@ -93,7 +89,7 @@ public partial class NormalGameStateManager {
             RoundEndPresentation.Instance.PresentDrawWallLiujuAndPenalty("荒牌流局", player_to_score, riichiExtras);
         } else if (hu_class == "jiuzhongjiupai" || IsRiichiSpecialLiujuHuClass(hu_class)) {
             ApplyShowResultScores(player_to_score);
-            RoundEndPresentation.Instance.PresentLiuju(GetRiichiSpecialLiujuCaption(hu_class));
+            RoundEndPresentation.Instance.PresentLiuju(GetSpecialLiujuCaption(hu_class, roomRule));
         } else {
             if (IsSichuanRule() && liuju_step == "settle_hu") {
                 RoundEndPresentation.Instance.EnqueueSichuanSettleHu(
@@ -251,9 +247,20 @@ public partial class NormalGameStateManager {
             || hu_class == "three_ron_abort";
     }
 
+    /// <summary>九种九牌（日麻）/ 九老峰回（古典）流局名称。</summary>
+    public static string GetJiuzhongjiupaiCaption(string roomRule) {
+        return roomRule == "riichi" ? "九种九牌" : "九老峰回";
+    }
+
+    public static string GetSpecialLiujuCaption(string hu_class, string roomRule) {
+        if (hu_class == "jiuzhongjiupai") {
+            return GetJiuzhongjiupaiCaption(roomRule);
+        }
+        return GetRiichiSpecialLiujuCaption(hu_class);
+    }
+
     public static string GetRiichiSpecialLiujuCaption(string hu_class) {
         return hu_class switch {
-            "jiuzhongjiupai" => "九老峰回",
             "four_wind_abort" => "四风连打",
             "four_kan_abort" => "四杠散了",
             "four_riichi_abort" => "四人立直",

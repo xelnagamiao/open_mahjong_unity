@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class GameRecordManager
 {
     public void GotoAction(int actionIndex){
+        CancelRecordHuPresentation();
         // 获取当前局数的node列表
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) || roundData.actionTicks == null) {
             return;
@@ -85,7 +86,7 @@ public partial class GameRecordManager
         string action = tick[0];
 
         // 观战 ask 事件不改变对局状态，快进时跳过
-        if (action == "ask_hand" || action == "ask_other") {
+        if (action == "ask_hand" || action == "ask_other" || action == "ca") {
             return;
         }
 

@@ -133,11 +133,13 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     /// <summary>
-    /// 外部（回合切换 / 右键摸切 / 清理输入残留）强制中止尚未松手的按压或拖拽会话，
-    /// 避免与左键拖拽并发时把某张牌永久绑定为 dragCard 而无法出牌。收尾动画进行中不打断。
+    /// 外部（回合切换 / 右键摸切 / 清理输入残留）清理"指针已抬起但状态未复位"的悬挂按压/拖拽会话，
+    /// 避免左右键同时点击等遗留把某张牌永久绑定为 dragCard 而无法出牌。
+    /// 关键：指针仍按下时说明是玩家正在进行的合法拖拽（如拖拽出牌途中其他家出牌），绝不能中断，
+    /// 否则会出现卡牌悬浮卡死、之后无法再拖拽的问题；漏掉松手的真实悬挂由 Update 看门狗2 兜底复位。
     /// </summary>
     public void AbortActivePress(string reason) {
-        if ((pendingPress || dragSessionActive) && !isFinishingDrag) {
+        if ((pendingPress || dragSessionActive) && !isFinishingDrag && !IsPhysicalPointerDown()) {
             AbortPressSession(reason);
         }
     }

@@ -255,6 +255,7 @@ class MatchManager:
                 "open_cuohe": room_config["open_cuohe"],
                 "show_moqie_hint": room_config.get("show_moqie_hint", False),
                 "tactical_call": room_config.get("tactical_call", False),
+                "claim_protection": room_config.get("claim_protection", True),
                 "match_queue_type": queue_type,
             }
 

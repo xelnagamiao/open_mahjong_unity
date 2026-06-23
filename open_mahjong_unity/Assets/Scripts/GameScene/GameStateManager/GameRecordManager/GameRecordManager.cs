@@ -97,6 +97,32 @@ public partial class GameRecordManager : MonoBehaviour {
     /// <summary>上一动作为切牌且下一家尚未摸牌；此间不显示切牌者手牌铳牌提示。</summary>
     private bool waitingForDrawAfterCut;
 
+    private Coroutine _recordHuPresentationCoroutine;
+    private bool _recordHuPresentationActive;
+
+    /// <summary>和牌 3D 演出或结算面板等待确认时，禁止牌谱步进/滚轮切局。</summary>
+    public bool BlocksRecordNavigation =>
+        _recordHuPresentationActive
+        || (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm);
+
+    private void CancelRecordHuPresentation() {
+        if (_recordHuPresentationCoroutine != null) {
+            StopCoroutine(_recordHuPresentationCoroutine);
+            _recordHuPresentationCoroutine = null;
+        }
+        _recordHuPresentationActive = false;
+    }
+
+    private void BeginRecordHuPresentation() {
+        CancelRecordHuPresentation();
+        _recordHuPresentationActive = true;
+    }
+
+    private void EndRecordHuPresentation() {
+        _recordHuPresentationActive = false;
+        _recordHuPresentationCoroutine = null;
+    }
+
     private static readonly Dictionary<string, string> RecordToDisplay = new Dictionary<string, string> {
         {"bh", "buhua"}, {"c", "cut"}, {"ag", "angang"}, {"jg", "jiagang"},
         {"cl", "chi_left"}, {"cm", "chi_mid"}, {"cr", "chi_right"},
@@ -506,6 +532,7 @@ public partial class GameRecordManager : MonoBehaviour {
     
     // 选择选中巡目
     public void GotoSelectNode(int nodeIndex, bool updateSpectatorMode = true) {
+        if (BlocksRecordNavigation) return;
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
             return;
         }
@@ -521,6 +548,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
     // 选择选中局
     public void GotoSelectRound(int roundIndex, bool fromUserAction = true) {
+        if (fromUserAction && BlocksRecordNavigation) return;
         if (!gameRecord.gameRound.rounds.ContainsKey(roundIndex)) {
             return;
         }
@@ -577,7 +605,9 @@ public partial class GameRecordManager : MonoBehaviour {
 
         string currentPlayerPosition = indexToPosition[actingPlayerIndex];
         RecordPlayer currentRecordPlayer = recordPlayer_to_info[currentPlayerPosition];
-        string displayAction = ToDisplayAction(action);
+        string displayAction = (action == "ca" && tick.Count >= 3)
+            ? ToDisplayAction(tick[2])
+            : ToDisplayAction(action);
         if (action != "riichi") {
             SoundManager.Instance.PlayActionSound(currentPlayerPosition, displayAction);
             SoundManager.Instance.PlayPhysicsSound(displayAction);
@@ -661,6 +691,11 @@ public partial class GameRecordManager : MonoBehaviour {
             Game3DManager.Instance.Change3DTile("Buhua", buhuaTile, 0, currentPlayerPosition, isMoBuhua, null);
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "buhua");
             nextPlayerIndex = actingPlayerIndex;
+        }
+        else if (action == "ca") {
+            TryGetActiveRecordRuleContext(out string roomRule, out _);
+            GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, displayAction, roomRule);
+            nextPlayerIndex = currentPlayerIndex;
         }
         else if (action == "ag") {
             int angangTile = ParseTickInt(tick, 1);
@@ -777,8 +812,11 @@ public partial class GameRecordManager : MonoBehaviour {
                 fuFanList = tick.Count > 6 ? ParseHuFanList(tick, 6) : null;
             }
             RecordHuHandBuilder.TryParseHepaiTile(tick, recordRule, out int parsedHepaiTile);
+            if (IsSpectatorSession && action != "hu_self") {
+                huPlayer.showHandDrawSlotActive = false;
+            }
             int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHand(
-                huPlayer.tileList, action, parsedHepaiTile, lastWinnableTileId);
+                huPlayer.tileList, action, parsedHepaiTile, lastWinnableTileId, IsSpectatorSession);
             int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
             int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
 
@@ -878,7 +916,8 @@ public partial class GameRecordManager : MonoBehaviour {
             }
         }
         else if (action == "jiuzhongjiupai") {
-            RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);
+            TryGetActiveRecordRuleContext(out string roomRule, out _);
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetJiuzhongjiupaiCaption(roomRule), false);
             HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
         }
@@ -1402,11 +1441,12 @@ public partial class GameRecordManager : MonoBehaviour {
             if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
                 BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
             }
-            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            TryGetActiveRecordRuleContext(out string roomRule, out _);
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetSpecialLiujuCaption(huClass, roomRule), false);
             return;
         }
 
-        StartCoroutine(CoShowRecordResultWithPresentation(
+        _recordHuPresentationCoroutine = StartCoroutine(CoShowRecordResultWithPresentation(
             huClass, huScore, huFan, hepaiPlayerIndex, hepaiPlayerHand, hepaiPlayerHuapai,
             hepaiPlayerCombinationMask, playerToScoreBefore, playerToScoreAfter, baseFu, fuFanList, riichiExtras));
     }
@@ -1416,6 +1456,8 @@ public partial class GameRecordManager : MonoBehaviour {
         int[] hepaiPlayerHand, int[] hepaiPlayerHuapai, int[][] hepaiPlayerCombinationMask,
         Dictionary<int, int> playerToScoreBefore, Dictionary<int, int> playerToScoreAfter,
         int? baseFu, string[] fuFanList, RiichiEndResultExtras riichiExtras) {
+        BeginRecordHuPresentation();
+        try {
         Dictionary<string, string> positionToUsername = new Dictionary<string, string>();
         foreach (var kv in recordPlayer_to_info) {
             int uid = kv.Value.userId;
@@ -1454,6 +1496,9 @@ public partial class GameRecordManager : MonoBehaviour {
         GameSceneUIManager.Instance.ShowRecordResult(hepaiPlayerIndex, huScore, huFan, huClass, roomType,
             indexToPosition, positionToUsername, hepaiPlayerHand, hepaiPlayerHuapai, hepaiPlayerCombinationMask,
             playerToScoreBefore, playerToScoreAfter, IsSpectating && IsLiveSpectatorMode, baseFu, fuFanList, riichiExtras);
+        } finally {
+            EndRecordHuPresentation();
+        }
     }
 
     /// <summary>
@@ -1472,7 +1517,8 @@ public partial class GameRecordManager : MonoBehaviour {
                 ApplyScoreDeltas(liujuDeltas, out _, out Dictionary<int, int> after);
                 BoardCanvas.Instance.UpdatePlayerScores(after, indexToPosition);
             }
-            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetRiichiSpecialLiujuCaption(huClass), false);
+            TryGetActiveRecordRuleContext(out string roomRule, out _);
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetSpecialLiujuCaption(huClass, roomRule), false);
             HideRecordRiichiSticksOnLiuju();
             StartCoroutine(AutoNextActionAfterDelay(2f));
             return;
@@ -1490,8 +1536,11 @@ public partial class GameRecordManager : MonoBehaviour {
         RecordPlayer huPlayer = recordPlayer_to_info[huPosition];
         string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "riichi").ToLowerInvariant();
         RecordHuHandBuilder.TryParseHepaiTile(tick, recordRule, out int parsedHepaiTile);
+        if (IsSpectatorSession && huClass != "hu_self") {
+            huPlayer.showHandDrawSlotActive = false;
+        }
         int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHand(
-            huPlayer.tileList, huClass, parsedHepaiTile, lastWinnableTileId);
+            huPlayer.tileList, huClass, parsedHepaiTile, lastWinnableTileId, IsSpectatorSession);
         int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
         int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
 

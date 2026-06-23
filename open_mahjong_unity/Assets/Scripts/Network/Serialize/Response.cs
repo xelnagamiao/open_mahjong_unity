@@ -28,6 +28,7 @@ public class RoomInfo {
     public bool open_cuohe; // 是否开启错和
     public bool show_moqie_hint; // 手摸切灰显（河牌摸切灰、手切正常）
     public bool tactical_call; // 战术鸣牌（国标/青雀）
+    public bool claim_protection; // 鸣牌保护（国标/青雀）
     public bool? red_dora;  // 立直麻将专属：是否启用赤宝牌
     public bool? allow_kuikae; // 立直麻将专属：是否允许食替
     public bool? open_xiru; // 立直麻将专属：是否西入
@@ -213,6 +214,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool open_cuohe;             // 是否开启错和
     public bool show_moqie_hint;        // 手摸切灰显
     public bool tactical_call;          // 战术鸣牌（国标/青雀）
+    public bool claim_protection;       // 鸣牌保护（国标/青雀）
     public bool isPlayerSetRandomSeed;  // 是否设置随机种子
     public int[] player_entry_order;    // shuffle 前对局入场顺序 user_id[4]
     public PlayerInfo[] players_info;   // 玩家信息列表

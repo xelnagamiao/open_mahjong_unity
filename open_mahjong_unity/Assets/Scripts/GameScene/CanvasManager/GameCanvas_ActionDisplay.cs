@@ -140,6 +140,12 @@ public partial class GameCanvas{
         }
         return "自摸";
     }
+
+    private string GetJiuzhongjiupaiActionText() {
+        var gsm = NormalGameStateManager.Instance;
+        string rule = gsm != null ? gsm.roomRule : null;
+        return NormalGameStateManager.GetJiuzhongjiupaiCaption(rule);
+    }
     private string GetActionDisplayText(string actionType, string roomRule) {
         if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             return "吃";

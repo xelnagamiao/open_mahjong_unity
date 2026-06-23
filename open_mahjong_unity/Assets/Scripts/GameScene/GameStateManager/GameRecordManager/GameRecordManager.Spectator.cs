@@ -284,6 +284,11 @@ public partial class GameRecordManager {
                 continue;
             }
 
+            if (BlocksRecordNavigation) {
+                yield return new WaitForSeconds(0.1f);
+                continue;
+            }
+
             if (!HasMoreSpectatorTicks()) {
                 int nextRound = currentRoundIndex + 1;
                 if (gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
@@ -419,7 +424,8 @@ public partial class GameRecordManager {
             currentNode++;
             UpdateCurrentXunmuText();
         } else if (action == "jiuzhongjiupai") {
-            RoundEndPresentation.Instance.PresentLiuju("九老峰回", false);
+            TryGetActiveRecordRuleContext(out string roomRule, out _);
+            RoundEndPresentation.Instance.PresentLiuju(NormalGameStateManager.GetJiuzhongjiupaiCaption(roomRule), false);
             currentNode++;
             UpdateCurrentXunmuText();
         } else {

@@ -15,9 +15,19 @@ from .smart_bot_logic import (
     find_best_cut, find_best_cut_score,
     normalize_tile, count_acceptance,
 )
-from .smart_bot_ai import _handle_qianggang, _handle_buhua_round, _wait_until_actionable
+from ...game_riichi.action_check import _is_furiten
+from .smart_bot_ai import _handle_buhua_round, _wait_until_actionable
 
 logger = logging.getLogger(__name__)
+
+
+def _is_riichi_ron_furiten(player) -> bool:
+    """荣和/抢杠振听：永久振听、同巡振听、立直振听任一成立则不可荣和/抢杠（自摸不受影响）。"""
+    return (
+        _is_furiten(player)
+        or getattr(player, "temp_furiten", False)
+        or getattr(player, "riichi_furiten", False)
+    )
 
 
 def _riichi_should_accept_hu(game_state, hu_action: str) -> bool:
@@ -33,6 +43,13 @@ def _riichi_should_accept_hu(game_state, hu_action: str) -> bool:
     han = int(result.get("han", 0))
     limit = int(getattr(game_state, "hepai_limit", 1) or 1)
     return han >= limit
+
+
+def _riichi_should_accept_ron(game_state, player, hu_action: str) -> bool:
+    """日麻 AI 是否接受荣和/抢杠和：振听状态下不可荣和/抢杠。"""
+    if _is_riichi_ron_furiten(player):
+        return False
+    return _riichi_should_accept_hu(game_state, hu_action)
 
 
 # ─── 食替（喰い替え）禁切牌 ─────────────────────────────────
@@ -162,7 +179,7 @@ async def riichi_smart_bot_action(game_state, player_index: int, action_list: li
             return
 
         if game_status == "waiting_action_qianggang":
-            await _handle_qianggang(game_state, player_index, action_list, current_player)
+            await _handle_riichi_qianggang(game_state, player_index, action_list, current_player)
             return
 
         if game_status == "waiting_buhua_round":
@@ -297,11 +314,18 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
         logger.warning(f"日麻牌效AI {player_index} ({player.username}) 切牌后询问未进入 waiting_players_list，放弃操作")
         return
     for hu_action in ("hu_first", "hu_second", "hu_third"):
-        if hu_action in action_list and _riichi_should_accept_hu(game_state, hu_action):
+        if hu_action in action_list and _riichi_should_accept_ron(game_state, player, hu_action):
             logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {hu_action}")
             await asyncio.sleep(0.5)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
             return
+        if hu_action in action_list and _is_riichi_ron_furiten(player):
+            logger.info(
+                f"日麻牌效AI {player_index} ({player.username}) 振听跳过 {hu_action}, "
+                f"temp={getattr(player, 'temp_furiten', False)}, "
+                f"riichi_furiten={getattr(player, 'riichi_furiten', False)}"
+            )
+            break
 
     discard_tiles = game_state.player_list[game_state.current_player_index].discard_tiles
     cut_tile = discard_tiles[-1] if discard_tiles else None
@@ -371,3 +395,26 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     if best_action != "pass":
         await asyncio.sleep(0.5)
     await get_ai_action(game_state, player_index, best_action, None, None, None, None)
+
+
+async def _handle_riichi_qianggang(game_state, player_index, action_list, player):
+    """他家加杠时的抢杠询问：振听不可抢杠和，否则按番数判定是否和牌。"""
+    if not await _wait_until_actionable(game_state, player_index):
+        logger.warning(f"日麻牌效AI {player_index} ({player.username}) 抢杠询问未进入 waiting_players_list，放弃操作")
+        return
+    for hu_action in ("hu_first", "hu_second", "hu_third"):
+        if hu_action in action_list and _riichi_should_accept_ron(game_state, player, hu_action):
+            logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {hu_action}（抢杠和）")
+            await asyncio.sleep(0.5)
+            await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
+            return
+        if hu_action in action_list and _is_riichi_ron_furiten(player):
+            logger.info(
+                f"日麻牌效AI {player_index} ({player.username}) 振听跳过抢杠 {hu_action}, "
+                f"temp={getattr(player, 'temp_furiten', False)}, "
+                f"riichi_furiten={getattr(player, 'riichi_furiten', False)}"
+            )
+            break
+    if "pass" in action_list:
+        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 pass（抢杠）")
+        await get_ai_action(game_state, player_index, "pass", None, None, None, None)

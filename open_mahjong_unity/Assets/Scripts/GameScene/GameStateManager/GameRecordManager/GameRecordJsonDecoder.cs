@@ -204,6 +204,10 @@ public static class GameRecordJsonDecoder {
             if (!int.TryParse(tick[2]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }
+        if (action == "ca" && tick.Count >= 2) {
+            if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
+            return seat;
+        }
         if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third"
              || action == "riichi") && tick.Count >= 2) {
             if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;

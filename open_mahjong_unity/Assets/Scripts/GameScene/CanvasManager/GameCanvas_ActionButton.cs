@@ -103,11 +103,11 @@ public partial class GameCanvas : MonoBehaviour {
                 chiButton.actionTypeList.Add(action_list[i]);
                 Debug.Log($"添加吃牌选项: {action_list[i]}");
             }
-            // 九老峰回
+            // 九种九牌 / 九老峰回（按规则区分文案）
             else if (action_list[i] == "jiuzhongjiupai"){
                 ActionButton ActionButtonObj = Instantiate(ActionButtonPrefab, ActionButtonContainer);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "九老峰回";
+                buttonText.text = GetJiuzhongjiupaiActionText();
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 立直（仅在自家门清听牌且服务器允许时下发；点击后进入立直选牌模式）

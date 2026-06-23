@@ -9,6 +9,7 @@
         <el-menu-item index="/admin/games">对局</el-menu-item>
         <el-menu-item index="/admin/audit">审计</el-menu-item>
         <el-menu-item index="/admin/messages">消息</el-menu-item>
+        <el-menu-item index="/admin/ip-bans">IP 封禁</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -34,6 +35,7 @@ const auth = useAdminAuthStore()
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/admin/users')) return '/admin/users'
+  if (route.path.startsWith('/admin/ip-bans')) return '/admin/ip-bans'
   return route.path
 })
 

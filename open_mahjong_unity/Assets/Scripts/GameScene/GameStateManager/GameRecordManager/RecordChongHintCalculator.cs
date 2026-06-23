@@ -139,7 +139,7 @@ public static class RecordChongHintCalculator {
       if (tick == null || tick.Count == 0) continue;
 
       string action = tick[0];
-      if (action == "ask_hand" || action == "ask_other") continue;
+      if (action == "ask_hand" || action == "ask_other" || action == "ca") continue;
 
       actingPlayer = ResolveActingPlayerIndex(tick, action, actingPlayer);
 

@@ -30,6 +30,12 @@ namespace Riichi {
         /// <summary>副露 combination_mask，与 combination_tiles 同序</summary>
         public List<int[]> CombinationMasks = null;
 
+        /// <summary>副露 combination_tiles（与 CombinationMasks 同序；无 mask 时用于宝牌/赤宝统计）</summary>
+        public List<string> OpenCombinationTiles = null;
+
+        /// <summary>和牌时手牌区真实 ID（含和牌张，不含副露）；与服务端 hepai hand_list 口径一致</summary>
+        public List<int> WinHandTileIds = null;
+
         /// <summary>赤宝牌数量（null 时根据手牌与 mask 自动推断）</summary>
         public int? AkaCount = null;
 

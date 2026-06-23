@@ -3,11 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 战术鸣牌等待面板：吃牌申请阶段固定 1.5 秒倒计时。
-/// 服务端在切牌后/抢杠询问阶段，吃牌会广播 is_claim=true 的 do_action 并启动 0→100 滑动条；
-/// 碰/和/杠/加杠仅在有更高优先级竞争者时才进入该阶段。
-/// 若 1.5 秒内有更高优先级行为打断，服务端会重新广播 is_claim 申请，本面板会重新归零；
-/// 期间没有打断时，服务端会下发 silent=true 的实际行为，此时面板隐藏。
+/// 战术鸣牌等待面板（已弃用进度条；保留组件以免场景引用丢失，不再主动显示）。
+/// 战术等待窗口由服务端 ask_other 的 remaining_time 驱动。
 /// </summary>
 public class TacticalCallPanel : MonoBehaviour {
     public static TacticalCallPanel Instance { get; private set; }

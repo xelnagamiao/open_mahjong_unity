@@ -625,6 +625,10 @@ public class NetworkManager : MonoBehaviour {
 
     // ========== 观战消息处理 ==========
 
+    /// <summary>
+    /// 服务端下发初始牌谱（add_spectator 成功后的 record_init）：先切 game 窗，再 StartSpectating。
+    /// 不在点击观战按钮时切页，仅由本消息驱动。
+    /// </summary>
     private void HandleSpectatorRecordInit(Response response) {
         if (!response.success) {
             Debug.LogWarning($"观战初始数据失败: {response.message}");
@@ -637,19 +641,31 @@ public class NetworkManager : MonoBehaviour {
             GameRecordManager.Instance?.ClearDelayedSpectatorSession();
             return;
         }
-        var grm = GameRecordManager.Instance;
-        if (grm == null) return;
+        StartCoroutine(CoEnterDelayedSpectatorFromRecordInit(recordJson));
+    }
+
+    private IEnumerator CoEnterDelayedSpectatorFromRecordInit(string recordJson) {
         if (BlocksIncomingDelayedSpectatorSession()) {
             Debug.Log("忽略延时观战 record_init：当前已在匹配或对局/其它观战会话中");
-            grm.AbandonDelayedSpectatorSessionOnServer();
-            return;
+            GameRecordManager.Instance?.AbandonDelayedSpectatorSessionOnServer();
+            yield break;
         }
+
+        if (WindowsManager.Instance != null) {
+            WindowsManager.Instance.SwitchWindow("game");
+        }
+        yield return null;
+
+        var grm = GameRecordManager.Instance;
+        if (grm == null) {
+            Debug.LogError("观战 record_init：GameRecordManager 未就绪");
+            yield break;
+        }
+
         grm.StartSpectating(recordJson);
         if (!grm.IsSpectating) {
             grm.AbandonDelayedSpectatorSessionOnServer();
-            return;
         }
-        WindowsManager.Instance.SwitchWindow("game");
     }
 
     private void HandleSpectatorRecordUpdate(Response response) {

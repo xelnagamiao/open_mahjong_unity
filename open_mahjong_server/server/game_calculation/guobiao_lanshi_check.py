@@ -843,11 +843,12 @@ class Chinese_Hepai_Check:
                             player_tiles.fan_list.append("xixiangfeng") # 喜相逢
 
             # 根据同色手牌标记的距离判断 连六 老少副
+            # 连六按顺子对计数：仅当两侧起始点各有多余顺子时才复计（如 123123456456 计 2 次，123123456 只计 1 次）
             for list in [wan_list,bing_list,tiao_list]:
                 if len(list) >= 2:
-                    for i in list:
-                        i = int(i)
-                        if str(i + 3) in list:
+                    for rank in range(1, 7):
+                        pair_count = min(list.count(str(rank)), list.count(str(rank + 3)))
+                        for _ in range(pair_count):
                             player_tiles.fan_list.append("lianliu") # 连六
                 min_count = min(list.count("2"),list.count("8"))
                 if min_count != 0:

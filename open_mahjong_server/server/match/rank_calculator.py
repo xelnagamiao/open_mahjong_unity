@@ -203,8 +203,10 @@ def queue_type_to_room_config(queue_type: str) -> dict:
     # 初级场有提示无错和，中级场及以上无提示有错和
     tips = (tier == "beginner")
     open_cuohe = (tier != "beginner")
-    # 中级场及以上启用战术鸣牌
+    # 中级场及以上启用战术鸣牌；鸣牌保护暂时默认开启（与战术鸣牌独立）
     tactical_call = tier in ("intermediate", "advanced", "mcrpl")
+    claim_protection = True
+    step_timer = 8 if tier == "intermediate" else 5
     return {
         "game_round": game_round,
         "tips": tips,
@@ -212,7 +214,8 @@ def queue_type_to_room_config(queue_type: str) -> dict:
         "show_moqie_hint": False,
         "hepai_limit": 8,
         "round_timer": 20,
-        "step_timer": 5,
+        "step_timer": step_timer,
         "sub_rule": "guobiao/standard",
         "tactical_call": tactical_call,
+        "claim_protection": claim_protection,
     }

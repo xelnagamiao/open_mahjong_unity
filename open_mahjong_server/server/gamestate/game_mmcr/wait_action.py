@@ -10,6 +10,7 @@ from ..public.game_record_manager import (
     player_action_record_angang,
     player_action_record_jiagang,
     player_action_record_chipenggang,
+    flush_unexecuted_claim_applications,
 )
 from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import (
@@ -21,130 +22,18 @@ from ..public.hand_slot_utils import (
     remove_cut_tile,
     resolve_is_mo_gang,
 )
+from ..public.claim_protection import (
+    begin_claim_protection_interval,
+    finalize_claim_protection,
+)
+from ..public.tactical_claim import (
+    init_tactical_round_state,
+    tactical_mark_player_passed,
+    apply_tactical_claim_if_needed,
+)
+from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
-
-TACTICAL_GRACE_SECONDS = 1.5
-
-_CHI_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right"})
-
-
-def _is_chi_action(action_type: str) -> bool:
-    return action_type in _CHI_ACTIONS
-
-
-def _get_higher_priority_snapshot(self, action_type, player_index):
-    """从战术快照中筛出对当前行为拥有更高优先级选项的其他玩家。"""
-    current_priority = self.action_priority[action_type]
-    higher_action_dict = {pid: [] for pid in range(4)}
-    any_higher = False
-    source = getattr(self, "_tactical_action_snapshot", None) or self.action_dict
-    for pid in range(4):
-        if pid == player_index:
-            continue
-        filtered = [
-            a for a in source.get(pid, [])
-            if a != "pass" and self.action_priority[a] > current_priority
-        ]
-        if filtered:
-            higher_action_dict[pid] = filtered + ["pass"]
-            any_higher = True
-    return higher_action_dict, any_higher
-
-
-def _should_enter_tactical_grace(self, action_type, player_index) -> bool:
-    """吃牌固定进入战术等待；碰/和/杠/加杠仅在有更高优先级竞争者时进入。"""
-    if _is_chi_action(action_type):
-        return True
-    _, any_higher = _get_higher_priority_snapshot(self, action_type, player_index)
-    return any_higher
-
-
-async def _tactical_grace_phase(self, action_type, player_index, action_data, cut_tile):
-    """战术鸣牌打断阶段：详见国标麻将同名函数。"""
-    while True:
-        higher_action_dict, any_higher = _get_higher_priority_snapshot(
-            self, action_type, player_index
-        )
-
-        if not _is_chi_action(action_type) and not any_higher:
-            return action_type, player_index, action_data, False
-
-        if action_type != "pass":
-            await broadcast_do_action(
-                self,
-                action_list=[action_type],
-                action_player=player_index,
-                cut_tile=cut_tile,
-                is_claim=True,
-            )
-
-        current_priority = self.action_priority[action_type]
-        self.action_dict = higher_action_dict
-        # 同步刷新等待玩家列表，使 get_action 接受这些玩家在 2 秒窗口内的抢断行为
-        self.waiting_players_list = [pid for pid, alist in higher_action_dict.items() if alist]
-
-        for pid in range(4):
-            self.action_events[pid].clear()
-            while not self.action_queues[pid].empty():
-                try:
-                    self.action_queues[pid].get_nowait()
-                except Exception:
-                    break
-
-        if any_higher:
-            import math as _math
-            await broadcast_ask_other_action(
-                self,
-                remaining_time_override=_math.ceil(TACTICAL_GRACE_SECONDS),
-                is_tactical_recheck=True,
-            )
-
-        elapsed = 0.0
-        new_claim = None
-        while elapsed < TACTICAL_GRACE_SECONDS:
-            remaining = TACTICAL_GRACE_SECONDS - elapsed
-            task_list = []
-            task_to_player = {}
-            for pid in range(4):
-                if self.action_dict[pid]:
-                    t = asyncio.create_task(self.action_events[pid].wait())
-                    task_list.append(t)
-                    task_to_player[t] = pid
-            timer_task = asyncio.create_task(asyncio.sleep(remaining))
-            task_list.append(timer_task)
-
-            start = time.time()
-            done, pending = await asyncio.wait(task_list, return_when=asyncio.FIRST_COMPLETED)
-            end = time.time()
-            elapsed += end - start
-            for t in pending:
-                t.cancel()
-
-            best_submitted = None
-            for t in done:
-                if t is timer_task:
-                    continue
-                temp_pid = task_to_player[t]
-                temp_data = await self.action_queues[temp_pid].get()
-                temp_type = temp_data.get("action_type")
-                self.action_dict[temp_pid] = []
-                if temp_type == "pass":
-                    continue
-                temp_priority = self.action_priority.get(temp_type, -1)
-                if temp_priority <= current_priority:
-                    continue
-                if best_submitted is None or temp_priority > best_submitted[0]:
-                    best_submitted = (temp_priority, temp_type, temp_pid, dict(temp_data))
-
-            if best_submitted is not None:
-                new_claim = best_submitted
-                break
-
-        if new_claim is None:
-            return action_type, player_index, action_data, True
-
-        _, action_type, player_index, action_data = new_claim
 
 # 等待玩家行动
 async def wait_action(self):
@@ -166,15 +55,7 @@ async def wait_action(self):
             self.waiting_players_list.append(player_index)
             self.action_events[player_index].clear()
 
-    if (
-        getattr(self, "tactical_call", False)
-        and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
-    ):
-        self._tactical_action_snapshot = {
-            pid: list(alist) for pid, alist in self.action_dict.items()
-        }
-    else:
-        self._tactical_action_snapshot = None
+    init_tactical_round_state(self)
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
     player_index = None # 保存操作玩家索引 (如果玩家有操作则左侧三个变量有值 否则为None)
@@ -235,6 +116,8 @@ async def wait_action(self):
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                
                 self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
+                if temp_action_type == "pass":
+                    tactical_mark_player_passed(self, temp_player_index)
                 # 同一批完成任务中可能已有更高优先级操作清空等待列表，因此移除前先确认仍在等待。
                 if temp_player_index in self.waiting_players_list:
                     self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
@@ -261,15 +144,13 @@ async def wait_action(self):
                     player_index = temp_player_index  # 更新为对应的玩家索引
                     logger.info(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
 
-                # 如果是最高优先级，中断等待，执行操作
-                # 战术鸣牌：切牌后/抢杠询问阶段每次仅以申请阶段处理一个非 pass 行为，
-                # 后续的更高优先级打断交给 _tactical_grace_phase 逐次广播
-                tactical_break = (
+                # 战术鸣牌：任一非 pass 提交立即结束主询问
+                tactical_immediate_break = (
                     getattr(self, "tactical_call", False)
                     and temp_action_type != "pass"
                     and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
                 )
-                if do_interrupt or tactical_break:
+                if do_interrupt or tactical_immediate_break:
                     self.waiting_players_list = [] # 清空等待列表，强制结束循环
 
     # 等待行为结束,开始处理操作,pass,超时逻辑
@@ -286,21 +167,14 @@ async def wait_action(self):
     else:
         logger.info(f"操作超时")
 
-    # 战术鸣牌：吃牌固定进入申请-打断阶段；碰/和/杠/加杠仅在有更高优先级竞争者时进入
-    if (
-        getattr(self, "tactical_call", False)
-        and action_data
-        and action_type != "pass"
-        and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
-        and _should_enter_tactical_grace(self, action_type, player_index)
-    ):
-        cut_tile_for_claim = self.player_list[self.current_player_index].discard_tiles[-1]
-        action_type, player_index, action_data, claim_broadcasted = await _tactical_grace_phase(
-            self, action_type, player_index, action_data, cut_tile_for_claim
-        )
-        self._tactical_action_snapshot = None
-        if claim_broadcasted:
-            self._tactical_silent_action = True
+    action_type, player_index, action_data, _ = await apply_tactical_claim_if_needed(
+        self,
+        action_type,
+        player_index,
+        action_data,
+        broadcast_do_action=broadcast_do_action,
+        broadcast_ask_other_action=broadcast_ask_other_action,
+    )
 
     # 情形处理
     match self.game_status:
@@ -318,11 +192,11 @@ async def wait_action(self):
                     # 广播切牌操作
                     if self.current_player_index == 0:
                         self.xunmu += 1
-                        
-                    await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index) # 广播切牌动画 切牌玩家索引 手模切 切牌id 操作帧
-                    # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
                     refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
-                    self.action_dict = check_action_after_cut(self,tile_id)
+                    pre_action_dict = check_action_after_cut(self,tile_id)
+                    begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
+                    await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index) # 广播切牌动画 切牌玩家索引 手模切 切牌id 操作帧
+                    self.action_dict = pre_action_dict
                     
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_after_cut" # 转移行为
@@ -426,11 +300,11 @@ async def wait_action(self):
                 # 广播摸切操作
                 if self.current_player_index == 0:
                     self.xunmu += 1
-                
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
-
-                self.action_dict = check_action_after_cut(self,tile_id) # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
+                pre_action_dict = check_action_after_cut(self,tile_id)
+                begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
+                self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut" # 转移行为
                 else:
@@ -528,6 +402,16 @@ async def wait_action(self):
                         combination_mask = [0,tile_id,1,tile_id,0,tile_id,0,tile_id]
                 
                 elif action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
+                    flush_unexecuted_claim_applications(
+                        self,
+                        tile_id,
+                        executed_player=player_index,
+                        executed_action_type=action_type,
+                    )
+                    had_claim_protection = getattr(self, "_cp_active", False)
+                    await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
+                    if had_claim_protection:
+                        await asyncio.sleep(float(getattr(self, "claim_meld_followup_gap", 0.3)))
                     # 和牌 （荣和）
                     self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type
@@ -542,6 +426,12 @@ async def wait_action(self):
                     self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
                     clear_draw_slot(self.player_list[player_index])
                     self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
+                    flush_unexecuted_claim_applications(
+                        self,
+                        tile_id,
+                        executed_player=player_index,
+                        executed_action_type=action_type,
+                    )
                     # 牌谱记录吃碰杠牌
                     player_action_record_chipenggang(self, action_type=action_type, mingpai_tile=tile_id,
                                                      action_player=player_index, combination_mask=combination_mask)
@@ -554,11 +444,15 @@ async def wait_action(self):
                     return
                 
                 if action_type == "pass":
+                    flush_unexecuted_claim_applications(self, tile_id)
+                    await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     self.game_status = "deal_card" # 历时行为
                     return
 
             else:
                 # 如果超时则进行历时行为 继续下一个玩家摸牌
+                flush_unexecuted_claim_applications(self, tile_id)
+                await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                 self.game_status = "deal_card" # 历时行为
                 return
         
@@ -573,10 +467,11 @@ async def wait_action(self):
                     self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     # 广播切牌动画
+                    refresh_waiting_tiles(self, self.current_player_index)
+                    pre_action_dict = check_action_after_cut(self, tile_id)
+                    begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                     await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,cut_tile_index = cut_tile_index)
-                    # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
-                    refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
-                    self.action_dict = check_action_after_cut(self,tile_id)
+                    self.action_dict = pre_action_dict
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_after_cut" # 转移行为
                     else:
@@ -595,10 +490,11 @@ async def wait_action(self):
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 # 牌谱记录摸切
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
-                # 广播摸切动画
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
-                self.action_dict = check_action_after_cut(self,tile_id) # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
+                pre_action_dict = check_action_after_cut(self,tile_id)
+                begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
+                self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut" # 转移行为
                 else:

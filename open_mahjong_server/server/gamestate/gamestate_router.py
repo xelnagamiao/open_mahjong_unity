@@ -114,6 +114,7 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
             cutIndex=None,
             target_tile=message.get("targetTile"),
             chi_combo_index=message.get("chiComboIndex", 0) or 0,
+            action_tick=message.get("action_tick"),
         )
     except Exception as e:
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)

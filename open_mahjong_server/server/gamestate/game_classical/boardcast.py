@@ -5,6 +5,7 @@ import asyncio
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
+from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 
 logger = logging.getLogger(__name__)
 
@@ -348,6 +349,10 @@ async def broadcast_do_action(
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
 
+                viewer_deal_tile = sanitize_deal_tile_for_viewer(
+                    deal_tile, action_player, current_player.player_index
+                )
+
                 response = Response(
                     type="gamestate/classical/do_action",
                     success=True,
@@ -359,7 +364,7 @@ async def broadcast_do_action(
                         cut_tile=cut_tile,
                         cut_class=cut_class,
                         cut_tile_index = cut_tile_index,
-                        deal_tile=deal_tile,
+                        deal_tile=viewer_deal_tile,
                         buhua_tile=buhua_tile,
                         combination_mask=combination_mask,
                         combination_target=combination_target,

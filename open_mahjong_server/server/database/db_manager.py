@@ -7,17 +7,25 @@ from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import ThreadedConnectionPool, SimpleConnectionPool
 from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
 import logging
 import threading
 import hashlib
 import secrets
 import json
 
+# 禁止登录的封禁类型
+LOGIN_BAN_TYPES = frozenset({'login', 'full'})
+# 封禁解封联系 QQ
+BAN_CONTACT_QQ = '1448826180'
+
 logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
     """PostgreSQL 数据库管理类"""
+
+    LOGIN_IP_KEEP_LIMIT = 20
     
     def __init__(self, host: str, user: str, password: str, database: str, port: int = 5432, minconn: int = 2, maxconn: int = 10):
         self.config = {
@@ -511,6 +519,21 @@ class DatabaseManager:
                 else:
                     raise
 
+            # users 表迁移：账号封禁字段
+            for col_name, col_def in [
+                ("ban_expires_at", "TIMESTAMP NULL"),
+                ("ban_type", "VARCHAR(32) NULL"),
+                ("ban_reason", "TEXT NULL"),
+            ]:
+                cursor.execute(f"SAVEPOINT sp_add_{col_name};")
+                try:
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_def};")
+                except Error as e:
+                    if getattr(e, "pgcode", None) == "42701":
+                        cursor.execute(f"ROLLBACK TO SAVEPOINT sp_add_{col_name};")
+                    else:
+                        raise
+
             # 旧版 is_sponsor 布尔字段迁移为 sponsor_expires_at 后删除
             cursor.execute("""
                 SELECT 1 FROM information_schema.columns
@@ -614,6 +637,33 @@ class DatabaseManager:
                 );
             """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_friend_requests_to ON user_friend_requests(to_user_id);")
+
+            # 用户登录 IP 记录（每用户最多保留最近 20 条，由应用层裁剪）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_login_ips (
+                    id         BIGSERIAL PRIMARY KEY,
+                    user_id    BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    ip_address VARCHAR(45) NOT NULL,
+                    logged_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_user_login_ips_user_time
+                ON user_login_ips(user_id, logged_at DESC);
+            """)
+
+            # IP 封禁表（每个 IP 一条记录，upsert 更新）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ip_bans (
+                    id             BIGSERIAL PRIMARY KEY,
+                    ip_address     VARCHAR(45) NOT NULL UNIQUE,
+                    ban_expires_at TIMESTAMP NULL,
+                    ban_reason     TEXT NULL,
+                    created_by     BIGINT NULL REFERENCES users(user_id) ON DELETE SET NULL,
+                    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
 
 
             # 创建游客用户序列（9000000-9900000）
@@ -733,6 +783,76 @@ class DatabaseManager:
             if conn:
                 conn.rollback()
             return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def record_user_login_ip(self, user_id: int, ip_address: str) -> bool:
+        """记录一次成功登录的 IP，并裁剪为每用户最近 LOGIN_IP_KEEP_LIMIT 条。"""
+        ip = (ip_address or "").strip()[:45] or "unknown"
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO user_login_ips (user_id, ip_address) VALUES (%s, %s)",
+                (user_id, ip),
+            )
+            cursor.execute(
+                """
+                DELETE FROM user_login_ips
+                WHERE user_id = %s
+                  AND id NOT IN (
+                    SELECT id FROM user_login_ips
+                    WHERE user_id = %s
+                    ORDER BY logged_at DESC, id DESC
+                    LIMIT %s
+                  )
+                """,
+                (user_id, user_id, self.LOGIN_IP_KEEP_LIMIT),
+            )
+            conn.commit()
+            return True
+        except Error as e:
+            logger.error(f'记录登录 IP 失败 user_id={user_id}: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def get_recent_login_ips(self, user_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+        """获取用户最近若干次登录 IP。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT ip_address, logged_at
+                FROM user_login_ips
+                WHERE user_id = %s
+                ORDER BY logged_at DESC, id DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            rows = cursor.fetchall()
+            return [
+                {
+                    "ip_address": row["ip_address"],
+                    "logged_at": str(row["logged_at"]),
+                }
+                for row in rows
+            ]
+        except Error as e:
+            logger.error(f'查询登录 IP 失败 user_id={user_id}: {e}')
+            if conn:
+                conn.rollback()
+            return []
         finally:
             if conn:
                 cursor.close()
@@ -896,6 +1016,216 @@ class DatabaseManager:
         )
         return f"{salt.hex()}:{pwd_hash.hex()}"
     
+    @staticmethod
+    def format_ban_expires_at(expires_at: Optional[datetime]) -> str:
+        """将封禁到期时间格式化为展示用字符串。"""
+        if expires_at is None:
+            return '永久'
+        if isinstance(expires_at, str):
+            try:
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except ValueError:
+                return expires_at
+        if expires_at.year >= 2099:
+            return '永久'
+        if expires_at.tzinfo is not None:
+            local = expires_at.astimezone()
+        else:
+            local = expires_at
+        return local.strftime('%Y-%m-%d %H:%M:%S')
+
+    @staticmethod
+    def is_login_ban_active(user: Dict[str, Any], now: Optional[datetime] = None) -> bool:
+        """判断用户当前是否处于禁止登录的封禁状态。"""
+        ban_type = user.get('ban_type')
+        if not ban_type or ban_type not in LOGIN_BAN_TYPES:
+            return False
+        ban_expires_at = user.get('ban_expires_at')
+        if ban_expires_at is None:
+            return True
+        if now is None:
+            now = datetime.now(timezone.utc) if getattr(ban_expires_at, 'tzinfo', None) else datetime.now()
+        if isinstance(ban_expires_at, str):
+            try:
+                ban_expires_at = datetime.fromisoformat(ban_expires_at.replace('Z', '+00:00'))
+            except ValueError:
+                return True
+        expires = ban_expires_at
+        if getattr(expires, 'tzinfo', None) is not None and now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        elif getattr(expires, 'tzinfo', None) is None and now.tzinfo is not None:
+            expires = expires.replace(tzinfo=now.tzinfo)
+        return expires > now
+
+    @classmethod
+    def build_login_ban_message(cls, user: Dict[str, Any]) -> str:
+        """生成登录被拒时的封禁提示文案。"""
+        ban_reason = (user.get('ban_reason') or '无').strip() or '无'
+        expires_text = cls.format_ban_expires_at(user.get('ban_expires_at'))
+        if expires_text == '永久':
+            return (
+                f'您的账户已被永久封禁 封禁原因：{ban_reason} '
+                f'请联系qq{BAN_CONTACT_QQ} 解封'
+            )
+        return (
+            f'您的账户已经被封禁至{expires_text} 封禁原因：{ban_reason} '
+            f'请联系qq{BAN_CONTACT_QQ} 解封'
+        )
+
+    @staticmethod
+    def is_ban_expired(ban_expires_at: Any, now: Optional[datetime] = None) -> bool:
+        """封禁是否已过期（ban_expires_at 为 NULL 表示永久有效）。"""
+        if ban_expires_at is None:
+            return False
+        if now is None:
+            now = datetime.now(timezone.utc) if getattr(ban_expires_at, 'tzinfo', None) else datetime.now()
+        if isinstance(ban_expires_at, str):
+            try:
+                ban_expires_at = datetime.fromisoformat(ban_expires_at.replace('Z', '+00:00'))
+            except ValueError:
+                return False
+        expires = ban_expires_at
+        if getattr(expires, 'tzinfo', None) is not None and now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        elif getattr(expires, 'tzinfo', None) is None and now.tzinfo is not None:
+            expires = expires.replace(tzinfo=now.tzinfo)
+        return expires <= now
+
+    @classmethod
+    def build_ip_ban_message(cls, ban: Dict[str, Any]) -> str:
+        """生成 IP 被封禁时的登录提示文案。"""
+        ban_reason = (ban.get('ban_reason') or '无').strip() or '无'
+        expires_text = cls.format_ban_expires_at(ban.get('ban_expires_at'))
+        if expires_text == '永久':
+            return (
+                f'您的 IP 已被永久封禁 封禁原因：{ban_reason} '
+                f'请联系qq{BAN_CONTACT_QQ} 解封'
+            )
+        return (
+            f'您的 IP 已被封禁至{expires_text} 封禁原因：{ban_reason} '
+            f'请联系qq{BAN_CONTACT_QQ} 解封'
+        )
+
+    def get_active_ip_ban(self, ip_address: str) -> Optional[Dict[str, Any]]:
+        """查询 IP 当前生效的封禁记录。"""
+        ip = (ip_address or "").strip()[:45]
+        if not ip or ip == "unknown":
+            return None
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT * FROM ip_bans WHERE ip_address = %s",
+                (ip,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            ban = dict(row)
+            if self.is_ban_expired(ban.get('ban_expires_at')):
+                return None
+            return ban
+        except Error as e:
+            logger.error(f'查询 IP 封禁失败 ip={ip}: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def upsert_ip_ban(
+        self,
+        ip_address: str,
+        ban_expires_at: Optional[datetime],
+        ban_reason: Optional[str],
+        created_by: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """新增或更新 IP 封禁。"""
+        ip = (ip_address or "").strip()[:45]
+        if not ip:
+            return None
+        reason = (ban_reason or "").strip() or None
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                INSERT INTO ip_bans (ip_address, ban_expires_at, ban_reason, created_by, updated_at)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (ip_address) DO UPDATE SET
+                    ban_expires_at = EXCLUDED.ban_expires_at,
+                    ban_reason = EXCLUDED.ban_reason,
+                    created_by = EXCLUDED.created_by,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING *
+                """,
+                (ip, ban_expires_at, reason, created_by),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return dict(row) if row else None
+        except Error as e:
+            logger.error(f'写入 IP 封禁失败 ip={ip}: {e}')
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def delete_ip_ban(self, ip_address: str) -> bool:
+        """解除 IP 封禁。"""
+        ip = (ip_address or "").strip()[:45]
+        if not ip:
+            return False
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM ip_bans WHERE ip_address = %s", (ip,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            logger.error(f'删除 IP 封禁失败 ip={ip}: {e}')
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def list_ip_bans(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """分页列出 IP 封禁记录。"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT id, ip_address, ban_expires_at, ban_reason, created_by, created_at, updated_at
+                FROM ip_bans
+                ORDER BY updated_at DESC, id DESC
+                LIMIT %s OFFSET %s
+                """,
+                (limit, offset),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Error as e:
+            logger.error(f'列出 IP 封禁失败: {e}')
+            if conn:
+                conn.rollback()
+            return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
     def verify_password(self, password: str, stored_hash: str) -> bool:
         """
         验证密码是否匹配存储的哈希值

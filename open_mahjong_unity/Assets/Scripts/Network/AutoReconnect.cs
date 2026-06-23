@@ -160,13 +160,9 @@ public static class AutoReconnect {
         _state = State.Reconnecting;
         ExpectGameRestore = _snapshot.WasInGame;
 
-        if (ExpectGameRestore) {
-            GameSceneTeardown.ResetToIdle();
-            WindowsManager.Instance?.SwitchWindow("menu");
-        }
-
-        NotificationManager.Instance?.ShowTip("重连", true, "正在恢复连接…");
-
+        // 注意：此处不做任何 UI 变更（不拆对局、不切窗口、不弹 tip）。
+        // 只有在 Phase 0 探活确认旧连接确实已断开后，才进入恢复流程并调整 UI，
+        // 避免「截图等临时失焦但连接仍存活」时误把玩家踢出对局或退出登录。
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNamed(
             CoroutineKeys.NetworkAutoReconnect,
@@ -183,9 +179,9 @@ public static class AutoReconnect {
         var nm = NetworkManager.Instance;
         if (nm == null) { OnFailed("内部错误"); yield break; }
 
-        bool skipReconnect = false;
-
-        // Phase 0: 快速探活
+        // Phase 0: 快速探活。若旧连接仍存活（如截图临时失焦），说明并未真正断线，
+        // 直接结束：不重连、不重新登录、不改动任何 UI。
+        // 在存活连接上重新 Login 会被服务端当作异地登录而顶掉自身连接，导致「退出登录」。
         nm.ResetProbePongFlag();
         bool probeSent = nm.SendProbePing();
         Debug.Log($"[AutoReconnect] [0/4] 快速探活 pingSent={probeSent}");
@@ -199,15 +195,9 @@ public static class AutoReconnect {
                 if (_state != State.Reconnecting) yield break;
                 if (nm.ProbePongReceived)
                 {
-                    if (!ExpectGameRestore)
-                    {
-                        Debug.Log("[AutoReconnect] 旧连接存活，跳过重连");
-                        OnSucceeded(skipAllTips: true);
-                        yield break;
-                    }
-                    Debug.Log("[AutoReconnect] 旧连接存活，仍需登录同步状态");
-                    skipReconnect = true;
-                    break;
+                    Debug.Log("[AutoReconnect] 旧连接存活，无需重连");
+                    OnSucceeded(skipAllTips: true);
+                    yield break;
                 }
                 if (_backgroundDisconnectDetected)
                 {
@@ -219,63 +209,69 @@ public static class AutoReconnect {
             }
         }
 
-        // Phase 1: 重连 WebSocket（探活成功且需恢复对局时跳过）
-        if (!skipReconnect)
+        // 走到这里说明已确认断线，正式进入恢复流程。此时才提示并离开可能失效的对局界面。
+        NotificationManager.Instance?.ShowTip("重连", true, "正在恢复连接…");
+        if (ExpectGameRestore)
         {
-            const int maxAttempts = 2;
-            bool connected = false;
-            WebSocket newSocket = null;
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            // 离开可能已失效的对局界面，避免停留在空桌；重回对局须等到收到 game_start。
+            GameSceneTeardown.ResetToIdle();
+            WindowsManager.Instance?.SwitchWindow("menu");
+        }
+
+        // Phase 1: 重连 WebSocket
+        const int maxAttempts = 2;
+        bool connected = false;
+        WebSocket newSocket = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            if (attempt > 1)
             {
-                if (attempt > 1)
+                float retryDelay = 1.5f;
+                Debug.Log($"[AutoReconnect] 重试前等待 {retryDelay}s");
+                while (retryDelay > 0f)
                 {
-                    float retryDelay = 1.5f;
-                    Debug.Log($"[AutoReconnect] 重试前等待 {retryDelay}s");
-                    while (retryDelay > 0f)
-                    {
-                        yield return null;
-                        if (_state != State.Reconnecting) yield break;
-                        retryDelay -= Time.unscaledDeltaTime;
-                    }
-                }
-                Debug.Log($"[AutoReconnect] [1/4] 第{attempt}/{maxAttempts}次尝试连接");
-                var oldWs = nm.GetWebSocket();
-                if (oldWs != null && oldWs != newSocket)
-                {
-                    try { oldWs.Close(); } catch { }
                     yield return null;
-                }
-                newSocket = nm.BeginNewConnection();
-                if (newSocket == null)
-                {
-                    OnFailed("无法创建连接");
-                    yield break;
-                }
-                const float connectTimeout = 10f;
-                float elapsed = 0f;
-                while (elapsed < connectTimeout)
-                {
-#if !UNITY_WEBGL || UNITY_EDITOR
-                    newSocket.DispatchMessageQueue();
-#endif
-                    if (newSocket.State == WebSocketState.Open)
-                    {
-                        connected = true;
-                        break;
-                    }
                     if (_state != State.Reconnecting) yield break;
-                    elapsed += Time.unscaledDeltaTime;
-                    yield return null;
+                    retryDelay -= Time.unscaledDeltaTime;
                 }
-                if (connected) break;
-                Debug.LogWarning($"[AutoReconnect] 第{attempt}/{maxAttempts}次连接失败(State={newSocket.State})");
             }
-            if (!connected)
+            Debug.Log($"[AutoReconnect] [1/4] 第{attempt}/{maxAttempts}次尝试连接");
+            var oldWs = nm.GetWebSocket();
+            if (oldWs != null && oldWs != newSocket)
             {
-                Debug.LogWarning("[AutoReconnect] 所有连接尝试均失败");
-                OnFailed("无法连接服务器");
+                try { oldWs.Close(); } catch { }
+                yield return null;
+            }
+            newSocket = nm.BeginNewConnection();
+            if (newSocket == null)
+            {
+                OnFailed("无法创建连接");
                 yield break;
             }
+            const float connectTimeout = 10f;
+            float elapsed = 0f;
+            while (elapsed < connectTimeout)
+            {
+#if !UNITY_WEBGL || UNITY_EDITOR
+                newSocket.DispatchMessageQueue();
+#endif
+                if (newSocket.State == WebSocketState.Open)
+                {
+                    connected = true;
+                    break;
+                }
+                if (_state != State.Reconnecting) yield break;
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (connected) break;
+            Debug.LogWarning($"[AutoReconnect] 第{attempt}/{maxAttempts}次连接失败(State={newSocket.State})");
+        }
+        if (!connected)
+        {
+            Debug.LogWarning("[AutoReconnect] 所有连接尝试均失败");
+            OnFailed("无法连接服务器");
+            yield break;
         }
         Debug.Log("[AutoReconnect] WebSocket 已连接");
 
@@ -297,7 +293,7 @@ public static class AutoReconnect {
         }
         Debug.Log("[AutoReconnect] 登录成功");
 
-        // Phase 3: 同步房间状态
+        // Phase 3: 同步房间状态（断线时服务端已将玩家移出房间，需按服务端权威数据刷新）
         Debug.Log("[AutoReconnect] [3/4] 同步房间状态");
         RoomNetworkManager.Instance?.SyncMyRoom();
         const float roomSyncTimeout = 5f;
@@ -319,13 +315,14 @@ public static class AutoReconnect {
             _waitState.RoomSyncDone = true;
         }
 
-        // Phase 4: 恢复对局（仅收到 game_start 后才进桌）
+        // Phase 4: 恢复对局（仅在收到 game_start 后才真正进入桌面）
         if (ExpectGameRestore)
         {
             Debug.Log("[AutoReconnect] [4/4] 等待对局");
             const float reconnectAskTimeout = 3f;
             const float gameRestoreTimeout = 12f;
             float waited = 0f;
+            // Phase 4a: 等待 reconnect_ask
             while (waited < reconnectAskTimeout && !_waitState.ReconnectAskReceived)
             {
                 if (_state != State.Reconnecting) yield break;
@@ -343,6 +340,7 @@ public static class AutoReconnect {
                 OnSucceeded(skipAllTips: true);
                 yield break;
             }
+            // Phase 4b: 等待 game_start
             waited = 0f;
             while (waited < gameRestoreTimeout && !_waitState.GameRestored)
             {

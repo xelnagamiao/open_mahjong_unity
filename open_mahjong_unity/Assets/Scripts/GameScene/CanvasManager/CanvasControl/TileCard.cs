@@ -406,10 +406,9 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovering = false;
-        // 已立起的牌其提示由立起态驱动，悬停离开不应隐藏，否则确认模式下移开鼠标提示会消失。
-        bool isArmed = HandCardSelectionController.Instance != null
-            && HandCardSelectionController.Instance.IsArmed(this);
-        if (!isArmed)
+        // 两次点击确认模式下提示完全由"立起态"驱动：立起后固定显示该牌的提示，
+        // 鼠标移到/移出其它手牌都不改变提示（否则移开任意牌都会把立起牌的固定提示清掉）。
+        if (!ShouldUseHandCutConfirm())
         {
             // 直接隐藏提示容器（内部会先清空内容）
             TipsContainer.Instance.HideTips();

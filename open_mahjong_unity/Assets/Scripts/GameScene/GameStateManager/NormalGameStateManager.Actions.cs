@@ -60,10 +60,7 @@ public partial class NormalGameStateManager {
             HandleTacticalClaim(GetCardPlayer, action_list);
             return;
         }
-        if (isSilent) {
-            // 战术鸣牌静默实际行为：申请阶段已发声/动画，本次仅同步状态
-            TacticalCallPanel.Instance.HidePanel();
-        }
+        // isSilent：战术鸣牌申请阶段已发声/动画，实际行为仅同步状态
         foreach (string action in action_list) {
 
             Debug.Log($"执行DoAction操作: {action} (silent={isSilent})");
@@ -83,14 +80,19 @@ public partial class NormalGameStateManager {
                 case "deal_buhua_tile":
                     lastDealTileType = action;
                     remainTiles--; // 剩余牌数减少
-                    if (GetCardPlayer == "self"){     // 添加手牌 显示手牌
+                    if (GetCardPlayer == "self"){
+                        if (!deal_tile.HasValue) {
+                            Debug.LogError($"摸牌操作缺少 deal_tile: action={action}, player={action_player}");
+                            break;
+                        }
                         selfHandTiles.Add(deal_tile.Value);
                         GameCanvas.Instance.ChangeHandCards("GetCard", deal_tile.Value, null, null);
                         Game3DManager.Instance.Change3DTile("GetCard", deal_tile.Value, 0, GetCardPlayer, false, null);
                     }
-                    else{                             // 增加手牌 显示3D手牌
+                    else{
                         player_to_info[GetCardPlayer].hand_tiles_count++;
-                        Game3DManager.Instance.Change3DTile("GetCard", deal_tile.Value, 0, GetCardPlayer, false, null);
+                        // 服务端对他人不下发 deal_tile；3D 仅增加背面牌，tileId 传 0
+                        Game3DManager.Instance.Change3DTile("GetCard", deal_tile ?? 0, 0, GetCardPlayer, false, null);
                     }
                     break;
                 
@@ -339,18 +341,16 @@ public partial class NormalGameStateManager {
         return result;
     }
 
-    // 战术鸣牌：处理 is_claim 申请广播
-    // 仅播放发声、字体动画并启动战术鸣牌面板倒计时，不修改任何游戏状态
+    // 战术鸣牌：处理 is_claim 申请广播（仅发声/字体动画，等待窗口由服务端 ask_other 驱动）
     private void HandleTacticalClaim(string actor, string[] action_list) {
-        // 日麻多家荣和/三家和了：仅播发声与字体，不弹出战术鸣牌倒计时面板
-        if (roomRule != "riichi") {
-            TacticalCallPanel.Instance.ShowClaim();
-        }
         foreach (string action in action_list) {
             SoundManager.Instance.PlayActionSound(actor, action);
             SoundManager.Instance.PlayPhysicsSound(action);
             // ShowActionDisplay 根据规则处理 hu_first/hu_second/hu_third/hu_self 的文案
             GameCanvas.Instance.ShowActionDisplay(actor, action, roomRule);
         }
+        // 申请-停顿期间隐藏本家操作按钮面板：可抢断的更高优先级玩家会在停顿后收到
+        // 战术再次询问(is_tactical_recheck)并重新弹出面板；无抢断权的玩家则保持隐藏。
+        GameCanvas.Instance.ClearActionButton();
     }
 }

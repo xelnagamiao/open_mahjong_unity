@@ -147,9 +147,13 @@ class GuobiaoGameState:
         self.cuohe_type = room_data.get("cuohe_type", 0) # 错和形式：0=-30/+10，1=-40/+0
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
-        self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：吃牌固定 1.5 秒申请-打断；碰/和/杠/加杠仅在有更高优先级竞争者时询问
-        
-        self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
+        self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：吃牌固定申请-打断；碰/和/杠/加杠仅在有更高优先级竞争者时询问
+        self.claim_protection = room_data.get("claim_protection", True) # 鸣牌保护：无鸣牌权玩家延迟看到切牌/鸣牌（默认开启）
+        # 战术鸣牌 / 鸣牌保护的时间参数（暂在此写死，后续接入外部设置）：
+        self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5) # 战术鸣牌：申请广播后、进入打断窗口前的固定停顿（秒）
+        self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)     # 战术鸣牌：每次申请后的打断窗口时长（秒）
+        self.claim_protect_delay = room_data.get("claim_protect_delay", 1.5)           # 鸣牌保护：受保护观众看到出牌的最大延迟（秒）
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.3)   # 鸣牌保护：出牌与紧随其后的鸣牌/和牌之间的间隔（秒）
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
         self.match_queue_type = room_data.get("match_queue_type", None) # 排位匹配队列类型
         
@@ -192,8 +196,19 @@ class GuobiaoGameState:
         
         self.backward_tiles_list_type = "double"
 
+        from ..public.claim_protection import init_claim_protection_state
+        init_claim_protection_state(self)
+
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False
+        if self.Debug:
+            # 调试牌例番数较低，便于验证荣和按钮
+            self.hepai_limit = 1
+            # 战术鸣牌 / 鸣牌保护一律遵循房间配置，调试不再强制开启；
+            # 关闭战术鸣牌时走「等待最高优先级操作执行完成」的原始流程。
+            # 如需在调试中强制开启，取消下面对应注释即可：
+            # self.tactical_call = True
+            # self.claim_protection = True
 
         # 观战系统相关：含 3 个及以上 AI(uid<=10) 或配置禁用的对局禁用观战
         self.spectator_enabled = self.allow_spectator_config and not too_many_ai_for_spectator(self.player_list)
@@ -256,6 +271,8 @@ class GuobiaoGameState:
                         'hepai_limit': self.hepai_limit,
                         'open_cuohe': self.open_cuohe,
                         'show_moqie_hint': self.show_moqie_hint,
+                        'tactical_call': getattr(self, 'tactical_call', False),
+                        'claim_protection': getattr(self, 'claim_protection', False),
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }

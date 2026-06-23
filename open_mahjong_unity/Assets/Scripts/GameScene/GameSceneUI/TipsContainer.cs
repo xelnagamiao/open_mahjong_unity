@@ -21,6 +21,8 @@ public class TipsContainer : MonoBehaviour
     private readonly List<int> _cachedWaitingTiles = new List<int>();
     private bool _hasCachedTenpaiTips;
     private RecordTipsContext _recordTipsContext;
+    /// <summary>当前和牌张：场内+副露仅 3 张可见时，自摸路径才加和绝张（与 gamestate action_check 一致）。</summary>
+    private bool _heJuezhangTsumoOnly;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
 
@@ -143,60 +145,14 @@ public class TipsContainer : MonoBehaviour
         waitingTiles.Sort();
         // 遍历每一张和牌张
         foreach (int hepaiTile in waitingTiles) {
-            // 和绝张检查 弃牌+1 有顺子+1 有刻+3
-            int showTilesCount = 0;
-            List<string> singleTilewayToHepai = new List<string>();
-            List<string> nowCombinations = new List<string>();
-            
-            // 统计所有玩家的弃牌和组合牌
-            foreach (var playerInfo in gameManager.player_to_info.Values) {
-                // 统计弃牌中的该牌数量（包括理论弃牌）
-                if (playerInfo.discard_tiles != null) {
-                    showTilesCount += playerInfo.discard_tiles.Count(t => t == hepaiTile);
-                }
-                // 收集所有组合牌
-                if (playerInfo.combination_tiles != null) {
-                    nowCombinations.AddRange(playerInfo.combination_tiles);
-                }
-            }
-            
-            // 统计组合牌中的该牌数量
-            foreach (string combination in nowCombinations) {
-                // 检查刻子 k{牌号}
-                if (combination.Contains($"k{hepaiTile}")) {
-                    showTilesCount += 3;
-                }
-                // 检查顺子 s{牌号-1}, s{牌号}, s{牌号+1}
-                if (combination.Contains($"s{hepaiTile - 1}")) {
-                    showTilesCount += 1;
-                }
-                if (combination.Contains($"s{hepaiTile}")) {
-                    showTilesCount += 1;
-                }
-                if (combination.Contains($"s{hepaiTile + 1}")) {
-                    showTilesCount += 1;
-                }
-            }
+            var (allDiscards, allCombinations) = CollectTableFromLiveGame(gameManager);
+            int showTilesCount = HeJuezhangTableCounter.CountShowTilesOnTable(
+                hepaiTile, allDiscards, allCombinations, _pendingCutTileId);
+            List<string> singleTilewayToHepai = BuildHeJuezhangSingleTileList(showTilesCount);
 
-            // 切牌悬停预览：即将打出的牌进入弃牌区
-            if (_pendingCutTileId.HasValue && _pendingCutTileId.Value == hepaiTile) {
-                showTilesCount += 1;
-            }
-            
-            // 判断是否和绝张
-            if (showTilesCount == 3) {
-                singleTilewayToHepai.Add("和绝张");
-            }
-            else if (showTilesCount == 3) {
-                if (wayToHepai.Contains("自摸")) {
-                    singleTilewayToHepai.Add("和绝张");
-                }
-            }
-
-            // 将singleTilewayToHepai和wayToHepai合并，加上"点和"计算每一张和牌卡牌的番数
             List<string> mergedWayToHepai = new List<string>(wayToHepai);
             mergedWayToHepai.AddRange(singleTilewayToHepai);
-            mergedWayToHepai.Add("点和"); // 添加"点和"
+            mergedWayToHepai.Add("点和");
             
             // 获取手牌和组合牌信息（这里用传入的 handTiles，而不是 selfHandTiles）
             List<int> handList = new List<int>(handTiles);
@@ -244,33 +200,10 @@ public class TipsContainer : MonoBehaviour
         waitingTiles.Sort();
 
         foreach (int hepaiTile in waitingTiles) {
-            int showTilesCount = 0;
-            List<string> singleTilewayToHepai = new List<string>();
-            List<string> nowCombinations = new List<string>();
-
-            foreach (var playerInfo in ctx.PlayersByPosition.Values) {
-                if (playerInfo?.DiscardTiles != null) {
-                    showTilesCount += playerInfo.DiscardTiles.Count(t => t == hepaiTile);
-                }
-                if (playerInfo?.CombinationTiles != null) {
-                    nowCombinations.AddRange(playerInfo.CombinationTiles);
-                }
-            }
-
-            foreach (string combination in nowCombinations) {
-                if (combination.Contains($"k{hepaiTile}")) showTilesCount += 3;
-                if (combination.Contains($"s{hepaiTile - 1}")) showTilesCount += 1;
-                if (combination.Contains($"s{hepaiTile}")) showTilesCount += 1;
-                if (combination.Contains($"s{hepaiTile + 1}")) showTilesCount += 1;
-            }
-
-            if (_pendingCutTileId.HasValue && _pendingCutTileId.Value == hepaiTile) {
-                showTilesCount += 1;
-            }
-
-            if (showTilesCount == 3) {
-                singleTilewayToHepai.Add("和绝张");
-            }
+            var (allDiscards, allCombinations) = CollectTableFromRecord(ctx);
+            int showTilesCount = HeJuezhangTableCounter.CountShowTilesOnTable(
+                hepaiTile, allDiscards, allCombinations, _pendingCutTileId);
+            List<string> singleTilewayToHepai = BuildHeJuezhangSingleTileList(showTilesCount);
 
             List<string> mergedWayToHepai = new List<string>(wayToHepai);
             mergedWayToHepai.AddRange(singleTilewayToHepai);
@@ -328,6 +261,57 @@ public class TipsContainer : MonoBehaviour
             wayToHepai.Add("和单张");
         }
         return wayToHepai;
+    }
+
+    private List<string> BuildHeJuezhangSingleTileList(int showTilesCount) {
+        _heJuezhangTsumoOnly = HeJuezhangTableCounter.ShouldAddHeJuezhangForTsumo(showTilesCount);
+        var single = new List<string>();
+        if (HeJuezhangTableCounter.ShouldAddHeJuezhangForRon(showTilesCount)) {
+            single.Add("和绝张");
+        }
+        return single;
+    }
+
+    private List<string> BuildZimoWayToHepai(List<string> wayToHepai, List<string> singleTilewayToHepai) {
+        var zimoWay = new List<string>(wayToHepai);
+        zimoWay.AddRange(singleTilewayToHepai);
+        if (_heJuezhangTsumoOnly) {
+            zimoWay.Add("和绝张");
+        }
+        zimoWay.Add("自摸");
+        return zimoWay;
+    }
+
+    private static (List<IReadOnlyList<int>> discards, List<string> combinations) CollectTableFromLiveGame(
+        NormalGameStateManager gameManager) {
+        var discards = new List<IReadOnlyList<int>>();
+        var combinations = new List<string>();
+        if (gameManager?.player_to_info == null) {
+            return (discards, combinations);
+        }
+        foreach (var playerInfo in gameManager.player_to_info.Values) {
+            discards.Add(playerInfo.discard_tiles);
+            if (playerInfo.combination_tiles != null) {
+                combinations.AddRange(playerInfo.combination_tiles);
+            }
+        }
+        return (discards, combinations);
+    }
+
+    private static (List<IReadOnlyList<int>> discards, List<string> combinations) CollectTableFromRecord(
+        RecordTipsContext ctx) {
+        var discards = new List<IReadOnlyList<int>>();
+        var combinations = new List<string>();
+        if (ctx?.PlayersByPosition == null) {
+            return (discards, combinations);
+        }
+        foreach (var playerInfo in ctx.PlayersByPosition.Values) {
+            discards.Add(playerInfo?.DiscardTiles);
+            if (playerInfo?.CombinationTiles != null) {
+                combinations.AddRange(playerInfo.CombinationTiles);
+            }
+        }
+        return (discards, combinations);
     }
 
     private void BuildVisibleTileCountsFromRecord(RecordTipsContext ctx, List<int> selfHandTiles) {
@@ -401,9 +385,7 @@ public class TipsContainer : MonoBehaviour
             SetTipsFanCount(fanObject, FormatTipsFanLabel($"{dianheFan}番", hepaiTile), "dianhe", hepaiTile);
         } else {
             // 番数未达起和，改为"自摸"重新计算
-            List<string> zimoWayToHepai = new List<string>(wayToHepai);
-            zimoWayToHepai.AddRange(singleTilewayToHepai);
-            zimoWayToHepai.Add("自摸");
+            List<string> zimoWayToHepai = BuildZimoWayToHepai(wayToHepai, singleTilewayToHepai);
 
             Tuple<int, List<string>> zimoResult;
             if (subRule == "guobiao/xiaolin") {
@@ -453,9 +435,7 @@ public class TipsContainer : MonoBehaviour
             SetTipsFanCount(fanObject, FormatTipsFanLabel(fanDisplay, hepaiTile), "dianhe", hepaiTile);
         } else {
             // 如果番数小于1，改为"自摸"重新计算
-            List<string> zimoWayToHepai = new List<string>(wayToHepai);
-            zimoWayToHepai.AddRange(singleTilewayToHepai);
-            zimoWayToHepai.Add("自摸");
+            List<string> zimoWayToHepai = BuildZimoWayToHepai(wayToHepai, singleTilewayToHepai);
 
             // 计算自摸的番数
             var zimoResult = Qingque13External.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
@@ -504,10 +484,8 @@ public class TipsContainer : MonoBehaviour
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             SetTipsFanCount(fanObject, FormatTipsFanLabel($"{dianheTotalFu}副", hepaiTile), "dianhe", hepaiTile);
         } else {
-            var zimoWay = ConvertToClassicalWay(new List<string>(wayToHepai));
+            var zimoWay = ConvertToClassicalWay(BuildZimoWayToHepai(wayToHepai, singleTilewayToHepai));
             zimoWay.Insert(0, "和牌");
-            zimoWay.AddRange(singleTilewayToHepai);
-            zimoWay.Add("自摸");
             var zimoResult = ClassicalExternal.HepaiCheck(handList, combinationList, zimoWay, hepaiTile, false);
             int zimoTotalFu = zimoResult.Item2;
 
@@ -611,7 +589,7 @@ public class TipsContainer : MonoBehaviour
         int roundWindOffset = Mathf.Clamp((gm.currentRound - 1) / 4, 0, 3);
         ctx.RoundWind = RiichiTileUtil.East + roundWindOffset;
 
-        ctx.DoraIndicators = gm.doraIndicators != null ? new List<int>(gm.doraIndicators) : new List<int>();
+        ctx.DoraIndicators = BuildMergedDoraIndicators(gm.doraIndicators, gm.kanDoraIndicators);
         // 里宝仅立直者在和牌时才能看到；tips 阶段若已立直，允许展示理论值（服务端仍以结算为准）
         ctx.UraDoraIndicators = new List<int>();
         return ctx;
@@ -632,6 +610,14 @@ public class TipsContainer : MonoBehaviour
         ctx.DoraIndicators = recordCtx.DoraIndicators != null ? new List<int>(recordCtx.DoraIndicators) : new List<int>();
         ctx.UraDoraIndicators = new List<int>();
         return ctx;
+    }
+
+    /// <summary>合并表宝牌与杠宝牌指示牌（与服务端 check_hepai dora_indicators 口径一致）。</summary>
+    private static List<int> BuildMergedDoraIndicators(List<int> doraIndicators, List<int> kanDoraIndicators) {
+        var merged = new List<int>();
+        if (doraIndicators != null) merged.AddRange(doraIndicators);
+        if (kanDoraIndicators != null) merged.AddRange(kanDoraIndicators);
+        return merged;
     }
 
     /// <summary>

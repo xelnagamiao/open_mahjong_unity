@@ -42,12 +42,13 @@ def check_action_after_cut(self,cut_tile):
                         temp_action_dict[item.player_index].append("gang")
                         break
 
-    # 如果该牌是任意家的等待牌 且不是自己
+    # 切牌后刷新他家听牌再判荣和（避免开局未刷新 waiting_tiles 导致漏判）
     for item in self.player_list:
-        if cut_tile in item.waiting_tiles and item.player_index != self.current_player_index:
-            refresh_waiting_tiles(self, item.player_index)
-            if cut_tile in item.waiting_tiles:
-                check_hepai(self,temp_action_dict,cut_tile,item.player_index,"dianhe")
+        if item.player_index == self.current_player_index:
+            continue
+        refresh_waiting_tiles(self, item.player_index)
+        if cut_tile in item.waiting_tiles:
+            check_hepai(self, temp_action_dict, cut_tile, item.player_index, "dianhe")
 
     # 如果玩家有操作 则添加pass
     for i in temp_action_dict:
