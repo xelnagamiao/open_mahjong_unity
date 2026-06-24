@@ -25,6 +25,7 @@ from ..public.hand_slot_utils import (
 from ..public.claim_protection import (
     begin_claim_protection_interval,
     finalize_claim_protection,
+    compute_protected_meld_delay,
 )
 from ..public.tactical_claim import (
     init_tactical_round_state,
@@ -411,7 +412,9 @@ async def wait_action(self):
                     had_claim_protection = getattr(self, "_cp_active", False)
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     if had_claim_protection:
-                        await asyncio.sleep(float(getattr(self, "claim_meld_followup_gap", 0.3)))
+                        delay = compute_protected_meld_delay(self)
+                        if delay > 0:
+                            await asyncio.sleep(delay)
                     # 和牌 （荣和）
                     self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type

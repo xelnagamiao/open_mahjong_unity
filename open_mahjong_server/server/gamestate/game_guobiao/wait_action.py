@@ -25,6 +25,7 @@ from ..public.hand_slot_utils import (
 from ..public.claim_protection import (
     begin_claim_protection_interval,
     finalize_claim_protection,
+    compute_protected_meld_delay,
 )
 from ..public.tactical_claim import (
     init_tactical_round_state,
@@ -446,12 +447,13 @@ async def wait_action(self):
                         executed_player=player_index,
                         executed_action_type=action_type,
                     )
-                    # 荣和：先把暂存出牌发给受保护观众，再固定间隔后进入结算，
-                    # 保证受保护观众看到 cut -> claim_meld_followup_gap -> 和牌 的顺序（该间隔必定存在）。
+                    # 荣和：先把暂存出牌发给受保护观众，再按 cut 揭示时刻 + gap 等待后进入结算。
                     had_claim_protection = getattr(self, "_cp_active", False)
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     if had_claim_protection:
-                        await asyncio.sleep(float(getattr(self, "claim_meld_followup_gap", 0.3)))
+                        delay = compute_protected_meld_delay(self)
+                        if delay > 0:
+                            await asyncio.sleep(delay)
                     # 和牌 （荣和）
                     self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type

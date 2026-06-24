@@ -138,7 +138,7 @@ public class AskOtherActionGBInfo { // 询问切牌后操作
     public int action_tick;
     // 立直麻将赤宝牌吃牌候选：键为方向 "chi_left"/"chi_mid"/"chi_right"，值为每条候选的两张真实牌 ID（含 105/205/305）
     public System.Collections.Generic.Dictionary<string, int[][]> chi_candidates;
-    // 战术鸣牌：True 时表示这是申请阶段对更高优先级行为的再次询问，客户端使用战术倒计时
+    // 战术鸣牌：True 时表示申请阶段对更高优先级行为的再次询问；倒计时仍用 remaining_time
     public bool? is_tactical_recheck;
 }
 

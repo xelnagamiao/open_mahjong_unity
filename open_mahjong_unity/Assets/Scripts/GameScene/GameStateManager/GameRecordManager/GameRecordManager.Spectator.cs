@@ -284,7 +284,9 @@ public partial class GameRecordManager {
                 continue;
             }
 
-            if (BlocksRecordNavigation) {
+            // 直播观战由 AutoPlay + end tick 驱动推进；和牌面板会置 IsAwaitingRecordResultConfirm，
+            // 若在此阻塞则永远无法执行 end tick 切局。停留时长由 GetSpectatorEndHoldDelay 控制。
+            if (BlocksRecordNavigation && !IsLiveSpectatorMode) {
                 yield return new WaitForSeconds(0.1f);
                 continue;
             }

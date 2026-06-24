@@ -21,8 +21,6 @@ public class TipsContainer : MonoBehaviour
     private readonly List<int> _cachedWaitingTiles = new List<int>();
     private bool _hasCachedTenpaiTips;
     private RecordTipsContext _recordTipsContext;
-    /// <summary>当前和牌张：场内+副露仅 3 张可见时，自摸路径才加和绝张（与 gamestate action_check 一致）。</summary>
-    private bool _heJuezhangTsumoOnly;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
 
@@ -147,13 +145,13 @@ public class TipsContainer : MonoBehaviour
         foreach (int hepaiTile in waitingTiles) {
             var (allDiscards, allCombinations) = CollectTableFromLiveGame(gameManager);
             int showTilesCount = HeJuezhangTableCounter.CountShowTilesOnTable(
-                hepaiTile, allDiscards, allCombinations, _pendingCutTileId);
+                hepaiTile, allDiscards, allCombinations, _pendingCutTileId, strictCombinationMatch: false);
             List<string> singleTilewayToHepai = BuildHeJuezhangSingleTileList(showTilesCount);
 
             List<string> mergedWayToHepai = new List<string>(wayToHepai);
             mergedWayToHepai.AddRange(singleTilewayToHepai);
             mergedWayToHepai.Add("点和");
-            
+
             // 获取手牌和组合牌信息（这里用传入的 handTiles，而不是 selfHandTiles）
             List<int> handList = new List<int>(handTiles);
             handList.Add(hepaiTile);
@@ -202,7 +200,7 @@ public class TipsContainer : MonoBehaviour
         foreach (int hepaiTile in waitingTiles) {
             var (allDiscards, allCombinations) = CollectTableFromRecord(ctx);
             int showTilesCount = HeJuezhangTableCounter.CountShowTilesOnTable(
-                hepaiTile, allDiscards, allCombinations, _pendingCutTileId);
+                hepaiTile, allDiscards, allCombinations, _pendingCutTileId, strictCombinationMatch: true);
             List<string> singleTilewayToHepai = BuildHeJuezhangSingleTileList(showTilesCount);
 
             List<string> mergedWayToHepai = new List<string>(wayToHepai);
@@ -263,21 +261,17 @@ public class TipsContainer : MonoBehaviour
         return wayToHepai;
     }
 
-    private List<string> BuildHeJuezhangSingleTileList(int showTilesCount) {
-        _heJuezhangTsumoOnly = HeJuezhangTableCounter.ShouldAddHeJuezhangForTsumo(showTilesCount);
+    private static List<string> BuildHeJuezhangSingleTileList(int showTilesCount) {
         var single = new List<string>();
-        if (HeJuezhangTableCounter.ShouldAddHeJuezhangForRon(showTilesCount)) {
+        if (HeJuezhangTableCounter.ShouldAddHeJuezhangForTips(showTilesCount)) {
             single.Add("和绝张");
         }
         return single;
     }
 
-    private List<string> BuildZimoWayToHepai(List<string> wayToHepai, List<string> singleTilewayToHepai) {
+    private static List<string> BuildZimoWayToHepai(List<string> wayToHepai, List<string> singleTilewayToHepai) {
         var zimoWay = new List<string>(wayToHepai);
         zimoWay.AddRange(singleTilewayToHepai);
-        if (_heJuezhangTsumoOnly) {
-            zimoWay.Add("和绝张");
-        }
         zimoWay.Add("自摸");
         return zimoWay;
     }

@@ -8,11 +8,12 @@
 - 出牌者、能鸣牌者：立即收到出牌；能鸣牌者同时收到 ask_other 可立即决策。
 - 受保护观众（既不能鸣牌、又不是出牌者）：出牌(cut) 进入暂存，延迟发送。
   触发把暂存 cut 发给受保护观众的时机，取最早：
-    1) 有人实际鸣牌/荣和 -> 立即 flush cut，再延迟 MELD_FOLLOWUP_GAP 把鸣牌发给受保护观众；
+    1) 有人实际鸣牌/荣和 -> 立即 flush cut（若尚未揭示），再按「cut 揭示时刻 + MELD_FOLLOWUP_GAP」
+       计算剩余延迟后把鸣牌发给受保护观众（1.5s~1.8s 内鸣牌对齐到 1.8s，1.8s 后立即发送）；
     2) 能鸣牌者全部 pass / 超时无人鸣牌 -> 立即 flush cut（区间结束，无鸣牌）；
     3) MELD_PROTECT_DELAY 超时 -> flush cut（此后「暴露有人可鸣牌」是允许的，但仍不知是谁）。
 - 与战术鸣牌正交：
-  - 受保护观众尚未看到出牌：战术 is_claim 不发送；实际鸣牌有声（追赶路径唯一音效）。
+  - 受保护观众尚未看到出牌：战术 is_claim 不发送；flush cut 正常发声，间隔 gap 后实际鸣牌也正常发声。
   - 受保护观众已看到出牌（1.5s 超时 flush 或鸣牌前 flush）：可收到战术 is_claim；
     实际鸣牌尊重 silent（战术申请后静默执行），避免「申请 + 执行」双响。
 """
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -47,11 +49,33 @@ def get_meld_followup_gap(game_state) -> float:
     return float(getattr(game_state, "claim_meld_followup_gap", MELD_FOLLOWUP_GAP))
 
 
+def compute_protected_meld_delay(game_state) -> float:
+    """受保护观众鸣牌/和牌相对当下的剩余追赶延迟（秒）。
+
+    保证 cut 揭示与紧随鸣牌之间至少相隔 claim_meld_followup_gap：
+    - cut 刚 flush：返回 gap（如 0.3s）；
+    - cut 在 1.5s 超时揭示、鸣牌在 1.6s：返回 0.2s（对齐 1.8s）；
+    - 鸣牌在 cut 揭示 + gap 之后：返回 0（立即）。
+    """
+    flush_time = getattr(game_state, "_cp_cut_flush_time", None)
+    if flush_time is None:
+        return get_meld_followup_gap(game_state)
+    gap = get_meld_followup_gap(game_state)
+    return max(0.0, flush_time + gap - time.monotonic())
+
+
+async def prepare_protected_meld_for_viewers(game_state, send_fn) -> float:
+    """实际吃碰杠广播前：补发暂存 cut（若尚未揭示），并返回受保护观众的剩余鸣牌延迟。"""
+    await flush_protected_cut(game_state, send_fn)
+    return compute_protected_meld_delay(game_state)
+
+
 def init_claim_protection_state(game_state) -> None:
     game_state._cp_active = False
     game_state._cp_protected = [False, False, False, False]
     game_state._cp_pending_cut: Dict[int, dict] = {}
     game_state._cp_cut_flushed = False
+    game_state._cp_cut_flush_time = None
     game_state._cp_timer_task: Optional[asyncio.Task] = None
 
 
@@ -77,6 +101,7 @@ def begin_claim_protection_interval(game_state, action_dict, action_player: int)
     _cancel_timer(game_state)
     game_state._cp_pending_cut = {}
     game_state._cp_cut_flushed = False
+    game_state._cp_cut_flush_time = None
     game_state._cp_protected = [False, False, False, False]
     game_state._cp_active = False
     if not claim_protection_enabled(game_state):
@@ -124,25 +149,20 @@ def arm_claim_protection_timer(game_state, send_fn) -> None:
     game_state._cp_timer_task = asyncio.create_task(_run())
 
 
-async def flush_protected_cut(game_state, send_fn, silent_cut: bool = False) -> bool:
-    """把暂存 cut 发给受保护观众。返回 True 表示本次确有发送（用于判断鸣牌是否需间隔）。
-
-    silent_cut=True 时，这张追赶补发的 cut 静默落桌（不发切牌声），用于「紧接着就要鸣牌」的
-    追赶场景，避免受保护观众在 0.3s 内连续听到「切牌声 + 鸣牌声」的快速双响；
-    其它揭示时机（1.5s 超时、全员 pass/超时）保持 silent_cut=False，正常播放切牌声。
-    """
+async def flush_protected_cut(game_state, send_fn) -> bool:
+    """把暂存 cut 发给受保护观众。出牌追赶揭示始终有声（与战术鸣牌申请无关）。"""
     if getattr(game_state, "_cp_cut_flushed", True):
         return False
     game_state._cp_cut_flushed = True
+    game_state._cp_cut_flush_time = time.monotonic()
     _cancel_timer(game_state)
     pending = getattr(game_state, "_cp_pending_cut", {}) or {}
     game_state._cp_pending_cut = {}
     if not pending:
         return False
     for viewer_index, payload in pending.items():
-        if silent_cut:
-            payload = dict(payload)
-            payload["silent"] = True
+        payload = dict(payload)
+        payload["silent"] = None
         try:
             await send_fn(game_state, viewer_index, payload)
         except Exception:
@@ -166,7 +186,7 @@ def end_claim_protection_interval(game_state) -> None:
 
 
 def schedule_protected_meld_send(game_state, viewer_index: int, payload: dict, delay: float, send_fn) -> None:
-    """延迟 delay 秒后把鸣牌动作发给某受保护观众（用于 cut 之后的 0.4s 间隔）。"""
+    """延迟 delay 秒后把鸣牌动作发给某受保护观众（追赶至 cut 揭示 + gap）。"""
     async def _run():
         try:
             if delay > 0:

@@ -16,10 +16,9 @@ from ..public.claim_protection import (
     is_protected_viewer,
     stash_protected_cut_payload,
     arm_claim_protection_timer,
-    flush_protected_cut,
+    prepare_protected_meld_for_viewers,
     end_claim_protection_interval,
     schedule_protected_meld_send,
-    get_meld_followup_gap,
     REAL_MELD_ACTIONS,
 )
 from .shunhe import tag_list_for_viewer
@@ -348,12 +347,10 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
 
     protected_meld_delay = 0.0
     if interval_active and is_real_meld:
-        flushed_now = await flush_protected_cut(
+        protected_meld_delay = await prepare_protected_meld_for_viewers(
             self,
             _send_do_action_payload_to_viewer,
-            silent_cut=not cut_already_revealed,
         )
-        protected_meld_delay = get_meld_followup_gap(self) if flushed_now else 0.0
 
     for i, current_player in enumerate(self.player_list):
         try:

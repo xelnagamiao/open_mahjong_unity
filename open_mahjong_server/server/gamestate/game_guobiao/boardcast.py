@@ -17,10 +17,9 @@ from ..public.claim_protection import (
     is_protected_viewer,
     stash_protected_cut_payload,
     arm_claim_protection_timer,
-    flush_protected_cut,
+    prepare_protected_meld_for_viewers,
     end_claim_protection_interval,
     schedule_protected_meld_send,
-    get_meld_followup_gap,
     REAL_MELD_ACTIONS,
 )
 
@@ -424,17 +423,15 @@ async def broadcast_do_action(
     is_cut = bool(action_list) and action_list[0] == "cut"
     is_real_meld = (not is_claim) and bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
     # 本 do_action 调用前受保护观众是否已揭示过出牌（含 1.5s 超时 flush）。
-    # 用于区分：未揭示时追赶鸣牌只响一次；已揭示且看过 is_claim 时实际鸣牌应静默。
+    # 用于区分：已揭示且看过 is_claim 时实际鸣牌应静默（战术）；追赶 flush 的 cut 始终有声。
     cut_already_revealed = getattr(self, "_cp_cut_flushed", False)
 
     protected_meld_delay = 0.0
     if interval_active and is_real_meld:
-        flushed_now = await flush_protected_cut(
+        protected_meld_delay = await prepare_protected_meld_for_viewers(
             self,
             _send_do_action_payload_to_viewer,
-            silent_cut=not cut_already_revealed,
         )
-        protected_meld_delay = get_meld_followup_gap(self) if flushed_now else 0.0
 
     for i, current_player in enumerate(self.player_list):
         try:
@@ -451,7 +448,7 @@ async def broadcast_do_action(
                 continue
 
             # 受保护观众实际鸣牌：
-            # - 出牌尚未揭示（本局内追赶）：强制有声，作为唯一一次鸣牌音效；
+            # - 出牌尚未揭示（追赶 flush 后间隔 gap）：正常发声；
             # - 出牌已揭示（含超时后收到 is_claim）：尊重 silent（战术申请后静默执行）。
             if protected and is_real_meld:
                 viewer_silent = silent if cut_already_revealed else False
@@ -481,7 +478,7 @@ async def broadcast_do_action(
                 stash_protected_cut_payload(self, i, payload)
                 continue
 
-            # 实际鸣牌对受保护观众延迟 0.4s（紧随刚 flush 的出牌之后）
+            # 实际鸣牌对受保护观众：对齐至 cut 揭示 + gap（1.5s~1.8s 内鸣牌等到 1.8s，之后立即）
             if protected and is_real_meld and protected_meld_delay > 0:
                 schedule_protected_meld_send(
                     self, i, payload, protected_meld_delay, _send_do_action_payload_to_viewer,

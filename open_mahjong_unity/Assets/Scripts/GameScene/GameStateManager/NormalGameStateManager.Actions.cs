@@ -349,8 +349,7 @@ public partial class NormalGameStateManager {
             // ShowActionDisplay 根据规则处理 hu_first/hu_second/hu_third/hu_self 的文案
             GameCanvas.Instance.ShowActionDisplay(actor, action, roomRule);
         }
-        // 申请-停顿期间隐藏本家操作按钮面板：可抢断的更高优先级玩家会在停顿后收到
-        // 战术再次询问(is_tactical_recheck)并重新弹出面板；无抢断权的玩家则保持隐藏。
+        // 申请-停顿期间隐藏本家操作按钮；可抢断玩家会在 ask_other 再次询问时重新弹出按钮。
         GameCanvas.Instance.ClearActionButton();
     }
 }
