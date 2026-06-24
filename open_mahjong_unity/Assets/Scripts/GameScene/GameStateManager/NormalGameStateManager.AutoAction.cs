@@ -80,7 +80,7 @@ public partial class NormalGameStateManager {
             else if (action == "AutoHandAction"){
                 // 如果允许操作列表有hu_self
                 if (allowActionList.Contains("hu_self")){
-                    // 如果开启自动自摸（自动胡牌且未限制为只和荣和），则执行自动胡牌
+                    // 开启自动胡牌且未限制为只和荣和/只和自摸时，执行自动自摸
                     if (AutoAction.Instance.ShouldAutoWinTsumo()){
                         yield return new WaitForSeconds(0.2f);
                         GameCanvas.Instance.ChooseAction("hu_self", 0);

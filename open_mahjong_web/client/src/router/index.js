@@ -18,6 +18,7 @@ import AdminRank from '@/views/admin/Rank.vue'
 import AdminGames from '@/views/admin/Games.vue'
 import AdminAudit from '@/views/admin/Audit.vue'
 import AdminMessages from '@/views/admin/Messages.vue'
+import AdminIpBans from '@/views/admin/IpBans.vue'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -119,7 +120,8 @@ const routes = [
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
       { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
-      { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } }
+      { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
+      { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } }
     ]
   }
 ]

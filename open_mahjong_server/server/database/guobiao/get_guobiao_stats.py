@@ -41,7 +41,8 @@ def get_guobiao_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
                 COALESCE(SUM(second_place_count), 0) as second_place_count,
                 COALESCE(SUM(third_place_count), 0) as third_place_count,
                 COALESCE(SUM(fourth_place_count), 0) as fourth_place_count,
-                COALESCE(SUM(fulu_round_count), 0) as fulu_round_count
+                COALESCE(SUM(fulu_round_count), 0) as fulu_round_count,
+                COALESCE(SUM(cuohe_count), 0) as cuohe_count
             FROM guobiao_history_stats
             WHERE user_id = %s
             GROUP BY rule, mode

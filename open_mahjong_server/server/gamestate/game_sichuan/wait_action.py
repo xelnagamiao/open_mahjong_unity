@@ -16,10 +16,11 @@ from .shunhe import (
     apply_passed_win_shunhe,
     record_passed_self_draw_shunhe,
 )
-from .boardcast import broadcast_do_action, broadcast_ready_status
+from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.game_record_manager import (
     player_action_record_cut, player_action_record_angang,
     player_action_record_jiagang, player_action_record_chipenggang,
+    flush_unexecuted_claim_applications,
 )
 from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import (
@@ -27,6 +28,17 @@ from ..public.hand_slot_utils import (
     pick_timeout_discard_tile, remove_angang_tiles, remove_cut_tile, resolve_is_mo_gang,
 )
 from ..public.logic_common import get_index_relative_position
+from ..public.claim_protection import (
+    begin_claim_protection_interval,
+    finalize_claim_protection,
+    compute_protected_meld_delay,
+)
+from ..public.tactical_claim import (
+    init_tactical_round_state,
+    tactical_mark_player_passed,
+    apply_tactical_claim_if_needed,
+)
+from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +102,8 @@ async def wait_action(self):
             self.waiting_players_list.append(player_index)
             self.action_events[player_index].clear()
 
+    init_tactical_round_state(self)
+
     player_index = None
     action_data = None
     action_type = None
@@ -124,6 +138,8 @@ async def wait_action(self):
                 if timeout_grace > 0 and used_int_time >= timeout_grace:
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                 self.action_dict[temp_player_index] = []
+                if temp_action_type == "pass":
+                    tactical_mark_player_passed(self, temp_player_index)
                 if temp_player_index in self.waiting_players_list:
                     self.waiting_players_list.remove(temp_player_index)
 
@@ -142,12 +158,26 @@ async def wait_action(self):
                     action_type = temp_action_type
                     player_index = temp_player_index
 
-                if do_interrupt:
+                tactical_immediate_break = (
+                    getattr(self, "tactical_call", False)
+                    and temp_action_type != "pass"
+                    and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+                )
+                if do_interrupt or tactical_immediate_break:
                     self.waiting_players_list = []
 
     if self.waiting_players_list:
         for i in self.waiting_players_list:
             self.player_list[i].remaining_time = 0
+
+    action_type, player_index, action_data, _ = await apply_tactical_claim_if_needed(
+        self,
+        action_type,
+        player_index,
+        action_data,
+        broadcast_do_action=broadcast_do_action,
+        broadcast_ask_other_action=broadcast_ask_other_action,
+    )
 
     match self.game_status:
         case "waiting_hand_action":
@@ -169,10 +199,12 @@ async def wait_action(self):
                     player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
                     if self.current_player_index == self.dealer_index:
                         self.xunmu += 1
+                    refresh_waiting_tiles(self, self.current_player_index)
+                    pre_action_dict = check_action_after_cut(self, tile_id)
+                    begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                     await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
                                               cut_tile=tile_id, cut_class=is_moqie, cut_tile_index=cut_tile_index)
-                    refresh_waiting_tiles(self, self.current_player_index)
-                    self.action_dict = check_action_after_cut(self, tile_id)
+                    self.action_dict = pre_action_dict
                     self.last_action_was_gang = False  # 杠上炮仅对杠后那一张弃牌生效，检查后清除
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_after_cut"
@@ -212,40 +244,47 @@ async def wait_action(self):
                 elif action_type == "jiagang":
                     if record_passed_self_draw_shunhe(self, self.current_player_index):
                         await broadcast_refresh_player_tag_list(self)
-                    jiagang_tile = normalize_tile(action_data.get("target_tile"))
+                    jiagang_tile = action_data.get("target_tile")
+                    normal_jia = normalize_tile(jiagang_tile)
                     player = self.player_list[self.current_player_index]
                     draw_slot = has_draw_slot(player)
-                    is_mo_gang = resolve_is_mo_gang(player.hand_tiles, jiagang_tile, draw_slot=draw_slot)
-                    remove_cut_tile(player.hand_tiles, jiagang_tile, is_mo_gang, draw_slot=draw_slot)
+                    is_mo_gang = resolve_is_mo_gang(player.hand_tiles, normal_jia, draw_slot=draw_slot)
+                    actual_jia = remove_cut_tile(player.hand_tiles, jiagang_tile, is_mo_gang, draw_slot=draw_slot)
                     clear_draw_slot(player)
                     combination_index = -1
                     for idx, combo in enumerate(player.combination_tiles):
-                        if combo == f"k{jiagang_tile}":
+                        if combo.startswith("k") and normalize_tile(int(combo[1:])) == normal_jia:
                             combination_index = idx
                             break
-                    if combination_index >= 0:
-                        for idx, mask in enumerate(player.combination_mask[combination_index]):
-                            if mask == 1:
-                                player.combination_mask[combination_index].insert(idx, jiagang_tile)
-                                player.combination_mask[combination_index].insert(idx, 3)
-                                break
-                        player.combination_tiles.remove(f"k{jiagang_tile}")
-                        player.combination_tiles.append(f"g{jiagang_tile}")
+                    if combination_index < 0:
+                        logger.error(
+                            "非法jiagang：未找到可加杠的刻子 normal_jia=%s, combination_tiles=%s",
+                            normal_jia,
+                            player.combination_tiles,
+                        )
+                        self.game_status = "deal_card_after_gang"
+                        return
+                    for idx, mask in enumerate(player.combination_mask[combination_index]):
+                        if mask == 1:
+                            player.combination_mask[combination_index].insert(idx, actual_jia)
+                            player.combination_mask[combination_index].insert(idx, 3)
+                            break
+                    player.combination_tiles[combination_index] = f"g{normal_jia}"
                     # 下雨1：摸牌加杠收未和牌每人 1 分；手牌加杠不收分（并清除待退税杠，避免杠上炮误退更早的刮风/下雨）
                     gang_changes = None
                     if is_mo_gang:
-                        gang_changes = self._record_gang_score(self.current_player_index, jiagang_tile, "xiayu1")
+                        gang_changes = self._record_gang_score(self.current_player_index, normal_jia, "xiayu1")
                     else:
                         self._clear_paofen_pending(self.current_player_index)
-                    player_action_record_jiagang(self, jiagang_tile=jiagang_tile, is_mo_gang=is_mo_gang,
+                    player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang,
                                                  gang_score_changes=gang_changes)
                     await broadcast_do_action(self, action_list=["jiagang"], action_player=self.current_player_index,
-                                              combination_mask=player.combination_mask[combination_index] if combination_index >= 0 else None,
-                                              combination_target=f"k{jiagang_tile}", is_mo_gang=is_mo_gang,
+                                              combination_mask=player.combination_mask[combination_index],
+                                              combination_target=f"k{normal_jia}", is_mo_gang=is_mo_gang,
                                               gang_score_changes=gang_changes, gang_score_type="xiayu1" if is_mo_gang else None)
-                    self.jiagang_tile = jiagang_tile
+                    self.jiagang_tile = normal_jia
                     self.last_action_was_gang = True
-                    self.action_dict = check_action_jiagang(self, jiagang_tile)
+                    self.action_dict = check_action_jiagang(self, normal_jia)
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang"
                     else:
@@ -278,10 +317,12 @@ async def wait_action(self):
                 player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
                 if self.current_player_index == self.dealer_index:
                     self.xunmu += 1
+                refresh_waiting_tiles(self, self.current_player_index)
+                pre_action_dict = check_action_after_cut(self, tile_id)
+                begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                 await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
                                           cut_tile=tile_id, cut_class=is_moqie)
-                refresh_waiting_tiles(self, self.current_player_index)
-                self.action_dict = check_action_after_cut(self, tile_id)
+                self.action_dict = pre_action_dict
                 self.last_action_was_gang = False
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut"
@@ -336,6 +377,18 @@ async def wait_action(self):
                         combination_mask = [0, tile_id, 1, tile_id, 0, tile_id, 0, tile_id]
 
                 elif action_type == "hu":
+                    flush_unexecuted_claim_applications(
+                        self,
+                        tile_id,
+                        executed_player=player_index,
+                        executed_action_type=action_type,
+                    )
+                    had_claim_protection = getattr(self, "_cp_active", False)
+                    await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
+                    if had_claim_protection:
+                        delay = compute_protected_meld_delay(self)
+                        if delay > 0:
+                            await asyncio.sleep(delay)
                     self.pending_win = {"type": "ron", "discarder": self.current_player_index, "hepai_tile": tile_id}
                     self.player_list[self.current_player_index].discard_tiles.pop(-1)
                     self.game_status = "settle_win"
@@ -350,6 +403,12 @@ async def wait_action(self):
                     # 点炮者上一杠的杠上炮可能性消失：玩家被碰/杠走了牌
                     self._clear_paofen_pending(discarder)
                     self.current_player_index = player_index
+                    flush_unexecuted_claim_applications(
+                        self,
+                        tile_id,
+                        executed_player=player_index,
+                        executed_action_type=action_type,
+                    )
                     gang_changes = None
                     if action_type == "gang":
                         gang_changes = self._record_gang_score(player_index, tile_id, "guafeng", payer_index=discarder)
@@ -371,12 +430,16 @@ async def wait_action(self):
                     return
 
                 if action_type == "pass":
+                    flush_unexecuted_claim_applications(self, tile_id)
+                    await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                     if apply_passed_win_shunhe(self, [player_index] if player_index in hu_eligible_indexes else []):
                         await broadcast_refresh_player_tag_list(self)
                     self._clear_paofen_pending(self.current_player_index)
                     self.game_status = "deal_card"
                     return
             else:
+                flush_unexecuted_claim_applications(self, tile_id)
+                await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
                 if apply_passed_win_shunhe(self, hu_eligible_indexes):
                     await broadcast_refresh_player_tag_list(self)
                 self._clear_paofen_pending(self.current_player_index)
@@ -398,10 +461,12 @@ async def wait_action(self):
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 player_action_record_cut(self, cut_tile=tile_id, is_moqie=is_moqie)
                 self.last_action_was_gang = False
+                refresh_waiting_tiles(self, self.current_player_index)
+                pre_action_dict = check_action_after_cut(self, tile_id)
+                begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                 await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
                                           cut_tile=tile_id, cut_class=is_moqie, cut_tile_index=cut_tile_index)
-                refresh_waiting_tiles(self, self.current_player_index)
-                self.action_dict = check_action_after_cut(self, tile_id)
+                self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut"
                 else:
@@ -418,10 +483,12 @@ async def wait_action(self):
                 player.discard_tiles.append(tile_id)
                 player_action_record_cut(self, cut_tile=tile_id, is_moqie=False)
                 self.last_action_was_gang = False
+                refresh_waiting_tiles(self, self.current_player_index)
+                pre_action_dict = check_action_after_cut(self, tile_id)
+                begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                 await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
                                           cut_tile=tile_id, cut_class=False)
-                refresh_waiting_tiles(self, self.current_player_index)
-                self.action_dict = check_action_after_cut(self, tile_id)
+                self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut"
                 else:
@@ -438,14 +505,17 @@ async def wait_action(self):
                 # 抢杠：加杠不成立 → 退回该加杠下雨分，杠回退为碰，并将牌判给抢杠者
                 refund_changes = self._refund_last_gang(self.current_player_index, temp_jiagang_tile)
                 jia_player = self.player_list[self.current_player_index]
-                if f"g{temp_jiagang_tile}" in jia_player.combination_tiles:
-                    jia_player.combination_tiles.remove(f"g{temp_jiagang_tile}")
-                    jia_player.combination_tiles.append(f"k{temp_jiagang_tile}")
-                    for mask in jia_player.combination_mask:
-                        if 3 in mask:
-                            i3 = mask.index(3)
-                            del mask[i3:i3 + 2]
-                            break
+                revert_index = -1
+                for idx, combo in enumerate(jia_player.combination_tiles):
+                    if combo.startswith("g") and normalize_tile(int(combo[1:])) == temp_jiagang_tile:
+                        revert_index = idx
+                        break
+                if revert_index >= 0:
+                    jia_player.combination_tiles[revert_index] = f"k{temp_jiagang_tile}"
+                    mask = jia_player.combination_mask[revert_index]
+                    if 3 in mask:
+                        i3 = mask.index(3)
+                        del mask[i3:i3 + 2]
                 self.pending_win = {
                     "type": "qianggang",
                     "discarder": self.current_player_index,

@@ -142,6 +142,11 @@ class QingqueGameState:
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌
+        self.claim_protection = room_data.get("claim_protection", True) # 鸣牌保护
+        self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
+        self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
+        self.claim_protect_delay = room_data.get("claim_protect_delay", 1.5)
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.3)
         self.hepai_limit = 1 # 青雀起和限制固定为1
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
@@ -183,6 +188,9 @@ class QingqueGameState:
         }
 
         self.backward_tiles_list_type = "double"
+
+        from ..public.claim_protection import init_claim_protection_state
+        init_claim_protection_state(self)
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         self.Debug = False

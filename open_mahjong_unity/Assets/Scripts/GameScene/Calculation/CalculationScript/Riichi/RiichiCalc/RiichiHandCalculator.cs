@@ -16,6 +16,10 @@ namespace Riichi {
         public RiichiHandResult Calculate(List<int> handList, List<string> tilesCombination,
                                           int winTile, RiichiHandContext context) {
             context = context ?? new RiichiHandContext();
+            context.WinHandTileIds = new List<int>(handList);
+            context.OpenCombinationTiles = tilesCombination != null
+                ? new List<string>(tilesCombination)
+                : null;
             var result = new RiichiHandResult();
 
             // 归一化手牌（把赤 5 还原到普通 5 用于拆解）
@@ -34,12 +38,16 @@ namespace Riichi {
                 return result;
             }
 
-            // 赤宝牌计数（若 context 未指定）
+            // 赤宝牌计数（若 context 未指定；口径与服务端 _collect_all_tile_ids 一致）
             if (!context.AkaCount.HasValue) {
                 int aka = handList.Count(RiichiTileUtil.IsRedFive);
-                if (context.CombinationMasks != null) {
+                if (context.CombinationMasks != null && context.CombinationMasks.Count > 0) {
                     foreach (var mask in context.CombinationMasks) {
                         aka += RiichiTileUtil.CountAkaInTiles(RiichiTileUtil.TilesFromMask(mask));
+                    }
+                } else if (context.OpenCombinationTiles != null) {
+                    foreach (var combo in context.OpenCombinationTiles) {
+                        aka += RiichiTileUtil.CountAkaInTiles(RiichiYakuDetector.TilesFromCombination(combo));
                     }
                 }
                 context.AkaCount = aka;

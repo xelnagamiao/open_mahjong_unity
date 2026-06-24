@@ -131,10 +131,6 @@ public class HeaderPanel : MonoBehaviour {
     private void SceneConfig() => WindowsManager.Instance.SwitchWindow("sceneConfig");
     private void Spectator() => WindowsManager.Instance.SwitchWindow("spectator");
     private void Match() {
-        if (UserDataManager.Instance != null && UserDataManager.Instance.IsTourist) {
-            NotificationManager.Instance?.ShowTip("匹配", false, "游客无法进行排位匹配，请先注册账号");
-            return;
-        }
         if (LobbyStateGuard.BlockIfInRoomForMatch()) {
             return;
         }
@@ -142,12 +138,11 @@ public class HeaderPanel : MonoBehaviour {
     }
 
     /// <summary>
-    /// 游客账户隐藏排位匹配入口；登录成功后由 NetworkManager 调用。
+    /// 确保排位匹配导航入口可见；登录成功后由 NetworkManager 调用。
     /// </summary>
     public void RefreshMatchButtonVisibility() {
         if (matchButton == null) return;
-        bool visible = UserDataManager.Instance == null || !UserDataManager.Instance.IsTourist;
-        matchButton.gameObject.SetActive(visible);
+        matchButton.gameObject.SetActive(true);
     }
     private void Friend() {
         WindowsManager.Instance.SwitchWindow("friend");

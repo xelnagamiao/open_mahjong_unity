@@ -73,6 +73,7 @@ public class MatchNetworkManager : MonoBehaviour {
     private void HandleQueueStatus(Response response) {
         if (response.queue_status != null) {
             MatchPanel.Instance?.UpdateQueueStatus(response.queue_status);
+            MeunPanel.Instance?.UpdateMatchPlayerCount(response.queue_status);
         }
     }
 
@@ -101,6 +102,7 @@ public class MatchNetworkManager : MonoBehaviour {
         if (LobbyStateGuard.BlockIfInRoomForMatch()) {
             return;
         }
+        GameRecordManager.Instance?.AbandonDelayedSpectatorSessionOnServer();
         if (MatchStateManager.Instance != null && MatchStateManager.Instance.IsQueueing) {
             NotificationManager.Instance?.ShowTip("匹配", false, "您已在匹配队列中");
             return;

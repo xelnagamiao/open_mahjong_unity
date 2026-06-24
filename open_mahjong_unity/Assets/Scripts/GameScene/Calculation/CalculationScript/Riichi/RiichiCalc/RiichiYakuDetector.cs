@@ -304,7 +304,7 @@ namespace Riichi {
         }
 
         private void DetectDora(List<RiichiSet> sets, DetectResult result) {
-            var allTiles = CollectAllTilesWithMasks(sets);
+            var allTiles = CollectAllTilesForDora(sets);
             int dora = 0;
             foreach (int ind in _ctx.DoraIndicators) {
                 int target = RiichiTileUtil.DoraFromIndicator(ind);
@@ -493,18 +493,31 @@ namespace Riichi {
             return list;
         }
 
-        private static List<int> CollectAllTilesRaw(List<RiichiSet> sets) {
+        /// <summary>
+        /// 宝牌统计用全牌集合：手牌区 + 副露/暗杠（与服务端 _collect_all_tile_ids 一致）。
+        /// </summary>
+        private List<int> CollectAllTilesForDora(List<RiichiSet> sets) {
+            if (_ctx.WinHandTileIds != null) {
+                var allTiles = new List<int>(_ctx.WinHandTileIds);
+                if (_ctx.CombinationMasks != null && _ctx.CombinationMasks.Count > 0) {
+                    foreach (var mask in _ctx.CombinationMasks) {
+                        allTiles.AddRange(RiichiTileUtil.TilesFromMask(mask));
+                    }
+                } else if (_ctx.OpenCombinationTiles != null) {
+                    foreach (var combo in _ctx.OpenCombinationTiles) {
+                        allTiles.AddRange(TilesFromCombination(combo));
+                    }
+                }
+                return allTiles;
+            }
             return CollectAllTiles(sets);
         }
 
-        private List<int> CollectAllTilesWithMasks(List<RiichiSet> sets) {
-            var allTiles = CollectAllTilesRaw(sets);
-            if (_ctx.CombinationMasks != null) {
-                foreach (var mask in _ctx.CombinationMasks) {
-                    allTiles.AddRange(RiichiTileUtil.TilesFromMask(mask));
-                }
-            }
-            return allTiles;
+        internal static List<int> TilesFromCombination(string combo) {
+            var list = new List<int>();
+            if (string.IsNullOrEmpty(combo) || combo.Length < 2) return list;
+            var sets = RiichiSet.ParseCombinationList(new List<string> { combo });
+            return CollectAllTiles(sets);
         }
     }
 

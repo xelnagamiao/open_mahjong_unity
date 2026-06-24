@@ -161,7 +161,7 @@ public class Chinese_Hepai_Check {
             { "sansesantongshun", new List<string>() },
             { "sansesanjiegao", new List<string>() },
             { "wufanhe", new List<string>() },
-            { "miaoshouhuichun", new List<string>() },
+            { "miaoshouhuichun", new List<string> { "zimo" } },
             { "haidilaoyue", new List<string>() },
             { "gangshangkaihua", new List<string> { "zimo" } },
             { "qiangganghe", new List<string> { "hejuezhang" } },
@@ -1145,17 +1145,18 @@ public class Chinese_Hepai_Check {
                 }
 
                 // 根据同色手牌标记的距离判断 连六 老少副
+                // 连六按顺子对计数：仅当两侧起始点各有多余顺子时才复计（如 123123456456 计 2 次，123123456 只计 1 次）
                 foreach (var list in suit_list)
                 {
                     if (list.Count >= 2)
                     {
-                        foreach (var i_str in list)
+                        for (int rank = 1; rank <= 6; rank++)
                         {
-                            int i = int.Parse(i_str);
-                            if (list.Contains((i + 3).ToString()))
-                            {
+                            int pair_count = Math.Min(
+                                list.Count(x => x == rank.ToString()),
+                                list.Count(x => x == (rank + 3).ToString()));
+                            for (int j = 0; j < pair_count; j++)
                                 player_tiles.fan_list.Add("lianliu"); // 连六
-                            }
                         }
                         int min_count = Math.Min(list.Count(x => x == "2"), list.Count(x => x == "8"));
                         if (min_count != 0)
@@ -1235,8 +1236,13 @@ public class Chinese_Hepai_Check {
                 {
                     if (all_list.All(i => new[] { "2", "4", "6", "8" }.Contains(i)))
                     {
-                        if (save_quetou_sign.Count > 0 && new[] { "2", "4", "6", "8" }.Contains(save_quetou_sign[0][1].ToString()))
-                            player_tiles.fan_list.Add("quanshuangke"); // 全双刻
+                        if (save_quetou_sign.Count > 0)
+                        {
+                            int quetouId = int.Parse(save_quetou_sign[0]);
+                            int quetouRank = quetouId % 10;
+                            if (quetouId < 40 && (quetouRank == 2 || quetouRank == 4 || quetouRank == 6 || quetouRank == 8))
+                                player_tiles.fan_list.Add("quanshuangke"); // 全双刻
+                        }
                     }
                 }
 

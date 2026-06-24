@@ -128,6 +128,9 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleBroadcastHandAction(Response response) {
         Debug.Log($"收到手牌轮操作信息: {response.ask_hand_action_info}");
         AskHandActionGBInfo handresponse = response.ask_hand_action_info;
+        if (NormalGameStateManager.Instance != null) {
+            NormalGameStateManager.Instance.LastAskActionTick = handresponse.action_tick;
+        }
         NormalGameStateManager.Instance.AskHandAction(
             handresponse.remaining_time,
             handresponse.player_index,
@@ -167,6 +170,9 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleAskOtherAction(Response response) {
         Debug.Log($"收到询问弃牌后操作消息: {response.ask_other_action_info}");
         AskOtherActionGBInfo askresponse = response.ask_other_action_info;
+        if (NormalGameStateManager.Instance != null) {
+            NormalGameStateManager.Instance.LastAskActionTick = askresponse.action_tick;
+        }
         NormalGameStateManager.Instance.AskMingPaiAction(
             askresponse.remaining_time,
             askresponse.action_list,
@@ -195,7 +201,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.is_claim == true,
             doresponse.silent == true,
             doresponse.is_mo_gang,
-            doresponse.gang_score_changes
+            doresponse.gang_score_changes,
+            doresponse.is_mo_buhua
         );
     }
     
@@ -356,6 +363,9 @@ public class GameStateNetworkManager : MonoBehaviour {
                 action = action,
                 targetTile = targetTile,
                 chiComboIndex = chiComboIndex,
+                action_tick = NormalGameStateManager.Instance != null
+                    ? NormalGameStateManager.Instance.LastAskActionTick
+                    : (int?)null,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
@@ -424,9 +434,10 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     public async void AddSpectator(string gamestate_id) {
         if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
-        if (GameSessionGuard.BlockIfExclusiveSession("进入观战")) return;
+        if (GameSessionGuard.BlockIfExclusiveSession("进入延时观战")) return;
 
         try {
+            GameRecordManager.Instance?.PrepareDelayedSpectatorSession(gamestate_id);
             var request = new AddSpectatorRequest {
                 type = "gamestate/GB/add_spectator",
                 gamestate_id = gamestate_id

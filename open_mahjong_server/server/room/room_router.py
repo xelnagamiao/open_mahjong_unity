@@ -82,6 +82,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_kick_player_from_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/set_ready":
         await handle_set_ready(game_server, Connect_id, message, websocket)
+    elif message_type == "room/sync_my_room":
+        await handle_sync_my_room(game_server, Connect_id, websocket)
     else:
         logger.warning(f"未知的房间消息路径: {message_type}")
 
@@ -111,6 +113,7 @@ async def handle_create_GB_room(game_server, Connect_id: str, message: dict, web
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
         message.get("tactical_call", False),
+        message.get("claim_protection", True),
         message.get("cuohe_type", 0),
     )
     await websocket.send_json(response.dict(exclude_none=True))
@@ -139,6 +142,7 @@ async def handle_create_Qingque_room(game_server, Connect_id: str, message: dict
         message.get("tourist_limit", False),
         message.get("allow_spectator", True),
         message.get("tactical_call", False),
+        message.get("claim_protection", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -191,6 +195,7 @@ async def handle_create_Sichuan_room(game_server, Connect_id: str, message: dict
         message.get("allow_spectator", True),
         message.get("tactical_call", False),
         message.get("blood_battle", True),
+        message.get("claim_protection", True),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 
@@ -260,4 +265,9 @@ async def handle_kick_player_from_room(game_server, Connect_id: str, message: di
 async def handle_set_ready(game_server, Connect_id: str, message: dict, websocket):
     """处理玩家准备状态变更请求"""
     await game_server.set_player_ready(Connect_id, message["room_id"], message.get("ready", True))
+
+async def handle_sync_my_room(game_server, Connect_id: str, websocket):
+    """处理同步当前玩家房间状态请求"""
+    response = await game_server.sync_my_room(Connect_id)
+    await websocket.send_json(response.dict(exclude_none=True))
 

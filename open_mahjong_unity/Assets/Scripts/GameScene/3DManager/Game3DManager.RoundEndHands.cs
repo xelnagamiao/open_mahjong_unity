@@ -30,12 +30,7 @@ public partial class Game3DManager {
 
 
 
-    /// <summary>
-
-    /// 和牌倒牌总入口（策略由 <see cref="HepaiRevealDirector"/> 决定）。
-
-    /// </summary>
-
+    /// <summary>和牌倒牌总入口（策略由 <see cref="HepaiRevealDirector"/> 决定）。</summary>
     public IEnumerator PlayHepaiHandReveal(HepaiPresentationRequest request) {
 
         if (request == null || request.HepaiPlayerHand == null || request.HepaiPlayerHand.Length == 0) {
@@ -102,6 +97,30 @@ public partial class Game3DManager {
 
         yield return new WaitForSeconds(HepaiRevealTiming.ExpandHoldSeconds);
 
+    }
+
+    /// <summary>牌谱/观战回放和牌 3D：收起手牌与对局一致；展开明牌仅 display + 国标和牌张移入摸牌区。</summary>
+    public IEnumerator PlayRecordHepaiReveal(HepaiPresentationRequest request) {
+        if (request == null) yield break;
+
+        if (request.IsRecordShowCardsExpanded) {
+            if (ShouldRecordShowCardsGuobiaoWinMove(request)) {
+                yield return CoRecordShowCardsGuobiaoWinTileToDrawSlot(request);
+            }
+            yield return new WaitForSeconds(HepaiRevealTiming.RecordShowCardsPanelDelaySeconds);
+            yield break;
+        }
+
+        if (request.HepaiPlayerHand != null && request.HepaiPlayerHand.Length > 0) {
+            yield return PlayHepaiHandReveal(request);
+        }
+    }
+
+    private static bool ShouldRecordShowCardsGuobiaoWinMove(HepaiPresentationRequest request) {
+        if (request == null || !request.IsRecordShowCardsExpanded) return false;
+        if (request.WinnerPosition == "self") return false;
+        if (request.IsCuoheRon) return false;
+        return HepaiRevealDirector.IsGuobiaoRuleKey(request.RecordRule);
     }
 
 

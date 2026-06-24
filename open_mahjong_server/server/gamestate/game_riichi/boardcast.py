@@ -22,6 +22,7 @@ from ...response import (
 )
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot_action
+from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,7 @@ async def broadcast_do_action(
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue
             conn = self.game_server.user_id_to_connection[cp.user_id]
+            viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, cp.player_index)
             response = Response(
                 type="gamestate/riichi/do_action",
                 success=True,
@@ -243,7 +245,7 @@ async def broadcast_do_action(
                     cut_tile=cut_tile,
                     cut_class=cut_class,
                     cut_tile_index=cut_tile_index,
-                    deal_tile=deal_tile,
+                    deal_tile=viewer_deal_tile,
                     buhua_tile=buhua_tile,
                     combination_mask=combination_mask,
                     combination_target=combination_target,

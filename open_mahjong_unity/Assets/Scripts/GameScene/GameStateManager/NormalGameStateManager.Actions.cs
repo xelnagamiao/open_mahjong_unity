@@ -52,7 +52,7 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int? cut_tile_index, bool? cut_class, int? deal_tile, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
@@ -60,10 +60,7 @@ public partial class NormalGameStateManager {
             HandleTacticalClaim(GetCardPlayer, action_list);
             return;
         }
-        if (isSilent) {
-            // 战术鸣牌静默实际行为：申请阶段已发声/动画，本次仅同步状态
-            TacticalCallPanel.Instance.HidePanel();
-        }
+        // isSilent：战术鸣牌申请阶段已发声/动画，实际行为仅同步状态
         foreach (string action in action_list) {
 
             Debug.Log($"执行DoAction操作: {action} (silent={isSilent})");
@@ -83,14 +80,19 @@ public partial class NormalGameStateManager {
                 case "deal_buhua_tile":
                     lastDealTileType = action;
                     remainTiles--; // 剩余牌数减少
-                    if (GetCardPlayer == "self"){     // 添加手牌 显示手牌
+                    if (GetCardPlayer == "self"){
+                        if (!deal_tile.HasValue) {
+                            Debug.LogError($"摸牌操作缺少 deal_tile: action={action}, player={action_player}");
+                            break;
+                        }
                         selfHandTiles.Add(deal_tile.Value);
                         GameCanvas.Instance.ChangeHandCards("GetCard", deal_tile.Value, null, null);
                         Game3DManager.Instance.Change3DTile("GetCard", deal_tile.Value, 0, GetCardPlayer, false, null);
                     }
-                    else{                             // 增加手牌 显示3D手牌
+                    else{
                         player_to_info[GetCardPlayer].hand_tiles_count++;
-                        Game3DManager.Instance.Change3DTile("GetCard", deal_tile.Value, 0, GetCardPlayer, false, null);
+                        // 服务端对他人不下发 deal_tile；3D 仅增加背面牌，tileId 传 0
+                        Game3DManager.Instance.Change3DTile("GetCard", deal_tile ?? 0, 0, GetCardPlayer, false, null);
                     }
                     break;
                 
@@ -121,15 +123,20 @@ public partial class NormalGameStateManager {
                 // 补花
                 case "buhua":
                     int buhua_tile_id = buhua_tile.Value;
-                    player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id); // 存储花牌
+                    bool isMoBuhua = is_mo_buhua == true;
+                    player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id);
                     if (GetCardPlayer == "self"){
-                        selfHandTiles.Remove(buhua_tile_id); // 删除手牌
-                        GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard",buhua_tile_id,null,null); // 2D补花行为
+                        selfHandTiles.Remove(buhua_tile_id);
+                        if (isMoBuhua) {
+                            GameCanvas.Instance.ChangeHandCards("RemoveGetCard", buhua_tile_id, null, null);
+                        } else {
+                            GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhua_tile_id, null, null);
+                        }
                     }
                     else{
-                        player_to_info[GetCardPlayer].hand_tiles_count--; // 减少手牌
+                        player_to_info[GetCardPlayer].hand_tiles_count--;
                     }
-                    Game3DManager.Instance.Change3DTile("Buhua",buhua_tile_id,0,GetCardPlayer,false,null); // 3D补花行为
+                    Game3DManager.Instance.Change3DTile("Buhua", buhua_tile_id, 0, GetCardPlayer, false, null);
                     break;
 
                 // 和牌：语音与动作文字已在 do_action 阶段播放
@@ -334,18 +341,15 @@ public partial class NormalGameStateManager {
         return result;
     }
 
-    // 战术鸣牌：处理 is_claim 申请广播
-    // 仅播放发声、字体动画并启动战术鸣牌面板倒计时，不修改任何游戏状态
+    // 战术鸣牌：处理 is_claim 申请广播（仅发声/字体动画，等待窗口由服务端 ask_other 驱动）
     private void HandleTacticalClaim(string actor, string[] action_list) {
-        // 日麻多家荣和/三家和了：仅播发声与字体，不弹出战术鸣牌倒计时面板
-        if (roomRule != "riichi") {
-            TacticalCallPanel.Instance.ShowClaim();
-        }
         foreach (string action in action_list) {
             SoundManager.Instance.PlayActionSound(actor, action);
             SoundManager.Instance.PlayPhysicsSound(action);
             // ShowActionDisplay 根据规则处理 hu_first/hu_second/hu_third/hu_self 的文案
             GameCanvas.Instance.ShowActionDisplay(actor, action, roomRule);
         }
+        // 申请-停顿期间隐藏本家操作按钮；可抢断玩家会在 ask_other 再次询问时重新弹出按钮。
+        GameCanvas.Instance.ClearActionButton();
     }
 }

@@ -70,6 +70,10 @@ public class GetRoomListRequest { // 获取房间列表请求
     public bool show_tip; // True=手动刷新显示tips，False=静默刷新
 }
 
+public class SyncMyRoomRequest { // 同步当前玩家房间状态（重连后拉取权威房间信息）
+    public string type;
+}
+
 public class JoinRoomRequest { // 加入房间请求
     public string type;
     public string room_id;
@@ -102,6 +106,7 @@ public class SendActionRequest { // 发送国标游戏操作请求
     public int? TileId; // 切牌
     public string gamestate_id; // 游戏状态ID
     public int? chiComboIndex; // 立直麻将赤宝牌吃牌候选索引，默认 0 表示优先非赤 5
+    public int? action_tick; // 本次操作所回应的询问帧；服务端用于丢弃战术鸣牌前的过期提交
 }
 
 public class SetRyuukyokuTenpaiRequest {

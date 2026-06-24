@@ -83,10 +83,19 @@ public class ActionButton : MonoBehaviour {
         }
         bool isChi = IsChiButton();
         List<(string action, int comboIndex, int[] pair)> chiCands = isChi ? CollectChiCandidates() : null;
+        bool isAngang = actionTypeList.Contains("angang");
+        bool isJiagang = actionTypeList.Contains("jiagang");
+        var gsm = NormalGameStateManager.Instance;
+        var angangOptions = isAngang ? CollectAngangOptions(gsm.selfHandTiles) : null;
+        var jiagangOptions = isJiagang
+            ? CollectJiagangOptions(gsm.selfHandTiles, gsm.player_to_info["self"].combination_tiles)
+            : null;
 
-        // 展开条件：存在多种吃牌候选（跨方向或单方向内含赤 5 多解），或手动杠/加杠需多选
+        // 展开条件：多种吃牌候选，或手牌中实际存在多种暗杠/加杠目标。
+        // 服务端会对每个可杠牌各下发一条 "angang"/"jiagang"，不能按 actionTypeList 条数展开。
         bool expandSubButtons = (isChi && chiCands.Count > 1)
-            || (!isChi && actionTypeList.Count > 1);
+            || (angangOptions != null && angangOptions.Count > 1)
+            || (jiagangOptions != null && jiagangOptions.Count > 1);
 
         if (expandSubButtons){
             string currentButtonType = "None";
@@ -119,21 +128,14 @@ public class ActionButton : MonoBehaviour {
                     CreateChiCandidateBlock(cand.action, cand.comboIndex, cand.pair);
                 }
             } else {
-                foreach (string actionType in actionTypeList){
-                    List<int> TipsCardsList = new List<int>();
-                    switch (actionType) {
-                        case "angang":
-                            foreach (var angangOption in CollectAngangOptions(NormalGameStateManager.Instance.selfHandTiles)) {
-                                CreateActionCards(angangOption.displayTiles, actionType, angangOption.targetTile);
-                            }
-                            break;
-                        case "jiagang":
-                            foreach (var jiagangOption in CollectJiagangOptions(
-                                NormalGameStateManager.Instance.selfHandTiles,
-                                NormalGameStateManager.Instance.player_to_info["self"].combination_tiles)) {
-                                CreateActionCards(jiagangOption.displayTiles, actionType, jiagangOption.targetTile);
-                            }
-                            break;
+                if (angangOptions != null) {
+                    foreach (var angangOption in angangOptions) {
+                        CreateActionCards(angangOption.displayTiles, "angang", angangOption.targetTile);
+                    }
+                }
+                if (jiagangOptions != null) {
+                    foreach (var jiagangOption in jiagangOptions) {
+                        CreateActionCards(jiagangOption.displayTiles, "jiagang", jiagangOption.targetTile);
                     }
                 }
             }
@@ -150,28 +152,16 @@ public class ActionButton : MonoBehaviour {
 
         if (actionTypeList[0] == "jiagang"){
             Debug.Log($"选择了行动 {actionTypeList[0]}");
-            int targetTile = FindJiagangTargetTile();
+            int targetTile = jiagangOptions != null && jiagangOptions.Count > 0 ? jiagangOptions[0].targetTile : 0;
             GameCanvas.Instance.ChooseAction(actionTypeList[0], targetTile);
         } else if (actionTypeList[0] == "angang"){
             Debug.Log($"选择了行动 {actionTypeList[0]}");
-            int targetTile = FindAngangTargetTile();
+            int targetTile = angangOptions != null && angangOptions.Count > 0 ? angangOptions[0].targetTile : 0;
             GameCanvas.Instance.ChooseAction(actionTypeList[0], targetTile);
         } else {
             Debug.Log($"选择了行动 {actionTypeList[0]}");
             GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
         }
-    }
-
-    private int FindJiagangTargetTile() {
-        var options = CollectJiagangOptions(
-            NormalGameStateManager.Instance.selfHandTiles,
-            NormalGameStateManager.Instance.player_to_info["self"].combination_tiles);
-        return options.Count > 0 ? options[0].targetTile : 0;
-    }
-
-    private int FindAngangTargetTile() {
-        var options = CollectAngangOptions(NormalGameStateManager.Instance.selfHandTiles);
-        return options.Count > 0 ? options[0].targetTile : 0;
     }
 
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {

@@ -16,7 +16,7 @@ def build_player_entry_order_fields(gs) -> Dict[str, Any]:
 
 """
 # 牌谱格式示例
-# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌 bh=补花 c=切牌 ag=暗杠(第3段 T=摸杠/F=手杠) jg=加杠(第3段 T=摸杠/F=手杠) cl/cm/cr=吃 p=碰 g=明杠
+# 操作短码: d=摸牌 gd=杠后摸牌 bd=补花后摸牌(含 action_player) bh=补花(含 action_player, 第4段 T=摸补/F=手补) c=切牌 ag=暗杠(第3段 T=摸杠/F=手杠) jg=加杠(第3段 T=摸杠/F=手杠) cl/cm/cr=吃 p=碰 g=明杠
 
 
 
@@ -138,6 +138,7 @@ def build_round_header_data(gs) -> Dict[str, Any]:
 # 牌谱记录对局头
 def init_game_round(self):
     self.player_action_tick = 0
+    init_claim_apply_state(self)
     round_data = build_round_header_data(self)
     round_data["action_ticks"] = []
     self.game_record["game_round"][f"round_index_{self.round_index}"] = round_data
@@ -179,13 +180,18 @@ def resolve_hepai_tile_for_record(gs, hu_class: str, hepai_player_index: int):
     return tile if isinstance(tile, int) and tile > 10 else None
 
 
-# 牌谱记录补花
-def player_action_record_buhua(self,max_tile: int,action_player: int):
-    append_action_tick(self, ["bh", max_tile, action_player])
+# 牌谱记录补花；is_mo_buhua True=摸补 False=手补（与暗杠/加杠 T/F 口径一致）
+def player_action_record_buhua(self, max_tile: int, action_player: int, is_mo_buhua: bool = False):
+    append_action_tick(self, ["bh", max_tile, action_player, "T" if is_mo_buhua else "F"])
 
-# 牌谱记录摸牌 deal_type: "d" 普通摸牌, "gd" 杠后摸牌, "bd" 补花后摸牌
-def player_action_record_deal(self, deal_tile: int, deal_type: str = "d"):
-    append_action_tick(self, [deal_type, deal_tile])
+# 牌谱记录摸牌 deal_type: "d" 普通摸牌, "gd" 杠后摸牌, "bd" 补花后摸牌（须带 action_player）
+def player_action_record_deal(self, deal_tile: int, deal_type: str = "d", action_player: int = None):
+    if deal_type == "bd":
+        if action_player is None:
+            action_player = self.current_player_index
+        append_action_tick(self, [deal_type, deal_tile, action_player])
+    else:
+        append_action_tick(self, [deal_type, deal_tile])
 
 # 牌谱记录切牌
 def player_action_record_cut(self, cut_tile: int, is_moqie: bool = False, is_riichi_horizontal: bool = False):
@@ -228,6 +234,101 @@ _ACTION_TO_RECORD = {
     "chi_left": "cl", "chi_mid": "cm", "chi_right": "cr",
     "peng": "p", "gang": "g",
 }
+
+# 战术鸣牌 is_claim 申请 → 牌谱短码（与执行 tick 一致，和牌类保持 hu_* 原名）
+_CLAIM_APPLY_ACTION_TO_RECORD = {
+    **_ACTION_TO_RECORD,
+    "hu_first": "hu_first",
+    "hu_second": "hu_second",
+    "hu_third": "hu_third",
+    "hu": "hu",
+}
+
+
+def init_claim_apply_state(gs) -> None:
+    """每局初始化：跟踪本局尚未落库的战术鸣牌申请。"""
+    gs._claim_apply_pending = []
+
+
+def _normalize_claim_apply_action(action_type: str) -> str:
+    return _CLAIM_APPLY_ACTION_TO_RECORD.get(action_type, action_type)
+
+
+def _claim_apply_matches_executed(apply_action: str, executed_action_type: str) -> bool:
+    executed_code = _normalize_claim_apply_action(executed_action_type)
+    return apply_action == executed_code
+
+
+def track_claim_application(gs, player_index: int, action_type: str, cut_tile: int) -> None:
+    """战术鸣牌 is_claim 广播时登记；最终未执行时在 flush 时落库为 ca tick。"""
+    if not getattr(gs, "tactical_call", False):
+        return
+    if cut_tile is None or action_type in (None, "pass"):
+        return
+    if not hasattr(gs, "_claim_apply_pending"):
+        init_claim_apply_state(gs)
+    apply_action = _normalize_claim_apply_action(action_type)
+    for item in gs._claim_apply_pending:
+        if (
+            item["player_index"] == player_index
+            and item["apply_action"] == apply_action
+            and item["cut_tile"] == cut_tile
+        ):
+            return
+    gs._claim_apply_pending.append(
+        {
+            "player_index": player_index,
+            "apply_action": apply_action,
+            "cut_tile": cut_tile,
+        }
+    )
+
+
+def flush_unexecuted_claim_applications(
+    gs,
+    cut_tile: int,
+    *,
+    executed_player: int = None,
+    executed_action_type: str = None,
+) -> None:
+    """本张弃牌鸣牌区间结束时，将未最终执行的申请写入牌谱。"""
+    pending = getattr(gs, "_claim_apply_pending", None)
+    if not pending:
+        return
+    remaining = []
+    for item in pending:
+        if item["cut_tile"] != cut_tile:
+            remaining.append(item)
+            continue
+        if (
+            executed_player is not None
+            and executed_action_type is not None
+            and item["player_index"] == executed_player
+            and _claim_apply_matches_executed(item["apply_action"], executed_action_type)
+        ):
+            continue
+        player_action_record_claim_apply(
+            gs, item["player_index"], item["apply_action"], item["cut_tile"]
+        )
+    gs._claim_apply_pending = remaining
+
+
+def flush_all_unexecuted_claim_applications(gs) -> None:
+    """新出牌区间开始前：落库上一区间遗留的未执行申请（安全兜底）。"""
+    pending = getattr(gs, "_claim_apply_pending", None)
+    if not pending:
+        return
+    for item in list(pending):
+        player_action_record_claim_apply(
+            gs, item["player_index"], item["apply_action"], item["cut_tile"]
+        )
+    gs._claim_apply_pending.clear()
+
+
+# 牌谱记录战术鸣牌申请（未最终执行）；仅 display/音效，不改变牌面
+# ["ca", player_index, apply_action, cut_tile]
+def player_action_record_claim_apply(gs, player_index: int, apply_action: str, cut_tile: int):
+    append_action_tick(gs, ["ca", player_index, apply_action, cut_tile])
 
 def _extract_hand_tiles_from_mingpai_mask(combination_mask, mingpai_tile: int):
     """从 combination_mask 提取从手牌打出的真实牌 ID（跳过 direction==1 的被鸣牌位）。"""

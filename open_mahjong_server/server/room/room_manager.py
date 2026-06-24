@@ -70,7 +70,7 @@ class RoomManager:
         return None
 
     async def create_GB_room(self, player_id: str, room_name: str, gameround: int, 
-                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, cuohe_type: int = 0) -> Response:
+                           password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "guobiao/standard", hepai_limit: int = 8, tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, cuohe_type: int = 0) -> Response:
         try:
             # 检查玩家是否存在
             if player_id not in self.game_server.players:
@@ -124,6 +124,7 @@ class RoomManager:
                 "open_cuohe": open_cuohe, # 是否开启错和
                 "cuohe_type": cuohe_type, # 错和形式
                 "tactical_call": tactical_call, # 战术鸣牌
+                "claim_protection": claim_protection, # 鸣牌保护
             }
 
             # 拿取国标麻将验证器 使用验证器验证room_config
@@ -200,7 +201,7 @@ class RoomManager:
 
     async def create_Qingque_room(self, player_id: str, room_name: str, gameround: int,
                                   password: str, roundTimerValue: int, stepTimerValue: int,
-                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False) -> Response:
+                                  tips: bool, random_seed: int = 0, open_cuohe: bool = False, sub_rule: str = "qingque/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True) -> Response:
         """
         创建青雀房间。
         青雀规则不支持错和，open_cuohe 参数会被忽略，统一按 False 处理。
@@ -253,6 +254,7 @@ class RoomManager:
                 "random_seed": random_seed, # 随机种子
                 "open_cuohe": False, # 青雀规则不支持错和，固定为 False
                 "tactical_call": tactical_call, # 战术鸣牌
+                "claim_protection": claim_protection, # 鸣牌保护
             }
 
             # 拿取国标麻将验证器（青雀规则与国标类似，复用验证器）
@@ -420,7 +422,7 @@ class RoomManager:
                                   password: str, roundTimerValue: int, stepTimerValue: int,
                                   tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard",
                                   tourist_limit: bool = False, allow_spectator: bool = True,
-                                  tactical_call: bool = False, blood_battle: bool = True) -> Response:
+                                  tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True) -> Response:
         """创建四川麻将（血战到底）房间。blood_battle 为可选开关。"""
         try:
             if player_id not in self.game_server.players:
@@ -449,6 +451,7 @@ class RoomManager:
                 "random_seed": random_seed,
                 "tactical_call": tactical_call,
                 "blood_battle": blood_battle,
+                "claim_protection": claim_protection,
             }
 
             try:
@@ -1130,6 +1133,33 @@ class RoomManager:
         self._sync_room_host(room_data)
         await self._broadcast_room_info(room_id)
         logger.info(f"自定义房 {room_id} 对局结束，已恢复等待态")
+
+    async def sync_my_room(self, Connect_id: str) -> Response:
+        """按服务端权威数据同步当前玩家所在房间；不在任何房间时返回 sync_not_in_room。"""
+        if Connect_id not in self.game_server.players:
+            return Response(type="tips", success=False, message="连接无效")
+        player = self.game_server.players[Connect_id]
+        if not player.user_id:
+            return Response(type="tips", success=False, message="请先登录")
+
+        user_id = player.user_id
+        for room_id, room_data in self.rooms.items():
+            if user_id in room_data.get("player_list", []):
+                player.current_room_id = room_id
+                room_data.setdefault("ready_list", [])
+                return Response(
+                    type="room/refresh_room_info",
+                    success=True,
+                    message="房间信息更新",
+                    room_info=room_data,
+                )
+
+        player.current_room_id = None
+        return Response(
+            type="room/sync_not_in_room",
+            success=True,
+            message="不在任何房间",
+        )
 
     async def _broadcast_room_info(self, room_id: str):
         """广播房间信息给所有房间内的玩家"""

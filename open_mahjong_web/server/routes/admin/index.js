@@ -9,6 +9,7 @@ const rankRoutes = require('./rank');
 const gamesRoutes = require('./games');
 const auditRoutes = require('./audit');
 const messagesRoutes = require('./messages');
+const ipBansRoutes = require('./ip_bans');
 
 const router = express.Router();
 
@@ -31,5 +32,6 @@ router.use('/rank', rankRoutes);
 router.use('/games', gamesRoutes);
 router.use('/audit', auditRoutes);
 router.use('/messages', messagesRoutes);
+router.use('/ip-bans', ipBansRoutes);
 
 module.exports = router;

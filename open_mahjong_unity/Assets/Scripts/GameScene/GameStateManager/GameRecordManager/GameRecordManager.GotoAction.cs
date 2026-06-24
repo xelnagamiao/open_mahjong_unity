@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class GameRecordManager
 {
     public void GotoAction(int actionIndex){
+        CancelRecordHuPresentation();
         // 获取当前局数的node列表
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) || roundData.actionTicks == null) {
             return;
@@ -73,6 +74,7 @@ public partial class GameRecordManager
         RefreshRecordRiichiRoundPanel();
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
+        RefreshRecordTips();
     }
 
     // 推演行动节点
@@ -84,7 +86,7 @@ public partial class GameRecordManager
         string action = tick[0];
 
         // 观战 ask 事件不改变对局状态，快进时跳过
-        if (action == "ask_hand" || action == "ask_other") {
+        if (action == "ask_hand" || action == "ask_other" || action == "ca") {
             return;
         }
 
@@ -94,12 +96,7 @@ public partial class GameRecordManager
             }
         }
 
-        int actingPlayerIndex = currentPlayerIndex;
-        if (action == "bh" && tick.Count >= 3) {
-            actingPlayerIndex = ParseTickInt(tick, 2);
-        } else if ((action == "cl" || action == "cm" || action == "cr" || action == "p" || action == "g") && tick.Count >= 3) {
-            actingPlayerIndex = ParseTickInt(tick, 2);
-        }
+        int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
 
         string actingPlayerPosition = indexToPosition[actingPlayerIndex];
         RecordPlayer actingPlayer = recordPlayer_to_info[actingPlayerPosition];
@@ -108,6 +105,7 @@ public partial class GameRecordManager
         if (action == "d" || action == "gd" || action == "bd") {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
+            actingPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
             
             if (currentTilesList.Count > 0) {
@@ -136,6 +134,7 @@ public partial class GameRecordManager
             bool isMoqie = ParseTickBool(tick, 2);
             bool isRiichiHorizontal = tick.Count > 3 && tick[3] == "H";
             RemoveTileForCut(actingPlayer.tileList, cutTile, isMoqie);
+            actingPlayer.showHandDrawSlotActive = false;
             actingPlayer.discardTiles.Add(cutTile);
             actingPlayer.discardIsMoqie.Add(isMoqie);
             actingPlayer.discardRiichiFlags.Add(isRiichiHorizontal);
@@ -148,7 +147,11 @@ public partial class GameRecordManager
         }
         else if (action == "bh") {
             int buhuaTile = ParseTickInt(tick, 1);
-            RemoveOneTile(actingPlayer.tileList, buhuaTile);
+            bool isMoBuhua = GameRecordJsonDecoder.ParseBuhuaMoFlag(tick);
+            RemoveTileForBuhua(actingPlayer.tileList, buhuaTile, isMoBuhua);
+            if (isMoBuhua) {
+                actingPlayer.showHandDrawSlotActive = false;
+            }
             actingPlayer.huapaiList.Add(buhuaTile);
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -161,6 +164,9 @@ public partial class GameRecordManager
             int[] combinationMask = GameRecordMeldCodec.BuildAngangMaskFromRemoved(removedTiles, rule);
             actingPlayer.combinationTiles.Add($"G{angangTile}");
             actingPlayer.combinationMasks.Add(combinationMask);
+            if (isMoGang) {
+                actingPlayer.showHandDrawSlotActive = false;
+            }
             ApplyRecordGangScoreDeltasFromTick(tick);
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -172,6 +178,9 @@ public partial class GameRecordManager
             int actualJia = removedTiles.Count > 0 ? removedTiles[0] : jiagangTile;
             lastWinnableTileId = actualJia;
             BuildJiagangMask(actingPlayer, jiagangTile, actualJia);
+            if (isMoGang) {
+                actingPlayer.showHandDrawSlotActive = false;
+            }
             ApplyRecordGangScoreDeltasFromTick(tick);
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -197,6 +206,7 @@ public partial class GameRecordManager
             int[] combinationMask = GameRecordMeldCodec.BuildMingpaiMask(action, mingpaiTile, removedTiles, relative);
             actingPlayer.combinationTiles.Add(GameRecordMeldCodec.BuildCombinationTarget(action, mingpaiTile));
             actingPlayer.combinationMasks.Add(combinationMask);
+            actingPlayer.showHandDrawSlotActive = false;
             if (action == "g") {
                 ApplyRecordGangScoreDeltasFromTick(tick);
             }

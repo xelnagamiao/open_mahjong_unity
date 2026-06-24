@@ -19,6 +19,7 @@ class PlayerTiles:
 class Chinese_Tingpai_Check:
     yaojiu = {11, 19, 21, 29, 31, 39, 41, 42, 43, 44, 45, 46, 47}
     zipai = {41, 42, 43, 44, 45, 46, 47}
+    hua_tiles = {51, 52, 53, 54, 55, 56, 57, 58}
 
     def __init__(self, debug=False):
         self.waiting_tiles = set()
@@ -193,15 +194,13 @@ class Chinese_Tingpai_Check:
                 # 如果有组合龙
                 if any('z' in str(comb) for comb in i.combination_list):
                     self.debug_print("组合龙型")
-                    # 如果听牌步数是11 或者 12 说明是其他形
-                    #if i.complete_step == 12 and len(i.hand_tiles) == 2 and not self.zuhelong_lack_tiles:
-                    #    pass
-                    # 如果听牌步数为14 没有手牌 说明是组合龙缺张
-                    if i.complete_step == 14 and i.hand_tiles == []:
-                        self.waiting_tiles = self.zuhelong_lack_tiles
+                    # 不完整组合龙：步数14且手牌空 → 只听缺张
+                    if i.complete_step == 14 and i.hand_tiles == [] and self.zuhelong_lack_tiles:
+                        self.waiting_tiles = set(self.zuhelong_lack_tiles)
                         return
-                    #else:
-                    #    raise ValueError(f"组合龙型异常: complete_step={i.complete_step}, hand_tiles={i.hand_tiles}")
+                    # 不完整组合龙未听：不把剥剩手牌当一般型进张
+                    if self.zuhelong_lack_tiles:
+                        continue
 
                 if len(i.hand_tiles) == 1:
                     waiting_tiles.append(i.hand_tiles[0]) # 单吊型
@@ -281,11 +280,88 @@ class Chinese_Tingpai_Check:
                     same_tile_id = tile_id
     # 外部调用时传参手牌、组合 返回听牌集合
     def tingpai_check(self,hand_tile_list,combination_list):
+        # 手牌含花牌时尚未补花，不应判听
+        if any(tile in self.hua_tiles for tile in hand_tile_list):
+            return set()
         test_tiles = PlayerTiles(hand_tile_list.copy(),combination_list.copy(),len(combination_list)*3)
         self.check_waiting_tiles(test_tiles)
         # 排除 10 20 30 40这四种集合成员
         self.waiting_tiles = {i for i in self.waiting_tiles if i not in {10,20,30,40}}
         return self.waiting_tiles.copy()  # 返回set的副本，避免引用问题
+
+
+def run_tingpai_regression_tests():
+    """听牌回归：组合龙/全不靠 + 一般型/七对/花牌。"""
+    checker = Chinese_Tingpai_Check(debug=False)
+    cases = [
+        # 组合龙误报：副露 s17 + 普通手牌，不应听牌
+        (
+            "zuhelong_false_positive",
+            [12, 18, 33, 36, 36, 37, 39, 21, 24, 27],
+            ["s17"],
+            set(),
+        ),
+        # 文件内组合龙听牌例：缺 38 饼
+        (
+            "zuhelong_lack_38",
+            [11, 14, 17, 23, 26, 29, 32, 35, 39, 39],
+            ["s37"],
+            {38},
+        ),
+        # 组合龙听牌例（完整9张组合龙剥后单钓）
+        (
+            "zuhelong_full_then_pair",
+            [12, 15, 18, 33, 36, 39, 21, 24, 27, 47, 47],
+            ["s25"],
+            {47},
+        ),
+        # 一般型两面听
+        (
+            "normal_shun",
+            [11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 31, 33, 33],
+            [],
+            {31, 33},
+        ),
+        # 七对子单钓
+        (
+            "qiduizi",
+            [11, 11, 13, 13, 15, 15, 17, 17, 19, 19, 31, 31, 33],
+            [],
+            {33},
+        ),
+        # 副露听牌（两面+坎）
+        (
+            "open_meld_ting",
+            [11, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+            ["k39"],
+            {11, 14, 17},
+        ),
+        # 花牌在手：未补花，不应听
+        (
+            "flower_in_hand",
+            [11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 51],
+            [],
+            set(),
+        ),
+        # 非听牌
+        (
+            "not_ting",
+            [11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43, 44],
+            [],
+            set(),
+        ),
+    ]
+    failed = []
+    for name, hand, combo, expected in cases:
+        got = checker.tingpai_check(hand, combo)
+        if got != expected:
+            failed.append((name, expected, got))
+    if failed:
+        for name, expected, got in failed:
+            print(f"FAIL {name}: expected {sorted(expected)}, got {sorted(got)}")
+        raise AssertionError(f"{len(failed)} tingpai regression test(s) failed")
+    print(f"OK: {len(cases)} tingpai regression tests passed")
+
 
 # 测试
 if __name__ == "__main__":
@@ -396,6 +472,8 @@ if __name__ == "__main__":
     """
     
     test_save = [["s37"],[11,14,17,23,26,29,32,35,39,39]]
+
+    run_tingpai_regression_tests()
 
     # 手动指定牌组测试
     Chinese_test_combination = Chinese_Tingpai_Check(debug=True)  # 启用debug模式

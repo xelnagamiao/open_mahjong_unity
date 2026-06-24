@@ -3,7 +3,7 @@
 """
 import logging
 
-from ..public.hand_slot_utils import hand_contains_tile
+from ..public.hand_slot_utils import hand_contains_tile, normalize_tile
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
                 if f"k{target_tile}" not in current_player.combination_tiles:
                     return
             elif action_type == "angang":
-                normal = target_tile
-                if sum(1 for t in current_player.hand_tiles if t == normal or (t in (105, 205, 305) and (t - 100) == normal)) < 4:
+                normal = normalize_tile(target_tile)
+                if sum(1 for t in current_player.hand_tiles if normalize_tile(t) == normal) < 4:
                     return
             await game_state.action_queues[player_index].put({
                 "action_type": action_type,
@@ -94,8 +94,8 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 if f"k{target_tile}" not in current_player.combination_tiles:
                     return
             elif action_type == "angang":
-                normal = target_tile
-                if sum(1 for t in current_player.hand_tiles if t == normal or (t in (105, 205, 305) and (t - 100) == normal)) < 4:
+                normal = normalize_tile(target_tile)
+                if sum(1 for t in current_player.hand_tiles if normalize_tile(t) == normal) < 4:
                     return
             await game_state.action_queues[player_index].put({
                 "action_type": action_type,

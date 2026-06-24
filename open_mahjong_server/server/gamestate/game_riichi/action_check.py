@@ -36,10 +36,9 @@ def check_jiuzhongjiupai(hand_tiles: List[int]) -> bool:
         return False
     yaochuu = set()
     for t in hand_tiles:
-        if t >= 41:
-            yaochuu.add(t)
-        elif t % 10 == 1 or t % 10 == 9:
-            yaochuu.add(t)
+        n = _normalize(t)
+        if n in YAOCHUU:
+            yaochuu.add(n)
     return len(yaochuu) >= 9
 
 

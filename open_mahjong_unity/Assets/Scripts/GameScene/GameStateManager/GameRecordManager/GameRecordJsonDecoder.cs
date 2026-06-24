@@ -181,6 +181,42 @@ public static class GameRecordJsonDecoder {
     }
 
     /// <summary>
+    /// 解析补花 tick 第 4 段 T/F（摸补/手补）。旧牌谱仅 3 段时默认手补。
+    /// </summary>
+    public static bool ParseBuhuaMoFlag(List<string> tick, bool legacyDefault = false) {
+        if (tick == null || tick.Count < 4) {
+            return legacyDefault;
+        }
+        string flag = tick[3].ToUpperInvariant();
+        if (flag != "T" && flag != "F") {
+            throw new Exception($"补花 tick 第四段必须为 T 或 F: [{string.Join(", ", tick)}]");
+        }
+        return flag == "T";
+    }
+
+    /// <summary>
+    /// 牌谱 tick 内显式行动者：bh/bd/鸣牌/和牌等；无则返回 defaultPlayer。
+    /// </summary>
+    public static int ResolveRecordActingPlayerIndex(List<string> tick, string action, int defaultPlayer) {
+        if (tick == null || tick.Count == 0) return defaultPlayer;
+        if ((action == "bh" || action == "bd" || action == "cl" || action == "cm" || action == "cr"
+             || action == "p" || action == "g") && tick.Count >= 3) {
+            if (!int.TryParse(tick[2]?.Trim(), out int seat)) return defaultPlayer;
+            return seat;
+        }
+        if (action == "ca" && tick.Count >= 2) {
+            if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
+            return seat;
+        }
+        if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third"
+             || action == "riichi") && tick.Count >= 2) {
+            if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
+            return seat;
+        }
+        return defaultPlayer;
+    }
+
+    /// <summary>
     /// 解析暗杠/加杠 tick 第三段 T/F（必填，不接受两段格式）。
     /// </summary>
     public static bool ParseKanMoGangFlag(List<string> tick) {

@@ -39,12 +39,23 @@ public static class PostGameNavigator {
     public static void ExitToSpectator() {
         if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
             GameRecordManager.Instance.StopSpectating();
-        } else {
+        } else if (!ShouldPreserveActiveGameScene()) {
             UserDataManager.Instance.SetGamestateId("");
             GameSceneTeardown.ResetToIdle();
         }
         HeaderPanel.Instance?.SetBackToGameVisible(false);
         WindowsManager.Instance.ExitGameTo("spectator");
+    }
+
+    /// <summary>
+    /// 匹配排队/已匹配、正常对局、实时观战进行中时不应因迟到的延时观战消息清空游戏场景。
+    /// </summary>
+    private static bool ShouldPreserveActiveGameScene() {
+        var gsm = NormalGameStateManager.Instance;
+        if (gsm != null && (gsm.IsGameActive || gsm.IsRealtimeSpectator)) {
+            return true;
+        }
+        return LobbyStateGuard.IsInMatchQueue;
     }
 
     public static void ExitToFriend() {

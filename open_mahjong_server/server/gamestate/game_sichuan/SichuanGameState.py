@@ -155,6 +155,11 @@ class SichuanGameState:
         self.open_cuohe = False
         self.show_moqie_hint = room_data.get("show_moqie_hint", False)
         self.tactical_call = room_data.get("tactical_call", False)
+        self.claim_protection = room_data.get("claim_protection", True)
+        self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
+        self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
+        self.claim_protect_delay = room_data.get("claim_protect_delay", 1.5)
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.3)
         self.blood_battle = room_data.get("blood_battle", True)
         self.hepai_limit = 1
         self.tourist_limit = room_data.get("tourist_limit", False)
@@ -196,6 +201,9 @@ class SichuanGameState:
         }
         self.dead_wall_count = 0  # 四川无死墙
         self.Debug = False
+
+        from ..public.claim_protection import init_claim_protection_state
+        init_claim_protection_state(self)
 
         self.spectator_enabled = self.allow_spectator_config and not too_many_ai_for_spectator(self.player_list)
         from ..game_classical.spectator_manager import SpectatorManager

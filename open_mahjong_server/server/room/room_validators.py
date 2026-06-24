@@ -13,6 +13,7 @@ class GBRoomValidator(BaseModel):
     cuohe_type: int = 0  # 0=错和者-30/其余+10；1=错和者-40/其余+0
     show_moqie_hint: bool = False
     tactical_call: bool = False
+    claim_protection: bool = True
     
     @validator('room_name')
     def validate_room_name(cls, v):
@@ -117,6 +118,7 @@ class SichuanRoomValidator(BaseModel):
     random_seed: Union[int, str] = 0
     show_moqie_hint: bool = False
     tactical_call: bool = False
+    claim_protection: bool = True
     blood_battle: bool = True  # 血战到底：开=和牌后续打至三家和或流局；关=一家和牌即结束本盘
 
     @validator('room_name')

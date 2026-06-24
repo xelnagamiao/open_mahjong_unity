@@ -14,11 +14,17 @@
 
           <el-descriptions-item label="用户 ID">{{ detail.user.user_id }}</el-descriptions-item>
 
-          <el-descriptions-item label="用户名">{{ detail.user.username }}</el-descriptions-item>
+          <el-descriptions-item label="当前用户名">{{ detail.user.username }}</el-descriptions-item>
 
           <el-descriptions-item label="类型">{{ detail.user.is_tourist ? '游客' : '注册' }}</el-descriptions-item>
 
           <el-descriptions-item label="牌谱数">{{ detail.game_record_count }}</el-descriptions-item>
+
+          <el-descriptions-item label="在线状态">
+            <el-tag :type="detail.online ? 'success' : 'info'" size="small">
+              {{ detail.online ? '在线' : '离线' }}
+            </el-tag>
+          </el-descriptions-item>
 
           <el-descriptions-item label="赞助状态" :span="2">
 
@@ -74,6 +80,100 @@
 
           </el-descriptions-item>
 
+          <el-descriptions-item label="封禁状态" :span="2">
+
+            <el-tag :type="banStatus.tagType" size="small">{{ banStatus.label }}</el-tag>
+
+            <span v-if="detail.user.ban_type" class="sponsor-meta">
+
+              类型：{{ banTypeLabel(detail.user.ban_type) }}
+
+            </span>
+
+            <span v-if="detail.user.ban_expires_at" class="sponsor-meta">
+
+              到期：{{ formatDate(detail.user.ban_expires_at) }}
+
+            </span>
+
+            <span v-else-if="detail.user.ban_type" class="sponsor-meta">永久</span>
+
+          </el-descriptions-item>
+
+          <el-descriptions-item label="封禁类型" :span="2">
+
+            <el-select v-model="edit.ban_type" clearable placeholder="未封禁" style="width: 200px">
+
+              <el-option label="禁止登录" value="login" />
+
+              <el-option label="禁止发言" value="chat" />
+
+              <el-option label="禁止排位" value="match" />
+
+              <el-option label="全面封禁" value="full" />
+
+            </el-select>
+
+            <el-button size="small" type="danger" plain style="margin-left: 8px" @click="clearBan">
+
+              解除封禁
+
+            </el-button>
+
+          </el-descriptions-item>
+
+          <el-descriptions-item label="封禁到期" :span="2">
+
+            <div class="sponsor-edit">
+
+              <el-date-picker
+
+                v-model="edit.ban_expires_at"
+
+                type="datetime"
+
+                placeholder="留空表示永久封禁"
+
+                value-format="YYYY-MM-DD HH:mm:ss"
+
+                style="width: 240px"
+
+                :disabled="!edit.ban_type"
+
+              />
+
+              <el-button size="small" :disabled="!edit.ban_type" @click="extendBan(1)">+1 天</el-button>
+
+              <el-button size="small" :disabled="!edit.ban_type" @click="extendBan(7)">+7 天</el-button>
+
+              <el-button size="small" :disabled="!edit.ban_type" @click="extendBan(30)">+30 天</el-button>
+
+              <el-button size="small" :disabled="!edit.ban_type" @click="edit.ban_expires_at = null">设为永久</el-button>
+
+            </div>
+
+          </el-descriptions-item>
+
+          <el-descriptions-item label="封禁原因" :span="2">
+
+            <el-input
+
+              v-model="edit.ban_reason"
+
+              type="textarea"
+
+              :rows="2"
+
+              placeholder="玩家登录被拒时将看到此原因"
+
+              style="max-width: 480px"
+
+              :disabled="!edit.ban_type"
+
+            />
+
+          </el-descriptions-item>
+
         </el-descriptions>
 
         <div class="actions">
@@ -82,9 +182,51 @@
 
           <el-button type="primary" @click="saveUser" :loading="saving">保存账号设置</el-button>
 
+          <el-button type="danger" plain @click="kickUser" :loading="kicking">踢下线</el-button>
+
           <el-button @click="$router.push(`/admin/rank?userId=${detail.user.user_id}`)">编辑段位</el-button>
 
         </div>
+
+      </el-card>
+
+
+
+      <el-card v-if="!detail.user.is_tourist" class="block">
+
+        <template #header>改名</template>
+
+        <p class="rename-hint">规则与游戏内一致：最多 16 个字符，中文计 2、英文/数字计 1，总权重 2～20。历史牌谱仍显示对局时的旧用户名。</p>
+
+        <el-input
+
+          v-model="renameForm.new_username"
+
+          clearable
+
+          placeholder="新用户名"
+
+          style="max-width: 280px; margin-right: 8px"
+
+          maxlength="16"
+
+          show-word-limit
+
+        />
+
+        <el-input
+
+          v-model="renameForm.reason"
+
+          clearable
+
+          placeholder="变更原因（必填）"
+
+          style="max-width: 280px; margin-right: 8px"
+
+        />
+
+        <el-button type="primary" @click="renameUser" :loading="renaming">保存新用户名</el-button>
 
       </el-card>
 
@@ -123,6 +265,36 @@
         </el-button>
 
         <span v-if="detail.game_record_count > 0" class="warn">有牌谱记录时不可删除</span>
+
+      </el-card>
+
+
+
+      <el-card class="block">
+
+        <template #header>最近登录 IP（最多 20 条）</template>
+
+        <el-table :data="detail.recent_login_ips || []" size="small" empty-text="暂无登录记录">
+
+          <el-table-column prop="ip_address" label="IP" min-width="140" />
+
+          <el-table-column label="登录时间" min-width="180">
+
+            <template #default="{ row }">{{ formatDate(row.logged_at) }}</template>
+
+          </el-table-column>
+
+          <el-table-column label="操作" width="90">
+
+            <template #default="{ row }">
+
+              <el-button link type="danger" @click="banLoginIp(row)">封禁 IP</el-button>
+
+            </template>
+
+          </el-table-column>
+
+        </el-table>
 
       </el-card>
 
@@ -197,6 +369,10 @@ const loading = ref(true)
 
 const saving = ref(false)
 
+const kicking = ref(false)
+
+const renaming = ref(false)
+
 const detail = ref(null)
 
 const newPassword = ref('')
@@ -207,9 +383,79 @@ const edit = reactive({
 
   is_mcrpl_qualified: false,
 
+  ban_type: null,
+
+  ban_expires_at: null,
+
+  ban_reason: '',
+
   reason: '',
 
 })
+
+const renameForm = reactive({
+
+  new_username: '',
+
+  reason: '',
+
+})
+
+
+
+const BAN_TYPE_LABELS = {
+
+  login: '禁止登录',
+
+  chat: '禁止发言',
+
+  match: '禁止排位',
+
+  full: '全面封禁',
+
+}
+
+
+
+const LOGIN_BAN_TYPES = new Set(['login', 'full'])
+
+
+
+const banStatus = computed(() => {
+
+  const user = detail.value?.user
+
+  if (!user?.ban_type) {
+
+    return { label: '正常', tagType: 'success' }
+
+  }
+
+  const expires = user.ban_expires_at ? new Date(user.ban_expires_at).getTime() : null
+
+  if (expires !== null && expires <= Date.now()) {
+
+    return { label: '封禁已过期', tagType: 'info' }
+
+  }
+
+  if (LOGIN_BAN_TYPES.has(user.ban_type)) {
+
+    return { label: '禁止登录', tagType: 'danger' }
+
+  }
+
+  return { label: '受限中', tagType: 'warning' }
+
+})
+
+
+
+function banTypeLabel(type) {
+
+  return BAN_TYPE_LABELS[type] || type
+
+}
 
 
 
@@ -237,6 +483,20 @@ function syncEditFromDetail() {
 
   edit.is_mcrpl_qualified = detail.value.user.is_mcrpl_qualified
 
+  edit.ban_type = detail.value.user.ban_type || null
+
+  edit.ban_expires_at = detail.value.user.ban_expires_at
+
+    ? toPickerValue(detail.value.user.ban_expires_at)
+
+    : null
+
+  edit.ban_reason = detail.value.user.ban_reason || ''
+
+  renameForm.new_username = detail.value.user.username || ''
+
+  renameForm.reason = ''
+
 }
 
 
@@ -258,6 +518,32 @@ function extendSponsor(days) {
 function clearSponsor() {
 
   edit.sponsor_expires_at = null
+
+}
+
+
+
+function clearBan() {
+
+  edit.ban_type = null
+
+  edit.ban_expires_at = null
+
+  edit.ban_reason = ''
+
+}
+
+
+
+function extendBan(days) {
+
+  const base = edit.ban_expires_at || detail.value?.user?.ban_expires_at
+
+  const activeBase =
+
+    base && new Date(base).getTime() > Date.now() ? base : new Date()
+
+  edit.ban_expires_at = toPickerValue(addDays(activeBase, days))
 
 }
 
@@ -308,6 +594,12 @@ async function saveUser() {
       sponsor_expires_at: edit.sponsor_expires_at,
 
       is_mcrpl_qualified: edit.is_mcrpl_qualified,
+
+      ban_type: edit.ban_type,
+
+      ban_expires_at: edit.ban_expires_at,
+
+      ban_reason: edit.ban_reason,
 
       reason: edit.reason,
 
@@ -370,6 +662,148 @@ async function resetPassword() {
   } catch (e) {
 
     ElMessage.error(e.response?.data?.message || '操作失败')
+
+  }
+
+}
+
+
+
+async function kickUser() {
+
+  const { value: reason } = await ElMessageBox.prompt('请输入踢下线原因', '踢下线', {
+
+    type: 'warning',
+
+    inputValue: '管理员已将您的账号踢下线',
+
+  }).catch(() => null)
+
+  if (!reason?.trim()) return
+
+  kicking.value = true
+
+  try {
+
+    await adminApi.post(`/users/${route.params.userId}/kick`, { reason: reason.trim() })
+
+    ElMessage.success('已踢下线')
+
+    await load()
+
+  } catch (e) {
+
+    ElMessage.error(e.response?.data?.message || '踢下线失败')
+
+  } finally {
+
+    kicking.value = false
+
+  }
+
+}
+
+
+
+async function renameUser() {
+
+  const newName = renameForm.new_username.trim()
+
+  if (!newName) {
+
+    ElMessage.warning('请输入新用户名')
+
+    return
+
+  }
+
+  if (!renameForm.reason.trim()) {
+
+    ElMessage.warning('请填写变更原因')
+
+    return
+
+  }
+
+  if (newName === detail.value?.user?.username) {
+
+    ElMessage.warning('新用户名与当前相同')
+
+    return
+
+  }
+
+  renaming.value = true
+
+  try {
+
+    const res = await adminApi.post(`/users/${route.params.userId}/rename`, {
+
+      new_username: newName,
+
+      reason: renameForm.reason.trim(),
+
+    })
+
+    ElMessage.success(res.data.message || '改名成功')
+
+    renameForm.reason = ''
+
+    await load()
+
+  } catch (e) {
+
+    ElMessage.error(e.response?.data?.message || '改名失败')
+
+  } finally {
+
+    renaming.value = false
+
+  }
+
+}
+
+
+
+async function banLoginIp(row) {
+
+  const { value: reason } = await ElMessageBox.prompt(
+
+    `封禁 IP：${row.ip_address}`,
+
+    '封禁 IP',
+
+    {
+
+      type: 'warning',
+
+      inputValue: `封禁用户 ${detail.value?.user?.username} 的登录 IP`,
+
+    },
+
+  ).catch(() => null)
+
+  if (!reason?.trim()) return
+
+  try {
+
+    await adminApi.post('/ip-bans', {
+
+      ip_address: row.ip_address,
+
+      ban_expires_at: null,
+
+      ban_reason: reason.trim(),
+
+      reason: reason.trim(),
+
+    })
+
+    ElMessage.success('IP 已封禁')
+
+  } catch (e) {
+
+    ElMessage.error(e.response?.data?.message || '封禁失败')
 
   }
 
@@ -462,6 +896,18 @@ onMounted(load)
   color: #e6a23c;
 
   font-size: 13px;
+
+}
+
+.rename-hint {
+
+  margin: 0 0 12px;
+
+  color: #909399;
+
+  font-size: 13px;
+
+  line-height: 1.5;
 
 }
 

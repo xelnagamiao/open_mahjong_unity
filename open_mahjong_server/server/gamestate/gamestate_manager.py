@@ -283,8 +283,12 @@ class GameStateManager:
             game_state = self.user_id_to_game_state[user_id]
             await game_state.player_disconnect(user_id)
         # 观战者断开时，需从所有 gamestate 的 spectator_manager 中移除
+        await self.remove_spectator_from_all_games(user_id)
+    
+    async def remove_spectator_from_all_games(self, user_id: int):
+        """从所有进行中对局的延时观战列表移除用户（退出观战、加入匹配等场景）。"""
         for game_state in list(self.gamestate_id_to_game_state.values()):
-            if hasattr(game_state, 'spectator_manager') and game_state.spectator_manager:
+            if hasattr(game_state, "remove_spectator"):
                 await game_state.remove_spectator(user_id)
     
     async def player_reconnect(self, user_id: int):

@@ -3,6 +3,7 @@ using UnityEngine;
 
 public partial class GameRecordManager {
     public void NextXunmu() {
+        if (BlocksRecordNavigation) return;
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) ||
             roundData.actionTicks == null) {
             if (IsSpectatorSession) {
@@ -80,6 +81,7 @@ public partial class GameRecordManager {
     }
 
     public void BackXunmu() {
+        if (BlocksRecordNavigation) return;
         if (IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator) {
             SwitchToRecordMode();
         }
@@ -106,7 +108,7 @@ public partial class GameRecordManager {
     }
 
     public void NextStep() {
-        if (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
+        if (BlocksRecordNavigation) {
             return;
         }
         if (IsSpectatorSession) {
@@ -122,6 +124,7 @@ public partial class GameRecordManager {
     }
 
     public void BackStep() {
+        if (BlocksRecordNavigation) return;
         if (IsSpectatorSession && CurrentMode == RecordManagerMode.Spectator) {
             SwitchToRecordMode();
         }

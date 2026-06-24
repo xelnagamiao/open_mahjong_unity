@@ -23,6 +23,7 @@ public static class AutoReconnect {
     private class WaitState {
         public bool LoginDone;
         public bool LoginSuccess;
+        public bool RoomSyncDone;
         public bool ReconnectAskReceived;
         public bool GameRestored;
     }
@@ -103,6 +104,12 @@ public static class AutoReconnect {
         Debug.Log("[AutoReconnect] 登录" + (success ? "成功" : "失败"));
     }
 
+    public static void OnRoomSyncDone() {
+        if (_state != State.Reconnecting || _waitState == null) return;
+        _waitState.RoomSyncDone = true;
+        Debug.Log("[AutoReconnect] 房间状态已同步");
+    }
+
     public static bool ShouldAutoAcceptReconnectAsk() {
         if (_state != State.Reconnecting || !ExpectGameRestore) return false;
         if (_waitState != null) _waitState.ReconnectAskReceived = true;
@@ -114,10 +121,6 @@ public static class AutoReconnect {
         if (_state != State.Reconnecting || _waitState == null) return;
         _waitState.GameRestored = true;
         Debug.Log("[AutoReconnect] 成功重回对局");
-    }
-
-    public static bool ShouldSkipLoginUiChanges() {
-        return _state == State.Reconnecting && ExpectGameRestore;
     }
 
     public static bool ShouldSuppressLoginTip() {
@@ -157,8 +160,9 @@ public static class AutoReconnect {
         _state = State.Reconnecting;
         ExpectGameRestore = _snapshot.WasInGame;
 
-        NotificationManager.Instance?.ShowTip("重连", true, "正在恢复连接…");
-
+        // 注意：此处不做任何 UI 变更（不拆对局、不切窗口、不弹 tip）。
+        // 只有在 Phase 0 探活确认旧连接确实已断开后，才进入恢复流程并调整 UI，
+        // 避免「截图等临时失焦但连接仍存活」时误把玩家踢出对局或退出登录。
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNamed(
             CoroutineKeys.NetworkAutoReconnect,
@@ -175,10 +179,12 @@ public static class AutoReconnect {
         var nm = NetworkManager.Instance;
         if (nm == null) { OnFailed("内部错误"); yield break; }
 
-        // Phase 0: 快速探活
+        // Phase 0: 快速探活。若旧连接仍存活（如截图临时失焦），说明并未真正断线，
+        // 直接结束：不重连、不重新登录、不改动任何 UI。
+        // 在存活连接上重新 Login 会被服务端当作异地登录而顶掉自身连接，导致「退出登录」。
         nm.ResetProbePongFlag();
         bool probeSent = nm.SendProbePing();
-        Debug.Log($"[AutoReconnect] [0/3] 快速探活 pingSent={probeSent}");
+        Debug.Log($"[AutoReconnect] [0/4] 快速探活 pingSent={probeSent}");
         if (probeSent)
         {
             const float probeTimeout = 2f;
@@ -189,7 +195,7 @@ public static class AutoReconnect {
                 if (_state != State.Reconnecting) yield break;
                 if (nm.ProbePongReceived)
                 {
-                    Debug.Log("[AutoReconnect] 旧连接存活，跳过重连");
+                    Debug.Log("[AutoReconnect] 旧连接存活，无需重连");
                     OnSucceeded(skipAllTips: true);
                     yield break;
                 }
@@ -201,6 +207,15 @@ public static class AutoReconnect {
                 }
                 probeElapsed += Time.unscaledDeltaTime;
             }
+        }
+
+        // 走到这里说明已确认断线，正式进入恢复流程。此时才提示并离开可能失效的对局界面。
+        NotificationManager.Instance?.ShowTip("重连", true, "正在恢复连接…");
+        if (ExpectGameRestore)
+        {
+            // 离开可能已失效的对局界面，避免停留在空桌；重回对局须等到收到 game_start。
+            GameSceneTeardown.ResetToIdle();
+            WindowsManager.Instance?.SwitchWindow("menu");
         }
 
         // Phase 1: 重连 WebSocket
@@ -220,7 +235,7 @@ public static class AutoReconnect {
                     retryDelay -= Time.unscaledDeltaTime;
                 }
             }
-            Debug.Log($"[AutoReconnect] [1/3] 第{attempt}/{maxAttempts}次尝试连接");
+            Debug.Log($"[AutoReconnect] [1/4] 第{attempt}/{maxAttempts}次尝试连接");
             var oldWs = nm.GetWebSocket();
             if (oldWs != null && oldWs != newSocket)
             {
@@ -261,7 +276,7 @@ public static class AutoReconnect {
         Debug.Log("[AutoReconnect] WebSocket 已连接");
 
         // Phase 2: 重新登录
-        Debug.Log("[AutoReconnect] [2/3] 尝试重新登录");
+        Debug.Log("[AutoReconnect] [2/4] 尝试重新登录");
         nm.Login(_snapshot.Username, _snapshot.Password);
         const float loginTimeout = 12f;
         float loginElapsed = 0f;
@@ -278,14 +293,36 @@ public static class AutoReconnect {
         }
         Debug.Log("[AutoReconnect] 登录成功");
 
-        // Phase 3: 恢复对局
+        // Phase 3: 同步房间状态（断线时服务端已将玩家移出房间，需按服务端权威数据刷新）
+        Debug.Log("[AutoReconnect] [3/4] 同步房间状态");
+        RoomNetworkManager.Instance?.SyncMyRoom();
+        const float roomSyncTimeout = 5f;
+        float roomSyncElapsed = 0f;
+        while (roomSyncElapsed < roomSyncTimeout && !_waitState.RoomSyncDone)
+        {
+            if (_state != State.Reconnecting) yield break;
+            roomSyncElapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+        if (!_waitState.RoomSyncDone)
+        {
+            Debug.LogWarning("[AutoReconnect] 房间同步超时，清理残留房间状态");
+            if (ExpectGameRestore) {
+                RoomNetworkManager.Instance?.ClearStaleLobbyState();
+            } else {
+                RoomNetworkManager.Instance?.ApplyLeftRoomState(silent: true);
+            }
+            _waitState.RoomSyncDone = true;
+        }
+
+        // Phase 4: 恢复对局（仅在收到 game_start 后才真正进入桌面）
         if (ExpectGameRestore)
         {
-            Debug.Log("[AutoReconnect] [3/3] 等待对局");
+            Debug.Log("[AutoReconnect] [4/4] 等待对局");
             const float reconnectAskTimeout = 3f;
             const float gameRestoreTimeout = 12f;
             float waited = 0f;
-            // Phase 3a: 等待 reconnect_ask
+            // Phase 4a: 等待 reconnect_ask
             while (waited < reconnectAskTimeout && !_waitState.ReconnectAskReceived)
             {
                 if (_state != State.Reconnecting) yield break;
@@ -303,7 +340,7 @@ public static class AutoReconnect {
                 OnSucceeded(skipAllTips: true);
                 yield break;
             }
-            // Phase 3b: 等待 game_start
+            // Phase 4b: 等待 game_start
             waited = 0f;
             while (waited < gameRestoreTimeout && !_waitState.GameRestored)
             {

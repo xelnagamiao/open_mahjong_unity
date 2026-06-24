@@ -10,6 +10,17 @@ import asyncio
 import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
+from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..public.claim_protection import (
+    claim_protection_enabled,
+    is_protected_viewer,
+    stash_protected_cut_payload,
+    arm_claim_protection_timer,
+    prepare_protected_meld_for_viewers,
+    end_claim_protection_interval,
+    schedule_protected_meld_send,
+    REAL_MELD_ACTIONS,
+)
 from .shunhe import tag_list_for_viewer
 
 logger = logging.getLogger(__name__)
@@ -73,6 +84,7 @@ def _base_game_info(self):
         'open_cuohe': getattr(self, 'open_cuohe', False),
         'show_moqie_hint': getattr(self, 'show_moqie_hint', False),
         'tactical_call': getattr(self, 'tactical_call', False),
+        'claim_protection': getattr(self, 'claim_protection', False),
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
         'blood_battle': getattr(self, 'blood_battle', True),
         'dealer_index': getattr(self, 'dealer_index', 0),
@@ -210,7 +222,7 @@ async def broadcast_ask_hand_action(self):
         self.spectator_manager.record_ask_hand(self.current_player_index, self.action_dict.get(self.current_player_index, []))
 
 
-async def broadcast_ask_other_action(self):
+async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
     self._ask_broadcast_time = time.time()
@@ -228,19 +240,38 @@ async def broadcast_ask_other_action(self):
                 if self.action_dict.get(i, []):
                     asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
                 continue
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
-                    ask_other_action_info=Ask_other_action_info(
-                        remaining_time=current_player.remaining_time,
-                        action_list=self.action_dict[i],
-                        cut_tile=cut_tile,
-                        action_tick=self.server_action_tick,
-                    ),
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+            remaining_time_for_player = (
+                remaining_time_override if remaining_time_override is not None else current_player.remaining_time
+            )
+            if self.action_dict.get(i):
+                if current_player.user_id in self.game_server.user_id_to_connection:
+                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                    response = Response(
+                        type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
+                        ask_other_action_info=Ask_other_action_info(
+                            remaining_time=remaining_time_for_player,
+                            action_list=self.action_dict[i],
+                            cut_tile=cut_tile,
+                            action_tick=self.server_action_tick,
+                            is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
+                        ),
+                    )
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
+            elif not is_tactical_recheck:
+                if current_player.user_id in self.game_server.user_id_to_connection:
+                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+                    response = Response(
+                        type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
+                        ask_other_action_info=Ask_other_action_info(
+                            remaining_time=remaining_time_for_player,
+                            action_list=[],
+                            cut_tile=cut_tile,
+                            action_tick=self.server_action_tick,
+                        ),
+                    )
+                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(current_player.player_index, response)
         except Exception as e:
             logger.error(f"四川 ask_other 广播失败 {current_player.user_id}: {e}")
 
@@ -296,35 +327,152 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
                               cut_tile: int = None, cut_class: bool = None, cut_tile_index: int = None,
                               deal_tile: int = None, combination_target: str = None,
                               combination_mask: List[int] = None, is_mo_gang: bool = None,
-                              gang_score_changes: Dict[int, int] = None, gang_score_type: str = None):
-    self.server_action_tick += 1
-    if hasattr(self, "_ask_broadcast_time"):
-        delattr(self, "_ask_broadcast_time")
+                              gang_score_changes: Dict[int, int] = None, gang_score_type: str = None,
+                              is_claim: bool = False, silent: bool = False):
+    if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
+        silent = True
+        self._tactical_silent_action = False
+    if not is_claim:
+        self.server_action_tick += 1
+        if hasattr(self, "_ask_broadcast_time"):
+            delattr(self, "_ask_broadcast_time")
+    elif action_list and cut_tile is not None:
+        from ..public.game_record_manager import track_claim_application
+        track_claim_application(self, action_player, action_list[0], cut_tile)
+
+    interval_active = claim_protection_enabled(self) and getattr(self, "_cp_active", False)
+    is_cut = bool(action_list) and action_list[0] == "cut"
+    is_real_meld = (not is_claim) and bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
+    cut_already_revealed = getattr(self, "_cp_cut_flushed", False)
+
+    protected_meld_delay = 0.0
+    if interval_active and is_real_meld:
+        protected_meld_delay = await prepare_protected_meld_for_viewers(
+            self,
+            _send_do_action_payload_to_viewer,
+        )
+
     for i, current_player in enumerate(self.player_list):
         try:
             if "offline" in current_player.tag_list or current_player.user_id == 0:
                 continue
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="gamestate/sichuan/do_action", success=True, message="返回操作内容",
-                    do_action_info=Do_action_info(
-                        action_list=action_list, action_player=action_player,
-                        action_tick=self.server_action_tick, cut_tile=cut_tile, cut_class=cut_class,
-                        cut_tile_index=cut_tile_index, deal_tile=deal_tile,
-                        combination_mask=combination_mask, combination_target=combination_target,
-                        is_mo_gang=is_mo_gang, gang_score_changes=gang_score_changes,
-                        gang_score_type=gang_score_type,
-                    ),
+            if current_player.user_id < 10:
+                continue
+
+            protected = interval_active and is_protected_viewer(self, i)
+
+            if is_claim and protected and not getattr(self, "_cp_cut_flushed", False):
+                continue
+
+            if protected and is_real_meld:
+                viewer_silent = silent if cut_already_revealed else False
+            else:
+                viewer_silent = silent
+
+            payload = _build_do_action_payload(
+                self,
+                action_list,
+                action_player,
+                i,
+                cut_tile=cut_tile,
+                cut_class=cut_class,
+                cut_tile_index=cut_tile_index,
+                deal_tile=deal_tile,
+                combination_mask=combination_mask,
+                combination_target=combination_target,
+                is_claim=is_claim,
+                silent=viewer_silent,
+                is_mo_gang=is_mo_gang,
+                gang_score_changes=gang_score_changes,
+                gang_score_type=gang_score_type,
+            )
+
+            if protected and is_cut:
+                stash_protected_cut_payload(self, i, payload)
+                continue
+
+            if protected and is_real_meld and protected_meld_delay > 0:
+                schedule_protected_meld_send(
+                    self, i, payload, protected_meld_delay, _send_do_action_payload_to_viewer,
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+                continue
+
+            if current_player.user_id in self.game_server.user_id_to_connection:
+                await _send_do_action_payload_to_viewer(self, i, payload)
         except Exception as e:
             logger.error(f"四川 do_action 广播失败 {current_player.user_id}: {e}")
+
+    if interval_active and is_cut:
+        arm_claim_protection_timer(self, _send_do_action_payload_to_viewer)
+
+    if interval_active and is_real_meld:
+        end_claim_protection_interval(self)
+
+
+def _build_do_action_payload(
+    self,
+    action_list,
+    action_player,
+    viewer_index,
+    *,
+    cut_tile=None,
+    cut_class=None,
+    cut_tile_index=None,
+    deal_tile=None,
+    combination_mask=None,
+    combination_target=None,
+    is_claim=False,
+    silent=False,
+    is_mo_gang=None,
+    gang_score_changes=None,
+    gang_score_type=None,
+):
+    viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
+    return {
+        "action_list": action_list,
+        "action_player": action_player,
+        "action_tick": self.server_action_tick,
+        "cut_tile": cut_tile,
+        "cut_class": cut_class,
+        "cut_tile_index": cut_tile_index,
+        "deal_tile": viewer_deal_tile,
+        "combination_mask": combination_mask,
+        "combination_target": combination_target,
+        "is_claim": True if is_claim else None,
+        "silent": True if silent else None,
+        "is_mo_gang": is_mo_gang,
+        "gang_score_changes": gang_score_changes,
+        "gang_score_type": gang_score_type,
+    }
+
+
+async def _send_do_action_payload_to_viewer(
+    self, viewer_index: int, payload: dict, msg_type: str = "gamestate/sichuan/do_action"
+):
+    current_player = self.player_list[viewer_index]
+    if "offline" in current_player.tag_list or current_player.user_id == 0:
+        return
+    if current_player.user_id < 10:
+        return
+    if current_player.user_id not in self.game_server.user_id_to_connection:
+        return
+    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+    response = Response(
+        type=msg_type,
+        success=True,
+        message="返回操作内容",
+        do_action_info=Do_action_info(**payload),
+    )
+    await player_conn.websocket.send_json(response.dict(exclude_none=True))
+    await self.send_to_realtime_spectators(current_player.player_index, response)
 
 
 async def broadcast_result(self, hu_class: str, **kwargs):
     """通用结算广播：透传 Show_result_info 字段（四川扩展见 kwargs）。"""
+    silent = kwargs.pop("silent", False)
+    if not silent and getattr(self, "_tactical_silent_action", False):
+        silent = True
+        self._tactical_silent_action = False
     self.server_action_tick += 1
     for current_player in self.player_list:
         try:
@@ -336,7 +484,12 @@ async def broadcast_result(self, hu_class: str, **kwargs):
                 payload = _viewer_sichuan_hu_payload(payload, current_player.player_index)
                 response = Response(
                     type="gamestate/sichuan/show_result", success=True, message="显示结算结果",
-                    show_result_info=Show_result_info(hu_class=hu_class, action_tick=self.server_action_tick, **payload),
+                    show_result_info=Show_result_info(
+                        hu_class=hu_class,
+                        action_tick=self.server_action_tick,
+                        silent=True if silent else None,
+                        **payload,
+                    ),
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))
                 await self.send_to_realtime_spectators(current_player.player_index, response)

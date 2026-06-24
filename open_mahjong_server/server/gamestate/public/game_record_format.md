@@ -112,6 +112,7 @@
 | `g` | 明杠 | `["g", tile_id, action_player, h1, h2, h3]` |
 | `ag` | 暗杠 | `["ag", tile_id, "T"\|"F"]`（必填第三段；`T`=摸杠 / `F`=手杠；客户端拒绝两段格式） |
 | `jg` | 加杠 | `["jg", tile_id, "T"\|"F"]`（必填第三段；`T`=摸杠 / `F`=手杠；客户端拒绝两段格式） |
+| `ca` | 战术鸣牌申请（未最终执行） | `["ca", player_index, apply_action, cut_tile]`（仅回放 display/音效，不改牌面；`apply_action` 与执行 tick 同码，如 `cl`/`p`/`hu_second`） |
 | `liuju` | 流局 | `["liuju"]` |
 | `end` | 本局结束 | `["end"]`（和牌/流局后紧跟；错和无 `end`，对局继续） |
 

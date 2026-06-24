@@ -289,10 +289,23 @@ public partial class GameCanvas {
         List<TileCard> main = mainOverride ?? GetMainHandCardsOrdered(discardCard);
         TileCard draw = drawOverride;
         if (mainOverride == null) {
-            draw = discardCard.isDrawSlotPinned ? null : GetPinnedDrawTile();
-            if (draw == discardCard) {
-                draw = null;
+            // 手切（打出非摸牌张）时，摸牌张应并入手牌主列、补到空缺处。
+            // 这里直接让它在收拢预览中归位（与服务端返回后的最终重排一致），
+            // 避免出现"手牌先收拢、摸牌张随后才塞入空缺"的两段式排序动画。
+            TileCard pinnedDraw = discardCard.isDrawSlotPinned ? null : GetPinnedDrawTile();
+            if (pinnedDraw != null && pinnedDraw != discardCard) {
+                pinnedDraw.isDrawSlotPinned = false;
+                if (!main.Contains(pinnedDraw)) {
+                    main.Add(pinnedDraw);
+                }
+                bool autoArrange = AutoAction.Instance != null && AutoAction.Instance.IsAutoArrangeHandCards;
+                if (autoArrange) {
+                    main.Sort((a, b) => TileIdOrder.Compare(a.tileId, b.tileId));
+                } else {
+                    main.Sort((a, b) => a.handSortIndex.CompareTo(b.handSortIndex));
+                }
             }
+            draw = null;
         }
 
         Dictionary<RectTransform, Vector2> positions = BuildHandLayoutPositions(main, draw, discardCard);
