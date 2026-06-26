@@ -108,7 +108,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             return;
         }
         isHovering = false;
-        TipsContainer.Instance.HideTips();
+        TipsContainer.Instance.EndCutPreviewTips();
         if (Card3DHoverManager.Instance != null) {
             Card3DHoverManager.Instance.OnCardExit();
         }
@@ -337,7 +337,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             CheckCutTileTips(ignoreHoverGate: true);
         }
         else if (!isHovering) {
-            TipsContainer.Instance.HideTips();
+            TipsContainer.Instance.EndCutPreviewTips();
         }
     }
 
@@ -410,8 +410,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         // 鼠标移到/移出其它手牌都不改变提示（否则移开任意牌都会把立起牌的固定提示清掉）。
         if (!ShouldUseHandCutConfirm())
         {
-            // 直接隐藏提示容器（内部会先清空内容）
-            TipsContainer.Instance.HideTips();
+            TipsContainer.Instance.EndCutPreviewTips();
         }
         // 恢复所有3D卡牌
         if (Card3DHoverManager.Instance != null)
@@ -512,8 +511,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         else
         {
             Debug.Log($"切牌后无听牌");
-            TipsContainer.Instance.hasTips = false;
-            TipsContainer.Instance.HideTips();
+            TipsContainer.Instance.EndCutPreviewTips();
         }
     }
 

@@ -7,6 +7,7 @@ public partial class NormalGameStateManager {
     public void InitializeGame(bool success, string message, GameInfo gameInfo){
         ClearPendingCuoheContinue();
         ClearPendingSichuanContinue();
+        lastAskHandPlayerIndex = -1;
         string incomingGamestateId = gameInfo?.gamestate_id;
         if (string.IsNullOrEmpty(gamestateId) || gamestateId != incomingGamestateId) {
             ClearRoundSettlementHistory();

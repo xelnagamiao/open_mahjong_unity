@@ -27,7 +27,7 @@ public partial class NormalGameStateManager {
             }
         }
         // 切换行动者
-        SwitchCurrentPlayer(GetCardPlayer,"askHandAction",remaining_time);
+        SwitchCurrentPlayer(GetCardPlayer, "askHandAction", remaining_time, playerIndex);
     }
 
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
@@ -127,16 +127,13 @@ public partial class NormalGameStateManager {
                     player_to_info[GetCardPlayer].huapai_list.Add(buhua_tile_id);
                     if (GetCardPlayer == "self"){
                         selfHandTiles.Remove(buhua_tile_id);
-                        if (isMoBuhua) {
-                            GameCanvas.Instance.ChangeHandCards("RemoveGetCard", buhua_tile_id, null, null);
-                        } else {
-                            GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhua_tile_id, null, null);
-                        }
+                        // 摸补/手补统一走 RemoveBuhuaCard：摸牌区花牌会转为 RemoveBuhuaGetCard，不触发全手收拢
+                        GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhua_tile_id, null, null);
                     }
                     else{
                         player_to_info[GetCardPlayer].hand_tiles_count--;
                     }
-                    Game3DManager.Instance.Change3DTile("Buhua", buhua_tile_id, 0, GetCardPlayer, false, null);
+                    Game3DManager.Instance.Change3DTile("Buhua", buhua_tile_id, 0, GetCardPlayer, isMoBuhua, null);
                     break;
 
                 // 和牌：语音与动作文字已在 do_action 阶段播放
@@ -283,7 +280,6 @@ public partial class NormalGameStateManager {
     /// <summary>他家操作改变牌桌可见牌时，刷新已缓存的听牌提示（绝张/余张/番数）。</summary>
     private void RefreshTableTipsAfterAction(string[] action_list, string actionPlayer) {
         if (!tips || actionPlayer == "self") return;
-        if (TipsBlock.Instance == null || !TipsBlock.Instance.IsBlockActive) return;
         foreach (string action in action_list) {
             if (ActionAffectsVisibleTiles(action)) {
                 TipsContainer.Instance?.RefreshTenpaiTipsIfCached();

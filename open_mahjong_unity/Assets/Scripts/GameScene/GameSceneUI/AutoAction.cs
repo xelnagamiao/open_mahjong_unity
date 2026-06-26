@@ -37,8 +37,8 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoPassChi = false; // 是否不吃
     private bool isAutoPassPeng = false; // 是否不碰
     private bool isAutoPassGang = false; // 是否不杠
-    private bool isOnlyRon = false; // 是否只和荣和（自动胡牌时只胡别人点炮，不自摸）
-    private bool isOnlyTsumo = false; // 跳过荣和：不自动荣和，也不自动自摸
+    private bool isOnlyRon = false; // 是否自动荣和（点炮）
+    private bool isOnlyTsumo = false; // 是否自动自摸
     private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
     private bool isAutoCutLocked = false; // 立直后自动摸切锁定
 
@@ -55,17 +55,14 @@ public class AutoAction : MonoBehaviour{
     public bool IsOnlyTsumo { get => isOnlyTsumo; }
     public bool IsAutoCutLocked { get => isAutoCutLocked; }
 
-    // 是否应当自动荣和：只和自摸时不荣和；只和荣和时荣和；否则跟随自动胡牌
+    // 是否应当自动荣和：跟随「只和荣和」子选项
     public bool ShouldAutoWinRon() {
-        if (isOnlyTsumo) return false;
-        if (isOnlyRon) return true;
-        return isAutoHepai;
+        return isOnlyRon;
     }
 
-    // 是否应当自动自摸：只和荣和/只和自摸时均不自摸；否则跟随自动胡牌
+    // 是否应当自动自摸：跟随「只和自摸」子选项
     public bool ShouldAutoWinTsumo() {
-        if (isOnlyRon || isOnlyTsumo) return false;
-        return isAutoHepai;
+        return isOnlyTsumo;
     }
 
     private void Awake(){
@@ -229,9 +226,17 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
     }
 
-    // 切换自动胡牌
+    // 切换自动胡牌（与子选项只和荣和、只和自摸联动）
     private void ToggleAutoHepai(){
-        ToggleAutoOption(ref isAutoHepai, autoHepaiText);
+        isAutoHepai = !isAutoHepai;
+        if (isAutoHepai) {
+            isOnlyRon = true;
+            isOnlyTsumo = true;
+        } else {
+            isOnlyRon = false;
+            isOnlyTsumo = false;
+        }
+        UpdateHepaiGroupColors();
     }
 
     // 切换自动出牌
@@ -248,9 +253,19 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(autoCutCardText, isAutoCut);
     }
 
-    // 切换自动过牌
+    // 切换自动过牌（与子选项不吃、不碰、不杠联动）
     private void ToggleAutoPass(){
-        ToggleAutoOption(ref isAutoPass, autoPassText);
+        isAutoPass = !isAutoPass;
+        if (isAutoPass) {
+            isAutoPassChi = true;
+            isAutoPassPeng = true;
+            isAutoPassGang = true;
+        } else {
+            isAutoPassChi = false;
+            isAutoPassPeng = false;
+            isAutoPassGang = false;
+        }
+        UpdatePassGroupColors();
     }
 
     // 切换自动补花
@@ -278,36 +293,57 @@ public class AutoAction : MonoBehaviour{
 
     // 切换不吃
     private void ToggleAutoPassChi(){
-        ToggleAutoOption(ref isAutoPassChi, autoPassChiText);
+        isAutoPassChi = !isAutoPassChi;
+        SyncAutoPassFromChildren();
+        UpdatePassGroupColors();
     }
 
     // 切换不碰
     private void ToggleAutoPassPeng(){
-        ToggleAutoOption(ref isAutoPassPeng, autoPassPengText);
+        isAutoPassPeng = !isAutoPassPeng;
+        SyncAutoPassFromChildren();
+        UpdatePassGroupColors();
     }
 
     // 切换不杠
     private void ToggleAutoPassGang(){
-        ToggleAutoOption(ref isAutoPassGang, autoPassGangText);
+        isAutoPassGang = !isAutoPassGang;
+        SyncAutoPassFromChildren();
+        UpdatePassGroupColors();
     }
 
-    // 切换只和荣和（与只和自摸互斥）
+    // 切换只和荣和
     private void ToggleOnlyRon(){
         isOnlyRon = !isOnlyRon;
-        if (isOnlyRon && isOnlyTsumo){
-            isOnlyTsumo = false;
-            UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
-        }
-        UpdateTextColor(autoOnlyRonText, isOnlyRon);
+        SyncAutoHepaiFromChildren();
+        UpdateHepaiGroupColors();
     }
 
-    // 切换只和自摸（与只和荣和互斥）
+    // 切换只和自摸
     private void ToggleOnlyTsumo(){
         isOnlyTsumo = !isOnlyTsumo;
-        if (isOnlyTsumo && isOnlyRon){
-            isOnlyRon = false;
-            UpdateTextColor(autoOnlyRonText, isOnlyRon);
-        }
+        SyncAutoHepaiFromChildren();
+        UpdateHepaiGroupColors();
+    }
+
+    private void SyncAutoPassFromChildren() {
+        isAutoPass = isAutoPassChi && isAutoPassPeng && isAutoPassGang;
+    }
+
+    private void SyncAutoHepaiFromChildren() {
+        isAutoHepai = isOnlyRon && isOnlyTsumo;
+    }
+
+    private void UpdatePassGroupColors() {
+        UpdateTextColor(autoPassText, isAutoPass);
+        UpdateTextColor(autoPassChiText, isAutoPassChi);
+        UpdateTextColor(autoPassPengText, isAutoPassPeng);
+        UpdateTextColor(autoPassGangText, isAutoPassGang);
+    }
+
+    private void UpdateHepaiGroupColors() {
+        UpdateTextColor(autoHepaiText, isAutoHepai);
+        UpdateTextColor(autoOnlyRonText, isOnlyRon);
         UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
     }
 

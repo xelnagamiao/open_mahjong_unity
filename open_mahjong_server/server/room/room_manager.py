@@ -818,6 +818,16 @@ class RoomManager:
                     message="房间已解散（仅剩机器人）"
                 )
 
+            # 有人退出后清理全部机器人，再同步新房主，避免机器人排在 player_list 首位
+            self._remove_all_bots_from_room(room_data)
+            if len(room_data["player_list"]) == 0:
+                await self.destroy_room(room_id)
+                return Response(
+                    type="room/leave_room_done",
+                    success=True,
+                    message="房间已解散"
+                )
+
             self._sync_room_host(room_data)
             
             # 广播房间信息
@@ -1109,6 +1119,22 @@ class RoomManager:
     def release_match_room_id(self, room_id: str):
         """匹配对局结束后释放其占用的房间号。"""
         self.match_room_ids.discard(room_id)
+
+    def _remove_all_bots_from_room(self, room_data: dict):
+        """移除房间内所有机器人（user_id <= 10），并清理其准备状态与设置。"""
+        player_list = room_data.get("player_list") or []
+        if not any(user_id <= 10 for user_id in player_list):
+            return
+
+        room_data["player_list"] = [user_id for user_id in player_list if user_id > 10]
+
+        ready_list = room_data.get("ready_list", [])
+        room_data["ready_list"] = [user_id for user_id in ready_list if user_id > 10]
+
+        if "player_settings" in room_data:
+            for bot_id in list(room_data["player_settings"].keys()):
+                if bot_id <= 10 and bot_id not in room_data["player_list"]:
+                    del room_data["player_settings"][bot_id]
 
     def _sync_room_host(self, room_data: dict):
         """player_list 首位为在房最久的玩家，同步 host 字段供客户端与权限校验使用。"""

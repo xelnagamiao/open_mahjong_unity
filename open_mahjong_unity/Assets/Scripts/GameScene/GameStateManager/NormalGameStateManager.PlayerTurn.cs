@@ -2,12 +2,15 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     // 切换玩家状态
-    public void SwitchCurrentPlayer(string GetCardPlayer,string SwitchType,int remaining_time){
-        
+    public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time, int askHandPlayerIndex = -1) {
+
         // 询问手牌操作
         if (SwitchType == "askHandAction"){
-            // 如果有人3d卡牌未排列 则排列 (仅在国标补花轮之后可能出现这样的问题)
-            Game3DManager.Instance.CheckAndRearrangeAllPlayersHandCards();
+            // 仅行动者换人时收拢：首次 ask、同玩家连补花后的再次 ask 均不收拢，保留摸牌区以区分手切/摸切
+            bool shouldConsolidateHands = lastAskHandPlayerIndex >= 0 && askHandPlayerIndex != lastAskHandPlayerIndex;
+            if (shouldConsolidateHands) {
+                Game3DManager.Instance.CheckAndRearrangeAllPlayersHandCards();
+            }
             // 如果行动者是自己
             if (GetCardPlayer == "self"){
                 // 显示可用行动 开启倒计时
@@ -33,10 +36,13 @@ public partial class NormalGameStateManager {
             }
             // 询问的不是自己的回合
             else{
-                GameCanvas.Instance.ChangeHandCards("ReSetHandCards",0,null,null); // 重置手牌
-                SwitchCurrentPlayer(GetCardPlayer,"ClearAction",0); // 重置自身命令
+                if (shouldConsolidateHands) {
+                    GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
+                }
+                SwitchCurrentPlayer(GetCardPlayer, "ClearAction", 0); // 重置自身命令
                 IsSelfActionRequired = false;
             }
+            lastAskHandPlayerIndex = askHandPlayerIndex;
             // 只有askHandAction才会转移玩家位置
             BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer, remainTiles); // 显示当前玩家
             CurrentPlayer = GetCardPlayer; // 存储当前玩家

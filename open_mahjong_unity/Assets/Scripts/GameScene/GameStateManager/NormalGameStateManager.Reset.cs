@@ -12,6 +12,7 @@ public partial class NormalGameStateManager {
         currentAskCutTileId = 0;
         lastDiscardPlayerPosition = null;
         CurrentPlayer = null;
+        lastAskHandPlayerIndex = -1;
         lastDealTileType = null;
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();

@@ -27,6 +27,7 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown handSortHonorDropdown;
     [SerializeField] private TMP_Dropdown handSortDragonDropdown;
     [SerializeField] private TMP_Dropdown handSortRiichiDragonDropdown;
+    [SerializeField] private TMP_Dropdown actionButtonColorDropdown;
 
     private void Awake() {
         Instance = this;
@@ -38,6 +39,7 @@ public class AppConfigPanel : MonoBehaviour {
         EnsureHandSortHonorDropdown();
         EnsureHandSortDragonDropdown();
         EnsureHandSortRiichiDragonDropdown();
+        EnsureActionButtonColorDropdown();
         InitializeGameplayDropdownOptions();
         if (languageDropdown != null) {
             languageDropdown.onValueChanged.AddListener(OnLanguageDropdownChanged);
@@ -62,6 +64,9 @@ public class AppConfigPanel : MonoBehaviour {
         }
         if (handSortRiichiDragonDropdown != null) {
             handSortRiichiDragonDropdown.onValueChanged.AddListener(OnHandSortRiichiDragonDropdownChanged);
+        }
+        if (actionButtonColorDropdown != null) {
+            actionButtonColorDropdown.onValueChanged.AddListener(OnActionButtonColorDropdownChanged);
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
@@ -116,6 +121,10 @@ public class AppConfigPanel : MonoBehaviour {
             handSortRiichiDragonDropdown.ClearOptions();
             handSortRiichiDragonDropdown.AddOptions(new List<string>(TileIdOrder.RiichiDragonOrderOptions));
         }
+        if (actionButtonColorDropdown != null) {
+            actionButtonColorDropdown.ClearOptions();
+            actionButtonColorDropdown.AddOptions(new List<string> { "关", "开" });
+        }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.ClearOptions();
         List<string> frameRateOptions = new List<string>();
@@ -160,6 +169,10 @@ public class AppConfigPanel : MonoBehaviour {
         if (handSortRiichiDragonDropdown != null) {
             handSortRiichiDragonDropdown.SetValueWithoutNotify(ConfigManager.Instance.HandSortRiichiDragonOrderMode);
             handSortRiichiDragonDropdown.RefreshShownValue();
+        }
+        if (actionButtonColorDropdown != null) {
+            actionButtonColorDropdown.SetValueWithoutNotify(ConfigManager.Instance.ActionButtonColorEnabled ? 1 : 0);
+            actionButtonColorDropdown.RefreshShownValue();
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
@@ -216,6 +229,10 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnHandSortRiichiDragonDropdownChanged(int value) {
         ConfigManager.Instance.SetHandSortRiichiDragonOrderMode(value);
+    }
+
+    private void OnActionButtonColorDropdownChanged(int value) {
+        ConfigManager.Instance.SetActionButtonColorEnabled(value == 1);
     }
 
     private void OnLanguageDropdownChanged(int value) {
@@ -382,6 +399,14 @@ public class AppConfigPanel : MonoBehaviour {
             handSortDragonDropdown != null ? handSortDragonDropdown : handSortHonorDropdown,
             "HandSortRiichiDragonRow",
             "日麻排序方式");
+    }
+
+    private void EnsureActionButtonColorDropdown() {
+        actionButtonColorDropdown = CloneDropdownRow(
+            actionButtonColorDropdown,
+            handSortRiichiDragonDropdown != null ? handSortRiichiDragonDropdown : handSortDragonDropdown,
+            "ActionButtonColorRow",
+            "启用按钮颜色");
     }
 
     /// <summary>

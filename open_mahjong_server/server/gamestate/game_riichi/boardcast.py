@@ -23,6 +23,7 @@ from ...response import (
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..public.hand_slot_utils import bot_ask_hand_game_status
 
 logger = logging.getLogger(__name__)
 
@@ -126,15 +127,15 @@ async def broadcast_ask_hand_action(self):
         try:
             if "offline" in cp.tag_list:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             if cp.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             if cp.user_id == 2:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             if cp.user_id not in self.game_server.user_id_to_connection:
                 continue

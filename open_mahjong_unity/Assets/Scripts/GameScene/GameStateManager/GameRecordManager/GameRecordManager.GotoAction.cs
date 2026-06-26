@@ -5,6 +5,7 @@ public partial class GameRecordManager
 {
     public void GotoAction(int actionIndex){
         CancelRecordHuPresentation();
+        ClearPendingRecordCuoheContinue();
         // 获取当前局数的node列表
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) || roundData.actionTicks == null) {
             return;
@@ -15,6 +16,7 @@ public partial class GameRecordManager
         Game3DManager.Instance.StopAllRunningAnimations();
         // 跳转/快进会中断渐隐协程，先销毁残留的操作文本，避免「补花」等字卡死
         GameCanvas.Instance.ClearActionDisplay();
+        GameCanvas.Instance.ClearActionButton();
         // 重置到局初始状态（UI/2D/3D）
         Game3DManager.Instance.Clear3DTile();
         currentNode = 0;
@@ -39,13 +41,7 @@ public partial class GameRecordManager
 
         // 重置 RecordPlayer.score 到本局开始时的累计分数
         if (gameRecord?.gameRound?.rounds != null) {
-            int[] cumulativeByOrig = new int[4];
-            for (int r = 1; r < currentRoundIndex; r++) {
-                if (gameRecord.gameRound.rounds.TryGetValue(r, out Round prevRound) &&
-                    prevRound.scoreChanges != null && prevRound.scoreChanges.Count >= 4) {
-                    for (int p = 0; p < 4; p++) cumulativeByOrig[p] += prevRound.scoreChanges[p];
-                }
-            }
+            int[] cumulativeByOrig = BuildCumulativeScoresBeforeRound(currentRoundIndex);
             foreach (var rp in recordPlayerList) {
                 rp.score = cumulativeByOrig[rp.originalPlayerIndex];
                 userIdToScore[rp.userId] = rp.score;
@@ -75,6 +71,15 @@ public partial class GameRecordManager
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
         RefreshRecordTips();
+        SyncRecordRonDiscardObjectAfterRebuild();
+        RestoreRecordSelfHandContainer();
+    }
+
+    private void SyncRecordRonDiscardObjectAfterRebuild() {
+        if (lastDiscardPlayerIndex < 0 || Game3DManager.Instance == null) return;
+        if (!indexToPosition.TryGetValue(lastDiscardPlayerIndex, out string discardPos)) return;
+        int riverTileId = lastWinnableTileId >= 10 ? lastWinnableTileId : lastDiscardTileId;
+        Game3DManager.Instance.SyncRecordLastDiscardForRon(discardPos, riverTileId);
     }
 
     // 推演行动节点

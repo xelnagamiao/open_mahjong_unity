@@ -68,6 +68,8 @@ public partial class NormalGameStateManager : MonoBehaviour{
     /// <summary>上一张切牌玩家座位（荣和倒牌从河牌抓取时使用）。</summary>
     public string lastDiscardPlayerPosition;
     public string CurrentPlayer; // 当前玩家字符串
+    /// <summary>上次 ask_hand_action 的 player_index；-1 表示本局尚未 ask，首次 ask 不收拢手牌。</summary>
+    private int lastAskHandPlayerIndex = -1;
     public List<int> selfHandTiles = new List<int>(); // 手牌列表
 
     /// <summary>当前是否在等待自己做出手牌/鸣牌操作（供回到主菜单时的红色提醒按钮判断）。</summary>

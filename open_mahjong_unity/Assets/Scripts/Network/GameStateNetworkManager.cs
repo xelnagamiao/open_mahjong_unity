@@ -148,6 +148,7 @@ public class GameStateNetworkManager : MonoBehaviour {
         Debug.Log($"收到定缺询问: {response.ask_hand_action_info}");
         if (NormalGameStateManager.Instance != null && NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) return;
+        GameCanvas.Instance?.ClearActionButton();
         GameCanvas.Instance?.ShowDingqueSelection(10);
     }
 

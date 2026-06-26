@@ -83,9 +83,15 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
 
     public void OnPointerEnter(PointerEventData eventData){
         Debug.Log("鼠标指向提示棱形");
-        // 鼠标指向时显示TipsContainer
-        TipsContainer.Instance.ShowTips();
-
+        var recordMgr = GameRecordManager.Instance;
+        if (recordMgr != null && recordMgr.gameObject.activeSelf && recordMgr.ShouldShowRecordTips()) {
+            recordMgr.RefreshRecordTips();
+            if (TipsContainer.Instance.HasCachedTenpaiTips) {
+                TipsContainer.Instance.ShowTips();
+            }
+            return;
+        }
+        TipsContainer.Instance.ShowCachedTenpaiTipsFromBlock();
     }
 
     public void OnPointerExit(PointerEventData eventData){

@@ -27,6 +27,19 @@ def build_player_entry_order_fields(gs) -> Dict[str, Any]:
 # 流局: ["liuju"]
 # 回合结束: ["end"]（和牌或流局之后紧跟，错和除外）
 """
+def resolve_riichi_starting_score_fields(gs) -> Dict[str, Any]:
+    """立直麻将牌谱表头：起手分。优先 per-player starting_scores，否则写入统一 starting_score。"""
+    custom_scores = getattr(gs, "starting_scores", None)
+    if custom_scores and len(custom_scores) == 4:
+        return {"starting_scores": [int(x) for x in custom_scores]}
+    if hasattr(gs, "_starting_score"):
+        return {"starting_score": int(gs._starting_score())}
+    explicit = getattr(gs, "starting_score", None)
+    if explicit is not None:
+        return {"starting_score": int(explicit)}
+    return {}
+
+
 def build_game_title_data(gs) -> Dict[str, Any]:
     """构建 game_title（与落库牌谱 JSON 一致）。
 
@@ -74,6 +87,7 @@ def build_game_title_data(gs) -> Dict[str, Any]:
         if hasattr(gs, "open_tobi"):
             # open_tobi: 是否击飞
             title["open_tobi"] = gs.open_tobi
+        title.update(resolve_riichi_starting_score_fields(gs))
     # match_queue_type: 排位队列（如 beginner_quanzhuang），仅 match 房间写入，供天梯对局列表展示场次
     match_queue_type = getattr(gs, "match_queue_type", None)
     if match_queue_type:

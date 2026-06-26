@@ -435,6 +435,7 @@ public partial class GameRecordManager {
             // 当本局继续打牌的行动 tick 到来、且仍残留着上一条（错和）结算面板时，先关闭面板，避免观战画面被一直盖住而“卡住”。
             if (IsContinuingPlayTickAction(action) && EndResultPanel.Instance != null
                 && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
+                TryResumeAfterRecordCuoheContinue();
                 EndResultPanel.Instance.ClearEndResultPanel();
             }
             NextAction();

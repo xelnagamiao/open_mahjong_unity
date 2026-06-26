@@ -29,7 +29,6 @@ from ..public.claim_protection import (
 )
 from ..public.tactical_claim import (
     init_tactical_round_state,
-    tactical_mark_player_passed,
     apply_tactical_claim_if_needed,
 )
 from .boardcast import _send_do_action_payload_to_viewer
@@ -117,8 +116,7 @@ async def wait_action(self):
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                
                 self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
-                if temp_action_type == "pass":
-                    tactical_mark_player_passed(self, temp_player_index)
+                # 主询问 pass 不记入战术 passed（见 tactical_claim.py）
                 # 同一批完成任务中可能已有更高优先级操作清空等待列表，因此移除前先确认仍在等待。
                 if temp_player_index in self.waiting_players_list:
                     self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家

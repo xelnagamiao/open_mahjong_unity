@@ -3,7 +3,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
-from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,refresh_waiting_tiles
+from .action_check import check_action_after_cut,check_action_jiagang,check_action_buhua,check_action_hand_action,check_only_cut,refresh_waiting_tiles
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -146,7 +146,7 @@ class QingqueGameState:
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.5)
-        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.3)
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.5)
         self.hepai_limit = 1 # 青雀起和限制固定为1
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
@@ -466,12 +466,11 @@ class QingqueGameState:
                         await self.broadcast_ask_other_action() # 广播是否胡牌
                         await self.wait_action() # 等待抢杠操作
 
-                    # 等待手牌操作（仅切牌、吃碰后）：
-                    case "onlycut_after_action": # 吃碰后切牌行为
+                    # 等待手牌操作（吃碰后：切牌 / 暗杠 / 加杠）
+                    case "onlycut_after_action":
                         print("onlycut_after_action")
-                        self.action_dict = {0:[],1:[],2:[],3:[]}
-                        self.action_dict[self.current_player_index].append("cut") # 吃碰后只允许切牌
-                        self.game_status = "waiting_hand_action" # 切换到摸牌后状态
+                        self.action_dict = check_only_cut(self, self.current_player_index)
+                        self.game_status = "waiting_hand_action"
 
                     # 如果没有匹配到
                     case _:

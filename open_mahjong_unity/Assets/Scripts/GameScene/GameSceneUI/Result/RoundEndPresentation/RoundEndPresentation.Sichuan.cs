@@ -4,8 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// 四川血战终局演出（与服务端 _settle_liuju ABCD 顺序一致）：
-/// reveal_hu → settle_hu（先和牌玩家，player_index 升序）→ chajiao（再流局玩家，player_index 升序，逐家 1 面板）。
-/// 退税已并入查叫面板（没叫/花猪开杠者：标“退税”、面板多 0.5s），不再有独立 cha_refund 步。
+/// reveal_hu → settle_hu（按和牌先后 hu_order）→ chajiao（末家和牌者下家起逆时针，逐家 1 面板）。
+/// 退税仅并入没叫/花猪的查叫面板；三家和跳过查叫时不退税。
 /// </summary>
 public partial class RoundEndPresentation {
     public void EnqueueSichuanRevealHu(Dictionary<int, int[]> huHands) {

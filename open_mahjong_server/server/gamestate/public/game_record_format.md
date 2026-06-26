@@ -59,6 +59,19 @@
 
 **座位约定：** `player_entry_order` 记录 `master_seed` shuffle **之前**的对局入场顺序；`p0`～`p3` 为 shuffle **之后**的 original 座位（整局不变）。每局 `seats[original_i]` 给出当局 `player_index`；`p0_tiles`～`p3_tiles` 按 **当局 player_index** 存储；`action_ticks` 里的 `action_player` 亦为当局 **player_index**。
 
+### 3.2 立直麻将 `game_title` 额外字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `red_dora` | bool | 是否启用赤宝牌 |
+| `allow_kuikae` | bool | 是否允许食替（浪涌子规则不写，内置可食替） |
+| `hepai_way` | string | 和牌方式 |
+| `open_xiru` / `open_tobi` | bool | 西入 / 击飞 |
+| `starting_score` | int | **统一起手分**。标准日麻 `25000`，浪涌 `50000`；房间可自定义覆盖 |
+| `starting_scores` | int[4] | **可选**。按 original 0～3 的各自起手分；存在时优先于 `starting_score` |
+
+旧牌谱无上述起手分字段时，客户端按 `sub_rule` 推断：`riichi/langyong` → 50000，其余立直 → 25000。
+
 ### 3.1 WebSocket 对局字段（`GameInfo` / 每局 `game_start`）
 
 与牌谱表头不同，实时对局在**每局开始**广播以下字段（不含主种子）：

@@ -13,6 +13,7 @@
     "player_entry_order": [10000034, 10000031, 10000032, 10000033],
     "red_dora": true,
     "hepai_way": "head_bump",
+    "starting_score": 25000,
     "p0_uid": 10000031,
     "p0_name": "日麻东",
     "p1_uid": 10000032,

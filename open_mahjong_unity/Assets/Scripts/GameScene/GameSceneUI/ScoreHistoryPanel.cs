@@ -21,6 +21,11 @@ public class ScoreHistoryPanel : MonoBehaviour
     [SerializeField] private Transform player3RoundScoreContainer;
     [SerializeField] private Transform player3GameScoreContainer;
 
+    [Header("本局分差列颜色")]
+    [SerializeField] private Color scoreGainColor = Color.green;
+    [SerializeField] private Color scoreLossColor = Color.red;
+    [SerializeField] private Color tsumoLossColor = Color.blue;
+
     private static readonly Dictionary<string, Dictionary<int, string>> RuleToRoundMap = new Dictionary<string, Dictionary<int, string>> {
         { "guobiao", RoundTextDictionary.CurrentRoundTextGB },
         { "qingque", RoundTextDictionary.CurrentRoundTextQingque },
@@ -182,7 +187,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         UpdateScoreRecord(rule, player_to_info, null);
     }
 
-    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false)
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, int[] startingScoresByOriginal = null)
     {
         if (player_to_info == null || player_to_info.Count < 4) return;
 
@@ -223,7 +228,8 @@ public class ScoreHistoryPanel : MonoBehaviour
             sorted[3].original_player_index, ResolveDisplayName(sorted[3]), sorted[3].score_history ?? new List<string>(),
             roundNumberHistory,
             roundSettlements,
-            totalRounds);
+            totalRounds,
+            startingScoresByOriginal);
     }
 
     public void InitializeScoreRecord(
@@ -234,7 +240,8 @@ public class ScoreHistoryPanel : MonoBehaviour
         int originIndex3, string username3, List<string> scoreHistory3,
         List<int> roundNumberHistory = null,
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null,
-        int totalRounds = 0)
+        int totalRounds = 0,
+        int[] startingScoresByOriginal = null)
     {
         EnsureMainFanColumnSetup();
         if (RoundIndexContainer != null)
@@ -330,7 +337,13 @@ public class ScoreHistoryPanel : MonoBehaviour
             ClearContainer(player.roundScoreContainer);
             ClearContainer(player.gameScoreContainer);
 
-            int cumulativeScore = 0;
+            int startingScore = (startingScoresByOriginal != null
+                && player.originIndex >= 0
+                && player.originIndex < startingScoresByOriginal.Length)
+                ? startingScoresByOriginal[player.originIndex]
+                : 0;
+            bool showAbsoluteRiichiScores = startingScore > 0;
+            int cumulativeScore = startingScore;
 
             for (int i = 0; i < player.scoreHistory.Count; i++)
             {
@@ -359,22 +372,13 @@ public class ScoreHistoryPanel : MonoBehaviour
                         displayScoreChange = (scoreChange.StartsWith("+") ? "+" : "-") + absValue.ToString();
                     }
                 }
+                RoundSettlementSnapshot rowSnapshot = ScoreHistorySettlementHelper.ResolveSettlementForRow(
+                    i, player.scoreHistory.Count, roundSettlements);
                 GameObject roundScoreObj = Instantiate(Tmp_Text_Prefab, player.roundScoreContainer.transform);
                 TMP_Text roundScoreText = roundScoreObj.GetComponent<TMP_Text>();
                 if (roundScoreText != null)
                 {
-                    if (scoreValue > 0)
-                    {
-                        roundScoreText.text = $"<color=green>{displayScoreChange}</color>";
-                    }
-                    else if (scoreValue < 0)
-                    {
-                        roundScoreText.text = $"<color=red>{displayScoreChange}</color>";
-                    }
-                    else
-                    {
-                        roundScoreText.text = displayScoreChange;
-                    }
+                    roundScoreText.text = FormatColoredRoundScore(scoreValue, displayScoreChange, rowSnapshot, subRule);
                 }
 
                 cumulativeScore += scoreValue;
@@ -382,7 +386,11 @@ public class ScoreHistoryPanel : MonoBehaviour
                 TMP_Text gameScoreText = gameScoreObj.GetComponent<TMP_Text>();
                 if (gameScoreText != null)
                 {
-                    if (cumulativeScore > 0)
+                    if (showAbsoluteRiichiScores)
+                    {
+                        gameScoreText.text = cumulativeScore.ToString();
+                    }
+                    else if (cumulativeScore > 0)
                     {
                         gameScoreText.text = $"+{cumulativeScore}";
                     }
@@ -466,6 +474,35 @@ public class ScoreHistoryPanel : MonoBehaviour
                 Destroy(child.gameObject);
             }
         }
+    }
+
+    private string FormatColoredRoundScore(int scoreValue, string displayScoreChange, RoundSettlementSnapshot snapshot, string subRule) {
+        if (scoreValue > 0) {
+            return $"<color={ColorToTmpHex(scoreGainColor)}>{displayScoreChange}</color>";
+        }
+        if (scoreValue < 0) {
+            Color lossColor = scoreLossColor;
+            if (!IsSichuanSubRule(subRule) && IsTsumoLossRound(snapshot)) {
+                lossColor = tsumoLossColor;
+            }
+            return $"<color={ColorToTmpHex(lossColor)}>{displayScoreChange}</color>";
+        }
+        return displayScoreChange;
+    }
+
+    private static bool IsSichuanSubRule(string subRule) {
+        return subRule != null && subRule.StartsWith("sichuan");
+    }
+
+    private static bool IsTsumoLossRound(RoundSettlementSnapshot snapshot) {
+        return snapshot != null
+            && snapshot.hasWin
+            && !snapshot.isLiuju
+            && snapshot.huClass == "hu_self";
+    }
+
+    private static string ColorToTmpHex(Color color) {
+        return "#" + ColorUtility.ToHtmlStringRGB(color);
     }
 }
 

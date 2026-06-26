@@ -170,7 +170,7 @@ namespace Riichi {
                 else if (t.Tile == RiichiTileUtil.Hatsu) yakuhaiList.Add("役牌·发");
                 else if (t.Tile == RiichiTileUtil.Chun) yakuhaiList.Add("役牌·中");
                 if (t.Tile == _ctx.PlayerWind) yakuhaiList.Add("自风");
-                if (t.Tile == _ctx.RoundWind && _ctx.RoundWind != _ctx.PlayerWind) yakuhaiList.Add("场风");
+                if (t.Tile == _ctx.RoundWind) yakuhaiList.Add("场风");
             }
             foreach (var name in yakuhaiList) {
                 result.Yaku.Add(new YakuEntry { Name = name, Han = 1 });

@@ -53,6 +53,17 @@ def clear_draw_slot(player) -> None:
     player.has_draw_slot = False
 
 
+def bot_ask_hand_game_status(game_state, player_index: int) -> str:
+    """ask_hand 派发机器人：吃碰后虽已是 waiting_hand_action 但无摸牌区，语义等同 onlycut_after_action。"""
+    if (
+        game_state.game_status == "waiting_hand_action"
+        and player_index == game_state.current_player_index
+        and not has_draw_slot(game_state.player_list[player_index])
+    ):
+        return "onlycut_after_action"
+    return game_state.game_status
+
+
 def is_last_slot_tile(hand: List[int], tile_id: int) -> bool:
     if not hand:
         return False

@@ -134,15 +134,22 @@ public partial class GameCanvas{
 
         // 补花 删除手牌区手牌（只删一张：判空 + 命中即停，避免理牌期间非 TileCard 子物体触发空引用中断、或边遍历边 SetParent 改集合导致补花牌残留手牌）
         else if (ChangeType == "RemoveBuhuaCard"){
-            for (int i = 0; i < handCardsContainer.childCount; i++){
-                TileCard needToRemoveTileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
-                if (needToRemoveTileCard != null && needToRemoveTileCard.tileId == tileId){
-                    // 如果补花牌是摸牌区手牌 设置ChangeType = "RemoveBuhuaGetCard" 代表后续不用执行动画
-                    if (needToRemoveTileCard.currentGetTile){
-                        ChangeType = "RemoveBuhuaGetCard";
+            // 摸补优先删摸牌区标记牌，避免误删主列同 id 牌并触发全手收拢
+            TileCard drawBuhua = GetDrawTile();
+            if (drawBuhua != null && drawBuhua.tileId == tileId) {
+                ChangeType = "RemoveBuhuaGetCard";
+                Destroyer.Instance.AddToDestroyer(drawBuhua.transform);
+            }
+            else {
+                for (int i = 0; i < handCardsContainer.childCount; i++){
+                    TileCard needToRemoveTileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+                    if (needToRemoveTileCard != null && needToRemoveTileCard.tileId == tileId){
+                        if (needToRemoveTileCard.currentGetTile){
+                            ChangeType = "RemoveBuhuaGetCard";
+                        }
+                        Destroyer.Instance.AddToDestroyer(needToRemoveTileCard.transform);
+                        break;
                     }
-                    Destroyer.Instance.AddToDestroyer(needToRemoveTileCard.transform);
-                    break;
                 }
             }
         }

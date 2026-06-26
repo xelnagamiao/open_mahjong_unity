@@ -11,6 +11,7 @@ from .combination_mask_view import (
     sanitize_combination_target_for_viewer,
 )
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.claim_protection import (
     claim_protection_enabled,
     init_claim_protection_state,
@@ -143,17 +144,17 @@ async def broadcast_ask_hand_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             
             # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             elif current_player.user_id < 10:
                 continue

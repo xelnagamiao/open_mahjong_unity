@@ -39,8 +39,7 @@ namespace Riichi {
             if (pair != null) {
                 if (RiichiTileUtil.IsDragon(pair.Tile)) fu += 2;
                 if (pair.Tile == ctx.PlayerWind) fu += 2;
-                if (pair.Tile == ctx.RoundWind && ctx.RoundWind != ctx.PlayerWind) fu += 2;
-                // 同为自风+场风的双风牌算作 +4（已通过分别 +2 累加体现）
+                if (pair.Tile == ctx.RoundWind) fu += 2;
             }
 
             int winNorm = RiichiTileUtil.Normalize(winTile);
