@@ -1,7 +1,8 @@
 """战术鸣牌共享逻辑（国标 / 青雀 / 四川）。
 
-方案 2：开局 ask 时冻结 _tactical_action_snapshot（只读）；pass 写入 _tactical_passed_players；
-每次打断窗口从完整快照重算更高优先级竞争者。
+开局 ask 时冻结 _tactical_action_snapshot（只读）；主询问阶段的 pass 不记入 passed，
+低优先级鸣牌申请后仍从完整快照重算更高优先级竞争者并再次询问（含主阶段已 pass 者）。
+仅在当前打断窗口内 pass 的玩家在本轮申请等待中不再重复询问；切换到新的低优先级申请时清空。
 """
 from __future__ import annotations
 
@@ -49,7 +50,13 @@ def tactical_opening_snapshot(gs):
     return getattr(gs, "_tactical_action_snapshot", None)
 
 
-def tactical_mark_player_passed(gs, player_index: int) -> None:
+def clear_tactical_grace_passes(gs) -> None:
+    """新一轮低优先级申请进入打断窗口前清空；主询问 pass 不在此集合。"""
+    gs._tactical_passed_players = set()
+
+
+def tactical_mark_player_passed_in_grace(gs, player_index: int) -> None:
+    """仅打断窗口内的 pass：本轮回询问等待中不再问该家。"""
     passed = getattr(gs, "_tactical_passed_players", None)
     if passed is not None:
         passed.add(player_index)
@@ -61,7 +68,7 @@ def tactical_player_has_passed(gs, player_index: int) -> bool:
 
 
 def get_higher_priority_snapshot(gs, action_type, player_index):
-    """从开局冻结快照重算「更高优先级竞争者」（方案 2）。"""
+    """从开局冻结快照重算「更高优先级竞争者」；主询问 pass 不排除。"""
     current_priority = gs.action_priority[action_type]
     higher_action_dict = {pid: [] for pid in range(4)}
     any_higher = False
@@ -80,7 +87,7 @@ def get_higher_priority_snapshot(gs, action_type, player_index):
 
 
 def should_enter_tactical_grace(gs, action_type, player_index) -> bool:
-    """仅在存在尚未 pass 且快照中仍有更高优先级选项的竞争者时进入战术等待。"""
+    """快照中仍有高于当前申请优先级的竞争者时进入战术等待（主询问 pass 仍算竞争者）。"""
     _, any_higher = get_higher_priority_snapshot(gs, action_type, player_index)
     return any_higher
 
@@ -100,6 +107,7 @@ async def tactical_grace_phase(
     grace_seconds = float(getattr(gs, "tactical_grace_seconds", TACTICAL_GRACE_SECONDS))
     skip_claim_broadcast = initial_claim_broadcasted
     while True:
+        clear_tactical_grace_passes(gs)
         higher_action_dict, any_higher = get_higher_priority_snapshot(
             gs, action_type, player_index
         )
@@ -195,7 +203,7 @@ async def tactical_grace_phase(
                 temp_type = temp_data.get("action_type")
                 gs.action_events[temp_pid].clear()
                 if temp_type == "pass":
-                    tactical_mark_player_passed(gs, temp_pid)
+                    tactical_mark_player_passed_in_grace(gs, temp_pid)
                     gs.action_dict[temp_pid] = []
                     continue
                 gs.action_dict[temp_pid] = []

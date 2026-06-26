@@ -11,6 +11,7 @@ import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
+from ..public.hand_slot_utils import bot_ask_hand_game_status
 from ..public.claim_protection import (
     claim_protection_enabled,
     is_protected_viewer,
@@ -191,15 +192,15 @@ async def broadcast_ask_hand_action(self):
         try:
             if "offline" in current_player.tag_list:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]

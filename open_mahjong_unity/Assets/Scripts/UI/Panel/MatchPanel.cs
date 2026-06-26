@@ -23,13 +23,13 @@ public class MatchPanel : MonoBehaviour {
             matchButtons = GetComponentsInChildren<MatchButton>(true);
         }
         RefreshAllButtons();
-        NetworkPollingManager.Instance.StartMatchQueuePolling();
+        NetworkPollingManager.Instance.StartMatchPanelQueuePolling();
         // 切回匹配窗口时，若仍在排队则恢复排队面板（成功面板在 OverlayCanvas，不随本窗口显隐）
         MatchQueueingPanel.Instance?.RestoreIfQueueing();
     }
 
     private void OnDisable() {
-        NetworkPollingManager.Instance.StopMatchQueuePolling();
+        NetworkPollingManager.Instance.StopMatchPanelQueuePolling();
         // 仅隐藏视图，不结束排队状态：排队计时由常驻的 MatchStateManager 继续维护
         MatchQueueingPanel.Instance?.HideImmediately();
     }

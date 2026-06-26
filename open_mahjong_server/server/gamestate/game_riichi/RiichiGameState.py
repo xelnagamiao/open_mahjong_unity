@@ -206,6 +206,14 @@ class RiichiGameState:
         self.hepai_way: str = room_data.get("hepai_way", "multi_ron")  # head_bump / multi_ron / three_ron_abort
         self.open_xiru: bool = room_data.get("open_xiru", True)
         self.open_tobi: bool = room_data.get("open_tobi", True)
+        # 起手分：未指定时由子规则决定（标准 25000 / 浪涌 50000）；可房间级覆盖或 per-player 设置
+        raw_starting = room_data.get("starting_score")
+        self.starting_score: Optional[int] = int(raw_starting) if raw_starting is not None else None
+        raw_starting_scores = room_data.get("starting_scores")
+        if raw_starting_scores and len(raw_starting_scores) == 4:
+            self.starting_scores: Optional[List[int]] = [int(x) for x in raw_starting_scores]
+        else:
+            self.starting_scores = None
 
         self._pending_ron_claims: dict = {}
         self.multi_ron_queue: Optional[list] = None
@@ -270,6 +278,8 @@ class RiichiGameState:
         self._pending_four_kan_abort: bool = False
         # 错和：和牌番数低于 hepai_limit 时触发，向其余 3 家各赔 3000（合计 9000）并重打本局
         self._cuohe_triggered: bool = False
+        # 本局是否已因鸣牌（吃/碰/明杠/暗杠，不含加杠）作废一发；防止后续 _commit_pending_riichi 误补一发
+        self.ippatsu_voided: bool = False
 
         self.Debug = False
 
@@ -344,7 +354,7 @@ class RiichiGameState:
         for i, p in enumerate(self.player_list):
             p.player_index = i
             p.original_player_index = i
-            p.score = self._starting_score()
+            p.score = self._player_starting_score(p.original_player_index)
         self.player_list.sort(key=lambda x: x.player_index)
 
         init_game_record(self)
@@ -369,6 +379,7 @@ class RiichiGameState:
             self._last_kan_type = None
             self._pending_four_kan_abort = False
             self._cuohe_triggered = False
+            self.ippatsu_voided = False
 
             await self.broadcast_game_start()
             await self._broadcast_langyong_tags_if_changed()
@@ -652,11 +663,18 @@ class RiichiGameState:
         return True
 
     def _starting_score(self) -> int:
+        if self.starting_score is not None:
+            return self.starting_score
         return 50000 if self._is_langyong() else 25000
+
+    def _player_starting_score(self, original_index: int) -> int:
+        if self.starting_scores is not None:
+            return self.starting_scores[original_index]
+        return self._starting_score()
 
     def _xiru_target_score(self) -> int:
         """西入延长/终了的目标分，随起始点数等比缩放（25000→30000，50000→60000）。"""
-        return 60000 if self._is_langyong() else 30000
+        return int(self._starting_score() * 30000 / 25000)
 
     def _langyong_call_count(self, player) -> int:
         """该玩家本局吃/碰/杠（含暗杠）次数；每个副露算一次（加杠由碰升级仍记一次）。"""
@@ -714,7 +732,13 @@ class RiichiGameState:
         return 4
 
     def _riichi_match_should_end(self, renchan: bool) -> bool:
-        """非全庄西入延长战与击飞：判定整场是否在本局结束后终了。"""
+        """非全庄西入延长战与击飞：判定整场是否在本局结束后终了。
+
+        current_round 表示下一局局号。半庄 scheduled=8 时：
+        - 南三过庄后 current_round=8 且未连庄：须打南四，不因有人已达标而提前终了；
+        - 南四结束且连庄：亲家一位且达到西入目标分则终了（不继续本场），否则继续本场；
+        - current_round>scheduled：西入延长战，按达标/亲家一位规则终了。
+        """
         if self.open_tobi and any(p.score < 0 for p in self.player_list):
             return True
         scheduled = self.max_round * 4
@@ -722,12 +746,22 @@ class RiichiGameState:
             return False
         if self.current_round < scheduled:
             return False
-        if self.current_round == scheduled and renchan:
-            return False
+
         oya = self.player_list[0]
         oya_rank = self._riichi_oya_rank()
         target = self._xiru_target_score()
         anyone_target = any(p.score >= target for p in self.player_list)
+
+        if self.current_round == scheduled:
+            if renchan:
+                # 南四（或南四本场）刚结束：亲家一位且达标 → 终了，不连庄打本场
+                if oya_rank == 1 and oya.score >= target:
+                    return True
+                return False
+            # 刚从上一局过庄（如南三→南四），预定末局尚未开打
+            return False
+
+        # 南四已打完并过庄，或西入延长局
         if oya_rank == 1 and oya.score >= target:
             return True
         if not renchan and anyone_target:

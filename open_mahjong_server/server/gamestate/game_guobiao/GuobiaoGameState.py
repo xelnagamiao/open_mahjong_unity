@@ -153,7 +153,7 @@ class GuobiaoGameState:
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5) # 战术鸣牌：申请广播后、进入打断窗口前的固定停顿（秒）
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)     # 战术鸣牌：每次申请后的打断窗口时长（秒）
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.5)           # 鸣牌保护：受保护观众看到出牌的最大延迟（秒）
-        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.3)   # 鸣牌保护：出牌与紧随其后的鸣牌/和牌之间的间隔（秒）
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.5)   # 鸣牌保护：出牌与紧随其后的鸣牌/和牌之间的间隔（秒）
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
         self.match_queue_type = room_data.get("match_queue_type", None) # 排位匹配队列类型
         

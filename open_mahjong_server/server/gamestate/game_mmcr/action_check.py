@@ -135,10 +135,32 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
 
     return temp_action_dict
 
-# 检查吃碰后切牌操作 存储 吃碰后切牌cut
-def check_only_cut(self,player_index):
-    temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
+# 检查吃碰后手牌操作：切牌 + 暗杠/加杠（牌山非空时，与摸牌后杠规则一致）
+def check_only_cut(self, player_index):
+    temp_action_dict: Dict[int, list] = {0: [], 1: [], 2: [], 3: []}
+    player_item = self.player_list[player_index]
+
+    if self.tiles_list != []:
+        processed_cards = set()
+        for carditem in player_item.hand_tiles:
+            if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
+                temp_action_dict[player_index].append("angang")
+                processed_cards.add(carditem)
+
+        for combination_tile in player_item.combination_tiles:
+            if combination_tile[0] == "k":
+                jiagang_index = int(combination_tile[1:])
+                if jiagang_index in player_item.hand_tiles:
+                    temp_action_dict[player_index].append("jiagang")
+
     temp_action_dict[player_index].append("cut")
+
+    if "peida" in player_item.tag_list:
+        allowed_actions = {"jiagang", "angang", "cut"}
+        temp_action_dict[player_index] = [
+            action for action in temp_action_dict[player_index] if action in allowed_actions
+        ]
+
     return temp_action_dict
 
 # 检查等待牌操作 用来在玩家手牌发生改变时检测监听的卡牌

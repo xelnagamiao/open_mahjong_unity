@@ -42,12 +42,32 @@ public class TipsContainer : MonoBehaviour
         waitingTiles.Clear();
     }
 
-    /// <summary>牌桌弃牌/副露变化后重算提示 UI，不重跑听牌检测。</summary>
+    public bool HasCachedTenpaiTips => _hasCachedTenpaiTips && _cachedWaitingTiles.Count > 0;
+
+    /// <summary>牌桌弃牌/副露变化后重算听牌提示 UI（完整手牌、无切牌预览），不重跑听牌检测。</summary>
     public void RefreshTenpaiTipsIfCached() {
-        if (!_hasCachedTenpaiTips || _cachedWaitingTiles.Count == 0) return;
+        if (!HasCachedTenpaiTips) return;
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null || !gameManager.tips) return;
+        _pendingCutTileId = null;
         SetTipsWithHand(_cachedHandTiles, _cachedWaitingTiles);
+    }
+
+    /// <summary>听牌菱形展开：用缓存完整手牌重算后再显示，避免切牌预览状态泄漏。</summary>
+    public void ShowCachedTenpaiTipsFromBlock() {
+        if (!HasCachedTenpaiTips) return;
+        RefreshTenpaiTipsIfCached();
+        ShowTips();
+    }
+
+    /// <summary>结束切牌悬停/立起预览：清除 pendingCut，若听牌菱形仍可见则恢复稳定听牌 UI。</summary>
+    public void EndCutPreviewTips() {
+        _pendingCutTileId = null;
+        hasTips = false;
+        gameObject.SetActive(false);
+        if (HasCachedTenpaiTips && TipsBlock.Instance != null && TipsBlock.Instance.IsBlockActive) {
+            RefreshTenpaiTipsIfCached();
+        }
     }
 
     /// <summary>牌谱/观战：牌桌可见信息变化后重算已缓存的听牌提示 UI。</summary>
@@ -740,6 +760,7 @@ public class TipsContainer : MonoBehaviour
     }
 
     public void HideTips(){
+        _pendingCutTileId = null;
         gameObject.SetActive(false);
     }
 

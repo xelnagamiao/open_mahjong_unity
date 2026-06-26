@@ -675,7 +675,7 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private void ClearAllHandHover() {
-        TipsContainer.Instance.HideTips();
+        TipsContainer.Instance.EndCutPreviewTips();
         if (Card3DHoverManager.Instance != null) {
             Card3DHoverManager.Instance.OnCardExit();
         }

@@ -160,6 +160,8 @@ public partial class GameCanvas : MonoBehaviour {
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
         ClearActionDisplay();
+        ClearActionButton();
+        SetActionButtonContainerVisible(true);
         HideStickerPanel();
         ClearAllStickers();
         SetStickerUiForRecordMode(false);
@@ -222,6 +224,8 @@ public partial class GameCanvas : MonoBehaviour {
         gameObject.SetActive(true);
         StopAndClearChangeHandCardQueue();
         ClearActionDisplay();
+        ClearActionButton();
+        SetActionButtonContainerVisible(true);
         HideStickerPanel();
         ClearAllStickers();
         SetStickerUiForRecordMode(true);

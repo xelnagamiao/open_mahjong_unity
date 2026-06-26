@@ -39,7 +39,7 @@ public partial class Game3DManager {
 
         }
 
-
+        ResetHandRevealAnimators();
 
         string pos = request.WinnerPosition;
 
@@ -99,9 +99,23 @@ public partial class Game3DManager {
 
     }
 
-    /// <summary>牌谱/观战回放和牌 3D：收起手牌与对局一致；展开明牌仅 display + 国标和牌张移入摸牌区。</summary>
+    /// <summary>
+    /// 牌谱/观战和牌 3D：自家始终与对局一致（隐藏 2D 手牌区 + cardsPosition 倒牌）；
+    /// 他家收起明牌与对局一致；展开明牌时他家仍走 ShowCards 区国标和牌张移入（与步进相同）。
+    /// </summary>
     public IEnumerator PlayRecordHepaiReveal(HepaiPresentationRequest request) {
         if (request == null) yield break;
+        if (request.HepaiPlayerHand == null || request.HepaiPlayerHand.Length == 0) yield break;
+
+        ResetHandRevealAnimators();
+
+        bool isSelfWinner = request.WinnerPosition == "self";
+
+        // 自家和牌：无论是否展开明牌，均与对局相同的全套倒牌演出
+        if (isSelfWinner) {
+            yield return PlayHepaiHandReveal(request);
+            yield break;
+        }
 
         if (request.IsRecordShowCardsExpanded) {
             if (ShouldRecordShowCardsGuobiaoWinMove(request)) {
@@ -111,9 +125,7 @@ public partial class Game3DManager {
             yield break;
         }
 
-        if (request.HepaiPlayerHand != null && request.HepaiPlayerHand.Length > 0) {
-            yield return PlayHepaiHandReveal(request);
-        }
+        yield return PlayHepaiHandReveal(request);
     }
 
     private static bool ShouldRecordShowCardsGuobiaoWinMove(HepaiPresentationRequest request) {
@@ -321,11 +333,40 @@ public partial class Game3DManager {
 
 
 
+    /// <summary>牌谱跳转重建后：将最后切牌 3D 对象与河牌末张对齐，供荣和收牌演出使用。</summary>
+    public void SyncRecordLastDiscardForRon(string discardPlayerPosition, int expectedTileId) {
+        lastCutJiagang3DObject = FindDiscardTileObject(discardPlayerPosition, expectedTileId);
+    }
+
+    private GameObject FindDiscardTileObject(string discardPlayerPosition, int expectedTileId) {
+        if (string.IsNullOrEmpty(discardPlayerPosition)) return null;
+        PosPanel3D panel = GetPosPanel(discardPlayerPosition);
+        Transform river = panel?.discardsPosition;
+        if (river == null || river.childCount == 0) return null;
+
+        if (expectedTileId >= 10) {
+            for (int i = river.childCount - 1; i >= 0; i--) {
+                Tile3D tile3D = river.GetChild(i).GetComponent<Tile3D>();
+                if (tile3D != null && tile3D.GetTileId() == expectedTileId) {
+                    return tile3D.gameObject;
+                }
+            }
+        }
+
+        return river.GetChild(river.childCount - 1).gameObject;
+    }
+
+
+
     private GameObject TryTakeLastDiscardObjectForRon(int expectedTileId, string discardPlayerPosition) {
 
-        if (lastCutJiagang3DObject == null) return null;
+        GameObject obj = lastCutJiagang3DObject;
+        if (obj == null) {
+            obj = FindDiscardTileObject(discardPlayerPosition, expectedTileId);
+        }
+        if (obj == null) return null;
 
-        Tile3D tile3D = lastCutJiagang3DObject.GetComponent<Tile3D>();
+        Tile3D tile3D = obj.GetComponent<Tile3D>();
 
         if (tile3D != null && tile3D.GetTileId() != expectedTileId) {
 
@@ -334,8 +375,6 @@ public partial class Game3DManager {
         }
 
 
-
-        GameObject obj = lastCutJiagang3DObject;
 
         lastCutJiagang3DObject = null;
 

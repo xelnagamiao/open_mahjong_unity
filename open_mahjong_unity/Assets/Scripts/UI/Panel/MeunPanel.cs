@@ -28,11 +28,11 @@ public class MeunPanel : MonoBehaviour {
 
     private void OnEnable() {
         UpdateMatchPlayerCountText(0);
-        NetworkPollingManager.Instance.StartMatchQueuePolling();
+        NetworkPollingManager.Instance.StartMenuMatchPlayerCountPolling();
     }
 
     private void OnDisable() {
-        NetworkPollingManager.Instance.StopMatchQueuePolling();
+        NetworkPollingManager.Instance.StopMenuMatchPlayerCountPolling();
     }
 
     // 设置用户信息（通过UserContainer处理UI，UserDataManager管理数据）

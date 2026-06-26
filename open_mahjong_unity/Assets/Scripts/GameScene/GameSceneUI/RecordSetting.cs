@@ -21,7 +21,7 @@ public class RecordSetting : MonoBehaviour {
     private bool isShowMoqieMode = true;
     public bool IsShowMoqieMode { get => isShowMoqieMode; }
 
-    private bool isShowChongHint;
+    private bool isShowChongHint = true;
     public bool IsShowChongHint { get => isShowChongHint; }
 
     private void Awake() {
@@ -34,6 +34,7 @@ public class RecordSetting : MonoBehaviour {
 
     public void Initialize() {
         gameObject.SetActive(true);
+        isShowChongHint = true;
         AddClickListener(showCardsModeText, ToggleShowCardsMode);
         AddClickListener(showMoqieModeText, ToggleShowMoqieMode);
         if (showChongHintText != null) {

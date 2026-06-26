@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// 统一管理网络轮询请求（房间列表、平台人数、匹配队列状态）
+/// 统一管理网络轮询请求（房间列表、平台人数、主菜单匹配总人数、匹配页队列明细）
 /// </summary>
 public class NetworkPollingManager : MonoBehaviour {
     public static NetworkPollingManager Instance {
@@ -21,7 +21,8 @@ public class NetworkPollingManager : MonoBehaviour {
 
     private Coroutine roomListPollingCoroutine;
     private Coroutine serverStatsPollingCoroutine;
-    private Coroutine matchQueuePollingCoroutine;
+    private Coroutine menuMatchPlayerCountPollingCoroutine;
+    private Coroutine matchPanelQueuePollingCoroutine;
     private Coroutine friendListPollingCoroutine;
 
     private void Awake() {
@@ -62,18 +63,39 @@ public class NetworkPollingManager : MonoBehaviour {
         }
     }
 
-    public void StartMatchQueuePolling(float intervalSeconds = 5f) {
-        StopMatchQueuePolling();
-        MatchNetworkManager.Instance?.SendGetQueueStatus();
-        matchQueuePollingCoroutine = StartCoroutine(PollingRoutine(() => {
-            MatchNetworkManager.Instance?.SendGetQueueStatus();
+    /// <summary>
+    /// 主菜单「匹配人数」汇总轮询，由 <see cref="MeunPanel"/> 独占启停。
+    /// </summary>
+    public void StartMenuMatchPlayerCountPolling(float intervalSeconds = 5f) {
+        StopMenuMatchPlayerCountPolling();
+        MatchNetworkManager.Instance?.RequestQueueStatusForMenu();
+        menuMatchPlayerCountPollingCoroutine = StartCoroutine(PollingRoutine(() => {
+            MatchNetworkManager.Instance?.RequestQueueStatusForMenu();
         }, intervalSeconds));
     }
 
-    public void StopMatchQueuePolling() {
-        if (matchQueuePollingCoroutine != null) {
-            StopCoroutine(matchQueuePollingCoroutine);
-            matchQueuePollingCoroutine = null;
+    public void StopMenuMatchPlayerCountPolling() {
+        if (menuMatchPlayerCountPollingCoroutine != null) {
+            StopCoroutine(menuMatchPlayerCountPollingCoroutine);
+            menuMatchPlayerCountPollingCoroutine = null;
+        }
+    }
+
+    /// <summary>
+    /// 匹配页各队列等待/游戏中人数轮询，由 <see cref="MatchPanel"/> 独占启停。
+    /// </summary>
+    public void StartMatchPanelQueuePolling(float intervalSeconds = 5f) {
+        StopMatchPanelQueuePolling();
+        MatchNetworkManager.Instance?.RequestQueueStatusForMatchPanel();
+        matchPanelQueuePollingCoroutine = StartCoroutine(PollingRoutine(() => {
+            MatchNetworkManager.Instance?.RequestQueueStatusForMatchPanel();
+        }, intervalSeconds));
+    }
+
+    public void StopMatchPanelQueuePolling() {
+        if (matchPanelQueuePollingCoroutine != null) {
+            StopCoroutine(matchPanelQueuePollingCoroutine);
+            matchPanelQueuePollingCoroutine = null;
         }
     }
 

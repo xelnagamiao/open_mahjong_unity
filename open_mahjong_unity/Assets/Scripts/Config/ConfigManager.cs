@@ -22,15 +22,15 @@ public class ConfigManager : MonoBehaviour {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            releaseVersion = 10; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 11; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
-            releaseVersion = 10;
+            releaseVersion = 11;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.69.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.69.2"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
         githubUrl = "https://github.com/xelnagamiao/open_mahjong_unity"; // 访问转到
@@ -60,6 +60,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_HAND_SORT_DRAGON_ORDER = "HandSortDragonOrderMode";
     private const string KEY_HAND_SORT_RIICHI_DRAGON_ORDER = "HandSortRiichiDragonOrderMode";
     private const string KEY_LANGUAGE = "AppLanguage";
+    private const string KEY_ACTION_BUTTON_COLOR_ENABLED = "ActionButtonColorEnabled";
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
@@ -90,6 +91,8 @@ public class ConfigManager : MonoBehaviour {
     public int HandSortDragonOrderMode { get; private set; }
     /// <summary>日麻三元牌排序：2 白发中(46→47→45，默认)，索引对应 TileIdOrder.RiichiDragonOrderOptions（日麻对局使用）</summary>
     public int HandSortRiichiDragonOrderMode { get; private set; }
+    /// <summary>操作按钮分色：关时全部使用 GameCanvas 的 fallback 配色</summary>
+    public bool ActionButtonColorEnabled { get; private set; }
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
     public const int WhiteDragonTileId = 46;
@@ -143,6 +146,7 @@ public class ConfigManager : MonoBehaviour {
         HandSortDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_DRAGON_ORDER, 0), 0, TileIdOrder.DragonOrderOptions.Length - 1);
         HandSortRiichiDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, 2), 0, TileIdOrder.RiichiDragonOrderOptions.Length - 1);
         _languageMode = (AppLanguage)Mathf.Clamp(PlayerPrefs.GetInt(KEY_LANGUAGE, (int)AppLanguage.SimplifiedChinese), 0, 2);
+        ActionButtonColorEnabled = PlayerPrefs.GetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, 0) == 1;
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
 #if UNITY_WEBGL && !UNITY_EDITOR
         TargetFrameRate = WebLockedFrameRate;
@@ -312,6 +316,15 @@ public class ConfigManager : MonoBehaviour {
         PlayerPrefs.SetInt(KEY_LANGUAGE, (int)language);
         PlayerPrefs.Save();
         OnLanguageChanged?.Invoke();
+    }
+
+    public void SetActionButtonColorEnabled(bool enabled) {
+        ActionButtonColorEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+        if (GameCanvas.Instance != null) {
+            GameCanvas.Instance.RefreshActionButtonColors();
+        }
     }
 
     // 应用排序规则到 TileIdOrder，并在对局中开启自动理牌时立即按新规则重排当前手牌。

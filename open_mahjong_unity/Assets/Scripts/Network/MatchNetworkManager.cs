@@ -1,11 +1,18 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Newtonsoft.Json;
 using NativeWebSocket;
+
+public enum MatchQueueStatusConsumer {
+    MenuTotalCount,
+    MatchPanelDetail,
+}
 
 public class MatchNetworkManager : MonoBehaviour {
     public static MatchNetworkManager Instance { get; private set; }
     private bool isMatchFoundLocked;
     private string lastJoinedQueueType;
+    private readonly Queue<MatchQueueStatusConsumer> pendingQueueStatusConsumers = new Queue<MatchQueueStatusConsumer>();
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -71,9 +78,16 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     private void HandleQueueStatus(Response response) {
-        if (response.queue_status != null) {
-            MatchPanel.Instance?.UpdateQueueStatus(response.queue_status);
-            MeunPanel.Instance?.UpdateMatchPlayerCount(response.queue_status);
+        if (response.queue_status == null) return;
+        if (pendingQueueStatusConsumers.Count == 0) return;
+
+        switch (pendingQueueStatusConsumers.Dequeue()) {
+            case MatchQueueStatusConsumer.MenuTotalCount:
+                MeunPanel.Instance?.UpdateMatchPlayerCount(response.queue_status);
+                break;
+            case MatchQueueStatusConsumer.MatchPanelDetail:
+                MatchPanel.Instance?.UpdateQueueStatus(response.queue_status);
+                break;
         }
     }
 
@@ -137,13 +151,27 @@ public class MatchNetworkManager : MonoBehaviour {
         }
     }
 
-    public async void SendGetQueueStatus() {
+    public void RequestQueueStatusForMenu() {
+        RequestQueueStatus(MatchQueueStatusConsumer.MenuTotalCount);
+    }
+
+    public void RequestQueueStatusForMatchPanel() {
+        RequestQueueStatus(MatchQueueStatusConsumer.MatchPanelDetail);
+    }
+
+    private async void RequestQueueStatus(MatchQueueStatusConsumer consumer) {
         if (NetworkManager.Instance == null) return;
         var ws = NetworkManager.Instance.GetWebSocket();
         if (ws == null || ws.State != WebSocketState.Open) return;
+
+        pendingQueueStatusConsumers.Enqueue(consumer);
         try {
             await ws.SendText(JsonConvert.SerializeObject(new { type = "match/get_queue_status" }));
         } catch (System.Exception e) {
+            if (pendingQueueStatusConsumers.Count > 0
+                && pendingQueueStatusConsumers.Peek() == consumer) {
+                pendingQueueStatusConsumers.Dequeue();
+            }
             Debug.LogError($"[MatchNetworkManager] 发送队列状态请求失败: {e.Message}");
         }
     }

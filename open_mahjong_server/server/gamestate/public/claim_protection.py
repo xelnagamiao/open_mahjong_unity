@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # 受保护观众看到出牌的最大延迟（秒）——默认值，可被 game_state.claim_protect_delay 覆盖
 MELD_PROTECT_DELAY = 1.5
 # 出牌与紧随其后的鸣牌之间，对受保护观众的间隔（秒）——默认值，可被 game_state.claim_meld_followup_gap 覆盖
-MELD_FOLLOWUP_GAP = 0.3
+MELD_FOLLOWUP_GAP = 0.5
 
 # 真实鸣牌行为（不含 is_claim 申请、不含和牌/抢杠的终结结算）
 REAL_MELD_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right", "peng", "gang"})
@@ -53,7 +53,7 @@ def compute_protected_meld_delay(game_state) -> float:
     """受保护观众鸣牌/和牌相对当下的剩余追赶延迟（秒）。
 
     保证 cut 揭示与紧随鸣牌之间至少相隔 claim_meld_followup_gap：
-    - cut 刚 flush：返回 gap（如 0.3s）；
+    - cut 刚 flush：返回 gap（如 0.5s）；
     - cut 在 1.5s 超时揭示、鸣牌在 1.6s：返回 0.2s（对齐 1.8s）；
     - 鸣牌在 cut 揭示 + gap 之后：返回 0（立即）。
     """

@@ -226,8 +226,8 @@ async def wait_action(self):
                                               combination_mask=mask, combination_target=f"G{normal_angang}",
                                               is_mo_gang=is_mo_gang)
                     await self._broadcast_langyong_tags_if_changed()
-                    # 立直一发消失
-                    _clear_ippatsu(self)
+                    # 暗杠使立直一发消失
+                    await _clear_ippatsu_and_notify(self)
                     self._last_kan_type = "ankan"
                     self.game_status = "deal_card_after_gang"
                     return
@@ -266,7 +266,7 @@ async def wait_action(self):
                                               combination_mask=self.player_list[self.current_player_index].combination_mask[combination_index],
                                               combination_target=f"k{normal_jia}",
                                               is_mo_gang=is_mo_gang)
-                    _clear_ippatsu(self)
+                    # 加杠不使一发消失（标准立直规则）
                     self._last_kan_type = "shouminkan"
                     self.jiagang_tile = normal_jia
                     self.action_dict = check_action_jiagang(self, normal_jia)
@@ -415,7 +415,8 @@ async def wait_action(self):
                     if self.sync_furiten_tags():
                         await broadcast_refresh_player_tag_list(self)
                     await self._broadcast_langyong_tags_if_changed()
-                    _clear_ippatsu(self)
+                    # 吃/碰/明杠使所有家一发消失（含尚未提交 pending_riichi 的立直家）
+                    await _clear_ippatsu_and_notify(self)
                     # 食替：吃/碰后到本家切牌前不可丢回的牌（吃来源 + 两面搭子的筋）
                     # 浪涌麻将可食替：不设禁切牌，允许吃什么打什么。
                     if self._kuikae_enabled() and action_type in ("chi_left", "chi_mid", "chi_right", "peng"):
@@ -654,16 +655,28 @@ def _commit_pending_riichi(self):
             p.pending_riichi = False
             p.score -= 1000
             self.riichi_sticks += 1
-            if "ippatsu" not in p.tag_list:
+            if not getattr(self, "ippatsu_voided", False) and "ippatsu" not in p.tag_list:
                 p.tag_list.append("ippatsu")
 
 
 def _clear_ippatsu(self, keep_player_index=None):
+    self.ippatsu_voided = True
     for p in self.player_list:
         if keep_player_index is not None and p.player_index == keep_player_index:
             continue
         if "ippatsu" in p.tag_list:
             p.tag_list.remove("ippatsu")
+
+
+async def _clear_ippatsu_and_notify(self, keep_player_index=None):
+    had_ippatsu = any(
+        "ippatsu" in p.tag_list
+        for p in self.player_list
+        if keep_player_index is None or p.player_index != keep_player_index
+    )
+    _clear_ippatsu(self, keep_player_index=keep_player_index)
+    if had_ippatsu:
+        await broadcast_refresh_player_tag_list(self)
 
 
 def _apply_passed_ron_furiten(self, ron_eligible_indexes):

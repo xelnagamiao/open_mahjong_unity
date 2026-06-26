@@ -728,7 +728,12 @@ class ClassicalGameState:
         hepai_fu_types: Optional[List[str]],
         hu_class: Optional[str],
     ) -> float:
-        """数和尾结算：四家分别计副，若一家有 x 副，则向所有不足 x 副且未和牌者收 x 分。"""
+        """数和尾结算：
+        - 有和牌者时：和牌家向其余三家各收取其自身全额副数（不做比对）；
+        - 其余未和牌者之间两两比对，副高者向副低者收取副差；
+        - 流局时：四家之间两两比对副差；
+        - 涉及庄家时该笔转账翻倍（庄家幺二）。
+        """
         player_fu = {}
         player_fan: Dict[int, List[str]] = {}
         player_fu_types: Dict[int, List[str]] = {}
@@ -745,9 +750,27 @@ class ClassicalGameState:
 
         shuhewei_changes = {p.player_index: 0 for p in self.player_list}
         indices = [p.player_index for p in self.player_list]
-        dealer_index = 0 # 古典麻将：座位 0 始终为庄家（连庄通过 keep_dealer_seat 保持）
+        dealer_index = 0  # 古典麻将：座位 0 始终为庄家（连庄通过 keep_dealer_seat 保持）
 
+        def _dealer_multiplier(receiver: int, payer: int) -> int:
+            return 2 if (receiver == dealer_index or payer == dealer_index) else 1
+
+        def _apply_transfer(receiver: int, payer: int, amount: int) -> None:
+            shuhewei_changes[receiver] += amount
+            shuhewei_changes[payer] -= amount
+
+        # 和牌家收取其余三家各自的全额副数
+        if hepai_player_index is not None:
+            for payer in indices:
+                if payer == hepai_player_index:
+                    continue
+                transfer = player_fu[payer] * _dealer_multiplier(hepai_player_index, payer)
+                _apply_transfer(hepai_player_index, payer, transfer)
+
+        # 未和牌者之间（流局时则为四家）两两比对副差
         for receiver in indices:
+            if hepai_player_index is not None and receiver == hepai_player_index:
+                continue
             receiver_fu = player_fu[receiver]
             for payer in indices:
                 if payer == receiver:
@@ -755,11 +778,8 @@ class ClassicalGameState:
                 if hepai_player_index is not None and payer == hepai_player_index:
                     continue
                 if player_fu[payer] < receiver_fu:
-                    # 庄家收支翻倍（庄家幺二）：副数本身不变，仅最终转账翻倍
-                    multiplier = 2 if (receiver == dealer_index or payer == dealer_index) else 1
-                    transfer = receiver_fu * multiplier
-                    shuhewei_changes[receiver] += transfer
-                    shuhewei_changes[payer] -= transfer
+                    transfer = (receiver_fu - player_fu[payer]) * _dealer_multiplier(receiver, payer)
+                    _apply_transfer(receiver, payer, transfer)
 
         for player in self.player_list:
             player.score += shuhewei_changes[player.player_index]

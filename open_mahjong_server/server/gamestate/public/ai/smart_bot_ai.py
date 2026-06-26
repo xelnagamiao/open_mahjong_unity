@@ -12,6 +12,11 @@ from .smart_bot_logic import (
 
 logger = logging.getLogger(__name__)
 
+_BOT_DELAY = 0.5
+
+# 荣和/抢杠：国标/古典等为 hu_first/second/third；四川血战为 hu
+_RON_HU_ACTIONS = ("hu", "hu_first", "hu_second", "hu_third")
+
 
 async def _wait_until_actionable(game_state, player_index: int, attempts: int = 200, interval: float = 0.01) -> bool:
     """等待 wait_action 完成 waiting_players_list 建立（清空队列/事件之后）再提交操作。
@@ -44,14 +49,13 @@ async def smart_bot_action(game_state, player_index: int, action_list: list, gam
         current_player = game_state.player_list[player_index]
 
         if game_status == "waiting_hand_action":
-            await asyncio.sleep(0.5)
-            # 摸牌后手牌操作：和牌 > 暗杠/加杠 > 切牌
+            await asyncio.sleep(_BOT_DELAY)
             await _handle_hand_action(game_state, player_index, action_list, current_player)
             return
 
         elif game_status == "onlycut_after_action":
-            await asyncio.sleep(0.5)
-            # 吃碰后手牌操作：和牌 > 切牌（不可暗杠/加杠）
+            cp = bool(getattr(game_state, "claim_protection", False))
+            await asyncio.sleep(_BOT_DELAY * (2 if cp else 1))
             await _handle_hand_action(game_state, player_index, action_list, current_player)
             return
 
@@ -66,7 +70,7 @@ async def smart_bot_action(game_state, player_index: int, action_list: list, gam
             return
 
         elif game_status == "waiting_buhua_round":
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(_BOT_DELAY)
             # 补花轮询问：能补花就补花，有国士和牌就和，否则pass
             await _handle_buhua_round(game_state, player_index, action_list, current_player)
             return
@@ -144,15 +148,14 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
 
 async def _handle_after_cut(game_state, player_index, action_list, player):
     """他家切牌后的响应阶段：和牌 > 碰/吃/明杠评估 > pass"""
-    # 等待 wait_action 建立 waiting_players_list 后再提交，避免操作被清空丢弃导致卡住
     if not await _wait_until_actionable(game_state, player_index):
         logger.warning(f"牌效AI {player_index} ({player.username}) 切牌后询问未进入 waiting_players_list，放弃操作")
         return
     # 能和且满足起和番则和（避免错和）
-    for hu_action in ("hu_first", "hu_second", "hu_third"):
+    for hu_action in _RON_HU_ACTIONS:
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
             logger.info(f"牌效AI {player_index} ({player.username}) 选择 {hu_action}")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(_BOT_DELAY)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
             return
 
@@ -223,7 +226,7 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
 
     logger.info(f"牌效AI {player_index} ({player.username}) 选择 {best_action} (score={best_action_score})")
     if best_action != "pass":
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(_BOT_DELAY)
     await get_ai_action(game_state, player_index, best_action, None, None, None, None)
 
 
@@ -234,10 +237,10 @@ async def _handle_qianggang(game_state, player_index, action_list, player):
         logger.warning(f"牌效AI {player_index} ({player.username}) 抢杠询问未进入 waiting_players_list，放弃操作")
         return
     # 抢杠和（满足起和番才和）
-    for hu_action in ("hu_first", "hu_second", "hu_third"):
+    for hu_action in _RON_HU_ACTIONS:
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
             logger.info(f"牌效AI {player_index} ({player.username}) 选择 {hu_action}（抢杠和）")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(_BOT_DELAY)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
             return
     # 没有和牌选项则pass
