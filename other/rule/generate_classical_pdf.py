@@ -221,12 +221,12 @@ def build_pdf(output_path: str) -> None:
     # 七、数和尾
     story.append(Paragraph("七、数和尾结算（每局必算 · 九老峰回除外）", h1_style))
     story.append(Paragraph(
-        "无论本局以和牌还是普通流局结束，都对四家分别独立计副，再按下列规则转账：",
+        "无论本局以和牌还是普通流局结束，都对四家分别独立计副，再两两比较扣除分数：",
         body_style,
     ))
     story.append(bullet("未和牌玩家：仅按其副露 + 手牌中可成立的暗刻 / 番牌对计副。"))
-    story.append(bullet("和牌玩家：直接采用其本局的和牌总副；向其余三家各收取其自身全额副数（不做比对）。"))
-    story.append(bullet("未和牌者之间：两两比对，副高者向副低者收取副差（高副 − 低副）。"))
+    story.append(bullet("和牌玩家：另三家各向其支付和牌总副（涉及庄家翻倍）。"))
+    story.append(bullet("未和牌者之间：除去和牌家后，余下三家两两比对；副更低者向副更高者支付副差。"))
     story.append(bullet("流局时：四家之间仅进行上述副差两两比对（无和牌收取环节）。"))
     story.append(bullet("九老峰回（九种九牌）发生时跳过本结算。"))
 
@@ -254,7 +254,7 @@ def build_pdf(output_path: str) -> None:
     story.append(bullet("庄家荣和：放铳者按「2 × 总副」支付（其他两家不参与本笔结算）。"))
     story.append(bullet("闲家自摸：庄家以「2 × 总副」支付，其余两位闲家按「1 × 总副」支付。"))
     story.append(bullet("闲家荣和：仅放铳者支付「1 × 总副」（与庄家无关）。"))
-    story.append(bullet("数和尾结算：和牌家收取其余三家各自全额副数；未和牌者之间按副差结算；涉及庄家时该笔转账翻倍。"))
+    story.append(bullet("数和尾结算：和牌家收取另三家各付和牌总副；余下三家按副差互结；涉及庄家时该笔转账翻倍。"))
     story.append(Paragraph(
         "实现细节请参见 ClassicalGameState.py 中的 _settle_shuhewei 与 actual_hu_score 计算分支。",
         note_style,

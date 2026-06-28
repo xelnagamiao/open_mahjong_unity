@@ -728,12 +728,7 @@ class ClassicalGameState:
         hepai_fu_types: Optional[List[str]],
         hu_class: Optional[str],
     ) -> float:
-        """数和尾结算：
-        - 有和牌者时：和牌家向其余三家各收取其自身全额副数（不做比对）；
-        - 其余未和牌者之间两两比对，副高者向副低者收取副差；
-        - 流局时：四家之间两两比对副差；
-        - 涉及庄家时该笔转账翻倍（庄家幺二）。
-        """
+        """数和尾结算：先结算和牌家（另三家各付和牌总副），再结算其余玩家两两副差比对。"""
         player_fu = {}
         player_fan: Dict[int, List[str]] = {}
         player_fu_types: Dict[int, List[str]] = {}
@@ -759,23 +754,24 @@ class ClassicalGameState:
             shuhewei_changes[receiver] += amount
             shuhewei_changes[payer] -= amount
 
-        # 和牌家收取其余三家各自的全额副数
-        if hepai_player_index is not None:
+        # 一、和牌家：另三家各付和牌总副（涉及庄家翻倍）
+        if hepai_player_index is not None and hepai_total_fu is not None:
             for payer in indices:
                 if payer == hepai_player_index:
                     continue
-                transfer = player_fu[payer] * _dealer_multiplier(hepai_player_index, payer)
+                transfer = hepai_total_fu * _dealer_multiplier(hepai_player_index, payer)
                 _apply_transfer(hepai_player_index, payer, transfer)
 
-        # 未和牌者之间（流局时则为四家）两两比对副差
-        for receiver in indices:
-            if hepai_player_index is not None and receiver == hepai_player_index:
-                continue
+        # 二、其余玩家两两比对副差（有和牌时排除和牌家；流局时四家互比）
+        compare_indices = (
+            [i for i in indices if i != hepai_player_index]
+            if hepai_player_index is not None
+            else indices
+        )
+        for receiver in compare_indices:
             receiver_fu = player_fu[receiver]
-            for payer in indices:
+            for payer in compare_indices:
                 if payer == receiver:
-                    continue
-                if hepai_player_index is not None and payer == hepai_player_index:
                     continue
                 if player_fu[payer] < receiver_fu:
                     transfer = (receiver_fu - player_fu[payer]) * _dealer_multiplier(receiver, payer)
