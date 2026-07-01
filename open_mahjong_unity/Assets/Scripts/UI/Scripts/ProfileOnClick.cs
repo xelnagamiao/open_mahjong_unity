@@ -10,6 +10,12 @@ public class ProfileOnClick : MonoBehaviour, IPointerClickHandler
     // 当物体被点击时调用
     public void OnPointerClick(PointerEventData eventData)
     {
+        // 仅响应左键，右键/中键不打开玩家信息面板
+        if (eventData.button != PointerEventData.InputButton.Left)
+        {
+            return;
+        }
+
         if (NetworkManager.Instance != null && user_id >= 10)
         {
             // 第一次加载需要玩家信息

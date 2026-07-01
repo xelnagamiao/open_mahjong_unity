@@ -101,7 +101,7 @@ public partial class Game3DManager : MonoBehaviour
                     // 加杠动画：将加杠牌移动到3个卡牌宽度以左，然后移回原位
                     if (doAnimation)
                     {
-                        StartCoroutine(MoveCardAnimation(cardObj, SetDirection, cardWidth));
+                        StartCoroutine(MoveCardAnimation(cardObj, SetDirection, cardWidth, playerIndex));
                     }
                     
                     // 每创建一张卡牌等待一帧，避免单帧创建太多对象
@@ -207,7 +207,7 @@ public partial class Game3DManager : MonoBehaviour
             // 组合牌动画：将父物体移动到3个卡牌宽度以左，然后移回原位
             if (doAnimation)
             {
-                StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth));
+                StartCoroutine(MoveCardAnimation(SetParent.gameObject, SetDirection, cardWidth, playerIndex));
             }
         }
     }

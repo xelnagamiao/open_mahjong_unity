@@ -25,6 +25,7 @@ public enum HeaderNavItem {
     Notice,
     Config,
     BackToGame,
+    Logout,
 }
 
 public static class AppLanguageTexts {
@@ -42,6 +43,7 @@ public static class AppLanguageTexts {
             { HeaderNavItem.Notice, ("通知", "Notice") },
             { HeaderNavItem.Config, ("设置", "Setup") },
             { HeaderNavItem.BackToGame, ("返回游戏", "Back") },
+            { HeaderNavItem.Logout, ("登出", "Logout") },
         };
 
     public static string GetHeaderNavLabel(HeaderNavItem item, AppLanguage language) {

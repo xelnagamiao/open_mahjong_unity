@@ -257,6 +257,7 @@ class MatchManager:
                 "tactical_call": room_config.get("tactical_call", False),
                 "claim_protection": room_config.get("claim_protection", True),
                 "match_queue_type": queue_type,
+                "match_tier": parse_queue_type(queue_type)[0],
             }
 
             # 通过 gamestate_manager 创建 GuobiaoGameState（匹配对局不设置 current_room_id，

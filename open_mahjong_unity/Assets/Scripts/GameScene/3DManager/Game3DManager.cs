@@ -20,9 +20,41 @@ public partial class Game3DManager : MonoBehaviour {
 
     private GameObject lastCutJiagang3DObject; // 最后一张切牌或加杠牌的3D对象（荣和/抢杠倒牌演出用）
 
-    private Coroutine _currentDiscardMoveCoroutine; // 当前出牌飞行动画协程，鸣牌时需终止
-    private Vector3 lastRemove3DPosition; // 最后一张删除的3D对象
+    // 出牌飞行动画协程按玩家隔离：避免 A 的飞牌协程被 B 的鸣牌 StopCoroutine 误终止，
+    // 也避免多家并发出牌时互相覆盖引用造成河牌停在中途或被错误回收。
+    private readonly Dictionary<string, Coroutine> _discardMoveCoroutinesByPlayer = new Dictionary<string, Coroutine>();
+
+    // 删除手牌的位置按玩家隔离：出牌飞牌起点只取本家删牌位，避免他家并发删牌覆盖起点导致牌飞错河。
+    private readonly Dictionary<string, Vector3> _lastRemovePosByPlayer = new Dictionary<string, Vector3> {
+        { "self", Vector3.zero }, { "left", Vector3.zero },
+        { "top", Vector3.zero }, { "right", Vector3.zero },
+    };
     private Dictionary<int,Vector3> pengToJiagangPosDict = new Dictionary<int,Vector3>(); // 碰牌的加杠预留指针
+
+    private void SetLastRemovePos(string playerPosition, Vector3 pos) {
+        if (string.IsNullOrEmpty(playerPosition)) return;
+        _lastRemovePosByPlayer[playerPosition] = pos;
+    }
+
+    private Vector3 GetLastRemovePos(string playerPosition) {
+        if (string.IsNullOrEmpty(playerPosition)) return Vector3.zero;
+        return _lastRemovePosByPlayer.TryGetValue(playerPosition, out Vector3 pos) ? pos : Vector3.zero;
+    }
+
+    private void StopDiscardMoveCoroutine(string playerPosition) {
+        if (string.IsNullOrEmpty(playerPosition)) return;
+        if (_discardMoveCoroutinesByPlayer.TryGetValue(playerPosition, out Coroutine c) && c != null) {
+            StopCoroutine(c);
+        }
+        _discardMoveCoroutinesByPlayer[playerPosition] = null;
+    }
+
+    private void StopAllDiscardMoveCoroutines() {
+        foreach (var kvp in _discardMoveCoroutinesByPlayer) {
+            if (kvp.Value != null) StopCoroutine(kvp.Value);
+        }
+        _discardMoveCoroutinesByPlayer.Clear();
+    }
 
     private float cardWidth; // 卡片宽度 组合牌 3D手牌使用
     private float cardHeight; // 卡片高度
@@ -233,7 +265,14 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 3D手牌处理入口：暗杠/加杠与杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
-    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false){
+    /// <summary>web 后台降帧切回时，网络队列会积压多条未处理消息，客户端正连续追赶同步现场。
+    /// 此期间任何“固定墙钟”装饰延迟都应跳过（否则逻辑瞬间同步、3D 逐条卡 0.5s）。
+    /// 阈值 ≥2：仅剩 1 条属正常快打，仍保留间隔。</summary>
+    private static bool IsCatchingUpFromBacklog() {
+        return NetworkManager.Instance != null && NetworkManager.Instance.IsBacklogged;
+    }
+
+    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, float meldRevealDelay = 0f, string meldDiscarderPos = null, int meldClaimedTile = 0){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
@@ -271,7 +310,7 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        StartCoroutine(Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound));
+        StartCoroutine(Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldRevealDelay, meldDiscarderPos, meldClaimedTile));
     }
 
     // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
@@ -325,10 +364,20 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
     
-    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false) {
+    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, float meldRevealDelay = 0f, string meldDiscarderPos = null, int meldClaimedTile = 0) {
         PosPanel3D panel = GetPosPanel(PlayerPosition);
         if (panel == null) {
             yield break;
+        }
+
+        // 受保护观众鸣牌的显示层间隔：服务器已按序发送（wire 不乱序），此处仅把鸣牌 3D 动画/声音
+        // 延后 meldRevealDelay 秒，复现“出牌→0.5s→鸣牌”视觉间隔。仅鸣牌帧会传入 >0 的延迟。
+        // 认走的打牌者+牌张在派发时即捕获（meldDiscarderPos/meldClaimedTile），不读共享字段，
+        // 避免延迟期间被后续鸣牌覆盖导致回收错河牌。
+        // 补帧例外：web 后台降帧切回时队列积压，客户端在连续追赶同步现场，此时固定墙钟延迟会
+        // 让逻辑瞬间同步完、3D 却逐条卡 0.5s，非常诡异——故检测到队列仍有积压时跳过该纯装饰延迟。
+        if (meldRevealDelay > 0f && !IsCatchingUpFromBacklog()) {
+            yield return new WaitForSeconds(meldRevealDelay);
         }
 
         if (actionType == "GetCard") {
@@ -346,10 +395,10 @@ public partial class Game3DManager : MonoBehaviour {
                 yield break;
             }
             if (IsSelfCardsPosition(panel.cardsPosition)) {
-                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true);
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
             if (playCutPhysicsSound) {
                 SoundManager.Instance.PlayPhysicsSound("cut");
@@ -369,10 +418,10 @@ public partial class Game3DManager : MonoBehaviour {
                 yield break;
             }
             if (IsSelfCardsPosition(panel.cardsPosition)) {
-                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true);
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, 1, cut_class, tileId, null, skipRearrange: true, PlayerPosition);
             }
             yield return Set3DTileCoroutine(tileId, panel.buhuaPosition, "Buhua", PlayerPosition);
             // 摸补：摸牌区删花后保留主列与摸牌区间距，不收拢；手补仍收拢主列
@@ -388,14 +437,14 @@ public partial class Game3DManager : MonoBehaviour {
                 yield return RecordMeldShowCardsCoroutine(PlayerPosition, actionType, combination_mask, removeDrawFirst, tileId);
                 yield break;
             }
-            StartMeldPresentation(actionType, PlayerPosition, combination_mask);
+            StartMeldPresentation(actionType, PlayerPosition, combination_mask, meldDiscarderPos, meldClaimedTile);
             bool meldCutClass = actionType == "jiagang" && cut_class;
             int meldDiscardId = actionType == "jiagang" && tileId >= 2 ? tileId : -1;
             if (IsSelfCardsPosition(panel.cardsPosition)) {
-                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true);
+                yield return RemoveSelfHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true, PlayerPosition);
             }
             else {
-                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true);
+                yield return RemoveHandCardsCoroutine(panel.cardsPosition, removeCount, meldCutClass, meldDiscardId, combination_mask, skipRearrange: true, PlayerPosition);
             }
             yield return Rearrange3DCardsWithAnimation(panel.cardsPosition);
         }
@@ -633,10 +682,7 @@ public partial class Game3DManager : MonoBehaviour {
     /// 清空本对象上所有正在执行的协程（用于牌谱重新推理手牌前，避免旧动画与重建画面冲突）
     /// </summary>
     public void StopAllRunningAnimations() {
-        if (_currentDiscardMoveCoroutine != null) {
-            StopCoroutine(_currentDiscardMoveCoroutine);
-            _currentDiscardMoveCoroutine = null;
-        }
+        StopAllDiscardMoveCoroutines();
         lastCutJiagang3DObject = null;
         StopAllHandAnimationQueues();
         StopAllCoroutines();

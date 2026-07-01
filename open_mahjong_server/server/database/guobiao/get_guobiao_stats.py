@@ -42,7 +42,8 @@ def get_guobiao_history_stats(db_manager, user_id: int) -> List[Dict[str, Any]]:
                 COALESCE(SUM(third_place_count), 0) as third_place_count,
                 COALESCE(SUM(fourth_place_count), 0) as fourth_place_count,
                 COALESCE(SUM(fulu_round_count), 0) as fulu_round_count,
-                COALESCE(SUM(cuohe_count), 0) as cuohe_count
+                COALESCE(SUM(cuohe_count), 0) as cuohe_count,
+                COALESCE(SUM(total_round_score), 0) as total_round_score
             FROM guobiao_history_stats
             WHERE user_id = %s
             GROUP BY rule, mode
@@ -77,14 +78,43 @@ def get_guobiao_fan_stats_total(db_manager, user_id: int) -> Dict[str, int]:
     Returns:
         番种统计数据字典，格式：{fan_name: total_count}
     """
+    return _get_guobiao_fan_stats_summed(db_manager, user_id, ranked=None)
+
+
+def get_guobiao_fan_stats_split(db_manager, user_id: int):
+    """
+    获取指定用户国标番种统计，按 普通对局 / 天梯对局(_rank) 分开汇总。
+
+    Returns:
+        (normal_stats, ranked_stats) 两个 {fan_field: count} 字典。
+    """
+    normal = _get_guobiao_fan_stats_summed(db_manager, user_id, ranked=False)
+    ranked = _get_guobiao_fan_stats_summed(db_manager, user_id, ranked=True)
+    return normal, ranked
+
+
+def _get_guobiao_fan_stats_summed(db_manager, user_id: int, ranked=None) -> Dict[str, int]:
+    """
+    汇总 guobiao_fan_stats 番种字段。
+
+    Args:
+        ranked: None=全部；True=仅 _rank mode；False=仅非 _rank mode
+    """
     conn = None
     try:
         conn = db_manager._get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
+
+        where = "user_id = %s"
+        params: list = [user_id]
+        if ranked is True:
+            where += " AND mode LIKE '%%_rank'"
+        elif ranked is False:
+            where += " AND (mode NOT LIKE '%%_rank')"
+
         # 查询所有番种字段并汇总
         # 从 guobiao_fan_stats 表结构获取所有番种字段
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 
                 COALESCE(SUM(dasixi), 0) as dasixi,
                 COALESCE(SUM(dasanyuan), 0) as dasanyuan,
@@ -169,14 +199,13 @@ def get_guobiao_fan_stats_total(db_manager, user_id: int) -> Dict[str, int]:
                 COALESCE(SUM(huapai), 0) as huapai,
                 COALESCE(SUM(mingangang), 0) as mingangang
             FROM guobiao_fan_stats
-            WHERE user_id = %s
-        """, (user_id,))
+            WHERE {where}
+        """, tuple(params))
         
         row = cursor.fetchone()
         if row:
             # 返回所有番种数据，包括值为0的（没和过也是一种数据）
             fan_stats = {k: v for k, v in dict(row).items() if v is not None}
-            logger.info(f'获取用户 {user_id} 的国标番种统计数据汇总：{len(fan_stats)} 个番种')
             return fan_stats
         else:
             return {}

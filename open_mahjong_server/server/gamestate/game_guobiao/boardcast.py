@@ -342,6 +342,8 @@ def _build_do_action_payload(
     silent=False,
     is_mo_gang=None,
     is_mo_buhua=None,
+    cut_from_player=None,
+    meld_reveal_delay=None,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -366,6 +368,12 @@ def _build_do_action_payload(
         "silent": True if silent else None,
         "is_mo_gang": is_mo_gang,
         "is_mo_buhua": is_mo_buhua,
+        # 鸣牌（吃/碰/明杠）真正认走的打牌者座位；仅 meld 帧由 wait_action 显式传入，
+        # 客户端据此精确移除对应玩家牌河的弃牌，彻底消除乱序/双同牌歧义。cut 帧等无需此字段。
+        "cut_from_player": cut_from_player,
+        # 受保护观众鸣牌的显示层延迟（秒）：服务器仍按序发送（wire 不乱序），
+        # 由客户端仅延迟鸣牌 3D 动画/声音，复现“出牌→0.5s→鸣牌”视觉间隔。非受保护观众为 None。
+        "meld_reveal_delay": meld_reveal_delay,
     }
 
 
@@ -403,6 +411,7 @@ async def broadcast_do_action(
     silent: bool = False,
     is_mo_gang: bool = None,
     is_mo_buhua: bool = None,
+    cut_from_player: int = None,
     ):
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
@@ -453,8 +462,10 @@ async def broadcast_do_action(
             # - 出牌已揭示（含超时后收到 is_claim）：尊重 silent（战术申请后静默执行）。
             if protected and is_real_meld:
                 viewer_silent = silent if cut_already_revealed else False
+                viewer_reveal_delay = protected_meld_delay  # 受保护观众：显示层延迟，复现 0.5s 间隔
             else:
                 viewer_silent = silent
+                viewer_reveal_delay = 0.0
 
             payload = _build_do_action_payload(
                 self,
@@ -472,6 +483,8 @@ async def broadcast_do_action(
                 silent=viewer_silent,
                 is_mo_gang=is_mo_gang,
                 is_mo_buhua=is_mo_buhua,
+                cut_from_player=cut_from_player,
+                meld_reveal_delay=viewer_reveal_delay,
             )
 
             # 出牌对受保护观众延迟：暂存，待鸣牌/pass/超时触发 flush
@@ -479,12 +492,10 @@ async def broadcast_do_action(
                 stash_protected_cut_payload(self, i, payload)
                 continue
 
-            # 实际鸣牌对受保护观众：对齐至 cut 揭示 + gap（1.5s~1.8s 内鸣牌等到 1.8s，之后立即）
-            if protected and is_real_meld and protected_meld_delay > 0:
-                schedule_protected_meld_send(
-                    self, i, payload, protected_meld_delay, _send_do_action_payload_to_viewer,
-                )
-                continue
+            # 实际鸣牌：不再用追赶协程延迟发送（曾导致受保护观众收到 N+4 在 N+2 之前的乱序）。
+            # cut 已在 prepare_protected_meld_for_viewers 里 await flush 先发，此处鸣牌按序 await 发送，
+            # 保证受保护观众收到的 do_action 序列 = 逻辑顺序 cut(N) -> meld(N+2) -> 下一巡 cut(N+4)。
+            # 0.5s 视觉间隔由出牌飞行动画自然提供；如需精确间隔后续可改客户端仅延迟动画。
 
             if current_player.user_id in self.game_server.user_id_to_connection:
                 await _send_do_action_payload_to_viewer(self, i, payload)

@@ -8,9 +8,9 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 移除3D手牌显示；skipRearrange 为 true 时仅删牌，收拢由调用方在出牌等操作完成后再执行
-    private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId = -1, int[] combinationMaskForSelf = null, bool skipRearrange = false) {
+    private IEnumerator RemoveHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition) {
         if (IsSelfCardsPosition(cardPosition)) {
-            yield return RemoveSelfHandCardsCoroutine(cardPosition, removeCount, cut_class, discardTileId, combinationMaskForSelf);
+            yield return RemoveSelfHandCardsCoroutine(cardPosition, removeCount, cut_class, discardTileId, combinationMaskForSelf, skipRearrange, playerPosition);
             yield break;
         }
 
@@ -39,7 +39,7 @@ public partial class Game3DManager : MonoBehaviour {
                 Transform cardToRemove = cardPosition.GetChild(startIndex);
                 Debug.Log($"删除卡牌: {cardToRemove.name} (起始索引: {startIndex}, 第{i + 1}/{removeCount}张)");
 
-                lastRemove3DPosition = cardToRemove.position;
+                SetLastRemovePos(playerPosition, cardToRemove.position);
                 MahjongObjectPool.Instance.Return(-1, cardToRemove.gameObject);
             }
             Debug.Log($"组合删除完成: 已删除{removeCount}张卡牌");
@@ -59,7 +59,7 @@ public partial class Game3DManager : MonoBehaviour {
                     Debug.Log($"删除最后一张卡牌: {lastCard.name} (索引: {lastIndex})");
 
                     // 保存最后一张删牌的位置
-                    lastRemove3DPosition = lastCard.position;
+                    SetLastRemovePos(playerPosition, lastCard.position);
 
                     // 将卡牌归还到对象池
                     MahjongObjectPool.Instance.Return(-1, lastCard.gameObject);
@@ -77,7 +77,7 @@ public partial class Game3DManager : MonoBehaviour {
                 Debug.Log($"随机删除了索引为 {randomIndex} 的牌");
 
                 // 保存最后一张删牌的位置
-                lastRemove3DPosition = randomChild.position;
+                SetLastRemovePos(playerPosition, randomChild.position);
 
                 // 将卡牌归还到对象池
                 MahjongObjectPool.Instance.Return(-1, randomChild.gameObject);
@@ -91,7 +91,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    private IEnumerator RemoveSelfHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange = false) {
+    private IEnumerator RemoveSelfHandCardsCoroutine(Transform cardPosition, int removeCount, bool cut_class, int discardTileId, int[] combinationMaskForSelf, bool skipRearrange, string playerPosition) {
         if (removeCount > 1 && combinationMaskForSelf != null) {
             List<int> tilesToRemove = new List<int>();
             for (int i = 0; i + 1 < combinationMaskForSelf.Length; i += 2) {
@@ -102,7 +102,7 @@ public partial class Game3DManager : MonoBehaviour {
                 }
             }
             for (int i = 0; i < tilesToRemove.Count && i < removeCount; i++) {
-                RemoveOneSelfHandCardByTileId(cardPosition, tilesToRemove[i]);
+                RemoveOneSelfHandCardByTileId(cardPosition, tilesToRemove[i], playerPosition);
             }
             if (!skipRearrange) {
                 yield return null;
@@ -114,10 +114,10 @@ public partial class Game3DManager : MonoBehaviour {
         if (removeCount == 1) {
             if (cut_class) {
                 // 摸切：固定最右/末子（须 tileId 一致）→ 任意 tileId 匹配
-                RemoveOneSelfMoqieHandCard(cardPosition, discardTileId);
+                RemoveOneSelfMoqieHandCard(cardPosition, discardTileId, playerPosition);
             }
             else if (discardTileId >= 2) {
-                RemoveOneSelfHandCardByTileId(cardPosition, discardTileId);
+                RemoveOneSelfHandCardByTileId(cardPosition, discardTileId, playerPosition);
             }
             if (!skipRearrange) {
                 yield return null;
@@ -142,26 +142,26 @@ public partial class Game3DManager : MonoBehaviour {
         return best;
     }
 
-    private void RemoveOneSelfMoqieHandCard(Transform cardPosition, int tileId) {
+    private void RemoveOneSelfMoqieHandCard(Transform cardPosition, int tileId, string playerPosition) {
         if (tileId >= 2) {
             // 如果摸切就删除最右/最后一张牌（须 tileId 一致）
             Transform rightmost = GetSelfRightmostHandCard(cardPosition);
-            if (TryReturnSelfHandCardIfTileId(rightmost, tileId)) {
+            if (TryReturnSelfHandCardIfTileId(rightmost, tileId, playerPosition)) {
                 return;
             }
             if (cardPosition.childCount > 0) {
                 Transform lastCard = cardPosition.GetChild(cardPosition.childCount - 1);
-                if (TryReturnSelfHandCardIfTileId(lastCard, tileId)) {
+                if (TryReturnSelfHandCardIfTileId(lastCard, tileId, playerPosition)) {
                     return;
                 }
             }
-            RemoveOneSelfHandCardByTileId(cardPosition, tileId);
+            RemoveOneSelfHandCardByTileId(cardPosition, tileId, playerPosition);
             return;
         }
 
         Transform fallback = GetSelfRightmostHandCard(cardPosition);
         if (fallback != null) {
-            lastRemove3DPosition = fallback.position;
+            SetLastRemovePos(playerPosition, fallback.position);
             MahjongObjectPool.Instance.Return(-1, fallback.gameObject);
         }
         else {
@@ -169,25 +169,25 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    private bool TryReturnSelfHandCardIfTileId(Transform card, int tileId) {
+    private bool TryReturnSelfHandCardIfTileId(Transform card, int tileId, string playerPosition) {
         if (card == null) {
             return false;
         }
         Tile3D t3 = card.GetComponent<Tile3D>();
         if (t3 != null && t3.GetTileId() == tileId) {
-            lastRemove3DPosition = card.position;
+            SetLastRemovePos(playerPosition, card.position);
             MahjongObjectPool.Instance.Return(-1, card.gameObject);
             return true;
         }
         return false;
     }
 
-    private void RemoveOneSelfHandCardByTileId(Transform cardPosition, int tileId) {
+    private void RemoveOneSelfHandCardByTileId(Transform cardPosition, int tileId, string playerPosition) {
         for (int i = 0; i < cardPosition.childCount; i++) {
             Transform child = cardPosition.GetChild(i);
             Tile3D t3 = child.GetComponent<Tile3D>();
             if (t3 != null && t3.GetTileId() == tileId) {
-                lastRemove3DPosition = child.position;
+                SetLastRemovePos(playerPosition, child.position);
                 MahjongObjectPool.Instance.Return(-1, child.gameObject);
                 return;
             }

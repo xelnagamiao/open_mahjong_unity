@@ -30,6 +30,16 @@ public class NetworkManager : MonoBehaviour {
     private string playerId; // 定义玩家ID
     private bool isConnecting = false; // 定义连接状态
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
+    private readonly Queue<byte[]> priorityMessageQueue = new Queue<byte[]>(); // 需立即处理的消息（如 match/match_found）
+    private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
+
+    /// <summary>网络消息队列是否真正积压（当前帧出队后仍有 ≥2 条未处理）。
+    /// 用于判断客户端是否在“补帧/追赶”：后台降帧切回时会连续处理十几条。
+    /// 显示层延迟（如鸣牌 0.5s 间隔）在补帧时应跳过，避免逻辑已同步、3D 却逐条卡 0.5s。
+    /// 阈值取 ≥2：仅剩 1 条（下一巡 cut 刚入队，属正常快打）时仍保留间隔，否则 0.5s 几乎永远不生效。</summary>
+    public bool IsBacklogged {
+        get { lock(messageQueue) { return messageQueue.Count >= 2; } }
+    }
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
 
@@ -47,6 +57,8 @@ public class NetworkManager : MonoBehaviour {
 
     /// <summary>最近一次 ping/pong 测得的延迟（毫秒）。-1 表示未测得，>=0 为有效值。</summary>
     public int LatencyMs => _latencyMs;
+    /// <summary>当前 WebSocket 是否处于已连接状态。</summary>
+    public bool IsWebSocketOpen => websocket != null && websocket.State == WebSocketState.Open;
     /// <summary>延迟变更事件。每次收到 pong 或 ping 超时时触发，参数为最新延迟（毫秒）。</summary>
     public event Action<int> OnLatencyChanged;
 
@@ -71,39 +83,74 @@ public class NetworkManager : MonoBehaviour {
         BindWebSocketEvents(websocket);
     }
 
-    private void BindWebSocketEvents(WebSocket ws) {
-        ws.OnMessage += (bytes) => {
-            lock(messageQueue) {
+    private static bool IsMatchFoundMessage(byte[] bytes) {
+        if (bytes == null || bytes.Length == 0) return false;
+        return System.Text.Encoding.UTF8.GetString(bytes).Contains(MatchFoundTypeJson);
+    }
+
+    private void EnqueueIncomingMessage(byte[] bytes) {
+        lock (messageQueue) {
+            if (IsMatchFoundMessage(bytes)) {
+                priorityMessageQueue.Enqueue(bytes);
+            } else {
                 messageQueue.Enqueue(bytes);
             }
-        };
+        }
+    }
+
+    private bool TryDequeueNextMessage(out byte[] message) {
+        lock (messageQueue) {
+            if (priorityMessageQueue.Count > 0) {
+                message = priorityMessageQueue.Dequeue();
+                return true;
+            }
+            if (messageQueue.Count > 0) {
+                message = messageQueue.Dequeue();
+                return true;
+            }
+        }
+        message = null;
+        return false;
+    }
+
+    private void BindWebSocketEvents(WebSocket ws) {
+        ws.OnMessage += EnqueueIncomingMessage;
 
         ws.OnOpen += () => {
+            if (ws != websocket) return;
             Debug.Log("WebSocket连接成功");
             isConnecting = false;
             OnConnectionEstablished();
             ExecuteOnMainThread(() => {
-                LoginPanel.Instance?.ConnectOkText();
+                if (IsOnLoginPage()) {
+                    LoginPanel.Instance?.ConnectOkText();
+                }
             });
             SendReleaseVersion();
         };
 
         ws.OnError += (errorMsg) => {
+            if (ws != websocket) return;
             Debug.LogError($"WebSocket连接失败: {errorMsg}");
             isConnecting = false;
-            _disconnectDialogState = DisconnectDialogState.Start;
             ExecuteOnMainThread(() => {
-                LoginPanel.Instance?.ConnectErrorText(errorMsg);
+                if (IsOnLoginPage()) {
+                    LoginPanel.Instance?.ConnectErrorText(errorMsg);
+                }
+                HandleConnectionLostUi();
             });
         };
 
         ws.OnClose += (code) => {
+            if (ws != websocket) return;
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
             ExecuteOnMainThread(() => {
                 if (AutoReconnect.TryHandleOnClose()) return;
-                LoginPanel.Instance?.ConnectErrorText("连接已关闭");
-                MarkDisconnected();
+                if (IsOnLoginPage()) {
+                    LoginPanel.Instance?.ConnectErrorText("连接已关闭");
+                }
+                HandleConnectionLostUi();
             });
         };
     }
@@ -116,6 +163,26 @@ public class NetworkManager : MonoBehaviour {
         if (_disconnectDialogState != DisconnectDialogState.Connected) return;
         _disconnectDialogState = DisconnectDialogState.Disconnected;
         TryShowDisconnectDialog();
+    }
+
+    private bool IsOnLoginPage() {
+        var wm = WindowsManager.Instance;
+        return wm != null && wm.GetCurrentWindow() == "login";
+    }
+
+    /// <summary>
+    /// 已连上后再断开走 MarkDisconnected；登录页首次连接失败则弹断线重连面板（AutoReconnect 活跃时不介入）。
+    /// </summary>
+    private void HandleConnectionLostUi() {
+        if (AutoReconnect.IsActive) return;
+        if (_disconnectDialogState == DisconnectDialogState.Connected) {
+            MarkDisconnected();
+            return;
+        }
+        if (!IsOnLoginPage()) return;
+        if (_disconnectDialogState == DisconnectDialogState.Shown
+            || _disconnectDialogState == DisconnectDialogState.NoMatch) return;
+        ForceShowDisconnectDialog();
     }
 
     public void ForceShowDisconnectDialog() {
@@ -179,7 +246,10 @@ public class NetworkManager : MonoBehaviour {
             try { var _ = websocket.Close(); } catch { }
         }
 
-        lock (messageQueue) { messageQueue.Clear(); }
+        lock (messageQueue) {
+            messageQueue.Clear();
+            priorityMessageQueue.Clear();
+        }
 
         _latencyMs = -1;
         _pingTimer = PingIntervalSeconds;
@@ -241,6 +311,7 @@ public class NetworkManager : MonoBehaviour {
 
         lock (messageQueue) {
             messageQueue.Clear();
+            priorityMessageQueue.Clear();
         }
 
         _latencyMs = -1;
@@ -271,7 +342,10 @@ public class NetworkManager : MonoBehaviour {
 
         Debug.LogError($"[NetworkManager] WebSocket 重连超时或失败，State={newSocket.State}");
         isConnecting = false;
-        LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
+        if (IsOnLoginPage()) {
+            LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
+        }
+        HandleConnectionLostUi();
     }
 
     /// <summary>
@@ -285,7 +359,12 @@ public class NetworkManager : MonoBehaviour {
             Debug.LogError($"[NetworkManager] WebSocket Connect 异常: {e.Message}");
             if (ws == websocket) {
                 isConnecting = false;
-                ExecuteOnMainThread(() => LoginPanel.Instance?.ConnectErrorText(e.Message));
+                ExecuteOnMainThread(() => {
+                    if (IsOnLoginPage()) {
+                        LoginPanel.Instance?.ConnectErrorText(e.Message);
+                    }
+                    HandleConnectionLostUi();
+                });
             }
         }
     }
@@ -307,12 +386,8 @@ public class NetworkManager : MonoBehaviour {
         websocket?.DispatchMessageQueue();
 #endif
 
-        // 处理消息队列
-        if (messageQueue.Count > 0) {
-            byte[] message;
-            lock(messageQueue) {
-                message = messageQueue.Dequeue();
-            }
+        // 处理消息队列（match/match_found 等优先消息先于普通队列）
+        if (TryDequeueNextMessage(out byte[] message)) {
             Get_Message(message);
         }
 
@@ -560,6 +635,8 @@ public class NetworkManager : MonoBehaviour {
                 case "switch_seat":
                 case "refresh_player_tag_list":
                 case "gamestate/broadcast_sticker":
+                case "gamestate/vote_update":
+                case "gamestate/vote_end":
                     GameStateNetworkManager.Instance?.HandleGameStateMessage(response);
                     break;
                 // 匹配系统消息交由 MatchNetworkManager 处理

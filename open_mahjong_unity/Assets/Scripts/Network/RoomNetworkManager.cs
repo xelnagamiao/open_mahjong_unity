@@ -134,6 +134,7 @@ public class RoomNetworkManager : MonoBehaviour {
     /// </summary>
     public void ApplyLeftRoomState(bool silent = false) {
         ClearStaleLobbyState();
+        WindowsManager.Instance?.OnLeftRoom();
         RoomWindowsManager.Instance?.SwitchRoomWindow("createRoom");
         if (!silent) {
             NotificationManager.Instance.ShowTip("leave_room", true, "离开房间成功");

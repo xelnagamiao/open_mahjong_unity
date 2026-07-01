@@ -17,6 +17,7 @@ public class HeaderPanel : MonoBehaviour {
     [SerializeField] private HeaderButton matchButton;
     [SerializeField] private HeaderButton friendButton;
     [SerializeField] private HeaderButton backToGameButton;
+    [SerializeField] private HeaderButton logoutButton;
     [Tooltip("「正在对局中」的红色提醒按钮所使用的底色")]
     [SerializeField] private Color backToGameTintColor = new Color(0.92f, 0.34f, 0.34f);
     [Header("轮到自己操作时的提醒闪烁")]
@@ -63,6 +64,7 @@ public class HeaderPanel : MonoBehaviour {
         if (sceneConfigButton != null) sceneConfigButton.Button.onClick.AddListener(SceneConfig);
         if (spectatorButton != null) spectatorButton.Button.onClick.AddListener(Spectator);
         if (friendButton != null) friendButton.Button.onClick.AddListener(Friend);
+        if (logoutButton != null) logoutButton.Button.onClick.AddListener(Logout);
 
         ConfigManager.OnLanguageChanged += RefreshHeaderLabels;
         RefreshHeaderLabels();
@@ -149,6 +151,14 @@ public class HeaderPanel : MonoBehaviour {
         FriendNetworkManager.Instance?.ListAllFriendPanels();
     }
 
+    private void Logout() {
+        NotificationManager.Instance?.ShowMessage(
+            "登出",
+            "确定要登出当前账号吗？",
+            "logout_confirm"
+        );
+    }
+
     /// <summary>
     /// 根据当前窗口更新导航栏按钮状态（由 WindowsManager.SwitchWindow 末尾调用）。Stay 颜色仅在此处设置。
     /// </summary>
@@ -170,6 +180,7 @@ public class HeaderPanel : MonoBehaviour {
         spectatorButton?.SetState(_currentWindowName == "spectator", false, default);
         matchButton?.SetState(_currentWindowName == "match", false, default);
         friendButton?.SetState(_currentWindowName == "friend", false, default);
+        logoutButton?.SetState(false, false, default);
     }
 
     private static bool IsInRoom() {
@@ -189,6 +200,7 @@ public class HeaderPanel : MonoBehaviour {
         SetButtonLabel(noticeButton, HeaderNavItem.Notice);
         SetButtonLabel(configButton, HeaderNavItem.Config);
         SetButtonLabel(backToGameButton, HeaderNavItem.BackToGame);
+        SetButtonLabel(logoutButton, HeaderNavItem.Logout);
     }
 
     private static void SetButtonLabel(HeaderButton button, HeaderNavItem item) {

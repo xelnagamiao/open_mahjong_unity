@@ -67,6 +67,10 @@ public partial class NormalGameStateManager : MonoBehaviour{
     private bool pendingAskFromJiagang;
     /// <summary>上一张切牌玩家座位（荣和倒牌从河牌抓取时使用）。</summary>
     public string lastDiscardPlayerPosition;
+    /// <summary>本次鸣牌（吃/碰/明杠）真正认走的打牌者座位，由 action_tick 回查得到，供 3D 回收河牌使用。乱序下比 lastDiscardPlayerPosition 可靠。</summary>
+    public string currentMeldDiscarderPos;
+    /// <summary>本次鸣牌真正认走的被鸣牌张 id，由 action_tick 回查得到。</summary>
+    public int currentMeldClaimedTileId;
     public string CurrentPlayer; // 当前玩家字符串
     /// <summary>上次 ask_hand_action 的 player_index；-1 表示本局尚未 ask，首次 ask 不收拢手牌。</summary>
     private int lastAskHandPlayerIndex = -1;
@@ -110,6 +114,14 @@ public partial class NormalGameStateManager : MonoBehaviour{
 
     // 上次摸牌类型
     public string lastDealTileType; // 上次摸牌类型
+
+    /// <summary>手补/手杠后岭上摸牌的显示间隔（秒）。与鸣牌 meldRevealDelay 同模式：
+    /// 仅延迟显示（2D GetCard / 3D GetCard），状态立即更新；追赶（IsBacklogged）时跳过，避免逐条卡顿。</summary>
+    private const float HandSettleGetCardDelaySec = 0.3f;
+    /// <summary>最近一次补花是否为手补（!is_mo_buhua），供紧随的 deal_buhua_tile 判断是否延迟显示。</summary>
+    private bool pendingBuhuaIsHandSettle;
+    /// <summary>最近一次杠是否为摸杠（false=手杠），供紧随的 deal_gang_tile 判断是否延迟显示。默认 true 避免普通摸牌误延迟。</summary>
+    private bool pendingKanIsMoGang = true;
 
     // 立直麻将专属字段
     public int honba; // 本场棒数

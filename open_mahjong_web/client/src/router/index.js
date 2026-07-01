@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
 import Home from '@/views/Home.vue'
 import ChineseMahjong from '@/views/ChineseMahjong.vue'
 import PlayerData from '@/views/PlayerData.vue'
@@ -16,9 +17,11 @@ import AdminUsers from '@/views/admin/Users.vue'
 import AdminUserDetail from '@/views/admin/UserDetail.vue'
 import AdminRank from '@/views/admin/Rank.vue'
 import AdminGames from '@/views/admin/Games.vue'
+import AdminGameControl from '@/views/admin/GameControl.vue'
 import AdminAudit from '@/views/admin/Audit.vue'
 import AdminMessages from '@/views/admin/Messages.vue'
 import AdminIpBans from '@/views/admin/IpBans.vue'
+import AdminStats from '@/views/admin/Stats.vue'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -49,12 +52,6 @@ const routes = [
         meta: { title: '国标计算器 - salasasa.cn' }
       },
       {
-        path: 'player-data',
-        name: 'PlayerData',
-        component: PlayerData,
-        meta: { title: '玩家数据统计 - salasasa.cn' }
-      },
-      {
         path: 'rulebook/:rule?',
         name: 'Rulebook',
         component: Rulebook,
@@ -79,6 +76,18 @@ const routes = [
     name: 'UnityGame',
     component: UnityGame,
     meta: { title: '麻将对战平台 - salasasa.cn' }
+  },
+  {
+    path: '/player-data',
+    component: PlayerDataLayout,
+    children: [
+      {
+        path: '',
+        name: 'PlayerData',
+        component: PlayerData,
+        meta: { title: '玩家数据统计 - salasasa.cn' }
+      }
+    ]
   },
   {
     path: '/docs',
@@ -118,10 +127,12 @@ const routes = [
         meta: { title: '用户详情' }
       },
       { path: 'rank', name: 'AdminRank', component: AdminRank, meta: { title: '段位管理' } },
-      { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局管理' } },
+      { path: 'games', name: 'AdminGames', component: AdminGames, meta: { title: '对局记录管理' } },
+      { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
-      { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } }
+      { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
+      { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }
     ]
   }
 ]

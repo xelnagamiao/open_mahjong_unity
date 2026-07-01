@@ -164,6 +164,36 @@ export function parseNotationText(input) {
   return result
 }
 
+/**
+ * 解析手牌简写，支持用 + 分隔和牌张（+ 后为单张）。
+ * 无 + 时全部按输入顺序返回在 hand 中，由调用方决定是否将末张视为和牌张。
+ */
+export function parseNotationWithGetTile(input) {
+  if (!input?.trim()) return { hand: [], getTile: null }
+  const raw = input.trim()
+  if (raw.includes('+')) {
+    const parts = raw.split('+').map((p) => p.trim()).filter((p) => p.length > 0)
+    if (parts.length !== 2) {
+      throw new Error('使用 + 分隔手牌与和牌张，且仅允许一个 +')
+    }
+    const hand = parseNotationText(parts[0])
+    const getTiles = parseNotationText(parts[1])
+    if (getTiles.length !== 1) {
+      throw new Error('和牌张应为 + 后的单张牌')
+    }
+    return { hand, getTile: getTiles[0] }
+  }
+  return { hand: parseNotationText(raw), getTile: null }
+}
+
+/** 手牌与和牌张转为简写；和牌张用 + 分隔，避免排序后丢失和牌张语义 */
+export function notationTextWithGetTile(hand, getTile) {
+  const handText = tilesToNotationText(hand)
+  if (getTile == null) return handText
+  const getText = tileIdToNotation(getTile)
+  return handText ? `${handText} + ${getText}` : getText
+}
+
 /** 解析副露槽位简写，返回可自动锁定或待选的副露类型 */
 export function parseMeldSlotInput(text) {
   const raw = (text || '').replace(/\s+/g, '').toLowerCase()

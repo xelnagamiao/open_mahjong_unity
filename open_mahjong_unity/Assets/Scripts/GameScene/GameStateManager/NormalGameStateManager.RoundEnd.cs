@@ -201,6 +201,7 @@ public partial class NormalGameStateManager {
         foreach (var info in player_to_info.Values) {
             info.round_number_history ??= new List<int>();
             info.round_number_history.Add(currentRound);
+            ScoreHistorySettlementHelper.AlignRoundNumberHistory(info.score_history, info.round_number_history);
         }
     }
 
@@ -297,9 +298,32 @@ public partial class NormalGameStateManager {
             }
         }
         RoundEndPresentation.Instance.PresentShuhewei(player_fu, player_to_score, score_changes, player_fan, player_fu_types, indexToPosition, player_to_info, hepai_player_index, hepai_player_hand, hepai_player_combination_mask);
-        ScoreHistorySettlementHelper.UpdateLastFromShuhewei(
-            roundSettlementHistory, hepai_player_index, player_fan, score_changes,
-            hepai_player_hand, hepai_player_combination_mask);
+        // 古典和牌仅 show_shuhewei：追加一行。流局先 show_result 再 shuhewei：更新最后一行。
+        bool shuheweiUpdatesExistingRow = roundSettlementHistory.Count > 0 && hu_class == "liuju";
+        if (shuheweiUpdatesExistingRow) {
+            ScoreHistorySettlementHelper.UpdateLastFromShuhewei(
+                roundSettlementHistory, hepai_player_index, player_fan, score_changes,
+                hepai_player_hand, hepai_player_combination_mask, hu_class);
+        } else {
+            string winnerUsername = "";
+            string[] huFan = null;
+            string[] fuFanList = null;
+            if (hepai_player_index.HasValue && indexToPosition.TryGetValue(hepai_player_index.Value, out string huPos)
+                && player_to_info.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
+                winnerUsername = winnerInfo.username;
+            }
+            if (hepai_player_index.HasValue && player_fan != null) {
+                player_fan.TryGetValue(hepai_player_index.Value, out huFan);
+            }
+            if (hepai_player_index.HasValue && player_fu_types != null) {
+                player_fu_types.TryGetValue(hepai_player_index.Value, out fuFanList);
+            }
+            var snapshot = ScoreHistorySettlementHelper.CreateFromShuhewei(
+                subRule, hu_class, hepai_player_index, winnerUsername, huFan, fuFanList,
+                score_changes, hepai_player_hand, hepai_player_combination_mask);
+            roundSettlementHistory.Add(snapshot);
+            ApplyLocalScoreHistoryFromSettlement(snapshot, score_changes);
+        }
         GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 

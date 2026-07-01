@@ -55,8 +55,8 @@ public partial class GameRecordManager {
         GameCanvas.Instance.ShowGangScoreFloats(changes);
     }
 
+    /// <summary>血战中途和牌：仅当 score_changes 全 0 时视为延迟入账。</summary>
     private static bool IsDeferredSichuanHuScore(int huScore, int[] scoreChanges) {
-        if (huScore != 0) return false;
         if (scoreChanges == null) return true;
         foreach (int c in scoreChanges) {
             if (c != 0) return false;

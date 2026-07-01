@@ -21,8 +21,9 @@ from .boardcast import (
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_classical_tiles
-from ..public.next_game_round import next_game_round_random_switchseat
+from ..public.next_game_round import next_game_round_classical_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
+from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order
 from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
 from ...game_calculation.game_calculation_service import GameCalculationService
@@ -123,6 +124,8 @@ class ClassicalGameState:
         self.room_rule = room_data["room_rule"]
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule")
+        self.match_tier = room_data.get("match_tier")
+        self.event_id = room_data.get("event_id")
 
         self.room_random_seed = room_data.get("random_seed", 0)
         self.open_cuohe = room_data.get("open_cuohe", False)
@@ -323,6 +326,10 @@ class ClassicalGameState:
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
+        if self.match_tier is not None:
+            self.game_record["game_title"]["match_tier"] = self.match_tier
+        if self.event_id is not None:
+            self.game_record["game_title"]["event_id"] = self.event_id
 
         while self.current_round <= self.max_round * 4:
 
@@ -385,6 +392,7 @@ class ClassicalGameState:
 
                 # 游戏主循环
                 while self.game_status != "END":
+                    await vote_checkpoint(self)
                     match self.game_status:
 
                         case "deal_card":
@@ -579,7 +587,7 @@ class ClassicalGameState:
                 self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]
                 and hepai_player_index == 0
             )
-            next_game_round_random_switchseat(
+            next_game_round_classical_switchseat(
                 self,
                 keep_current_round=is_dealer_win,
                 keep_dealer_seat=is_dealer_win,

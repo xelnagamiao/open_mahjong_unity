@@ -18,11 +18,6 @@ public class AutoAction : MonoBehaviour{
     [SerializeField] private TMP_Text expandButtonText; // 展开按钮（附加按钮的文本）
     [SerializeField] private GameObject mingPaiPanel; // 鸣牌选项面板
     [SerializeField] private TilePassSettingPanel tilePassSettingPanel; // 牌张设置面板（可运行时生成）
-    [SerializeField] private TMP_Text autoPassChiText; // 不吃文本
-    [SerializeField] private TMP_Text autoPassPengText; // 不碰文本
-    [SerializeField] private TMP_Text autoPassGangText; // 不杠文本
-    [SerializeField] private TMP_Text autoOnlyRonText; // 只和荣和文本
-    [SerializeField] private TMP_Text autoOnlyTsumoText; // 只和自摸文本
 
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white; // false时的颜色（白色）
@@ -34,11 +29,6 @@ public class AutoAction : MonoBehaviour{
     private bool isAutoHepai = false; // 是否自动胡牌
     private bool isAutoCut = false; // 是否自动出牌
     private bool isAutoPass = false; // 是否自动过牌
-    private bool isAutoPassChi = false; // 是否不吃
-    private bool isAutoPassPeng = false; // 是否不碰
-    private bool isAutoPassGang = false; // 是否不杠
-    private bool isOnlyRon = false; // 是否自动荣和（点炮）
-    private bool isOnlyTsumo = false; // 是否自动自摸
     private bool isMingPaiPanelExpanded = false; // 鸣牌面板是否展开
     private bool isAutoCutLocked = false; // 立直后自动摸切锁定
 
@@ -48,21 +38,36 @@ public class AutoAction : MonoBehaviour{
     public bool IsAutoHepai { get => isAutoHepai; }
     public bool IsAutoCut { get => isAutoCut; }
     public bool IsAutoPass { get => isAutoPass; }
-    public bool IsAutoPassChi { get => isAutoPassChi; }
-    public bool IsAutoPassPeng { get => isAutoPassPeng; }
-    public bool IsAutoPassGang { get => isAutoPassGang; }
-    public bool IsOnlyRon { get => isOnlyRon; }
-    public bool IsOnlyTsumo { get => isOnlyTsumo; }
     public bool IsAutoCutLocked { get => isAutoCutLocked; }
 
-    // 是否应当自动荣和：跟随「只和荣和」子选项
+    public bool IsPassChi => GetTilePassPanel()?.PassChi ?? false;
+    public bool IsPassPeng => GetTilePassPanel()?.PassPeng ?? false;
+    public bool IsPassMingGang => GetTilePassPanel()?.PassMingGang ?? false;
+    public bool IsNoRon => GetTilePassPanel()?.NoRon ?? false;
+    public bool IsNoTsumo => GetTilePassPanel()?.NoTsumo ?? false;
+    public bool IsNoRobKong => GetTilePassPanel()?.NoRobKong ?? false;
+
+    // 是否应当自动荣和：自动胡牌开启，且牌张设置未勾选「不点和」
     public bool ShouldAutoWinRon() {
-        return isOnlyRon;
+        if (!isAutoHepai) return false;
+        return !IsNoRon;
     }
 
-    // 是否应当自动自摸：跟随「只和自摸」子选项
+    // 是否应当自动抢杠和：自动胡牌开启，且牌张设置未勾选「不抢杠」
+    public bool ShouldAutoWinRobKong() {
+        if (!isAutoHepai) return false;
+        return !IsNoRobKong;
+    }
+
+    // 是否应当自动自摸：自动胡牌开启，且牌张设置未勾选「不自摸」
     public bool ShouldAutoWinTsumo() {
-        return isOnlyTsumo;
+        if (!isAutoHepai) return false;
+        return !IsNoTsumo;
+    }
+
+    public bool HasAnyTilePassMingPaiOption() {
+        TilePassSettingPanel panel = GetTilePassPanel();
+        return panel != null && panel.HasAnyMingPaiPassOption;
     }
 
     private void Awake(){
@@ -82,11 +87,6 @@ public class AutoAction : MonoBehaviour{
         isAutoHepai = false;
         isAutoPass = false;
         isAutoCut = false;
-        isAutoPassChi = false;
-        isAutoPassPeng = false;
-        isAutoPassGang = false;
-        isOnlyRon = false;
-        isOnlyTsumo = false;
         isAutoCutLocked = false;
         // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的 current值
 
@@ -114,11 +114,6 @@ public class AutoAction : MonoBehaviour{
         isAutoHepai = false;
         isAutoPass = false;
         isAutoCut = false;
-        isAutoPassChi = false;
-        isAutoPassPeng = false;
-        isAutoPassGang = false;
-        isOnlyRon = false;
-        isOnlyTsumo = false;
         isAutoCutLocked = false;
         isAutoBuhua = false;
 
@@ -164,11 +159,6 @@ public class AutoAction : MonoBehaviour{
             if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(false);
             isMingPaiPanelExpanded = false;
         }
-        SetTextActive(autoPassChiText, visible);
-        SetTextActive(autoPassPengText, visible);
-        SetTextActive(autoPassGangText, visible);
-        SetTextActive(autoOnlyRonText, visible);
-        SetTextActive(autoOnlyTsumoText, visible);
     }
 
     private static void SetTextActive(TMP_Text text, bool visible) {
@@ -185,11 +175,6 @@ public class AutoAction : MonoBehaviour{
         AddClickListener(autoPassText, ToggleAutoPass);
         AddClickListener(autoBuhuaText, ToggleAutoBuhua);
         AddClickListener(expandButtonText, ToggleMingPaiPanel);
-        AddClickListener(autoPassChiText, ToggleAutoPassChi);
-        AddClickListener(autoPassPengText, ToggleAutoPassPeng);
-        AddClickListener(autoPassGangText, ToggleAutoPassGang);
-        AddClickListener(autoOnlyRonText, ToggleOnlyRon);
-        AddClickListener(autoOnlyTsumoText, ToggleOnlyTsumo);
     }
 
     // 为TMP_Text添加点击监听器
@@ -226,17 +211,9 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
     }
 
-    // 切换自动胡牌（与子选项只和荣和、只和自摸联动）
+    // 切换自动胡牌
     private void ToggleAutoHepai(){
-        isAutoHepai = !isAutoHepai;
-        if (isAutoHepai) {
-            isOnlyRon = true;
-            isOnlyTsumo = true;
-        } else {
-            isOnlyRon = false;
-            isOnlyTsumo = false;
-        }
-        UpdateHepaiGroupColors();
+        ToggleAutoOption(ref isAutoHepai, autoHepaiText);
     }
 
     // 切换自动出牌
@@ -253,19 +230,9 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(autoCutCardText, isAutoCut);
     }
 
-    // 切换自动过牌（与子选项不吃、不碰、不杠联动）
+    // 切换自动过牌
     private void ToggleAutoPass(){
-        isAutoPass = !isAutoPass;
-        if (isAutoPass) {
-            isAutoPassChi = true;
-            isAutoPassPeng = true;
-            isAutoPassGang = true;
-        } else {
-            isAutoPassChi = false;
-            isAutoPassPeng = false;
-            isAutoPassGang = false;
-        }
-        UpdatePassGroupColors();
+        ToggleAutoOption(ref isAutoPass, autoPassText);
     }
 
     // 切换自动补花
@@ -276,7 +243,6 @@ public class AutoAction : MonoBehaviour{
     // 切换鸣牌/牌张面板展开/收起
     private void ToggleMingPaiPanel(){
         isMingPaiPanelExpanded = !isMingPaiPanelExpanded;
-        if (mingPaiPanel != null) mingPaiPanel.SetActive(isMingPaiPanelExpanded);
         if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(isMingPaiPanelExpanded);
     }
 
@@ -285,66 +251,15 @@ public class AutoAction : MonoBehaviour{
         return tilePassSettingPanel != null && tilePassSettingPanel.ShouldAutoPassForCurrentDiscard();
     }
 
+    private TilePassSettingPanel GetTilePassPanel() {
+        EnsureTilePassSettingPanel();
+        return tilePassSettingPanel;
+    }
+
     private void EnsureTilePassSettingPanel() {
         if (tilePassSettingPanel == null) {
             tilePassSettingPanel = GetComponentInChildren<TilePassSettingPanel>(true);
         }
-    }
-
-    // 切换不吃
-    private void ToggleAutoPassChi(){
-        isAutoPassChi = !isAutoPassChi;
-        SyncAutoPassFromChildren();
-        UpdatePassGroupColors();
-    }
-
-    // 切换不碰
-    private void ToggleAutoPassPeng(){
-        isAutoPassPeng = !isAutoPassPeng;
-        SyncAutoPassFromChildren();
-        UpdatePassGroupColors();
-    }
-
-    // 切换不杠
-    private void ToggleAutoPassGang(){
-        isAutoPassGang = !isAutoPassGang;
-        SyncAutoPassFromChildren();
-        UpdatePassGroupColors();
-    }
-
-    // 切换只和荣和
-    private void ToggleOnlyRon(){
-        isOnlyRon = !isOnlyRon;
-        SyncAutoHepaiFromChildren();
-        UpdateHepaiGroupColors();
-    }
-
-    // 切换只和自摸
-    private void ToggleOnlyTsumo(){
-        isOnlyTsumo = !isOnlyTsumo;
-        SyncAutoHepaiFromChildren();
-        UpdateHepaiGroupColors();
-    }
-
-    private void SyncAutoPassFromChildren() {
-        isAutoPass = isAutoPassChi && isAutoPassPeng && isAutoPassGang;
-    }
-
-    private void SyncAutoHepaiFromChildren() {
-        isAutoHepai = isOnlyRon && isOnlyTsumo;
-    }
-
-    private void UpdatePassGroupColors() {
-        UpdateTextColor(autoPassText, isAutoPass);
-        UpdateTextColor(autoPassChiText, isAutoPassChi);
-        UpdateTextColor(autoPassPengText, isAutoPassPeng);
-        UpdateTextColor(autoPassGangText, isAutoPassGang);
-    }
-
-    private void UpdateHepaiGroupColors() {
-        UpdateTextColor(autoHepaiText, isAutoHepai);
-        UpdateTextColor(autoOnlyRonText, isOnlyRon);
-        UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
     }
 
     // 更新单个文本颜色
@@ -361,10 +276,5 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(autoCutCardText, isAutoCut);
         UpdateTextColor(autoPassText, isAutoPass);
         UpdateTextColor(autoBuhuaText, isAutoBuhua);
-        UpdateTextColor(autoPassChiText, isAutoPassChi);
-        UpdateTextColor(autoPassPengText, isAutoPassPeng);
-        UpdateTextColor(autoPassGangText, isAutoPassGang);
-        UpdateTextColor(autoOnlyRonText, isOnlyRon);
-        UpdateTextColor(autoOnlyTsumoText, isOnlyTsumo);
     }
 }

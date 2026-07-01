@@ -161,6 +161,8 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
         game_title = game_record.get("game_title") or {}
         rule = game_title["rule"]
         sub_rule = game_title["sub_rule"]
+        match_tier = game_title.get("match_tier")
+        event_id = game_title.get("event_id")
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result
@@ -172,10 +174,10 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    game_id, player.user_id, player.username, player.score, rank, player.original_player_index, rule, sub_rule, match_type, room_type,
+                    game_id, player.user_id, player.username, player.score, rank, player.original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id,
                     title_used, character_used, profile_used, voice_used
                 ))
                 saved_count += 1
@@ -185,6 +187,14 @@ def store_qingque_game_record(db_manager, game_record: dict, player_list: list, 
         
         conn.commit()
         logger.info(f'游戏记录已保存，game_id: {game_id}')
+        try:
+            from ..scene_stats import record_game_metrics
+            record_game_metrics(db_manager, game_id, game_record, player_list, {
+                "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+                "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+            })
+        except Exception as e:
+            logger.warning(f"写入 game_player_metrics 失败: {e}")
         return game_id
         
     except Error as e:

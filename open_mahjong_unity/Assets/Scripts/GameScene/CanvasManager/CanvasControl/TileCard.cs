@@ -330,13 +330,24 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     /// <summary>
     /// 两次点击确认：选中立起/取消时由 HandCardSelectionController 回调。
-    /// 立起时无论指针悬停与否都显示该牌的切牌听牌提示；取消且未悬停时收起提示。
+    /// 立起时无论指针悬停与否都显示该牌的切牌听牌提示与同色 3D 高亮；
+    /// 取消立起（点空白处等）时一并收起提示并恢复 3D 牌面。
     /// </summary>
     public void OnArmedStateChanged(bool armed) {
         if (armed) {
             CheckCutTileTips(ignoreHoverGate: true);
+            if (ShouldUseHandCutConfirm() && tileId != -1 && Card3DHoverManager.Instance != null) {
+                Card3DHoverManager.Instance.OnCardHover(tileId);
+            }
+            return;
         }
-        else if (!isHovering) {
+        if (ShouldUseHandCutConfirm()) {
+            isHovering = false;
+            TipsContainer.Instance.EndCutPreviewTips();
+            Card3DHoverManager.Instance?.OnCardExit();
+            return;
+        }
+        if (!isHovering) {
             TipsContainer.Instance.EndCutPreviewTips();
         }
     }
@@ -570,7 +581,14 @@ public class TileCardDragRelay : MonoBehaviour, IPointerDownHandler, IDragHandle
     }
 
     public void OnPointerDown(PointerEventData eventData) {
-        if (owner == null || eventData.button != PointerEventData.InputButton.Left) {
+        if (owner == null) {
+            return;
+        }
+        if (eventData.button == PointerEventData.InputButton.Right) {
+            GameSceneMouseInputController.Instance?.NotifyHandCardRightPointerDown();
+            return;
+        }
+        if (eventData.button != PointerEventData.InputButton.Left) {
             return;
         }
         TileCard.NotifyPointerDown(owner);
@@ -616,7 +634,14 @@ public class TileCardSlotClickRelay : MonoBehaviour, IPointerDownHandler, IPoint
     }
 
     public void OnPointerDown(PointerEventData eventData) {
-        if (owner != null && eventData.button == PointerEventData.InputButton.Left) {
+        if (owner == null) {
+            return;
+        }
+        if (eventData.button == PointerEventData.InputButton.Right) {
+            GameSceneMouseInputController.Instance?.NotifyHandCardRightPointerDown();
+            return;
+        }
+        if (eventData.button == PointerEventData.InputButton.Left) {
             TileCard.NotifyPointerDown(owner);
         }
     }

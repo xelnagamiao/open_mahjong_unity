@@ -31,19 +31,27 @@ public class PlayerInfoEntry : MonoBehaviour{
         // 显示分支规则
         if (playerStatsCase == "mode"){
 
+            // 国标 mode 带 _rank 后缀表示天梯，否则自定义
+            bool isRank = (playerStatsInfo.rule == "guobiao"
+                           && playerStatsInfo.mode != null
+                           && playerStatsInfo.mode.EndsWith("_rank"));
+            string categorySuffix = (playerStatsInfo.rule == "guobiao")
+                ? (isRank ? "（天梯）" : "（自定义）")
+                : "";
+
             if (playerStatsInfo.rule == "guobiao"){
                 ShowText = "国标麻将";
-                
-                if (playerStatsInfo.mode == "4/4"){
+
+                if (playerStatsInfo.mode == "4/4" || playerStatsInfo.mode == "4/4_rank"){
                     ShowText += "全庄战";
                 }
-                else if (playerStatsInfo.mode == "3/4"){
+                else if (playerStatsInfo.mode == "3/4" || playerStatsInfo.mode == "3/4_rank"){
                     ShowText += "西风战";
                 }
-                else if (playerStatsInfo.mode == "2/4"){
+                else if (playerStatsInfo.mode == "2/4" || playerStatsInfo.mode == "2/4_rank"){
                     ShowText += "南风战";
                 }
-                else if (playerStatsInfo.mode == "1/4"){
+                else if (playerStatsInfo.mode == "1/4" || playerStatsInfo.mode == "1/4_rank"){
                     ShowText += "东风战";
                 }
             }
@@ -89,10 +97,19 @@ public class PlayerInfoEntry : MonoBehaviour{
                     ShowText += " 东风战";
                 }
             }
+
+            // 国标追加场次分类后缀（（天梯）/（自定义））
+            if (playerStatsInfo.rule == "guobiao" && !string.IsNullOrEmpty(categorySuffix)){
+                ShowText += categorySuffix;
+            }
         }
         // 显示达成番数总计
         else if (playerStatsCase == "fanStats"){
-            if (playerStatsInfo.rule == "guobiao"){
+            // mode 为空时按规则回退默认标签（国标番数总计/日麻番数总计/...）
+            if (!string.IsNullOrEmpty(playerStatsInfo.mode)){
+                ShowText = playerStatsInfo.mode;
+            }
+            else if (playerStatsInfo.rule == "guobiao"){
                 ShowText = "国标番数总计";
             }
             else if (playerStatsInfo.rule == "riichi"){

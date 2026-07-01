@@ -44,6 +44,11 @@ public class MessagePrefab : MonoBehaviour {
             BackButtonText.text = "关闭";
             YesButton.onClick.AddListener(DisconnectReconnectClick);
             BackButton.onClick.AddListener(DisconnectCloseClick);
+        } else if (type == "logout_confirm") {
+            YesButtonText.text = "是";
+            BackButtonText.text = "否";
+            YesButton.onClick.AddListener(DisconnectReconnectClick);
+            BackButton.onClick.AddListener(CloseMessage);
         } else {
             YesButtonText.text = "好的";
             BackButtonText.text = "关闭";

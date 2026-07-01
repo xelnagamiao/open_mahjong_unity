@@ -156,6 +156,7 @@ public class LoginPanel : MonoBehaviour {
 
     // 连接成功时调用
     public void ConnectOkText() {
+        if (NetworkManager.Instance == null || !NetworkManager.Instance.IsWebSocketOpen) return;
         // 终止协程
         if (serverConnectCoroutine != null) {
             StopCoroutine(serverConnectCoroutine);
@@ -174,11 +175,10 @@ public class LoginPanel : MonoBehaviour {
         connectStatusText.text = $"连接失败: {text} 请联系服务管理员q群906497522";
     }
 
-    // 重置登录按钮状态（登录失败时调用）
+    // 重置登录按钮状态（登录失败时调用；不修改连接状态文案，避免未连上时误显示「连接成功」）
     public void ResetLoginButton() {
         loginButton.interactable = true;
         touristButton.interactable = true;
-        connectStatusText.text = "连接成功";
     }
 
     /// <summary>

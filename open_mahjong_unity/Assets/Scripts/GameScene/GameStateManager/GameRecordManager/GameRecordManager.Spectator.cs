@@ -177,6 +177,8 @@ public partial class GameRecordManager {
 
         bool roundStructureChanged = false;
         bool currentRoundChanged = false;
+        bool wasWaitingForTicks = waitingForMoreTicks;
+        int ticksAddedThisBatch = 0;
 
         JArray updates = JArray.Parse(updatesJson);
         foreach (JToken update in updates) {
@@ -210,6 +212,7 @@ public partial class GameRecordManager {
                     // 观战实时累计分值变化，确保计分板分值列随结算更新而非恒为 0
                     GameRecordJsonDecoder.AccumulateScoreChangesFromTick(roundData, tick);
                     targetNode++;
+                    ticksAddedThisBatch++;
                     if (roundIndex == currentRoundIndex) {
                         currentRoundChanged = true;
                     }
@@ -231,6 +234,11 @@ public partial class GameRecordManager {
 
         if (waitingForMoreTicks) {
             waitingForMoreTicks = false;
+        }
+
+        // Web 切回后批量追帧：一次收到多条 tick 时用 GotoAction 校正推演状态（单条仍走增量 NextAction）
+        if (wasWaitingForTicks && currentRoundChanged && IsLiveSpectatorMode && ticksAddedThisBatch > 1) {
+            SyncSpectatorLiveToRoundTail(currentRoundIndex);
         }
 
         // 若用户在牌谱阅览模式且已到最后一局最后节点，恢复直播模式
@@ -293,8 +301,8 @@ public partial class GameRecordManager {
 
             if (!HasMoreSpectatorTicks()) {
                 int nextRound = currentRoundIndex + 1;
-                if (gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
-                    EndResultPanel.Instance.ClearEndResultPanel();
+                if (gameRecord.gameRound.rounds.ContainsKey(nextRound) && SpectatorCurrentRoundEndedWithEndTick()) {
+                    ClearRecordRoundEndPanels();
                     GotoSelectRound(nextRound, false);
                     continue;
                 }
@@ -411,7 +419,7 @@ public partial class GameRecordManager {
         string action = tick[0];
 
         if (action == "end") {
-            EndResultPanel.Instance.ClearEndResultPanel();
+            ClearRecordRoundEndPanels();
             currentNode++;
             int nextRound = currentRoundIndex + 1;
             if (gameRecord.gameRound.rounds.ContainsKey(nextRound)) {
@@ -471,6 +479,7 @@ public partial class GameRecordManager {
 
     private void JumpToLatestState() {
         if (gameRecord?.gameRound?.rounds == null) return;
+        ClearRecordRoundEndPanels();
         int lastRound = 1;
         foreach (var kvp in gameRecord.gameRound.rounds) {
             if (kvp.Key > lastRound) lastRound = kvp.Key;
@@ -494,6 +503,23 @@ public partial class GameRecordManager {
         }
         SetSpectatorModeFlags(true);
         waitingForMoreTicks = tickCount == 0;
+    }
+
+    /// <summary>
+    /// 本局 tick 已全部播完且最后一条为 end（与牌谱切局条件一致，防止下一局 key 先到就提前跳局）。
+    /// </summary>
+    private bool SpectatorCurrentRoundEndedWithEndTick() {
+        if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
+            return false;
+        }
+        if (roundData.actionTicks == null || roundData.actionTicks.Count == 0) {
+            return false;
+        }
+        if (currentNode < roundData.actionTicks.Count) {
+            return false;
+        }
+        List<string> lastTick = roundData.actionTicks[roundData.actionTicks.Count - 1];
+        return lastTick != null && lastTick.Count > 0 && lastTick[0] == "end";
     }
 
     private string BuildSpectatorInfoString() {

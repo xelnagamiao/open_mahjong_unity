@@ -4,8 +4,9 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// 牌张设置：勾选后不询问对应弃牌/加杠牌的一切鸣牌（含荣和；抢杠且未开「无视抢杠」时除外）。
-/// 层级：HintRow + 4 排牌张 + 1 排全选（万/条/饼/字/红宝/无视抢杠）。
+/// 牌张设置：勾选牌张后不询问对应弃牌/加杠牌的一切鸣牌（含荣和）。
+/// 层级：HintRow + 4 排牌张 + 1 排选项（全选/行为开关）。
+/// 选项排列：所有牌张、万/条/饼/字/红宝、不吃、不碰、不明杠、不点和、不自摸、不抢杠。
 /// </summary>
 public class TilePassSettingPanel : MonoBehaviour {
     private static readonly int[][] RowTileIds = {
@@ -21,8 +22,18 @@ public class TilePassSettingPanel : MonoBehaviour {
     private const int HintRowIndex = 0;
     private const int FirstTileRowIndex = 1;
     private const int SelectAllRowIndex = 5;
-    private const int SelectAllRedDoraChildIndex = 4;
-    private const int IgnoreRobKongChildIndex = 5;
+    private const int SelectAllTilesChildIndex = 0;
+    private const int SelectAllManChildIndex = 1;
+    private const int SelectAllSouChildIndex = 2;
+    private const int SelectAllPinChildIndex = 3;
+    private const int SelectAllHonorChildIndex = 4;
+    private const int SelectAllRedDoraChildIndex = 5;
+    private const int PassChiChildIndex = 6;
+    private const int PassPengChildIndex = 7;
+    private const int PassMingGangChildIndex = 8;
+    private const int NoRonChildIndex = 9;
+    private const int NoTsumoChildIndex = 10;
+    private const int NoRobKongChildIndex = 11;
 
     [Header("说明（可留空，自动从 HintRow 查找）")]
     [SerializeField] private TMP_Text hintLabel;
@@ -30,21 +41,40 @@ public class TilePassSettingPanel : MonoBehaviour {
     [Header("牌张行（可留空，自动跳过 HintRow 后取 4 排）")]
     [SerializeField] private Transform[] tileRows = new Transform[4];
 
-    [Header("全选（可留空，自动从第六排子物体查找 Toggle）")]
+    [Header("全选与行为（可留空，自动从第六排子物体查找 Toggle）")]
+    [SerializeField] private Toggle selectAllTilesToggle;
     [SerializeField] private Toggle selectAllManToggle;
     [SerializeField] private Toggle selectAllSouToggle;
     [SerializeField] private Toggle selectAllPinToggle;
     [SerializeField] private Toggle selectAllHonorToggle;
     [SerializeField] private Toggle selectAllRedDoraToggle;
-    [SerializeField] private Toggle ignoreRobKongToggle;
+    [SerializeField] private Toggle passChiToggle;
+    [SerializeField] private Toggle passPengToggle;
+    [SerializeField] private Toggle passMingGangToggle;
+    [SerializeField] private Toggle noRonToggle;
+    [SerializeField] private Toggle noTsumoToggle;
+    [SerializeField] private Toggle noRobKongToggle;
 
     private readonly HashSet<int> passTileIds = new HashSet<int>();
     private readonly Dictionary<int, Toggle> tileToggles = new Dictionary<int, Toggle>();
     private bool isWired;
     private bool isUpdatingSelectAll;
-    private bool ignoreRobKong;
+    private bool passChi;
+    private bool passPeng;
+    private bool passMingGang;
+    private bool noRon;
+    private bool noTsumo;
+    private bool noRobKong;
 
-    public bool IgnoreRobKong => ignoreRobKong;
+    public bool PassChi => passChi;
+    public bool PassPeng => passPeng;
+    public bool PassMingGang => passMingGang;
+    public bool NoRon => noRon;
+    public bool NoTsumo => noTsumo;
+    public bool NoRobKong => noRobKong;
+
+    public bool HasAnyMingPaiPassOption =>
+        passChi || passPeng || passMingGang || passTileIds.Count > 0;
 
     public void Initialize() {
         WireIfNeeded();
@@ -54,16 +84,27 @@ public class TilePassSettingPanel : MonoBehaviour {
     public void ResetSettings() {
         isUpdatingSelectAll = true;
         passTileIds.Clear();
-        ignoreRobKong = false;
+        passChi = false;
+        passPeng = false;
+        passMingGang = false;
+        noRon = false;
+        noTsumo = false;
+        noRobKong = false;
         foreach (Toggle toggle in tileToggles.Values) {
             if (toggle != null) toggle.SetIsOnWithoutNotify(false);
         }
+        SetSelectAllSilently(selectAllTilesToggle, false);
         SetSelectAllSilently(selectAllManToggle, false);
         SetSelectAllSilently(selectAllSouToggle, false);
         SetSelectAllSilently(selectAllPinToggle, false);
         SetSelectAllSilently(selectAllHonorToggle, false);
         SetSelectAllSilently(selectAllRedDoraToggle, false);
-        SetSelectAllSilently(ignoreRobKongToggle, false);
+        SetSelectAllSilently(passChiToggle, false);
+        SetSelectAllSilently(passPengToggle, false);
+        SetSelectAllSilently(passMingGangToggle, false);
+        SetSelectAllSilently(noRonToggle, false);
+        SetSelectAllSilently(noTsumoToggle, false);
+        SetSelectAllSilently(noRobKongToggle, false);
         isUpdatingSelectAll = false;
     }
 
@@ -73,9 +114,6 @@ public class TilePassSettingPanel : MonoBehaviour {
 
     public bool ShouldAutoPassForCurrentDiscard() {
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        if (gsm != null && gsm.IsQiangGangAsk && !ignoreRobKong) {
-            return false;
-        }
         if (gsm == null || gsm.currentAskCutTileId <= 0) return false;
         return passTileIds.Contains(gsm.currentAskCutTileId);
     }
@@ -99,18 +137,21 @@ public class TilePassSettingPanel : MonoBehaviour {
         WireSelectAllToggle(selectAllPinToggle, RowTileIds[2]);
         WireSelectAllToggle(selectAllHonorToggle, RowTileIds[3]);
         WireSelectAllToggle(selectAllRedDoraToggle, RedDoraTileIds);
+        WireSelectAllTilesToggle();
 
-        if (ignoreRobKongToggle != null) {
-            ignoreRobKongToggle.onValueChanged.RemoveAllListeners();
-            ignoreRobKongToggle.onValueChanged.AddListener(isOn => ignoreRobKong = isOn);
-        }
+        WireBehaviorToggle(passChiToggle, value => passChi = value);
+        WireBehaviorToggle(passPengToggle, value => passPeng = value);
+        WireBehaviorToggle(passMingGangToggle, value => passMingGang = value);
+        WireBehaviorToggle(noRonToggle, value => noRon = value);
+        WireBehaviorToggle(noTsumoToggle, value => noTsumo = value);
+        WireBehaviorToggle(noRobKongToggle, value => noRobKong = value);
 
         isWired = true;
     }
 
     private void ResolveHierarchyReferences() {
         if (transform.childCount <= SelectAllRowIndex) {
-            Debug.LogWarning("TilePassSettingPanel: 子物体不足，需要 HintRow + 4 排牌张 + 1 排全选。");
+            Debug.LogWarning("TilePassSettingPanel: 子物体不足，需要 HintRow + 4 排牌张 + 1 排选项。");
             return;
         }
 
@@ -126,24 +167,65 @@ public class TilePassSettingPanel : MonoBehaviour {
         }
 
         Transform selectAllRow = transform.GetChild(SelectAllRowIndex);
-        if (selectAllManToggle == null && selectAllRow.childCount > 0) {
-            selectAllManToggle = FindToggleInCell(selectAllRow.GetChild(0));
+        selectAllTilesToggle = ResolveOptionToggle(selectAllRow, selectAllTilesToggle, -1, "所有牌张");
+        selectAllManToggle = ResolveOptionToggle(selectAllRow, selectAllManToggle, SelectAllManChildIndex, "所有万子");
+        selectAllSouToggle = ResolveOptionToggle(selectAllRow, selectAllSouToggle, SelectAllSouChildIndex, "所有条子");
+        selectAllPinToggle = ResolveOptionToggle(selectAllRow, selectAllPinToggle, SelectAllPinChildIndex, "所有饼子");
+        selectAllHonorToggle = ResolveOptionToggle(selectAllRow, selectAllHonorToggle, SelectAllHonorChildIndex, "所有字牌");
+        selectAllRedDoraToggle = ResolveOptionToggle(selectAllRow, selectAllRedDoraToggle, SelectAllRedDoraChildIndex, "所有红宝");
+        passChiToggle = ResolveOptionToggle(selectAllRow, passChiToggle, PassChiChildIndex, "不吃", "NoChi")
+            ?? FindToggleInNamedDescendant(transform, "不吃", "NoChi");
+        passPengToggle = ResolveOptionToggle(selectAllRow, passPengToggle, PassPengChildIndex, "不碰", "NoPeng")
+            ?? FindToggleInNamedDescendant(transform, "不碰", "NoPeng");
+        passMingGangToggle = ResolveOptionToggle(selectAllRow, passMingGangToggle, PassMingGangChildIndex, "不明杠", "NoGang")
+            ?? FindToggleInNamedDescendant(transform, "不明杠", "NoGang");
+        noRonToggle = ResolveOptionToggle(selectAllRow, noRonToggle, NoRonChildIndex, "不点和", "OnlyWinOther")
+            ?? FindToggleInNamedDescendant(transform, "不点和", "OnlyWinOther");
+        noTsumoToggle = ResolveOptionToggle(selectAllRow, noTsumoToggle, NoTsumoChildIndex, "不自摸", "OnlyWinSelf")
+            ?? FindToggleInNamedDescendant(transform, "不自摸", "OnlyWinSelf");
+        noRobKongToggle = ResolveOptionToggle(selectAllRow, noRobKongToggle, NoRobKongChildIndex, "不抢杠", "无视抢杠")
+            ?? FindToggleInNamedDescendant(transform, "不抢杠", "无视抢杠");
+    }
+
+    private static Toggle FindToggleInNamedDescendant(Transform root, params string[] names) {
+        if (root == null) return null;
+        foreach (string name in names) {
+            Transform[] all = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform node in all) {
+                if (node.name != name) continue;
+                Toggle toggle = FindToggleInCell(node);
+                if (toggle != null) return toggle;
+            }
         }
-        if (selectAllSouToggle == null && selectAllRow.childCount > 1) {
-            selectAllSouToggle = FindToggleInCell(selectAllRow.GetChild(1));
+        return null;
+    }
+
+    private static Toggle ResolveOptionToggle(Transform row, Toggle assigned, int childIndex, params string[] names) {
+        if (assigned != null) return assigned;
+        if (row == null) return null;
+
+        foreach (string name in names) {
+            Transform cell = FindDirectChildByName(row, name);
+            if (cell != null) {
+                Toggle toggle = FindToggleInCell(cell);
+                if (toggle != null) return toggle;
+            }
         }
-        if (selectAllPinToggle == null && selectAllRow.childCount > 2) {
-            selectAllPinToggle = FindToggleInCell(selectAllRow.GetChild(2));
+
+        if (childIndex >= 0 && row.childCount > childIndex) {
+            return FindToggleInCell(row.GetChild(childIndex));
         }
-        if (selectAllHonorToggle == null && selectAllRow.childCount > 3) {
-            selectAllHonorToggle = FindToggleInCell(selectAllRow.GetChild(3));
+
+        return null;
+    }
+
+    private static Transform FindDirectChildByName(Transform parent, string name) {
+        if (parent == null || string.IsNullOrEmpty(name)) return null;
+        for (int i = 0; i < parent.childCount; i++) {
+            Transform child = parent.GetChild(i);
+            if (child.name == name) return child;
         }
-        if (selectAllRedDoraToggle == null && selectAllRow.childCount > SelectAllRedDoraChildIndex) {
-            selectAllRedDoraToggle = FindToggleInCell(selectAllRow.GetChild(SelectAllRedDoraChildIndex));
-        }
-        if (ignoreRobKongToggle == null && selectAllRow.childCount > IgnoreRobKongChildIndex) {
-            ignoreRobKongToggle = FindToggleInCell(selectAllRow.GetChild(IgnoreRobKongChildIndex));
-        }
+        return null;
     }
 
     private bool HasAssignedTileRows() {
@@ -184,10 +266,28 @@ public class TilePassSettingPanel : MonoBehaviour {
         return toggles[0];
     }
 
+    private void WireSelectAllTilesToggle() {
+        if (selectAllTilesToggle == null) return;
+        selectAllTilesToggle.onValueChanged.RemoveAllListeners();
+        selectAllTilesToggle.onValueChanged.AddListener(isOn => {
+            OnSelectAllChanged(RowTileIds[0], isOn);
+            OnSelectAllChanged(RowTileIds[1], isOn);
+            OnSelectAllChanged(RowTileIds[2], isOn);
+            OnSelectAllChanged(RowTileIds[3], isOn);
+            OnSelectAllChanged(RedDoraTileIds, isOn);
+        });
+    }
+
     private void WireSelectAllToggle(Toggle toggle, int[] tileIds) {
         if (toggle == null || tileIds == null) return;
         toggle.onValueChanged.RemoveAllListeners();
         toggle.onValueChanged.AddListener(isOn => OnSelectAllChanged(tileIds, isOn));
+    }
+
+    private static void WireBehaviorToggle(Toggle toggle, System.Action<bool> setter) {
+        if (toggle == null || setter == null) return;
+        toggle.onValueChanged.RemoveAllListeners();
+        toggle.onValueChanged.AddListener(isOn => setter(isOn));
     }
 
     private void OnTileToggleChanged(int tileId, bool isOn) {
@@ -215,6 +315,13 @@ public class TilePassSettingPanel : MonoBehaviour {
     }
 
     private void RefreshSelectAllStates() {
+        bool allTilesSelected =
+            AreAllSelected(RowTileIds[0]) &&
+            AreAllSelected(RowTileIds[1]) &&
+            AreAllSelected(RowTileIds[2]) &&
+            AreAllSelected(RowTileIds[3]) &&
+            AreAllSelected(RedDoraTileIds);
+        SetSelectAllSilently(selectAllTilesToggle, allTilesSelected);
         SetSelectAllSilently(selectAllManToggle, AreAllSelected(RowTileIds[0]));
         SetSelectAllSilently(selectAllSouToggle, AreAllSelected(RowTileIds[1]));
         SetSelectAllSilently(selectAllPinToggle, AreAllSelected(RowTileIds[2]));

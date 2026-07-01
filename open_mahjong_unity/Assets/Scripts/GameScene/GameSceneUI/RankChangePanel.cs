@@ -63,10 +63,11 @@ public class RankChangePanel : MonoBehaviour {
                     yield return new WaitForSeconds(0.3f);
                     yield return AnimateProgress(i, RankConfig.RankTable[i].startScore, newScore, 0.6f);
                 } else {
-                    // 中间段位快速跳过
+                    // 中间段位：涨满并播放完整升段过渡
                     rankNameText.text = RankConfig.RankTable[i].name;
                     SetProgressBar(i, RankConfig.RankTable[i].startScore);
-                    yield return AnimateProgress(i, RankConfig.RankTable[i].startScore, RankConfig.RankTable[i].promoteScore, 0.3f);
+                    yield return new WaitForSeconds(0.3f);
+                    yield return AnimateProgress(i, RankConfig.RankTable[i].startScore, RankConfig.RankTable[i].promoteScore, 0.6f);
                 }
             }
         } else {
@@ -106,18 +107,18 @@ public class RankChangePanel : MonoBehaviour {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float currentScore = Mathf.Lerp(fromScore, toScore, t);
-            progressBar.value = range > 0 ? (currentScore - startScore) / range : 0;
+            progressBar.value = range > 0 ? Mathf.Clamp01((currentScore - startScore) / range) : 0;
             scoreText.text = $"{currentScore:F1}/{promoteScore}";
             yield return null;
         }
-        progressBar.value = range > 0 ? (toScore - startScore) / range : 0;
+        progressBar.value = range > 0 ? Mathf.Clamp01((toScore - startScore) / range) : 0;
         scoreText.text = $"{toScore:F1}/{promoteScore}";
     }
 
     private void SetProgressBar(int rankIdx, float score) {
         var (_, startScore, promoteScore) = RankConfig.RankTable[rankIdx];
         float range = promoteScore - startScore;
-        progressBar.value = range > 0 ? (score - startScore) / range : 0;
+        progressBar.value = range > 0 ? Mathf.Clamp01((score - startScore) / range) : 0;
         scoreText.text = $"{score:F1}/{promoteScore}";
     }
 

@@ -7,9 +7,11 @@ const dashboardRoutes = require('./dashboard');
 const usersRoutes = require('./users');
 const rankRoutes = require('./rank');
 const gamesRoutes = require('./games');
+const gameControlRoutes = require('./game_control');
 const auditRoutes = require('./audit');
 const messagesRoutes = require('./messages');
 const ipBansRoutes = require('./ip_bans');
+const statsRoutes = require('./stats');
 
 const router = express.Router();
 
@@ -30,8 +32,10 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/users', usersRoutes);
 router.use('/rank', rankRoutes);
 router.use('/games', gamesRoutes);
+router.use('/game-control', gameControlRoutes);
 router.use('/audit', auditRoutes);
 router.use('/messages', messagesRoutes);
 router.use('/ip-bans', ipBansRoutes);
+router.use('/stats', statsRoutes);
 
 module.exports = router;

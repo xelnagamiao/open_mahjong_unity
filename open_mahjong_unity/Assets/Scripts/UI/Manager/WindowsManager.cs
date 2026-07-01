@@ -38,7 +38,15 @@ public class WindowsManager : MonoBehaviour {
     public static WindowsManager Instance { get; private set; } // 单例
     
     private string currentWindow; // 当前所在窗口状态
+    /// <summary>最近一次所在的大厅顶栏标签；进入 game/recordscene 时不改写，退出时直接切回此处。</summary>
+    private string lastLobbyTab = "menu";
     private Coroutine _switchRoutine;
+
+    private static bool IsLobbyTab(string window) {
+        return window == "menu" || window == "room" || window == "record" || window == "player"
+            || window == "config" || window == "notice" || window == "aboutUs" || window == "sceneConfig"
+            || window == "spectator" || window == "match" || window == "friend";
+    }
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -100,6 +108,7 @@ public class WindowsManager : MonoBehaviour {
         ApplyColdBootHiddenState();
         EnsurePanelVisible(loginPanel);
         currentWindow = "login";
+        lastLobbyTab = "menu";
         HeaderPanel.Instance?.UpdateButtonState("login");
         Debug.Log("[WindowsManager] 已重置到登录界面");
     }
@@ -158,6 +167,23 @@ public class WindowsManager : MonoBehaviour {
         StartSwitchWindow(targetWindow, ensureHeader: true);
     }
 
+    /// <summary>
+    /// 离开 gamePanel 并切回进入对局/牌谱前所在的大厅标签（与游戏内「回到主菜单」同一套导航状态）。
+    /// </summary>
+    public void ExitGameToLastLobbyTab() {
+        ExitGameTo(lastLobbyTab);
+    }
+
+    /// <summary>进入 game/recordscene 前最后一次选中的顶栏标签，默认 menu。</summary>
+    public string GetLastLobbyTab() => lastLobbyTab;
+
+    /// <summary>离开房间后：若退出目标仍是房间页，改为主菜单，避免对局结束误回房间。</summary>
+    public void OnLeftRoom() {
+        if (lastLobbyTab == "room") {
+            lastLobbyTab = "menu";
+        }
+    }
+
     private void StartSwitchWindow(string targetWindow, bool ensureHeader) {
         if (_switchRoutine != null) {
             StopCoroutine(_switchRoutine);
@@ -175,6 +201,9 @@ public class WindowsManager : MonoBehaviour {
         ApplySwitchSequenceToSet(willActive, targetWindow, ensureHeader); // 计算切换后的目标激活集合
 
         ApplyHeaderPanelInstant(wasActive, willActive); // 顶部栏即时切换
+        if (IsLobbyTab(targetWindow)) {
+            lastLobbyTab = targetWindow;
+        }
         currentWindow = targetWindow; // 更新当前窗口状态
         HeaderPanel.Instance?.UpdateButtonState(targetWindow); // 即时刷新导航栏按钮
         if (targetWindow == "room"

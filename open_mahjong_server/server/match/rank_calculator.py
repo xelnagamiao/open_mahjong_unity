@@ -121,23 +121,25 @@ def apply_pt(rank_name: str, score: float, pt: float) -> Tuple[str, float]:
     将 PT 应用到当前分数，处理升降段。
 
     规则：
-    - 升段：分数 >= 升段分数时升一段，溢出分带到下一段起始分（可溢出，单局最多升一段）
+    - 升段：分数 >= 升段分数时升一段，溢出分带到下一段起始分；可连续升段直到不够升或到顶段
     - 降段：分数 < 0 时降一段；若目标段有起始分则落到起始分，否则按上一段升段分往回扣
-    - 单次结算最多升/降一段
+    - 单次结算最多降一段
     - 不可降段时分数封底为 0
     """
     rank_idx = get_rank_index(rank_name)
-    _, _, promote_score, can_demote = RANK_TABLE[rank_idx]
     new_score = score + pt
 
-    if new_score >= promote_score and rank_idx < len(RANK_TABLE) - 1:
+    while rank_idx < len(RANK_TABLE) - 1:
+        _, _, promote_score, _ = RANK_TABLE[rank_idx]
+        if new_score < promote_score:
+            break
         overflow = new_score - promote_score
         rank_idx += 1
-        next_start, next_promote = RANK_TABLE[rank_idx][1], RANK_TABLE[rank_idx][2]
+        next_start = RANK_TABLE[rank_idx][1]
         new_score = next_start + overflow
-        if new_score > next_promote:
-            new_score = next_promote
-    elif new_score < 0 and can_demote and rank_idx > 0:
+
+    _, _, _, can_demote = RANK_TABLE[rank_idx]
+    if new_score < 0 and can_demote and rank_idx > 0:
         deficit = -new_score
         rank_idx -= 1
         prev_start, prev_promote = RANK_TABLE[rank_idx][1], RANK_TABLE[rank_idx][2]
@@ -203,8 +205,8 @@ def queue_type_to_room_config(queue_type: str) -> dict:
     # 初级场有提示无错和，中级场及以上无提示有错和
     tips = (tier == "beginner")
     open_cuohe = (tier != "beginner")
-    # 中级场及以上启用战术鸣牌；鸣牌保护暂时默认开启（与战术鸣牌独立）
-    tactical_call = tier in ("intermediate", "advanced", "mcrpl")
+    # 初级场及以上启用战术鸣牌；鸣牌保护暂时默认开启（与战术鸣牌独立）
+    tactical_call = tier in ("beginner", "intermediate", "advanced", "mcrpl")
     claim_protection = True
     step_timer = 8 if tier == "intermediate" else 5
     return {
@@ -218,4 +220,5 @@ def queue_type_to_room_config(queue_type: str) -> dict:
         "sub_rule": "guobiao/standard",
         "tactical_call": tactical_call,
         "claim_protection": claim_protection,
+        "match_tier": tier,
     }

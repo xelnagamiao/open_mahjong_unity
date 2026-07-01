@@ -258,7 +258,7 @@ async def handle_get_record_by_id(game_server, Connect_id: str, message: dict, w
 
 async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, websocket):
     """处理获取国标统计数据请求"""
-    from .guobiao.get_guobiao_stats import get_guobiao_history_stats, get_guobiao_fan_stats_total
+    from .guobiao.get_guobiao_stats import get_guobiao_history_stats
     try:
         target_user_id = int(message.get("userid"))
     except (ValueError, TypeError):
@@ -318,16 +318,19 @@ async def handle_get_guobiao_stats(game_server, Connect_id: str, message: dict, 
             fourth_place_count=stats_row.get('fourth_place_count'),
             fulu_round_count=stats_row.get('fulu_round_count'),
             cuohe_count=stats_row.get('cuohe_count'),
+            total_round_score=stats_row.get('total_round_score'),
             fan_stats=None  # 历史统计不包含番种数据
         ))
     
-    # 获取汇总番种统计数据（始终返回，没有数据时返回全0字典）
-    total_fan_stats = get_guobiao_fan_stats_total(game_server.db_manager, target_user_id)
+    # 获取汇总番种统计数据（普通 / 天梯分开，仅国标区分）
+    from .guobiao.get_guobiao_stats import get_guobiao_fan_stats_split
+    total_fan_stats, ranked_fan_stats = get_guobiao_fan_stats_split(game_server.db_manager, target_user_id)
     
     rule_stats_response = Rule_stats_response(
         rule="guobiao",
         history_stats=history_stats_list,
-        total_fan_stats=total_fan_stats
+        total_fan_stats=total_fan_stats,
+        ranked_fan_stats=ranked_fan_stats
     )
     
     response = Response(

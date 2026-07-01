@@ -30,6 +30,11 @@ public class PlayerInfoPanel : MonoBehaviour {
     [SerializeField] private Button ShowJPRuleButtom;
     [SerializeField] private Button ShowOtherRuleButtom;
 
+    [Header("国标场次切换（仅国标显示）")]
+    [SerializeField] private GameObject modeToggleContainer;   // 容纳 天梯/自定义 两个按钮的容器
+    [SerializeField] private Button customModeButton;          // 自定义对局
+    [SerializeField] private Button rankModeButton;            // 天梯对局
+
     [SerializeField] private Transform RecordEntryContainer;
     [SerializeField] private GameObject PlayerInfoEntryPrefab;
     [SerializeField] private GameObject PlayerInfoDataTextPrefab;
@@ -38,6 +43,7 @@ public class PlayerInfoPanel : MonoBehaviour {
     public static PlayerInfoPanel Instance { get; private set; }
 
     private string CurrentShowRule = "guobiao";
+    private string currentGuobiaoCategory = "rank"; // 国标场次分类：custom=自定义 / rank=天梯（默认天梯）
     private int currentUserId; // 当前显示的用户ID
     private PlayerStatsInfo[] guobiaoStats;
     private PlayerStatsInfo[] riichiStats;
@@ -46,6 +52,7 @@ public class PlayerInfoPanel : MonoBehaviour {
     
     // 保存汇总番种统计数据（由服务器返回）
     private Dictionary<string, int> guobiaoTotalFanStats;
+    private Dictionary<string, int> guobiaoRankedFanStats;
     private Dictionary<string, int> riichiTotalFanStats;
     private Dictionary<string, int> qingqueTotalFanStats;
     private Dictionary<string, int> classicalTotalFanStats;
@@ -68,6 +75,14 @@ public class PlayerInfoPanel : MonoBehaviour {
         ShowGBRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("guobiao"));
         ShowJPRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("riichi"));
         ShowOtherRuleButtom.onClick.AddListener(() => OnSwitchRuleButtonClick("Other"));
+        if (customModeButton != null) {
+            customModeButton.onClick.AddListener(() => OnSwitchGuobiaoCategoryButtonClick("custom"));
+        }
+        if (rankModeButton != null) {
+            rankModeButton.onClick.AddListener(() => OnSwitchGuobiaoCategoryButtonClick("rank"));
+        }
+        // 脚本挂载时即设定默认选中态（天梯），避免 prefab 初始按钮态与默认分类不一致
+        UpdateModeToggleSelection();
     }
 
     private void Start() {
@@ -123,9 +138,12 @@ public class PlayerInfoPanel : MonoBehaviour {
         riichiTotalFanStats = null;
         qingqueTotalFanStats = null;
         classicalTotalFanStats = null;
+        guobiaoRankedFanStats = null;
 
         // 默认加载国标数据
         CurrentShowRule = "guobiao";
+        currentGuobiaoCategory = "rank";
+        UpdateModeToggleVisibility();
         ClearRecordEntryContainer();
         DataNetworkManager.Instance?.GetGuobiaoStats(currentUserId.ToString());
         FriendRelationCache.OnChanged += RefreshFriendActionButton;
@@ -175,6 +193,7 @@ public class PlayerInfoPanel : MonoBehaviour {
         // 保存国标数据
         guobiaoStats = ruleStats.history_stats ?? new PlayerStatsInfo[0];
         guobiaoTotalFanStats = ruleStats.total_fan_stats;
+        guobiaoRankedFanStats = ruleStats.ranked_fan_stats;
 
         // 如果当前显示的是国标，则刷新显示
         if (CurrentShowRule == "guobiao"){
@@ -229,9 +248,34 @@ public class PlayerInfoPanel : MonoBehaviour {
         }
     }
 
+    // 切换国标场次分类（自定义 / 天梯）
+    private void OnSwitchGuobiaoCategoryButtonClick(string category){
+        if (CurrentShowRule != "guobiao") return;
+        if (category == currentGuobiaoCategory) return;
+        currentGuobiaoCategory = category;
+        UpdateModeToggleSelection();
+        RefreshCurrentRuleDisplay();
+    }
+
+    // 仅国标显示 天梯/自定义 切换容器
+    private void UpdateModeToggleVisibility(){
+        bool show = (CurrentShowRule == "guobiao") && (modeToggleContainer != null);
+        if (modeToggleContainer != null){
+            modeToggleContainer.SetActive(show);
+        }
+        UpdateModeToggleSelection();
+    }
+
+    // 更新两个按钮的选中态（选中者置灰）
+    private void UpdateModeToggleSelection(){
+        if (customModeButton != null) customModeButton.interactable = (currentGuobiaoCategory != "custom");
+        if (rankModeButton != null) rankModeButton.interactable = (currentGuobiaoCategory != "rank");
+    }
+
     // 切换规则
     private void OnSwitchRuleButtonClick(string rule){
         CurrentShowRule = rule;
+        UpdateModeToggleVisibility();
         
         // 如果数据不存在（null 或未初始化），则请求数据
         if (rule == "guobiao" && guobiaoStats == null){
@@ -260,8 +304,15 @@ public class PlayerInfoPanel : MonoBehaviour {
         Dictionary<string, int> totalFanStats = null;
         
         if (CurrentShowRule == "guobiao"){
-            // 国标麻将：显示4个固定模式
-            string[] guobiaoModes = {"4/4", "3/4", "2/4", "1/4"};
+            // 国标麻将：4 种局制，按场次分类（自定义=4/4 等，天梯=4/4_rank 等）
+            bool isRank = (currentGuobiaoCategory == "rank");
+            string suffix = isRank ? "_rank" : "";
+            string[] guobiaoModes = {
+                "4/4" + suffix,
+                "3/4" + suffix,
+                "2/4" + suffix,
+                "1/4" + suffix
+            };
             
             // 创建字典以便快速查找统计数据
             Dictionary<string, PlayerStatsInfo> statsDict = new Dictionary<string, PlayerStatsInfo>();
@@ -296,7 +347,8 @@ public class PlayerInfoPanel : MonoBehaviour {
                         third_place_count = 0,
                         fourth_place_count = 0,
                         fulu_round_count = 0,
-                        cuohe_count = 0
+                        cuohe_count = 0,
+                        total_round_score = 0
                     };
                 }
                 
@@ -440,19 +492,36 @@ public class PlayerInfoPanel : MonoBehaviour {
             }
         }
 
-        // 在尾部显示番数总计（如果存在）
-        if (totalFanStats != null) {
-            // Other 标签实际对应青雀规则
-            string fanStatsRule = CurrentShowRule == "Other" ? "qingque" : CurrentShowRule;
-            PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
-                rule = fanStatsRule,
-                mode = "总计",
-                fan_stats = totalFanStats
-            };
-            GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
-            PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
-            fanStatsEntry.SetPlayerInfoEntry("fanStats", this, fanStatsInfo);
+        // 在尾部显示番数总计
+        // Other 标签实际对应青雀规则
+        string fanStatsRule = CurrentShowRule == "Other" ? "qingque" : CurrentShowRule;
+        if (CurrentShowRule == "guobiao") {
+            // 国标：番数总计跟随当前场次分类，标签带（天梯）/（自定义）
+            Dictionary<string, int> guobiaoFan = (currentGuobiaoCategory == "rank")
+                ? guobiaoRankedFanStats
+                : guobiaoTotalFanStats;
+            string fanLabel = (currentGuobiaoCategory == "rank")
+                ? "国标番数总计（天梯）"
+                : "国标番数总计（自定义）";
+            if (guobiaoFan != null) {
+                AppendFanStatsEntry(fanStatsRule, fanLabel, guobiaoFan);
+            }
         }
+        else if (totalFanStats != null) {
+            AppendFanStatsEntry(fanStatsRule, null, totalFanStats);
+        }
+    }
+
+    // 追加一行番种统计条目（label 为 null 时使用规则默认标签，如"国标番数总计"）
+    private void AppendFanStatsEntry(string rule, string label, Dictionary<string, int> fanStats) {
+        PlayerStatsInfo fanStatsInfo = new PlayerStatsInfo{
+            rule = rule,
+            mode = label,
+            fan_stats = fanStats
+        };
+        GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+        PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
+        fanStatsEntry.SetPlayerInfoEntry("fanStats", this, fanStatsInfo);
     }
     
     // 清空容器
@@ -563,12 +632,11 @@ public class PlayerInfoPanel : MonoBehaviour {
             gameStatsList.Add(new KeyValuePair<string, string>("和牌率", "0.00%"));
         }
 
-        // 错和率（错和次数 / 宣告和牌次数），仅国标
+        // 错和率（错和次数 / 小局数），仅国标
         if (stats.rule == "guobiao") {
             int? cuoheCount = stats.cuohe_count ?? 0;
-            int declareWinCount = winCount.Value + cuoheCount.Value;
-            if (declareWinCount > 0) {
-                float cuoheRate = (float)cuoheCount.Value / declareWinCount * 100f;
+            if (totalRounds > 0) {
+                float cuoheRate = (float)cuoheCount.Value / totalRounds.Value * 100f;
                 gameStatsList.Add(new KeyValuePair<string, string>("错和率", $"{cuoheRate:F2}%"));
             }
             else {
@@ -619,6 +687,18 @@ public class PlayerInfoPanel : MonoBehaviour {
         }
         else{
             gameStatsList.Add(new KeyValuePair<string, string>("平均铳番", "0.00"));
+        }
+
+        // 局均点（累计小局净得分 / 对局数），仅国标，可为负；与 Web 端口径一致
+        if (stats.rule == "guobiao") {
+            int? totalRoundScore = stats.total_round_score ?? 0;
+            if (totalGames > 0) {
+                float avgRoundScore = (float)totalRoundScore.Value / totalGames.Value;
+                gameStatsList.Add(new KeyValuePair<string, string>("局均点", $"{avgRoundScore:F2}"));
+            }
+            else {
+                gameStatsList.Add(new KeyValuePair<string, string>("局均点", "0.00"));
+            }
         }
 
         // 一位率（一位次数 / 总对局数）

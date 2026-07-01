@@ -43,18 +43,13 @@ public static class RecordHuHandBuilder {
     }
 
     /// <summary>
-    /// 构建和牌面板用手牌：荣和时在末尾追加和牌张（即使手牌中已有同 id，末张也可能是刚摸未切牌）。
+    /// 构建和牌面板用手牌：荣和时在末尾追加和牌张（状态推演已写入荣和张时不再重复追加）。
     /// </summary>
-    /// <param name="trimDrawSlotForRon">
-    /// 观战专用：牌谱回放 tileList 仍含摸牌区未切牌时，荣和展示前先去掉末张摸牌位再追加河牌和牌张，
-    /// 避免 14+1=15 张；普通牌谱阅览勿开启。
-    /// </param>
     public static int[] BuildDisplayHand(
         IReadOnlyList<int> closedHand,
         string huClass,
         int hepaiTile,
-        int lastWinnableTileId,
-        bool trimDrawSlotForRon = false) {
+        int lastWinnableTileId) {
         if (closedHand == null || closedHand.Count == 0) return Array.Empty<int>();
         int[] hand = new int[closedHand.Count];
         for (int i = 0; i < closedHand.Count; i++) hand[i] = closedHand[i];
@@ -64,10 +59,8 @@ public static class RecordHuHandBuilder {
         int winTile = hepaiTile >= 10 ? hepaiTile : (lastWinnableTileId >= 10 ? lastWinnableTileId : 0);
         if (winTile <= 10) return hand;
 
-        if (trimDrawSlotForRon && hand.Length % 3 == 2) {
-            int[] trimmed = new int[hand.Length - 1];
-            Array.Copy(hand, trimmed, trimmed.Length);
-            hand = trimmed;
+        if (hand.Length > 0 && hand[hand.Length - 1] == winTile) {
+            return hand;
         }
 
         int[] extended = new int[hand.Length + 1];

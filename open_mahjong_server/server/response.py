@@ -112,6 +112,12 @@ class Do_action_info(BaseModel):
     combination_mask: Optional[List[int]] = None # 在鸣牌时传递鸣牌形状
     combination_target: Optional[str] = None # 在鸣牌时传递鸣牌目标
     action_tick: int # 用于同步操作时钟
+    # 鸣牌（吃/碰/明杠）真正认走的打牌者座位索引；仅 meld 帧由服务端显式下发，
+    # 客户端据此精确移除对应玩家牌河的弃牌，消除乱序/双同牌歧义。cut/摸牌等帧为 None。
+    cut_from_player: Optional[int] = None
+    # 受保护观众鸣牌的显示层延迟（秒）：服务器按序发送、客户端仅延迟鸣牌 3D 动画/声音，
+    # 复现“出牌→0.5s→鸣牌”视觉间隔且不破坏 wire 顺序。非受保护观众为 None。
+    meld_reveal_delay: Optional[float] = None
     is_riichi_horizontal: Optional[bool] = None  # 立直规则：本张弃牌是否横置（含立直宣告 + 立直牌被吃后续横）
     # 战术鸣牌（国标/青雀）：is_claim 仅播放发声与字体动画，不应用任何状态变化
     is_claim: Optional[bool] = None
@@ -288,6 +294,7 @@ class Player_stats_info(BaseModel):
     fourth_place_count: Optional[int] = None
     fulu_round_count: Optional[int] = None  # 副露局数（有明副露的局数）
     cuohe_count: Optional[int] = None  # 错和次数（国标）
+    total_round_score: Optional[int] = None  # 累计小局净得分（国标局均点分子）
     # 其他字段使用 Dict 存储，因为不同规则的番种字段不同
     fan_stats: Optional[Dict[str, int]] = None  # 番种统计数据（字段名 -> 次数）
 
@@ -304,7 +311,8 @@ class Rule_stats_response(BaseModel):
     """单个规则的统计数据响应"""
     rule: str  # 规则标识（guobiao/riichi）
     history_stats: List[Player_stats_info]  # 历史统计数据列表（按模式分组）
-    total_fan_stats: Optional[Dict[str, int]] = None  # 汇总番种统计数据（所有模式的总和）
+    total_fan_stats: Optional[Dict[str, int]] = None  # 汇总番种统计数据（普通对局，所有模式总和）
+    ranked_fan_stats: Optional[Dict[str, int]] = None  # 天梯对局(_rank)番种统计（仅国标）
 
 class Player_info_response(BaseModel):
     """玩家信息响应（包含所有统计数据）"""
@@ -435,3 +443,5 @@ class Response(BaseModel):
     friend_max: Optional[int] = None
     leaderboard_list: Optional[List[LeaderboardEntry]] = None
     sticker_info: Optional[Sticker_info] = None
+    # 房间对局投票暂停/结束：投票状态同步（phase/vote_type/agree/refuse/total/countdown/votes/reason）
+    vote_info: Optional[Dict] = None

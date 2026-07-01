@@ -220,6 +220,7 @@ public partial class GameRecordManager
         else if (action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third") {
             int hepaiPlayerIndex = ParseTickInt(tick, 1);
             MarkRecordPlayerHu(hepaiPlayerIndex);
+            ApplyRecordRonHuToHandState(tick, action);
             int[] sc = ParseTickScoreChanges(tick, 4);
             if (sc != null && sc.Length >= 4) {
                 var deltas = new Dictionary<int, int>();

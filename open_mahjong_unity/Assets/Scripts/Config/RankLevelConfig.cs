@@ -13,6 +13,13 @@ public static class RankLevelConfig {
         ("七段", 1400, 2800), ("八段", 1600, 3200), ("九段", 2000, 4000),
     };
 
+    // 与 rank_calculator.py RANK_TABLE 第4列一致
+    private static readonly bool[] CanDemoteByIndex = {
+        false, false, false, false, false, false, false,
+        true, true, true,
+        true, true, true, true, true, true, true, true, true,
+    };
+
     public static readonly Dictionary<string, int> RankLevelMap = new Dictionary<string, int> {
         {"10级", 0}, {"9级", 1}, {"8级", 2}, {"7级", 3},
         {"6级", 4}, {"5级", 5}, {"4级", 6}, {"3级", 7}, {"2级", 8},
@@ -62,5 +69,38 @@ public static class RankLevelConfig {
 
     public static int GetRankLevel(string rankName) {
         return RankLevelMap.TryGetValue(rankName, out int level) ? level : 0;
+    }
+
+    /// <summary>
+    /// 将 PT 应用到当前分数，处理升降段（与 server/match/rank_calculator.py apply_pt 一致）
+    /// </summary>
+    public static (string rank, float score) ApplyPt(string rankName, float score, float pt) {
+        int rankIdx = GetRankIndex(rankName);
+        float newScore = score + pt;
+
+        while (rankIdx < RankTable.Length - 1) {
+            var (_, _, promoteScore) = RankTable[rankIdx];
+            if (newScore < promoteScore) break;
+            float overflow = newScore - promoteScore;
+            rankIdx++;
+            newScore = RankTable[rankIdx].startScore + overflow;
+        }
+
+        bool canDemote = rankIdx < CanDemoteByIndex.Length && CanDemoteByIndex[rankIdx];
+        if (newScore < 0 && canDemote && rankIdx > 0) {
+            float deficit = -newScore;
+            rankIdx--;
+            var (_, prevStart, prevPromote) = RankTable[rankIdx];
+            if (prevStart > 0) {
+                newScore = prevStart;
+            } else {
+                newScore = prevPromote - deficit;
+                if (newScore < 0) newScore = 0;
+            }
+        } else if (newScore < 0) {
+            newScore = 0;
+        }
+
+        return (RankTable[rankIdx].name, (float)System.Math.Round(newScore, 2));
     }
 }

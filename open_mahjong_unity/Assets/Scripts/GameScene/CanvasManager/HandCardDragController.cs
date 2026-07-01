@@ -63,6 +63,12 @@ public class HandCardDragController : MonoBehaviour {
 
     private Canvas dragCanvas;
     private Coroutine gapAnimCoroutine;
+    private Coroutine finishDragCoroutine;
+    // 收尾协程独占的牌与参数（与 dragCard 实例字段分离，避免连拖竞态）
+    private TileCard finishingCard;
+    private bool finishingIsCommit;
+    private int finishingInsertIndex;
+    private bool finishingMergeDraw;
 
     private void Awake() {
         Instance = this;
@@ -95,12 +101,7 @@ public class HandCardDragController : MonoBehaviour {
         // 看门狗3：收尾动画因卡牌被并发销毁/重排而中断、未能跑到 ResetState 时，超时兜底复位。
         if (isFinishingDrag && Time.unscaledTime - finishStartUnscaledTime > FinishWatchdogTimeoutSeconds) {
             Debug.LogWarning("[HandInput] 收尾动画超时未结束，强制复位拖拽状态");
-            StopGapAnimation();
-            if (dragCard != null && dragCardRect != null) {
-                RemoveDragCanvas(dragCard);
-            } else {
-                dragCanvas = null;
-            }
+            CancelFinishingDrag(commitPendingReorder: true, relayout: true);
             ResetState();
             SuppressPointerHover = false;
             BlockTileClickUntilFrame = Time.frameCount;
@@ -139,7 +140,16 @@ public class HandCardDragController : MonoBehaviour {
     /// 否则会出现卡牌悬浮卡死、之后无法再拖拽的问题；漏掉松手的真实悬挂由 Update 看门狗2 兜底复位。
     /// </summary>
     public void AbortActivePress(string reason) {
-        if ((pendingPress || dragSessionActive) && !isFinishingDrag && !IsPhysicalPointerDown()) {
+        if (IsPhysicalPointerDown()) {
+            return;
+        }
+        if (isFinishingDrag || finishDragCoroutine != null) {
+            CancelFinishingDrag(commitPendingReorder: true, relayout: true);
+            ResetState();
+            SuppressPointerHover = false;
+            BlockTileClickUntilFrame = Time.frameCount;
+        }
+        if (pendingPress || dragSessionActive) {
             AbortPressSession(reason);
         }
     }
@@ -147,13 +157,9 @@ public class HandCardDragController : MonoBehaviour {
     private void AbortPressSession(string reason) {
         Debug.LogWarning($"[HandInput] 强制复位拖拽输入状态 | 原因={reason}");
         StopGapAnimation();
-        TileCard card = dragCard;
+        CancelFinishingDrag(commitPendingReorder: false, relayout: false);
         bool wasDragging = dragSessionActive;
-        if (card != null && dragCardRect != null) {
-            RemoveDragCanvas(card);
-        } else {
-            dragCanvas = null;   // 画布组件随卡牌一同销毁
-        }
+        CleanupAllHandDragCanvases();
         ResetState();
         SuppressPointerHover = false;
         BlockTileClickUntilFrame = Time.frameCount;
@@ -189,6 +195,12 @@ public class HandCardDragController : MonoBehaviour {
     public void OnPointerDown(TileCard card, PointerEventData eventData) {
         if (!CanStartDrag()) {
             return;
+        }
+        // 新拖拽按下：立刻结束上一段收尾（同步提交尚未落地的理牌），避免协程与实例字段竞态导致 Canvas 残留、两牌叠位。
+        CancelFinishingDrag(commitPendingReorder: true, relayout: true);
+        CleanupAllHandDragCanvases();
+        if ((pendingPress || dragSessionActive) && dragCard != null && dragCard != card) {
+            AbortPressSession("新牌按下打断旧按压");
         }
         dragCard = card;
         dragCardRect = card.GetComponent<RectTransform>();
@@ -281,10 +293,12 @@ public class HandCardDragController : MonoBehaviour {
             return true;
         }
         if (OrderChanged(activeGapIndex, activeMergeDraw)) {
-            StartCoroutine(FinishCommitDrag(card, activeGapIndex, activeMergeDraw));
+            StartFinishCoroutine(
+                FinishCommitDrag(card, activeGapIndex, activeMergeDraw),
+                card, isCommit: true, activeGapIndex, activeMergeDraw);
         }
         else {
-            StartCoroutine(FinishRevertDrag(card));
+            StartFinishCoroutine(FinishRevertDrag(card), card, isCommit: false);
         }
         return true;
     }
@@ -315,7 +329,7 @@ public class HandCardDragController : MonoBehaviour {
     private void FinishDiscardImmediate(TileCard card) {
         MarkFinishingDrag();
         if (!CanTryDiscard(card)) {
-            StartCoroutine(FinishRevertDrag(card));
+            StartFinishCoroutine(FinishRevertDrag(card), card, isCommit: false);
             return;
         }
         StopGapAnimation();
@@ -342,12 +356,75 @@ public class HandCardDragController : MonoBehaviour {
         gameCanvas.AnimateHandLayoutForDiscard(discardCard, main, draw);
     }
 
+    private void StartFinishCoroutine(
+        IEnumerator routine,
+        TileCard card,
+        bool isCommit,
+        int insertIndex = 0,
+        bool mergeDraw = false) {
+        CancelFinishingDrag(commitPendingReorder: true, relayout: false);
+        finishingCard = card;
+        finishingIsCommit = isCommit;
+        finishingInsertIndex = insertIndex;
+        finishingMergeDraw = mergeDraw;
+        finishDragCoroutine = StartCoroutine(RunFinishCoroutine(routine));
+    }
+
+    private IEnumerator RunFinishCoroutine(IEnumerator routine) {
+        yield return routine;
+        finishDragCoroutine = null;
+        finishingCard = null;
+        finishingIsCommit = false;
+    }
+
+    /// <summary>
+    /// 中止收尾协程。commitPendingReorder=true 时把未播完的理牌顺序同步落地，避免 handSortIndex 与视觉脱节。
+    /// </summary>
+    private void CancelFinishingDrag(bool commitPendingReorder, bool relayout) {
+        if (finishDragCoroutine != null) {
+            StopCoroutine(finishDragCoroutine);
+            finishDragCoroutine = null;
+        }
+        StopGapAnimation();
+        TileCard card = finishingCard;
+        bool isCommit = finishingIsCommit;
+        int insertIndex = finishingInsertIndex;
+        bool mergeDraw = finishingMergeDraw;
+        finishingCard = null;
+        finishingIsCommit = false;
+        isFinishingDrag = false;
+
+        if (card != null && commitPendingReorder) {
+            if (isCommit) {
+                dragCard = card;
+                dragCardRect = card.GetComponent<RectTransform>();
+                CommitReorder(insertIndex, mergeDraw);
+            }
+            else {
+                RestoreSnapshotLayout();
+            }
+        }
+        else if (relayout && gameCanvas != null && gameCanvas.HandCardsContainer != null
+            && !gameCanvas.IsChangeHandCardProcessing) {
+            try {
+                gameCanvas.LayoutHandCardsFromCurrentOrder();
+            }
+            catch (System.Exception e) {
+                Debug.LogWarning($"[HandInput] 收尾中止后重排失败: {e.Message}");
+            }
+        }
+
+        CleanupAllHandDragCanvases();
+    }
+
     private IEnumerator FinishCommitDrag(TileCard card, int insertIndex, bool mergeDraw) {
         MarkFinishingDrag();
+        RectTransform cardRect = card.GetComponent<RectTransform>();
+        dragCard = card;
+        dragCardRect = cardRect;
         ApplyGapLayout(insertIndex, mergeDraw, false);   // 其余牌瞬间到位，避免提交时跳动
-        yield return AnimateDragCardTo(GetDragCardTargetPosition(insertIndex, mergeDraw));
-        // 动画途中卡牌被并发销毁/重排时直接复位，避免在已销毁对象上重排抛异常导致状态卡死。
-        if (dragCardRect != null) {
+        yield return AnimateDragCardTo(cardRect, GetDragCardTargetPosition(insertIndex, mergeDraw));
+        if (cardRect != null) {
             CommitReorder(insertIndex, mergeDraw);
         }
         EndFinishDrag();
@@ -355,17 +432,18 @@ public class HandCardDragController : MonoBehaviour {
 
     private IEnumerator FinishRevertDrag(TileCard card) {
         MarkFinishingDrag();
+        RectTransform cardRect = card.GetComponent<RectTransform>();
         RestoreSnapshotData();
         SplitSnapshot(out List<TileCard> main, out TileCard draw);
         Dictionary<RectTransform, Vector2> positions = gameCanvas.BuildHandLayoutPositions(main, draw, null);
-        Vector2 dragTarget = positions.TryGetValue(dragCardRect, out Vector2 t) ? t : Vector2.zero;
+        Vector2 dragTarget = positions.TryGetValue(cardRect, out Vector2 t) ? t : Vector2.zero;
         foreach (var kvp in positions) {
-            if (kvp.Key != dragCardRect) {
+            if (kvp.Key != cardRect) {
                 kvp.Key.anchoredPosition = kvp.Value;
             }
         }
-        yield return AnimateDragCardTo(dragTarget);
-        if (dragCardRect != null) {
+        yield return AnimateDragCardTo(cardRect, dragTarget);
+        if (cardRect != null) {
             gameCanvas.ApplyHandLayoutPositions(positions, main, draw);
         }
         EndFinishDrag();
@@ -377,6 +455,10 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private void EndFinishDrag() {
+        CleanupAllHandDragCanvases();
+        finishingCard = null;
+        finishingIsCommit = false;
+        finishDragCoroutine = null;
         ResetState();
         BlockTileClickUntilFrame = Time.frameCount;
         StartCoroutine(EnableHoverNextFrame());
@@ -400,22 +482,25 @@ public class HandCardDragController : MonoBehaviour {
         BlockTileClickUntilFrame = Time.frameCount;
     }
 
-    private IEnumerator AnimateDragCardTo(Vector2 targetPos) {
-        Vector2 start = dragCardRect.anchoredPosition;
+    private IEnumerator AnimateDragCardTo(RectTransform cardRect, Vector2 targetPos) {
+        if (cardRect == null) {
+            yield break;
+        }
+        Vector2 start = cardRect.anchoredPosition;
         targetPos.y = 0f;
         float elapsed = 0f;
         while (elapsed < snapAnimDuration) {
-            if (dragCardRect == null) {
+            if (cardRect == null) {
                 yield break;
             }
             elapsed += Time.deltaTime;
             float p = Mathf.Clamp01(elapsed / snapAnimDuration);
             float smooth = 1f - Mathf.Pow(1f - p, 3f);
-            dragCardRect.anchoredPosition = Vector2.Lerp(start, targetPos, smooth);
+            cardRect.anchoredPosition = Vector2.Lerp(start, targetPos, smooth);
             yield return null;
         }
-        if (dragCardRect != null) {
-            dragCardRect.anchoredPosition = targetPos;
+        if (cardRect != null) {
+            cardRect.anchoredPosition = targetPos;
         }
     }
 
@@ -688,9 +773,7 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     private void EnsureDragCanvas(TileCard card) {
-        if (dragCanvas != null) {
-            return;
-        }
+        CleanupAllHandDragCanvases();
         dragCanvas = card.gameObject.GetComponent<Canvas>();
         if (dragCanvas == null) {
             dragCanvas = card.gameObject.AddComponent<Canvas>();
@@ -699,10 +782,32 @@ public class HandCardDragController : MonoBehaviour {
         dragCanvas.sortingOrder = 300;
     }
 
+    private static bool IsDragSortCanvas(Canvas canvas) {
+        return canvas != null && canvas.overrideSorting && canvas.sortingOrder == 300;
+    }
+
     private void RemoveDragCanvas(TileCard card) {
+        if (card == null) {
+            return;
+        }
+        Canvas canvas = card.GetComponent<Canvas>();
+        if (IsDragSortCanvas(canvas)) {
+            Destroy(canvas);
+        }
         if (dragCanvas != null && dragCanvas.gameObject == card.gameObject) {
-            Destroy(dragCanvas);
             dragCanvas = null;
         }
+    }
+
+    private void CleanupAllHandDragCanvases() {
+        if (gameCanvas == null || gameCanvas.HandCardsContainer == null) {
+            dragCanvas = null;
+            return;
+        }
+        for (int i = 0; i < gameCanvas.HandCardsContainer.childCount; i++) {
+            TileCard tc = gameCanvas.HandCardsContainer.GetChild(i).GetComponent<TileCard>();
+            RemoveDragCanvas(tc);
+        }
+        dragCanvas = null;
     }
 }

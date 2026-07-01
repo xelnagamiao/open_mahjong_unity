@@ -208,3 +208,20 @@ public class SendStickerRequest {
     public string gamestate_id;
     public string sticker;
 }
+
+public class VoteStartRequest { // 发起投票暂停/结束对局
+    public string type;
+    public string gamestate_id;
+    public string vote_type; // "pause" / "end"
+}
+
+public class VoteResponseRequest { // 投票同意/拒绝
+    public string type;
+    public string gamestate_id;
+    public string vote; // "agree" / "refuse"
+}
+
+public class VoteResumeRequest { // 解除暂停
+    public string type;
+    public string gamestate_id;
+}

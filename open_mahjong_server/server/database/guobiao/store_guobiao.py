@@ -156,6 +156,8 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         game_title = game_record.get("game_title") or {}
         rule = game_title["rule"]
         sub_rule = game_title["sub_rule"]
+        match_tier = game_title.get("match_tier")
+        event_id = game_title.get("event_id")
         saved_count = 0
         for player in player_list:
             rank = player.record_counter.rank_result  # 1-4
@@ -168,8 +170,8 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             try:
                 cursor.execute("""
                     INSERT INTO game_player_records (
-                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, title_used, character_used, profile_used, voice_used
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        game_id, user_id, username, score, rank, original_player_index, rule, sub_rule, match_type, room_type, match_tier, event_id, title_used, character_used, profile_used, voice_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     game_id,
                     actual_user_id,
@@ -181,6 +183,8 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
                     sub_rule,
                     match_type,
                     room_type,
+                    match_tier,
+                    event_id,
                     title_used,
                     character_used,
                     profile_used,
@@ -193,6 +197,15 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
         
         conn.commit()
         logger.info(f'游戏记录已保存，game_id: {game_id}')
+        # 写入每玩家每局原始指标，供每日 4 点聚合 scene_daily_stats
+        try:
+            from ..scene_stats import record_game_metrics
+            record_game_metrics(db_manager, game_id, game_record, player_list, {
+                "rule": rule, "sub_rule": sub_rule, "room_type": room_type,
+                "match_tier": match_tier, "event_id": event_id, "match_type": match_type,
+            })
+        except Exception as e:
+            logger.warning(f"写入 game_player_metrics 失败: {e}")
         return game_id
         
     except Error as e:
@@ -206,16 +219,16 @@ def store_guobiao_game_record(db_manager, game_record: dict, player_list: list, 
             db_manager._put_connection(conn)
 
 # 存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
-def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_type: str, game_round: int, total_rounds: int):
+def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_type: str, match_type: str, total_rounds: int):
     """
     存储国标麻将游戏基础统计数据到 guobiao_history_stats 表
-    
+
     Args:
         db_manager: DatabaseManager 实例
         game_id: 游戏ID（由 store_guobiao_game_record 返回）
         player_list: 玩家列表，每个玩家包含 record_counter 属性
         room_type: 房间类型（custom/match，保留参数以兼容调用方）
-        game_round: 游戏局数（最大局数，如 4）
+        match_type: 局数类型（如 "4/4"、"4/4_rank"），排位带 _rank，作为统计 mode
         total_rounds: 实际进行的局数
     """
     conn = None
@@ -229,8 +242,8 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
         cursor = conn.cursor()
         
         rule = "guobiao"
-        mode = f"{game_round}/4"  # 使用传入的 game_round 构建 mode
-        
+        mode = match_type  # 用真实 match_type（排位带 _rank）作 mode，与 game_player_records 一致
+
         stats_columns = [
             "total_games",
             "total_rounds",
@@ -246,6 +259,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
             "fourth_place_count",
             "fulu_round_count",
             "cuohe_count",
+            "total_round_score",
         ]
         
         # 更新每个玩家的基础统计数据
@@ -279,6 +293,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
                 "fourth_place_count": 1 if counter.rank_result == 4 else 0,
                 "fulu_round_count": counter.fulu_times,
                 "cuohe_count": counter.cuohe_times,
+                "total_round_score": counter.round_score_total,
             }
             
             insert_columns = ["user_id", "rule", "mode"] + stats_columns
@@ -318,7 +333,7 @@ def store_guobiao_game_stats(db_manager, game_id: str, player_list: list, room_t
             db_manager._put_connection(conn)
 
 # 存储国标麻将游戏番种统计数据到 guobiao_fan_stats 表
-def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_type: str, game_round: int):
+def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_type: str, match_type: str):
     """
     存储国标麻将游戏番种统计数据到 guobiao_fan_stats 表
     
@@ -327,7 +342,7 @@ def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_ty
         game_id: 游戏ID（由 store_guobiao_game_record 返回）
         player_list: 玩家列表，每个玩家包含 record_counter 属性
         room_type: 房间类型（custom/match，保留参数以兼容调用方）
-        game_round: 游戏局数（最大局数，如 4）
+        match_type: 局数类型（如 "4/4"、"4/4_rank"），排位带 _rank，作为统计 mode
     """
     conn = None
     try:
@@ -340,7 +355,7 @@ def store_guobiao_fan_stats(db_manager, game_id: str, player_list: list, room_ty
         cursor = conn.cursor()
         
         rule = "guobiao"
-        mode = f"{game_round}/4"  # 使用传入的 game_round 构建 mode
+        mode = match_type  # 用真实 match_type（排位带 _rank）作 mode，与 history_stats 一致
         
         # 更新每个玩家的番种统计数据
         for player in player_list:

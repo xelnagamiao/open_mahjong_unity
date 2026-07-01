@@ -29,12 +29,12 @@ public partial class Game3DManager : MonoBehaviour {
     /// <summary>
     /// 卡牌移动动画：将物体移动鸣牌预备位左侧，然后线性移回原位
     /// </summary>
-    private IEnumerator MoveCardAnimation(GameObject targetObj, Vector3 direction, float cardWidth) {
+    private IEnumerator MoveCardAnimation(GameObject targetObj, Vector3 direction, float cardWidth, string playerPosition) {
         if (targetObj == null) yield break;
 
         Vector3 originalPosition = targetObj.transform.position;
         Vector3 targetPosition = originalPosition + direction * (cardWidth * 3f);
-        lastRemove3DPosition = originalPosition;
+        SetLastRemovePos(playerPosition, originalPosition);
 
         targetObj.transform.position = targetPosition;
         yield return null;

@@ -44,6 +44,12 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_get_spectator_list(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/send_sticker":
         await handle_send_sticker(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/vote_start":
+        await handle_vote_start(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/vote_response":
+        await handle_vote_response(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/vote_resume":
+        await handle_vote_resume(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的游戏状态消息路径: {message_type}")
 
@@ -379,4 +385,80 @@ async def handle_get_spectator_list(game_server, Connect_id: str, message: dict,
             await websocket.send_json(response.dict(exclude_none=True))
         except:
             pass
+
+
+# ========== 房间对局投票暂停/结束 ==========
+
+async def _resolve_vote_context(game_server, Connect_id, message):
+    """解析投票消息所需的 game_state / user_id；仅允许自定义房间对局。"""
+    gamestate_id = message.get("gamestate_id")
+    if not gamestate_id:
+        return None, None, "缺少 gamestate_id"
+    game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+    if not game_state:
+        return None, None, "游戏状态不存在"
+    if getattr(game_state, "room_type", None) != "custom":
+        return None, None, "仅自定义房间对局支持投票"
+    player_conn = game_server.players.get(Connect_id)
+    if not player_conn or not player_conn.user_id:
+        return None, None, "未登录"
+    return game_state, player_conn.user_id, None
+
+
+async def handle_vote_start(game_server, Connect_id, message, websocket):
+    try:
+        game_state, user_id, err = await _resolve_vote_context(game_server, Connect_id, message)
+        if err:
+            await _send_vote_tip(websocket, "gamestate/vote_start", False, err)
+            return
+        from .public.vote_manager import get_or_create_vote_manager
+        vm = get_or_create_vote_manager(game_state)
+        ok, msg = await vm.initiate_vote(user_id, message.get("vote_type"))
+        if not ok:
+            await _send_vote_tip(websocket, "gamestate/vote_start", False, msg)
+    except Exception as e:
+        logger.error(f"处理投票发起失败: {e}", exc_info=True)
+
+
+async def handle_vote_response(game_server, Connect_id, message, websocket):
+    try:
+        game_state, user_id, err = await _resolve_vote_context(game_server, Connect_id, message)
+        if err:
+            await _send_vote_tip(websocket, "gamestate/vote_response", False, err)
+            return
+        vm = getattr(game_state, "vote_manager", None)
+        if vm is None:
+            await _send_vote_tip(websocket, "gamestate/vote_response", False, "当前没有进行中的投票")
+            return
+        ok, msg = await vm.cast_vote(user_id, message.get("vote"))
+        if not ok:
+            await _send_vote_tip(websocket, "gamestate/vote_response", False, msg)
+    except Exception as e:
+        logger.error(f"处理投票响应失败: {e}", exc_info=True)
+
+
+async def handle_vote_resume(game_server, Connect_id, message, websocket):
+    try:
+        game_state, user_id, err = await _resolve_vote_context(game_server, Connect_id, message)
+        if err:
+            await _send_vote_tip(websocket, "gamestate/vote_resume", False, err)
+            return
+        vm = getattr(game_state, "vote_manager", None)
+        if vm is None:
+            await _send_vote_tip(websocket, "gamestate/vote_resume", False, "当前未处于暂停状态")
+            return
+        ok, msg = await vm.request_resume(user_id)
+        if not ok:
+            await _send_vote_tip(websocket, "gamestate/vote_resume", False, msg)
+    except Exception as e:
+        logger.error(f"处理解除暂停失败: {e}", exc_info=True)
+
+
+async def _send_vote_tip(websocket, msg_type, success, message):
+    # 用客户端已识别的 error_message 通道回执失败提示，避免下发客户端无法识别的 vote_* 类型
+    try:
+        response = Response(type="error_message", success=success, message=message)
+        await websocket.send_json(response.dict(exclude_none=True))
+    except Exception:
+        pass
 

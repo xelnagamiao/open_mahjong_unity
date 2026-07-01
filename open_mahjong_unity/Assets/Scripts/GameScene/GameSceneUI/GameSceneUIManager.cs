@@ -175,7 +175,13 @@ public class GameSceneUIManager : MonoBehaviour
         AutoAction.Instance.gameObject.SetActive(true);
         AutoAction.Instance.Initialize(); // 初始化自动行为组件
         RecordSetting.Instance.gameObject.SetActive(false);
-        if (ExitButtonManager.Instance != null) ExitButtonManager.Instance.HideAll(); // 正常对局隐藏退出牌谱/退出观战按钮
+        if (ExitButtonManager.Instance != null) {
+            // 自定义房间对局显示投票暂停/结束按钮；匹配对局/其它模式隐藏全部退出按钮
+            bool isCustomRoom = NormalGameStateManager.Instance != null
+                && NormalGameStateManager.Instance.roomType == "custom";
+            if (isCustomRoom) ExitButtonManager.Instance.ShowForRoomGame();
+            else ExitButtonManager.Instance.HideAll();
+        }
         if (realtimeSpectatorIndicator != null) realtimeSpectatorIndicator.ResetForNewGame(); // 重置被实时观战指示器，主动询问一次
         RoundEndPresentation.Instance.ShowSelfGameplayControlAndResyncHand3D();
     }

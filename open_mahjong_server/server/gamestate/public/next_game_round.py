@@ -94,13 +94,14 @@ def next_game_round(self):
     self.player_list.sort(key=lambda x: x.player_index)
 
 
-    
-def next_game_round_random_switchseat(self, keep_current_round: bool = False, keep_dealer_seat: bool = False):
-    """进入下一局游戏 随机换位
-    keep_current_round=True 时用于连庄：只增加 round_index，不推进 current_round。
-    keep_dealer_seat=True 时用于连庄：不轮转座位，保持东家不变。
-    """
-    # 局数推进（连庄时仅推进局序号，不推进圈位局数）
+
+def _next_game_round_with_dealer(
+    self,
+    keep_current_round: bool = False,
+    keep_dealer_seat: bool = False,
+    shuffle_on_wind_change: bool = False,
+):
+    """进入下一局；支持连庄。shuffle_on_wind_change 为 True 时在南/西/北圈首局随机重排座位（青雀）。"""
     if keep_current_round:
         self.round_index += 1
     else:
@@ -109,9 +110,8 @@ def next_game_round_random_switchseat(self, keep_current_round: bool = False, ke
     self.current_player_index = 0
     self.xunmu = 1
     self.action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
-    self.backward_tiles_list_type = "double" # 重置倒序摸牌状态
+    self.backward_tiles_list_type = "double"
 
-    # 清空花牌弃牌组合牌列表 重置时间
     self.hu_class = None
     for i in self.player_list:
         i.hand_tiles = []
@@ -124,9 +124,9 @@ def next_game_round_random_switchseat(self, keep_current_round: bool = False, ke
         if "peida" in i.tag_list:
             i.tag_list.remove("peida")
         if not keep_dealer_seat:
-            i.player_index = back_current_num(i.player_index) # 倒退玩家索引(0→3 1→0 2→1 3→2)
+            i.player_index = back_current_num(i.player_index)
 
-    if (not keep_dealer_seat) and self.current_round in (5, 9, 13):
+    if (not keep_dealer_seat) and shuffle_on_wind_change and self.current_round in (5, 9, 13):
         seed = derive_round_seed(self.master_seed, self.current_round)
         rng = random.Random(seed)
         players = list(self.player_list)
@@ -135,6 +135,16 @@ def next_game_round_random_switchseat(self, keep_current_round: bool = False, ke
             p.player_index = idx
 
     self.player_list.sort(key=lambda x: x.player_index)
+
+
+def next_game_round_classical_switchseat(self, keep_current_round: bool = False, keep_dealer_seat: bool = False):
+    """古典麻将：过庄时顺延下家继位；连庄时保持座位与圈位局数不变。"""
+    _next_game_round_with_dealer(self, keep_current_round, keep_dealer_seat, shuffle_on_wind_change=False)
+
+
+def next_game_round_random_switchseat(self, keep_current_round: bool = False, keep_dealer_seat: bool = False):
+    """青雀：过庄时顺延下家；南/西/北圈首局随机重排座位。连庄参数同古典。"""
+    _next_game_round_with_dealer(self, keep_current_round, keep_dealer_seat, shuffle_on_wind_change=True)
 
 
 def next_game_round_qingque_switchseat(self):

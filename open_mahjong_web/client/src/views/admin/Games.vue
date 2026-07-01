@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">对局管理</h2>
+    <h2 class="page-title">对局记录管理</h2>
     <el-card>
       <el-form inline class="admin-inline-form" @submit.prevent="search">
         <el-form-item label="对局 ID">
@@ -41,11 +41,19 @@
         <el-table-column prop="created_at" label="时间" width="170">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="玩家">
+        <el-table-column label="玩家" min-width="260">
           <template #default="{ row }">
-            <span v-for="p in row.players" :key="p.user_id" class="player-chip">
-              {{ p.rank }}位 {{ p.username }}({{ p.score }})
-            </span>
+            <div class="player-list">
+              <div v-for="p in row.players" :key="p.user_id" class="player-row">
+                <el-tag class="rank-tag" :type="rankTagType(p.rank)" size="small" effect="dark">
+                  {{ p.rank }}位
+                </el-tag>
+                <span class="player-name">{{ p.username }}</span>
+                <el-tag class="score-tag" :type="scoreTagType(p.score)" size="small">
+                  {{ p.score }}
+                </el-tag>
+              </div>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="160">
@@ -111,6 +119,21 @@ const recordPreview = computed(() => {
 
 function formatDate(v) {
   return v ? new Date(v).toLocaleString('zh-CN') : '-'
+}
+
+function rankTagType(rank) {
+  if (rank === 1) return 'success'
+  if (rank === 2) return 'primary'
+  if (rank === 3) return 'info'
+  return 'danger'
+}
+
+function scoreTagType(score) {
+  const n = Number(score)
+  if (Number.isNaN(n)) return 'info'
+  if (n > 0) return 'success'
+  if (n < 0) return 'danger'
+  return 'info'
 }
 
 function hasFilter() {
@@ -202,6 +225,35 @@ onMounted(() => {
 <style scoped>
 .page-title {
   margin: 0 0 16px;
+}
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rank-tag {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 600;
+}
+.player-name {
+  flex: 1;
+  font-size: 13px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.score-tag {
+  min-width: 56px;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .player-chip {
   display: inline-block;

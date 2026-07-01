@@ -79,26 +79,34 @@ public partial class Game3DManager {
     private void LayRecordShowHandTiles(string playerPosition, Transform showCardsPosition, IList<int> handTiles, bool pinLastAsDraw) {
         if (!TryGetRecordShowHandLayout(playerPosition, out Vector3 direction, out Quaternion rotation)) return;
 
-        List<int> sortedTiles = new List<int>(handTiles);
-        sortedTiles.Sort(TileIdOrder.Compare);
-        Vector3 startPos = showCardsPosition.position;
+        // 摸牌巡(showHandDrawSlotActive)时，真正的摸入张是 tileList 的最后一个元素（d/gd/bd 行动 Add 入尾），
+        // 不能随主列一起排序——否则排序后的末张会被误当作摸入张，导致自摸和牌张错位（如摸 2m 却把 9s 钉到摸牌区）。
+        bool hasDraw = pinLastAsDraw && handTiles.Count > 0;
+        int drawTileId = hasDraw ? handTiles[handTiles.Count - 1] : 0;
 
-        int mainCount = pinLastAsDraw && sortedTiles.Count > 0 ? sortedTiles.Count - 1 : sortedTiles.Count;
-        ComputeRecordShowTargetPositions(startPos, direction, mainCount, pinLastAsDraw && sortedTiles.Count > 0,
+        List<int> mainTiles = new List<int>(hasDraw ? handTiles.Count - 1 : handTiles.Count);
+        int mainSourceCount = hasDraw ? handTiles.Count - 1 : handTiles.Count;
+        for (int i = 0; i < mainSourceCount; i++) {
+            mainTiles.Add(handTiles[i]);
+        }
+        mainTiles.Sort(TileIdOrder.Compare);
+
+        Vector3 startPos = showCardsPosition.position;
+        int mainCount = mainTiles.Count;
+        ComputeRecordShowTargetPositions(startPos, direction, mainCount, hasDraw,
             out List<Vector3> mainPositions, out Vector3? drawPosition);
 
         for (int i = 0; i < mainCount; i++) {
-            GameObject cardObj = MahjongObjectPool.Instance.Spawn(sortedTiles[i], mainPositions[i], rotation);
+            GameObject cardObj = MahjongObjectPool.Instance.Spawn(mainTiles[i], mainPositions[i], rotation);
             if (cardObj == null) continue;
             cardObj.transform.SetParent(showCardsPosition, worldPositionStays: true);
             cardObj.name = $"RecordShow_{i}";
             if (Card3DHoverManager.Instance != null) {
-                Card3DHoverManager.Instance.RegisterCard(cardObj, sortedTiles[i]);
+                Card3DHoverManager.Instance.RegisterCard(cardObj, mainTiles[i]);
             }
         }
 
-        if (pinLastAsDraw && sortedTiles.Count > 0 && drawPosition.HasValue) {
-            int drawTileId = sortedTiles[sortedTiles.Count - 1];
+        if (hasDraw && drawPosition.HasValue) {
             GameObject drawObj = MahjongObjectPool.Instance.Spawn(drawTileId, drawPosition.Value, rotation);
             if (drawObj != null) {
                 drawObj.transform.SetParent(showCardsPosition, worldPositionStays: true);
@@ -195,7 +203,7 @@ public partial class Game3DManager {
     /// 牌谱展开模式：删除一张手牌。
     /// fromDrawSlot=true 表示摸切/摸补/摸杠，仅从摸牌区删除；false 表示手切/手补/手杠，从主列删除。
     /// </summary>
-    private IEnumerator RemoveRecordShowHandCardCoroutine(Transform showCardsPosition, int tileId, bool fromDrawSlot) {
+    private IEnumerator RemoveRecordShowHandCardCoroutine(Transform showCardsPosition, int tileId, bool fromDrawSlot, string playerPosition) {
         if (showCardsPosition.childCount == 0) {
             yield break;
         }
@@ -247,7 +255,7 @@ public partial class Game3DManager {
         if (removedTile != null) {
             removedTile.isRecordDrawSlotPinned = false;
         }
-        lastRemove3DPosition = targetCard.position;
+        SetLastRemovePos(playerPosition, targetCard.position);
         MahjongObjectPool.Instance.Return(-1, targetCard.gameObject);
         yield return null;
     }
@@ -255,7 +263,7 @@ public partial class Game3DManager {
     /// <summary>
     /// 牌谱展开模式：根据组合掩码从 ShowCardsPosition 中删除指定手牌（跳过 flag=1 河牌来源位）。
     /// </summary>
-    private IEnumerator RemoveRecordShowHandCardsByMaskCoroutine(Transform showCardsPosition, int[] combinationMask) {
+    private IEnumerator RemoveRecordShowHandCardsByMaskCoroutine(Transform showCardsPosition, int[] combinationMask, string playerPosition) {
         if (showCardsPosition == null || combinationMask == null) yield break;
 
         List<int> tilesToRemove = new List<int>();
@@ -283,7 +291,7 @@ public partial class Game3DManager {
                     if (tile3D.isRecordDrawSlotPinned) {
                         tile3D.isRecordDrawSlotPinned = false;
                     }
-                    lastRemove3DPosition = child.position;
+                    SetLastRemovePos(playerPosition, child.position);
                     MahjongObjectPool.Instance.Return(-1, child.gameObject);
                     removed = true;
                     break;

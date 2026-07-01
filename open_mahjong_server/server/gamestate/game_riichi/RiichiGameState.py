@@ -24,6 +24,7 @@ from .action_check import (
 )
 from .wait_action import wait_action, _commit_pending_riichi
 from ..public.spectator_rules import too_many_ai_for_spectator
+from ..public.vote_manager import vote_checkpoint
 from .init_tiles import init_riichi_tiles
 from .boardcast import (
     broadcast_game_start,
@@ -192,6 +193,8 @@ class RiichiGameState:
         self.room_rule = room_data["room_rule"]
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule") or "riichi/standard"
+        self.match_tier = room_data.get("match_tier")
+        self.event_id = room_data.get("event_id")
 
         self.room_random_seed = room_data.get("random_seed", 0)
         self.open_cuohe = room_data.get("open_cuohe", False)
@@ -360,6 +363,10 @@ class RiichiGameState:
         init_game_record(self)
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["red_dora"] = self.red_dora
+        if self.match_tier is not None:
+            self.game_record["game_title"]["match_tier"] = self.match_tier
+        if self.event_id is not None:
+            self.game_record["game_title"]["event_id"] = self.event_id
         if not self._is_langyong():
             self.game_record["game_title"]["allow_kuikae"] = self.allow_kuikae
         self.game_record["game_title"]["hepai_way"] = self.hepai_way
@@ -413,6 +420,7 @@ class RiichiGameState:
             await self.wait_action()
 
             while self.game_status != "END":
+                await vote_checkpoint(self)
                 match self.game_status:
                     case "deal_card":
                         if len(self.tiles_list) <= self.dead_wall_count:

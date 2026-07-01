@@ -70,6 +70,55 @@ public static class ScoreHistorySettlementHelper {
     }
 
     /// <summary>
+    /// 断线重连后若局号列表与分值行数不一致则对齐（优先保留服务端已下发的完整局号；仅一条局号且多行分值时按 1..N 重建）。
+    /// </summary>
+    public static void AlignRoundNumberHistory(List<string> scoreHistory, List<int> roundNumberHistory) {
+        if (scoreHistory == null || roundNumberHistory == null) return;
+        int scoreCount = scoreHistory.Count;
+        if (scoreCount == 0) {
+            roundNumberHistory.Clear();
+            return;
+        }
+        if (roundNumberHistory.Count == scoreCount) return;
+
+        if (roundNumberHistory.Count == 0) {
+            for (int i = 1; i <= scoreCount; i++) {
+                roundNumberHistory.Add(i);
+            }
+            return;
+        }
+
+        // 典型重连脏数据：score_history 已从服务端恢复多行，但 round_number_history 仅追加了当前局号一行。
+        if (roundNumberHistory.Count == 1 && scoreCount > 1) {
+            roundNumberHistory.Clear();
+            for (int i = 1; i <= scoreCount; i++) {
+                roundNumberHistory.Add(i);
+            }
+            return;
+        }
+
+        if (roundNumberHistory.Count < scoreCount) {
+            int last = roundNumberHistory[roundNumberHistory.Count - 1];
+            while (roundNumberHistory.Count < scoreCount) {
+                last++;
+                roundNumberHistory.Add(last);
+            }
+            return;
+        }
+
+        roundNumberHistory.RemoveRange(scoreCount, roundNumberHistory.Count - scoreCount);
+    }
+
+    /// <summary>计分板局名列：仅当局号列表与分值行数等长时使用服务端局号，否则按行序 1..N 回退。</summary>
+    public static int ResolveRoundNumberForRow(int rowIndex, int scoreHistoryCount, List<int> roundNumbers) {
+        if (roundNumbers != null && roundNumbers.Count == scoreHistoryCount
+            && rowIndex >= 0 && rowIndex < roundNumbers.Count) {
+            return roundNumbers[rowIndex];
+        }
+        return rowIndex + 1;
+    }
+
+    /// <summary>
     /// 计分行与结算快照对齐：score_history 最后一行对应当前局最新快照。
     /// </summary>
     public static RoundSettlementSnapshot ResolveSettlementForRow(
@@ -83,28 +132,24 @@ public static class ScoreHistorySettlementHelper {
         }
 
         int settlementCount = roundSettlements.Count;
-        if (settlementCount == 0) return null;
+        if (settlementCount == 0 || scoreHistoryCount <= 0) return null;
+        if (roundIndex < 0 || roundIndex >= scoreHistoryCount) return null;
 
-        if (scoreHistoryCount > 0 && roundIndex == scoreHistoryCount - 1) {
-            return roundSettlements[settlementCount - 1];
-        }
-        if (settlementCount == scoreHistoryCount && roundIndex >= 0 && roundIndex < settlementCount) {
+        if (settlementCount == scoreHistoryCount) {
             return roundSettlements[roundIndex];
         }
+
         if (scoreHistoryCount > settlementCount) {
+            // 重连后仅有尾部若干快照：只映射到 score_history 末尾对应行，避免唯一快照同时出现在第 0 行与最后一行。
             int settlementIndex = roundIndex - (scoreHistoryCount - settlementCount);
             if (settlementIndex >= 0 && settlementIndex < settlementCount) {
                 return roundSettlements[settlementIndex];
             }
-            if (roundIndex >= 0 && roundIndex < settlementCount) {
-                return roundSettlements[roundIndex];
-            }
             return null;
         }
-        if (roundIndex >= 0 && roundIndex < settlementCount) {
-            return roundSettlements[roundIndex];
-        }
-        return null;
+
+        // settlementCount > scoreHistoryCount：陈旧本地快照，按索引取前 scoreHistoryCount 条
+        return roundSettlements[roundIndex];
     }
 
     public static string BuildAllFansText(string subRule, RoundSettlementSnapshot snapshot) {
@@ -216,21 +261,85 @@ public static class ScoreHistorySettlementHelper {
         };
     }
 
+    /// <summary>古典数和尾：和牌局仅 show_shuhewei，由此创建整局计分板快照。</summary>
+    public static RoundSettlementSnapshot CreateFromShuhewei(
+        string subRule,
+        string huClass,
+        int? hepaiPlayerIndex,
+        string winnerUsername,
+        string[] huFan,
+        string[] fuFanList,
+        Dictionary<int, int> scoreChanges,
+        int[] hepaiPlayerHand = null,
+        int[][] combinationMask = null) {
+        bool isLiuju = huClass == "liuju" || huClass == "jiuzhongjiupai";
+        bool hasWin = !isLiuju && huFan != null && huFan.Length > 0;
+
+        int winnerDelta = 0;
+        if (scoreChanges != null && hepaiPlayerIndex.HasValue) {
+            int originalPlayerIndex = hepaiPlayerIndex.Value;
+            if (NormalGameStateManager.Instance != null
+                && NormalGameStateManager.Instance.indexToPosition != null
+                && NormalGameStateManager.Instance.indexToPosition.TryGetValue(hepaiPlayerIndex.Value, out string huPos)
+                && NormalGameStateManager.Instance.player_to_info != null
+                && NormalGameStateManager.Instance.player_to_info.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
+                originalPlayerIndex = winnerInfo.original_player_index;
+            }
+            ShowResultPlayerScoreResolver.TryGetDelta(
+                scoreChanges, hepaiPlayerIndex.Value, originalPlayerIndex, out winnerDelta);
+        }
+
+        return new RoundSettlementSnapshot {
+            subRule = subRule,
+            huClass = huClass,
+            hepaiPlayerIndex = hepaiPlayerIndex ?? -1,
+            winnerUsername = winnerUsername ?? "",
+            hasWin = hasWin,
+            isLiuju = isLiuju,
+            winnerScoreDelta = winnerDelta,
+            huFan = huFan != null ? (string[])huFan.Clone() : null,
+            fuFanList = fuFanList,
+            hepaiPlayerHand = hepaiPlayerHand != null ? (int[])hepaiPlayerHand.Clone() : null,
+            combinationMask = CloneCombinationMask(combinationMask),
+        };
+    }
+
     public static void UpdateLastFromShuhewei(
         List<RoundSettlementSnapshot> history,
         int? hepaiPlayerIndex,
         Dictionary<int, string[]> playerFan,
         Dictionary<int, int> scoreChanges,
         int[] hepaiPlayerHand = null,
-        int[][] combinationMask = null) {
-        if (history == null || history.Count == 0 || !hepaiPlayerIndex.HasValue) return;
+        int[][] combinationMask = null,
+        string huClass = null) {
+        if (history == null || history.Count == 0) return;
         RoundSettlementSnapshot last = history[history.Count - 1];
-        if (playerFan != null && playerFan.TryGetValue(hepaiPlayerIndex.Value, out string[] fan) && fan != null && fan.Length > 0) {
+        if (!string.IsNullOrEmpty(huClass)) {
+            last.huClass = huClass;
+            last.isLiuju = huClass == "liuju" || huClass == "jiuzhongjiupai";
+        }
+        if (hepaiPlayerIndex.HasValue) {
+            last.hepaiPlayerIndex = hepaiPlayerIndex.Value;
+        }
+        if (playerFan != null && hepaiPlayerIndex.HasValue
+            && playerFan.TryGetValue(hepaiPlayerIndex.Value, out string[] fan) && fan != null && fan.Length > 0) {
             last.huFan = fan;
             last.hasWin = true;
+            last.isLiuju = false;
         }
-        if (scoreChanges != null && scoreChanges.TryGetValue(hepaiPlayerIndex.Value, out int delta)) {
-            last.winnerScoreDelta = delta;
+        if (scoreChanges != null && hepaiPlayerIndex.HasValue) {
+            int originalPlayerIndex = hepaiPlayerIndex.Value;
+            if (NormalGameStateManager.Instance != null
+                && NormalGameStateManager.Instance.indexToPosition != null
+                && NormalGameStateManager.Instance.indexToPosition.TryGetValue(hepaiPlayerIndex.Value, out string huPos)
+                && NormalGameStateManager.Instance.player_to_info != null
+                && NormalGameStateManager.Instance.player_to_info.TryGetValue(huPos, out PlayerInfoClass winnerInfo)) {
+                originalPlayerIndex = winnerInfo.original_player_index;
+            }
+            if (ShowResultPlayerScoreResolver.TryGetDelta(
+                    scoreChanges, hepaiPlayerIndex.Value, originalPlayerIndex, out int delta)) {
+                last.winnerScoreDelta = delta;
+            }
         }
         if (hepaiPlayerHand != null && hepaiPlayerHand.Length > 0) {
             last.hepaiPlayerHand = (int[])hepaiPlayerHand.Clone();

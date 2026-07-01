@@ -45,11 +45,16 @@ public class TipsContainer : MonoBehaviour
     public bool HasCachedTenpaiTips => _hasCachedTenpaiTips && _cachedWaitingTiles.Count > 0;
 
     /// <summary>牌桌弃牌/副露变化后重算听牌提示 UI（完整手牌、无切牌预览），不重跑听牌检测。</summary>
-    public void RefreshTenpaiTipsIfCached() {
+    /// <param name="syncHandFromLiveState">为 true 时用当前 selfHandTiles 覆盖缓存，避免鸣牌后余张多算。</param>
+    public void RefreshTenpaiTipsIfCached(bool syncHandFromLiveState = false) {
         if (!HasCachedTenpaiTips) return;
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null || !gameManager.tips) return;
         _pendingCutTileId = null;
+        if (syncHandFromLiveState) {
+            _cachedHandTiles.Clear();
+            _cachedHandTiles.AddRange(gameManager.selfHandTiles);
+        }
         SetTipsWithHand(_cachedHandTiles, _cachedWaitingTiles);
     }
 

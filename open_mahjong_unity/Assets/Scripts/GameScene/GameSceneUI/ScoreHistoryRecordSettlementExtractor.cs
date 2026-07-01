@@ -165,6 +165,8 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 case "hu_second":
                 case "hu_third": {
                     if (isSichuanBlood && IsDeferredSichuanHuTick(tick)) break;
+                    // 古典牌谱顺序为 shuhewei → hu；数和尾已占一行，勿重复追加。
+                    if (subRule != null && subRule.StartsWith("classical") && lastRow != null) break;
                     if (isSichuan) {
                         int[] scoreChanges = ParseScoreChanges(tick, 4);
                         lastRow = new RecordScoreRow {
@@ -256,6 +258,8 @@ public static class ScoreHistoryRecordSettlementExtractor {
                         output.Add(lastRow);
                         break;
                     }
+                    // 古典流局：shuhewei 已记一行，后续 liuju tick 勿重复。
+                    if (subRule != null && subRule.StartsWith("classical") && lastRow != null) break;
                     lastRow = new RecordScoreRow {
                         snapshot = new RoundSettlementSnapshot { subRule = subRule, isLiuju = true, hasWin = false, huClass = action },
                         scoreChangesByOriginal = new int[4],
@@ -268,8 +272,8 @@ public static class ScoreHistoryRecordSettlementExtractor {
         }
     }
 
+    /// <summary>血战中途和牌：score_changes 全 0 表示分数延至终局结算（hu_score 仍可能 &gt; 0）。</summary>
     private static bool IsDeferredSichuanHuTick(List<string> tick) {
-        if (ParseInt(tick, 2) != 0) return false;
         int[] scoreChanges = ParseScoreChanges(tick, 4);
         if (scoreChanges == null) return true;
         foreach (int change in scoreChanges) {

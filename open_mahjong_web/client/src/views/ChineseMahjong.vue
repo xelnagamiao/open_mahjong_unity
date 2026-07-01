@@ -229,8 +229,8 @@ import MahjongNotationHelp from '@/components/MahjongNotationHelp.vue'
 import {
   TILE_NAME,
   combinationLabel,
-  parseNotationText,
-  tilesToNotationText,
+  parseNotationWithGetTile,
+  notationTextWithGetTile,
   parseMeldSlotInput,
   meldDisplayTiles,
 } from '@/composables/useMahjongTiles'
@@ -291,21 +291,28 @@ const handCountTagType = computed(() => {
 })
 
 const syncTextInput = () => {
-  const tiles = form.getTile ? [...form.hand, form.getTile] : [...form.hand]
-  textInput.value = tilesToNotationText(tiles)
+  textInput.value = notationTextWithGetTile(form.hand, form.getTile)
 }
 
-const applyParsedTiles = (parsed) => {
+const applyParsedTiles = ({ hand, getTile }) => {
   const exp = expectedHandCount.value
-  if (parsed.length === exp + 1) {
-    form.hand = parsed.slice(0, -1)
-    form.getTile = parsed[parsed.length - 1]
-  } else if (parsed.length <= exp) {
-    form.hand = parsed
-    form.getTile = null
-  } else {
-    throw new Error(`手牌应为 ${expectedTotalCount.value} 张（含和牌张），当前简写解析为 ${parsed.length} 张`)
+  const expTotal = expectedTotalCount.value
+
+  let finalHand = hand
+  let finalGetTile = getTile
+  // 兼容旧写法：无 + 且共 14 张时，按输入顺序取末张为和牌张
+  if (finalGetTile == null && hand.length === exp + 1) {
+    finalHand = hand.slice(0, -1)
+    finalGetTile = hand[hand.length - 1]
   }
+
+  const total = finalHand.length + (finalGetTile ? 1 : 0)
+  if (total > expTotal) {
+    throw new Error(`手牌应为 ${expTotal} 张（含和牌张），当前简写解析为 ${total} 张`)
+  }
+
+  form.hand = finalHand
+  form.getTile = finalGetTile
   syncTextInput()
 }
 
@@ -314,7 +321,7 @@ const ensureReadyForSubmit = () => {
   const expTotal = expectedTotalCount.value
   if (textInput.value?.trim()) {
     try {
-      const parsed = parseNotationText(textInput.value)
+      const parsed = parseNotationWithGetTile(textInput.value)
       applyParsedTiles(parsed)
     } catch (e) {
       ElMessage.error(`简写解析失败：${e.message}`)

@@ -269,11 +269,6 @@ public class ScoreHistoryPanel : MonoBehaviour
             NormalGameStateManager.Instance != null ? NormalGameStateManager.Instance.subRule : null);
 
         List<int> roundNumbers = roundNumberHistory ?? new List<int>();
-        if (roundNumbers.Count == 0) {
-            var fallbackKeys = new List<int>(roundMap.Keys);
-            fallbackKeys.Sort();
-            roundNumbers = fallbackKeys;
-        }
 
         int scoreHistoryCount = scoreHistory0 != null ? scoreHistory0.Count : 0;
         if (scoreHistory1 != null) scoreHistoryCount = Mathf.Max(scoreHistoryCount, scoreHistory1.Count);
@@ -281,13 +276,10 @@ public class ScoreHistoryPanel : MonoBehaviour
         if (scoreHistory3 != null) scoreHistoryCount = Mathf.Max(scoreHistoryCount, scoreHistory3.Count);
 
         int roundCount = scoreHistoryCount;
-        if (roundSettlements != null && roundSettlements.Count > roundCount) {
-            roundCount = roundSettlements.Count;
-        }
 
         int maxPlayedRoundNumber = 0;
         for (int i = 0; i < roundCount; i++) {
-            int roundNumber = i < roundNumbers.Count ? roundNumbers[i] : (i + 1);
+            int roundNumber = ScoreHistorySettlementHelper.ResolveRoundNumberForRow(i, scoreHistoryCount, roundNumbers);
             if (roundNumber > maxPlayedRoundNumber) maxPlayedRoundNumber = roundNumber;
             GameObject textObj = Instantiate(Tmp_Text_Prefab, RoundIndexContainer.transform);
             TMP_Text text = textObj.GetComponent<TMP_Text>();

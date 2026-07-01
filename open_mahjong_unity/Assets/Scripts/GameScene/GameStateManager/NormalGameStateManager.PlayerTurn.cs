@@ -22,7 +22,7 @@ public partial class NormalGameStateManager {
                 if (AutoAction.Instance != null) {
                     AutoAction.Instance.SetAutoCutLocked(IsSelfRiichi());
                 }
-                // 如果开启自动自摸、自动补花或者自动出牌，则启动协程
+                // 如果开启自动和牌/自摸、自动补花或者自动出牌，则启动协程
                 if (AutoAction.Instance != null && (AutoAction.Instance.ShouldAutoWinTsumo() || AutoAction.Instance.IsAutoBuhua || AutoAction.Instance.IsAutoCut)){
                     StartWaitAutoAction("AutoHandAction");
                 }
@@ -53,8 +53,8 @@ public partial class NormalGameStateManager {
             GameCanvas.Instance.ClearActionButton();
             GameCanvas.Instance.SetActionButton(allowActionList);
             GameCanvas.Instance.LoadingRemianTime(remaining_time,roomStepTime);
-            // 如果开启自动过牌或自动荣和，则启动协程
-            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.ShouldAutoWinRon() || AutoAction.Instance.ShouldAutoPassForCurrentDiscard() || AutoAction.Instance.IsAutoPassChi || AutoAction.Instance.IsAutoPassPeng || AutoAction.Instance.IsAutoPassGang){
+            // 如果开启自动过牌、自动胡牌或牌张设置中的鸣牌选项，则启动协程
+            if (AutoAction.Instance.IsAutoPass || AutoAction.Instance.IsAutoHepai || AutoAction.Instance.ShouldAutoPassForCurrentDiscard() || AutoAction.Instance.HasAnyTilePassMingPaiOption()){
                 StartWaitAutoAction("AutoMingPaiAction");
             }
             IsSelfActionRequired = true;

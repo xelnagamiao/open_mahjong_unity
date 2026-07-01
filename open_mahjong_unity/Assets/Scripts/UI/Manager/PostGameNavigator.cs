@@ -1,50 +1,55 @@
 /// <summary>
 /// 离开 gamePanel 后的页面跳转（真正退出，非对局挂后台）。
+/// 统一回到进入对局/牌谱前的大厅顶栏标签，由 WindowsManager 在 SwitchWindow 时自动维护。
 /// </summary>
 public static class PostGameNavigator {
-    public static void NavigateAfterGameEnd() {
-        // 匹配对局不依赖房间系统，结束后无房间可返回：直接回主菜单，并清除其仅用于聊天/协议的房间号。
+    /// <summary>
+    /// 真正离开 gamePanel，切回上次大厅标签并做场景清理。
+    /// </summary>
+    /// <param name="forceTeardown">对局结束、退出牌谱等须强制清理；延时观战被踢等可保留进行中的对局场景。</param>
+    public static void ExitToLobby(bool forceTeardown = false) {
+        bool wasSpectating = GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating;
+        if (wasSpectating) {
+            GameRecordManager.Instance.StopSpectating();
+        }
+
+        NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
+
         bool wasMatch = NormalGameStateManager.Instance != null
             && NormalGameStateManager.Instance.roomType == "match";
 
-        UserDataManager.Instance.SetGamestateId("");
-        GameSceneTeardown.ResetToIdle();
-        // 兜底：确保对局结束后匹配承诺锁已释放，否则将无法再次匹配。
+        if (forceTeardown || (!wasSpectating && !ShouldPreserveActiveGameScene())) {
+            UserDataManager.Instance.SetGamestateId("");
+            GameSceneTeardown.ResetToIdle();
+        }
+
         MatchNetworkManager.Instance?.ResetMatchLock();
         HeaderPanel.Instance?.SetBackToGameVisible(false);
 
         if (wasMatch) {
             UserDataManager.Instance.SetRoomId("");
-            WindowsManager.Instance.ExitGameTo("menu");
-            return;
         }
 
-        if (UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
-            WindowsManager.Instance.ExitGameTo("room");
-            RoomWindowsManager.Instance.SwitchRoomWindow("roomInfo");
-            return;
-        }
-
-        WindowsManager.Instance.ExitGameTo("menu");
+        string tab = WindowsManager.Instance.GetLastLobbyTab();
+        WindowsManager.Instance.ExitGameToLastLobbyTab();
+        RefreshLobbyTabIfNeeded(tab);
     }
 
-    public static void ExitToRecord() {
-        UserDataManager.Instance.SetGamestateId("");
-        GameSceneTeardown.ResetToIdle();
-        HeaderPanel.Instance?.SetBackToGameVisible(false);
-        WindowsManager.Instance.ExitGameTo("record");
-        DataNetworkManager.Instance?.GetRecordList();
-    }
-
-    public static void ExitToSpectator() {
-        if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
-            GameRecordManager.Instance.StopSpectating();
-        } else if (!ShouldPreserveActiveGameScene()) {
-            UserDataManager.Instance.SetGamestateId("");
-            GameSceneTeardown.ResetToIdle();
+    private static void RefreshLobbyTabIfNeeded(string tab) {
+        switch (tab) {
+            case "record":
+                DataNetworkManager.Instance?.GetRecordList();
+                break;
+            case "friend":
+                FriendNetworkManager.Instance?.ListAllFriendPanels();
+                break;
+            case "room":
+                if (UserDataManager.Instance != null
+                    && UserDataManager.Instance.RoomId != UserDataManager.ROOM_ID_NONE) {
+                    RoomWindowsManager.Instance?.SwitchRoomWindow("roomInfo");
+                }
+                break;
         }
-        HeaderPanel.Instance?.SetBackToGameVisible(false);
-        WindowsManager.Instance.ExitGameTo("spectator");
     }
 
     /// <summary>
@@ -58,11 +63,11 @@ public static class PostGameNavigator {
         return LobbyStateGuard.IsInMatchQueue;
     }
 
-    public static void ExitToFriend() {
-        NormalGameStateManager.Instance?.StopAsRealtimeSpectator();
-        GameSceneTeardown.ResetToIdle();
-        HeaderPanel.Instance?.SetBackToGameVisible(false);
-        WindowsManager.Instance.ExitGameTo("friend");
-        FriendNetworkManager.Instance?.ListAllFriendPanels();
-    }
+    public static void NavigateAfterGameEnd() => ExitToLobby(forceTeardown: true);
+
+    public static void ExitToRecord() => ExitToLobby(forceTeardown: true);
+
+    public static void ExitToSpectator() => ExitToLobby();
+
+    public static void ExitToFriend() => ExitToLobby(forceTeardown: true);
 }

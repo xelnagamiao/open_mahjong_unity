@@ -24,6 +24,7 @@ from ..public.round_end_timing import liuju_ready_wait_seconds
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.hand_slot_utils import has_draw_slot, resolve_is_mo_buhua
+from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_buhua,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
@@ -45,6 +46,7 @@ class RecordCounter:
         self.cuohe_times = 0 # 错和次数
         self.win_turn = 0 # 总和牌巡目
         self.win_score = 0 # 总和牌番数
+        self.round_score_total = 0 # 各小局净得分累计（局均点分子）
 
 # 玩家类
 class GuobiaoPlayer:
@@ -141,6 +143,9 @@ class GuobiaoGameState:
         self.room_rule = room_data["room_rule"]
         self.room_type = room_data["room_type"]
         self.sub_rule = room_data.get("sub_rule", "guobiao/standard") # 子规则
+        # 排位场次等级(beginner/intermediate/advanced/mcrpl)与比赛场 event_id，默认 None
+        self.match_tier = room_data.get("match_tier")
+        self.event_id = room_data.get("event_id")
 
         self.room_random_seed = room_data.get("random_seed", 0) # 随机种子（默认为0）
         self.open_cuohe = room_data.get("open_cuohe", False) # 是否开启错和（默认为False）
@@ -401,6 +406,10 @@ class GuobiaoGameState:
         # 牌谱/观战用：子规则与起和限制写入 game_title，客户端据此做番表显示
         self.game_record["game_title"]["sub_rule"] = self.sub_rule
         self.game_record["game_title"]["hepai_limit"] = self.hepai_limit
+        if self.match_tier is not None:
+            self.game_record["game_title"]["match_tier"] = self.match_tier
+        if self.event_id is not None:
+            self.game_record["game_title"]["event_id"] = self.event_id
         # 游戏主循环
         while self.current_round <= self.max_round * 4:
 
@@ -473,6 +482,7 @@ class GuobiaoGameState:
 
             # 游戏主循环
             while self.game_status != "END":
+                await vote_checkpoint(self)
                 match self.game_status:
 
                     # 普通摸牌操作：切换到下一个玩家进行摸牌
@@ -769,6 +779,7 @@ class GuobiaoGameState:
             # 计算每个玩家本局的分数变化并记录
             for player in self.player_list:
                 score_change = player.score - scores_before[player.original_player_index]
+                player.record_counter.round_score_total += score_change
                 # 格式化为 +00、-00 或 0
                 if score_change > 0:
                     score_change_str = f"+{score_change:02d}"
@@ -893,14 +904,14 @@ class GuobiaoGameState:
                 game_id,
                 self.player_list,
                 self.room_type,
-                self.max_round,
+                match_type,
                 total_rounds
             )
             self.db_manager.store_guobiao_fan_stats(
                 game_id,
                 self.player_list,
                 self.room_type,
-                self.max_round
+                match_type
             )
 
         # 结束游戏生命周期：使用统一的清理方法。
