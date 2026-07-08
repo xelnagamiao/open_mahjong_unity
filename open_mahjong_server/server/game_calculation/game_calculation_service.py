@@ -295,9 +295,23 @@ class GameCalculationService:
         with self._lock:
             return self._changsha_tingpai_check.tingpai_check(hand_tile_list, combination_list)
 
-    def Changsha_base_from_fans(self, fan_list: List[str], dealer_related: bool = False) -> int:
-        """长沙基础付款：小胡 1/庄闲 2，大胡 6/庄闲 7，多个大胡相加。"""
-        return changsha_base_from_fans(fan_list, dealer_related)
+    def Changsha_base_from_fans(
+        self,
+        fan_list: List[str],
+        dealer_related: bool = False,
+        *,
+        small_hu_score: int = 2,
+        big_hu_score: int = 8,
+        base_score_no_dealer: bool = False,
+    ) -> int:
+        """长沙基础付款：默认 1/2/6/7，可选不区分庄闲 2/8。"""
+        return changsha_base_from_fans(
+            fan_list,
+            dealer_related,
+            small_hu_score=small_hu_score,
+            big_hu_score=big_hu_score,
+            base_score_no_dealer=base_score_no_dealer,
+        )
 
     def Classical_fushu_check(
         self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int

@@ -162,6 +162,8 @@ public partial class NormalGameStateManager {
         // 清空操作列表
         allowActionList = new List<string>();
         selfForcedCutTiles.Clear();
+        ClearSelfForcedCutTracking();
+        changshaKongHandLocked = false;
         // 清空弃牌列表
         player_to_info["self"].discard_tiles = new List<int>();
         player_to_info["left"].discard_tiles = new List<int>();
@@ -252,6 +254,10 @@ public partial class NormalGameStateManager {
         hepaiWay = gameInfo.hepai_way ?? "multi_ron";
         redDora = gameInfo.red_dora ?? false;
         dealerIndex = gameInfo.dealer_index ?? 0;
+        changshaSmallHuScore = Mathf.Max(gameInfo.small_hu_score ?? 2, 1);
+        changshaBigHuScore = Mathf.Max(gameInfo.big_hu_score ?? 8, 1);
+        changshaDealerBird = gameInfo.dealer_bird ?? true;
+        changshaBaseScoreNoDealer = gameInfo.base_score_no_dealer ?? false;
         if (isOpenCuoHe){
             Debug.Log("开启错和");
         }

@@ -87,6 +87,9 @@ public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
     public bool initial_hu_san_tong;
     public int bird_count;
     public bool dealer_bird;
+    public bool base_score_no_dealer;
+    public int small_hu_score;
+    public int big_hu_score;
 }
 
 public class GetRoomListRequest { // 获取房间列表请求

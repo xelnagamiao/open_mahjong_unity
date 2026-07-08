@@ -43,6 +43,9 @@ public class RoomInfo {
     public bool initial_hu_san_tong;
     public int bird_count;
     public bool dealer_bird;
+    public bool base_score_no_dealer;
+    public int small_hu_score;
+    public int big_hu_score;
 }
 
 public class GameEndInfo { // 显示游戏结束结果
@@ -79,6 +82,8 @@ public class ShowResultInfo { // 显示结算结果
     public int[] initial_hu_dice;
     public int[] initial_hu_bird_seats;
     public Dictionary<string, int>[] initial_hu_payer_details;
+    public int[] changsha_birds;
+    public int[] changsha_bird_seats;
     // 荒牌流局：各家听牌张 {player_index: [tile_id, ...]}，未听家不出现；以及是否发生不听罚符
     public Dictionary<int, int[]> tenpai_tiles;
     public Dictionary<int, int[]> tenpai_hands; // 荒牌流局：听牌家的实际手牌，用于倒牌展示
@@ -135,8 +140,9 @@ public class AskHandActionGBInfo { // 询问手牌操作
     public int remaining_time; // 剩余时间
     public int player_index; // 玩家索引
     public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
-    public int[] forced_cut_tiles;
     public int action_tick;
+    public int? deal_tile;
+    public int[] forced_cut_tiles;
     // 立直麻将：可立直切牌候选 {tile_id: [waiting_tile_id, ...]}，仅 action_list 含 riichi_cut 时下发
     public Dictionary<int, int[]> riichi_candidate_cuts;
     // 立直麻将：吃后切牌阶段的禁切牌列表（食替规则），客户端用于变暗与禁点
@@ -159,6 +165,7 @@ public class DoActionInfo { // 执行操作
     public int action_player;
     public int action_tick;
     public int? cut_from_player;      // 鸣牌（吃/碰/明杠）真正认走的打牌者座位索引；服务器显式下发，避免乱序/双同牌歧义
+    public bool? sea_bottom_discard;  // 长沙海底：翻出的最后一张直接进入牌河，不从手牌移除
     public float? meld_reveal_delay;  // 受保护观众鸣牌呈现延迟（秒）：display/音效/3D 一并延后，复现 claim_meld_followup_gap 间隔且不破坏 wire 顺序
     public int? cut_tile;           // 可空类型
     public int[] cut_tiles;
@@ -255,6 +262,9 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool? initial_hu_san_tong;
     public int? bird_count;
     public bool? dealer_bird;
+    public bool? base_score_no_dealer;
+    public int? small_hu_score;
+    public int? big_hu_score;
 }
 
 public class SwitchSeatInfo { // 换位信息

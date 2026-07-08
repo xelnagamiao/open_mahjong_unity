@@ -23,6 +23,7 @@ public partial class Game3DManager {
         public int[] CombinationMask;
         public bool IsRiichi;
         public bool PlayCutPhysicsSound;
+        public float DelayBeforeStart;
     }
 
     private static readonly string[] HandAnimPlayerPositions = { "self", "left", "top", "right" };
@@ -46,6 +47,7 @@ public partial class Game3DManager {
 
     /// <summary>他家出牌后，手牌收拢动画开始前的停顿。</summary>
     private const float DiscardSettlePauseSec = 0.2f;
+    private const float BatchDiscardIntervalSec = 0.55f;
 
     private static bool IsHandAnimPlayer(string playerPosition) {
         return playerPosition == "self" || playerPosition == "left" || playerPosition == "top" || playerPosition == "right";
@@ -114,6 +116,9 @@ public partial class Game3DManager {
         PosPanel3D panel = GetPosPanel(op.PlayerPosition);
         if (panel == null) {
             yield break;
+        }
+        if (op.DelayBeforeStart > 0f) {
+            yield return new WaitForSeconds(op.DelayBeforeStart);
         }
 
         switch (op.Kind) {
@@ -199,7 +204,7 @@ public partial class Game3DManager {
         });
     }
 
-    private void EnqueueDiscardHandWork(string playerPosition, int tileId, bool cutClass, bool isRiichi, bool playCutPhysicsSound) {
+    private void EnqueueDiscardHandWork(string playerPosition, int tileId, bool cutClass, bool isRiichi, bool playCutPhysicsSound, float delayBeforeStart = 0f) {
         EnqueueHandAnimOp(playerPosition, new HandAnimOp {
             Kind = HandAnimOpKind.DiscardTile,
             TileId = tileId,
@@ -207,6 +212,7 @@ public partial class Game3DManager {
             CutClass = cutClass,
             IsRiichi = isRiichi,
             PlayCutPhysicsSound = playCutPhysicsSound,
+            DelayBeforeStart = delayBeforeStart,
         });
     }
 

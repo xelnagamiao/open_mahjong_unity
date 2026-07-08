@@ -515,6 +515,9 @@ public partial class GameCanvas : MonoBehaviour {
         bool hasForcedCut = forced != null
             && forced.Count > 0
             && NormalGameStateManager.Instance.allowActionList.Contains("cut");
+        bool changshaKongLocked = NormalGameStateManager.Instance.roomRule == "changsha"
+            && NormalGameStateManager.Instance.changshaKongHandLocked
+            && !hasForcedCut;
         bool mustCutDingque = NormalGameStateManager.Instance.MustCutDingqueFirst();
         bool selfRiichi = false;
         var selfTags = NormalGameStateManager.Instance.player_to_info["self"].tag_list;
@@ -529,6 +532,8 @@ public partial class GameCanvas : MonoBehaviour {
             bool selectable;
             if (hasForcedCut) {
                 selectable = tc.currentGetTile && forced.Contains(tc.tileId);
+            } else if (changshaKongLocked) {
+                selectable = false;
             } else if (inRiichiCutMode) {
                 selectable = candidates.ContainsKey(tc.tileId);
             } else if (selfRiichi) {
@@ -578,6 +583,10 @@ public partial class GameCanvas : MonoBehaviour {
         }
 
         var gsm = NormalGameStateManager.Instance;
+        if (gsm != null && gsm.IsChangshaKongHandInputLocked()) {
+            Debug.LogWarning("自动出牌失败：长沙开杠锁手中");
+            return false;
+        }
         bool mustCutDingque = gsm != null && gsm.MustCutDingqueFirst();
 
         TileCard drawTileCard = null;

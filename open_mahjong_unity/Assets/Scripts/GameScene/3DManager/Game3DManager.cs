@@ -19,6 +19,7 @@ public partial class Game3DManager : MonoBehaviour {
     private Vector3 rightSetCombinationsPoint;
 
     private GameObject lastCutJiagang3DObject; // 最后一张切牌或加杠牌的3D对象（荣和/抢杠倒牌演出用）
+    private GameObject seaBottomConcealedTileObject;
 
     // 出牌飞行动画协程按玩家隔离：避免 A 的飞牌协程被 B 的鸣牌 StopCoroutine 误终止，
     // 也避免多家并发出牌时互相覆盖引用造成河牌停在中途或被错误回收。
@@ -403,9 +404,55 @@ public partial class Game3DManager : MonoBehaviour {
             Change3DTile("Discard", tileIds[0], 0, PlayerPosition, cut_class, null, isRiichi, playCutPhysicsSound: playCutPhysicsSound);
             return;
         }
+        bool slowBatchDiscard = tileIds.Length > 1 && !IsCatchingUpFromBacklog();
         for (int i = 0; i < tileIds.Length; i++) {
-            EnqueueDiscardHandWork(PlayerPosition, tileIds[i], cut_class, isRiichi, playCutPhysicsSound && i == 0);
+            float delayBeforeStart = slowBatchDiscard && i > 0 ? BatchDiscardIntervalSec : 0f;
+            EnqueueDiscardHandWork(PlayerPosition, tileIds[i], cut_class, isRiichi, playCutPhysicsSound && i == 0, delayBeforeStart);
         }
+    }
+
+    public void PlaceDiscardTileWithoutHandRemoval(int discardedTile, string playerPosition, bool isRiichi = false, bool playCutPhysicsSound = false) {
+        ClearSeaBottomConcealedTile();
+        if (playCutPhysicsSound) {
+            SoundManager.Instance.PlayPhysicsSound("cut");
+        }
+        Change3DTile("SetDiscardWithoutAnimation", discardedTile, 0, playerPosition, false, null, isRiichi);
+    }
+
+    public void ShowSeaBottomConcealedTile() {
+        if (seaBottomConcealedTileObject != null) {
+            return;
+        }
+        if (selfPosPanel == null || leftPosPanel == null || topPosPanel == null || rightPosPanel == null) {
+            return;
+        }
+        Vector3 center = (
+            selfPosPanel.discardsPosition.position
+            + leftPosPanel.discardsPosition.position
+            + topPosPanel.discardsPosition.position
+            + rightPosPanel.discardsPosition.position
+        ) * 0.25f;
+        center += Vector3.up * (cardThickness * 0.5f);
+        if (MahjongObjectPool.Instance == null) {
+            Debug.LogError("[ChangshaSeaBottom] MahjongObjectPool is not ready; cannot show concealed sea-bottom tile.");
+            return;
+        }
+
+        seaBottomConcealedTileObject = MahjongObjectPool.Instance.SpawnBlankTile(center, Quaternion.Euler(90, 0, 0), 0);
+        if (seaBottomConcealedTileObject != null) {
+            seaBottomConcealedTileObject.name = "ChangshaSeaBottomConcealed";
+            Tile3D tile3D = seaBottomConcealedTileObject.GetComponent<Tile3D>();
+            tile3D?.SetConcealedFaceDown(true);
+            MahjongObjectPool.Instance.RefreshTileCollider(seaBottomConcealedTileObject);
+        }
+    }
+
+    public void ClearSeaBottomConcealedTile() {
+        if (seaBottomConcealedTileObject == null) {
+            return;
+        }
+        MahjongObjectPool.Instance.Return(-1, seaBottomConcealedTileObject);
+        seaBottomConcealedTileObject = null;
     }
 
     public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, float meldRevealDelay = 0f, string meldDiscarderPos = null, int meldClaimedTile = 0, string meldFeedbackAction = null, string meldFeedbackRoomRule = null){
@@ -766,6 +813,7 @@ public partial class Game3DManager : MonoBehaviour {
     // 清除3D手牌
     public void Clear3DTile(){
         // 重置组合牌指针
+        ClearSeaBottomConcealedTile();
         selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
         leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
         topSetCombinationsPoint = topPosPanel.combinationsPosition.position;

@@ -21,6 +21,16 @@ from ...game_calculation.changsha.changsha_hepai_check import INITIAL_HU_NAMES
 
 logger = logging.getLogger(__name__)
 
+
+def _viewer_player(self, viewer_index: int):
+    if hasattr(self, "_player_by_index"):
+        try:
+            return self._player_by_index(viewer_index)
+        except Exception:
+            pass
+    return self.player_list[viewer_index]
+
+
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
     """广播游戏开始信息"""
@@ -54,6 +64,9 @@ async def broadcast_game_start(self):
         'initial_hu_san_tong': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["sanTong"], True),
         'bird_count': getattr(self, 'bird_count', 2),
         'dealer_bird': getattr(self, 'dealer_bird', True),
+        'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
+        'small_hu_score': getattr(self, 'small_hu_score', 2),
+        'big_hu_score': getattr(self, 'big_hu_score', 8),
         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed, # 是否玩家设置了随机种子
         'players_info': [] # ↓玩家信息
     }
@@ -143,27 +156,28 @@ async def broadcast_ask_hand_action(self):
         forced_cut_tiles = [forced_cut_tile]
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
+        player_index = current_player.player_index
         try:
             # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
-                if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                if self.action_dict.get(player_index, []):
+                    asyncio.create_task(auto_cut_action(self, player_index, self.action_dict[player_index], bot_ask_hand_game_status(self, player_index)))
                 continue
 
             # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
-                if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                if self.action_dict.get(player_index, []):
+                    asyncio.create_task(auto_cut_action(self, player_index, self.action_dict[player_index], bot_ask_hand_game_status(self, player_index)))
                 continue
             elif current_player.user_id == 2:
-                if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                if self.action_dict.get(player_index, []):
+                    asyncio.create_task(smart_bot_action(self, player_index, self.action_dict[player_index], bot_ask_hand_game_status(self, player_index)))
                 continue
             elif current_player.user_id < 10:
                 continue
 
-            if i == self.current_player_index:
+            if player_index == self.current_player_index:
                 # 对当前玩家发送包含摸牌信息的消息
                 if current_player.user_id in self.game_server.user_id_to_connection:
                     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -175,8 +189,9 @@ async def broadcast_ask_hand_action(self):
                             remaining_time=current_player.remaining_time,
                             player_index= self.current_player_index,
                             remain_tiles=len(self.tiles_list),
-                            action_list=self.action_dict[i],
+                            action_list=self.action_dict[player_index],
                             action_tick=self.server_action_tick,
+                            deal_tile=forced_cut_tiles[-1] if forced_cut_tiles else None,
                             forced_cut_tiles=forced_cut_tiles or None
                         )
                     )
@@ -197,7 +212,7 @@ async def broadcast_ask_hand_action(self):
                             remaining_time=current_player.remaining_time,
                             player_index= self.current_player_index,
                             remain_tiles=len(self.tiles_list),
-                            action_list=self.action_dict[i],
+                            action_list=self.action_dict[player_index],
                             action_tick=self.server_action_tick
                         )
                     )
@@ -218,33 +233,34 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = getattr(self, "current_claim_cut_tile", None)
     if cut_tile is None:
-        cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+        cut_tile = _viewer_player(self, self.current_player_index).discard_tiles[-1]
     self.server_action_tick += 1
     self._ask_broadcast_time = time.time()  # 供重连补发时按经过时间重算剩余时间，与观战独立
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
+        player_index = current_player.player_index
         try:
             # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
-                if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                if self.action_dict.get(player_index, []):
+                    asyncio.create_task(auto_cut_action(self, player_index, self.action_dict[player_index], self.game_status))
                 continue
 
             # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
-                if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
+                if self.action_dict.get(player_index, []):
+                    asyncio.create_task(auto_cut_action(self, player_index, self.action_dict[player_index], self.game_status))
                 continue
             elif current_player.user_id == 2:
-                if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                if self.action_dict.get(player_index, []):
+                    asyncio.create_task(smart_bot_action(self, player_index, self.action_dict[player_index], self.game_status))
                 continue
             elif current_player.user_id < 10:
                 continue
 
             remaining_time_for_player = remaining_time_override if remaining_time_override is not None else current_player.remaining_time
-            if self.action_dict[i] != []:
+            if self.action_dict[player_index] != []:
                 # 发送询问行动信息
                 if current_player.user_id in self.game_server.user_id_to_connection:
                     player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -254,7 +270,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                         message="询问操作",
                         ask_other_action_info = Ask_other_action_info(
                             remaining_time=remaining_time_for_player,
-                            action_list=self.action_dict[i],
+                            action_list=self.action_dict[player_index],
                             cut_tile=cut_tile,
                             action_tick=self.server_action_tick,
                             is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
@@ -315,9 +331,14 @@ async def reconnected_send_pending_ask(self, user_id: int):
         return
     player_conn = self.game_server.user_id_to_connection[user_id]
     player = self.player_list[reconnect_idx]
+    player_index = player.player_index
     remaining_sent = _reconnect_remaining_time(self, player)
     if self.game_status == "waiting_hand_action":
-        if reconnect_idx == self.current_player_index:
+        if player_index == self.current_player_index:
+            forced_cut_tiles = list(getattr(self, "forced_cut_tiles", []) or [])
+            forced_cut_tile = getattr(self, "forced_cut_tile", None)
+            if not forced_cut_tiles and forced_cut_tile is not None:
+                forced_cut_tiles = [forced_cut_tile]
             response = Response(
                 type="gamestate/changsha/broadcast_hand_action",
                 success=True,
@@ -326,22 +347,24 @@ async def reconnected_send_pending_ask(self, user_id: int):
                     remaining_time=remaining_sent,
                     player_index=self.current_player_index,
                     remain_tiles=len(self.tiles_list),
-                    action_list=self.action_dict.get(reconnect_idx, []),
+                    action_list=self.action_dict.get(player_index, []),
                     action_tick=self.server_action_tick,
+                    deal_tile=forced_cut_tiles[-1] if forced_cut_tiles else None,
+                    forced_cut_tiles=forced_cut_tiles or None,
                 ),
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
-        if self.action_dict.get(reconnect_idx):
-            cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+        if self.action_dict.get(player_index):
+            cut_tile = _viewer_player(self, self.current_player_index).discard_tiles[-1]
             response = Response(
                 type="gamestate/changsha/ask_other_action",
                 success=True,
                 message="询问操作",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining_sent,
-                    action_list=self.action_dict[reconnect_idx],
+                    action_list=self.action_dict[player_index],
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
                 ),
@@ -369,6 +392,7 @@ def _build_do_action_payload(
     is_claim=False,
     silent=False,
     is_mo_gang=None,
+    sea_bottom_discard=None,
     meld_reveal_delay=None,
 ):
     viewer_mask = combination_mask
@@ -393,6 +417,7 @@ def _build_do_action_payload(
         "is_claim": True if is_claim else None,
         "silent": True if silent else None,
         "is_mo_gang": is_mo_gang,
+        "sea_bottom_discard": True if sea_bottom_discard else None,
         # 受保护观众鸣牌显示层延迟（秒）：服务器按序发送、客户端仅延迟鸣牌 3D 动画，复现 claim_meld_followup_gap 间隔。
         "meld_reveal_delay": meld_reveal_delay,
     }
@@ -401,7 +426,7 @@ def _build_do_action_payload(
 async def _send_do_action_payload_to_viewer(
     self, viewer_index: int, payload: dict, msg_type: str = "gamestate/changsha/do_action"
 ):
-    current_player = self.player_list[viewer_index]
+    current_player = _viewer_player(self, viewer_index)
     if "offline" in current_player.tag_list:
         return
     if current_player.user_id < 10:
@@ -435,6 +460,7 @@ async def broadcast_do_action(
     is_claim: bool = False,
     silent: bool = False,
     is_mo_gang: bool = None,
+    sea_bottom_discard: bool = None,
     ):
     # 战术鸣牌实际行为静默执行：申请阶段已发声/动画
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
@@ -451,6 +477,19 @@ async def broadcast_do_action(
 
     interval_active = claim_protection_enabled(self) and getattr(self, "_cp_active", False)
     is_cut = bool(action_list) and action_list[0] == "cut"
+    if is_cut and cut_tile is None:
+        player = _viewer_player(self, action_player)
+        fallback_cut_tile = getattr(self, "current_claim_cut_tile", None)
+        if fallback_cut_tile is None and getattr(player, "discard_tiles", None):
+            fallback_cut_tile = player.discard_tiles[-1]
+        if fallback_cut_tile is not None:
+            cut_tile = fallback_cut_tile
+            logger.warning(
+                "长沙cut广播缺少cut_tile，已从状态恢复: action_player=%s cut_tile=%s action_list=%s",
+                action_player,
+                cut_tile,
+                action_list,
+            )
     is_real_meld = (not is_claim) and bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
     cut_already_revealed = getattr(self, "_cp_cut_flushed", False)
 
@@ -462,6 +501,7 @@ async def broadcast_do_action(
         )
 
     for i, current_player in enumerate(self.player_list):
+        player_index = current_player.player_index
         try:
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
@@ -469,7 +509,7 @@ async def broadcast_do_action(
             if current_player.user_id < 10:
                 continue
 
-            protected = interval_active and is_protected_viewer(self, i)
+            protected = interval_active and is_protected_viewer(self, player_index)
 
             if is_claim and protected and not getattr(self, "_cp_cut_flushed", False):
                 continue
@@ -485,7 +525,7 @@ async def broadcast_do_action(
                 self,
                 action_list,
                 action_player,
-                i,
+                player_index,
                 cut_tile=cut_tile,
                 cut_tiles=cut_tiles,
                 cut_class=cut_class,
@@ -498,18 +538,19 @@ async def broadcast_do_action(
                 is_claim=is_claim,
                 silent=viewer_silent,
                 is_mo_gang=is_mo_gang,
+                sea_bottom_discard=sea_bottom_discard,
                 meld_reveal_delay=viewer_reveal_delay,
             )
 
             if protected and is_cut:
-                stash_protected_cut_payload(self, i, payload)
+                stash_protected_cut_payload(self, player_index, payload)
                 continue
 
             # 实际鸣牌按序 await 发送（不再用追赶协程延迟，避免受保护观众收到 N+4 在 N+2 之前的乱序）；
             # cut 已在 prepare_protected_meld_for_viewers 里 await flush 先发。
 
             if current_player.user_id in self.game_server.user_id_to_connection:
-                await _send_do_action_payload_to_viewer(self, i, payload)
+                await _send_do_action_payload_to_viewer(self, player_index, payload)
                 logger.info(f"已向玩家 {current_player.username} 广播操作信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -536,6 +577,8 @@ async def broadcast_result(self,
                           initial_hu_dice: Optional[List[int]] = None,
                           initial_hu_bird_seats: Optional[List[int]] = None,
                           initial_hu_payer_details: Optional[List[Dict]] = None,
+                          changsha_birds: Optional[List[int]] = None,
+                          changsha_bird_seats: Optional[List[int]] = None,
                           round_continues: Optional[bool] = None,
                           silent: bool = False):
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
@@ -576,6 +619,8 @@ async def broadcast_result(self,
                         initial_hu_dice=initial_hu_dice,
                         initial_hu_bird_seats=initial_hu_bird_seats,
                         initial_hu_payer_details=initial_hu_payer_details,
+                        changsha_birds=changsha_birds,
+                        changsha_bird_seats=changsha_bird_seats,
                         round_continues=round_continues,
                         silent=True if silent else None,
                     )

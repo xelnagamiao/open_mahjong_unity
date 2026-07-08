@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,7 +7,7 @@ public partial class NormalGameStateManager {
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null, string liuju_step = null, Dictionary<int, string> liuju_status = null, Dictionary<int, int[]> liuju_hands = null, bool liuju_status_final = false, int? hepai_tile = null, bool? multi_ron = null, bool? suppress_hand_reveal = null, Dictionary<int, int[]> liuju_hu_hands = null, bool? defer_score_settlement = null, int? cha_payer_index = null, int? ron_discarder_index = null, bool? recycle_discard = null, Dictionary<int, int> gang_refund_changes = null, bool? is_qianggang = null, bool liuju_refund = false) {
         lastGuobiaoEndExtras = guobiaoExtras;
         if (hu_class == "initial_hu") {
-            ShowInitialHuResult(hepai_player_index, player_to_score, score_changes, isSilent);
+            ShowInitialHuResult(hepai_player_index, player_to_score, score_changes, isSilent, hu_fan, hepai_player_hand);
             return;
         }
         // 重置自身命令
@@ -235,14 +236,34 @@ public partial class NormalGameStateManager {
         BoardCanvas.Instance.UpdatePlayerScores(player_to_score, indexToPosition);
     }
 
-    private void ShowInitialHuResult(int hepaiPlayerIndex, Dictionary<int, int> playerToScore, Dictionary<int, int> scoreChanges, bool isSilent) {
+    private void ShowInitialHuResult(
+        int hepaiPlayerIndex,
+        Dictionary<int, int> playerToScore,
+        Dictionary<int, int> scoreChanges,
+        bool isSilent,
+        string[] huFan,
+        int[] hepaiPlayerHand) {
         ApplyShowResultScores(playerToScore);
         if (!isSilent && indexToPosition != null && indexToPosition.TryGetValue(hepaiPlayerIndex, out string huPos)) {
             GameCanvas.Instance.ShowActionDisplay(huPos, "initial_hu", roomRule);
+            if (hepaiPlayerHand != null && hepaiPlayerHand.Length > 0) {
+                StartCoroutine(CoRevealInitialHuHand(huPos, hepaiPlayerHand, huFan));
+            }
         }
         if (GameCanvas.HasNonZeroGangScoreChanges(scoreChanges)) {
             GameCanvas.Instance.ShowGangScoreFloats(scoreChanges, 0f);
         }
+    }
+
+    private IEnumerator CoRevealInitialHuHand(string huPos, int[] hepaiPlayerHand, string[] huFan) {
+        if (Game3DManager.Instance == null) yield break;
+        HepaiPresentationRequest request = HepaiRevealDirector.BuildRequest(
+            huPos,
+            "initial_hu",
+            hepaiPlayerHand,
+            huFan);
+        yield return Game3DManager.Instance.PlayHepaiHandReveal(request);
+        Game3DManager.Instance.RestoreMidGameHandAfterCuoheRonReveal(huPos);
     }
 
     private static bool ContainsSichuanQianggangFan(string[] huFan) {

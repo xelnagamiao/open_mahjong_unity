@@ -545,7 +545,12 @@ public class TipsContainer : MonoBehaviour
         List<int> handList,
         List<string> combinationList) {
         var result = ChangshaExternal.HepaiCheck(handList, combinationList, new List<string>(), hepaiTile, false);
-        int score = result.Item1;
+        NormalGameStateManager gm = NormalGameStateManager.Instance;
+        int smallHuScore = gm != null ? gm.changshaSmallHuScore : 2;
+        int bigHuScore = gm != null ? gm.changshaBigHuScore : 8;
+        bool baseScoreNoDealer = gm != null && gm.changshaBaseScoreNoDealer;
+        bool dealerRelated = gm != null && gm.selfIndex == gm.dealerIndex;
+        int score = ChangshaExternal.BaseFromFans(result.Item2, dealerRelated, smallHuScore, bigHuScore, baseScoreNoDealer);
         string label = score > 0 ? $"{score}分" : "无番";
         if (result.Item2 != null && result.Item2.Count > 0) {
             label = $"{result.Item2[0]} {label}";

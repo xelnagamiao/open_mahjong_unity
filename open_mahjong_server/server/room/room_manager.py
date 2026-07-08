@@ -342,7 +342,10 @@ class RoomManager:
                                    initial_hu_liu_liu_shun: bool = True,
                                    initial_hu_san_tong: bool = True,
                                    bird_count: int = 2,
-                                   dealer_bird: bool = True) -> Response:
+                                   dealer_bird: bool = True,
+                                   base_score_no_dealer: bool = False,
+                                   small_hu_score: int = 2,
+                                   big_hu_score: int = 8) -> Response:
         """创建长沙麻将房间。当前接入经典双鸟规则。"""
         try:
             if player_id not in self.game_server.players:
@@ -379,6 +382,9 @@ class RoomManager:
                 "initial_hu_san_tong": initial_hu_san_tong,
                 "bird_count": bird_count,
                 "dealer_bird": dealer_bird,
+                "base_score_no_dealer": base_score_no_dealer,
+                "small_hu_score": small_hu_score,
+                "big_hu_score": big_hu_score,
             }
 
             try:

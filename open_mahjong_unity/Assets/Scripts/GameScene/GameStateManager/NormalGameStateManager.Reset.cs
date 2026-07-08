@@ -20,11 +20,17 @@ public partial class NormalGameStateManager {
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();
         selfForcedCutTiles.Clear();
+        ClearSelfForcedCutTracking();
         chiCandidates.Clear();
         IsQiangGangAsk = false;
         pendingAskFromJiagang = false;
         roomRule = null;
         subRule = null;
+        changshaSmallHuScore = 2;
+        changshaBigHuScore = 8;
+        changshaDealerBird = true;
+        changshaBaseScoreNoDealer = false;
+        changshaKongHandLocked = false;
 
         if (RiichiCutSelectionController.Instance != null && RiichiCutSelectionController.Instance.IsActive) {
             RiichiCutSelectionController.Instance.ExitRiichiCutMode();

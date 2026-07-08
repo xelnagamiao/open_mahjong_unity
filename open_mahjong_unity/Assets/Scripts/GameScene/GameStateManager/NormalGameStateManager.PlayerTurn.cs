@@ -84,6 +84,7 @@ public partial class NormalGameStateManager {
                 selfRiichiCandidateCuts.Clear();
                 selfForbiddenCutTiles.Clear();
                 selfForcedCutTiles.Clear();
+                ClearSelfForcedCutTracking();
                 // 立刻恢复手牌正常颜色，避免用户看到禁切灰色滞留到下一轮询问
                 GameCanvas.Instance.RefreshHandTileSelectability();
                 // 在自己执行操作以后计算听牌提示，如果有提示就显示右侧提示块
@@ -107,10 +108,14 @@ public partial class NormalGameStateManager {
             allowActionList.Clear();
             selfRiichiCandidateCuts.Clear();
             selfForbiddenCutTiles.Clear();
-            selfForcedCutTiles.Clear();
-            if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
-            IsSelfActionRequired = false;
-            GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
+                selfForcedCutTiles.Clear();
+                ClearSelfForcedCutTracking();
+                if (roomRule == "changsha") {
+                    changshaKongHandLocked = false;
+                }
+                if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
+                IsSelfActionRequired = false;
+                GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
         }
 
         // 时间耗尽
@@ -122,6 +127,10 @@ public partial class NormalGameStateManager {
             GameCanvas.Instance.ClearActionButton();
             if (RiichiCutSelectionController.Instance != null) RiichiCutSelectionController.Instance.ExitRiichiCutMode();
             selfForcedCutTiles.Clear();
+            ClearSelfForcedCutTracking();
+            if (roomRule == "changsha") {
+                changshaKongHandLocked = false;
+            }
             IsSelfActionRequired = false;
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
         }

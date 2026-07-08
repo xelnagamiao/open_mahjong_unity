@@ -6,7 +6,9 @@ Rules implemented for the first Salasasa integration:
 - Big hu accepts any winning shape and detects pengpenghu,
   qingyise, quanqiuren, seven pairs, luxury seven pairs, and context wins.
 - Jiangjianghu wins as long as every tile is 2/5/8.
-- Score base: small hu 1, big hu 6 per big pattern, dealer-related big hu 7.
+- Base score is configurable at the room level. The checker keeps the
+  default `small=2`, `big=8` so local tips and generic callers have a
+  stable fallback, while the gamestate may override these values.
   Birds and payer selection are handled by the gamestate layer.
 """
 from typing import Dict, Iterable, List, Tuple
@@ -88,6 +90,39 @@ def evaluate_changsha_initial_hu(tiles: List[int]) -> List[str]:
     ):
         result.append(INITIAL_HU_NAMES["sanTong"])
     return result
+
+
+def changsha_initial_hu_reveal_tiles(tiles: List[int], hu_types: List[str]) -> List[int]:
+    counts = _count_tiles(tiles)
+    if not counts or any(tile not in VALID_TILES for tile in tiles):
+        return list(tiles)
+
+    reveal: List[int] = []
+    requested = set(hu_types or [])
+
+    if INITIAL_HU_NAMES["siXi"] in requested:
+        for tile in sorted(counts):
+            if counts[tile] >= 4:
+                reveal.extend([tile] * 4)
+
+    if INITIAL_HU_NAMES["liuLiuShun"] in requested:
+        triplets_added = 0
+        for tile in sorted(counts):
+            if counts[tile] >= 3:
+                reveal.extend([tile] * 3)
+                triplets_added += 1
+                if triplets_added >= 2:
+                    break
+
+    if INITIAL_HU_NAMES["sanTong"] in requested:
+        for rank in range(1, 10):
+            matching_tiles = [suit * 10 + rank for suit in (1, 2, 3)]
+            if all(counts.get(tile, 0) >= 2 for tile in matching_tiles):
+                for tile in matching_tiles:
+                    reveal.extend([tile] * 2)
+                break
+
+    return reveal or list(tiles)
 
 
 def _expand_meld(comb: str) -> List[int]:
@@ -229,8 +264,7 @@ def _is_flush(all_tiles: List[int]) -> bool:
 
 
 def _is_quanqiuren(hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str]) -> bool:
-    zimo_tokens = {"自摸", "杠上开花", "杠上花", "天胡"}
-    return len(hand_list) == 2 and len(tiles_combination) == 4 and not any(t in way_to_hepai for t in zimo_tokens)
+    return len(tiles_combination) == 4 and _is_standard_shape(hand_list, tiles_combination, jiang_pair=False)
 
 
 def _append_context_fans(names: List[str], has_shape: bool, way_to_hepai: List[str]) -> None:
@@ -249,14 +283,25 @@ def _append_context_fans(names: List[str], has_shape: bool, way_to_hepai: List[s
             names.append(fan_name)
 
 
-def changsha_base_from_fans(fan_list: List[str], dealer_related: bool = False) -> int:
+def changsha_base_from_fans(
+    fan_list: List[str],
+    dealer_related: bool = False,
+    *,
+    small_hu_score: int = 2,
+    big_hu_score: int = 8,
+    base_score_no_dealer: bool = False,
+) -> int:
     """Return one payer's base payment before bird multipliers."""
     if not fan_list:
         return 0
     big_count = sum(BIG_HU_WEIGHTS.get(name, 1) for name in fan_list if name in BIG_HU_NAMES)
     if big_count > 0:
+        if base_score_no_dealer:
+            return max(0, int(big_hu_score)) * big_count
         return (7 if dealer_related else 6) * big_count
     if "小胡" in fan_list:
+        if base_score_no_dealer:
+            return max(0, int(small_hu_score))
         return 2 if dealer_related else 1
     return 0
 
@@ -291,7 +336,7 @@ class Changsha_Hepai_Check:
             big_names.append("将将胡")
         if has_shape and _is_flush(all_tiles):
             big_names.append("清一色")
-        if has_shape and _is_quanqiuren(concealed, melds, ways):
+        if _is_quanqiuren(concealed, melds, ways):
             big_names.append("全求人")
 
         seven_pairs = _seven_pairs_type(concealed, melds)

@@ -44,6 +44,11 @@ def _find_jiagang_combination_index(player, normal_tile: int) -> int:
 def _has_jiagang_target(player, normal_tile: int) -> bool:
     return _find_jiagang_combination_index(player, normal_tile) >= 0
 
+def _player_by_logical_index(self, player_index: int):
+    if hasattr(self, "_player_by_index"):
+        return self._player_by_index(player_index)
+    return self.player_list[player_index]
+
 def _consume_forced_gang_cut_tiles(self, player_index: int):
     forced_tiles = list(getattr(self, "forced_cut_tiles", []) or [])
     forced_tile = getattr(self, "forced_cut_tile", None)
@@ -52,7 +57,8 @@ def _consume_forced_gang_cut_tiles(self, player_index: int):
     if not forced_tiles:
         return []
 
-    hand = self.player_list[player_index].hand_tiles
+    player = _player_by_logical_index(self, player_index)
+    hand = player.hand_tiles
     for tile in forced_tiles:
         if tile in hand:
             hand.remove(tile)
@@ -60,7 +66,7 @@ def _consume_forced_gang_cut_tiles(self, player_index: int):
             logger.warning(
                 f"Missing forced gang cut tile in hand: player={player_index}, tile={tile}, hand={hand}"
             )
-    clear_draw_slot(self.player_list[player_index])
+    clear_draw_slot(player)
     self.forced_cut_tile = None
     self.forced_cut_tiles = []
     return forced_tiles
@@ -75,7 +81,7 @@ def _remove_claimed_discard(discard_tiles, tile_id):
 
 async def _execute_angang_replacement(self, player_index: int, target_tile: int, broadcast_action: str, replacement_count: int, forced_discard: bool) -> None:
     normal_angang = normalize_tile(target_tile)
-    player = self.player_list[player_index]
+    player = _player_by_logical_index(self, player_index)
     hand = player.hand_tiles
     draw_slot = has_draw_slot(player)
     is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
@@ -105,7 +111,7 @@ async def _execute_angang_replacement(self, player_index: int, target_tile: int,
 
 async def _execute_jiagang_replacement(self, player_index: int, target_tile: int, broadcast_action: str, replacement_count: int, forced_discard: bool) -> None:
     normal_jia = normalize_tile(target_tile)
-    player = self.player_list[player_index]
+    player = _player_by_logical_index(self, player_index)
     hand = player.hand_tiles
     draw_slot = has_draw_slot(player)
     is_mo_gang = resolve_is_mo_gang(hand, normal_jia, draw_slot=draw_slot)
@@ -153,20 +159,26 @@ async def wait_action(self):
     self.waiting_players_list = [] # [2,3]
     used_time = 0 # 已用时间
 
-    # 清空所有队列，防止上一轮残留的事件影响新一轮
-    for i in range(4):
-        while not self.action_queues[i].empty():
-            try:
-                self.action_queues[i].get_nowait()
-                logger.debug(f"清空玩家{i}队列中的残留事件")
-            except:
-                break
+    # 清空所有队列，防止上一轮残留的事件影响新一轮。
+    # 海底询问会在 broadcast_ask_hand_action 之后立刻进入 wait_action；
+    # 客户端点得很快时，合法 sea_bottom 可能已入队，不能在这里清掉。
+    if self.game_status != "waiting_sea_bottom":
+        for i in range(4):
+            while not self.action_queues[i].empty():
+                try:
+                    self.action_queues[i].get_nowait()
+                    logger.debug(f"清空玩家{i}队列中的残留事件")
+                except:
+                    break
 
     # 遍历所有可行动玩家，获取行动玩家列表和等待时间列表
     for player_index, action_list in self.action_dict.items():
         if action_list:  # 如果玩家有可用操作 将玩家加入列表并重置事件状态
             self.waiting_players_list.append(player_index)
-            self.action_events[player_index].clear()
+            if self.game_status == "waiting_sea_bottom" and not self.action_queues[player_index].empty():
+                self.action_events[player_index].set()
+            else:
+                self.action_events[player_index].clear()
 
     init_tactical_round_state(self)
 
@@ -178,7 +190,7 @@ async def wait_action(self):
     # waiting_ready
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
+    while self.waiting_players_list and any(_player_by_logical_index(self, i).remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
 
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
@@ -227,7 +239,7 @@ async def wait_action(self):
                 used_time += time_end - time_start # 服务器计算操作时间
                 used_int_time = int(used_time) # 变量整数时间
                 if timeout_grace > 0 and used_int_time >= timeout_grace: # 扣除玩家超出步时的时间
-                    self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
+                    _player_by_logical_index(self, temp_player_index).remaining_time -= (used_int_time - timeout_grace)
 
                 if temp_action_type == "pass" and hasattr(self, "record_hu_pass"):
                     self.record_hu_pass(temp_player_index, allowed_actions_before)
@@ -276,10 +288,10 @@ async def wait_action(self):
     # 首先将超时玩家剩余时间归零
     if self.waiting_players_list:
         for i in self.waiting_players_list:
-            self.player_list[i].remaining_time = 0
+            _player_by_logical_index(self, i).remaining_time = 0
 
     if action_data:
-        logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
+        logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={_player_by_logical_index(self, player_index).hand_tiles}")
     else:
         logger.info(f"操作超时")
 
@@ -304,9 +316,22 @@ async def wait_action(self):
             return True
 
         case "waiting_sea_bottom":
-            if action_data and action_type == "sea_bottom":
+            if action_type == "sea_bottom":
                 if hasattr(self, "_take_sea_bottom_tile"):
+                    logger.info(
+                        "执行长沙海底取牌: player_index=%s remain_tiles=%s status=%s",
+                        player_index,
+                        len(getattr(self, "tiles_list", []) or []),
+                        self.game_status,
+                    )
                     await self._take_sea_bottom_tile(player_index)
+                    logger.info(
+                        "长沙海底取牌完成: player_index=%s status=%s action_dict=%s remain_tiles=%s",
+                        player_index,
+                        self.game_status,
+                        self.action_dict,
+                        len(getattr(self, "tiles_list", []) or []),
+                    )
                 return True
             if action_data and action_type not in ("pass", "sea_bottom"):
                 logger.error(f"海底漫游阶段出现非法操作: action_type={action_type}, action_data={action_data}")
@@ -334,8 +359,9 @@ async def wait_action(self):
                             return
                         tile_id, is_moqie, cut_tile_index = cut_result
                         cut_tiles = [tile_id]
+                    player = self._player_by_index(player_index)
                     for cut_item in cut_tiles:
-                        self.player_list[player_index].discard_tiles.append(cut_item)
+                        player.discard_tiles.append(cut_item)
                         player_action_record_cut(self,cut_tile = cut_item,is_moqie = is_moqie)
                     if hasattr(self, "clear_hu_pass_after_own_discard"):
                         self.clear_hu_pass_after_own_discard(player_index)
@@ -375,7 +401,7 @@ async def wait_action(self):
                 elif action_type == "buzhang":
                     buzhang_tile = action_data.get("target_tile")
                     normal_buzhang = normalize_tile(buzhang_tile)
-                    player = self.player_list[self.current_player_index]
+                    player = _player_by_logical_index(self, self.current_player_index)
                     if _has_jiagang_target(player, normal_buzhang):
                         await _execute_jiagang_replacement(self, self.current_player_index, buzhang_tile, "buzhang", 1, False)
                     else:
@@ -385,7 +411,7 @@ async def wait_action(self):
                 elif action_type == "angang":
                     angang_tile = action_data.get("target_tile")
                     normal_angang = normalize_tile(angang_tile)
-                    player = self.player_list[self.current_player_index]
+                    player = _player_by_logical_index(self, self.current_player_index)
                     hand = player.hand_tiles
                     is_open_kong = (
                         hasattr(self, "_is_open_kong_ready_after_declared")
@@ -395,11 +421,11 @@ async def wait_action(self):
                     is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
                     removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
                     clear_draw_slot(player)
-                    self.player_list[self.current_player_index].combination_tiles.append(f"G{normal_angang}")
+                    player.combination_tiles.append(f"G{normal_angang}")
                     if is_open_kong:
-                        self.player_list[self.current_player_index].open_kong_locked = True
+                        player.open_kong_locked = True
                     add_combination_mask = [0, removed[0], 0, removed[1], 0, removed[2], 0, removed[3]]
-                    self.player_list[self.current_player_index].combination_mask.append(add_combination_mask)
+                    player.combination_mask.append(add_combination_mask)
                     player_action_record_angang(self, angang_tile=normal_angang, is_mo_gang=is_mo_gang,
                                                 combination_mask=add_combination_mask)
                     await broadcast_do_action(self,action_list = ["angang"],
@@ -417,7 +443,7 @@ async def wait_action(self):
                     # 加杠
                     jiagang_tile = action_data.get("target_tile") # 获取加杠牌
                     normal_jia = normalize_tile(jiagang_tile)
-                    player = self.player_list[self.current_player_index]
+                    player = _player_by_logical_index(self, self.current_player_index)
                     hand = player.hand_tiles
                     draw_slot = has_draw_slot(player)
                     is_mo_gang = resolve_is_mo_gang(hand, normal_jia, draw_slot=draw_slot)
@@ -425,33 +451,33 @@ async def wait_action(self):
                     clear_draw_slot(player)
 
                     combination_index = -1
-                    for i, combination in enumerate(self.player_list[self.current_player_index].combination_tiles):
+                    for i, combination in enumerate(player.combination_tiles):
                         if combination.startswith("k") and normalize_tile(int(combination[1:])) == normal_jia:
                             combination_index = i
                             break
 
                     if combination_index < 0:
                         logger.error(
-                            f"非法jiagang：未找到可加杠的刻子 normal_jia={normal_jia}, combination_tiles={self.player_list[self.current_player_index].combination_tiles}"
+                            f"非法jiagang：未找到可加杠的刻子 normal_jia={normal_jia}, combination_tiles={player.combination_tiles}"
                         )
                         self.game_status = "deal_card"
                         return
 
-                    for i, mask in enumerate(self.player_list[self.current_player_index].combination_mask[combination_index]):
+                    for i, mask in enumerate(player.combination_mask[combination_index]):
                         if mask == 1:
-                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, actual_jia)
-                            self.player_list[self.current_player_index].combination_mask[combination_index].insert(i, 3)
+                            player.combination_mask[combination_index].insert(i, actual_jia)
+                            player.combination_mask[combination_index].insert(i, 3)
                             break
 
-                    self.player_list[self.current_player_index].combination_tiles[combination_index] = f"g{normal_jia}"
-                    self.player_list[self.current_player_index].open_kong_locked = True
+                    player.combination_tiles[combination_index] = f"g{normal_jia}"
+                    player.open_kong_locked = True
 
                     # 牌谱记录加杠
                     player_action_record_jiagang(self, jiagang_tile=normal_jia, is_mo_gang=is_mo_gang)
 
                     await broadcast_do_action(self,action_list = ["jiagang"],
                                                   action_player = self.current_player_index,
-                                                  combination_mask = self.player_list[self.current_player_index].combination_mask[combination_index],
+                                                  combination_mask = player.combination_mask[combination_index],
                                                   combination_target = f"k{normal_jia}",
                                                   is_mo_gang=is_mo_gang,
                                                   ) # 广播加杠动画
@@ -476,7 +502,7 @@ async def wait_action(self):
                     return
             # 超时自动出牌（有摸牌区则摸切）
             else:
-                player = self.player_list[self.current_player_index]
+                player = self._player_by_index(self.current_player_index)
                 hand = player.hand_tiles
                 draw_slot = has_draw_slot(player)
                 is_moqie = draw_slot
@@ -493,7 +519,7 @@ async def wait_action(self):
                     clear_draw_slot(player)
                     cut_tiles = [tile_id]
                 for cut_item in cut_tiles:
-                    self.player_list[self.current_player_index].discard_tiles.append(cut_item)
+                    player.discard_tiles.append(cut_item)
                     player_action_record_cut(self,cut_tile = cut_item,is_moqie = is_moqie)
                 if hasattr(self, "clear_hu_pass_after_own_discard"):
                     self.clear_hu_pass_after_own_discard(self.current_player_index)
@@ -526,10 +552,12 @@ async def wait_action(self):
         case "waiting_action_after_cut":
             tile_id = getattr(self, "current_claim_cut_tile", None)
             if tile_id is None:
-                tile_id = self.player_list[self.current_player_index].discard_tiles[-1] # 获取操作牌
+                tile_id = _player_by_logical_index(self, self.current_player_index).discard_tiles[-1] # 获取操作牌
             combination_mask = []
             combination_target = ""
             if action_data:
+                action_player = _player_by_logical_index(self, player_index)
+                discard_player = _player_by_logical_index(self, self.current_player_index)
                 refresh_waiting_tiles(self,player_index) # 更新听牌
                 if action_type == "chi_left": # [tile_id-2,tile_id-1,tile_id]
                     if player_index != next_current_num(self.current_player_index):
@@ -538,15 +566,15 @@ async def wait_action(self):
                         )
                         self.game_status = "deal_card"
                         return
-                    if (tile_id - 1) not in self.player_list[player_index].hand_tiles or (tile_id - 2) not in self.player_list[player_index].hand_tiles:
+                    if (tile_id - 1) not in action_player.hand_tiles or (tile_id - 2) not in action_player.hand_tiles:
                         logger.error(
-                            f"非法chi_left：玩家{player_index}手牌不足，tile_id={tile_id}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法chi_left：玩家{player_index}手牌不足，tile_id={tile_id}, hand_tiles={action_player.hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id-1)
-                    self.player_list[player_index].hand_tiles.remove(tile_id-2)
-                    self.player_list[player_index].combination_tiles.append(f"s{tile_id-1}")
+                    action_player.hand_tiles.remove(tile_id-1)
+                    action_player.hand_tiles.remove(tile_id-2)
+                    action_player.combination_tiles.append(f"s{tile_id-1}")
                     combination_target = f"s{tile_id-1}"
                     combination_mask = [1,tile_id,0,tile_id-1,0,tile_id-2]
 
@@ -557,15 +585,15 @@ async def wait_action(self):
                         )
                         self.game_status = "deal_card"
                         return
-                    if (tile_id - 1) not in self.player_list[player_index].hand_tiles or (tile_id + 1) not in self.player_list[player_index].hand_tiles:
+                    if (tile_id - 1) not in action_player.hand_tiles or (tile_id + 1) not in action_player.hand_tiles:
                         logger.error(
-                            f"非法chi_mid：玩家{player_index}手牌不足，tile_id={tile_id}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法chi_mid：玩家{player_index}手牌不足，tile_id={tile_id}, hand_tiles={action_player.hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id-1)
-                    self.player_list[player_index].hand_tiles.remove(tile_id+1)
-                    self.player_list[player_index].combination_tiles.append(f"s{tile_id}")
+                    action_player.hand_tiles.remove(tile_id-1)
+                    action_player.hand_tiles.remove(tile_id+1)
+                    action_player.combination_tiles.append(f"s{tile_id}")
                     combination_target = f"s{tile_id}"
                     combination_mask = [1,tile_id,0,tile_id-1,0,tile_id+1]
 
@@ -576,29 +604,29 @@ async def wait_action(self):
                         )
                         self.game_status = "deal_card"
                         return
-                    if (tile_id + 1) not in self.player_list[player_index].hand_tiles or (tile_id + 2) not in self.player_list[player_index].hand_tiles:
+                    if (tile_id + 1) not in action_player.hand_tiles or (tile_id + 2) not in action_player.hand_tiles:
                         logger.error(
-                            f"非法chi_right：玩家{player_index}手牌不足，tile_id={tile_id}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法chi_right：玩家{player_index}手牌不足，tile_id={tile_id}, hand_tiles={action_player.hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id+1)
-                    self.player_list[player_index].hand_tiles.remove(tile_id+2)
-                    self.player_list[player_index].combination_tiles.append(f"s{tile_id+1}")
+                    action_player.hand_tiles.remove(tile_id+1)
+                    action_player.hand_tiles.remove(tile_id+2)
+                    action_player.combination_tiles.append(f"s{tile_id+1}")
                     combination_target = f"s{tile_id+1}"
                     combination_mask = [1,tile_id,0,tile_id+1,0,tile_id+2]
 
                 elif action_type == "peng": # [tile_id',tile_id',tile_id]
                     # 保护：必须至少有两张 tile_id
-                    if self.player_list[player_index].hand_tiles.count(tile_id) < 2:
+                    if action_player.hand_tiles.count(tile_id) < 2:
                         logger.error(
-                            f"非法peng：玩家{player_index}手牌不足，tile_id={tile_id}, count={self.player_list[player_index].hand_tiles.count(tile_id)}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法peng：玩家{player_index}手牌不足，tile_id={tile_id}, count={action_player.hand_tiles.count(tile_id)}, hand_tiles={action_player.hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].combination_tiles.append(f"k{tile_id}")
+                    action_player.hand_tiles.remove(tile_id)
+                    action_player.hand_tiles.remove(tile_id)
+                    action_player.combination_tiles.append(f"k{tile_id}")
                     # 获取相对位置 (操作者, 出牌者)
                     relative_position = get_index_relative_position(player_index, self.current_player_index)
                     combination_target = f"k{tile_id}"
@@ -611,17 +639,17 @@ async def wait_action(self):
 
                 elif action_type == "gang": # [tile_id',tile_id,tile_id',tile_id]
                     # 保护：明杠需要至少三张 tile_id
-                    if self.player_list[player_index].hand_tiles.count(tile_id) < 3:
+                    if action_player.hand_tiles.count(tile_id) < 3:
                         logger.error(
-                            f"非法gang：玩家{player_index}手牌不足，tile_id={tile_id}, count={self.player_list[player_index].hand_tiles.count(tile_id)}, hand_tiles={self.player_list[player_index].hand_tiles}, action_data={action_data}"
+                            f"非法gang：玩家{player_index}手牌不足，tile_id={tile_id}, count={action_player.hand_tiles.count(tile_id)}, hand_tiles={action_player.hand_tiles}, action_data={action_data}"
                         )
                         self.game_status = "deal_card"
                         return
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].hand_tiles.remove(tile_id)
-                    self.player_list[player_index].combination_tiles.append(f"g{tile_id}")
-                    self.player_list[player_index].open_kong_locked = True
+                    action_player.hand_tiles.remove(tile_id)
+                    action_player.hand_tiles.remove(tile_id)
+                    action_player.hand_tiles.remove(tile_id)
+                    action_player.combination_tiles.append(f"g{tile_id}")
+                    action_player.open_kong_locked = True
                     # 获取相对位置 (操作者, 出牌者)
                     relative_position = get_index_relative_position(player_index, self.current_player_index)
                     combination_target = f"g{tile_id}"
@@ -646,7 +674,7 @@ async def wait_action(self):
                         if delay > 0:
                             await asyncio.sleep(delay)
                     # 和牌 （荣和）
-                    self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
+                    action_player.hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type
                     self.game_status = "END"
                     logger.info(f"处理和牌操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}, tile_id={tile_id}")
@@ -656,10 +684,10 @@ async def wait_action(self):
                 if action_type in ("chi_left", "chi_mid", "chi_right", "peng", "gang"):
                     if getattr(self, "pending_gang_forced_discard", False):
                         self.prepare_gang_replacement(0, False)
-                    _remove_claimed_discard(self.player_list[self.current_player_index].discard_tiles, tile_id) # 删除弃牌堆中被鸣走的牌
-                    self.player_list[self.current_player_index].discard_origin_tiles.append(tile_id) # 添加弃牌理论弃牌
-                    self.player_list[player_index].combination_mask.append(combination_mask) # 添加组合掩码
-                    clear_draw_slot(self.player_list[player_index])
+                    _remove_claimed_discard(discard_player.discard_tiles, tile_id) # 删除弃牌堆中被鸣走的牌
+                    discard_player.discard_origin_tiles.append(tile_id) # 添加弃牌理论弃牌
+                    action_player.combination_mask.append(combination_mask) # 添加组合掩码
+                    clear_draw_slot(action_player)
                     self.current_player_index = player_index # 转移行为后 当前玩家索引变为操作玩家索引
                     flush_unexecuted_claim_applications(
                         self,
@@ -701,7 +729,7 @@ async def wait_action(self):
                 if action_type == "buzhang":
                     buzhang_tile = action_data.get("target_tile")
                     normal_buzhang = normalize_tile(buzhang_tile)
-                    player = self.player_list[self.current_player_index]
+                    player = self._player_by_index(self.current_player_index)
                     if _has_jiagang_target(player, normal_buzhang):
                         await _execute_jiagang_replacement(self, self.current_player_index, buzhang_tile, "buzhang", 1, False)
                     else:
@@ -711,7 +739,7 @@ async def wait_action(self):
                 elif action_type == "angang":
                     angang_tile = action_data.get("target_tile")
                     normal_angang = normalize_tile(angang_tile)
-                    player = self.player_list[self.current_player_index]
+                    player = self._player_by_index(self.current_player_index)
                     is_open_kong = (
                         hasattr(self, "_is_open_kong_ready_after_declared")
                         and self._is_open_kong_ready_after_declared(player, normal_angang)
@@ -744,7 +772,7 @@ async def wait_action(self):
                     if cut_result is None:
                         return
                     tile_id, is_moqie, cut_tile_index = cut_result
-                    self.player_list[self.current_player_index].discard_tiles.append(tile_id)
+                    _player_by_logical_index(self, self.current_player_index).discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                     if hasattr(self, "clear_hu_pass_after_own_discard"):
                         self.clear_hu_pass_after_own_discard(self.current_player_index)
@@ -764,13 +792,13 @@ async def wait_action(self):
                     raise ValueError("在转移行为onlycut_afteraction阶段出现非cut/buzhang/angang/jiagang的值")
             # 超时自动出牌（碰后无摸牌区，按牌值手切）
             else:
-                player = self.player_list[self.current_player_index]
+                player = self._player_by_index(self.current_player_index)
                 hand = player.hand_tiles
                 is_moqie = False
                 tile_id = pick_timeout_discard_tile(hand)
                 remove_cut_tile(hand, tile_id, is_moqie, draw_slot=False)
                 clear_draw_slot(player)
-                self.player_list[self.current_player_index].discard_tiles.append(tile_id)
+                player.discard_tiles.append(tile_id)
                 # 牌谱记录摸切
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                 if hasattr(self, "clear_hu_pass_after_own_discard"):
@@ -794,7 +822,7 @@ async def wait_action(self):
             if action_data:
                 if action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
                     # 和牌 （荣和）
-                    self.player_list[player_index].hand_tiles.append(temp_jiagang_tile) # 将和牌牌加入手牌最后一张
+                    _player_by_logical_index(self, player_index).hand_tiles.append(temp_jiagang_tile) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type
                     self.game_status = "END"
                     return

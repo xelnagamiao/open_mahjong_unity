@@ -21,6 +21,9 @@ public class Changsha_Create_RoomConfig {
     public bool InitialHuSanTong { get; set; } = true;
     public int BirdCount { get; set; } = 2;
     public bool DealerBird { get; set; } = true;
+    public bool BaseScoreNoDealer { get; set; } = false;
+    public int SmallHuScore { get; set; } = 2;
+    public int BigHuScore { get; set; } = 8;
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {
         if (string.IsNullOrEmpty(RoomName)) {
@@ -47,6 +50,14 @@ public class Changsha_Create_RoomConfig {
         }
         if (BirdCount != 0 && BirdCount != 1 && BirdCount != 2 && BirdCount != 4) {
             error = "扎鸟张数必须是0/1/2/4";
+            return false;
+        }
+        if (SmallHuScore < 1 || SmallHuScore > 999) {
+            error = "small_hu_score must be between 1 and 999";
+            return false;
+        }
+        if (BigHuScore < 1 || BigHuScore > 999) {
+            error = "big_hu_score must be between 1 and 999";
             return false;
         }
         if (RoundTimer < 0) {

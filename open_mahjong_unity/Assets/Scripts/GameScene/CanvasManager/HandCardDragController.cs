@@ -194,6 +194,17 @@ public class HandCardDragController : MonoBehaviour {
             && !NormalGameStateManager.Instance.allowActionList.Contains("cut")) {
             return false;
         }
+        if (NormalGameStateManager.Instance != null
+            && NormalGameStateManager.Instance.allowActionList.Contains("cut")
+            && NormalGameStateManager.Instance.selfForcedCutTiles != null
+            && NormalGameStateManager.Instance.selfForcedCutTiles.Count > 0) {
+            return false;
+        }
+        if (NormalGameStateManager.Instance != null
+            && NormalGameStateManager.Instance.roomRule == "changsha"
+            && NormalGameStateManager.Instance.changshaKongHandLocked) {
+            return false;
+        }
         return !gameCanvas.IsChangeHandCardProcessing;
     }
 

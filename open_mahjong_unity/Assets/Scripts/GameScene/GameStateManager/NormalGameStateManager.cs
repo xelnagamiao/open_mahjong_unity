@@ -125,6 +125,11 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public string hepaiWay; // 和牌方式 head_bump / multi_ron / three_ron_abort
     public bool redDora; // 是否启用赤宝牌
     public int dealerIndex; // 当前亲家索引
+    public int changshaSmallHuScore = 2;
+    public int changshaBigHuScore = 8;
+    public bool changshaDealerBird = true;
+    public bool changshaBaseScoreNoDealer = false;
+    public bool changshaKongHandLocked = false;
 
     /// <summary>立直麻将：当前自家可立直切牌候选 {tile_id: [waiting_tile_id, ...]}。</summary>
     public Dictionary<int, int[]> selfRiichiCandidateCuts = new Dictionary<int, int[]>();
@@ -132,6 +137,10 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public HashSet<int> selfForbiddenCutTiles = new HashSet<int>();
     /// <summary>强制出牌列表：长沙海底/开杠补张只能打这些摸入牌。</summary>
     public HashSet<int> selfForcedCutTiles = new HashSet<int>();
+    /// <summary>自家最近收到的摸牌消息计数，用于强制出牌询问到达时避免重复补牌。</summary>
+    private Dictionary<int, int> selfRecentDealTileCounts = new Dictionary<int, int>();
+    /// <summary>当前强制出牌询问已经确认过的牌，防止同一询问重发时重复补牌。</summary>
+    private Dictionary<int, int> selfEnsuredForcedCutTileCounts = new Dictionary<int, int>();
     /// <summary>当前一轮询问切牌后操作下发的吃牌候选（立直麻将赤宝牌场景）。</summary>
     public Dictionary<string, int[][]> chiCandidates = new Dictionary<string, int[][]>();
 

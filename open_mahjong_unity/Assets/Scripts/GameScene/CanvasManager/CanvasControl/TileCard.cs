@@ -162,6 +162,11 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         if (pressCard == null || !pressCard.IsSelectableForCut()) {
             return false;
         }
+        if (NormalGameStateManager.Instance != null
+            && NormalGameStateManager.Instance.IsChangshaKongHandInputLocked()) {
+            Debug.Log("[HandInput] 长沙开杠锁手中，拦截点击出牌");
+            return false;
+        }
         if (lastHandledPointerFrame == Time.frameCount) {
             return false;
         }
@@ -310,6 +315,11 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         Debug.Log($"点击了牌: {tileId},{currentGetTile}");
         if (!IsSelectableForCut()) {
             Debug.Log("该牌不可出（定缺/食替/立直限制）");
+            return;
+        }
+        if (NormalGameStateManager.Instance != null
+            && NormalGameStateManager.Instance.IsChangshaKongHandInputLocked()) {
+            Debug.Log("长沙开杠锁手中，禁止改动手牌");
             return;
         }
         // 立直选牌模式优先：仅向服务器发送 riichi_cut 请求；候选过滤已由 SetSelectable 完成。

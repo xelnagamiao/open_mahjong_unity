@@ -42,6 +42,7 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgCsInitialSanTong = "cs_initial_san_tong";
     private const string CfgCsBirdCount = "cs_bird_count";
     private const string CfgCsDealerBird = "cs_dealer_bird";
+    private const string CfgCsBaseScoreNoDealer = "cs_base_score_no_dealer";
 
     private static readonly int[] ChangshaBirdCountOptions = { 0, 1, 2, 4 };
 
@@ -134,6 +135,7 @@ public class CreatePanel : MonoBehaviour {
             { CfgCsInitialSanTong, true },
             { CfgCsBirdCount, 2 },
             { CfgCsDealerBird, true },
+            { CfgCsBaseScoreNoDealer, false },
         } },
     };
 
@@ -186,6 +188,13 @@ public class CreatePanel : MonoBehaviour {
     private TMP_Dropdown ChangshaOpenKongDropdown;
     private GameObject ChangshaBirdCountPanel;
     private TMP_Dropdown ChangshaBirdCountDropdown;
+    private GameObject ChangshaBaseScoreModePanel;
+    private TMP_Dropdown ChangshaBaseScoreModeDropdown;
+    private HorizontalLayoutGroup ChangshaDropdownHorizontalLayout;
+    private RectTransform ChangshaDropdownRowRect;
+    private Vector2 ChangshaDropdownRowOriginalSize;
+    private bool ChangshaDropdownRowSizeCached;
+    private readonly Dictionary<RectTransform, RectSnapshot> ChangshaDropdownRectSnapshots = new Dictionary<RectTransform, RectSnapshot>();
 
     [Header("输入字段")]
     [SerializeField] private TMP_InputField roomNameInput;
@@ -311,6 +320,7 @@ public class CreatePanel : MonoBehaviour {
             case CfgCsInitialSanTong: if (ChangshaInitialSanTongToggle != null) ChangshaInitialSanTongToggle.isOn = (bool)value; break;
             case CfgCsBirdCount:    SetChangshaBirdCount((int)value); break;
             case CfgCsDealerBird:   if (ChangshaDealerBirdToggle != null) ChangshaDealerBirdToggle.isOn = (bool)value; break;
+            case CfgCsBaseScoreNoDealer: SetChangshaBaseScoreNoDealer((bool)value); break;
         }
     }
 
@@ -351,6 +361,7 @@ public class CreatePanel : MonoBehaviour {
         TacticalCallToggle.gameObject.SetActive(visible.ContainsKey(CfgTacticalCall));
         if (BloodBattleToggle != null) BloodBattleToggle.gameObject.SetActive(visible.ContainsKey(CfgBloodBattle));
         SetChangshaOptionsVisible(_ruleState == "changsha");
+        ConfigureChangshaDropdownLayout(_ruleState == "changsha");
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
     }
@@ -484,7 +495,7 @@ public class CreatePanel : MonoBehaviour {
         lastToggle = ChangshaInitialLiuLiuShunToggle != null ? ChangshaInitialLiuLiuShunToggle : lastToggle;
         ChangshaInitialSanTongToggle = EnsureClonedToggle(lastToggle, ChangshaInitialSanTongToggle, "ChangshaInitialSanTong", "三同", true);
         lastToggle = ChangshaInitialSanTongToggle != null ? ChangshaInitialSanTongToggle : lastToggle;
-        ChangshaDealerBirdToggle = EnsureClonedToggle(lastToggle, ChangshaDealerBirdToggle, "ChangshaDealerBird", "定庄扎鸟", true);
+        ChangshaDealerBirdToggle = EnsureClonedToggle(lastToggle, ChangshaDealerBirdToggle, "ChangshaDealerBird", "本局开始庄扎鸟", true);
 
         ChangshaOpenKongPanel = EnsureClonedDropdownPanel(HepaiWayPanel, ChangshaOpenKongPanel, "ChangshaOpenKongPanel", "开杠张数");
         ChangshaOpenKongDropdown = ChangshaOpenKongPanel != null
@@ -507,10 +518,34 @@ public class CreatePanel : MonoBehaviour {
             SetChangshaBirdCount(2);
         }
 
+        ChangshaBaseScoreModePanel = EnsureClonedDropdownPanel(
+            ChangshaBirdCountPanel != null ? ChangshaBirdCountPanel : HepaiWayPanel,
+            ChangshaBaseScoreModePanel,
+            "ChangshaBaseScoreModePanel",
+            "基础计分");
+        ChangshaBaseScoreModeDropdown = ChangshaBaseScoreModePanel != null
+            ? ChangshaBaseScoreModePanel.GetComponentInChildren<TMP_Dropdown>(true)
+            : null;
+        if (ChangshaBaseScoreModeDropdown != null) {
+            ChangshaBaseScoreModeDropdown.ClearOptions();
+            ChangshaBaseScoreModeDropdown.AddOptions(new List<string> { "庄闲1/2/6/7", "不区分庄闲" });
+            SetChangshaBaseScoreNoDealer(false);
+        }
+
         SetChangshaOptionsVisible(false);
     }
 
     private GameObject EnsureClonedDropdownPanel(GameObject template, GameObject existing, string goName, string labelText) {
+        if (existing != null) return existing;
+        if (template == null) return null;
+        GameObject clone = Instantiate(template, template.transform.parent);
+        clone.name = goName;
+        SetPanelLabel(clone, labelText);
+        clone.SetActive(false);
+        return clone;
+    }
+
+    private GameObject EnsureClonedInputPanel(GameObject template, GameObject existing, string goName, string labelText) {
         if (existing != null) return existing;
         if (template == null) return null;
         GameObject clone = Instantiate(template, template.transform.parent);
@@ -532,12 +567,128 @@ public class CreatePanel : MonoBehaviour {
     private void SetChangshaOptionsVisible(bool visible) {
         if (ChangshaOpenKongPanel != null) ChangshaOpenKongPanel.SetActive(visible);
         if (ChangshaBirdCountPanel != null) ChangshaBirdCountPanel.SetActive(visible);
+        if (ChangshaBaseScoreModePanel != null) ChangshaBaseScoreModePanel.SetActive(visible);
         SetToggleVisible(ChangshaInitialSiXiToggle, visible);
         SetToggleVisible(ChangshaInitialBanBanHuToggle, visible);
         SetToggleVisible(ChangshaInitialQueYiSeToggle, visible);
         SetToggleVisible(ChangshaInitialLiuLiuShunToggle, visible);
         SetToggleVisible(ChangshaInitialSanTongToggle, visible);
         SetToggleVisible(ChangshaDealerBirdToggle, visible);
+    }
+
+    private struct RectSnapshot {
+        public Vector2 anchorMin;
+        public Vector2 anchorMax;
+        public Vector2 pivot;
+        public Vector2 anchoredPosition;
+        public Vector2 sizeDelta;
+
+        public RectSnapshot(RectTransform rect) {
+            anchorMin = rect.anchorMin;
+            anchorMax = rect.anchorMax;
+            pivot = rect.pivot;
+            anchoredPosition = rect.anchoredPosition;
+            sizeDelta = rect.sizeDelta;
+        }
+    }
+
+    private void CaptureChangshaDropdownRect(RectTransform rect) {
+        if (rect != null && !ChangshaDropdownRectSnapshots.ContainsKey(rect)) {
+            ChangshaDropdownRectSnapshots[rect] = new RectSnapshot(rect);
+        }
+    }
+
+    private void RestoreChangshaDropdownRects() {
+        foreach (KeyValuePair<RectTransform, RectSnapshot> item in ChangshaDropdownRectSnapshots) {
+            if (item.Key == null) continue;
+            item.Key.anchorMin = item.Value.anchorMin;
+            item.Key.anchorMax = item.Value.anchorMax;
+            item.Key.pivot = item.Value.pivot;
+            item.Key.anchoredPosition = item.Value.anchoredPosition;
+            item.Key.sizeDelta = item.Value.sizeDelta;
+        }
+    }
+
+    private static RectTransform PanelRectForDropdown(TMP_Dropdown dropdown, Transform row) {
+        if (dropdown == null || row == null) return null;
+        Transform current = dropdown.transform;
+        while (current != null && current.parent != row) {
+            current = current.parent;
+        }
+        return current as RectTransform;
+    }
+
+    private static RectTransform PanelRectForObject(GameObject panel) {
+        return panel != null ? panel.transform as RectTransform : null;
+    }
+
+    private static void AddPanelRect(List<RectTransform> panels, RectTransform rect) {
+        if (rect != null && rect.gameObject.activeSelf && !panels.Contains(rect)) {
+            panels.Add(rect);
+        }
+    }
+
+    private static void RebuildRowParentLayout(Transform row) {
+        if (row != null && row.parent is RectTransform parentRect) {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+        }
+    }
+
+    private void ConfigureChangshaDropdownLayout(bool isChangsha) {
+        if (HepaiWayPanel == null || HepaiWayPanel.transform.parent == null) return;
+
+        Transform row = HepaiWayPanel.transform.parent;
+        if (ChangshaDropdownRowRect == null) {
+            ChangshaDropdownRowRect = row as RectTransform;
+        }
+        if (!ChangshaDropdownRowSizeCached && ChangshaDropdownRowRect != null) {
+            ChangshaDropdownRowOriginalSize = ChangshaDropdownRowRect.sizeDelta;
+            ChangshaDropdownRowSizeCached = true;
+        }
+        if (ChangshaDropdownHorizontalLayout == null) {
+            ChangshaDropdownHorizontalLayout = row.GetComponent<HorizontalLayoutGroup>();
+        }
+
+        if (!isChangsha) {
+            RestoreChangshaDropdownRects();
+            if (ChangshaDropdownHorizontalLayout != null) ChangshaDropdownHorizontalLayout.enabled = true;
+            if (ChangshaDropdownRowRect != null && ChangshaDropdownRowSizeCached) {
+                ChangshaDropdownRowRect.sizeDelta = ChangshaDropdownRowOriginalSize;
+            }
+            RebuildRowParentLayout(row);
+            return;
+        }
+
+        if (ChangshaDropdownHorizontalLayout != null) ChangshaDropdownHorizontalLayout.enabled = false;
+
+        float rowWidth = ChangshaDropdownRowRect != null && ChangshaDropdownRowRect.rect.width > 1f ? ChangshaDropdownRowRect.rect.width : 1381f;
+        float cellHeight = Mathf.Max(92f, ChangshaDropdownRowOriginalSize.y);
+        float rowSpacing = 8f;
+        if (ChangshaDropdownRowRect != null) {
+            ChangshaDropdownRowRect.sizeDelta = new Vector2(
+                ChangshaDropdownRowOriginalSize.x,
+                cellHeight * 2f + rowSpacing
+            );
+        }
+
+        List<RectTransform> panels = new List<RectTransform>();
+        AddPanelRect(panels, PanelRectForDropdown(roundTimer, row));
+        AddPanelRect(panels, PanelRectForDropdown(stepTimer, row));
+        AddPanelRect(panels, PanelRectForObject(ChangshaOpenKongPanel));
+        AddPanelRect(panels, PanelRectForObject(ChangshaBirdCountPanel));
+        AddPanelRect(panels, PanelRectForObject(ChangshaBaseScoreModePanel));
+
+        float cellWidth = Mathf.Max(300f, (rowWidth - 20f) / 3f);
+        for (int i = 0; i < panels.Count; i++) {
+            RectTransform rect = panels[i];
+            CaptureChangshaDropdownRect(rect);
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.sizeDelta = new Vector2(cellWidth, cellHeight);
+            rect.anchoredPosition = new Vector2(20f + (i % 3) * cellWidth, -(i / 3) * (cellHeight + rowSpacing));
+        }
+        RebuildRowParentLayout(row);
     }
 
     private static void SetToggleVisible(Toggle toggle, bool visible) {
@@ -567,6 +718,16 @@ public class CreatePanel : MonoBehaviour {
         if (ChangshaBirdCountDropdown == null) return 2;
         int index = Mathf.Clamp(ChangshaBirdCountDropdown.value, 0, ChangshaBirdCountOptions.Length - 1);
         return ChangshaBirdCountOptions[index];
+    }
+
+    private void SetChangshaBaseScoreNoDealer(bool noDealer) {
+        if (ChangshaBaseScoreModeDropdown == null) return;
+        ChangshaBaseScoreModeDropdown.value = noDealer ? 1 : 0;
+        ChangshaBaseScoreModeDropdown.RefreshShownValue();
+    }
+
+    private bool GetChangshaBaseScoreNoDealer() {
+        return ChangshaBaseScoreModeDropdown != null && ChangshaBaseScoreModeDropdown.value == 1;
     }
 
     private void CacheDefaultGameRoundLabels() {
@@ -840,6 +1001,9 @@ public class CreatePanel : MonoBehaviour {
             InitialHuSanTong = ChangshaInitialSanTongToggle == null || ChangshaInitialSanTongToggle.isOn,
             BirdCount = GetChangshaBirdCount(),
             DealerBird = ChangshaDealerBirdToggle == null || ChangshaDealerBirdToggle.isOn,
+            BaseScoreNoDealer = GetChangshaBaseScoreNoDealer(),
+            SmallHuScore = 2,
+            BigHuScore = 8,
         };
 
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {

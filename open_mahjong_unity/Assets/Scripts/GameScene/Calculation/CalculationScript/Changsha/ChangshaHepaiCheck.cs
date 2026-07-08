@@ -13,7 +13,13 @@ namespace Changsha {
         private static readonly HashSet<int> JiangRanks = new HashSet<int> { 2, 5, 8 };
         private static readonly HashSet<string> BigHuNames = new HashSet<string> {
             "碰碰胡", "将将胡", "清一色", "全求人", "七小对", "豪华七小对",
+            "双豪华七小对", "三豪华七小对",
             "天胡", "地胡", "海底", "杠上开花", "杠上炮", "抢杠胡",
+        };
+        private static readonly Dictionary<string, int> BigHuWeights = new Dictionary<string, int> {
+            { "豪华七小对", 2 },
+            { "双豪华七小对", 3 },
+            { "三豪华七小对", 4 },
         };
 
         private static int Rank(int tile) {
@@ -169,12 +175,10 @@ namespace Changsha {
         }
 
         private static bool IsQuanqiuren(List<int> handList, List<string> tilesCombination, List<string> wayToHepai) {
-            var zimoTokens = new HashSet<string> { "自摸", "杠上开花", "杠上花", "天胡" };
             return handList != null
                 && tilesCombination != null
-                && handList.Count == 2
                 && tilesCombination.Count == 4
-                && !(wayToHepai ?? new List<string>()).Any(zimoTokens.Contains);
+                && IsStandardShape(handList, tilesCombination, false);
         }
 
         private static void AppendContextFans(List<string> names, bool hasShape, List<string> wayToHepai) {
@@ -196,11 +200,26 @@ namespace Changsha {
             }
         }
 
-        public static int BaseFromFans(List<string> fanList, bool dealerRelated = false) {
+        public static int BaseFromFans(
+            List<string> fanList,
+            bool dealerRelated = false,
+            int smallHuScore = 2,
+            int bigHuScore = 8,
+            bool baseScoreNoDealer = false) {
             if (fanList == null || fanList.Count == 0) return 0;
-            int bigCount = fanList.Count(name => BigHuNames.Contains(name));
-            if (bigCount > 0) return (dealerRelated ? 7 : 6) * bigCount;
-            if (fanList.Contains("小胡")) return dealerRelated ? 2 : 1;
+            int bigCount = fanList
+                .Where(name => BigHuNames.Contains(name))
+                .Sum(name => BigHuWeights.TryGetValue(name, out int weight) ? weight : 1);
+            if (bigCount > 0) {
+                return baseScoreNoDealer
+                    ? Math.Max(0, bigHuScore) * bigCount
+                    : (dealerRelated ? 7 : 6) * bigCount;
+            }
+            if (fanList.Contains("小胡")) {
+                return baseScoreNoDealer
+                    ? Math.Max(0, smallHuScore)
+                    : (dealerRelated ? 2 : 1);
+            }
             return 0;
         }
 
@@ -226,7 +245,7 @@ namespace Changsha {
             if (hasShape && IsAllTriplets(concealed, melds)) bigNames.Add("碰碰胡");
             if (hasShape && AllJiangTiles(allTiles)) bigNames.Add("将将胡");
             if (hasShape && IsFlush(allTiles)) bigNames.Add("清一色");
-            if (hasShape && IsQuanqiuren(concealed, melds, ways)) bigNames.Add("全求人");
+            if (IsQuanqiuren(concealed, melds, ways)) bigNames.Add("全求人");
 
             string sevenPairs = SevenPairsType(concealed, melds);
             if (sevenPairs == "normal") bigNames.Add("七小对");

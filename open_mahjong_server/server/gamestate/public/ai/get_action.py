@@ -61,6 +61,11 @@ def _resolve_buzhang_target(player, target_tile):
             return normal_target
     return _infer_jiagang_target(player) or _infer_angang_target(player)
 
+def _player_by_action_index(game_state, player_index: int):
+    if getattr(game_state, "room_rule", None) == "changsha" and hasattr(game_state, "_player_by_index"):
+        return game_state._player_by_index(player_index)
+    return game_state.player_list[player_index]
+
 # 获取机器人AI行动（直接使用玩家索引，只检测逻辑合法性）
 async def get_ai_action(game_state, player_index: int, action_type: str, cutClass: bool, TileId: int, cutIndex: int, target_tile: int, chi_combo_index: int = 0):
     """
@@ -84,7 +89,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
             return
         
         # 获取玩家对象
-        current_player = game_state.player_list[player_index]
+        current_player = _player_by_action_index(game_state, player_index)
         
         # 验证玩家是否在等待列表中（只有等待中的玩家才能执行操作）
         if player_index not in game_state.waiting_players_list:
@@ -180,7 +185,10 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         for index, player in enumerate(game_state.player_list):
             if player.user_id == user_id:
                 current_player = player
-                player_index = index
+                if getattr(game_state, "room_rule", None) == "changsha" and hasattr(player, "player_index"):
+                    player_index = player.player_index
+                else:
+                    player_index = index
                 break
         
         # 验证玩家是否在当前房间的玩家列表中

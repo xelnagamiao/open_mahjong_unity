@@ -6,11 +6,24 @@ public partial class NormalGameStateManager {
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time, int playerIndex, int remain_tiles, string[] action_list,
                               Dictionary<int, int[]> riichi_candidate_cuts = null, int[] forbidden_cut_tiles = null,
-                              int[] forced_cut_tiles = null) {
+                              int[] forced_cut_tiles = null, int? ask_deal_tile = null) {
         TryResumeAfterCuoheContinue();
         TryResumeAfterSichuanContinue();
         string GetCardPlayer = indexToPosition[playerIndex];
         remainTiles = remain_tiles;
+        if ((forced_cut_tiles == null || forced_cut_tiles.Length == 0) && ask_deal_tile.HasValue) {
+            forced_cut_tiles = new int[] { ask_deal_tile.Value };
+        }
+        Debug.Log($"AskHandAction player={playerIndex} self={selfIndex} actions={string.Join(",", action_list ?? new string[0])} forced={FormatIntArray(forced_cut_tiles)} askDeal={ask_deal_tile}");
+        if (roomRule == "changsha") {
+            bool isSeaBottomAsk = action_list != null && action_list.Contains("sea_bottom");
+            if (isSeaBottomAsk) {
+                Game3DManager.Instance?.ShowSeaBottomConcealedTile();
+            }
+            else {
+                Game3DManager.Instance?.ClearSeaBottomConcealedTile();
+            }
+        }
         // 立直麻将自家手牌可点状态依据：每次询问刷新
         selfRiichiCandidateCuts = riichi_candidate_cuts ?? new Dictionary<int, int[]>();
         selfForbiddenCutTiles = forbidden_cut_tiles != null
@@ -19,6 +32,23 @@ public partial class NormalGameStateManager {
         selfForcedCutTiles = forced_cut_tiles != null
             ? new HashSet<int>(forced_cut_tiles)
             : new HashSet<int>();
+        if (playerIndex == selfIndex && roomRule == "changsha") {
+            changshaKongHandLocked = selfForcedCutTiles.Count > 0;
+        }
+        if (forced_cut_tiles == null || forced_cut_tiles.Length == 0) {
+            ClearSelfForcedCutTracking();
+        }
+        if (playerIndex == selfIndex && forced_cut_tiles != null && forced_cut_tiles.Length > 0) {
+            Dictionary<int, int> alreadyEnsured = new Dictionary<int, int>(selfEnsuredForcedCutTileCounts);
+            selfEnsuredForcedCutTileCounts.Clear();
+            foreach (int forcedTile in forced_cut_tiles) {
+                if (TryConsumeRecentSelfDealTile(forcedTile) || TryConsumeTileCount(alreadyEnsured, forcedTile)) {
+                    RecordEnsuredForcedCutTile(forcedTile);
+                    continue;
+                }
+                AddForcedCutFallbackTile(forcedTile);
+            }
+        }
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             allowActionList.Clear();
@@ -56,7 +86,7 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, float? meld_reveal_delay = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, bool sea_bottom_discard = false, float? meld_reveal_delay = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
@@ -100,6 +130,7 @@ public partial class NormalGameStateManager {
                         for (int i = 0; i < resolvedDealTiles.Length; i++) {
                             int dealtTile = resolvedDealTiles[i];
                             selfHandTiles.Add(dealtTile);
+                            RecordRecentSelfDealTile(dealtTile);
                             string handChangeType = i == 0
                                 ? "GetCard"
                                 : (action == "deal_gang_tile" ? "GetGangReplacementCardNoLayout" : "GetCardNoAnimation");
@@ -124,6 +155,9 @@ public partial class NormalGameStateManager {
                 // 切牌
                 case "cut":
                     pendingAskFromJiagang = false;
+                    if (GetCardPlayer == "self" && roomRule == "changsha") {
+                        changshaKongHandLocked = false;
+                    }
                     int[] resolvedCutTiles = cut_tiles != null && cut_tiles.Length > 0
                         ? cut_tiles
                         : (cut_tile.HasValue ? new int[] { cut_tile.Value } : new int[0]);
@@ -138,6 +172,15 @@ public partial class NormalGameStateManager {
                         player_to_info[GetCardPlayer].discard_tiles.Add(discardedTile);
                         player_to_info[GetCardPlayer].discard_riichi_flags.Add(isRiichiHorizontalCut);
                     }
+                    if (sea_bottom_discard) {
+                        Game3DManager.Instance?.PlaceDiscardTileWithoutHandRemoval(
+                            discardedTile: claimedOrLastCutTile,
+                            playerPosition: GetCardPlayer,
+                            isRiichi: isRiichiHorizontalCut,
+                            playCutPhysicsSound: !isSilent
+                        );
+                        break;
+                    }
                     if (GetCardPlayer == "self"){
                         if (cut_class.Value && resolvedCutTiles.Length > 1){
                             for (int i = 0; i < resolvedCutTiles.Length; i++) {
@@ -147,6 +190,7 @@ public partial class NormalGameStateManager {
                             Game3DManager.Instance.Change3DDiscardTiles(resolvedCutTiles, GetCardPlayer, cut_class.Value, isRiichiHorizontalCut, playCutPhysicsSound: !isSilent);
                             GameCanvas.Instance.ChangeHandCards("RemoveGetCards", 0, resolvedCutTiles, null);
                             break;
+                        }
                         lastDealTileId = 0;
                         selfHandTiles.Remove(cut_tile.Value); // 删除手牌
                         Game3DManager.Instance.Change3DTile("Discard",cut_tile.Value,0,GetCardPlayer,cut_class.Value,null,isRiichiHorizontalCut, playCutPhysicsSound: !isSilent); // 3D切牌行为
@@ -197,6 +241,9 @@ public partial class NormalGameStateManager {
 
                 // 吃碰杠
                 case "chi_left": case"chi_mid": case"chi_right": case "buzhang": case "angang": case "jiagang": case "peng": case "gang":
+                    if (GetCardPlayer == "self" && roomRule == "changsha" && IsChangshaKongAction(action)) {
+                        changshaKongHandLocked = true;
+                    }
                     bool isBuzhangJiagang = action == "buzhang"
                         && !string.IsNullOrEmpty(combination_target)
                         && combination_target.StartsWith("k");
@@ -325,6 +372,16 @@ public partial class NormalGameStateManager {
         return false;
     }
 
+    private static bool IsChangshaKongAction(string action) {
+        return action == "gang" || action == "angang" || action == "jiagang" || action == "buzhang";
+    }
+
+    public bool IsChangshaKongHandInputLocked() {
+        return roomRule == "changsha"
+            && changshaKongHandLocked
+            && (selfForcedCutTiles == null || selfForcedCutTiles.Count == 0);
+    }
+
     private static bool ActionAffectsVisibleTiles(string action) {
         switch (action) {
             case "cut":
@@ -448,6 +505,46 @@ public partial class NormalGameStateManager {
             }
         }
         return result;
+    }
+
+    private void AddForcedCutFallbackTile(int tile) {
+        selfHandTiles.Add(tile);
+        RecordEnsuredForcedCutTile(tile);
+        Debug.LogWarning($"强制出牌兜底补入摸牌: tile={tile}");
+        GameCanvas.Instance.ChangeHandCards("GetCard", tile, null, null);
+        Game3DManager.Instance.Change3DTile("GetCard", tile, 0, "self", false, null);
+    }
+
+    private void RecordRecentSelfDealTile(int tile) {
+        selfRecentDealTileCounts.TryGetValue(tile, out int count);
+        selfRecentDealTileCounts[tile] = count + 1;
+    }
+
+    private bool TryConsumeRecentSelfDealTile(int tile) {
+        return TryConsumeTileCount(selfRecentDealTileCounts, tile);
+    }
+
+    private void RecordEnsuredForcedCutTile(int tile) {
+        selfEnsuredForcedCutTileCounts.TryGetValue(tile, out int count);
+        selfEnsuredForcedCutTileCounts[tile] = count + 1;
+    }
+
+    private static bool TryConsumeTileCount(Dictionary<int, int> counts, int tile) {
+        if (counts == null || !counts.TryGetValue(tile, out int count) || count <= 0) {
+            return false;
+        }
+        if (count == 1) counts.Remove(tile);
+        else counts[tile] = count - 1;
+        return true;
+    }
+
+    private void ClearSelfForcedCutTracking() {
+        selfRecentDealTileCounts.Clear();
+        selfEnsuredForcedCutTileCounts.Clear();
+    }
+
+    private static string FormatIntArray(int[] values) {
+        return values == null ? "null" : string.Join(",", values);
     }
 
     // 战术鸣牌：处理 is_claim 申请广播（仅发声/字体动画，等待窗口由服务端 ask_other 驱动）

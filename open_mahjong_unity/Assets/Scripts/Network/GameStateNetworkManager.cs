@@ -151,7 +151,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             handresponse.action_list,
             handresponse.riichi_candidate_cuts,
             handresponse.forbidden_cut_tiles,
-            handresponse.forced_cut_tiles
+            handresponse.forced_cut_tiles,
+            handresponse.deal_tile
         );
     }
     
@@ -228,6 +229,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.is_mo_buhua,
             doresponse.action_tick,
             doresponse.cut_from_player,
+            doresponse.sea_bottom_discard == true,
             doresponse.meld_reveal_delay
         );
     }

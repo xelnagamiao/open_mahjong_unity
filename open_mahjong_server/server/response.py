@@ -65,6 +65,9 @@ class GameInfo(BaseModel):
     initial_hu_san_tong: Optional[bool] = None
     bird_count: Optional[int] = None
     dealer_bird: Optional[bool] = None
+    base_score_no_dealer: Optional[bool] = None
+    small_hu_score: Optional[int] = None
+    big_hu_score: Optional[int] = None
     self_hand_tiles: Optional[List[int]] = None
     # 立直麻将专用字段
     honba: Optional[int] = None  # 本场棒数
@@ -92,6 +95,7 @@ class Ask_hand_action_info(BaseModel):
     remain_tiles: int
     action_list: List[str]
     action_tick: int
+    deal_tile: Optional[int] = None
     forced_cut_tiles: Optional[List[int]] = None
     # 立直麻将：可立直切牌候选 {tile_id: [waiting_tile, ...]}，仅当 action_list 含 riichi_cut 时下发
     riichi_candidate_cuts: Optional[Dict[int, List[int]]] = None
@@ -127,6 +131,8 @@ class Do_action_info(BaseModel):
     # 鸣牌（吃/碰/明杠）真正认走的打牌者座位索引；仅 meld 帧由服务端显式下发，
     # 客户端据此精确移除对应玩家牌河的弃牌，消除乱序/双同牌歧义。cut/摸牌等帧为 None。
     cut_from_player: Optional[int] = None
+    # 长沙海底：最后一张牌翻开后直接进入要海底玩家牌河，不从手牌移除。
+    sea_bottom_discard: Optional[bool] = None
     # 受保护观众鸣牌的显示层延迟（秒）：服务器按序发送、客户端仅延迟鸣牌 3D 动画/声音，
     # 客户端 display/音效/3D 一并延后，复现“出牌→claim_meld_followup_gap→鸣牌”间隔且不破坏 wire 顺序。非受保护观众为 None。
     meld_reveal_delay: Optional[float] = None
@@ -209,6 +215,8 @@ class Show_result_info(BaseModel):
     initial_hu_dice: Optional[List[int]] = None
     initial_hu_bird_seats: Optional[List[int]] = None
     initial_hu_payer_details: Optional[List[Dict]] = None
+    changsha_birds: Optional[List[int]] = None
+    changsha_bird_seats: Optional[List[int]] = None
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}

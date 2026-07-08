@@ -65,6 +65,10 @@ def _append_unique(actions: list, action: str) -> None:
     if action not in actions:
         actions.append(action)
 
+def filter_open_kong_replacement_actions(actions: list) -> list:
+    """After Changsha open-kong replacement draws, only winning is optional."""
+    return ["hu_self"] if actions and "hu_self" in actions else []
+
 # 切牌后检查 存储 吃chi 碰peng 杠gang 胡hu 操作
 def check_action_after_cut(self,cut_tile):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}

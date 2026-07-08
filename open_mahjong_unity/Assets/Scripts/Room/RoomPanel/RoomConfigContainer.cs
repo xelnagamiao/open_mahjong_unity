@@ -37,7 +37,7 @@ public class RoomConfigContainer : MonoBehaviour {
         { "changsha", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
-            "dealer_bird", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+            "dealer_bird", "base_score_no_dealer", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
     };
 
@@ -92,7 +92,9 @@ public class RoomConfigContainer : MonoBehaviour {
         switch (fieldName) {
             case "room_type":
                 displayName = "规则";
-                displayValue = RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
+                displayValue = roomInfo.room_rule == "changsha"
+                    ? "长沙双鸟"
+                    : RuleNameDictionary.GetWholeName(roomInfo.sub_rule);
                 return true;
             case "game_round":
                 displayName = "圈数";
@@ -140,7 +142,11 @@ public class RoomConfigContainer : MonoBehaviour {
                 return true;
             case "dealer_bird":
                 displayName = "扎鸟规则";
-                displayValue = roomInfo.dealer_bird ? "定庄扎鸟" : "赢家扎鸟";
+                displayValue = roomInfo.dealer_bird ? "本局开始庄" : "胡牌为庄";
+                return true;
+            case "base_score_no_dealer":
+                displayName = "基础计分";
+                displayValue = roomInfo.base_score_no_dealer ? "不区分庄闲" : "庄闲1/2/6/7";
                 return true;
             case "has_password":
                 displayName = "密码";
@@ -201,7 +207,9 @@ public class RoomConfigContainer : MonoBehaviour {
         if (roomInfo.initial_hu_que_yi_se) enabled.Add("缺一色");
         if (roomInfo.initial_hu_liu_liu_shun) enabled.Add("六六顺");
         if (roomInfo.initial_hu_san_tong) enabled.Add("三同");
-        return enabled.Count > 0 ? string.Join("/", enabled) : "关闭";
+        if (enabled.Count == 0) return "关闭";
+        if (enabled.Count <= 2) return string.Join("/", enabled);
+        return enabled.Count == 5 ? "五项全开" : $"{enabled.Count}项开启";
     }
 
     private string FormatStepTimer(int stepTimer) {
