@@ -127,6 +127,7 @@ public partial class NormalGameStateManager {
                             Debug.LogError($"Missing deal_tile: action={action}, player={action_player}");
                             break;
                         }
+                        lastDealTileId = resolvedDealTiles[resolvedDealTiles.Length - 1];
                         for (int i = 0; i < resolvedDealTiles.Length; i++) {
                             int dealtTile = resolvedDealTiles[i];
                             selfHandTiles.Add(dealtTile);
@@ -137,10 +138,6 @@ public partial class NormalGameStateManager {
                             GameCanvas.Instance.ChangeHandCards(handChangeType, dealtTile, null, null);
                             Game3DManager.Instance.Change3DTile("GetCard", dealtTile, 0, GetCardPlayer, false, null);
                         }
-                        lastDealTileId = deal_tile.Value;
-                        selfHandTiles.Add(deal_tile.Value);
-                        GameCanvas.Instance.ChangeHandCards("GetCard", deal_tile.Value, null, null);
-                        Game3DManager.Instance.Change3DTile("GetCard", deal_tile.Value, 0, GetCardPlayer, false, null);
                     }
                     else{
                         int dealCount = resolvedDealTiles.Length > 0 ? resolvedDealTiles.Length : 1;
@@ -182,30 +179,22 @@ public partial class NormalGameStateManager {
                         break;
                     }
                     if (GetCardPlayer == "self"){
-                        if (cut_class.Value && resolvedCutTiles.Length > 1){
+                        lastDealTileId = 0;
+                        if (cut_class.Value && resolvedCutTiles.Length > 1) {
                             for (int i = 0; i < resolvedCutTiles.Length; i++) {
                                 int discardedTile = resolvedCutTiles[i];
                                 selfHandTiles.Remove(discardedTile);
                             }
                             Game3DManager.Instance.Change3DDiscardTiles(resolvedCutTiles, GetCardPlayer, cut_class.Value, isRiichiHorizontalCut, playCutPhysicsSound: !isSilent);
                             GameCanvas.Instance.ChangeHandCards("RemoveGetCards", 0, resolvedCutTiles, null);
-                            break;
-                        }
-                        lastDealTileId = 0;
-                        selfHandTiles.Remove(cut_tile.Value); // 删除手牌
-                        Game3DManager.Instance.Change3DTile("Discard",cut_tile.Value,0,GetCardPlayer,cut_class.Value,null,isRiichiHorizontalCut, playCutPhysicsSound: !isSilent); // 3D切牌行为
-                        if (cut_class.Value){
-                            GameCanvas.Instance.ChangeHandCards("RemoveGetCard",cut_tile.Value,null,null); // 2D摸切行为
-                        }
-                        for (int i = 0; i < resolvedCutTiles.Length; i++) {
-                            int discardedTile = resolvedCutTiles[i];
-                            selfHandTiles.Remove(discardedTile);
-                            Game3DManager.Instance.Change3DTile("Discard",discardedTile,0,GetCardPlayer,cut_class.Value,null,isRiichiHorizontalCut, playCutPhysicsSound: !isSilent && i == 0);
-                            if (cut_class.Value && i == 0){
-                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard",discardedTile,null,null);
-                            }
-                            else{
-                                GameCanvas.Instance.ChangeHandCards("RemoveHandCard", discardedTile, null, i == 0 ? cut_tile_index : null);
+                        } else {
+                            int tileToCut = cut_tile ?? resolvedCutTiles[resolvedCutTiles.Length - 1];
+                            selfHandTiles.Remove(tileToCut);
+                            Game3DManager.Instance.Change3DTile("Discard", tileToCut, 0, GetCardPlayer, cut_class.Value, null, isRiichiHorizontalCut, playCutPhysicsSound: !isSilent);
+                            if (cut_class.Value) {
+                                GameCanvas.Instance.ChangeHandCards("RemoveGetCard", tileToCut, null, null);
+                            } else {
+                                GameCanvas.Instance.ChangeHandCards("RemoveHandCard", tileToCut, null, cut_tile_index);
                             }
                         }
                     }

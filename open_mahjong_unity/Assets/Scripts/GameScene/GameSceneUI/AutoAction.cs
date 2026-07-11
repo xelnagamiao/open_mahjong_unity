@@ -113,6 +113,7 @@ public class AutoAction : MonoBehaviour{
 
         SetSpectatorOnlyLayout(false);
         ApplyCompactButtonLabels();
+        ApplyBuhuaButtonVisibility();
 
         // 更新显示
         UpdateAllTextColors();
@@ -153,7 +154,20 @@ public class AutoAction : MonoBehaviour{
         SetTextActive(autoHepaiText, visible);
         SetTextActive(autoCutCardText, visible);
         SetTextActive(autoPassText, visible);
-        SetTextActive(autoBuhuaText, visible);
+        SetTextActive(autoBuhuaText, visible && ShouldShowBuhuaAutoActionButton());
+    }
+
+    private void ApplyBuhuaButtonVisibility() {
+        SetTextActive(autoBuhuaText, ShouldShowBuhuaAutoActionButton());
+    }
+
+    /// <summary>无补花流程的规则（长沙/四川等）隐藏自动补花按钮。</summary>
+    private static bool ShouldShowBuhuaAutoActionButton() {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null || string.IsNullOrEmpty(gsm.roomRule)) {
+            return true;
+        }
+        return gsm.roomRule != "changsha" && gsm.roomRule != "sichuan";
     }
 
     private void SetOtherActionPanelVisible(bool visible) {
@@ -186,8 +200,8 @@ public class AutoAction : MonoBehaviour{
         AddClickListener(arrangeHandCardsText, ToggleArrangeHandCards);
         AddClickListener(autoHepaiText, ToggleAutoHepai);
         AddClickListener(autoCutCardText, ToggleAutoCutCard);
-        AddClickListener(autoPassText, TogglePassPengOption);
-        AddClickListener(autoBuhuaText, TogglePassChiOption);
+        AddClickListener(autoPassText, ToggleAutoPass);
+        AddClickListener(autoBuhuaText, ToggleAutoBuhua);
         AddClickListener(expandButtonText, ToggleMingPaiPanel);
     }
 
@@ -195,8 +209,8 @@ public class AutoAction : MonoBehaviour{
         if (expandButtonText != null) expandButtonText.text = "展";
         if (arrangeHandCardsText != null) arrangeHandCardsText.text = "理";
         if (autoHepaiText != null) autoHepaiText.text = "和";
-        if (autoBuhuaText != null) autoBuhuaText.text = "吃";
-        if (autoPassText != null) autoPassText.text = "碰";
+        if (autoBuhuaText != null) autoBuhuaText.text = "补";
+        if (autoPassText != null) autoPassText.text = "鸣";
         if (autoCutCardText != null) autoCutCardText.text = "切";
     }
 
@@ -264,33 +278,14 @@ public class AutoAction : MonoBehaviour{
         }
     }
 
-    private void TogglePassChiOption() {
-        TilePassSettingPanel panel = GetTilePassPanel();
-        if (panel == null) return;
-        panel.SetMeldPassOptions(!panel.PassChi, panel.PassPeng, panel.PassMingGang);
-        SyncAutoPassFromMeldFilters();
-        UpdateTextColor(autoBuhuaText, panel.PassChi);
-    }
-
-    private void TogglePassPengOption() {
-        TilePassSettingPanel panel = GetTilePassPanel();
-        if (panel == null) return;
-        panel.SetMeldPassOptions(panel.PassChi, !panel.PassPeng, panel.PassMingGang);
-        SyncAutoPassFromMeldFilters();
-        UpdateTextColor(autoPassText, panel.PassPeng);
-    }
-
     /// <summary>根据牌张设置中「不吃/不碰/不明杠」是否全选，同步主面板「自动过牌」显示。</summary>
     private void SyncAutoPassFromMeldFilters() {
         bool allMeldPassOn = IsPassChi && IsPassPeng && IsPassMingGang;
         if (isAutoPass == allMeldPassOn) {
-            UpdateTextColor(autoBuhuaText, IsPassChi);
-            UpdateTextColor(autoPassText, IsPassPeng);
             return;
         }
         isAutoPass = allMeldPassOn;
-        UpdateTextColor(autoBuhuaText, IsPassChi);
-        UpdateTextColor(autoPassText, IsPassPeng);
+        UpdateTextColor(autoPassText, isAutoPass);
     }
 
     // 切换自动补花
@@ -346,7 +341,7 @@ public class AutoAction : MonoBehaviour{
         UpdateTextColor(arrangeHandCardsText, isAutoArrangeHandCards);
         UpdateTextColor(autoHepaiText, isAutoHepai);
         UpdateTextColor(autoCutCardText, isAutoCut);
-        UpdateTextColor(autoPassText, IsPassPeng);
-        UpdateTextColor(autoBuhuaText, IsPassChi);
+        UpdateTextColor(autoPassText, isAutoPass);
+        UpdateTextColor(autoBuhuaText, isAutoBuhua);
     }
 }

@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using System.Linq;
 
 public partial class GameRecordManager {
+    /// <summary>牌谱听牌提示与对局当时 tips 房间设置无关；game_title.tips 仅作信息面板元数据。</summary>
     public bool ShouldShowRecordTips() {
-        if (!gameObject.activeSelf || gameRecord?.gameTitle == null) return false;
-        return ReadGameTitleBool(gameRecord.gameTitle, "tips", false);
+        return gameObject.activeSelf && gameRecord?.gameTitle != null;
     }
 
     public void HideRecordTips() {

@@ -62,7 +62,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Trophy, Promotion, Star, Coffee, Document, Place, Collection } from '@element-plus/icons-vue'
+import { Trophy, Promotion, Star, Coffee, Document, Place, Collection, Food } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -149,6 +149,21 @@ const rules = [
         desc: '四川麻将（SBR）竞赛规则（试行 2025 版）。',
         url: '/rulebooks/sichuan-sbr.pdf',
         filename: '四川麻将（SBR）竞赛规则（试行2025版）.pdf'
+      }
+    ]
+  },
+  {
+    key: 'changsha',
+    label: '长沙麻将',
+    description: '长沙麻将是湖南地区流行的麻将玩法。',
+    gradient: 'linear-gradient(135deg, #ff6b6b 0%, #feca57 100%)',
+    icon: Food,
+    docs: [
+      {
+        title: '长沙麻将（双鸟）规则书',
+        desc: '本平台长沙麻将的规则说明。',
+        url: '/rulebooks/changsha-classic-double-bird-rulebook.pdf',
+        filename: 'changsha-classic-double-bird-rulebook.pdf'
       }
     ]
   },
