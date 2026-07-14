@@ -481,6 +481,12 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                     waitingTiles.RemoveWhere(w => (w / 10) == dingque);
                 }
             }
+            else if (NormalGameStateManager.Instance.roomRule == "jiandan"){
+                waitingTiles = JiandanExternal.TingpaiCheck(
+                    tempHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>()
+                );
+            }
             else if (NormalGameStateManager.Instance.roomRule == "changsha"){
                 waitingTiles = ChangshaExternal.TingpaiCheck(
                     tempHandTiles,

@@ -17,6 +17,7 @@ public static class ScoreHistorySettlementHelper {
             "riichi" => "riichi/standard",
             "sichuan" => "sichuan/standard",
             "changsha" => "changsha/classic_double_bird",
+            "jiandan" => "jiandan/standard",
             _ => r
         };
     }
@@ -30,7 +31,7 @@ public static class ScoreHistorySettlementHelper {
         if (snapshot.isLiuju) return "流局";
         if (snapshot.huFan == null || snapshot.huFan.Length == 0) return "—";
         string mainFan = PickMainFanName(subRule, snapshot.huFan);
-        return string.IsNullOrEmpty(mainFan) ? "—" : mainFan;
+        return string.IsNullOrEmpty(mainFan) ? "—" : GetFanNameForScoreHistory(subRule, mainFan);
     }
 
     /// <summary>四川血战终局：根据和牌家数与是否查叫，确定计分板主番类型。</summary>
@@ -180,7 +181,7 @@ public static class ScoreHistorySettlementHelper {
                 if (isRiichi) {
                     sb.Append(FanTextDictionary.GetRiichiYakuDisplayName(fanKey));
                 } else {
-                    sb.Append(StripFanMultiplier(fanKey));
+                    sb.Append(GetFanNameForScoreHistory(subRule, fanKey));
                 }
                 sb.Append(' ');
                 sb.Append(FanTextDictionary.GetFanDisplayText(subRule, fanKey));
@@ -198,6 +199,7 @@ public static class ScoreHistorySettlementHelper {
         bool isRiichi = subRule != null && subRule.StartsWith("riichi");
         bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
         bool isChangsha = subRule != null && subRule.StartsWith("changsha");
+        bool isJiandan = subRule != null && subRule.StartsWith("jiandan");
 
         string fanPart;
         if (isRiichi && snapshot.han.HasValue) {
@@ -209,6 +211,8 @@ public static class ScoreHistorySettlementHelper {
             fanPart = $"{CalculateSichuanFanTotal(subRule, snapshot.huFan)}番";
         } else if (isChangsha) {
             fanPart = $"{snapshot.huScore}分";
+        } else if (isJiandan) {
+            fanPart = $"{CalculateJiandanFanTotal(subRule, snapshot.huFan)}番";
         } else {
             fanPart = $"{snapshot.huScore}番";
         }
@@ -372,7 +376,39 @@ public static class ScoreHistorySettlementHelper {
         return star >= 0 ? fanKey.Substring(0, star) : fanKey;
     }
 
+    private static string GetFanNameForScoreHistory(string subRule, string fanKey) {
+        string baseFanName = StripFanMultiplier(fanKey);
+        if (subRule == "jiandan/standard") {
+            return FanTextDictionary.GetFanNameDisplayText(subRule, baseFanName);
+        }
+        return baseFanName;
+    }
+
+    private static int ParseFanNumericValue(string subRule, string fanKey) {
+        string display = FanTextDictionary.GetFanDisplayText(subRule, fanKey);
+        if (display == "满贯" || display == "役满") return 10000;
+        if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) {
+            return val;
+        }
+        if (display.EndsWith("符") && int.TryParse(display.Replace("符", ""), out int fuVal)) {
+            return fuVal;
+        }
+        return 0;
+    }
+
     public static int CalculateSichuanFanTotal(string subRule, string[] huFan) {
+        if (huFan == null) return 0;
+        int total = 0;
+        foreach (string fan in huFan) {
+            string display = FanTextDictionary.GetFanDisplayText(subRule, fan);
+            if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) {
+                total += val;
+            }
+        }
+        return total;
+    }
+
+    private static int CalculateJiandanFanTotal(string subRule, string[] huFan) {
         if (huFan == null) return 0;
         int total = 0;
         foreach (string fan in huFan) {

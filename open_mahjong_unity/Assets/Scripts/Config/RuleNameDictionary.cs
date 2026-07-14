@@ -16,6 +16,7 @@ public static class RuleNameDictionary {
         { "sichuan/standard", "四川麻将(血战到底)" },
         { "changsha", "长沙麻将" },
         { "changsha/classic_double_bird", "长沙麻将(经典双鸟)" },
+        { "jiandan/standard", "简单麻将" },
         { "riichi/standard", "立直麻将(标准)" },
         { "riichi/langyong", "浪涌麻将(日麻)" },
     };
@@ -31,6 +32,7 @@ public static class RuleNameDictionary {
         { "sichuan/standard", "四川" },
         { "changsha", "长沙" },
         { "changsha/classic_double_bird", "长沙" },
+        { "jiandan/standard", "简单" },
         { "riichi/standard", "立直" },
         { "riichi/langyong", "浪涌" },
     };

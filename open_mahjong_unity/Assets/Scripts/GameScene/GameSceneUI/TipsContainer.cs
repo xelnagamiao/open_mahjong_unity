@@ -196,6 +196,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessSichuanTile(hepaiTile, handList, combinationList);
             } else if (gameManager.roomRule == "changsha") {
                 ProcessChangshaTile(hepaiTile, handList, combinationList);
+            } else if (gameManager.roomRule == "jiandan") {
+                ProcessJiandanTile(hepaiTile, handList, combinationList);
             } else {
                 Debug.LogWarning($"未知的规则类型: {gameManager.roomRule}");
             }
@@ -255,6 +257,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessSichuanTile(hepaiTile, handList, combinationList);
             } else if (ctx.RoomRule == "changsha") {
                 ProcessChangshaTile(hepaiTile, handList, combinationList);
+            } else if (ctx.RoomRule == "jiandan") {
+                ProcessJiandanTile(hepaiTile, handList, combinationList);
             } else {
                 Debug.LogWarning($"未知的规则类型: {ctx.RoomRule}");
             }
@@ -553,6 +557,25 @@ public class TipsContainer : MonoBehaviour
         InstantiateTipsTile(hepaiTile);
         GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
         SetTipsFanCount(fanObject, FormatTipsFanLabel(label, hepaiTile), score > 0 ? "dianhe" : "wuyi", hepaiTile);
+    }
+
+    /// <summary>
+    /// Jiandan tips contain only static hand fans. Situational fans such as
+    /// haitei, rinshan and chankan remain server-authoritative at settlement.
+    /// </summary>
+    private void ProcessJiandanTile(
+        int hepaiTile,
+        List<int> handList,
+        List<string> combinationList) {
+        var result = JiandanExternal.HepaiCheck(handList, combinationList, hepaiTile);
+        int fan = result.Item1;
+        InstantiateTipsTile(hepaiTile);
+        GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+        SetTipsFanCount(
+            fanObject,
+            FormatTipsFanLabel($"{fan}番", hepaiTile),
+            "dianhe",
+            hepaiTile);
     }
 
     /// <summary>

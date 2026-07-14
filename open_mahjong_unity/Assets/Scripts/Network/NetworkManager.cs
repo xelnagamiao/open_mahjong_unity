@@ -569,6 +569,7 @@ public class NetworkManager : MonoBehaviour {
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":
                 case "data/get_classical_stats":
+                case "data/get_jiandan_stats":
                 case "data/get_leaderboard":
                 case "data/get_rank_record_list":
                     DataNetworkManager.Instance.HandleDataMessage(response);
@@ -639,6 +640,13 @@ public class NetworkManager : MonoBehaviour {
                 case "gamestate/changsha/show_result":
                 case "gamestate/changsha/game_end":
                 case "gamestate/changsha/ready_status":
+                case "gamestate/jiandan/game_start":
+                case "gamestate/jiandan/broadcast_hand_action":
+                case "gamestate/jiandan/ask_other_action":
+                case "gamestate/jiandan/do_action":
+                case "gamestate/jiandan/show_result":
+                case "gamestate/jiandan/game_end":
+                case "gamestate/jiandan/ready_status":
                 case "switch_seat":
                 case "refresh_player_tag_list":
                 case "gamestate/broadcast_sticker":

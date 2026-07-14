@@ -79,6 +79,22 @@ public class PlayerInfoEntry : MonoBehaviour{
                     ShowText += "东风战";
                 }
             }
+            else if (playerStatsInfo.rule == "jiandan"){
+                ShowText = "简单麻将";
+
+                if (playerStatsInfo.mode == "4/4"){
+                    ShowText += "全庄战";
+                }
+                else if (playerStatsInfo.mode == "3/4"){
+                    ShowText += "西风战";
+                }
+                else if (playerStatsInfo.mode == "2/4"){
+                    ShowText += "南风战";
+                }
+                else if (playerStatsInfo.mode == "1/4"){
+                    ShowText += "东风战";
+                }
+            }
             else{
                 ShowText += "其他";
 
@@ -115,6 +131,9 @@ public class PlayerInfoEntry : MonoBehaviour{
             }
             else if (playerStatsInfo.rule == "qingque"){
                 ShowText = "青雀番数总计";
+            }
+            else if (playerStatsInfo.rule == "jiandan"){
+                ShowText = "简单麻将番数总计";
             }
             else{
                 ShowText = "其他麻将达成番种总计:";

@@ -216,5 +216,48 @@ class ChangshaRoomValidator(BaseModel):
         return v
 
 
+class JiandanRoomValidator(BaseModel):
+    """Validate only options used by the first-win Jiandan room."""
+
+    room_name: str
+    game_round: int
+    round_timer: int
+    step_timer: int
+    random_seed: Union[int, str] = 0
+    tactical_call: bool = False
+    claim_protection: bool = True
+
+    @validator('room_name')
+    def validate_room_name(cls, v):
+        if not v.strip():
+            raise ValueError('房间名不能为空')
+        return v.strip()
+
+    @validator('game_round')
+    def validate_game_round(cls, v):
+        if v < 1 or v > 4:
+            raise ValueError('游戏圈数必须在1-4之间')
+        return v
+
+    @validator('round_timer')
+    def validate_round_timer(cls, v):
+        if v < 0 or v > 1000:
+            raise ValueError('局时不能小于0或大于1000')
+        return v
+
+    @validator('step_timer')
+    def validate_step_timer(cls, v):
+        if v < 0 or v > 100:
+            raise ValueError('步时不能小于0或大于100')
+        return v
+
+    @validator('random_seed')
+    def validate_random_seed(cls, v):
+        try:
+            return parse_user_master_seed(v)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
+
+
 class MMCValidator(BaseModel):
     pass

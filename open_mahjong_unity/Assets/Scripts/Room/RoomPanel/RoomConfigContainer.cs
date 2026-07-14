@@ -39,6 +39,10 @@ public class RoomConfigContainer : MonoBehaviour {
             "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
             "dealer_bird", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "jiandan", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "has_password", "tourist_limit", "allow_spectator",
+        } },
     };
 
     private static readonly List<string> DefaultDisplayFields = new List<string> {

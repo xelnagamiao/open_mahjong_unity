@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from .public.ai.get_action import get_action
+from .game_jiandan.get_action import get_action as jiandan_get_action
 from .public.sticker import broadcast_sticker
 from ..response import Response, SpectatorInfo
 
@@ -34,6 +35,10 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_riichi_cut(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/send_action":
         await handle_send_action(game_server, Connect_id, message, websocket)
+    elif message_type == "gamestate/jiandan/cut_tile":
+        await handle_jiandan_cut_tile(game_server, Connect_id, message)
+    elif message_type == "gamestate/jiandan/send_action":
+        await handle_jiandan_send_action(game_server, Connect_id, message)
     elif message_type == "gamestate/riichi/set_ryuukyoku_tenpai":
         await handle_set_ryuukyoku_tenpai(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/add_spectator":
@@ -124,6 +129,62 @@ async def handle_send_action(game_server, Connect_id: str, message: dict, websoc
         )
     except Exception as e:
         logger.error(f"处理发送操作请求失败: {e}", exc_info=True)
+
+
+def _get_jiandan_state(game_server, message: dict):
+    """Resolve a Jiandan state without allowing cross-rule action routing."""
+    gamestate_id = message.get("gamestate_id")
+    if not gamestate_id:
+        logger.warning(f"简单麻将操作缺少 gamestate_id: {message}")
+        return None
+    game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+    if game_state is None:
+        logger.warning(f"简单麻将游戏状态不存在: {gamestate_id}")
+        return None
+    if getattr(game_state, "room_rule", None) != "jiandan":
+        logger.warning(f"简单麻将操作被路由到其他规则: {gamestate_id}")
+        return None
+    return game_state
+
+
+async def handle_jiandan_cut_tile(game_server, Connect_id: str, message: dict):
+    """Forward a Jiandan discard to the rule's action adapter."""
+    try:
+        game_state = _get_jiandan_state(game_server, message)
+        if game_state is None:
+            return
+        await jiandan_get_action(
+            game_state,
+            Connect_id,
+            "cut",
+            message.get("cutClass"),
+            message.get("TileId"),
+            cutIndex=message.get("cutIndex"),
+            target_tile=None,
+            action_tick=message.get("action_tick"),
+        )
+    except Exception as e:
+        logger.error(f"处理简单麻将切牌请求失败: {e}", exc_info=True)
+
+
+async def handle_jiandan_send_action(game_server, Connect_id: str, message: dict):
+    """Forward a Jiandan non-discard action to the rule's action adapter."""
+    try:
+        game_state = _get_jiandan_state(game_server, message)
+        if game_state is None:
+            return
+        await jiandan_get_action(
+            game_state,
+            Connect_id,
+            message.get("action"),
+            cutClass=None,
+            TileId=None,
+            cutIndex=None,
+            target_tile=message.get("targetTile"),
+            action_tick=message.get("action_tick"),
+        )
+    except Exception as e:
+        logger.error(f"处理简单麻将操作请求失败: {e}", exc_info=True)
 
 async def handle_send_sticker(game_server, Connect_id: str, message: dict, websocket):
     """处理对局表情包发送请求（仅对局玩家可发）。"""

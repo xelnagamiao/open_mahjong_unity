@@ -181,6 +181,12 @@ public class GetQingqueStatsRequest { // 获取青雀统计数据请求
     public bool need_player_info; // 是否需要玩家信息（第一次加载时需要）
 }
 
+public class GetJiandanStatsRequest { // 获取简单麻将统计数据请求
+    public string type;
+    public string userid;
+    public bool need_player_info;
+}
+
 public class SendReleaseVersionRequest { // 发送发布版本号请求
     public string type;
     public int release_version;

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using TMPro;
 
 /// <summary>
-/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / riichi / qingque / classical / sichuan / changsha）
+/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / riichi / qingque / classical / sichuan / changsha / jiandan）
 /// 驱动配置项的显隐与默认值。
 ///
 /// 设计要点：头部 <see cref="RuleConfigs"/> 为每条规则"全量"登记需要的配置项及默认值。
@@ -94,6 +94,16 @@ public class CreatePanel : MonoBehaviour {
             { CfgAllowSpectator, true },
             { CfgTacticalCall,   false }, // 战术鸣牌
         } },
+        { "jiandan", new Dictionary<string, object> {
+            { CfgGameRound,      4 },
+            { CfgRoundTimer,     2 },
+            { CfgStepTimer,      1 },
+            { CfgTips,           true },
+            { CfgPassword,       false },
+            { CfgRandomSeed,     false },
+            { CfgTouristLimit,   false },
+            { CfgAllowSpectator, true },
+        } },
         { "classical", new Dictionary<string, object> {
             { CfgGameRound,      4 },
             { CfgRoundTimer,     2 },
@@ -137,7 +147,7 @@ public class CreatePanel : MonoBehaviour {
         } },
     };
 
-    /// <summary>规则状态：guobiao / riichi / qingque / classical / sichuan / changsha。</summary>
+    /// <summary>规则状态：guobiao / riichi / qingque / classical / sichuan / changsha / jiandan。</summary>
     private string _ruleState = "guobiao";
 
     [Header("Dropdown")]
@@ -207,10 +217,14 @@ public class CreatePanel : MonoBehaviour {
 
     private void EnsureRuleDropdownOptions() {
         if (chooseRule == null) return;
+        bool hasChangsha = false;
+        bool hasJiandan = false;
         foreach (TMP_Dropdown.OptionData option in chooseRule.options) {
-            if (option.text.Contains("长沙")) return;
+            if (option.text.Contains("长沙")) hasChangsha = true;
+            if (option.text.Contains("简单")) hasJiandan = true;
         }
-        chooseRule.options.Add(new TMP_Dropdown.OptionData("长沙麻将"));
+        if (!hasChangsha) chooseRule.options.Add(new TMP_Dropdown.OptionData("长沙麻将"));
+        if (!hasJiandan) chooseRule.options.Add(new TMP_Dropdown.OptionData("简单麻将"));
         chooseRule.RefreshShownValue();
     }
 
@@ -272,6 +286,7 @@ public class CreatePanel : MonoBehaviour {
             3 => "classical",
             4 => "sichuan",
             5 => "changsha",
+            6 => "jiandan",
             _ => "guobiao"
         };
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
@@ -378,6 +393,7 @@ public class CreatePanel : MonoBehaviour {
         if (_ruleState == "classical") return "classical/standard";
         if (_ruleState == "sichuan") return "sichuan/standard";
         if (_ruleState == "changsha") return "changsha/classic_double_bird";
+        if (_ruleState == "jiandan") return "jiandan/standard";
         if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
         return GetSelectedSubRule();
     }
@@ -726,6 +742,11 @@ public class CreatePanel : MonoBehaviour {
             return;
         }
 
+        if (_ruleState == "jiandan") {
+            CreateJiandanRoom();
+            return;
+        }
+
         if (_ruleState == "changsha") {
             CreateChangshaRoom();
             return;
@@ -905,6 +926,31 @@ public class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Sichuan_Room(config);
+    }
+
+    private void CreateJiandanRoom() {
+        var config = new Jiandan_Create_RoomConfig {
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "jiandan",
+            SubRule = "jiandan/standard",
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = AllowSpectatorToggle.isOn,
+            TacticalCall = false,
+            EventId = GetSelectedEventId(),
+        };
+
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Jiandan_Room(config);
     }
 
     private void CreateChangshaRoom() {

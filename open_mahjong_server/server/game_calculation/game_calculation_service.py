@@ -3,7 +3,7 @@
 提供线程安全的和牌检查和听牌检查服务
 """
 import threading
-from typing import List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 from time import time
 
 # 国标和牌：标准与小林规各独立脚本，外部获取结果后调用实例的剔除方法再 return
@@ -19,6 +19,7 @@ try:
     from .riichi.riichi_tingpai_check import Riichi_Tingpai_Check
     from .sichuan.sichuan_hepai_check import Sichuan_Hepai_Check, sichuan_base_from_fan
     from .sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check
+    from .jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check
     from .changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans
     from .changsha.changsha_tingpai_check import Changsha_Tingpai_Check
 except ImportError:
@@ -33,6 +34,7 @@ except ImportError:
     from riichi.riichi_tingpai_check import Riichi_Tingpai_Check  # type: ignore
     from sichuan.sichuan_hepai_check import Sichuan_Hepai_Check, sichuan_base_from_fan  # type: ignore
     from sichuan.sichuan_tingpai_check import Sichuan_Tingpai_Check  # type: ignore
+    from jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check  # type: ignore
     from changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans  # type: ignore
     from changsha.changsha_tingpai_check import Changsha_Tingpai_Check  # type: ignore
 
@@ -199,6 +201,80 @@ class GameCalculationService:
         """
         with self._lock:
             return self._tingpai_check.tingpai_check(hand_tile_list, combination_list)
+
+    def Jiandan_tingpai_check(
+        self,
+        hand_tile_list: List[int],
+        combination_list: List[str],
+        context: Dict[str, Any] = None,
+    ) -> Set[int]:
+        """Return Jiandan waits for server validation and non-authoritative UI hints."""
+        with self._lock:
+            return jiandan_tingpai_check(hand_tile_list, combination_list, context)
+
+    def Jiandan_hepai_check(
+        self,
+        hand_list: List[int],
+        tiles_combination: List[str],
+        way_to_hepai: List[str],
+        get_tile: int,
+        context: Dict[str, Any] = None,
+    ) -> Tuple[int, List[str]]:
+        """Return capped fan points and fan names through the common service API."""
+        detail = self.Jiandan_hepai_detail(
+            hand_list,
+            tiles_combination,
+            way_to_hepai,
+            get_tile,
+            context,
+        )
+        return detail["points"], detail["fan_names"]
+
+    def Jiandan_hepai_detail(
+        self,
+        hand_list: List[int],
+        tiles_combination: List[str],
+        way_to_hepai: List[str],
+        get_tile: int,
+        context: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """Return the complete server-authoritative Jiandan scoring result.
+
+        `hand_list` is the winner's final concealed hand and therefore already
+        contains `get_tile`. Melds use the established `s`/`k`/`g`/`G` codes.
+        """
+        context = context or {}
+        win_source = context.get("win_source") or self._jiandan_win_source(way_to_hepai)
+        jiandan_context = JiandanHandContext(
+            hand_tiles=list(hand_list),
+            meld_codes=list(tiles_combination),
+            winning_tile=get_tile,
+            win_source=win_source,
+            pre_win_tiles=context.get("pre_win_tiles"),
+            heavenly_win=bool(context.get("heavenly_win") or "天和" in way_to_hepai),
+            earthly_win=bool(context.get("earthly_win") or "地和" in way_to_hepai),
+            haitei=bool(context.get("haitei") or "海底捞月" in way_to_hepai),
+            houtei=bool(context.get("houtei") or "河底捞鱼" in way_to_hepai),
+            rinshan=bool(context.get("rinshan") or "杠上开花" in way_to_hepai),
+            chankan=bool(context.get("chankan") or "抢杠" in way_to_hepai),
+        )
+        with self._lock:
+            result = jiandan_score_hand(jiandan_context)
+            return {
+                "is_win": result.is_win,
+                "points": result.points,
+                "raw_points": result.raw_points,
+                "fan_ids": list(result.fan_ids),
+                "fan_names": list(result.fan_names),
+            }
+
+    @staticmethod
+    def _jiandan_win_source(way_to_hepai: List[str]) -> str:
+        if "抢杠" in way_to_hepai:
+            return "rob_kong"
+        if "点和" in way_to_hepai or "河底捞鱼" in way_to_hepai:
+            return "discard"
+        return "self_draw"
 
     def Classical_hepai_check(
         self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int

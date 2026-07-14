@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator
 from ..response import Response
 from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
@@ -25,6 +25,7 @@ class RoomManager:
         self.room_validators = {
             "guobiao": GBRoomValidator,
             "changsha": ChangshaRoomValidator,
+            "jiandan": JiandanRoomValidator,
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator,
             "sichuan": SichuanRoomValidator
@@ -527,6 +528,110 @@ class RoomManager:
             )
 
         except Exception as e:
+            return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
+
+    async def create_Jiandan_room(
+        self,
+        player_id: str,
+        room_name: str,
+        gameround: int,
+        password: str,
+        roundTimerValue: int,
+        stepTimerValue: int,
+        tips: bool,
+        random_seed: int = 0,
+        sub_rule: str = "jiandan/standard",
+        tourist_limit: bool = False,
+        allow_spectator: bool = True,
+        tactical_call: bool = False,
+        claim_protection: bool = True,
+        event_id: Optional[str] = None,
+    ) -> Response:
+        """Create a first-win Jiandan room.
+
+        The room deliberately exposes no hand-end option: every confirmed win
+        ends the hand, and multi-stage continuation belongs to a separate PR.
+        """
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            host_user_id = player.user_id
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
+            if blocked:
+                return blocked
+            event_id = self._normalize_event_id(event_id)
+            event_blocked = self._validate_event_for_room(event_id, host_user_id)
+            if event_blocked:
+                return event_blocked
+
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+
+            room_config = {
+                "room_name": room_name,
+                "game_round": gameround,
+                "round_timer": roundTimerValue,
+                "step_timer": stepTimerValue,
+                "random_seed": random_seed,
+                "tactical_call": tactical_call,
+                "claim_protection": claim_protection,
+            }
+            try:
+                validated_config = self.room_validators["jiandan"](**room_config)
+            except ValueError as e:
+                return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
+
+            room_id = self._generate_room_id()
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "jiandan",
+                "sub_rule": sub_rule,
+                "hepai_limit": 0,
+                "open_cuohe": False,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": allow_spectator,
+                "max_player": 4,
+                "player_list": [host_user_id],
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get("username", player.username),
+                        "title_id": host_settings.get("title_id", 1),
+                        "profile_image_id": host_settings.get("profile_image_id", 1),
+                        "character_id": host_settings.get("character_id", 1),
+                        "voice_id": host_settings.get("voice_id", 1),
+                    }
+                },
+                "has_password": password != "",
+                "tips": tips,
+                "show_moqie_hint": False,
+                "host_user_id": host_user_id,
+                "host_name": player.username,
+                "is_game_running": False,
+            }
+            self._apply_event_fields(room_data, event_id)
+            room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
+
+            self.rooms[room_id] = room_data
+            if password:
+                self.room_passwords[room_id] = password
+            player.current_room_id = room_id
+            await self._broadcast_room_info(room_id)
+            return Response(
+                type="room/create_room_done",
+                success=True,
+                message="房间创建成功",
+                room_info=room_data,
+            )
+        except Exception as e:
+            logger.error("创建简单麻将房间失败: %s", e, exc_info=True)
             return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
 
     async def create_Classical_room(self, player_id: str, room_name: str, gameround: int,

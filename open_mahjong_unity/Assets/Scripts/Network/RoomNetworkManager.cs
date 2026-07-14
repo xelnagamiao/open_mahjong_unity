@@ -300,6 +300,40 @@ public class RoomNetworkManager : MonoBehaviour {
         }
     }
 
+    /// <summary>Create a fixed first-win Jiandan room using the existing room DTO shape.</summary>
+    public async void Create_Jiandan_Room(Jiandan_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Jiandan_room",
+                rule = "jiandan",
+                sub_rule = config.SubRule ?? "jiandan/standard",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = false,
+                hepai_limit = 0,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator,
+                tactical_call = false,
+                event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
+            };
+            Debug.Log($"发送创建简单麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
+    
     /// <summary>
     /// 创建古典麻将房间
     /// </summary>

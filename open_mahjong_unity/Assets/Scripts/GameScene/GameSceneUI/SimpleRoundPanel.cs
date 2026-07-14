@@ -38,6 +38,8 @@ public class SimpleRoundPanel : MonoBehaviour {
             roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
         } else if (baseRule == "changsha") {
             roundMap = RoundTextDictionary.CurrentRoundTextChangsha;
+        } else if (baseRule == "jiandan") {
+            roundMap = RoundTextDictionary.CurrentRoundTextJiandan;
         }
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
             roomNowRoundText.text = roundText;

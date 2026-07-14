@@ -52,6 +52,9 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_classical_stats":
                 HandleGetClassicalStatsResponse(response);
                 break;
+            case "data/get_jiandan_stats":
+                HandleGetJiandanStatsResponse(response);
+                break;
             case "data/get_leaderboard":
                 HandleGetLeaderboardResponse(response);
                 break;
@@ -137,6 +140,19 @@ public class DataNetworkManager : MonoBehaviour {
         }
 
         PlayerInfoPanel.Instance.OnClassicalStatsReceived(response.success, response.message, response.rule_stats);
+    }
+
+    /// <summary>
+    /// 处理获取简单麻将统计数据响应
+    /// </summary>
+    private void HandleGetJiandanStatsResponse(Response response) {
+        if (PlayerInfoPanel.Instance == null) return;
+
+        if (response.player_info != null) {
+            PlayerInfoPanel.Instance.ShowPlayerInfo(response.player_info);
+        }
+
+        PlayerInfoPanel.Instance.OnJiandanStatsReceived(response.success, response.message, response.rule_stats);
     }
 
     private void HandleGetLeaderboardResponse(Response response) {
@@ -251,6 +267,23 @@ public class DataNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"获取古典麻将统计数据失败: {e.Message}");
             PlayerInfoPanel.Instance?.OnClassicalStatsReceived(false, e.Message, null);
+        }
+    }
+
+    /// <summary>
+    /// 获取简单麻将统计数据
+    /// </summary>
+    public async void GetJiandanStats(string userid, bool need_player_info = false) {
+        try {
+            var request = new GetJiandanStatsRequest {
+                type = "data/get_jiandan_stats",
+                userid = userid,
+                need_player_info = need_player_info
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"获取简单麻将统计数据失败: {e.Message}");
+            PlayerInfoPanel.Instance?.OnJiandanStatsReceived(false, e.Message, null);
         }
     }
 

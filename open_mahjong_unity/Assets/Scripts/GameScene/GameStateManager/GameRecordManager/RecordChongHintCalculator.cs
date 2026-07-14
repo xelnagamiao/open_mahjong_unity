@@ -78,6 +78,9 @@ public static class RecordChongHintCalculator {
       else if (roomRule == "changsha") {
         waitingTiles = ChangshaExternal.TingpaiCheck(handForCheck, combinations);
       }
+      else if (roomRule == "jiandan") {
+        waitingTiles = JiandanExternal.TingpaiCheck(handForCheck, combinations);
+      }
       else {
         waitingTiles = new HashSet<int>();
       }
