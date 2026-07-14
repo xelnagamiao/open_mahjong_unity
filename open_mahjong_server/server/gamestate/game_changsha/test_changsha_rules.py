@@ -8,6 +8,7 @@ from server.game_calculation.changsha.changsha_hepai_check import (
     Changsha_Hepai_Check,
     INITIAL_HU_NAMES,
     changsha_base_from_fans,
+    changsha_initial_hu_reveal_tiles,
     evaluate_changsha_initial_hu,
 )
 from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState
@@ -440,6 +441,73 @@ class ChangshaRulesTest(unittest.TestCase):
         hand = [11, 11, 11, 11, 11, 13, 23, 33, 24, 24, 24, 26, 27, 28]
 
         self.assertIn("四喜", evaluate_changsha_initial_hu(hand))
+
+    def test_initial_hu_reveal_uses_only_matching_tiles(self):
+        hand = [11, 11, 11, 11, 13, 13, 13, 24, 24, 24, 15, 25, 35]
+        self.assertEqual(
+            changsha_initial_hu_reveal_tiles(hand, ["四喜"]),
+            [11, 11, 11, 11],
+        )
+        self.assertEqual(
+            changsha_initial_hu_reveal_tiles(hand, ["六六顺"]),
+            [11, 11, 11, 13, 13, 13],
+        )
+
+        san_tong_hand = [11, 11, 21, 21, 31, 31, 12, 13, 14, 25, 26, 27, 39]
+        self.assertEqual(
+            changsha_initial_hu_reveal_tiles(san_tong_hand, ["三同"]),
+            [11, 11, 21, 21, 31, 31],
+        )
+
+    def test_initial_hu_reveal_keeps_full_hand_for_non_subset_types(self):
+        hand = [11, 13, 14, 16, 17, 19, 21, 23, 24, 26, 27, 29, 31]
+        self.assertEqual(changsha_initial_hu_reveal_tiles(hand, ["板板胡"]), hand)
+        self.assertEqual(changsha_initial_hu_reveal_tiles(hand, ["缺一色"]), hand)
+
+    def test_initial_hu_reveal_merges_overlapping_subset_types(self):
+        hand = [11, 11, 11, 11, 12, 12, 12, 21, 21, 31, 31, 25, 26]
+
+        self.assertEqual(
+            changsha_initial_hu_reveal_tiles(hand, ["四喜", "六六顺", "三同"]),
+            [11, 11, 11, 11, 12, 12, 12, 21, 21, 31, 31],
+        )
+        self.assertEqual(changsha_initial_hu_reveal_tiles(hand, ["四喜", "缺一色"]), hand)
+
+    def test_initial_hu_settlement_broadcasts_only_reveal_subset(self):
+        hand = [11, 11, 11, 11, 12, 13, 14, 22, 23, 24, 31, 32, 33]
+        players = [
+            SimpleNamespace(
+                player_index=index,
+                original_player_index=index,
+                score=0,
+                hand_tiles=hand if index == 0 else [],
+                huapai_list=[],
+                combination_mask=[],
+                record_counter=SimpleNamespace(zimo_times=0, recorded_fans=[], win_score=0),
+            )
+            for index in range(4)
+        ]
+        state = SimpleNamespace(
+            initial_hu_types={0: ["四喜"]},
+            player_list=players,
+        )
+        state._score_initial_hu = lambda player_index, hu_types: {
+            "actual_hu_score": 6,
+            "fan_display": list(hu_types),
+            "dice": [1, 2],
+            "bird_seats": [0, 1],
+            "payer_details": [],
+        }
+        state._player_by_index = lambda player_index: players[player_index]
+        payloads = []
+
+        async def capture_broadcast(_state, **kwargs):
+            payloads.append(kwargs)
+
+        with patch.object(changsha_state_module, "broadcast_result", capture_broadcast):
+            asyncio.run(ChangshaGameState._settle_initial_hu(state, 0))
+
+        self.assertEqual(payloads[0]["hepai_player_hand"], [11, 11, 11, 11])
 
     def test_follow_hu_blocks_same_or_lower_after_pass(self):
         state = SimpleNamespace(

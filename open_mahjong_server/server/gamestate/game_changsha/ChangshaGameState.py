@@ -27,7 +27,11 @@ from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
 from ...game_calculation.game_calculation_service import GameCalculationService
-from ...game_calculation.changsha.changsha_hepai_check import evaluate_changsha_initial_hu, INITIAL_HU_NAMES
+from ...game_calculation.changsha.changsha_hepai_check import (
+    INITIAL_HU_NAMES,
+    changsha_initial_hu_reveal_tiles,
+    evaluate_changsha_initial_hu,
+)
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
 from ...database.fulu_utils import record_fulu_rounds_for_players
@@ -578,7 +582,7 @@ class ChangshaGameState:
             hu_score=score_info["actual_hu_score"],
             hu_fan=score_info["fan_display"],
             hu_class="initial_hu",
-            hepai_player_hand=winner.hand_tiles,
+            hepai_player_hand=changsha_initial_hu_reveal_tiles(winner.hand_tiles, hu_types),
             hepai_player_huapai=winner.huapai_list,
             hepai_player_combination_mask=winner.combination_mask,
             score_changes=score_changes_dict,
