@@ -31,6 +31,7 @@ const hintText = ref('正在准备 WebGL，界面可能短暂无响应属正常�
 let unityInstance = null
 let unityMountGeneration = 0
 let skipLeaveConfirm = false
+let leavingByHardNav = false
 let androidPopStateHandler = null
 const UNITY_LOADER_SCRIPT_ID = 'unity-webgl-loader-script'
 
@@ -54,18 +55,40 @@ async function confirmLeavePlatform() {
   }
 }
 
+/**
+ * SPA 内调用 unityInstance.Quit() 会长时间卡住甚至冻死主线程。
+ * Unity 官方说明：离开当前网页时不必手动 Quit，整页跳转由浏览器回收 WebGL/WASM。
+ *
+ * 注意：浏览器「后退」时地址栏可能已经是目标路径，此时 replace/href 同一 URL 不会刷新，
+ * 必须 reload，否则会卡在仍挂着 WebGL 的半卸载页面。
+ */
+function hardNavigateAway(targetPath) {
+  if (leavingByHardNav) return
+  leavingByHardNav = true
+  unityMountGeneration++
+  unityInstance = null
+
+  const path = targetPath || '/'
+  const current = window.location.pathname + window.location.search + window.location.hash
+  if (current === path) {
+    window.location.reload()
+  } else {
+    window.location.href = path
+  }
+}
+
 function installAndroidLeaveGuard() {
   if (!isAndroidWeb()) return
 
   history.pushState({ unityGameLeaveGuard: true }, '')
 
   androidPopStateHandler = async () => {
-    if (skipLeaveConfirm) return
+    if (skipLeaveConfirm || leavingByHardNav) return
 
     const ok = await confirmLeavePlatform()
     if (ok) {
       skipLeaveConfirm = true
-      history.back()
+      hardNavigateAway('/')
     } else {
       history.pushState({ unityGameLeaveGuard: true }, '')
     }
@@ -81,19 +104,26 @@ function removeAndroidLeaveGuard() {
   }
 }
 
-onBeforeRouteLeave(async (_to, _from, next) => {
-  if (!isAndroidWeb() || skipLeaveConfirm) {
-    next()
+onBeforeRouteLeave(async (to, _from, next) => {
+  if (leavingByHardNav) {
+    // 硬跳转已开始，阻止 Vue 再做软卸载
+    next(false)
     return
   }
 
-  const ok = await confirmLeavePlatform()
-  if (ok) {
+  if (isAndroidWeb() && !skipLeaveConfirm) {
+    const ok = await confirmLeavePlatform()
+    if (!ok) {
+      next(false)
+      return
+    }
     skipLeaveConfirm = true
-    next()
-  } else {
-    next(false)
   }
+
+  // 不要 next(false)：后退场景下会 history.go(1) 抢回游戏页，和整页跳转打架
+  // 也不要 next()：会触发 SPA 卸载 Unity
+  // 直接整页离开；不调用 next，文档卸载后守卫自然结束
+  hardNavigateAway(to.fullPath || '/')
 })
 
 function removeUnityLoaderScript() {
@@ -234,8 +264,8 @@ async function loadUnityGame(gen) {
         }
       })
         .then((instance) => {
-          if (gen !== unityMountGeneration) {
-            try { instance.Quit() } catch (e) { /* ignore */ }
+          if (gen !== unityMountGeneration || leavingByHardNav) {
+            // 页面已在离开：不要调用 Quit（会卡死），交给即将到来的整页卸载
             return
           }
           unityInstance = instance
@@ -273,6 +303,9 @@ onMounted(() => {
   document.body.style.background = '#000000'
   document.documentElement.style.background = '#000000'
 
+  skipLeaveConfirm = false
+  leavingByHardNav = false
+
   const gen = ++unityMountGeneration
   adjustUnityContainer()
   window.addEventListener('resize', adjustUnityContainer)
@@ -295,15 +328,9 @@ onUnmounted(() => {
   window.removeEventListener('resize', adjustUnityContainer)
   window.removeEventListener('orientationchange', onOrientationChange)
   removeAndroidLeaveGuard()
-  removeUnityLoaderScript()
-  if (unityInstance) {
-    try {
-      unityInstance.Quit()
-    } catch (e) {
-      console.error('Unity 实例清理失败:', e)
-    }
-    unityInstance = null
-  }
+
+  // 故意不调用 Quit：SPA 卸载时 Quit 会冻死主线程；硬跳转路径由浏览器整页回收
+  unityInstance = null
 })
 </script>
 

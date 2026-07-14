@@ -1,0 +1,11 @@
+Mahjong tile SVGs
+=================
+
+Oblique mahjong tile illustrations based on Wikimedia Commons
+"SVG Oblique illustrations of Mahjong tiles" by Cangjie6 et al.
+License: CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Face PNG fallbacks under faces/ are from:
+https://github.com/summerinsects/ChineseOfficialMahjongHelper
+License: MIT

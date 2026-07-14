@@ -14,7 +14,7 @@
       :class="{ on: tileFaceStyle === TILE_FACE_STYLE.oblique }"
       @click="setTileFaceStyle(TILE_FACE_STYLE.oblique)"
     >
-      斜视
+      立体
     </button>
   </div>
 </template>

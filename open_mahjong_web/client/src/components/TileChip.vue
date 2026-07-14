@@ -1,4 +1,4 @@
-<!-- 单张麻将牌：按全局牌面风格显示小助手 / 斜视 SVG -->
+<!-- 单张麻将牌：按全局牌面风格显示小助手 / 立体 SVG -->
 <template>
   <div
     class="tile-chip"
@@ -140,7 +140,7 @@ const onClick = () => {
 .tile-chip.helper.md { width: 36px; height: 50px; }
 .tile-chip.helper.lg { width: 46px; height: 64px; }
 
-/* —— 斜视 SVG：自带牌体 —— */
+/* —— 立体 SVG：自带牌体 —— */
 .tile-chip.oblique.has-art {
   background: transparent;
   border: none;
