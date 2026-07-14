@@ -948,6 +948,10 @@ class GuobiaoGameState:
         self.player_list[hepai_player_index].tag_list.append("peida")
         await self.broadcast_refresh_player_tag_list()
 
+        # 清理错和残留
+        self.hu_class = ""
+        self.result_dict = {}
+
         if hu_class == "hu_self":
             self.action_dict = check_action_hand_action(self, self.current_player_index)
             self.game_status = "waiting_hand_action"
@@ -964,8 +968,6 @@ class GuobiaoGameState:
 
         for player in self.player_list:
             refresh_waiting_tiles(self, player.player_index)
-        self.hu_class = ""
-        self.result_dict = {}
 
     # ========== 观战系统方法（委托给观战管理器） ==========
     

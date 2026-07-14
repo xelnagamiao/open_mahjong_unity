@@ -81,6 +81,8 @@ public partial class GameCanvas{
         else if (ChangeType == "GetCard"){
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
+            // 同一时刻最多一张摸切语义牌：先清旧标再给新张打标
+            ClearHandDrawMarks(except: tileCard);
             tileCard.SetTile(tileId, true);
             int handCardCount = handCardsContainer.childCount - 1;
             tileCard.handSortIndex = handCardCount;
@@ -99,6 +101,7 @@ public partial class GameCanvas{
         else if (ChangeType == "GetCardNoAnimation"){
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
+            ClearHandDrawMarks(except: tileCard);
             tileCard.SetTile(tileId, true);
             int handCardCount = handCardsContainer.childCount - 1;
             tileCard.handSortIndex = handCardCount;
@@ -112,6 +115,7 @@ public partial class GameCanvas{
         else if (ChangeType == "GetGangReplacementCardNoLayout"){
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
+            ClearHandDrawMarks(except: tileCard);
             tileCard.SetTile(tileId, true);
             int handCardCount = handCardsContainer.childCount - 1;
             tileCard.handSortIndex = handCardCount;
@@ -234,27 +238,46 @@ public partial class GameCanvas{
         else if (ChangeType == "RemoveHandCard" || ChangeType == "RemoveHandCardRecord" || ChangeType == "RemoveCombinationCard" || ChangeType == "RemoveBuhuaCard" ||
          ChangeType == "RemoveJiagangCard" || ChangeType == "InitHandCards" || ChangeType == "InitHandCardsFromRecord" || ChangeType == "ReSetHandCards" || ChangeType == "RemoveGetCard" || ChangeType == "RemoveGetCards"){
             isArranged = true;
-            // 等待排序完成
-            yield return StartCoroutine(RearrangeHandCardsWithAnimation());
+            // ReSetHandCards：换人收拢只取消独立摸牌区外观，保留 currentGetTile（开局补花后仍可能打出该摸张）
+            // 其余路径：摸牌区已消费或即将由后续 GetCard 接管，清除摸切语义标记
+            bool clearMoqieMark = ChangeType != "ReSetHandCards";
+            yield return StartCoroutine(RearrangeHandCardsWithAnimation(clearMoqieMark));
+        }
+    }
+
+    /// <summary>
+    /// 清除手牌上的摸切语义/摸牌区固定标记。GetCard 前调用以保证同一时刻最多一张摸切牌。
+    /// </summary>
+    private void ClearHandDrawMarks(TileCard except = null) {
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tileCard = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tileCard == null || tileCard == except) {
+                continue;
+            }
+            tileCard.currentGetTile = false;
+            tileCard.isDrawSlotPinned = false;
         }
     }
 
     // 带动画的手牌重新排列
-    private IEnumerator RearrangeHandCardsWithAnimation(){
+    private IEnumerator RearrangeHandCardsWithAnimation(bool clearMoqieMark = true){
         CancelCompetingHandReflowAnimations("出牌重排");
-        yield return RunHandReflowAnim(RearrangeHandCardsWithAnimationCore());
+        yield return RunHandReflowAnim(RearrangeHandCardsWithAnimationCore(clearMoqieMark));
     }
 
-    private IEnumerator RearrangeHandCardsWithAnimationCore(){
+    private IEnumerator RearrangeHandCardsWithAnimationCore(bool clearMoqieMark = true){
 
-        Debug.Log($"[HandLayout] 手牌重新排列");
+        Debug.Log($"[HandLayout] 手牌重新排列 clearMoqieMark={clearMoqieMark}");
 
-        // 手牌恢复为非摸切状态（同时清除摸牌区固定标记）
+        // isDrawSlotPinned：收拢时总是取消独立摸牌区
+        // currentGetTile：仅在摸牌已消费等路径清除；ReSetHandCards 必须保留（与拖拽理牌语义一致）
         for (int i = 0; i < handCardsContainer.childCount; i++){
             Transform child = handCardsContainer.GetChild(i);
             TileCard tileCard = child.GetComponent<TileCard>();
             if (tileCard != null){
-                tileCard.currentGetTile = false;
+                if (clearMoqieMark) {
+                    tileCard.currentGetTile = false;
+                }
                 tileCard.isDrawSlotPinned = false;
             }
         }
