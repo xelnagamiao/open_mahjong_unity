@@ -3,6 +3,7 @@ public partial class NormalGameStateManager {
     /// 退出对局/牌谱/观战后清理本局运行时状态，不销毁 Manager 单例本身。
     /// </summary>
     public void ResetForExit() {
+        ClearChangshaSeaBottomVisual();
         CancelWaitAutoAction("ResetForExit");
         IsGameActive = false;
         IsSelfActionRequired = false;
@@ -25,6 +26,9 @@ public partial class NormalGameStateManager {
         pendingAskFromJiagang = false;
         roomRule = null;
         subRule = null;
+        changshaBaseScoreNoDealer = false;
+        changshaSmallHuScore = 2;
+        changshaBigHuScore = 8;
 
         if (RiichiCutSelectionController.Instance.IsActive) {
             RiichiCutSelectionController.Instance.ExitRiichiCutMode();

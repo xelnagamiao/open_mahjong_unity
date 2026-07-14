@@ -3,7 +3,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 import time
 import logging
-from .action_check import check_action_after_cut,check_action_after_gang_forced_cut,check_action_after_batch_gang_forced_cut,check_action_jiagang,check_action_hand_action,check_hepai,check_only_cut,refresh_waiting_tiles
+from .action_check import check_action_after_cut,check_action_after_gang_forced_cut,check_action_after_batch_gang_forced_cut,check_action_jiagang,check_action_hand_action,check_hepai,check_only_cut,refresh_waiting_tiles,filter_open_kong_replacement_actions
 from .wait_action import wait_action
 from .boardcast import (
     broadcast_game_start,
@@ -30,6 +30,7 @@ from ...game_calculation.game_calculation_service import GameCalculationService
 from ...game_calculation.changsha.changsha_hepai_check import (
     INITIAL_HU_NAMES,
     changsha_initial_hu_reveal_tiles,
+    changsha_base_from_fans,
     evaluate_changsha_initial_hu,
 )
 from ...database.db_manager import DatabaseManager
@@ -167,6 +168,9 @@ class ChangshaGameState:
         if self.bird_count not in (0, 1, 2, 4):
             self.bird_count = 2
         self.dealer_bird = room_data.get("dealer_bird", True)
+        self.base_score_no_dealer = bool(room_data.get("base_score_no_dealer", False))
+        self.small_hu_score = max(1, int(room_data.get("small_hu_score", 2)))
+        self.big_hu_score = max(1, int(room_data.get("big_hu_score", 8)))
         self.initial_hu_enabled = {
             INITIAL_HU_NAMES["siXi"]: room_data.get("initial_hu_si_xi", True),
             INITIAL_HU_NAMES["banBanHu"]: room_data.get("initial_hu_ban_ban_hu", True),
@@ -303,6 +307,9 @@ class ChangshaGameState:
                         'initial_hu_san_tong': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["sanTong"], True),
                         'bird_count': getattr(self, 'bird_count', 2),
                         'dealer_bird': getattr(self, 'dealer_bird', True),
+                        'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
+                        'small_hu_score': getattr(self, 'small_hu_score', 2),
+                        'big_hu_score': getattr(self, 'big_hu_score', 8),
                         'isPlayerSetRandomSeed': self.isPlayerSetRandomSeed,
                         'players_info': []
                     }
@@ -519,12 +526,25 @@ class ChangshaGameState:
         return [rng.randint(1, 6), rng.randint(1, 6)]
 
     @staticmethod
-    def _initial_hu_dice_seat(player_index: int, die: int) -> int:
-        return (player_index + die - 1) % 4
+    def _initial_hu_dice_seat(origin_index: int, die: int) -> int:
+        return (origin_index + die - 1) % 4
+
+    def _changsha_bird_origin(self, winner: int) -> int:
+        return 0 if self.dealer_bird else winner
+
+    def _changsha_base_from_fans(self, fan_list: List[str], dealer_related: bool = False) -> int:
+        return changsha_base_from_fans(
+            fan_list,
+            dealer_related=dealer_related,
+            small_hu_score=self.small_hu_score,
+            big_hu_score=self.big_hu_score,
+            base_score_no_dealer=self.base_score_no_dealer,
+        )
 
     def _score_initial_hu(self, winner: int, hu_types: List[str]):
         dice = self._roll_initial_hu_dice(winner)
-        bird_seats = [self._initial_hu_dice_seat(winner, die) for die in dice]
+        bird_origin = self._changsha_bird_origin(winner)
+        bird_seats = [self._initial_hu_dice_seat(bird_origin, die) for die in dice]
         payers = [p.player_index for p in self.player_list if p.player_index != winner]
         total_win = 0
         total_base = 0
@@ -532,7 +552,7 @@ class ChangshaGameState:
 
         for payer in payers:
             dealer_related = winner == 0 or payer == 0
-            base = self.calculation_service.Changsha_base_from_fans(["小胡"], dealer_related)
+            base = self._changsha_base_from_fans(["小胡"], dealer_related)
             hit_count = sum(1 for seat in bird_seats if seat in (winner, payer))
             multiplier = 2 ** hit_count
             payment = base * multiplier
@@ -607,31 +627,69 @@ class ChangshaGameState:
         self.action_dict = {0: [], 1: [], 2: [], 3: []}
 
     async def _take_sea_bottom_tile(self, player_index: int) -> None:
+        """翻开海底牌并按自摸优先、其余玩家荣和次之的顺序处理。"""
         if not self.tiles_list:
+            logger.warning("长沙海底取牌失败: player=%s tiles_list empty", player_index)
             self.game_status = "END"
             return
         self.current_player_index = player_index
         self.sea_bottom_player_index = player_index
         self.last_draw_was_gang = False
-        self.refresh_waiting_tiles(player_index)
-        player = self._player_by_index(player_index)
-        deal_tile = player.get_tile(self.tiles_list)
-        self.forced_cut_tile = deal_tile
-        self.forced_cut_tiles = [deal_tile]
-        player_action_record_deal(self, deal_tile=deal_tile, deal_type="d")
+        self.pending_gang_forced_discard = False
+        self.pending_gang_replacement_count = 0
+        self.pending_gang_replacement_hu_player_index = None
+        self.pending_gang_replacement_hu_tile = None
+        self.pending_gang_replacement_hu_hand = None
+        self.forced_cut_tile = None
+        self.forced_cut_tiles = []
+        player = self._player_by_index(player_index) if hasattr(self, "_player_by_index") else self.player_list[player_index]
+        sea_bottom_tile = self.tiles_list.pop(0)
+
+        original_result_dict = dict(getattr(self, "result_dict", {}))
+        self.result_dict = dict(original_result_dict)
+        player.hand_tiles.append(sea_bottom_tile)
+        self.action_dict = {0: [], 1: [], 2: [], 3: []}
+        check_hepai(self, self.action_dict, sea_bottom_tile, player_index, "handgot")
+        self_win = "hu_self" in self.action_dict.get(player_index, [])
+        if not self_win:
+            player.hand_tiles.pop()
+
+        player.discard_tiles.append(sea_bottom_tile)
+        player_action_record_cut(self, cut_tile=sea_bottom_tile, is_moqie=True)
+        if hasattr(self, "clear_hu_pass_after_own_discard"):
+            self.clear_hu_pass_after_own_discard(player_index)
         await self.broadcast_do_action(
-            action_list=["deal_tile"],
+            action_list=["cut"],
             action_player=player_index,
-            deal_tile=deal_tile,
+            cut_tile=sea_bottom_tile,
+            cut_class=True,
+            sea_bottom_discard=True,
         )
-        self.action_dict = check_action_hand_action(self, player_index)
-        self.action_dict[player_index] = [
-            action for action in self.action_dict.get(player_index, [])
-            if action in ("hu_self", "cut")
-        ]
-        if "cut" not in self.action_dict[player_index]:
-            self.action_dict[player_index].append("cut")
-        self.game_status = "waiting_hand_action"
+
+        if self_win:
+            self.hu_class = "hu_self"
+            self.game_status = "END"
+            return
+
+        self.result_dict = dict(original_result_dict)
+        refresh_waiting_tiles(self, player_index)
+        pre_action_dict = self._filter_sea_bottom_ron_actions(check_action_after_cut(self, sea_bottom_tile))
+        self.current_claim_cut_tile = sea_bottom_tile
+        self.action_dict = pre_action_dict
+        if any(self.action_dict[i] for i in self.action_dict):
+            begin_claim_protection_interval(self, self.action_dict, self.current_player_index)
+            self.game_status = "waiting_action_after_cut"
+        else:
+            self.current_claim_cut_tile = None
+            self.game_status = "END"
+
+    def _filter_sea_bottom_ron_actions(self, action_dict: Dict[int, List[str]]) -> Dict[int, List[str]]:
+        filtered = {0: [], 1: [], 2: [], 3: []}
+        for seat, actions in (action_dict or {}).items():
+            hu_actions = [action for action in actions if action in ("hu_first", "hu_second", "hu_third")]
+            if hu_actions:
+                filtered[seat] = hu_actions + ["pass"]
+        return filtered
 
     def _make_player_next_dealer(self, dealer_index: int) -> None:
         for player in self.player_list:
@@ -699,10 +757,59 @@ class ChangshaGameState:
         self.pending_gang_replacement_hu_hand = None
         self.current_claim_cut_tile = None
 
-    def _remember_gang_replacement_hu_hand(self, player_index: int, pre_draw_hand_tiles: List[int], hu_tile: int) -> None:
+    def _remember_gang_replacement_hu_hand(self, player_index: int, pre_draw_hand_tiles: List[int], hu_tile: Any) -> None:
+        hu_tiles = list(hu_tile) if isinstance(hu_tile, list) else [hu_tile]
         self.pending_gang_replacement_hu_player_index = player_index
-        self.pending_gang_replacement_hu_tile = hu_tile
-        self.pending_gang_replacement_hu_hand = list(pre_draw_hand_tiles) + [hu_tile]
+        self.pending_gang_replacement_hu_tile = hu_tiles[-1] if hu_tiles else None
+        self.pending_gang_replacement_hu_hand = list(pre_draw_hand_tiles) + hu_tiles
+
+    def _collect_gang_replacement_hu_result(
+        self,
+        player_index: int,
+        pre_draw_hand_tiles: List[int],
+        deal_tiles: List[int],
+        pre_draw_waiting_tiles,
+    ) -> bool:
+        """逐张校验开杠补牌，手牌牌型去重，并按可胡张数累计杠上开花。"""
+        player = self._player_by_index(player_index) if hasattr(self, "_player_by_index") else self.player_list[player_index]
+        full_hand_tiles = player.hand_tiles
+        original_result_dict = dict(getattr(self, "result_dict", {}))
+        winning_tiles = []
+        aggregate_fans = []
+        seen_hand_fans = set()
+
+        try:
+            for candidate_deal_tile in deal_tiles:
+                if candidate_deal_tile not in pre_draw_waiting_tiles:
+                    continue
+                player.hand_tiles = list(pre_draw_hand_tiles) + [candidate_deal_tile]
+                candidate_action_dict = {0: [], 1: [], 2: [], 3: []}
+                self.result_dict = dict(original_result_dict)
+                check_hepai(self, candidate_action_dict, candidate_deal_tile, player_index, "handgot", False, True)
+                if "hu_self" not in candidate_action_dict.get(player_index, []):
+                    continue
+                result = self.result_dict.get("hu_self")
+                if not result or result[0] < 1:
+                    continue
+                winning_tiles.append(candidate_deal_tile)
+                for fan_name in result[1] or []:
+                    if fan_name == "杠上开花" or fan_name in seen_hand_fans:
+                        continue
+                    seen_hand_fans.add(fan_name)
+                    aggregate_fans.append(fan_name)
+        finally:
+            player.hand_tiles = full_hand_tiles
+            self.result_dict = dict(original_result_dict)
+
+        if not winning_tiles:
+            return False
+
+        aggregate_fans.extend(["杠上开花"] * len(winning_tiles))
+        base_calculator = getattr(self.calculation_service, "Changsha_base_from_fans", None)
+        score = base_calculator(aggregate_fans) if base_calculator is not None else 0
+        self.result_dict["hu_self"] = (score, aggregate_fans)
+        self._remember_gang_replacement_hu_hand(player_index, pre_draw_hand_tiles, winning_tiles)
+        return True
 
     def _hepai_display_hand(self, player_index: int) -> List[int]:
         if (
@@ -797,7 +904,7 @@ class ChangshaGameState:
             sea_bottom_bird = self._sea_bottom_bird_tile(winner)
             if sea_bottom_bird is not None:
                 birds = [sea_bottom_bird]
-        bird_origin = 0 if self.dealer_bird else winner
+        bird_origin = self._changsha_bird_origin(winner)
         bird_seats = [self._changsha_bird_seat(tile, bird_origin) for tile in birds]
         payers = [p.player_index for p in self.player_list if p.player_index != winner] if is_zimo else [discarder]
         total_win = 0
@@ -806,7 +913,7 @@ class ChangshaGameState:
 
         for payer in payers:
             dealer_related = winner == 0 or payer == 0
-            base = self.calculation_service.Changsha_base_from_fans(fan_list, dealer_related)
+            base = self._changsha_base_from_fans(fan_list, dealer_related)
             hit_count = sum(1 for seat in bird_seats if seat in (winner, payer))
             multiplier = 2 ** hit_count
             payment = base * multiplier
@@ -975,26 +1082,18 @@ class ChangshaGameState:
                         self.action_dict[self.current_player_index] = [
                             action for action in self.action_dict.get(self.current_player_index, []) if action != "hu_self"
                         ]
-                        full_hand_tiles = player.hand_tiles
-                        for candidate_deal_tile in deal_tiles:
-                            if candidate_deal_tile in pre_draw_waiting_tiles and "hu_self" not in self.action_dict.get(self.current_player_index, []):
-                                player.hand_tiles = pre_draw_hand_tiles + [candidate_deal_tile]
-                                check_hepai(self,self.action_dict,candidate_deal_tile,self.current_player_index,"handgot",False,True)
-                                if "hu_self" in self.action_dict.get(self.current_player_index, []):
-                                    self._remember_gang_replacement_hu_hand(
-                                        self.current_player_index,
-                                        pre_draw_hand_tiles,
-                                        candidate_deal_tile,
-                                    )
-                        player.hand_tiles = full_hand_tiles
+                        if self._collect_gang_replacement_hu_result(
+                            self.current_player_index,
+                            pre_draw_hand_tiles,
+                            deal_tiles,
+                            pre_draw_waiting_tiles,
+                        ):
+                            self.action_dict[self.current_player_index].append("hu_self")
                         if self.pending_gang_forced_discard:
                             self.forced_cut_tile = deal_tile
                             self.forced_cut_tiles = list(deal_tiles)
                             actions = self.action_dict.get(self.current_player_index, [])
-                            allowed_after_open_kong = {"hu_self", "buzhang", "angang", "jiagang"}
-                            self.action_dict[self.current_player_index] = [
-                                action for action in actions if action in allowed_after_open_kong
-                            ]
+                            self.action_dict[self.current_player_index] = filter_open_kong_replacement_actions(actions)
                             if self.action_dict[self.current_player_index]:
                                 self.action_dict[self.current_player_index].append("pass")
                                 self.game_status = "waiting_hand_action"

@@ -19,7 +19,17 @@ public static class ChangshaExternal {
         return new ChangshaTingpaiCheck().TingpaiCheck(handTileList, combinationList);
     }
 
-    public static int BaseFromFans(List<string> fanList, bool dealerRelated = false) {
-        return ChangshaHepaiCheck.BaseFromFans(fanList, dealerRelated);
+    public static int BaseFromFans(
+        List<string> fanList,
+        bool dealerRelated = false,
+        int smallHuScore = 2,
+        int bigHuScore = 8,
+        bool baseScoreNoDealer = false) {
+        return ChangshaHepaiCheck.BaseFromFans(
+            fanList,
+            dealerRelated,
+            smallHuScore,
+            bigHuScore,
+            baseScoreNoDealer);
     }
 }

@@ -251,6 +251,9 @@ public partial class NormalGameStateManager {
         hepaiWay = gameInfo.hepai_way ?? "multi_ron";
         redDora = gameInfo.red_dora ?? false;
         dealerIndex = gameInfo.dealer_index ?? 0;
+        changshaBaseScoreNoDealer = gameInfo.base_score_no_dealer ?? false;
+        changshaSmallHuScore = Mathf.Max(gameInfo.small_hu_score ?? 2, 1);
+        changshaBigHuScore = Mathf.Max(gameInfo.big_hu_score ?? 8, 1);
         if (isOpenCuoHe){
             Debug.Log("开启错和");
         }

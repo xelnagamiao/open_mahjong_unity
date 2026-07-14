@@ -19,6 +19,7 @@ public partial class NormalGameStateManager {
         selfForcedCutTiles = forced_cut_tiles != null
             ? new HashSet<int>(forced_cut_tiles)
             : new HashSet<int>();
+        RefreshChangshaSeaBottomConcealedTile(remain_tiles);
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             allowActionList.Clear();
@@ -56,7 +57,7 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, float? meld_reveal_delay = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, float? meld_reveal_delay = null, bool? sea_bottom_discard = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
@@ -120,6 +121,10 @@ public partial class NormalGameStateManager {
 
                 // 切牌
                 case "cut":
+                    if (sea_bottom_discard == true && roomRule == "changsha") {
+                        HandleChangshaSeaBottomDiscard(GetCardPlayer, cut_tile, cut_class == true, isRiichiHorizontalCut);
+                        break;
+                    }
                     pendingAskFromJiagang = false;
                     int[] resolvedCutTiles = cut_tiles != null && cut_tiles.Length > 0
                         ? cut_tiles

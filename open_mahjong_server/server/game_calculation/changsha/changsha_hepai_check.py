@@ -1,13 +1,7 @@
-"""Changsha Mahjong win check and base-score helpers.
+"""长沙麻将和牌检测及基础计分。
 
-Rules implemented for the first Salasasa integration:
-- 108 suited tiles only: wan 11-19, tong 21-29, tiao 31-39.
-- Small hu requires a normal 4 sets + pair shape whose pair is 2/5/8.
-- Big hu accepts any winning shape and detects pengpenghu,
-  qingyise, quanqiuren, seven pairs, luxury seven pairs, and context wins.
-- Jiangjianghu wins as long as every tile is 2/5/8.
-- Score base: small hu 1, big hu 6 per big pattern, dealer-related big hu 7.
-  Birds and payer selection are handled by the gamestate layer.
+牌组只使用万、筒、条一至九。小胡要求二五八作将，大胡按命中的牌型权重累加。
+扎鸟归属、付款玩家和最终倍数由长沙对局状态负责。
 """
 from typing import Dict, Iterable, List, Tuple
 
@@ -277,9 +271,12 @@ def _is_flush(all_tiles: List[int]) -> bool:
     return len(suits) == 1
 
 
-def _is_quanqiuren(hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str]) -> bool:
-    zimo_tokens = {"自摸", "杠上开花", "杠上花", "天胡"}
-    return len(hand_list) == 2 and len(tiles_combination) == 4 and not any(t in way_to_hepai for t in zimo_tokens)
+def _is_quanqiuren(hand_list: List[int], tiles_combination: List[str]) -> bool:
+    return len(tiles_combination) == 4 and _is_standard_shape(
+        hand_list,
+        tiles_combination,
+        jiang_pair=False,
+    )
 
 
 def _append_context_fans(names: List[str], has_shape: bool, way_to_hepai: List[str]) -> None:
@@ -298,14 +295,25 @@ def _append_context_fans(names: List[str], has_shape: bool, way_to_hepai: List[s
             names.append(fan_name)
 
 
-def changsha_base_from_fans(fan_list: List[str], dealer_related: bool = False) -> int:
-    """Return one payer's base payment before bird multipliers."""
+def changsha_base_from_fans(
+    fan_list: List[str],
+    dealer_related: bool = False,
+    *,
+    small_hu_score: int = 2,
+    big_hu_score: int = 8,
+    base_score_no_dealer: bool = False,
+) -> int:
+    """计算单个付款方在扎鸟翻倍前应付的长沙基础分。"""
     if not fan_list:
         return 0
     big_count = sum(BIG_HU_WEIGHTS.get(name, 1) for name in fan_list if name in BIG_HU_NAMES)
     if big_count > 0:
+        if base_score_no_dealer:
+            return max(1, int(big_hu_score)) * big_count
         return (7 if dealer_related else 6) * big_count
     if "小胡" in fan_list:
+        if base_score_no_dealer:
+            return max(1, int(small_hu_score))
         return 2 if dealer_related else 1
     return 0
 
@@ -340,7 +348,7 @@ class Changsha_Hepai_Check:
             big_names.append("将将胡")
         if has_shape and _is_flush(all_tiles):
             big_names.append("清一色")
-        if has_shape and _is_quanqiuren(concealed, melds, ways):
+        if has_shape and _is_quanqiuren(concealed, melds):
             big_names.append("全求人")
 
         seven_pairs = _seven_pairs_type(concealed, melds)

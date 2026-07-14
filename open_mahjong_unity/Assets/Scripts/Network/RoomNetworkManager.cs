@@ -437,9 +437,12 @@ public class RoomNetworkManager : MonoBehaviour {
                 initial_hu_san_tong = config.InitialHuSanTong,
                 bird_count = config.BirdCount,
                 dealer_bird = config.DealerBird,
+                base_score_no_dealer = config.BaseScoreNoDealer,
+                small_hu_score = config.SmallHuScore,
+                big_hu_score = config.BigHuScore,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
             };
-            Debug.Log($"发送创建长沙麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, open_kong={config.OpenKongReplacementCount}, bird_count={config.BirdCount}, dealer_bird={config.DealerBird}");
+            Debug.Log($"发送创建长沙麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, open_kong={config.OpenKongReplacementCount}, bird_count={config.BirdCount}, dealer_bird={config.DealerBird}, no_dealer_score={config.BaseScoreNoDealer}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);

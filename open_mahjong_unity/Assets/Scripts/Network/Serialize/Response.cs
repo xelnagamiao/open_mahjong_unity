@@ -43,6 +43,9 @@ public class RoomInfo {
     public bool initial_hu_san_tong;
     public int bird_count;
     public bool dealer_bird;
+    public bool base_score_no_dealer;
+    public int small_hu_score;
+    public int big_hu_score;
     public string event_id; // 赛事房间关联的赛事 ID
 }
 
@@ -167,6 +170,7 @@ public class DoActionInfo { // 执行操作
     public int action_player;
     public int action_tick;
     public int? cut_from_player;      // 鸣牌（吃/碰/明杠）必填：被认走的打牌者座位索引；切牌等其它动作可空
+    public bool? sea_bottom_discard;  // 长沙海底牌翻开后进入牌河
     public float? meld_reveal_delay;  // 受保护观众鸣牌呈现延迟（秒）：display/音效/3D 一并延后，复现 claim_meld_followup_gap 间隔且不破坏 wire 顺序
     public int? cut_tile;           // 可空类型
     public int[] cut_tiles;
@@ -263,6 +267,9 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool? initial_hu_san_tong;
     public int? bird_count;
     public bool? dealer_bird;
+    public bool? base_score_no_dealer;
+    public int? small_hu_score;
+    public int? big_hu_score;
 }
 
 public class SwitchSeatInfo { // 换位信息

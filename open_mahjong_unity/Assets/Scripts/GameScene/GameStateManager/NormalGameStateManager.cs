@@ -39,6 +39,9 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public string roomRule; // 房间规则（guobiao/qingque等）
     public string subRule;  // 子规则（guobiao/standard、guobiao/xiaolin、qingque/standard）
     public int hepaiLimit = 8; // 起和番限制（国标有效，服务器下发的 hepai_limit，默认8）
+    public bool changshaBaseScoreNoDealer;
+    public int changshaSmallHuScore = 2;
+    public int changshaBigHuScore = 8;
     public int selfIndex; // 自身位置 0东 1南 2西 3北
     public int roomStepTime; // 步时
     public int roomRoundTime; // 局时

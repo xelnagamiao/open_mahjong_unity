@@ -230,7 +230,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.is_mo_buhua,
             doresponse.action_tick,
             doresponse.cut_from_player,
-            doresponse.meld_reveal_delay
+            doresponse.meld_reveal_delay,
+            doresponse.sea_bottom_discard
         );
     }
 

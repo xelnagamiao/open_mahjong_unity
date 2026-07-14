@@ -231,6 +231,11 @@ def check_action_after_gang_forced_cut(self, cut_tile):
     return check_action_after_batch_gang_forced_cut(self, [cut_tile])
 
 
+def filter_open_kong_replacement_actions(actions: list) -> list:
+    """开杠补牌阶段只保留自摸和牌，禁止改动原手牌。"""
+    return ["hu_self"] if actions and "hu_self" in actions else []
+
+
 def check_action_after_batch_gang_forced_cut(self, cut_tiles):
     original_result_dict = dict(getattr(self, "result_dict", {}))
     best_tile = None

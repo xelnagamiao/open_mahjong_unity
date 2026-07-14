@@ -431,6 +431,9 @@ class RoomManager:
                                    initial_hu_san_tong: bool = True,
                                    bird_count: int = 2,
                                    dealer_bird: bool = True,
+                                   base_score_no_dealer: bool = False,
+                                   small_hu_score: int = 2,
+                                   big_hu_score: int = 8,
                                    event_id: Optional[str] = None) -> Response:
         """创建长沙麻将房间。当前接入经典双鸟规则。"""
         try:
@@ -472,6 +475,9 @@ class RoomManager:
                 "initial_hu_san_tong": initial_hu_san_tong,
                 "bird_count": bird_count,
                 "dealer_bird": dealer_bird,
+                "base_score_no_dealer": base_score_no_dealer,
+                "small_hu_score": small_hu_score,
+                "big_hu_score": big_hu_score,
             }
 
             try:
@@ -1660,6 +1666,9 @@ class RoomManager:
                     initial_hu_san_tong=bool(room_config.get("initial_hu_san_tong", True)),
                     bird_count=int(room_config.get("bird_count", 2)),
                     dealer_bird=bool(room_config.get("dealer_bird", True)),
+                    base_score_no_dealer=bool(room_config.get("base_score_no_dealer", False)),
+                    small_hu_score=int(room_config.get("small_hu_score", 2)),
+                    big_hu_score=int(room_config.get("big_hu_score", 8)),
                 )
                 hepai_limit = 1
         except Exception as e:

@@ -37,7 +37,7 @@ public class RoomConfigContainer : MonoBehaviour {
         { "changsha", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
-            "dealer_bird", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
+            "dealer_bird", "base_score", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "jiandan", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
@@ -145,6 +145,12 @@ public class RoomConfigContainer : MonoBehaviour {
             case "dealer_bird":
                 displayName = "扎鸟规则";
                 displayValue = roomInfo.dealer_bird ? "定庄扎鸟" : "赢家扎鸟";
+                return true;
+            case "base_score":
+                displayName = "基础计分";
+                displayValue = roomInfo.base_score_no_dealer
+                    ? $"不分庄闲 小胡{Mathf.Max(roomInfo.small_hu_score, 1)}/大胡{Mathf.Max(roomInfo.big_hu_score, 1)}"
+                    : "区分庄闲 1/2/6/7";
                 return true;
             case "has_password":
                 displayName = "密码";

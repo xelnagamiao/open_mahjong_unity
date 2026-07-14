@@ -65,6 +65,9 @@ class GameInfo(BaseModel):
     initial_hu_san_tong: Optional[bool] = None
     bird_count: Optional[int] = None
     dealer_bird: Optional[bool] = None
+    base_score_no_dealer: Optional[bool] = None
+    small_hu_score: Optional[int] = None
+    big_hu_score: Optional[int] = None
     self_hand_tiles: Optional[List[int]] = None
     # 立直麻将专用字段
     honba: Optional[int] = None  # 本场棒数
@@ -127,6 +130,7 @@ class Do_action_info(BaseModel):
     # 鸣牌（吃/碰/明杠）真正认走的打牌者座位索引；仅 meld 帧由服务端显式下发，
     # 客户端据此精确移除对应玩家牌河的弃牌，消除乱序/双同牌歧义。cut/摸牌等帧为 None。
     cut_from_player: Optional[int] = None
+    sea_bottom_discard: Optional[bool] = None  # 长沙海底牌作为摸牌者弃牌广播
     # 受保护观众鸣牌的显示层延迟（秒）：服务器按序发送、客户端仅延迟鸣牌 3D 动画/声音，
     # 客户端 display/音效/3D 一并延后，复现“出牌→claim_meld_followup_gap→鸣牌”间隔且不破坏 wire 顺序。非受保护观众为 None。
     meld_reveal_delay: Optional[float] = None

@@ -4,6 +4,7 @@ using UnityEngine;
 public partial class NormalGameStateManager {
     // 回合结束 和牌 流局
     public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null, string liuju_step = null, Dictionary<int, string> liuju_status = null, Dictionary<int, int[]> liuju_hands = null, bool liuju_status_final = false, int? hepai_tile = null, bool? multi_ron = null, bool? suppress_hand_reveal = null, Dictionary<int, int[]> liuju_hu_hands = null, bool? defer_score_settlement = null, int? cha_payer_index = null, int? ron_discarder_index = null, bool? recycle_discard = null, Dictionary<int, int> gang_refund_changes = null, bool? is_qianggang = null, bool liuju_refund = false) {
+        ClearChangshaSeaBottomVisual();
         lastGuobiaoEndExtras = guobiaoExtras;
         if (hu_class == "initial_hu") {
             ShowInitialHuResult(hepai_player_index, player_to_score, score_changes, isSilent);

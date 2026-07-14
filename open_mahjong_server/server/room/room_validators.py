@@ -171,6 +171,9 @@ class ChangshaRoomValidator(BaseModel):
     initial_hu_san_tong: bool = True
     bird_count: int = 2
     dealer_bird: bool = True
+    base_score_no_dealer: bool = False
+    small_hu_score: int = 2
+    big_hu_score: int = 8
 
     @validator('room_name')
     def validate_room_name(cls, v):
@@ -213,6 +216,12 @@ class ChangshaRoomValidator(BaseModel):
     def validate_bird_count(cls, v):
         if v not in (0, 1, 2, 4):
             raise ValueError('bird_count must be 0, 1, 2, or 4')
+        return v
+
+    @validator('small_hu_score', 'big_hu_score')
+    def validate_base_score(cls, v):
+        if v < 1 or v > 999:
+            raise ValueError('长沙基础分必须在1到999之间')
         return v
 
 

@@ -42,6 +42,9 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgCsInitialSanTong = "cs_initial_san_tong";
     private const string CfgCsBirdCount = "cs_bird_count";
     private const string CfgCsDealerBird = "cs_dealer_bird";
+    private const string CfgCsBaseScoreNoDealer = "cs_base_score_no_dealer";
+    private const string CfgCsSmallHuScore = "cs_small_hu_score";
+    private const string CfgCsBigHuScore = "cs_big_hu_score";
 
     private static readonly int[] ChangshaBirdCountOptions = { 0, 1, 2, 4 };
 
@@ -144,6 +147,9 @@ public class CreatePanel : MonoBehaviour {
             { CfgCsInitialSanTong, true },
             { CfgCsBirdCount, 2 },
             { CfgCsDealerBird, true },
+            { CfgCsBaseScoreNoDealer, false },
+            { CfgCsSmallHuScore, 2 },
+            { CfgCsBigHuScore, 8 },
         } },
     };
 
@@ -183,6 +189,7 @@ public class CreatePanel : MonoBehaviour {
     private Toggle ChangshaInitialLiuLiuShunToggle;
     private Toggle ChangshaInitialSanTongToggle;
     private Toggle ChangshaDealerBirdToggle;
+    private Toggle ChangshaBaseScoreNoDealerToggle;
     private Toggle EventModeToggle;
 
     [Header("面板")]
@@ -197,6 +204,11 @@ public class CreatePanel : MonoBehaviour {
     private TMP_Dropdown ChangshaOpenKongDropdown;
     private GameObject ChangshaBirdCountPanel;
     private TMP_Dropdown ChangshaBirdCountDropdown;
+    private GameObject ChangshaScoreRow;
+    private GameObject ChangshaSmallHuScorePanel;
+    private GameObject ChangshaBigHuScorePanel;
+    private TMP_InputField ChangshaSmallHuScoreInput;
+    private TMP_InputField ChangshaBigHuScoreInput;
     private GameObject EventDropdownPanel;
     private TMP_Dropdown EventDropdown;
     private readonly List<string> _eventIds = new List<string>();
@@ -344,6 +356,15 @@ public class CreatePanel : MonoBehaviour {
             case CfgCsInitialSanTong: if (ChangshaInitialSanTongToggle != null) ChangshaInitialSanTongToggle.isOn = (bool)value; break;
             case CfgCsBirdCount:    SetChangshaBirdCount((int)value); break;
             case CfgCsDealerBird:   if (ChangshaDealerBirdToggle != null) ChangshaDealerBirdToggle.isOn = (bool)value; break;
+            case CfgCsBaseScoreNoDealer:
+                if (ChangshaBaseScoreNoDealerToggle != null) ChangshaBaseScoreNoDealerToggle.isOn = (bool)value;
+                break;
+            case CfgCsSmallHuScore:
+                if (ChangshaSmallHuScoreInput != null) ChangshaSmallHuScoreInput.text = ((int)value).ToString();
+                break;
+            case CfgCsBigHuScore:
+                if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = ((int)value).ToString();
+                break;
         }
     }
 
@@ -541,7 +562,86 @@ public class CreatePanel : MonoBehaviour {
             SetChangshaBirdCount(2);
         }
 
+        EnsureChangshaScoreControls();
+
         SetChangshaOptionsVisible(false);
+    }
+
+    private void EnsureChangshaScoreControls() {
+        // 长沙计分模式及自定义分值独占一行，避免与开杠、扎鸟配置挤在同一行。
+        Transform parent = InputHepaiLimitPlane != null
+            ? InputHepaiLimitPlane.transform.parent
+            : transform;
+        if (ChangshaScoreRow == null) {
+            ChangshaScoreRow = new GameObject("ChangshaScoreRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            ChangshaScoreRow.transform.SetParent(parent, false);
+            HorizontalLayoutGroup layout = ChangshaScoreRow.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            ChangshaScoreRow.GetComponent<LayoutElement>().minHeight = 44f;
+        }
+
+        Toggle toggleTemplate = ChangshaDealerBirdToggle != null ? ChangshaDealerBirdToggle : TacticalCallToggle;
+        ChangshaBaseScoreNoDealerToggle = EnsureClonedToggle(
+            toggleTemplate,
+            ChangshaBaseScoreNoDealerToggle,
+            "ChangshaBaseScoreNoDealer",
+            "不区分庄闲",
+            false);
+        if (ChangshaBaseScoreNoDealerToggle != null) {
+            ChangshaBaseScoreNoDealerToggle.transform.SetParent(ChangshaScoreRow.transform, false);
+            ChangshaBaseScoreNoDealerToggle.onValueChanged.RemoveListener(OnChangshaBaseScoreModeChanged);
+            ChangshaBaseScoreNoDealerToggle.onValueChanged.AddListener(OnChangshaBaseScoreModeChanged);
+        }
+
+        ChangshaSmallHuScorePanel = EnsureChangshaScoreInputPanel(
+            ChangshaSmallHuScorePanel,
+            "ChangshaSmallHuScorePanel",
+            "小胡分数",
+            out ChangshaSmallHuScoreInput);
+        ChangshaBigHuScorePanel = EnsureChangshaScoreInputPanel(
+            ChangshaBigHuScorePanel,
+            "ChangshaBigHuScorePanel",
+            "大胡分数",
+            out ChangshaBigHuScoreInput);
+        if (ChangshaSmallHuScoreInput != null) ChangshaSmallHuScoreInput.text = "2";
+        if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = "8";
+        RefreshChangshaScoreInputVisibility();
+    }
+
+    private GameObject EnsureChangshaScoreInputPanel(
+        GameObject existing,
+        string objectName,
+        string labelText,
+        out TMP_InputField input) {
+        if (existing == null && InputHepaiLimitPlane != null) {
+            existing = Instantiate(InputHepaiLimitPlane, ChangshaScoreRow.transform);
+            existing.name = objectName;
+            foreach (TMP_Text label in existing.GetComponentsInChildren<TMP_Text>(true)) {
+                if (label.GetComponentInParent<TMP_InputField>() != null) continue;
+                label.text = labelText;
+                break;
+            }
+        }
+        input = existing != null ? existing.GetComponentInChildren<TMP_InputField>(true) : null;
+        if (input != null) input.contentType = TMP_InputField.ContentType.IntegerNumber;
+        return existing;
+    }
+
+    private void OnChangshaBaseScoreModeChanged(bool _) {
+        RefreshChangshaScoreInputVisibility();
+    }
+
+    private void RefreshChangshaScoreInputVisibility() {
+        bool visible = _ruleState == "changsha"
+            && ChangshaBaseScoreNoDealerToggle != null
+            && ChangshaBaseScoreNoDealerToggle.isOn;
+        if (ChangshaSmallHuScorePanel != null) ChangshaSmallHuScorePanel.SetActive(visible);
+        if (ChangshaBigHuScorePanel != null) ChangshaBigHuScorePanel.SetActive(visible);
     }
 
     private void EnsureEventControls() {
@@ -638,6 +738,8 @@ public class CreatePanel : MonoBehaviour {
         SetToggleVisible(ChangshaInitialLiuLiuShunToggle, visible);
         SetToggleVisible(ChangshaInitialSanTongToggle, visible);
         SetToggleVisible(ChangshaDealerBirdToggle, visible);
+        if (ChangshaScoreRow != null) ChangshaScoreRow.SetActive(visible);
+        RefreshChangshaScoreInputVisibility();
     }
 
     private static void SetToggleVisible(Toggle toggle, bool visible) {
@@ -975,6 +1077,9 @@ public class CreatePanel : MonoBehaviour {
             InitialHuSanTong = ChangshaInitialSanTongToggle == null || ChangshaInitialSanTongToggle.isOn,
             BirdCount = GetChangshaBirdCount(),
             DealerBird = ChangshaDealerBirdToggle == null || ChangshaDealerBirdToggle.isOn,
+            BaseScoreNoDealer = ChangshaBaseScoreNoDealerToggle != null && ChangshaBaseScoreNoDealerToggle.isOn,
+            SmallHuScore = ReadChangshaScore(ChangshaSmallHuScoreInput, 2),
+            BigHuScore = ReadChangshaScore(ChangshaBigHuScoreInput, 8),
             EventId = GetSelectedEventId(),
         };
 
@@ -984,6 +1089,11 @@ public class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Changsha_Room(config);
+    }
+
+    private static int ReadChangshaScore(TMP_InputField input, int fallback) {
+        if (input == null) return fallback;
+        return int.TryParse(input.text, out int value) ? value : 0;
     }
 
     private int GetSelectedGameTime() {
