@@ -1,5 +1,5 @@
 <template>
-  <el-container class="default-layout">
+  <el-container class="default-layout" :class="layoutToneClass">
     <el-header class="layout-header">
       <nav-bar />
     </el-header>
@@ -15,14 +15,33 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import AppFooter from '@/components/AppFooter.vue'
+
+const route = useRoute()
+
+const layoutToneClass = computed(() => {
+  const path = route.path || ''
+  if (path === '/paili' || path.startsWith('/paili/')) return 'tone-paili'
+  if (path === '/chinese' || path.startsWith('/chinese/')) return 'tone-chinese'
+  return ''
+})
 </script>
 
 <style scoped>
 .default-layout {
   min-height: 100vh;
   background: #f5f5f5;
+}
+
+.default-layout.tone-paili {
+  background: #9b59b6;
+}
+
+.default-layout.tone-chinese {
+  background: #45b7d1;
 }
 
 .layout-header {

@@ -11,7 +11,10 @@
     <section class="main-card">
       <header class="card-header">
         <span>输入</span>
-        <el-button type="text" size="small" @click="resetAll">清空</el-button>
+        <div class="header-actions">
+          <TileFaceStyleSwitch />
+          <el-button type="text" size="small" @click="resetAll">清空</el-button>
+        </div>
       </header>
 
       <div class="row">
@@ -31,16 +34,19 @@
           <span class="row-label">手牌 {{ handCountText }}</span>
           <el-tag size="small" :type="handCountTagType" effect="plain">{{ handCountText }}</el-tag>
         </div>
-        <div class="hand-row">
+        <div
+          class="hand-row"
+          :class="{ active: activeFuluIdx < 0 }"
+          @click="activateHand"
+        >
           <div class="hand-bar">
             <TileChip
               v-for="(id, idx) in form.hand"
               :key="'h-' + idx"
               :tile-id="id"
               size="sm"
-              @click="removeHandTile(idx)"
+              @click="onHandChipClick(idx)"
             />
-            <span v-if="form.hand.length === 0" class="hint">点击下方牌面或输入文本添加手牌</span>
           </div>
           <div class="get-tile-box" :class="{ filled: form.getTile }">
             <span class="get-tile-label">和牌</span>
@@ -49,9 +55,8 @@
               :tile-id="form.getTile"
               size="sm"
               highlighted
-              @click="clearGetTile"
+              @click.stop="clearGetTile"
             />
-            <span v-else class="hint">第 14 张</span>
           </div>
         </div>
       </div>
@@ -60,51 +65,16 @@
         <div class="row-line">
           <span class="row-label">副露（{{ lockedFuluCount }}/4）</span>
         </div>
-        <div class="fulu-slots">
-          <div
-            v-for="(slot, idx) in fuluSlots"
-            :key="idx"
-            class="fulu-slot"
-            :class="{ locked: slot.locked }"
-          >
-            <span class="slot-index">#{{ idx + 1 }}</span>
-            <template v-if="slot.locked">
-              <el-tag size="small" type="info" effect="plain" class="fulu-kind">{{ slot.locked.label }}</el-tag>
-              <div class="fulu-tiles">
-                <TileChip
-                  v-for="(tid, tIdx) in slot.locked.displayTiles"
-                  :key="tIdx"
-                  :tile-id="tid"
-                  size="sm"
-                  highlighted
-                />
-              </div>
-              <el-button type="danger" link size="small" class="fulu-clear" @click="clearFuluSlot(idx)">清除</el-button>
-            </template>
-            <template v-else>
-              <el-input
-                v-model="slot.input"
-                :placeholder="FULU_SLOT_HINTS[idx]"
-                size="small"
-                clearable
-                class="fulu-input"
-                @input="onFuluSlotInput(idx)"
-              />
-              <div v-if="slot.options.length" class="fulu-options">
-                <el-button
-                  v-for="(opt, oIdx) in slot.options"
-                  :key="oIdx"
-                  type="primary"
-                  plain
-                  size="small"
-                  @click="lockFuluSlot(idx, opt)"
-                >
-                  {{ opt.label }}
-                </el-button>
-              </div>
-            </template>
-          </div>
-        </div>
+        <FuluSlots
+          :slots="fuluSlots"
+          :active-idx="activeFuluIdx"
+          @activate="activateFulu"
+          @clear="clearFuluSlot"
+          @input="onFuluSlotInput"
+          @lock="lockFuluSlot"
+          @remove-draft="removeFuluDraft"
+          @remove-locked="removeFuluLocked"
+        />
       </div>
 
       <div class="row">
@@ -147,7 +117,7 @@
           <span>正在计算...</span>
         </div>
         <div v-else-if="!result" class="empty">
-          <span>填写完整手牌后点击下方按钮</span>
+          <span class="input-target-bar">{{ inputTargetLabel }}</span>
         </div>
         <div v-else-if="result.mode === 'score'">
           <div :class="['banner', result.is_hepai ? 'success' : 'fail']">
@@ -202,7 +172,6 @@
       </div>
 
       <div class="row block">
-        <div class="row-line"><span class="row-label">点击添加到手牌 / 和牌</span></div>
         <TilePalette :size="'sm'" @pick="onPalettePick" />
       </div>
 
@@ -225,28 +194,17 @@ import axios from 'axios'
 import TileChip from '@/components/TileChip.vue'
 import TilePalette from '@/components/TilePalette.vue'
 import TileMiniGlyph from '@/components/TileMiniGlyph.vue'
+import FuluSlots from '@/components/FuluSlots.vue'
+import TileFaceStyleSwitch from '@/components/TileFaceStyleSwitch.vue'
 import MahjongNotationHelp from '@/components/MahjongNotationHelp.vue'
 import {
   TILE_NAME,
   combinationLabel,
   parseNotationWithGetTile,
   notationTextWithGetTile,
-  parseMeldSlotInput,
   meldDisplayTiles,
 } from '@/composables/useMahjongTiles'
-
-const FULU_SLOT_COUNT = 4
-const FULU_SLOT_HINTS = ['123m 明顺', '333p 明刻', '3333s 明杠', '3333m 暗杠']
-
-const createEmptyFuluSlot = () => ({
-  input: '',
-  options: [],
-  locked: null,
-})
-
-const fuluSlots = reactive(
-  Array.from({ length: FULU_SLOT_COUNT }, () => createEmptyFuluSlot())
-)
+import { useFuluSlots } from '@/composables/useFuluSlots'
 
 const textInput = ref('')
 
@@ -270,13 +228,60 @@ const form = reactive({
 const loading = ref(false)
 const result = ref(null)
 
+const countMeldTiles = (meld, tileId) => {
+  if (!meld) return 0
+  if (meld.kind === 's' || meld.kind === 'S') {
+    if (meld.tileId === tileId || meld.tileId - 1 === tileId || meld.tileId + 1 === tileId) return 1
+    return 0
+  }
+  if (meld.kind === 'g' || meld.kind === 'G') return meld.tileId === tileId ? 4 : 0
+  if (meld.kind === 'k' || meld.kind === 'K') return meld.tileId === tileId ? 3 : 0
+  return 0
+}
+
+const wouldExceedTileLimit = (meld, excludeSlotIdx = -1) => {
+  const tiles = meldDisplayTiles(meld.kind, meld.tileId)
+  const unique = [...new Set(tiles)]
+  for (const tid of unique) {
+    let count = form.hand.filter((t) => t === tid).length
+    if (form.getTile === tid) count += 1
+    for (let i = 0; i < fulu.slots.length; i++) {
+      if (i === excludeSlotIdx) continue
+      count += countMeldTiles(fulu.slots[i].locked, tid)
+    }
+    count += tiles.filter((t) => t === tid).length
+    if (count > 4) return tid
+  }
+  return null
+}
+
+const trimHandIfNeeded = () => {
+  const max = expectedHandCount.value
+  if (form.hand.length > max) {
+    form.hand.splice(max)
+    syncTextInput()
+  }
+}
+
+const fulu = useFuluSlots({
+  checkOverflow: wouldExceedTileLimit,
+  onLocked: trimHandIfNeeded,
+})
+
+const fuluSlots = fulu.slots
+const activeFuluIdx = fulu.activeIdx
+const lockedFuluList = fulu.lockedList
+const lockedFuluCount = fulu.lockedCount
+const activateFulu = (idx) => fulu.activate(idx)
+const activateHand = fulu.activateHand
+const clearFuluSlot = fulu.clearSlot
+const onFuluSlotInput = fulu.onSlotInput
+const lockFuluSlot = (idx, opt) => fulu.lockSlot(idx, opt)
+const removeFuluDraft = fulu.removeDraftTile
+const removeFuluLocked = fulu.removeLockedTile
+
 const buildFlowerTiles = () =>
   Array.from({ length: form.flowerCount }, (_, i) => 51 + i)
-
-const lockedFuluList = computed(() =>
-  fuluSlots.filter((s) => s.locked).map((s) => s.locked)
-)
-const lockedFuluCount = computed(() => lockedFuluList.value.length)
 
 // ======== 计算属性 ========
 // 手牌栏 13 张 + 右侧和牌 1 张；每副露占 3 张
@@ -288,6 +293,11 @@ const handCountTagType = computed(() => {
   if (filledTileCount.value === expectedTotalCount.value) return 'success'
   if (filledTileCount.value > expectedTotalCount.value) return 'danger'
   return 'warning'
+})
+
+const inputTargetLabel = computed(() => {
+  if (activeFuluIdx.value >= 0) return `输入副露 #${activeFuluIdx.value + 1}`
+  return '输入手牌'
 })
 
 const syncTextInput = () => {
@@ -344,6 +354,7 @@ const ensureReadyForSubmit = () => {
 // ======== 操作方法 ========
 const onPalettePick = (id) => {
   if (id >= 51 && id <= 58) return
+  if (fulu.appendTileToActive(id)) return
   if (form.hand.length < expectedHandCount.value) {
     addHandTile(id)
   } else {
@@ -386,78 +397,9 @@ const removeHandTile = (idx) => {
   syncTextInput()
 }
 
-const countMeldTiles = (meld, tileId) => {
-  if (!meld) return 0
-  if (meld.kind === 's' || meld.kind === 'S') {
-    if (meld.tileId === tileId || meld.tileId - 1 === tileId || meld.tileId + 1 === tileId) return 1
-    return 0
-  }
-  if (meld.kind === 'g' || meld.kind === 'G') return meld.tileId === tileId ? 4 : 0
-  if (meld.kind === 'k' || meld.kind === 'K') return meld.tileId === tileId ? 3 : 0
-  return 0
-}
-
-const wouldExceedTileLimit = (meld, excludeSlotIdx = -1) => {
-  const tiles = meldDisplayTiles(meld.kind, meld.tileId)
-  const unique = [...new Set(tiles)]
-  for (const tid of unique) {
-    let count = form.hand.filter((t) => t === tid).length
-    if (form.getTile === tid) count += 1
-    for (let i = 0; i < fuluSlots.length; i++) {
-      if (i === excludeSlotIdx) continue
-      count += countMeldTiles(fuluSlots[i].locked, tid)
-    }
-    count += tiles.filter((t) => t === tid).length
-    if (count > 4) return tid
-  }
-  return null
-}
-
-const buildLockedMeld = (opt, input) => ({
-  kind: opt.kind,
-  tileId: opt.tileId,
-  label: opt.label,
-  code: `${opt.kind}${opt.tileId}`,
-  input,
-  displayTiles: meldDisplayTiles(opt.kind, opt.tileId),
-})
-
-const lockFuluSlot = (idx, opt) => {
-  const slot = fuluSlots[idx]
-  const meld = buildLockedMeld(opt, slot.input)
-  const overflow = wouldExceedTileLimit(meld, idx)
-  if (overflow) {
-    ElMessage.warning(`牌 ${TILE_NAME[overflow]} 已达 4 张上限`)
-    return
-  }
-  slot.locked = meld
-  slot.options = []
-  trimHandIfNeeded()
-}
-
-const clearFuluSlot = (idx) => {
-  const slot = fuluSlots[idx]
-  slot.input = ''
-  slot.options = []
-  slot.locked = null
-}
-
-const onFuluSlotInput = (idx) => {
-  const slot = fuluSlots[idx]
-  if (slot.locked) return
-  const { auto, options } = parseMeldSlotInput(slot.input)
-  slot.options = options
-  if (auto) {
-    lockFuluSlot(idx, auto)
-  }
-}
-
-const trimHandIfNeeded = () => {
-  const max = expectedHandCount.value
-  if (form.hand.length > max) {
-    form.hand.splice(max)
-    syncTextInput()
-  }
+const onHandChipClick = (idx) => {
+  activateHand()
+  removeHandTile(idx)
 }
 
 const countTileEverywhere = (id) => {
@@ -485,9 +427,7 @@ const resetAll = () => {
   }
   textInput.value = ''
   result.value = null
-  for (let i = 0; i < FULU_SLOT_COUNT; i++) {
-    clearFuluSlot(i)
-  }
+  fulu.resetAll()
 }
 
 // ======== 接口调用 ========
@@ -603,12 +543,13 @@ function renderDecomposition(combinations) {
 .chinese {
   max-width: 880px;
   margin: 0 auto;
-  padding: 12px 12px 20px;
+  padding: 12px 0 20px;
+  box-sizing: border-box;
 }
 
 .page-header {
   text-align: center;
-  margin-bottom: 16px;
+  margin: 0 auto 16px;
   color: white;
 }
 
@@ -635,6 +576,10 @@ function renderDecomposition(combinations) {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
+.chinese :deep(.notation-collapse) {
+  margin-bottom: 8px;
+}
+
 .card-header {
   padding: 8px 12px;
   background: #f5f7fa;
@@ -646,6 +591,12 @@ function renderDecomposition(combinations) {
   justify-content: space-between;
   align-items: center;
   letter-spacing: 0.5px;
+}
+
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .row {
@@ -676,6 +627,12 @@ function renderDecomposition(combinations) {
   gap: 10px;
 }
 
+.hint {
+  color: var(--omu-text-muted, #94a3b8);
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .hand-bar {
   display: flex;
   flex-wrap: wrap;
@@ -684,9 +641,9 @@ function renderDecomposition(combinations) {
   flex: 1 1 0;
   min-width: 0;
   padding: 6px;
-  background: var(--omu-surface-soft, #f5f7fa);
-  border-radius: 6px;
-  border: 1px dashed var(--omu-border, #ebeef5);
+  background: transparent;
+  border-radius: 0;
+  border: none;
 }
 .hand-bar.small { min-height: 36px; }
 
@@ -694,6 +651,27 @@ function renderDecomposition(combinations) {
   display: flex;
   align-items: stretch;
   gap: 8px;
+  padding: 6px;
+  background: var(--omu-surface-soft, #f5f7fa);
+  border-radius: 6px;
+  border: 1px dashed var(--omu-border, #ebeef5);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.hand-row.active {
+  border-color: #409eff;
+  border-style: solid;
+  background: #f0f7ff;
+}
+
+.input-target-bar {
+  display: inline-block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1f2933;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
 }
 
 .get-tile-box {
@@ -832,7 +810,7 @@ function renderDecomposition(combinations) {
 }
 
 .result-embed .empty {
-  padding: 14px;
+  padding: 10px 12px;
   text-align: center;
   color: var(--omu-text-muted, #94a3b8);
   font-size: 12.5px;
@@ -840,6 +818,7 @@ function renderDecomposition(combinations) {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-height: 44px;
 }
 
 .msg-inline {

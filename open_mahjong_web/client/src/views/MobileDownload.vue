@@ -8,9 +8,17 @@
     <section class="panel">
       <h2>{{ download.label }}</h2>
       <p class="platform-hint">{{ download.hint }}</p>
-      <el-button type="success" size="large" class="download-btn" @click="openMobileDownload">
-        下载 {{ download.label }}
-      </el-button>
+      <div class="action-row">
+        <el-button type="success" size="large" class="download-btn" @click="openMobileDownload">
+          下载 {{ download.label }}
+        </el-button>
+        <a
+          class="qq-btn"
+          href="https://qm.qq.com/q/MGGZV58hOO"
+          target="_blank"
+          rel="noopener noreferrer"
+        >加入QQ群</a>
+      </div>
     </section>
   </div>
 </template>
@@ -74,8 +82,37 @@ const download = MOBILE_DOWNLOAD
   line-height: 1.6;
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
 .download-btn {
   width: 100%;
   max-width: 240px;
+}
+
+.qq-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 4px;
+  background: #12b7f5;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.qq-btn:hover {
+  background: #0ea5e0;
+  color: #fff;
 }
 </style>

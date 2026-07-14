@@ -61,7 +61,7 @@
     </section>
 
     <section class="sec">
-      <div class="sec-h">■ 对战、账户设置与赛事申请、管理</div>
+      <div class="sec-h">■ 对战、账户设置、赛事申请/管理</div>
       <div class="grid g3 account-events">
         <router-link class="panel platform-card" to="/game-unity">
           <h3>进入平台</h3>
@@ -106,8 +106,8 @@
     </section>
 
     <section class="sec">
-      <div class="sec-h">■ 对战入口</div>
-      <div class="grid g3">
+      <div class="sec-h">■ 其他入口</div>
+      <div class="grid g4">
         <template v-for="item in battleLinks" :key="item.title">
           <a
             v-if="item.href"
@@ -339,6 +339,12 @@ const battleLinks = [
     color: '#1b2838',
   },
   { to: '/mobile-download', title: '手机版下载', description: 'Android APK', color: '#67c23a' },
+  {
+    href: 'https://qm.qq.com/q/MGGZV58hOO',
+    title: '加入QQ群',
+    description: '加入平台交流群，与群友约桌与反馈',
+    color: '#12b7f5',
+  },
   { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
 ]
 

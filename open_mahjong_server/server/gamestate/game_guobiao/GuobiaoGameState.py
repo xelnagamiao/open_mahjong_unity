@@ -213,7 +213,7 @@ class GuobiaoGameState:
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         # debug_scenario 见 guobiao_debug.py：tactical_claim（战鸣测试）| buhua_8flowers（seat1 单花补花测试）
-        self.Debug = True
+        self.Debug = False
         self.debug_scenario = GUOBIAO_DEBUG_SCENARIO
         self.pending_kan_hand_settle_delay = False
         if self.Debug:

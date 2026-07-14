@@ -54,6 +54,8 @@ def _shuffle_and_deal_changsha(self) -> None:
             for _ in range(13):
                 player.get_tile(self.tiles_list, mark_draw_slot=False)
 
-    # 长沙麻将开局庄家多一张，首个 game_start 就应体现 14/13/13/13。
+    # 长沙：庄家开局多一张，首个 game_start 就应体现 14/13/13/13。
+    # 不标记摸牌区：与国标一致，客户端 InitHandCards 把 14 张平铺展示（无 currentGetTile），
+    # 庄家首打一律按手切处理，开局不区分手摸切。
     if self.player_list and len(self.player_list[0].hand_tiles) == 13:
-        self.player_list[0].get_tile(self.tiles_list, mark_draw_slot=True)
+        self.player_list[0].get_tile(self.tiles_list, mark_draw_slot=False)
