@@ -269,24 +269,28 @@ public class CreatePanel : MonoBehaviour {
         InitCuoheTypeDropdown();
         EnsureChangshaOptionControls();
         EnsureEventControls();
-        EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
-        EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
         InitSubRuleDropdown();
         ApplyRuleDefaults(_ruleState);
         RefreshVisibility();
         RefreshSubRuleDescription();
+        if (EventNetworkManager.Instance != null) {
+            EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
+            EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
+        }
         RefreshEventControls();
 
         NetworkManager.Instance.CreateRoomResponse.AddListener(CreateRoomResponse);
     }
 
     private void OnEnable() {
+        if (EventNetworkManager.Instance == null) return;
         EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
         EventNetworkManager.Instance.OnActiveEventsUpdated += RefreshEventControls;
         RefreshEventControls();
     }
 
     private void OnDisable() {
+        if (EventNetworkManager.Instance == null) return;
         EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
     }
 
@@ -664,6 +668,7 @@ public class CreatePanel : MonoBehaviour {
     }
 
     private void RefreshEventControls() {
+        if (EventNetworkManager.Instance == null) return;
         var events = EventNetworkManager.Instance.ActiveEvents;
         bool hasEvents = events != null && events.Count > 0;
 

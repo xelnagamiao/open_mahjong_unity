@@ -57,26 +57,26 @@ const onPick = (id) => emit('pick', id)
 .tile-palette {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 4px;
+  padding: 0;
   min-width: 0;
-  background: var(--omu-surface-soft, #f5f7fa);
-  border: 1px dashed var(--omu-border, #ebeef5);
-  border-radius: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .palette-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .row-label {
-  width: 2.5em;
+  width: 3em;
   flex-shrink: 0;
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 15px;
   color: var(--omu-text-soft, #606266);
 }
 
@@ -84,11 +84,11 @@ const onPick = (id) => emit('pick', id)
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 2px 0;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }

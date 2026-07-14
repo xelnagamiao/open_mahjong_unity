@@ -1,6 +1,33 @@
 // 国标麻将牌号 / 文本 / Unicode 字符的统一映射
 // 牌号编码：11-19 万 / 21-29 饼/筒 / 31-39 条/索 / 41-44 东南西北 / 45-47 中白发 / 51-58 花牌
 
+/**
+ * Wikimedia 斜视牌面 SVG 文件名（public/tiles/）。
+ * 命名：MJw=万 MJt=筒 MJs=条 MJf=风 MJd1=中 MJd2=发 MJd3=白
+ */
+export function tileSvgFile(id) {
+  if (id >= 11 && id <= 19) return `MJw${id - 10}-.svg`
+  if (id >= 21 && id <= 29) return `MJt${id - 20}-.svg`
+  if (id >= 31 && id <= 39) return `MJs${id - 30}-.svg`
+  const honors = { 41: 'MJf1-.svg', 42: 'MJf2-.svg', 43: 'MJf3-.svg', 44: 'MJf4-.svg', 45: 'MJd1-.svg', 46: 'MJd3-.svg', 47: 'MJd2-.svg' }
+  return honors[id] || null
+}
+
+/** 牌面 SVG 公共路径；无资源时返回 null（回退 Unicode） */
+export function tileSvgUrl(id) {
+  const file = tileSvgFile(id)
+  return file ? `/tiles/${file}` : null
+}
+
+/** 国标小助手风格 face PNG（public/tiles/faces/），作 SVG 缺失时的备用 */
+export function tileFacePngUrl(id) {
+  if (id >= 11 && id <= 19) return `/tiles/faces/m${id - 10}.png`
+  if (id >= 21 && id <= 29) return `/tiles/faces/p${id - 20}.png`
+  if (id >= 31 && id <= 39) return `/tiles/faces/s${id - 30}.png`
+  const honors = { 41: 'w1', 42: 'w2', 43: 'w3', 44: 'w4', 45: 'd1', 46: 'd3', 47: 'd2' }
+  return honors[id] ? `/tiles/faces/${honors[id]}.png` : null
+}
+
 // Unicode 麻将字符（U+1F000 区段）
 export const TILE_UNICODE = {
   11: '\u{1F007}', 12: '\u{1F008}', 13: '\u{1F009}', 14: '\u{1F00A}', 15: '\u{1F00B}',
@@ -213,7 +240,13 @@ export function parseMeldSlotInput(text) {
     }
     if (nums.length === 3 && nums.every((n) => n === nums[0]) && nums[0] >= 1 && nums[0] <= 9) {
       const tileId = base + nums[0]
-      return { auto: null, options: [{ kind: 'k', tileId, label: '明刻' }] }
+      return {
+        auto: null,
+        options: [
+          { kind: 'k', tileId, label: '明刻' },
+          { kind: 'K', tileId, label: '暗刻' },
+        ],
+      }
     }
     if (nums.length === 4 && nums.every((n) => n === nums[0]) && nums[0] >= 1 && nums[0] <= 9) {
       const tileId = base + nums[0]
@@ -233,7 +266,14 @@ export function parseMeldSlotInput(text) {
     const nums = [...digits].map((d) => parseInt(d, 10))
     const zMap = { 1: 41, 2: 42, 3: 43, 4: 44, 5: 46, 6: 47, 7: 45 }
     if (nums.length === 3 && nums.every((n) => n === nums[0]) && zMap[nums[0]]) {
-      return { auto: null, options: [{ kind: 'k', tileId: zMap[nums[0]], label: '明刻' }] }
+      const tileId = zMap[nums[0]]
+      return {
+        auto: null,
+        options: [
+          { kind: 'k', tileId, label: '明刻' },
+          { kind: 'K', tileId, label: '暗刻' },
+        ],
+      }
     }
     if (nums.length === 4 && nums.every((n) => n === nums[0]) && zMap[nums[0]]) {
       const tileId = zMap[nums[0]]

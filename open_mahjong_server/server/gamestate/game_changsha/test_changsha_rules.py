@@ -153,8 +153,8 @@ class ChangshaRulesTest(unittest.TestCase):
 
         self.assertEqual([len(p.hand_tiles) for p in state.player_list], [14, 13, 13, 13])
         self.assertEqual(len(state.tiles_list), 55)
-        self.assertTrue(state.player_list[0].has_draw_slot)
-        self.assertFalse(any(p.has_draw_slot for p in state.player_list[1:]))
+        # 开局 14 张不标记摸牌区（与国标一致），庄家首打按手切
+        self.assertFalse(any(p.has_draw_slot for p in state.player_list))
 
     def test_discard_check_asks_all_eligible_peng_and_gang_players(self):
         state = SimpleNamespace(

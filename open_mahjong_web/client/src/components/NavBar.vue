@@ -57,6 +57,7 @@ const items = [
   { to: '/rulebook', label: '规则书', match: (p) => p.startsWith('/rulebook') },
   { to: '/seed-verify', label: '种子验证' },
   { to: '/mobile-download', label: '手机版' },
+  { href: 'https://qm.qq.com/q/MGGZV58hOO', label: '加入QQ群' },
   { to: '/docs', label: '开发手册' },
   { to: '/github', label: 'GitHub' },
 ]
