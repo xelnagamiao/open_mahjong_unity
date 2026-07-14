@@ -10,7 +10,7 @@ from .init_tiles import init_jiandan_tiles
 from .settlement import JiandanSettlementPolicy
 from ..public.hand_slot_utils import has_draw_slot, pick_timeout_discard_tile
 from ..public.logic_common import back_current_num
-from ..public.random_seed_manager import setup_random_seed_system
+from ..public.random_seed_manager import derive_round_seed, setup_random_seed_system
 from ..public.round_end_timing import liuju_ready_wait_seconds
 from ..public.vote_manager import vote_checkpoint
 
@@ -1085,8 +1085,7 @@ class JiandanGameState:
         }
 
     def _derive_round_seed(self) -> int:
-        seed = self.room_random_seed or 1
-        return seed * 1009 + self.current_round
+        return derive_round_seed(self.master_seed, self.current_round)
 
     def advance_round_after_ready(self) -> None:
         """Advance to the next hand with fixed dealer rotation and fresh action state."""
