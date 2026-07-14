@@ -190,7 +190,7 @@ class VoteManager:
             await self.gs.game_server.gamestate_manager.cleanup_game_state_complete(
                 gamestate_id=self.gs.gamestate_id
             )
-            if getattr(self.gs, "room_type", None) == "custom":
+            if getattr(self.gs, "room_type", None) != "match":
                 await self.gs.game_server.room_manager.finish_custom_game_room(self.gs.room_id)
         except Exception as e:
             logger.error(f"管理端结束对局清理失败: {e}", exc_info=True)
@@ -291,9 +291,9 @@ class VoteManager:
                 await self.gs.game_server.gamestate_manager.cleanup_game_state_complete(
                     gamestate_id=self.gs.gamestate_id
                 )
-                # 自定义房间需恢复等待态（重置 is_game_running、清空 ready_list、广播房间信息），
-                # 否则房主再次开局会被「游戏已在进行中」拦截。
-                if getattr(self.gs, "room_type", None) == "custom":
+                # 自定义/赛事房间需恢复等待态（重置 is_game_running、清空 ready_list、广播房间信息），
+                # 否则房主再次开局会被「游戏已在进行中」拦截。match 房走销毁，此处不处理。
+                if getattr(self.gs, "room_type", None) != "match":
                     await self.gs.game_server.room_manager.finish_custom_game_room(self.gs.room_id)
             except Exception as e:
                 logger.error(f"投票结束清理对局失败: {e}", exc_info=True)

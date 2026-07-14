@@ -384,18 +384,6 @@ public static class ScoreHistorySettlementHelper {
         return baseFanName;
     }
 
-    private static int ParseFanNumericValue(string subRule, string fanKey) {
-        string display = FanTextDictionary.GetFanDisplayText(subRule, fanKey);
-        if (display == "满贯" || display == "役满") return 10000;
-        if (display.EndsWith("番") && int.TryParse(display.Replace("番", ""), out int val)) {
-            return val;
-        }
-        if (display.EndsWith("符") && int.TryParse(display.Replace("符", ""), out int fuVal)) {
-            return fuVal;
-        }
-        return 0;
-    }
-
     public static int CalculateSichuanFanTotal(string subRule, string[] huFan) {
         if (huFan == null) return 0;
         int total = 0;

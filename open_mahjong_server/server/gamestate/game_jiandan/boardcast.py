@@ -223,6 +223,9 @@ def visible_action_payload(
     combination_target = action_info.get("meld_code")
     if action == "angang" and not reveal_final and viewer_index != actor:
         combination_target = "G0"
+    # 切牌：弃牌张；吃/碰/明杠：被认走的弃牌张。与其它规则 broadcast_do_action(cut_tile + cut_from_player) 一致。
+    claim_actions = {"chi_left", "chi_mid", "chi_right", "peng", "gang"}
+    cut_tile = action_info.get("tile") if action == "cut" or action in claim_actions else None
     payload = {
         "type": "gamestate/jiandan/do_action",
         "success": True,
@@ -234,7 +237,7 @@ def visible_action_payload(
             "action_list": [action] if action else [],
             "action_player": actor if actor is not None else -1,
             "action_tick": game_state.server_action_tick,
-            "cut_tile": action_info.get("tile") if action == "cut" else None,
+            "cut_tile": cut_tile,
             "cut_tile_index": action_info.get("cutIndex"),
             "cut_class": action_info.get("cutClass", False),
             "deal_tile": viewer_deal_tile,

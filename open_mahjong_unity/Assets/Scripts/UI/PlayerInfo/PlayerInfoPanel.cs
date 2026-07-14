@@ -307,9 +307,6 @@ public class PlayerInfoPanel : MonoBehaviour {
             if (qingqueStats == null) DataNetworkManager.Instance?.GetQingqueStats(currentUserId.ToString());
             if (classicalStats == null) DataNetworkManager.Instance?.GetClassicalStats(currentUserId.ToString());
             if (jiandanStats == null) DataNetworkManager.Instance?.GetJiandanStats(currentUserId.ToString());
-        else if (rule == "Other" && (qingqueStats == null || classicalStats == null)){
-            if (qingqueStats == null) DataNetworkManager.Instance.GetQingqueStats(currentUserId.ToString());
-            if (classicalStats == null) DataNetworkManager.Instance.GetClassicalStats(currentUserId.ToString());
             return;
         }
 

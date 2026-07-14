@@ -1,3 +1,4 @@
+using System.Linq;
 using Qingque13.Core;
 
 namespace Qingque13.Criteria

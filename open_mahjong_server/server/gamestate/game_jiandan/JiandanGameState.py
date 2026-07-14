@@ -12,6 +12,7 @@ from ..public.hand_slot_utils import has_draw_slot, pick_timeout_discard_tile
 from ..public.logic_common import back_current_num
 from ..public.random_seed_manager import setup_random_seed_system
 from ..public.round_end_timing import liuju_ready_wait_seconds
+from ..public.vote_manager import vote_checkpoint
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +223,7 @@ class JiandanGameState:
                 self.open_action_window(self.begin_hand_action(self.current_player_index))
                 await self.flush_outbound_payloads()
                 while self.game_status != "END":
+                    await vote_checkpoint(self)
                     await self.resolve_action_window(timeout=self.estimated_action_window_timeout())
                     await self.flush_outbound_payloads()
                 self.finalize_round_recording()
@@ -1504,6 +1506,17 @@ class JiandanGameState:
 
         claimant_index, action = claim
         player = self.player_list[claimant_index]
+        discarder = self.player_list[discarder_index]
+        # 与其它规则一致：鸣牌后从打牌者河牌移除被认走张，并记入 discard_origin_tiles
+        if discarder.discard_tiles:
+            if discarder.discard_tiles[-1] == tile:
+                discarder.discard_tiles.pop(-1)
+            elif tile in discarder.discard_tiles:
+                for i in range(len(discarder.discard_tiles) - 1, -1, -1):
+                    if discarder.discard_tiles[i] == tile:
+                        discarder.discard_tiles.pop(i)
+                        break
+        discarder.discard_origin_tiles.append(tile)
         meld_code, combination_mask = self._apply_discard_claim(player, tile, action)
         self.current_player_index = claimant_index
 
