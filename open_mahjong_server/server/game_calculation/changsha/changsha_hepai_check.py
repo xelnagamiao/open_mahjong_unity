@@ -84,6 +84,55 @@ def evaluate_changsha_initial_hu(tiles: List[int]) -> List[str]:
     return result
 
 
+def changsha_initial_hu_reveal_tiles(tiles: List[int], hu_types: List[str]) -> List[int]:
+    """返回起手胡结算时需要亮出的最小牌组。"""
+    hand = list(tiles or [])
+    hu_type_set = set(hu_types or [])
+    # 板板胡和缺一色需要整手牌才能表达牌型，不能裁成固定子集。
+    if not hand or hu_type_set.intersection({INITIAL_HU_NAMES["banBanHu"], INITIAL_HU_NAMES["queYiSe"]}):
+        return hand
+
+    counts = _count_tiles(hand)
+    required_counts: Dict[int, int] = {}
+
+    if INITIAL_HU_NAMES["siXi"] in hu_type_set:
+        quad_tile = next((tile for tile in sorted(counts) if counts[tile] >= 4), None)
+        if quad_tile is not None:
+            required_counts[quad_tile] = max(required_counts.get(quad_tile, 0), 4)
+
+    if INITIAL_HU_NAMES["liuLiuShun"] in hu_type_set:
+        triplet_tiles = [tile for tile in sorted(counts) if counts[tile] >= 3][:2]
+        for tile in triplet_tiles:
+            required_counts[tile] = max(required_counts.get(tile, 0), 3)
+
+    if INITIAL_HU_NAMES["sanTong"] in hu_type_set:
+        matching_rank = next(
+            (
+                rank
+                for rank in range(1, 10)
+                if all(counts.get(suit * 10 + rank, 0) >= 2 for suit in (1, 2, 3))
+            ),
+            None,
+        )
+        if matching_rank is not None:
+            for suit in (1, 2, 3):
+                tile = suit * 10 + matching_rank
+                required_counts[tile] = max(required_counts.get(tile, 0), 2)
+
+    if not required_counts:
+        return hand
+
+    reveal_tiles = []
+    # 同一张牌同时命中多个牌型时取最大需求数，避免重复亮出不存在的牌。
+    remaining_counts = dict(required_counts)
+    for tile in hand:
+        if remaining_counts.get(tile, 0) <= 0:
+            continue
+        reveal_tiles.append(tile)
+        remaining_counts[tile] -= 1
+    return reveal_tiles
+
+
 def _expand_meld(comb: str) -> List[int]:
     if not comb:
         return []

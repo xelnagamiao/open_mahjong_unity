@@ -29,6 +29,7 @@ from ..public.game_record_manager import init_game_record,init_game_round,player
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...game_calculation.changsha.changsha_hepai_check import (
     INITIAL_HU_NAMES,
+    changsha_initial_hu_reveal_tiles,
     changsha_base_from_fans,
     evaluate_changsha_initial_hu,
 )
@@ -601,7 +602,7 @@ class ChangshaGameState:
             hu_score=score_info["actual_hu_score"],
             hu_fan=score_info["fan_display"],
             hu_class="initial_hu",
-            hepai_player_hand=winner.hand_tiles,
+            hepai_player_hand=changsha_initial_hu_reveal_tiles(winner.hand_tiles, hu_types),
             hepai_player_huapai=winner.huapai_list,
             hepai_player_combination_mask=winner.combination_mask,
             score_changes=score_changes_dict,
