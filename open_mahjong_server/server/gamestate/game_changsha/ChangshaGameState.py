@@ -207,6 +207,8 @@ class ChangshaGameState:
         self.pending_gang_replacement_hu_hand = None
         self.current_claim_cut_tile = None
         self.initial_hu_types = {}
+        self.sea_bottom_player_index = None
+        self.sea_bottom_default_player_index = None
         self.sea_bottom_candidates = []
         self.player_passed_hu_base = {}
         self.temp_fan = [] ###### 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
@@ -458,6 +460,7 @@ class ChangshaGameState:
         self.pending_gang_replacement_hu_hand = None
         self.current_claim_cut_tile = None
         self.sea_bottom_player_index = None
+        self.sea_bottom_default_player_index = None
         self.sea_bottom_candidates = []
         self.initial_hu_types = {}
         self.player_passed_hu_base = {}
@@ -682,6 +685,40 @@ class ChangshaGameState:
         else:
             self.current_claim_cut_tile = None
             self.game_status = "END"
+
+    async def _force_discard_unclaimed_sea_bottom(self) -> None:
+        """无人要海底时，由原定摸牌者强制摸切最后一张且不开放响应。"""
+        if not self.tiles_list:
+            logger.warning("长沙无人要海底收尾失败：牌山为空")
+            self.game_status = "END"
+            return
+        player_index = self.sea_bottom_default_player_index
+        if player_index is None:
+            logger.error("长沙无人要海底收尾失败：未记录原定摸牌玩家")
+            self.game_status = "END"
+            return
+        self.current_player_index = player_index
+        self.sea_bottom_player_index = player_index
+        self.last_draw_was_gang = False
+        self.pending_gang_replacement_count = 0
+        self.pending_gang_forced_discard = False
+        self.forced_cut_tile = None
+        self.forced_cut_tiles = []
+        self.current_claim_cut_tile = None
+        self.action_dict = {0: [], 1: [], 2: [], 3: []}
+        player = self._player_by_index(player_index)
+        sea_bottom_tile = self.tiles_list.pop(0)
+        player.discard_tiles.append(sea_bottom_tile)
+        player_action_record_deal(self, deal_tile=sea_bottom_tile, deal_type="d")
+        player_action_record_cut(self, cut_tile=sea_bottom_tile, is_moqie=True)
+        await self.broadcast_do_action(
+            action_list=["cut"],
+            action_player=player_index,
+            cut_tile=sea_bottom_tile,
+            cut_class=True,
+            sea_bottom_discard=True,
+        )
+        self.game_status = "END"
 
     def _filter_sea_bottom_ron_actions(self, action_dict: Dict[int, List[str]]) -> Dict[int, List[str]]:
         filtered = {0: [], 1: [], 2: [], 3: []}
@@ -1026,9 +1063,10 @@ class ChangshaGameState:
                             self.game_status = "END" # 结束游戏
                             break
                         if len(self.tiles_list) == 1:
+                            self.sea_bottom_default_player_index = next_current_num(self.current_player_index)
                             self.sea_bottom_candidates = self._sea_bottom_waiting_candidates()
                             if not self._prepare_next_sea_bottom_choice():
-                                self.game_status = "END"
+                                await self._force_discard_unclaimed_sea_bottom()
                             continue
                         else:
                             self.next_current_index() # 切换到下一个玩家

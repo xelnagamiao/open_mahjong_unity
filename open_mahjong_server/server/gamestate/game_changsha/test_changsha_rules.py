@@ -1070,7 +1070,7 @@ class ChangshaRulesTest(unittest.TestCase):
 
         self.assertIsNone(ChangshaGameState._next_sea_bottom_player(state))
 
-    def test_sea_bottom_choice_exhaustion_ends_when_all_pass(self):
+    def test_sea_bottom_choice_exhaustion_returns_false_when_all_pass(self):
         state = SimpleNamespace(
             player_list=[DummyPlayer(i, [11, 12, 13]) for i in range(4)],
             sea_bottom_candidates=[],
@@ -1079,6 +1079,55 @@ class ChangshaRulesTest(unittest.TestCase):
 
         self.assertFalse(ChangshaGameState._prepare_next_sea_bottom_choice(state))
         self.assertEqual(state.action_dict, {0: [], 1: [], 2: [], 3: []})
+
+    def test_unclaimed_sea_bottom_is_force_discarded_by_original_next_player(self):
+        players = [DummyPlayer(i, [11 + i]) for i in range(4)]
+        state = SimpleNamespace(
+            player_list=players,
+            tiles_list=[25],
+            current_player_index=3,
+            sea_bottom_default_player_index=1,
+            sea_bottom_player_index=None,
+            current_claim_cut_tile=19,
+            action_dict={0: ["pass"], 1: [], 2: [], 3: []},
+        )
+        state._player_by_index = lambda index: ChangshaGameState._player_by_index(state, index)
+        payloads = []
+        records = []
+
+        async def capture_broadcast(**kwargs):
+            payloads.append(kwargs)
+
+        state.broadcast_do_action = capture_broadcast
+        with patch.object(changsha_state_module, "player_action_record_deal", lambda *args, **kwargs: records.append(("deal", kwargs))), \
+            patch.object(changsha_state_module, "player_action_record_cut", lambda *args, **kwargs: records.append(("cut", kwargs))):
+            asyncio.run(ChangshaGameState._force_discard_unclaimed_sea_bottom(state))
+
+        self.assertEqual(state.tiles_list, [])
+        self.assertEqual(players[1].discard_tiles, [25])
+        self.assertEqual(state.current_player_index, 1)
+        self.assertEqual(state.sea_bottom_player_index, 1)
+        self.assertIsNone(state.current_claim_cut_tile)
+        self.assertEqual(state.action_dict, {0: [], 1: [], 2: [], 3: []})
+        self.assertEqual(state.game_status, "END")
+        self.assertEqual([record[0] for record in records], ["deal", "cut"])
+        self.assertEqual(payloads[0]["action_list"], ["cut"])
+        self.assertEqual(payloads[0]["cut_tile"], 25)
+        self.assertTrue(payloads[0]["cut_class"])
+        self.assertTrue(payloads[0]["sea_bottom_discard"])
+
+    def test_unclaimed_sea_bottom_never_guesses_missing_default_player(self):
+        state = SimpleNamespace(
+            tiles_list=[25],
+            sea_bottom_default_player_index=None,
+            game_status="waiting_sea_bottom",
+        )
+
+        with self.assertLogs(changsha_state_module.logger.name, level="ERROR"):
+            asyncio.run(ChangshaGameState._force_discard_unclaimed_sea_bottom(state))
+
+        self.assertEqual(state.tiles_list, [25])
+        self.assertEqual(state.game_status, "END")
 
     def test_sea_bottom_take_marks_last_tile_as_forced_cut(self):
         player = DummyPlayer(1, [11, 12, 13], waiting_tiles=[24])

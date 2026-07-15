@@ -312,7 +312,7 @@ async def wait_action(self):
                 logger.error(f"海底漫游阶段出现非法操作: action_type={action_type}, action_data={action_data}")
             if hasattr(self, "_prepare_next_sea_bottom_choice") and self._prepare_next_sea_bottom_choice():
                 return True
-            self.game_status = "END"
+            await self._force_discard_unclaimed_sea_bottom()
             return True
 
         # 摸牌后手牌case 包含 切牌cut 暗杠gang 加杠jiagang 自摸hu
