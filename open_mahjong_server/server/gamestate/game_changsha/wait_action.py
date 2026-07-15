@@ -2,7 +2,7 @@
 import asyncio
 import time
 import logging
-from .action_check import check_action_after_cut, check_action_after_batch_gang_forced_cut, check_action_jiagang, refresh_waiting_tiles
+from .action_check import can_take_replacements, check_action_after_cut, check_action_after_batch_gang_forced_cut, check_action_jiagang, refresh_waiting_tiles
 from .boardcast import broadcast_do_action, broadcast_ready_status, broadcast_ask_other_action
 from ..public.logic_common import get_index_relative_position, next_current_num
 from ..public.game_record_manager import (
@@ -74,6 +74,14 @@ def _remove_claimed_discard(discard_tiles, tile_id):
         discard_tiles.pop(-1)
 
 async def _execute_angang_replacement(self, player_index: int, target_tile: int, broadcast_action: str, replacement_count: int, forced_discard: bool) -> None:
+    if not can_take_replacements(self, replacement_count):
+        logger.warning(
+            "长沙暗杠/补张补牌不足: player=%s replacement_count=%s remaining=%s",
+            player_index,
+            replacement_count,
+            len(getattr(self, "tiles_list", [])),
+        )
+        return
     normal_angang = normalize_tile(target_tile)
     player = self.player_list[player_index]
     hand = player.hand_tiles
@@ -104,6 +112,14 @@ async def _execute_angang_replacement(self, player_index: int, target_tile: int,
     self.game_status = "deal_card_after_gang"
 
 async def _execute_jiagang_replacement(self, player_index: int, target_tile: int, broadcast_action: str, replacement_count: int, forced_discard: bool) -> None:
+    if not can_take_replacements(self, replacement_count):
+        logger.warning(
+            "长沙加杠/补张补牌不足: player=%s replacement_count=%s remaining=%s",
+            player_index,
+            replacement_count,
+            len(getattr(self, "tiles_list", [])),
+        )
+        return
     normal_jia = normalize_tile(target_tile)
     player = self.player_list[player_index]
     hand = player.hand_tiles
@@ -373,6 +389,9 @@ async def wait_action(self):
                     return
 
                 elif action_type == "buzhang":
+                    if not can_take_replacements(self, 1):
+                        logger.warning("长沙补张被拒绝: 牌山不足以保留海底牌")
+                        return
                     buzhang_tile = action_data.get("target_tile")
                     normal_buzhang = normalize_tile(buzhang_tile)
                     player = self.player_list[self.current_player_index]
@@ -391,6 +410,14 @@ async def wait_action(self):
                         hasattr(self, "_is_open_kong_ready_after_declared")
                         and self._is_open_kong_ready_after_declared(player, normal_angang)
                     )
+                    replacement_count = getattr(self, "open_kong_replacement_count", 2) if is_open_kong else 1
+                    if not can_take_replacements(self, replacement_count):
+                        logger.warning(
+                            "长沙暗杠被拒绝: replacement_count=%s remaining=%s",
+                            replacement_count,
+                            len(getattr(self, "tiles_list", [])),
+                        )
+                        return
                     draw_slot = has_draw_slot(player)
                     is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
                     removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
@@ -408,13 +435,20 @@ async def wait_action(self):
                                                   combination_target = f"G{normal_angang}",
                                                   is_mo_gang=is_mo_gang)
 
-                    replacement_count = getattr(self, "open_kong_replacement_count", 2) if is_open_kong else 1
                     self.prepare_gang_replacement(replacement_count, is_open_kong)
                     # 切换到杠后发牌历时行为
                     self.game_status = "deal_card_after_gang"
 
                 elif action_type == "jiagang": # 加杠
                     # 加杠
+                    replacement_count = getattr(self, "open_kong_replacement_count", 2)
+                    if not can_take_replacements(self, replacement_count):
+                        logger.warning(
+                            "长沙加杠被拒绝: replacement_count=%s remaining=%s",
+                            replacement_count,
+                            len(getattr(self, "tiles_list", [])),
+                        )
+                        return
                     jiagang_tile = action_data.get("target_tile") # 获取加杠牌
                     normal_jia = normalize_tile(jiagang_tile)
                     player = self.player_list[self.current_player_index]
@@ -457,7 +491,7 @@ async def wait_action(self):
                                                   ) # 广播加杠动画
 
                     self.jiagang_tile = normal_jia # 存储抢杠牌
-                    self.prepare_gang_replacement(getattr(self, "open_kong_replacement_count", 2), True)
+                    self.prepare_gang_replacement(replacement_count, True)
                     self.action_dict = check_action_jiagang(self,normal_jia) # 检查是否有人可以抢杠
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
@@ -610,6 +644,15 @@ async def wait_action(self):
                         combination_mask = [0,tile_id,1,tile_id,0,tile_id]
 
                 elif action_type == "gang": # [tile_id',tile_id,tile_id',tile_id]
+                    replacement_count = getattr(self, "open_kong_replacement_count", 2)
+                    if not can_take_replacements(self, replacement_count):
+                        logger.warning(
+                            "长沙明杠被拒绝: player=%s replacement_count=%s remaining=%s",
+                            player_index,
+                            replacement_count,
+                            len(getattr(self, "tiles_list", [])),
+                        )
+                        return
                     # 保护：明杠需要至少三张 tile_id
                     if self.player_list[player_index].hand_tiles.count(tile_id) < 3:
                         logger.error(
@@ -674,7 +717,7 @@ async def wait_action(self):
                     # 广播碰杠动画
                     await broadcast_do_action(self,action_list = [action_type],action_player = self.current_player_index,combination_mask = combination_mask,combination_target = combination_target,cut_from_player = discarder_index,cut_tile = tile_id)
                     if action_type == "gang":
-                        self.prepare_gang_replacement(getattr(self, "open_kong_replacement_count", 2), True)
+                        self.prepare_gang_replacement(replacement_count, True)
                         self.game_status = "deal_card_after_gang" # 转移行为
                     else:
                         self.current_claim_cut_tile = None

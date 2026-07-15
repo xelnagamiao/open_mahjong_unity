@@ -65,6 +65,13 @@ def _append_unique(actions: list, action: str) -> None:
     if action not in actions:
         actions.append(action)
 
+
+def can_take_replacements(self, count: int) -> bool:
+    """补牌后必须至少保留一张海底牌。"""
+    replacement_count = max(0, int(count))
+    return len(getattr(self, "tiles_list", [])) >= replacement_count + 1
+
+
 # 切牌后检查 存储 吃chi 碰peng 杠gang 胡hu 操作
 def check_action_after_cut(self,cut_tile):
     temp_action_dict:Dict[int,list] = {0:[],1:[],2:[],3:[]}
@@ -89,8 +96,12 @@ def check_action_after_cut(self,cut_tile):
                 and not getattr(item, "open_kong_locked", False)
                 and item.hand_tiles.count(cut_tile) == 3
             ):
-                if self.tiles_list != [] and _is_ready_for_open_kong_claim(self, item, cut_tile):
-                        temp_action_dict[item.player_index].append("gang")
+                replacement_count = getattr(self, "open_kong_replacement_count", 2)
+                if (
+                    can_take_replacements(self, replacement_count)
+                    and _is_ready_for_open_kong_claim(self, item, cut_tile)
+                ):
+                    temp_action_dict[item.player_index].append("gang")
 
     # 如果该牌是任意家的等待牌 且不是自己
     for item in self.player_list:
@@ -144,27 +155,29 @@ def check_action_buhua(self,player_index):
 
 def _append_self_kong_actions(self, temp_action_dict: Dict[int, list], player_index: int) -> None:
     player_item = self.player_list[player_index]
-    # 如果牌堆内仍有牌则可以暗杠加杠
-    if self.tiles_list != []:
-        # 如果手牌中有4张相同的牌 则可以暗杠
-        processed_cards = set()
-        for carditem in player_item.hand_tiles:
-            if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
-                if self.tiles_list != []:
-                    _append_unique(temp_action_dict[player_index], "buzhang")
-                    if hasattr(self, "_is_open_kong_ready_after_declared") and self._is_open_kong_ready_after_declared(player_item, carditem):
-                        _append_unique(temp_action_dict[player_index], "angang")
-                    processed_cards.add(carditem)
+    # 单张补张也必须留一张海底；开杠按房间配置的补牌数预留。
+    if not can_take_replacements(self, 1):
+        return
+    open_kong_replacement_count = getattr(self, "open_kong_replacement_count", 2)
+    can_open_kong = can_take_replacements(self, open_kong_replacement_count)
 
-        # 如果组合牌中有加杠 则可以加杠
-        for combination_tile in player_item.combination_tiles:
-            if combination_tile[0] == "k":
-                jiagang_index = int(combination_tile[1:])  # 提取所有数字
-                if jiagang_index in player_item.hand_tiles:
-                    if self.tiles_list != []:
-                        _append_unique(temp_action_dict[player_index], "buzhang")
-                        if hasattr(self, "_is_open_kong_ready_after_declared") and self._is_open_kong_ready_after_declared(player_item, jiagang_index):
-                            _append_unique(temp_action_dict[player_index], "jiagang")
+    # 如果手牌中有4张相同的牌 则可以暗杠
+    processed_cards = set()
+    for carditem in player_item.hand_tiles:
+        if carditem not in processed_cards and player_item.hand_tiles.count(carditem) == 4:
+            _append_unique(temp_action_dict[player_index], "buzhang")
+            if can_open_kong and hasattr(self, "_is_open_kong_ready_after_declared") and self._is_open_kong_ready_after_declared(player_item, carditem):
+                _append_unique(temp_action_dict[player_index], "angang")
+            processed_cards.add(carditem)
+
+    # 如果组合牌中有加杠 则可以加杠
+    for combination_tile in player_item.combination_tiles:
+        if combination_tile[0] == "k":
+            jiagang_index = int(combination_tile[1:])  # 提取所有数字
+            if jiagang_index in player_item.hand_tiles:
+                _append_unique(temp_action_dict[player_index], "buzhang")
+                if can_open_kong and hasattr(self, "_is_open_kong_ready_after_declared") and self._is_open_kong_ready_after_declared(player_item, jiagang_index):
+                    _append_unique(temp_action_dict[player_index], "jiagang")
 
 
 # 摸牌后检查操作 和牌hu 暗杠angang 加杠jiagang 切牌cut

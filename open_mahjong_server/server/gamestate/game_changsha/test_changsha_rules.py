@@ -13,6 +13,7 @@ from server.game_calculation.changsha.changsha_hepai_check import (
 )
 from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState
 from server.gamestate.game_changsha.action_check import (
+    can_take_replacements,
     check_action_after_cut,
     check_action_after_batch_gang_forced_cut,
     check_action_after_gang_forced_cut,
@@ -165,7 +166,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(3, [11, 11, 19]),
             ],
             current_player_index=0,
-            tiles_list=[21],
+            tiles_list=[21, 22, 23],
             dihe_possible=True,
             calculation_service=FixedTingpai([12]),
         )
@@ -254,7 +255,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(3, [21, 22, 23]),
             ],
             current_player_index=0,
-            tiles_list=[21],
+            tiles_list=[21, 22, 23],
             dihe_possible=False,
             last_draw_was_gang=True,
             calculation_service=FixedTingpai([11]),
@@ -334,7 +335,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(3, [21, 22, 23]),
             ],
             current_player_index=0,
-            tiles_list=[31],
+            tiles_list=[31, 32, 33],
             dihe_possible=True,
             calculation_service=FixedTingpai([]),
         )
@@ -360,7 +361,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(3, [31, 32, 33]),
             ],
             current_player_index=0,
-            tiles_list=[31],
+            tiles_list=[31, 32, 33],
             dihe_possible=True,
             calculation_service=checker,
         )
@@ -378,7 +379,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(2),
                 DummyPlayer(3),
             ],
-            tiles_list=[31],
+            tiles_list=[31, 32],
             calculation_service=FixedTingpai([]),
         )
         state.player_list[0].combination_tiles = ["k17"]
@@ -388,6 +389,24 @@ class ChangshaRulesTest(unittest.TestCase):
 
         self.assertIn("buzhang", actions[0])
         self.assertNotIn("jiagang", actions[0])
+
+    def test_self_replacement_is_hidden_when_only_sea_bottom_remains(self):
+        state = SimpleNamespace(
+            player_list=[
+                DummyPlayer(0, [17, 12, 13]),
+                DummyPlayer(1),
+                DummyPlayer(2),
+                DummyPlayer(3),
+            ],
+            tiles_list=[31],
+            calculation_service=FixedTingpai([]),
+        )
+        state.player_list[0].combination_tiles = ["k17"]
+        state._is_open_kong_ready_after_declared = lambda player, tile: ChangshaGameState._is_open_kong_ready_after_declared(state, player, tile)
+
+        actions = check_action_hand_action(state, 0)
+
+        self.assertEqual(actions[0], ["cut"])
 
     def test_self_replacement_ready_offers_buzhang_and_open_kong(self):
         checker = ConditionalTingpai(
@@ -402,7 +421,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(2),
                 DummyPlayer(3),
             ],
-            tiles_list=[31],
+            tiles_list=[31, 32, 33],
             calculation_service=checker,
         )
         state.player_list[0].combination_tiles = ["k17"]
@@ -426,7 +445,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(2),
                 DummyPlayer(3),
             ],
-            tiles_list=[31],
+            tiles_list=[31, 32, 33],
             calculation_service=checker,
         )
         state._is_open_kong_ready_after_declared = lambda player, tile: ChangshaGameState._is_open_kong_ready_after_declared(state, player, tile)
@@ -450,7 +469,7 @@ class ChangshaRulesTest(unittest.TestCase):
                 DummyPlayer(2),
                 DummyPlayer(3),
             ],
-            tiles_list=[31],
+            tiles_list=[31, 32, 33],
             calculation_service=checker,
         )
         state.player_list[0].combination_tiles = ["k17"]
@@ -461,6 +480,40 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertIn("cut", actions[0])
         self.assertIn("buzhang", actions[0])
         self.assertIn("jiagang", actions[0])
+
+    def test_replacement_capacity_always_reserves_one_sea_bottom_tile(self):
+        state = SimpleNamespace(tiles_list=[31, 32])
+
+        self.assertTrue(can_take_replacements(state, 1))
+        self.assertFalse(can_take_replacements(state, 2))
+
+        state.tiles_list.append(33)
+        self.assertTrue(can_take_replacements(state, 2))
+
+    def test_open_kong_is_hidden_when_only_single_replacement_can_be_taken(self):
+        checker = ConditionalTingpai(
+            expected_hand=[12, 13, 14],
+            expected_melds=["g11"],
+            waiting_tiles=[15],
+        )
+        state = SimpleNamespace(
+            player_list=[
+                DummyPlayer(0, [21, 22, 23]),
+                DummyPlayer(1, [11, 11, 11, 12, 13, 14]),
+                DummyPlayer(2),
+                DummyPlayer(3),
+            ],
+            current_player_index=0,
+            tiles_list=[31, 32],
+            dihe_possible=True,
+            calculation_service=checker,
+            open_kong_replacement_count=2,
+        )
+
+        actions = check_action_after_cut(state, 11)
+
+        self.assertIn("peng", actions[1])
+        self.assertNotIn("gang", actions[1])
 
     def test_initial_hu_types_match_classic_changsha_patterns(self):
         hand = [11, 11, 11, 11, 13, 13, 23, 23, 33, 33, 24, 24, 24]
@@ -1228,6 +1281,7 @@ class ChangshaRulesTest(unittest.TestCase):
             player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
             action_dict={},
             jiagang_tile=None,
+            tiles_list=[31, 32],
         )
         payloads = []
         state.prepare_gang_replacement = lambda count, forced: setattr(
@@ -1256,6 +1310,7 @@ class ChangshaRulesTest(unittest.TestCase):
             player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
             action_dict={},
             jiagang_tile=None,
+            tiles_list=[31, 32, 33],
         )
         payloads = []
         state.prepare_gang_replacement = lambda count, forced: setattr(
@@ -1280,6 +1335,7 @@ class ChangshaRulesTest(unittest.TestCase):
         player = DummyPlayer(0, [11, 11, 11, 11, 12, 13])
         state = SimpleNamespace(
             player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
+            tiles_list=[31, 32, 33],
         )
         payloads = []
         state.prepare_gang_replacement = lambda count, forced: setattr(
@@ -1298,6 +1354,20 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertEqual(state.replacement_args, (2, True))
         self.assertEqual(payloads[0]["action_list"], ["angang"])
         self.assertEqual(payloads[0]["combination_mask"], [0, 11, 0, 11, 0, 11, 0, 11])
+
+    def test_angang_execution_rejects_replacement_that_would_consume_sea_bottom(self):
+        player = DummyPlayer(0, [11, 11, 11, 11, 12, 13])
+        state = SimpleNamespace(
+            player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
+            tiles_list=[31, 32],
+        )
+
+        with self.assertLogs(wait_action_module.logger.name, level="WARNING"):
+            asyncio.run(wait_action_module._execute_angang_replacement(state, 0, 11, "angang", 2, True))
+
+        self.assertEqual(player.hand_tiles, [11, 11, 11, 11, 12, 13])
+        self.assertEqual(player.combination_tiles, [])
+        self.assertEqual(player.combination_mask, [])
 
     def test_open_kong_replacements_are_forced_cut_as_batch(self):
         player = DummyPlayer(0, [11, 12, 41, 42])
