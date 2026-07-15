@@ -16,6 +16,39 @@ public partial class NormalGameStateManager {
                 isSilent);
             return;
         }
+        if (TryDeferShowResultForChangshaMidRoundHu(() => ShowResult(
+            hepai_player_index,
+            player_to_score,
+            hu_score,
+            hu_fan,
+            hu_class,
+            hepai_player_hand,
+            hepai_player_huapai,
+            hepai_player_combination_mask,
+            base_fu,
+            fu_fan_list,
+            riichiExtras,
+            score_changes,
+            isSilent,
+            guobiaoExtras,
+            liuju_step,
+            liuju_status,
+            liuju_hands,
+            liuju_status_final,
+            hepai_tile,
+            multi_ron,
+            suppress_hand_reveal,
+            liuju_hu_hands,
+            defer_score_settlement,
+            cha_payer_index,
+            ron_discarder_index,
+            recycle_discard,
+            gang_refund_changes,
+            is_qianggang,
+            liuju_refund,
+            round_continues))) {
+            return;
+        }
         if (hu_class == "initial_hu") {
             ShowInitialHuResult(hepai_player_index, player_to_score, score_changes, isSilent);
             return;
