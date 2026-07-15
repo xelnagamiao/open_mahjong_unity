@@ -561,7 +561,7 @@ public class GameStateNetworkManager : MonoBehaviour {
         if (GameSessionGuard.BlockIfExclusiveSession("进入延时观战")) return;
 
         try {
-            GameRecordManager.Instance?.PrepareDelayedSpectatorSession(gamestate_id);
+            GameRecordManager.PrepareDelayedSpectatorSession(gamestate_id);
             var request = new AddSpectatorRequest {
                 type = "gamestate/GB/add_spectator",
                 gamestate_id = gamestate_id

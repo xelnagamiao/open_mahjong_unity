@@ -116,7 +116,7 @@ public class MatchNetworkManager : MonoBehaviour {
         if (LobbyStateGuard.BlockIfInRoomForMatch()) {
             return;
         }
-        GameRecordManager.Instance?.AbandonDelayedSpectatorSessionOnServer();
+        GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
         if (MatchStateManager.Instance.IsQueueing) {
             NotificationManager.Instance.ShowTip("匹配", false, "您已在匹配队列中");
             return;

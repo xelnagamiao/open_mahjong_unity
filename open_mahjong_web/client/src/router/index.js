@@ -26,6 +26,7 @@ import AdminGames from '@/views/admin/Games.vue'
 import AdminGameControl from '@/views/admin/GameControl.vue'
 import AdminAudit from '@/views/admin/Audit.vue'
 import AdminMessages from '@/views/admin/Messages.vue'
+import AdminSendEmail from '@/views/admin/SendEmail.vue'
 import AdminIpBans from '@/views/admin/IpBans.vue'
 import AdminStats from '@/views/admin/Stats.vue'
 import AdminEvents from '@/views/admin/Events.vue'
@@ -194,6 +195,7 @@ const routes = [
       { path: 'game-control', name: 'AdminGameControl', component: AdminGameControl, meta: { title: '对局管理' } },
       { path: 'audit', name: 'AdminAudit', component: AdminAudit, meta: { title: '操作审计' } },
       { path: 'messages', name: 'AdminMessages', component: AdminMessages, meta: { title: '消息推送' } },
+      { path: 'send-email', name: 'AdminSendEmail', component: AdminSendEmail, meta: { title: '发送邮件' } },
       { path: 'ip-bans', name: 'AdminIpBans', component: AdminIpBans, meta: { title: 'IP 封禁' } },
       { path: 'stats', name: 'AdminStats', component: AdminStats, meta: { title: '全站统计' } }
     ]
