@@ -15,6 +15,7 @@ from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState
 from server.gamestate.game_changsha.action_check import (
     check_action_after_cut,
     check_action_after_batch_gang_forced_cut,
+    check_action_after_batch_gang_meld,
     check_action_after_gang_forced_cut,
     check_action_hand_action,
     check_only_cut,
@@ -29,6 +30,8 @@ from server.room.room_validators import ChangshaRoomValidator
 
 wait_action_module = importlib.import_module("server.gamestate.game_changsha.wait_action")
 changsha_state_module = importlib.import_module("server.gamestate.game_changsha.ChangshaGameState")
+get_action_module = importlib.import_module("server.gamestate.public.ai.get_action")
+changsha_boardcast_module = importlib.import_module("server.gamestate.game_changsha.boardcast")
 
 
 class DummyPlayer:
@@ -95,6 +98,22 @@ class TileMappedCalculation:
         return len(fan_list)
 
 
+class PlayerTileMappedCalculation:
+    def __init__(self, waits_by_marker, results):
+        self.waits_by_marker = {
+            marker: set(waits) for marker, waits in waits_by_marker.items()
+        }
+        self.results = results
+
+    def Changsha_tingpai_check(self, hand_list, tiles_combination):
+        marker = hand_list[0] if hand_list else None
+        return set(self.waits_by_marker.get(marker, set()))
+
+    def Changsha_hepai_check(self, hand_list, tiles_combination, way_to_hepai, get_tile):
+        marker = hand_list[0] if hand_list else None
+        return self.results.get((marker, get_tile), (0, []))
+
+
 class ConditionalTingpai:
     def __init__(self, expected_hand, expected_melds, waiting_tiles):
         self.expected_hand = list(expected_hand)
@@ -137,6 +156,18 @@ def attach_changsha_score_helpers(state):
         dealer_related,
     )
     state._changsha_bird_origin = lambda winner: ChangshaGameState._changsha_bird_origin(state, winner)
+    return state
+
+
+def attach_hu_pass_lifecycle(state):
+    state.player_passed_hu_base = getattr(state, "player_passed_hu_base", {})
+    state.player_passed_hu_until_draw = getattr(state, "player_passed_hu_until_draw", set())
+    state.clear_hu_pass_on_draw = lambda player_index: ChangshaGameState.clear_hu_pass_on_draw(
+        state, player_index
+    )
+    state.clear_hu_pass_after_own_discard = (
+        lambda player_index: ChangshaGameState.clear_hu_pass_after_own_discard(state, player_index)
+    )
     return state
 
 
@@ -598,6 +629,24 @@ class ChangshaRulesTest(unittest.TestCase):
         ChangshaGameState.clear_hu_pass_after_own_discard(state, 1)
 
         self.assertEqual(state.player_passed_hu_base, {})
+
+    def test_open_kong_self_hu_pass_clears_only_on_next_draw(self):
+        state = SimpleNamespace(
+            result_dict={"hu_self": (3, ["碰碰胡", "杠上开花"])},
+            player_passed_hu_base={},
+            player_passed_hu_until_draw=set(),
+        )
+
+        ChangshaGameState.record_gang_replacement_self_hu_pass(state, 1)
+        ChangshaGameState.clear_hu_pass_after_own_discard(state, 1)
+
+        self.assertEqual(state.player_passed_hu_base, {1: 3})
+        self.assertEqual(state.player_passed_hu_until_draw, {1})
+
+        ChangshaGameState.clear_hu_pass_on_draw(state, 1)
+
+        self.assertEqual(state.player_passed_hu_base, {})
+        self.assertEqual(state.player_passed_hu_until_draw, set())
 
     def test_follow_hu_limit_persists_until_own_discard_refresh(self):
         state = SimpleNamespace(
@@ -1093,6 +1142,7 @@ class ChangshaRulesTest(unittest.TestCase):
         state._player_by_index = lambda index: ChangshaGameState._player_by_index(state, index)
         state._filter_sea_bottom_ron_actions = lambda actions: ChangshaGameState._filter_sea_bottom_ron_actions(state, actions)
         state.refresh_waiting_tiles = lambda index: None
+        attach_hu_pass_lifecycle(state)
         payloads = []
 
         async def capture_broadcast(**kwargs):
@@ -1123,6 +1173,7 @@ class ChangshaRulesTest(unittest.TestCase):
             calculation_service=FixedCalculationAndTingpai((6, ["海底"]), [25]),
         )
         state._player_by_index = lambda index: ChangshaGameState._player_by_index(state, index)
+        attach_hu_pass_lifecycle(state)
         payloads = []
 
         async def capture_broadcast(**kwargs):
@@ -1316,6 +1367,7 @@ class ChangshaRulesTest(unittest.TestCase):
             calculation_service=FixedTingpai([]),
         )
         state.next_status_after_claim_window = lambda: ChangshaGameState.next_status_after_claim_window(state)
+        attach_hu_pass_lifecycle(state)
         payloads = []
 
         async def capture_broadcast(**kwargs):
@@ -1324,7 +1376,7 @@ class ChangshaRulesTest(unittest.TestCase):
         state.broadcast_do_action = capture_broadcast
 
         with patch.object(changsha_state_module, "player_action_record_cut", lambda *args, **kwargs: None), \
-            patch.object(changsha_state_module, "check_action_after_batch_gang_forced_cut", lambda *args, **kwargs: {0: [], 1: [], 2: [], 3: []}), \
+            patch.object(changsha_state_module, "check_action_after_batch_gang_meld", lambda *args, **kwargs: {0: [], 1: [], 2: [], 3: []}), \
             patch.object(changsha_state_module, "begin_claim_protection_interval", lambda *args, **kwargs: None):
             asyncio.run(ChangshaGameState.force_cut_gang_replacement_tiles(state))
 
@@ -1432,15 +1484,597 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertEqual(state.result_dict["hu_self"], (3, ["清一色", "杠上开花", "杠上开花"]))
 
 
-    def test_open_kong_replacement_actions_only_keep_self_hu(self):
+    def test_open_kong_replacement_actions_keep_hu_angang_and_cut(self):
         self.assertEqual(
             filter_open_kong_replacement_actions(["cut", "buzhang", "angang", "jiagang"]),
-            [],
+            ["cut", "angang"],
         )
         self.assertEqual(
             filter_open_kong_replacement_actions(["hu_self", "cut", "buzhang", "angang", "jiagang"]),
-            ["hu_self"],
+            ["hu_self", "cut", "angang"],
         )
+
+    def test_replacement_one_dot_with_three_in_hand_offers_continuation_kong(self):
+        player = DummyPlayer(0, [21, 21, 21, 21, 11, 12, 13, 31])
+        calculation = ConditionalTingpai([11, 12, 13], ["G21"], [19])
+        state = SimpleNamespace(
+            player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
+            current_player_index=0,
+            tiles_list=[32],
+            forced_cut_tiles=[21, 31],
+            calculation_service=calculation,
+            result_dict={},
+            player_passed_hu_base={},
+        )
+        state._is_open_kong_ready_after_declared = lambda target_player, tile: ChangshaGameState._is_open_kong_ready_after_declared(
+            state,
+            target_player,
+            tile,
+        )
+
+        actions = check_action_hand_action(state, 0, is_get_gang_tile=True)
+
+        self.assertIn("angang", actions[0])
+        self.assertIn("cut", actions[0])
+        self.assertEqual(calculation.calls[-1], ([11, 12, 13], ["G21"]))
+
+    def test_gang_replacement_collects_all_ron_tiles_for_each_winner(self):
+        players = [
+            DummyPlayer(0, [11]),
+            DummyPlayer(1, [12]),
+            DummyPlayer(2, [13]),
+            DummyPlayer(3, [14]),
+        ]
+        calculation = PlayerTileMappedCalculation(
+            {12: [21, 22], 13: [21], 14: [22]},
+            {
+                (12, 21): (8, ["碰碰胡"]),
+                (12, 22): (8, ["清一色"]),
+                (13, 21): (8, ["全求人"]),
+                (14, 22): (8, ["将将胡"]),
+            },
+        )
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            calculation_service=calculation,
+            result_dict={},
+            player_passed_hu_base={},
+            last_draw_was_gang=True,
+            dihe_possible=False,
+            tiles_list=[31],
+            pending_gang_replacement_ron_results={},
+        )
+        state._player_by_index = lambda index: players[index]
+
+        results = ChangshaGameState._collect_gang_replacement_ron_results(state, [21, 22])
+
+        self.assertEqual([event["tile"] for event in results[1]], [21, 22])
+        self.assertEqual([event["tile"] for event in results[2]], [21])
+        self.assertEqual([event["tile"] for event in results[3]], [22])
+        self.assertEqual(results[1][0]["hu_class"], "hu_first")
+        self.assertEqual(results[2][0]["hu_class"], "hu_second")
+        self.assertEqual(results[3][0]["hu_class"], "hu_third")
+
+    def test_gang_replacement_ron_wait_keeps_every_accepted_tile(self):
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        for index, player in enumerate(players):
+            player.remaining_time = 10
+            player.user_id = 100 + index
+        action_events = {index: asyncio.Event() for index in range(4)}
+        action_queues = {index: asyncio.Queue() for index in range(4)}
+        player_one_events = [
+            {"tile": 21, "tile_order": 0, "winner": 1, "hu_class": "hu_first", "result": (8, ["碰碰胡"])},
+            {"tile": 22, "tile_order": 1, "winner": 1, "hu_class": "hu_first", "result": (8, ["清一色"])},
+        ]
+        player_two_events = [
+            {"tile": 21, "tile_order": 0, "winner": 2, "hu_class": "hu_second", "result": (8, ["全求人"])},
+        ]
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            step_time=5,
+            action_events=action_events,
+            action_queues=action_queues,
+            action_dict={0: [], 1: ["hu_first", "pass"], 2: ["hu_second", "pass"], 3: []},
+            pending_gang_replacement_ron_results={1: player_one_events, 2: player_two_events},
+            accepted_gang_replacement_ron_results=[],
+            hu_class=None,
+            game_status="waiting_gang_replacement_ron",
+            waiting_players_list=[],
+            game_server=SimpleNamespace(
+                players={
+                    "player-one": SimpleNamespace(user_id=101),
+                    "player-two": SimpleNamespace(user_id=102),
+                }
+            ),
+        )
+        discarded = []
+        passed = []
+
+        async def discard_for_ron(tile):
+            discarded.append(tile)
+
+        state.discard_gang_replacements_for_ron = discard_for_ron
+        state.record_gang_replacement_hu_pass = lambda index: passed.append(index)
+        state.continue_after_gang_replacement_ron = lambda: None
+
+        async def run_wait():
+            wait_task = asyncio.create_task(wait_action_module._wait_gang_replacement_ron(state))
+            await asyncio.sleep(0)
+            await get_action_module.get_action(state, "player-one", "hu_first", False, 0, 0, 0)
+            await get_action_module.get_action(state, "player-two", "pass", False, 0, 0, 0)
+            await wait_task
+
+        asyncio.run(run_wait())
+
+        self.assertEqual([event["tile"] for event in state.accepted_gang_replacement_ron_results], [21, 22])
+        self.assertEqual(discarded, [21])
+        self.assertEqual(passed, [2])
+        self.assertEqual(state.hu_class, "gang_replacement_multi_ron")
+        self.assertEqual(state.game_status, "END")
+        self.assertEqual(state.waiting_players_list, [])
+
+    def test_gang_replacement_self_hu_wait_preserves_prequeued_pass(self):
+        players = [SimpleNamespace(remaining_time=10) for _ in range(4)]
+        action_events = {index: asyncio.Event() for index in range(4)}
+        action_queues = {index: asyncio.Queue() for index in range(4)}
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            step_time=5,
+            action_events=action_events,
+            action_queues=action_queues,
+            action_dict={0: ["hu_self", "pass"], 1: [], 2: [], 3: []},
+            waiting_players_list=[0],
+            game_status="waiting_gang_replacement_self_hu",
+            hu_class=None,
+        )
+        passed = []
+        continued = []
+        state.record_gang_replacement_self_hu_pass = lambda index: passed.append(index)
+
+        async def continue_after_pass():
+            continued.append(True)
+
+        state.continue_after_gang_replacement_self_hu_pass = continue_after_pass
+
+        async def run_wait():
+            await action_queues[0].put({"action_type": "pass", "target_tile": None})
+            action_events[0].set()
+            await wait_action_module._wait_gang_replacement_self_hu(state)
+
+        asyncio.run(run_wait())
+
+        self.assertEqual(passed, [0])
+        self.assertEqual(continued, [True])
+        self.assertEqual(state.waiting_players_list, [])
+
+    def test_gang_replacement_self_hu_wait_accepts_win(self):
+        players = [SimpleNamespace(remaining_time=10) for _ in range(4)]
+        action_events = {index: asyncio.Event() for index in range(4)}
+        action_queues = {index: asyncio.Queue() for index in range(4)}
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            step_time=5,
+            action_events=action_events,
+            action_queues=action_queues,
+            action_dict={0: ["hu_self", "pass"], 1: [], 2: [], 3: []},
+            waiting_players_list=[0],
+            game_status="waiting_gang_replacement_self_hu",
+            hu_class=None,
+        )
+
+        async def run_wait():
+            await action_queues[0].put({"action_type": "hu_self", "target_tile": None})
+            action_events[0].set()
+            await wait_action_module._wait_gang_replacement_self_hu(state)
+
+        asyncio.run(run_wait())
+
+        self.assertEqual(state.hu_class, "hu_self")
+        self.assertEqual(state.game_status, "END")
+
+    def test_gang_replacement_self_hu_pass_continues_to_other_ron(self):
+        event = {
+            "tile": 21,
+            "tile_order": 0,
+            "winner": 1,
+            "hu_class": "hu_first",
+            "result": (8, ["碰碰胡"]),
+        }
+        state = SimpleNamespace(
+            result_dict={"hu_self": (16, ["杠上开花"])},
+            pending_gang_replacement_hu_player_index=0,
+            pending_gang_replacement_hu_tile=21,
+            pending_gang_replacement_hu_hand=[11, 12, 21],
+            forced_cut_tiles=[21, 22],
+            current_player_index=0,
+            action_dict={0: [], 1: [], 2: [], 3: []},
+            waiting_players_list=[],
+            current_claim_cut_tile=None,
+            game_status="waiting_gang_replacement_self_hu",
+        )
+        state._collect_gang_replacement_ron_results = lambda tiles: {1: [event]}
+
+        asyncio.run(ChangshaGameState.continue_after_gang_replacement_self_hu_pass(state))
+
+        self.assertNotIn("hu_self", state.result_dict)
+        self.assertEqual(state.action_dict[1], ["hu_first", "pass"])
+        self.assertEqual(state.waiting_players_list, [1])
+        self.assertEqual(state.current_claim_cut_tile, 21)
+        self.assertEqual(state.game_status, "waiting_gang_replacement_ron")
+
+    def test_gang_replacement_self_hu_broadcast_and_wait_processes_auto_pass(self):
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        for player in players:
+            player.user_id = 3
+            player.username = f"p{player.player_index}"
+            player.remaining_time = 10
+        players[0].user_id = 0
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            step_time=5,
+            action_events={index: asyncio.Event() for index in range(4)},
+            action_queues={index: asyncio.Queue() for index in range(4)},
+            action_dict={0: ["hu_self", "pass"], 1: [], 2: [], 3: []},
+            waiting_players_list=[0],
+            game_status="waiting_gang_replacement_self_hu",
+            hu_class=None,
+            server_action_tick=0,
+            forced_cut_tiles=[21, 22],
+            forced_cut_tile=22,
+            tiles_list=[31],
+            game_server=SimpleNamespace(user_id_to_connection={}),
+        )
+        passed = []
+        continued = []
+        state.record_gang_replacement_self_hu_pass = lambda index: passed.append(index)
+
+        async def continue_after_pass():
+            continued.append(True)
+
+        state.continue_after_gang_replacement_self_hu_pass = continue_after_pass
+
+        async def run_ai_window():
+            await changsha_boardcast_module.broadcast_ask_hand_action(state)
+            await wait_action_module._wait_gang_replacement_self_hu(state)
+
+        asyncio.run(run_ai_window())
+
+        self.assertEqual(passed, [0])
+        self.assertEqual(continued, [True])
+
+    def test_gang_replacement_ron_wait_preserves_prequeued_action(self):
+        players = [SimpleNamespace(remaining_time=10) for _ in range(4)]
+        action_events = {index: asyncio.Event() for index in range(4)}
+        action_queues = {index: asyncio.Queue() for index in range(4)}
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            step_time=5,
+            action_events=action_events,
+            action_queues=action_queues,
+            action_dict={0: [], 1: ["hu_first", "pass"], 2: [], 3: []},
+            pending_gang_replacement_ron_results={
+                1: [{"tile": 21, "tile_order": 0, "winner": 1, "hu_class": "hu_first", "result": (8, ["碰碰胡"])}]
+            },
+            accepted_gang_replacement_ron_results=[],
+            waiting_players_list=[1],
+            game_status="waiting_gang_replacement_ron",
+        )
+        passed = []
+        continued = []
+        state.record_gang_replacement_hu_pass = lambda index: passed.append(index)
+
+        async def continue_after_pass():
+            continued.append(True)
+
+        state.continue_after_gang_replacement_ron = continue_after_pass
+
+        async def run_wait():
+            await action_queues[1].put({"action_type": "pass", "target_tile": None})
+            action_events[1].set()
+            await wait_action_module._wait_gang_replacement_ron(state)
+
+        asyncio.run(run_wait())
+
+        self.assertEqual(passed, [1])
+        self.assertEqual(continued, [True])
+        self.assertEqual(players[1].remaining_time, 10)
+
+    def test_gang_replacement_ron_timeout_records_pass_and_continues(self):
+        players = [SimpleNamespace(remaining_time=0) for _ in range(4)]
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            step_time=0,
+            action_events={index: asyncio.Event() for index in range(4)},
+            action_queues={index: asyncio.Queue() for index in range(4)},
+            action_dict={0: [], 1: ["hu_first", "pass"], 2: [], 3: []},
+            pending_gang_replacement_ron_results={
+                1: [{"tile": 21, "tile_order": 0, "winner": 1, "hu_class": "hu_first", "result": (8, ["碰碰胡"])}]
+            },
+            accepted_gang_replacement_ron_results=[],
+            waiting_players_list=[1],
+            game_status="waiting_gang_replacement_ron",
+        )
+        passed = []
+        continued = []
+        state.record_gang_replacement_hu_pass = lambda index: passed.append(index)
+
+        async def continue_after_pass():
+            continued.append(True)
+
+        state.continue_after_gang_replacement_ron = continue_after_pass
+
+        asyncio.run(wait_action_module._wait_gang_replacement_ron(state))
+
+        self.assertEqual(passed, [1])
+        self.assertEqual(continued, [True])
+        self.assertEqual(state.action_dict[1], [])
+        self.assertEqual(state.waiting_players_list, [])
+
+    def test_gang_replacement_broadcast_and_wait_processes_auto_ai_pass(self):
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        for player in players:
+            player.user_id = 3
+            player.username = f"p{player.player_index}"
+            player.remaining_time = 10
+        players[1].user_id = 0
+        action_events = {index: asyncio.Event() for index in range(4)}
+        action_queues = {index: asyncio.Queue() for index in range(4)}
+
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            current_claim_cut_tile=21,
+            game_status="waiting_gang_replacement_ron",
+            action_dict={0: [], 1: ["hu_first", "pass"], 2: [], 3: []},
+            action_events=action_events,
+            action_queues=action_queues,
+            waiting_players_list=[1],
+            pending_gang_replacement_ron_results={
+                1: [{"tile": 21, "tile_order": 0, "winner": 1, "hu_class": "hu_first", "result": (8, ["碰碰胡"])}]
+            },
+            accepted_gang_replacement_ron_results=[],
+            step_time=5,
+            server_action_tick=0,
+            game_server=SimpleNamespace(user_id_to_connection={}),
+        )
+        passed = []
+        continued = []
+        state.record_gang_replacement_hu_pass = lambda index: passed.append(index)
+
+        async def continue_after_pass():
+            continued.append(True)
+
+        state.continue_after_gang_replacement_ron = continue_after_pass
+
+        async def run_ai_window():
+            await changsha_boardcast_module.broadcast_ask_other_action(state)
+            await wait_action_module._wait_gang_replacement_ron(state)
+
+        asyncio.run(run_ai_window())
+
+        self.assertEqual(passed, [1])
+        self.assertEqual(continued, [True])
+        self.assertEqual(state.waiting_players_list, [])
+
+    def test_reconnect_uses_pending_gang_replacement_claim_tile(self):
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        for index, player in enumerate(players):
+            player.user_id = 100 + index
+            player.username = f"p{index}"
+            player.remaining_time = 10
+        players[0].discard_tiles = [19]
+        sent_payloads = []
+
+        class FakeWebSocket:
+            async def send_json(self, payload):
+                sent_payloads.append(payload)
+
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            current_claim_cut_tile=22,
+            game_status="waiting_gang_replacement_ron",
+            action_dict={0: [], 1: ["hu_first", "pass"], 2: [], 3: []},
+            game_server=SimpleNamespace(
+                user_id_to_connection={101: SimpleNamespace(websocket=FakeWebSocket())}
+            ),
+            server_action_tick=7,
+            tiles_list=[31],
+        )
+
+        asyncio.run(changsha_boardcast_module.reconnected_send_pending_ask(state, 101))
+
+        self.assertEqual(sent_payloads[0]["ask_other_action_info"]["cut_tile"], 22)
+        self.assertEqual(sent_payloads[0]["ask_other_action_info"]["action_list"], ["hu_first", "pass"])
+
+    def test_gang_replacement_reconnect_never_falls_back_to_river_tile(self):
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        for index, player in enumerate(players):
+            player.user_id = 100 + index
+            player.username = f"p{index}"
+            player.remaining_time = 10
+        players[0].discard_tiles = [19]
+        sent_payloads = []
+
+        class FakeWebSocket:
+            async def send_json(self, payload):
+                sent_payloads.append(payload)
+
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            current_claim_cut_tile=None,
+            game_status="waiting_gang_replacement_ron",
+            action_dict={0: [], 1: ["hu_first", "pass"], 2: [], 3: []},
+            game_server=SimpleNamespace(
+                user_id_to_connection={101: SimpleNamespace(websocket=FakeWebSocket())}
+            ),
+            server_action_tick=7,
+            tiles_list=[31],
+        )
+
+        asyncio.run(changsha_boardcast_module.reconnected_send_pending_ask(state, 101))
+
+        self.assertEqual(sent_payloads, [])
+
+    def test_multi_ron_settlement_shares_birds_and_uses_kong_player_origin(self):
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        for player in players:
+            player.original_player_index = player.player_index
+            player.score = 0
+            player.huapai_list = []
+            player.record_counter = SimpleNamespace(
+                dianhe_times=0,
+                recorded_fans=[],
+                win_score=0,
+                win_turn=0,
+                fangchong_times=0,
+                fangchong_score=0,
+            )
+        events = [
+            {"tile": 21, "tile_order": 0, "winner": 1, "hu_class": "hu_first", "result": (8, ["碰碰胡"])},
+            {"tile": 21, "tile_order": 0, "winner": 2, "hu_class": "hu_second", "result": (8, ["全求人"])},
+            {"tile": 22, "tile_order": 1, "winner": 1, "hu_class": "hu_first", "result": (8, ["清一色"])},
+        ]
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            accepted_gang_replacement_ron_results=events,
+            pending_gang_replacement_ron_results={1: events},
+            result_dict={},
+            bird_count=2,
+            base_score_no_dealer=True,
+            xunmu=3,
+        )
+        state._player_by_index = lambda index: players[index]
+        bird_draws = []
+        score_calls = []
+        broadcasts = []
+
+        def draw_birds(count):
+            bird_draws.append(count)
+            return [11, 22]
+
+        def score_win(winner, fan_list, is_zimo, discarder, birds_override=None, bird_origin_override=None):
+            score_calls.append((winner, list(fan_list), list(birds_override or []), bird_origin_override))
+            players[winner].score += 8
+            players[discarder].score -= 8
+            return {"actual_hu_score": 8, "fan_display": list(fan_list) + ["鸟牌:一万,二筒"]}
+
+        async def capture_result(*args, **kwargs):
+            broadcasts.append(kwargs)
+
+        state._draw_changsha_birds = draw_birds
+        state._score_changsha_win = score_win
+
+        with patch.object(changsha_state_module, "player_action_record_hu", lambda *args, **kwargs: None), \
+            patch.object(changsha_state_module, "broadcast_result", capture_result), \
+            patch.object(changsha_state_module, "hu_result_ready_wait_seconds", lambda fan_count: 0):
+            result = asyncio.run(ChangshaGameState._settle_gang_replacement_multi_ron(
+                state,
+                {index: 0 for index in range(4)},
+            ))
+
+        self.assertEqual(bird_draws, [2])
+        self.assertEqual([call[3] for call in score_calls], [0, 0, 0])
+        self.assertEqual([call[0] for call in score_calls], [1, 2, 1])
+        self.assertEqual([payload["hepai_tile"] for payload in broadcasts], [21, 21, 22])
+        self.assertTrue(all(payload["multi_ron"] for payload in broadcasts))
+        self.assertEqual(result["total_hu_score"], 24)
+        self.assertEqual(result["result_count"], 3)
+        self.assertIsNone(result["single_winner"])
+        self.assertEqual(players[0].score, -24)
+        self.assertEqual(players[1].score, 16)
+
+    def test_gang_replacement_ron_next_dealer_depends_on_result_count(self):
+        selected_dealers = []
+        state = SimpleNamespace(
+            _make_player_next_dealer=lambda player_index: selected_dealers.append(player_index)
+        )
+
+        with patch.object(changsha_state_module, "next_game_round_changsha_switchseat") as switch_round:
+            ChangshaGameState._advance_after_gang_replacement_ron(
+                state,
+                {"result_count": 1, "single_winner": 2},
+            )
+            self.assertEqual(selected_dealers, [2])
+            switch_round.assert_called_once_with(state, keep_dealer_seat=True)
+
+            selected_dealers.clear()
+            switch_round.reset_mock()
+            ChangshaGameState._advance_after_gang_replacement_ron(
+                state,
+                {"result_count": 2, "single_winner": None},
+            )
+            self.assertEqual(selected_dealers, [])
+            switch_round.assert_called_once_with(state, keep_dealer_seat=True)
+
+    def test_batch_meld_priority_prefers_gang_then_nearest_seat(self):
+        players = [
+            DummyPlayer(0, [11]),
+            DummyPlayer(1, [22, 22, 22]),
+            DummyPlayer(2, [21, 21, 21]),
+            DummyPlayer(3, [13]),
+        ]
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            tiles_list=[31],
+            calculation_service=FixedTingpai([19]),
+            result_dict={},
+            player_passed_hu_base={},
+            dihe_possible=False,
+            last_draw_was_gang=False,
+            current_claim_cut_tile=None,
+        )
+
+        actions = check_action_after_batch_gang_meld(state, [21, 22])
+
+        self.assertEqual(state.current_claim_cut_tile, 22)
+        self.assertEqual(actions[1], ["gang", "pass"])
+        self.assertEqual(actions[2], [])
+
+    def test_forced_replacement_removal_prefers_latest_matching_tile(self):
+        hand_tiles = [21, 11, 21]
+
+        removed = ChangshaGameState._remove_replacement_tile_from_hand(hand_tiles, 21)
+
+        self.assertTrue(removed)
+        self.assertEqual(hand_tiles, [21, 11])
+
+    def test_continuation_kong_discards_only_other_replacements_without_claim(self):
+        player = DummyPlayer(0, [21, 21, 21, 21, 31])
+        state = SimpleNamespace(
+            player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
+            current_player_index=0,
+            forced_cut_tile=31,
+            forced_cut_tiles=[21, 31],
+            pending_gang_forced_discard=True,
+            xunmu=0,
+        )
+        payloads = []
+
+        async def capture_broadcast(**kwargs):
+            payloads.append(kwargs)
+
+        state.broadcast_do_action = capture_broadcast
+        attach_hu_pass_lifecycle(state)
+
+        with patch.object(changsha_state_module, "player_action_record_cut", lambda *args, **kwargs: None):
+            asyncio.run(ChangshaGameState.discard_unused_gang_replacements_for_kong(state, 21))
+
+        self.assertEqual(player.hand_tiles, [21, 21, 21, 21])
+        self.assertEqual(player.discard_tiles, [31])
+        self.assertEqual(state.forced_cut_tiles, [])
+        self.assertEqual(payloads[0]["action_list"], ["cut"])
+        self.assertEqual(payloads[0]["cut_tile"], 31)
 
     def test_winner_becomes_next_round_dealer(self):
         players = [

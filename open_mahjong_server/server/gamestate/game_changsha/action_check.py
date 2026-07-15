@@ -232,8 +232,54 @@ def check_action_after_gang_forced_cut(self, cut_tile):
 
 
 def filter_open_kong_replacement_actions(actions: list) -> list:
-    """开杠补牌阶段只保留自摸和牌，禁止改动原手牌。"""
-    return ["hu_self"] if actions and "hu_self" in actions else []
+    """开杠补牌阶段只允许自摸、继续暗杠和补牌摸切。"""
+    allowed = {"hu_self", "angang", "cut"}
+    return [action for action in actions or [] if action in allowed]
+
+
+def check_action_after_batch_gang_meld(self, cut_tiles):
+    """整批补牌无人和时，只选一个最高优先级的他家鸣牌。"""
+    original_result_dict = dict(getattr(self, "result_dict", {}))
+    best_choice = None
+    meld_priority = {
+        "gang": 3,
+        "peng": 2,
+        "chi_left": 1,
+        "chi_mid": 1,
+        "chi_right": 1,
+    }
+
+    for tile_order, cut_tile in enumerate(cut_tiles):
+        self.result_dict = dict(original_result_dict)
+        candidate_actions = check_action_after_cut(self, cut_tile)
+        for player_index, actions in candidate_actions.items():
+            if player_index == self.current_player_index:
+                continue
+            distance = (player_index - self.current_player_index) % 4
+            for action in actions:
+                priority = meld_priority.get(action, 0)
+                if priority <= 0:
+                    continue
+                choice_key = (priority, -distance, -tile_order)
+                if best_choice is None or choice_key > best_choice[0]:
+                    best_choice = (choice_key, cut_tile, player_index, priority, candidate_actions)
+
+    self.result_dict = dict(original_result_dict)
+    self.current_claim_cut_tile = None
+    selected = {0: [], 1: [], 2: [], 3: []}
+    if best_choice is None:
+        return selected
+
+    _, cut_tile, player_index, priority, candidate_actions = best_choice
+    selected_actions = [
+        action
+        for action in candidate_actions[player_index]
+        if meld_priority.get(action, 0) == priority
+    ]
+    if selected_actions:
+        selected[player_index] = selected_actions + ["pass"]
+        self.current_claim_cut_tile = cut_tile
+    return selected
 
 
 def check_action_after_batch_gang_forced_cut(self, cut_tiles):

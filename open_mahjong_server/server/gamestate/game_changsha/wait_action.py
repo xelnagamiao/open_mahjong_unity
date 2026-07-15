@@ -148,8 +148,160 @@ async def _execute_jiagang_replacement(self, player_index: int, target_tile: int
     else:
         self.game_status = "deal_card_after_gang"
 
+
+async def _wait_gang_replacement_ron(self):
+    """等待本批所有可荣和玩家选择，接受和牌时保留该玩家全部可胡补牌。"""
+    self.waiting_players_list = [
+        player_index
+        for player_index, actions in self.action_dict.items()
+        if actions
+    ]
+    waiting_players = self.waiting_players_list
+    accepted_players = []
+    used_time = 0
+
+    for player_index in waiting_players:
+        # 广播会异步触发 AI，真人也可能立即响应；保留等待入口前已经到达的本批操作。
+        if self.action_queues[player_index].empty():
+            self.action_events[player_index].clear()
+        else:
+            self.action_events[player_index].set()
+
+    while waiting_players and any(
+        self.player_list[player_index].remaining_time + self.step_time > used_time
+        for player_index in waiting_players
+    ):
+        tasks = {}
+        for player_index in waiting_players:
+            task = asyncio.create_task(self.action_events[player_index].wait())
+            tasks[task] = player_index
+        timer_task = asyncio.create_task(asyncio.sleep(1))
+        wait_started = time.time()
+        done, pending = await asyncio.wait(
+            [*tasks.keys(), timer_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        wait_elapsed = time.time() - wait_started
+        for task in pending:
+            task.cancel()
+        if timer_task in done:
+            used_time += 1
+        else:
+            used_time += wait_elapsed
+
+        for task in done:
+            if task == timer_task:
+                continue
+            player_index = tasks[task]
+            action_data = await self.action_queues[player_index].get()
+            action_type = action_data.get("action_type")
+            allowed_actions = self.action_dict.get(player_index, [])
+            hu_actions = {"hu_first", "hu_second", "hu_third"}
+            if action_type in hu_actions and action_type in allowed_actions:
+                accepted_players.append(player_index)
+            else:
+                if action_type not in (None, "pass"):
+                    logger.warning(
+                        "长沙开杠批次收到非法荣和操作: player=%s action=%s allowed=%s",
+                        player_index,
+                        action_type,
+                        allowed_actions,
+                    )
+                self.record_gang_replacement_hu_pass(player_index)
+            self.action_dict[player_index] = []
+            if used_time > self.step_time:
+                overtime = int(used_time - self.step_time)
+                self.player_list[player_index].remaining_time = max(
+                    0,
+                    self.player_list[player_index].remaining_time - overtime,
+                )
+            waiting_players.remove(player_index)
+
+    for player_index in list(waiting_players):
+        self.record_gang_replacement_hu_pass(player_index)
+        self.action_dict[player_index] = []
+        self.player_list[player_index].remaining_time = 0
+        waiting_players.remove(player_index)
+
+    if accepted_players:
+        accepted_results = []
+        for player_index in accepted_players:
+            accepted_results.extend(
+                self.pending_gang_replacement_ron_results.get(player_index, [])
+            )
+        accepted_results.sort(
+            key=lambda event: (
+                event["tile_order"],
+                (event["winner"] - self.current_player_index) % 4,
+            )
+        )
+        self.accepted_gang_replacement_ron_results = accepted_results
+        await self.discard_gang_replacements_for_ron(accepted_results[0]["tile"])
+        self.waiting_players_list = []
+        self.hu_class = "gang_replacement_multi_ron"
+        self.game_status = "END"
+        return True
+
+    self.waiting_players_list = []
+    await self.continue_after_gang_replacement_ron()
+    return True
+
+
+async def _wait_gang_replacement_self_hu(self):
+    """等待开杠者选择杠上花或过，保留广播期间已到达的操作。"""
+    player_index = self.current_player_index
+    self.waiting_players_list = [player_index]
+    if self.action_queues[player_index].empty():
+        self.action_events[player_index].clear()
+    else:
+        self.action_events[player_index].set()
+
+    used_time = 0
+    action_data = None
+    while self.player_list[player_index].remaining_time + self.step_time > used_time:
+        action_task = asyncio.create_task(self.action_events[player_index].wait())
+        timer_task = asyncio.create_task(asyncio.sleep(1))
+        wait_started = time.time()
+        done, pending = await asyncio.wait(
+            [action_task, timer_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        elapsed = time.time() - wait_started
+        for task in pending:
+            task.cancel()
+        if action_task in done:
+            action_data = await self.action_queues[player_index].get()
+            used_time += elapsed
+            break
+        used_time += 1
+
+    if used_time > self.step_time:
+        overtime = int(used_time - self.step_time)
+        self.player_list[player_index].remaining_time = max(
+            0,
+            self.player_list[player_index].remaining_time - overtime,
+        )
+    if action_data is None:
+        self.player_list[player_index].remaining_time = 0
+
+    self.action_dict[player_index] = []
+    self.waiting_players_list = []
+    if action_data and action_data.get("action_type") == "hu_self":
+        self.hu_class = "hu_self"
+        self.game_status = "END"
+        return True
+
+    self.record_gang_replacement_self_hu_pass(player_index)
+    await self.continue_after_gang_replacement_self_hu_pass()
+    return True
+
 # 等待玩家行动
 async def wait_action(self):
+    if self.game_status == "waiting_gang_replacement_self_hu":
+        return await _wait_gang_replacement_self_hu(self)
+    if self.game_status == "waiting_gang_replacement_ron":
+        return await _wait_gang_replacement_ron(self)
+
     self.waiting_players_list = [] # [2,3]
     used_time = 0 # 已用时间
 
@@ -322,12 +474,8 @@ async def wait_action(self):
                 if action_type == "cut": # 切牌
                     forced_cut_was_pending = bool(getattr(self, "forced_cut_tiles", []) or getattr(self, "forced_cut_tile", None) is not None)
                     if forced_cut_was_pending:
-                        cut_tiles = _consume_forced_gang_cut_tiles(self, player_index)
-                        if not cut_tiles:
-                            return
-                        tile_id = cut_tiles[-1]
-                        is_moqie = True
-                        cut_tile_index = None
+                        await self.force_cut_gang_replacement_tiles()
+                        return
                     else:
                         cut_result = await apply_player_cut(self, player_index, action_data)
                         if cut_result is None:
@@ -337,8 +485,7 @@ async def wait_action(self):
                     for cut_item in cut_tiles:
                         self.player_list[player_index].discard_tiles.append(cut_item)
                         player_action_record_cut(self,cut_tile = cut_item,is_moqie = is_moqie)
-                    if hasattr(self, "clear_hu_pass_after_own_discard"):
-                        self.clear_hu_pass_after_own_discard(player_index)
+                    self.clear_hu_pass_after_own_discard(player_index)
                     # broadcast cut
                     if self.current_player_index == 0:
                         self.xunmu += 1
@@ -391,6 +538,16 @@ async def wait_action(self):
                         hasattr(self, "_is_open_kong_ready_after_declared")
                         and self._is_open_kong_ready_after_declared(player, normal_angang)
                     )
+                    if getattr(self, "forced_cut_tiles", []):
+                        if not is_open_kong:
+                            logger.error(
+                                "长沙开杠补牌阶段拒绝非听牌暗杠: player=%s tile=%s",
+                                self.current_player_index,
+                                normal_angang,
+                            )
+                            await self.force_cut_gang_replacement_tiles()
+                            return
+                        await self.discard_unused_gang_replacements_for_kong(normal_angang)
                     draw_slot = has_draw_slot(player)
                     is_mo_gang = resolve_is_mo_gang(hand, normal_angang, draw_slot=draw_slot)
                     removed = remove_angang_tiles(hand, normal_angang, draw_slot=draw_slot)
@@ -482,11 +639,8 @@ async def wait_action(self):
                 is_moqie = draw_slot
                 forced_cut_was_pending = bool(getattr(self, "forced_cut_tiles", []) or getattr(self, "forced_cut_tile", None) is not None)
                 if forced_cut_was_pending:
-                    cut_tiles = _consume_forced_gang_cut_tiles(self, self.current_player_index)
-                    if not cut_tiles:
-                        return
-                    tile_id = cut_tiles[-1]
-                    is_moqie = True
+                    await self.force_cut_gang_replacement_tiles()
+                    return
                 else:
                     tile_id = hand[-1] if draw_slot else pick_timeout_discard_tile(hand)
                     remove_cut_tile(hand, tile_id, is_moqie, draw_slot=draw_slot)
@@ -495,8 +649,7 @@ async def wait_action(self):
                 for cut_item in cut_tiles:
                     self.player_list[self.current_player_index].discard_tiles.append(cut_item)
                     player_action_record_cut(self,cut_tile = cut_item,is_moqie = is_moqie)
-                if hasattr(self, "clear_hu_pass_after_own_discard"):
-                    self.clear_hu_pass_after_own_discard(self.current_player_index)
+                self.clear_hu_pass_after_own_discard(self.current_player_index)
                 # broadcast cut
                 if self.current_player_index == 0:
                     self.xunmu += 1
@@ -747,8 +900,7 @@ async def wait_action(self):
                     tile_id, is_moqie, cut_tile_index = cut_result
                     self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                     player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
-                    if hasattr(self, "clear_hu_pass_after_own_discard"):
-                        self.clear_hu_pass_after_own_discard(self.current_player_index)
+                    self.clear_hu_pass_after_own_discard(self.current_player_index)
                     # 广播切牌动画
                     refresh_waiting_tiles(self, self.current_player_index)
                     pre_action_dict = check_action_after_cut(self, tile_id)
@@ -774,8 +926,7 @@ async def wait_action(self):
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)
                 # 牌谱记录摸切
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
-                if hasattr(self, "clear_hu_pass_after_own_discard"):
-                    self.clear_hu_pass_after_own_discard(self.current_player_index)
+                self.clear_hu_pass_after_own_discard(self.current_player_index)
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
                 pre_action_dict = check_action_after_cut(self,tile_id)
                 self.last_draw_was_gang = False
