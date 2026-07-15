@@ -2,7 +2,7 @@ import { ref, watch } from 'vue'
 
 const STORAGE_KEY = 'omu-tile-face-style'
 
-/** 小助手 face PNG（默认） / 斜视 SVG */
+/** 小助手 face PNG（默认） / 立体 SVG */
 export const TILE_FACE_STYLE = {
   helper: 'helper',
   oblique: 'oblique',

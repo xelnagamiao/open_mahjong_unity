@@ -494,8 +494,8 @@ public class NetworkManager : MonoBehaviour {
                 );
             }
             UserContainer.Instance.ShowUserSettings(response.user_settings);
-            FriendNetworkManager.Instance.ListFriends();
-            EventNetworkManager.Instance.ListMyActiveEvents();
+            FriendNetworkManager.Instance?.ListFriends();
+            EventNetworkManager.Instance?.ListMyActiveEvents();
         }
     }
 
@@ -523,13 +523,13 @@ public class NetworkManager : MonoBehaviour {
 
             // 好友 / 实时观战相关消息统一交由 FriendNetworkManager 处理
             if (response.type != null && response.type.StartsWith("friend/")) {
-                FriendNetworkManager.Instance.HandleFriendMessage(response);
+                FriendNetworkManager.Instance?.HandleFriendMessage(response);
                 return;
             }
 
             // 赛事相关消息统一交由 EventNetworkManager 处理
             if (response.type != null && response.type.StartsWith("event/")) {
-                EventNetworkManager.Instance.HandleEventMessage(response);
+                EventNetworkManager.Instance?.HandleEventMessage(response);
                 return;
             }
 
@@ -723,7 +723,7 @@ public class NetworkManager : MonoBehaviour {
     private void HandleSpectatorRecordInit(Response response) {
         if (!response.success) {
             Debug.LogWarning($"观战初始数据失败: {response.message}");
-            GameRecordManager.Instance?.ClearDelayedSpectatorSession();
+            GameRecordManager.ClearDelayedSpectatorSession();
             return;
         }
         if (!AcceptDelayedSpectatorPayload(response)) {
@@ -733,7 +733,7 @@ public class NetworkManager : MonoBehaviour {
         string recordJson = response.message_info?.content;
         if (string.IsNullOrEmpty(recordJson)) {
             Debug.LogError("观战初始数据为空");
-            GameRecordManager.Instance?.ClearDelayedSpectatorSession();
+            GameRecordManager.ClearDelayedSpectatorSession();
             return;
         }
         StartCoroutine(CoEnterDelayedSpectatorFromRecordInit(recordJson));
@@ -742,7 +742,7 @@ public class NetworkManager : MonoBehaviour {
     private IEnumerator CoEnterDelayedSpectatorFromRecordInit(string recordJson) {
         if (BlocksIncomingDelayedSpectatorSession()) {
             Debug.Log("忽略延时观战 record_init：当前已在匹配或对局/其它观战会话中");
-            GameRecordManager.Instance?.AbandonDelayedSpectatorSessionOnServer();
+            GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
             yield break;
         }
 
@@ -757,7 +757,7 @@ public class NetworkManager : MonoBehaviour {
 
         grm.StartSpectating(recordJson);
         if (!grm.IsSpectating) {
-            grm.AbandonDelayedSpectatorSessionOnServer();
+            GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
         }
     }
 
@@ -789,14 +789,14 @@ public class NetworkManager : MonoBehaviour {
         if (GameRecordManager.Instance.IsSpectating) {
             GameRecordManager.Instance.SwitchToRecordMode();
         }
-        GameRecordManager.Instance.ClearDelayedSpectatorSession();
+        GameRecordManager.ClearDelayedSpectatorSession();
     }
 
     private void HandleSpectatorAddResult(Response response) {
         if (response.success) {
             NotificationManager.Instance.ShowTip("观战", true, response.message);
         } else {
-            GameRecordManager.Instance?.ClearDelayedSpectatorSession();
+            GameRecordManager.ClearDelayedSpectatorSession();
             NotificationManager.Instance.ShowTip("观战", false, response.message);
         }
     }
@@ -805,14 +805,13 @@ public class NetworkManager : MonoBehaviour {
         Debug.Log($"观战移除: {response.message}");
         // 客户端退出时已 StopSpectating；迟到的上一场 remove 回包不得踢掉当前观战
         if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) return;
-        GameRecordManager.Instance?.ClearDelayedSpectatorSession();
+        GameRecordManager.ClearDelayedSpectatorSession();
     }
 
     /// <summary>message_info.title 必须为当前延时观战的 gamestate_id。</summary>
     private static bool AcceptDelayedSpectatorPayload(Response response) {
-        var grm = GameRecordManager.Instance;
-        if (grm == null) return false;
-        return grm.IsCurrentDelayedSpectator(response.message_info?.title);
+        // 会话 id 为 static：冷启动 GamePanel 未激活时 Instance 可能仍为 null
+        return GameRecordManager.IsCurrentDelayedSpectator(response.message_info?.title);
     }
 
     /// <summary>

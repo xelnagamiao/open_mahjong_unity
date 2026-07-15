@@ -20,7 +20,7 @@ public static class AppSession {
                 if (GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating) {
                     GameRecordManager.Instance.StopSpectating();
                 } else {
-                    GameRecordManager.Instance?.AbandonDelayedSpectatorSessionOnServer();
+                    GameRecordManager.AbandonDelayedSpectatorSessionOnServer();
                     GameSceneTeardown.ResetToIdle();
                 }
 

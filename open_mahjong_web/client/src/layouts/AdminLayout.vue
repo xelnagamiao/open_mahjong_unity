@@ -12,6 +12,7 @@
         <el-menu-item index="/admin/game-control">对局管理</el-menu-item>
         <el-menu-item index="/admin/audit">审计</el-menu-item>
         <el-menu-item index="/admin/messages">消息</el-menu-item>
+        <el-menu-item index="/admin/send-email">发送邮件</el-menu-item>
         <el-menu-item index="/admin/ip-bans">IP 封禁</el-menu-item>
         <el-menu-item index="/admin/stats">全站统计</el-menu-item>
       </el-menu>

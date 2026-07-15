@@ -2,7 +2,7 @@
 // 牌号编码：11-19 万 / 21-29 饼/筒 / 31-39 条/索 / 41-44 东南西北 / 45-47 中白发 / 51-58 花牌
 
 /**
- * Wikimedia 斜视牌面 SVG 文件名（public/tiles/）。
+ * Wikimedia 立体牌面 SVG 文件名（public/tiles/）。
  * 命名：MJw=万 MJt=筒 MJs=条 MJf=风 MJd1=中 MJd2=发 MJd3=白
  */
 export function tileSvgFile(id) {
