@@ -63,3 +63,7 @@ open_mahjong_web/.env.*.local
 
 
 
+
+# Private keys (do not commit)
+*.pem
+
