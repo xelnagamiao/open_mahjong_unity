@@ -204,6 +204,8 @@ public class CreatePanel : MonoBehaviour {
     private TMP_Dropdown ChangshaOpenKongDropdown;
     private GameObject ChangshaBirdCountPanel;
     private TMP_Dropdown ChangshaBirdCountDropdown;
+    private GameObject ChangshaInitialHuRow1;
+    private GameObject ChangshaInitialHuRow2;
     private GameObject ChangshaScoreRow;
     private GameObject ChangshaSmallHuScorePanel;
     private GameObject ChangshaBigHuScorePanel;
@@ -226,6 +228,10 @@ public class CreatePanel : MonoBehaviour {
 
     private bool _gameRoundLabelsCached;
     private string[] _defaultGameRoundLabels;
+    private RectTransform _changshaOptionsRoot;
+    private Vector2 _changshaOptionsRootBaseSize;
+    private Vector2 _changshaOptionsRootBasePosition;
+    private bool _changshaOptionsRootCached;
 
     private void EnsureRuleDropdownOptions() {
         if (chooseRule == null) return;
@@ -533,17 +539,35 @@ public class CreatePanel : MonoBehaviour {
 
     private void EnsureChangshaOptionControls() {
         Toggle toggleTemplate = TacticalCallToggle != null ? TacticalCallToggle : RedDoraToggle;
+        if (toggleTemplate == null) return;
+
+        Transform templateRow = toggleTemplate.transform.parent;
+        Transform optionsRoot = templateRow != null && templateRow.parent != null
+            ? templateRow.parent
+            : transform;
+        RectTransform templateRowRect = templateRow as RectTransform;
+        float optionRowWidth = templateRowRect != null && templateRowRect.rect.width > 0f
+            ? templateRowRect.rect.width
+            : 1380f;
+        CacheChangshaOptionsRoot(optionsRoot);
+        ChangshaInitialHuRow1 = EnsureChangshaOptionRow(
+            ChangshaInitialHuRow1, "ChangshaInitialHuRow1", optionsRoot, optionRowWidth);
+        ChangshaInitialHuRow2 = EnsureChangshaOptionRow(
+            ChangshaInitialHuRow2, "ChangshaInitialHuRow2", optionsRoot, optionRowWidth);
+
         ChangshaInitialSiXiToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialSiXiToggle, "ChangshaInitialSiXi", "四喜", true);
-        Toggle lastToggle = ChangshaInitialSiXiToggle != null ? ChangshaInitialSiXiToggle : toggleTemplate;
-        ChangshaInitialBanBanHuToggle = EnsureClonedToggle(lastToggle, ChangshaInitialBanBanHuToggle, "ChangshaInitialBanBanHu", "板板胡", true);
-        lastToggle = ChangshaInitialBanBanHuToggle != null ? ChangshaInitialBanBanHuToggle : lastToggle;
-        ChangshaInitialQueYiSeToggle = EnsureClonedToggle(lastToggle, ChangshaInitialQueYiSeToggle, "ChangshaInitialQueYiSe", "缺一色", true);
-        lastToggle = ChangshaInitialQueYiSeToggle != null ? ChangshaInitialQueYiSeToggle : lastToggle;
-        ChangshaInitialLiuLiuShunToggle = EnsureClonedToggle(lastToggle, ChangshaInitialLiuLiuShunToggle, "ChangshaInitialLiuLiuShun", "六六顺", true);
-        lastToggle = ChangshaInitialLiuLiuShunToggle != null ? ChangshaInitialLiuLiuShunToggle : lastToggle;
-        ChangshaInitialSanTongToggle = EnsureClonedToggle(lastToggle, ChangshaInitialSanTongToggle, "ChangshaInitialSanTong", "三同", true);
-        lastToggle = ChangshaInitialSanTongToggle != null ? ChangshaInitialSanTongToggle : lastToggle;
-        ChangshaDealerBirdToggle = EnsureClonedToggle(lastToggle, ChangshaDealerBirdToggle, "ChangshaDealerBird", "定庄扎鸟", true);
+        ChangshaInitialBanBanHuToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialBanBanHuToggle, "ChangshaInitialBanBanHu", "板板胡", true);
+        ChangshaInitialQueYiSeToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialQueYiSeToggle, "ChangshaInitialQueYiSe", "缺一色", true);
+        ChangshaInitialLiuLiuShunToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialLiuLiuShunToggle, "ChangshaInitialLiuLiuShun", "六六顺", true);
+        ChangshaInitialSanTongToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialSanTongToggle, "ChangshaInitialSanTong", "三同", true);
+        ChangshaDealerBirdToggle = EnsureClonedToggle(toggleTemplate, ChangshaDealerBirdToggle, "ChangshaDealerBird", "定庄扎鸟", true);
+
+        ConfigureChangshaToggle(ChangshaInitialSiXiToggle, ChangshaInitialHuRow1.transform);
+        ConfigureChangshaToggle(ChangshaInitialBanBanHuToggle, ChangshaInitialHuRow1.transform);
+        ConfigureChangshaToggle(ChangshaInitialQueYiSeToggle, ChangshaInitialHuRow1.transform);
+        ConfigureChangshaToggle(ChangshaInitialLiuLiuShunToggle, ChangshaInitialHuRow2.transform);
+        ConfigureChangshaToggle(ChangshaInitialSanTongToggle, ChangshaInitialHuRow2.transform);
+        ConfigureChangshaToggle(ChangshaDealerBirdToggle, ChangshaInitialHuRow2.transform);
 
         ChangshaOpenKongPanel = EnsureClonedDropdownPanel(HepaiWayPanel, ChangshaOpenKongPanel, "ChangshaOpenKongPanel", "开杠张数");
         ChangshaOpenKongDropdown = ChangshaOpenKongPanel != null
@@ -566,28 +590,15 @@ public class CreatePanel : MonoBehaviour {
             SetChangshaBirdCount(2);
         }
 
-        EnsureChangshaScoreControls();
+        EnsureChangshaScoreControls(optionsRoot, optionRowWidth);
+        SetChangshaOptionRowOrder(templateRow, optionsRoot);
 
         SetChangshaOptionsVisible(false);
     }
 
-    private void EnsureChangshaScoreControls() {
-        // 长沙计分模式及自定义分值独占一行，避免与开杠、扎鸟配置挤在同一行。
-        Transform parent = InputHepaiLimitPlane != null
-            ? InputHepaiLimitPlane.transform.parent
-            : transform;
-        if (ChangshaScoreRow == null) {
-            ChangshaScoreRow = new GameObject("ChangshaScoreRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-            ChangshaScoreRow.transform.SetParent(parent, false);
-            HorizontalLayoutGroup layout = ChangshaScoreRow.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12f;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            ChangshaScoreRow.GetComponent<LayoutElement>().minHeight = 44f;
-        }
+    private void EnsureChangshaScoreControls(Transform optionsRoot, float optionRowWidth) {
+        ChangshaScoreRow = EnsureChangshaOptionRow(
+            ChangshaScoreRow, "ChangshaScoreRow", optionsRoot, optionRowWidth);
 
         Toggle toggleTemplate = ChangshaDealerBirdToggle != null ? ChangshaDealerBirdToggle : TacticalCallToggle;
         ChangshaBaseScoreNoDealerToggle = EnsureClonedToggle(
@@ -597,7 +608,7 @@ public class CreatePanel : MonoBehaviour {
             "不区分庄闲",
             false);
         if (ChangshaBaseScoreNoDealerToggle != null) {
-            ChangshaBaseScoreNoDealerToggle.transform.SetParent(ChangshaScoreRow.transform, false);
+            ConfigureChangshaToggle(ChangshaBaseScoreNoDealerToggle, ChangshaScoreRow.transform, 360f);
             ChangshaBaseScoreNoDealerToggle.onValueChanged.RemoveListener(OnChangshaBaseScoreModeChanged);
             ChangshaBaseScoreNoDealerToggle.onValueChanged.AddListener(OnChangshaBaseScoreModeChanged);
         }
@@ -614,7 +625,103 @@ public class CreatePanel : MonoBehaviour {
             out ChangshaBigHuScoreInput);
         if (ChangshaSmallHuScoreInput != null) ChangshaSmallHuScoreInput.text = "2";
         if (ChangshaBigHuScoreInput != null) ChangshaBigHuScoreInput.text = "8";
+        ConfigureChangshaScorePanel(ChangshaSmallHuScorePanel);
+        ConfigureChangshaScorePanel(ChangshaBigHuScorePanel);
         RefreshChangshaScoreInputVisibility();
+    }
+
+    /// <summary>长沙选项使用固定尺寸行，避免运行时克隆控件被场景根布局压缩或遮挡。</summary>
+    private static GameObject EnsureChangshaOptionRow(
+        GameObject existing,
+        string objectName,
+        Transform parent,
+        float width) {
+        if (existing != null) return existing;
+        existing = new GameObject(
+            objectName,
+            typeof(RectTransform),
+            typeof(HorizontalLayoutGroup),
+            typeof(LayoutElement));
+        existing.transform.SetParent(parent, false);
+        RectTransform rowRect = existing.GetComponent<RectTransform>();
+        rowRect.sizeDelta = new Vector2(width, 65f);
+        HorizontalLayoutGroup layout = existing.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 12f;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        LayoutElement rowLayout = existing.GetComponent<LayoutElement>();
+        rowLayout.minHeight = 65f;
+        rowLayout.preferredHeight = 65f;
+        existing.SetActive(false);
+        return existing;
+    }
+
+    private static void ConfigureChangshaToggle(
+        Toggle toggle,
+        Transform parent,
+        float preferredWidth = 330f) {
+        if (toggle == null || parent == null) return;
+        toggle.transform.SetParent(parent, false);
+        LayoutElement layout = toggle.GetComponent<LayoutElement>();
+        if (layout == null) layout = toggle.gameObject.AddComponent<LayoutElement>();
+        layout.minWidth = preferredWidth;
+        layout.preferredWidth = preferredWidth;
+        layout.flexibleWidth = 0f;
+        layout.minHeight = 64f;
+        layout.preferredHeight = 64f;
+        TMP_Text label = GetToggleLabel(toggle);
+        if (label != null) {
+            float sourceFontSize = Mathf.Max(label.fontSize, 40f);
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 28f;
+            label.fontSizeMax = sourceFontSize;
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Truncate;
+        }
+    }
+
+    private static void ConfigureChangshaScorePanel(GameObject panel) {
+        if (panel == null) return;
+        LayoutElement layout = panel.GetComponent<LayoutElement>();
+        if (layout == null) layout = panel.AddComponent<LayoutElement>();
+        layout.minWidth = 420f;
+        layout.preferredWidth = 420f;
+        layout.flexibleWidth = 0f;
+        layout.minHeight = 64f;
+        layout.preferredHeight = 64f;
+    }
+
+    private void CacheChangshaOptionsRoot(Transform root) {
+        if (_changshaOptionsRootCached || root == null) return;
+        _changshaOptionsRoot = root as RectTransform;
+        if (_changshaOptionsRoot == null) return;
+        _changshaOptionsRootBaseSize = _changshaOptionsRoot.sizeDelta;
+        _changshaOptionsRootBasePosition = _changshaOptionsRoot.anchoredPosition;
+        _changshaOptionsRootCached = true;
+    }
+
+    private void SetChangshaOptionRowOrder(Transform templateRow, Transform optionsRoot) {
+        if (templateRow == null || optionsRoot == null) return;
+        int siblingIndex = templateRow.GetSiblingIndex() + 1;
+        ChangshaInitialHuRow1.transform.SetSiblingIndex(siblingIndex++);
+        ChangshaInitialHuRow2.transform.SetSiblingIndex(siblingIndex++);
+        ChangshaScoreRow.transform.SetSiblingIndex(siblingIndex);
+    }
+
+    private void RefreshChangshaOptionsRootSize(bool visible) {
+        if (!_changshaOptionsRootCached || _changshaOptionsRoot == null) return;
+        const float extraHeight = 195f;
+        float heightDelta = visible ? extraHeight : 0f;
+        _changshaOptionsRoot.sizeDelta = new Vector2(
+            _changshaOptionsRootBaseSize.x,
+            _changshaOptionsRootBaseSize.y + heightDelta);
+        _changshaOptionsRoot.anchoredPosition = new Vector2(
+            _changshaOptionsRootBasePosition.x,
+            _changshaOptionsRootBasePosition.y - heightDelta * 0.5f);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_changshaOptionsRoot);
     }
 
     private GameObject EnsureChangshaScoreInputPanel(
@@ -737,18 +844,11 @@ public class CreatePanel : MonoBehaviour {
     private void SetChangshaOptionsVisible(bool visible) {
         if (ChangshaOpenKongPanel != null) ChangshaOpenKongPanel.SetActive(visible);
         if (ChangshaBirdCountPanel != null) ChangshaBirdCountPanel.SetActive(visible);
-        SetToggleVisible(ChangshaInitialSiXiToggle, visible);
-        SetToggleVisible(ChangshaInitialBanBanHuToggle, visible);
-        SetToggleVisible(ChangshaInitialQueYiSeToggle, visible);
-        SetToggleVisible(ChangshaInitialLiuLiuShunToggle, visible);
-        SetToggleVisible(ChangshaInitialSanTongToggle, visible);
-        SetToggleVisible(ChangshaDealerBirdToggle, visible);
+        if (ChangshaInitialHuRow1 != null) ChangshaInitialHuRow1.SetActive(visible);
+        if (ChangshaInitialHuRow2 != null) ChangshaInitialHuRow2.SetActive(visible);
         if (ChangshaScoreRow != null) ChangshaScoreRow.SetActive(visible);
+        RefreshChangshaOptionsRootSize(visible);
         RefreshChangshaScoreInputVisibility();
-    }
-
-    private static void SetToggleVisible(Toggle toggle, bool visible) {
-        if (toggle != null) toggle.gameObject.SetActive(visible);
     }
 
     private void SetChangshaOpenKongCount(int count) {
