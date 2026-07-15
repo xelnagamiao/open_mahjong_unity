@@ -148,6 +148,59 @@ async def _execute_jiagang_replacement(self, player_index: int, target_tile: int
     else:
         self.game_status = "deal_card_after_gang"
 
+
+async def wait_mid_round_hu_action(self):
+    """等待当前玩家声明或跳过中途胡，并保留广播期间到达的操作。"""
+    player_index = self.current_player_index
+    self.waiting_players_list = [player_index]
+    if self.action_queues[player_index].empty():
+        self.action_events[player_index].clear()
+    else:
+        self.action_events[player_index].set()
+
+    used_time = 0
+    action_data = None
+    while self.player_list[player_index].remaining_time + self.step_time > used_time:
+        action_task = asyncio.create_task(self.action_events[player_index].wait())
+        timer_task = asyncio.create_task(asyncio.sleep(1))
+        wait_started = time.time()
+        done, pending = await asyncio.wait(
+            [action_task, timer_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        elapsed = time.time() - wait_started
+        for task in pending:
+            task.cancel()
+        if action_task in done:
+            action_data = await self.action_queues[player_index].get()
+            used_time += elapsed
+            break
+        used_time += 1
+
+    if used_time > self.step_time:
+        overtime = int(used_time - self.step_time)
+        self.player_list[player_index].remaining_time = max(
+            0,
+            self.player_list[player_index].remaining_time - overtime,
+        )
+    if action_data is None:
+        self.player_list[player_index].remaining_time = 0
+
+    self.action_events[player_index].clear()
+    self.action_dict[player_index] = []
+    self.waiting_players_list = []
+    action_type = action_data.get("action_type") if action_data else None
+    if action_type in ("mid_round_four_joys", "mid_round_six_six"):
+        await self._settle_mid_round_hu(player_index)
+    elif action_type not in (None, "pass"):
+        logger.warning(
+            "长沙中途胡阶段收到非法操作: player=%s action=%s",
+            player_index,
+            action_type,
+        )
+    return True
+
+
 # 等待玩家行动
 async def wait_action(self):
     self.waiting_players_list = [] # [2,3]

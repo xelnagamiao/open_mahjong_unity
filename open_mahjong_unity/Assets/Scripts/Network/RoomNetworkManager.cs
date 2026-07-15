@@ -435,6 +435,8 @@ public class RoomNetworkManager : MonoBehaviour {
                 initial_hu_que_yi_se = config.InitialHuQueYiSe,
                 initial_hu_liu_liu_shun = config.InitialHuLiuLiuShun,
                 initial_hu_san_tong = config.InitialHuSanTong,
+                mid_round_four_joys = config.MidRoundFourJoys,
+                mid_round_six_six = config.MidRoundSixSix,
                 bird_count = config.BirdCount,
                 dealer_bird = config.DealerBird,
                 base_score_no_dealer = config.BaseScoreNoDealer,
@@ -442,7 +444,7 @@ public class RoomNetworkManager : MonoBehaviour {
                 big_hu_score = config.BigHuScore,
                 event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
             };
-            Debug.Log($"发送创建长沙麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, open_kong={config.OpenKongReplacementCount}, bird_count={config.BirdCount}, dealer_bird={config.DealerBird}, no_dealer_score={config.BaseScoreNoDealer}");
+            Debug.Log($"发送创建长沙麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, open_kong={config.OpenKongReplacementCount}, bird_count={config.BirdCount}, dealer_bird={config.DealerBird}, no_dealer_score={config.BaseScoreNoDealer}, mid_round_four_joys={config.MidRoundFourJoys}, mid_round_six_six={config.MidRoundSixSix}");
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);

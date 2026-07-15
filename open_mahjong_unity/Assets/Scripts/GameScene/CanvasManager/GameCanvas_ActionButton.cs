@@ -90,6 +90,8 @@ public partial class GameCanvas : MonoBehaviour {
                 return actionButtonColorPresets.hu;
             case "hu_self":
             case "initial_hu":
+            case "mid_round_four_joys":
+            case "mid_round_six_six":
                 return actionButtonColorPresets.huSelf;
             case "buhua":
                 return actionButtonColorPresets.buhua;
@@ -180,6 +182,15 @@ public partial class GameCanvas : MonoBehaviour {
                 TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = "起手胡";
                 Debug.Log($"起手胡按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "mid_round_four_joys" || action_list[i] == "mid_round_six_six"){
+                string midRoundHuText = action_list[i] == "mid_round_four_joys" ? "中途四喜" : "中途六六顺";
+                Debug.Log(midRoundHuText);
+                ActionButton ActionButtonObj = CreateActionButton(colorPreset);
+                TMP_Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = midRoundHuText;
+                Debug.Log($"{midRoundHuText}按钮: {ActionButtonObj}");
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "sea_bottom"){

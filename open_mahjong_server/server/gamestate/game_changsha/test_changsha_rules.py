@@ -10,6 +10,7 @@ from server.game_calculation.changsha.changsha_hepai_check import (
     changsha_base_from_fans,
     changsha_initial_hu_reveal_tiles,
     evaluate_changsha_initial_hu,
+    evaluate_changsha_mid_round_hu_groups,
 )
 from server.gamestate.game_changsha.ChangshaGameState import ChangshaGameState
 from server.gamestate.game_changsha.action_check import (
@@ -29,6 +30,7 @@ from server.room.room_validators import ChangshaRoomValidator
 
 wait_action_module = importlib.import_module("server.gamestate.game_changsha.wait_action")
 changsha_state_module = importlib.import_module("server.gamestate.game_changsha.ChangshaGameState")
+changsha_get_action_module = importlib.import_module("server.gamestate.game_changsha.get_action")
 
 
 class DummyPlayer:
@@ -470,6 +472,131 @@ class ChangshaRulesTest(unittest.TestCase):
             ["四喜", "板板胡", "六六顺", "三同"],
         )
 
+    def test_mid_round_hu_enumerates_each_four_joys_and_six_six_group(self):
+        groups = evaluate_changsha_mid_round_hu_groups(
+            [11, 11, 11, 11, 12, 12, 12, 13, 13, 13, 21, 22, 23, 24]
+        )
+
+        self.assertEqual(groups[0], ("四喜", [11, 11, 11, 11]))
+        self.assertCountEqual(
+            [tuple(tiles) for hu_type, tiles in groups if hu_type == "六六顺"],
+            [
+                (11, 11, 11, 12, 12, 12),
+                (11, 11, 11, 13, 13, 13),
+                (12, 12, 12, 13, 13, 13),
+            ],
+        )
+
+    def test_mid_round_hu_only_uses_concealed_hand_and_reprompts_passed_group(self):
+        player = DummyPlayer(0, [11, 11, 11, 11, 12, 13])
+        player.combination_tiles = ["k21", "k22"]
+        state = SimpleNamespace(
+            player_list=[player],
+            mid_round_hu_enabled={"四喜": True, "六六顺": True},
+            mid_round_hu_resolved_groups={},
+        )
+        state._player_by_index = lambda index: player
+        state._mid_round_hu_group_key = ChangshaGameState._mid_round_hu_group_key
+
+        first_prompt = ChangshaGameState._pending_mid_round_hu_groups(state, 0)
+        second_prompt = ChangshaGameState._pending_mid_round_hu_groups(state, 0)
+
+        self.assertEqual(first_prompt, [("四喜", [11, 11, 11, 11])])
+        self.assertEqual(second_prompt, first_prompt)
+
+        state.mid_round_hu_resolved_groups[0].add(("四喜", (11, 11, 11, 11)))
+        self.assertEqual(ChangshaGameState._pending_mid_round_hu_groups(state, 0), [])
+
+    def test_mid_round_hu_prompts_each_group_and_restores_hand_actions(self):
+        player = DummyPlayer(
+            0,
+            [11, 11, 11, 11, 12, 12, 12, 13, 13, 13, 21, 22, 23, 24],
+        )
+        player.user_id = 101
+        player.remaining_time = 10
+        state = SimpleNamespace(
+            player_list=[player],
+            current_player_index=0,
+            action_dict={0: ["hu_self", "cut"], 1: [], 2: [], 3: []},
+            mid_round_hu_enabled={"四喜": True, "六六顺": True},
+            mid_round_hu_resolved_groups={},
+            current_mid_round_hu=None,
+            step_time=5,
+            action_events={0: asyncio.Event()},
+            action_queues={0: asyncio.Queue()},
+            waiting_players_list=[],
+            game_server=SimpleNamespace(players={"player-101": SimpleNamespace(user_id=101)}),
+        )
+        state._player_by_index = lambda index: player
+        state._mid_round_hu_group_key = ChangshaGameState._mid_round_hu_group_key
+        state._pending_mid_round_hu_groups = lambda index: ChangshaGameState._pending_mid_round_hu_groups(state, index)
+        prompted_actions = []
+
+        async def capture_ask():
+            prompted_actions.append(list(state.action_dict[0]))
+            await changsha_get_action_module.get_action(
+                state,
+                "player-101",
+                "pass",
+                False,
+                0,
+                0,
+                None,
+            )
+
+        state.broadcast_ask_hand_action = capture_ask
+
+        resolved = asyncio.run(ChangshaGameState._resolve_mid_round_hu_choices(state, 0))
+
+        self.assertTrue(resolved)
+        self.assertEqual(len(prompted_actions), 4)
+        self.assertEqual(prompted_actions[0], ["mid_round_four_joys", "pass"])
+        self.assertEqual(prompted_actions[1:], [["mid_round_six_six", "pass"]] * 3)
+        self.assertEqual(state.action_dict[0], ["hu_self", "cut"])
+        self.assertEqual(state.game_status, "waiting_hand_action")
+        self.assertEqual(state.waiting_players_list, [])
+        self.assertEqual(len(ChangshaGameState._pending_mid_round_hu_groups(state, 0)), 4)
+
+    def test_mid_round_hu_bot_uses_existing_non_terminal_hu_wait_mode(self):
+        boardcast_module = importlib.import_module(
+            "server.gamestate.game_changsha.boardcast"
+        )
+        received_statuses = []
+
+        async def capture_auto_action(game_state, player_index, action_list, game_status):
+            received_statuses.append(game_status)
+
+        players = [
+            SimpleNamespace(
+                player_index=index,
+                user_id=0 if index == 0 else 3,
+                username=f"player-{index}",
+                tag_list=[],
+                remaining_time=0,
+                hand_tiles=[],
+                has_draw_slot=True,
+            )
+            for index in range(4)
+        ]
+        state = SimpleNamespace(
+            server_action_tick=0,
+            _ask_broadcast_time=0,
+            forced_cut_tiles=[],
+            forced_cut_tile=None,
+            player_list=players,
+            action_dict={0: ["mid_round_four_joys", "pass"], 1: [], 2: [], 3: []},
+            game_status="waiting_mid_round_hu",
+            current_player_index=0,
+        )
+
+        async def run_broadcast():
+            with patch.object(boardcast_module, "auto_cut_action", capture_auto_action):
+                await boardcast_module.broadcast_ask_hand_action(state)
+                await asyncio.sleep(0)
+
+        asyncio.run(run_broadcast())
+        self.assertEqual(received_statuses, ["waiting_initial_hu"])
+
     def test_initial_hu_si_xi_accepts_more_than_four_same_tiles(self):
         hand = [11, 11, 11, 11, 11, 13, 23, 33, 24, 24, 24, 26, 27, 28]
 
@@ -764,6 +891,15 @@ class ChangshaRulesTest(unittest.TestCase):
 
         custom = ChangshaRoomValidator(**{**base, "base_score_no_dealer": True, "small_hu_score": 3, "big_hu_score": 9})
         self.assertEqual((custom.small_hu_score, custom.big_hu_score), (3, 9))
+        self.assertFalse(custom.mid_round_four_joys)
+        self.assertFalse(custom.mid_round_six_six)
+        enabled = ChangshaRoomValidator(**{
+            **base,
+            "mid_round_four_joys": True,
+            "mid_round_six_six": True,
+        })
+        self.assertTrue(enabled.mid_round_four_joys)
+        self.assertTrue(enabled.mid_round_six_six)
         with self.assertRaises(ValueError):
             ChangshaRoomValidator(**{**base, "small_hu_score": 0})
         with self.assertRaises(ValueError):
@@ -827,6 +963,43 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertEqual([players[i].score for i in range(4)], [-4, 10, -4, -2])
         self.assertIn("四喜", result["fan_display"])
         self.assertIn("骰子:1,2", result["fan_display"])
+
+    def test_mid_round_hu_settlement_reveals_only_matched_group(self):
+        players = []
+        for index in range(4):
+            player = DummyPlayer(index, [11 + index])
+            player.original_player_index = index
+            player.score = 0
+            player.huapai_list = []
+            player.record_counter = SimpleNamespace(zimo_times=0, recorded_fans=[], win_score=0)
+            players.append(player)
+        state = SimpleNamespace(
+            player_list=players,
+            round_random_seed=12345,
+            current_round=1,
+            current_mid_round_hu=("四喜", [11, 11, 11, 11]),
+            mid_round_hu_resolved_groups={},
+        )
+        attach_changsha_score_helpers(state)
+        state.dealer_bird = False
+        state._roll_mid_round_hu_dice = lambda winner, hu_type, tiles: [1, 2]
+        state._initial_hu_dice_seat = ChangshaGameState._initial_hu_dice_seat
+        state._player_by_index = lambda index: players[index]
+        state._mid_round_hu_group_key = ChangshaGameState._mid_round_hu_group_key
+        payloads = []
+
+        async def capture_result(*args, **kwargs):
+            payloads.append(kwargs)
+
+        with patch.object(changsha_state_module, "broadcast_result", capture_result):
+            asyncio.run(ChangshaGameState._settle_mid_round_hu(state, 1))
+
+        self.assertEqual(payloads[0]["hu_class"], "mid_round_hu")
+        self.assertEqual(payloads[0]["hepai_player_hand"], [11, 11, 11, 11])
+        self.assertEqual(payloads[0]["hepai_player_combination_mask"], [])
+        self.assertTrue(payloads[0]["round_continues"])
+        self.assertIn("中途胡", payloads[0]["hu_fan"])
+        self.assertIn(("四喜", (11, 11, 11, 11)), state.mid_round_hu_resolved_groups[1])
 
     def test_bird_scoring_uses_configured_count_and_origin(self):
         players = [SimpleNamespace(player_index=i, score=0) for i in range(4)]

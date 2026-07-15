@@ -63,6 +63,8 @@ class GameInfo(BaseModel):
     initial_hu_que_yi_se: Optional[bool] = None
     initial_hu_liu_liu_shun: Optional[bool] = None
     initial_hu_san_tong: Optional[bool] = None
+    mid_round_four_joys: Optional[bool] = None
+    mid_round_six_six: Optional[bool] = None
     bird_count: Optional[int] = None
     dealer_bird: Optional[bool] = None
     base_score_no_dealer: Optional[bool] = None

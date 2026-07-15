@@ -84,6 +84,27 @@ def evaluate_changsha_initial_hu(tiles: List[int]) -> List[str]:
     return result
 
 
+def evaluate_changsha_mid_round_hu_groups(tiles: List[int]) -> List[Tuple[str, List[int]]]:
+    """返回未公开手牌中的每个中途四喜或六六顺具体组合。"""
+    counts = _count_tiles(tiles)
+    if not counts or any(tile not in VALID_TILES for tile in tiles):
+        return []
+
+    groups: List[Tuple[str, List[int]]] = []
+    for tile in sorted(counts):
+        if counts[tile] >= 4:
+            groups.append((INITIAL_HU_NAMES["siXi"], [tile] * 4))
+
+    triplet_tiles = [tile for tile in sorted(counts) if counts[tile] >= 3]
+    for first_index, first_tile in enumerate(triplet_tiles):
+        for second_tile in triplet_tiles[first_index + 1:]:
+            groups.append((
+                INITIAL_HU_NAMES["liuLiuShun"],
+                [first_tile] * 3 + [second_tile] * 3,
+            ))
+    return groups
+
+
 def changsha_initial_hu_reveal_tiles(tiles: List[int], hu_types: List[str]) -> List[int]:
     """返回起手胡结算时需要亮出的最小牌组。"""
     hand = list(tiles or [])

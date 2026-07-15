@@ -36,7 +36,7 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "changsha", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
+            "tips", "open_kong_replacement_count", "initial_hu_types", "mid_round_hu_types", "bird_count",
             "dealer_bird", "base_score", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "jiandan", new List<string> {
@@ -138,6 +138,10 @@ public class RoomConfigContainer : MonoBehaviour {
                 displayName = "起手胡";
                 displayValue = FormatChangshaInitialHu(roomInfo);
                 return true;
+            case "mid_round_hu_types":
+                displayName = "中途胡";
+                displayValue = FormatChangshaMidRoundHu(roomInfo);
+                return true;
             case "bird_count":
                 displayName = "扎鸟张数";
                 displayValue = roomInfo.bird_count > 0 ? $"{roomInfo.bird_count}鸟" : "不扎鸟";
@@ -211,6 +215,13 @@ public class RoomConfigContainer : MonoBehaviour {
         if (roomInfo.initial_hu_que_yi_se) enabled.Add("缺一色");
         if (roomInfo.initial_hu_liu_liu_shun) enabled.Add("六六顺");
         if (roomInfo.initial_hu_san_tong) enabled.Add("三同");
+        return enabled.Count > 0 ? string.Join("/", enabled) : "关闭";
+    }
+
+    private string FormatChangshaMidRoundHu(RoomInfo roomInfo) {
+        List<string> enabled = new List<string>();
+        if (roomInfo.mid_round_four_joys) enabled.Add("四喜");
+        if (roomInfo.mid_round_six_six) enabled.Add("六六顺");
         return enabled.Count > 0 ? string.Join("/", enabled) : "关闭";
     }
 

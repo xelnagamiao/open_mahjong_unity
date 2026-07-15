@@ -40,6 +40,8 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgCsInitialQueYiSe = "cs_initial_que_yi_se";
     private const string CfgCsInitialLiuLiuShun = "cs_initial_liu_liu_shun";
     private const string CfgCsInitialSanTong = "cs_initial_san_tong";
+    private const string CfgCsMidRoundFourJoys = "cs_mid_round_four_joys";
+    private const string CfgCsMidRoundSixSix = "cs_mid_round_six_six";
     private const string CfgCsBirdCount = "cs_bird_count";
     private const string CfgCsDealerBird = "cs_dealer_bird";
     private const string CfgCsBaseScoreNoDealer = "cs_base_score_no_dealer";
@@ -145,6 +147,8 @@ public class CreatePanel : MonoBehaviour {
             { CfgCsInitialQueYiSe, true },
             { CfgCsInitialLiuLiuShun, true },
             { CfgCsInitialSanTong, true },
+            { CfgCsMidRoundFourJoys, false },
+            { CfgCsMidRoundSixSix, false },
             { CfgCsBirdCount, 2 },
             { CfgCsDealerBird, true },
             { CfgCsBaseScoreNoDealer, false },
@@ -188,6 +192,8 @@ public class CreatePanel : MonoBehaviour {
     private Toggle ChangshaInitialQueYiSeToggle;
     private Toggle ChangshaInitialLiuLiuShunToggle;
     private Toggle ChangshaInitialSanTongToggle;
+    private Toggle ChangshaMidRoundFourJoysToggle;
+    private Toggle ChangshaMidRoundSixSixToggle;
     private Toggle ChangshaDealerBirdToggle;
     private Toggle ChangshaBaseScoreNoDealerToggle;
     private Toggle EventModeToggle;
@@ -206,6 +212,7 @@ public class CreatePanel : MonoBehaviour {
     private TMP_Dropdown ChangshaBirdCountDropdown;
     private GameObject ChangshaInitialHuRow1;
     private GameObject ChangshaInitialHuRow2;
+    private GameObject ChangshaMidRoundHuRow;
     private GameObject ChangshaScoreRow;
     private GameObject ChangshaSmallHuScorePanel;
     private GameObject ChangshaBigHuScorePanel;
@@ -364,6 +371,8 @@ public class CreatePanel : MonoBehaviour {
             case CfgCsInitialQueYiSe: if (ChangshaInitialQueYiSeToggle != null) ChangshaInitialQueYiSeToggle.isOn = (bool)value; break;
             case CfgCsInitialLiuLiuShun: if (ChangshaInitialLiuLiuShunToggle != null) ChangshaInitialLiuLiuShunToggle.isOn = (bool)value; break;
             case CfgCsInitialSanTong: if (ChangshaInitialSanTongToggle != null) ChangshaInitialSanTongToggle.isOn = (bool)value; break;
+            case CfgCsMidRoundFourJoys: if (ChangshaMidRoundFourJoysToggle != null) ChangshaMidRoundFourJoysToggle.isOn = (bool)value; break;
+            case CfgCsMidRoundSixSix: if (ChangshaMidRoundSixSixToggle != null) ChangshaMidRoundSixSixToggle.isOn = (bool)value; break;
             case CfgCsBirdCount:    SetChangshaBirdCount((int)value); break;
             case CfgCsDealerBird:   if (ChangshaDealerBirdToggle != null) ChangshaDealerBirdToggle.isOn = (bool)value; break;
             case CfgCsBaseScoreNoDealer:
@@ -554,6 +563,8 @@ public class CreatePanel : MonoBehaviour {
             ChangshaInitialHuRow1, "ChangshaInitialHuRow1", optionsRoot, optionRowWidth);
         ChangshaInitialHuRow2 = EnsureChangshaOptionRow(
             ChangshaInitialHuRow2, "ChangshaInitialHuRow2", optionsRoot, optionRowWidth);
+        ChangshaMidRoundHuRow = EnsureChangshaOptionRow(
+            ChangshaMidRoundHuRow, "ChangshaMidRoundHuRow", optionsRoot, optionRowWidth);
 
         ChangshaInitialSiXiToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialSiXiToggle, "ChangshaInitialSiXi", "四喜", true);
         ChangshaInitialBanBanHuToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialBanBanHuToggle, "ChangshaInitialBanBanHu", "板板胡", true);
@@ -561,6 +572,9 @@ public class CreatePanel : MonoBehaviour {
         ChangshaInitialLiuLiuShunToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialLiuLiuShunToggle, "ChangshaInitialLiuLiuShun", "六六顺", true);
         ChangshaInitialSanTongToggle = EnsureClonedToggle(toggleTemplate, ChangshaInitialSanTongToggle, "ChangshaInitialSanTong", "三同", true);
         ChangshaDealerBirdToggle = EnsureClonedToggle(toggleTemplate, ChangshaDealerBirdToggle, "ChangshaDealerBird", "定庄扎鸟", true);
+        // 中途胡按具体牌组逐组询问，这两个开关只控制对应牌型是否参与检查。
+        ChangshaMidRoundFourJoysToggle = EnsureClonedToggle(toggleTemplate, ChangshaMidRoundFourJoysToggle, "ChangshaMidRoundFourJoys", "中途四喜", false);
+        ChangshaMidRoundSixSixToggle = EnsureClonedToggle(toggleTemplate, ChangshaMidRoundSixSixToggle, "ChangshaMidRoundSixSix", "中途六六顺", false);
 
         ConfigureChangshaToggle(ChangshaInitialSiXiToggle, ChangshaInitialHuRow1.transform);
         ConfigureChangshaToggle(ChangshaInitialBanBanHuToggle, ChangshaInitialHuRow1.transform);
@@ -568,6 +582,8 @@ public class CreatePanel : MonoBehaviour {
         ConfigureChangshaToggle(ChangshaInitialLiuLiuShunToggle, ChangshaInitialHuRow2.transform);
         ConfigureChangshaToggle(ChangshaInitialSanTongToggle, ChangshaInitialHuRow2.transform);
         ConfigureChangshaToggle(ChangshaDealerBirdToggle, ChangshaInitialHuRow2.transform);
+        ConfigureChangshaToggle(ChangshaMidRoundFourJoysToggle, ChangshaMidRoundHuRow.transform);
+        ConfigureChangshaToggle(ChangshaMidRoundSixSixToggle, ChangshaMidRoundHuRow.transform);
 
         ChangshaOpenKongPanel = EnsureClonedDropdownPanel(HepaiWayPanel, ChangshaOpenKongPanel, "ChangshaOpenKongPanel", "开杠张数");
         ChangshaOpenKongDropdown = ChangshaOpenKongPanel != null
@@ -708,12 +724,13 @@ public class CreatePanel : MonoBehaviour {
         int siblingIndex = templateRow.GetSiblingIndex() + 1;
         ChangshaInitialHuRow1.transform.SetSiblingIndex(siblingIndex++);
         ChangshaInitialHuRow2.transform.SetSiblingIndex(siblingIndex++);
+        ChangshaMidRoundHuRow.transform.SetSiblingIndex(siblingIndex++);
         ChangshaScoreRow.transform.SetSiblingIndex(siblingIndex);
     }
 
     private void RefreshChangshaOptionsRootSize(bool visible) {
         if (!_changshaOptionsRootCached || _changshaOptionsRoot == null) return;
-        const float extraHeight = 195f;
+        const float extraHeight = 260f;
         float heightDelta = visible ? extraHeight : 0f;
         _changshaOptionsRoot.sizeDelta = new Vector2(
             _changshaOptionsRootBaseSize.x,
@@ -846,6 +863,7 @@ public class CreatePanel : MonoBehaviour {
         if (ChangshaBirdCountPanel != null) ChangshaBirdCountPanel.SetActive(visible);
         if (ChangshaInitialHuRow1 != null) ChangshaInitialHuRow1.SetActive(visible);
         if (ChangshaInitialHuRow2 != null) ChangshaInitialHuRow2.SetActive(visible);
+        if (ChangshaMidRoundHuRow != null) ChangshaMidRoundHuRow.SetActive(visible);
         if (ChangshaScoreRow != null) ChangshaScoreRow.SetActive(visible);
         RefreshChangshaOptionsRootSize(visible);
         RefreshChangshaScoreInputVisibility();
@@ -1180,6 +1198,8 @@ public class CreatePanel : MonoBehaviour {
             InitialHuQueYiSe = ChangshaInitialQueYiSeToggle == null || ChangshaInitialQueYiSeToggle.isOn,
             InitialHuLiuLiuShun = ChangshaInitialLiuLiuShunToggle == null || ChangshaInitialLiuLiuShunToggle.isOn,
             InitialHuSanTong = ChangshaInitialSanTongToggle == null || ChangshaInitialSanTongToggle.isOn,
+            MidRoundFourJoys = ChangshaMidRoundFourJoysToggle != null && ChangshaMidRoundFourJoysToggle.isOn,
+            MidRoundSixSix = ChangshaMidRoundSixSixToggle != null && ChangshaMidRoundSixSixToggle.isOn,
             BirdCount = GetChangshaBirdCount(),
             DealerBird = ChangshaDealerBirdToggle == null || ChangshaDealerBirdToggle.isOn,
             BaseScoreNoDealer = ChangshaBaseScoreNoDealerToggle != null && ChangshaBaseScoreNoDealerToggle.isOn,

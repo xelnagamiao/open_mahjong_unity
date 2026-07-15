@@ -24,7 +24,7 @@ public partial class NormalGameStateManager {
         if (playerIndex == selfIndex){
             allowActionList.Clear();
             // 存储全部可用行动；riichi_cut 在 UI 上以「立直」按钮展示
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self", "initial_hu", "sea_bottom", "buzhang", "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self", "initial_hu", "mid_round_four_joys", "mid_round_six_six", "sea_bottom", "buzhang", "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);

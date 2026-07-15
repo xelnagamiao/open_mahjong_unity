@@ -274,7 +274,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.recycle_discard,
             showresponse.gang_refund_changes,
             showresponse.is_qianggang,
-            showresponse.liuju_refund
+            showresponse.liuju_refund,
+            showresponse.round_continues
         );
         // 四川·血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打
         if (NormalGameStateManager.Instance.IsSichuanRule()) {

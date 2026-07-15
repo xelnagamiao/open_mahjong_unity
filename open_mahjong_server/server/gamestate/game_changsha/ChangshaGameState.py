@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 import time
 import logging
 from .action_check import check_action_after_cut,check_action_after_gang_forced_cut,check_action_after_batch_gang_forced_cut,check_action_jiagang,check_action_hand_action,check_hepai,check_only_cut,refresh_waiting_tiles,filter_open_kong_replacement_actions
-from .wait_action import wait_action
+from .wait_action import wait_action, wait_mid_round_hu_action
 from .boardcast import (
     broadcast_game_start,
     broadcast_ask_hand_action,
@@ -32,6 +32,7 @@ from ...game_calculation.changsha.changsha_hepai_check import (
     changsha_initial_hu_reveal_tiles,
     changsha_base_from_fans,
     evaluate_changsha_initial_hu,
+    evaluate_changsha_mid_round_hu_groups,
 )
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -178,6 +179,10 @@ class ChangshaGameState:
             INITIAL_HU_NAMES["liuLiuShun"]: room_data.get("initial_hu_liu_liu_shun", True),
             INITIAL_HU_NAMES["sanTong"]: room_data.get("initial_hu_san_tong", True),
         }
+        self.mid_round_hu_enabled = {
+            INITIAL_HU_NAMES["siXi"]: bool(room_data.get("mid_round_four_joys", False)),
+            INITIAL_HU_NAMES["liuLiuShun"]: bool(room_data.get("mid_round_six_six", False)),
+        }
 
         self.isPlayerSetRandomSeed = False # 是否玩家设置了随机种子
 
@@ -207,6 +212,8 @@ class ChangshaGameState:
         self.pending_gang_replacement_hu_hand = None
         self.current_claim_cut_tile = None
         self.initial_hu_types = {}
+        self.mid_round_hu_resolved_groups = {}
+        self.current_mid_round_hu = None
         self.sea_bottom_candidates = []
         self.player_passed_hu_base = {}
         self.temp_fan = [] ###### 临时番数 不启用 暂时通过不同的和牌检测和给和牌检测传递is_first or if tiles_list == [] 来计算额外加减的役
@@ -225,7 +232,8 @@ class ChangshaGameState:
         "chi_left": 1, "chi_mid": 1, "chi_right": 1,
         "ready": 0,  # 准备操作优先级 最低优先级
         "pass": 0,"cut":0,"buzhang":0,"angang":0,"jiagang":0,"deal_tile":0,"deal_gang_tile":0,
-        "initial_hu": 0, "sea_bottom": 0 # 其他优先级 最低优先级
+        "initial_hu": 0, "mid_round_four_joys": 0, "mid_round_six_six": 0,
+        "sea_bottom": 0 # 其他优先级 最低优先级
         }
 
         self.backward_tiles_list_type = "double"
@@ -305,6 +313,8 @@ class ChangshaGameState:
                         'initial_hu_que_yi_se': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["queYiSe"], True),
                         'initial_hu_liu_liu_shun': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["liuLiuShun"], True),
                         'initial_hu_san_tong': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["sanTong"], True),
+                        'mid_round_four_joys': getattr(self, 'mid_round_hu_enabled', {}).get(INITIAL_HU_NAMES["siXi"], False),
+                        'mid_round_six_six': getattr(self, 'mid_round_hu_enabled', {}).get(INITIAL_HU_NAMES["liuLiuShun"], False),
                         'bird_count': getattr(self, 'bird_count', 2),
                         'dealer_bird': getattr(self, 'dealer_bird', True),
                         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
@@ -460,6 +470,8 @@ class ChangshaGameState:
         self.sea_bottom_player_index = None
         self.sea_bottom_candidates = []
         self.initial_hu_types = {}
+        self.mid_round_hu_resolved_groups = {}
+        self.current_mid_round_hu = None
         self.player_passed_hu_base = {}
         for player in self.player_list:
             player.open_kong_locked = False
@@ -525,6 +537,12 @@ class ChangshaGameState:
         rng = random.Random(seed)
         return [rng.randint(1, 6), rng.randint(1, 6)]
 
+    def _roll_mid_round_hu_dice(self, player_index: int, hu_type: str, tiles: List[int]) -> List[int]:
+        tile_key = ",".join(str(tile) for tile in tiles)
+        seed = f"{self.round_random_seed}:{self.current_round}:mid_round_hu:{player_index}:{hu_type}:{tile_key}"
+        rng = random.Random(seed)
+        return [rng.randint(1, 6), rng.randint(1, 6)]
+
     @staticmethod
     def _initial_hu_dice_seat(origin_index: int, die: int) -> int:
         return (origin_index + die - 1) % 4
@@ -583,6 +601,49 @@ class ChangshaGameState:
             "payer_details": payer_details,
         }
 
+    def _score_mid_round_hu(self, winner: int, hu_type: str, tiles: List[int]):
+        """按长沙中途胡规则结算一份小胡和一组骰子鸟。"""
+        dice = self._roll_mid_round_hu_dice(winner, hu_type, tiles)
+        bird_origin = self._changsha_bird_origin(winner)
+        bird_seats = [self._initial_hu_dice_seat(bird_origin, die) for die in dice]
+        payers = [player.player_index for player in self.player_list if player.player_index != winner]
+        total_win = 0
+        total_base = 0
+        payer_details = []
+
+        for payer in payers:
+            dealer_related = winner == 0 or payer == 0
+            base = self._changsha_base_from_fans(["小胡"], dealer_related)
+            hit_count = sum(1 for seat in bird_seats if seat in (winner, payer))
+            multiplier = 2 ** hit_count
+            payment = base * multiplier
+            self._player_by_index(winner).score += payment
+            self._player_by_index(payer).score -= payment
+            total_win += payment
+            total_base += base
+            payer_details.append({
+                "payer": payer,
+                "base": base,
+                "hit_count": hit_count,
+                "multiplier": multiplier,
+                "payment": payment,
+            })
+
+        fan_display = [
+            hu_type,
+            "中途胡",
+            "骰子:" + ",".join(str(die) for die in dice),
+            "骰子鸟位:" + ",".join(str(seat) for seat in bird_seats),
+        ]
+        return {
+            "actual_hu_score": total_win,
+            "base_score": total_base,
+            "dice": dice,
+            "bird_seats": bird_seats,
+            "fan_display": fan_display,
+            "payer_details": payer_details,
+        }
+
     async def _settle_initial_hu(self, player_index: int) -> None:
         hu_types = list(self.initial_hu_types.get(player_index, []))
         if not hu_types:
@@ -625,6 +686,89 @@ class ChangshaGameState:
             await self.wait_action()
         self.current_player_index = 0
         self.action_dict = {0: [], 1: [], 2: [], 3: []}
+
+    @staticmethod
+    def _mid_round_hu_group_key(hu_type: str, tiles: List[int]):
+        return hu_type, tuple(tiles)
+
+    def _pending_mid_round_hu_groups(self, player_index: int):
+        """筛出已开启且本局尚未声明的中途胡具体牌组。"""
+        player = self._player_by_index(player_index)
+        resolved = self.mid_round_hu_resolved_groups.setdefault(player_index, set())
+        return [
+            (hu_type, tiles)
+            for hu_type, tiles in evaluate_changsha_mid_round_hu_groups(player.hand_tiles)
+            if self.mid_round_hu_enabled.get(hu_type, False)
+            and self._mid_round_hu_group_key(hu_type, tiles) not in resolved
+        ]
+
+    async def _settle_mid_round_hu(self, player_index: int) -> None:
+        """结算当前中途胡牌组，并只亮出该组所需的四张或六张牌。"""
+        current_group = self.current_mid_round_hu
+        if current_group is None:
+            return
+        hu_type, tiles = current_group
+        group_key = self._mid_round_hu_group_key(hu_type, tiles)
+        resolved = self.mid_round_hu_resolved_groups.setdefault(player_index, set())
+        if group_key in resolved:
+            return
+
+        scores_before = {player.original_player_index: player.score for player in self.player_list}
+        score_info = ChangshaGameState._score_mid_round_hu(self, player_index, hu_type, tiles)
+        winner = self._player_by_index(player_index)
+        winner.record_counter.zimo_times += 1
+        winner.record_counter.recorded_fans.append(score_info["fan_display"])
+        winner.record_counter.win_score += score_info["actual_hu_score"]
+        resolved.add(group_key)
+        player_to_score = {player.player_index: player.score for player in self.player_list}
+        await broadcast_result(
+            self,
+            hepai_player_index=player_index,
+            player_to_score=player_to_score,
+            hu_score=score_info["actual_hu_score"],
+            hu_fan=score_info["fan_display"],
+            hu_class="mid_round_hu",
+            hepai_player_hand=list(tiles),
+            hepai_player_huapai=winner.huapai_list,
+            hepai_player_combination_mask=[],
+            score_changes=build_score_changes_dict(self.player_list, scores_before),
+            initial_hu_dice=score_info["dice"],
+            initial_hu_bird_seats=score_info["bird_seats"],
+            initial_hu_payer_details=score_info["payer_details"],
+            round_continues=True,
+        )
+
+    async def _resolve_mid_round_hu_choices(self, player_index: int) -> bool:
+        """逐组询问中途胡，全部处理后恢复本次摸牌的原操作列表。"""
+        pending_groups = self._pending_mid_round_hu_groups(player_index)
+        if not pending_groups:
+            return False
+
+        resume_actions = {
+            seat: list(actions)
+            for seat, actions in self.action_dict.items()
+        }
+        for hu_type, tiles in pending_groups:
+            self.current_mid_round_hu = (hu_type, list(tiles))
+            action_type = (
+                "mid_round_four_joys"
+                if hu_type == INITIAL_HU_NAMES["siXi"]
+                else "mid_round_six_six"
+            )
+            self.action_dict = {0: [], 1: [], 2: [], 3: []}
+            self.action_dict[player_index] = [action_type, "pass"]
+            self.game_status = "waiting_mid_round_hu"
+            self.waiting_players_list = [player_index]
+            while not self.action_queues[player_index].empty():
+                self.action_queues[player_index].get_nowait()
+            self.action_events[player_index].clear()
+            await self.broadcast_ask_hand_action()
+            await wait_mid_round_hu_action(self)
+
+        self.current_mid_round_hu = None
+        self.action_dict = resume_actions
+        self.game_status = "waiting_hand_action"
+        return True
 
     async def _take_sea_bottom_tile(self, player_index: int) -> None:
         """翻开海底牌并按自摸优先、其余玩家荣和次之的顺序处理。"""
@@ -1044,6 +1188,7 @@ class ChangshaGameState:
                             deal_tile = self.player_list[self.current_player_index].hand_tiles[-1],
                         )
                         self.action_dict = check_action_hand_action(self,self.current_player_index) # 允许可执行的手牌操作
+                        await self._resolve_mid_round_hu_choices(self.current_player_index)
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
                     # 杠后摸牌操作：当前玩家进行摸牌
@@ -1061,6 +1206,7 @@ class ChangshaGameState:
                         pre_draw_hand_tiles = list(player.hand_tiles)
                         deal_tiles = []
                         draw_count = max(1, self.pending_gang_replacement_count)
+                        check_mid_round_hu = draw_count == 1 and not self.pending_gang_forced_discard
                         for _ in range(draw_count):
                             if self.tiles_list == []:
                                 break
@@ -1100,6 +1246,8 @@ class ChangshaGameState:
                             else:
                                 await self.force_cut_gang_replacement_tiles()
                             continue
+                        if check_mid_round_hu:
+                            await self._resolve_mid_round_hu_choices(self.current_player_index)
                         self.game_status = "waiting_hand_action" # 切换到摸牌后状态
 
                     # 等待手牌操作：

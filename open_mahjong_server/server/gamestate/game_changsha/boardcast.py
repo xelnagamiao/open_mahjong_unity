@@ -52,6 +52,8 @@ async def broadcast_game_start(self):
         'initial_hu_que_yi_se': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["queYiSe"], True),
         'initial_hu_liu_liu_shun': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["liuLiuShun"], True),
         'initial_hu_san_tong': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["sanTong"], True),
+        'mid_round_four_joys': getattr(self, 'mid_round_hu_enabled', {}).get(INITIAL_HU_NAMES["siXi"], False),
+        'mid_round_six_six': getattr(self, 'mid_round_hu_enabled', {}).get(INITIAL_HU_NAMES["liuLiuShun"], False),
         'bird_count': getattr(self, 'bird_count', 2),
         'dealer_bird': getattr(self, 'dealer_bird', True),
         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),
@@ -147,21 +149,27 @@ async def broadcast_ask_hand_action(self):
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
+            # 公共机器人已支持“不终止牌局的小胡询问”，长沙中途胡复用该等待语义。
+            bot_game_status = (
+                "waiting_initial_hu"
+                if self.game_status == "waiting_mid_round_hu"
+                else bot_ask_hand_game_status(self, i)
+            )
             # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_game_status))
                 continue
 
             # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_game_status))
                 continue
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
-                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                    asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_game_status))
                 continue
             elif current_player.user_id < 10:
                 continue
@@ -319,7 +327,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
     player_conn = self.game_server.user_id_to_connection[user_id]
     player = self.player_list[reconnect_idx]
     remaining_sent = _reconnect_remaining_time(self, player)
-    if self.game_status == "waiting_hand_action":
+    if self.game_status in ("waiting_hand_action", "waiting_initial_hu", "waiting_mid_round_hu", "waiting_sea_bottom"):
         if reconnect_idx == self.current_player_index:
             response = Response(
                 type="gamestate/changsha/broadcast_hand_action",
