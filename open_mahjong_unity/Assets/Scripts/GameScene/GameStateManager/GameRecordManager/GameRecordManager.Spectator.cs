@@ -18,13 +18,17 @@ public partial class GameRecordManager {
 
     /// <summary>
     /// 延时观战（牌谱流）专用 gamestate_id，与实时观战/正常对局使用的 UserDataManager.GamestateId 分离。
-    /// 在 add_spectator 发出后、record_init 到达前也会暂存，用于互斥判断与退出时通知服务端。
+    /// static：冷启动时 GamePanel 被关掉，GameRecordManager.Awake 可能尚未执行，Instance 为空时仍需能登记会话。
     /// </summary>
-    private string _delayedSpectatorGamestateId = "";
+    private static string _delayedSpectatorGamestateId = "";
 
     /// <summary>已请求加入延时观战但尚未收到 record_init（或尚未进入 IsSpectating）。</summary>
     public bool HasPendingDelayedSpectatorSession =>
         !string.IsNullOrEmpty(_delayedSpectatorGamestateId) && !IsSpectating;
+
+    /// <summary>供 Instance 尚未就绪时判断是否有待加入的延时观战。</summary>
+    public static bool HasPendingDelayedSpectatorSessionStatic =>
+        !string.IsNullOrEmpty(_delayedSpectatorGamestateId);
 
     private Coroutine autoPlayCoroutine;
     private float autoPlaySpeed = 1.0f;
@@ -45,17 +49,17 @@ public partial class GameRecordManager {
     /// <summary>
     /// 延时观战：在发出 add_spectator 时绑定目标对局（纯牌谱阅览、实时观战不走此路径）。
     /// </summary>
-    public void PrepareDelayedSpectatorSession(string gamestateId) {
+    public static void PrepareDelayedSpectatorSession(string gamestateId) {
         if (string.IsNullOrEmpty(gamestateId)) return;
         _delayedSpectatorGamestateId = gamestateId;
     }
 
-    public void ClearDelayedSpectatorSession() {
+    public static void ClearDelayedSpectatorSession() {
         _delayedSpectatorGamestateId = "";
     }
 
     /// <summary>延时观战推送是否属于当前会话（message_info.title = gamestate_id）。</summary>
-    public bool IsCurrentDelayedSpectator(string gamestateId) {
+    public static bool IsCurrentDelayedSpectator(string gamestateId) {
         return !string.IsNullOrEmpty(_delayedSpectatorGamestateId)
             && _delayedSpectatorGamestateId == gamestateId;
     }
@@ -63,7 +67,7 @@ public partial class GameRecordManager {
     /// <summary>
     /// 客户端已放弃延时观战但服务端可能仍保留观战连接时，主动请求移除。
     /// </summary>
-    public void AbandonDelayedSpectatorSessionOnServer() {
+    public static void AbandonDelayedSpectatorSessionOnServer() {
         if (string.IsNullOrEmpty(_delayedSpectatorGamestateId)) return;
         string gamestateId = _delayedSpectatorGamestateId;
         _delayedSpectatorGamestateId = "";
