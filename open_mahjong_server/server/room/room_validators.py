@@ -169,6 +169,7 @@ class ChangshaRoomValidator(BaseModel):
     initial_hu_que_yi_se: bool = True
     initial_hu_liu_liu_shun: bool = True
     initial_hu_san_tong: bool = True
+    heaven_earth_hu: bool = False
     bird_count: int = 2
     dealer_bird: bool = True
     base_score_no_dealer: bool = False

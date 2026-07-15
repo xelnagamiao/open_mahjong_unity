@@ -59,6 +59,16 @@ class FixedCalculation:
         return self.result
 
 
+class CapturingCalculation(FixedCalculation):
+    def __init__(self, result):
+        super().__init__(result)
+        self.ways = []
+
+    def Changsha_hepai_check(self, hand_list, tiles_combination, way_to_hepai, get_tile):
+        self.ways.append(list(way_to_hepai))
+        return self.result
+
+
 class FixedCalculationAndTingpai:
     def __init__(self, result, waiting_tiles):
         self.result = result
@@ -744,6 +754,32 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertIn("双豪华七小对", fan_list)
         self.assertEqual(score, 24)
 
+    def test_heaven_earth_hu_toggle_only_controls_context_big_hu(self):
+        player = DummyPlayer(0, [11, 12, 13])
+        checker = CapturingCalculation((1, ["小胡"]))
+        state = SimpleNamespace(
+            player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
+            current_player_index=0,
+            tiles_list=[21],
+            dihe_possible=True,
+            last_draw_was_gang=False,
+            calculation_service=checker,
+            result_dict={},
+            player_passed_hu_base={},
+            heaven_earth_hu=False,
+        )
+
+        actions = {0: [], 1: [], 2: [], 3: []}
+        check_hepai(state, actions, 13, 0, "handgot", is_first_action=True)
+        self.assertIn("自摸", checker.ways[-1])
+        self.assertNotIn("天和", checker.ways[-1])
+        self.assertIn("hu_self", actions[0])
+
+        state.heaven_earth_hu = True
+        actions = {0: [], 1: [], 2: [], 3: []}
+        check_hepai(state, actions, 13, 0, "handgot", is_first_action=True)
+        self.assertIn("天和", checker.ways[-1])
+
     def test_changsha_room_validator_uses_four_eight_sixteen_hands(self):
         base = dict(
             room_name="test",
@@ -764,6 +800,9 @@ class ChangshaRulesTest(unittest.TestCase):
 
         custom = ChangshaRoomValidator(**{**base, "base_score_no_dealer": True, "small_hu_score": 3, "big_hu_score": 9})
         self.assertEqual((custom.small_hu_score, custom.big_hu_score), (3, 9))
+        self.assertFalse(custom.heaven_earth_hu)
+        enabled = ChangshaRoomValidator(**{**base, "heaven_earth_hu": True})
+        self.assertTrue(enabled.heaven_earth_hu)
         with self.assertRaises(ValueError):
             ChangshaRoomValidator(**{**base, "small_hu_score": 0})
         with self.assertRaises(ValueError):

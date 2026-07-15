@@ -294,7 +294,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
     # 荣和 / 地和 / 河底捞鱼
     elif hepai_type == "dianhe":
-        if getattr(self, 'dihe_possible', False):
+        if getattr(self, 'dihe_possible', False) and getattr(self, 'heaven_earth_hu', False):
             way_to_hepai.append("地和")
         if getattr(self, 'last_draw_was_gang', False):
             way_to_hepai.append("杠上炮")
@@ -304,7 +304,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     # 自摸 / 天和 / 岭上开花 / 海底捞月
     elif hepai_type == "handgot":
         if is_first_action and self.player_list[player_index].player_index == 0:
-            way_to_hepai.append("天和")
+            way_to_hepai.append("天和" if getattr(self, 'heaven_earth_hu', False) else "自摸")
         elif is_get_gang_tile:
             way_to_hepai.append("杠上开花")
         else:

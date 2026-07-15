@@ -178,6 +178,7 @@ class ChangshaGameState:
             INITIAL_HU_NAMES["liuLiuShun"]: room_data.get("initial_hu_liu_liu_shun", True),
             INITIAL_HU_NAMES["sanTong"]: room_data.get("initial_hu_san_tong", True),
         }
+        self.heaven_earth_hu = bool(room_data.get("heaven_earth_hu", False))
 
         self.isPlayerSetRandomSeed = False # 是否玩家设置了随机种子
 
@@ -305,6 +306,7 @@ class ChangshaGameState:
                         'initial_hu_que_yi_se': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["queYiSe"], True),
                         'initial_hu_liu_liu_shun': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["liuLiuShun"], True),
                         'initial_hu_san_tong': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["sanTong"], True),
+                        'heaven_earth_hu': getattr(self, 'heaven_earth_hu', False),
                         'bird_count': getattr(self, 'bird_count', 2),
                         'dealer_bird': getattr(self, 'dealer_bird', True),
                         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),

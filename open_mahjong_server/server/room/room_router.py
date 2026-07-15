@@ -182,6 +182,7 @@ async def handle_create_Changsha_room(game_server, Connect_id: str, message: dic
         message.get("initial_hu_que_yi_se", True),
         message.get("initial_hu_liu_liu_shun", True),
         message.get("initial_hu_san_tong", True),
+        message.get("heaven_earth_hu", False),
         message.get("bird_count", 2),
         message.get("dealer_bird", True),
         message.get("base_score_no_dealer", False),

@@ -88,6 +88,7 @@ public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
     public bool initial_hu_que_yi_se;
     public bool initial_hu_liu_liu_shun;
     public bool initial_hu_san_tong;
+    public bool heaven_earth_hu;
     public int bird_count;
     public bool dealer_bird;
     public bool base_score_no_dealer;
