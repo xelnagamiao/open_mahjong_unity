@@ -327,6 +327,13 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
 
 
     if result[0] >= 1:
+        if (
+            hepai_type != "handgot"
+            and getattr(self, "small_hu_self_draw_only", False)
+            and result[1] == ["小胡"]
+        ):
+            logger.info("玩家%s受卡摸限制，不能以标准小胡接炮", player_index)
+            return
         passed_base = getattr(self, "player_passed_hu_base", {}).get(player_index)
         if hepai_type != "handgot" and passed_base is not None and result[0] <= passed_base:
             logger.info(

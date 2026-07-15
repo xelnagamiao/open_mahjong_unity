@@ -435,6 +435,7 @@ public class RoomNetworkManager : MonoBehaviour {
                 initial_hu_que_yi_se = config.InitialHuQueYiSe,
                 initial_hu_liu_liu_shun = config.InitialHuLiuLiuShun,
                 initial_hu_san_tong = config.InitialHuSanTong,
+                small_hu_self_draw_only = config.SmallHuSelfDrawOnly,
                 bird_count = config.BirdCount,
                 dealer_bird = config.DealerBird,
                 base_score_no_dealer = config.BaseScoreNoDealer,

@@ -744,6 +744,32 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertIn("双豪华七小对", fan_list)
         self.assertEqual(score, 24)
 
+    def test_small_hu_self_draw_only_blocks_only_standard_small_ron(self):
+        state = SimpleNamespace(
+            player_list=[DummyPlayer(i) for i in range(4)],
+            current_player_index=0,
+            tiles_list=[21],
+            dihe_possible=False,
+            last_draw_was_gang=False,
+            calculation_service=FixedCalculation((1, ["小胡"])),
+            result_dict={},
+            player_passed_hu_base={},
+            small_hu_self_draw_only=True,
+        )
+
+        ron_actions = {0: [], 1: [], 2: [], 3: []}
+        check_hepai(state, ron_actions, 14, 1, "dianhe")
+        self.assertEqual(ron_actions[1], [])
+
+        self_draw_actions = {0: [], 1: [], 2: [], 3: []}
+        check_hepai(state, self_draw_actions, 14, 0, "handgot")
+        self.assertIn("hu_self", self_draw_actions[0])
+
+        state.calculation_service = FixedCalculation((6, ["碰碰胡"]))
+        big_hu_actions = {0: [], 1: [], 2: [], 3: []}
+        check_hepai(state, big_hu_actions, 14, 1, "dianhe")
+        self.assertTrue(any(action.startswith("hu_") for action in big_hu_actions[1]))
+
     def test_changsha_room_validator_uses_four_eight_sixteen_hands(self):
         base = dict(
             room_name="test",
@@ -764,6 +790,9 @@ class ChangshaRulesTest(unittest.TestCase):
 
         custom = ChangshaRoomValidator(**{**base, "base_score_no_dealer": True, "small_hu_score": 3, "big_hu_score": 9})
         self.assertEqual((custom.small_hu_score, custom.big_hu_score), (3, 9))
+        self.assertFalse(custom.small_hu_self_draw_only)
+        enabled = ChangshaRoomValidator(**{**base, "small_hu_self_draw_only": True})
+        self.assertTrue(enabled.small_hu_self_draw_only)
         with self.assertRaises(ValueError):
             ChangshaRoomValidator(**{**base, "small_hu_score": 0})
         with self.assertRaises(ValueError):

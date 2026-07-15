@@ -41,6 +41,7 @@ public class RoomInfo {
     public bool initial_hu_que_yi_se;
     public bool initial_hu_liu_liu_shun;
     public bool initial_hu_san_tong;
+    public bool small_hu_self_draw_only;
     public int bird_count;
     public bool dealer_bird;
     public bool base_score_no_dealer;
@@ -265,6 +266,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool? initial_hu_que_yi_se;
     public bool? initial_hu_liu_liu_shun;
     public bool? initial_hu_san_tong;
+    public bool? small_hu_self_draw_only;
     public int? bird_count;
     public bool? dealer_bird;
     public bool? base_score_no_dealer;

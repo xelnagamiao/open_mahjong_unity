@@ -52,6 +52,7 @@ async def broadcast_game_start(self):
         'initial_hu_que_yi_se': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["queYiSe"], True),
         'initial_hu_liu_liu_shun': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["liuLiuShun"], True),
         'initial_hu_san_tong': getattr(self, 'initial_hu_enabled', {}).get(INITIAL_HU_NAMES["sanTong"], True),
+        'small_hu_self_draw_only': getattr(self, 'small_hu_self_draw_only', False),
         'bird_count': getattr(self, 'bird_count', 2),
         'dealer_bird': getattr(self, 'dealer_bird', True),
         'base_score_no_dealer': getattr(self, 'base_score_no_dealer', False),

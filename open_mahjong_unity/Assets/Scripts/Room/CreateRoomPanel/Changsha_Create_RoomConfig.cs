@@ -19,6 +19,7 @@ public class Changsha_Create_RoomConfig {
     public bool InitialHuQueYiSe { get; set; } = true;
     public bool InitialHuLiuLiuShun { get; set; } = true;
     public bool InitialHuSanTong { get; set; } = true;
+    public bool SmallHuSelfDrawOnly { get; set; }
     public int BirdCount { get; set; } = 2;
     public bool DealerBird { get; set; } = true;
     public bool BaseScoreNoDealer { get; set; }

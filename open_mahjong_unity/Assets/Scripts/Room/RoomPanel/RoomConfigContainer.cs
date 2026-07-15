@@ -36,7 +36,7 @@ public class RoomConfigContainer : MonoBehaviour {
         } },
         { "changsha", new List<string> {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
-            "tips", "open_kong_replacement_count", "initial_hu_types", "bird_count",
+            "tips", "open_kong_replacement_count", "initial_hu_types", "small_hu_self_draw_only", "bird_count",
             "dealer_bird", "base_score", "tactical_call", "has_password", "tourist_limit", "allow_spectator",
         } },
         { "jiandan", new List<string> {
@@ -137,6 +137,10 @@ public class RoomConfigContainer : MonoBehaviour {
             case "initial_hu_types":
                 displayName = "起手胡";
                 displayValue = FormatChangshaInitialHu(roomInfo);
+                return true;
+            case "small_hu_self_draw_only":
+                displayName = "卡摸";
+                displayValue = roomInfo.small_hu_self_draw_only ? "开" : "关";
                 return true;
             case "bird_count":
                 displayName = "扎鸟张数";
