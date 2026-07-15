@@ -172,6 +172,42 @@ def attach_hu_pass_lifecycle(state):
 
 
 class ChangshaRulesTest(unittest.TestCase):
+    @staticmethod
+    def _make_open_kong_locked_wait_state():
+        players = [DummyPlayer(index, [11 + index]) for index in range(4)]
+        locked_player = players[0]
+        locked_player.hand_tiles = [11, 12, 13, 29]
+        locked_player.has_draw_slot = True
+        locked_player.open_kong_locked = True
+        for index, player in enumerate(players):
+            player.user_id = 100 + index
+            player.username = f"p{index}"
+            player.remaining_time = 10
+
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            game_status="waiting_hand_action",
+            action_dict={0: ["cut"], 1: [], 2: [], 3: []},
+            action_events={index: asyncio.Event() for index in range(4)},
+            action_queues={index: asyncio.Queue() for index in range(4)},
+            waiting_players_list=[],
+            action_priority={"cut": 1},
+            step_time=1,
+            tactical_call=False,
+            tiles_list=[31],
+            current_claim_cut_tile=None,
+            last_draw_was_gang=False,
+            xunmu=0,
+            tips=False,
+            game_server=SimpleNamespace(
+                players={"conn-0": SimpleNamespace(user_id=100)},
+                user_id_to_connection={},
+            ),
+        )
+        state.clear_hu_pass_after_own_discard = lambda player_index: None
+        return state
+
     def test_initial_deal_gives_dealer_fourteen_tiles(self):
         state = SimpleNamespace(
             player_list=[DummyPlayer(i) for i in range(4)],
@@ -355,6 +391,87 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertNotIn("chi_right", actions[1])
         self.assertNotIn("peng", actions[1])
         self.assertNotIn("gang", actions[1])
+
+    def test_open_kong_locked_normal_draw_only_offers_self_hu_angang_and_cut(self):
+        player = DummyPlayer(0, [11, 11, 11, 11, 17], waiting_tiles=[17])
+        player.open_kong_locked = True
+        player.combination_tiles = ["k17"]
+        player.has_draw_slot = True
+        state = SimpleNamespace(
+            player_list=[player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)],
+            current_player_index=0,
+            tiles_list=[31],
+            dihe_possible=False,
+            last_draw_was_gang=False,
+            calculation_service=FixedCalculationAndTingpai((1, ["小胡"]), [17]),
+            result_dict={},
+            player_passed_hu_base={},
+        )
+        state._is_open_kong_ready_after_declared = lambda target_player, tile: True
+
+        actions = check_action_hand_action(state, 0)
+
+        self.assertEqual(actions[0], ["angang", "cut", "hu_self"])
+
+    def test_open_kong_locked_real_and_ai_cut_are_forced_to_draw_tile(self):
+        async def run_case(use_real_player):
+            state = self._make_open_kong_locked_wait_state()
+            broadcasts = []
+
+            async def capture_broadcast(*args, **kwargs):
+                broadcasts.append(kwargs)
+
+            with patch.object(wait_action_module, "player_action_record_cut", lambda *args, **kwargs: None), \
+                patch.object(wait_action_module, "refresh_waiting_tiles", lambda *args, **kwargs: None), \
+                patch.object(wait_action_module, "check_action_after_cut", lambda *args, **kwargs: {0: [], 1: [], 2: [], 3: []}), \
+                patch.object(wait_action_module, "begin_claim_protection_interval", lambda *args, **kwargs: None), \
+                patch.object(wait_action_module, "broadcast_do_action", capture_broadcast):
+                wait_task = asyncio.create_task(wait_action_module.wait_action(state))
+                for _ in range(100):
+                    if 0 in state.waiting_players_list:
+                        break
+                    await asyncio.sleep(0)
+                self.assertIn(0, state.waiting_players_list)
+                if use_real_player:
+                    await get_action_module.get_action(
+                        state, "conn-0", "cut", False, 11, 0, None
+                    )
+                else:
+                    await get_action_module.get_ai_action(
+                        state, 0, "cut", False, 11, 0, None
+                    )
+                await wait_task
+
+            self.assertEqual(state.player_list[0].hand_tiles, [11, 12, 13])
+            self.assertEqual(state.player_list[0].discard_tiles, [29])
+            self.assertFalse(state.player_list[0].has_draw_slot)
+            self.assertTrue(broadcasts[0]["cut_class"])
+            self.assertEqual(broadcasts[0]["cut_tile"], 29)
+
+        for use_real_player in (True, False):
+            with self.subTest(use_real_player=use_real_player):
+                asyncio.run(run_case(use_real_player))
+
+    def test_open_kong_locked_timeout_discards_draw_tile(self):
+        state = self._make_open_kong_locked_wait_state()
+        state.player_list[0].remaining_time = 0
+        state.step_time = 0
+        broadcasts = []
+
+        async def capture_broadcast(*args, **kwargs):
+            broadcasts.append(kwargs)
+
+        with patch.object(wait_action_module, "player_action_record_cut", lambda *args, **kwargs: None), \
+            patch.object(wait_action_module, "refresh_waiting_tiles", lambda *args, **kwargs: None), \
+            patch.object(wait_action_module, "check_action_after_cut", lambda *args, **kwargs: {0: [], 1: [], 2: [], 3: []}), \
+            patch.object(wait_action_module, "begin_claim_protection_interval", lambda *args, **kwargs: None), \
+            patch.object(wait_action_module, "broadcast_do_action", capture_broadcast):
+            asyncio.run(wait_action_module.wait_action(state))
+
+        self.assertEqual(state.player_list[0].hand_tiles, [11, 12, 13])
+        self.assertEqual(state.player_list[0].discard_tiles, [29])
+        self.assertTrue(broadcasts[0]["cut_class"])
+        self.assertEqual(broadcasts[0]["cut_tile"], 29)
 
     def test_discard_open_kong_requires_ready_hand(self):
         state = SimpleNamespace(
@@ -1862,6 +1979,50 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertEqual(passed, [1])
         self.assertEqual(continued, [True])
         self.assertEqual(state.waiting_players_list, [])
+
+    def test_open_kong_locked_reconnect_only_restores_allowed_hand_actions(self):
+        player = DummyPlayer(0, [11, 11, 11, 11, 17], waiting_tiles=[17])
+        player.open_kong_locked = True
+        player.combination_tiles = ["k17"]
+        player.has_draw_slot = True
+        player.user_id = 100
+        player.username = "p0"
+        player.remaining_time = 10
+        players = [player, DummyPlayer(1), DummyPlayer(2), DummyPlayer(3)]
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            tiles_list=[31],
+            dihe_possible=False,
+            last_draw_was_gang=False,
+            calculation_service=FixedCalculationAndTingpai((1, ["小胡"]), [17]),
+            result_dict={},
+            player_passed_hu_base={},
+            game_status="waiting_hand_action",
+            server_action_tick=7,
+        )
+        state._is_open_kong_ready_after_declared = lambda target_player, tile: True
+        state.action_dict = check_action_hand_action(state, 0)
+        sent_payloads = []
+
+        class FakeWebSocket:
+            async def send_json(self, payload):
+                sent_payloads.append(payload)
+
+        state.game_server = SimpleNamespace(
+            user_id_to_connection={100: SimpleNamespace(websocket=FakeWebSocket())}
+        )
+
+        asyncio.run(changsha_boardcast_module.reconnected_send_pending_ask(state, 100))
+
+        self.assertEqual(
+            sent_payloads[0]["ask_hand_action_info"]["action_list"],
+            ["angang", "cut", "hu_self"],
+        )
+        self.assertEqual(
+            sent_payloads[0]["ask_hand_action_info"]["forced_cut_tiles"],
+            [17],
+        )
 
     def test_reconnect_uses_pending_gang_replacement_claim_tile(self):
         players = [DummyPlayer(index, [11 + index]) for index in range(4)]

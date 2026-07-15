@@ -6,7 +6,7 @@ import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
-from ..public.hand_slot_utils import bot_ask_hand_game_status
+from ..public.hand_slot_utils import bot_ask_hand_game_status, has_draw_slot
 from ..public.claim_protection import (
     claim_protection_enabled,
     is_protected_viewer,
@@ -20,6 +20,24 @@ from ..public.claim_protection import (
 from ...game_calculation.changsha.changsha_hepai_check import INITIAL_HU_NAMES
 
 logger = logging.getLogger(__name__)
+
+def _forced_cut_tiles_for_hand_ask(self, player_index: int) -> List[int]:
+    """返回长沙手牌询问中服务端指定的唯一可切牌列表。"""
+    forced_cut_tiles = list(getattr(self, "forced_cut_tiles", []) or [])
+    forced_cut_tile = getattr(self, "forced_cut_tile", None)
+    if not forced_cut_tiles and forced_cut_tile is not None:
+        forced_cut_tiles = [forced_cut_tile]
+    if forced_cut_tiles:
+        return forced_cut_tiles
+
+    player = self.player_list[player_index]
+    if (
+        getattr(player, "open_kong_locked", False)
+        and has_draw_slot(player)
+        and player.hand_tiles
+    ):
+        return [player.hand_tiles[-1]]
+    return []
 
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
@@ -140,10 +158,7 @@ async def broadcast_game_start(self):
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     self._ask_broadcast_time = time.time()  # 供重连补发时按经过时间重算剩余时间，与观战独立
-    forced_cut_tiles = list(getattr(self, "forced_cut_tiles", []) or [])
-    forced_cut_tile = getattr(self, "forced_cut_tile", None)
-    if not forced_cut_tiles and forced_cut_tile is not None:
-        forced_cut_tiles = [forced_cut_tile]
+    forced_cut_tiles = _forced_cut_tiles_for_hand_ask(self, self.current_player_index)
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
@@ -342,6 +357,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
                     remain_tiles=len(self.tiles_list),
                     action_list=self.action_dict.get(reconnect_idx, []),
                     action_tick=self.server_action_tick,
+                    forced_cut_tiles=_forced_cut_tiles_for_hand_ask(self, reconnect_idx) or None,
                 ),
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))

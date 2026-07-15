@@ -186,6 +186,11 @@ def check_action_hand_action(self,player_index,is_get_gang_tile=False,is_first_a
         allowed_actions = {"buzhang", "jiagang", "angang", "cut"}
         temp_action_dict[player_index] = [action for action in temp_action_dict[player_index] if action in allowed_actions]
 
+    if getattr(player_item, "open_kong_locked", False):
+        # 开杠后锁手至本局结束：普通摸牌只允许自摸、暗杠或摸切。
+        allowed_actions = {"hu_self", "angang", "cut"}
+        temp_action_dict[player_index] = [action for action in temp_action_dict[player_index] if action in allowed_actions]
+
     return temp_action_dict
 
 # 检查吃碰后手牌操作：长沙吃碰后仍可立即补张/开杠，否则切牌。
