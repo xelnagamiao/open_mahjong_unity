@@ -146,9 +146,9 @@ const rules = [
     docs: [
       {
         title: '长沙麻将（双鸟）规则书',
-        desc: '本平台长沙麻将的规则说明。',
+        desc: '本平台长沙麻将的规则说明（0709 更新）。',
         url: '/rulebooks/changsha-classic-double-bird-rulebook.pdf',
-        filename: 'changsha-classic-double-bird-rulebook.pdf'
+        filename: '长沙麻将规则书-0709更新.pdf'
       }
     ]
   },

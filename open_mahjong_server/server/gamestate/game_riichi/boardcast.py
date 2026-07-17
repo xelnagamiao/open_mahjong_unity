@@ -290,6 +290,7 @@ async def broadcast_result(
     langyong_multiplier: Optional[int] = None,
     langyong_scored_points: Optional[int] = None,
     silent: bool = False,
+    next_status: Optional[str] = None,
 ):
     self.server_action_tick += 1
     for cp in self.player_list:
@@ -328,6 +329,7 @@ async def broadcast_result(
                     langyong_multiplier=langyong_multiplier,
                     langyong_scored_points=langyong_scored_points,
                     silent=True if silent else None,
+                    next_status=next_status,
                 ),
             )
             await conn.websocket.send_json(response.dict(exclude_none=True))

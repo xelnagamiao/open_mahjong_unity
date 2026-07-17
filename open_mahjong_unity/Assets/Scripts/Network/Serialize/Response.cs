@@ -127,6 +127,8 @@ public class ShowResultInfo { // 显示结算结果
     public string liuju_step;                     // reveal_hu/settle_hu/chajiao/final（cha_refund 已并入 chajiao）
     public bool liuju_status_final;               // 流局逐家状态是否为最后一条
     public bool liuju_refund;                     // 该查叫面板内含刮风下雨退税（加“退税”标签 +0.5s）
+    /// <summary>本条结算后下一步："round_continue" | "round_end_by_ready" | "match_end"。</summary>
+    public string next_status;
 }
 
 public class ShowShuheWeiInfo { // 数和尾结算信息
@@ -139,6 +141,8 @@ public class ShowShuheWeiInfo { // 数和尾结算信息
     public int? hepai_player_index; // 和牌玩家索引（无和牌为空）
     public int[] hepai_player_hand; // 和牌玩家手牌
     public int[][] hepai_player_combination_mask; // 和牌玩家组合掩码
+    /// <summary>本条结算后下一步："round_continue" | "round_end_by_ready" | "match_end"。</summary>
+    public string next_status;
 }
 
 public class AskHandActionGBInfo { // 询问手牌操作
@@ -171,7 +175,6 @@ public class DoActionInfo { // 执行操作
     public int action_tick;
     public int? cut_from_player;      // 鸣牌（吃/碰/明杠）必填：被认走的打牌者座位索引；切牌等其它动作可空
     public bool? sea_bottom_discard;  // 长沙海底牌翻开后进入牌河
-    public float? meld_reveal_delay;  // 受保护观众鸣牌呈现延迟（秒）：display/音效/3D 一并延后，复现 claim_meld_followup_gap 间隔且不破坏 wire 顺序
     public int? cut_tile;           // 可空类型
     public int[] cut_tiles;
     public int? cut_tile_index;     // 可空类型

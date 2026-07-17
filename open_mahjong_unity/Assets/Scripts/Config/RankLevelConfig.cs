@@ -10,7 +10,7 @@ public static class RankLevelConfig {
         ("3级", 0, 60), ("2级", 0, 80), ("1级", 1, 100),
         ("初段", 200, 400), ("二段", 400, 800), ("三段", 600, 1200),
         ("四段", 800, 1600), ("五段", 1000, 2000), ("六段", 1200, 2400),
-        ("七段", 1400, 2800), ("八段", 1600, 3200), ("九段", 2000, 4000),
+        ("七段", 1400, 2800), ("八段", 1600, 3200), ("九段", 3200, 7000),
     };
 
     // 与 rank_calculator.py RANK_TABLE 第4列一致
@@ -33,7 +33,7 @@ public static class RankLevelConfig {
     public static readonly Dictionary<string, float> TierBaseGainPt = new Dictionary<string, float> {
         {"beginner", 30f},
         {"intermediate", 65f},
-        {"advanced", 95f},
+        {"advanced", 105f},
         {"mcrpl", 135f},
     };
 
@@ -52,12 +52,12 @@ public static class RankLevelConfig {
         {"初段", 45f},
         {"二段", 55f},
         {"三段", 65f},
-        {"四段", 90f},
-        {"五段", 100f},
-        {"六段", 110f},
-        {"七段", 150f},
-        {"八段", 175f},
-        {"九段", 200f},
+        {"四段", 95f},
+        {"五段", 105f},
+        {"六段", 120f},
+        {"七段", 135f},
+        {"八段", 165f},
+        {"九段", 180f},
     };
 
     public static int GetRankIndex(string rankName) {

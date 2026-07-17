@@ -96,7 +96,17 @@ public class EndResultPanel : MonoBehaviour {
     private const string HidePanelButtonText = "隐藏面板";
     private const string ShowPanelButtonText = "显示面板";
 
+    /// <summary>整场最后一局：番种后直接「确定」，不播倒计时、不响应准备态。</summary>
+    private bool matchEndMode = false;
+
     public bool IsAwaitingRecordResultConfirm => currentState == StateRecord && gameObject.activeSelf;
+    /// <summary>对局末局 match_end：面板仍开着、等用户点确定以展示暂存的 game_end。</summary>
+    public bool IsMatchEndPending => matchEndMode && currentState == StateGame && gameObject.activeSelf;
+
+    /// <summary>由 show_result 设置；ClearEndResultPanel 时复位。</summary>
+    public void SetNextStatus(string nextStatus) {
+        matchEndMode = nextStatus == "match_end";
+    }
 
     /// <summary>中断番种渐显/确认倒计时等局内结算协程（四川终局步间切换时调用）。</summary>
     public void StopActivePresentation() {
@@ -344,10 +354,9 @@ public class EndResultPanel : MonoBehaviour {
             int seatIdx = kvp.Key;
             if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
             int origIdx = playerInfo.original_player_index;
-            int beforeScore = playerInfo.score;
-            ShowResultPlayerScoreResolver.ResolveScoreChange(
-                beforeScore, seatIdx, origIdx,
-                effectiveScoreChanges, player_to_score, out int afterScore);
+            ShowResultPlayerScoreResolver.ResolveBeforeAfter(
+                playerInfo.score, seatIdx, origIdx,
+                effectiveScoreChanges, player_to_score, out int beforeScore, out int afterScore);
             playerInfo.score = afterScore;
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
             string displayName = StreamerModeHelper.FormatGamestatePlayerName(
@@ -427,6 +436,14 @@ public class EndResultPanel : MonoBehaviour {
         yield return new WaitForSeconds(RoundEndTiming.HuBeforeTotalPanelSeconds);
         ShowTotalPanel(roomRuleForFan, hu_score, hu_fan, base_fu, riichiExtras);
 
+        if (matchEndMode) {
+            endButtonConfirmed = false;
+            EndButton.gameObject.SetActive(true);
+            EndButton.interactable = true;
+            EndButtonText.text = "确定";
+            yield break;
+        }
+
         if (skipConfirmCountdown) {
             yield return CoPlayEndButtonCountdown(RoundEndTiming.SichuanMidPanelConfirmSeconds, allowConfirmClick: false);
             yield break;
@@ -468,6 +485,15 @@ public class EndResultPanel : MonoBehaviour {
         int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask,
         Dictionary<int, int> player_to_score_before, Dictionary<int, int> player_to_score_after, bool isSpectator = false,
         int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null) {
+        // InitGameRound 会 HidePresentationVisual，牌谱直出面板须先恢复父 CanvasGroup
+        if (RoundEndPresentation.Instance != null) {
+            RoundEndPresentation.Instance.gameObject.SetActive(true);
+            var cg = RoundEndPresentation.Instance.GetComponent<CanvasGroup>();
+            if (cg != null) {
+                cg.alpha = 1f;
+            }
+        }
+        matchEndMode = false;
         currentState = StateRecord;
         gameObject.SetActive(true);
         ResetPanelContentVisibility();
@@ -606,6 +632,13 @@ public class EndResultPanel : MonoBehaviour {
 
         yield return new WaitForSeconds(RoundEndTiming.SichuanChajiaoStatusHoldSeconds);
 
+        if (matchEndMode) {
+            EndButton.gameObject.SetActive(true);
+            EndButton.interactable = true;
+            EndButtonText.text = "确定";
+            yield break;
+        }
+
         if (isFinalPanel) {
             yield return CoPlayLiujuFinalConfirmCountdown();
         } else {
@@ -634,6 +667,12 @@ public class EndResultPanel : MonoBehaviour {
         FanCountTotalPanel.SetActive(false);
 
         if (isFinalPanel) {
+            if (matchEndMode) {
+                EndButton.gameObject.SetActive(true);
+                EndButton.interactable = true;
+                EndButtonText.text = "确定";
+                yield break;
+            }
             yield return CoPlayLiujuFinalConfirmCountdown();
         }
     }
@@ -706,10 +745,10 @@ public class EndResultPanel : MonoBehaviour {
             string pos = kvp.Value;
             int seatIdx = kvp.Key;
             if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
-            int beforeScore = playerInfo.score;
-            ShowResultPlayerScoreResolver.ResolveScoreChange(
-                beforeScore, seatIdx, playerInfo.original_player_index,
-                scoreChanges, player_to_score, out int afterScore);
+            ShowResultPlayerScoreResolver.ResolveBeforeAfter(
+                playerInfo.score, seatIdx, playerInfo.original_player_index,
+                scoreChanges, player_to_score, out int beforeScore, out int afterScore);
+            playerInfo.score = afterScore;
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
             string displayName = StreamerModeHelper.FormatGamestatePlayerName(playerInfo.username, pos, playerInfo.userId);
             if (pos == "self") { SelfUserName.text = displayName; SelfScore.text = scoreText; }
@@ -761,10 +800,10 @@ public class EndResultPanel : MonoBehaviour {
             string pos = kvp.Value;
             int seatIdx = kvp.Key;
             if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(pos, out var playerInfo)) continue;
-            int beforeScore = playerInfo.score;
-            ShowResultPlayerScoreResolver.ResolveScoreChange(
-                beforeScore, seatIdx, playerInfo.original_player_index,
-                null, player_to_score, out int afterScore);
+            ShowResultPlayerScoreResolver.ResolveBeforeAfter(
+                playerInfo.score, seatIdx, playerInfo.original_player_index,
+                null, player_to_score, out int beforeScore, out int afterScore);
+            playerInfo.score = afterScore;
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
             string displayName = StreamerModeHelper.FormatGamestatePlayerName(playerInfo.username, pos, playerInfo.userId);
             if (pos == "self") { SelfUserName.text = displayName; SelfScore.text = scoreText; }
@@ -821,6 +860,11 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleGameStateConfirm() {
+        if (matchEndMode) {
+            ClearEndResultPanel();
+            NormalGameStateManager.Instance.FlushPendingGameEnd();
+            return;
+        }
         GameStateNetworkManager.Instance.SendAction("ready", 0);
     }
 
@@ -833,6 +877,9 @@ public class EndResultPanel : MonoBehaviour {
 
     // 更新准备状态显示：缓存最新准备状态并按缓存重绘座位配色（修复机器人/罗伯特已准备却不显示准备色）
     public void UpdateReadyStatus(Dictionary<int, bool> playerToReady) {
+        if (matchEndMode) {
+            return;
+        }
         if (playerToReady != null) {
             foreach (var kvp in playerToReady) {
                 cachedReadyStatus[kvp.Key] = kvp.Value;
@@ -1004,6 +1051,7 @@ public class EndResultPanel : MonoBehaviour {
             showResultCoroutine = null;
         }
         currentState = StateNone;
+        matchEndMode = false;
         // 新一局：清空准备缓存与被检查高亮，座位配色复位
         cachedReadyStatus.Clear();
         checkedFocusSeat = -1;

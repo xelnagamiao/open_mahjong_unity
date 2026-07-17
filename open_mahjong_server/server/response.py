@@ -131,9 +131,6 @@ class Do_action_info(BaseModel):
     # 客户端据此精确移除对应玩家牌河的弃牌，消除乱序/双同牌歧义。cut/摸牌等帧为 None。
     cut_from_player: Optional[int] = None
     sea_bottom_discard: Optional[bool] = None  # 长沙海底牌作为摸牌者弃牌广播
-    # 受保护观众鸣牌的显示层延迟（秒）：服务器按序发送、客户端仅延迟鸣牌 3D 动画/声音，
-    # 客户端 display/音效/3D 一并延后，复现“出牌→claim_meld_followup_gap→鸣牌”间隔且不破坏 wire 顺序。非受保护观众为 None。
-    meld_reveal_delay: Optional[float] = None
     is_riichi_horizontal: Optional[bool] = None  # 立直规则：本张弃牌是否横置（含立直宣告 + 立直牌被吃后续横）
     # 战术鸣牌（国标/青雀）：is_claim 仅播放发声与字体动画，不应用任何状态变化
     is_claim: Optional[bool] = None
@@ -213,6 +210,8 @@ class Show_result_info(BaseModel):
     initial_hu_dice: Optional[List[int]] = None
     initial_hu_bird_seats: Optional[List[int]] = None
     initial_hu_payer_details: Optional[List[Dict]] = None
+    # 本条结算后下一步："round_continue" | "round_end_by_ready" | "match_end"
+    next_status: Optional[str] = None
 
 class Show_shuhewei_info(BaseModel):
     player_fu: Dict[int, int]  # 各玩家副数 {player_index: fu}
@@ -224,6 +223,7 @@ class Show_shuhewei_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引（无和牌时为空）
     hepai_player_hand: Optional[List[int]] = None  # 和牌玩家手牌，用于数和尾前倒牌
     hepai_player_combination_mask: Optional[List[List[int]]] = None  # 和牌玩家组合掩码
+    next_status: Optional[str] = None  # "round_continue" | "round_end_by_ready" | "match_end"
 
 class Player_final_data(BaseModel):
     rank: int  # 排名（1-4）

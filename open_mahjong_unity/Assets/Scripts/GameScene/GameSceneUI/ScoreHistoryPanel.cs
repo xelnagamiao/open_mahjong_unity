@@ -186,7 +186,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         UpdateScoreRecord(rule, player_to_info, null);
     }
 
-    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false, int[] startingScoresByOriginal = null)
+    public void UpdateScoreRecord(string rule, IReadOnlyDictionary<string, PlayerInfoClass> player_to_info, IReadOnlyList<RoundSettlementSnapshot> roundSettlements, int totalRounds = 0, bool maskPlayerNames = false)
     {
         if (player_to_info == null || player_to_info.Count < 4) return;
 
@@ -221,26 +221,24 @@ public class ScoreHistoryPanel : MonoBehaviour
         }
 
         InitializeScoreRecord(rule,
-            sorted[0].original_player_index, ResolveDisplayName(sorted[0]), sorted[0].score_history ?? new List<string>(),
-            sorted[1].original_player_index, ResolveDisplayName(sorted[1]), sorted[1].score_history ?? new List<string>(),
-            sorted[2].original_player_index, ResolveDisplayName(sorted[2]), sorted[2].score_history ?? new List<string>(),
-            sorted[3].original_player_index, ResolveDisplayName(sorted[3]), sorted[3].score_history ?? new List<string>(),
+            sorted[0].original_player_index, ResolveDisplayName(sorted[0]), sorted[0].score, sorted[0].score_history ?? new List<string>(),
+            sorted[1].original_player_index, ResolveDisplayName(sorted[1]), sorted[1].score, sorted[1].score_history ?? new List<string>(),
+            sorted[2].original_player_index, ResolveDisplayName(sorted[2]), sorted[2].score, sorted[2].score_history ?? new List<string>(),
+            sorted[3].original_player_index, ResolveDisplayName(sorted[3]), sorted[3].score, sorted[3].score_history ?? new List<string>(),
             roundNumberHistory,
             roundSettlements,
-            totalRounds,
-            startingScoresByOriginal);
+            totalRounds);
     }
 
     public void InitializeScoreRecord(
         string rule,
-        int originIndex0, string username0, List<string> scoreHistory0,
-        int originIndex1, string username1, List<string> scoreHistory1,
-        int originIndex2, string username2, List<string> scoreHistory2,
-        int originIndex3, string username3, List<string> scoreHistory3,
+        int originIndex0, string username0, int absoluteScore0, List<string> scoreHistory0,
+        int originIndex1, string username1, int absoluteScore1, List<string> scoreHistory1,
+        int originIndex2, string username2, int absoluteScore2, List<string> scoreHistory2,
+        int originIndex3, string username3, int absoluteScore3, List<string> scoreHistory3,
         List<int> roundNumberHistory = null,
         IReadOnlyList<RoundSettlementSnapshot> roundSettlements = null,
-        int totalRounds = 0,
-        int[] startingScoresByOriginal = null)
+        int totalRounds = 0)
     {
         EnsureMainFanColumnSetup();
         if (RoundIndexContainer != null)
@@ -308,12 +306,12 @@ public class ScoreHistoryPanel : MonoBehaviour
             AddEmptyCell(MainFanContainer);
         }
 
-        var players = new List<(int originIndex, string username, List<string> scoreHistory, TMP_Text userNameText, Transform roundScoreContainer, Transform gameScoreContainer)>
+        var players = new List<(int originIndex, string username, int absoluteScore, List<string> scoreHistory, TMP_Text userNameText, Transform roundScoreContainer, Transform gameScoreContainer)>
         {
-            (originIndex0, username0, scoreHistory0 ?? new List<string>(), player0UserName, player0RoundScoreContainer, player0GameScoreContainer),
-            (originIndex1, username1, scoreHistory1 ?? new List<string>(), player1UserName, player1RoundScoreContainer, player1GameScoreContainer),
-            (originIndex2, username2, scoreHistory2 ?? new List<string>(), player2UserName, player2RoundScoreContainer, player2GameScoreContainer),
-            (originIndex3, username3, scoreHistory3 ?? new List<string>(), player3UserName, player3RoundScoreContainer, player3GameScoreContainer)
+            (originIndex0, username0, absoluteScore0, scoreHistory0 ?? new List<string>(), player0UserName, player0RoundScoreContainer, player0GameScoreContainer),
+            (originIndex1, username1, absoluteScore1, scoreHistory1 ?? new List<string>(), player1UserName, player1RoundScoreContainer, player1GameScoreContainer),
+            (originIndex2, username2, absoluteScore2, scoreHistory2 ?? new List<string>(), player2UserName, player2RoundScoreContainer, player2GameScoreContainer),
+            (originIndex3, username3, absoluteScore3, scoreHistory3 ?? new List<string>(), player3UserName, player3RoundScoreContainer, player3GameScoreContainer)
         };
 
         players.Sort((a, b) => a.originIndex.CompareTo(b.originIndex));
@@ -328,11 +326,9 @@ public class ScoreHistoryPanel : MonoBehaviour
             ClearContainer(player.roundScoreContainer);
             ClearContainer(player.gameScoreContainer);
 
-            int startingScore = (startingScoresByOriginal != null
-                && player.originIndex >= 0
-                && player.originIndex < startingScoresByOriginal.Length)
-                ? startingScoresByOriginal[player.originIndex]
-                : 0;
+            int historySum = SumScoreHistoryDeltas(player.scoreHistory);
+            // 当前绝对分已含起手分：起手分 = score - Σ(history)；日麻起手>0 时局差列显示绝对点
+            int startingScore = player.absoluteScore - historySum;
             bool showAbsoluteRiichiScores = startingScore > 0;
             int cumulativeScore = startingScore;
 
@@ -408,6 +404,23 @@ public class ScoreHistoryPanel : MonoBehaviour
                 AddEmptyCell(player.gameScoreContainer);
             }
         }
+    }
+
+    private static int SumScoreHistoryDeltas(List<string> history) {
+        if (history == null || history.Count == 0) return 0;
+        int sum = 0;
+        for (int i = 0; i < history.Count; i++) {
+            string entry = history[i];
+            if (string.IsNullOrEmpty(entry)) continue;
+            if (entry.StartsWith("+") || entry.StartsWith("-")) {
+                if (int.TryParse(entry.Substring(1), out int abs)) {
+                    sum += entry.StartsWith("-") ? -abs : abs;
+                }
+            } else if (int.TryParse(entry, out int plain)) {
+                sum += plain;
+            }
+        }
+        return sum;
     }
 
     /// <summary>在指定列追加一个空白单元格，用于预测局/补齐行数时保持各列对齐。</summary>

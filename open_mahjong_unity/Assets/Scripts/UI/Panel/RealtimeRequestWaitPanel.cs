@@ -25,6 +25,7 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
     private int _targetUserId;
     private string _targetUsername;
     private Coroutine _countdownRoutine;
+    private Coroutine _closeRoutine;
     private const int CountdownSeconds = 10;
 
     private void Awake() {
@@ -34,7 +35,7 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
         }
         Instance = this;
         if (transition == null) transition = GetComponent<PanelPopupTransition>();
-        if (cancelButton != null) cancelButton.onClick.AddListener(OnCancelClicked);
+        cancelButton.onClick.AddListener(OnCancelClicked);
         gameObject.SetActive(false);
     }
 
@@ -51,23 +52,24 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
         FriendNetworkManager.Instance.OnRealtimeRequestDeclined -= HandleDeclined;
         FriendNetworkManager.Instance.OnRealtimeStarted -= HandleStarted;
         StopCountdown();
+        StopCloseRoutine();
     }
 
     public void ShowWaiting(int targetUserId, string targetUsername) {
         _targetUserId = targetUserId;
         _targetUsername = targetUsername ?? "";
         _pendingRequestId = null;
-        if (waitingText != null) waitingText.text = string.IsNullOrEmpty(_targetUsername)
+        StopCloseRoutine();
+        waitingText.gameObject.SetActive(true);
+        waitingText.text = string.IsNullOrEmpty(_targetUsername)
             ? "正在等待玩家回应观战请求..."
             : $"正在等待 {_targetUsername} 回应观战请求...";
-        if (resultText != null) resultText.gameObject.SetActive(false);
-        if (countdownText != null) countdownText.text = $"{CountdownSeconds}";
-        if (cancelButton != null) {
-            cancelButton.interactable = true;
-            cancelButton.gameObject.SetActive(true);
-        }
-        if (transition != null) transition.Show();
-        else gameObject.SetActive(true);
+        countdownText.gameObject.SetActive(true);
+        countdownText.text = $"{CountdownSeconds}";
+        resultText.gameObject.SetActive(false);
+        cancelButton.interactable = true;
+        cancelButton.gameObject.SetActive(true);
+        transition.Show();
     }
 
     private void HandleRequestResult(Response response) {
@@ -98,8 +100,7 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
         if (!gameObject.activeSelf) return;
         StopCountdown();
         _pendingRequestId = null;
-        if (transition != null) transition.Hide();
-        else gameObject.SetActive(false);
+        transition.Hide();
 
         if (LobbyStateGuard.BlockIfInMatchQueueForSpectator()) return;
         if (GameSessionGuard.BlockIfExclusiveSession("进入实时观战")) return;
@@ -120,8 +121,9 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
         }
         _pendingRequestId = null;
         StopCountdown();
-        if (transition != null) transition.Hide();
-        else gameObject.SetActive(false);
+        StopCloseRoutine();
+        ResetWaitingTextsVisible();
+        transition.Hide();
     }
 
     private void StartCountdown() {
@@ -138,7 +140,7 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
 
     private IEnumerator RunCountdown() {
         for (int i = CountdownSeconds; i >= 0; i--) {
-            if (countdownText != null) countdownText.text = $"{i}";
+            countdownText.text = $"{i}";
             yield return new WaitForSecondsRealtime(1f);
         }
         _countdownRoutine = null;
@@ -146,21 +148,33 @@ public class RealtimeRequestWaitPanel : MonoBehaviour {
 
     private void ShowResultAndClose(string text) {
         StopCountdown();
+        StopCloseRoutine();
         _pendingRequestId = null;
-        if (waitingText != null) waitingText.gameObject.SetActive(false);
-        if (countdownText != null) countdownText.gameObject.SetActive(false);
-        if (resultText != null) {
-            resultText.gameObject.SetActive(true);
-            resultText.text = text;
+        waitingText.gameObject.SetActive(false);
+        countdownText.gameObject.SetActive(false);
+        resultText.gameObject.SetActive(true);
+        resultText.text = text;
+        cancelButton.interactable = false;
+        _closeRoutine = StartCoroutine(_DelayedClose());
+    }
+
+    private void StopCloseRoutine() {
+        if (_closeRoutine != null) {
+            StopCoroutine(_closeRoutine);
+            _closeRoutine = null;
         }
-        StartCoroutine(_DelayedClose());
+    }
+
+    private void ResetWaitingTextsVisible() {
+        waitingText.gameObject.SetActive(true);
+        countdownText.gameObject.SetActive(true);
+        resultText.gameObject.SetActive(false);
     }
 
     private IEnumerator _DelayedClose() {
         yield return new WaitForSecondsRealtime(2f);
-        if (waitingText != null) waitingText.gameObject.SetActive(true);
-        if (countdownText != null) countdownText.gameObject.SetActive(true);
-        if (transition != null) transition.Hide();
-        else gameObject.SetActive(false);
+        _closeRoutine = null;
+        ResetWaitingTextsVisible();
+        transition.Hide();
     }
 }

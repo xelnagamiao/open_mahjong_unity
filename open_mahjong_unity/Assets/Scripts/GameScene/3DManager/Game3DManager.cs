@@ -397,13 +397,6 @@ public partial class Game3DManager : MonoBehaviour {
     }
 
     // 3D手牌处理入口：暗杠/加杠与杠后岭上摸牌走各家串行队列；其余走 Change3DTileCoroutine。
-    /// <summary>web 后台降帧切回时，网络队列会积压多条未处理消息，客户端正连续追赶同步现场。
-    /// 此期间任何“固定墙钟”装饰延迟都应跳过（否则逻辑瞬间同步、3D 逐条卡 0.5s）。
-    /// 阈值 ≥2：仅剩 1 条属正常快打，仍保留间隔。</summary>
-    private static bool IsCatchingUpFromBacklog() {
-        return NetworkManager.Instance.IsBacklogged;
-    }
-
     public void Change3DDiscardTiles(int[] tileIds, string PlayerPosition, bool cut_class, bool isRiichi = false, bool playCutPhysicsSound = false) {
         if (tileIds == null || tileIds.Length == 0) {
             return;
@@ -417,7 +410,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, float meldRevealDelay = 0f, string meldDiscarderPos = null, int meldClaimedTile = 0, string meldFeedbackAction = null, string meldFeedbackRoomRule = null){
+    public void Change3DTile(string actionType,int tileId,int removeCount,string PlayerPosition,bool cut_class,int[] combination_mask, bool isRiichi = false, bool isMoGang = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0){
         // 牌谱重建/重连的无动画分支直接执行，避免队列协程逐帧处理
         if (actionType == "SetDiscardWithoutAnimation" || actionType == "SetBuhuacardWithoutAnimation" || actionType == "SetRecordDiscardWithoutAnimation"){
             PosPanel3D panel = GetPosPanel(PlayerPosition);
@@ -459,14 +452,7 @@ public partial class Game3DManager : MonoBehaviour {
             return;
         }
 
-        StartCoroutine(Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldRevealDelay, meldDiscarderPos, meldClaimedTile, meldFeedbackAction, meldFeedbackRoomRule));
-    }
-
-    private static void PlayDeferredMeldFeedback(string playerPosition, string action, string roomRule) {
-        if (string.IsNullOrEmpty(action)) return;
-        SoundManager.Instance.PlayActionSound(playerPosition, action);
-        SoundManager.Instance.PlayPhysicsSound(action);
-        GameCanvas.Instance.ShowActionDisplay(playerPosition, action, roomRule);
+        StartCoroutine(Change3DTileCoroutine(actionType, tileId, removeCount, PlayerPosition, cut_class, combination_mask, isRiichi, playCutPhysicsSound, meldDiscarderPos, meldClaimedTile));
     }
 
     // 同步初始化各家手牌：清空当前 cardsPosition，按 player_to_info 与 selfHandTiles 立即生成
@@ -520,24 +506,15 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, float meldRevealDelay = 0f, string meldDiscarderPos = null, int meldClaimedTile = 0, string meldFeedbackAction = null, string meldFeedbackRoomRule = null) {
+    public IEnumerator Change3DTileCoroutine(string actionType, int tileId, int removeCount, string PlayerPosition, bool cut_class, int[] combination_mask, bool isRiichi = false, bool playCutPhysicsSound = false, string meldDiscarderPos = null, int meldClaimedTile = 0) {
         PosPanel3D panel = GetPosPanel(PlayerPosition);
         if (panel == null) {
             yield break;
         }
 
-        // 受保护观众鸣牌：服务器已按序发送（wire 不乱序），此处把 display/音效/3D 一并延后
-        // meldRevealDelay 秒，复现“出牌→鸣牌”间隔（由服务端 claim_meld_followup_gap 下发）。
-        // 认走的打牌者+牌张在派发时即捕获（meldDiscarderPos/meldClaimedTile），不读共享字段，
-        // 避免延迟期间被后续鸣牌覆盖导致回收错河牌。
-        // 补帧例外：web 后台降帧切回时队列积压，客户端在连续追赶同步现场，此时固定墙钟延迟会
-        // 让逻辑瞬间同步完、呈现却逐条卡住，非常诡异——故检测到队列仍有积压时跳过该纯装饰延迟。
-        if (meldRevealDelay > 0f && !IsCatchingUpFromBacklog()) {
-            yield return new WaitForSeconds(meldRevealDelay);
-        }
-        if (!string.IsNullOrEmpty(meldFeedbackAction)) {
-            PlayDeferredMeldFeedback(PlayerPosition, meldFeedbackAction, meldFeedbackRoomRule);
-        }
+        // 鸣牌保护节奏由服务器驱动：受保护观众的鸣牌帧本身被延迟 gap 后才发出，
+        // 客户端到帧即呈现。认走的打牌者+牌张在派发时捕获（meldDiscarderPos/meldClaimedTile），
+        // 不读共享字段，避免被后续鸣牌覆盖导致回收错河牌。
 
         if (actionType == "GetCard") {
             if (IsRecordShowCardsModeActive() && PlayerPosition != "self") {

@@ -21,12 +21,20 @@ TACTICAL_PRE_GRACE_DELAY = 0.5
 TACTICAL_GRACE_SECONDS = 5.0
 
 _CHI_ACTIONS = frozenset({"chi_left", "chi_mid", "chi_right"})
+# 荣和/抢杠和：执行不走带音效的 do_action，须靠 is_claim 申请帧发声
+_HU_CLAIM_ACTIONS = frozenset({
+    "hu", "hu_self", "hu_first", "hu_second", "hu_third",
+})
 
 BroadcastFn = Callable[..., Awaitable[Any]]
 
 
 def is_chi_action(action_type: str) -> bool:
     return action_type in _CHI_ACTIONS
+
+
+def is_hu_claim_action(action_type: str) -> bool:
+    return action_type in _HU_CLAIM_ACTIONS
 
 
 def tactical_commit_lock_enabled(gs) -> bool:
@@ -143,7 +151,17 @@ async def tactical_grace_phase(
         )
 
         if not is_chi_action(action_type) and not any_higher:
-            return action_type, player_index, action_data, False
+            # 无更高竞争者：若本轮尚未发过申请帧（例如 grace 内被更高优抢断），补发 is_claim
+            if action_type != "pass" and not skip_claim_broadcast:
+                await broadcast_do_action(
+                    gs,
+                    action_list=[action_type],
+                    action_player=player_index,
+                    cut_tile=cut_tile,
+                    is_claim=True,
+                )
+                return action_type, player_index, action_data, True
+            return action_type, player_index, action_data, True
 
         current_priority = gs.action_priority[action_type]
         competitors = [pid for pid, alist in higher_action_dict.items() if alist]
@@ -267,17 +285,29 @@ async def apply_tactical_claim_if_needed(
     broadcast_do_action: BroadcastFn,
     broadcast_ask_other_action: BroadcastFn,
 ):
-    """主询问结束后：若需战术鸣牌则申请广播 + pre-grace + 打断窗口。返回四元组。"""
+    """主询问结束后：战术鸣牌申请广播；有更高竞争者则再进入打断窗口。
+
+    荣和即使无更高优先级竞争者也发 is_claim：和牌不走带音效的 do_action，
+    否则申请阶段无声，鸣牌保护 gap 后才在 show_result 听到。结算侧靠
+    _tactical_silent_action 跳过重复和牌音效。
+    """
     if not (
         getattr(gs, "tactical_call", False)
         and action_data
         and action_type != "pass"
         and gs.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
-        and should_enter_tactical_grace(gs, action_type, player_index)
     ):
         return action_type, player_index, action_data, False
 
-    cut_tile_for_claim = gs.player_list[gs.current_player_index].discard_tiles[-1]
+    need_grace = should_enter_tactical_grace(gs, action_type, player_index)
+    need_hu_claim_sfx = is_hu_claim_action(action_type) and not need_grace
+    if not need_grace and not need_hu_claim_sfx:
+        return action_type, player_index, action_data, False
+
+    if gs.game_status == "waiting_action_qianggang" and getattr(gs, "jiagang_tile", None) is not None:
+        cut_tile_for_claim = gs.jiagang_tile
+    else:
+        cut_tile_for_claim = gs.player_list[gs.current_player_index].discard_tiles[-1]
     await broadcast_do_action(
         gs,
         action_list=[action_type],
@@ -286,6 +316,12 @@ async def apply_tactical_claim_if_needed(
         is_claim=True,
     )
     await asyncio.sleep(float(getattr(gs, "tactical_pre_grace_delay", TACTICAL_PRE_GRACE_DELAY)))
+
+    if not need_grace:
+        clear_tactical_round_state(gs)
+        gs._tactical_silent_action = True
+        return action_type, player_index, action_data, True
+
     action_type, player_index, action_data, claim_broadcasted = await tactical_grace_phase(
         gs,
         action_type,

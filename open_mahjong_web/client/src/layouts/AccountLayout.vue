@@ -1,19 +1,21 @@
 <template>
   <el-container class="account-layout">
-    <el-aside width="220px" class="account-aside">
+    <el-aside :width="asideWidth" class="account-aside">
       <div class="account-brand">账户面板</div>
       <div class="aside-body">
         <el-menu :default-active="activeMenu" class="account-menu" @select="onSelect">
-          <el-menu-item index="sec-account">账户</el-menu-item>
-          <el-menu-item index="sec-apply">办赛申请</el-menu-item>
-          <el-menu-item index="sec-manage">赛事管理</el-menu-item>
+          <el-menu-item
+            v-for="item in menuItems"
+            :key="item.index"
+            :index="item.index"
+          >{{ item.label }}</el-menu-item>
         </el-menu>
         <div class="aside-footer">
           <el-button class="home-btn" @click="router.push('/')">返回主站</el-button>
         </div>
       </div>
     </el-aside>
-    <el-container>
+    <el-container class="account-body">
       <el-header class="account-header">
         <template v-if="auth.isLoggedIn">
           <span class="account-user">{{ auth.username }} ({{ auth.userId }})</span>
@@ -35,11 +37,23 @@ import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
+import { useMobile } from '@/composables/useMobile'
+import { usePanelViewportLock } from '@/composables/usePanelViewportLock'
 
 const route = useRoute()
 const router = useRouter()
 const auth = usePlayerAuthStore()
 const eventAuth = useEventAdminAuthStore()
+const { isMobile } = useMobile()
+usePanelViewportLock()
+
+const asideWidth = computed(() => (isMobile.value ? '140px' : '220px'))
+
+const menuItems = [
+  { index: 'sec-account', label: '账户' },
+  { index: 'sec-apply', label: '办赛申请' },
+  { index: 'sec-manage', label: '赛事管理' },
+]
 
 const activeMenu = computed(() => {
   const hash = (route.hash || '').replace(/^#/, '')
@@ -67,6 +81,11 @@ onMounted(async () => {
 <style scoped>
 .account-layout {
   min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   background: #f5f7fa;
 }
 .account-aside {
@@ -75,6 +94,9 @@ onMounted(async () => {
   border-right: 1px solid #e4e7ed;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .account-brand {
   padding: 20px 16px;
@@ -113,6 +135,12 @@ onMounted(async () => {
 .home-btn {
   width: 100%;
 }
+.account-body {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  max-width: 100%;
+}
 .account-header {
   display: flex;
   align-items: center;
@@ -120,13 +148,44 @@ onMounted(async () => {
   gap: 12px;
   background: #fff;
   border-bottom: 1px solid #e4e7ed;
+  padding: 0 16px;
+  height: 56px;
+  flex-shrink: 0;
 }
 .account-user {
   color: #606266;
   font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .account-main {
   padding: 20px;
-  overflow-x: hidden;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 768px) {
+  .account-brand {
+    padding: 14px 10px;
+    font-size: 14px;
+  }
+  .account-aside :deep(.el-menu-item) {
+    padding-left: 12px !important;
+    height: 44px;
+    line-height: 44px;
+    font-size: 13px;
+  }
+  .aside-footer {
+    padding: 10px;
+  }
+  .account-main {
+    padding: 10px;
+  }
+  .account-user {
+    max-width: 120px;
+  }
 }
 </style>

@@ -7,6 +7,12 @@ public partial class NormalGameStateManager {
         CancelWaitAutoAction("ResetForExit");
         IsGameActive = false;
         IsSelfActionRequired = false;
+        awaitingMatchEnd = false;
+        hasPendingGameEnd = false;
+        pendingGameEndMasterSeed = null;
+        pendingGameEndCommitment = null;
+        pendingGameEndSalt = null;
+        pendingGameEndPlayerFinalData = null;
         selfHandTiles.Clear();
         allowActionList.Clear();
         lastCutCardID = 0;

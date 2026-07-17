@@ -323,6 +323,11 @@ def _final_show_result_info(game_state: Any, settlement_index: Optional[int] = N
     player_to_score = _final_scores(game_state)
     score_changes = _total_score_changes(game_state)
     action_tick = getattr(game_state, "server_action_tick", 0)
+    next_status = (
+        "match_end"
+        if getattr(game_state, "current_round", 0) >= getattr(game_state, "max_round", 1) * 4
+        else "round_end_by_ready"
+    )
 
     if not settlements:
         return {
@@ -336,6 +341,7 @@ def _final_show_result_info(game_state: Any, settlement_index: Optional[int] = N
             "hepai_player_combination_mask": [],
             "action_tick": action_tick,
             "score_changes": score_changes,
+            "next_status": next_status,
         }
 
     if settlement_index is None:
@@ -369,6 +375,7 @@ def _final_show_result_info(game_state: Any, settlement_index: Optional[int] = N
         "hepai_tile": win_tile,
         "is_qianggang": source == "rob_kong",
         "ron_discarder_index": _settlement_payer_index(settlement),
+        "next_status": next_status,
     }
 
 

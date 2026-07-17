@@ -60,10 +60,17 @@ const layoutToneClass = computed(() => {
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .layout-footer {
   padding: 0;
   height: auto;
+}
+
+@media (max-width: 768px) {
+  .layout-main {
+    padding: 12px 12px 32px;
+  }
 }
 </style>

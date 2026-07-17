@@ -385,13 +385,14 @@ class GameServer:
         """检查玩家是否需要重连并发送提示（委托给游戏状态管理器）"""
         await self.gamestate_manager.check_player_reconnect(Connect_id, user_id)
 
+    # 获取服务器统计数据
     def get_server_stats(self) -> Dict[str, int]:
         """
         获取服务器统计数据
         返回：在线人数、等待房间数、进行房间数、匹配对局数
         """
-        # 在线人数：所有已连接的玩家 (设置两名阴兵，谁懂)
-        online_players = len(self.players) + 2
+        # 在线人数：所有已连接的玩家
+        online_players = len(self.players)
 
         # 自定义房间统计仅基于 room_manager.rooms；匹配对局不注册到房间列表
         waiting_rooms = 0

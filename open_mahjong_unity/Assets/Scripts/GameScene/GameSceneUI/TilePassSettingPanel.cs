@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 /// <summary>
 /// 牌张设置子面板。
-/// - 勾选牌张：命中河牌/加杠牌时不询问任何操作（含荣和/抢杠）；命中摸入牌时不自动自摸。
+/// - 勾选牌张：命中河牌/加杠牌时不询问任何操作（含荣和/抢杠）。
+/// - 选中牌不自动自摸：开启且命中摸入牌时，在「自动胡牌」下跳过自动自摸（仍可手动和）；跨局保留。
 /// - 不吃/不碰/不明杠：逐项过滤对应鸣牌，不过和牌；三者全选时与主面板「自动过牌」联动。
 /// - 不点和：阻止自动荣和，并将点和纳入自动过牌判定（与未过滤鸣牌并存时不跳过，等待玩家）。
 /// - 不自摸/不抢杠：仅在「自动胡牌」开启时，分别阻止自动自摸/抢杠和。
@@ -20,30 +20,12 @@ public class TilePassSettingPanel : MonoBehaviour {
 
     private static readonly int[] RedDoraTileIds = { 105, 205, 305 };
 
-    private const string HintText = "不询问以下选中的牌：";
-    private const int HintRowIndex = 0;
     private const int FirstTileRowIndex = 1;
-    private const int SelectAllRowIndex = 5;
-    private const int SelectAllTilesChildIndex = 0;
-    private const int SelectAllManChildIndex = 1;
-    private const int SelectAllSouChildIndex = 2;
-    private const int SelectAllPinChildIndex = 3;
-    private const int SelectAllHonorChildIndex = 4;
-    private const int SelectAllRedDoraChildIndex = 5;
-    private const int PassChiChildIndex = 6;
-    private const int PassPengChildIndex = 7;
-    private const int PassMingGangChildIndex = 8;
-    private const int NoRonChildIndex = 9;
-    private const int NoTsumoChildIndex = 10;
-    private const int NoRobKongChildIndex = 11;
 
-    [Header("说明（可留空，自动从 HintRow 查找）")]
-    [SerializeField] private TMP_Text hintLabel;
-
-    [Header("牌张行（可留空，自动跳过 HintRow 后取 4 排）")]
+    [Header("牌张行（可留空，自动跳过说明行后取 4 排）")]
     [SerializeField] private Transform[] tileRows = new Transform[4];
 
-    [Header("全选与行为（可留空，自动从第六排子物体查找 Toggle）")]
+    [Header("全选与行为（Inspector 拖拽赋值）")]
     [SerializeField] private Toggle selectAllTilesToggle;
     [SerializeField] private Toggle selectAllManToggle;
     [SerializeField] private Toggle selectAllSouToggle;
@@ -56,6 +38,7 @@ public class TilePassSettingPanel : MonoBehaviour {
     [SerializeField] private Toggle noRonToggle;
     [SerializeField] private Toggle noTsumoToggle;
     [SerializeField] private Toggle noRobKongToggle;
+    [SerializeField] private Toggle skipAutoTsumoOnSelectedToggle;
 
     private readonly HashSet<int> passTileIds = new HashSet<int>();
     private readonly Dictionary<int, Toggle> tileToggles = new Dictionary<int, Toggle>();
@@ -68,6 +51,8 @@ public class TilePassSettingPanel : MonoBehaviour {
     private bool noRon;
     private bool noTsumo;
     private bool noRobKong;
+    /// <summary>选中牌摸入时跳过自动自摸；默认开启，ResetSettings 不清空。</summary>
+    private bool skipAutoTsumoOnSelected = true;
 
     public bool PassChi => passChi;
     public bool PassPeng => passPeng;
@@ -75,6 +60,7 @@ public class TilePassSettingPanel : MonoBehaviour {
     public bool NoRon => noRon;
     public bool NoTsumo => noTsumo;
     public bool NoRobKong => noRobKong;
+    public bool SkipAutoTsumoOnSelected => skipAutoTsumoOnSelected;
 
     public bool HasAnyMingPaiPassOption =>
         passChi || passPeng || passMingGang || passTileIds.Count > 0;
@@ -126,6 +112,7 @@ public class TilePassSettingPanel : MonoBehaviour {
         SetSelectAllSilently(noRonToggle, false);
         SetSelectAllSilently(noTsumoToggle, false);
         SetSelectAllSilently(noRobKongToggle, false);
+        // skipAutoTsumoOnSelected 跨局保留，不同步重置
         isUpdatingSelectAll = false;
     }
 
@@ -140,9 +127,11 @@ public class TilePassSettingPanel : MonoBehaviour {
         return IsPassTile(gsm.currentAskCutTileId);
     }
 
-    /// <summary>摸入牌是否在跳过列表中（命中则跳过自动自摸，仍可手动和牌）。</summary>
+    /// <summary>
+    /// 「选中牌不自动自摸」开启且摸入牌在跳过列表中时，跳过自动自摸（仍可手动和牌）。
+    /// </summary>
     public bool ShouldAutoPassForDrawnTile(int drawnTileId) {
-        return IsPassTile(drawnTileId);
+        return skipAutoTsumoOnSelected && IsPassTile(drawnTileId);
     }
 
     private bool IsPassTile(int tileId) {
@@ -152,11 +141,7 @@ public class TilePassSettingPanel : MonoBehaviour {
     private void WireIfNeeded() {
         if (isWired) return;
 
-        ResolveHierarchyReferences();
-
-        if (hintLabel != null) {
-            hintLabel.text = HintText;
-        }
+        ResolveTileRowsIfNeeded();
 
         tileToggles.Clear();
         for (int rowIndex = 0; rowIndex < tileRows.Length && rowIndex < RowTileIds.Length; rowIndex++) {
@@ -176,87 +161,22 @@ public class TilePassSettingPanel : MonoBehaviour {
         WireBehaviorToggle(noRonToggle, value => noRon = value);
         WireBehaviorToggle(noTsumoToggle, value => noTsumo = value);
         WireBehaviorToggle(noRobKongToggle, value => noRobKong = value);
+        WireBehaviorToggle(skipAutoTsumoOnSelectedToggle, value => skipAutoTsumoOnSelected = value);
+        SetSelectAllSilently(skipAutoTsumoOnSelectedToggle, skipAutoTsumoOnSelected);
 
         isWired = true;
     }
 
-    private void ResolveHierarchyReferences() {
-        if (transform.childCount <= SelectAllRowIndex) {
-            Debug.LogWarning("TilePassSettingPanel: 子物体不足，需要 HintRow + 4 排牌张 + 1 排选项。");
+    private void ResolveTileRowsIfNeeded() {
+        if (HasAssignedTileRows()) return;
+        if (transform.childCount <= FirstTileRowIndex + 3) {
+            Debug.LogWarning("TilePassSettingPanel: 子物体不足，需要说明行 + 4 排牌张。");
             return;
         }
 
-        if (hintLabel == null) {
-            Transform hintRow = transform.GetChild(HintRowIndex);
-            hintLabel = hintRow.GetComponentInChildren<TMP_Text>(true);
+        for (int i = 0; i < 4; i++) {
+            tileRows[i] = transform.GetChild(FirstTileRowIndex + i);
         }
-
-        if (!HasAssignedTileRows()) {
-            for (int i = 0; i < 4; i++) {
-                tileRows[i] = transform.GetChild(FirstTileRowIndex + i);
-            }
-        }
-
-        Transform selectAllRow = transform.GetChild(SelectAllRowIndex);
-        selectAllTilesToggle = ResolveOptionToggle(selectAllRow, selectAllTilesToggle, -1, "所有牌张");
-        selectAllManToggle = ResolveOptionToggle(selectAllRow, selectAllManToggle, SelectAllManChildIndex, "所有万子");
-        selectAllSouToggle = ResolveOptionToggle(selectAllRow, selectAllSouToggle, SelectAllSouChildIndex, "所有条子");
-        selectAllPinToggle = ResolveOptionToggle(selectAllRow, selectAllPinToggle, SelectAllPinChildIndex, "所有饼子");
-        selectAllHonorToggle = ResolveOptionToggle(selectAllRow, selectAllHonorToggle, SelectAllHonorChildIndex, "所有字牌");
-        selectAllRedDoraToggle = ResolveOptionToggle(selectAllRow, selectAllRedDoraToggle, SelectAllRedDoraChildIndex, "所有红宝");
-        passChiToggle = ResolveOptionToggle(selectAllRow, passChiToggle, PassChiChildIndex, "不吃", "NoChi")
-            ?? FindToggleInNamedDescendant(transform, "不吃", "NoChi");
-        passPengToggle = ResolveOptionToggle(selectAllRow, passPengToggle, PassPengChildIndex, "不碰", "NoPeng")
-            ?? FindToggleInNamedDescendant(transform, "不碰", "NoPeng");
-        passMingGangToggle = ResolveOptionToggle(selectAllRow, passMingGangToggle, PassMingGangChildIndex, "不明杠", "NoGang")
-            ?? FindToggleInNamedDescendant(transform, "不明杠", "NoGang");
-        noRonToggle = ResolveOptionToggle(selectAllRow, noRonToggle, NoRonChildIndex, "不点和", "OnlyWinOther")
-            ?? FindToggleInNamedDescendant(transform, "不点和", "OnlyWinOther");
-        noTsumoToggle = ResolveOptionToggle(selectAllRow, noTsumoToggle, NoTsumoChildIndex, "不自摸", "OnlyWinSelf")
-            ?? FindToggleInNamedDescendant(transform, "不自摸", "OnlyWinSelf");
-        noRobKongToggle = ResolveOptionToggle(selectAllRow, noRobKongToggle, NoRobKongChildIndex, "不抢杠", "无视抢杠")
-            ?? FindToggleInNamedDescendant(transform, "不抢杠", "无视抢杠");
-    }
-
-    private static Toggle FindToggleInNamedDescendant(Transform root, params string[] names) {
-        if (root == null) return null;
-        foreach (string name in names) {
-            Transform[] all = root.GetComponentsInChildren<Transform>(true);
-            foreach (Transform node in all) {
-                if (node.name != name) continue;
-                Toggle toggle = FindToggleInCell(node);
-                if (toggle != null) return toggle;
-            }
-        }
-        return null;
-    }
-
-    private static Toggle ResolveOptionToggle(Transform row, Toggle assigned, int childIndex, params string[] names) {
-        if (assigned != null) return assigned;
-        if (row == null) return null;
-
-        foreach (string name in names) {
-            Transform cell = FindDirectChildByName(row, name);
-            if (cell != null) {
-                Toggle toggle = FindToggleInCell(cell);
-                if (toggle != null) return toggle;
-            }
-        }
-
-        if (childIndex >= 0 && row.childCount > childIndex) {
-            return FindToggleInCell(row.GetChild(childIndex));
-        }
-
-        return null;
-    }
-
-    private static Transform FindDirectChildByName(Transform parent, string name) {
-        if (parent == null || string.IsNullOrEmpty(name)) return null;
-        for (int i = 0; i < parent.childCount; i++) {
-            Transform child = parent.GetChild(i);
-            if (child.name == name) return child;
-        }
-        return null;
     }
 
     private bool HasAssignedTileRows() {

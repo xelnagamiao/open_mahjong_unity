@@ -149,77 +149,81 @@
         <p class="hint">查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。</p>
 
         <el-divider content-position="left">赛事申请</el-divider>
-        <el-table :data="myApplications" size="small" empty-text="暂无申请记录" class="fit-table">
-          <el-table-column prop="name" label="赛事名称" min-width="120" />
-          <el-table-column label="拟定时间" min-width="150">
-            <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
-          </el-table-column>
-          <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
-          </el-table-column>
-          <el-table-column label="备注" min-width="100" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.remark || '—' }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="90">
-            <template #default="{ row }">
-              <el-tag :type="appStatusType(row.status)" size="small">{{ appStatusLabel(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="提交时间" width="160">
-            <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="{ row }">
-              <el-button
-                v-if="row.event_id"
-                link
-                type="primary"
-                @click="$router.push(`/events/${row.event_id}`)"
-              >公开页</el-button>
-              <span v-else class="muted">—</span>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="fit-table-wrap">
+          <el-table :data="myApplications" size="small" empty-text="暂无申请记录" class="fit-table">
+            <el-table-column prop="name" label="赛事名称" min-width="120" />
+            <el-table-column label="拟定时间" min-width="150">
+              <template #default="{ row }">{{ formatPlannedRange(row) }}</template>
+            </el-table-column>
+            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.description || row.reason || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="备注" min-width="100" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.remark || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="appStatusType(row.status)" size="small">{{ appStatusLabel(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="提交时间" width="160">
+              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button
+                  v-if="row.event_id"
+                  link
+                  type="primary"
+                  @click="$router.push(`/events/${row.event_id}`)"
+                >公开页</el-button>
+                <span v-else class="muted">—</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <el-divider content-position="left">已注册赛事</el-divider>
-        <el-table
-          v-loading="eventsLoading"
-          :data="myEvents"
-          size="small"
-          empty-text="暂无管理中的赛事"
-          class="fit-table"
-        >
-          <el-table-column prop="name" label="赛事名称" min-width="140" />
-          <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.description || '—' }}</template>
-          </el-table-column>
-          <el-table-column label="角色" width="120">
-            <template #default="{ row }">{{ eventRoleLabel(row.role) }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <el-tag :type="eventStatusTagType(row.status)" size="small">
-                {{ eventStatusLabel(row.status) }}
-              </el-tag>
-              <el-tag v-if="row.reopen_requested" type="warning" size="small" style="margin-left: 4px">
-                待再开
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="牌谱" width="70">
-            <template #default="{ row }">{{ row.record_count || 0 }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="150">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
-              <el-button
-                link
-                :type="managingEventId === row.event_id ? 'warning' : 'danger'"
-                @click="toggleManage(row.event_id)"
-              >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="fit-table-wrap">
+          <el-table
+            v-loading="eventsLoading"
+            :data="myEvents"
+            size="small"
+            empty-text="暂无管理中的赛事"
+            class="fit-table"
+          >
+            <el-table-column prop="name" label="赛事名称" min-width="140" />
+            <el-table-column label="介绍" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.description || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="角色" width="120">
+              <template #default="{ row }">{{ eventRoleLabel(row.role) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="eventStatusTagType(row.status)" size="small">
+                  {{ eventStatusLabel(row.status) }}
+                </el-tag>
+                <el-tag v-if="row.reopen_requested" type="warning" size="small" style="margin-left: 4px">
+                  待再开
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="牌谱" width="70">
+              <template #default="{ row }">{{ row.record_count || 0 }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="150">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
+                <el-button
+                  link
+                  :type="managingEventId === row.event_id ? 'warning' : 'danger'"
+                  @click="toggleManage(row.event_id)"
+                >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <EventManagePanel
           v-if="managingEventId"
@@ -529,13 +533,13 @@ async function submitApplication() {
 .account-page {
   max-width: 1100px;
   width: 100%;
-  overflow-x: hidden;
+  min-width: 0;
   box-sizing: border-box;
 }
 .block {
   margin-bottom: 16px;
   scroll-margin-top: 16px;
-  overflow-x: hidden;
+  min-width: 0;
 }
 .actions {
   margin-top: 16px;
@@ -550,7 +554,7 @@ async function submitApplication() {
 }
 .apply-form {
   max-width: 100%;
-  overflow-x: hidden;
+  min-width: 0;
 }
 .apply-form :deep(.el-form-item__content) {
   max-width: 100%;
@@ -570,6 +574,11 @@ async function submitApplication() {
   width: 180px;
   max-width: 100%;
 }
+@media (max-width: 768px) {
+  .date-picker {
+    width: 100%;
+  }
+}
 .date-sep {
   color: #909399;
   font-size: 13px;
@@ -587,6 +596,11 @@ async function submitApplication() {
 }
 .fit-table {
   width: 100%;
+}
+.fit-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .fit-table :deep(.el-table__body-wrapper) {
   overflow-x: auto;

@@ -1372,8 +1372,9 @@ public class Chinese_Hepai_Check {
                         }
                         break;
 
+                    case "last_deal":
                     case "妙手回春":
-                        player_tiles.fan_list.Add("miaoshouhuichun"); // 妙手回春
+                        player_tiles.fan_list.Add("miaoshouhuichun"); // 妙手回春（牌墙空自摸）
                         break;
                     case "杠上开花":
                         player_tiles.fan_list.Add("gangshangkaihua"); // 杠上开花
@@ -1387,8 +1388,9 @@ public class Chinese_Hepai_Check {
                     case "花牌":
                         player_tiles.fan_list.Add("huapai"); // 花牌
                         break;
+                    case "last_cut":
                     case "海底捞月":
-                        player_tiles.fan_list.Add("haidilaoyue"); // 海底捞月
+                        player_tiles.fan_list.Add("haidilaoyue"); // 海底捞月（牌墙空荣和）
                         break;
                     case "点和":
                         DebugPrint(string.Join(",", player_tiles.combination_list));
@@ -1625,7 +1627,7 @@ public class Chinese_Hepai_Check {
         // 主番种计算方法
         public Tuple<int, List<string>> FanCount(PlayerTiles player_tiles, int get_tile, List<string> way_to_hepai) {
             // 判断前处理 处理get_tile
-            bool zimo_or_not = way_to_hepai.Any(i => new[] { "妙手回春", "自摸", "杠上开花" }.Contains(i));
+            bool zimo_or_not = way_to_hepai.Any(i => new[] { "last_deal", "妙手回春", "自摸", "杠上开花" }.Contains(i));
 
             if (!zimo_or_not)
             {

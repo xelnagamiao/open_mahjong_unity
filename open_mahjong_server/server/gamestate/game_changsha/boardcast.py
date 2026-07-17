@@ -14,7 +14,6 @@ from ..public.claim_protection import (
     arm_claim_protection_timer,
     prepare_protected_meld_for_viewers,
     end_claim_protection_interval,
-    schedule_protected_meld_send,
     REAL_MELD_ACTIONS,
 )
 from ...game_calculation.changsha.changsha_hepai_check import INITIAL_HU_NAMES
@@ -372,7 +371,6 @@ def _build_do_action_payload(
     is_claim=False,
     silent=False,
     is_mo_gang=None,
-    meld_reveal_delay=None,
     cut_from_player=None,
     sea_bottom_discard=None,
 ):
@@ -398,8 +396,6 @@ def _build_do_action_payload(
         "is_claim": True if is_claim else None,
         "silent": True if silent else None,
         "is_mo_gang": is_mo_gang,
-        # 受保护观众鸣牌显示层延迟（秒）：服务器按序发送、客户端仅延迟鸣牌 3D 动画，复现 claim_meld_followup_gap 间隔。
-        "meld_reveal_delay": meld_reveal_delay,
         "cut_from_player": cut_from_player,
         "sea_bottom_discard": sea_bottom_discard,
     }
@@ -463,12 +459,17 @@ async def broadcast_do_action(
     is_real_meld = (not is_claim) and bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
     cut_already_revealed = getattr(self, "_cp_cut_flushed", False)
 
+    # 服务器驱动节奏：实际鸣牌与战术申请（is_claim）都先 flush 暂存 cut，
+    # 受保护观众的鸣牌/申请在循环外内联延迟 gap 后发送（保证 wire 顺序 = 逻辑顺序），
+    # 客户端按到达顺序即时呈现，无需 meld_reveal_delay 与补帧跳延迟启发式。
     protected_meld_delay = 0.0
-    if interval_active and is_real_meld:
+    if interval_active and (is_real_meld or is_claim):
         protected_meld_delay = await prepare_protected_meld_for_viewers(
             self,
             _send_do_action_payload_to_viewer,
         )
+
+    deferred_protected_sends = []  # [(viewer_index, payload)] 延迟 gap 后发给受保护观众
 
     for i, current_player in enumerate(self.player_list):
         try:
@@ -480,15 +481,10 @@ async def broadcast_do_action(
 
             protected = interval_active and is_protected_viewer(self, i)
 
-            if is_claim and protected and not getattr(self, "_cp_cut_flushed", False):
-                continue
-
             if protected and is_real_meld:
                 viewer_silent = silent if cut_already_revealed else False
-                viewer_reveal_delay = protected_meld_delay
             else:
                 viewer_silent = silent
-                viewer_reveal_delay = 0.0
 
             payload = _build_do_action_payload(
                 self,
@@ -507,7 +503,6 @@ async def broadcast_do_action(
                 is_claim=is_claim,
                 silent=viewer_silent,
                 is_mo_gang=is_mo_gang,
-                meld_reveal_delay=viewer_reveal_delay,
                 cut_from_player=cut_from_player,
                 sea_bottom_discard=sea_bottom_discard,
             )
@@ -516,8 +511,9 @@ async def broadcast_do_action(
                 stash_protected_cut_payload(self, i, payload)
                 continue
 
-            # 实际鸣牌按序 await 发送（不再用追赶协程延迟，避免受保护观众收到 N+4 在 N+2 之前的乱序）；
-            # cut 已在 prepare_protected_meld_for_viewers 里 await flush 先发。
+            if protected and (is_real_meld or is_claim) and protected_meld_delay > 0:
+                deferred_protected_sends.append((i, payload))
+                continue
 
             if current_player.user_id in self.game_server.user_id_to_connection:
                 await _send_do_action_payload_to_viewer(self, i, payload)
@@ -526,6 +522,15 @@ async def broadcast_do_action(
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播操作信息失败: {e}")
+
+    if deferred_protected_sends:
+        # 内联等待剩余 gap：广播返回前受保护观众必已收到本帧，后续消息不会乱序
+        await asyncio.sleep(protected_meld_delay)
+        for i, payload in deferred_protected_sends:
+            try:
+                await _send_do_action_payload_to_viewer(self, i, payload)
+            except Exception as e:
+                logger.error(f"长沙鸣牌保护延迟发送失败 viewer={i}: {e}")
 
     if interval_active and is_cut:
         arm_claim_protection_timer(self, _send_do_action_payload_to_viewer)
@@ -548,7 +553,8 @@ async def broadcast_result(self,
                           initial_hu_bird_seats: Optional[List[int]] = None,
                           initial_hu_payer_details: Optional[List[Dict]] = None,
                           round_continues: Optional[bool] = None,
-                          silent: bool = False):
+                          silent: bool = False,
+                          next_status: Optional[str] = None):
     # 战术鸣牌：胡牌结算复用申请阶段的发声/动画，本次静默
     if not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
@@ -589,6 +595,7 @@ async def broadcast_result(self,
                         initial_hu_payer_details=initial_hu_payer_details,
                         round_continues=round_continues,
                         silent=True if silent else None,
+                        next_status=next_status,
                     )
                 )
                 await player_conn.websocket.send_json(response.dict(exclude_none=True))

@@ -8,52 +8,54 @@
         <el-checkbox v-model="autoRefresh" @change="toggleAuto">自动刷新（5s）</el-checkbox>
       </div>
 
-      <el-table :data="items" v-loading="loading" style="margin-top: 16px" empty-text="当前没有进行中的对局">
-        <el-table-column prop="gamestate_id" label="对局 ID" min-width="200" />
-        <el-table-column label="房间类型" width="110">
-          <template #default="{ row }">{{ formatRoomType(row.room_type) }}</template>
-        </el-table-column>
-        <el-table-column label="规则" width="80">
-          <template #default="{ row }">{{ formatRule(row.room_rule) }}</template>
-        </el-table-column>
-        <el-table-column label="子规则" min-width="160">
-          <template #default="{ row }">{{ formatSubRule(row.sub_rule) }}</template>
-        </el-table-column>
-        <el-table-column prop="game_status" label="状态机" width="160" />
-        <el-table-column label="投票/暂停" width="130">
-          <template #default="{ row }">
-            <el-tag :type="phaseTagType(row.vote_phase)" size="small">{{ phaseLabel(row.vote_phase) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="玩家" min-width="220">
-          <template #default="{ row }">
-            <span v-for="p in row.players" :key="p.user_id" class="player-chip">
-              {{ p.username }}<span class="uid">({{ p.user_id }})</span>
-              <span v-if="p.is_bot" class="bot">机</span>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              size="small"
-              :disabled="isPauseDisabled(row)"
-              @click="onPause(row)"
-            >暂停</el-button>
-            <el-button
-              size="small"
-              type="success"
-              :disabled="isResumeDisabled(row)"
-              @click="onResume(row)"
-            >解除</el-button>
-            <el-button
-              size="small"
-              type="danger"
-              @click="onEnd(row)"
-            >结束对局</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="table-scroll">
+        <el-table :data="items" v-loading="loading" style="margin-top: 16px" empty-text="当前没有进行中的对局">
+          <el-table-column prop="gamestate_id" label="对局 ID" min-width="200" />
+          <el-table-column label="房间类型" width="110">
+            <template #default="{ row }">{{ formatRoomType(row.room_type) }}</template>
+          </el-table-column>
+          <el-table-column label="规则" width="80">
+            <template #default="{ row }">{{ formatRule(row.room_rule) }}</template>
+          </el-table-column>
+          <el-table-column label="子规则" min-width="160">
+            <template #default="{ row }">{{ formatSubRule(row.sub_rule) }}</template>
+          </el-table-column>
+          <el-table-column prop="game_status" label="状态机" width="160" />
+          <el-table-column label="投票/暂停" width="130">
+            <template #default="{ row }">
+              <el-tag :type="phaseTagType(row.vote_phase)" size="small">{{ phaseLabel(row.vote_phase) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="玩家" min-width="220">
+            <template #default="{ row }">
+              <span v-for="p in row.players" :key="p.user_id" class="player-chip">
+                {{ p.username }}<span class="uid">({{ p.user_id }})</span>
+                <span v-if="p.is_bot" class="bot">机</span>
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="240" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                size="small"
+                :disabled="isPauseDisabled(row)"
+                @click="onPause(row)"
+              >暂停</el-button>
+              <el-button
+                size="small"
+                type="success"
+                :disabled="isResumeDisabled(row)"
+                @click="onResume(row)"
+              >解除</el-button>
+              <el-button
+                size="small"
+                type="danger"
+                @click="onEnd(row)"
+              >结束对局</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-card>
   </div>
 </template>

@@ -21,6 +21,7 @@ public partial class GameRecordManager
         Game3DManager.Instance.Clear3DTile();
         currentNode = 0;
         currentPlayerIndex = roundData.startPlayerIndex;
+        mainPhaseStarted = false;
         lastDiscardPlayerIndex = -1;
         lastDiscardTileId = -1;
         lastWinnableTileId = -1;
@@ -53,7 +54,7 @@ public partial class GameRecordManager
 
         // 推演当前目标节点信息
         for (int i = 0; i < safeActionIndex; i++) {
-            ApplyActionToRecordState(roundData.actionTicks[i], i);
+            ApplyActionToRecordState(roundData.actionTicks[i]);
             currentNode++;
         }
 
@@ -85,7 +86,7 @@ public partial class GameRecordManager
     }
 
     // 推演行动节点
-    private void ApplyActionToRecordState(List<string> tick, int nodeIndex) {
+    private void ApplyActionToRecordState(List<string> tick) {
         if (tick == null || tick.Count == 0) {
             return;
         }
@@ -97,11 +98,7 @@ public partial class GameRecordManager
             return;
         }
 
-        if (nodeIndex == startIndex) {
-            if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
-                currentPlayerIndex = roundData.startPlayerIndex;
-            }
-        }
+        EnsureRecordMainPhaseStarted(action, updateBoardHighlight: false);
 
         int actingPlayerIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(tick, action, currentPlayerIndex);
 
@@ -116,7 +113,9 @@ public partial class GameRecordManager
             waitingForDrawAfterCut = false;
 
             if (currentTilesList.Count > 0) {
-                if (action == "gd" || action == "bd") {
+                // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
+                bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
+                if (!drawFromFront && (action == "gd" || action == "bd")) {
                     int removePos;
                     if (backwardTilesType == "double" && currentTilesList.Count > 1) {
                         removePos = currentTilesList.Count - 2;
@@ -205,10 +204,8 @@ public partial class GameRecordManager
             if (lastDiscardPlayerIndex >= 0 && indexToPosition.ContainsKey(lastDiscardPlayerIndex)) {
                 string discardPlayerPosition = indexToPosition[lastDiscardPlayerIndex];
                 var dpRecord = recordPlayer_to_info[discardPlayerPosition];
-                RemoveOneTile(dpRecord.discardTiles, mingpaiTile);
-                if (dpRecord.discardRiichiFlags.Count > 0){
-                    dpRecord.discardRiichiFlags.RemoveAt(dpRecord.discardRiichiFlags.Count - 1);
-                }
+                // 跳转推演：认走河末张，避免同牌面两张 discard 时 IndexOf 误删第一张
+                RemoveClaimedDiscardFromRecordRiver(dpRecord, mingpaiTile, capturePendingRiichiHorizontal: false);
             }
 
             int discardPlayerIndex = lastDiscardPlayerIndex >= 0 ? lastDiscardPlayerIndex : currentPlayerIndex;
