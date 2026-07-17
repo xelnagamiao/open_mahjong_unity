@@ -813,6 +813,10 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
+  .hd-rules {
+    width: 100%;
+  }
+
   .bd {
     grid-template-columns: 1fr;
   }
@@ -833,11 +837,27 @@ onMounted(() => {
 }
 
 @media (max-width: 560px) {
-  .stats-grid,
+  .welcome h1 {
+    font-size: 1.25rem;
+  }
+
+  .hd-rules button {
+    padding: 12px 6px;
+    font-size: 13px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .g3,
   .g4,
   .g2 {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .tier-tabs button {
+    padding: 6px 8px;
   }
 }
 </style>

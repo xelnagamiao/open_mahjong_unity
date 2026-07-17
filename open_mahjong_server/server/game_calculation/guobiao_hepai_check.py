@@ -997,9 +997,9 @@ class Chinese_Hepai_Check:
                         player_tiles.fan_list.append("dandiaojiang") # 单吊将
                         continue
 
-                # 开始判断传参番种 包括 妙手回春 杠上开花 抢杠和 和绝张 花牌 海底捞月 全求人 门前清 不求人 自摸
-                case "妙手回春":
-                    player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春
+                # 开始判断传参番种 包括 last_deal 杠上开花 抢杠和 和绝张 花牌 last_cut 全求人 门前清 不求人 自摸
+                case "last_deal" | "妙手回春":
+                    player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春（牌墙空自摸）
                 case "杠上开花":
                     player_tiles.fan_list.append("gangshangkaihua") # 杠上开花
                 case "抢杠和":
@@ -1008,8 +1008,8 @@ class Chinese_Hepai_Check:
                     player_tiles.fan_list.append("hejuezhang") # 和绝张
                 case "花牌":
                     player_tiles.fan_list.append("huapai") # 花牌
-                case "海底捞月":
-                    player_tiles.fan_list.append("haidilaoyue") # 海底捞月
+                case "last_cut" | "海底捞月":
+                    player_tiles.fan_list.append("haidilaoyue") # 海底捞月（牌墙空荣和）
                 case "点和":
                     self.debug_print(player_tiles.combination_list)
                     if combination_str != "" and all(i not in ["S","K","G","z"] for i in combination_str) and "和单张" in way_to_hepai:
@@ -1193,7 +1193,7 @@ class Chinese_Hepai_Check:
 
         # 判断前处理 处理get_tile
         zimo_or_not = False
-        if any(i in ["妙手回春","自摸","杠上开花"] for i in way_to_hepai):
+        if any(i in ["last_deal", "妙手回春", "自摸", "杠上开花"] for i in way_to_hepai):
             zimo_or_not = True
         if zimo_or_not == False:
             # 如果和牌张来自外部 暗杠转为明杠 暗刻转为明刻 暗顺明顺仅用于标识是否副露 不用转换 标记暗转明用于后续计算门前清
@@ -1403,7 +1403,7 @@ if __name__ == "__main__":
     
     # 选择一种和牌方式
     way_to_hepai = []
-    way_to_hepai.append(random.choice(["荣和","自摸","抢杠和","妙手回春","海底捞月","岭上开花"])) # 1级传参 和牌方式
+    way_to_hepai.append(random.choice(["荣和","自摸","抢杠和","last_deal","last_cut","岭上开花"])) # 1级传参 和牌方式
     way_to_hepai.append(random.choice(["场风东","场风南","场风西","场风北"])) # 2级传参 自身位置
     way_to_hepai.append(random.choice(["自风东","自风南","自风西","自风北"]))
     if random.randint(0,100) < 50:
@@ -1624,8 +1624,8 @@ if __name__ == "__main__":
     # test_save = [["k28","s13"],[13,14,15,35,36,37,42,42],15,["点和"]] # 8
     # 2 test_save = [["s22","s16","s27"],[32,33,34,44,44],32,["点和"]] 8
     # 3 test_save = [["k37"],[12,12,12,17,18,19,23,23,23,45,45],23,["点和"]] 8
-    # 妙手回春 海底捞月 杠上开花 抢杠和 花牌
-    # 1 test_save = [["k37"],[12,12,12,17,18,19,23,23,23,45,45],23,["妙手回春","海底捞月","杠上开花","抢杠和","花牌","花牌"]]
+    # last_deal(妙手回春) last_cut(海底捞月) 杠上开花 抢杠和 花牌
+    # 1 test_save = [["k37"],[12,12,12,17,18,19,23,23,23,45,45],23,["last_deal","last_cut","杠上开花","抢杠和","花牌","花牌"]]
     # 碰碰和
     # 1 test_save = [["k32","g46"],[13,13,13,25,25,25,45,45],25,["点和"]] 9
     # 2 test_save = [["k31","k23","k28"],[11,11,16,16,16],16,["自摸"]] 9

@@ -180,7 +180,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     elif hepai_type == "dianhe":
         way_to_hepai.append("点和")
         if len(self.tiles_list) == 0:
-            way_to_hepai.append("海底捞月")
+            way_to_hepai.append("last_cut")  # 牌墙空荣和 → 海底捞月
 
     # 自摸 / 杠上开花（杠上开花需同时传自摸，计番侧据此判不求人）
     elif hepai_type == "handgot":
@@ -189,7 +189,7 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         if is_get_gang_tile:
             way_to_hepai.append("杠上开花")
         if len(self.tiles_list) == 0:
-            way_to_hepai.append("妙手回春")
+            way_to_hepai.append("last_deal")  # 牌墙空自摸 → 妙手回春
 
     # 获取场风
     if self.current_round <= 4:

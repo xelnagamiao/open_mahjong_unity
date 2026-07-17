@@ -8,14 +8,16 @@
 - 出牌者、能鸣牌者：立即收到出牌；能鸣牌者同时收到 ask_other 可立即决策。
 - 受保护观众（既不能鸣牌、又不是出牌者）：出牌(cut) 进入暂存，延迟发送。
   触发把暂存 cut 发给受保护观众的时机，取最早：
-    1) 有人实际鸣牌/荣和 -> 立即 flush cut（若尚未揭示），再按「cut 揭示时刻 + MELD_FOLLOWUP_GAP」
-       计算剩余延迟后把鸣牌发给受保护观众（1.3s~2.1s 内鸣牌对齐到 2.1s，2.1s 后立即发送）；
+    1) 有人实际鸣牌/荣和，或战术鸣牌申请（is_claim）被广播 -> 立即 flush cut（若尚未揭示），
+       再按「cut 揭示时刻 + MELD_FOLLOWUP_GAP」计算剩余延迟；
     2) 能鸣牌者全部 pass / 超时无人鸣牌 -> 立即 flush cut（区间结束，无鸣牌）；
     3) MELD_PROTECT_DELAY 超时 -> flush cut（此后「暴露有人可鸣牌」是允许的，但仍不知是谁）。
-- 与战术鸣牌正交：
-  - 受保护观众尚未看到出牌：战术 is_claim 不发送；flush cut 正常发声，间隔 gap 后实际鸣牌也正常发声。
-  - 受保护观众已看到出牌（1.3s 超时 flush 或鸣牌前 flush）：可收到战术 is_claim；
-    实际鸣牌尊重 silent（战术申请后静默执行），避免「申请 + 执行」双响。
+- 节奏完全由服务器驱动：flush cut 后，鸣牌/申请对受保护观众的发送在广播函数内
+  「内联 await sleep(剩余 gap)」后按序发出（阻塞本次广播，保证全局 wire 顺序，
+  不用 fire-and-forget 追赶协程——那曾导致受保护观众收到 N+4 在 N+2 之前的乱序）。
+  客户端按到达顺序即时呈现，无需 meld_reveal_delay 字段与补帧跳延迟启发式。
+- 与战术鸣牌的配合：is_claim 一律先 flush cut 再发送（受保护观众也能听到申请发声），
+  之后的实际鸣牌尊重 silent（战术申请后静默执行），避免「申请 + 执行」双响。
 """
 from __future__ import annotations
 
@@ -65,7 +67,9 @@ def compute_protected_meld_delay(game_state) -> float:
 
 
 async def prepare_protected_meld_for_viewers(game_state, send_fn) -> float:
-    """实际吃碰杠广播前：补发暂存 cut（若尚未揭示），并返回受保护观众的剩余鸣牌延迟。"""
+    """实际吃碰杠 / 战术申请（is_claim）广播前：补发暂存 cut（若尚未揭示），
+    并返回受保护观众的剩余追赶延迟（秒）。调用方应在向受保护观众发送前
+    内联 await sleep 该延迟（服务器驱动节奏，保证 wire 顺序）。"""
     await flush_protected_cut(game_state, send_fn)
     return compute_protected_meld_delay(game_state)
 
@@ -183,18 +187,3 @@ def end_claim_protection_interval(game_state) -> None:
     _cancel_timer(game_state)
     game_state._cp_active = False
     game_state._cp_pending_cut = {}
-
-
-def schedule_protected_meld_send(game_state, viewer_index: int, payload: dict, delay: float, send_fn) -> None:
-    """延迟 delay 秒后把鸣牌动作发给某受保护观众（追赶至 cut 揭示 + gap）。"""
-    async def _run():
-        try:
-            if delay > 0:
-                await asyncio.sleep(delay)
-            await send_fn(game_state, viewer_index, payload)
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("鸣牌保护延迟鸣牌发送失败 viewer=%s", viewer_index)
-
-    asyncio.create_task(_run())

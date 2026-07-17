@@ -20,7 +20,9 @@ from .boardcast import (
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_competition_final_ranks
 from .init_tiles import init_guobiao_tiles
 from ..public.next_game_round import next_game_round_switchseat
-from ..public.round_end_timing import liuju_ready_wait_seconds
+from ..public.round_end_timing import (
+    liuju_ready_wait_seconds,
+)
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.hand_slot_utils import has_draw_slot
@@ -38,6 +40,7 @@ from ..public.random_seed_manager import setup_random_seed_system
 from ...database.fulu_utils import record_fulu_rounds_for_players
 
 logger = logging.getLogger(__name__)
+
 
 # 牌谱记录类
 class RecordCounter:
@@ -646,6 +649,13 @@ class GuobiaoGameState:
             hu_fan = None
             hepai_player_index = None
 
+            # 局终下一步
+            self.next_status = (
+                "match_end"
+                if self.current_round >= self.max_round * 4
+                else "round_end_by_ready"
+            )
+
             # 荣和
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
@@ -746,6 +756,7 @@ class GuobiaoGameState:
                                        hepai_player_combination_mask = he_combination_mask, # 和牌玩家组合掩码
                                        score_changes = score_changes_dict,
                                        revealed_angang_masks = revealed_angang,
+                                       next_status = self.next_status,
                                        )
                 # 显示和牌传参
                 print(f"hu_class: {self.hu_class}, result_dict: {self.result_dict}")
@@ -770,6 +781,7 @@ class GuobiaoGameState:
                                        hepai_player_combination_mask = None, # 和牌玩家组合掩码
                                        score_changes = liuju_score_changes,
                                        revealed_angang_masks = revealed_angang,
+                                       next_status = self.next_status,
                                        )
 
             record_fulu_rounds_for_players(self.player_list)
@@ -801,15 +813,14 @@ class GuobiaoGameState:
             else:
                 player_action_record_liuju(self)
             player_action_record_round_end(self)
-            
-            # 根据和牌类型处理等待逻辑
-            if self.hu_class == "liuju":
-                await asyncio.sleep(liuju_ready_wait_seconds())
-            else:
-                fan_count = len(hu_fan) if hu_fan else 0
-                await self.run_hu_result_ready_phase(fan_count)
 
-            if self.current_round < self.max_round * 4:
+            # 局终：ready → 下一局或整场结束
+            if self.next_status != "match_end":
+                if self.hu_class == "liuju":
+                    await asyncio.sleep(liuju_ready_wait_seconds())
+                else:
+                    fan_count = len(hu_fan) if hu_fan else 0
+                    await self.run_hu_result_ready_phase(fan_count)
                 next_game_round_switchseat(self)
                 logger.info("重新开始下一局")
             else:

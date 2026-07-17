@@ -973,10 +973,6 @@ class DatabaseManager:
             # （早期数据可能 room_type 为 NULL 或非法值），重建统计前先清掉避免污染。
             self._cleanup_legacy_room_type_records()
 
-            # 一次性：删除早期错误牌谱（三段鸣牌/暗杠/缺 seats），
-            # 修复 6/11–6/21 仅旧补花与短 bd 的批次。
-            self._migrate_legacy_game_record_ticks()
-
         except Exception as e:
             logger.error(f'数据表初始化失败: {e}', exc_info=True)
             print(f'数据表初始化失败: {e}')
@@ -1024,15 +1020,6 @@ class DatabaseManager:
             if conn:
                 cursor.close()
                 self._put_connection(conn)
-
-    def _migrate_legacy_game_record_ticks(self) -> None:
-        """一次性迁移旧牌谱 tick：删早期错误格式，修复可推理的补花/bd 批次。"""
-        try:
-            from .migrate_legacy_game_records import run_legacy_game_record_migration
-            run_legacy_game_record_migration(self)
-        except Exception as e:
-            logger.error("旧牌谱 tick 迁移失败: %s", e, exc_info=True)
-            print(f"旧牌谱 tick 迁移失败: {e}")
 
     # 获取用户名
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:

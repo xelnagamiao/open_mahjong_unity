@@ -1365,8 +1365,9 @@ public class Kshen_Hepai_Check {
                         }
                         break;
 
+                    case "last_deal":
                     case "妙手回春":
-                        player_tiles.fan_list.Add("miaoshouhuichun"); // 妙手回春
+                        player_tiles.fan_list.Add("miaoshouhuichun"); // 妙手回春（牌墙空自摸）
                         break;
                     case "杠上开花":
                         player_tiles.fan_list.Add("gangshangkaihua"); // 杠上开花
@@ -1378,11 +1379,12 @@ public class Kshen_Hepai_Check {
                         player_tiles.fan_list.Add("hejuezhang"); // 和绝张
                         break;
                     case "花牌":
-                        if (way_to_hepai.Any(idx => idx is "妙手回春" or "自摸" or "杠上开花"))
+                        if (way_to_hepai.Any(idx => idx is "last_deal" or "妙手回春" or "自摸" or "杠上开花"))
                             player_tiles.fan_list.Add("huapai");
                         break;
+                    case "last_cut":
                     case "海底捞月":
-                        player_tiles.fan_list.Add("haidilaoyue"); // 海底捞月
+                        player_tiles.fan_list.Add("haidilaoyue"); // 海底捞月（牌墙空荣和）
                         break;
                     case "点和":
                         DebugPrint(string.Join(",", player_tiles.combination_list));
@@ -1409,7 +1411,7 @@ public class Kshen_Hepai_Check {
                             var specialZimoFans = new HashSet<string> { "qiduizi", "jiulianbaodeng", "lianqidui", "shisanyao", "sianke", "qixingbukao", "quanbukao" };
                             if (smallOpenCount == 0 && !player_tiles.fan_list.Any(f => specialZimoFans.Contains(f)))
                                 player_tiles.fan_list.Add("menqianqing");
-                            if (way_to_hepai.Any(idx => idx is "妙手回春" or "杠上开花" or "海底捞月" or "抢杠和"))
+                            if (way_to_hepai.Any(idx => idx is "last_deal" or "妙手回春" or "杠上开花" or "last_cut" or "海底捞月" or "抢杠和"))
                                 break;
                             player_tiles.fan_list.Add("zimo");
                         }
@@ -1650,7 +1652,7 @@ public class Kshen_Hepai_Check {
         // 主番种计算方法
         public Tuple<int, List<string>> FanCount(PlayerTiles player_tiles, int get_tile, List<string> way_to_hepai) {
             // 判断前处理 处理get_tile
-            bool zimo_or_not = way_to_hepai.Any(i => new[] { "妙手回春", "自摸", "杠上开花" }.Contains(i));
+            bool zimo_or_not = way_to_hepai.Any(i => new[] { "last_deal", "妙手回春", "自摸", "杠上开花" }.Contains(i));
 
             if (!zimo_or_not)
             {

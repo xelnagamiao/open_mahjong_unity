@@ -26,7 +26,7 @@ RANK_TABLE = [
     ("六段", 1200, 2400, True),
     ("七段", 1400, 2800, True),
     ("八段", 1600, 3200, True),
-    ("九段", 2000, 4000, True),
+    ("九段", 3200, 7000, True),
 ]
 
 RANK_NAME_TO_INDEX = {r[0]: i for i, r in enumerate(RANK_TABLE)}
@@ -35,7 +35,7 @@ RANK_NAME_TO_INDEX = {r[0]: i for i, r in enumerate(RANK_TABLE)}
 TIER_BASE_SCORE = {
     "beginner": 30,
     "intermediate": 65,
-    "advanced": 95,
+    "advanced": 105,
     "mcrpl": 135,
 }
 
@@ -64,12 +64,12 @@ RANK_AVG_LOSS_PT = {
     "初段": 45,
     "二段": 55,
     "三段": 65,
-    "四段": 90,
-    "五段": 100,
-    "六段": 110,
-    "七段": 150,
-    "八段": 175,
-    "九段": 200,
+    "四段": 95,
+    "五段": 105,
+    "六段": 120,
+    "七段": 135,
+    "八段": 165,
+    "九段": 180,
 }
 
 # 场次准入段位等级（索引值，越大段位越高）

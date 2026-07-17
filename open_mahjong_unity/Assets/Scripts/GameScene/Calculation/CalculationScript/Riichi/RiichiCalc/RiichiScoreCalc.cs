@@ -21,6 +21,43 @@ namespace Riichi {
             return CeilTo100(basePoints * 4);
         }
 
+        /// <summary>
+        /// 结算面板「xx点」：番型收分，不含本场棒/场供立直棒。
+        /// 有番符时按番符重算；错和或番符缺失时从和牌者总分剥离场供与本场。
+        /// </summary>
+        public static int ResolveDisplayPoints(
+            int han,
+            int fu,
+            bool isDealer,
+            bool isTsumo,
+            int winnerScoreDelta,
+            int honba,
+            int riichiSticksCollected,
+            string[] yaku = null) {
+            if (ContainsCuohe(yaku)) {
+                return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected);
+            }
+            if (han > 0 && fu > 0) {
+                int yakumanMult = han >= 13 ? han / 13 : 0;
+                return CalculateTotalScore(han, fu, isDealer, isTsumo, yakumanMult);
+            }
+            return StripFieldBonuses(winnerScoreDelta, isTsumo, honba, riichiSticksCollected);
+        }
+
+        /// <summary>从和牌者本笔 score_changes 中去掉场供与本场。</summary>
+        public static int StripFieldBonuses(int winnerDelta, bool isTsumo, int honba, int riichiSticksCollected) {
+            int points = winnerDelta - Math.Max(0, riichiSticksCollected) * 1000;
+            int honbaBonus = Math.Max(0, honba) * 300;
+            if (honbaBonus <= 0) {
+                return Math.Max(0, points);
+            }
+            // 自摸必含本场；荣和多家时非首家不含本场，仅当总分足以覆盖时剥离
+            if (isTsumo || points >= honbaBonus) {
+                points -= honbaBonus;
+            }
+            return Math.Max(0, points);
+        }
+
         public static int GetBasePoints(int han, int fu) {
             if (han >= 13) return 8000;        // 数役满
             if (han >= 11) return 6000;        // 三倍满
@@ -34,6 +71,14 @@ namespace Riichi {
         private static int CeilTo100(int value) {
             int r = value % 100;
             return r == 0 ? value : value + (100 - r);
+        }
+
+        private static bool ContainsCuohe(string[] yaku) {
+            if (yaku == null) return false;
+            for (int i = 0; i < yaku.Length; i++) {
+                if (yaku[i] == "错和") return true;
+            }
+            return false;
         }
     }
 }

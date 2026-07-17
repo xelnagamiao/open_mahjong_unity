@@ -75,8 +75,11 @@ async function onSubmit() {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 .login-card {
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 16px;
   padding: 8px;
+  box-sizing: border-box;
 }
 .login-card h1 {
   margin: 0 0 8px;

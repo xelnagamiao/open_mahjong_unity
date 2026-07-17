@@ -470,6 +470,11 @@ onBeforeUnmount(() => {
 .fan-name { color: #606266; }
 .fan-count { font-weight: 600; color: #409eff; }
 @media (max-width: 960px) {
-  .charts-wrap { grid-template-columns: 1fr; }
+  .charts-wrap { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .charts-wrap { grid-template-columns: 1fr 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>

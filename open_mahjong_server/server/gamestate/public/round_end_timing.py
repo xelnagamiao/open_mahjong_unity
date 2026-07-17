@@ -5,6 +5,8 @@ reveal_hu → settle_hu(3s/8s) → chajiao(3s/8s，含退税 +0.5s) → waiting_
 退税已并入查叫面板，不再有独立 cha_refund 步。
 """
 
+# show_result_info.next_status: "round_continue" | "round_end_by_ready" | "match_end"
+
 ROUND_END_PRESENTATION_FADE_SEC = 0.35 # 局终面板渐显时间
 ROUND_END_HAND_REVEAL_SEC = 1.5 # 赢家明牌展开时间
 HEPAI_TRAVEL_SEC = 0.2 # 和牌张就位/河牌抓取（无位移动画时也预留此时长）

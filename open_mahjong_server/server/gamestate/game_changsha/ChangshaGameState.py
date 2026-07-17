@@ -22,7 +22,10 @@ from ..public.hand_slot_utils import clear_draw_slot, normalize_tile
 from ..public.claim_protection import begin_claim_protection_interval
 from .init_tiles import init_changsha_tiles
 from ..public.next_game_round import next_game_round_random_switchseat as next_game_round_changsha_switchseat
-from ..public.round_end_timing import hu_result_ready_wait_seconds, liuju_ready_wait_seconds
+from ..public.round_end_timing import (
+    hu_result_ready_wait_seconds,
+    liuju_ready_wait_seconds,
+)
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
@@ -1218,6 +1221,11 @@ class ChangshaGameState:
                                        hepai_player_huapai = he_huapai, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = he_combination_mask, # 和牌玩家组合掩码
                                        score_changes = score_changes_dict,
+                                       next_status = (
+                                           "match_end"
+                                           if self.current_round >= self.max_round * 4
+                                           else "round_end_by_ready"
+                                       ),
                                        )
 
             # 广播流局结算结果
@@ -1234,6 +1242,11 @@ class ChangshaGameState:
                                        hepai_player_huapai = None, # 和牌玩家花牌列表
                                        hepai_player_combination_mask = None, # 和牌玩家组合掩码
                                        score_changes = liuju_score_changes,
+                                       next_status = (
+                                           "match_end"
+                                           if self.current_round >= self.max_round * 4
+                                           else "round_end_by_ready"
+                                       ),
                                        )
 
             record_fulu_rounds_for_players(self.player_list)
@@ -1263,42 +1276,51 @@ class ChangshaGameState:
                 player_action_record_liuju(self)
             player_action_record_round_end(self)
 
-            # 根据和牌类型处理等待逻辑
-            if self.hu_class == "liuju":
-                await asyncio.sleep(liuju_ready_wait_seconds())
+            # 根据和牌类型处理等待逻辑（整场最后一局跳过 waiting_ready，由客户端 match_end 收尾）
+            self.next_status = (
+                "match_end"
+                if self.current_round >= self.max_round * 4
+                else "round_end_by_ready"
+            )
+            if self.next_status != "match_end":
+                if self.hu_class == "liuju":
+                    await asyncio.sleep(liuju_ready_wait_seconds())
+                else:
+                    fan_count = len(hu_fan) if hu_fan else 0
+                    wait_time = hu_result_ready_wait_seconds(fan_count)
+                    ready_phase_deadline = time.time() + wait_time
+
+                    self.action_dict = {}
+                    for player in self.player_list:
+                        if player.user_id <= 10:
+                            self.action_dict[player.player_index] = []
+                        else:
+                            self.action_dict[player.player_index] = ["ready"]
+                            player.remaining_time = int(wait_time)
+
+                    self.game_status = "waiting_ready"
+                    await broadcast_ready_status(self)
+                    while any(self.action_dict[i] for i in self.action_dict):
+                        for p in self.player_list:
+                            if self.action_dict.get(p.player_index):
+                                p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
+                        if await wait_action(self) is False:
+                            break
+
+            if self.current_round < self.max_round * 4:
+                # 开启下一局的准备工作
+                if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"] and hepai_player_index is not None:
+                    self._make_player_next_dealer(hepai_player_index)
+                    next_game_round_changsha_switchseat(self, keep_dealer_seat=True)
+                elif self.hu_class == "liuju" and self.sea_bottom_player_index is not None:
+                    self._make_player_next_dealer(self.sea_bottom_player_index)
+                    next_game_round_changsha_switchseat(self, keep_dealer_seat=True)
+                else:
+                    next_game_round_changsha_switchseat(self)
+                logger.info(f"重新开始下一局")
             else:
-                fan_count = len(hu_fan) if hu_fan else 0
-                wait_time = hu_result_ready_wait_seconds(fan_count)
-                ready_phase_deadline = time.time() + wait_time
-
-                self.action_dict = {}
-                for player in self.player_list:
-                    if player.user_id <= 10:
-                        self.action_dict[player.player_index] = []
-                    else:
-                        self.action_dict[player.player_index] = ["ready"]
-                        player.remaining_time = int(wait_time)
-
-                self.game_status = "waiting_ready"
-                await broadcast_ready_status(self)
-                while any(self.action_dict[i] for i in self.action_dict):
-                    for p in self.player_list:
-                        if self.action_dict.get(p.player_index):
-                            p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
-                    if await wait_action(self) is False:
-                        break
-
-            # 开启下一局的准备工作
-            if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"] and hepai_player_index is not None:
-                self._make_player_next_dealer(hepai_player_index)
-                next_game_round_changsha_switchseat(self, keep_dealer_seat=True)
-            elif self.hu_class == "liuju" and self.sea_bottom_player_index is not None:
-                self._make_player_next_dealer(self.sea_bottom_player_index)
-                next_game_round_changsha_switchseat(self, keep_dealer_seat=True)
-            else:
-                next_game_round_changsha_switchseat(self)
-
-            logger.info(f"重新开始下一局")
+                logger.info("最后一局结束，不再推进局数")
+                break
             # ↑ 重新开始下一局循环
 
         # 游戏结束所有局数
