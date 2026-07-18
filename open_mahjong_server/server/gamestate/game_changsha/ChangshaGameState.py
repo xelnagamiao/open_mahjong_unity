@@ -906,7 +906,7 @@ class ChangshaGameState:
         if not birds and self.bird_count > 0 and self._is_sea_bottom_win(fan_list):
             sea_bottom_bird = self._sea_bottom_bird_tile(winner)
             if sea_bottom_bird is not None:
-                birds = [sea_bottom_bird]
+                birds = [sea_bottom_bird] * self.bird_count
         bird_origin = self._changsha_bird_origin(winner)
         bird_seats = [self._changsha_bird_seat(tile, bird_origin) for tile in birds]
         payers = [p.player_index for p in self.player_list if p.player_index != winner] if is_zimo else [discarder]
