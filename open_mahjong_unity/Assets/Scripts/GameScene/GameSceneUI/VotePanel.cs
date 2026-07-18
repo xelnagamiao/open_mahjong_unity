@@ -47,11 +47,11 @@ public class VotePanel : MonoBehaviour {
     private bool _localVoted;
 
     /// <summary>
-    /// 投票已通过或处于暂停流程：须停步时/切牌计时，并忽略服务端迟到的 ask 重新开表。
+    /// 对局已真正挂起或即将结束：停步时/切牌计时，并忽略迟到的 ask 重新开表。
+    /// pause_pending 不含在内——当前这一步仍由服务端驱动，客户端须保持可操作与走表。
     /// </summary>
     public bool IsGameTimerSuppressed =>
         _phase == "end_countdown"
-        || _phase == "pause_pending"
         || _phase == "paused"
         || _phase == "resume_voting"
         || _phase == "resume_countdown";

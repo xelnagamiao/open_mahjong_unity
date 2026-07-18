@@ -2,7 +2,7 @@
   <div>
     <h2 class="page-title">仪表盘</h2>
     <el-row :gutter="16" v-loading="loading">
-      <el-col :span="8" v-for="card in cards" :key="card.label">
+      <el-col :xs="12" :sm="8" :span="8" v-for="card in cards" :key="card.label">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-label">{{ card.label }}</div>
           <div class="stat-value">{{ card.value }}</div>
@@ -77,5 +77,24 @@ onMounted(async () => {
 }
 .quick-card {
   margin-top: 8px;
+}
+.quick-card :deep(.el-space) {
+  width: 100%;
+}
+@media (max-width: 768px) {
+  .quick-card :deep(.el-space) {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .quick-card :deep(.el-space__item) {
+    margin: 0 !important;
+  }
+  .quick-card :deep(.el-button) {
+    width: 100%;
+  }
+  .stat-value {
+    font-size: 22px;
+  }
 }
 </style>

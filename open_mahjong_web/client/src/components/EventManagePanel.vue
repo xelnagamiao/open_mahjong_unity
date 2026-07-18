@@ -852,7 +852,7 @@ watch(
 .emp-lifecycle-text {
   margin: 0;
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
   font-size: 13px;
   color: #606266;
   line-height: 1.5;

@@ -83,7 +83,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
                 continue;
             }
 
-            // 开局补花阶段：与 GameRecordManager.InferAndMarkStartIndex 对齐，不推进主巡目
+            // 开局补花阶段：与 GameRecordManager.EnsureRecordMainPhaseStarted 对齐，不推进主巡目
             if (action == "bh" || action == "bd") {
                 int flowerActingIndex = GameRecordJsonDecoder.ResolveRecordActingPlayerIndex(
                     tick, action, currentPlayerIndex);

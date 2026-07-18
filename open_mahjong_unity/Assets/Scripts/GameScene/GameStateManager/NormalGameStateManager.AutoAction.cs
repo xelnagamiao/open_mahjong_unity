@@ -134,7 +134,7 @@ public partial class NormalGameStateManager {
                 : AutoAction.Instance.ShouldAutoWinRon();
             if (shouldAutoWin) {
                 actionType = huAction;
-                delaySeconds = 0.2f;
+                delaySeconds = 0.3f;
                 return true;
             }
         }
@@ -154,7 +154,7 @@ public partial class NormalGameStateManager {
     /// </summary>
     private bool TryResolveImmediateAutoHand(out string actionType, out float delaySeconds) {
         actionType = null;
-        delaySeconds = 0.2f;
+        delaySeconds = 0.3f;
         if (IsRealtimeSpectator) {
             return false;
         }
@@ -173,7 +173,6 @@ public partial class NormalGameStateManager {
 
         if (allowActionList.Contains("buhua") && AutoAction.Instance.IsAutoBuhua) {
             actionType = "buhua";
-            delaySeconds = 0.3f;
             return true;
         }
 
@@ -231,8 +230,7 @@ public partial class NormalGameStateManager {
             if (IsRealtimeSpectator || !AutoAction.Instance.IsAutoCut) {
                 yield break;
             }
-            float autoCutDelay = AutoAction.Instance.IsAutoCutLocked ? 0.3f : 0.5f;
-            yield return new WaitForSeconds(autoCutDelay);
+            yield return new WaitForSeconds(0.5f);
             if (!GameCanvas.Instance.TriggerMoqieHandCardClick()) {
                 Debug.LogWarning("自动出牌失败：手牌容器中没有可出的牌");
             }

@@ -17,7 +17,7 @@ export const RANK_TABLE = [
   { name: '六段', startScore: 1200, promoteScore: 2400, canDemote: true },
   { name: '七段', startScore: 1400, promoteScore: 2800, canDemote: true },
   { name: '八段', startScore: 1600, promoteScore: 3200, canDemote: true },
-  { name: '九段', startScore: 2000, promoteScore: 4000, canDemote: true },
+  { name: '九段', startScore: 3200, promoteScore: 7000, canDemote: true },
 ];
 
 export const RANK_NAMES = RANK_TABLE.map((r) => r.name);

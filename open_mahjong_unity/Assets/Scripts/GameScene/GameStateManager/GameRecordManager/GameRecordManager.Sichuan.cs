@@ -6,10 +6,15 @@ using UnityEngine;
 
 /// <summary>四川血战牌谱/观战：中途和牌补花区摆牌与终局分步结算回放。</summary>
 public partial class GameRecordManager {
-    private bool IsSichuanBloodBattleRecord() {
+    /// <summary>四川规则牌谱（含血战/非血战）。杠后摸牌与普通摸牌同向从头取，不用倒序岭上。</summary>
+    private bool IsSichuanRecord() {
         if (gameRecord?.gameTitle == null) return false;
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
-        if (!subRule.StartsWith("sichuan")) return false;
+        return subRule.StartsWith("sichuan");
+    }
+
+    private bool IsSichuanBloodBattleRecord() {
+        if (!IsSichuanRecord()) return false;
         string bloodBattle = ReadGameTitleString(gameRecord.gameTitle, "blood_battle", "true");
         return bloodBattle != "false";
     }
@@ -83,17 +88,8 @@ public partial class GameRecordManager {
 
     private void SyncRecordRonDiscardRemoved(string discarderPos, int tileId) {
         if (string.IsNullOrEmpty(discarderPos) || !recordPlayer_to_info.TryGetValue(discarderPos, out RecordPlayer rp)) return;
-        if (rp.discardTiles == null || rp.discardTiles.Count == 0) return;
-        if (tileId >= 10) {
-            int idx = rp.discardTiles.LastIndexOf(tileId);
-            if (idx >= 0) rp.discardTiles.RemoveAt(idx);
-            else rp.discardTiles.RemoveAt(rp.discardTiles.Count - 1);
-        } else {
-            rp.discardTiles.RemoveAt(rp.discardTiles.Count - 1);
-        }
-        if (rp.discardRiichiFlags != null && rp.discardRiichiFlags.Count > 0) {
-            rp.discardRiichiFlags.RemoveAt(rp.discardRiichiFlags.Count - 1);
-        }
+        // 荣和回收河牌与吃碰一致：末张优先 + 同步摸切/横置并行数组
+        RemoveClaimedDiscardFromRecordRiver(rp, tileId, capturePendingRiichiHorizontal: false);
     }
 
     private string ResolveRecordRonDiscarderPosition(int? ronDiscarderIndex) {

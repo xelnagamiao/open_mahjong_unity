@@ -29,13 +29,6 @@ public class NetworkManager : MonoBehaviour {
     private readonly Queue<byte[]> priorityMessageQueue = new Queue<byte[]>(); // 需立即处理的消息（如 match/match_found）
     private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
 
-    /// <summary>网络消息队列是否真正积压（当前帧出队后仍有 ≥2 条未处理）。
-    /// 用于判断客户端是否在“补帧/追赶”：后台降帧切回时会连续处理十几条。
-    /// 显示层延迟（如鸣牌 claim_meld_followup_gap）在补帧时应跳过，避免逻辑已同步、3D 却逐条卡住。
-    /// 阈值取 ≥2：仅剩 1 条（下一巡 cut 刚入队，属正常快打）时仍保留间隔，否则动态延迟几乎永远不生效。</summary>
-    public bool IsBacklogged {
-        get { lock(messageQueue) { return messageQueue.Count >= 2; } }
-    }
     public GameEvent ErrorResponse = new GameEvent(); // 定义错误响应事件
     public GameEvent CreateRoomResponse = new GameEvent(); // 定义创建房间响应事件
 

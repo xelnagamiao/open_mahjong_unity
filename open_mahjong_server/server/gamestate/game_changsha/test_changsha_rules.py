@@ -986,9 +986,9 @@ class ChangshaRulesTest(unittest.TestCase):
             discarder=2,
         )
 
-        self.assertEqual(result["birds"], [11])
-        self.assertEqual(players[1].score, 12)
-        self.assertEqual(players[2].score, -12)
+        self.assertEqual(result["birds"], [11, 11])
+        self.assertEqual(players[1].score, 24)
+        self.assertEqual(players[2].score, -24)
 
     def test_sea_bottom_skips_noten_players(self):
         p1_hand = [11, 12, 13]

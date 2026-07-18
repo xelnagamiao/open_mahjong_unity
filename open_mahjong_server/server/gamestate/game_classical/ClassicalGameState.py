@@ -25,7 +25,10 @@ from ..public.next_game_round import next_game_round_classical_switchseat
 from ..public.spectator_rules import too_many_ai_for_spectator
 from ..public.vote_manager import vote_checkpoint
 from ..public.game_record_manager import init_game_record, init_game_round, player_action_record_deal, player_action_record_angang, player_action_record_jiagang, player_action_record_chipenggang, player_action_record_hu, player_action_record_liuju, player_action_record_jiuzhongjiupai, player_action_record_shuhewei, player_action_record_round_end, end_game_record, build_score_changes_by_seat, build_score_changes_dict, capture_player_entry_order
-from ..public.round_end_timing import liuju_ready_wait_seconds, shuhewei_ready_wait_seconds
+from ..public.round_end_timing import (
+    liuju_ready_wait_seconds,
+    shuhewei_ready_wait_seconds,
+)
 from ...game_calculation.game_calculation_service import GameCalculationService
 from ...database.db_manager import DatabaseManager
 from ..public.random_seed_manager import setup_random_seed_system
@@ -522,6 +525,16 @@ class ClassicalGameState:
                                        )
 
             shuhewei_extra_wait = 0.0
+            is_dealer_win = (
+                self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]
+                and hepai_player_index == 0
+            )
+            # 末局庄家和牌连庄续打，不算整场终场
+            self.next_status = (
+                "match_end"
+                if (self.current_round >= self.max_round * 4) and not is_dealer_win
+                else "round_end_by_ready"
+            )
             if self.hu_class != "jiuzhongjiupai":
                 shuhewei_extra_wait = await self._settle_shuhewei(
                     hepai_player_index=hepai_player_index,
@@ -529,6 +542,7 @@ class ClassicalGameState:
                     hepai_fan=hu_fan,
                     hepai_fu_types=hu_fu_fan_list,
                     hu_class=self.hu_class,
+                    next_status=self.next_status,
                 )
 
             record_fulu_rounds_for_players(self.player_list)
@@ -557,42 +571,43 @@ class ClassicalGameState:
                 player_action_record_liuju(self)
             player_action_record_round_end(self)
 
-            if self.hu_class == "jiuzhongjiupai":
-                await asyncio.sleep(liuju_ready_wait_seconds())
-            else:
-                wait_time = shuhewei_ready_wait_seconds(
-                    shuhewei_extra_wait,
-                    self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"],
-                )
-                ready_phase_deadline = time.time() + wait_time
+            # 整场最后一局跳过 waiting_ready（含九种九牌 sleep），由客户端 match_end 收尾
+            if self.next_status != "match_end":
+                if self.hu_class == "jiuzhongjiupai":
+                    await asyncio.sleep(liuju_ready_wait_seconds())
+                else:
+                    wait_time = shuhewei_ready_wait_seconds(
+                        shuhewei_extra_wait,
+                        self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"],
+                    )
+                    ready_phase_deadline = time.time() + wait_time
 
-                self.action_dict = {}
-                for player in self.player_list:
-                    if player.user_id <= 10:
-                        self.action_dict[player.player_index] = []
-                    else:
-                        self.action_dict[player.player_index] = ["ready"]
-                        player.remaining_time = math.ceil(wait_time)
+                    self.action_dict = {}
+                    for player in self.player_list:
+                        if player.user_id <= 10:
+                            self.action_dict[player.player_index] = []
+                        else:
+                            self.action_dict[player.player_index] = ["ready"]
+                            player.remaining_time = math.ceil(wait_time)
 
-                self.game_status = "waiting_ready"
-                await broadcast_ready_status(self)
-                while any(self.action_dict[i] for i in self.action_dict):
-                    for p in self.player_list:
-                        if self.action_dict.get(p.player_index):
-                            p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
-                    if await wait_action(self) is False:
-                        break
+                    self.game_status = "waiting_ready"
+                    await broadcast_ready_status(self)
+                    while any(self.action_dict[i] for i in self.action_dict):
+                        for p in self.player_list:
+                            if self.action_dict.get(p.player_index):
+                                p.remaining_time = max(0, int(ready_phase_deadline - time.time()))
+                        if await wait_action(self) is False:
+                            break
 
-            is_dealer_win = (
-                self.hu_class in ["hu_self", "hu_first", "hu_second", "hu_third"]
-                and hepai_player_index == 0
-            )
+            if self.next_status == "match_end":
+                logger.info("最后一局结束，不再推进局数")
+                break
+
             next_game_round_classical_switchseat(
                 self,
                 keep_current_round=is_dealer_win,
                 keep_dealer_seat=is_dealer_win,
             )
-
             logger.info(f"重新开始下一局")
 
         logger.info("游戏结束")
@@ -737,6 +752,7 @@ class ClassicalGameState:
         hepai_fan: Optional[List[str]],
         hepai_fu_types: Optional[List[str]],
         hu_class: Optional[str],
+        next_status: Optional[str] = None,
     ) -> float:
         """数和尾结算：先结算和牌家（另三家各付和牌总副），再结算其余玩家两两副差比对。"""
         player_fu = {}
@@ -819,6 +835,7 @@ class ClassicalGameState:
             hepai_player_index,
             self.player_list[hepai_player_index].hand_tiles if hepai_player_index is not None else None,
             self.player_list[hepai_player_index].combination_mask if hepai_player_index is not None else None,
+            next_status,
         )
         return reveal_wait
 

@@ -2,7 +2,7 @@
   <div>
     <h2 class="page-title">段位管理</h2>
     <el-row :gutter="16">
-      <el-col :span="10">
+      <el-col :xs="12" :sm="10" :span="10">
         <el-card>
           <template #header>编辑段位</template>
           <el-form label-width="100px">
@@ -75,7 +75,7 @@
           <p v-if="loadedRank.updated_at" class="loaded-sub">更新于 {{ formatTime(loadedRank.updated_at) }}</p>
         </el-card>
       </el-col>
-      <el-col :span="14">
+      <el-col :xs="12" :sm="14" :span="14">
         <el-card v-loading="lbLoading">
           <template #header>排行榜预览 Top 100</template>
           <el-table :data="leaderboard" size="small" max-height="480">

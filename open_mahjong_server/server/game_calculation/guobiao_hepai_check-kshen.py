@@ -1080,8 +1080,8 @@ class Chinese_Hepai_Check:
                     if f"q{get_tile}" in player_tiles.combination_list:
                         player_tiles.fan_list.append("dandiaojiang") # 单吊将
                         continue
-                case "妙手回春":
-                    player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春
+                case "last_deal" | "妙手回春":
+                    player_tiles.fan_list.append("miaoshouhuichun") # 妙手回春（牌墙空自摸）
                 case "杠上开花":
                     player_tiles.fan_list.append("gangshangkaihua") # 杠上开花
                 case "抢杠和":
@@ -1089,10 +1089,10 @@ class Chinese_Hepai_Check:
                 case "和绝张":
                     player_tiles.fan_list.append("hejuezhang") # 和绝张
                 case "花牌":
-                    if any(idx in ["妙手回春", "自摸", "杠上开花"] for idx in way_to_hepai):
+                    if any(idx in ["last_deal", "妙手回春", "自摸", "杠上开花"] for idx in way_to_hepai):
                         player_tiles.fan_list.append("huapai") # 花牌
-                case "海底捞月":
-                    player_tiles.fan_list.append("haidilaoyue") # 海底捞月
+                case "last_cut" | "海底捞月":
+                    player_tiles.fan_list.append("haidilaoyue") # 海底捞月（牌墙空荣和）
                 case "点和":
                     self.debug_print(player_tiles.combination_list)
                     if combination_str != "" and all(idx not in ["S","K","G","z"] for idx in combination_str) and "和单张" in way_to_hepai:
@@ -1108,7 +1108,7 @@ class Chinese_Hepai_Check:
                         player_tiles.fan_list.append("menqianqing") # 门前清
                     # 核心改动：如果勾选了四大偶发/依存和牌方式，则不加计普通自摸的2分
 
-                    if any(idx in {"妙手回春", "杠上开花", "海底捞月", "抢杠和"} for idx in way_to_hepai):
+                    if any(idx in {"last_deal", "妙手回春", "杠上开花", "last_cut", "海底捞月", "抢杠和"} for idx in way_to_hepai):
                         continue
                     player_tiles.fan_list.append("zimo")
 
@@ -1342,7 +1342,7 @@ class Chinese_Hepai_Check:
 
     def fan_count(self, player_tiles: PlayerTiles,get_tile,way_to_hepai):
         zimo_or_not = False
-        if any(i in ["妙手回春","自摸","杠上开花"] for i in way_to_hepai):
+        if any(i in ["last_deal", "妙手回春", "自摸", "杠上开花"] for i in way_to_hepai):
             zimo_or_not = True
         if zimo_or_not == False:
             for i in player_tiles.combination_list:

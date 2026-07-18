@@ -41,15 +41,7 @@ body {
   font-weight: 500;
 }
 
-@media (max-width: 768px) {
-  .el-container {
-    padding: 0 10px;
-  }
-
-  .el-main {
-    padding: 10px;
-  }
-}
+/* 避免全局 .el-container/.el-main padding 误伤 Admin/Account 布局 */
 
 .fade-enter-active,
 .fade-leave-active {

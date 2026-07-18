@@ -57,24 +57,23 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, float? meld_reveal_delay = null, bool? sea_bottom_discard = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, bool? sea_bottom_discard = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
-            // 战术鸣牌申请：仅吃牌固定播放；碰/和/杠仅在有更高优先级竞争者时由服务端下发
+            // 战术鸣牌申请：仅发声/字体；荣和即使无更高优先级竞争者也会由服务端下发 is_claim
             HandleTacticalClaim(GetCardPlayer, action_list);
             return;
         }
         // isSilent：战术鸣牌申请阶段已发声/动画，实际行为仅同步状态
-        float meldRevealDelaySec = meld_reveal_delay ?? 0f;
+        // 鸣牌保护节奏完全由服务器驱动（受保护观众的消息延迟 gap 后才发出），客户端到帧即呈现
         foreach (string action in action_list) {
 
             Debug.Log($"执行DoAction操作: {action} (silent={isSilent})");
-            bool deferMeldFeedback = !isSilent && meldRevealDelaySec > 0f && IsChiPengMingGangAction(action);
             string soundAction = action == "buzhang"
                 ? (!string.IsNullOrEmpty(combination_target) && combination_target.StartsWith("G") ? "angang" : "jiagang")
                 : action;
-            if (!isSilent && !deferMeldFeedback) {
+            if (!isSilent) {
                 SoundManager.Instance.PlayActionSound(GetCardPlayer, soundAction);
                 // 切牌物理音改在 3D 出牌手牌队列中播放，避免吃牌后立刻收到 cut 消息时声音早于出牌动画
                 if (action != "cut") {
@@ -269,11 +268,8 @@ public partial class NormalGameStateManager {
                             player_to_info[GetCardPlayer].hand_tiles_count -= need_remove_list.Count;
                         }
                         Game3DManager.Instance.Change3DTile(action, 0, need_remove_list.Count, GetCardPlayer, false, combination_mask,
-                            meldRevealDelay: meldRevealDelaySec,
                             meldDiscarderPos: currentMeldDiscarderPos,
-                            meldClaimedTile: currentMeldClaimedTileId,
-                            meldFeedbackAction: deferMeldFeedback ? action : null,
-                            meldFeedbackRoomRule: deferMeldFeedback ? roomRule : null);
+                            meldClaimedTile: currentMeldClaimedTileId);
                     }
                     break;
                 default:
@@ -445,19 +441,6 @@ public partial class NormalGameStateManager {
         }
         // 申请-停顿期间隐藏本家操作按钮；可抢断玩家会在 ask_other 再次询问时重新弹出按钮。
     GameCanvas.Instance.ClearActionButton();
-    }
-
-    private static bool IsChiPengMingGangAction(string action) {
-        switch (action) {
-            case "chi_left":
-            case "chi_mid":
-            case "chi_right":
-            case "peng":
-            case "gang":
-                return true;
-            default:
-                return false;
-        }
     }
 
     /// <summary>

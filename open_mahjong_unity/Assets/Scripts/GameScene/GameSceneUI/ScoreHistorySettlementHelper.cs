@@ -57,22 +57,55 @@ public static class ScoreHistorySettlementHelper {
         foreach (string fanKey in huFan) {
             if (fanKey == "错和") return "错和";
         }
-        // 服务端已按番数从大到小排序，花牌乘算项排在末尾；直接取第一个非花牌项即可。
+        // 日麻等规则服务端未必按番降序；按番数字典取最大值（排除花牌/宝牌等乘算项）。
+        string bestFan = "";
+        int bestRank = int.MinValue;
         foreach (string fanKey in huFan) {
             if (ShouldExcludeFromMainFanPick(fanKey)) continue;
-            return StripFanMultiplier(fanKey);
+            int rank = GetFanRankForMainPick(subRule, fanKey);
+            if (rank > bestRank) {
+                bestRank = rank;
+                bestFan = StripFanMultiplier(fanKey);
+            }
         }
-        return "";
+        return bestFan;
     }
 
-    /// <summary>主番选取时排除花牌乘算项（花牌*1～花牌*8 等），不参与最大番比较。</summary>
+    /// <summary>
+    /// 主番选取时排除花牌/鸟牌/宝牌类乘算项，不参与最大番比较。
+    /// </summary>
     public static bool ShouldExcludeFromMainFanPick(string fanKey) {
         if (string.IsNullOrEmpty(fanKey)) return true;
         return fanKey.StartsWith("花牌")
+            || fanKey.StartsWith("宝牌")
+            || fanKey.StartsWith("里宝牌")
+            || fanKey.StartsWith("赤宝牌")
             || fanKey.StartsWith("鸟牌:")
             || fanKey.StartsWith("中鸟:")
             || fanKey.StartsWith("中鸟x")
             || fanKey.StartsWith("扎鸟倍数:");
+    }
+
+    /// <summary>主番比较用排序权重：双倍役满 &gt; 役满 &gt; 满贯 &gt; 普通番数。</summary>
+    private static int GetFanRankForMainPick(string subRule, string fanKey) {
+        string display = FanTextDictionary.GetFanDisplayText(subRule, fanKey);
+        if (string.IsNullOrEmpty(display)) return 0;
+        if (display.Contains("双倍役满")) return 26000;
+        if (display.Contains("役满")) return 13000;
+        if (display == "满贯") return 10000;
+        if (display.EndsWith("番")
+            && int.TryParse(display.Substring(0, display.Length - 1), out int fan)) {
+            return fan;
+        }
+        if (display.EndsWith("翻")
+            && int.TryParse(display.Substring(0, display.Length - 1), out int classicalFan)) {
+            return classicalFan;
+        }
+        if (display.EndsWith("Fan")
+            && int.TryParse(display.Substring(0, display.Length - 3), out int engFan)) {
+            return engFan;
+        }
+        return 0;
     }
 
     /// <summary>
@@ -378,10 +411,7 @@ public static class ScoreHistorySettlementHelper {
 
     private static string GetFanNameForScoreHistory(string subRule, string fanKey) {
         string baseFanName = StripFanMultiplier(fanKey);
-        if (subRule == "jiandan/standard") {
-            return FanTextDictionary.GetFanNameDisplayText(subRule, baseFanName);
-        }
-        return baseFanName;
+        return FanTextDictionary.GetFanNameDisplayText(subRule, baseFanName);
     }
 
     public static int CalculateSichuanFanTotal(string subRule, string[] huFan) {

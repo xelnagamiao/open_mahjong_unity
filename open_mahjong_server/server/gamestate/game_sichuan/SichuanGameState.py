@@ -42,6 +42,7 @@ from ..public.round_end_timing import (
     sichuan_chajiao_panel_wait_seconds,
     sichuan_settle_hu_panel_wait_seconds,
     ROUND_END_HAND_REVEAL_SEC,
+    HU_CONFIRM_COUNTDOWN_SEC,
 )
 from ..public.ready_phase import run_sichuan_liuju_final_ready_phase
 from ...game_calculation.game_calculation_service import GameCalculationService
@@ -111,8 +112,8 @@ class SichuanPlayer:
             self.has_draw_slot = True
 
     def get_gang_tile(self, tiles_list, gamestate):
-        # 四川无死墙，补牌从牌墙尾摸取
-        element = tiles_list.pop(-1)
+        # 川麻无死墙/无岭上：杠后补牌与普通摸牌一致，从牌墙头取
+        element = tiles_list.pop(0)
         self.hand_tiles.append(element)
         self.has_draw_slot = True
 
@@ -397,13 +398,20 @@ class SichuanGameState:
                         self.game_status = "END"
 
             # 流局终局：与血战三家和共用 _settle_liuju（见 ABCD 顺序注释，禁止跳过查叫）
+            self.next_status = (
+                "match_end"
+                if self.current_round >= self.max_round * 4
+                else "round_end_by_ready"
+            )
             if self.ended_by == "liuju":
                 await self._settle_liuju()
                 player_action_record_round_end(self)
-                await self._ready_phase(liuju=True)
+                if self.next_status != "match_end":
+                    await self._ready_phase(liuju=True)
             else:
                 player_action_record_round_end(self)
-                await self._ready_phase(liuju=False)
+                if self.next_status != "match_end":
+                    await self._ready_phase(liuju=False)
 
             # 定庄
             self.dealer_index = self._decide_next_dealer()
@@ -707,6 +715,13 @@ class SichuanGameState:
                 recycle_discard=recycle_discard if not is_zimo else None,
             )
             player_to_score = {p.player_index: p.score for p in self.player_list}
+            if defer_score or ron_i < len(winners) - 1:
+                next_status = "round_continue"
+            elif self.current_round >= self.max_round * 4:
+                next_status = "match_end"
+            else:
+                next_status = "round_end_by_ready"
+            self.next_status = next_status
             await broadcast_result(
                 self, hu_class=hu_class,
                 hepai_player_index=w,
@@ -726,9 +741,13 @@ class SichuanGameState:
                 score_changes=None if defer_score else changes,
                 gang_refund_changes=gang_refund_changes if has_gang_refund and ron_i == 0 else None,
                 round_continues=round_continues,
+                next_status=next_status,
             )
             if defer_score:
                 await asyncio.sleep(SICHUAN_MID_HU_ANIM_SECONDS)
+            elif next_status == "match_end":
+                # 整场末局：不等 8s ready，由客户端 match_end 收尾；仅留倒牌/番种渐显余量
+                await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)) - HU_CONFIRM_COUNTDOWN_SEC)
             else:
                 await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)))
 
@@ -1040,6 +1059,13 @@ class SichuanGameState:
                         [changes.get(i, 0) for i in range(4)],
                         1 if is_final_panel else 0,
                     )
+                if not is_final_panel:
+                    next_status = "round_continue"
+                elif self.current_round >= self.max_round * 4:
+                    next_status = "match_end"
+                else:
+                    next_status = "round_end_by_ready"
+                self.next_status = next_status
                 await broadcast_result(
                     self,
                     hu_class=rec["hu_class"],
@@ -1058,10 +1084,14 @@ class SichuanGameState:
                     player_to_score=player_scores,
                     liuju_status_final=is_final_panel,
                     round_continues=False,
+                    next_status=next_status,
                 )
-                await asyncio.sleep(
-                    sichuan_settle_hu_panel_wait_seconds(len(rec["fan_list"]), is_final=is_final_panel)
+                panel_wait = sichuan_settle_hu_panel_wait_seconds(
+                    len(rec["fan_list"]), is_final=is_final_panel
                 )
+                if next_status == "match_end":
+                    panel_wait = max(0.0, panel_wait - HU_CONFIRM_COUNTDOWN_SEC)
+                await asyncio.sleep(panel_wait)
 
         # 3) 再看流局玩家：末家和牌者下家起逆时针逐家展示，每家仅 1 次面板（合并该家全部查叫收支）
         # 三家和时整段跳过；否则即使分数变动为 0 也须播完所有未和家面板。
@@ -1112,6 +1142,13 @@ class SichuanGameState:
                     [panel_changes.get(i, 0) for i in range(4)],
                     1 if is_final_panel else 0,
                 )
+            if not is_final_panel:
+                next_status = "round_continue"
+            elif self.current_round >= self.max_round * 4:
+                next_status = "match_end"
+            else:
+                next_status = "round_end_by_ready"
+            self.next_status = next_status
             await broadcast_result(
                 self, hu_class="liuju",
                 liuju_step="chajiao",
@@ -1124,6 +1161,7 @@ class SichuanGameState:
                 liuju_status_final=is_final_panel,
                 liuju_refund=True if panel_has_refund else None,
                 round_continues=False,
+                next_status=next_status,
             )
             if not is_final_panel:
                 await asyncio.sleep(

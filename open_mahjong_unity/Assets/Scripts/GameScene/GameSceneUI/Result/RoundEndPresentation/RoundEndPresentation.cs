@@ -53,6 +53,14 @@ public partial class RoundEndPresentation : MonoBehaviour {
         }
     }
 
+    /// <summary>切局硬清：停演出并收起渐显根（不 SetActive false，以免挡住自家操作区子节点）。</summary>
+    public void HidePresentationVisual() {
+        StopActiveSequence();
+        if (presentationCanvasGroup != null) {
+            presentationCanvasGroup.alpha = 0f;
+        }
+    }
+
     private void StartSequence(IEnumerator routine) {
         StopActiveSequence();
         activeRoundEndCoroutine = StartCoroutine(routine);

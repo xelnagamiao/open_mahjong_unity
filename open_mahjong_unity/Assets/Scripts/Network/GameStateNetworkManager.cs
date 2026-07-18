@@ -230,7 +230,6 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.is_mo_buhua,
             doresponse.action_tick,
             doresponse.cut_from_player,
-            doresponse.meld_reveal_delay,
             doresponse.sea_bottom_discard
         );
     }
@@ -274,7 +273,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.recycle_discard,
             showresponse.gang_refund_changes,
             showresponse.is_qianggang,
-            showresponse.liuju_refund
+            showresponse.liuju_refund,
+            showresponse.next_status
         );
         // 四川·血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打
         if (NormalGameStateManager.Instance.IsSichuanRule()) {
@@ -474,13 +474,13 @@ public class GameStateNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 投票通过后的阶段（结束倒计时、待暂停、已暂停等）须停掉步时/切牌计时，避免计时板继续走表。
+    /// 对局已真正挂起或即将结束时，清掉客户端步时/操作 UI。
+    /// 注意：pause_pending 仍在等当前这一步做完，不可 ClearAction（否则人不能操作，只能耗时摸切）。
     /// </summary>
     private static void ClearGameTimerIfVoteRequires(VoteInfo info) {
         if (info == null || string.IsNullOrEmpty(info.phase)) return;
         switch (info.phase) {
             case "end_countdown":
-            case "pause_pending":
             case "paused":
             case "resume_voting":
             case "resume_countdown":
@@ -601,7 +601,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             info.hu_class,
             info.hepai_player_index,
             info.hepai_player_hand,
-            info.hepai_player_combination_mask
+            info.hepai_player_combination_mask,
+            info.next_status
         );
     }
 

@@ -2,7 +2,7 @@
   <div>
     <h2 class="page-title">消息推送</h2>
     <el-row :gutter="16">
-      <el-col :span="12">
+      <el-col :xs="12" :sm="12" :span="12">
         <el-card>
           <template #header>全服广播</template>
           <el-form label-width="80px">
@@ -24,7 +24,7 @@
           </el-form>
         </el-card>
       </el-col>
-      <el-col :span="12">
+      <el-col :xs="12" :sm="12" :span="12">
         <el-card>
           <template #header>指定用户</template>
           <el-form label-width="80px">

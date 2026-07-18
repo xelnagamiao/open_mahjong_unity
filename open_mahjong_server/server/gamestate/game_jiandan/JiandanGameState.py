@@ -227,9 +227,9 @@ class JiandanGameState:
                     await self.resolve_action_window(timeout=self.estimated_action_window_timeout())
                     await self.flush_outbound_payloads()
                 self.finalize_round_recording()
-                await self.run_round_ready_phase(timeout=self.estimated_round_result_ready_timeout())
                 if self.current_round >= self.max_round * 4:
                     break
+                await self.run_round_ready_phase(timeout=self.estimated_round_result_ready_timeout())
                 self.advance_round_after_ready()
                 await self.flush_outbound_payloads()
             self.finalize_game_recording()

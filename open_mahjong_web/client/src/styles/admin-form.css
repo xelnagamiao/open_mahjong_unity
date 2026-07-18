@@ -25,3 +25,170 @@
 .admin-inline-form .el-form-item__content > .el-button {
   margin-bottom: 0;
 }
+
+/* 宽表在容器内横向滚动，避免撑破整页 */
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+/*
+ * 面板页视口锁：禁止整页被表格/表单撑宽。
+ * 由 Admin/Account/EventAdmin Layout 挂载时给 html/body 加上 .panel-viewport-lock
+ */
+html.panel-viewport-lock,
+html.panel-viewport-lock body,
+html.panel-viewport-lock #app {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.admin-layout.el-container,
+.account-layout.el-container,
+.event-admin-layout.el-container {
+  width: 100% !important;
+  max-width: 100%;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+}
+
+.admin-layout > .el-aside,
+.account-layout > .el-aside,
+.event-admin-layout > .el-aside {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.admin-layout .admin-body,
+.account-layout .account-body,
+.event-admin-layout .event-body {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.admin-layout .admin-main,
+.account-layout .account-main,
+.event-admin-layout .event-main {
+  min-width: 0 !important;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+/* 强制表格按容器宽度布局，列过多时在表内横滑，而不是撑开整页 */
+.admin-main .el-table,
+.account-main .el-table,
+.event-main .el-table {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.admin-main .el-card,
+.account-main .el-card,
+.event-main .el-card,
+.admin-main .el-row,
+.account-main .el-row,
+.event-main .el-row {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-main .el-col,
+.account-main .el-col,
+.event-main .el-col {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-main .fit-table-wrap,
+.account-main .fit-table-wrap,
+.event-main .fit-table-wrap,
+.admin-main .table-scroll,
+.account-main .table-scroll,
+.event-main .table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  /* 筛选/表单项尽量一行 2 个，提高操作效率 */
+  .admin-inline-form.el-form--inline {
+    gap: 8px;
+  }
+
+  .admin-inline-form.el-form--inline .el-form-item {
+    width: calc(50% - 4px);
+    margin-bottom: 8px;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .admin-inline-form .el-form-item__content {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-inline-form .el-input,
+  .admin-inline-form .el-select,
+  .admin-inline-form .el-date-editor,
+  .filter-bar .el-input,
+  .filter-bar .el-select,
+  .filter-bar .el-date-editor {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .filter-bar > * {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    max-width: calc(50% - 4px);
+  }
+
+  .emp-form.el-form--inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .emp-form.el-form--inline .el-form-item {
+    width: calc(50% - 4px);
+    margin-right: 0;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .emp-form .el-input,
+  .emp-form .el-select,
+  .emp-form .el-date-editor {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .emp-tab-bar {
+    flex-wrap: wrap;
+    align-items: flex-start !important;
+    max-width: 100%;
+  }
+
+  .emp-lifecycle-text {
+    min-width: 0 !important;
+  }
+}

@@ -291,9 +291,10 @@ public class AutoAction : MonoBehaviour{
         ToggleAutoOption(ref isAutoBuhua, autoBuhuaText);
     }
 
-    // 切换鸣牌/牌张面板展开/收起
+    // 切换鸣牌面板与牌张设置：两个独立面板一起亮/一起暗
     private void ToggleMingPaiPanel(){
         isMingPaiPanelExpanded = !isMingPaiPanelExpanded;
+        if (mingPaiPanel != null) mingPaiPanel.SetActive(isMingPaiPanelExpanded);
         if (tilePassSettingPanel != null) tilePassSettingPanel.SetPanelVisible(isMingPaiPanelExpanded);
     }
 
@@ -306,8 +307,8 @@ public class AutoAction : MonoBehaviour{
     }
 
     /// <summary>
-    /// 当前摸入牌是否命中牌张设置的跳过列表。
-    /// 命中时跳过自动自摸（仍可手动和牌），与「不自摸」不同（后者阻止一切自动自摸）。
+    /// 当前摸入牌是否应跳过自动自摸：需开启「选中牌不自动自摸」且命中选中牌张。
+    /// 与「不自摸」不同（后者阻止一切自动自摸）。
     /// </summary>
     public bool ShouldAutoPassForCurrentDraw() {
         NormalGameStateManager gsm = NormalGameStateManager.Instance;

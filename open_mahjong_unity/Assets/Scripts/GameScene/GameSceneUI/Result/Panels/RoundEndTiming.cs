@@ -2,6 +2,8 @@
 /// 和牌结算面板演出时长（与服务器 round_end_timing 保持一致）。
 /// </summary>
 public static class RoundEndTiming {
+    // next_status: "round_continue" | "round_end_by_ready" | "match_end"
+
     public const float RoundEndPresentationFadeSeconds = 0.35f;
     public const float RoundEndHandRevealSeconds = 1.5f;
     /// <summary>与 <see cref="HepaiRevealTiming.TravelSeconds"/> 一致，供注释/对照服务端。</summary>
