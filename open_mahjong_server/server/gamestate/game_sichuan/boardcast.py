@@ -406,13 +406,17 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
             logger.error(f"四川 do_action 广播失败 {current_player.user_id}: {e}")
 
     if deferred_protected_sends:
-        # 内联等待剩余 gap：广播返回前受保护观众必已收到本帧，后续消息不会乱序
-        await asyncio.sleep(protected_meld_delay)
+        from ..public.outbound_pipe import schedule_viewer_send
+
         for i, payload in deferred_protected_sends:
-            try:
-                await _send_do_action_payload_to_viewer(self, i, payload)
-            except Exception as e:
-                logger.error(f"四川鸣牌保护延迟发送失败 viewer={i}: {e}")
+            def _make_send(vi=i, p=payload):
+                async def _do():
+                    await _deliver_do_action_payload_to_viewer(self, vi, p)
+                return _do
+
+            schedule_viewer_send(
+                self, i, _make_send(), delay_before=protected_meld_delay,
+            )
 
     if interval_active and is_cut:
         arm_claim_protection_timer(self, _send_do_action_payload_to_viewer)
@@ -460,7 +464,7 @@ def _build_do_action_payload(
     }
 
 
-async def _send_do_action_payload_to_viewer(
+async def _deliver_do_action_payload_to_viewer(
     self, viewer_index: int, payload: dict, msg_type: str = "gamestate/sichuan/do_action"
 ):
     current_player = self.player_list[viewer_index]
@@ -479,6 +483,18 @@ async def _send_do_action_payload_to_viewer(
     )
     await player_conn.websocket.send_json(response.dict(exclude_none=True))
     await self.send_to_realtime_spectators(current_player.player_index, response)
+
+
+
+async def _send_do_action_payload_to_viewer(
+    self, viewer_index: int, payload: dict, msg_type: str = "gamestate/sichuan/do_action"
+):
+    from ..public.outbound_pipe import send_to_viewer
+
+    async def _do():
+        await _deliver_do_action_payload_to_viewer(self, viewer_index, payload, msg_type)
+
+    await send_to_viewer(self, viewer_index, _do)
 
 
 async def broadcast_result(self, hu_class: str, **kwargs):
@@ -505,8 +521,13 @@ async def broadcast_result(self, hu_class: str, **kwargs):
                         **payload,
                     ),
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+                from ..public.outbound_pipe import send_to_viewer
+
+                async def _do(conn=player_conn, resp=response, idx=current_player.player_index):
+                    await conn.websocket.send_json(resp.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(idx, resp)
+
+                await send_to_viewer(self, current_player.player_index, _do)
         except Exception as e:
             logger.error(f"四川 show_result 广播失败 {current_player.user_id}: {e}")
 

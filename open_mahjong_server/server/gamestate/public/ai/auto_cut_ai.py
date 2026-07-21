@@ -52,13 +52,7 @@ async def _submit_pass_when_ready(game_state, player_index: int, action_list: li
 async def auto_cut_action(game_state, player_index: int, action_list: list, game_status: str):
     """
     机器人自动操作
-    规则：如果有pass选pass，没pass选cut（对于手牌操作），否则不操作
-    
-    Args:
-        game_state: 游戏状态对象
-        player_index: 玩家索引
-        action_list: 可用操作列表
-        game_status: 游戏状态
+    规则：补花优先；行牌摸切；鸣牌/抢杠等有 pass 则 pass。
     """
     try:
         current_player = game_state.player_list[player_index]
@@ -94,8 +88,12 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
 
         elif game_status == "waiting_buhua_round":
             await asyncio.sleep(_BOT_DELAY)
+            if "buhua" in action_list:
+                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 buhua（补花轮）")
+                await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
+                return
             if "pass" in action_list:
-                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass")
+                logger.info(f"机器人 {player_index} ({current_player.username}) 选择 pass（补花轮）")
                 await get_ai_action(game_state, player_index, "pass", None, None, None, None)
                 return
         else:

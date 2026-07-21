@@ -15,6 +15,22 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true
+      },
+      '/2d/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/2d\/api/, '/api')
+      },
+      '/2d/ws': {
+        target: 'ws://localhost:8081',
+        changeOrigin: true,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/2d\/ws/, '/game')
       }
     }
   },

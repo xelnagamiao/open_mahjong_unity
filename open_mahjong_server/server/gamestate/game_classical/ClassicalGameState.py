@@ -186,12 +186,18 @@ class ClassicalGameState:
         await deliver_realtime_spectator_message(self, player_index, response)
 
     async def player_disconnect(self, user_id: int):
+        newly_offline = False
         for p in self.player_list:
             if p.user_id == user_id:
                 if "offline" not in p.tag_list:
                     p.tag_list.append("offline")
+                    newly_offline = True
                     await broadcast_refresh_player_tag_list(self)
                 break
+
+        if newly_offline:
+            from ..public.offline import schedule_offline_auto_on_disconnect
+            schedule_offline_auto_on_disconnect(self, user_id)
 
         non_ai_players = [p for p in self.player_list if p.user_id >= 10]
         if non_ai_players:

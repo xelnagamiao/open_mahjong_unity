@@ -4,6 +4,7 @@ const pool = require('../../config/database');
 const config = require('../../config/config');
 const { writeAudit } = require('../../utils/audit');
 const { generateEventId } = require('../../utils/eventsTables');
+const { fetchEventPlayerStats } = require('../../services/eventPlayerStats');
 
 const MAX_EVENT_ADMINS = 10;
 
@@ -809,6 +810,28 @@ router.delete('/:eventId/rooms/:roomId', async (req, res) => {
   } catch (err) {
     console.error('admin events delete room:', err);
     res.status(500).json({ success: false, message: '游戏服不可达' });
+  }
+});
+
+/** 赛事玩家顺位统计（与数据站 rank-stats 口径一致） */
+router.get('/:eventId/player-stats', async (req, res) => {
+  try {
+    const event = await fetchEventRow(req.params.eventId);
+    if (!event) {
+      return res.status(404).json({ success: false, message: '赛事不存在' });
+    }
+    const data = await fetchEventPlayerStats(event.event_id, {
+      rule: req.query.rule || null,
+      sub_rule: req.query.sub_rule || null,
+      game_type: req.query.game_type || null,
+      date_from: req.query.date_from || null,
+      date_to: req.query.date_to || null,
+      q: req.query.q || null,
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('admin events player-stats:', err);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
   }
 });
 

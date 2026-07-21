@@ -85,6 +85,10 @@ public class VotePanel : MonoBehaviour {
         if (info.phase != _phase) {
             _localVoted = false;
         }
+        // 重连补发时：若服务端已有本座实票，隐藏同意/拒绝按钮
+        if (!_localVoted && HasSelfCastVote(info.votes)) {
+            _localVoted = true;
+        }
         _phase = info.phase;
         _voteType = info.vote_type ?? "";
         _countdown = info.countdown;
@@ -94,6 +98,22 @@ public class VotePanel : MonoBehaviour {
         RefreshBlocks(info.votes, info.total);
         RefreshBottomBar(info);
         RebuildLayouts();
+    }
+
+    /// <summary>根据 indexToPosition 找到本家座位，判断 votes 中是否已有 agree/refuse。</summary>
+    private static bool HasSelfCastVote(Dictionary<string, string> votes) {
+        if (votes == null || NormalGameStateManager.Instance == null) return false;
+        var indexToPosition = NormalGameStateManager.Instance.indexToPosition;
+        if (indexToPosition == null) return false;
+        foreach (var kv in indexToPosition) {
+            if (kv.Value != "self") continue;
+            if (votes.TryGetValue(kv.Key.ToString(), out string v)
+                && (v == "agree" || v == "refuse")) {
+                return true;
+            }
+            break;
+        }
+        return false;
     }
 
     /// <summary>

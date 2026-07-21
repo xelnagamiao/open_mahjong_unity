@@ -25,8 +25,7 @@ from ..public.hand_slot_utils import (
 from ..public.claim_protection import (
     begin_claim_protection_interval,
     finalize_claim_protection,
-    compute_protected_meld_delay,
-)
+    )
 from ..public.tactical_claim import (
     init_tactical_round_state,
     apply_tactical_claim_if_needed,
@@ -448,13 +447,12 @@ async def wait_action(self):
                         executed_player=player_index,
                         executed_action_type=action_type,
                     )
-                    # 荣和：先把暂存出牌发给受保护观众，再按 cut 揭示时刻 + gap 等待后进入结算。
+                    # 荣和：先把暂存出牌发给受保护观众；结算帧经 outbound_pipe 排队，主循环不再 sleep gap。
                     had_claim_protection = getattr(self, "_cp_active", False)
+
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
-                    if had_claim_protection:
-                        delay = compute_protected_meld_delay(self)
-                        if delay > 0:
-                            await asyncio.sleep(delay)
+
+                    # 受保护观众后续帧走 outbound_pipe FIFO，此处不再全局 sleep
                     # 荣和：不写入手牌。正确和牌在 check_hepai 确认后再 append；错和仅展示层拼和牌张。
                     self.hu_class = action_type
                     self.game_status = "check_hepai"

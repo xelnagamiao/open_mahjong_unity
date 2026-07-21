@@ -223,6 +223,115 @@
           </el-table-column>
         </el-table>
       </el-card>
+
+      <el-card class="block">
+        <template #header>
+          比赛场统计
+          <el-button
+            link
+            type="primary"
+            style="float: right"
+            :loading="loadingStats"
+            @click="loadPlayerStats"
+          >刷新</el-button>
+        </template>
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 12px"
+          title="口径与数据站「比赛场」一致：按牌谱顺位汇总总对局与一位～四位次数。"
+        />
+        <div class="stats-filters">
+          <el-select
+            v-model="statsFilter.rule"
+            clearable
+            placeholder="全部规则"
+            size="small"
+            style="width: 140px"
+            @change="loadPlayerStats"
+          >
+            <el-option
+              v-for="r in statsRuleOptions"
+              :key="r"
+              :label="ruleLabel(r)"
+              :value="r"
+            />
+          </el-select>
+          <el-select
+            v-model="statsFilter.game_type"
+            clearable
+            placeholder="全部局制"
+            size="small"
+            style="width: 140px"
+            @change="loadPlayerStats"
+          >
+            <el-option
+              v-for="opt in GAME_TYPE_OPTIONS"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+          <el-input
+            v-model="statsFilter.q"
+            clearable
+            size="small"
+            placeholder="玩家 ID / 用户名"
+            style="width: 180px"
+            @keyup.enter="loadPlayerStats"
+          />
+          <el-button type="primary" size="small" :loading="loadingStats" @click="loadPlayerStats">查询</el-button>
+          <el-button size="small" @click="resetStatsFilter">重置</el-button>
+        </div>
+        <div v-loading="loadingStats">
+          <div class="stats-totals">
+            <div v-for="item in totalsStatsDisplay" :key="item.label" class="stats-cell">
+              <span class="stats-label">{{ item.label }}</span>
+              <span class="stats-value">{{ item.value }}</span>
+            </div>
+            <div class="stats-cell">
+              <span class="stats-label">参赛人数</span>
+              <span class="stats-value">{{ statsTotals.player_count ?? 0 }}</span>
+            </div>
+          </div>
+          <el-table
+            :data="statsPlayers"
+            size="small"
+            empty-text="暂无比赛场对局数据"
+            highlight-current-row
+            @current-change="onStatsPlayerSelect"
+          >
+            <el-table-column type="index" label="#" width="48" />
+            <el-table-column prop="user_id" label="用户 ID" width="100" />
+            <el-table-column prop="username" label="用户名" min-width="120" />
+            <el-table-column prop="total_games" label="对局" width="72" sortable />
+            <el-table-column label="平均顺位" width="96">
+              <template #default="{ row }">{{ avgRank(row) }}</template>
+            </el-table-column>
+            <el-table-column prop="first_place_count" label="一位" width="72" sortable />
+            <el-table-column prop="second_place_count" label="二位" width="72" sortable />
+            <el-table-column prop="third_place_count" label="三位" width="72" sortable />
+            <el-table-column prop="fourth_place_count" label="四位" width="72" sortable />
+            <el-table-column label="一位率" width="88">
+              <template #default="{ row }">{{ rankRate(row.first_place_count, row) }}</template>
+            </el-table-column>
+            <el-table-column prop="total_score" label="总分" width="96" sortable />
+          </el-table>
+          <div v-if="selectedPlayerStats" class="stats-player-detail">
+            <h4 class="stats-heading">
+              选中：{{ selectedPlayerStats.username }}
+              <span class="uid">ID {{ selectedPlayerStats.user_id }}</span>
+            </h4>
+            <div class="stats-totals">
+              <div v-for="item in selectedPlayerStatsDisplay" :key="item.label" class="stats-cell">
+                <span class="stats-label">{{ item.label }}</span>
+                <span class="stats-value">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-card>
     </template>
   </div>
 </template>
@@ -238,6 +347,37 @@ import {
   createDefaultGuobiaoRoomConfig,
 } from '@/utils/guobiaoRoomConfig'
 import { eventStatusLabel, eventStatusTagType } from '@/utils/eventMeta'
+import { avgRank, buildPlayerStatsRows, rankRate } from '@/utils/statsDisplay'
+
+const RULE_LABELS = {
+  guobiao: '国标',
+  riichi: '立直',
+  qingque: '青雀',
+  classical: '古典',
+  sichuan: '四川',
+  changsha: '长沙',
+  jiandan: '简单',
+}
+const GAME_TYPE_OPTIONS = [
+  { value: 'quanzhuang', label: '全庄战' },
+  { value: 'xifeng', label: '东西战' },
+  { value: 'banzhuang', label: '半庄战' },
+  { value: 'dongfeng', label: '东风战' },
+]
+const RANK_STAT_LABELS = new Set([
+  '总对局',
+  '平均顺位',
+  '一位率',
+  '二位率',
+  '三位率',
+  '四位率',
+])
+function ruleLabel(rule) {
+  return RULE_LABELS[rule] || rule
+}
+function rankOnlyStatsRows(stats) {
+  return buildPlayerStatsRows(stats || {}).filter((row) => RANK_STAT_LABELS.has(row.label))
+}
 
 const route = useRoute()
 const loading = ref(false)
@@ -264,9 +404,31 @@ const roomForm = reactive({
   ...createDefaultGuobiaoRoomConfig(),
 })
 
+const loadingStats = ref(false)
+const statsTotals = ref({
+  total_games: 0,
+  first_place_count: 0,
+  second_place_count: 0,
+  third_place_count: 0,
+  fourth_place_count: 0,
+  player_count: 0,
+})
+const statsPlayers = ref([])
+const statsRuleOptions = ref([])
+const statsFilter = reactive({ rule: '', game_type: '', q: '' })
+const selectedPlayerId = ref(null)
+
 const owner = computed(() => (detail.value?.admins || []).find((a) => a.role === 'owner') || null)
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
 const pendingProfile = ref(null)
+const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))
+const selectedPlayerStats = computed(() => {
+  if (selectedPlayerId.value == null) return null
+  return statsPlayers.value.find((p) => p.user_id === selectedPlayerId.value) || null
+})
+const selectedPlayerStatsDisplay = computed(() =>
+  selectedPlayerStats.value ? rankOnlyStatsRows(selectedPlayerStats.value) : []
+)
 
 function formatDate(v) {
   return v ? new Date(v).toLocaleString('zh-CN') : '-'
@@ -294,6 +456,51 @@ async function loadRooms() {
   }
 }
 
+async function loadPlayerStats() {
+  loadingStats.value = true
+  try {
+    const params = {}
+    if (statsFilter.rule) params.rule = statsFilter.rule
+    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    if (statsFilter.q.trim()) params.q = statsFilter.q.trim()
+    const res = await adminApi.get(`/events/${route.params.eventId}/player-stats`, { params })
+    const data = res.data.data || {}
+    statsTotals.value = data.totals || {
+      total_games: 0,
+      first_place_count: 0,
+      second_place_count: 0,
+      third_place_count: 0,
+      fourth_place_count: 0,
+      player_count: 0,
+    }
+    statsPlayers.value = data.players || []
+    statsRuleOptions.value = data.filters?.rules || []
+    if (
+      selectedPlayerId.value != null
+      && !statsPlayers.value.some((p) => p.user_id === selectedPlayerId.value)
+    ) {
+      selectedPlayerId.value = null
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '加载统计失败')
+    statsPlayers.value = []
+  } finally {
+    loadingStats.value = false
+  }
+}
+
+function resetStatsFilter() {
+  statsFilter.rule = ''
+  statsFilter.game_type = ''
+  statsFilter.q = ''
+  selectedPlayerId.value = null
+  loadPlayerStats()
+}
+
+function onStatsPlayerSelect(row) {
+  selectedPlayerId.value = row?.user_id ?? null
+}
+
 async function load() {
   loading.value = true
   try {
@@ -302,7 +509,7 @@ async function load() {
     if (owner.value) {
       ownerForm.user_id = String(owner.value.user_id)
     }
-    await Promise.all([loadRooms(), loadPendingProfile()])
+    await Promise.all([loadRooms(), loadPendingProfile(), loadPlayerStats()])
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载失败')
     detail.value = null
@@ -574,5 +781,47 @@ onMounted(load)
 .desc-text {
   white-space: pre-wrap;
   line-height: 1.5;
+}
+.stats-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.stats-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: #fafbfc;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+}
+.stats-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stats-label {
+  font-size: 12px;
+  color: #909399;
+}
+.stats-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  font-variant-numeric: tabular-nums;
+}
+.stats-player-detail {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed #ebeef5;
+}
+.stats-heading {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #606266;
 }
 </style>

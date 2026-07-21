@@ -28,6 +28,7 @@ public class RecordPanel : MonoBehaviour {
     private const float LoadMoreScrollThreshold = 0.02f;
 
     private readonly HashSet<string> _loadedGameIds = new HashSet<string>();
+    private readonly Dictionary<string, RecordPrefab> _recordItems = new Dictionary<string, RecordPrefab>();
     private bool _isLoadingMore;
     private bool _hasMore = true;
     private int _loadedCount;
@@ -105,6 +106,7 @@ public class RecordPanel : MonoBehaviour {
 
     private void ResetPaginationState() {
         _loadedGameIds.Clear();
+        _recordItems.Clear();
         _loadedCount = 0;
         _hasMore = true;
         _isLoadingMore = false;
@@ -115,6 +117,7 @@ public class RecordPanel : MonoBehaviour {
         foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
         }
+        _recordItems.Clear();
     }
 
     private void AppendRecordItem(RecordInfo record) {
@@ -132,8 +135,20 @@ public class RecordPanel : MonoBehaviour {
             subRule,
             matchType,
             recordedTime,
-            record.players
+            record.players,
+            record.is_favorite
         );
+        _recordItems[record.game_id] = item;
+    }
+
+    public void OnRecordFavoriteUpdated(bool success, string gameId, bool isFavorite, string message) {
+        if (string.IsNullOrEmpty(gameId)) return;
+        if (_recordItems.TryGetValue(gameId, out RecordPrefab item) && item != null) {
+            item.ApplyFavoriteResult(success, isFavorite);
+        }
+        if (success) {
+            NotificationManager.Instance.ShowTip("牌谱", true, string.IsNullOrEmpty(message) ? (isFavorite ? "已收藏" : "已取消收藏") : message);
+        }
     }
 
     public void GetRecordListResponse(bool success, string message, RecordInfo[] recordList, int offset = 0) {

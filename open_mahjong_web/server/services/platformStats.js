@@ -405,6 +405,88 @@ async function queryHomeHierarchyStats() {
   };
 }
 
+/**
+ * 平台最近天梯牌谱（与数据站对局记录字段对齐，含同桌玩家）
+ * @param {{ matchTier?: string|null, limit?: number, offset?: number }} opts
+ */
+async function queryRecentLadderRecords({ matchTier = null, limit = 20, offset = 0 } = {}) {
+  const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+  const off = Math.max(0, parseInt(offset, 10) || 0);
+  const params = [];
+  const conditions = [`gpr.room_type = 'match'`];
+
+  if (matchTier && LADDER_TIERS.includes(matchTier)) {
+    params.push(matchTier);
+    conditions.push(`gpr.match_tier = $${params.length}`);
+  } else {
+    params.push(LADDER_TIERS);
+    conditions.push(`gpr.match_tier = ANY($${params.length}::varchar[])`);
+  }
+
+  const whereSql = conditions.join(' AND ');
+  const limitIdx = params.length + 1;
+  const offsetIdx = params.length + 2;
+  params.push(lim, off);
+
+  const listRes = await pool.query(
+    `SELECT gr.game_id, gr.created_at,
+            MAX(gpr.rule) AS rule,
+            MAX(gpr.sub_rule) AS sub_rule,
+            MAX(gpr.match_type) AS match_type,
+            MAX(gpr.room_type) AS room_type,
+            MAX(gpr.match_tier) AS match_tier
+     FROM game_records gr
+     JOIN game_player_records gpr ON gpr.game_id = gr.game_id
+     WHERE ${whereSql}
+     GROUP BY gr.game_id, gr.created_at
+     ORDER BY gr.created_at DESC
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    params
+  );
+
+  const countParams = params.slice(0, -2);
+  const countRes = await pool.query(
+    `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
+     FROM game_player_records gpr
+     WHERE ${whereSql}`,
+    countParams
+  );
+
+  const gameIds = listRes.rows.map((r) => r.game_id);
+  const playersByGame = new Map();
+  if (gameIds.length > 0) {
+    const playersRes = await pool.query(
+      `SELECT game_id, user_id, username, score, rank
+       FROM game_player_records
+       WHERE game_id = ANY($1::varchar[])
+       ORDER BY rank`,
+      [gameIds]
+    );
+    for (const row of playersRes.rows) {
+      if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
+      playersByGame.get(row.game_id).push(row);
+    }
+  }
+
+  const items = listRes.rows.map((row) => ({
+    game_id: row.game_id,
+    created_at: row.created_at,
+    rule: row.rule,
+    sub_rule: row.sub_rule,
+    match_type: row.match_type,
+    room_type: row.room_type || 'match',
+    match_tier: row.match_tier,
+    players: playersByGame.get(row.game_id) || [],
+  }));
+
+  return {
+    items,
+    total: countRes.rows[0]?.cnt || 0,
+    limit: lim,
+    offset: off,
+  };
+}
+
 module.exports = {
   LADDER_TIERS,
   STAT_DATE_EXPR,
@@ -417,6 +499,7 @@ module.exports = {
   querySceneTotalsFans,
   querySceneDailyGames,
   queryHomeHierarchyStats,
+  queryRecentLadderRecords,
   fillFanByTier,
   GUOBIAO_FAN_KEYS,
   MODE_TO_GAME_TYPE,

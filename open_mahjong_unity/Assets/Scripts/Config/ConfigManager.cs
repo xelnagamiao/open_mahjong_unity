@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = false;
+    public static bool Debug = true;
 
     public static string webUrl;
     public static string gameUrl;
@@ -65,6 +65,8 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_HAND_SORT_RIICHI_DRAGON_ORDER = "HandSortRiichiDragonOrderMode";
     private const string KEY_LANGUAGE = "AppLanguage";
     private const string KEY_ACTION_BUTTON_COLOR_ENABLED = "ActionButtonColorEnabled";
+    private const string KEY_GONG_HU_SOUND_ENABLED = "GongHuSoundEnabled";
+    private const string KEY_MATCH_SUCCESS_SOUND_ENABLED = "MatchSuccessSoundEnabled";
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
@@ -97,6 +99,10 @@ public class ConfigManager : MonoBehaviour {
     public int HandSortRiichiDragonOrderMode { get; private set; }
     /// <summary>操作按钮分色：关时全部使用 GameCanvas 的 fallback 配色</summary>
     public bool ActionButtonColorEnabled { get; private set; }
+    /// <summary>高番敲锣音效：默认开启</summary>
+    public bool GongHuSoundEnabled { get; private set; }
+    /// <summary>匹配成功音效：默认开启</summary>
+    public bool MatchSuccessSoundEnabled { get; private set; }
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
     public const int WhiteDragonTileId = 46;
@@ -151,6 +157,8 @@ public class ConfigManager : MonoBehaviour {
         HandSortRiichiDragonOrderMode = Mathf.Clamp(PlayerPrefs.GetInt(KEY_HAND_SORT_RIICHI_DRAGON_ORDER, 2), 0, TileIdOrder.RiichiDragonOrderOptions.Length - 1);
         _languageMode = (AppLanguage)Mathf.Clamp(PlayerPrefs.GetInt(KEY_LANGUAGE, (int)AppLanguage.SimplifiedChinese), 0, 2);
         ActionButtonColorEnabled = PlayerPrefs.GetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, 0) == 1;
+        GongHuSoundEnabled = PlayerPrefs.GetInt(KEY_GONG_HU_SOUND_ENABLED, 1) == 1;
+        MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
 #if UNITY_WEBGL && !UNITY_EDITOR
         TargetFrameRate = WebLockedFrameRate;
@@ -330,6 +338,18 @@ public class ConfigManager : MonoBehaviour {
         if (GameCanvas.Instance != null) {
             GameCanvas.Instance.RefreshActionButtonColors();
         }
+    }
+
+    public void SetGongHuSoundEnabled(bool enabled) {
+        GongHuSoundEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_GONG_HU_SOUND_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetMatchSuccessSoundEnabled(bool enabled) {
+        MatchSuccessSoundEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
     }
 
     // 应用排序规则到 TileIdOrder，并在对局中开启自动理牌时立即按新规则重排当前手牌。

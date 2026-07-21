@@ -2,6 +2,7 @@
 # 仅用于自定义房间（room_type == "custom"）对局；机器人不参与投票。
 # 设计要点：
 # - 投票发起后 20 秒倒计时；未全员同意则作废，发起者 5 分钟内不可再次发起。
+# - 掉线真人未投票时按默认同意计（不处理投票中途掉线的即时重算，属边缘情况）。
 # - 全员同意「暂停」→ 进入 pause_pending，由主状态机迭代顶部的检查点 checkpoint() 在
 #   方便服务器还原的节点（每一步开始前）真正挂起；战鸣/抢杠等复杂节点不会被中断，
 #   自然推迟到下一次主状态机迭代。
@@ -9,6 +10,7 @@
 # - 「解除暂停」同样需要全员真人同意：点击后进入 resume_voting（20 秒），
 #   全员同意 → 5 秒倒计时 → 恢复；任一拒绝或超时 → 回到 paused 继续暂停。
 # - 全员同意「结束」→ 5 秒倒计时后清理对局，客户端回主菜单。
+# - 重连时向该玩家补发当前 vote_update（若 phase != idle）。
 import asyncio
 import time
 import logging
@@ -40,6 +42,7 @@ class VoteManager:
         self._timer_task = None      # 投票超时 / 结束倒计时任务
         self._pause_deadline_task = None  # 暂停 1000s 自动解除任务
         self._pause_start_ts = 0.0   # 进入 paused 时刻，用于计算剩余时长
+        self._phase_start_ts = 0.0   # 当前带倒计时阶段的起始时刻，用于剩余秒数
 
     # ---------- 辅助 ----------
 
@@ -52,6 +55,28 @@ class VoteManager:
             if p.user_id == user_id:
                 return p
         return None
+
+    @staticmethod
+    def _is_offline(player):
+        return "offline" in getattr(player, "tag_list", [])
+
+    def _effective_vote(self, player):
+        """真人有效票：已投票用实票；掉线且未投票则默认同意。"""
+        vote = self.votes.get(player.user_id)
+        if vote is not None:
+            return vote
+        if self._is_offline(player):
+            return "agree"
+        return "none"
+
+    def _mark_phase_start(self):
+        self._phase_start_ts = time.monotonic()
+
+    def _remaining_countdown(self, duration):
+        if not duration or self._phase_start_ts <= 0:
+            return int(duration) if duration else 0
+        elapsed = time.monotonic() - self._phase_start_ts
+        return max(0, int(duration - elapsed))
 
     def is_busy(self):
         return self.phase != "idle"
@@ -110,6 +135,7 @@ class VoteManager:
         self.initiator_user_id = user_id
         self.votes = {}  # 发起者不自动同意，由其本人手动点同意/拒绝
         self.phase = "voting"
+        self._mark_phase_start()
         self._cancel_vote_timer()
         self._timer_task = asyncio.create_task(self._vote_timeout_task())
         await self._broadcast()
@@ -143,6 +169,7 @@ class VoteManager:
         self.initiator_user_id = user_id
         self.votes = {}  # 发起者不自动同意，由其本人手动点同意/拒绝
         self.phase = "resume_voting"
+        self._mark_phase_start()
         self._cancel_vote_timer()
         self._timer_task = asyncio.create_task(self._resume_vote_timeout_task())
         await self._broadcast()
@@ -201,8 +228,9 @@ class VoteManager:
 
     async def _evaluate(self):
         humans = self.human_players
-        agree = sum(1 for p in humans if self.votes.get(p.user_id) == "agree")
-        refuse = sum(1 for p in humans if self.votes.get(p.user_id) == "refuse")
+        # 掉线未投票视为默认同意；已投实票优先
+        agree = sum(1 for p in humans if self._effective_vote(p) == "agree")
+        refuse = sum(1 for p in humans if self._effective_vote(p) == "refuse")
         total = len(humans)
 
         if refuse > 0:
@@ -210,6 +238,7 @@ class VoteManager:
             # 倒计时结束后再回到 idle（普通投票）或 paused（解除暂停投票）。
             self._cancel_vote_timer()
             self.phase = "rejected"
+            self._mark_phase_start()
             await self._broadcast(reason="有玩家拒绝")
             self._timer_task = asyncio.create_task(self._reject_resolve_task())
             return
@@ -229,6 +258,7 @@ class VoteManager:
             else:  # end
                 self._clear_throttle("end")
                 self.phase = "end_countdown"
+                self._mark_phase_start()
                 await self._broadcast()
                 self._timer_task = asyncio.create_task(self._end_resolve_task())
 
@@ -309,6 +339,7 @@ class VoteManager:
         self.phase = "paused"
         self._pause_event.clear()
         self._pause_start_ts = time.monotonic()
+        self._mark_phase_start()
         self._pause_deadline_task = asyncio.create_task(self._pause_deadline_task_fn())
         await self._broadcast()
         try:
@@ -317,6 +348,7 @@ class VoteManager:
             self._cancel_all_timers()
         # 解除暂停 5 秒倒计时（仍处于挂起状态，主循环不会推进）
         self.phase = "resume_countdown"
+        self._mark_phase_start()
         await self._broadcast()
         await asyncio.sleep(RESUME_COUNTDOWN)
         # 恢复
@@ -343,22 +375,22 @@ class VoteManager:
             if getattr(p, "is_bot", False):
                 vote_map[str(p.player_index)] = "bot"
             else:
-                vote_map[str(p.player_index)] = self.votes.get(p.user_id, "none")
-        agree = sum(1 for p in humans if self.votes.get(p.user_id) == "agree")
-        refuse = sum(1 for p in humans if self.votes.get(p.user_id) == "refuse")
+                vote_map[str(p.player_index)] = self._effective_vote(p)
+        agree = sum(1 for p in humans if self._effective_vote(p) == "agree")
+        refuse = sum(1 for p in humans if self._effective_vote(p) == "refuse")
         total = len(humans)
         countdown = 0
         if self.phase in ("voting", "resume_voting"):
-            countdown = int(VOTE_TIMEOUT)
+            countdown = self._remaining_countdown(VOTE_TIMEOUT)
         elif self.phase == "paused":
             elapsed = time.monotonic() - self._pause_start_ts
             countdown = max(0, int(PAUSE_MAX - elapsed))
         elif self.phase == "resume_countdown":
-            countdown = int(RESUME_COUNTDOWN)
+            countdown = self._remaining_countdown(RESUME_COUNTDOWN)
         elif self.phase == "end_countdown":
-            countdown = int(END_COUNTDOWN)
+            countdown = self._remaining_countdown(END_COUNTDOWN)
         elif self.phase == "rejected":
-            countdown = int(REJECT_COUNTDOWN)
+            countdown = self._remaining_countdown(REJECT_COUNTDOWN)
         info = {
             "phase": self.phase,
             "vote_type": self.vote_type,
@@ -376,6 +408,23 @@ class VoteManager:
             vote_info=info,
         )
         return response.dict(exclude_none=True)
+
+    async def sync_to_user(self, user_id):
+        """重连补发：若投票/暂停非 idle，向该玩家单独发送当前状态。"""
+        if self.phase == "idle":
+            return
+        payload = self._build_payload(reason="重连同步投票状态")
+        conn = self.gs.game_server.user_id_to_connection.get(user_id)
+        if conn is None:
+            return
+        try:
+            await conn.websocket.send_json(payload)
+            logger.info(
+                f"重连补发投票状态 gamestate_id={self.gs.gamestate_id} "
+                f"user_id={user_id} phase={self.phase}"
+            )
+        except Exception as e:
+            logger.error(f"重连补发投票状态失败 user_id={user_id}: {e}", exc_info=True)
 
     async def _broadcast(self, reason=""):
         payload = self._build_payload(reason=reason)

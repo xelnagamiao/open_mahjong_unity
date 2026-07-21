@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
+import { usePlayerAuthStore } from '@/stores/playerAuth'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
 import AccountLayout from '@/layouts/AccountLayout.vue'
@@ -13,9 +15,15 @@ import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
 import UnityGame from '@/views/UnityGame.vue'
 import Rulebook from '@/views/Rulebook.vue'
+import Library from '@/views/Library.vue'
+import LibraryRule from '@/views/LibraryRule.vue'
+import LibraryLayout from '@/layouts/LibraryLayout.vue'
+import RuleResearch from '@/views/RuleResearch.vue'
 import Paili from '@/views/Paili.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
+import UsageGuide from '@/views/UsageGuide.vue'
+import GuessFanApp from '@/views/guess-fan/GuessFanApp.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
@@ -36,7 +44,6 @@ import EventAdminLayout from '@/layouts/EventAdminLayout.vue'
 import EventAdminLogin from '@/views/event-admin/Login.vue'
 import EventAdminEvents from '@/views/event-admin/Events.vue'
 import EventAdminEventDetail from '@/views/event-admin/EventDetail.vue'
-import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 
 const routes = [
   // 含布局（顶部导航 + 底部）
@@ -101,6 +108,54 @@ const routes = [
         name: 'MobileDownload',
         component: MobileDownload,
         meta: { title: '手机版下载 - salasasa.cn' }
+      },
+      {
+        path: 'guide',
+        name: 'UsageGuide',
+        component: UsageGuide,
+        meta: { title: '使用说明 - salasasa.cn' }
+      },
+      {
+        path: 'guess-fan',
+        name: 'GuessFan',
+        component: GuessFanApp,
+        meta: { title: '猜番对抗 - salasasa.cn', requiresPlayer: true }
+      }
+    ]
+  },
+  {
+    path: '/library',
+    component: LibraryLayout,
+    children: [
+      {
+        path: '',
+        name: 'Library',
+        component: Library,
+        meta: { title: '麻雀图书馆' }
+      },
+      {
+        path: ':rule',
+        name: 'LibraryRule',
+        component: LibraryRule,
+        meta: { title: '麻雀图书馆' }
+      }
+    ]
+  },
+  {
+    path: '/rule-research',
+    component: LibraryLayout,
+    children: [
+      {
+        path: '',
+        name: 'RuleResearchIndex',
+        component: RuleResearch,
+        meta: { title: '规则资料搜集 - salasasa.cn' }
+      },
+      {
+        path: ':slug',
+        name: 'RuleResearch',
+        component: RuleResearch,
+        meta: { title: '规则资料搜集 - salasasa.cn' }
       }
     ]
   },
@@ -121,6 +176,24 @@ const routes = [
     name: 'UnityGame',
     component: UnityGame,
     meta: { title: '麻将对战平台 - salasasa.cn' }
+  },
+  {
+    path: '/2d',
+    name: 'Game2DLobby',
+    component: () => import('@/views/game2d/Lobby.vue'),
+    meta: { title: 'Salasasa 2D 国标麻将' }
+  },
+  {
+    path: '/2d/game',
+    name: 'Game2D',
+    component: () => import('@/views/game2d/Game.vue'),
+    meta: { title: 'Salasasa 2D 国标对局' }
+  },
+  {
+    path: '/2d/player/:id',
+    name: 'Game2DPlayer',
+    component: () => import('@/views/game2d/Player.vue'),
+    meta: { title: 'Salasasa 2D 玩家资料' }
   },
   {
     path: '/player-data',
@@ -270,6 +343,17 @@ router.beforeEach(async (to, from, next) => {
       })
     }
     return next()
+  }
+
+  if (to.meta.requiresPlayer) {
+    const auth = usePlayerAuthStore()
+    if (!auth.loaded) await auth.fetchMe()
+    if (!auth.isLoggedIn) {
+      return next({
+        path: '/login',
+        query: { redirect: to.fullPath },
+      })
+    }
   }
 
   next()

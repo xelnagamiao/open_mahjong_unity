@@ -358,6 +358,10 @@ class GameStateManager:
         if user_id in self.user_id_to_game_state:
             game_state = self.user_id_to_game_state[user_id]
             await game_state.player_reconnect(user_id)
+            # 自定义房间投票/暂停进行中时，向重连玩家补发 vote_update
+            vm = getattr(game_state, "vote_manager", None)
+            if vm is not None:
+                await vm.sync_to_user(user_id)
     
     def remove_player_from_game_state(self, user_id: int):
         """

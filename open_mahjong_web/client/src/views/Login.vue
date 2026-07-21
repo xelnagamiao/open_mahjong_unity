@@ -33,11 +33,10 @@ const form = reactive({ username: '', password: '' })
 
 function goAfterLogin() {
   const redirect = route.query.redirect
-  // 默认进入账户 + 办赛管理面板
   if (typeof redirect === 'string' && redirect.startsWith('/') && redirect !== '/login') {
     router.replace(redirect)
   } else {
-    router.replace('/account')
+    router.replace('/')
   }
 }
 

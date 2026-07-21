@@ -286,6 +286,8 @@ class Record_info(BaseModel):
     match_queue_type: Optional[str] = None  # 排位队列（如 beginner_quanzhuang），来自牌谱 game_title
     created_at: str  # 创建时间
     players: List[Player_record_info]  # 该游戏的4个玩家信息（按排名排序）
+    is_favorite: Optional[bool] = False  # 当前用户是否收藏该牌谱
+    note: Optional[str] = None  # 当前用户对该牌谱的备注
 
 class Record_detail(BaseModel):
     """完整的游戏牌谱记录（按ID查询时返回）"""
@@ -440,6 +442,9 @@ class Response(BaseModel):
     ready_status_info: Optional[Ready_status_info] = None # 用于广播准备状态
     record_list: Optional[List[Record_info]] = None # 用于返回游戏记录列表（元数据）
     record_detail: Optional[Record_detail] = None # 用于返回单个完整牌谱记录
+    is_favorite: Optional[bool] = None  # 更新收藏后回传
+    note: Optional[str] = None  # 更新备注后回传
+    game_id: Optional[str] = None  # 更新收藏/备注时回传牌谱ID
     player_info: Optional[Player_info_response] = None # 用于返回玩家信息
     rule_stats: Optional[Rule_stats_response] = None # 用于返回单个规则的统计数据
     login_info: Optional[LoginInfo] = None # 用于返回登录信息

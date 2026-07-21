@@ -26,6 +26,15 @@ app.use(cors(config.cors)); // 使用cors配置允许跨域
 app.use(express.json()); // 使用express.json解析JSON请求体
 app.use(express.urlencoded({ extended: true })); // 使用express.urlencoded解析URL编码的请求体
 
+// 2D 客户端使用独立的公开 API 命名空间，内部继续复用现有 /api 路由。
+// 这里只改写 Node 请求路径，不触碰 Python 游戏服务。
+app.use((req, res, next) => {
+  if (req.url === '/2d/api' || req.url.startsWith('/2d/api/')) {
+    req.url = req.url.slice('/2d'.length);
+  }
+  next();
+});
+
 // 数据库连接
 const db = require('./config/database');
 
@@ -40,6 +49,8 @@ const { createWindowLimiter, getClientIp } = require('./middleware/rateLimit');
 const { ensureAuditTable } = require('./utils/audit');
 const { ensureEventsTables } = require('./utils/eventsTables');
 const { ensureUserEmailTables } = require('./utils/userEmailTables');
+const { ensureLibraryTables } = require('./utils/libraryTables');
+const libraryRoutes = require('./routes/library');
 
 // 牌理 / 听牌 / 国标算分等转发 Python：每 IP 每分钟约 40 次
 const mahjongCalcLimiter = createWindowLimiter({
@@ -66,6 +77,9 @@ app.use('/api/platform', platformStatsLimiter, platformRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/event-admin', eventAdminRoutes);
 app.use('/api/bot', botapiRoutes);
+app.use('/api/library', libraryRoutes);
+
+const { registerGuessFanHandlers } = require('./guessfan/rooms');
 
 // WebSocket连接处理
 io.on('connection', (socket) => {
@@ -80,6 +94,8 @@ io.on('connection', (socket) => {
     socket.leave(roomId);
     console.log(`用户 ${socket.id} 离开房间 ${roomId}`);
   });
+
+  registerGuessFanHandlers(socket, io);
   
   socket.on('disconnect', () => {
     console.log('用户断开连接:', socket.id);
@@ -128,6 +144,12 @@ async function startServer() {
     console.log('用户邮箱表已就绪');
   } catch (err) {
     console.error('用户邮箱表初始化失败:', err);
+  }
+  try {
+    await ensureLibraryTables();
+    console.log('麻雀图书馆表已就绪');
+  } catch (err) {
+    console.error('麻雀图书馆表初始化失败:', err);
   }
   server.listen(config.app.port, () => {
     console.log(`服务器运行在端口 ${config.app.port}`);

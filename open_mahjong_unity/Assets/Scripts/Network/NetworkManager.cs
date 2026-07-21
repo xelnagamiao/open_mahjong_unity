@@ -558,6 +558,7 @@ public class NetworkManager : MonoBehaviour {
                 // 数据相关消息交由 DataNetworkManager 处理
                 case "data/get_record_list":
                 case "data/get_record_by_id":
+                case "data/update_record_favorite":
                 case "data/get_guobiao_stats":
                 case "data/get_riichi_stats":
                 case "data/get_qingque_stats":

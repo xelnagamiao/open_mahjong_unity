@@ -35,7 +35,7 @@ const auth = useAdminAuthStore()
 const { isMobile } = useMobile()
 usePanelViewportLock()
 
-const asideWidth = computed(() => (isMobile.value ? '140px' : '220px'))
+const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
   { index: '/admin', label: '仪表盘' },

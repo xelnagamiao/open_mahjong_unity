@@ -221,11 +221,16 @@ class SichuanGameState:
         await deliver_realtime_spectator_message(self, player_index, response)
 
     async def player_disconnect(self, user_id: int):
+        newly_offline = False
         for p in self.player_list:
             if p.user_id == user_id and "offline" not in p.tag_list:
                 p.tag_list.append("offline")
+                newly_offline = True
                 await broadcast_refresh_player_tag_list(self)
                 break
+        if newly_offline:
+            from ..public.offline import schedule_offline_auto_on_disconnect
+            schedule_offline_auto_on_disconnect(self, user_id)
         non_ai = [p for p in self.player_list if p.user_id >= 10]
         if non_ai and all("offline" in p.tag_list for p in non_ai):
             await self.game_server.gamestate_manager.cleanup_game_state_complete(gamestate_id=self.gamestate_id)
@@ -252,6 +257,8 @@ class SichuanGameState:
             break
 
     async def cleanup_game_state(self):
+        from ..public.outbound_pipe import close_outbound_pipes
+        close_outbound_pipes(self)
         await self.spectator_manager.cleanup()
         if self.game_task and not self.game_task.done():
             self.game_task.cancel()

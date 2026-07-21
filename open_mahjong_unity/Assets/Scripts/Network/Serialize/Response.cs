@@ -308,6 +308,7 @@ public class RecordInfo { // 游戏记录元数据（按游戏分组，包含4�
     public string match_queue_type;     // 排位队列（如 beginner_quanzhuang），可选
     public string created_at;           // 创建时间
     public PlayerRecordInfo[] players;  // 该游戏的4个玩家信息（按排名排序）
+    public bool is_favorite;            // 当前用户是否收藏
 }
 
 public class RecordDetail { // 完整的游戏牌谱记录（按ID查询时返回）
@@ -478,6 +479,8 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public ReadyStatusInfo ready_status_info; // 准备状态信息
     public RecordInfo[] record_list; // 返回游戏记录列表（元数据）
     public RecordDetail record_detail; // 返回单个完整牌谱记录
+    public string game_id; // 更新收藏时回传牌谱ID
+    public bool is_favorite; // 更新收藏后回传
     public PlayerInfoResponse player_info; // 返回玩家信息
     public RuleStatsResponse rule_stats; // 返回单个规则的统计数据
     public LoginInfo login_info; // 返回登录信息

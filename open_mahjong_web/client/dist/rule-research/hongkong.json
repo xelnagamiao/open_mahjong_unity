@@ -1,0 +1,209 @@
+{
+  "slug": "hongkong",
+  "label": "香港麻将",
+  "aliases": ["香港麻雀", "清章", "港麻", "Hong Kong Mahjong", "Classical Mahjong"],
+  "collected_at": "2026-07-20",
+  "notes": "首次搜集归档。官方总例主要为 Google Doc；本地已下载 GCR PDF、港式十六张参考 PDF、AIMJ 英文规则 PDF。",
+  "sources": [
+    {
+      "id": "hkma-rules-hub",
+      "url": "https://www.hkmahjong.org/rules",
+      "title": "各類規則 | 香港麻雀協會 HKMA",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "香港麻雀 Hong Kong Mahjong 又名 清章麻雀、廣東牌(僅限香港本地稱呼)、Classical Mahjong。港式台牌 16-Tile Modern Mahjong 又名 港式十六張新章麻雀、台灣牌(僅限香港本地稱呼)。另列立直麻雀總例及立直裁判、犯規與罰則。版權：除註明外，香港麻雀協會是本規則所有內容的版權擁有人；可供自由瀏覽、列示、下載、列印、發佈，但必須保留原來格式並註明原屬本會所有。"
+    },
+    {
+      "id": "hkma-gcr-pdf",
+      "url": "https://www.hkmahjong.org/_files/ugd/3e514c_7d59032b131044a1b07027d4035aaae5.pdf",
+      "title": "通常賽事規則 General Competition Regulations（GCR）PDF",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": "rulebooks/hkma-gcr.pdf",
+      "excerpt": "協會規則頁首項「通常賽事規則」直鏈 PDF。就各類競技麻雀賽事之技術運行標準作出規範，包括場地要求、裁判配置、記分機制、即時錄分及系統備援等。2026.1 正式版公告稱其為認可競技賽事之上位共同規則文件。"
+    },
+    {
+      "id": "hkma-gcr-announce",
+      "url": "https://www.hkmahjong.org/post/%E9%97%9C%E6%96%BC%E7%99%BC%E5%B8%83-%E9%80%9A%E5%B8%B8%E8%B3%BD%E4%BA%8B%E8%A6%8F%E5%89%87%EF%BC%88general-competition-regulations%EF%BC%89-%E4%B9%8B%E5%85%AC%E5%91%8A",
+      "title": "關於發布《通常賽事規則（GCR）》之公告",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "香港麻雀協會正式發布《通常賽事規則（General Competition Regulations）》2026.1 正式版，自發布日起生效。為現行所有認可競技賽事之上位共同規則文件。如有抵觸，概以本規則為準。公告日期：二零二六年四月五日。"
+    },
+    {
+      "id": "hkma-hk-zh-doc",
+      "url": "https://docs.google.com/document/d/1TgdYpE_5Qiht_lBco3BqN_ijZJDRWugwzRzv946raq0/edit?usp=sharing",
+      "title": "香港麻雀總例（HKMA，規則頁「按此」鏈接）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "自 https://www.hkmahjong.org/rules 頁面「香港麻雀總例：按此」提取的 Google Doc 直鏈。為協會現行香港麻雀（清章／Classical）總例正文入口。"
+    },
+    {
+      "id": "hkma-hk-en-doc",
+      "url": "https://docs.google.com/document/d/1a66AhGRZE6IJmA_nd-C7gIQfSJ7sXo_2-c4XgVnMpTQ/edit?usp=sharing",
+      "title": "Hong Kong Mahjong (EN) — HKMA",
+      "type": "rulebook",
+      "lang": "en",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "自協會規則頁「Hong Kong Mahjong (EN)：View」提取的 Google Doc 直鏈。"
+    },
+    {
+      "id": "hkma-16tile-zh-doc",
+      "url": "https://docs.google.com/document/d/11WYyoWnJqe5eYpx-7DHE3OpvSRBwQd2NVcN9Ukcohyc/edit?usp=sharing",
+      "title": "港式十六張新章麻雀總例（HKMA）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "自協會規則頁「港式十六張新章麻雀總例：按此」提取。別名：港式台牌、台灣牌（僅限香港本地稱呼）、16-Tile Modern Mahjong。"
+    },
+    {
+      "id": "hkma-16tile-en-doc",
+      "url": "https://docs.google.com/document/d/1_TNf3YYWCCi5Z-SMssIRSB0dRPjfMCvbkTp5cCjLv9A/edit?usp=sharing",
+      "title": "16-Tile Modern Mahjong (EN) — HKMA",
+      "type": "variant",
+      "lang": "en",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "自協會規則頁「16-Tile Modern Mahjong (EN) : View」提取的 Google Doc 直鏈。"
+    },
+    {
+      "id": "hkma-16tile-pdf-ref",
+      "url": "https://www.hkmahjong.org/_files/ugd/3e514c_4b39bc77f5fd48748e09f5b67195cc2e.pdf",
+      "title": "港式台灣麻雀相關 PDF（HKMA 站內文件，维基参考文献）",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": "rulebooks/hkma-16tile-ref.pdf",
+      "excerpt": "维基「港式台灣麻雀」参考文献列出：香港麻雀協會 PDF，2020-10-28。已本地下载。"
+    },
+    {
+      "id": "hkma-open-2026",
+      "url": "https://www.hkmahjong.org/hongkongmahjongopen2026",
+      "title": "香港麻雀公開賽 2026 | HKMA",
+      "type": "official",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "旗艦公開賽，設有香港麻雀、港式台牌及立直麻雀三項正式競賽。官方文件區列：香港麻雀公開賽2026競賽規程、各競賽項目競賽規程、HKMA GCR、技術規則及技術手冊。所有競賽均依香港麻雀協會官方文件執行。"
+    },
+    {
+      "id": "wiki-hk-mahjong",
+      "url": "https://zh.wikipedia.org/zh-hans/%E9%A6%99%E6%B8%AF%E9%BA%BB%E9%9B%80",
+      "title": "香港麻雀 - 维基百科",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "香港麻雀（另称「清章」或「旧章」）是十三张麻雀中最传统的变体，游戏方式与广东麻雀大致相同，但是番种少很多。现代麻雀由老章演化，经演化后有「清章」打法，为香港和广东麻雀的基础。后来广东方面加添「六独」「十八番」「无奇不有」等形成新章；香港仍维持清章，但又加添三番起糊、摸到尾，并增加个别新章牌型（如十八罗汉），现时事实上是「新派清章」。传统「二二制」演变为现时常用「三三制」（混一色、对对糊三番，清一色七番）。现时通常以三番起糊，最大以打八番或十番为上限（网络游戏较常见十三番）。标准使用 144 张（含两台花）；不打花则 136 张。"
+    },
+    {
+      "id": "wiki-hk-winning-list",
+      "url": "https://zh.wikipedia.org/zh-hans/%E9%A6%99%E6%B8%AF%E9%BA%BB%E9%9B%80%E8%83%A1%E7%89%8C%E5%88%97%E8%A1%A8",
+      "title": "香港麻雀胡牌列表 - 维基百科",
+      "type": "scoring",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "食糊准则：顺子+刻/杠+眼；特种牌型主要为十三幺及花糊。现时一般不承认鸡糊；主流三番起糊；上限例牌常为八/十/十三番爆棚。一番例：平糊、无花、正花、番牌（三元/门风/圈风）。两番例：海底捞月、杠上开花、一台花。三番：花糊（七只花）。更高：花幺九、小三元、小四喜、大三元、连杠开花、大花糊、坎坎胡、清幺九、九莲、天/地/人糊、大四喜、十八罗汉等。另列自订牌型（缺门、三般高、镜糊等，标准新章可能不计）。"
+    },
+    {
+      "id": "wiki-hk-16tile",
+      "url": "https://zh.wikipedia.org/wiki/%E6%B8%AF%E5%BC%8F%E5%8F%B0%E7%81%A3%E9%BA%BB%E9%9B%80",
+      "title": "港式台灣麻雀 - 维基百科",
+      "type": "variant",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "港澳地區十六張麻雀，又稱港式十六張／台灣牌／港式台牌，糅合香港麻雀、正宗台灣麻雀、日本麻將及國標麻將。翻種多、無限翻，與十三張清章對比變化更多。計番多用加算法（非累乘）。聽牌可「叮」宣告；叮後不得換牌、鳴牌或開槓（食糊除外）；叮後一巡內食糊稱一發。另有「拉」「踢半」跨局注碼規則。"
+    },
+    {
+      "id": "aimj-hk-pdf",
+      "url": "http://aimj.altervista.org/extraregolamenti/hongkong-mahjong-rules.pdf",
+      "title": "Hong Kong Mahjong Rules (AIMJ English PDF)",
+      "type": "rulebook",
+      "lang": "en",
+      "accessed": "2026-07-20",
+      "local_path": "rulebooks/aimj-hongkong-mahjong-rules.pdf",
+      "excerpt": "English overview: 136 base tiles + optional 8 flowers/seasons. Objective: four sets + pair (14 tiles). Chow only from left player. Scoring fan table includes dragons/winds 1, flower of own wind 1, all flowers/seasons 2, no flowers 1, half flush 3, all pungs 3, full flush 6, etc. Special hands listed at 64 fan (Hidden Treasure, Three Great Scholars, Big Four Winds, Thirteen Orphans, All Kongs, Heavenly/Earthly Hands, …). Payment via fan-laak table (0–10+ fan → chips by discard / self-drawn)."
+    },
+    {
+      "id": "mahjongtime-hk-rules",
+      "url": "https://mahjongtime.com/hong-kong-mahjong-rules-3.aspx?lang=cht",
+      "title": "香港麻將規則 | Mahjong Time",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "碼牌：144 張（無花則 136）；每人 36（或 34）張碼成 18（或 17）墩。開牌點右邊 7 堆為牌尾（杠頭）供開杠/補花；莊家 14 張、閒家 13 張。常見變化：莊家「陳陳」同時取第 13、14 張。"
+    },
+    {
+      "id": "mahjongtime-hk-scoring",
+      "url": "https://mahjongtime.com/hong-Kong-mahjong-scoring.html",
+      "title": "Hong Kong Mahjong Scoring | Mahjong Time",
+      "type": "scoring",
+      "lang": "en",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "Traditional Hong Kong / Cantonese scoring; zero-point hands frequent, tables often require minimum points (commonly three). Basic: self-drawn +1; all flowers/seasons of a color +2; matching seat flower/season +1 each; no flowers +1; round/seat wind pung/kong +1."
+    },
+    {
+      "id": "mahjonggame-hk-learn",
+      "url": "https://www.mahjonggame.hk/learn/hk-mahjong/rules",
+      "title": "Hong Kong Mahjong Rules — Complete Guide (mahjonggame.hk)",
+      "type": "discussion",
+      "lang": "en",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "Suits + honors + optional bonus flowers/seasons. Winning hand usually needs minimum fan (often 3). Typical table: dragon/seat/prevalent wind pung 1; all chows 1; self-draw 1; fully concealed 1; half flush 3; all pungs 3; full flush 7. Exact lists vary by group."
+    },
+    {
+      "id": "tilebuddy-faan-wiki",
+      "url": "https://tilebuddy.app/wiki/",
+      "title": "Hong Kong Mahjong Faan Wiki | TileBuddy",
+      "type": "scoring",
+      "lang": "en",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "53 winning patterns; styles Classic / New 6 / New 18. Flowers & Seasons: 無花 1；正花 1；一台花 2；花糊(七花) 3；八仙過海 8. Values follow Let's Mahjong default; house variants differ."
+    },
+    {
+      "id": "yoho-hk-lazy",
+      "url": "https://www.yohohongkong.com/zh-hk/post/1447-%E9%BA%BB%E9%9B%80%E6%96%B0%E6%89%8B-%E9%A6%99%E6%B8%AF%E9%BA%BB%E9%9B%80%E8%A6%8F%E5%89%87-%E9%A3%9F%E7%B3%8A%E7%B5%84%E5%90%88-%E6%A2%9D%E4%BB%B6-%E7%95%AA%E6%95%B8",
+      "title": "香港麻雀規則+食糊組合/番數懶人包 | 友和 YOHO",
+      "type": "discussion",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "入門整理：座位、洗牌、補花、行牌。香港麻雀一般三番起糊；食糊由順子、刻子、眼及槓組成；上牌僅限上家。"
+    },
+    {
+      "id": "zj-new-style",
+      "url": "http://www.zj-mahjong.info/book_hk/5.0%20New%20Style.html",
+      "title": "「新章」麻雀 | zj-mahjong.info",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "「新章」只是統稱，各家各法，無正式統一標準。提及古典加副要素在新章升為一番；普及有限。部份和種傳入日本麻雀及台灣麻雀。"
+    },
+    {
+      "id": "bbc-hk-mahjong-2018",
+      "url": "https://www.bbc.com/zhongwen/simp/chinese-news-43043602",
+      "title": "香港麻将走向夕阳所揭示的社会现象 | BBC中文网（维基参考文献）",
+      "type": "history",
+      "lang": "zh",
+      "accessed": "2026-07-20",
+      "local_path": null,
+      "excerpt": "维基「香港麻雀」参考文献 [1]，2018-02-17。社会/文化背景报道（非条款规则书）。"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+.mahjongGame { --el-color-primary: #126e82; position: relative; width: 100%; min-height: 100dvh; height: 100dvh; overflow: hidden; background: #999; font-family: CmuSerif, SimKai, "Noto Serif SC", serif; }
+.game-page__stage-shell { position: relative; height: 100dvh; min-height: 0; overflow: hidden; background: #097fa0; }
+.game-page__stage-shell--full { width: 100%; border: 0; border-radius: 0; }
+.game-stage { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
+.game-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: #097fa0; color: #f7f7f0; font-size: 24px; z-index: 10; }
+.game-loading span { font-size: 18px; }
+.game-toolbar { position: absolute; top: 14px; right: 16px; z-index: 50; display: flex; align-items: center; gap: 8px; }
+.game-toolbar :deep(.el-tag) { display: inline-flex; align-items: center; gap: 4px; }
+.game-settings { position: absolute; top: 62px; right: 16px; z-index: 50; width: 240px; background: rgba(247,247,240,.96); }
+.round-result { display: flex; flex-direction: column; gap: 16px; }
+.round-score { display: flex; align-items: baseline; gap: 12px; }
+.round-score strong { color: #126e82; font-size: 28px; }
+.fan-list, .score-changes { display: flex; flex-wrap: wrap; gap: 8px; }
+.score-changes span { padding: 6px 10px; border-radius: 8px; background: #f2f5f3; }
+.game-blocked { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 100dvh; background: #097fa0; }
+.game-blocked-card { background: #f7f7f0; border-radius: 16px; padding: 32px 48px; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,.18); }
+.game-blocked-card h1 { margin: 0 0 8px; font-size: 28px; color: #333; }
+.game-blocked-card p { margin: 0 0 20px; color: #666; }
+@media (max-width: 680px) { .game-toolbar { top: 8px; right: 8px; gap: 4px; } .game-toolbar :deep(.el-button) { padding: 8px 10px; } .game-settings { top: 52px; right: 8px; } }

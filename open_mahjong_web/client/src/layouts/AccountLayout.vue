@@ -3,7 +3,7 @@
     <el-aside :width="asideWidth" class="account-aside">
       <div class="account-brand">账户面板</div>
       <div class="aside-body">
-        <el-menu :default-active="activeMenu" class="account-menu" @select="onSelect">
+        <el-menu :key="activeMenu" :default-active="activeMenu" class="account-menu" @select="onSelect">
           <el-menu-item
             v-for="item in menuItems"
             :key="item.index"
@@ -47,7 +47,7 @@ const eventAuth = useEventAdminAuthStore()
 const { isMobile } = useMobile()
 usePanelViewportLock()
 
-const asideWidth = computed(() => (isMobile.value ? '140px' : '220px'))
+const asideWidth = computed(() => (isMobile.value ? '132px' : '196px'))
 
 const menuItems = [
   { index: 'sec-account', label: '账户' },
@@ -63,8 +63,6 @@ const activeMenu = computed(() => {
 
 function onSelect(index) {
   router.replace({ path: '/account', hash: `#${index}` })
-  const el = document.getElementById(index)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function onLogout() {

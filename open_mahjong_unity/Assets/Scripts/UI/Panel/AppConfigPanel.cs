@@ -28,6 +28,10 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown handSortRiichiDragonDropdown;
     [SerializeField] private TMP_Dropdown actionButtonColorDropdown;
 
+    [Header("提示音效")]
+    [SerializeField] private TMP_Dropdown gongHuSoundDropdown;
+    [SerializeField] private TMP_Dropdown matchSuccessSoundDropdown;
+
     private void Awake() {
         Instance = this;
         InitializeVolumeManager();
@@ -66,6 +70,12 @@ public class AppConfigPanel : MonoBehaviour {
         }
         if (actionButtonColorDropdown != null) {
             actionButtonColorDropdown.onValueChanged.AddListener(OnActionButtonColorDropdownChanged);
+        }
+        if (gongHuSoundDropdown != null) {
+            gongHuSoundDropdown.onValueChanged.AddListener(OnGongHuSoundDropdownChanged);
+        }
+        if (matchSuccessSoundDropdown != null) {
+            matchSuccessSoundDropdown.onValueChanged.AddListener(OnMatchSuccessSoundDropdownChanged);
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
@@ -132,6 +142,14 @@ public class AppConfigPanel : MonoBehaviour {
             actionButtonColorDropdown.ClearOptions();
             actionButtonColorDropdown.AddOptions(new List<string> { "关", "开" });
         }
+        if (gongHuSoundDropdown != null) {
+            gongHuSoundDropdown.ClearOptions();
+            gongHuSoundDropdown.AddOptions(new List<string> { "关", "开" });
+        }
+        if (matchSuccessSoundDropdown != null) {
+            matchSuccessSoundDropdown.ClearOptions();
+            matchSuccessSoundDropdown.AddOptions(new List<string> { "关", "开" });
+        }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.ClearOptions();
         List<string> frameRateOptions = new List<string>();
@@ -180,6 +198,14 @@ public class AppConfigPanel : MonoBehaviour {
         if (actionButtonColorDropdown != null) {
             actionButtonColorDropdown.SetValueWithoutNotify(ConfigManager.Instance.ActionButtonColorEnabled ? 1 : 0);
             actionButtonColorDropdown.RefreshShownValue();
+        }
+        if (gongHuSoundDropdown != null) {
+            gongHuSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.GongHuSoundEnabled ? 1 : 0);
+            gongHuSoundDropdown.RefreshShownValue();
+        }
+        if (matchSuccessSoundDropdown != null) {
+            matchSuccessSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.MatchSuccessSoundEnabled ? 1 : 0);
+            matchSuccessSoundDropdown.RefreshShownValue();
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
@@ -240,6 +266,14 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnActionButtonColorDropdownChanged(int value) {
         ConfigManager.Instance.SetActionButtonColorEnabled(value == 1);
+    }
+
+    private void OnGongHuSoundDropdownChanged(int value) {
+        ConfigManager.Instance.SetGongHuSoundEnabled(value == 1);
+    }
+
+    private void OnMatchSuccessSoundDropdownChanged(int value) {
+        ConfigManager.Instance.SetMatchSuccessSoundEnabled(value == 1);
     }
 
     private void OnLanguageDropdownChanged(int value) {

@@ -241,12 +241,18 @@ class GuobiaoGameState:
 
     async def player_disconnect(self, user_id: int):
         """玩家掉线：增加 offline 标签并广播，如果所有非AI玩家都offline则销毁gamestate"""
+        newly_offline = False
         for p in self.player_list:
             if p.user_id == user_id:
                 if "offline" not in p.tag_list:
                     p.tag_list.append("offline")
+                    newly_offline = True
                     await broadcast_refresh_player_tag_list(self)
                 break
+
+        if newly_offline:
+            from ..public.offline import schedule_offline_auto_on_disconnect
+            schedule_offline_auto_on_disconnect(self, user_id)
         
         # 检查所有非AI玩家（user_id >= 10）是否都offline
         non_ai_players = [p for p in self.player_list if p.user_id >= 10]
@@ -346,6 +352,8 @@ class GuobiaoGameState:
 
     async def cleanup_game_state(self):
         """清理游戏状态协程：取消游戏循环任务（映射关系由 gamestate_manager 统一清理）"""
+        from ..public.outbound_pipe import close_outbound_pipes
+        close_outbound_pipes(self)
         # 清理观战管理器
         await self.spectator_manager.cleanup()
         

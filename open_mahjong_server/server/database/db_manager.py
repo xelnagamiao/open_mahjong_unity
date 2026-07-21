@@ -148,6 +148,28 @@ class DatabaseManager:
                     cursor.execute("ROLLBACK TO SAVEPOINT sp_add_event_id;")
                 else:
                     raise
+            # 迁移：牌谱收藏（每用户最多 50 条由业务层限制）
+            cursor.execute("SAVEPOINT sp_add_is_favorite;")
+            try:
+                cursor.execute(
+                    "ALTER TABLE game_player_records ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT FALSE;"
+                )
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_is_favorite;")
+                else:
+                    raise
+            # 迁移：牌谱个人备注
+            cursor.execute("SAVEPOINT sp_add_note;")
+            try:
+                cursor.execute(
+                    "ALTER TABLE game_player_records ADD COLUMN note VARCHAR(200) NULL;"
+                )
+            except Error as e:
+                if getattr(e, "pgcode", None) == "42701":
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_add_note;")
+                else:
+                    raise
             # 迁移：若表中曾有 mode 列，将 mode 拷贝到 match_type 后丢弃 mode
             cursor.execute("""
                 SELECT 1 FROM information_schema.columns
@@ -1585,7 +1607,7 @@ class DatabaseManager:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
             cursor.execute("""
-                SELECT gpr.game_id, gr.created_at
+                SELECT gpr.game_id, gr.created_at, gpr.is_favorite, gpr.note
                 FROM game_player_records gpr
                 INNER JOIN game_records gr ON gpr.game_id = gr.game_id
                 WHERE gpr.user_id = %s
@@ -1599,6 +1621,13 @@ class DatabaseManager:
                 return []
             
             game_ids = [row['game_id'] for row in id_rows]
+            self_meta = {
+                row['game_id']: {
+                    'is_favorite': bool(row.get('is_favorite')),
+                    'note': row.get('note') or '',
+                }
+                for row in id_rows
+            }
             
             placeholders = ','.join(['%s'] * len(game_ids))
             cursor.execute(f"""
@@ -1630,6 +1659,7 @@ class DatabaseManager:
                 game_id = row['game_id']
                 
                 if game_id not in games_dict:
+                    meta = self_meta.get(game_id, {})
                     games_dict[game_id] = {
                         'game_id': game_id,
                         'created_at': str(row['created_at']),
@@ -1637,6 +1667,8 @@ class DatabaseManager:
                         'sub_rule': row.get('sub_rule'),
                         'match_type': row.get('match_type'),
                         'room_type': row.get('room_type'),
+                        'is_favorite': meta.get('is_favorite', False),
+                        'note': meta.get('note', ''),
                         'players': []
                     }
                 
@@ -1660,6 +1692,139 @@ class DatabaseManager:
         except Error as e:
             logger.error(f'获取游戏记录列表失败: {e}', exc_info=True)
             return []
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    MAX_RECORD_FAVORITES = 50
+    MAX_RECORD_NOTE_LENGTH = 200
+
+    def set_record_favorite(self, user_id: int, game_id: str, is_favorite: bool) -> Dict[str, Any]:
+        """
+        设置当前用户对某局牌谱的收藏状态。收藏上限 MAX_RECORD_FAVORITES。
+        返回 {success, message, is_favorite}。
+        """
+        game_id = (game_id or "").strip()
+        if not game_id:
+            return {"success": False, "message": "缺少牌谱ID", "is_favorite": False}
+
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            cursor.execute(
+                """
+                SELECT is_favorite FROM game_player_records
+                WHERE game_id = %s AND user_id = %s
+                """,
+                (game_id, user_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return {"success": False, "message": "未找到该牌谱记录", "is_favorite": False}
+
+            current = bool(row.get("is_favorite"))
+            if current == bool(is_favorite):
+                return {
+                    "success": True,
+                    "message": "收藏状态未变化",
+                    "is_favorite": current,
+                }
+
+            if is_favorite:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS cnt FROM game_player_records
+                    WHERE user_id = %s AND is_favorite = TRUE
+                    """,
+                    (user_id,),
+                )
+                cnt = int(cursor.fetchone()["cnt"])
+                if cnt >= self.MAX_RECORD_FAVORITES:
+                    return {
+                        "success": False,
+                        "message": f"收藏已达上限（{self.MAX_RECORD_FAVORITES}）",
+                        "is_favorite": False,
+                    }
+
+            cursor.execute(
+                """
+                UPDATE game_player_records
+                SET is_favorite = %s
+                WHERE game_id = %s AND user_id = %s
+                """,
+                (bool(is_favorite), game_id, user_id),
+            )
+            conn.commit()
+            return {
+                "success": True,
+                "message": "已收藏" if is_favorite else "已取消收藏",
+                "is_favorite": bool(is_favorite),
+            }
+        except Error as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"设置牌谱收藏失败: {e}", exc_info=True)
+            return {"success": False, "message": "设置收藏失败", "is_favorite": False}
+        finally:
+            if conn:
+                cursor.close()
+                self._put_connection(conn)
+
+    def set_record_note(self, user_id: int, game_id: str, note: Optional[str]) -> Dict[str, Any]:
+        """
+        设置当前用户对某局牌谱的备注。返回 {success, message, note}。
+        """
+        game_id = (game_id or "").strip()
+        if not game_id:
+            return {"success": False, "message": "缺少牌谱ID", "note": ""}
+
+        note_text = (note or "").strip()
+        if len(note_text) > self.MAX_RECORD_NOTE_LENGTH:
+            return {
+                "success": False,
+                "message": f"备注最长 {self.MAX_RECORD_NOTE_LENGTH} 字",
+                "note": "",
+            }
+        if not note_text:
+            note_text = None
+
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            cursor.execute(
+                """
+                SELECT 1 FROM game_player_records
+                WHERE game_id = %s AND user_id = %s
+                """,
+                (game_id, user_id),
+            )
+            if not cursor.fetchone():
+                return {"success": False, "message": "未找到该牌谱记录", "note": ""}
+
+            cursor.execute(
+                """
+                UPDATE game_player_records
+                SET note = %s
+                WHERE game_id = %s AND user_id = %s
+                """,
+                (note_text, game_id, user_id),
+            )
+            conn.commit()
+            return {
+                "success": True,
+                "message": "备注已保存",
+                "note": note_text or "",
+            }
+        except Error as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"设置牌谱备注失败: {e}", exc_info=True)
+            return {"success": False, "message": "保存备注失败", "note": ""}
         finally:
             if conn:
                 cursor.close()

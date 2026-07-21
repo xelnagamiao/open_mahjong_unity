@@ -307,25 +307,190 @@
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="牌谱" name="records">
-          <div class="emp-tab-bar emp-tab-bar--end">
-            <el-button text type="primary" :loading="loadingRecords" @click="loadRecords">刷新</el-button>
+        <el-tab-pane label="统计" name="stats">
+          <div class="emp-stats-totals">
+            <div class="emp-stats-totals-head">
+              <h4 class="emp-stats-heading">本赛事总计</h4>
+              <el-button text type="primary" size="small" :loading="loadingStats" @click="refreshStatsTab">
+                刷新
+              </el-button>
+            </div>
+            <div class="emp-stats-grid" v-loading="loadingStats">
+              <div v-for="item in totalsStatsDisplay" :key="item.label" class="emp-stats-cell">
+                <span class="emp-stats-label">{{ item.label }}</span>
+                <span class="emp-stats-value">{{ item.value }}</span>
+              </div>
+              <div class="emp-stats-cell">
+                <span class="emp-stats-label">参赛人数</span>
+                <span class="emp-stats-value">{{ statsTotals.player_count ?? 0 }}</span>
+              </div>
+            </div>
           </div>
-          <el-table :data="records" size="small" v-loading="loadingRecords" empty-text="暂无牌谱">
-            <el-table-column prop="game_id" label="对局 ID" min-width="120" />
-            <el-table-column prop="rule" label="规则" width="90" />
-            <el-table-column prop="sub_rule" label="子规则" min-width="120" />
-            <el-table-column label="时间" min-width="150">
-              <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="玩家" min-width="200">
-              <template #default="{ row }">
-                <span v-for="p in row.players" :key="p.user_id" class="player-chip">
-                  {{ p.rank }}位 {{ p.username }}({{ p.score }})
-                </span>
-              </template>
-            </el-table-column>
-          </el-table>
+
+          <div class="emp-stats-search">
+            <el-select
+              v-model="statsFilter.rule"
+              clearable
+              placeholder="全部规则"
+              size="small"
+              style="width: 130px"
+              @change="onStatsScopeChange"
+            >
+              <el-option
+                v-for="r in statsRuleOptions"
+                :key="r"
+                :label="ruleLabel(r)"
+                :value="r"
+              />
+            </el-select>
+            <el-select
+              v-model="statsFilter.game_type"
+              clearable
+              placeholder="全部局制"
+              size="small"
+              style="width: 130px"
+              @change="onStatsScopeChange"
+            >
+              <el-option
+                v-for="opt in GAME_TYPE_OPTIONS"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-input
+              v-model="statsFilter.q"
+              clearable
+              size="small"
+              placeholder="搜索玩家 ID / 用户名"
+              style="width: 200px"
+              @keyup.enter="searchPlayer"
+              @clear="clearPlayerSearch"
+            />
+            <el-button type="primary" size="small" :loading="searchingPlayer" @click="searchPlayer">
+              查询玩家
+            </el-button>
+            <el-button size="small" @click="resetStatsFilter">重置</el-button>
+          </div>
+
+          <div v-if="focusPlayer" class="emp-stats-player-detail">
+            <div class="emp-stats-player-head">
+              <h4 class="emp-stats-heading">
+                {{ focusPlayer.username }}
+                <span class="emp-stats-uid">ID {{ focusPlayer.user_id }}</span>
+              </h4>
+              <el-button text type="primary" size="small" @click="clearPlayerSearch">清除</el-button>
+            </div>
+            <div class="emp-stats-grid">
+              <div v-for="item in focusPlayerStatsDisplay" :key="item.label" class="emp-stats-cell">
+                <span class="emp-stats-label">{{ item.label }}</span>
+                <span class="emp-stats-value">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="emp-records-section">
+            <div class="emp-records-head">
+              <span class="emp-records-title">对局记录</span>
+              <span class="emp-records-total">共 {{ recordsTotal }} 局</span>
+            </div>
+            <el-table
+              :data="records"
+              size="small"
+              class="emp-records-table"
+              v-loading="loadingRecords"
+              empty-text="暂无对局记录"
+              @selection-change="onRecordsSelectionChange"
+            >
+              <el-table-column type="selection" width="36" />
+              <el-table-column label="牌谱 ID" min-width="140">
+                <template #default="{ row }">
+                  <span class="cell-game-id" :title="row.game_id">{{ row.game_id }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="时间" width="150">
+                <template #default="{ row }">
+                  <span class="cell-time">{{ formatRecordDate(row.created_at) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="场次" min-width="120">
+                <template #default="{ row }">
+                  <span class="cell-scene">{{ sceneLabel(row) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="局制" width="80">
+                <template #default="{ row }">
+                  <span class="cell-mode">{{ gameTypeLabel(row.match_type) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="顺位" width="64">
+                <template #default="{ row }">
+                  <span
+                    v-if="focusRank(row)"
+                    class="rank-badge"
+                    :class="`rank-${focusRank(row)}`"
+                  >{{ focusRank(row) }}</span>
+                  <span v-else class="cell-dash">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="得分" width="80">
+                <template #default="{ row }">
+                  <span class="cell-score" :class="scoreClass(focusScore(row))">
+                    {{ formatScore(focusScore(row)) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="同桌" min-width="180">
+                <template #default="{ row }">
+                  <el-tooltip effect="dark" placement="top">
+                    <template #content>
+                      <div v-for="p in row.players" :key="p.user_id" class="tip-player">
+                        <span class="rank-badge" :class="`rank-${p.rank}`">{{ p.rank }}</span>
+                        {{ p.username }}
+                        <span :class="scoreClass(p.score)">{{ formatScore(p.score) }}</span>
+                      </div>
+                    </template>
+                    <span class="cell-players">{{ playersSummary(row) }}</span>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="72" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="downloadOne(row.game_id)">
+                    JSON
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="emp-records-foot">
+              <el-pagination
+                v-model:current-page="recordsPage.current"
+                v-model:page-size="recordsPage.size"
+                :total="recordsTotal"
+                :page-sizes="[20, 50]"
+                layout="prev, pager, next, sizes, total"
+                small
+                background
+                @current-change="loadRecords"
+                @size-change="onRecordsSizeChange"
+              />
+              <div class="emp-records-actions">
+                <el-button
+                  size="small"
+                  :disabled="selectedRecordIds.length === 0"
+                  :loading="downloadingRecords"
+                  @click="downloadSelected"
+                >下载选中({{ selectedRecordIds.length }})</el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  :disabled="recordsTotal === 0"
+                  :loading="downloadingRecords"
+                  @click="downloadFiltered"
+                >下载筛选结果(ZIP)</el-button>
+              </div>
+            </div>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </template>
@@ -335,7 +500,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import eventAdminApi from '@/api/eventAdminClient'
+import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import GuobiaoEmptyRoomConfig from '@/components/GuobiaoEmptyRoomConfig.vue'
 import {
@@ -343,6 +508,49 @@ import {
   createDefaultGuobiaoRoomConfig,
 } from '@/utils/guobiaoRoomConfig'
 import { eventRoleLabel, eventStatusLabel, eventStatusTagType } from '@/utils/eventMeta'
+import { buildPlayerStatsRows } from '@/utils/statsDisplay'
+
+const RULE_LABELS = {
+  guobiao: '国标',
+  riichi: '立直',
+  qingque: '青雀',
+  classical: '古典',
+  sichuan: '四川',
+  changsha: '长沙',
+  jiandan: '简单',
+}
+
+const GAME_TYPE_OPTIONS = [
+  { value: 'quanzhuang', label: '全庄战' },
+  { value: 'xifeng', label: '东西战' },
+  { value: 'banzhuang', label: '半庄战' },
+  { value: 'dongfeng', label: '东风战' },
+]
+
+const MODE_LABELS = { '4/4': '全庄战', '3/4': '东西战', '2/4': '半庄战', '1/4': '东风战' }
+
+const RANK_STAT_LABELS = new Set([
+  '总对局',
+  '平均顺位',
+  '一位率',
+  '二位率',
+  '三位率',
+  '四位率',
+])
+
+function ruleLabel(rule) {
+  return RULE_LABELS[rule] || rule
+}
+
+function rankOnlyStatsRows(stats) {
+  return buildPlayerStatsRows(stats || {}).filter((row) => RANK_STAT_LABELS.has(row.label))
+}
+
+function gameTypeLabel(matchType) {
+  if (!matchType) return '-'
+  const base = String(matchType).replace(/_rank$/, '')
+  return MODE_LABELS[base] || matchType
+}
 
 const props = defineProps({
   eventId: { type: String, required: true },
@@ -376,6 +584,28 @@ const games = ref([])
 const loadingGames = ref(false)
 const records = ref([])
 const loadingRecords = ref(false)
+const recordsTotal = ref(0)
+const recordsPage = reactive({ current: 1, size: 20 })
+const selectedRecordIds = ref([])
+const downloadingRecords = ref(false)
+
+const loadingStats = ref(false)
+const searchingPlayer = ref(false)
+const statsTotals = ref({
+  total_games: 0,
+  first_place_count: 0,
+  second_place_count: 0,
+  third_place_count: 0,
+  fourth_place_count: 0,
+  player_count: 0,
+})
+const statsRuleOptions = ref([])
+const statsFilter = reactive({
+  rule: '',
+  game_type: '',
+  q: '',
+})
+const focusPlayer = ref(null)
 
 const profileForm = reactive({ name: '', description: '', reason: '' })
 const pendingProfile = ref(null)
@@ -389,6 +619,11 @@ const announceForm = reactive({ title: '', body: '' })
 
 const isOwner = computed(() => detail.value?.my_role === 'owner')
 const adminList = computed(() => (detail.value?.admins || []).filter((a) => a.role === 'admin'))
+
+const totalsStatsDisplay = computed(() => rankOnlyStatsRows(statsTotals.value))
+const focusPlayerStatsDisplay = computed(() =>
+  focusPlayer.value ? rankOnlyStatsRows(focusPlayer.value) : []
+)
 
 function canDeleteAnnouncement(row) {
   if (isOwner.value) return true
@@ -423,6 +658,44 @@ const PHASE_LABELS = {
 
 function formatDate(v) {
   return v ? new Date(v).toLocaleString('zh-CN') : '—'
+}
+function formatRecordDate(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+function sceneLabel(row) {
+  const name = row.event_name || detail.value?.name
+  if (name) return `比赛场 · ${name}`
+  if (row.event_id) return `比赛场 · ${row.event_id}`
+  return '比赛场'
+}
+function focusSeat(rec) {
+  const uid = focusPlayer.value?.user_id
+  if (uid == null) return null
+  return (rec.players || []).find((p) => Number(p.user_id) === Number(uid)) || null
+}
+function focusRank(rec) {
+  return focusSeat(rec)?.rank
+}
+function focusScore(rec) {
+  return focusSeat(rec)?.score
+}
+function scoreClass(s) {
+  if (s === undefined || s === null) return ''
+  return s > 0 ? 'pos' : s < 0 ? 'neg' : ''
+}
+function formatScore(s) {
+  if (s === undefined || s === null) return '-'
+  return (s > 0 ? '+' : '') + s
+}
+function playersSummary(rec) {
+  return (rec.players || []).map((p) => p.username || '?').join(' / ')
 }
 function phaseLabel(p) {
   return PHASE_LABELS[p] || p || '无'
@@ -460,16 +733,268 @@ async function loadGames() {
   }
 }
 
+function buildRecordsParams() {
+  const params = {
+    page: recordsPage.current,
+    limit: recordsPage.size,
+  }
+  if (statsFilter.rule) params.rule = statsFilter.rule
+  if (statsFilter.game_type) params.game_type = statsFilter.game_type
+  if (focusPlayer.value?.user_id) params.user_id = focusPlayer.value.user_id
+  return params
+}
+
 async function loadRecords() {
   loadingRecords.value = true
+  selectedRecordIds.value = []
   try {
-    const res = await eventAdminApi.get(`/events/${props.eventId}/records`)
-    records.value = res.data.data?.items || []
+    const res = await eventAdminApi.get(`/events/${props.eventId}/records`, {
+      params: buildRecordsParams(),
+    })
+    const data = res.data.data || {}
+    records.value = data.items || []
+    recordsTotal.value = data.total || 0
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载牌谱失败')
+    ElMessage.error(e.response?.data?.message || '加载对局记录失败')
     records.value = []
+    recordsTotal.value = 0
   } finally {
     loadingRecords.value = false
+  }
+}
+
+function onRecordsSizeChange() {
+  recordsPage.current = 1
+  loadRecords()
+}
+
+function onRecordsSelectionChange(rows) {
+  selectedRecordIds.value = rows.map((r) => r.game_id)
+}
+
+function triggerBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+async function handleDownloadResponse(resp) {
+  if (resp.status === 400) {
+    try {
+      const j = await resp.json()
+      ElMessage.error(j.message || '下载失败')
+    } catch (_) {
+      ElMessage.error('下载失败')
+    }
+    return false
+  }
+  if (resp.status === 404) {
+    ElMessage.warning('没有匹配的牌谱')
+    return false
+  }
+  if (resp.status === 401) {
+    ElMessage.error('登录已失效，请重新登录')
+    return false
+  }
+  if (!resp.ok) {
+    ElMessage.error('下载失败')
+    return false
+  }
+  const blob = await resp.blob()
+  const cd = resp.headers.get('content-disposition') || ''
+  const m = /filename="?([^";]+)"?/.exec(cd)
+  triggerBlob(blob, m ? m[1] : 'records.zip')
+  return true
+}
+
+function downloadOne(gameId) {
+  const token = getEventAdminToken()
+  downloadingRecords.value = true
+  fetch(`/api/event-admin/events/${props.eventId}/record/${encodeURIComponent(gameId)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+    .then(async (resp) => {
+      if (!resp.ok) {
+        ElMessage.error('下载失败')
+        return
+      }
+      const blob = await resp.blob()
+      triggerBlob(blob, `${gameId}.json`)
+    })
+    .catch(() => ElMessage.error('下载失败'))
+    .finally(() => {
+      downloadingRecords.value = false
+    })
+}
+
+async function downloadSelected() {
+  if (selectedRecordIds.value.length === 0) return
+  downloadingRecords.value = true
+  try {
+    const token = getEventAdminToken()
+    const resp = await fetch(`/api/event-admin/events/${props.eventId}/records/download`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ game_ids: selectedRecordIds.value }),
+    })
+    await handleDownloadResponse(resp)
+  } catch (_) {
+    ElMessage.error('下载失败')
+  } finally {
+    downloadingRecords.value = false
+  }
+}
+
+async function downloadFiltered() {
+  downloadingRecords.value = true
+  try {
+    const token = getEventAdminToken()
+    const body = {}
+    if (statsFilter.rule) body.rule = statsFilter.rule
+    if (statsFilter.game_type) body.game_type = statsFilter.game_type
+    if (focusPlayer.value?.user_id) body.user_id = focusPlayer.value.user_id
+    const resp = await fetch(`/api/event-admin/events/${props.eventId}/records/download`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    await handleDownloadResponse(resp)
+  } catch (_) {
+    ElMessage.error('下载失败')
+  } finally {
+    downloadingRecords.value = false
+  }
+}
+
+/** 本赛事总计：不受玩家搜索影响 */
+async function loadEventTotals() {
+  loadingStats.value = true
+  try {
+    const params = {}
+    if (statsFilter.rule) params.rule = statsFilter.rule
+    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    const res = await eventAdminApi.get(`/events/${props.eventId}/player-stats`, { params })
+    const data = res.data.data || {}
+    statsTotals.value = data.totals || {
+      total_games: 0,
+      first_place_count: 0,
+      second_place_count: 0,
+      third_place_count: 0,
+      fourth_place_count: 0,
+      player_count: 0,
+    }
+    statsRuleOptions.value = data.filters?.rules || []
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '加载统计失败')
+  } finally {
+    loadingStats.value = false
+  }
+}
+
+async function searchPlayer() {
+  const q = statsFilter.q.trim()
+  if (!q) {
+    clearPlayerSearch()
+    return
+  }
+  searchingPlayer.value = true
+  try {
+    const params = { q }
+    if (statsFilter.rule) params.rule = statsFilter.rule
+    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    const res = await eventAdminApi.get(`/events/${props.eventId}/player-stats`, { params })
+    const players = res.data.data?.players || []
+    if (!players.length) {
+      focusPlayer.value = null
+      ElMessage.warning('未找到该玩家在本赛事的对局')
+    } else {
+      const exactId = /^\d+$/.test(q)
+        ? players.find((p) => String(p.user_id) === q)
+        : null
+      const exactName = players.find(
+        (p) => String(p.username || '').toLowerCase() === q.toLowerCase()
+      )
+      focusPlayer.value = exactId || exactName || players[0]
+      if (players.length > 1 && !exactId && !exactName) {
+        ElMessage.info(`匹配到 ${players.length} 名玩家，已显示「${focusPlayer.value.username}」`)
+      }
+    }
+    recordsPage.current = 1
+    await loadRecords()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '查询玩家失败')
+  } finally {
+    searchingPlayer.value = false
+  }
+}
+
+function clearPlayerSearch() {
+  statsFilter.q = ''
+  focusPlayer.value = null
+  recordsPage.current = 1
+  loadRecords()
+}
+
+async function onStatsScopeChange() {
+  recordsPage.current = 1
+  await loadEventTotals()
+  if (focusPlayer.value) {
+    await reloadFocusPlayerStats()
+  }
+  await loadRecords()
+}
+
+async function reloadFocusPlayerStats() {
+  if (!focusPlayer.value) return
+  searchingPlayer.value = true
+  try {
+    const params = { q: String(focusPlayer.value.user_id) }
+    if (statsFilter.rule) params.rule = statsFilter.rule
+    if (statsFilter.game_type) params.game_type = statsFilter.game_type
+    const res = await eventAdminApi.get(`/events/${props.eventId}/player-stats`, { params })
+    const players = res.data.data?.players || []
+    const hit = players.find((p) => Number(p.user_id) === Number(focusPlayer.value.user_id))
+    if (hit) {
+      focusPlayer.value = hit
+    } else {
+      focusPlayer.value = null
+      statsFilter.q = ''
+      ElMessage.warning('该玩家在当前筛选下无对局')
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '查询玩家失败')
+  } finally {
+    searchingPlayer.value = false
+  }
+}
+
+function resetStatsFilter() {
+  statsFilter.rule = ''
+  statsFilter.game_type = ''
+  statsFilter.q = ''
+  focusPlayer.value = null
+  recordsPage.current = 1
+  loadEventTotals()
+  loadRecords()
+}
+
+function refreshStatsTab() {
+  loadEventTotals()
+  if (focusPlayer.value) {
+    reloadFocusPlayerStats().then(() => loadRecords())
+  } else {
+    loadRecords()
   }
 }
 
@@ -582,6 +1107,7 @@ async function load() {
     await Promise.all([
       loadRooms(),
       loadGames(),
+      loadEventTotals(),
       loadRecords(),
       loadAnnouncements(),
       isOwner.value ? loadProfileChange() : Promise.resolve(),
@@ -960,5 +1486,193 @@ watch(
   display: inline-block;
   margin-right: 8px;
   font-size: 12px;
+}
+.emp-stats-totals,
+.emp-stats-player-detail {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+.emp-stats-totals-head,
+.emp-stats-player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.emp-stats-heading {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #606266;
+}
+.emp-stats-totals-head .emp-stats-heading,
+.emp-stats-player-head .emp-stats-heading {
+  margin-bottom: 0;
+}
+.emp-stats-totals-head + .emp-stats-grid,
+.emp-stats-player-head + .emp-stats-grid {
+  margin-top: 10px;
+}
+.emp-stats-uid {
+  margin-left: 8px;
+  font-weight: 400;
+  color: #909399;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+.emp-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px 12px;
+}
+.emp-stats-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.emp-stats-label {
+  font-size: 12px;
+  color: #909399;
+}
+.emp-stats-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  font-variant-numeric: tabular-nums;
+}
+.emp-stats-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.emp-records-section {
+  margin-top: 4px;
+  border-top: 1px solid #eef0f3;
+  padding-top: 10px;
+}
+.emp-records-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.emp-records-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.emp-records-total {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.emp-records-table {
+  width: 100%;
+}
+:deep(.emp-records-table .el-table__cell) {
+  padding: 4px 0;
+}
+:deep(.emp-records-table th.el-table__cell) {
+  background: #f5f7fa;
+  color: #475569;
+  font-weight: 600;
+  border-bottom: 1px solid #dcdfe6;
+}
+:deep(.emp-records-table td.el-table__cell) {
+  border-color: #eef0f3;
+}
+.cell-game-id {
+  font-size: 12px;
+  font-family: Consolas, Menlo, monospace;
+  color: #303133;
+}
+.cell-time {
+  font-size: 12px;
+  color: #64748b;
+  font-family: Consolas, Menlo, monospace;
+}
+.cell-scene {
+  font-size: 12px;
+  color: #303133;
+}
+.cell-mode {
+  font-size: 12px;
+  color: #64748b;
+  font-family: Consolas, Menlo, monospace;
+}
+.cell-score {
+  font-weight: 700;
+  font-family: Consolas, Menlo, monospace;
+}
+.cell-score.pos {
+  color: #c0392b;
+}
+.cell-score.neg {
+  color: #2c7a2c;
+}
+.cell-players {
+  font-size: 12px;
+  color: #64748b;
+  cursor: help;
+}
+.cell-dash {
+  color: #c0c4cc;
+}
+.tip-player {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.tip-player .pos {
+  color: #ff7a7a;
+  font-weight: 700;
+}
+.tip-player .neg {
+  color: #6ee06e;
+  font-weight: 700;
+}
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-weight: 700;
+  font-size: 11px;
+  font-family: Consolas, Menlo, monospace;
+}
+.rank-1 {
+  background: #6fd86f;
+  color: #1f5e1f;
+}
+.rank-2 {
+  background: #5dadff;
+  color: #fff;
+}
+.rank-3 {
+  background: #aab4c2;
+  color: #2c3848;
+}
+.rank-4 {
+  background: #ff7a7a;
+  color: #fff;
+}
+.emp-records-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+.emp-records-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 </style>

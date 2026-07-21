@@ -4,20 +4,21 @@ import logging
 
 from ..ai.get_action import get_ai_action
 from ..ai.smart_bot_logic import first_dingque_tile
-from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
+from ..hand_slot_utils import bot_ask_hand_game_status, has_draw_slot, infer_bot_cut_class
 
 logger = logging.getLogger(__name__)
 
-_PASS_WAIT_STATUSES = ("waiting_action_after_cut", "waiting_action_qianggang")
+_PASS_WAIT_STATUSES = (
+    "waiting_action_after_cut",
+    "waiting_action_qianggang",
+    "waiting_initial_hu",
+    "waiting_sea_bottom",
+)
 _OFFLINE_DELAY = 0.5
 
 
-def _is_flower_tile(tile_id: int) -> bool:
-    return tile_id >= 50
-
-
 def _pick_offline_cut_tile(player):
-    """掉线托管：摸切优先，不切花牌；定缺花色仍优先（与服务端 _enforce_dingque_first 一致）。"""
+    """掉线托管：摸切优先（末张含花牌照常打出）；定缺花色仍优先（与服务端 _enforce_dingque_first 一致）。"""
     hand = player.hand_tiles
     dingque = getattr(player, "dingque_suit", 0)
     dingque_tile = first_dingque_tile(hand, dingque)
@@ -25,19 +26,8 @@ def _pick_offline_cut_tile(player):
         tile_id = dingque_tile
         cut_index = next(i for i, t in enumerate(hand) if t == tile_id)
     else:
+        tile_id = hand[-1]
         cut_index = len(hand) - 1
-        tile_id = hand[cut_index]
-        if _is_flower_tile(tile_id):
-            cut_index = -1
-            tile_id = None
-            for i in range(len(hand) - 1, -1, -1):
-                if not _is_flower_tile(hand[i]):
-                    tile_id = hand[i]
-                    cut_index = i
-                    break
-            if tile_id is None:
-                tile_id = hand[-1]
-                cut_index = len(hand) - 1
     is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
     return tile_id, cut_index, is_moqie
 
@@ -56,6 +46,59 @@ async def _submit_pass_when_ready(game_state, player_index: int, action_list: li
         f"掉线托管失败：玩家 {player_index} ({current_player.username}) 未进入 waiting_players_list"
     )
     return False
+
+
+async def _auto_dingque_on_disconnect(game_state, player_index: int) -> None:
+    """四川定缺阶段掉线：自动选数量最少的花色。"""
+    try:
+        player = game_state.player_list[player_index]
+        counts = {1: 0, 2: 0, 3: 0}
+        for t in player.hand_tiles:
+            counts[t // 10] = counts.get(t // 10, 0) + 1
+        suit = min(counts, key=lambda s: counts[s])
+        await game_state.action_queues[player_index].put({"action_type": "dingque", "target_tile": suit})
+        game_state.action_events[player_index].set()
+        logger.info(f"掉线托管 {player_index} ({player.username}) 自动定缺 suit={suit}")
+    except Exception as e:
+        logger.error(f"掉线托管 {player_index} 自动定缺失败: {e}", exc_info=True)
+
+
+def schedule_offline_auto_on_disconnect(game_state, user_id: int) -> None:
+    """
+    玩家刚掉线时：若当前巡仍有待操作，立即派发托管，不必等下次 broadcast / 超时。
+    全员掉线即将销毁对局时不派发。
+    """
+    player = next((p for p in game_state.player_list if p.user_id == user_id), None)
+    if player is None:
+        return
+
+    non_ai = [p for p in game_state.player_list if p.user_id >= 10]
+    if non_ai and all("offline" in p.tag_list for p in non_ai):
+        return
+
+    player_index = player.player_index
+    action_list = list((getattr(game_state, "action_dict", None) or {}).get(player_index) or [])
+    if not action_list:
+        return
+
+    if getattr(game_state, "game_status", None) == "waiting_dingque" and "dingque" in action_list:
+        asyncio.create_task(_auto_dingque_on_disconnect(game_state, player_index))
+        return
+
+    status = bot_ask_hand_game_status(game_state, player_index)
+    logger.info(
+        f"掉线即时托管：user_id={user_id}, player_index={player_index}, "
+        f"status={status}, actions={action_list}"
+    )
+
+    # 长沙沿用摸切机器人逻辑（含起手胡/海底等状态）
+    if getattr(game_state, "room_rule", None) == "changsha":
+        from ..ai.auto_cut_ai import auto_cut_action
+
+        asyncio.create_task(auto_cut_action(game_state, player_index, action_list, status))
+        return
+
+    asyncio.create_task(offline_auto_action(game_state, player_index, action_list, status))
 
 
 async def offline_auto_action(game_state, player_index: int, action_list: list, game_status: str):

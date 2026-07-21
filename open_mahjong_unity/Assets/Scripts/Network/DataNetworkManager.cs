@@ -40,6 +40,9 @@ public class DataNetworkManager : MonoBehaviour {
             case "data/get_record_by_id":
                 HandleGetRecordByIdResponse(response);
                 break;
+            case "data/update_record_favorite":
+                HandleUpdateRecordFavoriteResponse(response);
+                break;
             case "data/get_guobiao_stats":
                 HandleGetGuobiaoStatsResponse(response);
                 break;
@@ -84,6 +87,18 @@ public class DataNetworkManager : MonoBehaviour {
             return;
         }
         RecordPanel.OpenRecord(response.record_detail);
+    }
+
+    private void HandleUpdateRecordFavoriteResponse(Response response) {
+        if (!response.success) {
+            NotificationManager.Instance.ShowTip("牌谱", false, response.message);
+        }
+        RecordPanel.Instance?.OnRecordFavoriteUpdated(
+            response.success,
+            response.game_id,
+            response.is_favorite,
+            response.message
+        );
     }
 
     /// <summary>
@@ -199,6 +214,21 @@ public class DataNetworkManager : MonoBehaviour {
         } catch (Exception e) {
             Debug.LogError($"获取牌谱详情失败: {e.Message}");
             NotificationManager.Instance.ShowTip("牌谱", false, $"获取牌谱失败: {e.Message}");
+        }
+    }
+
+    public async void UpdateRecordFavorite(string gameId, bool isFavorite) {
+        try {
+            var request = new UpdateRecordFavoriteRequest {
+                type = "data/update_record_favorite",
+                game_id = gameId,
+                is_favorite = isFavorite
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"更新牌谱收藏失败: {e.Message}");
+            NotificationManager.Instance.ShowTip("牌谱", false, $"更新收藏失败: {e.Message}");
+            RecordPanel.Instance?.OnRecordFavoriteUpdated(false, gameId, !isFavorite, e.Message);
         }
     }
 

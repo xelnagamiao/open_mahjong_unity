@@ -7,6 +7,7 @@ const {
   querySceneTotalsFans,
   querySceneDailyGames,
   queryHomeHierarchyStats,
+  queryRecentLadderRecords,
 } = require('../services/platformStats');
 
 function defaultDateRange(asOfDate, days = 30) {
@@ -77,6 +78,24 @@ router.get('/home-stats', async (req, res) => {
     });
   } catch (error) {
     console.error('platform home-stats error:', error);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+/** 最近天梯对局牌谱（可按场次筛选） */
+router.get('/recent-records', async (req, res) => {
+  try {
+    const matchTier = typeof req.query.match_tier === 'string' ? req.query.match_tier : null;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const data = await queryRecentLadderRecords({
+      matchTier,
+      limit,
+      offset,
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('platform recent-records error:', error);
     res.status(500).json({ success: false, message: '服务器内部错误' });
   }
 });

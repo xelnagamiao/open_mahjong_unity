@@ -5,7 +5,7 @@
     </el-empty>
 
     <template v-else-if="auth.isLoggedIn">
-      <el-card id="sec-account" class="block section" data-sec="sec-account">
+      <el-card v-show="activeSection === 'sec-account'" id="sec-account" class="block section" data-sec="sec-account">
         <template #header>账户信息</template>
         <el-descriptions :column="2" border>
           <el-descriptions-item label="用户名">{{ auth.username }}</el-descriptions-item>
@@ -79,7 +79,7 @@
         </el-form>
       </el-card>
 
-      <el-card id="sec-apply" class="block section" data-sec="sec-apply">
+      <el-card v-show="activeSection === 'sec-apply'" id="sec-apply" class="block section" data-sec="sec-apply">
         <template #header>提交办赛申请</template>
         <el-form label-position="top" class="apply-form" @submit.prevent="submitApplication">
           <el-form-item label="赛事名称" required>
@@ -144,9 +144,9 @@
         </el-form>
       </el-card>
 
-      <el-card id="sec-manage" class="block section" data-sec="sec-manage">
+      <el-card v-show="activeSection === 'sec-manage'" id="sec-manage" class="block section" data-sec="sec-manage">
         <template #header>赛事管理</template>
-        <p class="hint">查看办赛申请与已注册赛事；点击「管理」在下方展开管理面板。</p>
+        <p class="hint">查看办赛申请与已注册赛事；点击「管理赛事」在下方展开管理面板。</p>
 
         <el-divider content-position="left">赛事申请</el-divider>
         <div class="fit-table-wrap">
@@ -212,14 +212,14 @@
             <el-table-column label="牌谱" width="70">
               <template #default="{ row }">{{ row.record_count || 0 }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="150">
+            <el-table-column label="操作" width="180">
               <template #default="{ row }">
-                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">公开页</el-button>
                 <el-button
                   link
                   :type="managingEventId === row.event_id ? 'warning' : 'danger'"
                   @click="toggleManage(row.event_id)"
-                >{{ managingEventId === row.event_id ? '收起' : '管理' }}</el-button>
+                >{{ managingEventId === row.event_id ? '收起' : '管理赛事' }}</el-button>
+                <el-button link type="primary" @click="$router.push(`/events/${row.event_id}`)">赛事页面</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -237,7 +237,7 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
@@ -252,8 +252,13 @@ const router = useRouter()
 const route = useRoute()
 
 const sectionIds = ['sec-account', 'sec-apply', 'sec-manage']
-let observer = null
 let cooldownTimer = null
+
+const activeSection = computed(() => {
+  const hash = (route.hash || '').replace(/^#/, '')
+  if (sectionIds.includes(hash)) return hash
+  return 'sec-account'
+})
 
 const pwd = reactive({ old: '', next: '', confirm: '' })
 const pwdLoading = ref(false)
@@ -279,11 +284,6 @@ const managingEventId = ref(null)
 
 function toggleManage(eventId) {
   managingEventId.value = managingEventId.value === eventId ? null : eventId
-  if (managingEventId.value) {
-    nextTick(() => {
-      document.getElementById('sec-manage')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    })
-  }
 }
 
 function appStatusLabel(s) {
@@ -322,14 +322,6 @@ function formatPlannedRange(row) {
   return `至 ${end}`
 }
 
-function scrollTo(id) {
-  const el = document.getElementById(id)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    history.replaceState(null, '', `#${id}`)
-  }
-}
-
 async function loadMyApplications() {
   if (!auth.isLoggedIn) {
     myApplications.value = []
@@ -360,23 +352,6 @@ async function loadMyEvents() {
   }
 }
 
-function setupSpy() {
-  const nodes = sectionIds.map((id) => document.getElementById(id)).filter(Boolean)
-  if (!nodes.length) return
-  observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-      if (visible[0]?.target?.id) {
-        history.replaceState(null, '', `#${visible[0].target.id}`)
-      }
-    },
-    { rootMargin: '-20% 0px -55% 0px', threshold: [0.2, 0.5, 0.8] }
-  )
-  nodes.forEach((n) => observer.observe(n))
-}
-
 function startCooldown(sec = 60) {
   sendCooldown.value = sec
   if (cooldownTimer) clearInterval(cooldownTimer)
@@ -390,25 +365,38 @@ function startCooldown(sec = 60) {
   }, 1000)
 }
 
+function openManageFromQuery() {
+  const manageId = typeof route.query.manage === 'string' ? route.query.manage : ''
+  if (!manageId) return
+  managingEventId.value = manageId
+  if (activeSection.value !== 'sec-manage') {
+    router.replace({ path: '/account', hash: '#sec-manage', query: route.query })
+  }
+}
+
 onMounted(async () => {
   if (!auth.loaded) await auth.fetchMe()
   if (!eventAuth.loaded) await eventAuth.fetchMe()
   if (auth.email && !emailForm.email) emailForm.email = auth.email
   await Promise.all([loadMyApplications(), loadMyEvents()])
   await nextTick()
-  setupSpy()
-  const hash = (route.hash || '').replace(/^#/, '')
-  if (hash && sectionIds.includes(hash)) scrollTo(hash)
-  const manageId = typeof route.query.manage === 'string' ? route.query.manage : ''
-  if (manageId) {
-    managingEventId.value = manageId
-    await nextTick()
-    scrollTo('sec-manage')
+  openManageFromQuery()
+})
+
+watch(
+  () => route.query.manage,
+  () => {
+    openManageFromQuery()
   }
+)
+
+watch(activeSection, async () => {
+  await nextTick()
+  const main = document.querySelector('.account-main')
+  if (main) main.scrollTop = 0
 })
 
 onBeforeUnmount(() => {
-  if (observer) observer.disconnect()
   if (cooldownTimer) clearInterval(cooldownTimer)
 })
 
@@ -538,7 +526,6 @@ async function submitApplication() {
 }
 .block {
   margin-bottom: 16px;
-  scroll-margin-top: 16px;
   min-width: 0;
 }
 .actions {

@@ -150,6 +150,9 @@ public class SoundManager : MonoBehaviour {
     }
 
     public void PlayGameStartSound() {
+        if (ConfigManager.Instance != null && !ConfigManager.Instance.MatchSuccessSoundEnabled) {
+            return;
+        }
         AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Physics/gamestart");
         if (soundToPlay == null) {
             Debug.LogWarning("未找到匹配成功音效: Sound/Physics/gamestart");
@@ -164,6 +167,9 @@ public class SoundManager : MonoBehaviour {
         if (actionType == "cut") {
             fileName = "SFX_UI_Click_Organic_Plastic_Select_2";
         } else if (actionType == "Gong_hu") {
+            if (ConfigManager.Instance != null && !ConfigManager.Instance.GongHuSoundEnabled) {
+                return;
+            }
             fileName = "Gong_hu";
         } else {
             return;

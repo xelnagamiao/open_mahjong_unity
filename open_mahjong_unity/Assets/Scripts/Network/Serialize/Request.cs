@@ -152,6 +152,12 @@ public class GetRecordListRequest { // 获取游戏记录请求
     public int offset = 0;
 }
 
+public class UpdateRecordFavoriteRequest {
+    public string type;
+    public string game_id;
+    public bool is_favorite;
+}
+
 public class GetRankRecordListRequest { // 获取全服最近天梯对局记录请求
     public string type;
     public int limit = 20;

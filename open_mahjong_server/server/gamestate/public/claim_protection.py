@@ -12,11 +12,9 @@
        再按「cut 揭示时刻 + MELD_FOLLOWUP_GAP」计算剩余延迟；
     2) 能鸣牌者全部 pass / 超时无人鸣牌 -> 立即 flush cut（区间结束，无鸣牌）；
     3) MELD_PROTECT_DELAY 超时 -> flush cut（此后「暴露有人可鸣牌」是允许的，但仍不知是谁）。
-- 节奏完全由服务器驱动：flush cut 后，鸣牌/申请对受保护观众的发送在广播函数内
-  「内联 await sleep(剩余 gap)」后按序发出（阻塞本次广播，保证全局 wire 顺序，
-  不用 fire-and-forget 追赶协程——那曾导致受保护观众收到 N+4 在 N+2 之前的乱序）。
-  客户端按到达顺序即时呈现，无需 meld_reveal_delay 字段与补帧跳延迟启发式。
-- 与战术鸣牌的配合：is_claim 一律先 flush cut 再发送（受保护观众也能听到申请发声），
+- 节奏：flush cut 后，鸣牌/申请对受保护观众经 per-viewer outbound_pipe 延迟发送
+  （主循环不 await gap，避免点吃碰后整桌卡住；同一观众后续消息仍 FIFO，不会乱序）。
+- 与战术鸣牌的配合：is_claim 一律先 flush cut 再入队（受保护观众也能听到申请发声），
   之后的实际鸣牌尊重 silent（战术申请后静默执行），避免「申请 + 执行」双响。
 """
 from __future__ import annotations
@@ -68,19 +66,22 @@ def compute_protected_meld_delay(game_state) -> float:
 
 async def prepare_protected_meld_for_viewers(game_state, send_fn) -> float:
     """实际吃碰杠 / 战术申请（is_claim）广播前：补发暂存 cut（若尚未揭示），
-    并返回受保护观众的剩余追赶延迟（秒）。调用方应在向受保护观众发送前
-    内联 await sleep 该延迟（服务器驱动节奏，保证 wire 顺序）。"""
+    并返回受保护观众的剩余追赶延迟（秒）。调用方应将鸣牌/申请经 outbound_pipe
+    以该 delay 入队（勿在主循环 await sleep）。"""
     await flush_protected_cut(game_state, send_fn)
     return compute_protected_meld_delay(game_state)
 
 
 def init_claim_protection_state(game_state) -> None:
+    from .outbound_pipe import init_outbound_pipes
+
     game_state._cp_active = False
     game_state._cp_protected = [False, False, False, False]
     game_state._cp_pending_cut: Dict[int, dict] = {}
     game_state._cp_cut_flushed = False
     game_state._cp_cut_flush_time = None
     game_state._cp_timer_task: Optional[asyncio.Task] = None
+    init_outbound_pipes(game_state)
 
 
 def _cancel_timer(game_state) -> None:

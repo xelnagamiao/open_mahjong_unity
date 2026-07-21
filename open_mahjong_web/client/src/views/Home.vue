@@ -134,8 +134,8 @@
     </section>
 
     <section class="sec">
-      <div class="sec-h">■ 牌理与国标计算器</div>
-      <div class="grid g2">
+      <div class="sec-h">■ 牌理、计算器与猜番</div>
+      <div class="grid g3">
         <router-link
           v-for="item in calcLinks"
           :key="item.to"
@@ -351,6 +351,7 @@ const battleLinks = [
 const calcLinks = [
   { to: '/paili', title: '牌理', description: '分析手牌是否听牌，以及听牌的向听数或待牌。', color: '#9b59b6' },
   { to: '/chinese', title: '国标计算器', description: '根据手牌、副露、花牌、和牌方式计算番种、得分与全部和牌拆解形态。', color: '#45B7D1' },
+  { to: '/guess-fan', title: '猜番对抗', description: 'Wordle 式猜番种：单人或 1v1 同题竞速，支持国标与立直。', color: '#2d5a46' },
 ]
 
 const toolLinks = [
@@ -358,10 +359,10 @@ const toolLinks = [
   { to: '/seed-verify', title: '随机种子验证', description: '输入对局公布的主种子与盐值，在本地复现随机到的座位与每局配牌，验证服务端未替换随机种子。', color: '#e6a23c' },
   { to: '/docs', title: '开发手册', description: '查看开发文档，设计自定义的麻将规则。', color: '#00b300' },
   {
-    placeholder: true,
+    to: '/guide',
     title: '使用说明',
-    description: '',
-    color: '#909399',
+    description: '平台简介、公平机制、随机种子与自定义规则等说明。',
+    color: '#5470c6',
   },
 ]
 

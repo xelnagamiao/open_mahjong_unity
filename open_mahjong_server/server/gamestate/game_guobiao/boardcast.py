@@ -373,7 +373,7 @@ def _build_do_action_payload(
     }
 
 
-async def _send_do_action_payload_to_viewer(self, viewer_index: int, payload: dict, msg_type: str = "gamestate/guobiao/do_action"):
+async def _deliver_do_action_payload_to_viewer(self, viewer_index: int, payload: dict, msg_type: str = "gamestate/guobiao/do_action"):
     current_player = self.player_list[viewer_index]
     if "offline" in current_player.tag_list:
         return
@@ -390,6 +390,15 @@ async def _send_do_action_payload_to_viewer(self, viewer_index: int, payload: di
     )
     await player_conn.websocket.send_json(response.dict(exclude_none=True))
     await self.send_to_realtime_spectators(current_player.player_index, response)
+
+
+async def _send_do_action_payload_to_viewer(self, viewer_index: int, payload: dict, msg_type: str = "gamestate/guobiao/do_action"):
+    from ..public.outbound_pipe import send_to_viewer
+
+    async def _do():
+        await _deliver_do_action_payload_to_viewer(self, viewer_index, payload, msg_type)
+
+    await send_to_viewer(self, viewer_index, _do)
 
 
 async def broadcast_do_action(
@@ -433,9 +442,7 @@ async def broadcast_do_action(
     cut_already_revealed = getattr(self, "_cp_cut_flushed", False)
 
     # 服务器驱动节奏：实际鸣牌与战术申请（is_claim）都先 flush 暂存 cut。
-    # 受保护观众的鸣牌/申请随后按「cut 揭示 + claim_meld_followup_gap」内联延迟发送
-    # （阻塞本次广播，保证 wire 顺序 = 逻辑顺序；非受保护观众与鸣牌者不受延迟影响）。
-    # 客户端按到达顺序即时呈现，无需 meld_reveal_delay 字段与补帧跳延迟启发式。
+    # 受保护观众的鸣牌/申请经 outbound_pipe 延迟入队（主循环不阻塞）；非受保护观众立即发送。
     protected_meld_delay = 0.0
     if interval_active and (is_real_meld or is_claim):
         protected_meld_delay = await prepare_protected_meld_for_viewers(
@@ -443,7 +450,7 @@ async def broadcast_do_action(
             _send_do_action_payload_to_viewer,
         )
 
-    deferred_protected_sends = []  # [(viewer_index, payload)] 延迟 gap 后发给受保护观众
+    deferred_protected_sends = []  # [(viewer_index, payload)] 经 pipe 延迟发给受保护观众
 
     for i, current_player in enumerate(self.player_list):
         try:
@@ -487,7 +494,7 @@ async def broadcast_do_action(
                 stash_protected_cut_payload(self, i, payload)
                 continue
 
-            # 受保护观众的鸣牌/申请：等 gap 后再发（循环外统一 sleep 一次）
+            # 受保护观众的鸣牌/申请：pipe 延迟入队，不阻塞主循环
             if protected and (is_real_meld or is_claim) and protected_meld_delay > 0:
                 deferred_protected_sends.append((i, payload))
                 continue
@@ -502,14 +509,17 @@ async def broadcast_do_action(
             # 允许广播出错，继续向其他玩家广播
 
     if deferred_protected_sends:
-        # 内联等待剩余 gap：广播函数返回前受保护观众必已收到本帧，
-        # 后续 ask/cut 等消息自然排在其后，不会乱序。
-        await asyncio.sleep(protected_meld_delay)
+        from ..public.outbound_pipe import schedule_viewer_send
+
         for i, payload in deferred_protected_sends:
-            try:
-                await _send_do_action_payload_to_viewer(self, i, payload)
-            except Exception as e:
-                logger.error(f"鸣牌保护延迟发送失败 viewer={i}: {e}")
+            def _make_send(vi=i, p=payload):
+                async def _do():
+                    await _deliver_do_action_payload_to_viewer(self, vi, p)
+                return _do
+
+            schedule_viewer_send(
+                self, i, _make_send(), delay_before=protected_meld_delay,
+            )
 
     # 出牌广播完成后，启动 claim_protect_delay 超时定时器：到点把暂存出牌发给受保护观众
     if interval_active and is_cut:
@@ -573,8 +583,13 @@ async def broadcast_result(self,
                         next_status=next_status,
                     )
                 )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+                from ..public.outbound_pipe import send_to_viewer
+
+                async def _do(conn=player_conn, resp=response, idx=current_player.player_index):
+                    await conn.websocket.send_json(resp.dict(exclude_none=True))
+                    await self.send_to_realtime_spectators(idx, resp)
+
+                await send_to_viewer(self, i, _do)
                 logger.info(f"已向玩家 {current_player.username} 广播结算结果信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")

@@ -8,6 +8,10 @@ const {
   requireEventOwner,
 } = require('../../middleware/requireEventAdmin');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
+const {
+  fetchEventPlayerStats,
+  GAME_TYPE_MATCH_TYPES,
+} = require('../../services/eventPlayerStats');
 
 const MAX_EVENT_ADMINS = 10;
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
@@ -564,40 +568,87 @@ router.post('/:eventId/games/:gameId/end', requireEventMembership, async (req, r
   }
 });
 
+/** 赛事玩家顺位统计（与数据站 rank-stats 口径一致） */
+router.get('/:eventId/player-stats', requireEventMembership, async (req, res) => {
+  try {
+    const data = await fetchEventPlayerStats(req.event.event_id, {
+      rule: req.query.rule || null,
+      sub_rule: req.query.sub_rule || null,
+      game_type: req.query.game_type || null,
+      date_from: req.query.date_from || null,
+      date_to: req.query.date_to || null,
+      q: req.query.q || null,
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('event-admin player-stats:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+/** 赛事牌谱筛选条件（与 records 列表一致） */
+function buildEventRecordConditions(eventId, query) {
+  const params = [eventId];
+  const conditions = [
+    'gpr.event_id = $1',
+    `gpr.room_type = 'events'`,
+  ];
+  if (query.rule) {
+    params.push(String(query.rule));
+    conditions.push(`gpr.rule = $${params.length}`);
+  }
+  if (query.game_type) {
+    const mts = GAME_TYPE_MATCH_TYPES[query.game_type];
+    if (mts && mts.length) {
+      params.push(mts);
+      conditions.push(`gpr.match_type = ANY($${params.length}::varchar[])`);
+    }
+  }
+  if (query.user_id) {
+    const uid = parseInt(query.user_id, 10);
+    if (!Number.isNaN(uid) && uid > 0) {
+      params.push(uid);
+      conditions.push(`gpr.user_id = $${params.length}`);
+    }
+  }
+  return { params, conditions, whereSql: conditions.join(' AND ') };
+}
+
+const DOWNLOAD_MAX_GAMES = 50;
+
 router.get('/:eventId/records', requireEventMembership, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const offset = (page - 1) * limit;
 
+    const { params, whereSql } = buildEventRecordConditions(req.event.event_id, req.query);
+    const limitIdx = params.length + 1;
+    const offsetIdx = params.length + 2;
+    params.push(limit, offset);
+
     const listRes2 = await pool.query(
       `SELECT gr.game_id, gr.created_at,
-              (
-                SELECT gpr.rule FROM game_player_records gpr
-                WHERE gpr.game_id = gr.game_id LIMIT 1
-              ) AS rule,
-              (
-                SELECT gpr.sub_rule FROM game_player_records gpr
-                WHERE gpr.game_id = gr.game_id LIMIT 1
-              ) AS sub_rule,
-              (
-                SELECT gpr.match_type FROM game_player_records gpr
-                WHERE gpr.game_id = gr.game_id LIMIT 1
-              ) AS match_type
+              MAX(gpr.rule) AS rule,
+              MAX(gpr.sub_rule) AS sub_rule,
+              MAX(gpr.match_type) AS match_type,
+              MAX(gpr.room_type) AS room_type,
+              MAX(gpr.event_id) AS event_id
        FROM game_records gr
-       WHERE EXISTS (
-         SELECT 1 FROM game_player_records gpr
-         WHERE gpr.game_id = gr.game_id AND gpr.event_id = $1
-       )
+       JOIN game_player_records gpr ON gpr.game_id = gr.game_id
+       WHERE ${whereSql}
+       GROUP BY gr.game_id, gr.created_at
        ORDER BY gr.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [req.event.event_id, limit, offset]
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      params
     );
 
+    const countParams = params.slice(0, -2);
     const countRes = await pool.query(
       `SELECT COUNT(DISTINCT gpr.game_id)::int AS cnt
-       FROM game_player_records gpr WHERE gpr.event_id = $1`,
-      [req.event.event_id]
+       FROM game_player_records gpr
+       WHERE ${whereSql}`,
+      countParams
     );
 
     const gameIds = listRes2.rows.map((r) => r.game_id);
@@ -616,12 +667,16 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
       }
     }
 
+    const eventName = req.event.name || null;
     const items = listRes2.rows.map((row) => ({
       game_id: row.game_id,
       created_at: row.created_at,
       rule: row.rule,
       sub_rule: row.sub_rule,
       match_type: row.match_type,
+      room_type: row.room_type || 'events',
+      event_id: row.event_id || req.event.event_id,
+      event_name: eventName,
       players: playersByGame.get(row.game_id) || [],
     }));
 
@@ -637,6 +692,126 @@ router.get('/:eventId/records', requireEventMembership, async (req, res) => {
   } catch (err) {
     console.error('event-admin records:', err);
     res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+/** 单局牌谱下载（须属于本赛事） */
+router.get('/:eventId/record/:gameId', requireEventMembership, async (req, res) => {
+  try {
+    const gameId = String(req.params.gameId || '').trim();
+    if (!gameId) {
+      return res.status(400).json({ success: false, message: '\u65e0\u6548\u7684 game_id' });
+    }
+    const owned = await pool.query(
+      `SELECT 1 FROM game_player_records
+       WHERE game_id = $1 AND event_id = $2 AND room_type = 'events'
+       LIMIT 1`,
+      [gameId, req.event.event_id]
+    );
+    if (owned.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '\u724c\u8c31\u4e0d\u5b58\u5728' });
+    }
+    const result = await pool.query(
+      `SELECT record FROM game_records WHERE game_id = $1`,
+      [gameId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '\u724c\u8c31\u4e0d\u5b58\u5728' });
+    }
+    const raw = result.rows[0].record;
+    const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${gameId}.json"`);
+    res.send(body);
+  } catch (err) {
+    console.error('event-admin record download:', err);
+    res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+  }
+});
+
+/** 批量牌谱 ZIP：指定 game_ids 或当前筛选全部 */
+router.post('/:eventId/records/download', requireEventMembership, async (req, res) => {
+  try {
+    const eventId = req.event.event_id;
+    const requestedIds = Array.isArray(req.body?.game_ids)
+      ? req.body.game_ids.map(String).filter(Boolean)
+      : [];
+
+    let gameIds = [];
+    if (requestedIds.length > 0) {
+      const idResult = await pool.query(
+        `SELECT DISTINCT game_id FROM game_player_records
+         WHERE event_id = $1 AND room_type = 'events' AND game_id = ANY($2::varchar[])`,
+        [eventId, requestedIds]
+      );
+      gameIds = idResult.rows.map((r) => r.game_id);
+      if (gameIds.length > DOWNLOAD_MAX_GAMES) {
+        return res.status(400).json({
+          success: false,
+          message: `\u5355\u6b21\u6700\u591a\u4e0b\u8f7d ${DOWNLOAD_MAX_GAMES} \u5c40\uff0c\u5f53\u524d\u9009\u4e2d ${gameIds.length} \u5c40\uff0c\u8bf7\u51cf\u5c11\u9009\u62e9`,
+        });
+      }
+    } else {
+      const { params, whereSql } = buildEventRecordConditions(eventId, {
+        rule: req.body?.rule || null,
+        game_type: req.body?.game_type || null,
+        user_id: req.body?.user_id || null,
+      });
+      const idResult = await pool.query(
+        `SELECT game_id FROM (
+           SELECT DISTINCT gpr.game_id, gr.created_at
+           FROM game_player_records gpr
+           JOIN game_records gr ON gr.game_id = gpr.game_id
+           WHERE ${whereSql}
+         ) sub
+         ORDER BY created_at DESC`,
+        params
+      );
+      gameIds = idResult.rows.map((r) => r.game_id);
+      if (gameIds.length > DOWNLOAD_MAX_GAMES) {
+        return res.status(400).json({
+          success: false,
+          message: `\u5355\u6b21\u6700\u591a\u4e0b\u8f7d ${DOWNLOAD_MAX_GAMES} \u5c40\uff0c\u5f53\u524d\u7b5b\u9009\u547d\u4e2d ${gameIds.length} \u5c40\uff0c\u8bf7\u7f29\u5c0f\u8303\u56f4`,
+        });
+      }
+    }
+
+    if (gameIds.length === 0) {
+      return res.status(404).json({ success: false, message: '\u6ca1\u6709\u5339\u914d\u7684\u724c\u8c31' });
+    }
+
+    const recordsResult = await pool.query(
+      `SELECT game_id, record FROM game_records WHERE game_id = ANY($1::varchar[])`,
+      [gameIds]
+    );
+    const byGame = new Map(recordsResult.rows.map((r) => [r.game_id, r.record]));
+
+    const archiver = require('archiver');
+    const safeName = String(eventId).replace(/[^\w.-]+/g, '_');
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="event_${safeName}_records.zip"`);
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    archive.on('error', (err) => {
+      console.error('event-admin zip error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: '\u6253\u5305\u5931\u8d25' });
+      } else {
+        res.end();
+      }
+    });
+    archive.pipe(res);
+    for (const gameId of gameIds) {
+      const raw = byGame.get(gameId);
+      if (raw === undefined || raw === null) continue;
+      const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      archive.append(body, { name: `${gameId}.json` });
+    }
+    await archive.finalize();
+  } catch (err) {
+    console.error('event-admin records download:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef' });
+    }
   }
 });
 

@@ -2,7 +2,10 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class RecordPrefab : MonoBehaviour{
+public class RecordPrefab : MonoBehaviour {
+    private static readonly Color FavoriteColor = new Color(1f, 0.55f, 0.1f, 1f);
+    private static readonly Color NormalFavoriteColor = Color.white;
+
     [Header("基本信息")]
     [SerializeField] private TextMeshProUGUI RecordIdText;
     [SerializeField] private TextMeshProUGUI RuleText;
@@ -30,14 +33,27 @@ public class RecordPrefab : MonoBehaviour{
     [Header("按钮")]
     [SerializeField] private Button LoadRecordButton;
     [SerializeField] private Button CopyIdButton;
+    [SerializeField] private Button FavoriteButton;
 
     private string gameId;
     private PlayerRecordInfo[] playersInfo;
+    private bool isFavorite;
+    private bool favoriteRequestPending;
 
-    public void InitializeRecordItem(string gameId, string subRule, string matchType, string recordedTime, PlayerRecordInfo[] players)
-    {
+    public string GameId => gameId;
+
+    public void InitializeRecordItem(
+        string gameId,
+        string subRule,
+        string matchType,
+        string recordedTime,
+        PlayerRecordInfo[] players,
+        bool isFavorite = false
+    ) {
         this.gameId = gameId;
         this.playersInfo = players;
+        this.isFavorite = isFavorite;
+        this.favoriteRequestPending = false;
 
         RecordIdText.text = gameId;
         string ruleName = RuleNameDictionary.GetWholeName(subRule);
@@ -72,19 +88,49 @@ public class RecordPrefab : MonoBehaviour{
                 }
             }
         }
+
+        RefreshFavoriteVisual();
     }
 
-    private void Awake(){
+    public void ApplyFavoriteResult(bool success, bool newFavorite) {
+        favoriteRequestPending = false;
+        if (success) {
+            isFavorite = newFavorite;
+        }
+        RefreshFavoriteVisual();
+    }
+
+    private void Awake() {
         LoadRecordButton.onClick.AddListener(LoadRecord);
         CopyIdButton.onClick.AddListener(CopyRecordId);
+        if (FavoriteButton != null) {
+            FavoriteButton.onClick.AddListener(ToggleFavorite);
+        }
     }
 
-    private void LoadRecord(){
+    private void LoadRecord() {
         DataNetworkManager.Instance.GetRecordById(gameId);
     }
 
-    private void CopyRecordId(){
+    private void CopyRecordId() {
         ClipboardUtility.Copy(gameId);
         NotificationManager.Instance.ShowTip("牌谱", true, $"已复制牌谱ID: {gameId}");
+    }
+
+    private void ToggleFavorite() {
+        if (favoriteRequestPending || string.IsNullOrEmpty(gameId)) return;
+        favoriteRequestPending = true;
+        DataNetworkManager.Instance.UpdateRecordFavorite(gameId, !isFavorite);
+    }
+
+    private void RefreshFavoriteVisual() {
+        if (FavoriteButton == null) return;
+        var image = FavoriteButton.targetGraphic as Graphic;
+        if (image == null) {
+            image = FavoriteButton.GetComponent<Graphic>();
+        }
+        if (image != null) {
+            image.color = isFavorite ? FavoriteColor : NormalFavoriteColor;
+        }
     }
 }

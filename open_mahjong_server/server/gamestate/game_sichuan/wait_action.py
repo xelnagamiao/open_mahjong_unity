@@ -33,8 +33,7 @@ from ..public.logic_common import get_index_relative_position
 from ..public.claim_protection import (
     begin_claim_protection_interval,
     finalize_claim_protection,
-    compute_protected_meld_delay,
-)
+    )
 from ..public.tactical_claim import (
     init_tactical_round_state,
     apply_tactical_claim_if_needed,
@@ -396,11 +395,10 @@ async def wait_action(self):
                         executed_action_type=action_type,
                     )
                     had_claim_protection = getattr(self, "_cp_active", False)
+
                     await finalize_claim_protection(self, _send_do_action_payload_to_viewer)
-                    if had_claim_protection:
-                        delay = compute_protected_meld_delay(self)
-                        if delay > 0:
-                            await asyncio.sleep(delay)
+
+                    # 受保护观众后续帧走 outbound_pipe FIFO，此处不再全局 sleep
                     self.pending_win = {"type": "ron", "discarder": self.current_player_index, "hepai_tile": tile_id}
                     self.player_list[self.current_player_index].discard_tiles.pop(-1)
                     self.game_status = "settle_win"

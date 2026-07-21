@@ -21,6 +21,10 @@ async def handle_data_message(game_server, Connect_id: str, message: dict, webso
         await handle_get_record_list(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_record_by_id":
         await handle_get_record_by_id(game_server, Connect_id, message, websocket)
+    elif message_type == "data/update_record_favorite":
+        await handle_update_record_favorite(game_server, Connect_id, message, websocket)
+    elif message_type == "data/update_record_note":
+        await handle_update_record_note(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_guobiao_stats":
         await handle_get_guobiao_stats(game_server, Connect_id, message, websocket)
     elif message_type == "data/get_riichi_stats":
@@ -76,7 +80,9 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
                 sub_rule=game_record.get('sub_rule'),
                 match_type=game_record.get('match_type'),
                 created_at=game_record['created_at'],
-                players=players_info
+                players=players_info,
+                is_favorite=bool(game_record.get('is_favorite')),
+                note=game_record.get('note') or '',
             )
             record_list.append(record_info)
         
@@ -92,6 +98,58 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
             success=False,
             message="用户未登录"
         )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_update_record_favorite(game_server, Connect_id: str, message: dict, websocket):
+    """处理更新牌谱收藏请求"""
+    player = game_server.players.get(Connect_id)
+    if not (player and player.user_id):
+        response = Response(
+            type="data/update_record_favorite",
+            success=False,
+            message="用户未登录",
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+
+    game_id = (message.get("game_id") or "").strip()
+    is_favorite = bool(message.get("is_favorite", False))
+    result = game_server.db_manager.set_record_favorite(player.user_id, game_id, is_favorite)
+    response = Response(
+        type="data/update_record_favorite",
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        game_id=game_id,
+        is_favorite=result.get("is_favorite", False),
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+async def handle_update_record_note(game_server, Connect_id: str, message: dict, websocket):
+    """处理更新牌谱备注请求"""
+    player = game_server.players.get(Connect_id)
+    if not (player and player.user_id):
+        response = Response(
+            type="data/update_record_note",
+            success=False,
+            message="用户未登录",
+        )
+        await websocket.send_json(response.dict(exclude_none=True))
+        return
+
+    game_id = (message.get("game_id") or "").strip()
+    note = message.get("note")
+    if note is None:
+        note = ""
+    elif not isinstance(note, str):
+        note = str(note)
+    result = game_server.db_manager.set_record_note(player.user_id, game_id, note)
+    response = Response(
+        type="data/update_record_note",
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        game_id=game_id,
+        note=result.get("note", ""),
+    )
     await websocket.send_json(response.dict(exclude_none=True))
 
 async def handle_get_rank_record_list(game_server, Connect_id: str, message: dict, websocket):

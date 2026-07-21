@@ -243,6 +243,8 @@ class JiandanGameState:
 
     async def cleanup_game_state(self) -> None:
         """Cancel the live loop task and outstanding bot work."""
+        from ..public.outbound_pipe import close_outbound_pipes
+        close_outbound_pipes(self)
         from ..public.claim_protection import end_claim_protection_interval
 
         end_claim_protection_interval(self)
@@ -854,7 +856,30 @@ class JiandanGameState:
                     stash_protected_cut_payload(self, player_index, payload)
                     arm_claim_protection_timer(self, self._claim_protection_send_fn)
                     continue
-            await self._send_claim_protection_payload(player_index, payload)
+            delay = 0.0
+            from ..public.claim_protection import is_protected_viewer as _ipv, compute_protected_meld_delay
+            if (not is_cut) and _ipv(self, player_index) and getattr(self, "_cp_cut_flush_time", None):
+                delay = compute_protected_meld_delay(self)
+            if delay > 0:
+                from ..public.outbound_pipe import schedule_viewer_send
+
+                async def _delayed(vi=player_index, p=payload):
+                    await self._send_claim_protection_payload(vi, p)
+
+                # raw deliver without nesting another pipe wait: call websocket path via schedule
+                async def _raw(vi=player_index, p=payload):
+                    player = self.player_list[vi]
+                    connection = None
+                    if self.game_server is not None:
+                        connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
+                    if connection is not None and getattr(connection, "websocket", None) is not None:
+                        await connection.websocket.send_json(p)
+                        self.websocket_sent_payloads.append(p)
+                    await self.send_to_realtime_spectators(vi, p)
+
+                schedule_viewer_send(self, player_index, _raw, delay_before=delay)
+            else:
+                await self._send_claim_protection_payload(player_index, payload)
 
     async def send_payload_to_player(
         self,
@@ -872,7 +897,12 @@ class JiandanGameState:
         if self.game_server is not None:
             connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
         if connection is not None and getattr(connection, "websocket", None) is not None:
-            await connection.websocket.send_json(payload)
+            from ..public.outbound_pipe import send_to_viewer
+
+            async def _do(conn=connection, p=payload):
+                await conn.websocket.send_json(p)
+
+            await send_to_viewer(self, player_index, _do)
             self.websocket_sent_payloads.append(payload)
             return True
         if record_fallback:
@@ -891,18 +921,8 @@ class JiandanGameState:
         window = self.live_pending_window
         results = await self.wait_action(timeout)
         if window.get("status") == "waiting_action_after_cut":
-            had_claim_protection = bool(getattr(self, "_cp_active", False))
             await self.finish_claim_protection()
-            has_claim = any(
-                result.get("action_type") not in {None, "", "none", "pass"}
-                for result in results.values()
-            )
-            if had_claim_protection and has_claim:
-                from ..public.claim_protection import compute_protected_meld_delay
-
-                delay = compute_protected_meld_delay(self)
-                if delay > 0:
-                    await asyncio.sleep(delay)
+            # 受保护观众后续帧走 outbound_pipe，此处不再全局 sleep
         return self.apply_action_results(window, results, settlements=settlements)
 
     def apply_action_results(

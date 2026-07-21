@@ -75,11 +75,78 @@
         />
       </el-table>
     </section>
+
+    <section class="section-card">
+      <div class="section-head">
+        <h3 class="section-title">最近对局牌谱</h3>
+        <span class="records-hint">{{ TIER_LABEL[totalsTierTab] }} · 共 {{ recentTotal }} 局</span>
+      </div>
+      <el-table
+        :data="recentRecords"
+        size="small"
+        class="records-table"
+        v-loading="loadingRecords"
+        empty-text="暂无对局记录"
+      >
+        <el-table-column label="牌谱 ID" min-width="140">
+          <template #default="{ row }">
+            <span class="cell-game-id" :title="row.game_id">{{ row.game_id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="时间" width="150">
+          <template #default="{ row }">
+            <span class="cell-time">{{ formatRecordDate(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="场次" min-width="100">
+          <template #default="{ row }">
+            <span class="cell-scene">{{ sceneLabel(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="局制" width="80">
+          <template #default="{ row }">
+            <span class="cell-mode">{{ gameTypeLabel(row.match_type) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="同桌" min-width="200">
+          <template #default="{ row }">
+            <el-tooltip effect="dark" placement="top">
+              <template #content>
+                <div v-for="p in row.players" :key="p.user_id" class="tip-player">
+                  <span class="rank-badge" :class="`rank-${p.rank}`">{{ p.rank }}</span>
+                  {{ p.username }}
+                  <span :class="scoreClass(p.score)">{{ formatScore(p.score) }}</span>
+                </div>
+              </template>
+              <span class="cell-players">{{ playersSummary(row) }}</span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="72" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="downloadOne(row.game_id)">JSON</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="records-foot">
+        <el-pagination
+          v-model:current-page="recordsPage.current"
+          v-model:page-size="recordsPage.size"
+          :total="recentTotal"
+          :page-sizes="[20, 50]"
+          layout="prev, pager, next, sizes, total"
+          small
+          background
+          @current-change="loadRecentRecords"
+          @size-change="onRecordsSizeChange"
+        />
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import * as echarts from 'echarts'
@@ -98,6 +165,7 @@ const TIER_OPTIONS = [
   { value: 'mcrpl', label: 'mcrpl' },
 ]
 const TIER_LABEL = Object.fromEntries(TIER_OPTIONS.map((t) => [t.value, t.label]))
+const MODE_LABELS = { '4/4': '全庄战', '3/4': '东西战', '2/4': '半庄战', '1/4': '东风战' }
 const fanDictSize = Object.keys(GUOBIAO_FAN_DICT).length
 
 const formatLocalDate = (d) => {
@@ -115,12 +183,16 @@ const makeRange = (days, endDateStr) => {
 }
 
 const loading = ref(false)
+const loadingRecords = ref(false)
 const meta = ref({})
 const sceneTotals = ref([])
 const sceneTierFans = ref({})
 const sceneDaily = ref([])
 const totalsTierTab = ref('beginner')
 const dateRange = ref(makeRange(30))
+const recentRecords = ref([])
+const recentTotal = ref(0)
+const recordsPage = reactive({ current: 1, size: 20 })
 
 const sceneChartRef = ref(null)
 let sceneChart = null
@@ -137,6 +209,42 @@ const dailyTable = computed(() =>
   buildSceneDailyTable(sceneDaily.value, TIER_OPTIONS, TIER_LABEL)
 )
 
+const gameTypeLabel = (matchType) => {
+  if (!matchType) return '-'
+  const base = String(matchType).replace(/_rank$/, '')
+  return MODE_LABELS[base] || matchType
+}
+
+const sceneLabel = (row) => {
+  if (row.match_tier) return TIER_LABEL[row.match_tier] || row.match_tier
+  if (row.room_type === 'match') return '天梯'
+  return row.room_type || row.rule || '-'
+}
+
+const formatRecordDate = (dateString) => {
+  if (!dateString) return ''
+  return new Date(dateString).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const scoreClass = (s) => (s > 0 ? 'pos' : s < 0 ? 'neg' : '')
+const formatScore = (s) => (s === undefined || s === null ? '-' : (s > 0 ? '+' : '') + s)
+const playersSummary = (rec) =>
+  (rec.players || []).map((p) => p.username || '?').join(' / ')
+
+const downloadOne = (gameId) => {
+  const a = document.createElement('a')
+  a.href = `/api/player/record/${encodeURIComponent(gameId)}`
+  a.download = `${gameId}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
 const renderSceneChart = () => {
   if (!sceneChartRef.value) return
   const opt = buildSceneDailyChartOption(sceneDaily.value, {
@@ -152,6 +260,34 @@ const handleResize = () => sceneChart?.resize()
 const setQuickRange = (days) => {
   dateRange.value = makeRange(days, meta.value.as_of_date)
   loadStats()
+}
+
+const loadRecentRecords = async () => {
+  loadingRecords.value = true
+  try {
+    const offset = (recordsPage.current - 1) * recordsPage.size
+    const res = await axios.get('/api/platform/recent-records', {
+      params: {
+        match_tier: totalsTierTab.value,
+        limit: recordsPage.size,
+        offset,
+      },
+    })
+    const data = res.data?.data || {}
+    recentRecords.value = data.items || []
+    recentTotal.value = data.total || 0
+  } catch (_) {
+    ElMessage.error('获取最近对局失败')
+    recentRecords.value = []
+    recentTotal.value = 0
+  } finally {
+    loadingRecords.value = false
+  }
+}
+
+const onRecordsSizeChange = () => {
+  recordsPage.current = 1
+  loadRecentRecords()
 }
 
 const loadStats = async () => {
@@ -186,9 +322,14 @@ const loadStats = async () => {
 }
 
 watch(sceneDaily, () => nextTick(() => renderSceneChart()))
+watch(totalsTierTab, () => {
+  recordsPage.current = 1
+  loadRecentRecords()
+})
 
 onMounted(() => {
   loadStats()
+  loadRecentRecords()
   window.addEventListener('resize', handleResize)
 })
 
@@ -273,4 +414,42 @@ onBeforeUnmount(() => {
 .chart-wrap { margin-bottom: 12px; }
 .chart-box { width: 100%; height: 320px; min-width: 0; }
 .detail-table { margin-top: 8px; }
+.records-hint { font-size: 12px; color: #94a3b8; }
+.records-table { width: 100%; }
+:deep(.records-table .el-table__cell) { padding: 4px 0; }
+:deep(.records-table th.el-table__cell) {
+  background: #f5f7fa;
+  color: #475569;
+  font-weight: 600;
+  border-bottom: 1px solid #dcdfe6;
+}
+:deep(.records-table td.el-table__cell) { border-color: #eef0f3; }
+.cell-game-id { font-size: 12px; font-family: Consolas, Menlo, monospace; color: #303133; }
+.cell-time { font-size: 12px; color: #64748b; font-family: Consolas, Menlo, monospace; }
+.cell-scene { font-size: 12px; color: #303133; }
+.cell-mode { font-size: 12px; color: #64748b; font-family: Consolas, Menlo, monospace; }
+.cell-players { font-size: 12px; color: #64748b; cursor: help; }
+.tip-player { font-size: 12px; line-height: 1.7; }
+.tip-player .pos { color: #ff7a7a; font-weight: 700; }
+.tip-player .neg { color: #6ee06e; font-weight: 700; }
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-weight: 700;
+  font-size: 11px;
+  font-family: Consolas, Menlo, monospace;
+}
+.rank-1 { background: #6fd86f; color: #1f5e1f; }
+.rank-2 { background: #5dadff; color: #fff; }
+.rank-3 { background: #aab4c2; color: #2c3848; }
+.rank-4 { background: #ff7a7a; color: #fff; }
+.records-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
 </style>

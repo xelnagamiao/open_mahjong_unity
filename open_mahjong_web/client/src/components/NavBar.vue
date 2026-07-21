@@ -38,7 +38,7 @@
       >{{ displayName }}</router-link>
       <router-link
         v-else
-        to="/login?redirect=/account"
+        to="/login?redirect=/"
         class="nav-link auth"
         :class="{ on: route.path === '/login' }"
         @click="closeMenu"
@@ -68,6 +68,7 @@ const items = [
   { to: '/', label: '首页', match: (p) => p === '/' || p === '' },
   { to: '/events', label: '比赛', match: (p) => p.startsWith('/events') },
   { to: '/game-unity', label: '进入平台', match: (p) => p.startsWith('/game-unity') },
+  { to: '/2d', label: '2D版', match: (p) => p === '/2d' || p.startsWith('/2d/') },
   { href: STEAM_STORE_URL, label: 'Steam商店' },
   { to: '/player-data', label: '历史记录', match: (p) => p === '/player-data' || p === '/player-data/' },
   { to: '/player-data/platform', label: '数据统计', match: (p) => p.includes('/platform') },
@@ -76,6 +77,7 @@ const items = [
   { to: '/rulebook', label: '规则书', match: (p) => p.startsWith('/rulebook') },
   { to: '/seed-verify', label: '种子验证' },
   { to: '/mobile-download', label: '手机版' },
+  { to: '/guide', label: '使用说明', match: (p) => p.startsWith('/guide') },
   { href: 'https://qm.qq.com/q/MGGZV58hOO', label: '加入QQ群' },
   { to: '/docs', label: '开发手册' },
   { to: '/github', label: 'GitHub' },

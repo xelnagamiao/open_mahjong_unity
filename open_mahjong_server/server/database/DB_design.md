@@ -110,6 +110,8 @@ PostgreSQL
 | character_used | INT | NULL | 使用的角色ID（可为空） |
 | profile_used | INT | NULL | 使用的头像ID（可为空） |
 | voice_used | INT | NULL | 使用的音色ID（可为空） |
+| is_favorite | BOOLEAN | NOT NULL DEFAULT FALSE | 当前玩家是否收藏该牌谱（每用户最多 50 条，业务层限制） |
+| note | VARCHAR(200) | NULL | 当前玩家对该牌谱的个人备注 |
 | PRIMARY KEY | (game_id, user_id) | 复合主键 | 每个游戏每个玩家一条记录 |
 
 > **牌谱保存规则**：
