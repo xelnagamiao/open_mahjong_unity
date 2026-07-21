@@ -64,6 +64,33 @@ def _consume_forced_gang_cut_tiles(self, player_index: int):
     self.forced_cut_tiles = []
     return forced_tiles
 
+
+async def _apply_open_kong_locked_cut(self, player_index: int, action_data: dict):
+    """开杠锁定期间始终切掉摸牌槽中的牌。"""
+    player = self.player_list[player_index]
+    if not getattr(player, "open_kong_locked", False) or not has_draw_slot(player):
+        return await apply_player_cut(self, player_index, action_data)
+
+    if not player.hand_tiles:
+        logger.error("开杠锁定出牌失败：玩家 %s 手牌为空", player_index)
+        return None
+
+    draw_tile = player.hand_tiles[-1]
+    requested_tile = action_data.get("TileId")
+    if requested_tile != draw_tile or not action_data.get("cutClass"):
+        logger.warning(
+            "玩家 %s 开杠后尝试打出 %s，服务端强制改为摸牌 %s",
+            player_index,
+            requested_tile,
+            draw_tile,
+        )
+
+    locked_action_data = dict(action_data)
+    locked_action_data["TileId"] = draw_tile
+    locked_action_data["cutClass"] = True
+    locked_action_data["cutIndex"] = len(player.hand_tiles) - 1
+    return await apply_player_cut(self, player_index, locked_action_data)
+
 def _remove_claimed_discard(discard_tiles, tile_id):
     for i in range(len(discard_tiles) - 1, -1, -1):
         if discard_tiles[i] == tile_id:
@@ -318,6 +345,17 @@ async def wait_action(self):
         # 长沙规则：不包含补花逻辑
         case "waiting_hand_action":
             if action_data:
+                current_player = self.player_list[self.current_player_index]
+                if (
+                    getattr(current_player, "open_kong_locked", False)
+                    and action_type not in ("cut", "angang", "hu_self")
+                ):
+                    logger.error(
+                        "玩家 %s 开杠锁定期间提交非法动作 %s",
+                        self.current_player_index,
+                        action_type,
+                    )
+                    return
                 if action_type == "cut": # 切牌
                     forced_cut_was_pending = bool(getattr(self, "forced_cut_tiles", []) or getattr(self, "forced_cut_tile", None) is not None)
                     if forced_cut_was_pending:
@@ -328,7 +366,7 @@ async def wait_action(self):
                         is_moqie = True
                         cut_tile_index = None
                     else:
-                        cut_result = await apply_player_cut(self, player_index, action_data)
+                        cut_result = await _apply_open_kong_locked_cut(self, player_index, action_data)
                         if cut_result is None:
                             return
                         tile_id, is_moqie, cut_tile_index = cut_result

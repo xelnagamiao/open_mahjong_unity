@@ -29,6 +29,8 @@ from server.room.room_validators import ChangshaRoomValidator
 
 wait_action_module = importlib.import_module("server.gamestate.game_changsha.wait_action")
 changsha_state_module = importlib.import_module("server.gamestate.game_changsha.ChangshaGameState")
+changsha_get_action_module = importlib.import_module("server.gamestate.game_changsha.get_action")
+changsha_boardcast_module = importlib.import_module("server.gamestate.game_changsha.boardcast")
 
 
 class DummyPlayer:
@@ -141,6 +143,43 @@ def attach_changsha_score_helpers(state):
 
 
 class ChangshaRulesTest(unittest.TestCase):
+    @staticmethod
+    def _make_open_kong_locked_wait_state():
+        players = [DummyPlayer(i) for i in range(4)]
+        locked_player = players[0]
+        locked_player.hand_tiles = [11, 12, 13, 29]
+        locked_player.has_draw_slot = True
+        locked_player.open_kong_locked = True
+        for index, player in enumerate(players):
+            player.user_id = 100 + index
+            player.username = f"p{index}"
+            player.remaining_time = 10
+
+        state = SimpleNamespace(
+            player_list=players,
+            current_player_index=0,
+            game_status="waiting_hand_action",
+            action_dict={0: ["cut"], 1: [], 2: [], 3: []},
+            action_events={index: asyncio.Event() for index in range(4)},
+            action_queues={index: asyncio.Queue() for index in range(4)},
+            waiting_players_list=[],
+            action_priority={"cut": 1},
+            step_time=1,
+            tactical_call=False,
+            tiles_list=[31, 32, 33],
+            current_claim_cut_tile=None,
+            last_draw_was_gang=False,
+            xunmu=0,
+            tips=False,
+            server_action_tick=7,
+            game_server=SimpleNamespace(
+                players={"conn-0": SimpleNamespace(user_id=100)},
+                user_id_to_connection={},
+            ),
+        )
+        state.clear_hu_pass_after_own_discard = lambda player_index: None
+        return state
+
     def test_initial_deal_gives_dealer_fourteen_tiles(self):
         state = SimpleNamespace(
             player_list=[DummyPlayer(i) for i in range(4)],
@@ -324,6 +363,114 @@ class ChangshaRulesTest(unittest.TestCase):
         self.assertNotIn("chi_right", actions[1])
         self.assertNotIn("peng", actions[1])
         self.assertNotIn("gang", actions[1])
+
+    def test_open_kong_locked_hand_actions_only_allow_win_angang_and_cut(self):
+        locked_player = DummyPlayer(
+            0,
+            [11, 11, 11, 11, 17],
+            waiting_tiles=[17],
+        )
+        locked_player.has_draw_slot = True
+        locked_player.open_kong_locked = True
+        locked_player.combination_tiles = ["k17"]
+        state = SimpleNamespace(
+            player_list=[
+                locked_player,
+                DummyPlayer(1),
+                DummyPlayer(2),
+                DummyPlayer(3),
+            ],
+            current_player_index=0,
+            tiles_list=[31, 32, 33, 34],
+            calculation_service=FixedCalculationAndTingpai((1, ["小胡"]), [17]),
+            result_dict={},
+            player_passed_hu_base={},
+        )
+        state._is_open_kong_ready_after_declared = lambda player, tile: True
+
+        actions = check_action_hand_action(state, 0)
+
+        self.assertEqual(actions[0], ["angang", "cut", "hu_self"])
+
+    def test_open_kong_locked_real_and_ai_cuts_are_forced_to_draw_slot(self):
+        async def exercise(use_ai):
+            state = self._make_open_kong_locked_wait_state()
+            payloads = []
+
+            async def capture_broadcast(*args, **kwargs):
+                payloads.append(kwargs)
+
+            with patch.object(wait_action_module, "broadcast_do_action", capture_broadcast), \
+                patch.object(wait_action_module, "player_action_record_cut", lambda *args, **kwargs: None), \
+                patch.object(wait_action_module, "refresh_waiting_tiles", lambda *args, **kwargs: None), \
+                patch.object(wait_action_module, "check_action_after_cut", lambda *args, **kwargs: {0: [], 1: [], 2: [], 3: []}), \
+                patch.object(wait_action_module, "begin_claim_protection_interval", lambda *args, **kwargs: None):
+                wait_task = asyncio.create_task(wait_action_module.wait_action(state))
+                for _ in range(20):
+                    if 0 in state.waiting_players_list:
+                        break
+                    await asyncio.sleep(0)
+                self.assertIn(0, state.waiting_players_list)
+
+                if use_ai:
+                    await changsha_get_action_module.get_ai_action(
+                        state, 0, "cut", False, 11, 0, None
+                    )
+                else:
+                    await changsha_get_action_module.get_action(
+                        state, "conn-0", "cut", False, 11, 0, None
+                    )
+                await asyncio.wait_for(wait_task, timeout=1)
+
+            return state, payloads
+
+        for use_ai in (False, True):
+            with self.subTest(use_ai=use_ai):
+                state, payloads = asyncio.run(exercise(use_ai))
+                self.assertEqual(state.player_list[0].hand_tiles, [11, 12, 13])
+                self.assertEqual(state.player_list[0].discard_tiles, [29])
+                self.assertFalse(state.player_list[0].has_draw_slot)
+                self.assertEqual(payloads[0]["cut_tile"], 29)
+                self.assertTrue(payloads[0]["cut_class"])
+
+    def test_open_kong_locked_timeout_cuts_draw_slot(self):
+        state = self._make_open_kong_locked_wait_state()
+        state.player_list[0].remaining_time = 0
+        payloads = []
+
+        async def capture_broadcast(*args, **kwargs):
+            payloads.append(kwargs)
+
+        with patch.object(wait_action_module, "broadcast_do_action", capture_broadcast), \
+            patch.object(wait_action_module, "player_action_record_cut", lambda *args, **kwargs: None), \
+            patch.object(wait_action_module, "refresh_waiting_tiles", lambda *args, **kwargs: None), \
+            patch.object(wait_action_module, "check_action_after_cut", lambda *args, **kwargs: {0: [], 1: [], 2: [], 3: []}), \
+            patch.object(wait_action_module, "begin_claim_protection_interval", lambda *args, **kwargs: None):
+            asyncio.run(wait_action_module.wait_action(state))
+
+        self.assertEqual(state.player_list[0].hand_tiles, [11, 12, 13])
+        self.assertEqual(state.player_list[0].discard_tiles, [29])
+        self.assertFalse(state.player_list[0].has_draw_slot)
+        self.assertEqual(payloads[0]["cut_tile"], 29)
+        self.assertTrue(payloads[0]["cut_class"])
+
+    def test_open_kong_locked_reconnect_resends_forced_draw_slot(self):
+        state = self._make_open_kong_locked_wait_state()
+        sent_payloads = []
+
+        class CapturingWebsocket:
+            async def send_json(self, payload):
+                sent_payloads.append(payload)
+
+        state.game_server.user_id_to_connection[100] = SimpleNamespace(
+            websocket=CapturingWebsocket()
+        )
+
+        asyncio.run(changsha_boardcast_module.reconnected_send_pending_ask(state, 100))
+
+        ask_info = sent_payloads[0]["ask_hand_action_info"]
+        self.assertEqual(ask_info["action_list"], ["cut"])
+        self.assertEqual(ask_info["forced_cut_tiles"], [29])
 
     def test_discard_open_kong_requires_ready_hand(self):
         state = SimpleNamespace(
