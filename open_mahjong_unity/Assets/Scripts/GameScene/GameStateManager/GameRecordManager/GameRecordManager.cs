@@ -105,7 +105,8 @@ public partial class GameRecordManager : MonoBehaviour {
     /// <summary>和牌 3D 演出或结算面板等待确认时，禁止牌谱步进/滚轮切局。</summary>
     public bool BlocksRecordNavigation =>
         _recordHuPresentationActive
-        || (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm);
+        || (EndResultPanel.Instance != null && EndResultPanel.Instance.IsAwaitingRecordResultConfirm)
+        || (EndShuheWeiPanel.Instance != null && EndShuheWeiPanel.Instance.IsAwaitingRecordResultConfirm);
 
     private void CancelRecordHuPresentation() {
         if (_recordHuPresentationCoroutine != null) {
@@ -255,6 +256,8 @@ public partial class GameRecordManager : MonoBehaviour {
         showGameInfoButton.onClick.AddListener(ShowGameInfo);
         showSpectatorInfoButton.onClick.AddListener(ShowSpectatorInfo);
         showRoundInfoButton.onClick.AddListener(ShowRoundInfo);
+
+        InitializeRecordAutoPlayButton();
     }
 
     private void Start() {
@@ -280,6 +283,8 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private List<Round> _roundsListForInspector;
 
     public void HideGameRecord() {
+        StopRecordAutoPlay();
+        InvalidateRecordDelayedAdvances();
         gameObject.SetActive(false);
         CurrentMode = RecordManagerMode.Record;
         GameSceneMouseInputController.Instance.SetState(GameSceneMouseInputController.StateIdle);
@@ -291,6 +296,8 @@ public partial class GameRecordManager : MonoBehaviour {
         // 已在延时观战内的刷新（如对局结束重载完整牌谱）仍允许；其它互斥会话下禁止覆盖 UI
         if (!IsSpectating && GameSessionGuard.BlockIfExclusiveSession("阅览牌谱")) return;
 
+        StopRecordAutoPlay();
+        InvalidateRecordDelayedAdvances();
         CurrentMode = RecordManagerMode.Record;
         // 清空临时面板
         GameSceneUIManager.Instance.InitGameRecord();
@@ -328,6 +335,7 @@ public partial class GameRecordManager : MonoBehaviour {
             showSpectatorInfoButton.gameObject.SetActive(false); // 隐藏显示观战信息按钮
             ExitButtonManager.Instance.ShowForRecord();
         }
+        UpdateRecordAutoPlayButtonVisibility();
 
         // 解析记录头
         gameRecord = GameRecordJsonDecoder.ParseGameRecord(recordJson);
@@ -587,6 +595,7 @@ public partial class GameRecordManager : MonoBehaviour {
 
     // 选择选中巡目
     public void GotoSelectNode(int nodeIndex, bool updateSpectatorMode = true) {
+        StopRecordAutoPlay();
         if (BlocksRecordNavigation) return;
         if (!gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData)) {
             return;
@@ -1657,7 +1666,9 @@ public partial class GameRecordManager : MonoBehaviour {
                 GotoSelectRound(nextRound, false);
             } else {
                 // 观战相关模式：到末局时不循环回第一局
-                if (!IsSpectatorSession) {
+                if (IsRecordAutoPlaying) {
+                    CompleteRecordAutoPlay();
+                } else if (!IsSpectatorSession) {
                     GotoSelectRound(1, false);
                 } else {
                     NotifyReachedLastAction();
@@ -1690,7 +1701,9 @@ public partial class GameRecordManager : MonoBehaviour {
             GotoSelectRound(nextRound, false);
         } else {
             // 观战牌谱模式：确认后到末局不循环
-            if (!IsSpectatorSession) {
+            if (IsRecordAutoPlaying) {
+                CompleteRecordAutoPlay();
+            } else if (!IsSpectatorSession) {
                 GotoSelectRound(1, false);
             } else {
                 NotifyReachedLastAction();
@@ -1702,8 +1715,20 @@ public partial class GameRecordManager : MonoBehaviour {
     /// 流局动画结束后自动推进到下一个行动节点（end），实现自动跳转下一局
     /// </summary>
     private System.Collections.IEnumerator AutoNextActionAfterDelay(float delay) {
+        int scheduledGeneration = _recordPlaybackGeneration;
+        int scheduledRoundIndex = currentRoundIndex;
+        // 本协程从 NextAction 的分支内启动，公共收尾尚未执行 currentNode++。
+        int scheduledNodeIndex = currentNode + 1;
+        _pendingRecordDelayedAdvanceCount++;
         yield return new WaitForSeconds(delay);
+
+        if (scheduledGeneration != _recordPlaybackGeneration) {
+            yield break;
+        }
+        _pendingRecordDelayedAdvanceCount = Mathf.Max(0, _pendingRecordDelayedAdvanceCount - 1);
         if (gameRecord != null &&
+            currentRoundIndex == scheduledRoundIndex &&
+            currentNode == scheduledNodeIndex &&
             gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) &&
             roundData.actionTicks != null &&
             currentNode < roundData.actionTicks.Count) {

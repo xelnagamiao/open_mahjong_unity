@@ -190,15 +190,19 @@ public class DataNetworkManager : MonoBehaviour {
 
     // ========== 数据相关的发送方法 ==========
 
-    public async void GetRecordList(int offset = 0) {
+    public async void GetRecordList(int offset = 0, bool favoritesOnly = false) {
         try {
             _recordListPendingOffset = offset;
             var request = new GetRecordListRequest {
                 type = "data/get_record_list",
                 limit = RecordListPageSize,
-                offset = offset
+                offset = offset,
+                favorites_only = favoritesOnly
             };
-            Debug.Log($"发送获取游戏记录列表消息: {request.type}, offset={offset}, limit={RecordListPageSize}");
+            Debug.Log(
+                $"发送获取游戏记录列表消息: {request.type}, offset={offset}, " +
+                $"limit={RecordListPageSize}, favorites_only={favoritesOnly}"
+            );
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
             Debug.LogError($"获取游戏记录列表失败: {e.Message}");

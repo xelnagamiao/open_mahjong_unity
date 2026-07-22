@@ -103,9 +103,7 @@ public class RecordPrefab : MonoBehaviour {
     private void Awake() {
         LoadRecordButton.onClick.AddListener(LoadRecord);
         CopyIdButton.onClick.AddListener(CopyRecordId);
-        if (FavoriteButton != null) {
-            FavoriteButton.onClick.AddListener(ToggleFavorite);
-        }
+        FavoriteButton.onClick.AddListener(ToggleFavorite);
     }
 
     private void LoadRecord() {
@@ -124,13 +122,13 @@ public class RecordPrefab : MonoBehaviour {
     }
 
     private void RefreshFavoriteVisual() {
-        if (FavoriteButton == null) return;
-        var image = FavoriteButton.targetGraphic as Graphic;
-        if (image == null) {
-            image = FavoriteButton.GetComponent<Graphic>();
-        }
-        if (image != null) {
-            image.color = isFavorite ? FavoriteColor : NormalFavoriteColor;
-        }
+        Color color = isFavorite ? FavoriteColor : NormalFavoriteColor;
+        var colors = FavoriteButton.colors;
+        colors.normalColor = color;
+        colors.highlightedColor = color;
+        colors.selectedColor = color;
+        colors.pressedColor = new Color(color.r * 0.85f, color.g * 0.85f, color.b * 0.85f, color.a);
+        FavoriteButton.colors = colors;
+        FavoriteButton.targetGraphic.color = color;
     }
 }

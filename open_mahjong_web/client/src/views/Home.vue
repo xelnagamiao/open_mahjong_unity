@@ -63,12 +63,15 @@
     <section class="sec">
       <div class="sec-h">■ 对战、账户设置、赛事申请/管理</div>
       <div class="grid g3 account-events">
-        <router-link class="panel platform-card" to="/game-unity">
-          <h3>进入平台</h3>
-          <p>
-            Salasasa平台是open_mahjong_unity项目的示例服务器，目前支持国标/立直/青雀/川麻/长麻以及一些子规则
-          </p>
-        </router-link>
+        <div class="panel platform-card">
+          <router-link class="platform-card-main" to="/game-unity">
+            <h3>进入平台</h3>
+            <p>
+              Salasasa平台是open_mahjong_unity项目的示例服务器，目前支持国标/立直/青雀/川麻/长麻以及一些子规则
+            </p>
+          </router-link>
+          <router-link class="platform-2d-link" to="/2d">2d模式测试</router-link>
+        </div>
 
         <div class="panel recent">
           <h3>近期赛事</h3>
@@ -351,7 +354,7 @@ const battleLinks = [
 const calcLinks = [
   { to: '/paili', title: '牌理', description: '分析手牌是否听牌，以及听牌的向听数或待牌。', color: '#9b59b6' },
   { to: '/chinese', title: '国标计算器', description: '根据手牌、副露、花牌、和牌方式计算番种、得分与全部和牌拆解形态。', color: '#45B7D1' },
-  { to: '/guess-fan', title: '猜番对抗', description: 'Wordle 式猜番种：单人或 1v1 同题竞速，支持国标与立直。', color: '#2d5a46' },
+  { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#2d5a46' },
 ]
 
 const toolLinks = [
@@ -611,13 +614,21 @@ onMounted(() => {
   background: #007bff;
   border-color: #007bff;
   color: #fff;
-  cursor: pointer;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
 }
 
-.account-events .panel.platform-card:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.05);
+.account-events .panel.platform-card .platform-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  padding: 16px 16px 10px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  min-height: 0;
 }
 
 .account-events .panel.platform-card h3,
@@ -628,6 +639,21 @@ onMounted(() => {
 .account-events .panel.platform-card p {
   opacity: 0.95;
   flex: 1;
+}
+
+.account-events .panel.platform-card .platform-2d-link {
+  display: block;
+  padding: 9px 16px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.account-events .panel.platform-card .platform-2d-link:hover {
+  background: #d97706;
 }
 
 .account-events .panel h3 {

@@ -118,9 +118,16 @@
           <div v-if="nextRoundSec != null" class="next-round-tip">
             <strong>{{ nextRoundSec }}</strong> 秒后自动进入下一局
           </div>
-          <div v-else class="next-round-tip finished">对战已结束</div>
-          <button v-if="nextRoundSec == null" type="button" class="result-leave" @click="emitLeave">返回大厅</button>
+          <div v-else class="next-round-tip finished">{{ resultFinishedText }}</div>
+          <div v-if="nextRoundSec == null" class="result-actions">
+            <button v-if="resultRestartVisible" type="button" class="result-restart" @click="emit('restart')">再来一局</button>
+            <button type="button" class="result-leave" @click="emitLeave">{{ resultLeaveText }}</button>
+          </div>
         </section>
+      </div>
+
+      <div v-if="startCountdownSec != null && startCountdownSec > 0" class="start-mask" role="status" aria-live="assertive">
+        <strong :key="startCountdownSec" class="start-countdown">{{ startCountdownSec }}</strong>
       </div>
     </div>
   </Teleport>
@@ -153,14 +160,19 @@ defineProps({
   resultMessage: { type: String, default: '' },
   resultPlayers: { type: Array, default: () => [] },
   nextRoundSec: { default: null },
+  startCountdownSec: { default: null },
+  resultRestartVisible: { type: Boolean, default: false },
+  resultFinishedText: { type: String, default: '对战已结束' },
+  resultLeaveText: { type: String, default: '返回大厅' },
 })
 
-const emit = defineEmits(['guess', 'leave'])
+const emit = defineEmits(['guess', 'leave', 'restart'])
 function emitLeave() {
   emit('leave')
 }
 
 function formatGroups(value) {
+  if (value === '全体') return '全体'
   if (Array.isArray(value)) return `[${value.join(',')}] 组`
   return `${value} 组`
 }
@@ -445,6 +457,13 @@ function slotClassPreview(rows, idx) {
 .next-round-tip strong { display: inline-grid; place-items: center; width: 34px; height: 34px; margin-right: 5px; border-radius: 50%; background: #409eff; color: #fff; font-size: 18px; }
 .next-round-tip.finished { color: #409eff; font-weight: 700; }
 .result-leave { margin-top: 14px; padding: 9px 22px; border: 0; border-radius: 6px; background: #409eff; color: #fff; cursor: pointer; }
+.result-actions { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+.result-actions .result-leave { margin-top: 0; }
+.result-restart { padding: 9px 22px; border: 1px solid #409eff; border-radius: 6px; background: #fff; color: #409eff; cursor: pointer; }
+
+.start-mask { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: none; }
+.start-countdown { color: #fff; font-size: clamp(88px, 18vw, 168px); line-height: 1; text-align: center; text-shadow: 0 4px 14px rgba(0, 0, 0, .78); animation: countdown-pop .35s ease-out; }
+@keyframes countdown-pop { from { opacity: 0; transform: scale(.68); } to { opacity: 1; transform: scale(1); } }
 
 @media (max-width: 860px) {
   .boards.dual,

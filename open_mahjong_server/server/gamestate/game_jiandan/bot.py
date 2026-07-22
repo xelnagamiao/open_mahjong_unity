@@ -78,7 +78,8 @@ async def auto_jiandan_bot_action(
 
     if game_status == "onlycut_after_action":
         claim_protection = bool(getattr(game_state, "claim_protection", False))
-        await asyncio.sleep(BOT_DELAY * (2 if claim_protection else 1))
+        from ..public.claim_protection import get_meld_post_gap
+        await asyncio.sleep(BOT_DELAY + (get_meld_post_gap(game_state) if claim_protection else 0.0))
         if "cut" in action_list and player.hand_tiles:
             tile, cut_position, cut_class = _pick_auto_cut_tile(player)
             await _submit_if_current(
@@ -104,7 +105,12 @@ async def smart_jiandan_bot_action(
 
     if game_status in {"waiting_hand_action", "onlycut_after_action"}:
         claim_protection = bool(getattr(game_state, "claim_protection", False))
-        delay = BOT_DELAY * (2 if game_status == "onlycut_after_action" and claim_protection else 1)
+        from ..public.claim_protection import get_meld_post_gap
+        delay = BOT_DELAY + (
+            get_meld_post_gap(game_state)
+            if game_status == "onlycut_after_action" and claim_protection
+            else 0.0
+        )
         await asyncio.sleep(delay)
         await _handle_smart_hand_action(game_state, player_index, action_list, player, action_tick)
         return

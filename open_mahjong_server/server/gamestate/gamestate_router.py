@@ -77,7 +77,8 @@ async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket
             message.get("cutClass"), 
             message.get("TileId"), 
             cutIndex=message.get("cutIndex"),
-            target_tile=None
+            target_tile=None,
+            action_tick=message.get("action_tick"),
         )
     except Exception as e:
         logger.error(f"处理切牌请求失败: {e}", exc_info=True)

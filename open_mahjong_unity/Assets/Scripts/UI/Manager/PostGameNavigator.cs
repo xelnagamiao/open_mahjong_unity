@@ -38,7 +38,7 @@ public static class PostGameNavigator {
     private static void RefreshLobbyTabIfNeeded(string tab) {
         switch (tab) {
             case "record":
-                DataNetworkManager.Instance.GetRecordList();
+                RecordPanel.Instance.OpenAndReload();
                 break;
             case "friend":
                 FriendNetworkManager.Instance.ListAllFriendPanels();

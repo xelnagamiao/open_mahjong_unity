@@ -29,6 +29,16 @@ public class EndShuheWeiPanel : MonoBehaviour {
 
     /// <summary>整场末局 match_end：等用户点确定以展示暂存的 game_end。</summary>
     public bool IsMatchEndPending => matchEndMode && currentState == StateGame && gameObject.activeSelf;
+    public bool IsAwaitingRecordResultConfirm => currentState == StateRecord && gameObject.activeSelf;
+
+    /// <summary>自动播放在结算演出完成、按钮可用后调用。</summary>
+    public bool TryConfirmRecordResult() {
+        if (!IsAwaitingRecordResultConfirm || EndButton == null || !EndButton.interactable) {
+            return false;
+        }
+        OnClickEndButton();
+        return true;
+    }
 
     public void SetNextStatus(string nextStatus) {
         matchEndMode = nextStatus == "match_end";

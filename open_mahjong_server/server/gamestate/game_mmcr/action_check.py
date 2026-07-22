@@ -174,13 +174,10 @@ def refresh_waiting_tiles(self,player_index,is_first_action=False):
     # 获取组合牌
     current_player_combination_tiles = player_item.combination_tiles
     # 调用听牌检查（使用计算服务类）
-    print("refresh_waiting_tiles")
-    print(current_player_hand_tiles,current_player_combination_tiles)
     current_player_waiting_tiles = self.calculation_service.Qingque_tingpai_check(
         current_player_hand_tiles,
         current_player_combination_tiles
     )
-    print("current_player_waiting_tiles")
     # 更新等待牌
     if current_player_waiting_tiles != self.player_list[player_index].waiting_tiles:
         self.player_list[player_index].waiting_tiles = current_player_waiting_tiles

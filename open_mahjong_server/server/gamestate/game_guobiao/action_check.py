@@ -33,14 +33,12 @@ def check_action_after_cut(self,cut_tile):
         for item in self.player_list:
             if item.hand_tiles.count(cut_tile) >= 2:
                 temp_action_dict[item.player_index].append("peng")
-                break
         
         # 检测杠牌：手牌中有3张相同的牌
         for item in self.player_list:
             if item.hand_tiles.count(cut_tile) == 3:
                 if self.tiles_list != []:
                         temp_action_dict[item.player_index].append("gang")
-                        break
 
     # 切牌后刷新他家听牌再判荣和（避免开局未刷新 waiting_tiles 导致漏判）
     for item in self.player_list:
@@ -242,7 +240,6 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
             way_to_hepai.remove("和绝张")
 
     # 使用计算服务类检查和牌（根据子规则选择检查方法）
-    print(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     if hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/xiaolin":
         result = self.calculation_service.GB_xiaolin_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     elif hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/kshen":

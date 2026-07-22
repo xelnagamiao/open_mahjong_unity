@@ -1585,7 +1585,13 @@ class DatabaseManager:
         # 比较计算哈希与存储哈希
         return secrets.compare_digest(computed_hash, stored_hash_hex)
     
-    def get_record_list(self, user_id: int, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    def get_record_list(
+        self,
+        user_id: int,
+        limit: int = 20,
+        offset: int = 0,
+        favorites_only: bool = False,
+    ) -> List[Dict[str, Any]]:
         """
         获取指定用户的最近 N 局游戏记录元数据（不含完整牌谱），按 created_at 倒序分页。
         
@@ -1593,6 +1599,7 @@ class DatabaseManager:
             user_id: 用户ID
             limit: 返回游戏数量限制，默认20
             offset: 跳过的局数，用于滚动加载更多
+            favorites_only: 为 True 时仅返回已收藏牌谱
         
         Returns:
             游戏记录列表，每个记录包含：
@@ -1605,12 +1612,13 @@ class DatabaseManager:
         try:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            cursor.execute("""
+
+            favorite_filter = " AND gpr.is_favorite = TRUE" if favorites_only else ""
+            cursor.execute(f"""
                 SELECT gpr.game_id, gr.created_at, gpr.is_favorite, gpr.note
                 FROM game_player_records gpr
                 INNER JOIN game_records gr ON gpr.game_id = gr.game_id
-                WHERE gpr.user_id = %s
+                WHERE gpr.user_id = %s{favorite_filter}
                 ORDER BY gr.created_at DESC, gpr.game_id DESC
                 LIMIT %s OFFSET %s
             """, (user_id, limit, offset))
@@ -1686,7 +1694,10 @@ class DatabaseManager:
             
             records = [games_dict[gid] for gid in game_ids if gid in games_dict]
             
-            logger.info(f'获取用户 {user_id} 的 {len(records)} 局游戏记录元数据 (offset={offset}, limit={limit})')
+            logger.info(
+                f'获取用户 {user_id} 的 {len(records)} 局游戏记录元数据 '
+                f'(offset={offset}, limit={limit}, favorites_only={favorites_only})'
+            )
             return records
             
         except Error as e:

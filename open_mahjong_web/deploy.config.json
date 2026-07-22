@@ -1,0 +1,14 @@
+{
+  "staticRoot": "/www/wwwroot/salasasa.cn/dist",
+  "webRoot": "/home/admin/open_mahjong_unity/open_mahjong_web",
+  "manualGamePackages": [
+    "unity-game",
+    "ios-game",
+    "android-game"
+  ],
+  "notes": [
+    "manualGamePackages 由人工放入 client/dist 与线上 dist，不走仓库/自动构建覆盖。",
+    "Vite build 不得从 public/ 拷贝这些目录到 dist。",
+    "生产同步静态文件时必须跳过这些目录，也不得删除远端已有内容。"
+  ]
+}

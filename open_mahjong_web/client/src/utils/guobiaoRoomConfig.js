@@ -13,7 +13,7 @@ export function createDefaultGuobiaoRoomConfig() {
     cuohe_type: 0,
     tourist_limit: false,
     allow_spectator: true,
-    tactical_call: false,
+    tactical_call: true,
     claim_protection: true,
   }
 }

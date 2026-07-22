@@ -60,7 +60,7 @@ export class WaitDisplay extends Container {
     parent.addChild(this)
   }
 
-  setData(data: WaitInfoData, activeTid: number = -1): void {
+  setData(data: WaitInfoData, activeTid: number = 0): void {
     const previousType = this.currentData?.type ?? null
     this.currentData = data
     if (!data) {
@@ -72,13 +72,10 @@ export class WaitDisplay extends Container {
       this.reset()
     }
 
-    if (data.type === 'waits' && activeTid === 0) {
-      this.loadData(0, data)
-      return
-    }
-    if (data.type === 'waits_all' && activeTid > 0) {
-      this.loadData(activeTid, data)
-    }
+    // MMCR-style hints are opt-in on hover. Merely being in tenpai must not
+    // leave the wait panel permanently visible above the hand.
+    if (activeTid > 0) this.loadData(activeTid, data)
+    else this.reset()
   }
 
   /**
@@ -90,7 +87,6 @@ export class WaitDisplay extends Container {
     if (!data) return
 
     if (data.type === 'waits') {
-      if (tid > 0) return
       const sorted = [...data.details].sort(sortByTileKeyAsc)
       for (const entry of sorted) {
         this.addEntry(new WaitEntry(null, 0, 0, entry.tile, entry.base_f, entry.selfdrawn_f, entry.remaining_count))
@@ -107,6 +103,10 @@ export class WaitDisplay extends Container {
     }
 
     this.layout()
+  }
+
+  restoreDefault(): void {
+    this.reset()
   }
 
   private addEntry(entry: WaitEntry): void {

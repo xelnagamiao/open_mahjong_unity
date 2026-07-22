@@ -116,7 +116,7 @@ const routes = [
         meta: { title: '使用说明 - salasasa.cn' }
       },
       {
-        path: 'guess-fan',
+        path: 'guess-fan/:playMode(solo|play)?',
         name: 'GuessFan',
         component: GuessFanApp,
         meta: { title: '猜番对抗 - salasasa.cn', requiresPlayer: true }
@@ -302,7 +302,11 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior(to, _from, savedPosition) {
+    if (to.path.startsWith('/2d')) return { top: 0 }
+    return savedPosition || false
+  },
 })
 
 router.beforeEach(async (to, from, next) => {

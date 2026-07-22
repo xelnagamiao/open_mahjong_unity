@@ -152,7 +152,8 @@ class QingqueGameState:
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)
-        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.8)
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.7)
+        self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)
         self.hepai_limit = 1 # 青雀起和限制固定为1
         self.tourist_limit = room_data.get("tourist_limit", False) # 游客限制
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置

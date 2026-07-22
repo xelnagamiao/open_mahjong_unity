@@ -36,6 +36,17 @@ public class SoundManager : MonoBehaviour {
         audioSource.PlayOneShot(soundToPlay, volume);
     }
 
+    /// <summary>对局倒计时剩余 3/2/1 秒时的提示音效。</summary>
+    public void PlayCountdownTickSound() {
+        AudioClip soundToPlay = Resources.Load<AudioClip>("Sound/Effects/Timer02-0.1s");
+        if (soundToPlay == null) {
+            Debug.LogWarning("未找到倒计时音效: Sound/Effects/Timer02-0.1s");
+            return;
+        }
+        float volume = ConfigManager.Instance.GetSoundEffectVolumeRatio();
+        audioSource.PlayOneShot(soundToPlay, volume);
+    }
+
     // 播放操作音效的方法
     public void PlayActionSound(string playerPosition, string actionType) {
         // 根据玩家位置获取对应玩家的音色ID

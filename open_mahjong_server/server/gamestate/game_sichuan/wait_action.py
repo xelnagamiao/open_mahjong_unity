@@ -38,6 +38,7 @@ from ..public.tactical_claim import (
     init_tactical_round_state,
     apply_tactical_claim_if_needed,
 )
+from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
 from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ async def _handle_cut_shunhe(self, player, was_tenpai: bool):
 
 async def wait_action(self):
     self.waiting_players_list = []
-    used_time = 0
+
 
     for i in range(4):
         while not self.action_queues[i].empty():
@@ -102,6 +103,9 @@ async def wait_action(self):
             self.waiting_players_list.append(player_index)
             self.action_events[player_index].clear()
 
+    for player_index in self.waiting_players_list:
+        note_ask_delivered(self, player_index)
+
     init_tactical_round_state(self)
 
     player_index = None
@@ -109,7 +113,7 @@ async def wait_action(self):
     action_type = None
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
+    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i) for i in self.waiting_players_list):
         task_list = []
         task_to_player = {}
         for waiting_player_index in self.waiting_players_list:
@@ -127,14 +131,13 @@ async def wait_action(self):
 
         for task in done:
             if task == timer_task:
-                used_time += 1
+                continue
             else:
                 temp_player_index = task_to_player[task]
                 temp_action_data = await self.action_queues[temp_player_index].get()
                 temp_action_type = temp_action_data.get("action_type")
                 temp_action_data = dict(temp_action_data)
-                used_time += time_end - time_start
-                used_int_time = int(used_time)
+                used_int_time = int(get_ask_elapsed(self, temp_player_index))
                 if timeout_grace > 0 and used_int_time >= timeout_grace:
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
                 self.action_dict[temp_player_index] = []

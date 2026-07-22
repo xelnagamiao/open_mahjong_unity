@@ -19,6 +19,9 @@ class PlayerInfo(BaseModel):
     player_index: int
     original_player_index: int  # 原始玩家索引 东南西北 0 1 2 3
     score: int
+    guobiao_rank: Optional[str] = None  # 国标段位（2D 牌桌侧栏显示）
+    guobiao_score: Optional[float] = None  # 当前段位 PT
+    has_draw_slot: Optional[bool] = None  # 手牌末张是否处于独立摸牌区
     title_used: Optional[int] = None  # 使用的称号ID
     character_used: Optional[int] = None  # 使用的角色ID
     profile_used: Optional[int] = None  # 使用的头像ID
@@ -95,6 +98,9 @@ class Ask_hand_action_info(BaseModel):
     remain_tiles: int
     action_list: List[str]
     action_tick: int
+    dealer_index: Optional[int] = None  # 本局庄家座位，供开局补花结束后恢复 playindex
+    opening_buhua_complete: Optional[bool] = None  # 本条询问是开局补花轮后的庄家首操作
+    wait_data: Optional[Dict[str, object]] = None  # 国标和牌提示（MMCR waits/waits_all）
     forced_cut_tiles: Optional[List[int]] = None
     # 立直麻将：可立直切牌候选 {tile_id: [waiting_tile, ...]}，仅当 action_list 含 riichi_cut 时下发
     riichi_candidate_cuts: Optional[Dict[int, List[int]]] = None
@@ -106,6 +112,7 @@ class Ask_other_action_info(BaseModel):
     action_list: List[str]
     cut_tile: int
     action_tick: int
+    player_index: Optional[int] = None  # 本条操作询问的目标座位；2D 客户端据此防止串位
     # 立直麻将赤宝牌场景下，针对每个吃方向可能存在多种真实牌组合，供客户端展示选择
     # 键为方向（"chi_left" / "chi_mid" / "chi_right"），值为候选组合列表，每个候选为两张真实牌 ID
     chi_candidates: Optional[Dict[str, List[List[int]]]] = None

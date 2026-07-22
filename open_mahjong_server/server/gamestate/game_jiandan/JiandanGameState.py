@@ -134,7 +134,8 @@ class JiandanGameState:
         self.tactical_call = False
         self.claim_protection = room_data.get("claim_protection", True)
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)
-        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.8)
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.7)
+        self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)
         self.allow_spectator_config = room_data.get("allow_spectator", True)
 
         self.player_list: List[JiandanPlayer] = []
@@ -857,7 +858,13 @@ class JiandanGameState:
                     arm_claim_protection_timer(self, self._claim_protection_send_fn)
                     continue
             delay = 0.0
-            from ..public.claim_protection import is_protected_viewer as _ipv, compute_protected_meld_delay
+            from ..public.claim_protection import (
+                is_protected_viewer as _ipv,
+                compute_protected_meld_delay,
+                mark_post_meld_gap,
+                REAL_MELD_ACTIONS,
+            )
+            is_real_meld = bool(action_list) and action_list[0] in REAL_MELD_ACTIONS
             if (not is_cut) and _ipv(self, player_index) and getattr(self, "_cp_cut_flush_time", None):
                 delay = compute_protected_meld_delay(self)
             if delay > 0:
@@ -878,8 +885,12 @@ class JiandanGameState:
                     await self.send_to_realtime_spectators(vi, p)
 
                 schedule_viewer_send(self, player_index, _raw, delay_before=delay)
+                if is_real_meld and _ipv(self, player_index):
+                    mark_post_meld_gap(self, player_index)
             else:
                 await self._send_claim_protection_payload(player_index, payload)
+                if is_real_meld and _ipv(self, player_index):
+                    mark_post_meld_gap(self, player_index)
 
     async def send_payload_to_player(
         self,
@@ -898,11 +909,17 @@ class JiandanGameState:
             connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
         if connection is not None and getattr(connection, "websocket", None) is not None:
             from ..public.outbound_pipe import send_to_viewer
+            from ..public.claim_protection import take_post_meld_gap_delay
 
             async def _do(conn=connection, p=payload):
                 await conn.websocket.send_json(p)
 
-            await send_to_viewer(self, player_index, _do)
+            await send_to_viewer(
+                self,
+                player_index,
+                _do,
+                delay_before=take_post_meld_gap_delay(self, player_index),
+            )
             self.websocket_sent_payloads.append(payload)
             return True
         if record_fallback:

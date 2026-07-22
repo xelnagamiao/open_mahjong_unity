@@ -332,11 +332,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import { analyzeRecords } from '../utils/recordAnalyzer'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames } from '../utils/statsDisplay'
 
+const route = useRoute()
 const IS_DEV_CLIENT = import.meta.env.DEV
 const ANALYZE_DAILY_MAX = 3
 
@@ -1231,6 +1233,8 @@ const loadQuickLists = () => {
 
 onMounted(() => {
   loadQuickLists()
+  const queryPlayer = Array.isArray(route.query.player) ? route.query.player[0] : route.query.player
+  if (queryPlayer) searchPlayer(String(queryPlayer), false)
 })
 </script>
 

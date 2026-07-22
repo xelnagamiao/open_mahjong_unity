@@ -30,6 +30,7 @@ from ..public.tactical_claim import (
     init_tactical_round_state,
     apply_tactical_claim_if_needed,
 )
+from ..public.ask_timing import get_ask_elapsed, note_ask_delivered
 from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
@@ -177,7 +178,6 @@ async def _execute_jiagang_replacement(self, player_index: int, target_tile: int
 # 等待玩家行动
 async def wait_action(self):
     self.waiting_players_list = [] # [2,3]
-    used_time = 0 # 已用时间
 
     # 清空所有队列，防止上一轮残留的事件影响新一轮
     for i in range(4):
@@ -194,6 +194,9 @@ async def wait_action(self):
             self.waiting_players_list.append(player_index)
             self.action_events[player_index].clear()
 
+    for player_index in self.waiting_players_list:
+        note_ask_delivered(self, player_index)
+
     init_tactical_round_state(self)
 
     # 如果等待玩家列表不为空且有玩家剩余时间小于(已用时间-步时)，则停止等待
@@ -204,7 +207,10 @@ async def wait_action(self):
     # waiting_ready
     timeout_grace = 0 if self.game_status == "waiting_ready" else self.step_time
 
-    while self.waiting_players_list and any(self.player_list[i].remaining_time + timeout_grace > used_time for i in self.waiting_players_list):
+    while self.waiting_players_list and any(
+        self.player_list[i].remaining_time + timeout_grace > get_ask_elapsed(self, i)
+        for i in self.waiting_players_list
+    ):
 
         # 给每个可行动者创建一个消息队列任务，同时创建一个计时器任务
         task_list = []  # 任务列表
@@ -219,15 +225,11 @@ async def wait_action(self):
         timer_task = asyncio.create_task(asyncio.sleep(1)) # 等待1s
         task_list.append(timer_task)
 
-        logger.info(f"开始新一轮等待操作 waiting_players_list={self.waiting_players_list} action_dict={self.action_dict} used_time={used_time}")
-
         # 等待计时器完成1s等待或者任意玩家进行操作
-        time_start = time.time()
         done, pending = await asyncio.wait(
             task_list,
             return_when=asyncio.FIRST_COMPLETED
         )
-        time_end = time.time()
 
         # 取消未完成的任务
         for task in pending:
@@ -235,9 +237,9 @@ async def wait_action(self):
 
         # 处理完成的任务
         for task in done:
-            # 计时器完成 增加已用时间 注意：这里不需要重置任务，因为下一次循环开始时会创建新的任务
+            # 计时器完成：仅周期性重检 timeout
             if task == timer_task:
-                used_time += 1
+                continue
             # 玩家操作完成，获取玩家索引
             else:
                 # 使用映射获取玩家索引
@@ -248,10 +250,9 @@ async def wait_action(self):
 
                 # 复制字典以避免引用问题
                 temp_action_data = dict(temp_action_data)
-                logger.info(f"复制后: temp_player_index={temp_player_index}, temp_action_data={temp_action_data}")
+                logger.debug(f"复制后: temp_player_index={temp_player_index}, temp_action_data={temp_action_data}")
 
-                used_time += time_end - time_start # 服务器计算操作时间
-                used_int_time = int(used_time) # 变量整数时间
+                used_int_time = int(get_ask_elapsed(self, temp_player_index))
                 if timeout_grace > 0 and used_int_time >= timeout_grace: # 扣除玩家超出步时的时间
                     self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
@@ -277,14 +278,14 @@ async def wait_action(self):
                     action_data = dict(temp_action_data)  # 创建副本
                     action_type = temp_action_type
                     player_index = temp_player_index  # 保存对应的玩家索引
-                    logger.info(f"设置action_data: player_index={player_index}, action_data={action_data}")
+                    logger.debug(f"设置action_data: player_index={player_index}, action_data={action_data}")
 
                 # 在有人进行操作时，如果操作类型优先级更高，则覆盖上一个玩家的action_data
                 elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
                     action_data = dict(temp_action_data)  # 创建副本
                     action_type = temp_action_type
                     player_index = temp_player_index  # 更新为对应的玩家索引
-                    logger.info(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
+                    logger.debug(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
 
                 # 战术鸣牌：任一非 pass 提交立即结束主询问
                 tactical_immediate_break = (
@@ -305,9 +306,9 @@ async def wait_action(self):
             self.player_list[i].remaining_time = 0
 
     if action_data:
-        logger.info(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
+        logger.debug(f"player_index={player_index} action_type={action_type} action_data={action_data} game_status={self.game_status} player_hand_tiles={self.player_list[player_index].hand_tiles}")
     else:
-        logger.info(f"操作超时")
+        logger.debug("操作超时")
 
     action_type, player_index, action_data, _ = await apply_tactical_claim_if_needed(
         self,
@@ -506,7 +507,7 @@ async def wait_action(self):
                     # 和牌 (自摸)
                     self.hu_class = "hu_self"
                     self.game_status = "END"
-                    logger.info(f"处理自摸操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}")
+                    logger.debug(f"处理自摸操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}")
                     return
                 else:
                     logger.error(f"摸牌后手牌阶段action_type出现非cut,angang,jiagang,buhua,hu_self的值: {action_type}")
@@ -685,7 +686,7 @@ async def wait_action(self):
                     self.player_list[player_index].hand_tiles.append(tile_id) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type
                     self.game_status = "END"
-                    logger.info(f"处理和牌操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}, tile_id={tile_id}")
+                    logger.debug(f"处理和牌操作: player_index={player_index}, action_type={action_type}, hu_class={self.hu_class}, game_status={self.game_status}, tile_id={tile_id}")
                     return
 
                 # 如果发生吃碰杠而不是和牌 则发生转移行为

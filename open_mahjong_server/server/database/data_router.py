@@ -48,6 +48,7 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
     if player and player.user_id:
         limit = message.get("limit", 20)
         offset = message.get("offset", 0)
+        favorites_only = bool(message.get("favorites_only", False))
         try:
             limit = max(1, min(50, int(limit)))
         except (TypeError, ValueError):
@@ -57,7 +58,12 @@ async def handle_get_record_list(game_server, Connect_id: str, message: dict, we
         except (TypeError, ValueError):
             offset = 0
 
-        records = game_server.db_manager.get_record_list(player.user_id, limit=limit, offset=offset)
+        records = game_server.db_manager.get_record_list(
+            player.user_id,
+            limit=limit,
+            offset=offset,
+            favorites_only=favorites_only,
+        )
         record_list = []
         for game_record in records:
             players_info = []

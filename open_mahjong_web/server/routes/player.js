@@ -227,6 +227,7 @@ router.get('/leaderboard', async (req, res) => {
       user_id: e.user_id,
       username: e.username,
       guobiao_rank: e.guobiao_rank,
+      guobiao_score: e.guobiao_score,
     }));
     res.json({ success: true, data: sliced });
   } catch (err) {

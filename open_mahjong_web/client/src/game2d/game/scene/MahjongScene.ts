@@ -11,7 +11,7 @@ import {
   normalizeSceneAppearanceSettings,
   type SceneAppearanceSettings,
 } from '../../lib/sceneAppearance'
-import { ensureTexturesLoaded } from './textures'
+import { ensureTexturesLoaded, setTileThemes } from './textures'
 import { waitForGameFonts } from '../fontLoader'
 import { FROM_DRAWN_TINT, Tile } from './Tile'
 import { River } from './River'
@@ -21,10 +21,12 @@ import { Display, Countdown, DirLabel, TempLabel } from './Display'
 import { OptDisplay, type AutoWinMode } from './OptDisplay'
 import { MeldChoices, type MeldViewerSnapshot } from './MeldChoices'
 import type { ActiveSessionSnapshot, SeatSnapshot } from './types'
+import { hasSingleFanAtLeast } from '../../../constants/guessFanCatalog'
 
 export type { AutoWinMode, WaitInfoData }
 
-const DUANG_CUTOFF = 18.495
+// 仅当番种明细里存在单个 >=32 番的番种时播放敲锣音；总番数不参与判断。
+const DUANG_CUTOFF = 32
 const AUTO_WIN_DELAY_MS = 1600
 const PASS_DEBOUNCE_MS = 200
 
@@ -117,6 +119,7 @@ export class MahjongScene {
   private selfDir = 0
   private names: [string, string, string, string] = ['', '', '', '']
   private scores: [number, number, number, number] = [0, 0, 0, 0]
+  private voiceIds: [number, number, number, number] = [1, 1, 1, 1]
   private present: [boolean, boolean, boolean, boolean] = [true, true, true, true]
   private currentDir = 0
   private lastDiscarderSeat = 0
@@ -144,7 +147,9 @@ export class MahjongScene {
   // ── Volume ────────────────────────────────────────────────────────
   private readonly sounds = new Map<string, HTMLAudioElement>()
   private readonly primedSounds = new WeakSet<HTMLAudioElement>()
-  private audioGestureSeen = false
+  private readonly primingSounds = new WeakMap<HTMLAudioElement, Promise<void>>()
+  private activeVoice: HTMLAudioElement | null = null
+  private voiceRequestId = 0
 
   get globalVolume(): number { return this.volume }
   set globalVolume(value: number) {
@@ -209,6 +214,8 @@ export class MahjongScene {
     this.redrawBackground()
     this.updateBackgroundImagePresentation()
     this.applyTileCoverPalette()
+    this.applyFlowerAreaAppearance()
+    this.applyTileFaceTheme()
   }
 
   setBackgroundImage(source: string | null): void {
@@ -315,6 +322,7 @@ export class MahjongScene {
     document.removeEventListener('keydown', this.handleUserGesture)
     document.removeEventListener('visibilitychange', this.handleVisibilityChange)
     this.clearPendingButton()
+    this.stopActiveVoice()
     if (this.app) {
       this.app.destroy(true, { children: true, texture: true })
       this.app = null
@@ -491,7 +499,6 @@ export class MahjongScene {
   }
 
   private handleUserGesture = (): void => {
-    this.audioGestureSeen = true
     void this.primeLoadedSounds()
   }
 
@@ -529,7 +536,7 @@ export class MahjongScene {
 
   private syncDecisionTimer(viewer: Record<string, any>): void {
     const dt = typeof viewer.decision_timer_ms === 'number' ? viewer.decision_timer_ms : null
-    if (dt !== null && dt > 0) {
+    if (this.canAct() && dt !== null && dt > 0) {
       this.countdown.onExpire = () => {
         this.inputEnabled = false
         this.clearMeldChoices()
@@ -911,6 +918,9 @@ export class MahjongScene {
       for (const tile of river.tileList) {
         tile.setCoverColor(coverColor)
       }
+      for (const tile of river.flowerList) {
+        tile.setCoverColor(coverColor)
+      }
     }
 
     for (const hand of this.hands) {
@@ -922,6 +932,29 @@ export class MahjongScene {
       }
       hand.drawnTile?.setCoverColor(coverColor)
     }
+  }
+
+  private applyFlowerAreaAppearance(): void {
+    if (!this.mounted || !this.rivers) return
+    for (const river of this.rivers) {
+      river.setFlowerAreaAppearance(
+        this.appearance.flowerAreaDisplay,
+        hexColorToNumber(this.appearance.flowerAreaColor),
+        this.appearance.flowerAreaAlpha,
+      )
+    }
+  }
+
+  private applyTileFaceTheme(): void {
+    setTileThemes(this.appearance.tileFaceTheme, this.appearance.flowerFaceTheme)
+    if (!this.mounted) return
+    const refresh = (container: Container): void => {
+      for (const child of container.children) {
+        if (child instanceof Tile) child.refreshTexture()
+        if (child instanceof Container) refresh(child)
+      }
+    }
+    refresh(this.center)
   }
 
   private layout(): void {
@@ -996,7 +1029,6 @@ export class MahjongScene {
       actorDir,
       text,
       autoHide ? 1000 : null,
-      (alias) => this.playSound(alias),
     )
     if (!autoHide) {
       this.replayClaimLabel = label
@@ -1013,7 +1045,10 @@ export class MahjongScene {
     this.waitDisplay = new WaitDisplay(c)
 
     this.rivers = [
-      new River(0, c), new River(1, c), new River(2, c), new River(3, c),
+      new River(0, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      new River(1, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      new River(2, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      new River(3, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
     ]
 
     this.hands = [
@@ -1164,7 +1199,10 @@ export class MahjongScene {
     // Recreate
     const c = this.center
     this.rivers = [
-      new River(0, c), new River(1, c), new River(2, c), new River(3, c),
+      new River(0, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      new River(1, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      new River(2, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      new River(3, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
     ]
     this.hands = [
       this.createHand(0, c, this.rivers[0], this.waitDisplay),
@@ -1181,9 +1219,10 @@ export class MahjongScene {
     this.remainingTiles = state.remaining_tile_count
     // If the snapshot shows a completed round (result_event present or session ended),
     // suppress wait options until the next kStart arrives.
-    if (state.ended || snapshot.result_event) {
-      this.roundEnded = true
-    }
+    // A game_start snapshot is also used for every following round.  Reset the
+    // previous result guard or round two will render normally but reject every
+    // tile/button input until the server times out.
+    this.roundEnded = Boolean(state.ended || snapshot.result_event)
     const currentPlayer = readCurrentPlayer(state as Record<string, any>)
     if (currentPlayer !== null) {
       this.currentDir = currentPlayer
@@ -1202,6 +1241,7 @@ export class MahjongScene {
 
       this.names[localDir] = displayPlayerName(seat.username)
       this.scores[localDir] = seat.score
+      this.voiceIds[localDir] = seat.voice_id === 2 ? 2 : 1
       this.present[localDir] = (this.presentationMode === 'replay' && this.replayRecordVersion < 6) ? true : !(seat.afk || seat.disconnected)
 
       // River tiles
@@ -1229,6 +1269,9 @@ export class MahjongScene {
           addedFromDrawnTile: meld.added_from_drawn_tile ?? false,
           concealedFromDrawnTile: meld.concealed_from_drawn_tile ?? false,
         })
+      }
+      for (const flowerTile of seat.flower_tiles ?? []) {
+        this.hands[localDir].addFlower(flowerTile)
       }
 
       // Hand tiles
@@ -1337,6 +1380,14 @@ export class MahjongScene {
     const actorDir = transDir(actorSeat, this.selfDir)
     const tile: number | undefined = event.tile
 
+    // Opening flower replacements are broadcast as ordinary draws so that they
+    // animate, but once the flower round finishes all four hands are flat again
+    // (the dealer's 14th tile is not a normal draw slot).  Normalize the visual
+    // state before enabling the dealer's first discard.
+    if (kind === 'hand_prompt' && event.opening_buhua_complete) {
+      for (const hand of this.hands) hand.settleDrawnTile()
+    }
+
     // ── Phase A: Board mutation (TRANSITION only) ──────────────────
     if (category === 'transition') {
       switch (kind) {
@@ -1372,7 +1423,10 @@ export class MahjongScene {
           }
           const c = this.center
           this.rivers = [
-            new River(0, c), new River(1, c), new River(2, c), new River(3, c),
+            new River(0, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+            new River(1, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+            new River(2, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+            new River(3, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
           ]
           this.hands = [
             this.createHand(0, c, this.rivers[0], this.waitDisplay),
@@ -1445,9 +1499,12 @@ export class MahjongScene {
           break
         }
         case 'flower': {
+          if (tile !== undefined) {
+            this.hands[actorDir].flowerFromHand(tile, event.use_drawn_tile ?? false)
+          }
           this.countdown.stop()
           this.clearMeldChoices()
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('buhua', actorDir, false)
           break
         }
         case 'chow': {
@@ -1455,7 +1512,7 @@ export class MahjongScene {
           const centralTile = tile ?? 0
           const chowMode = event.ui64_value ?? 0
           this.hands[actorDir].chowFromRiver(this.rivers[discarderRelDir], centralTile, chowMode)
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('chi', actorDir)
           break
         }
         case 'pung': {
@@ -1463,7 +1520,7 @@ export class MahjongScene {
           const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
           const t = tile ?? 0
           this.hands[actorDir].pungFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('peng', actorDir)
           break
         }
         case 'melded_kong': {
@@ -1471,7 +1528,7 @@ export class MahjongScene {
           const t = tile ?? 0
           const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
           this.hands[actorDir].meldedKongFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('gang', actorDir)
           break
         }
         case 'added_kong': {
@@ -1482,7 +1539,7 @@ export class MahjongScene {
           } else {
             this.hands[actorDir].mKongFromHand(t, useDrawn)
           }
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('gang', actorDir)
           break
         }
         case 'concealed_kong': {
@@ -1493,7 +1550,7 @@ export class MahjongScene {
           } else {
             this.hands[actorDir].cKongFromHand(t, useDrawn)
           }
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('gang', actorDir)
           break
         }
         case 'self_drawn_win': {
@@ -1507,7 +1564,7 @@ export class MahjongScene {
           }
           this.countdown.stop()
           this.clearMeldChoices()
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('hu', actorDir)
           break
         }
         case 'discard_win':
@@ -1521,7 +1578,7 @@ export class MahjongScene {
           }
           this.countdown.stop()
           this.clearMeldChoices()
-          this.playSound('09-cpk')
+          if (!event.silent) this.playCallSound('hu', actorDir)
           break
         }
         case 'drawn_game': {
@@ -1555,7 +1612,13 @@ export class MahjongScene {
         if (this.presentationMode === 'replay') {
           this.showReplayClaimLabel(actorDir, text, true)
         } else {
-          new TempLabel(this.center, actorDir, text, 1000, (alias) => this.playSound(alias))
+          new TempLabel(this.center, actorDir, text, 1000)
+        }
+        if (!event.silent) {
+          if (kind === 'chow') this.playCallSound('chi', actorDir, false)
+          else if (kind === 'pung') this.playCallSound('peng', actorDir, false)
+          else if (kind.includes('kong')) this.playCallSound('gang', actorDir, false)
+          else if (kind.includes('win')) this.playCallSound('hu', actorDir, false)
         }
       }
     }
@@ -1594,7 +1657,7 @@ export class MahjongScene {
       this.clearMeldChoices()
     }
     // For claim events where the viewer is the claimer, clear choices
-    if (category === 'claim' && actorSeat === this.selfDir) {
+    if (category === 'claim' && actorDir === 0) {
       this.clearMeldChoices()
     }
 
@@ -1607,7 +1670,7 @@ export class MahjongScene {
       this.showFinalScores(Array.isArray(event.scores) ? event.scores as number[] : [])
     }
     // Win result display
-    if (event.win && category !== 'claim') {
+    if (event.win && category !== 'claim' && !event.suppress_result_display) {
       this.tempDisplay.clear()
       const win = event.win as Record<string, any>
       const selfDrawn = kind === 'self_drawn_win'
@@ -1622,9 +1685,15 @@ export class MahjongScene {
       const shooterLoss = selfDrawn ? 0 : bp * 3
       this.tempDisplay.handleWin(selfDrawn, winnerName, shooterName, eachLoss, shooterLoss, fan, fans)
       this.tempDisplay.visible = true
-      if (fan >= DUANG_CUTOFF) {
+      if (hasSingleFanAtLeast(fans, DUANG_CUTOFF, 'guobiao')) {
         setTimeout(() => this.playSound('01-start'), 50)
       }
+    }
+  }
+
+  playResultGong(fans: string[]): void {
+    if (hasSingleFanAtLeast(fans, DUANG_CUTOFF, 'guobiao')) {
+      this.playSound('01-start')
     }
   }
 
@@ -1665,6 +1734,10 @@ export class MahjongScene {
       const text = labelMap[kind]
       if (text) {
         this.showReplayClaimLabel(actorDir, text, false)
+        if (kind === 'chow') this.playCallSound('chi', actorDir, false)
+        else if (kind === 'pung') this.playCallSound('peng', actorDir, false)
+        else if (kind.includes('kong')) this.playCallSound('gang', actorDir, false)
+        else if (kind.includes('win')) this.playCallSound('hu', actorDir, false)
       }
       return
     }
@@ -1680,15 +1753,24 @@ export class MahjongScene {
       case 'discard_tile':
         this.playSound('06-discard')
         break
+      case 'flower':
+        this.playCallSound('buhua', actorDir, false)
+        break
       case 'chow':
+        this.playCallSound('chi', actorDir)
+        break
       case 'pung':
+        this.playCallSound('peng', actorDir)
+        break
       case 'melded_kong':
       case 'added_kong':
       case 'concealed_kong':
+        this.playCallSound('gang', actorDir)
+        break
       case 'self_drawn_win':
       case 'discard_win':
       case 'rob_added_kong_win':
-        this.playSound('09-cpk')
+        this.playCallSound('hu', actorDir)
         break
       default:
         break
@@ -1942,9 +2024,9 @@ export class MahjongScene {
   loadSound(alias: string, audio: HTMLAudioElement): void {
     audio.volume = this.volume
     this.sounds.set(alias, audio)
-    if (this.audioGestureSeen) {
-      void this.primeAudio(audio)
-    }
+    // Muted pre-roll is allowed before audible autoplay. Start it as soon as
+    // the asset is registered so opening flowers cannot outrun sound loading.
+    void this.primeAudio(audio)
   }
 
   setVolume(volume: number): void {
@@ -1973,36 +2055,95 @@ export class MahjongScene {
     this.lastPongMs = Math.max(0, Math.round(Date.now() - sentAt))
   }
 
-  private async primeAudio(audio: HTMLAudioElement): Promise<void> {
-    if (this.primedSounds.has(audio)) return
+  private primeAudio(audio: HTMLAudioElement): Promise<void> {
+    if (this.primedSounds.has(audio)) return Promise.resolve()
+    const pending = this.primingSounds.get(audio)
+    if (pending) return pending
 
-    const prevMuted = audio.muted
-    try {
-      audio.muted = true
-      audio.volume = 0
-      await audio.play()
-      audio.pause()
-      audio.currentTime = 0
-      this.primedSounds.add(audio)
-    } catch {
-      // Browser autoplay policy still blocks this element until a later gesture.
-    } finally {
-      audio.muted = prevMuted
-      audio.volume = this.globalVolume
-    }
+    const task = (async () => {
+      const prevMuted = audio.muted
+      try {
+        audio.muted = true
+        audio.volume = 0
+        await audio.play()
+        audio.pause()
+        audio.currentTime = 0
+        this.primedSounds.add(audio)
+      } catch {
+        // Browser autoplay policy still blocks this element until a later gesture.
+      } finally {
+        audio.muted = prevMuted
+        audio.volume = this.globalVolume
+      }
+    })()
+    this.primingSounds.set(audio, task)
+    void task.finally(() => {
+      if (this.primingSounds.get(audio) === task) this.primingSounds.delete(audio)
+    })
+    return task
   }
 
   private async primeLoadedSounds(): Promise<void> {
-    for (const audio of this.sounds.values()) {
-      await this.primeAudio(audio)
-    }
+    await Promise.all([...this.sounds.values()].map((audio) => this.primeAudio(audio)))
   }
 
   private playSound(alias: string): void {
+    this.playSoundNow(alias)
+  }
+
+  private playSoundNow(alias: string): void {
     const audio = this.sounds.get(alias)
-    if (audio) {
+    if (!audio) return
+    const play = () => {
+      if (this.destroyed) return
       audio.currentTime = 0
       audio.play().catch(() => { /* autoplay policy */ })
     }
+    const priming = this.primingSounds.get(audio)
+    if (priming) void priming.then(play)
+    else play()
+  }
+
+  private stopActiveVoice(): void {
+    if (!this.activeVoice) return
+    this.activeVoice.pause()
+    this.activeVoice.currentTime = 0
+    this.activeVoice = null
+  }
+
+  /** MMCR table effects remain unchanged; only the character speech uses Salasasa voices. */
+  private playCallSound(voice: 'chi' | 'peng' | 'gang' | 'buhua' | 'hu', actorDir: number, tableEffect = true): void {
+    const tableAudio = tableEffect ? this.sounds.get('09-cpk') : null
+    const voiceId = this.voiceIds[actorDir] === 2 ? 2 : 1
+    const voiceAudio = this.sounds.get(`voice-${voiceId}-${voice}`)
+    if (!voiceAudio) {
+      if (tableEffect) this.playSoundNow('09-cpk')
+      return
+    }
+
+    const requestId = ++this.voiceRequestId
+    const play = () => {
+      if (this.destroyed || requestId !== this.voiceRequestId) return
+      if (tableAudio) {
+        tableAudio.currentTime = 0
+        tableAudio.play().catch(() => { /* autoplay policy */ })
+      }
+      this.stopActiveVoice()
+      this.activeVoice = voiceAudio
+      voiceAudio.currentTime = 0
+      voiceAudio.onended = () => {
+        if (this.activeVoice === voiceAudio) this.activeVoice = null
+      }
+      voiceAudio.play().catch(() => {
+        if (this.activeVoice === voiceAudio) this.activeVoice = null
+      })
+    }
+
+    const pending = [tableAudio, voiceAudio]
+      .filter((audio): audio is HTMLAudioElement => Boolean(audio))
+      .map((audio) => this.primingSounds.get(audio))
+      .filter((promise): promise is Promise<void> => Boolean(promise))
+    if (pending.length > 0) void Promise.all(pending).then(play)
+    else play()
   }
 }

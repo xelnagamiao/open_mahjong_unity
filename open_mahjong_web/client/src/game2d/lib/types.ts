@@ -93,9 +93,11 @@ export interface SeatSnapshot {
   has_drawn_tile: boolean
   player_id: number | null
   username: string | null
+  voice_id?: number
   discard_pile: number[]
   discard_drawn_flags?: boolean[]
   melds: MeldSnapshot[]
+  flower_tiles?: number[]
   hand_tiles?: number[]
   drawn_tile?: number | null
 }

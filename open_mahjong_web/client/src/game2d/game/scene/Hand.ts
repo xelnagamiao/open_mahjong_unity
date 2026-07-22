@@ -273,7 +273,7 @@ export class Hand extends Container {
     tile.setHoverCallbacks(
       () => this.waitDisplay?.loadData(tile.tid),
       () => {
-        this.waitDisplay?.reset()
+        this.waitDisplay?.restoreDefault()
       },
     )
   }
@@ -379,7 +379,6 @@ export class Hand extends Container {
     if (sort) {
       this.sortRightList()
     }
-
     if (leftListDelay === 0) {
       for (const t of this.leftList) {
         t.scale.set(1.0)
@@ -553,6 +552,42 @@ export class Hand extends Container {
     this.appendMeldedKong(middleTid, meldFromRel, claimedFromDrawnDiscard)
   }
 
+  /** 国标花牌：放入牌河右下侧的独立补花区。 */
+  addFlower(tid: number): void {
+    const tile = Tile.newInvisible(tid)
+    tile.updateTid(tid)
+    tile.show()
+    if (this.river) this.river.addFlower(tile)
+    else this.appendLeftList(tile, false)
+  }
+
+  /** 从手牌/摸牌区移出花牌，并立即加入公开花牌区。 */
+  flowerFromHand(tid: number, useDrawnTile: boolean): void {
+    let tile: Tile | null = null
+    const drawnTileMatches = this.drawnTile
+      && (this.direction !== 0 || this.drawnTile.tid === tid)
+    if (useDrawnTile && drawnTileMatches) {
+      tile = this.drawnTile
+      this.drawnTile = null
+    } else {
+      tile = this.popFromHand(tid)
+      // 服务器的摸补标记与画面刚好错开一帧时，仍按实际牌 ID 从摸牌区兜底。
+      // 这与 Unity RemoveBuhuaCard 的“先检查摸牌区同 ID”行为一致。
+      if (!tile && this.drawnTile?.tid === tid) {
+        tile = this.drawnTile
+        this.drawnTile = null
+      }
+    }
+    if (!tile) return
+    this.unwaitDiscard()
+    tile.updateTid(tid)
+    tile.show()
+    tile.scale.set(1.0)
+    if (this.river) this.river.addFlower(tile, true)
+    else this.appendLeftList(tile, false)
+    this.updateDisplay(true)
+  }
+
   // ── Runtime melds (tid-based) ────────────────────────────────────
 
   chowFromRiver(river: River, centralTid: number, chowMode: number): void {
@@ -681,10 +716,21 @@ export class Hand extends Container {
 
   drawTile(tile: Tile): void {
     this.discardIndex = -1
+    // A replacement/next draw can arrive while the previous replacement tile is
+    // still rendered in the draw slot (most notably during the opening flower
+    // round).  Never overwrite the reference: doing so leaves an orphaned,
+    // unclickable tile on the table.
+    this.settleDrawnTile()
     this.applyTileStyle(tile)
     this.bindWaitHover(tile)
     this.drawnTile = tile
     this.updateDisplay(false, false, true)
+  }
+
+  /** Merge the current draw-slot tile into the concealed hand. */
+  settleDrawnTile(): void {
+    if (!this.drawnTile) return
+    this.updateDisplay(true, false, false, false, true)
   }
 
   discardTile(tid: number, useDrawnTile: boolean): void {

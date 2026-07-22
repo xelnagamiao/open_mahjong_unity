@@ -96,13 +96,20 @@ run('8. 需求长度绿/灰+箭头', () => {
   assert(r2.reqLength.hint === 'up' || r2.reqLength.hint === 'down', `hint=${r2.reqLength.hint}`)
 })
 
-run('9. 类型顺序：宝牌 vs 里宝牌 → 黄（顺序不同）', () => {
+run('9. 类型顺序：宝牌 vs 里宝牌 → 绿（顺序一致）', () => {
   const dora = Object.values(GUESS_FAN_BY_ID).find((f) => f.names[0] === '宝牌')
   const ura = Object.values(GUESS_FAN_BY_ID).find((f) => f.names[0] === '里宝牌')
   assert(dora && ura, 'dora/ura exist')
   const r = compareGuess({ answer: dora, rolledFan: dora.fan, guess: ura })
-  assert(r.types.tone === 'yellow', `types=${JSON.stringify(r.types)}`)
+  assert(r.types.tone === 'green', `types=${JSON.stringify(r.types)}`)
   assert(typeof r.types.value === 'string' && r.types.value.includes('、'), `value=${r.types.value}`)
+})
+
+run('10. 多类型番 vs 单类型：里宝牌 vs 立直 → 类型黄', () => {
+  const ura = GUESS_FAN_BY_ID['riichi:ura_dora']
+  const riichi = GUESS_FAN_BY_ID['riichi:riichi']
+  const r = compareGuess({ answer: ura, rolledFan: ura.fan, guess: riichi })
+  assert(r.types.tone === 'yellow', `types=${JSON.stringify(r.types)}`)
 })
 
 console.log(`\n==== ${passed} passed, ${failed} failed ====`)

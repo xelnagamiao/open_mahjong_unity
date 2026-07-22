@@ -28,3 +28,14 @@ export function loadStoredSceneAppearance(): SceneAppearanceSettings {
     return DEFAULT_SCENE_APPEARANCE
   }
 }
+
+export function saveStoredSceneAppearance(appearance: SceneAppearanceSettings): void {
+  localStorage.setItem(
+    SCENE_APPEARANCE_STORAGE_KEY,
+    JSON.stringify(normalizeSceneAppearanceSettings(appearance)),
+  )
+}
+
+export function resetStoredSceneAppearance(): void {
+  localStorage.removeItem(SCENE_APPEARANCE_STORAGE_KEY)
+}

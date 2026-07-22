@@ -90,6 +90,8 @@ class GuobiaoPlayer:
         self.character_used = 0 # 使用的角色ID
         self.voice_used = 0 # 使用的音色ID
         self.has_draw_slot = False  # 本巡是否刚摸入一张（吃碰杠后为 False）
+        self.guobiao_rank = "10级"  # 牌桌侧栏显示用段位
+        self.guobiao_score = 0.0  # 牌桌侧栏显示用 PT
 
     def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌
@@ -140,6 +142,11 @@ class GuobiaoGameState:
             player.profile_used = player_setting.get("profile_image_id", 1)
             player.character_used = player_setting.get("character_id", 1)
             player.voice_used = player_setting.get("voice_id", 1)
+            if user_id > 10:
+                rank_data = self.db_manager.get_rank_data(user_id)
+                if rank_data:
+                    player.guobiao_rank = rank_data.get("guobiao_rank", "10级")
+                    player.guobiao_score = float(rank_data.get("guobiao_score", 0) or 0)
             self.player_list.append(player)
 
         # 初始化房间配置
@@ -168,7 +175,8 @@ class GuobiaoGameState:
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5) # 战术鸣牌：申请广播后、进入打断窗口前的固定停顿（秒）
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)     # 战术鸣牌：每次申请后的打断窗口时长（秒）
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)           # 鸣牌保护：受保护观众看到出牌的最大延迟（秒）
-        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.8)   # 鸣牌保护：出牌与紧随其后的鸣牌/和牌之间的间隔（秒）
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.7)   # 鸣牌保护：出牌与紧随其后的鸣牌之间的第一追赶（秒）
+        self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)           # 鸣牌保护：鸣牌与下一手出牌之间的第二追赶（秒）
         self.allow_spectator_config = room_data.get("allow_spectator", True) # 允许观战配置
         self.match_queue_type = room_data.get("match_queue_type", None) # 排位匹配队列类型
         
@@ -177,6 +185,8 @@ class GuobiaoGameState:
         # 初始化游戏状态
         self.tiles_list = [] # 牌堆
         self.current_player_index = 0 # 目前轮到的玩家
+        self.dealer_index = 0 # 国标每局换位后庄家始终是逻辑座位 0
+        self._opening_buhua_complete_pending = False
         self.xunmu = 1 # 巡目
         self.master_seed: int = 0  # 主种子
         self.commitment: int = 0 # 承诺值
@@ -215,7 +225,8 @@ class GuobiaoGameState:
         init_claim_protection_state(self)
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
-        # debug_scenario 见 guobiao_debug.py：tactical_claim（战鸣测试）| buhua_8flowers（seat1 单花补花测试）
+        # debug_scenario 见 guobiao_debug.py：
+        # chi_peng_protect（A打B吃C碰、无和，测鸣牌保护）| tactical_claim | buhua_8flowers
         self.Debug = False
         self.debug_scenario = GUOBIAO_DEBUG_SCENARIO
         self.pending_kan_hand_settle_delay = False
@@ -281,6 +292,7 @@ class GuobiaoGameState:
                         'gamestate_id': self.gamestate_id,
                         'tips': self.tips,
                         'current_player_index': self.current_player_index,
+                        'dealer_index': self.dealer_index,
                         "action_tick": self.server_action_tick,
                         'max_round': self.max_round,
                         'tile_count': len(self.tiles_list),
@@ -322,6 +334,9 @@ class GuobiaoGameState:
                             'player_index': player.player_index,
                             'original_player_index': player.original_player_index,
                             'score': player.score,
+                            'guobiao_rank': player.guobiao_rank,
+                            'guobiao_score': player.guobiao_score,
+                            'has_draw_slot': player.has_draw_slot,
                             "title_used": player.title_used,
                             'profile_used': player.profile_used,
                             'character_used': player.character_used,
@@ -446,6 +461,9 @@ class GuobiaoGameState:
 
             init_guobiao_tiles(self) # 初始化牌山和手牌
 
+            # 新一局广播前先恢复庄家 playindex。上一局可能在任意玩家处结束，不能把旧索引带入 game_start。
+            self.current_player_index = self.dealer_index
+
             # 广播游戏开始
             await self.broadcast_game_start()
             
@@ -482,13 +500,20 @@ class GuobiaoGameState:
 
             # 初始行为
             self.game_status = "waiting_hand_action" # 初始行动
-            self.current_player_index = get_debug_buhua_start_index(self) if self.Debug else 0
+            self.current_player_index = get_debug_buhua_start_index(self) if self.Debug else self.dealer_index
+            self._opening_buhua_complete_pending = not self.Debug
+            # 开局补花的岭上牌在补花轮结束后并入初始手牌；庄家 14 张、闲家 13 张都应平铺。
+            for player in self.player_list:
+                player.has_draw_slot = False
 
             self.refresh_waiting_tiles(self.current_player_index, is_first_action=True) # 检查手牌等待牌
             logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
             self.action_dict = check_action_hand_action(self,self.current_player_index,is_first_action=True) # 允许可执行的手牌操作
             await self.broadcast_ask_hand_action() # 广播手牌操作
             await self.wait_action() # 等待手牌操作
+            # 保持到首操作真正结束，确保这段时间发生重连时补发的 ask 仍会
+            # 告知 2D 客户端收拢开局补花的替代牌并回到庄家 playindex。
+            self._opening_buhua_complete_pending = False
 
             # 游戏主循环
             while self.game_status != "END":
@@ -878,6 +903,8 @@ class GuobiaoGameState:
                     player.score_before = old_score
                     player.rank_after = new_rank
                     player.score_after = new_score
+                    player.guobiao_rank = new_rank
+                    player.guobiao_score = float(new_score)
                     # 更新数据库
                     self.db_manager.update_rank_data(player.user_id, new_rank, new_score)
                     logger.info(f"排位 PT: {player.username} rank {player.record_counter.rank_result} (名次区间 {start + 1}-{end + 1}), pt={pt}, {old_rank}({old_score}) -> {new_rank}({new_score})")

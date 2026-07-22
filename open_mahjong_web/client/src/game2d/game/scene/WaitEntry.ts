@@ -21,36 +21,26 @@ export class WaitEntry extends Container {
     this.y = y
     this.scale.set(0.7)
 
-    const sameF = Math.abs(baseF - selfDrawnF) < 1e-3
-    const selfDrawnOnly = selfDrawnF > 0 && baseF < 0.1
-    const occasionalOnly = selfDrawnF < 0.1 && baseF < 0.1
-
-    // Base fan
-    const baseText = new Text({
-      text: occasionalOnly ? '\u2014' : baseF.toFixed(1),
-      style: { fontFamily: 'CmuSerif', fontSize: sameF ? 200 : 160, fill: 0x000000, align: 'center' },
+    const selfDrawnOnly = selfDrawnF > 0 && baseF <= 0
+    const notEnough = selfDrawnF <= 0 && baseF <= 0
+    const fanLabel = baseF > 0 ? `${Math.round(baseF)}番` : selfDrawnOnly ? '仅自摸' : '未起和'
+    const fanText = new Text({
+      text: fanLabel,
+      style: {
+        fontFamily: 'SimKai, CmuSerif, serif',
+        fontSize: fanLabel.length > 3 ? 142 : 185,
+        fill: notEnough ? 0x8b2f2f : selfDrawnOnly ? 0x777777 : 0x000000,
+        align: 'center',
+      },
     })
-    baseText.anchor.set(0.5)
-    baseText.x = sameF ? 0 : -168
-    baseText.y = TILE_HEIGHT / 2 + 150
-    if (selfDrawnOnly) baseText.visible = false
-    this.addChild(baseText)
-
-    // Self-drawn fan
-    const selfText = new Text({
-      text: selfDrawnF.toFixed(1),
-      style: { fontFamily: 'CmuSerif', fontSize: sameF || selfDrawnOnly ? 200 : 160, fill: 0x888888, align: 'center' },
-    })
-    selfText.anchor.set(0.5)
-    selfText.x = sameF || selfDrawnOnly ? 0 : 168
-    selfText.y = TILE_HEIGHT / 2 + 150
-    if (sameF || occasionalOnly) selfText.visible = false
-    this.addChild(selfText)
+    fanText.anchor.set(0.5)
+    fanText.y = TILE_HEIGHT / 2 + 150
+    this.addChild(fanText)
 
     // Remaining count
     const remText = new Text({
       text: `${remainingCount}`,
-      style: { fontFamily: 'CmuSerif', fontSize: 170, fill: selfDrawnOnly || occasionalOnly ? 0x888888 : 0x000000, align: 'center' },
+      style: { fontFamily: 'CmuSerif', fontSize: 170, fill: remainingCount <= 0 ? 0x8b2f2f : 0x000000, align: 'center' },
     })
     remText.anchor.set(0.5)
     remText.x = TILE_WIDTH / 2 + 90
@@ -61,7 +51,7 @@ export class WaitEntry extends Container {
     const tile = new Tile(tid, true)
     tile.eventMode = 'passive'
     tile.cursor = 'default'
-    tile.alpha = occasionalOnly ? 0.7 : selfDrawnOnly ? 0.7 : 1.0
+    tile.alpha = notEnough || remainingCount <= 0 ? 0.58 : selfDrawnOnly ? 0.78 : 1.0
     this.addChild(tile)
 
     if (parent) parent.addChild(this)

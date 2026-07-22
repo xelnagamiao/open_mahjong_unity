@@ -29,13 +29,14 @@ import secrets,hashlib
 import subprocess,os,signal,sys
 import time
 
-Debug = True
-
-# 根据 Debug 值决定使用哪个配置
-if Debug:
-    from .test_config import Config
-else:
+# 有 local_config（生产/本机私有配置）则用之；否则回退 test_config。
+# 切勿把 Debug=True 的开发默认值直接覆盖到生产，否则会读错 JWT 密钥。
+try:
     from .local_config import Config
+    Debug = False
+except ImportError:
+    from .test_config import Config
+    Debug = True
 
 # 获取当前文件所在目录
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -436,7 +437,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             message = await websocket.receive_json()
             # 心跳消息频繁发送，跳过日志以避免刷屏
             if message.get("type") != "ping":
-                logging.info(f"收到消息: {message}")
+                log_message = message
+                if message.get("type") == "login" and message.get("token"):
+                    log_message = {**message, "token": "[REDACTED]"}
+                logging.info(f"收到消息: {log_message}")
 
             if message["type"] == "send_release_version":
                 release_version = message["release_version"]
@@ -459,11 +463,16 @@ async def message_input(websocket: WebSocket, Connect_id: str):
             if message["type"] == "login":
                 is_tourist = message.get("is_tourist", False)
                 client_ip = get_client_ip_from_websocket(websocket)
+                web_token = (message.get("token") or "").strip()
                 
                 if is_tourist:
                     # 游客登录：创建新账户，不需要密码验证
                     logging.info(f"游客登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
                     response = await player_login("", "", is_tourist=True, client_ip=client_ip)
+                elif web_token:
+                    # 网站玩家 JWT：与 open_mahjong_web 的 player_token 共享登录态
+                    logging.info(f"Token 登录请求 - Connect_id: {Connect_id}, IP: {client_ip}")
+                    response = await player_login_by_token(web_token, client_ip=client_ip)
                 else:
                     # 普通用户登录：需要用户名和密码
                     username = message.get("username", "")
@@ -665,6 +674,148 @@ def validate_password(password: str) -> Optional[str]:
     
     return None
 
+def _resolve_player_jwt_secret() -> str:
+    return (
+        os.environ.get("PLAYER_JWT_SECRET")
+        or os.environ.get("ADMIN_JWT_SECRET")
+        or getattr(Config, "player_jwt_secret", "")
+        or getattr(Config, "admin_jwt_secret", "")
+        or ""
+    ).strip()
+
+
+def _resolve_player_jwt_audience() -> str:
+    return (
+        os.environ.get("PLAYER_JWT_AUDIENCE")
+        or getattr(Config, "player_jwt_audience", "player")
+        or "player"
+    ).strip()
+
+
+async def _finalize_player_login(
+    user_id: int,
+    username: str,
+    *,
+    is_tourist: bool,
+    client_ip: str,
+    success_message: str,
+) -> Response:
+    """登录校验通过后组装 LoginInfo / 段位等响应。"""
+    db_manager.record_user_login_ip(user_id, client_ip)
+
+    user_key = await chat_server.hash_username(username)
+    logging.info(f" 生成用户秘钥{user_key} ")
+
+    from .response import LoginInfo, UserSettings, UserConfig, RankData
+    user_settings_data = db_manager.get_user_settings(user_id)
+    user_config_data = db_manager.get_user_config(user_id)
+
+    user_settings = None
+    if user_settings_data:
+        user_settings = UserSettings(
+            user_id=user_settings_data.get('user_id'),
+            username=user_settings_data.get('username'),
+            title_id=user_settings_data.get('title_id'),
+            profile_image_id=user_settings_data.get('profile_image_id'),
+            character_id=user_settings_data.get('character_id'),
+            voice_id=user_settings_data.get('voice_id')
+        )
+
+    user_config = None
+    if user_config_data:
+        user_config = UserConfig(
+            user_id=user_config_data.get('user_id'),
+            volume=user_config_data.get('volume', 100)
+        )
+
+    rank_data_raw = db_manager.get_rank_data(user_id)
+    sponsor_mcrpl = db_manager.get_user_sponsor_mcrpl(user_id)
+    rank_data = None
+    if rank_data_raw:
+        rank_data = RankData(
+            guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
+            guobiao_score=rank_data_raw.get('guobiao_score', 0.0),
+            is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
+            is_mcrpl_qualified=sponsor_mcrpl.get('is_mcrpl_qualified', False) if sponsor_mcrpl else False,
+        )
+
+    login_info = LoginInfo(
+        user_id=user_id,
+        username=username,
+        userkey=user_key,
+        is_tourist=is_tourist,
+    )
+
+    return Response(
+        type="login",
+        success=True,
+        message=success_message,
+        login_info=login_info,
+        user_settings=user_settings,
+        user_config=user_config,
+        rank_data=rank_data,
+    )
+
+
+async def player_login_by_token(token: str, client_ip: str = "unknown") -> Response:
+    """用网站 player_token（JWT）登录游戏服，不存明文密码。"""
+    from .public.player_jwt import verify_player_token
+
+    ip_ban = db_manager.get_active_ip_ban(client_ip)
+    if ip_ban:
+        return Response(
+            type="tips",
+            success=False,
+            message=db_manager.build_ip_ban_message(ip_ban),
+        )
+
+    secret = _resolve_player_jwt_secret()
+    if not secret:
+        return Response(
+            type="tips",
+            success=False,
+            message="服务器未配置网站登录密钥，无法使用网站登录态",
+        )
+
+    payload = verify_player_token(token, secret, audience=_resolve_player_jwt_audience())
+    if not payload:
+        return Response(
+            type="tips",
+            success=False,
+            message="网站登录已失效，请重新登录",
+        )
+
+    user_id = payload["user_id"]
+    player = db_manager.get_user_by_user_id(user_id)
+    if not player:
+        return Response(
+            type="tips",
+            success=False,
+            message="用户不存在",
+        )
+    if player.get("is_tourist"):
+        return Response(
+            type="tips",
+            success=False,
+            message="游客账号不能使用网站登录态",
+        )
+    if db_manager.is_login_ban_active(player):
+        return Response(
+            type="tips",
+            success=False,
+            message=db_manager.build_login_ban_message(player),
+        )
+
+    username = player.get("username") or payload["username"]
+    return await _finalize_player_login(
+        user_id,
+        username,
+        is_tourist=False,
+        client_ip=client_ip,
+        success_message="登录成功",
+    )
+
+
 async def player_login(
     username: str,
     password: str,
@@ -773,62 +924,16 @@ async def player_login(
             )
         if not is_tourist:
             ip_registration_limiter.record_registration(client_ip)
-    
-    db_manager.record_user_login_ip(user_id, client_ip)
-    
-    # 生成用户秘钥
-    user_key = await chat_server.hash_username(username)
-    logging.info(f" 生成用户秘钥{user_key} ")
-    
-    # 获取用户设置和游戏配置信息
-    from .response import LoginInfo, UserSettings, UserConfig, RankData
-    user_settings_data = db_manager.get_user_settings(user_id)
-    user_config_data = db_manager.get_user_config(user_id)
-    
-    user_settings = None
-    if user_settings_data:
-        user_settings = UserSettings(
-            user_id=user_settings_data.get('user_id'),
-            username=user_settings_data.get('username'),
-            title_id=user_settings_data.get('title_id'),
-            profile_image_id=user_settings_data.get('profile_image_id'),
-            character_id=user_settings_data.get('character_id'),
-            voice_id=user_settings_data.get('voice_id')
-        )
-    
-    user_config = None
-    if user_config_data:
-        user_config = UserConfig(
-            user_id=user_config_data.get('user_id'),
-            volume=user_config_data.get('volume', 100)
-        )
-    
-    # 获取段位数据
-    rank_data_raw = db_manager.get_rank_data(user_id)
-    sponsor_mcrpl = db_manager.get_user_sponsor_mcrpl(user_id)
-    rank_data = None
-    if rank_data_raw:
-        rank_data = RankData(
-            guobiao_rank=rank_data_raw.get('guobiao_rank', '10级'),
-            guobiao_score=rank_data_raw.get('guobiao_score', 0.0),
-            is_sponsor=sponsor_mcrpl.get('is_sponsor', False) if sponsor_mcrpl else False,
-            is_mcrpl_qualified=sponsor_mcrpl.get('is_mcrpl_qualified', False) if sponsor_mcrpl else False,
-        )
 
-    login_info = LoginInfo(
-        user_id=user_id,
-        username=username,
-        userkey=user_key,
+    return await _finalize_player_login(
+        user_id,
+        username,
         is_tourist=is_tourist,
-    )
-    
-    return Response(
-        type="login",
-        success=True,
-        message="游客登录成功" if is_tourist else ("登录成功" if player is not None else "注册并登录成功"),
-        login_info=login_info,
-        user_settings=user_settings,
-        user_config=user_config,
-        rank_data=rank_data,
+        client_ip=client_ip,
+        success_message=(
+            "游客登录成功"
+            if is_tourist
+            else ("登录成功" if player is not None else "注册并登录成功")
+        ),
     )
 

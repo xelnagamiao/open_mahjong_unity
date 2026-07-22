@@ -3,6 +3,31 @@
     server_name salasasa.cn;
     root /www/wwwroot/salasasa.cn/dist;
     index index.html;
+
+    #=======================2D 测试站独立前缀=======================
+    # 浏览器始终访问 salasasa.cn/2d/api/*，内部仍复用现有 Node /api/*。
+    location ^~ /2d/api/ {
+        proxy_pass http://127.0.0.1:8082/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 浏览器访问 salasasa.cn/2d/ws/{connectionId}，内部映射到 Python /game/{connectionId}。
+    location ^~ /2d/ws/ {
+        proxy_pass http://127.0.0.1:8081/game/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Origin "";
+        proxy_read_timeout 86400s;
+    }
     
     #=======================游戏服务器==============================
     # 游戏服务器 WebSocket salasasa:cn/game -> localhost:8081
@@ -40,10 +65,14 @@
     # node.js 服务 WebSocket salasasa:cn/api -> localhost:8082
     location ^~ /api/ {
         proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
     }
     #=======================Unity WebGL 压缩配置==============================
   

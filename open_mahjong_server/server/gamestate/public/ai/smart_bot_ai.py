@@ -27,8 +27,11 @@ async def _wait_until_actionable(game_state, player_index: int, attempts: int = 
     机器人不再重试，最终只能等到超时（表现为加杠/鸣牌后卡住）。
     与摸切机器人 _submit_pass_when_ready 保持一致，轮询等待后再提交。
     """
+    expected_tick = getattr(game_state, "server_action_tick", None)
     for _ in range(attempts):
-        if player_index in getattr(game_state, "waiting_players_list", []):
+        waiting_tick = getattr(game_state, "_waiting_action_tick", None)
+        correct_round = waiting_tick is None or waiting_tick == expected_tick
+        if correct_round and player_index in getattr(game_state, "waiting_players_list", []):
             return True
         await asyncio.sleep(interval)
     return False
@@ -55,12 +58,19 @@ async def smart_bot_action(game_state, player_index: int, action_list: list, gam
 
         if game_status == "waiting_hand_action":
             await asyncio.sleep(_BOT_DELAY)
+            if not await _wait_until_actionable(game_state, player_index):
+                logger.warning(f"牌效AI {player_index} ({current_player.username}) 手牌询问未进入 waiting_players_list，放弃操作")
+                return
             await _handle_hand_action(game_state, player_index, action_list, current_player)
             return
 
         elif game_status == "onlycut_after_action":
             cp = bool(getattr(game_state, "claim_protection", False))
-            await asyncio.sleep(_BOT_DELAY * (2 if cp else 1))
+            from ..claim_protection import get_meld_post_gap
+            await asyncio.sleep(_BOT_DELAY + (get_meld_post_gap(game_state) if cp else 0.0))
+            if not await _wait_until_actionable(game_state, player_index):
+                logger.warning(f"牌效AI {player_index} ({current_player.username}) 鸣牌后未进入 waiting_players_list，放弃操作")
+                return
             await _handle_hand_action(game_state, player_index, action_list, current_player)
             return
 
@@ -76,6 +86,9 @@ async def smart_bot_action(game_state, player_index: int, action_list: list, gam
 
         elif game_status == "waiting_buhua_round":
             await asyncio.sleep(_BOT_DELAY)
+            if not await _wait_until_actionable(game_state, player_index):
+                logger.warning(f"牌效AI {player_index} ({current_player.username}) 补花轮未进入 waiting_players_list，放弃操作")
+                return
             # 补花轮询问：能补花就补花，有国士和牌就和，否则pass
             await _handle_buhua_round(game_state, player_index, action_list, current_player)
             return

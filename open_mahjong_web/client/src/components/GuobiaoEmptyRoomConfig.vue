@@ -3,7 +3,7 @@
     <el-form-item label="子规则">
       <el-select :model-value="modelValue.sub_rule" style="width: 160px" @update:model-value="patch('sub_rule', $event)">
         <el-option
-          v-for="opt in subRuleOptions"
+          v-for="opt in resolvedSubRuleOptions"
           :key="opt.value"
           :label="opt.label"
           :value="opt.value"
@@ -82,17 +82,24 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   modelValue: { type: Object, required: true },
+  subRuleOptions: { type: Array, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
 
-const subRuleOptions = [
+const defaultSubRuleOptions = [
   { value: 'guobiao/standard', label: '国标标准' },
   { value: 'guobiao/xiaolin', label: '小林' },
   { value: 'guobiao/kshen', label: 'K神' },
   { value: 'guobiao/lanshi', label: '蓝氏' },
 ]
+
+const resolvedSubRuleOptions = computed(() =>
+  props.subRuleOptions?.length ? props.subRuleOptions : defaultSubRuleOptions,
+)
 
 const defaultHepai = {
   'guobiao/standard': 8,

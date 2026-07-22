@@ -121,7 +121,8 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
                 "action_type": action_type,
                 "cutClass": cut_class,
                 "TileId": TileId,
-                "cutIndex": cutIndex
+                "cutIndex": cutIndex,
+                "_action_tick": getattr(game_state, "server_action_tick", None),
             }
             logger.info(f"机器人放入队列: player_index={player_index}, action_data={action_data_to_queue}")
             await game_state.action_queues[player_index].put(action_data_to_queue)
@@ -151,6 +152,7 @@ async def get_ai_action(game_state, player_index: int, action_type: str, cutClas
                 "action_type": action_type,
                 "target_tile": target_tile,
                 "chi_combo_index": chi_combo_index,
+                "_action_tick": getattr(game_state, "server_action_tick", None),
             })
             # 设置事件
             game_state.action_events[player_index].set()
@@ -177,10 +179,10 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         current_player = None
         player_index = -1
         # 通过比对user_id获取玩家索引
-        for index, player in enumerate(game_state.player_list):
+        for player in game_state.player_list:
             if player.user_id == user_id:
                 current_player = player
-                player_index = index
+                player_index = player.player_index
                 break
         
         # 验证玩家是否在当前房间的玩家列表中
@@ -224,7 +226,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         # 避免错误地消费掉本轮战术抢断（如战术碰断别人吃）的机会。
         if (
             action_tick is not None
-            and game_state.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+            and game_state.game_status != "waiting_ready"
             and action_tick != getattr(game_state, "server_action_tick", action_tick)
         ):
             logger.info(
@@ -247,7 +249,8 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 "action_type": action_type,
                 "cutClass": cutClass,
                 "TileId": TileId,
-                "cutIndex": cutIndex
+                "cutIndex": cutIndex,
+                "_action_tick": action_tick,
             }
             logger.info(f"放入队列: player_index={player_index}, action_data={action_data_to_queue}")
             await game_state.action_queues[player_index].put(action_data_to_queue)
@@ -260,7 +263,8 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 return
             
             action_data_to_queue = {
-                "action_type": "ready"
+                "action_type": "ready",
+                "_action_tick": action_tick,
             }
             logger.info(f"放入队列: player_index={player_index}, action_data={action_data_to_queue}")
             await game_state.action_queues[player_index].put(action_data_to_queue)
@@ -290,6 +294,7 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
                 "action_type": action_type,
                 "target_tile": target_tile,
                 "chi_combo_index": chi_combo_index,
+                "_action_tick": action_tick,
             })
             # 设置事件
             game_state.action_events[player_index].set()
