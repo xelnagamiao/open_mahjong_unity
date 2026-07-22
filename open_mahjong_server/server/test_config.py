@@ -10,4 +10,7 @@ class Config:
     auto_create_chatserver = True
     # 是否输出日志到控制台
     logging_do_stream_handler = True
-    release_version = 16
+    release_version = 17
+    # 与 open_mahjong_web/.env 中 PLAYER_JWT_SECRET（缺省则 ADMIN_JWT_SECRET）保持一致，供网站 token 登录游戏服
+    player_jwt_secret = 'dev-admin-jwt-change-in-production'
+    player_jwt_audience = 'player'

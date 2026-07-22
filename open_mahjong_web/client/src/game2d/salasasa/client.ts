@@ -6,8 +6,6 @@ import type {
   StoredCredentials,
 } from './types'
 
-const CREDENTIALS_KEY = 'salasasa.2d.credentials'
-
 type MessageListener = (message: SalasasaResponse) => void
 type StateListener = () => void
 
@@ -20,30 +18,19 @@ function buildSocketUrl(connectionId: string): string {
   return new URL(`/2d/ws/${connectionId}`, origin).toString()
 }
 
-function loadCredentials(): StoredCredentials | null {
-  const raw = sessionStorage.getItem(CREDENTIALS_KEY)
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw) as StoredCredentials
-    return parsed.username && parsed.password ? parsed : null
-  } catch {
-    sessionStorage.removeItem(CREDENTIALS_KEY)
-    return null
-  }
-}
-
 class SalasasaClient {
   private socket: WebSocket | null = null
   private statusValue: ConnectionStatus = 'idle'
   private loginValue: SalasasaLoginInfo | null = null
   private rankValue: SalasasaRankData | null = null
   private lastGameStartValue: SalasasaResponse | null = null
-  private credentials: StoredCredentials | null = loadCredentials()
+  private credentials: StoredCredentials | null = null
   private listeners = new Set<MessageListener>()
   private stateListeners = new Set<StateListener>()
   private connectPromise: Promise<SalasasaLoginInfo> | null = null
   private reconnectTimer: number | null = null
   private heartbeatTimer: number | null = null
+  private restoreBlockedToken: string | null = null
   private intentionalClose = false
 
   get status(): ConnectionStatus { return this.statusValue }
@@ -71,23 +58,36 @@ class SalasasaClient {
     this.emitState()
   }
 
-  async restore(): Promise<SalasasaLoginInfo | null> {
-    if (!this.credentials) return null
+  async restore(preferredToken?: string | null): Promise<SalasasaLoginInfo | null> {
+    const token = (preferredToken || '').trim()
+    if (!token) return null
+    if (token === this.restoreBlockedToken) return null
     try {
-      return await this.connect(this.credentials.username, this.credentials.password)
+      return await this.connectWithToken(token)
     } catch {
       this.logout()
       return null
     }
   }
 
+  connectWithToken(token: string): Promise<SalasasaLoginInfo> {
+    const cleanToken = token.trim()
+    this.restoreBlockedToken = null
+    if (!cleanToken) return Promise.reject(new Error('缺少网站登录凭证'))
+    return this.openConnection({ mode: 'token', token: cleanToken })
+  }
+
   connect(username: string, password: string): Promise<SalasasaLoginInfo> {
     const cleanUsername = username.trim()
     if (!cleanUsername || !password) return Promise.reject(new Error('请输入用户名和密码'))
+    return this.openConnection({ mode: 'password', username: cleanUsername, password })
+  }
+
+  private openConnection(credentials: StoredCredentials): Promise<SalasasaLoginInfo> {
     if (this.connectPromise) return this.connectPromise
 
     this.intentionalClose = false
-    this.credentials = { username: cleanUsername, password }
+    this.credentials = credentials
     this.setStatus('connecting')
 
     this.connectPromise = new Promise<SalasasaLoginInfo>((resolve, reject) => {
@@ -100,35 +100,56 @@ class SalasasaClient {
       }, 12_000)
 
       socket.onopen = () => {
-        socket.send(JSON.stringify({
-          type: 'login',
-          username: cleanUsername,
-          password,
-          is_tourist: false,
-        }))
+        if (credentials.mode === 'token') {
+          socket.send(JSON.stringify({
+            type: 'login',
+            token: credentials.token,
+            is_tourist: false,
+          }))
+        } else {
+          socket.send(JSON.stringify({
+            type: 'login',
+            username: credentials.username,
+            password: credentials.password,
+            is_tourist: false,
+          }))
+        }
       }
 
       socket.onmessage = (event) => {
         let message: SalasasaResponse
         try { message = JSON.parse(event.data) as SalasasaResponse }
         catch { return }
+        const loginKickedOut = message.type === 'message' && message.message === 'login_kickout'
 
         if (message.type === 'login') {
           window.clearTimeout(timeout)
           if (message.success && message.login_info) {
             this.loginValue = message.login_info
             this.rankValue = message.rank_data ?? null
-            sessionStorage.setItem(CREDENTIALS_KEY, JSON.stringify(this.credentials))
             this.setStatus('online')
             this.startHeartbeat()
             resolve(message.login_info)
           } else {
             authenticationFailed = true
             this.credentials = null
-            sessionStorage.removeItem(CREDENTIALS_KEY)
             reject(new Error(message.message || '登录失败'))
             socket.close()
           }
+        }
+
+        if (
+          !this.loginValue
+          && this.statusValue === 'connecting'
+          && message.type !== 'login'
+          && message.success === false
+          && ['tips', 'error_message', 'message'].includes(message.type)
+        ) {
+          window.clearTimeout(timeout)
+          authenticationFailed = true
+          this.credentials = null
+          reject(new Error(message.message || '登录失败'))
+          socket.close()
         }
 
         if (message.type === 'message' && message.message === 'reconnect_ask') {
@@ -141,6 +162,13 @@ class SalasasaClient {
           this.lastGameStartValue = null
         }
         for (const listener of this.listeners) listener(message)
+        if (loginKickedOut) {
+          // A newer 2D/3D login owns the account now. Keep the website token,
+          // but terminate this game connection and suppress automatic reconnect.
+          const kickedToken = this.credentials?.mode === 'token' ? this.credentials.token : null
+          this.logout()
+          this.restoreBlockedToken = kickedToken
+        }
       }
 
       socket.onerror = () => {
@@ -173,7 +201,11 @@ class SalasasaClient {
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null
       if (!this.credentials || this.intentionalClose) return
-      void this.connect(this.credentials.username, this.credentials.password).catch(() => {
+      const creds = this.credentials
+      const retry = creds.mode === 'token'
+        ? this.connectWithToken(creds.token)
+        : this.connect(creds.username, creds.password)
+      void retry.catch(() => {
         this.scheduleReconnect()
       })
     }, 2_000)
@@ -206,7 +238,6 @@ class SalasasaClient {
     this.loginValue = null
     this.rankValue = null
     this.lastGameStartValue = null
-    sessionStorage.removeItem(CREDENTIALS_KEY)
     this.socket?.close(1000, 'logout')
     this.socket = null
     this.setStatus('idle')

@@ -150,6 +150,7 @@ public class GetRecordListRequest { // 获取游戏记录请求
     public string type;
     public int limit = 20;
     public int offset = 0;
+    public bool favorites_only;
 }
 
 public class UpdateRecordFavoriteRequest {

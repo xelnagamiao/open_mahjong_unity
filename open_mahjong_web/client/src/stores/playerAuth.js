@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import playerApi, { getPlayerToken, setPlayerToken } from '@/api/playerClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { setEventAdminToken } from '@/api/eventAdminClient'
+import { useGame2dSessionStore } from '@/stores/game2dSession'
 
 function applyEventAdminSession(data) {
   const eventAuth = useEventAdminAuthStore()
@@ -67,6 +68,11 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       this.loaded = true
       try {
         useEventAdminAuthStore().logout()
+      } catch {
+        /* ignore */
+      }
+      try {
+        useGame2dSessionStore().logout()
       } catch {
         /* ignore */
       }

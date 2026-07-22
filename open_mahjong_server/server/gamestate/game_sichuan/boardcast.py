@@ -20,11 +20,35 @@ from ..public.claim_protection import (
     arm_claim_protection_timer,
     prepare_protected_meld_for_viewers,
     end_claim_protection_interval,
+    mark_post_meld_gap,
+    take_post_meld_gap_delay,
     REAL_MELD_ACTIONS,
 )
 from .shunhe import tag_list_for_viewer
 
+from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
+
 logger = logging.getLogger(__name__)
+
+
+async def _send_ask_response_to_viewer(self, viewer_index: int, response) -> None:
+    from ..public.outbound_pipe import send_to_viewer
+
+    current_player = self.player_list[viewer_index]
+    if current_player.user_id not in self.game_server.user_id_to_connection:
+        logger.warning(
+            f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
+        )
+        return
+    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+    delay_before = take_post_meld_gap_delay(self, viewer_index)
+
+    async def _do():
+        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await self.send_to_realtime_spectators(viewer_index, response)
+        note_ask_delivered(self, viewer_index)
+
+    await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
 
 
 def _build_players_info(self, viewer_user_id: Optional[int]):
@@ -122,7 +146,7 @@ async def broadcast_game_start(self):
 async def broadcast_dingque_ask(self):
     """定缺阶段：询问四家选择缺门花色（action_list=['dingque']）。"""
     self.server_action_tick += 1
-    self._ask_broadcast_time = time.time()
+    begin_ask_round(self)
     for i, current_player in enumerate(self.player_list):
         try:
             if "offline" in current_player.tag_list:
@@ -187,7 +211,7 @@ async def broadcast_dingque_done(self):
 
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
-    self._ask_broadcast_time = time.time()
+    begin_ask_round(self)
     for i, current_player in enumerate(self.player_list):
         try:
             if "offline" in current_player.tag_list:
@@ -202,21 +226,18 @@ async def broadcast_ask_hand_action(self):
                 if self.action_dict.get(i, []):
                     asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                response = Response(
-                    type="gamestate/sichuan/broadcast_hand_action", success=True,
-                    message="发牌并询问手牌操作",
-                    ask_hand_action_info=Ask_hand_action_info(
-                        remaining_time=current_player.remaining_time,
-                        player_index=self.current_player_index,
-                        remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
-                        action_list=self.action_dict[i],
-                        action_tick=self.server_action_tick,
-                    ),
-                )
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
+            response = Response(
+                type="gamestate/sichuan/broadcast_hand_action", success=True,
+                message="发牌并询问手牌操作",
+                ask_hand_action_info=Ask_hand_action_info(
+                    remaining_time=current_player.remaining_time,
+                    player_index=self.current_player_index,
+                    remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
+                    action_list=self.action_dict[i],
+                    action_tick=self.server_action_tick,
+                ),
+            )
+            await _send_ask_response_to_viewer(self, i, response)
         except Exception as e:
             logger.error(f"四川 ask_hand 广播失败 {current_player.user_id}: {e}")
     if hasattr(self, 'spectator_manager'):
@@ -226,7 +247,7 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
-    self._ask_broadcast_time = time.time()
+    begin_ask_round(self)
     for i, current_player in enumerate(self.player_list):
         try:
             if "offline" in current_player.tag_list:
@@ -245,44 +266,34 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                 remaining_time_override if remaining_time_override is not None else current_player.remaining_time
             )
             if self.action_dict.get(i):
-                if current_player.user_id in self.game_server.user_id_to_connection:
-                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                    response = Response(
-                        type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
-                        ask_other_action_info=Ask_other_action_info(
-                            remaining_time=remaining_time_for_player,
-                            action_list=self.action_dict[i],
-                            cut_tile=cut_tile,
-                            action_tick=self.server_action_tick,
-                            is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
-                        ),
-                    )
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    await self.send_to_realtime_spectators(current_player.player_index, response)
+                response = Response(
+                    type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
+                    ask_other_action_info=Ask_other_action_info(
+                        remaining_time=remaining_time_for_player,
+                        action_list=self.action_dict[i],
+                        cut_tile=cut_tile,
+                        action_tick=self.server_action_tick,
+                        is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
+                    ),
+                )
+                await _send_ask_response_to_viewer(self, i, response)
             elif not is_tactical_recheck:
-                if current_player.user_id in self.game_server.user_id_to_connection:
-                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                    response = Response(
-                        type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
-                        ask_other_action_info=Ask_other_action_info(
-                            remaining_time=remaining_time_for_player,
-                            action_list=[],
-                            cut_tile=cut_tile,
-                            action_tick=self.server_action_tick,
-                        ),
-                    )
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    await self.send_to_realtime_spectators(current_player.player_index, response)
+                response = Response(
+                    type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
+                    ask_other_action_info=Ask_other_action_info(
+                        remaining_time=remaining_time_for_player,
+                        action_list=[],
+                        cut_tile=cut_tile,
+                        action_tick=self.server_action_tick,
+                    ),
+                )
+                await _send_ask_response_to_viewer(self, i, response)
         except Exception as e:
             logger.error(f"四川 ask_other 广播失败 {current_player.user_id}: {e}")
 
 
 def _reconnect_remaining_time(self, player) -> int:
-    t0 = getattr(self, "_ask_broadcast_time", None)
-    if t0 is None:
-        return player.remaining_time
-    elapsed = max(0, time.time() - t0)
-    return max(0, player.remaining_time - int(elapsed))
+    return reconnect_remaining_time(self, player)
 
 
 async def reconnected_send_pending_ask(self, user_id: int):
@@ -397,18 +408,20 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
                 continue
 
             if protected and (is_real_meld or is_claim) and protected_meld_delay > 0:
-                deferred_protected_sends.append((i, payload))
+                deferred_protected_sends.append((i, payload, is_real_meld))
                 continue
 
             if current_player.user_id in self.game_server.user_id_to_connection:
                 await _send_do_action_payload_to_viewer(self, i, payload)
+                if protected and is_real_meld:
+                    mark_post_meld_gap(self, i)
         except Exception as e:
             logger.error(f"四川 do_action 广播失败 {current_player.user_id}: {e}")
 
     if deferred_protected_sends:
         from ..public.outbound_pipe import schedule_viewer_send
 
-        for i, payload in deferred_protected_sends:
+        for i, payload, defer_real_meld in deferred_protected_sends:
             def _make_send(vi=i, p=payload):
                 async def _do():
                     await _deliver_do_action_payload_to_viewer(self, vi, p)
@@ -417,6 +430,8 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
             schedule_viewer_send(
                 self, i, _make_send(), delay_before=protected_meld_delay,
             )
+            if defer_real_meld:
+                mark_post_meld_gap(self, i)
 
     if interval_active and is_cut:
         arm_claim_protection_timer(self, _send_do_action_payload_to_viewer)
@@ -491,10 +506,12 @@ async def _send_do_action_payload_to_viewer(
 ):
     from ..public.outbound_pipe import send_to_viewer
 
+    delay_before = take_post_meld_gap_delay(self, viewer_index)
+
     async def _do():
         await _deliver_do_action_payload_to_viewer(self, viewer_index, payload, msg_type)
 
-    await send_to_viewer(self, viewer_index, _do)
+    await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
 
 
 async def broadcast_result(self, hu_class: str, **kwargs):
@@ -527,7 +544,12 @@ async def broadcast_result(self, hu_class: str, **kwargs):
                     await conn.websocket.send_json(resp.dict(exclude_none=True))
                     await self.send_to_realtime_spectators(idx, resp)
 
-                await send_to_viewer(self, current_player.player_index, _do)
+                await send_to_viewer(
+                    self,
+                    current_player.player_index,
+                    _do,
+                    delay_before=take_post_meld_gap_delay(self, current_player.player_index),
+                )
         except Exception as e:
             logger.error(f"四川 show_result 广播失败 {current_player.user_id}: {e}")
 

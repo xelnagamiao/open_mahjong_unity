@@ -66,7 +66,7 @@ public class CreatePanel : MonoBehaviour {
             { CfgCuohe,          false }, // 错和
             { CfgCuoheType,      0 }, // 错和形式
             { CfgHepaiLimit,     8 }, // 起和番数
-            { CfgTacticalCall,   false }, // 战术鸣牌
+            { CfgTacticalCall,   true }, // 战术鸣牌
         } },
         { "riichi", new Dictionary<string, object> {
             { CfgGameRound,      2 },

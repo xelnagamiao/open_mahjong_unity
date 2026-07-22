@@ -345,14 +345,12 @@ export class Countdown extends Container {
  */
 export class TempLabel extends Container {
   private expireTime: number | null
-  private triggered = false
 
   constructor(
     parent: Container,
     dir: number,
     text: string,
     durationMs: number | null,
-    onSound?: (alias: string) => void,
   ) {
     super()
 
@@ -380,15 +378,7 @@ export class TempLabel extends Container {
     this.on('pointerover', () => { bg.tint = 0xe0e0e0 })
     this.on('pointerout', () => { bg.tint = 0xffffff })
 
-    const soundMap: Record<string, string> = { '吃': '14-chow-m', '碰': '16-pung-m', '杠': '18-kong-m', '和': '20-win-m' }
-
     parent.addChild(this)
-
-    // Trigger sound immediately, not deferred
-    if (!this.triggered) {
-      this.triggered = true
-      onSound?.(soundMap[text] ?? '')
-    }
 
     if (this.expireTime == null) {
       return

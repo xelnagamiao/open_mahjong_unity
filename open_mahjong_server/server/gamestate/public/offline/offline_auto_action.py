@@ -131,7 +131,8 @@ async def offline_auto_action(game_state, player_index: int, action_list: list, 
 
         if game_status == "onlycut_after_action":
             cp = bool(getattr(game_state, "claim_protection", False))
-            await asyncio.sleep(_OFFLINE_DELAY * (2 if cp else 1))
+            from ..claim_protection import get_meld_post_gap
+            await asyncio.sleep(_OFFLINE_DELAY + (get_meld_post_gap(game_state) if cp else 0.0))
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_offline_cut_tile(current_player)
                 logger.info(

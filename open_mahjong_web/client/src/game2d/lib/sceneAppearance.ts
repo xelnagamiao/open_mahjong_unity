@@ -4,7 +4,16 @@ export type SceneAppearanceSettings = {
   backgroundImageEnabled: boolean
   backgroundImageAlpha: number
   tileCoverColors: string[]
+  flowerAreaDisplay: FlowerAreaDisplay
+  flowerAreaColor: string
+  flowerAreaAlpha: number
+  tileFaceTheme: TileFaceTheme
+  flowerFaceTheme: FlowerFaceTheme
 }
+
+export type FlowerAreaDisplay = 'always' | 'when-present' | 'never'
+export type TileFaceTheme = 'regular' | 'black'
+export type FlowerFaceTheme = 'flat' | 'unity'
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
 
@@ -14,6 +23,11 @@ export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
   backgroundImageEnabled: false,
   backgroundImageAlpha: 0.35,
   tileCoverColors: ['#f6bc1e'],
+  flowerAreaDisplay: 'always',
+  flowerAreaColor: '#f7f7f0',
+  flowerAreaAlpha: 0.82,
+  tileFaceTheme: 'regular',
+  flowerFaceTheme: 'unity',
 }
 
 function normalizeHexColor(value: unknown, fallback: string): string {
@@ -66,6 +80,13 @@ export function normalizeSceneAppearanceSettings(
     backgroundImageEnabled: normalizeBoolean(value?.backgroundImageEnabled, DEFAULT_SCENE_APPEARANCE.backgroundImageEnabled),
     backgroundImageAlpha: clampUnitInterval(value?.backgroundImageAlpha, DEFAULT_SCENE_APPEARANCE.backgroundImageAlpha),
     tileCoverColors: normalizeTileCoverColors(value?.tileCoverColors),
+    flowerAreaDisplay: value?.flowerAreaDisplay === 'when-present' || value?.flowerAreaDisplay === 'never'
+      ? value.flowerAreaDisplay
+      : 'always',
+    flowerAreaColor: normalizeHexColor(value?.flowerAreaColor, DEFAULT_SCENE_APPEARANCE.flowerAreaColor),
+    flowerAreaAlpha: clampUnitInterval(value?.flowerAreaAlpha, DEFAULT_SCENE_APPEARANCE.flowerAreaAlpha),
+    tileFaceTheme: value?.tileFaceTheme === 'black' ? 'black' : 'regular',
+    flowerFaceTheme: value?.flowerFaceTheme === 'flat' ? 'flat' : 'unity',
   }
 }
 

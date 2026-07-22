@@ -18,6 +18,10 @@ export interface SalasasaResponse {
   type: string
   success?: boolean
   message?: string
+  message_info?: {
+    title?: string
+    content?: string
+  }
   client_ts?: number
   login_info?: SalasasaLoginInfo
   rank_data?: SalasasaRankData
@@ -28,6 +32,7 @@ export interface SalasasaResponse {
   do_action_info?: SalasasaDoActionInfo
   show_result_info?: SalasasaResultInfo
   game_end_info?: SalasasaGameEndInfo
+  ready_status_info?: SalasasaReadyStatusInfo
   [key: string]: unknown
 }
 
@@ -44,6 +49,10 @@ export interface SalasasaPlayerInfo {
   player_index: number
   original_player_index?: number
   score: number
+  guobiao_rank?: string
+  guobiao_score?: number
+  has_draw_slot?: boolean
+  voice_used?: number
   tag_list?: string[]
 }
 
@@ -60,8 +69,21 @@ export interface SalasasaGameInfo {
   room_type: string
   room_rule: string
   sub_rule?: string
+  tips?: boolean
+  dealer_index?: number
   players_info: SalasasaPlayerInfo[]
 }
+
+export interface SalasasaWaitDetail {
+  tile: number
+  base_f: number
+  selfdrawn_f: number
+  remaining_count: number
+}
+
+export type SalasasaWaitData =
+  | { type: 'waits'; details: SalasasaWaitDetail[] }
+  | { type: 'waits_all'; details: Array<{ discard_tile: number; adds: SalasasaWaitDetail[] }> }
 
 export interface SalasasaAskHandInfo {
   action_list: string[]
@@ -70,6 +92,9 @@ export interface SalasasaAskHandInfo {
   remain_tiles: number
   forced_cut_tiles?: number[]
   action_tick: number
+  dealer_index?: number
+  opening_buhua_complete?: boolean
+  wait_data?: SalasasaWaitData
 }
 
 export interface SalasasaAskOtherInfo {
@@ -77,6 +102,7 @@ export interface SalasasaAskOtherInfo {
   remaining_time: number
   cut_tile: number
   action_tick: number
+  player_index?: number
   is_tactical_recheck?: boolean
 }
 
@@ -108,9 +134,14 @@ export interface SalasasaResultInfo {
   hu_class?: string
   hepai_player_hand?: number[]
   hepai_player_huapai?: number[]
+  hepai_player_combination_mask?: number[][]
   action_tick?: number
   score_changes?: Record<string, number>
   next_status?: string
+}
+
+export interface SalasasaReadyStatusInfo {
+  player_to_ready: Record<string, boolean>
 }
 
 export interface SalasasaGameEndInfo {
@@ -124,16 +155,16 @@ export interface SalasasaGameEndInfo {
   }>
 }
 
-export interface StoredCredentials {
-  username: string
-  password: string
-}
+export type StoredCredentials =
+  | { mode: 'token'; token: string }
+  | { mode: 'password'; username: string; password: string }
 
 export interface PublicLeaderboardEntry {
   rank_position: number
   user_id: number
   username: string
   guobiao_rank: string
+  guobiao_score: number
 }
 
 export interface PublicPlayerInfo {

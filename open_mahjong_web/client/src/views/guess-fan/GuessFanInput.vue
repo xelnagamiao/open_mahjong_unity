@@ -6,7 +6,7 @@
         v-model="query"
         type="text"
         :disabled="disabled"
-        placeholder="输入番种名搜索…"
+        placeholder="输入番种名或拼音搜索…"
         autocomplete="off"
         spellcheck="false"
         @focus="focused = true"
@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RULE_LABEL, suggestFans } from '@/constants/guessFanCatalog'
 
 const props = defineProps({
@@ -48,14 +48,24 @@ const sugIndex = ref(-1)
 const focused = ref(false)
 const inputEl = ref(null)
 
-const suggestions = computed(() => suggestFans(query.value, props.rules, 20))
+const suggestions = computed(() => {
+  if (!query.value.trim()) return []
+  return suggestFans(query.value, props.rules, 20)
+})
 const showSug = computed(
-  () => focused.value && !props.disabled && query.value.trim().length > 0 && suggestions.value.length > 0,
+  () => focused.value && !props.disabled && suggestions.value.length > 0,
 )
 
 watch(query, () => {
   sugIndex.value = -1
 })
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (!disabled) refocus()
+  },
+)
 
 function ruleLabel(r) {
   return RULE_LABEL[r] || r
@@ -75,11 +85,20 @@ function onBlur() {
   }, 120)
 }
 
+function refocus() {
+  nextTick(() => {
+    if (!props.disabled) {
+      focused.value = true
+      inputEl.value?.focus()
+    }
+  })
+}
+
 function pick(f) {
   emit('guess', { id: f.id, name: f.names[0] })
   query.value = ''
   sugIndex.value = -1
-  focused.value = false
+  refocus()
 }
 
 function moveSug(dir) {
@@ -103,12 +122,21 @@ function onEnter() {
 function submit() {
   const name = query.value.trim()
   if (!name || props.disabled) return
+  if (suggestions.value[0]) {
+    pick(suggestions.value[0])
+    return
+  }
   emit('guess', { name })
   query.value = ''
   sugIndex.value = -1
+  refocus()
 }
 
 defineExpose({ focus: () => inputEl.value?.focus() })
+onMounted(() => {
+  localStorage.removeItem('guess-fan:recent-inputs')
+  refocus()
+})
 </script>
 
 <style scoped>

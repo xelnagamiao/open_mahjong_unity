@@ -53,8 +53,8 @@ const corsConfig = {
 
 // Socket.IO CORS 配置
 const socketConfig = {
-  origin: process.env.SOCKET_ORIGIN || 
-    (isProduction ? productionFrontendUrl : 'http://localhost:5173'),
+  origin: process.env.SOCKET_ORIGIN ||
+    (isProduction ? productionFrontendUrl : true),
   methods: ['GET', 'POST'],
   credentials: true
 };

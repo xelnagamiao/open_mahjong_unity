@@ -163,7 +163,8 @@ class SichuanGameState:
         self.tactical_pre_grace_delay = room_data.get("tactical_pre_grace_delay", 0.5)
         self.tactical_grace_seconds = room_data.get("tactical_grace_seconds", 5.0)
         self.claim_protect_delay = room_data.get("claim_protect_delay", 1.3)
-        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.8)
+        self.claim_meld_followup_gap = room_data.get("claim_meld_followup_gap", 0.7)
+        self.claim_meld_post_gap = room_data.get("claim_meld_post_gap", 0.5)
         self.blood_battle = room_data.get("blood_battle", True)
         self.hepai_limit = 1
         self.tourist_limit = room_data.get("tourist_limit", False)

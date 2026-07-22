@@ -17,6 +17,7 @@ const server = http.createServer(app); // 创建http服务器 将 Express 的 ap
 
 // Socket.IO 配置（从统一配置模块读取）
 const io = socketIo(server, { // 创建socket.io实例 将http服务器作为参数传入
+  path: '/api/socket.io',
   cors: config.socket
 });
 

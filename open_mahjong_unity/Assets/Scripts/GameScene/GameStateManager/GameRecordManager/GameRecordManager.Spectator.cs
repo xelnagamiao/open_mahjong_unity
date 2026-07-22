@@ -666,6 +666,7 @@ public partial class GameRecordManager {
         showSpectatorInfoButton.gameObject.SetActive(inSpectator);
         if (inSpectator) gameInfoView.SetActive(false);
         if (inRecord) spectatorInfoView.SetActive(false);
+        UpdateRecordAutoPlayButtonVisibility();
     }
 
     private static bool IsAskTick(List<string> tick) {

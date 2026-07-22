@@ -117,7 +117,7 @@ public class HeaderPanel : MonoBehaviour {
     }
     private void Record() {
         WindowsManager.Instance.SwitchWindow("record");
-        DataNetworkManager.Instance.GetRecordList();
+        RecordPanel.Instance.OpenAndReload();
     }
     private void PlayerData() {
         WindowsManager.Instance.SwitchWindow("player");

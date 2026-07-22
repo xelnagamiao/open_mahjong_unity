@@ -337,7 +337,6 @@ async def broadcast_do_action(
         delattr(self, "_ask_broadcast_time")
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
-        print(f"广播操作: action_list={action_list}, action_player={action_player}, cut_tile={cut_tile}, cut_class={cut_class}, cut_tile_index={cut_tile_index}, deal_tile={deal_tile}, buhua_tile={buhua_tile}, combination_target={combination_target}, combination_mask={combination_mask}")
         try:
             # 如果玩家掉线，跳过广播
             if "offline" in current_player.tag_list:

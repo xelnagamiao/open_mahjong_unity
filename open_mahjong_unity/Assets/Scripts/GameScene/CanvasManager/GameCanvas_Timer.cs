@@ -26,6 +26,7 @@ public partial class GameCanvas : MonoBehaviour {
         } else {
             remianTimeText.text = $"{_currentRemainingTime}";
         }
+        TryPlayCountdownTickSound();
 
         // 启动倒计时协程
         _countdownCoroutine = StartCoroutine(CountdownTimer());
@@ -63,6 +64,7 @@ public partial class GameCanvas : MonoBehaviour {
             } else {
                 remianTimeText.text = $"{_currentRemainingTime}";
             }
+            TryPlayCountdownTickSound();
             // 决定文本颜色 低于5秒时显示红色
             if (_currentRemainingTime <= 5 && _currentCutTime <= 0) {
                 remianTimeText.color = Color.red;
@@ -88,5 +90,13 @@ public partial class GameCanvas : MonoBehaviour {
         if (remianTimeText == null) return;
         remianTimeText.text = "";
         remianTimeText.color = Color.white;
+    }
+
+    /// <summary>切牌时结束后，剩余秒数显示为 3/2/1 时各播一次提示音。</summary>
+    private void TryPlayCountdownTickSound() {
+        if (_currentCutTime > 0) return;
+        if (_currentRemainingTime < 1 || _currentRemainingTime > 3) return;
+        if (SoundManager.Instance == null) return;
+        SoundManager.Instance.PlayCountdownTickSound();
     }
 }

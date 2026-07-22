@@ -89,6 +89,7 @@ export class Tile extends Container {
     if (texture) {
       this.sprite = new Sprite(texture)
       this.sprite.anchor.set(0.5)
+      this.fitSpriteToTileFace()
       this.sprite.visible = this.shown
       this.addChild(this.sprite)
     } else {
@@ -206,12 +207,25 @@ export class Tile extends Container {
 
   // ── Texture update ────────────────────────────────────────────────
 
+  private fitSpriteToTileFace(): void {
+    if (!this.sprite) return
+    this.sprite.width = TILE_WIDTH * (5 / 6)
+    this.sprite.height = TILE_HEIGHT * (5 / 6)
+  }
+
+  refreshTexture(): void {
+    if (!this.sprite) return
+    this.sprite.texture = getTexture(this.tid)
+    this.fitSpriteToTileFace()
+  }
+
   updateTid(newTid: number): void {
     if (newTid === 0) { this.hide(); this.tid = 0; return }
     this.tid = newTid
     const texture = getTexture(newTid)
     if (texture && this.sprite) {
       this.sprite.texture = texture
+      this.fitSpriteToTileFace()
       this.sprite.visible = this.shown
     }
     this.bg.visible = this.shown

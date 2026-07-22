@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { getPlayerToken } from '@/api/playerClient'
 import { salasasaClient } from '@/game2d/salasasa/client'
 
 let stateSubscribed = false
@@ -22,9 +23,10 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
         salasasaClient.subscribeState(() => this.syncFromClient())
         stateSubscribed = true
       }
-      if (!restorePromise) {
+      const websiteToken = getPlayerToken()
+      if (!restorePromise || (websiteToken && !salasasaClient.loginInfo)) {
         this.restoring = true
-        restorePromise = salasasaClient.restore()
+        restorePromise = salasasaClient.restore(websiteToken)
           .finally(() => {
             this.restoring = false
             this.syncFromClient()
@@ -32,12 +34,17 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
       }
       await restorePromise
     },
+    async loginWithWebsiteToken(token) {
+      await salasasaClient.connectWithToken(token)
+      this.syncFromClient()
+    },
     async login(username, password) {
       await salasasaClient.connect(username, password)
       this.syncFromClient()
     },
     logout() {
       salasasaClient.logout()
+      restorePromise = null
       this.syncFromClient()
     },
   },

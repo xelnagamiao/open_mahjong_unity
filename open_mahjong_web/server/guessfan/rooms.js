@@ -27,6 +27,7 @@ const matchQueue = new Map()
 const leaderboard = new Map()
 
 const LOBBY_CHANNEL = 'guessfan:lobby'
+const START_COUNTDOWN_MS = 3000
 
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -84,16 +85,35 @@ function listPublicRooms() {
 
 function leaderboardTop(limit = 20) {
   return [...leaderboard.values()]
-    .sort((a, b) => b.wins - a.wins || b.matches - a.matches)
+    .map((row) => ({
+      ...row,
+      losses: row.matches - row.wins,
+      winRate: row.matches ? Math.round((row.wins / row.matches) * 100) : 0,
+    }))
+    .sort((a, b) => b.rating - a.rating || b.wins - a.wins || a.matches - b.matches)
     .slice(0, limit)
 }
 
-function broadcastLobby(io) {
-  io.to(LOBBY_CHANNEL).emit('guessfan:lobby', {
+function queuePublicList() {
+  return [...matchQueue.values()]
+    .sort((a, b) => a.at - b.at)
+    .map((e) => ({
+      userId: e.userId,
+      username: e.username,
+    }))
+}
+
+function lobbyPayload() {
+  return {
     rooms: listPublicRooms(),
     leaderboard: leaderboardTop(),
     queueSize: matchQueue.size,
-  })
+    queuePlayers: queuePublicList(),
+  }
+}
+
+function broadcastLobby(io) {
+  io.to(LOBBY_CHANNEL).emit('guessfan:lobby', lobbyPayload())
 }
 
 function roomPublicState(room, viewerId) {
@@ -111,6 +131,7 @@ function roomPublicState(room, viewerId) {
     maxGuesses: room.maxGuesses,
     timeLimitSec: room.timeLimitSec || 0,
     roundEndsAt: room.roundEndsAt || null,
+    roundStartsAt: room.roundStartsAt || null,
     nextRoundAt: room.nextRoundAt || null,
     ranked: !!room.ranked,
     round: room.round,
@@ -124,6 +145,8 @@ function roomPublicState(room, viewerId) {
     reveal: room.reveal,
     roundWinnerId: room.roundWinnerId,
     matchWinnerId: room.matchWinnerId,
+    endedByForfeit: !!room.endedByForfeit,
+    forfeitedNick: room.forfeitedNick || null,
   }
 
   if (viewerId && room.players.has(viewerId)) {
@@ -188,8 +211,11 @@ function createRoom({
     roundWinnerId: null,
     matchWinnerId: null,
     roundEndsAt: null,
+    roundStartsAt: null,
     nextRoundAt: null,
     roundTimer: null,
+    endedByForfeit: false,
+    forfeitedNick: null,
     createdAt: Date.now(),
   }
 
@@ -227,11 +253,40 @@ function removeFromQueue(socketId) {
   matchQueue.delete(socketId)
 }
 
+/** 同一用户只保留最新 socket，避免重连后残留旧排队项 */
+function enqueueMatch(socketId, userId, username) {
+  for (const [sid, entry] of matchQueue) {
+    if (sid !== socketId && String(entry.userId) === String(userId)) {
+      matchQueue.delete(sid)
+    }
+  }
+  matchQueue.set(socketId, {
+    socketId,
+    userId,
+    username,
+    at: Date.now(),
+  })
+}
+
 function removePlayer(socketId, io) {
   removeFromQueue(socketId)
   for (const [code, room] of rooms) {
     if (!room.players.has(socketId)) continue
     clearRoundTimer(room)
+    const leavingPlayer = room.players.get(socketId)
+    const remainingPlayer = [...room.players.values()].find((p) => p.id !== socketId)
+    const activeMatch = ['starting', 'playing', 'round_over'].includes(room.status)
+    if (activeMatch && remainingPlayer) {
+      room.status = 'match_over'
+      room.matchWinnerId = remainingPlayer.id
+      room.roundWinnerId = null
+      room.roundEndsAt = null
+      room.roundStartsAt = null
+      room.nextRoundAt = null
+      room.endedByForfeit = true
+      room.forfeitedNick = leavingPlayer?.nick || '对手'
+      recordMatchResult(room)
+    }
     room.players.delete(socketId)
     if (room.hostId === socketId) {
       const next = room.players.keys().next().value
@@ -241,15 +296,6 @@ function removePlayer(socketId, io) {
       rooms.delete(code)
       if (io) broadcastLobby(io)
       return { code, empty: true }
-    }
-    if (room.status === 'playing' || room.status === 'round_over') {
-      room.status = 'lobby'
-      room.answerId = null
-      room.rolledFan = null
-      room.reveal = null
-      room.roundWinnerId = null
-      room.roundEndsAt = null
-      room.nextRoundAt = null
     }
     if (io) {
       emitRoomState(io, room)
@@ -273,7 +319,10 @@ function startRound(room, io) {
   room.reveal = null
   room.roundWinnerId = null
   room.roundEndsAt = null
+  room.roundStartsAt = null
   room.nextRoundAt = null
+  room.endedByForfeit = false
+  room.forfeitedNick = null
   for (const p of room.players.values()) {
     p.guesses = []
     p.done = false
@@ -295,29 +344,63 @@ function startRound(room, io) {
   }
 }
 
+function prepareRound(room, io) {
+  clearRoundTimer(room)
+  room.status = 'starting'
+  room.roundStartsAt = Date.now() + START_COUNTDOWN_MS
+  room.roundEndsAt = null
+  room.nextRoundAt = null
+  room.reveal = null
+  room.roundWinnerId = null
+  room.matchWinnerId = null
+  room.endedByForfeit = false
+  room.forfeitedNick = null
+  room.roundTimer = setTimeout(() => {
+    room.roundTimer = null
+    if (room.status !== 'starting' || room.players.size < 2) return
+    startRound(room, io)
+    if (io) emitRoomState(io, room)
+  }, START_COUNTDOWN_MS)
+}
+
 function recordMatchResult(room) {
   // 仅匹配对局计入排行榜
   if (!room.ranked) return
   if (room.status !== 'match_over' || !room.matchWinnerId) return
-  const winner = room.players.get(room.matchWinnerId)
-  for (const p of room.players.values()) {
-    if (!p.userId) continue
+  const players = [...room.players.values()].filter((p) => p.userId)
+  if (players.length !== 2) return
+  const rows = players.map((p) => {
     const key = String(p.userId)
     const row = leaderboard.get(key) || {
       userId: key,
       username: p.nick,
       wins: 0,
       matches: 0,
+      rating: 1000,
+      streak: 0,
+      bestStreak: 0,
     }
     row.username = p.nick
-    row.matches += 1
-    if (p.id === room.matchWinnerId) row.wins += 1
-    leaderboard.set(key, row)
-  }
-  if (winner?.userId) {
-    const key = String(winner.userId)
-    const row = leaderboard.get(key)
-    if (row) row.username = winner.nick
+    return { player: p, key, row }
+  })
+
+  const [a, b] = rows
+  const expectedA = 1 / (1 + 10 ** ((b.row.rating - a.row.rating) / 400))
+  const scoreA = a.player.id === room.matchWinnerId ? 1 : 0
+  const delta = Math.round(32 * (scoreA - expectedA))
+
+  for (const entry of rows) {
+    const won = entry.player.id === room.matchWinnerId
+    entry.row.matches += 1
+    if (won) {
+      entry.row.wins += 1
+      entry.row.streak += 1
+      entry.row.bestStreak = Math.max(entry.row.bestStreak, entry.row.streak)
+    } else {
+      entry.row.streak = 0
+    }
+    entry.row.rating = Math.max(0, entry.row.rating + (entry === a ? delta : -delta))
+    leaderboard.set(entry.key, entry.row)
   }
 }
 
@@ -344,7 +427,7 @@ function finishRound(room, winnerId, io) {
     }
   }
 
-  // 非终局统一展示 3 秒结算，再由服务端自动开始下一局，保证双方同步。
+  // 非终局统一展示 6 秒结算，再由服务端自动开始下一局，保证双方同步。
   if (room.status === 'round_over') {
     room.nextRoundAt = Date.now() + 6000
     room.roundTimer = setTimeout(() => {
@@ -437,7 +520,7 @@ function tryMatch(io) {
   if (sa) sa.join(`guessfan:${room.code}`)
   if (sb) sb.join(`guessfan:${room.code}`)
 
-  startRound(room, io)
+  prepareRound(room, io)
   const stateA = roomPublicState(room, a.socketId)
   const stateB = roomPublicState(room, b.socketId)
   if (sa) sa.emit('guessfan:matched', { state: stateA })
@@ -460,11 +543,7 @@ function registerGuessFanHandlers(socket, io) {
       if (typeof cb === 'function') {
         cb({
           ok: true,
-          lobby: {
-            rooms: listPublicRooms(),
-            leaderboard: leaderboardTop(),
-            queueSize: matchQueue.size,
-          },
+          lobby: lobbyPayload(),
           matchDefaults: MATCH_DEFAULTS,
         })
       }
@@ -480,11 +559,7 @@ function registerGuessFanHandlers(socket, io) {
       if (typeof cb === 'function') {
         cb({
           ok: true,
-          lobby: {
-            rooms: listPublicRooms(),
-            leaderboard: leaderboardTop(),
-            queueSize: matchQueue.size,
-          },
+          lobby: lobbyPayload(),
           matchDefaults: MATCH_DEFAULTS,
         })
       }
@@ -540,12 +615,9 @@ function registerGuessFanHandlers(socket, io) {
     try {
       const { userId, username } = ensureAuth(socket)
       if (findRoomBySocket(socket.id)) throw new Error('已在房间中')
-      matchQueue.set(socket.id, {
-        socketId: socket.id,
-        userId,
-        username,
-        at: Date.now(),
-      })
+      socket.join(LOBBY_CHANNEL)
+      enqueueMatch(socket.id, userId, username)
+      console.log('[guessfan] queue join', { socketId: socket.id, userId, username, size: matchQueue.size })
       tryMatch(io)
       broadcastLobby(io)
       const matched = findRoomBySocket(socket.id)
@@ -554,11 +626,13 @@ function registerGuessFanHandlers(socket, io) {
           ok: true,
           queued: !matched,
           queueSize: matchQueue.size,
+          queuePlayers: queuePublicList(),
           state: matched ? roomPublicState(matched, socket.id) : null,
           matchDefaults: MATCH_DEFAULTS,
         })
       }
     } catch (e) {
+      console.warn('[guessfan] queue failed', e.message)
       if (typeof cb === 'function') cb({ ok: false, error: e.message })
     }
   })
@@ -566,7 +640,9 @@ function registerGuessFanHandlers(socket, io) {
   socket.on('guessfan:queue_cancel', (_payload, cb) => {
     removeFromQueue(socket.id)
     broadcastLobby(io)
-    if (typeof cb === 'function') cb({ ok: true, queueSize: matchQueue.size })
+    if (typeof cb === 'function') {
+      cb({ ok: true, queueSize: matchQueue.size, queuePlayers: queuePublicList() })
+    }
   })
 
   socket.on('guessfan:start', (_payload, cb) => {
@@ -577,7 +653,7 @@ function registerGuessFanHandlers(socket, io) {
       if (room.hostId !== socket.id) throw new Error('仅房主可开始')
       if (room.players.size < 2) throw new Error('需要两位玩家')
       if (room.status === 'match_over') throw new Error('比赛已结束')
-      startRound(room, io)
+      prepareRound(room, io)
       emitRoomState(io, room)
       broadcastLobby(io)
       if (typeof cb === 'function') cb({ ok: true, state: roomPublicState(room, socket.id) })

@@ -14,11 +14,34 @@ from ..public.claim_protection import (
     arm_claim_protection_timer,
     prepare_protected_meld_for_viewers,
     end_claim_protection_interval,
+    mark_post_meld_gap,
+    take_post_meld_gap_delay,
     REAL_MELD_ACTIONS,
 )
+from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
 from ...game_calculation.changsha.changsha_hepai_check import INITIAL_HU_NAMES
 
 logger = logging.getLogger(__name__)
+
+
+async def _send_ask_response_to_viewer(self, viewer_index: int, response) -> None:
+    from ..public.outbound_pipe import send_to_viewer
+
+    current_player = self.player_list[viewer_index]
+    if current_player.user_id not in self.game_server.user_id_to_connection:
+        logger.warning(
+            f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过 ask 广播"
+        )
+        return
+    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+    delay_before = take_post_meld_gap_delay(self, viewer_index)
+
+    async def _do():
+        await player_conn.websocket.send_json(response.dict(exclude_none=True))
+        await self.send_to_realtime_spectators(viewer_index, response)
+        note_ask_delivered(self, viewer_index)
+
+    await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
 
 
 def _forced_cut_tiles_for_hand_ask(self, player_index: int) -> List[int]:
@@ -157,7 +180,7 @@ async def broadcast_game_start(self):
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
-    self._ask_broadcast_time = time.time()  # 供重连补发时按经过时间重算剩余时间，与观战独立
+    begin_ask_round(self)
     forced_cut_tiles = _forced_cut_tiles_for_hand_ask(
         self, self.current_player_index
     )
@@ -184,48 +207,36 @@ async def broadcast_ask_hand_action(self):
                 continue
 
             if i == self.current_player_index:
-                # 对当前玩家发送包含摸牌信息的消息
-                if current_player.user_id in self.game_server.user_id_to_connection:
-                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                    response = Response(
-                        type="gamestate/changsha/broadcast_hand_action",
-                        success=True,
-                        message="发牌，并询问手牌操作",
-                        ask_hand_action_info = Ask_hand_action_info(
-                            remaining_time=current_player.remaining_time,
-                            player_index= self.current_player_index,
-                            remain_tiles=len(self.tiles_list),
-                            action_list=self.action_dict[i],
-                            action_tick=self.server_action_tick,
-                            forced_cut_tiles=forced_cut_tiles or None
-                        )
+                response = Response(
+                    type="gamestate/changsha/broadcast_hand_action",
+                    success=True,
+                    message="发牌，并询问手牌操作",
+                    ask_hand_action_info = Ask_hand_action_info(
+                        remaining_time=current_player.remaining_time,
+                        player_index= self.current_player_index,
+                        remain_tiles=len(self.tiles_list),
+                        action_list=self.action_dict[i],
+                        action_tick=self.server_action_tick,
+                        forced_cut_tiles=forced_cut_tiles or None
                     )
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    await self.send_to_realtime_spectators(current_player.player_index, response)
-                    logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
-                else:
-                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+                )
+                await _send_ask_response_to_viewer(self, i, response)
+                logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
             else:
-                # 向其余玩家发送通用消息
-                if current_player.user_id in self.game_server.user_id_to_connection:
-                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                    response = Response(
-                        type="gamestate/changsha/broadcast_hand_action",
-                        success=True,
-                        message="发牌，并询问手牌操作",
-                        ask_hand_action_info = Ask_hand_action_info(
-                            remaining_time=current_player.remaining_time,
-                            player_index= self.current_player_index,
-                            remain_tiles=len(self.tiles_list),
-                            action_list=self.action_dict[i],
-                            action_tick=self.server_action_tick
-                        )
+                response = Response(
+                    type="gamestate/changsha/broadcast_hand_action",
+                    success=True,
+                    message="发牌，并询问手牌操作",
+                    ask_hand_action_info = Ask_hand_action_info(
+                        remaining_time=current_player.remaining_time,
+                        player_index= self.current_player_index,
+                        remain_tiles=len(self.tiles_list),
+                        action_list=self.action_dict[i],
+                        action_tick=self.server_action_tick
                     )
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    await self.send_to_realtime_spectators(current_player.player_index, response)
-                    logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
-                else:
-                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+                )
+                await _send_ask_response_to_viewer(self, i, response)
+                logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播手牌操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
@@ -240,7 +251,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
     if cut_tile is None:
         cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
-    self._ask_broadcast_time = time.time()  # 供重连补发时按经过时间重算剩余时间，与观战独立
+    begin_ask_round(self)
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
         try:
@@ -265,46 +276,35 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
 
             remaining_time_for_player = remaining_time_override if remaining_time_override is not None else current_player.remaining_time
             if self.action_dict[i] != []:
-                # 发送询问行动信息
-                if current_player.user_id in self.game_server.user_id_to_connection:
-                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                    response = Response(
-                        type="gamestate/changsha/ask_other_action",
-                        success=True,
-                        message="询问操作",
-                        ask_other_action_info = Ask_other_action_info(
-                            remaining_time=remaining_time_for_player,
-                            action_list=self.action_dict[i],
-                            cut_tile=cut_tile,
-                            action_tick=self.server_action_tick,
-                            is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
-                        )
+                response = Response(
+                    type="gamestate/changsha/ask_other_action",
+                    success=True,
+                    message="询问操作",
+                    ask_other_action_info = Ask_other_action_info(
+                        remaining_time=remaining_time_for_player,
+                        action_list=self.action_dict[i],
+                        cut_tile=cut_tile,
+                        action_tick=self.server_action_tick,
+                        is_tactical_recheck=is_tactical_recheck if is_tactical_recheck else None,
                     )
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    await self.send_to_realtime_spectators(current_player.player_index, response)
-                    logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
-                else:
-                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+                )
+                await _send_ask_response_to_viewer(self, i, response)
+                logger.info(f"已向玩家 {current_player.username} 广播询问操作信息")
             elif not is_tactical_recheck:
                 # 发送通用信息（战术鸣牌的再询问不需要给无可选操作的玩家额外发送通用通知）
-                if current_player.user_id in self.game_server.user_id_to_connection:
-                    player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                    response = Response(
-                        type="gamestate/changsha/ask_other_action",
-                        success=True,
-                        message="询问操作",
-                        ask_other_action_info = Ask_other_action_info(
-                            remaining_time=remaining_time_for_player,
-                            action_list=[],
-                            cut_tile=cut_tile,
-                            action_tick=self.server_action_tick
-                        )
+                response = Response(
+                    type="gamestate/changsha/ask_other_action",
+                    success=True,
+                    message="询问操作",
+                    ask_other_action_info = Ask_other_action_info(
+                        remaining_time=remaining_time_for_player,
+                        action_list=[],
+                        cut_tile=cut_tile,
+                        action_tick=self.server_action_tick
                     )
-                    await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                    await self.send_to_realtime_spectators(current_player.player_index, response)
-                    logger.info(f"已向玩家 {current_player.username} 广播通用询问操作信息")
-                else:
-                    logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
+                )
+                await _send_ask_response_to_viewer(self, i, response)
+                logger.info(f"已向玩家 {current_player.username} 广播通用询问操作信息")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播询问操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
@@ -320,12 +320,8 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
 
 
 def _reconnect_remaining_time(self, player) -> int:
-    """重连补发时按「当时剩余 - 已过时间」重算剩余时间，与观战独立。"""
-    t0 = getattr(self, "_ask_broadcast_time", None)
-    if t0 is None:
-        return player.remaining_time
-    elapsed = max(0, time.time() - t0)
-    return max(0, player.remaining_time - int(elapsed))
+    """重连补发时按 ask 送达时刻重算剩余时间。"""
+    return reconnect_remaining_time(self, player)
 
 
 async def reconnected_send_pending_ask(self, user_id: int):
@@ -449,10 +445,12 @@ async def _send_do_action_payload_to_viewer(
 ):
     from ..public.outbound_pipe import send_to_viewer
 
+    delay_before = take_post_meld_gap_delay(self, viewer_index)
+
     async def _do():
         await _deliver_do_action_payload_to_viewer(self, viewer_index, payload, msg_type)
 
-    await send_to_viewer(self, viewer_index, _do)
+    await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
 
 
 async def broadcast_do_action(
@@ -545,11 +543,13 @@ async def broadcast_do_action(
                 continue
 
             if protected and (is_real_meld or is_claim) and protected_meld_delay > 0:
-                deferred_protected_sends.append((i, payload))
+                deferred_protected_sends.append((i, payload, is_real_meld))
                 continue
 
             if current_player.user_id in self.game_server.user_id_to_connection:
                 await _send_do_action_payload_to_viewer(self, i, payload)
+                if protected and is_real_meld:
+                    mark_post_meld_gap(self, i)
                 logger.info(f"已向玩家 {current_player.username} 广播操作信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
@@ -559,7 +559,7 @@ async def broadcast_do_action(
     if deferred_protected_sends:
         from ..public.outbound_pipe import schedule_viewer_send
 
-        for i, payload in deferred_protected_sends:
+        for i, payload, defer_real_meld in deferred_protected_sends:
             def _make_send(vi=i, p=payload):
                 async def _do():
                     await _deliver_do_action_payload_to_viewer(self, vi, p)
@@ -568,6 +568,8 @@ async def broadcast_do_action(
             schedule_viewer_send(
                 self, i, _make_send(), delay_before=protected_meld_delay,
             )
+            if defer_real_meld:
+                mark_post_meld_gap(self, i)
 
     if interval_active and is_cut:
         arm_claim_protection_timer(self, _send_do_action_payload_to_viewer)
@@ -641,7 +643,7 @@ async def broadcast_result(self,
                     await conn.websocket.send_json(resp.dict(exclude_none=True))
                     await self.send_to_realtime_spectators(idx, resp)
 
-                await send_to_viewer(self, i, _do)
+                await send_to_viewer(self, i, _do, delay_before=take_post_meld_gap_delay(self, i))
                 logger.info(f"已向玩家 {current_player.username} 广播结算结果信息")
             else:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")

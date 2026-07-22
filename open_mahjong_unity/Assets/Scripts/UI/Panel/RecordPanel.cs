@@ -13,8 +13,9 @@ public class RecordPanel : MonoBehaviour {
     [SerializeField] private ScrollRect recordScrollRect;
 
     [Header("导航按钮")]
-    [SerializeField] private Button BackMenuButton;
     [SerializeField] private Button SearchRecordButton;
+    [SerializeField] private Button OverviewButton;
+    [SerializeField] private Button FavoriteFilterButton;
 
     [Header("无牌谱提示面板")]
     [SerializeField] private GameObject NoRecordPanel;
@@ -32,6 +33,7 @@ public class RecordPanel : MonoBehaviour {
     private bool _isLoadingMore;
     private bool _hasMore = true;
     private int _loadedCount;
+    private bool _favoritesOnly;
 
     private void Awake() {
         if (Instance == null) {
@@ -40,37 +42,50 @@ public class RecordPanel : MonoBehaviour {
             Destroy(gameObject);
             return;
         }
-        BackMenuButton.onClick.AddListener(BackMenu);
         SearchRecordButton.onClick.AddListener(OpenRecordIdInput);
         ConfirmLoadButton.onClick.AddListener(ConfirmLoadRecordById);
         CancelSearchButton.onClick.AddListener(CloseRecordIdInput);
+        OverviewButton.onClick.AddListener(ShowOverviewList);
+        FavoriteFilterButton.onClick.AddListener(ShowFavoritesList);
 
-        if (recordIdInputPopup != null) {
-            recordIdInputPopup.gameObject.SetActive(false);
-        }
+        recordIdInputPopup.gameObject.SetActive(false);
         NoRecordPanel.SetActive(false);
         ClearRecordItems();
 
-        if (recordScrollRect == null && dropdownContentTransform != null) {
-            recordScrollRect = dropdownContentTransform.GetComponentInParent<ScrollRect>();
-        }
-        if (recordScrollRect != null) {
-            recordScrollRect.onValueChanged.AddListener(OnRecordScrollChanged);
-        }
+        recordScrollRect.onValueChanged.AddListener(OnRecordScrollChanged);
     }
 
     private void OnDestroy() {
-        if (recordScrollRect != null) {
-            recordScrollRect.onValueChanged.RemoveListener(OnRecordScrollChanged);
-        }
+        recordScrollRect.onValueChanged.RemoveListener(OnRecordScrollChanged);
     }
 
-    private void BackMenu() {
-        WindowsManager.Instance.SwitchWindow("menu");
+    /// <summary>
+    /// 打开牌谱面板时调用：重置为全部列表并重新拉取。
+    /// </summary>
+    public void OpenAndReload() {
+        _favoritesOnly = false;
+        ReloadList();
+    }
+
+    private void ShowOverviewList() {
+        SetListMode(favoritesOnly: false);
+    }
+
+    private void ShowFavoritesList() {
+        SetListMode(favoritesOnly: true);
+    }
+
+    private void SetListMode(bool favoritesOnly) {
+        _favoritesOnly = favoritesOnly;
+        ReloadList();
+    }
+
+    private void ReloadList() {
+        _isLoadingMore = true;
+        DataNetworkManager.Instance.GetRecordList(0, _favoritesOnly);
     }
 
     private void OpenRecordIdInput() {
-        if (recordIdInputPopup == null) return;
         recordIdInputPopup.Show(() => {
             RecordIdInputField.text = "";
             RecordIdInputField.ActivateInputField();
@@ -78,7 +93,7 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void CloseRecordIdInput() {
-        recordIdInputPopup?.Hide();
+        recordIdInputPopup.Hide();
     }
 
     private void ConfirmLoadRecordById() {
@@ -87,13 +102,12 @@ public class RecordPanel : MonoBehaviour {
             NotificationManager.Instance.ShowTip("牌谱", false, "请输入牌谱ID");
             return;
         }
-        recordIdInputPopup?.Hide();
+        recordIdInputPopup.Hide();
         DataNetworkManager.Instance.GetRecordById(id);
     }
 
     private void OnRecordScrollChanged(Vector2 _) {
         if (!_hasMore || _isLoadingMore) return;
-        if (recordScrollRect == null) return;
         if (recordScrollRect.verticalNormalizedPosition > LoadMoreScrollThreshold) return;
         RequestLoadMore();
     }
@@ -101,7 +115,7 @@ public class RecordPanel : MonoBehaviour {
     private void RequestLoadMore() {
         if (_isLoadingMore || !_hasMore) return;
         _isLoadingMore = true;
-        DataNetworkManager.Instance.GetRecordList(_loadedCount);
+        DataNetworkManager.Instance.GetRecordList(_loadedCount, _favoritesOnly);
     }
 
     private void ResetPaginationState() {
@@ -113,7 +127,6 @@ public class RecordPanel : MonoBehaviour {
     }
 
     private void ClearRecordItems() {
-        if (dropdownContentTransform == null) return;
         foreach (Transform child in dropdownContentTransform) {
             Destroy(child.gameObject);
         }
@@ -143,11 +156,32 @@ public class RecordPanel : MonoBehaviour {
 
     public void OnRecordFavoriteUpdated(bool success, string gameId, bool isFavorite, string message) {
         if (string.IsNullOrEmpty(gameId)) return;
-        if (_recordItems.TryGetValue(gameId, out RecordPrefab item) && item != null) {
+
+        if (success && _favoritesOnly && !isFavorite) {
+            RemoveRecordItem(gameId);
+        } else if (_recordItems.TryGetValue(gameId, out RecordPrefab item)) {
             item.ApplyFavoriteResult(success, isFavorite);
         }
+
         if (success) {
-            NotificationManager.Instance.ShowTip("牌谱", true, string.IsNullOrEmpty(message) ? (isFavorite ? "已收藏" : "已取消收藏") : message);
+            NotificationManager.Instance.ShowTip(
+                "牌谱",
+                true,
+                string.IsNullOrEmpty(message) ? (isFavorite ? "已收藏" : "已取消收藏") : message
+            );
+        }
+    }
+
+    private void RemoveRecordItem(string gameId) {
+        if (_recordItems.TryGetValue(gameId, out RecordPrefab item)) {
+            Destroy(item.gameObject);
+        }
+        _recordItems.Remove(gameId);
+        _loadedGameIds.Remove(gameId);
+        _loadedCount = _loadedGameIds.Count;
+        if (_loadedCount == 0) {
+            NoRecordPanel.SetActive(true);
+            _hasMore = false;
         }
     }
 
@@ -172,7 +206,7 @@ public class RecordPanel : MonoBehaviour {
         }
 
         if (offset == 0 && recordList.Length == 0) {
-            Debug.Log("没有游戏记录");
+            Debug.Log(_favoritesOnly ? "没有收藏的牌谱" : "没有游戏记录");
             NoRecordPanel.SetActive(true);
             _hasMore = false;
             return;
@@ -194,7 +228,10 @@ public class RecordPanel : MonoBehaviour {
             _hasMore = false;
         }
 
-        Debug.Log($"牌谱列表 offset={offset} 追加 {appended} 条，当前共 {_loadedCount} 条，hasMore={_hasMore}");
+        Debug.Log(
+            $"牌谱列表 favoritesOnly={_favoritesOnly} offset={offset} 追加 {appended} 条，" +
+            $"当前共 {_loadedCount} 条，hasMore={_hasMore}"
+        );
     }
 
     public void OnRecordDetailReceived(RecordDetail detail) {
