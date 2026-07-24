@@ -6,8 +6,8 @@
           <span class="pd-brand-title">玩家/平台数据站</span>
           <span class="pd-brand-sub">Player Data</span>
           <nav class="pd-section-nav">
-            <router-link to="/player-data" class="pd-nav-link" active-class="active">玩家数据</router-link>
-            <router-link to="/player-data/platform" class="pd-nav-link" active-class="active">平台数据</router-link>
+            <router-link to="/player-data" class="pd-nav-link" exact-active-class="active">玩家数据</router-link>
+            <router-link to="/player-data/platform" class="pd-nav-link" exact-active-class="active">平台数据</router-link>
           </nav>
         </div>
         <nav class="pd-topnav">

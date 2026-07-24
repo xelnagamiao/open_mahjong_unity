@@ -25,8 +25,8 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 0}
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
-  - {fileID: 7829949747808668879}
-  m_RendererFeatureMap: cf8c4b8fcf91a96c
+  - {fileID: 3103451386769729995}
+  m_RendererFeatureMap: cb691aee97ac112b
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -54,8 +54,8 @@ MonoBehaviour:
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
-  m_IntermediateTextureMode: 0
---- !u!114 &7829949747808668879
+  m_IntermediateTextureMode: 1
+--- !u!114 &3103451386769729995
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -64,36 +64,18 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
-  m_Name: 'Outline Pass  '
-  m_EditorClassIdentifier: 
+  m_Script: {fileID: 11500000, guid: 7c4e2a91b8d64f0e9f3a1c5d6e7b8a90, type: 3}
+  m_Name: Tile ObjectID Outline
+  m_EditorClassIdentifier: Assembly-CSharp::TileObjectIdOutlineFeature
   m_Active: 1
   settings:
-    passTag: 'Outline Pass  '
-    Event: 300
-    filterSettings:
-      RenderQueueType: 0
-      LayerMask:
-        serializedVersion: 2
-        m_Bits: 1024
-      PassNames: []
-    overrideMaterial: {fileID: 2100000, guid: 493734cb8cdf01f499dd0569028321a3, type: 2}
-    overrideMaterialPassIndex: 0
-    overrideShader: {fileID: 0}
-    overrideShaderPassIndex: 0
-    overrideMode: 1
-    overrideDepthState: 0
-    depthCompareFunction: 4
-    enableWrite: 1
-    stencilSettings:
-      overrideStencilState: 0
-      stencilReference: 0
-      stencilCompareFunction: 8
-      passOperation: 0
-      failOperation: 0
-      zFailOperation: 0
-    cameraSettings:
-      overrideCamera: 0
-      restoreCamera: 1
-      offset: {x: 0, y: 0, z: 0, w: 0}
-      cameraFieldOfView: 60
+    enabled: 1
+    renderPassEvent: 300
+    tileLayerMask:
+      serializedVersion: 2
+      m_Bits: 1024
+    outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    outlineWidth: 2
+    outlineExpand: 2
+    debugVisualizeId: 0
+    overrideEdgeMaterial: {fileID: 0}

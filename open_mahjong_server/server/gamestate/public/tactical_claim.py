@@ -221,6 +221,9 @@ async def tactical_grace_phase(
                 remaining_time_override=math.ceil(grace_seconds),
                 is_tactical_recheck=True,
             )
+            # 再问会递增 server_action_tick；AI 用 _waiting_action_tick 校验本轮，必须同步，
+            # 否则机器人会拒动并空等到打断窗口超时（表现为低优先级吃完后卡住约 5s）。
+            gs._waiting_action_tick = getattr(gs, "server_action_tick", None)
 
         elapsed = 0.0
         new_claim = None

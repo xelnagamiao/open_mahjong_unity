@@ -189,11 +189,20 @@ public class HandCardDragController : MonoBehaviour {
         if (gameCanvas.IsHandRecordPlayback()) {
             return false;
         }
-        if (NormalGameStateManager.Instance.IsSelfActionRequired
-            && !NormalGameStateManager.Instance.allowActionList.Contains("cut")) {
-            return false;
-        }
+        // 询问吃碰杠（无 cut）时仍允许理牌；真正出牌由 CanTryDiscard 要求 cut。
         return !gameCanvas.IsChangeHandCardProcessing;
+    }
+
+    /// <summary>
+    /// 手牌即将增删/重排时强制结束拖拽（即使指针仍按下），避免与 RemoveCombinationCard 等并发。
+    /// </summary>
+    public void AbortForHandChange(string reason) {
+        if (isFinishingDrag || finishDragCoroutine != null) {
+            CancelFinishingDrag(commitPendingReorder: true, relayout: false);
+        }
+        if (pendingPress || dragSessionActive) {
+            AbortPressSession(reason);
+        }
     }
 
     public void OnPointerDown(TileCard card, PointerEventData eventData) {
@@ -336,8 +345,9 @@ public class HandCardDragController : MonoBehaviour {
             return;
         }
         StopGapAnimation();
-        ApplyHandLayoutForDiscard(card);
+        // 与点击确认一致：先发切（读当前 sibling），再收拢，避免 GetSiblingIndex 被打乱
         card.TriggerClick();
+        ApplyHandLayoutForDiscard(card);
         EndFinishDrag();
     }
 
@@ -355,6 +365,10 @@ public class HandCardDragController : MonoBehaviour {
         else {
             RestoreSnapshotData();
             SplitSnapshot(out main, out draw);
+        }
+        main.Remove(discardCard);
+        if (draw == discardCard) {
+            draw = null;
         }
         gameCanvas.AnimateHandLayoutForDiscard(discardCard, main, draw);
     }

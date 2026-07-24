@@ -70,20 +70,10 @@ export interface SalasasaGameInfo {
   room_rule: string
   sub_rule?: string
   tips?: boolean
+  hepai_limit?: number
   dealer_index?: number
   players_info: SalasasaPlayerInfo[]
 }
-
-export interface SalasasaWaitDetail {
-  tile: number
-  base_f: number
-  selfdrawn_f: number
-  remaining_count: number
-}
-
-export type SalasasaWaitData =
-  | { type: 'waits'; details: SalasasaWaitDetail[] }
-  | { type: 'waits_all'; details: Array<{ discard_tile: number; adds: SalasasaWaitDetail[] }> }
 
 export interface SalasasaAskHandInfo {
   action_list: string[]
@@ -94,7 +84,6 @@ export interface SalasasaAskHandInfo {
   action_tick: number
   dealer_index?: number
   opening_buhua_complete?: boolean
-  wait_data?: SalasasaWaitData
 }
 
 export interface SalasasaAskOtherInfo {

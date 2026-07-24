@@ -50,11 +50,27 @@ async function fetchAnnouncements(eventId) {
 async function fetchPendingProfileChange(eventId) {
   const result = await pool.query(
     `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
-            r.reason, r.status, r.created_at, u.username AS requester_username
+            r.reason, r.status, r.review_note, r.created_at, r.reviewed_at,
+            u.username AS requester_username
      FROM event_profile_change_requests r
      LEFT JOIN users u ON u.user_id = r.requested_by
      WHERE r.event_id = $1 AND r.status = 'pending'
      ORDER BY r.created_at DESC
+     LIMIT 1`,
+    [eventId]
+  );
+  return result.rows[0] || null;
+}
+
+async function fetchLatestRejectedProfileChange(eventId) {
+  const result = await pool.query(
+    `SELECT r.request_id, r.event_id, r.requested_by, r.proposed_name, r.proposed_description,
+            r.reason, r.status, r.review_note, r.created_at, r.reviewed_at,
+            u.username AS requester_username
+     FROM event_profile_change_requests r
+     LEFT JOIN users u ON u.user_id = r.requested_by
+     WHERE r.event_id = $1 AND r.status = 'rejected'
+     ORDER BY r.reviewed_at DESC NULLS LAST, r.updated_at DESC
      LIMIT 1`,
     [eventId]
   );
@@ -150,12 +166,16 @@ router.delete('/announcements/:announcementId', requireEventMembership, async (r
 router.get('/profile-change', requireEventMembership, async (req, res) => {
   try {
     const pending = await fetchPendingProfileChange(req.event.event_id);
+    const lastRejected = pending
+      ? null
+      : await fetchLatestRejectedProfileChange(req.event.event_id);
     res.json({
       success: true,
       data: {
         current_name: req.event.name,
         current_description: req.event.description || '',
         pending,
+        last_rejected: lastRejected,
       },
     });
   } catch (err) {

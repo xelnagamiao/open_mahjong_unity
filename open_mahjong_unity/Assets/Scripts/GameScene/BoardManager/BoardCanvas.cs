@@ -51,6 +51,10 @@ public partial class BoardCanvas : MonoBehaviour {
     }
 
     public void InitializeBoardInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
+        // 换位/新局会关掉黄条但不清缓存；同座首行动会因 shownCurrentPlayer 早退导致指示不亮
+        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        shownCurrentPlayer = null;
+
         // 初始化玩家信息
         // 设置玩家位置、分数、索引(东南西北)、回合标记
         foreach (var player in gameInfo.players_info){
@@ -111,6 +115,9 @@ public partial class BoardCanvas : MonoBehaviour {
         int currentRound,
         int remainTiles
     ) {
+        CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
+        shownCurrentPlayer = null;
+
         foreach (var recordPlayer in recordPlayerList) {
             if (!indexToPosition.TryGetValue(recordPlayer.playerIndex, out string position)) {
                 continue;

@@ -22,6 +22,8 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public bool currentGetTile;   // 摸牌标记：仅用于服务端摸切/手切判定（拖入手牌排序后仍需保留）
     public bool isDrawSlotPinned;   // 固定标记：是否固定显示在独立摸牌区（手动理牌拖入主列后清除，不影响 currentGetTile）
     public int handSortIndex;   // 手牌排序位置，数值越大越靠右
+    /// <summary>本地已发出切牌请求的实例标记；回包删牌优先认它，避免 sibling 收拢后误删。</summary>
+    public bool pendingLocalCut;
 
     private bool isHovering = false; // 是否正在悬停
     private bool isSelectable = true;
@@ -308,6 +310,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
         // 立直选牌模式优先：仅向服务器发送 riichi_cut 请求；候选过滤已由 SetSelectable 完成。
         if (RiichiCutSelectionController.Instance.IsActive) {
+            GameCanvas.Instance.MarkPendingLocalCut(this);
             int cutIndex = transform.GetSiblingIndex();
             GameStateNetworkManager.Instance.SendRiichiCut(currentGetTile, tileId, cutIndex);
             RiichiCutSelectionController.Instance.ExitRiichiCutMode();
@@ -315,6 +318,7 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         }
         // 如果切牌在允许操作列表中
         if (NormalGameStateManager.Instance.allowActionList.Contains("cut")){
+            GameCanvas.Instance.MarkPendingLocalCut(this);
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             GameStateNetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {

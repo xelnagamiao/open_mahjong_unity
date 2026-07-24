@@ -15,8 +15,186 @@
       <section class="game-page__board-panel">
         <div class="game-page__stage-shell" :style="{ background: appearance.backgroundColorTable }">
           <div ref="stageElement" class="game-stage" />
+          <div class="game-stage-toolbar">
+            <GameAssistPanel
+              :settings="assistSettings"
+              :expanded="assistExpandOpen"
+              @update="patchAssistSettings"
+              @toggle-expand="toggleAssistExpand"
+            />
+            <button
+              type="button"
+              class="scene-appearance-toggle__button"
+              :aria-expanded="tileSkipOpen"
+              @click="toggleTileSkipPanel"
+            >
+              牌张设置
+            </button>
+          </div>
+          <div v-if="assistExpandOpen" class="game-stage-panel">
+            <div class="scene-appearance-toggle__card">
+              <GameAssistPanel
+                detail-only
+                :settings="assistSettings"
+                :expanded="true"
+                @update="patchAssistSettings"
+              />
+            </div>
+          </div>
+          <div v-if="tileSkipOpen" class="game-stage-panel game-stage-panel--wide">
+            <div class="scene-appearance-toggle__card">
+              <GameTileSkipPanel
+                :settings="assistSettings"
+                :tile-src="mmcrTileAsset"
+                @update="patchAssistSettings"
+                @clear-tiles="patchAssistSettings({ silentTiles: [] })"
+              />
+            </div>
+          </div>
           <div v-if="!sceneReady || !hasSnapshot" class="game-loading">
             {{ sceneReady ? '等待服务端恢复国标牌局…' : '正在加载中…' }}
+          </div>
+
+          <div v-if="roundResult && !finalResult" class="end-result-layer">
+            <!-- 流局：立刻出框，无按键 -->
+            <section
+              v-if="isDrawResult"
+              class="end-result-panel end-result-panel--draw"
+              aria-label="本局流局"
+            >
+              <div
+                v-for="seat in drawSeatDeltas"
+                :key="`draw-delta-${seat.relative}`"
+                class="end-result-draw-delta"
+                :class="`is-rel-${seat.relative}`"
+              >
+                <span class="end-result-draw-delta__name">{{ seat.username }}</span>
+                <span
+                  v-if="seat.change"
+                  class="end-result-draw-delta__change"
+                  :class="seat.change > 0 ? 'is-plus' : 'is-minus'"
+                >
+                  {{ seat.change > 0 ? '+' : '' }}{{ seat.change }}
+                </span>
+                <span v-else class="end-result-draw-delta__change is-zero">0</span>
+              </div>
+              <div class="end-result-draw-title">流局</div>
+            </section>
+
+            <!-- 和牌：2D 牌面 + 两排番表 + 棱形座位 + 右下角确定倒计时 -->
+            <template v-else>
+              <button
+                type="button"
+                class="end-result-visibility"
+                @click="resultContentVisible = !resultContentVisible"
+              >
+                {{ resultContentVisible ? '隐藏面板' : '显示面板' }}
+              </button>
+              <section
+                v-show="resultContentVisible"
+                class="end-result-panel end-result-panel--win"
+                aria-label="本局和牌结算"
+              >
+                <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
+                  <span
+                    v-for="(tile, index) in resultClosedTiles"
+                    :key="`closed-${index}`"
+                    class="end-result-tile"
+                  >
+                    <img :src="tileAsset(tile)" alt="" />
+                  </span>
+                  <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
+                  <span
+                    v-for="(tile, index) in resultMeldTiles"
+                    :key="`meld-${index}`"
+                    class="end-result-tile"
+                  >
+                    <img :src="tileAsset(tile)" alt="" />
+                  </span>
+                  <span class="end-result-hand__split" />
+                  <span v-if="resultWinTile" class="end-result-tile is-winning">
+                    <img :src="tileAsset(resultWinTile)" alt="和牌张" />
+                  </span>
+                </div>
+                <div v-if="resultFlowerTiles.length" class="end-result-flowers">
+                  <span class="end-result-flowers__label">花</span>
+                  <span
+                    v-for="(tile, index) in resultFlowerTiles"
+                    :key="`flower-${index}`"
+                    class="end-result-tile end-result-tile--flower"
+                  >
+                    <img :src="tileAsset(tile)" alt="" />
+                  </span>
+                </div>
+
+                <div
+                  class="end-result-fan-grid"
+                  aria-label="番种"
+                  :style="{ minHeight: fanGridMinHeight }"
+                >
+                  <div
+                    v-for="(fan, index) in resultFans"
+                    :key="`${fan.name}-${index}`"
+                    class="end-result-fan"
+                    :class="{ 'is-visible': index < revealedFanCount }"
+                  >
+                    <span>{{ fan.name }}</span>
+                    <strong>{{ fan.value }}</strong>
+                  </div>
+                </div>
+
+                <div
+                  class="end-result-total"
+                  aria-label="总番数"
+                  :class="{ 'is-visible': showResultTotal }"
+                >
+                  <div class="end-result-total__line">
+                    <strong>{{ roundResult.hu_score ?? 0 }}</strong><span>番</span>
+                  </div>
+                  <small>{{ resultClassLabel }}</small>
+                </div>
+
+                <div class="end-result-diamond" aria-label="分数">
+                  <article
+                    v-for="slot in diamondSlots"
+                    :key="`seat-rel-${slot.relative}`"
+                    class="end-result-seat"
+                    :class="[
+                      `is-rel-${slot.relative}`,
+                      {
+                        'is-ready': slot.player?.ready,
+                        'is-winner': slot.player
+                          && slot.player.player_index === roundResult.hepai_player_index,
+                      },
+                    ]"
+                  >
+                    <template v-if="slot.player">
+                      <strong class="end-result-seat__name">{{ slot.player.username }}</strong>
+                      <div class="end-result-seat__score">
+                        <span>{{ slot.player.score }}</span>
+                        <span
+                          v-if="slot.player.change"
+                          :class="slot.player.change > 0 ? 'is-plus' : 'is-minus'"
+                        >
+                          {{ slot.player.change > 0 ? '+' : '' }}{{ slot.player.change }}
+                        </span>
+                        <span v-else class="is-zero">0</span>
+                      </div>
+                    </template>
+                  </article>
+                </div>
+
+                <button
+                  v-if="showReadyButton"
+                  type="button"
+                  class="end-result-ready-button"
+                  :disabled="readySent"
+                  @click="sendReady"
+                >
+                  {{ readyButtonLabel }}
+                </button>
+              </section>
+            </template>
           </div>
         </div>
       </section>
@@ -43,14 +221,14 @@
           <button
             type="button"
             class="scene-appearance-toggle__button"
-            :aria-expanded="settingsOpen"
-            @click="settingsOpen = !settingsOpen"
+            :aria-expanded="appearanceOpen"
+            @click="appearanceOpen = !appearanceOpen; assistExpandOpen = false; tileSkipOpen = false"
           >
-            设置
+            外观
           </button>
         </div>
 
-        <div v-if="settingsOpen" class="scene-appearance-toggle__panel">
+        <div v-if="appearanceOpen" class="scene-appearance-toggle__panel">
           <div class="scene-appearance-toggle__card">
             <SceneAppearancePanel
               :appearance="appearance"
@@ -67,6 +245,9 @@
               @cover-color="setTileCoverColor"
               @add-cover-color="addTileCoverColor"
               @remove-cover-color="removeTileCoverColor"
+              @cover-rotate-mode="setAppearanceField('tileCoverRotateMode', $event)"
+              @moqie-shortcut="setAppearanceField('moqieShortcutMode', $event)"
+              @pass-shortcut="setAppearanceField('passShortcutMode', $event)"
               @flower-area-display="setAppearanceField('flowerAreaDisplay', $event)"
               @flower-area-color="setAppearanceField('flowerAreaColor', $event)"
               @flower-area-alpha="setAppearanceField('flowerAreaAlpha', $event)"
@@ -77,83 +258,6 @@
           </div>
         </div>
       </aside>
-    </div>
-
-    <div v-if="roundResult && !finalResult" class="end-result-layer">
-      <button type="button" class="end-result-visibility" @click="resultContentVisible = !resultContentVisible">
-        {{ resultContentVisible ? '隐藏面板' : '显示面板' }}
-      </button>
-      <section v-show="resultContentVisible" class="end-result-panel" aria-label="本局结算与准备状态">
-        <header class="end-result-header">
-          <div>
-            <span class="end-result-kicker">{{ roundTitle }}</span>
-            <h2>{{ resultClassLabel }}</h2>
-          </div>
-          <div class="end-result-rule-mark">国标</div>
-        </header>
-
-        <div v-if="resultClosedTiles.length" class="end-result-hand-block">
-          <div class="end-result-section-title">和牌手牌</div>
-          <div class="end-result-hand">
-            <img v-for="(tile, index) in resultClosedTiles" :key="`closed-${index}`" :src="tileAsset(tile)" alt="" />
-            <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
-            <img v-for="(tile, index) in resultMeldTiles" :key="`meld-${index}`" :src="tileAsset(tile)" alt="" />
-            <span class="end-result-hand__split" />
-            <img v-if="resultWinTile" class="is-winning" :src="tileAsset(resultWinTile)" alt="和牌张" />
-          </div>
-          <div v-if="resultFlowerTiles.length" class="end-result-flowers">
-            <span>花牌</span>
-            <img v-for="(tile, index) in resultFlowerTiles" :key="`flower-${index}`" :src="tileAsset(tile)" alt="" />
-          </div>
-        </div>
-
-        <div class="end-result-score-sheet">
-          <div class="end-result-fans">
-            <div class="end-result-section-title">番种明细</div>
-            <div v-if="resultFans.length" class="end-result-fan-grid">
-              <div v-for="(fan, index) in resultFans" :key="`${fan.name}-${index}`" class="end-result-fan">
-                <span>{{ fan.name }}</span><strong>{{ fan.value }}</strong>
-              </div>
-            </div>
-            <div v-else class="end-result-empty">本局无番种明细</div>
-          </div>
-          <aside class="end-result-total" aria-label="本局总番数">
-            <span class="end-result-total__label">和牌得分</span>
-            <div><strong>{{ roundResult.hu_score ?? 0 }}</strong><span>番</span></div>
-            <small>{{ resultClassLabel }} · {{ resultFans.length }} 项番种</small>
-          </aside>
-        </div>
-
-        <div class="end-result-section-title end-result-seats-title">分数与准备</div>
-        <div class="end-result-seats">
-          <article
-            v-for="player in resultPlayers"
-            :key="player.player_index"
-            class="end-result-seat"
-            :class="{ 'is-ready': player.ready, 'is-winner': player.player_index === roundResult.hepai_player_index }"
-          >
-            <div class="end-result-seat__topline">
-              <span class="end-result-seat__position">{{ player.position }}</span>
-              <span v-if="player.player_index === roundResult.hepai_player_index" class="end-result-seat__winner">和牌</span>
-            </div>
-            <strong>{{ player.username }}</strong>
-            <div class="end-result-seat__score">
-              {{ player.score }}
-              <span v-if="player.change" :class="player.change > 0 ? 'is-plus' : 'is-minus'">
-                {{ player.change > 0 ? '+' : '' }}{{ player.change }}
-              </span>
-            </div>
-            <div class="end-result-seat__ready">
-              <span class="end-result-seat__ready-dot" />
-              {{ player.ready ? '已准备' : '等待准备' }}
-            </div>
-          </article>
-        </div>
-
-        <button type="button" class="end-result-ready-button" :disabled="readySent" @click="sendReady">
-          {{ readySent ? '已准备，等待其他玩家' : '确定并准备下一局' }}
-        </button>
-      </section>
     </div>
 
     <el-dialog
@@ -180,6 +284,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
+import GameAssistPanel from './GameAssistPanel.vue'
+import GameTileSkipPanel from './GameTileSkipPanel.vue'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
 import { SalasasaGameAdapter } from '@/game2d/salasasa/gameAdapter'
@@ -191,7 +297,12 @@ import {
   saveStoredSceneAppearance,
   saveStoredVolume,
 } from '@/game2d/lib/storage'
-import { DEFAULT_SCENE_APPEARANCE, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
+import {
+  loadStoredAssistSettings,
+  normalizeAssistSettings,
+  saveStoredAssistSettings,
+} from '@/game2d/lib/assistSettings'
+import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
 import { findFanByName, formatFanField } from '@/constants/guessFanCatalog'
 import {
   clearStoredSceneBackgroundImage,
@@ -203,6 +314,7 @@ const SOUND_ASSETS = [
   ...[
     '01-start', '03-cd', '05-draw', '06-discard', '08-inquire', '09-cpk', '25-xchg',
   ].map((alias) => ({ alias, file: `${alias}.wav` })),
+  { alias: 'fan-reveal', file: 'fan-reveal.mp3' },
   ...[1, 2].flatMap((voiceId) =>
     ['chi', 'peng', 'gang', 'buhua', 'hu'].map((voice) => ({
       alias: `voice-${voiceId}-${voice}`,
@@ -211,8 +323,11 @@ const SOUND_ASSETS = [
   ),
 ]
 
-// Match Unity's guobiao reveal: 0.2s winning-tile travel + 1.5s hand hold.
+// Align with Unity RoundEndTiming / HepaiRevealTiming.
 const RESULT_HAND_REVEAL_MS = 1700
+const HU_FAN_REVEAL_INTERVAL_MS = 500
+const HU_BEFORE_TOTAL_MS = 500
+const HU_CONFIRM_COUNTDOWN_SEC = 8
 
 const router = useRouter()
 const session = useGame2dSessionStore()
@@ -224,49 +339,136 @@ const readySent = ref(false)
 const readyStatus = ref({})
 const resultContentVisible = ref(true)
 const finalResult = ref(null)
-const settingsOpen = ref(false)
+const appearanceOpen = ref(false)
+const assistExpandOpen = ref(false)
+const tileSkipOpen = ref(false)
 const ratingsExpanded = ref(window.matchMedia('(min-width: 901px)').matches)
 const sidebarPlayers = ref([])
 const volume = ref(loadStoredVolume())
 const appearance = ref(loadStoredSceneAppearance())
+const assistSettings = ref(loadStoredAssistSettings())
 const backgroundImage = ref(null)
 const backgroundImageLoading = ref(true)
+
+/** Staged win reveal: how many fan rows are visible. */
+const revealedFanCount = ref(0)
+const showResultTotal = ref(false)
+const showReadyButton = ref(false)
+const readyCountdown = ref(0)
+
 let scene = null
 let adapter = null
 let unsubscribe = null
 let mounted = false
 let pendingGameResponses = []
-let resultPanelTimer = null
+/** @type {number[]} */
+let resultTimers = []
+/** Invalidates pending reveal/countdown timers without relying on reactive Proxy identity. */
+let resultRevealToken = 0
 
-function clearResultPanelTimer() {
-  if (resultPanelTimer !== null) {
-    window.clearTimeout(resultPanelTimer)
-    resultPanelTimer = null
-  }
+function clearResultTimers() {
+  for (const id of resultTimers) window.clearTimeout(id)
+  resultTimers = []
 }
 
-function revealRoundResultAfterHand(result, targetScene) {
-  clearResultPanelTimer()
+function scheduleResultTimer(fn, delayMs) {
+  const id = window.setTimeout(() => {
+    resultTimers = resultTimers.filter((timerId) => timerId !== id)
+    fn()
+  }, delayMs)
+  resultTimers.push(id)
+  return id
+}
+
+function resetWinRevealState() {
+  revealedFanCount.value = 0
+  showResultTotal.value = false
+  showReadyButton.value = false
+  readyCountdown.value = 0
+}
+
+function clearRoundResultUi() {
+  resultRevealToken += 1
+  clearResultTimers()
   roundResult.value = null
+  resetWinRevealState()
   resultContentVisible.value = true
-  resultPanelTimer = window.setTimeout(() => {
-    resultPanelTimer = null
-    if (!mounted || scene !== targetScene || finalResult.value) return
+  readySent.value = false
+}
+
+/**
+ * @param {object} result
+ * @param {import('@/game2d/game/scene/MahjongScene').MahjongScene} targetScene
+ */
+function revealRoundResultAfterHand(result, targetScene) {
+  clearResultTimers()
+  roundResult.value = null
+  resetWinRevealState()
+  resultContentVisible.value = true
+  const token = ++resultRevealToken
+
+  const isDraw = result?.hepai_player_index == null
+  if (isDraw) {
+    if (!mounted || scene !== targetScene || finalResult.value || token !== resultRevealToken) return
     roundResult.value = result
-    targetScene.playResultGong(result.hu_fan ?? [])
+    return
+  }
+
+  // 1. 展示手牌 → 2. 弹出面板 → 3. 逐条番种 → 4. 倒计时准备
+  // 不在弹面板时播 hu / 锣：国标 hu 已在 show_result 事件里播过（对局和牌路径）。
+  scheduleResultTimer(() => {
+    if (!mounted || scene !== targetScene || finalResult.value || token !== resultRevealToken) return
+    roundResult.value = result
+    startWinFanRevealSequence(result, token, targetScene)
   }, RESULT_HAND_REVEAL_MS)
+}
+
+/**
+ * @param {object} result
+ * @param {number} token
+ * @param {import('@/game2d/game/scene/MahjongScene').MahjongScene} targetScene
+ */
+function startWinFanRevealSequence(result, token, targetScene) {
+  const fans = Array.isArray(result?.hu_fan) ? result.hu_fan : []
+  let delay = 0
+  for (let index = 0; index < fans.length; index += 1) {
+    delay += HU_FAN_REVEAL_INTERVAL_MS
+    const count = index + 1
+    scheduleResultTimer(() => {
+      if (!mounted || token !== resultRevealToken) return
+      revealedFanCount.value = count
+      targetScene.playUiSound('fan-reveal')
+    }, delay)
+  }
+  delay += HU_BEFORE_TOTAL_MS
+  scheduleResultTimer(() => {
+    if (!mounted || token !== resultRevealToken) return
+    showResultTotal.value = true
+    // 高番锣与 3D 总分出现时机对齐，不在弹面板瞬间播。
+    targetScene.playResultGong(result.hu_fan ?? [])
+    beginReadyCountdown(token)
+  }, Math.max(delay, HU_BEFORE_TOTAL_MS))
+}
+
+/**
+ * @param {number} token
+ */
+function beginReadyCountdown(token) {
+  showReadyButton.value = true
+  readyCountdown.value = HU_CONFIRM_COUNTDOWN_SEC
+  for (let tick = 1; tick <= HU_CONFIRM_COUNTDOWN_SEC; tick += 1) {
+    scheduleResultTimer(() => {
+      if (!mounted || token !== resultRevealToken) return
+      readyCountdown.value = Math.max(0, HU_CONFIRM_COUNTDOWN_SEC - tick)
+    }, tick * 1000)
+  }
 }
 
 const selfSeat = computed(() => sidebarPlayers.value.find(
   (player) => Number(player.user_id) === Number(session.player?.user_id),
 )?.player_index ?? 0)
 
-const roundTitle = computed(() => {
-  const winner = sidebarPlayers.value.find(
-    (player) => player.player_index === roundResult.value?.hepai_player_index,
-  )
-  return roundResult.value?.hepai_player_index == null ? '本局流局' : `${winner?.username || '玩家'} 和牌`
-})
+const isDrawResult = computed(() => roundResult.value?.hepai_player_index == null)
 
 const resultClassLabel = computed(() => ({
   hu_self: '自摸', hu_first: '荣和', hu_second: '荣和', hu_third: '荣和', liuju: '流局',
@@ -290,6 +492,19 @@ const resultPlayers = computed(() => sidebarPlayers.value
   })
   .sort((left, right) => left.relative - right.relative))
 
+const drawSeatDeltas = computed(() => resultPlayers.value)
+
+/** 棱形：对家上(2)、下家右(1)、自家下(0)、上家左(3) */
+const diamondSlots = computed(() => {
+  const byRelative = new Map(resultPlayers.value.map((player) => [player.relative, player]))
+  return [
+    { relative: 2, player: byRelative.get(2) ?? null },
+    { relative: 3, player: byRelative.get(3) ?? null },
+    { relative: 1, player: byRelative.get(1) ?? null },
+    { relative: 0, player: byRelative.get(0) ?? null },
+  ]
+})
+
 const resultRawHand = computed(() => roundResult.value?.hepai_player_hand ?? [])
 const resultWinTile = computed(() => resultRawHand.value.at(-1) ?? 0)
 const resultClosedTiles = computed(() => resultRawHand.value.slice(0, -1).sort((a, b) => a - b))
@@ -300,6 +515,17 @@ const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) =
   const definition = findFanByName(name, ['guobiao'])
   return { name, value: definition ? `${formatFanField(definition.fan)}番` : '' }
 }))
+/** Reserve fan rows up front so the diamond does not jump as fans appear. */
+const fanGridMinHeight = computed(() => {
+  const rows = Math.max(1, Math.ceil((resultFans.value.length || 1) / 2))
+  return `${rows * 36}px`
+})
+
+const readyButtonLabel = computed(() => {
+  if (readySent.value) return '已准备，等待其他玩家'
+  if (readyCountdown.value > 0) return `确定(${readyCountdown.value})`
+  return '确定(0)'
+})
 
 const finalRows = computed(() => Object.entries(finalResult.value?.player_final_data ?? {})
   .map(([seat, value]) => ({ seat, ...value }))
@@ -321,13 +547,9 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
     const update = targetAdapter.accept(response)
     if (!update) return
     if (update.snapshot) {
-      clearResultPanelTimer()
+      clearRoundResultUi()
       targetScene.flushFromSnapshot(update.snapshot)
       hasSnapshot.value = true
-      roundResult.value = null
-      readySent.value = false
-      readyStatus.value = {}
-      resultContentVisible.value = true
       updateSidebarPlayers()
     }
     if (update.event) targetScene.handleEvent(update.event)
@@ -348,7 +570,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
     }
     if (update.ready) readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
     if (update.ended) {
-      clearResultPanelTimer()
+      clearResultTimers()
       finalResult.value = update.ended
     }
   } catch (error) {
@@ -371,9 +593,6 @@ function handleResponse(response) {
     return
   }
   if (response.type.startsWith('gamestate/guobiao/')) {
-    // When nobody can flower, game_start and the dealer's first hand prompt are
-    // sent back-to-back. Pixi may still be mounting; preserve the complete
-    // ordered stream instead of losing the first actionable prompt.
     if (!sceneReady.value || !adapter || !scene) {
       pendingGameResponses.push(response)
     } else {
@@ -384,9 +603,12 @@ function handleResponse(response) {
 }
 
 function flushPendingGameResponses(currentAdapter, currentScene) {
-  const queued = pendingGameResponses.splice(0)
-  const hasGameStart = queued.some((response) => response.type === 'gamestate/guobiao/game_start')
-  if (!hasGameStart && salasasaClient.lastGameStart) queued.unshift(salasasaClient.lastGameStart)
+  const buffered = salasasaClient.drainGuobiaoBuffer()
+  const queued = buffered.length > 0 ? buffered : pendingGameResponses.splice(0)
+  pendingGameResponses = []
+  if (!queued.length && salasasaClient.lastGameStart) {
+    queued.push(salasasaClient.lastGameStart)
+  }
   for (const response of queued) applyMessage(response, currentAdapter, currentScene)
 }
 
@@ -395,6 +617,10 @@ async function mountScene() {
   const currentAdapter = new SalasasaGameAdapter(session.player.user_id)
   adapter = currentAdapter
   const currentScene = new MahjongScene((type, payload) => {
+    if (type === 'appearance.lastTileCoverIndex' && typeof payload?.index === 'number') {
+      onTileCoverIndexChosen(payload.index)
+      return
+    }
     if (type === 'ping' || type !== 'game.input') return
     const outgoing = currentAdapter.encodeSceneInput(payload)
     if (!outgoing || !salasasaClient.send(outgoing)) ElMessage.error('操作未发送，请等待连接恢复')
@@ -405,6 +631,7 @@ async function mountScene() {
   currentScene.setVolume(volume.value)
   currentScene.setAppearance(appearance.value)
   currentScene.setBackgroundImage(backgroundImage.value?.dataUrl ?? null)
+  currentScene.setAssistSettings(assistSettings.value)
   for (const sound of SOUND_ASSETS) {
     const audio = new Audio(`${import.meta.env.BASE_URL}game2d-assets/sounds/${sound.file}`)
     audio.preload = 'auto'
@@ -416,7 +643,7 @@ async function mountScene() {
 }
 
 function destroyScene() {
-  clearResultPanelTimer()
+  clearRoundResultUi()
   sceneReady.value = false
   hasSnapshot.value = false
   sidebarPlayers.value = []
@@ -444,6 +671,7 @@ function setTileCoverColor(index, color) {
 
 function addTileCoverColor() {
   const colors = appearance.value.tileCoverColors
+  if (colors.length >= MAX_TILE_COVER_COLORS) return
   persistAppearance({
     ...appearance.value,
     tileCoverColors: [...colors, colors.at(-1) ?? '#f6bc1e'],
@@ -455,6 +683,13 @@ function removeTileCoverColor(index) {
   persistAppearance({
     ...appearance.value,
     tileCoverColors: appearance.value.tileCoverColors.filter((_, colorIndex) => colorIndex !== index),
+  })
+}
+
+function onTileCoverIndexChosen(index) {
+  persistAppearance({
+    ...appearance.value,
+    lastTileCoverIndex: index,
   })
 }
 
@@ -500,6 +735,7 @@ function toggleRatings() {
 }
 
 function sendReady() {
+  if (readySent.value) return
   const outgoing = adapter?.readyMessage()
   if (!outgoing || !salasasaClient.send(outgoing)) {
     ElMessage.error('暂时无法发送准备状态')
@@ -507,6 +743,41 @@ function sendReady() {
   }
   readySent.value = true
   readyStatus.value = { ...readyStatus.value, [String(selfSeat.value)]: true }
+}
+
+function toggleAssistExpand() {
+  assistExpandOpen.value = !assistExpandOpen.value
+  if (assistExpandOpen.value) {
+    tileSkipOpen.value = false
+    appearanceOpen.value = false
+  }
+}
+
+function toggleTileSkipPanel() {
+  tileSkipOpen.value = !tileSkipOpen.value
+  if (tileSkipOpen.value) {
+    assistExpandOpen.value = false
+    appearanceOpen.value = false
+  }
+}
+
+function patchAssistSettings(partial) {
+  assistSettings.value = normalizeAssistSettings({ ...assistSettings.value, ...partial })
+  saveStoredAssistSettings(assistSettings.value)
+  scene?.setAssistSettings(assistSettings.value)
+}
+
+function mmcrTileAsset(tid) {
+  const suit = Number(tid) & 0xe0
+  const rank = Number(tid) & 0x0f
+  let prefix = 'z'
+  if (suit === 0x40) prefix = 'Man'
+  else if (suit === 0x60) prefix = 'Pin'
+  else if (suit === 0xc0) prefix = 'Sou'
+  else if (suit === 0xa0) prefix = 'z'
+  else if (suit === 0xe0) prefix = 'Flower'
+  const folder = appearance.value.tileFaceTheme === 'black' && prefix !== 'Flower' ? 'Black' : 'Regular'
+  return `${import.meta.env.BASE_URL}game2d-assets/textures/riichi-mahjong-tiles/${folder}/${prefix}${rank}.svg`
 }
 
 function tileAsset(tile) {

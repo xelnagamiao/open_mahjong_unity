@@ -316,6 +316,8 @@ async def wait_action(self):
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                     else:
+                        # 无人可抢：立即清空，避免残留导致后续普通荣和被 check_hepai 误判为抢杠
+                        self.jiagang_tile = None
                         self.pending_kan_hand_settle_delay = not is_mo_gang
                         self.game_status = "deal_card_after_gang" # 历时行为
                     return
@@ -565,23 +567,22 @@ async def wait_action(self):
             
         # 在加杠以后的case当中只包含和牌和pass一个选项 如果超时或者pass则进行历时行为
         case "waiting_action_qianggang":
-            temp_jiagang_tile = self.jiagang_tile # 存储抢杠牌
-            self.jiagang_tile = None # 删除抢杠牌
             if action_data:
                 if action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
-                    # 和牌 （荣和）
-                    self.player_list[player_index].hand_tiles.append(temp_jiagang_tile) # 将和牌牌加入手牌最后一张
+                    # 抢杠和：保留 jiagang_tile，与荣和一致走 check_hepai（含错和）；正和后再写入手牌
                     self.hu_class = action_type
-                    self.game_status = "END"
+                    self.game_status = "check_hepai"
                     return
                 elif action_type == "pass":
-                    self.game_status = "deal_card" # 历时行为
+                    self.jiagang_tile = None
+                    self.game_status = "deal_card_after_gang" # 无人抢杠，原玩家摸岭上牌
                     return
                 else:
                     raise ValueError("抢杠和阶段action_type出现非hu和pass的值")
             # 超时放弃抢杠
             else:
-                self.game_status = "deal_card" # 历时行为
+                self.jiagang_tile = None
+                self.game_status = "deal_card_after_gang" # 无人抢杠，原玩家摸岭上牌
                 return
         case "waiting_ready":
             # 准备阶段按“单次处理 + 上层循环”的方式执行

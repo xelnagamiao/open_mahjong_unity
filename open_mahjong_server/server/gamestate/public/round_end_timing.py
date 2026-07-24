@@ -1,7 +1,8 @@
 """局终和牌结算演出时长（与客户端 RoundEndTiming 保持一致）。
 
 四川血战终局步间 sleep 须与 SichuanGameState._settle_liuju 顶部 ABCD 顺序注释对齐：
-reveal_hu → settle_hu(3s/8s) → chajiao(3s/8s，含退税 +0.5s) → waiting_ready(8s)。
+reveal_hu → settle_hu(非末步 3s；末步仅番种/渐显) → chajiao(非末步 3s；末步 0)
+→ waiting_ready(8s，统一承接末步确认；三家和跳过查叫时同样如此)。
 退税已并入查叫面板，不再有独立 cha_refund 步。
 """
 
@@ -52,11 +53,16 @@ def liuju_ready_wait_seconds(include_hand_reveal: bool = False, has_draw_noten_p
 
 
 def sichuan_settle_hu_panel_wait_seconds(fan_count: int, *, is_final: bool = False) -> float:
-    """四川终局 settle_hu：渐显 + 番种×0.5s + 0.5s 总分 + 3s/8s 确认。"""
+    """四川终局 settle_hu：渐显 + 番种×0.5s + 0.5s 总分；非末步再 +3s。
+
+    末步确认（8s）由 ready 阶段统一等待，避免三家和跳过查叫时先睡 8s、再进 ready 又睡 8s。
+    客户端末步仍播 8s 倒计时，与 ready 阶段重叠对齐。
+    """
     total = ROUND_END_PRESENTATION_FADE_SEC
     total += fan_count * HU_FAN_REVEAL_INTERVAL_SEC
     total += HU_BEFORE_TOTAL_PANEL_SEC
-    total += HU_CONFIRM_COUNTDOWN_SEC if is_final else SICHUAN_MID_PANEL_CONFIRM_SEC
+    if not is_final:
+        total += SICHUAN_MID_PANEL_CONFIRM_SEC
     return total
 
 

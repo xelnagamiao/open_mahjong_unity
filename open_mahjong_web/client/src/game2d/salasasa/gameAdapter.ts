@@ -17,9 +17,9 @@ import type {
   SalasasaResultInfo,
   SalasasaReadyStatusInfo,
   SalasasaResponse,
-  SalasasaWaitData,
 } from './types'
 import type { WaitInfoData } from '../game/scene/WaitDisplay'
+import { buildLocalWaitData, type LocalWaitInfoData } from '../calc/guobiao'
 
 export function salasasaTileToMmcr(tile: number | null | undefined): number {
   if (!tile || tile < 0) return 0
@@ -111,7 +111,7 @@ function playerToSeat(player: SalasasaPlayerInfo): SeatSnapshot {
   }
 }
 
-function waitDataToMmcr(data: SalasasaWaitData | null | undefined): WaitInfoData {
+function waitDataToMmcr(data: LocalWaitInfoData): WaitInfoData {
   if (!data) return null
   if (data.type === 'waits') {
     return {
@@ -134,10 +134,12 @@ function waitDataToMmcr(data: SalasasaWaitData | null | undefined): WaitInfoData
   }
 }
 
-function waitsAfterDiscard(data: WaitInfoData, discardTile: number): WaitInfoData {
-  if (!data || data.type !== 'waits_all') return data
-  const selected = data.details.find((detail) => detail.discard_tile === discardTile)
-  return selected ? { type: 'waits', details: selected.adds } : null
+function emptySeatLists(): number[][] {
+  return [[], [], [], []]
+}
+
+function emptySeatCombos(): string[][] {
+  return [[], [], [], []]
 }
 
 function findSelfSeat(game: SalasasaGameInfo, userId: number): number {
@@ -182,9 +184,12 @@ function viewerActions(
         break
       case 'gang': mapped.push({ kind: 'melded_kong', tile: salasasaTileToMmcr(targetTile) }); break
       case 'peng': mapped.push({ kind: 'pung', tile: salasasaTileToMmcr(targetTile) }); break
-      case 'chi_left': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr((targetTile ?? 0) - 1), ui64_value: 3 }); break
+      // MeldButton 以被吃的切牌为基准，用 ui64_value(1/2/3) 推算手牌两张：
+      // 1=<1>23(chi_right)  2=1<2>3(chi_mid)  3=12<3>(chi_left)
+      // 不可传入顺子中间牌，否则预览会整体偏移（如 2s 吃显示成 45s）并可能变成非法牌 ID（白牌）。
+      case 'chi_left': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 3 }); break
       case 'chi_mid': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 2 }); break
-      case 'chi_right': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr((targetTile ?? 0) + 1), ui64_value: 1 }); break
+      case 'chi_right': mapped.push({ kind: 'chow', tile: salasasaTileToMmcr(targetTile), ui64_value: 1 }); break
       case 'hu_self': mapped.push({ kind: 'self_drawn_win' }); break
       case 'hu_first':
       case 'hu_second':
@@ -215,6 +220,11 @@ export class SalasasaGameAdapter {
   private selfSeat = 0
   private selfHandRaw: number[] = []
   private selfMeldTargets: string[] = []
+  private selfHuapai: number[] = []
+  /** Salasasa-format river tiles per seat (for tip remaining / 绝张). */
+  private seatDiscards: number[][] = emptySeatLists()
+  /** Salasasa-format meld keys per seat. */
+  private seatCombinations: string[][] = emptySeatCombos()
 
   private readonly userId: number
 
@@ -270,6 +280,15 @@ export class SalasasaGameAdapter {
     this.selfSeat = selfSeat
     this.selfHandRaw = [...(selfPlayer?.hand_tiles ?? [])]
     this.selfMeldTargets = [...(selfPlayer?.combination_tiles ?? [])]
+    this.selfHuapai = [...(selfPlayer?.huapai_list ?? [])]
+    this.seatDiscards = emptySeatLists()
+    this.seatCombinations = emptySeatCombos()
+    for (const player of playersInfo) {
+      const seat = player.player_index
+      if (seat < 0 || seat > 3) continue
+      this.seatDiscards[seat] = [...(player.discard_tiles ?? [])]
+      this.seatCombinations[seat] = [...(player.combination_tiles ?? [])]
+    }
     const snapshot: ActiveSessionSnapshot = {
       phase: 'active',
       session_id: game.room_id,
@@ -326,6 +345,29 @@ export class SalasasaGameAdapter {
     }
   }
 
+  private computeLocalWaitData(includeDiscards: boolean): WaitInfoData {
+    if (!this.gameInfoValue?.tips) return null
+    const seatCombinations = this.seatCombinations.map((list, seat) => (
+      seat === this.selfSeat ? [...this.selfMeldTargets] : [...list]
+    ))
+    const local = buildLocalWaitData(
+      {
+        tips: true,
+        hand: [...this.selfHandRaw],
+        combinations: [...this.selfMeldTargets],
+        flowerCount: this.selfHuapai.length,
+        playerIndex: this.selfSeat,
+        currentRound: Number(this.gameInfoValue.current_round ?? 1),
+        hepaiLimit: Number(this.gameInfoValue.hepai_limit ?? 8),
+        subRule: this.gameInfoValue.sub_rule ?? 'guobiao/standard',
+        seatDiscards: this.seatDiscards.map((list) => [...list]),
+        seatCombinations,
+      },
+      { includeDiscards },
+    )
+    return waitDataToMmcr(local)
+  }
+
   private fromHandPrompt(info: SalasasaAskHandInfo): GameEventPayload {
     const snapshot = this.ensureSnapshot()
     snapshot.state.remaining_tile_count = info.remain_tiles
@@ -345,7 +387,7 @@ export class SalasasaGameAdapter {
         this.flowerCandidates(),
       ),
       wait_data: ownActions.length
-        ? waitDataToMmcr(info.wait_data)
+        ? this.computeLocalWaitData(ownActions.includes('cut'))
         : (snapshot.viewer.wait_data ?? null),
     }
     const playIndex = info.opening_buhua_complete
@@ -396,7 +438,7 @@ export class SalasasaGameAdapter {
             // Multiple drawn tiles are settled in order; only the last remains
             // in the draw slot when the batch is rendered.
             cut_class: Boolean(info.cut_class) && index === cutTiles.length - 1,
-          }, action, previousWaitData))
+          }, action))
         }
       }
       if (action === 'deal_tile' || action === 'deal_gang_tile' || action === 'deal_buhua_tile') {
@@ -406,18 +448,102 @@ export class SalasasaGameAdapter {
             ...info,
             deal_tile: dealTile,
             deal_tiles: undefined,
-          }, action, previousWaitData))
+          }, action))
         }
       }
-      return [this.fromAction(info, action, previousWaitData)]
+      return [this.fromAction(info, action)]
     })
     if (actions.includes('cut')) {
       const cutTiles = this.resolvedCutTiles(info)
       this.lastDiscarder = info.action_player
       this.lastDiscardTile = info.cut_tile ?? cutTiles.at(-1) ?? 0
     }
+    this.updateTableState(info)
     if (!info.is_claim) this.updateSelfHand(info)
+
+    const nextWaitData = this.resolveWaitDataAfterAction(info, actions, previousWaitData)
+    for (const payload of events) {
+      payload.viewer.wait_data = nextWaitData
+    }
+    this.ensureSnapshot().viewer.wait_data = nextWaitData ?? undefined
     return events
+  }
+
+  private resolveWaitDataAfterAction(
+    info: SalasasaDoActionInfo,
+    actions: string[],
+    previousWaitData: WaitInfoData,
+  ): WaitInfoData {
+    if (!this.gameInfoValue?.tips) return null
+    if (info.action_player === this.selfSeat && actions.includes('cut')) {
+      return this.computeLocalWaitData(false)
+    }
+    if (info.action_player === this.selfSeat) {
+      // Own non-cut actions clear hover waits until next hand_prompt.
+      return null
+    }
+    // Others changed the table: refresh stable waits (fan / remaining / 绝张).
+    if (previousWaitData?.type === 'waits') {
+      return this.computeLocalWaitData(false)
+    }
+    return previousWaitData
+  }
+
+  private updateTableState(info: SalasasaDoActionInfo): void {
+    // 战术鸣牌 is_claim 只是申请预告，真实副露在后续非 claim 帧落地。
+    if (info.is_claim) return
+    const seat = info.action_player
+    if (seat < 0 || seat > 3) return
+    for (const action of info.action_list.length ? info.action_list : []) {
+      switch (action) {
+        case 'cut':
+          for (const tile of this.resolvedCutTiles(info)) {
+            if (tile) this.seatDiscards[seat].push(tile)
+          }
+          break
+        case 'peng':
+        case 'gang':
+        case 'chi_left':
+        case 'chi_mid':
+        case 'chi_right': {
+          const from = typeof info.cut_from_player === 'number' ? info.cut_from_player : this.lastDiscarder
+          const claimed = info.cut_tile ?? this.lastDiscardTile
+          this.removeLastDiscard(from, claimed)
+          if (info.combination_target) {
+            this.seatCombinations[seat].push(info.combination_target)
+          }
+          break
+        }
+        case 'angang':
+          if (info.combination_target) this.seatCombinations[seat].push(info.combination_target)
+          break
+        case 'jiagang': {
+          const tile = Number(info.combination_target?.slice(1))
+          this.seatCombinations[seat] = this.seatCombinations[seat].map((target) => (
+            target === `k${tile}` ? (info.combination_target ?? `g${tile}`) : target
+          ))
+          break
+        }
+        case 'buhua':
+          if (seat === this.selfSeat && info.buhua_tile) {
+            this.selfHuapai.push(info.buhua_tile)
+          }
+          break
+        default:
+          break
+      }
+    }
+  }
+
+  private removeLastDiscard(seat: number, tile: number): void {
+    if (seat < 0 || seat > 3 || !tile) return
+    const pile = this.seatDiscards[seat]
+    for (let i = pile.length - 1; i >= 0; i -= 1) {
+      if (pile[i] === tile) {
+        pile.splice(i, 1)
+        return
+      }
+    }
   }
 
   private resolvedCutTiles(info: SalasasaDoActionInfo): number[] {
@@ -433,18 +559,13 @@ export class SalasasaGameAdapter {
   private fromAction(
     info: SalasasaDoActionInfo,
     action: string,
-    previousWaitData: WaitInfoData,
   ): GameEventPayload {
-    let nextWaitData = info.action_player === this.selfSeat ? null : previousWaitData
-    if (action === 'cut' && info.action_player === this.selfSeat) {
-      nextWaitData = waitsAfterDiscard(previousWaitData, salasasaTileToMmcr(info.cut_tile))
-    }
     const viewer: ViewerSnapshot = {
       seat_index: this.ensureSnapshot().viewer.seat_index,
       pending: 'none',
       decision_timer_ms: null,
       available_actions: [],
-      wait_data: nextWaitData,
+      wait_data: null,
     }
     let kind = action
     let tile = info.cut_tile ?? info.deal_tile
@@ -588,10 +709,9 @@ export class SalasasaGameAdapter {
     return this.event('transition', isDraw ? 'drawn_game' : isSelfDrawn ? 'self_drawn_win' : 'discard_win', winner, info.action_tick ?? snapshot.state.stage_counter + 1, viewer, {
       tile: salasasaTileToMmcr(isSelfDrawn ? info.hepai_player_hand?.at(-1) : this.lastDiscardTile),
       revealed_hand_tiles: info.hepai_player_hand?.map(salasasaTileToMmcr),
-      // The live do_action event already announces the win. show_result only
-      // reveals the hand and opens the settlement panel, so it must not replay
-      // the win voice when that panel appears.
-      silent: true,
+      // Guobiao hu voice plays once on this show_result event (hand reveal).
+      // Vue settlement panel must not replay hu; it only reveals fans + optional gong.
+      silent: false,
       // Salasasa uses the Vue settlement panel. Keep the Pixi table unobstructed
       // during the hand-reveal pause instead of drawing mmcr's result text over it.
       suppress_result_display: true,

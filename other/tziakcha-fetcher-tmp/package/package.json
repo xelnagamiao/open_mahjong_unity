@@ -1,0 +1,165 @@
+{
+  "name": "tziakcha-fetcher",
+  "version": "2.1.0",
+  "description": "获取tziakcha牌谱数据并进行简单处理和统计，提供一些牌谱相关的实用工具。",
+  "homepage": "https://github.com/tziakcha-stats/tziakcha-fetcher",
+  "author": {
+    "name": "Choimoe",
+    "email": "qwq.shq@gmail.com",
+    "url": "https://github.com/Choimoe"
+  },
+  "files": [
+    "lib",
+    "!lib/__tests__",
+    "types"
+  ],
+  "main": "lib/index.js",
+  "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "require": "./lib/index.js",
+      "default": "./lib/index.js"
+    },
+    "./url": {
+      "types": "./types/url.d.ts",
+      "require": "./lib/url/index.js",
+      "default": "./lib/url/index.js"
+    },
+    "./session": {
+      "types": "./types/session.d.ts",
+      "require": "./lib/session/index.js",
+      "default": "./lib/session/index.js"
+    },
+    "./record": {
+      "types": "./types/record/index.d.ts",
+      "require": "./lib/record/index.js",
+      "default": "./lib/record/index.js"
+    },
+    "./record/fetch": {
+      "types": "./types/record/fetch.d.ts",
+      "require": "./lib/record/fetch.js",
+      "default": "./lib/record/fetch.js"
+    },
+    "./record/win": {
+      "types": "./types/record/win.d.ts",
+      "require": "./lib/record/win.js",
+      "default": "./lib/record/win.js"
+    },
+    "./record/actions": {
+      "types": "./types/record/actions.d.ts",
+      "require": "./lib/record/actions.js",
+      "default": "./lib/record/actions.js"
+    },
+    "./record/simulate": {
+      "types": "./types/record/simulate.d.ts",
+      "require": "./lib/record/simulate.js",
+      "default": "./lib/record/simulate.js"
+    },
+    "./stats": {
+      "types": "./types/stats.d.ts",
+      "require": "./lib/stats/index.js",
+      "default": "./lib/stats/index.js"
+    },
+    "./core": {
+      "types": "./types/core/index.d.ts",
+      "require": "./lib/core/index.js",
+      "default": "./lib/core/index.js"
+    },
+    "./core/config": {
+      "types": "./types/core/config.d.ts",
+      "require": "./lib/core/config/index.js",
+      "default": "./lib/core/config/index.js"
+    },
+    "./core/tiles": {
+      "types": "./types/core/tiles.d.ts",
+      "require": "./lib/core/tiles/index.js",
+      "default": "./lib/core/tiles/index.js"
+    },
+    "./node": {
+      "types": "./types/node/index.d.ts",
+      "require": "./lib/node/index.js",
+      "default": "./lib/node/index.js"
+    },
+    "./node/analyze": {
+      "types": "./types/node/analyze.d.ts",
+      "require": "./lib/node/analyze.js",
+      "default": "./lib/node/analyze.js"
+    }
+  },
+  "browser": {
+    "./lib/record/fetch.js": "./lib/record/fetch-browser.js"
+  },
+  "keywords": [
+    "nodejs",
+    "javascript",
+    "mahjong",
+    "tziakcha"
+  ],
+  "devDependencies": {
+    "coveralls": "^3.0.7",
+    "esbuild": "^0.25.11",
+    "eslint": "^6.6.0",
+    "eslint-config-prettier": "^6.6.0",
+    "eslint-config-xo": "^0.27.2",
+    "eslint-plugin-prettier": "^3.1.1",
+    "husky": "^3.0.9",
+    "jest": "^26.1.0",
+    "lint-staged": "^9.4.3",
+    "prettier": "^1.19.1"
+  },
+  "engines": {
+    "npm": ">= 4.0.0"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "git add"
+    ],
+    "*.json": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "eslintConfig": {
+    "extends": [
+      "xo",
+      "prettier"
+    ],
+    "env": {
+      "jest": true,
+      "node": true
+    },
+    "rules": {
+      "prettier/prettier": "error"
+    },
+    "plugins": [
+      "prettier"
+    ]
+  },
+  "scripts": {
+    "browser-smoke": "node test/browser-smoke/build.js",
+    "pretest": "eslint .",
+    "test": "jest",
+    "prepack": "npm test -- --runInBand"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tziakcha-stats/tziakcha-fetcher.git"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/lib/__tests__/**/*.test.js"
+    ]
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "gb-mahjong-js": "^1.0.1"
+  }
+}

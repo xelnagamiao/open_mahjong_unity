@@ -278,7 +278,10 @@ public partial class NormalGameStateManager {
             }
         }
         player_to_info["self"].hand_tiles_count = selfHandTiles.Count;
-        // 切换行动者
+        // 吃碰明杠：行动权已转移，立刻跳中心盘（同座 ask 会因 shownCurrentPlayer 直接 return）
+        if (ContainsTransferMeldAction(action_list)) {
+            ApplyCurrentPlayerIndicator(GetCardPlayer);
+        }
         SwitchCurrentPlayer(GetCardPlayer,"doAction",0);
         RefreshTableTipsAfterAction(action_list, GetCardPlayer);
         if (!isClaim && !isSilent && IsSichuanRule() && ContainsGangAction(action_list)
@@ -312,6 +315,15 @@ public partial class NormalGameStateManager {
         if (actionList == null) return false;
         foreach (string action in actionList) {
             if (action == "angang" || action == "jiagang" || action == "gang") return true;
+        }
+        return false;
+    }
+
+    private static bool ContainsTransferMeldAction(string[] actionList) {
+        if (actionList == null) return false;
+        foreach (string action in actionList) {
+            if (action == "chi_left" || action == "chi_mid" || action == "chi_right"
+                || action == "peng" || action == "gang") return true;
         }
         return false;
     }

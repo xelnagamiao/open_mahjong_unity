@@ -197,10 +197,11 @@ public partial class Game3DManager {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out Vector3 heightDir);
         int row = slotIndex / RecordHandCardsPerRow;
         int col = slotIndex % RecordHandCardsPerRow;
-        float colOffset = ComputeRowCenterOffset(cardsPosition, row, col, RecordHandCardsPerRow, false);
+        float colOffset = ComputeRowCenterOffset(
+            cardsPosition, row, col, RecordHandCardsPerRow, false, useHandSpacing: true);
         Vector3 pos = cardsPosition.position;
         pos += widthDir.normalized * colOffset;
-        pos += heightDir.normalized * heightSpacing * row;
+        pos += heightDir.normalized * cardHeight * row;
         return pos;
     }
     private void GetRecordHandLayoutDirections(string playerPosition, out Vector3 widthDir, out Vector3 heightDir) {

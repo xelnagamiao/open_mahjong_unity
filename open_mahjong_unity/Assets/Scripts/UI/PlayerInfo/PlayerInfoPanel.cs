@@ -121,11 +121,11 @@ public class PlayerInfoPanel : MonoBehaviour {
         string rank = playerInfo.guobiao_rank ?? "10级";
         float score = playerInfo.guobiao_score;
         int idx = RankConfig.GetRankIndex(rank);
-        var (_, startScore, promoteScore) = RankConfig.RankTable[idx];
+        var (_, _, promoteScore) = RankConfig.RankTable[idx];
         if (rankText != null) rankText.text = rank;
         if (rankProgressBar != null) {
-            float range = promoteScore - startScore;
-            rankProgressBar.value = range > 0 ? (score - startScore) / range : 0;
+            // 进度按 0 → 升段分（与文案 score/promoteScore、Web 一致）
+            rankProgressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
         }
         if (rankScoreText != null) rankScoreText.text = $"{score:F1}/{promoteScore}";
 

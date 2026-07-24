@@ -9,6 +9,7 @@ import {
   DEFAULT_SCENE_APPEARANCE,
   hexColorToNumber,
   normalizeSceneAppearanceSettings,
+  pickTileCoverColor,
   type SceneAppearanceSettings,
 } from '../../lib/sceneAppearance'
 import { ensureTexturesLoaded, setTileThemes } from './textures'
@@ -18,12 +19,16 @@ import { River } from './River'
 import { WaitDisplay, type WaitInfoData } from './WaitDisplay'
 import { Hand } from './Hand'
 import { Display, Countdown, DirLabel, TempLabel } from './Display'
-import { OptDisplay, type AutoWinMode } from './OptDisplay'
 import { MeldChoices, type MeldViewerSnapshot } from './MeldChoices'
 import type { ActiveSessionSnapshot, SeatSnapshot } from './types'
 import { hasSingleFanAtLeast } from '../../../constants/guessFanCatalog'
+import {
+  DEFAULT_ASSIST_SETTINGS,
+  normalizeAssistSettings,
+  type AssistSettings,
+} from '../../lib/assistSettings'
 
-export type { AutoWinMode, WaitInfoData }
+export type { WaitInfoData, AssistSettings }
 
 // 仅当番种明细里存在单个 >=32 番的番种时播放敲锣音；总番数不参与判断。
 const DUANG_CUTOFF = 32
@@ -107,7 +112,6 @@ export class MahjongScene {
   private stateDisplay!: Display
   private tempDisplay!: Display
   private volDisplay!: Display
-  private optDisplay!: OptDisplay
   private directionLabels!: [DirLabel, DirLabel, DirLabel, DirLabel]
   private countdown!: Countdown
   private meldChoicesPanel: MeldChoices | null = null
@@ -136,10 +140,16 @@ export class MahjongScene {
   waitInfoData: WaitInfoData = null
 
   // ── Settings ──────────────────────────────────────────────────────
-  autoWin: AutoWinMode = 0
-  noMeld = false
-  autoDiscard = false
+  private assist: AssistSettings = normalizeAssistSettings(DEFAULT_ASSIST_SETTINGS)
   volume = 0.5
+
+  get autoDiscard(): boolean { return this.assist.autoDiscard }
+  getAssistSettings(): AssistSettings {
+    return normalizeAssistSettings(this.assist)
+  }
+  setAssistSettings(next: Partial<AssistSettings> | AssistSettings): void {
+    this.assist = normalizeAssistSettings({ ...this.assist, ...next })
+  }
 
   // ── Interactive state ─────────────────────────────────────────────
   canDraw = false
@@ -191,6 +201,10 @@ export class MahjongScene {
   private appearance: SceneAppearanceSettings = DEFAULT_SCENE_APPEARANCE
   private backgroundImageSource: string | null = null
   private backgroundImageLoadToken = 0
+  private activeCoverRound = -1
+  private activeCoverColor = hexColorToNumber(DEFAULT_SCENE_APPEARANCE.tileCoverColors[0])
+  private lastLeftClickAtMs = 0
+  private static readonly DOUBLE_CLICK_MS = 350
 
   constructor(sendToServer: (type: string, payload: Record<string, unknown>) => void) {
     this.sendToServer = sendToServer
@@ -210,7 +224,14 @@ export class MahjongScene {
   }
 
   setAppearance(appearance: SceneAppearanceSettings): void {
-    this.appearance = normalizeSceneAppearanceSettings(appearance)
+    const next = normalizeSceneAppearanceSettings(appearance)
+    const paletteChanged =
+      next.tileCoverRotateMode !== this.appearance.tileCoverRotateMode
+      || next.tileCoverColors.join(',') !== this.appearance.tileCoverColors.join(',')
+    this.appearance = next
+    if (paletteChanged) {
+      this.activeCoverRound = -1
+    }
     this.redrawBackground()
     this.updateBackgroundImagePresentation()
     this.applyTileCoverPalette()
@@ -290,6 +311,7 @@ export class MahjongScene {
     // Right-click: discard drawn tile, or pass/final-pass
     if (!isMobile.any) {
       document.addEventListener('contextmenu', this.handleRightClick)
+      document.addEventListener('pointerdown', this.handleLeftDoubleClickShortcut)
     }
 
     // Scroll wheel: in replay, advance/retreat 1 event; in game, do nothing
@@ -317,6 +339,7 @@ export class MahjongScene {
     this.stopLatencyMeasurement()
     window.removeEventListener('resize', this.handleResize)
     document.removeEventListener('contextmenu', this.handleRightClick)
+    document.removeEventListener('pointerdown', this.handleLeftDoubleClickShortcut)
     document.removeEventListener('wheel', this.handleWheel)
     document.removeEventListener('pointerdown', this.handleUserGesture)
     document.removeEventListener('keydown', this.handleUserGesture)
@@ -335,32 +358,82 @@ export class MahjongScene {
     e.preventDefault()
     if (!this.inputEnabled || !this.canAct() || this.currentStageCounter <= 0) return
 
-    if (this.hands?.[0]?.drawnTile && this.hasAction('discard_tile')) {
-      this.clearMeldChoices()
-      const dt = this.hands[0].drawnTile
-      this.hands[0].unwaitDiscard()
-      this.countdown.stop()
-      this.sendGameInput({
-        kind: 'discard_tile',
-        tile: dt.tid,
-        use_drawn_tile: true,
-      })
-      return
-    }
+    const moqieMode = this.appearance.moqieShortcutMode
+    const passMode = this.appearance.passShortcutMode
 
+    if (moqieMode === 1 && this.tryShortcutMoqie()) return
+    if (passMode === 0 && this.tryShortcutPass()) return
+  }
+
+  private handleLeftDoubleClickShortcut = (e: PointerEvent): void => {
+    if (e.button !== 0) return
+    if (!this.inputEnabled || !this.canAct() || this.currentStageCounter <= 0) return
+    if (!this.isPointerInsideStage(e)) return
+
+    const now = performance.now()
+    const isDouble = now - this.lastLeftClickAtMs <= MahjongScene.DOUBLE_CLICK_MS
+    this.lastLeftClickAtMs = now
+    if (!isDouble) return
+
+    const moqieMode = this.appearance.moqieShortcutMode
+    const passMode = this.appearance.passShortcutMode
+    // Unity Update 路径：非手牌区域双击摸切（手牌单击已用于出牌，避免冲突）
+    if (moqieMode === 0 && !this.isPointerOverSelfHand(e) && this.tryShortcutMoqie()) return
+    if (passMode === 1 && this.tryShortcutPass()) return
+  }
+
+  private isPointerInsideStage(e: PointerEvent): boolean {
+    const canvas = this.app?.canvas
+    if (!canvas) return false
+    const rect = canvas.getBoundingClientRect()
+    return e.clientX >= rect.left && e.clientX <= rect.right
+      && e.clientY >= rect.top && e.clientY <= rect.bottom
+  }
+
+  private isPointerOverSelfHand(e: PointerEvent): boolean {
+    const hand = this.hands?.[0]
+    const canvas = this.app?.canvas
+    if (!hand || !canvas) return false
+    try {
+      const rect = canvas.getBoundingClientRect()
+      // Stage 坐标与 CSS 像素一致（resolution 只影响 backing store）
+      const x = ((e.clientX - rect.left) / Math.max(rect.width, 1)) * this.app!.screen.width
+      const y = ((e.clientY - rect.top) / Math.max(rect.height, 1)) * this.app!.screen.height
+      return hand.getBounds().contains(x, y)
+    } catch {
+      return false
+    }
+  }
+
+  private tryShortcutMoqie(): boolean {
+    if (!this.hands?.[0]?.drawnTile || !this.hasAction('discard_tile')) return false
+    this.clearMeldChoices()
+    const dt = this.hands[0].drawnTile
+    this.hands[0].unwaitDiscard()
+    this.countdown.stop()
+    this.sendGameInput({
+      kind: 'discard_tile',
+      tile: dt.tid,
+      use_drawn_tile: true,
+    })
+    return true
+  }
+
+  private tryShortcutPass(): boolean {
     if (this.hasAction('pass')) {
       this.hands[0].unwaitDiscard()
       this.countdown.stop()
       this.requestPassAction()
-      return
+      return true
     }
-
     if (this.hasAction('final_pass')) {
       this.clearMeldChoices()
       this.hands[0].unwaitDiscard()
       this.countdown.stop()
       this.sendGameInput({ kind: 'final_pass' })
+      return true
     }
+    return false
   }
 
   private clearPendingChoicesTimeout(): void {
@@ -603,49 +676,71 @@ export class MahjongScene {
     return true
   }
 
-  private tryAutoHelperAction(context: ViewerSyncContext | null): boolean {
+  private tryAutoHelperAction(context: ViewerSyncContext | null, reactionTile: number | null = null): boolean {
     const selfWinAction = this.findAvailableAction(['self_drawn_win'])
-    const claimWinAction = this.findAvailableAction(['discard_win', 'rob_added_kong_win'])
-    const nonWinClaimAction = this.findAvailableAction(['chow', 'pung', 'melded_kong'])
+    const claimRonAction = this.findAvailableAction(['discard_win'])
+    const claimRobAction = this.findAvailableAction(['rob_added_kong_win'])
+    const flowerAction = this.findAvailableAction(['flower'])
     const selfKongAction = this.findAvailableAction(['added_kong', 'concealed_kong'])
+    const passAction = this.findAvailableAction(['pass', 'final_pass'])
+    const silent = new Set(this.assist.silentTiles)
 
-    if (this.autoWin === 2 && selfWinAction) {
-      return this.scheduleAutoWinAction(selfWinAction)
+    // 1) 自动补花
+    if (this.assist.autoFlower && flowerAction) {
+      return this.triggerAutoAction(flowerAction)
     }
-    if (this.autoWin === 2 && claimWinAction) {
-      return this.scheduleAutoWinAction(claimWinAction)
-    }
+
+    // 2) 选中牌命中河牌/加杠：不询问任何操作（含荣和）→ pass
     if (
-      this.autoWin === 1
-      && context?.category === 'claim'
-      && context.actorSeat !== this.selfDir
-      && (context.kind === 'discard_win' || context.kind === 'rob_added_kong_win')
-      && claimWinAction
+      passAction
+      && reactionTile
+      && silent.has(reactionTile)
+      && this.findAvailableAction(['chow', 'pung', 'melded_kong', 'discard_win', 'rob_added_kong_win'])
     ) {
-      return this.scheduleAutoWinAction(claimWinAction)
+      return this.triggerAutoAction(passAction)
     }
-    if (this.noMeld && nonWinClaimAction && !claimWinAction) {
-      const denyAction = this.findAvailableAction([/*'pass', */'final_pass'])
-      if (denyAction) {
-        return this.triggerAutoAction(denyAction)
+
+    // 3) 自动和牌（受不点和 / 不抢杠 / 不自摸 / 选中牌不自动自摸 约束）
+    if (this.assist.autoWin) {
+      if (claimRobAction && !this.assist.noRobKong) {
+        return this.scheduleAutoWinAction(claimRobAction)
+      }
+      if (claimRonAction && !this.assist.noRon) {
+        return this.scheduleAutoWinAction(claimRonAction)
+      }
+      if (selfWinAction && !this.assist.noTsumo) {
+        const winTile = Number(selfWinAction.tile ?? this.hands[0]?.drawnTile?.tid ?? 0)
+        const skipSelectedTsumo = this.assist.silentSkipTsumo && winTile > 0 && silent.has(winTile)
+        if (!skipSelectedTsumo) {
+          return this.scheduleAutoWinAction(selfWinAction)
+        }
       }
     }
+
+    // 4) 鸣牌过滤后无可操作项 → 自动 pass（Unity ShouldAutoPassMingPaiAsk）
+    if (passAction && this.shouldAutoPassAfterMeldFilter()) {
+      return this.triggerAutoAction(passAction)
+    }
+
+    // 5) 自动摸切
     if (
       this.autoDiscard
-      && context?.category === 'transition'
-      && context.kind === 'draw_tile'
-      && context.actorSeat === this.selfDir
       && this.hasAction('discard_tile')
       && !selfWinAction
       && !selfKongAction
+      && !flowerAction
       && this.hands[0].drawnTile
+      && (
+        (context?.category === 'transition' && context.kind === 'draw_tile' && context.actorSeat === this.selfDir)
+        || context?.kind === 'hand_prompt'
+        || context == null
+      )
     ) {
       const drawnTile = this.hands[0].drawnTile
       this.clearAutoActionTimeout()
       this.countdown.stop()
       this.clearMeldChoices()
       this.hands[0].unwaitDiscard()
-      // discard after 400 + random(0, 1000) ms
       this.autoActionTimeout = setTimeout(() => {
         this.autoActionTimeout = null
         if (!this.hasAction('discard_tile') || !drawnTile || this.hands[0].drawnTile !== drawnTile) {
@@ -663,6 +758,38 @@ export class MahjongScene {
     return false
   }
 
+  /** Remaining non-pass actions after 不吃/不碰/不明杠/不点和 filters. */
+  private remainingActionsAfterMeldFilter(): Array<Record<string, any>> {
+    const actions = this.currentViewerActions.filter((action) => action.kind !== 'pass' && action.kind !== 'final_pass')
+    return actions.filter((action) => {
+      if (this.assist.passChi && action.kind === 'chow') return false
+      if (this.assist.passPeng && action.kind === 'pung') return false
+      if (this.assist.passMingGang && action.kind === 'melded_kong') return false
+      // 不点和仅剔除 discard_win；不抢杠/不自摸不参与自动过牌筛除（对齐 Unity）。
+      if (this.shouldFilterRonForAutoPass() && action.kind === 'discard_win') return false
+      return true
+    })
+  }
+
+  private hasUnblockedMeldOption(): boolean {
+    if (!this.assist.passPeng && this.hasAction('pung')) return true
+    if (!this.assist.passChi && this.hasAction('chow')) return true
+    if (!this.assist.passMingGang && this.hasAction('melded_kong')) return true
+    return false
+  }
+
+  /** Unity ShouldFilterRonForAutoPass: 不点和 removes ron unless another unblocked meld remains. */
+  private shouldFilterRonForAutoPass(): boolean {
+    if (!this.assist.noRon || !this.hasAction('discard_win')) return false
+    return !this.hasUnblockedMeldOption()
+  }
+
+  private shouldAutoPassAfterMeldFilter(): boolean {
+    const offered = this.currentViewerActions.some((action) => action.kind !== 'pass' && action.kind !== 'final_pass')
+    if (!offered) return false
+    return this.remainingActionsAfterMeldFilter().length === 0
+  }
+
   private applyViewerInteractions(reactionTile: number | null, context: ViewerSyncContext | null): void {
     this.inputEnabled = this.canAct()
     if (!this.inputEnabled) {
@@ -671,7 +798,7 @@ export class MahjongScene {
       return
     }
 
-    if (this.tryAutoHelperAction(context)) {
+    if (this.tryAutoHelperAction(context, reactionTile)) {
       return
     }
 
@@ -717,7 +844,6 @@ export class MahjongScene {
       this.waitDisplay.visible = false
       this.countdown.stop()
       this.countdown.visible = false
-      this.optDisplay.visible = false
       return
     }
 
@@ -902,10 +1028,20 @@ export class MahjongScene {
   }
 
   private resolveTileCoverColor(): number {
-    const palette = this.appearance.tileCoverColors
-    const roundIndex = Math.max(this.round - 1, 0)
-    const color = palette[roundIndex % palette.length] ?? DEFAULT_SCENE_APPEARANCE.tileCoverColors[0]
-    return hexColorToNumber(color)
+    if (this.activeCoverRound === this.round) {
+      return this.activeCoverColor
+    }
+    const picked = pickTileCoverColor(this.appearance, this.round)
+    this.activeCoverRound = this.round
+    this.activeCoverColor = hexColorToNumber(picked.color)
+    if (picked.index !== this.appearance.lastTileCoverIndex) {
+      this.appearance = normalizeSceneAppearanceSettings({
+        ...this.appearance,
+        lastTileCoverIndex: picked.index,
+      })
+      this.sendToServer('appearance.lastTileCoverIndex', { index: picked.index })
+    }
+    return this.activeCoverColor
   }
 
   private applyTileCoverPalette(): void {
@@ -1092,31 +1228,10 @@ export class MahjongScene {
     this.latencyIndicatorText = latencyText
     this.updateLatencyIndicator('\u2014')
 
-    this.optDisplay = new OptDisplay(
-      c,
-      this.autoWinLabel(), this.noMeldLabel(), this.autoDiscardLabel(),
-      {
-        onCycleAutoWin: () => {
-          this.autoWin = ((this.autoWin + 1) % 3) as AutoWinMode
-          this.optDisplay.updateLabels(this.autoWinLabel(), this.noMeldLabel(), this.autoDiscardLabel())
-        },
-        onToggleNoMeld: () => {
-          this.noMeld = !this.noMeld
-          this.optDisplay.updateLabels(this.autoWinLabel(), this.noMeldLabel(), this.autoDiscardLabel())
-        },
-        onToggleAutoDiscard: () => {
-          this.autoDiscard = !this.autoDiscard
-          this.optDisplay.updateLabels(this.autoWinLabel(), this.noMeldLabel(), this.autoDiscardLabel())
-        },
-      },
-      isMobile.any ? undefined : undefined, // desktop: hover
-    )
-
     this.setDirectionLabelsVisible(false)
     this.countdown.visible = false
     this.setLatencyIndicatorVisible(false)
     this.volDisplay.visible = false
-    this.optDisplay.visible = this.presentationMode !== 'replay'
     this.waitDisplay.visible = this.presentationMode !== 'replay'
 
     if (!this.app) return
@@ -1126,21 +1241,8 @@ export class MahjongScene {
     this.app.stage.addChild(this.center)
   }
 
-  private autoWinLabel(): string {
-    return ['自动和牌：关闭', '自动和牌：截和', '自动和牌：开启'][this.autoWin]
-  }
-  private noMeldLabel(): string {
-    return this.noMeld ? '不吃碰杠：开启' : '不吃碰杠：关闭'
-  }
-  private autoDiscardLabel(): string {
-    return this.autoDiscard ? '自动摸切：开启' : '自动摸切：关闭'
-  }
-
   private resetAssistOptions(): void {
-    this.autoWin = 0
-    this.noMeld = false
-    this.autoDiscard = false
-    this.optDisplay?.updateLabels(this.autoWinLabel(), this.noMeldLabel(), this.autoDiscardLabel())
+    // Assist preferences are user settings (persisted in Vue); do not wipe on round start.
   }
 
   private schedulePredrawSort(): void {
@@ -1336,7 +1438,6 @@ export class MahjongScene {
 
     // Reveal game elements
     this.setDirectionLabelsVisible(true)
-    this.optDisplay.visible = this.presentationMode !== 'replay'
     this.waitDisplay.visible = this.presentationMode !== 'replay'
     if (this.presentationMode === 'replay') {
       this.countdown.stop()
@@ -1381,11 +1482,16 @@ export class MahjongScene {
     const tile: number | undefined = event.tile
 
     // Opening flower replacements are broadcast as ordinary draws so that they
-    // animate, but once the flower round finishes all four hands are flat again
-    // (the dealer's 14th tile is not a normal draw slot).  Normalize the visual
-    // state before enabling the dealer's first discard.
+    // animate, but once the flower round finishes other seats go flat again.
+    // Keep the self draw-slot when we can discard: otherwise right-click 摸切
+    // has no drawnTile on the dealer's first prompt (until a later real draw).
     if (kind === 'hand_prompt' && event.opening_buhua_complete) {
-      for (const hand of this.hands) hand.settleDrawnTile()
+      const selfCanDiscard = Array.isArray(viewer.available_actions)
+        && viewer.available_actions.some((action: { kind?: string }) => action.kind === 'discard_tile')
+      for (let i = 0; i < this.hands.length; i += 1) {
+        if (i === 0 && selfCanDiscard) continue
+        this.hands[i].settleDrawnTile()
+      }
     }
 
     // ── Phase A: Board mutation (TRANSITION only) ──────────────────
@@ -1564,7 +1670,11 @@ export class MahjongScene {
           }
           this.countdown.stop()
           this.clearMeldChoices()
-          if (!event.silent) this.playCallSound('hu', actorDir)
+          if (!event.silent) {
+            if (this.presentationMode === 'replay') this.showReplayClaimLabel(actorDir, '和', true)
+            else new TempLabel(this.center, actorDir, '和', 1000)
+            this.playCallSound('hu', actorDir)
+          }
           break
         }
         case 'discard_win':
@@ -1578,15 +1688,24 @@ export class MahjongScene {
           }
           this.countdown.stop()
           this.clearMeldChoices()
-          if (!event.silent) this.playCallSound('hu', actorDir)
+          if (!event.silent) {
+            if (this.presentationMode === 'replay') this.showReplayClaimLabel(actorDir, '和', true)
+            else new TempLabel(this.center, actorDir, '和', 1000)
+            this.playCallSound('hu', actorDir)
+          }
           break
         }
         case 'drawn_game': {
           this.roundEnded = true
           for (const r of this.rivers) r.unwait()
-          this.tempDisplay.clear()
-          this.tempDisplay.addText('drawnGame', '流局', 0, 0, 0, 390, false, 0x000000, true)
-          this.tempDisplay.visible = true
+          this.countdown.stop()
+          this.clearMeldChoices()
+          // Salasasa uses the Vue settlement panel; skip the Pixi center "流局" text.
+          if (!event.suppress_result_display) {
+            this.tempDisplay.clear()
+            this.tempDisplay.addText('drawnGame', '流局', 0, 0, 0, 390, false, 0x000000, true)
+            this.tempDisplay.visible = true
+          }
           break
         }
         case 'end': {
@@ -1697,6 +1816,11 @@ export class MahjongScene {
     }
   }
 
+  /** Public wrapper for Vue settlement UI (fan reveal ticks, etc.). */
+  playUiSound(alias: string): void {
+    this.playSound(alias)
+  }
+
   handlePlayerLeft(seat: number): void {
     if (this.presentationMode === 'replay' && this.replayRecordVersion < 6) return
     const dir = transDir(seat, this.selfDir)
@@ -1803,7 +1927,6 @@ export class MahjongScene {
     this.setDirectionLabelsVisible(false)
     this.countdown.stop()
     this.countdown.visible = false
-    this.optDisplay.visible = false
     this.volDisplay.visible = false
     this.setViewerWaitInfo(null)
     this.waitDisplay.visible = this.presentationMode !== 'replay'
@@ -1949,13 +2072,15 @@ export class MahjongScene {
     }
 
     if (kind === 'drawn_game') {
-      this.tempDisplay.clear()
-      this.tempDisplay.addText('drawnGame', '流局', 0, 0, 0, 390, false, 0x000000, true)
-      this.tempDisplay.visible = true
+      if (!event.suppress_result_display) {
+        this.tempDisplay.clear()
+        this.tempDisplay.addText('drawnGame', '流局', 0, 0, 0, 390, false, 0x000000, true)
+        this.tempDisplay.visible = true
+      }
       return
     }
 
-    if (!event.win) {
+    if (!event.win || event.suppress_result_display) {
       return
     }
 
@@ -1983,9 +2108,8 @@ export class MahjongScene {
     reactionTile: number | null = null,
   ): void {
     this.clearMeldChoices()
-    const availableActions = this.noMeld
-      ? viewer.available_actions.filter((action) => !['chow', 'pung', 'melded_kong'].includes(action.kind))
-      : viewer.available_actions
+    // Unity: 半自动不做 UI 过滤，始终展示服务端全集按钮；全量自动在 tryAutoHelper 里已处理。
+    const availableActions = viewer.available_actions
     const nonDiscard = availableActions.filter((a) => a.kind !== 'discard_tile')
     if (nonDiscard.length === 0) return
 

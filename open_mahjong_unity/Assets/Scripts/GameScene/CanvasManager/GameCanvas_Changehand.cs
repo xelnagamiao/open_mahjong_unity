@@ -23,6 +23,7 @@ public partial class GameCanvas{
     private IEnumerator ProcessChangeHandCardQueue(){
         // 手牌处理运行
         isChangeHandCardProcessing = true;
+        handCardDragController?.AbortForHandChange("手牌队列开始处理");
         while (changeHandCardQueue.Count > 0){
             // 拿取下一个任务
             System.Func<Coroutine> changeHandCardAction = changeHandCardQueue.Dequeue();
@@ -60,17 +61,32 @@ public partial class GameCanvas{
                 Debug.LogWarning("ChangeHandCards InitHandCardsFromRecord: TilesList 为空，跳过初始化。");
                 yield break;
             }
-            int[] sortedTiles = (int[])TilesList.Clone();
-            Array.Sort(sortedTiles, TileIdOrder.Comparer);
+            // 对齐 LayRecordShowHandTiles：d/gd/bd 后末张为摸入张（含普通摸/杠摸/补摸），不可整手排序后误钉
+            bool pinDraw = GameRecordManager.Instance != null
+                && GameRecordManager.Instance.recordPlayer_to_info.TryGetValue("self", out GameRecordManager.RecordPlayer selfPlayer)
+                && selfPlayer.showHandDrawSlotActive
+                && TilesList.Length > 0;
+            int drawTileId = pinDraw ? TilesList[TilesList.Length - 1] : 0;
+            int mainCount = pinDraw ? TilesList.Length - 1 : TilesList.Length;
+            int[] mainTiles = new int[mainCount];
+            Array.Copy(TilesList, 0, mainTiles, 0, mainCount);
+            Array.Sort(mainTiles, TileIdOrder.Comparer);
+
             for (int i = handCardsContainer.childCount - 1; i >= 0; i--){
                 Transform child = handCardsContainer.GetChild(i);
                 Destroyer.Instance.AddToDestroyer(child);
             }
-            for (int i = 0; i < sortedTiles.Length; i++){
+            for (int i = 0; i < mainTiles.Length; i++){
                 GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
                 TileCard tileCard = cardObj.GetComponent<TileCard>();
-                tileCard.SetTile(sortedTiles[i], false);
+                tileCard.SetTile(mainTiles[i], false);
                 tileCard.handSortIndex = i;
+            }
+            if (pinDraw){
+                GameObject drawObj = Instantiate(tileCardPrefab, handCardsContainer);
+                TileCard drawCard = drawObj.GetComponent<TileCard>();
+                drawCard.SetTile(drawTileId, true);
+                drawCard.handSortIndex = mainTiles.Length;
             }
             LayoutHandCardsFromCurrentOrder();
             // 重建后补涂铳张遮罩：RefreshRecordChongHint 在入队前同步执行，此时新牌尚未创建
@@ -345,6 +361,7 @@ public partial class GameCanvas{
 
     // 卡牌移动动画协程
     public System.Collections.IEnumerator AnimateCardsToPositions(List<RectTransform> cards, List<Vector2> targetPositions, float animationDuration = 0.3f){
+        int epoch = _handLayoutAnimEpoch;
         float elapsedTime = 0f;
 
         // 记录起始位置
@@ -356,6 +373,9 @@ public partial class GameCanvas{
 
         // 动画循环
         while (elapsedTime < animationDuration){
+            if (epoch != _handLayoutAnimEpoch) {
+                yield break;
+            }
             elapsedTime += Time.deltaTime;
             float progress = elapsedTime / animationDuration;
 
@@ -373,6 +393,9 @@ public partial class GameCanvas{
             yield return null; // 等待下一帧
         }
 
+        if (epoch != _handLayoutAnimEpoch) {
+            yield break;
+        }
         // 确保最终位置准确
         for (int i = 0; i < cards.Count; i++){
             if (cards[i] != null){
@@ -431,10 +454,19 @@ public partial class GameCanvas{
     }
 
     /// <summary>
-    /// 切牌删牌：固定位置（须 tileId 一致）→ 同切型 tileId → 跨切型 tileId → 任意 tileId。
-    /// 用于对局摸切/手切；实时观战或本地理牌后 cut_tile_index 可能与服务器不一致时仍按 tileId 纠正。
+    /// 切牌删牌：本地 pending 实例 → 固定位置（须 tileId 一致）→ 同切型 tileId → 跨切型 → 任意 tileId。
     /// </summary>
     private bool TryRemoveCutHandCard(int tileId, bool isMoqie, int? cutTileIndex) {
+        // 0. 本地已发出切牌的实例（收拢改 sibling 后仍认点的那张）
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tc != null && tc.pendingLocalCut && tc.tileId == tileId) {
+                tc.pendingLocalCut = false;
+                Destroyer.Instance.AddToDestroyer(tc.transform);
+                return true;
+            }
+        }
+
         // 1. 固定位置（须 tileId 一致才删）
         if (isMoqie) {
             // 优先检查摸牌区标记牌，再检查最后一张牌（摸牌区的牌）

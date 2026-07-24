@@ -25,15 +25,15 @@ public class ConfigManager : MonoBehaviour {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            releaseVersion = 17; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 18; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
-            releaseVersion = 17;
+            releaseVersion = 18;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.73.0"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.73.2"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -67,6 +67,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_ACTION_BUTTON_COLOR_ENABLED = "ActionButtonColorEnabled";
     private const string KEY_GONG_HU_SOUND_ENABLED = "GongHuSoundEnabled";
     private const string KEY_MATCH_SUCCESS_SOUND_ENABLED = "MatchSuccessSoundEnabled";
+    private const string KEY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
@@ -103,6 +104,13 @@ public class ConfigManager : MonoBehaviour {
     public bool GongHuSoundEnabled { get; private set; }
     /// <summary>匹配成功音效：默认开启</summary>
     public bool MatchSuccessSoundEnabled { get; private set; }
+    /// <summary>3D 牌描边预设：1=标准纯黑(2/2)，2=粗深黑(3/3)，默认 1</summary>
+    public int TileOutlinePreset { get; private set; }
+
+    public static readonly string[] TileOutlinePresetLabels = {
+        "预设1",
+        "预设2",
+    };
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
     public const int WhiteDragonTileId = 46;
@@ -159,6 +167,7 @@ public class ConfigManager : MonoBehaviour {
         ActionButtonColorEnabled = PlayerPrefs.GetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, 0) == 1;
         GongHuSoundEnabled = PlayerPrefs.GetInt(KEY_GONG_HU_SOUND_ENABLED, 1) == 1;
         MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
+        TileOutlinePreset = Mathf.Clamp(PlayerPrefs.GetInt(KEY_TILE_OUTLINE_PRESET, 1), 1, 2);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
 #if UNITY_WEBGL && !UNITY_EDITOR
         TargetFrameRate = WebLockedFrameRate;
@@ -174,6 +183,7 @@ public class ConfigManager : MonoBehaviour {
 
     private void Start() {
         ApplyCameraAntialiasingByPlatform();
+        ApplyTileOutlinePreset();
     }
 
     public void SetMasterVolume(int volume) {
@@ -352,6 +362,37 @@ public class ConfigManager : MonoBehaviour {
         PlayerPrefs.Save();
     }
 
+    /// <summary>下拉索引 0/1 → 预设 1/2；默认预设 2。</summary>
+    public void SetTileOutlinePresetFromDropdown(int dropdownIndex) {
+        SetTileOutlinePreset(dropdownIndex + 1);
+    }
+
+    public void SetTileOutlinePreset(int preset) {
+        TileOutlinePreset = Mathf.Clamp(preset, 1, 2);
+        PlayerPrefs.SetInt(KEY_TILE_OUTLINE_PRESET, TileOutlinePreset);
+        PlayerPrefs.Save();
+        ApplyTileOutlinePreset();
+    }
+
+    /// <summary>
+    /// 预设1：宽2/外扩2/纯黑；预设2：宽3/外扩3/深黑。
+    /// </summary>
+    public void ApplyTileOutlinePreset() {
+        if (!TileOutline.TryGetFeature(out _)) {
+            return;
+        }
+        if (TileOutlinePreset == 1) {
+            TileOutline.SetWidth(2f);
+            TileOutline.SetExpand(2f);
+            TileOutline.SetColor(Color.black); // 纯黑
+        } else {
+            TileOutline.SetWidth(3f);
+            TileOutline.SetExpand(3f);
+            TileOutline.SetColor(new Color(0.12f, 0.12f, 0.12f, 1f)); // 深黑
+        }
+        TileOutline.Enabled = true;
+    }
+
     // 应用排序规则到 TileIdOrder，并在对局中开启自动理牌时立即按新规则重排当前手牌。
     private void ApplyHandSortRule() {
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
@@ -387,10 +428,14 @@ public class ConfigManager : MonoBehaviour {
     private static void ApplyAntialiasingByPlatform() {
         if (!(UniversalRenderPipeline.asset is UniversalRenderPipelineAsset urpAsset)) return;
 #if UNITY_ANDROID && !UNITY_EDITOR
-        urpAsset.msaaSampleCount = MsaaSampleCountDisabled;
+        int target = MsaaSampleCountDisabled;
 #else
-        urpAsset.msaaSampleCount = MsaaSampleCountHigh;
+        int target = MsaaSampleCountHigh;
 #endif
+        // 仅在值变化时写入，避免无意义脏标记触发管线重建
+        if (urpAsset.msaaSampleCount != target) {
+            urpAsset.msaaSampleCount = target;
+        }
     }
 
     private static void ApplyCameraAntialiasingByPlatform() {

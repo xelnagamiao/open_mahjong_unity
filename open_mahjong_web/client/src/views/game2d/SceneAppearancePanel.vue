@@ -1,7 +1,7 @@
 <template>
   <div class="scene-appearance-panel">
     <div class="scene-appearance-panel__header">
-      <h3 class="scene-appearance-panel__title">设置</h3>
+      <h3 class="scene-appearance-panel__title">外观</h3>
       <button type="button" class="scene-appearance-panel__ghost-button" @click="$emit('reset')">重置</button>
     </div>
 
@@ -60,8 +60,28 @@
     <div class="scene-appearance-panel__section">
       <div class="scene-appearance-panel__section-header">
         <span class="scene-appearance-panel__label">牌背覆盖色</span>
-        <button type="button" class="scene-appearance-panel__ghost-button" @click="$emit('add-cover-color')">添加颜色</button>
+        <button
+          type="button"
+          class="scene-appearance-panel__ghost-button"
+          :disabled="appearance.tileCoverColors.length >= 8"
+          @click="$emit('add-cover-color')"
+        >
+          添加颜色
+        </button>
       </div>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">牌背轮换</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.tileCoverRotateMode"
+          @change="$emit('cover-rotate-mode', $event.target.value)"
+        >
+          <option value="cycle">循环</option>
+          <option value="random">随机</option>
+          <option value="random-no-repeat">随机（两局不重复）</option>
+        </select>
+      </label>
+      <p class="scene-appearance-panel__hint">最多 8 种颜色；按局切换牌背覆盖色。</p>
       <div class="scene-appearance-panel__swatch-list">
         <div v-for="(color, index) in appearance.tileCoverColors" :key="index" class="scene-appearance-panel__swatch-row">
           <input type="color" :value="color" @input="emitCoverColor(index, $event)">
@@ -77,6 +97,32 @@
         </div>
       </div>
     </div>
+
+    <label class="scene-appearance-panel__field">
+      <span class="scene-appearance-panel__label">摸切快捷</span>
+      <select
+        class="scene-appearance-panel__select"
+        :value="appearance.moqieShortcutMode"
+        @change="$emit('moqie-shortcut', Number($event.target.value))"
+      >
+        <option :value="0">双击摸切</option>
+        <option :value="1">右键摸切</option>
+        <option :value="2">无快捷键</option>
+      </select>
+    </label>
+
+    <label class="scene-appearance-panel__field">
+      <span class="scene-appearance-panel__label">过牌快捷</span>
+      <select
+        class="scene-appearance-panel__select"
+        :value="appearance.passShortcutMode"
+        @change="$emit('pass-shortcut', Number($event.target.value))"
+      >
+        <option :value="0">右键取消</option>
+        <option :value="1">双击取消</option>
+        <option :value="2">无快捷键</option>
+      </select>
+    </label>
 
     <label class="scene-appearance-panel__field">
       <span class="scene-appearance-panel__label">补花区底框</span>
@@ -169,7 +215,8 @@ defineProps({
 const emit = defineEmits([
   'reset', 'table-color', 'outside-color', 'image-enabled', 'image-alpha',
   'image-selected', 'image-cleared', 'cover-color', 'add-cover-color',
-  'remove-cover-color', 'flower-area-display', 'flower-area-color',
+  'remove-cover-color', 'cover-rotate-mode', 'moqie-shortcut', 'pass-shortcut',
+  'flower-area-display', 'flower-area-color',
   'flower-area-alpha', 'tile-face-theme', 'flower-face-theme', 'volume',
 ])
 const fileInput = ref(null)

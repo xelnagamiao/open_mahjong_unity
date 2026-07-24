@@ -100,25 +100,24 @@ public class RankChangePanel : MonoBehaviour {
     }
 
     private IEnumerator AnimateProgress(int rankIdx, float fromScore, float toScore, float duration) {
-        var (_, startScore, promoteScore) = RankConfig.RankTable[rankIdx];
-        float range = promoteScore - startScore;
+        var (_, _, promoteScore) = RankConfig.RankTable[rankIdx];
         float elapsed = 0f;
         while (elapsed < duration) {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float currentScore = Mathf.Lerp(fromScore, toScore, t);
-            progressBar.value = range > 0 ? Mathf.Clamp01((currentScore - startScore) / range) : 0;
+            // 进度按 0 → 升段分
+            progressBar.value = promoteScore > 0 ? Mathf.Clamp01(currentScore / promoteScore) : 0;
             scoreText.text = $"{currentScore:F1}/{promoteScore}";
             yield return null;
         }
-        progressBar.value = range > 0 ? Mathf.Clamp01((toScore - startScore) / range) : 0;
+        progressBar.value = promoteScore > 0 ? Mathf.Clamp01(toScore / promoteScore) : 0;
         scoreText.text = $"{toScore:F1}/{promoteScore}";
     }
 
     private void SetProgressBar(int rankIdx, float score) {
-        var (_, startScore, promoteScore) = RankConfig.RankTable[rankIdx];
-        float range = promoteScore - startScore;
-        progressBar.value = range > 0 ? Mathf.Clamp01((score - startScore) / range) : 0;
+        var (_, _, promoteScore) = RankConfig.RankTable[rankIdx];
+        progressBar.value = promoteScore > 0 ? Mathf.Clamp01(score / promoteScore) : 0;
         scoreText.text = $"{score:F1}/{promoteScore}";
     }
 

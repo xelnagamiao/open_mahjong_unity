@@ -1,0 +1,25 @@
+# 本地隔离工作区（勿提交内容）
+
+本目录用于存放**不进 Git** 的本地临时物与密钥。根目录 `.gitignore` 已忽略除本 README 外的全部内容。
+
+## 目录约定
+
+| 路径 | 用途 |
+|---|---|
+| `secrets/` | SSH 私钥等（如 `salasasa.pem`） |
+| `deploy/` | 部署打包暂存（`*.tar.gz`、远端脚本） |
+| `tmp/` | 其它临时文件 |
+
+## 部署
+
+打包与上传请使用 `deploy/`，**不要**再使用仓库根下的 `.deploy_staging/`（已废弃，且已加入 ignore）。
+
+上传目标仍为远端 `/tmp/om_deploy/`；部署完成后可清理本目录 `deploy/` 内大文件。
+
+## SSH 示例
+
+```powershell
+ssh -i "d:\open_mahjong_unity\.om_workspace\secrets\salasasa.pem" -o IdentitiesOnly=yes root@101.132.237.2 "命令"
+```
+
+私钥 ACL 须仅当前用户可读。勿把私钥内容写入规则、提交到 git 或贴进聊天。

@@ -226,7 +226,7 @@ class GuobiaoGameState:
 
         # 如果您在管理自己规则内的分支，请不要将Debug = True 的配置上传到公共代码仓库 这一项单元配置不会得到review和测试
         # debug_scenario 见 guobiao_debug.py：
-        # chi_peng_protect（A打B吃C碰、无和，测鸣牌保护）| tactical_claim | buhua_8flowers
+        # qi_dui_tenpai_1m（东亲七对听1万）| chi_peng_protect | tactical_claim | buhua_8flowers
         self.Debug = False
         self.debug_scenario = GUOBIAO_DEBUG_SCENARIO
         self.pending_kan_hand_settle_delay = False
@@ -594,17 +594,23 @@ class GuobiaoGameState:
                     case "check_hepai":
                         logger.info(f"进入check_hepai case: hu_class={self.hu_class}, result_dict keys={list(self.result_dict.keys())}")
                         hu_score, hu_fan = self.result_dict[self.hu_class]
+                        # jiagang_tile 非空表示本次为抢杠和（和牌张取自加杠牌，非河牌）
+                        is_qianggang = self.jiagang_tile is not None
 
                         # 从 hu_fan 中获取花牌数量
                         huapai_count = sum(int(fan.split("*")[1]) for fan in hu_fan if fan.startswith("花牌*"))
                         
                         # 正确和牌则执行end程序（判断时减去花牌数量，使用可配置的起和番限制）
                         if hu_score - huapai_count >= self.hepai_limit:
-                            # 荣和确认后才写入手牌，供局终展示/牌谱；错和路径永不污染 hand_tiles
+                            # 荣和/抢杠确认后才写入手牌，供局终展示/牌谱；错和路径永不污染 hand_tiles
                             if self.hu_class in ("hu_first", "hu_second", "hu_third"):
                                 hepai_idx = self.resolve_hepai_player_index(self.hu_class)
-                                cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
-                                self.player_list[hepai_idx].hand_tiles.append(cut_tile)
+                                if is_qianggang:
+                                    hepai_tile = self.jiagang_tile
+                                    self.jiagang_tile = None
+                                else:
+                                    hepai_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+                                self.player_list[hepai_idx].hand_tiles.append(hepai_tile)
                             self.game_status = "END"
                             break
                         # 错和则执行错和程序
@@ -629,11 +635,14 @@ class GuobiaoGameState:
                                 p.original_player_index: cuohe_score_changes[p.player_index]
                                 for p in self.player_list
                             }
-                            # 荣和错和：和牌张仍在河牌，显式写入 tick，避免 resolve 误取手牌末张
+                            # 荣和错和：和牌张仍在河牌；抢杠错和：和牌张为加杠牌。均不写入手牌。
                             cuohe_hepai_tile = None
                             cuohe_display_hand = self.player_list[hepai_player_index].hand_tiles
                             if saved_hu_class in ("hu_first", "hu_second", "hu_third"):
-                                cuohe_hepai_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+                                if is_qianggang:
+                                    cuohe_hepai_tile = self.jiagang_tile
+                                else:
+                                    cuohe_hepai_tile = self.player_list[self.current_player_index].discard_tiles[-1]
                                 cuohe_display_hand = list(cuohe_display_hand) + [cuohe_hepai_tile]
                             player_action_record_hu(self, hu_class=self.hu_class, hu_score=hu_score,
                                                     hu_fan=cuohe_hu_fan, hepai_player_index=hepai_player_index,
@@ -671,7 +680,9 @@ class GuobiaoGameState:
                                                 )
                             # 与正常和牌相同：结算面板 + ready，全部确认后再恢复手牌并续局
                             await self.run_hu_result_ready_phase(len(cuohe_hu_fan))
-                            await self.apply_cuohe_resume_after_ready(hepai_player_index, saved_hu_class)
+                            await self.apply_cuohe_resume_after_ready(
+                                hepai_player_index, saved_hu_class, is_qianggang=is_qianggang
+                            )
 
                     # 如果没有匹配到
                     case _:
@@ -989,8 +1000,10 @@ class GuobiaoGameState:
         """结算展示时长内进入 waiting_ready，与正常和牌局终流程一致。"""
         await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
 
-    async def apply_cuohe_resume_after_ready(self, hepai_player_index: int, hu_class: str) -> None:
-        """错和 ready 结束后：陪打标记、回到本局继续打牌（荣和错和不改 hand_tiles）。"""
+    async def apply_cuohe_resume_after_ready(
+        self, hepai_player_index: int, hu_class: str, is_qianggang: bool = False
+    ) -> None:
+        """错和 ready 结束后：陪打标记、回到本局继续打牌（荣和/抢杠错和不改 hand_tiles）。"""
         self.player_list[hepai_player_index].tag_list.append("peida")
         await self.broadcast_refresh_player_tag_list()
 
@@ -1002,12 +1015,17 @@ class GuobiaoGameState:
             self.action_dict = check_action_hand_action(self, self.current_player_index)
             self.game_status = "waiting_hand_action"
         elif hu_class in ("hu_first", "hu_second", "hu_third"):
-            cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
-            self.action_dict = check_action_after_cut(self, cut_tile)
-            if any(self.action_dict[i] for i in self.action_dict):
-                self.game_status = "waiting_action_after_cut"
+            if is_qianggang:
+                # 抢杠错和：加杠成立，与无人抢杠相同，由加杠者摸岭上牌
+                self.jiagang_tile = None
+                self.game_status = "deal_card_after_gang"
             else:
-                self.game_status = "deal_card"
+                cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+                self.action_dict = check_action_after_cut(self, cut_tile)
+                if any(self.action_dict[i] for i in self.action_dict):
+                    self.game_status = "waiting_action_after_cut"
+                else:
+                    self.game_status = "deal_card"
         else:
             logger.error(f"错和续局未知 hu_class={hu_class}")
             self.game_status = "deal_card"

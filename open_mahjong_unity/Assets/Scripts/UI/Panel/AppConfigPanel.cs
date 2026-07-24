@@ -31,6 +31,7 @@ public class AppConfigPanel : MonoBehaviour {
     [Header("提示音效")]
     [SerializeField] private TMP_Dropdown gongHuSoundDropdown;
     [SerializeField] private TMP_Dropdown matchSuccessSoundDropdown;
+    [SerializeField] private TMP_Dropdown tileOutlinePresetDropdown;
 
     private void Awake() {
         Instance = this;
@@ -76,6 +77,9 @@ public class AppConfigPanel : MonoBehaviour {
         }
         if (matchSuccessSoundDropdown != null) {
             matchSuccessSoundDropdown.onValueChanged.AddListener(OnMatchSuccessSoundDropdownChanged);
+        }
+        if (tileOutlinePresetDropdown != null) {
+            tileOutlinePresetDropdown.onValueChanged.AddListener(OnTileOutlinePresetDropdownChanged);
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
@@ -150,6 +154,10 @@ public class AppConfigPanel : MonoBehaviour {
             matchSuccessSoundDropdown.ClearOptions();
             matchSuccessSoundDropdown.AddOptions(new List<string> { "关", "开" });
         }
+        if (tileOutlinePresetDropdown != null) {
+            tileOutlinePresetDropdown.ClearOptions();
+            tileOutlinePresetDropdown.AddOptions(new List<string>(ConfigManager.TileOutlinePresetLabels));
+        }
 #if !UNITY_WEBGL || UNITY_EDITOR
         targetFrameRateDropdown.ClearOptions();
         List<string> frameRateOptions = new List<string>();
@@ -206,6 +214,10 @@ public class AppConfigPanel : MonoBehaviour {
         if (matchSuccessSoundDropdown != null) {
             matchSuccessSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.MatchSuccessSoundEnabled ? 1 : 0);
             matchSuccessSoundDropdown.RefreshShownValue();
+        }
+        if (tileOutlinePresetDropdown != null) {
+            tileOutlinePresetDropdown.SetValueWithoutNotify(ConfigManager.Instance.TileOutlinePreset - 1);
+            tileOutlinePresetDropdown.RefreshShownValue();
         }
 #if !UNITY_WEBGL || UNITY_EDITOR
         int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
@@ -274,6 +286,10 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnMatchSuccessSoundDropdownChanged(int value) {
         ConfigManager.Instance.SetMatchSuccessSoundEnabled(value == 1);
+    }
+
+    private void OnTileOutlinePresetDropdownChanged(int value) {
+        ConfigManager.Instance.SetTileOutlinePresetFromDropdown(value);
     }
 
     private void OnLanguageDropdownChanged(int value) {

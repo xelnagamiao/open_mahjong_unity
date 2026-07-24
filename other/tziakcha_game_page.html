@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+  <meta name="viewport" content="user-scalable=no,initial-scale=1,maximum-scale=1,minimum-scale=1,width=device-width,height=device-height">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <link rel="stylesheet" href="/public/css/bootstrap.min.css">
+  <style type="text/css">
+    html{font-size:calc(14px + (100vw - 320px) / 400);}
+    .table th,.table td{text-align:center;vertical-align:middle;padding:5px 0px 5px 0px;border:1px solid #555;}
+    .row{padding-top:10px;padding-bottom:10px;}
+    .w{color:#fe576e !important;}
+    .c{color:#2c79b2 !important;}
+    .n{color:#319b1c !important;}
+    .f{color:#B676E2 !important;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 class="text-center" id="title"></h2>
+    <div class="row">
+      <div class="col-md-1 col-lg-2"></div>
+      <div class="col-sm-12 col-md-10 col-lg-8">
+        <h6 id="cfg"></h6>
+        <h6 id="st"></h6>
+        <h6 id="et"></h6>
+        <h6 id="dt"></h6>
+        <div id="mps" style="width:100%;height:25em;"></div>
+        <div class="table-responsive">
+          <table class="table" style="border-collapse:collapse;table-layout:fixed;">
+            <tr>
+              <th class="bg-secondary text-light" style="width:16%;">éæå§å</th>
+              <td class="bg-secondary text-light" colspan="2" name="nm" style="width:21%;"></td>
+              <td class="bg-secondary text-light" colspan="2" name="nm" style="width:21%;"></td>
+              <td class="bg-secondary text-light" colspan="2" name="nm" style="width:21%;"></td>
+              <td class="bg-secondary text-light" colspan="2" name="nm" style="width:21%;"></td>
+            </tr>
+            <tr>
+              <th>å¼å±åº§ä½</th>
+              <td colspan="2">ä¸</td>
+              <td colspan="2">å</td>
+              <td colspan="2">è¥¿</td>
+              <td colspan="2">å</td>
+            </tr>
+            <tr>
+              <th>æ¯ååº§ä½</th>
+              <td colspan="2">ä¸-å-å-è¥¿</td>
+              <td colspan="2">å-ä¸-è¥¿-å</td>
+              <td colspan="2">è¥¿-å-ä¸-å</td>
+              <td colspan="2">å-è¥¿-å-ä¸</td>
+            </tr>
+            <tr>
+              <th class="bg-secondary text-light">çåº</th>
+              <td class="bg-secondary text-light">å¾å</td>
+              <td class="bg-secondary text-light">ç´¯è®¡</td>
+              <td class="bg-secondary text-light">å¾å</td>
+              <td class="bg-secondary text-light">ç´¯è®¡</td>
+              <td class="bg-secondary text-light">å¾å</td>
+              <td class="bg-secondary text-light">ç´¯è®¡</td>
+              <td class="bg-secondary text-light">å¾å</td>
+              <td class="bg-secondary text-light">ç´¯è®¡</td>
+            </tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr name="rdtr"></tr>
+            <tr>
+              <th class="bg-secondary text-light">åè®¡</th>
+              <td class="bg-secondary text-light" colspan="2" name="mp"></td>
+              <td class="bg-secondary text-light" colspan="2" name="mp"></td>
+              <td class="bg-secondary text-light" colspan="2" name="mp"></td>
+              <td class="bg-secondary text-light" colspan="2" name="mp"></td>
+            </tr>
+            <tr>
+              <th class="bg-secondary text-light">åæ¬¡</th>
+              <td class="bg-secondary text-light" colspan="2" name="rk"></td>
+              <td class="bg-secondary text-light" colspan="2" name="rk"></td>
+              <td class="bg-secondary text-light" colspan="2" name="rk"></td>
+              <td class="bg-secondary text-light" colspan="2" name="rk"></td>
+            </tr>
+            <tr>
+              <th class="bg-secondary text-light">æ åå</th>
+              <td class="bg-secondary text-light" colspan="2" name="ns"></td>
+              <td class="bg-secondary text-light" colspan="2" name="ns"></td>
+              <td class="bg-secondary text-light" colspan="2" name="ns"></td>
+              <td class="bg-secondary text-light" colspan="2" name="ns"></td>
+            </tr>
+            <tr id="elo0s">
+              <th class="bg-secondary text-light">åå§ELO</th>
+              <td class="bg-secondary text-light" colspan="2" name="elo0"></td>
+              <td class="bg-secondary text-light" colspan="2" name="elo0"></td>
+              <td class="bg-secondary text-light" colspan="2" name="elo0"></td>
+              <td class="bg-secondary text-light" colspan="2" name="elo0"></td>
+            </tr>
+            <tr id="elo_chg" style="display:none;">
+              <th class="bg-secondary text-light">ELOåå¨</th>
+              <td class="bg-secondary text-light" colspan="2" name="elo1"></td>
+              <td class="bg-secondary text-light" colspan="2" name="elo1"></td>
+              <td class="bg-secondary text-light" colspan="2" name="elo1"></td>
+              <td class="bg-secondary text-light" colspan="2" name="elo1"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/public/js/echarts.min.js"></script>
+  <script src="/public/js/tz-common.js"></script>
+  <script>
+    var WIND=['ä¸','å','è¥¿','å'];
+    var RANK=['ä¸','äº','ä¸','å'];
+    var MF12=['','\u0020\u00B9\u2044\u2081\u2082','\u2159','\u00bc','\u2153','\u0020\u2075\u2044\u2081\u2082','\u00bd','\u0020\u2077\u2044\u2081\u2082','\u2154','\u00be','\u215a','\u0020\u00B9\u00B9\u2044\u2081\u2082'];
+    function fmt_cfg(g){
+      var s='éç½®ï¼';
+      s+=g['n']+'ç | '+g['l']+'çª (' + g['b'] + ') | '+fmt_tl(g['r0'],g['r1'],g['e'],g['lt'])+' | ';
+      s+='å¤©å°äººå '+((g['bl'])?'\u2713':'\u2715')+' | ';
+      s+='ææ¯é¸£ç '+((g['s'])?'\u2713':'\u2715')+' | ';
+      s+='æç '+(g['o']?'\u2713':'\u2715')+' | ';
+      s+='éå é¸£ç '+(g['d']?'\u2713':'\u2715');
+      s+=(g['z'])?' -30/+10 | ':' -40/+0 | ';
+      s+=(g['r'])?'éæºåº§ä½':'åºå®åº§ä½';
+      return s;
+    }
+    function esc_ti(s){
+      if(s.length===0)return '';
+      return s.replace(/[\u2000-\u200f]/g,'???')
+        .replace(/[\u202a-\u202f]/g,'???')
+        .replace(/[\u205f-\u206f]/g,'???')
+        .replace(/[\u2800\u3000\u3164\ufeff\uffa0\ufffc]/g,'???');
+    }
+    function calc_rk(mp){
+      var rks=[0,0,0,0];
+      var i,j;
+      for(i=0;i<4;++i){
+        for(j=0;j<4;++j){
+          if(i==j)continue;
+          if(mp[i]<mp[j])++rks[i];
+        }
+      }
+      return rks;
+    }
+    function nmtxt(n){
+      var q=0,r=n;
+      while(r>=12){
+        r-=12;
+        ++q;
+      }
+      return n?(q?q:'')+MF12[r]:'0';
+    }
+    function calc_ns(rk){
+      var ns=['','','',''],rc=[0,0,0,0],nst=[48,24,12,0],i,r,t,n,s;
+      for(i=0;i<4;++i){
+        ++rc[rk[i]];
+      }
+      for(i=0;i<4;++i){
+        r=rk[i];
+        t=rc[r];
+        s=nst[r];
+        for(n=1;n<t;++n){
+          s+=nst[r+n];
+        }
+        s/=t;
+        ns[i]=nmtxt(s);
+      }
+      return ns;
+    }
+    function calc_rs(v,b){
+      var a=[0,0,0,0];
+      var f=v>>16,w,c,i,s,t;
+      if(f){
+        for(i=0;i<4;++i){
+          if(v&(1<<i))w=i;
+          if(v&(1<<(i+4)))c=i;
+        }
+        if(w!==c){
+          s=-b;
+          for(i=0;i<4;++i){
+            if(i===w)a[i]=f+b*3;
+            else if(i===c)a[i]=s-f;
+            else a[i]=s;
+          }
+        }
+        else{
+          s=b+f;
+          t=s*3;
+          s=-s;
+          for(i=0;i<4;++i){
+            a[i]=i!==w?s:t;
+          }
+        }
+      }
+      return a;
+    }
+    function calc_rp(v,z){
+      var a=[0,0,0,0];
+      var i,c=0,t;
+      for(i=0;i<4;++i){
+        if(v&(1<<(i+8))){
+          a[i]=-40;
+          ++c;
+        }
+      }
+      if(z&&c){
+        t=c*10;
+        for(i=0;i<4;++i){
+          a[i]+=t;
+        }
+      }
+      return a;
+    }
+    function getodfun(){
+      var i;
+      try{
+        i=JSON.parse(localStorage.getItem('TZGame')||{})['period']||0;
+      }catch(e){
+        console.error(e);
+      }
+      return i===1?function(i){return WIND[i>>2]+'\x20'+((i&3)+1);}:(i===2?function(i){return ''+(i+1)+'\x20'+WIND[i>>2];}:function(i){return WIND[i>>2]+'é£'+WIND[i&3];});
+    }
+    function ursdtl(u){
+      return (u['a']&2?'\u2605\x20':'')+esc_ti(u['n']);
+    }
+    function setup(data){
+      var cfg=data['g'],st=data['st'],et=data['et'];
+      document.getElementById('title').innerText=document.title=esc_ti(cfg['t']);
+      document.getElementById('cfg').innerText=fmt_cfg(cfg);
+      document.getElementById('st').innerText='å¼å§æ¶é´ï¼'+fmt_date(new Date(st),1);
+      document.getElementById('et').innerText='ç»ææ¶é´ï¼'+fmt_date(new Date(et),1);
+      document.getElementById('dt').innerText='ç¨æ¶ï¼'+fmt_dt(parseInt(et/1000)-parseInt(st/1000));
+      var trs=document.getElementsByName('rdtr'),
+      gi=cfg['i'],bs=cfg['b'],z=cfg['z'],rds=data['rd'],mp=[gi,gi,gi,gi],
+      xa=[],xv=[[],[],[],[]],odfun=getodfun();
+      if(typeof(bs)==='undefined')bs=8;
+      var i,cnt1,cnt2,rd,hd,ss,rv,rs,rp,k,s;
+      for(i=0,cnt1=trs.length,cnt2=rds.length;i<cnt1;++i){
+        if(i<cnt2){
+          rd=rds[i];
+          hd=odfun(i);
+          xa.push(hd);
+          ss='<td><a href="/record/?id='+rd['i']+'" target="_blank">'+hd+'</a></td>';
+          rv=rd['s'];
+          rs=calc_rs(rv,bs),rp=calc_rp(rv,z);
+          if(rv>>16){
+            for(k=0;k<4;++k){
+              s=rs[k]+rp[k];
+              mp[k]+=s;
+              xv[k].push(mp[k]);
+              ss+='<td class='+(!(rv&(1<<(k+8)))?(!(rv&(1<<k))?(!(rv&(1<<(k+4)))?'"n"':'"c"'):'"w"'):'"f"')+'>'+(s)+'</td><td>'+(mp[k])+'</td>';
+            }
+          }
+          else{
+            for(k=0;k<4;++k){
+              mp[k]+=rp[k];
+              xv[k].push(mp[k]);
+              ss+='<td'+(!(rv&(1<<(k+8)))?'':' class="f"')+'>'+(rp[k])+'</td><td>'+(mp[k])+'</td>';
+            }
+          }
+          trs[i].innerHTML=ss;
+        }
+      }
+      var usrs=data['u'];
+      var nms=document.getElementsByName('nm');
+      var mps=document.getElementsByName('mp');
+      var rks=document.getElementsByName('rk');
+      var nss=document.getElementsByName('ns');
+      var rkt=calc_rk(mp);
+      var nsk=calc_ns(rkt);
+      var elo=document.getElementsByName('elo0');
+      for(k=0;k<4;++k){
+        nms[k].innerText=ursdtl(usrs[k]);
+        mps[k].innerText=mp[k];
+        rks[k].innerText=RANK[rkt[k]];
+        nss[k].innerText=nsk[k];
+        elo[k].innerText=usrs[k]['e'];
+      }
+      var ev=[usrs[0]['d'],usrs[1]['d'],usrs[2]['d'],usrs[3]['d']];
+      if(ev[0]||ev[1]||ev[2]||ev[3]){
+        document.getElementById('elo_chg').style.display='';
+        elo=document.getElementsByName('elo1');
+        for(k=0;k<4;++k){
+          elo[k].innerText=ev[k];
+        }
+      }else{
+        document.getElementById('elo_chg').style.display='none';
+      }
+      var colorPalette=[
+        '#dc69aa','#9a7fd1','#588dd5','#07a2a4'
+      ];
+      var mpChart=echarts.init(document.getElementById('mps'),{
+        color:colorPalette,
+        graph:{
+          color:colorPalette
+        }
+      });
+      mpChart.setOption({
+        title:{
+          text:'æ¯èµåèµ°å¿',
+          x:'center',
+        },
+        grid:{
+          top:80,
+          left:45,
+          right:45,
+          bottom:65
+        },
+        legend:{
+          padding:[35,0]
+        },
+        tooltip:{
+          trigger:'axis',
+        },
+        toolbox:{
+          show:true,
+          feature:{
+            saveAsImage:{show:true}
+          }
+        },
+        xAxis:[
+          {
+            type:'category',
+            axisLabel:{rotate:45},
+            boundaryGap:false,
+            name:'çåº',
+            axisLine:{onZero:false},
+            data:xa
+          }
+        ],
+        yAxis:[
+          {
+            type:'value',
+            name:'æ¯èµå',
+            scale:true,
+            minInterval:1
+          }
+        ],
+        series:[
+          {
+            name:'ä¸ï¼'+ursdtl(usrs[0]),
+            type:'line',
+            itemStyle:{
+              normal:{
+                label:{
+                  show:true,
+                }
+              }
+            },
+            data:xv[0]
+          },{
+            name:'åï¼'+ursdtl(usrs[1]),
+            type:'line',
+            itemStyle:{
+              normal:{
+                label:{
+                  show:true,
+                }
+              }
+            },
+            data:xv[1]
+          },{
+            name:'è¥¿ï¼'+ursdtl(usrs[2]),
+            type:'line',
+            itemStyle:{
+              normal:{
+                label:{
+                  show:true,
+                }
+              }
+            },
+            data:xv[2]
+          },{
+            name:'åï¼'+ursdtl(usrs[3]),
+            type:'line',
+            itemStyle:{
+              normal:{
+                label:{
+                  show:true,
+                }
+              }
+            },
+            data:xv[3]
+          }
+        ]
+      });
+      window.onresize=mpChart.resize;
+    }
+    function cvt_json(json){
+      var g=parse_cfg(json['cfg']);
+      g['t']=json['title'];
+      g['i']=json['initial'];
+      g['n']=json['periods'];
+      return{'g':g,'rd':json['records'],'u':json['players'],'st':parseInt(json['start_time']),'et':parseInt(json['finish_time']),'elo':[json['elo0'],json['elo1'],json['elo2'],json['elo3']]};
+    }
+    (function(){
+      fetch('/_qry/game/'+window.location.search,{
+        method:'POST',
+        credentials:'include'
+      })
+      .then(function(resp){
+        return resp.json();
+      })
+      .then(function(json){
+        setup(cvt_json(json));
+      })
+      .catch(function(e){
+        console.log(e);
+      });
+    })();
+  </script>
+</body>
+</html>

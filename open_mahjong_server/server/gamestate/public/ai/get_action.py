@@ -224,9 +224,11 @@ async def get_action(game_state, player_id: str, action_type: str, cutClass: boo
         # 战术鸣牌防过期：在切牌后询问 / 抢杠询问阶段，客户端会回传本轮询问的 action_tick。
         # 若与当前询问帧不一致，说明这是上一轮询问的延迟到达提交（如战术鸣牌开启前点的取消/碰），予以丢弃，
         # 避免错误地消费掉本轮战术抢断（如战术碰断别人吃）的机会。
+        # 定缺不走战术帧语义：waiting_dingque / dingque 豁免，避免旧 LastAskActionTick 把定缺打掉导致整桌空等到超时。
         if (
             action_tick is not None
-            and game_state.game_status != "waiting_ready"
+            and game_state.game_status not in ("waiting_ready", "waiting_dingque")
+            and action_type != "dingque"
             and action_tick != getattr(game_state, "server_action_tick", action_tick)
         ):
             logger.info(
