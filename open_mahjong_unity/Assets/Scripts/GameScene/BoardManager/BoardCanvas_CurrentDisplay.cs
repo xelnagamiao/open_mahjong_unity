@@ -4,11 +4,14 @@ using UnityEngine.UI;
 
 public partial class BoardCanvas {
 
+    string shownCurrentPlayer;
+
     public void ResetForExit() {
         CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
         CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardScoreDifference);
         isShowingScoreDifference = false;
         RestoreBaselineScores();
+        shownCurrentPlayer = null;
 
         player_self_current_image.gameObject.SetActive(false);
         player_left_current_image.gameObject.SetActive(false);
@@ -17,6 +20,10 @@ public partial class BoardCanvas {
     }
 
     public void ShowCurrentPlayer(string currentPlayerIndex, int remainTiles){
+        remiansTilesText.text = $"余:{remainTiles}";
+        if (currentPlayerIndex == shownCurrentPlayer) return;
+        shownCurrentPlayer = currentPlayerIndex;
+
         CoroutineManager.Instance.StopNamed(CoroutineKeys.BoardCurrentFlash);
         player_self_current_image.gameObject.SetActive(false);
         player_left_current_image.gameObject.SetActive(false);
@@ -48,8 +55,6 @@ public partial class BoardCanvas {
             FlashImage(targetImage),
             restartIfRunning: true
         );
-
-        remiansTilesText.text = $"余:{remainTiles}";
     }
 
     private IEnumerator FlashImage(Image image) {

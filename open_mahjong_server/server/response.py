@@ -100,7 +100,6 @@ class Ask_hand_action_info(BaseModel):
     action_tick: int
     dealer_index: Optional[int] = None  # 本局庄家座位，供开局补花结束后恢复 playindex
     opening_buhua_complete: Optional[bool] = None  # 本条询问是开局补花轮后的庄家首操作
-    wait_data: Optional[Dict[str, object]] = None  # 国标和牌提示（MMCR waits/waits_all）
     forced_cut_tiles: Optional[List[int]] = None
     # 立直麻将：可立直切牌候选 {tile_id: [waiting_tile, ...]}，仅当 action_list 含 riichi_cut 时下发
     riichi_candidate_cuts: Optional[Dict[int, List[int]]] = None

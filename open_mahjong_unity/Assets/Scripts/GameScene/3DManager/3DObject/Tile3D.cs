@@ -1,17 +1,22 @@
 using UnityEngine;
-using UnityEngine.U2D;
 
 /// <summary>
 /// 3D麻将牌组件
-/// 负责管理3D卡牌的纹理和材质属性
+/// 负责管理3D卡牌的纹理和材质属性，以及方案 B ObjectID 描边编号。
 /// </summary>
 public class Tile3D : MonoBehaviour
 {
+    private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
+    private static readonly int OutlineIdProp = Shader.PropertyToID("_OutlineId");
+
     private Renderer cardRenderer;
     private Material targetMaterial;
     private int currentTileId = -1;
     private int currentPoolTileId = -1;
     private MaterialPropertyBlock propBlock;
+    private int outlineId;
+    private Vector4 frontTilingOffset = new Vector4(1f, 1f, 0f, 0f);
+    private bool hasFrontTilingOffset;
 
     /// <summary>立直横置标记：用于河中后续牌偏移计算与重连/牌谱重建。
     /// 仅 SetType="Discard" 路径会写入；归还对象池时由 MahjongObjectPool 重置。</summary>
@@ -102,6 +107,16 @@ public class Tile3D : MonoBehaviour
         InitializeComponents();
     }
 
+    private void OnEnable() {
+        InitializeComponents();
+        AcquireOutlineId();
+        ApplyPropertyBlock();
+    }
+
+    private void OnDisable() {
+        ReleaseOutlineId();
+    }
+
     /// <summary>
     /// 初始化组件（可在Awake或需要时手动调用，用于处理SetActive(false)的对象）
     /// </summary>
@@ -110,21 +125,72 @@ public class Tile3D : MonoBehaviour
             return;
         }
 
-        const int outlineLayer = 10;
-        gameObject.layer = outlineLayer;
+        const int tileLayer = 10;
+        // Layer 10：ObjectID 描边过滤 + peek 物理
+        SetLayerRecursively(gameObject, tileLayer);
 
         cardRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>();
         if (cardRenderer == null) return;
-        for (int i = 0; i < cardRenderer.materials.Length; i++) {
-            if (cardRenderer.materials[i].shader.name == "Custom/ThreeDTiles") {
-                targetMaterial = cardRenderer.materials[i];
+
+        Material[] shared = cardRenderer.sharedMaterials;
+        int threeDTilesIndex = -1;
+        for (int i = 0; i < shared.Length; i++) {
+            Material sharedMat = shared[i];
+            if (sharedMat != null && sharedMat.shader != null
+                && sharedMat.shader.name == "Custom/ThreeDTiles") {
+                threeDTilesIndex = i;
                 break;
             }
+        }
+        if (threeDTilesIndex >= 0) {
+            targetMaterial = cardRenderer.materials[threeDTilesIndex];
         }
 
         if (propBlock == null) {
             propBlock = new MaterialPropertyBlock();
         }
+    }
+
+    private static void SetLayerRecursively(GameObject obj, int layer) {
+        obj.layer = layer;
+        Transform root = obj.transform;
+        for (int i = 0; i < root.childCount; i++) {
+            SetLayerRecursively(root.GetChild(i).gameObject, layer);
+        }
+    }
+
+    private void AcquireOutlineId() {
+        if (outlineId > 0) return;
+        outlineId = TileOutlineIdAllocator.Acquire();
+    }
+
+    private void ReleaseOutlineId() {
+        if (outlineId <= 0) return;
+        TileOutlineIdAllocator.Release(outlineId);
+        outlineId = 0;
+        if (cardRenderer != null && propBlock != null) {
+            propBlock.Clear();
+            if (hasFrontTilingOffset) {
+                propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
+            }
+            propBlock.SetFloat(OutlineIdProp, 0f);
+            cardRenderer.SetPropertyBlock(propBlock);
+        }
+    }
+
+    private void ApplyPropertyBlock() {
+        if (cardRenderer == null) return;
+        if (propBlock == null) {
+            propBlock = new MaterialPropertyBlock();
+        }
+        propBlock.Clear();
+        if (hasFrontTilingOffset) {
+            propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
+        }
+        if (outlineId > 0) {
+            propBlock.SetFloat(OutlineIdProp, outlineId);
+        }
+        cardRenderer.SetPropertyBlock(propBlock);
     }
 
     /// <summary>
@@ -134,6 +200,7 @@ public class Tile3D : MonoBehaviour
     /// </summary>
     public void SetCardSprite(int tileId, Sprite sprite, float verticalStretch = 1f) {
         InitializeComponents();
+        if (targetMaterial == null || cardRenderer == null || sprite == null) return;
 
         currentTileId = tileId;
         currentPoolTileId = tileId;
@@ -147,25 +214,24 @@ public class Tile3D : MonoBehaviour
         float offsetX = uvRect.x / atlasTexture.width;
         float offsetY = uvRect.y / atlasTexture.height;
 
-        // 牌面上下拉伸：采样更小的垂直区域并拉伸显示
         if (verticalStretch > 1f) {
             float origTilingY = tilingY;
             tilingY /= verticalStretch;
             offsetY += origTilingY * (1f - 1f / verticalStretch) * 0.5f;
         }
 
-        // 为了让纹理向左旋转 90°（逆时针），对 UV 坐标做变换
         float newTilingX = tilingY;
         float newTilingY = tilingX;
         float newOffsetX = 1f - (offsetY + tilingY);
         float newOffsetY = offsetX;
 
-        propBlock.SetVector("_FrontTilingOffset", new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY));
-        cardRenderer.SetPropertyBlock(propBlock);
-
-    // 可选：调试日志，方便确认
-    // Debug.Log($"[Tile {tileId}] 逆时针90° tiling: {newTilingX:F4}, {newTilingY:F4} | offset: {newOffsetX:F4}, {newOffsetY:F4}");
-}
+        frontTilingOffset = new Vector4(newTilingX, newTilingY, newOffsetX, newOffsetY);
+        hasFrontTilingOffset = true;
+        if (isActiveAndEnabled && outlineId <= 0) {
+            AcquireOutlineId();
+        }
+        ApplyPropertyBlock();
+    }
 
     /// <summary>
     /// 获取当前牌的ID
@@ -193,6 +259,7 @@ public class Tile3D : MonoBehaviour
     /// 获取目标材质（用于Card3DHoverManager访问材质属性）
     /// </summary>
     public Material GetMaterial() {
+        InitializeComponents();
         return targetMaterial;
     }
 }

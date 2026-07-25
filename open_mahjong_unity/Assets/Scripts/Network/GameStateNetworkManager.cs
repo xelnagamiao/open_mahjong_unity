@@ -162,9 +162,13 @@ public class GameStateNetworkManager : MonoBehaviour {
 
     /// <summary>
     /// 四川麻将：处理定缺询问。仅本人收到该消息时弹出定缺面板（10 秒倒计时，超时自动选手牌最少花色）。
+    /// 必须同步 LastAskActionTick，否则 SendAction("dingque") 会因旧 tick 被服务端丢弃，表现为定缺卡死。
     /// </summary>
     private void HandleDingqueAsk(Response response) {
         Debug.Log($"收到定缺询问: {response.ask_hand_action_info}");
+        if (response.ask_hand_action_info != null) {
+            NormalGameStateManager.Instance.LastAskActionTick = response.ask_hand_action_info.action_tick;
+        }
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
         if (GameRecordManager.Instance.IsSpectating) return;
         GameCanvas.Instance.ClearActionButton();

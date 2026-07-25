@@ -52,10 +52,10 @@ public partial class Game3DManager {
         mainPositions = new List<Vector3>(mainCount);
         Vector3 dir = direction.normalized;
         for (int i = 0; i < mainCount; i++) {
-            mainPositions.Add(startPos + dir * widthSpacing * i);
+            mainPositions.Add(startPos + dir * cardWidth * i);
         }
         if (hasDraw) {
-            float drawOffset = widthSpacing * mainCount + widthSpacing * RecordDrawSlotGapFactor;
+            float drawOffset = cardWidth * mainCount + cardWidth * RecordDrawSlotGapFactor;
             drawPosition = startPos + dir * drawOffset;
         } else {
             drawPosition = null;
@@ -158,7 +158,7 @@ public partial class Game3DManager {
             }
         }
         Vector3 startPos = showCards.position;
-        float drawOffset = widthSpacing * mainCount + widthSpacing * RecordDrawSlotGapFactor;
+        float drawOffset = cardWidth * mainCount + cardWidth * RecordDrawSlotGapFactor;
         return startPos + direction.normalized * drawOffset;
     }
 
@@ -192,7 +192,7 @@ public partial class Game3DManager {
         List<Vector3> targetPositions = new List<Vector3>(allCards.Count);
         Vector3 dir = direction.normalized;
         for (int i = 0; i < allCards.Count; i++) {
-            targetPositions.Add(startPos + dir * widthSpacing * i);
+            targetPositions.Add(startPos + dir * cardWidth * i);
         }
 
         yield return StartCoroutine(Animate3DCardsToPositions(allCards, targetPositions, showCardsPosition));

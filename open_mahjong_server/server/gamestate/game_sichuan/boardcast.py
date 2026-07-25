@@ -31,8 +31,14 @@ from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_r
 logger = logging.getLogger(__name__)
 
 
-async def _send_ask_response_to_viewer(self, viewer_index: int, response) -> None:
-    from ..public.outbound_pipe import send_to_viewer
+async def _send_ask_response_to_viewer(
+    self, viewer_index: int, response, *, block: bool = True
+) -> None:
+    """经 outbound_pipe 发送 ask。
+
+    block=True：await（当前行动者）；block=False：仅 schedule（旁观不拖主循环）。
+    """
+    from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
 
     current_player = self.player_list[viewer_index]
     if current_player.user_id not in self.game_server.user_id_to_connection:
@@ -48,7 +54,10 @@ async def _send_ask_response_to_viewer(self, viewer_index: int, response) -> Non
         await self.send_to_realtime_spectators(viewer_index, response)
         note_ask_delivered(self, viewer_index)
 
-    await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
+    if block:
+        await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
+    else:
+        schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
 
 
 def _build_players_info(self, viewer_user_id: Optional[int]):
@@ -153,7 +162,8 @@ async def broadcast_dingque_ask(self):
                 if self.action_dict.get(i, []):
                     asyncio.create_task(_auto_dingque(self, i))
                 continue
-            if current_player.user_id in (0, 2):
+            # 机器人 user_id < 10 整段自动定缺（与国标/长沙等规则一致）
+            if current_player.user_id < 10:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(_auto_dingque(self, i))
                 continue
@@ -191,7 +201,7 @@ async def broadcast_dingque_done(self):
     player_to_dingque = {p.player_index: getattr(p, 'dingque_suit', 0) for p in self.player_list}
     for current_player in self.player_list:
         try:
-            if "offline" in current_player.tag_list or current_player.user_id == 0:
+            if "offline" in current_player.tag_list or current_player.user_id < 10:
                 continue
             if current_player.user_id in self.game_server.user_id_to_connection:
                 player_conn = self.game_server.user_id_to_connection[current_player.user_id]
@@ -212,12 +222,18 @@ async def broadcast_dingque_done(self):
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     begin_ask_round(self)
-    for i, current_player in enumerate(self.player_list):
+    # 当前行动者优先 await；其余座位 schedule，避免 post_gap/延迟鸣牌卡住出牌权
+    seat_order = [self.current_player_index] + [
+        i for i in range(len(self.player_list)) if i != self.current_player_index
+    ]
+    for i in seat_order:
+        current_player = self.player_list[i]
         try:
             if "offline" in current_player.tag_list:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(offline_auto_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
+            # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
@@ -225,6 +241,13 @@ async def broadcast_ask_hand_action(self):
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
+                continue
+            elif current_player.user_id < 10:
+                if self.action_dict.get(i, []):
+                    logger.warning(
+                        f"未知保留机器人 user_id={current_player.user_id}，按摸切机器人处理 seat={i}"
+                    )
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], bot_ask_hand_game_status(self, i)))
                 continue
             response = Response(
                 type="gamestate/sichuan/broadcast_hand_action", success=True,
@@ -237,7 +260,8 @@ async def broadcast_ask_hand_action(self):
                     action_tick=self.server_action_tick,
                 ),
             )
-            await _send_ask_response_to_viewer(self, i, response)
+            is_actor = i == self.current_player_index
+            await _send_ask_response_to_viewer(self, i, response, block=is_actor)
         except Exception as e:
             logger.error(f"四川 ask_hand 广播失败 {current_player.user_id}: {e}")
     if hasattr(self, 'spectator_manager'):
@@ -247,6 +271,9 @@ async def broadcast_ask_hand_action(self):
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
     cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
+    # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
+    if is_tactical_recheck:
+        self._waiting_action_tick = self.server_action_tick
     begin_ask_round(self)
     for i, current_player in enumerate(self.player_list):
         try:
@@ -254,6 +281,7 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                 if self.action_dict.get(i, []):
                     asyncio.create_task(offline_auto_action(self, i, self.action_dict[i], self.game_status))
                 continue
+            # 机器人 user_id < 10 整段视为机器人，分发对应 AI
             if current_player.user_id == 0:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
@@ -261,6 +289,13 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
             elif current_player.user_id == 2:
                 if self.action_dict.get(i, []):
                     asyncio.create_task(smart_bot_action(self, i, self.action_dict[i], self.game_status))
+                continue
+            elif current_player.user_id < 10:
+                if self.action_dict.get(i, []):
+                    logger.warning(
+                        f"未知保留机器人 user_id={current_player.user_id}，按摸切机器人处理 seat={i}"
+                    )
+                    asyncio.create_task(auto_cut_action(self, i, self.action_dict[i], self.game_status))
                 continue
             remaining_time_for_player = (
                 remaining_time_override if remaining_time_override is not None else current_player.remaining_time

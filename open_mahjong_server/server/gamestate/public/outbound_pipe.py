@@ -5,8 +5,9 @@
 - 非受保护观众 / delay=0：入队后可 await 本条完成；
 - 受保护观众的鸣牌/申请：入队 delay=gap1，主循环不 await；
 - 实际鸣牌后再标记第二追赶：该观众下一条消息 delay=gap2；
-- ask_hand / ask_other 也走管道，排在延迟表现帧之后；计时按送达起算（ask_timing）。
-- 同一观众后续消息（含下一手 cut / show_result）也走管道，自然排在 delayed 帧之后。
+- ask_hand：当前行动者 await 发送；其余座位 schedule 入队（可带 post_gap），
+  避免串行 await 旁观者管道拖住吃碰后的出牌权；计时按送达起算（ask_timing）。
+- ask_other 与同一观众后续消息（含下一手 cut / show_result）也走管道，自然排在 delayed 帧之后。
 """
 from __future__ import annotations
 

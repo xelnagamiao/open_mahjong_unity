@@ -3,25 +3,36 @@
 使用前须在 GuobiaoGameState.__init__ 中将 self.Debug = True。
 
 场景：
+- qi_dui_tenpai_1m — 东亲（seat0）七对听 1 万：14 张=六对+孤张1万+废张9万；打出 9 万后听 11
 - chi_peng_protect — 鸣牌保护测试：A 首打 8 万，B 能吃、C 能碰、无人能和；真人固定 seat3
 - tactical_claim   — 战鸣/旧保护测试（亲家首打 8 万；C 可荣和，保护会因和牌关闭）
 - buhua_8flowers   — 仅 seat1 起手 1 张花；补花/首打从上家(seat0)开始
 """
 
 # 切换调试场景：改此常量即可
-GUOBIAO_DEBUG_SCENARIO = "chi_peng_protect"
+GUOBIAO_DEBUG_SCENARIO = "tactical_claim"
 
-DEBUG_SCENARIOS = ("chi_peng_protect", "tactical_claim", "buhua_8flowers")
+DEBUG_SCENARIOS = (
+    "qi_dui_tenpai_1m",
+    "chi_peng_protect",
+    "tactical_claim",
+    "buhua_8flowers",
+)
 
-# buhua_8flowers：真人固定 seat1；chi_peng_protect：真人固定 seat3（受保护观众）
+# 真人固定座位；未列出的场景不旋转（保持进房顺序）
 DEBUG_SELF_PLAYER_INDEX_BY_SCENARIO = {
+    "qi_dui_tenpai_1m": 0,  # 东 / 亲家
     "buhua_8flowers": 1,
     "chi_peng_protect": 3,
 }
 DEBUG_START_PLAYER_INDEX = 0
 
-# 亲家首打 8 万（17）
+# 亲家首打 8 万（17）— chi_peng_protect / tactical_claim
 _CLAIM_DISCARD_TILE = 17
+# 七对听牌目标：1 万
+_QI_DUI_WAIT_TILE = 11
+# 庄家开局多出的废张：打出后进入七对听 1 万
+_QI_DUI_JUNK_TILE = 19
 
 
 def resolve_debug_scenario(game_state) -> str:
@@ -67,8 +78,50 @@ def apply_guobiao_debug_hands(game_state) -> None:
         _apply_buhua_8flowers(game_state.player_list)
     elif scenario == "chi_peng_protect":
         _apply_chi_peng_protect(game_state.player_list)
+    elif scenario == "qi_dui_tenpai_1m":
+        _apply_qi_dui_tenpai_1m(game_state.player_list)
     else:
         _apply_tactical_claim(game_state.player_list)
+
+
+def prepare_debug_wall(game_state) -> None:
+    """发牌扣山后的牌山微调（仅部分场景）。"""
+    if resolve_debug_scenario(game_state) != "qi_dui_tenpai_1m":
+        return
+    # 剩余 1 万尽量顶到牌山前部，便于摸进自摸测听
+    wall = game_state.tiles_list
+    ones = [t for t in wall if t == _QI_DUI_WAIT_TILE]
+    rest = [t for t in wall if t != _QI_DUI_WAIT_TILE]
+    game_state.tiles_list[:] = ones + rest
+
+
+def _apply_qi_dui_tenpai_1m(player_list) -> None:
+    """东亲（seat0）七对听 1 万。
+
+    庄家 14 张 = 六对 + 孤张 1 万(11) + 废张 9 万(19)。
+    打出 19 后：6 对 + 单 11 → 听 11。
+    seat1 带一张 11，便于打出给庄家荣和；牌山剩余 11 顶前（见 prepare_debug_wall）。
+    """
+    wait = _QI_DUI_WAIT_TILE
+    junk = _QI_DUI_JUNK_TILE
+    # 东 / 亲家：12,12 13,13 14,14 15,15 16,16 17,17 + 11 + 19
+    player_list[0].hand_tiles = [
+        wait,
+        12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17,
+        junk,
+    ]
+    # 南：一张 11 可打出；其余饼子面子型，避免再占万子对子
+    player_list[1].hand_tiles = [
+        wait, 21, 22, 23, 24, 25, 26, 27, 28, 29, 41, 42, 43,
+    ]
+    # 西：条子
+    player_list[2].hand_tiles = [
+        31, 32, 33, 34, 35, 36, 37, 38, 39, 44, 45, 46, 47,
+    ]
+    # 北：剩余饼/字，无 1 万
+    player_list[3].hand_tiles = [
+        21, 22, 23, 24, 25, 26, 27, 28, 29, 41, 42, 43, 44,
+    ]
 
 
 def _apply_chi_peng_protect(player_list) -> None:

@@ -467,7 +467,8 @@ public class EndResultPanel : MonoBehaviour {
         }
         if (!endButtonConfirmed) {
             EndButtonText.text = "确定(0)";
-            EndButton.interactable = false;
+            // 末步确认：倒计时结束后仍可点，避免服务端 ready 稍晚于 UI 时无法再提交
+            EndButton.interactable = allowConfirmClick;
         }
         // 可点击确认的对局结算：面板保留至下一局 game_start 由 InitGameStart 清理
         if (!allowConfirmClick) {

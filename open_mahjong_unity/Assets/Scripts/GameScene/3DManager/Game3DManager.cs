@@ -16,6 +16,10 @@ public partial class Game3DManager : MonoBehaviour {
     private Vector3 leftSetCombinationsPoint;
     private Vector3 topSetCombinationsPoint;
     private Vector3 rightSetCombinationsPoint;
+    /// <summary>各家上一组副露末张沿排布方向的槽宽；跨组起步用半槽累加，避免吃后再吃叠牌。</summary>
+    private readonly Dictionary<string, float> _combinationLastSlotWidth = new Dictionary<string, float> {
+        { "self", 0f }, { "left", 0f }, { "top", 0f }, { "right", 0f },
+    };
 
     // 出牌飞行动画协程按玩家隔离：避免 A 的飞牌协程被 B 的鸣牌 StopCoroutine 误终止，
     // 也避免多家并发出牌时互相覆盖引用造成河牌停在中途或被错误回收。
@@ -214,8 +218,8 @@ public partial class Game3DManager : MonoBehaviour {
     private float cardWidth; // 卡片宽度 组合牌 3D手牌使用
     private float cardHeight; // 卡片高度
     private float cardScale; // 卡片缩放
-    private float widthSpacing; // 间距为卡片宽度的1.05倍 弃牌 补花 使用
-    private float heightSpacing; // 间距为卡片高度的1.05倍
+    private float widthSpacing; // 弃牌/补花间距
+    private float heightSpacing; // 弃牌/补花纵向间距
     private Vector3 RightDirection; // 右方向
     private Vector3 LeftDirection; // 左方向
     private Vector3 FrontDirection; // 前方向
@@ -232,23 +236,38 @@ public partial class Game3DManager : MonoBehaviour {
         if (GetComponent<ConcealedTile3DPeekController>() == null) {
             gameObject.AddComponent<ConcealedTile3DPeekController>();
         }
-        // 初始化配置
-        this.cardScale = tile3DPrefab.transform.localScale.z; // 卡片缩放比例
-        this.cardWidth = tile3DPrefab.GetComponent<Renderer>().bounds.size.x * 1.06f; // 卡片宽度（红色轴）
-        this.cardHeight = tile3DPrefab.GetComponent<Renderer>().bounds.size.y * 1.04f; // 卡片高度（绿色轴）
-        this.widthSpacing = cardWidth * 1.05f; // 间距为卡片宽度的1.1倍
-        this.heightSpacing = cardHeight * 1.05f; // 间距为卡片高度的1.1倍
+        ApplyTileOutlineSettings();
+        // 初始化配置（Mode B 描边不依赖物理缝；手牌/副露间隙→30%，牌河间隙→80%）
+        this.cardScale = tile3DPrefab.transform.localScale.z;
+        Renderer tileRenderer = tile3DPrefab.GetComponent<Renderer>();
+        float tileW = tileRenderer.bounds.size.x;
+        float tileH = tileRenderer.bounds.size.y;
+        const float handStepRatio = 1.10f;
+        const float handHeightRatio = 1.06f;
+        const float riverExtraRatio = 1.06f;
+        this.cardWidth = tileW * (1f + (handStepRatio - 1f) * 0.3f);
+        this.cardHeight = tileH * (1f + (handHeightRatio - 1f) * 0.3f);
+        float riverWidthOrig = tileW * handStepRatio * riverExtraRatio;
+        float riverHeightOrig = tileH * handHeightRatio * riverExtraRatio;
+        this.widthSpacing = tileW + (riverWidthOrig - tileW) * 0.8f;
+        this.heightSpacing = tileH + (riverHeightOrig - tileH) * 0.8f;
         // 初始化放置组合牌指针
         selfSetCombinationsPoint = selfPosPanel.combinationsPosition.position;
         leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
         topSetCombinationsPoint = topPosPanel.combinationsPosition.position;
         rightSetCombinationsPoint = rightPosPanel.combinationsPosition.position;
+        ResetCombinationLastSlotWidths();
         // 初始化世界位置
         RightDirection = new Vector3(1,0,0);
         LeftDirection = new Vector3(-1,0,0);
         FrontDirection = new Vector3(0,0,1);
         BackDirection = new Vector3(0,0,-1);
         ResetHandRevealAnimators();
+    }
+
+    /// <summary>应用玩家描边预设。</summary>
+    private void ApplyTileOutlineSettings() {
+        ConfigManager.Instance?.ApplyTileOutlinePreset();
     }
 
     /// <summary>
@@ -725,6 +744,7 @@ public partial class Game3DManager : MonoBehaviour {
         leftSetCombinationsPoint = leftPosPanel.combinationsPosition.position;
         topSetCombinationsPoint = topPosPanel.combinationsPosition.position;
         rightSetCombinationsPoint = rightPosPanel.combinationsPosition.position;
+        ResetCombinationLastSlotWidths();
         pengToJiagangPosDict.Clear();
 
         // 先收集所有要归还的对象，避免在遍历时修改集合导致跳过元素

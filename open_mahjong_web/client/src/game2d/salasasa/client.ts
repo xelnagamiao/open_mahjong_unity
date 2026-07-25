@@ -24,6 +24,14 @@ class SalasasaClient {
   private loginValue: SalasasaLoginInfo | null = null
   private rankValue: SalasasaRankData | null = null
   private lastGameStartValue: SalasasaResponse | null = null
+  /**
+   * Ordered guobiao messages since the latest game_start, kept only until the
+   * Game page drains them. Survives Lobby→Game navigation where Lobby
+   * unsubscribes before Game subscribes (first hand ask is otherwise lost when
+   * nobody needs opening flowers).
+   */
+  private guobiaoBuffer: SalasasaResponse[] = []
+  private guobiaoBufferActive = false
   private credentials: StoredCredentials | null = null
   private listeners = new Set<MessageListener>()
   private stateListeners = new Set<StateListener>()
@@ -38,6 +46,17 @@ class SalasasaClient {
   get rankData(): SalasasaRankData | null { return this.rankValue }
   get lastGameStart(): SalasasaResponse | null { return this.lastGameStartValue }
   get isLoggedIn(): boolean { return this.loginValue !== null && this.statusValue === 'online' }
+
+  /**
+   * Take the buffered game_start…ask stream for the Game page, then stop
+   * buffering until the next game_start (live subscribe owns the rest).
+   */
+  drainGuobiaoBuffer(): SalasasaResponse[] {
+    const buffered = this.guobiaoBuffer
+    this.guobiaoBuffer = []
+    this.guobiaoBufferActive = false
+    return buffered
+  }
 
   subscribe(listener: MessageListener): () => void {
     this.listeners.add(listener)
@@ -157,9 +176,20 @@ class SalasasaClient {
         }
         if (message.type === 'gamestate/guobiao/game_start' && message.game_info) {
           this.lastGameStartValue = message
+          this.guobiaoBuffer = [message]
+          this.guobiaoBufferActive = true
+        } else if (
+          this.guobiaoBufferActive
+          && typeof message.type === 'string'
+          && message.type.startsWith('gamestate/guobiao/')
+          && message.type !== 'gamestate/guobiao/game_end'
+        ) {
+          this.guobiaoBuffer.push(message)
         }
         if (message.type === 'gamestate/guobiao/game_end') {
           this.lastGameStartValue = null
+          this.guobiaoBuffer = []
+          this.guobiaoBufferActive = false
         }
         for (const listener of this.listeners) listener(message)
         if (loginKickedOut) {
@@ -238,6 +268,8 @@ class SalasasaClient {
     this.loginValue = null
     this.rankValue = null
     this.lastGameStartValue = null
+    this.guobiaoBuffer = []
+    this.guobiaoBufferActive = false
     this.socket?.close(1000, 'logout')
     this.socket = null
     this.setStatus('idle')

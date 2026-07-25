@@ -80,7 +80,7 @@ public class MahjongObjectPool : MonoBehaviour {
             GameObject obj = Instantiate(tile3DPrefab);
             obj.SetActive(false);
             obj.transform.SetParent(transform);
-            PrecalculateNormals(obj);
+            SetupPooledTile(obj);
             ApplyCardTexture(obj, blankId);
             blankTilePool.Enqueue(obj);
         }
@@ -98,7 +98,7 @@ public class MahjongObjectPool : MonoBehaviour {
                 GameObject obj = Instantiate(tile3DPrefab);
                 obj.SetActive(false);
                 obj.transform.SetParent(transform);
-                PrecalculateNormals(obj);
+                SetupPooledTile(obj);
                 ApplyCardTexture(obj, tileId);
                 objectPool.Enqueue(obj);
             }
@@ -111,7 +111,7 @@ public class MahjongObjectPool : MonoBehaviour {
             GameObject obj = Instantiate(tile3DPrefab);
             obj.SetActive(false);
             obj.transform.SetParent(transform);
-            PrecalculateNormals(obj);
+            SetupPooledTile(obj);
             ApplyCardTexture(obj, tileId);
             objectPool.Enqueue(obj);
             poolDictionary[tileId] = objectPool;
@@ -124,22 +124,15 @@ public class MahjongObjectPool : MonoBehaviour {
             GameObject obj = Instantiate(tile3DPrefab);
             obj.SetActive(false);
             obj.transform.SetParent(transform);
-            PrecalculateNormals(obj);
+            SetupPooledTile(obj);
             ApplyCardTexture(obj, tileId);
             objectPool.Enqueue(obj);
             poolDictionary[tileId] = objectPool;
         }
     }
 
-    /// <summary>
-    /// 预计算对象的平滑法线
-    /// </summary>
-    private void PrecalculateNormals(GameObject obj) {
+    private void SetupPooledTile(GameObject obj) {
         EnsureTileCollider(obj);
-        OutlineNormalsCalculator calculator = obj.GetComponent<OutlineNormalsCalculator>();
-        if (calculator != null) {
-            calculator.CalculateAndApplySmoothNormals(true);
-        }
     }
 
     public const int TilePhysicsLayer = 10;

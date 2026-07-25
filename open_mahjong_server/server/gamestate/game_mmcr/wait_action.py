@@ -271,6 +271,7 @@ async def wait_action(self):
                     if any(self.action_dict[i] for i in self.action_dict):
                         self.game_status = "waiting_action_qianggang" # 如果有则执行 等待抢杠行为 转移行为
                     else:
+                        self.jiagang_tile = None
                         self.game_status = "deal_card_after_gang" # 历时行为
                     return
                 
@@ -505,19 +506,19 @@ async def wait_action(self):
             self.jiagang_tile = None # 删除抢杠牌
             if action_data:
                 if action_type == "hu_first" or action_type == "hu_second" or action_type == "hu_third": # 终结行为 可能有多人胡的情况
-                    # 和牌 （荣和）
+                    # 和牌 （抢杠和）
                     self.player_list[player_index].hand_tiles.append(temp_jiagang_tile) # 将和牌牌加入手牌最后一张
                     self.hu_class = action_type
                     self.game_status = "END"
                     return
                 elif action_type == "pass":
-                    self.game_status = "deal_card" # 历时行为
+                    self.game_status = "deal_card_after_gang" # 无人抢杠，原玩家摸岭上牌
                     return
                 else:
                     raise ValueError("抢杠和阶段action_type出现非hu和pass的值")
             # 超时放弃抢杠
             else:
-                self.game_status = "deal_card" # 历时行为
+                self.game_status = "deal_card_after_gang" # 无人抢杠，原玩家摸岭上牌
                 return
         
         # 等待准备阶段

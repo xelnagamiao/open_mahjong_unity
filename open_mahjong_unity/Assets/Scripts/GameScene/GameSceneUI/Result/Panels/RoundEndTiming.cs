@@ -22,6 +22,10 @@ public static class RoundEndTiming {
     /// <summary>四川流局查叫非末步面板停留（不含 0.35s 渐显）。</summary>
     public const float SichuanLiujuPanelHoldSeconds = 2f;
 
+    /// <summary>
+    /// 牌谱/观战用 settle_hu 面板总时长。末步仍含 8s 确认（对局内 8s 与 ready 重叠；
+    /// 服务端步间 sleep 末步不含确认，见 sichuan_settle_hu_panel_wait_seconds）。
+    /// </summary>
     public static float GetSichuanSettleHuPanelDuration(int fanCount, bool isFinalPanel) {
         float duration = RoundEndPresentationFadeSeconds;
         duration += fanCount * HuFanRevealIntervalSeconds;

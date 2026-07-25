@@ -61,6 +61,8 @@ const layoutToneClass = computed(() => {
   margin: 0 auto;
   box-sizing: border-box;
   min-width: 0;
+  /* Element Plus .el-main 默认 overflow:auto，会打断子元素 position:sticky */
+  overflow: visible;
 }
 
 .layout-footer {

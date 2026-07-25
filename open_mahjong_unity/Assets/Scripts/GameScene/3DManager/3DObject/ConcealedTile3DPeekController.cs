@@ -14,6 +14,8 @@ public class ConcealedTile3DPeekController : MonoBehaviour {
     private string lastHoverLogKey = "";
     private readonly RaycastHit[] raycastHitBuffer = new RaycastHit[32];
     private int tilePhysicsLayerMask;
+    private Vector3 lastMousePosition;
+    private bool hasLastMousePosition;
 
     private void Awake() {
         if (Instance != null && Instance != this) {
@@ -34,8 +36,16 @@ public class ConcealedTile3DPeekController : MonoBehaviour {
         ResolveRaycastCamera();
         if (raycastCamera == null) return;
 
+        Vector3 mousePosition = Input.mousePosition;
+        // 鼠标未动且当前无 peek：跳过 SyncTransforms + 射线（稳态 CPU 冗余）
+        if (hasLastMousePosition && mousePosition == lastMousePosition && currentPeekTile == null) {
+            return;
+        }
+        lastMousePosition = mousePosition;
+        hasLastMousePosition = true;
+
         Physics.SyncTransforms();
-        Ray ray = raycastCamera.ScreenPointToRay(Input.mousePosition);
+        Ray ray = raycastCamera.ScreenPointToRay(mousePosition);
         float maxDistance = raycastMaxDistance > 0f ? raycastMaxDistance : raycastCamera.farClipPlane;
         int hitCount = Physics.RaycastNonAlloc(ray, raycastHitBuffer, maxDistance, tilePhysicsLayerMask);
 

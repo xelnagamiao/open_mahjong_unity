@@ -26,14 +26,19 @@ from ..public.claim_protection import (
     REAL_MELD_ACTIONS,
 )
 from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
-from .wait_tips import build_wait_data
 
 logger = logging.getLogger(__name__)
 
 
-async def _send_ask_response_to_viewer(self, viewer_index: int, response) -> None:
-    """经 outbound_pipe 发送 ask，保证排在延迟鸣牌/第二追赶之后；送达时起算计时。"""
-    from ..public.outbound_pipe import send_to_viewer
+async def _send_ask_response_to_viewer(
+    self, viewer_index: int, response, *, block: bool = True
+) -> None:
+    """经 outbound_pipe 发送 ask，保证排在延迟鸣牌/第二追赶之后；送达时起算计时。
+
+    block=True：await 本条（用于当前行动者，立刻可操作）。
+    block=False：仅 schedule 入队（旁观者可带 post_gap，不拖住主循环/行动者）。
+    """
+    from ..public.outbound_pipe import send_to_viewer, schedule_viewer_send
 
     current_player = self.player_list[viewer_index]
     if current_player.user_id not in self.game_server.user_id_to_connection:
@@ -49,7 +54,10 @@ async def _send_ask_response_to_viewer(self, viewer_index: int, response) -> Non
         await self.send_to_realtime_spectators(viewer_index, response)
         note_ask_delivered(self, viewer_index)
 
-    await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
+    if block:
+        await send_to_viewer(self, viewer_index, _do, delay_before=delay_before)
+    else:
+        schedule_viewer_send(self, viewer_index, _do, delay_before=delay_before)
 
 
 # 广播游戏开始/重连 方法
@@ -167,16 +175,14 @@ async def broadcast_game_start(self):
 async def broadcast_ask_hand_action(self):
     self.server_action_tick += 1
     begin_ask_round(self)
-    current_actions = self.action_dict.get(self.current_player_index, [])
-    wait_data = build_wait_data(
-        self,
-        self.current_player_index,
-        include_discards="cut" in current_actions,
-    )
-    # 遍历列表时获取索引
-    for i, current_player in enumerate(self.player_list):
+    # 当前行动者优先发送并 await；其余座位只入队，避免被受保护观众的
+    # delayed meld / post_gap 串行拖住（否则吃碰后要等 ~0.5–1.2s 才能出牌）。
+    seat_order = [self.current_player_index] + [
+        p.player_index for p in self.player_list if p.player_index != self.current_player_index
+    ]
+    for seat_index in seat_order:
+        current_player = self.player_list[seat_index]
         try:
-            seat_index = current_player.player_index
             player_actions = self.action_dict.get(seat_index, [])
             # 如果玩家掉线，启动自动操作并跳过广播
             if "offline" in current_player.tag_list:
@@ -202,42 +208,23 @@ async def broadcast_ask_hand_action(self):
                     asyncio.create_task(auto_cut_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
             
-            if seat_index == self.current_player_index:
-                response = Response(
-                    type="gamestate/guobiao/broadcast_hand_action",
-                    success=True,
-                    message="发牌，并询问手牌操作",
-                    ask_hand_action_info = Ask_hand_action_info(
-                        remaining_time=current_player.remaining_time,
-                        player_index= self.current_player_index,
-                        remain_tiles=len(self.tiles_list),
-                        action_list=player_actions,
-                        action_tick=self.server_action_tick,
-                        dealer_index=getattr(self, 'dealer_index', 0),
-                        opening_buhua_complete=getattr(self, '_opening_buhua_complete_pending', False) or None,
-                        wait_data=wait_data if seat_index == self.current_player_index else None,
-                    )
+            response = Response(
+                type="gamestate/guobiao/broadcast_hand_action",
+                success=True,
+                message="发牌，并询问手牌操作",
+                ask_hand_action_info = Ask_hand_action_info(
+                    remaining_time=current_player.remaining_time,
+                    player_index= self.current_player_index,
+                    remain_tiles=len(self.tiles_list),
+                    action_list=player_actions,
+                    action_tick=self.server_action_tick,
+                    dealer_index=getattr(self, 'dealer_index', 0),
+                    opening_buhua_complete=getattr(self, '_opening_buhua_complete_pending', False) or None,
                 )
-                await _send_ask_response_to_viewer(self, seat_index, response)
-                logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
-            else:
-                response = Response(
-                    type="gamestate/guobiao/broadcast_hand_action",
-                    success=True,
-                    message="发牌，并询问手牌操作",
-                    ask_hand_action_info = Ask_hand_action_info(
-                        remaining_time=current_player.remaining_time,
-                        player_index= self.current_player_index,
-                        remain_tiles=len(self.tiles_list),
-                        action_list=player_actions,
-                        action_tick=self.server_action_tick,
-                        dealer_index=getattr(self, 'dealer_index', 0),
-                        opening_buhua_complete=getattr(self, '_opening_buhua_complete_pending', False) or None,
-                        wait_data=None,
-                    )
-                )
-                await _send_ask_response_to_viewer(self, seat_index, response)
-                logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息")
+            )
+            is_actor = seat_index == self.current_player_index
+            await _send_ask_response_to_viewer(self, seat_index, response, block=is_actor)
+            logger.info(f"已向玩家 {current_player.username} 广播手牌操作信息 block={is_actor}")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 广播手牌操作信息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
@@ -246,10 +233,16 @@ async def broadcast_ask_hand_action(self):
     if hasattr(self, 'spectator_manager'):
         self.spectator_manager.record_ask_hand(self.current_player_index, self.action_dict.get(self.current_player_index, []))
 
-# 广播询问切牌后操作 吃 碰 杠 胡
+# 广播询问切牌后操作 吃 碰 杠 胡（抢杠询问时 cut_tile 为加杠牌）
 async def broadcast_ask_other_action(self, remaining_time_override: Optional[int] = None, is_tactical_recheck: bool = False):
-    cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+    if self.game_status == "waiting_action_qianggang" and getattr(self, "jiagang_tile", None) is not None:
+        cut_tile = self.jiagang_tile
+    else:
+        cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
     self.server_action_tick += 1
+    # 战术打断再问：在派发 AI 前同步 waiting tick，避免机器人因 tick 不一致拒动
+    if is_tactical_recheck:
+        self._waiting_action_tick = self.server_action_tick
     begin_ask_round(self)
     # 遍历列表时获取索引
     for i, current_player in enumerate(self.player_list):
@@ -331,7 +324,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
                 type="gamestate/guobiao/broadcast_hand_action",
                 success=True,
                 message="发牌，并询问手牌操作",
-                ask_hand_action_info=Ask_hand_action_info(
+                    ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
                     player_index=self.current_player_index,
                     remain_tiles=len(self.tiles_list),
@@ -339,18 +332,16 @@ async def reconnected_send_pending_ask(self, user_id: int):
                     action_tick=self.server_action_tick,
                     dealer_index=getattr(self, 'dealer_index', 0),
                     opening_buhua_complete=getattr(self, '_opening_buhua_complete_pending', False) or None,
-                    wait_data=build_wait_data(
-                        self,
-                        reconnect_idx,
-                        include_discards="cut" in self.action_dict.get(reconnect_idx, []),
-                    ),
                 ),
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
         if self.action_dict.get(reconnect_idx):
-            cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
+            if self.game_status == "waiting_action_qianggang" and getattr(self, "jiagang_tile", None) is not None:
+                cut_tile = self.jiagang_tile
+            else:
+                cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
             response = Response(
                 type="gamestate/guobiao/ask_other_action",
                 success=True,

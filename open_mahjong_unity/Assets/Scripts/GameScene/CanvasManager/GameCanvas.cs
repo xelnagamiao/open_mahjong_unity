@@ -67,6 +67,7 @@ public partial class GameCanvas : MonoBehaviour {
     public void SetHandArranged(bool value) { isArranged = value; }
 
     private int _handReflowAnimDepth;
+    private int _handLayoutAnimEpoch;
     private Coroutine _sortMainHandCoroutine;
     private Coroutine _discardLayoutCoroutine;
     private bool _isScoreRecordOpen;
@@ -120,10 +121,32 @@ public partial class GameCanvas : MonoBehaviour {
             _processChangeHandCardQueueCoroutine = null;
             isChangeHandCardProcessing = false;
         }
+        _handReflowAnimDepth = 0;
+        ClearPendingLocalCuts();
     }
 
     public void ClearHandCardQueue() {
         StopAndClearChangeHandCardQueue();
+    }
+
+    /// <summary>发切前锁定本张；回包删牌优先认它。</summary>
+    public void MarkPendingLocalCut(TileCard card) {
+        ClearPendingLocalCuts();
+        if (card != null) {
+            card.pendingLocalCut = true;
+        }
+    }
+
+    public void ClearPendingLocalCuts() {
+        if (handCardsContainer == null) {
+            return;
+        }
+        for (int i = 0; i < handCardsContainer.childCount; i++) {
+            TileCard tc = handCardsContainer.GetChild(i).GetComponent<TileCard>();
+            if (tc != null) {
+                tc.pendingLocalCut = false;
+            }
+        }
     }
 
     /// <summary>

@@ -3,19 +3,26 @@ using UnityEngine;
 
 public partial class Game3DManager : MonoBehaviour {
     /// <summary>
-    /// 河/补花区单张牌沿 widthdirection 占用的"槽宽"。立直横置牌沿 widthdirection 长度变为 cardHeight。
-    /// 与组合牌共享同一套基础宽高常量，只是布局规则不同——河/补花保留 *1.05 间隙，组合牌不需要。
+    /// 单张牌沿 widthdirection 占用的槽宽。
+    /// useHandSpacing：手牌/和牌倒牌用 cardWidth；河/补花用 widthSpacing。
     /// </summary>
-    private float DiscardSlotWidth(bool isHorizontal) {
+    private float LayoutSlotWidth(bool isHorizontal, bool useHandSpacing) {
+        if (useHandSpacing) {
+            return isHorizontal ? cardHeight : cardWidth;
+        }
         return isHorizontal ? heightSpacing : widthSpacing;
     }
 
     /// <summary>
-    /// 计算当前位置在指定行（从 SetPosition 的子物体里读取已存在牌的横置标记）的中心偏移。
-    /// 同行内若前一张是横置，则整体向后挪 cardHeight*1.05 - cardWidth*1.05 ≈ 一张高度差，
-    /// 自然实现"立直牌后续仍续接，但横置牌"的视觉效果。col=0 时 cumOffset 始终为 0（与原版一致）。
+    /// 计算当前位置在指定行的中心偏移。col=0 时 cumOffset 始终为 0。
     /// </summary>
-    private float ComputeRowCenterOffset(Transform SetPosition, int row, int col, int cardsPerRow, bool selfHorizontal) {
+    private float ComputeRowCenterOffset(
+        Transform SetPosition,
+        int row,
+        int col,
+        int cardsPerRow,
+        bool selfHorizontal,
+        bool useHandSpacing = false) {
         if (col == 0) return 0f;
         float cumOffset = 0f;
         float prevSlotWidth = -1f;
@@ -24,12 +31,12 @@ public partial class Game3DManager : MonoBehaviour {
             if (childIndex >= SetPosition.childCount) break;
             Tile3D prevTile = SetPosition.GetChild(childIndex).GetComponent<Tile3D>();
             bool prevHorizontal = prevTile != null && prevTile.isRiichiHorizontal;
-            float prevWidth = DiscardSlotWidth(prevHorizontal);
+            float prevWidth = LayoutSlotWidth(prevHorizontal, useHandSpacing);
             if (prevSlotWidth < 0f) { prevSlotWidth = prevWidth; continue; }
             cumOffset += 0.5f * (prevSlotWidth + prevWidth);
             prevSlotWidth = prevWidth;
         }
-        cumOffset += 0.5f * (prevSlotWidth + DiscardSlotWidth(selfHorizontal));
+        cumOffset += 0.5f * (prevSlotWidth + LayoutSlotWidth(selfHorizontal, useHandSpacing));
         return cumOffset;
     }
 
@@ -196,9 +203,13 @@ public partial class Game3DManager : MonoBehaviour {
         int col = index % cardsPerRow;
 
         bool useHorizontalLayout = isRiichi && isDiscardLike;
-        float colOffset = ComputeRowCenterOffset(SetPosition, row, col, cardsPerRow, useHorizontalLayout);
+        // 和牌倒牌与手牌同间距；河/补花仍用 widthSpacing
+        bool useHandSpacing = isRecordSet;
+        float colOffset = ComputeRowCenterOffset(
+            SetPosition, row, col, cardsPerRow, useHorizontalLayout, useHandSpacing);
+        float rowStep = useHandSpacing ? cardHeight : heightSpacing;
         currentPosition += widthdirection.normalized * colOffset;
-        currentPosition += heightdirection.normalized * heightSpacing * row;
+        currentPosition += heightdirection.normalized * rowStep * row;
 
         Debug.Log($"创建卡片 {SetPosition.childCount}, 牌ID: {tileId}");
         GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, currentPosition, rotation);

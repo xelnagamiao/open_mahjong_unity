@@ -1,7 +1,7 @@
 # 国标麻将牌堆初始化
 import random
 from ..public.random_seed_manager import derive_round_seed
-from .guobiao_debug import apply_guobiao_debug_hands
+from .guobiao_debug import apply_guobiao_debug_hands, prepare_debug_wall
 
 
 def init_guobiao_tiles(self):
@@ -36,6 +36,7 @@ def _shuffle_and_deal_guobiao(self) -> None:
     if debug_mode:
         apply_guobiao_debug_hands(self)
         _remove_assigned_tiles_from_wall(self.tiles_list, self.player_list)
+        prepare_debug_wall(self)
         for player in self.player_list:
             player.combination_tiles = []
             player.combination_mask = []

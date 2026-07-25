@@ -2,8 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 管理3D卡牌的鼠标悬停效果
-/// 当鼠标悬停在StaticCard上时，将所有相同tileId的3D卡牌设置为半透明或变灰
+/// 管理3D卡牌的鼠标悬停 / 摸切灰显 / 铳牌提示效果（颜色叠加，非透明混合）。
 /// </summary>
 public class Card3DHoverManager : MonoBehaviour
 {
@@ -11,6 +10,8 @@ public class Card3DHoverManager : MonoBehaviour
 
     // 存储每个tileId对应的所有3D卡牌GameObject
     private Dictionary<int, List<GameObject>> tileIdToCards = new Dictionary<int, List<GameObject>>();
+    // 反向索引：归还/注销时 O(1) 查 tileId，避免扫全表
+    private Dictionary<GameObject, int> cardToTileId = new Dictionary<GameObject, int>();
 
     // 当前悬停的tileId
     private int currentHoveredTileId = -1;
@@ -39,7 +40,6 @@ public class Card3DHoverManager : MonoBehaviour
     private class CardMaterialData
     {
         public Material material;
-        public float originalAlpha;
         public float originalGrayScale;
         public Color originalFrontColor;
         public Color originalBackColor;
@@ -71,13 +71,14 @@ public class Card3DHoverManager : MonoBehaviour
         }
         if (!tileIdToCards[key].Contains(cardObj)) {
             tileIdToCards[key].Add(cardObj);
+            cardToTileId[cardObj] = key;
 
-            Renderer renderer = cardObj.GetComponent<Renderer>();
-            Material mat = renderer.materials[0];
-            if (mat.shader.name == "Custom/ThreeDTiles") {
+            // 复用 Tile3D 已缓存的材质实例，避免再次访问 Renderer.materials
+            Tile3D tile3D = cardObj.GetComponent<Tile3D>();
+            Material mat = tile3D != null ? tile3D.GetMaterial() : null;
+            if (mat != null && mat.shader != null && mat.shader.name == "Custom/ThreeDTiles") {
                 CardMaterialData data = new CardMaterialData {
                     material = mat,
-                    originalAlpha = mat.HasProperty("_Alpha") ? mat.GetFloat("_Alpha") : 1.0f,
                     originalGrayScale = mat.HasProperty("_GrayScale") ? mat.GetFloat("_GrayScale") : 0.0f,
                     originalFrontColor = mat.HasProperty("_FrontColor") ? mat.GetColor("_FrontColor") : Color.white,
                     originalBackColor = mat.HasProperty("_BackColor") ? mat.GetColor("_BackColor") : Color.white,
@@ -99,6 +100,7 @@ public class Card3DHoverManager : MonoBehaviour
                 tileIdToCards.Remove(key);
             }
         }
+        cardToTileId.Remove(cardObj);
         cardMaterialData.Remove(cardObj);
     }
 
@@ -111,17 +113,9 @@ public class Card3DHoverManager : MonoBehaviour
             if (data.material.HasProperty("_FrontColor")) data.material.SetColor("_FrontColor", data.originalFrontColor);
             if (data.material.HasProperty("_BackColor")) data.material.SetColor("_BackColor", data.originalBackColor);
             if (data.material.HasProperty("_SideColor")) data.material.SetColor("_SideColor", data.originalSideColor);
-            if (data.material.HasProperty("_Alpha")) data.material.SetFloat("_Alpha", data.originalAlpha);
             if (data.material.HasProperty("_GrayScale")) data.material.SetFloat("_GrayScale", data.originalGrayScale);
         }
-        int tileId = -1;
-        foreach (var kvp in tileIdToCards) {
-            if (kvp.Value.Contains(cardObj)) {
-                tileId = kvp.Key;
-                break;
-            }
-        }
-        if (tileId >= 0) {
+        if (cardToTileId.TryGetValue(cardObj, out int tileId)) {
             UnregisterCard(cardObj, tileId);
         } else {
             cardMaterialData.Remove(cardObj);
@@ -216,9 +210,6 @@ public class Card3DHoverManager : MonoBehaviour
                 if (data.material.HasProperty("_SideColor")) {
                     data.material.SetColor("_SideColor", GetBaseColor(data.originalSideColor, data));
                 }
-                if (data.material.HasProperty("_Alpha")) {
-                    data.material.SetFloat("_Alpha", data.originalAlpha);
-                }
                 if (data.material.HasProperty("_GrayScale")) {
                     data.material.SetFloat("_GrayScale", data.originalGrayScale);
                 }
@@ -287,6 +278,7 @@ public class Card3DHoverManager : MonoBehaviour
             RestoreCards(kvp.Key);
         }
         tileIdToCards.Clear();
+        cardToTileId.Clear();
         cardMaterialData.Clear();
         currentHoveredTileId = -1;
     }

@@ -940,15 +940,16 @@ class SichuanGameState:
     # │ B 听牌未和，D 没叫）：                                                    │
     # │   ① reveal_hu    — 四家同时亮完整手牌（3D，无计分面板）                  │
     # │   ② settle_hu×N  — 按 hu_order 逐笔入账并播面板：A(0) → C(2)             │
-    # │      中途和牌阶段 defer 不计分，仅在此处逐笔结算；非末步 3s，末步见下。   │
+    # │      中途和牌阶段 defer 不计分，仅在此处逐笔结算；非末步 3s。             │
+    # │      若 settle_hu 为末步（三家和跳过查叫）：只等番种/渐显，8s 交给 ④。   │
     # │   ③ chajiao×M  — 从末家和牌者 C 的下家 D 起逆时针查叫：D(3) → B(1)      │
     # │        · 每家仅 1 次面板，合并该家全部查叫收支（禁止同一家连播多次）       │
     # │        · B 听牌未和 → D 向其付 B 的理论最大番（在 B 的面板合并展示）       │
     # │        · 已和玩家不参与查叫收分；三家和时整段跳过查叫（含退税）             │
     # │        · 有叫/没叫/花猪 均须展示，即使分数变动为 0 也不可省略             │
     # │        · 仅没叫/花猪开杠者查叫时并入本副“刮风下雨”退税：标“退税”、+0.5s  │
-    # │      非末步 3s；仅最后一家显示 8s 可点确定。                              │
-    # │   ④ waiting_ready — 末步 8s 确认后进入下一局                              │
+    # │      非末步 3s；末步 sleep=0，8s 可点确定由 ④ 统一等待。                 │
+    # │   ④ waiting_ready — 末步 8s 确认（机器人默认已准备）后进入下一局          │
     # │                                                                         │
     # │ liuju_step 协议：reveal_hu → settle_hu → chajiao（退税并入此步，无独立步）│
     # │ 客户端 RoundEndPresentation.SichuanQueue 与服务端 round_end_timing 对齐。 │
@@ -1094,11 +1095,10 @@ class SichuanGameState:
                     round_continues=False,
                     next_status=next_status,
                 )
+                # 末步不含 8s 确认（与查叫末步一致，交给 ready / match_end 收尾）
                 panel_wait = sichuan_settle_hu_panel_wait_seconds(
                     len(rec["fan_list"]), is_final=is_final_panel
                 )
-                if next_status == "match_end":
-                    panel_wait = max(0.0, panel_wait - HU_CONFIRM_COUNTDOWN_SEC)
                 await asyncio.sleep(panel_wait)
 
         # 3) 再看流局玩家：末家和牌者下家起逆时针逐家展示，每家仅 1 次面板（合并该家全部查叫收支）

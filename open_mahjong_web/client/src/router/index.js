@@ -24,6 +24,7 @@ import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
 import GuessFanApp from '@/views/guess-fan/GuessFanApp.vue'
+import RecordConvert from '@/views/RecordConvert.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
@@ -120,6 +121,12 @@ const routes = [
         name: 'GuessFan',
         component: GuessFanApp,
         meta: { title: '猜番对抗 - salasasa.cn', requiresPlayer: true }
+      },
+      {
+        path: 'tools/record-convert',
+        name: 'RecordConvert',
+        component: RecordConvert,
+        meta: { title: '牌谱格式转换 - salasasa.cn' }
       }
     ]
   },

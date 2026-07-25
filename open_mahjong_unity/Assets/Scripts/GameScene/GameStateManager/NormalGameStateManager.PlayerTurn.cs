@@ -48,9 +48,7 @@ public partial class NormalGameStateManager {
                 IsSelfActionRequired = false;
             }
             lastAskHandPlayerIndex = askHandPlayerIndex;
-            // 只有askHandAction才会转移玩家位置
-            BoardCanvas.Instance.ShowCurrentPlayer(GetCardPlayer, remainTiles); // 显示当前玩家
-            CurrentPlayer = GetCardPlayer; // 存储当前玩家
+            ApplyCurrentPlayerIndicator(GetCardPlayer);
         }
 
         // 询问鸣牌操作 鸣牌操作的操作方一定是"self"
@@ -77,7 +75,6 @@ public partial class NormalGameStateManager {
             }
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
             Debug.Log($"doAction行动者: {GetCardPlayer}");
-            // 如果行动者是自己
             if (GetCardPlayer == "self"){
                 ClearQiangGangAskState();
                 // 停止计时器
@@ -132,6 +129,11 @@ public partial class NormalGameStateManager {
             IsSelfActionRequired = false;
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseNone);
         }
+    }
+
+    void ApplyCurrentPlayerIndicator(string player) {
+        BoardCanvas.Instance.ShowCurrentPlayer(player, remainTiles);
+        CurrentPlayer = player;
     }
 
     public bool IsSelfRiichi(){
