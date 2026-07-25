@@ -9,7 +9,9 @@
 | `secrets/` | SSH 私钥等（如 `salasasa.pem`） |
 | `deploy/` | 部署打包暂存（`*.tar.gz`、远端脚本） |
 | `upstream/` | 上游参考 clone（如 mmcr14、riichi-mahjong-tiles） |
-| `tmp/` | 其它临时文件 |
+| `tmp/` | 其它临时文件（含牌谱转换调试样例等） |
+
+`tmp/tziakcha/` 现含：fetcher 包、`tziakcha_to_salasasa` 脚本、抓取的 HTML、样例 `*.json` / `*.salasasa.json`。正式转换逻辑在 `open_mahjong_web/client/src/utils/recordConvert/`。
 
 当前上游参考：
 
