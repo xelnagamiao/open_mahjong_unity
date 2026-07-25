@@ -8,7 +8,15 @@
 |---|---|
 | `secrets/` | SSH 私钥等（如 `salasasa.pem`） |
 | `deploy/` | 部署打包暂存（`*.tar.gz`、远端脚本） |
+| `upstream/` | 上游参考 clone（如 mmcr14、riichi-mahjong-tiles） |
 | `tmp/` | 其它临时文件 |
+
+当前上游参考：
+
+- `upstream/_upstream_mmcr14` ← https://github.com/SlinkierApple13/mmcr14.online.git
+- `upstream/_upstream_riichi_tiles` ← https://github.com/fluffystuff/riichi-mahjong-tiles.git
+
+运行时不依赖这些目录；2D 牌面已 vendored 到 `open_mahjong_web/client/public/game2d-assets/`。
 
 ## 部署
 
