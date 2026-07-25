@@ -222,13 +222,17 @@ def find_best_cut_score(hand_tiles: List[int], meld_count: int, visible_34: List
 
 def should_accept_hu(game_state, player_index: int, hu_action: str) -> bool:
     """检查 AI 是否应该接受和牌（避免错和）
-    有起和番限制的规则（如国标）中，result[0] 减去花牌数需 >= hepai_limit。
+    在国标麻将中，result[0] 减去花牌数需 >= hepai_limit；台湾麻将则使用 result.tai 判断。
     无起和番限制的规则直接返回 True。
     """
     hepai_limit = getattr(game_state, 'hepai_limit', 0)
+    result = getattr(game_state, 'result_dict', {}).get(hu_action)
+    if isinstance(result, dict):
+        if not result:
+            return True
+        return int(result.get("tai", 0)) >= hepai_limit
     if hepai_limit <= 1:
         return True
-    result = getattr(game_state, 'result_dict', {}).get(hu_action)
     if not result:
         return True
     player = game_state.player_list[player_index]

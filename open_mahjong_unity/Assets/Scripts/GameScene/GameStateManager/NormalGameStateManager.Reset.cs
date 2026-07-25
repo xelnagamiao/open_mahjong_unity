@@ -32,6 +32,8 @@ public partial class NormalGameStateManager {
         pendingAskFromJiagang = false;
         roomRule = null;
         subRule = null;
+        detailedConfig.Clear();
+        ResetSelfReadyQualification();
         changshaBaseScoreNoDealer = false;
         changshaSmallHuScore = 2;
         changshaBigHuScore = 8;

@@ -13,6 +13,7 @@ _PASS_WAIT_STATUSES = (
     "waiting_action_qianggang",
     "waiting_initial_hu",
     "waiting_sea_bottom",
+    "waiting_flower_choice",
 )
 _BOT_DELAY = 0.5
 

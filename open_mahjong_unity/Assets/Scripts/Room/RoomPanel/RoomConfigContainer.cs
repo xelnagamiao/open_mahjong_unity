@@ -43,6 +43,10 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "taiwan", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "open_cuohe", "has_password", "tourist_limit", "allow_spectator",
+        } },
     };
 
     private static readonly List<string> DefaultDisplayFields = new List<string> {
@@ -70,12 +74,38 @@ public class RoomConfigContainer : MonoBehaviour {
             ? ruleFields
             : DefaultDisplayFields;
 
+        bool hasDetailedConfig = DetailedConfigRegistry.TryGet(roomInfo.room_rule, out _);
+        bool detailedConfigAdded = false;
         foreach (string fieldName in fields) {
             if (!TryBuildField(roomInfo, fieldName, out string displayName, out string displayValue)) {
                 continue;
             }
             ConfigItem configItem = Instantiate(configItemPrefab, container);
             configItem.SetConfig(displayName, displayValue);
+            if (hasDetailedConfig && fieldName == "tips") {
+                AddDetailedConfig(roomInfo, container);
+                detailedConfigAdded = true;
+            }
+        }
+        if (hasDetailedConfig && !detailedConfigAdded) {
+            AddDetailedConfig(roomInfo, container);
+        }
+    }
+
+    private void AddDetailedConfig(RoomInfo roomInfo, Transform container) {
+        if (!DetailedConfigRegistry.TryGet(roomInfo.room_rule, out DetailedConfigDefinition definition)) {
+            return;
+        }
+        IDictionary<string, object> values = roomInfo.detailed_config;
+        if (values == null || values.Count == 0) {
+            ConfigItem fallback = Instantiate(configItemPrefab, container);
+            fallback.SetConfig(definition.EmptyDisplayLabel, definition.EmptyDisplayValue);
+            return;
+        }
+        foreach (DetailedConfigOption option in definition.Options) {
+            if (!values.TryGetValue(option.Key, out object raw)) continue;
+            ConfigItem item = Instantiate(configItemPrefab, container);
+            item.SetConfig(option.Label, option.FormatValue(raw));
         }
     }
 

@@ -22,6 +22,8 @@ try:
     from .jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check
     from .changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans
     from .changsha.changsha_tingpai_check import Changsha_Tingpai_Check
+    from .taiwan.taiwan_hepai_check import Taiwan_Hepai_Check
+    from .taiwan.taiwan_tingpai_check import Taiwan_Tingpai_Check
 except ImportError:
     from guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
     from guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check  # type: ignore
@@ -37,6 +39,8 @@ except ImportError:
     from jiandan import HandContext as JiandanHandContext, score_hand as jiandan_score_hand, tingpai_check as jiandan_tingpai_check  # type: ignore
     from changsha.changsha_hepai_check import Changsha_Hepai_Check, changsha_base_from_fans  # type: ignore
     from changsha.changsha_tingpai_check import Changsha_Tingpai_Check  # type: ignore
+    from taiwan.taiwan_hepai_check import Taiwan_Hepai_Check  # type: ignore
+    from taiwan.taiwan_tingpai_check import Taiwan_Tingpai_Check  # type: ignore
 
 # Qingque13 C# 桥接模块
 try:
@@ -79,6 +83,8 @@ class GameCalculationService:
         self._sichuan_tingpai_check = Sichuan_Tingpai_Check()
         self._changsha_hepai_check = Changsha_Hepai_Check()
         self._changsha_tingpai_check = Changsha_Tingpai_Check()
+        self._taiwan_hepai_check = Taiwan_Hepai_Check()
+        self._taiwan_tingpai_check = Taiwan_Tingpai_Check()
 
     def Qingque_hepai_check(
         self,
@@ -374,6 +380,56 @@ class GameCalculationService:
     def Changsha_base_from_fans(self, fan_list: List[str], dealer_related: bool = False) -> int:
         """长沙基础付款：小胡 1/庄闲 2，大胡 6/庄闲 7，多个大胡相加。"""
         return changsha_base_from_fans(fan_list, dealer_related)
+
+    def Taiwan_hepai_check(
+        self,
+        hand_list: List[int],
+        tiles_combination: List[str],
+        way_to_hepai: List[str],
+        get_tile: int,
+        context: Dict[str, Any] = None,
+    ) -> Tuple[int, List[str]]:
+        """台湾麻将和牌检查，返回封顶后的手牌台与台种名称。"""
+        with self._lock:
+            return self._taiwan_hepai_check.hepai_check(
+                hand_list,
+                tiles_combination,
+                way_to_hepai,
+                get_tile,
+                context,
+            )
+
+    def Taiwan_hepai_detail(
+        self,
+        hand_list: List[int],
+        tiles_combination: List[str],
+        way_to_hepai: List[str],
+        get_tile: int,
+        context: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """返回台湾麻将最高拆分、原始/封顶台、台种明细和抽象等待集合。"""
+        with self._lock:
+            return self._taiwan_hepai_check.hepai_detail(
+                hand_list,
+                tiles_combination,
+                way_to_hepai,
+                get_tile,
+                context,
+            )
+
+    def Taiwan_tingpai_check(
+        self,
+        hand_tile_list: List[int],
+        combination_list: List[str],
+        rules: Dict[str, Any] = None,
+    ) -> Set[int]:
+        """台湾麻将五面子一将（可选八对半）的抽象听牌集合。"""
+        with self._lock:
+            return self._taiwan_tingpai_check.tingpai_check(
+                hand_tile_list,
+                combination_list,
+                rules,
+            )
 
     def Classical_fushu_check(
         self, hand_list: List[int], tiles_combination: List[str], way_to_hepai: List[str], get_tile: int

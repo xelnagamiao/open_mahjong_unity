@@ -93,6 +93,12 @@ async def smart_bot_action(game_state, player_index: int, action_list: list, gam
             await _handle_buhua_round(game_state, player_index, action_list, current_player)
             return
 
+        elif game_status == "waiting_flower_choice":
+            if "hu_flower" in action_list and await _wait_until_actionable(game_state, player_index):
+                logger.info(f"牌效AI {player_index} ({current_player.username}) 选择 hu_flower")
+                await get_ai_action(game_state, player_index, "hu_flower", None, None, None, None)
+            return
+
         else:
             logger.warning(f"牌效AI {player_index} 遇到未知游戏状态: {game_status}")
 

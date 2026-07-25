@@ -11,17 +11,18 @@ public partial class NormalGameStateManager {
 
     private void MarkPendingCuoheContinue(int hepaiPlayerIndex, string[] huFan) {
         if (!HuFanContainsCuohe(huFan)) return;
-        // 国标：局中续打；日麻：局终重开，由 game_start 重置，不走此恢复流程
-        if (!IsGuobiaoRule()) return;
+        // 国标/台麻：局中续打；日麻：局终重开，由 game_start 重置，不走此恢复流程
+        if (!UsesMidGameCuohe()) return;
         pendingCuoheContinueAfterReady = true;
         pendingCuoheWinnerIndex = hepaiPlayerIndex;
     }
 
-    private static bool IsGuobiaoRule() {
+    private static bool UsesMidGameCuohe() {
         var gsm = Instance;
         if (gsm == null) return false;
-        if (gsm.roomRule == "guobiao") return true;
-        return !string.IsNullOrEmpty(gsm.subRule) && gsm.subRule.StartsWith("guobiao");
+        if (gsm.roomRule == "guobiao" || gsm.roomRule == "taiwan") return true;
+        return !string.IsNullOrEmpty(gsm.subRule)
+            && ((gsm.subRule.StartsWith("guobiao") || gsm.subRule.StartsWith("taiwan")));
     }
 
     public void ClearPendingCuoheContinue() {

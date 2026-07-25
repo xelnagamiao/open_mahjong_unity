@@ -39,6 +39,7 @@ public partial class GameRecordManager
         currentOriginalIndices = new List<int>();
         for (int i = 0; i < originalTilesList.Count; i++) currentOriginalIndices.Add(i);
         backwardTilesType = "double";
+        ResetRecordRuleState();
         ResetRecordRiichiFieldState(roundData);
 
         // 重置 RecordPlayer.score 到本局开始时的累计分数
@@ -67,12 +68,13 @@ public partial class GameRecordManager
         if (recordRiichiTenbousClearedAfterHu) {
             Game3DManager.Instance.ClearAllRiichiTenbous();
         }
-        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
         RefreshTileListViewIfVisible();
         RefreshRecordRiichiRoundPanel();
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
         RefreshRecordTips();
+        RefreshRecordRulePlayerTags();
         SyncRecordRonDiscardObjectAfterRebuild();
         RestoreRecordSelfHandContainer();
     }
@@ -105,14 +107,15 @@ public partial class GameRecordManager
         string actingPlayerPosition = indexToPosition[actingPlayerIndex];
         RecordPlayer actingPlayer = recordPlayer_to_info[actingPlayerPosition];
         int nextPlayerIndex = currentPlayerIndex;
+        bool isRuleStateAction = ApplyRecordRuleActionBeforeMutation(tick);
 
-        if (action == "d" || action == "gd" || action == "bd") {
+        if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd")) {
             int dealTile = ParseTickInt(tick, 1);
             actingPlayer.tileList.Add(dealTile);
             actingPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
 
-            if (currentTilesList.Count > 0) {
+            if (!TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
                 // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
                 bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
                 if (!drawFromFront && (action == "gd" || action == "bd")) {
@@ -159,7 +162,8 @@ public partial class GameRecordManager
             if (isMoBuhua) {
                 actingPlayer.showHandDrawSlotActive = false;
             }
-            actingPlayer.huapaiList.Add(buhuaTile);
+            ApplyRecordBuhuaOwnership(
+                tick, actingPlayerIndex, buhuaTile, out _, out _, out _);
             nextPlayerIndex = actingPlayerIndex;
         }
         else if (action == "ag") {

@@ -3,6 +3,30 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public partial class GameCanvas {
+    private Vector3 defaultHandCardsContainerScale;
+    private bool hasCapturedDefaultHandCardsContainerScale;
+
+    /// <summary>
+    /// 根据规则切换自家手牌区尺寸。缩放整个容器可让发牌、摸牌、补杠与拖拽继续共用原有局部坐标。
+    /// </summary>
+    public void ConfigureHandLayoutForRule(string roomRule, string subRule = null) {
+        if (handCardsContainer == null) {
+            return;
+        }
+        if (!hasCapturedDefaultHandCardsContainerScale) {
+            defaultHandCardsContainerScale = handCardsContainer.localScale;
+            hasCapturedDefaultHandCardsContainerScale = true;
+        }
+
+        HandStructure handStructure = HandStructures.Resolve(roomRule, subRule);
+        float scale = (float)HandStructures.ThirteenTile.DisplayWidthUnits
+            / handStructure.DisplayWidthUnits;
+        handCardsContainer.localScale = new Vector3(
+            defaultHandCardsContainerScale.x * scale,
+            defaultHandCardsContainerScale.y * scale,
+            defaultHandCardsContainerScale.z);
+    }
+
     public static float GetCardWidth(RectTransform cardRect) {
         return cardRect.rect.width;
     }

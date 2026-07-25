@@ -2,7 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 public partial class Game3DManager {
-    private const int RecordHandCardsPerRow = 14;
+    /// <summary>按当前规则的手牌结构返回局终单行明牌容量。</summary>
+    private int GetRevealedHandCardsPerRow() {
+        GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
+        return HandStructures.Resolve(roomRule, subRule).CompleteHandTileCount;
+    }
     /// <summary>
     /// 按 selfHandTiles 排序后重建自家 3D 手牌为明牌；仅在局终隐藏操作区（HideSelfGameplayControl）时调用。
     /// </summary>
@@ -195,10 +199,10 @@ public partial class Game3DManager {
     }
     private Vector3 GetRecordHandSlotWorldPosition(string playerPosition, Transform cardsPosition, int slotIndex) {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out Vector3 heightDir);
-        int row = slotIndex / RecordHandCardsPerRow;
-        int col = slotIndex % RecordHandCardsPerRow;
-        float colOffset = ComputeRowCenterOffset(
-            cardsPosition, row, col, RecordHandCardsPerRow, false, useHandSpacing: true);
+        int cardsPerRow = GetRevealedHandCardsPerRow();
+        int row = slotIndex / cardsPerRow;
+        int col = slotIndex % cardsPerRow;
+        float colOffset = ComputeRowCenterOffset(cardsPosition, row, col, cardsPerRow, false, useHandSpacing: true);
         Vector3 pos = cardsPosition.position;
         pos += widthDir.normalized * colOffset;
         pos += heightDir.normalized * cardHeight * row;

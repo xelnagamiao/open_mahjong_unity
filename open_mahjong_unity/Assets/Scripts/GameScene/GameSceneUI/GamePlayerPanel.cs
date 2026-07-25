@@ -121,8 +121,8 @@ public class GamePlayerPanel : MonoBehaviour {
         }
     }
 
-    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处处理掉线、陪打、浪涌鸣牌次数等）
-    public void UpdateTagList(string[] tag_list) {
+    // 更新标签列表显示（立直/振听由对局内其他 UI 表现，此处处理掉线、陪打、浪涌鸣牌次数、报听等）
+    public void UpdateTagList(string[] tag_list, string roomRule = null) {
         playerIslossconnPicture.gameObject.SetActive(false);
         playerIsPeidaPicture.gameObject.SetActive(false);
         if (playerLangyongBadge != null) playerLangyongBadge.SetActive(false);
@@ -143,6 +143,14 @@ public class GamePlayerPanel : MonoBehaviour {
                 if (item == "first_hu") huOrderLabel = "一和";
                 else if (item == "second_hu") huOrderLabel = "二和";
                 else if (item == "third_hu") huOrderLabel = "三和";
+                else if (item == "declared_ready") {
+                    huOrderLabel = ReadyDeclarationTextDictionary.GetReadyDeclarationText(
+                        !string.IsNullOrEmpty(roomRule)
+                            ? roomRule
+                            : NormalGameStateManager.Instance != null
+                                ? NormalGameStateManager.Instance.roomRule
+                                : null);
+                }
                 // langyong_wave 由 GameCanvas 全局显示；此处仅显示该玩家个人鸣牌次数 langyong_N
                 if (item != null && item.StartsWith("langyong_") && item != "langyong_wave") {
                     if (int.TryParse(item.Substring("langyong_".Length), out int count)) {

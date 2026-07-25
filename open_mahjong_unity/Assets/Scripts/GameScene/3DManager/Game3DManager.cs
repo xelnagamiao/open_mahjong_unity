@@ -647,16 +647,17 @@ public partial class Game3DManager : MonoBehaviour {
     public void ApplyRecordChongHintToShowHands(
         Dictionary<string, GameRecordManager.RecordPlayer> players,
         string roomRule,
-        HashSet<string> hiddenHandPositions) {
+        HashSet<string> hiddenHandPositions,
+        IDictionary<string, object> detailedConfig = null) {
         if (players == null) return;
         if (!RecordSetting.Instance.IsShowCardsMode) return;
 
         Color overlayColor = Card3DHoverManager.Instance.DangerOverlayColor;
         float intensity = Card3DHoverManager.Instance.DangerOverlayIntensity;
 
-        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity);
-        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity);
-        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity);
+        ApplyChongHintForPosition("left", leftPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig);
+        ApplyChongHintForPosition("top", topPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig);
+        ApplyChongHintForPosition("right", rightPosPanel.ShowCardsPosition, players, roomRule, hiddenHandPositions, overlayColor, intensity, detailedConfig);
     }
 
     private static void ApplyChongHintForPosition(
@@ -666,9 +667,10 @@ public partial class Game3DManager : MonoBehaviour {
         string roomRule,
         HashSet<string> hiddenHandPositions,
         Color overlayColor,
-        float intensity) {
+        float intensity,
+        IDictionary<string, object> detailedConfig) {
         if (hiddenHandPositions != null && hiddenHandPositions.Contains(position)) return;
-        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule);
+        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, position, roomRule, detailedConfig);
         if (dangerTileIds.Count == 0) return;
         ApplyChongHintToShowCardsTransform(showCardsPosition, dangerTileIds, overlayColor, intensity);
     }
@@ -689,7 +691,7 @@ public partial class Game3DManager : MonoBehaviour {
         }
     }
 
-    /// <summary>牌谱国标错和确认续打：清除倒牌展示并按当前牌谱状态重建和牌者手牌区。</summary>
+    /// <summary>牌谱局中错和确认续打：清除倒牌展示并按当前牌谱状态重建和牌者手牌区。</summary>
     public void RestoreRecordPlayerHandAfterCuoheReveal(string winnerPosition) {
         if (string.IsNullOrEmpty(winnerPosition) || GameRecordManager.Instance == null) return;
 

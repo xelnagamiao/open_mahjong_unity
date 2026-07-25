@@ -40,8 +40,14 @@ public partial class RoundEndPresentation {
         }
 
         if (!isSilent && !isEndgameScoreOnly) {
-            GameCanvas.Instance.ShowActionDisplay(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);
-            SoundManager.Instance.PlayActionSound(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);
+            string presentationAction = HepaiRevealDirector.ResolveHuPresentationAction(
+                NormalGameStateManager.Instance.roomRule,
+                hu_class,
+                hu_fan,
+                NormalGameStateManager.Instance.detailedConfig
+            );
+            GameCanvas.Instance.ShowActionDisplay(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], presentationAction);
+            SoundManager.Instance.PlayActionSound(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], presentationAction);
         }
 
         if (isMidGameSichuanHu) {

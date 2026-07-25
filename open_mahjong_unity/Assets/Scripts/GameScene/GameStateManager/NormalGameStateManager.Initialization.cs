@@ -8,6 +8,7 @@ public partial class NormalGameStateManager {
         ClearPendingCuoheContinue();
         ClearPendingSichuanContinue();
         lastAskHandPlayerIndex = -1;
+        ResetSelfReadyQualification();
         // 新对局（gamestate_id 变化）才清空本地结算快照；同一场对局的下一局 game_start 不应清空，
         // 否则会抹掉已累积的主番快照（国标每局都会广播 game_start），导致计分板主番列整列变 —。
         // 重连时若本地快照行数与服务端 score_history 不一致，仍清空以免与分值行错位。
@@ -222,7 +223,10 @@ public partial class NormalGameStateManager {
         roomType = gameInfo.room_type;
         roomRule = gameInfo.room_rule;
         subRule = gameInfo.sub_rule;
-        hepaiLimit = gameInfo.hepai_limit > 0 ? gameInfo.hepai_limit : 8; // 起和番限制，国标提示用
+        detailedConfig = gameInfo.detailed_config != null
+            ? new Dictionary<string, object>(gameInfo.detailed_config)
+            : new Dictionary<string, object>();
+        hepaiLimit = gameInfo.hepai_limit ?? 8; // 起和番限制
         roomStepTime = gameInfo.step_time; // 存储步时
         roomRoundTime = gameInfo.round_time; // 存储局时
         remainTiles = gameInfo.tile_count; // 存储剩余牌数

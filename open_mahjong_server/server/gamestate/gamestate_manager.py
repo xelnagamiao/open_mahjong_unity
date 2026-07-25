@@ -11,6 +11,7 @@ from .game_classical.ClassicalGameState import ClassicalGameState
 from .game_riichi.RiichiGameState import RiichiGameState
 from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_jiandan.JiandanGameState import JiandanGameState
+from .game_taiwan.TaiwanGameState import TaiwanGameState
 logger = logging.getLogger(__name__)
 
 class GameStateManager:
@@ -32,6 +33,7 @@ class GameStateManager:
         self.room_id_to_RiichiGameState: Dict[str, RiichiGameState] = {}
         self.room_id_to_SichuanGameState: Dict[str, SichuanGameState] = {}
         self.room_id_to_JiandanGameState: Dict[str, JiandanGameState] = {}
+        self.room_id_to_TaiwanGameState: Dict[str, TaiwanGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
         self.gamestate_id_to_game_state: Dict[str, Any] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
@@ -292,6 +294,31 @@ class GameStateManager:
                         del self.gamestate_id_to_game_state[game_state.gamestate_id]
                     del self.room_id_to_JiandanGameState[room_id]
                 return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
+        elif room_rule == "taiwan":
+            try:
+                gamestate_id = str(uuid.uuid4())
+                game_state = TaiwanGameState(
+                    self.game_server,
+                    room_data,
+                    self.game_server.calculation_service,
+                    self.game_server.db_manager,
+                    gamestate_id,
+                )
+                self.room_id_to_TaiwanGameState[room_id] = game_state
+                self.gamestate_id_to_game_state[gamestate_id] = game_state
+                for player_id in room_data["player_list"]:
+                    self.user_id_to_game_state[player_id] = game_state
+                game_state.game_task = asyncio.create_task(game_state.run_game_loop())
+                logger.info(f"房间 {room_id} 的台湾麻将游戏已启动，gamestate_id: {gamestate_id}")
+            except Exception as e:
+                logger.error(f"创建台湾麻将游戏任务时发生异常，room_id: {room_id}, 错误: {e}", exc_info=True)
+                room_data["is_game_running"] = False
+                if room_id in self.room_id_to_TaiwanGameState:
+                    game_state = self.room_id_to_TaiwanGameState[room_id]
+                    if hasattr(game_state, 'gamestate_id') and game_state.gamestate_id in self.gamestate_id_to_game_state:
+                        del self.gamestate_id_to_game_state[game_state.gamestate_id]
+                    del self.room_id_to_TaiwanGameState[room_id]
+                return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
         else:
             return Response(type="error_message", success=False, message="房间类型不支持")
         return None
@@ -398,6 +425,8 @@ class GameStateManager:
             return self.room_id_to_SichuanGameState.get(room_id)
         elif room_id in self.room_id_to_JiandanGameState:
             return self.room_id_to_JiandanGameState.get(room_id)
+        elif room_id in self.room_id_to_TaiwanGameState:
+            return self.room_id_to_TaiwanGameState.get(room_id)
         return None
     
     def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[Any]:
@@ -542,6 +571,8 @@ class GameStateManager:
             del self.room_id_to_SichuanGameState[game_state.room_id]
         elif game_state.room_id in self.room_id_to_JiandanGameState:
             del self.room_id_to_JiandanGameState[game_state.room_id]
+        elif game_state.room_id in self.room_id_to_TaiwanGameState:
+            del self.room_id_to_TaiwanGameState[game_state.room_id]
         
         # 3. 清理 gamestate_id 到游戏状态的映射
         if gamestate_id and gamestate_id in self.gamestate_id_to_game_state:

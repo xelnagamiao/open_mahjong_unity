@@ -198,6 +198,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessChangshaTile(hepaiTile, handList, combinationList);
             } else if (gameManager.roomRule == "jiandan") {
                 ProcessJiandanTile(hepaiTile, handList, combinationList);
+            } else if (gameManager.roomRule == "taiwan") {
+                ProcessTaiwanTile(hepaiTile, handList, combinationList);
             } else {
                 Debug.LogWarning($"未知的规则类型: {gameManager.roomRule}");
             }
@@ -259,6 +261,8 @@ public class TipsContainer : MonoBehaviour
                 ProcessChangshaTile(hepaiTile, handList, combinationList);
             } else if (ctx.RoomRule == "jiandan") {
                 ProcessJiandanTile(hepaiTile, handList, combinationList);
+            } else if (ctx.RoomRule == "taiwan") {
+                ProcessTaiwanTile(hepaiTile, handList, combinationList);
             } else {
                 Debug.LogWarning($"未知的规则类型: {ctx.RoomRule}");
             }
@@ -581,6 +585,85 @@ public class TipsContainer : MonoBehaviour
             fanObject,
             FormatTipsFanLabel($"{fan}番", hepaiTile),
             "dianhe",
+            hepaiTile);
+    }
+
+    /// <summary>处理台湾麻将的和牌提示。</summary>
+    private void ProcessTaiwanTile(
+        int hepaiTile,
+        List<int> handList,
+        List<string> combinationList) {
+        int selfIndex;
+        int currentRound;
+        List<int> flowers;
+        string readyQualification = null;
+        Dictionary<string, object> detailedConfig = null;
+        if (_recordTipsContext != null) {
+            selfIndex = _recordTipsContext.SelfPlayerIndex;
+            currentRound = _recordTipsContext.CurrentRound;
+            flowers = _recordTipsContext.SelfHuapaiList != null
+                ? new List<int>(_recordTipsContext.SelfHuapaiList)
+                : new List<int>();
+            detailedConfig = _recordTipsContext.DetailedConfig;
+            readyQualification = _recordTipsContext.ReadyQualification;
+        } else {
+            NormalGameStateManager state = NormalGameStateManager.Instance;
+            selfIndex = state != null ? state.selfIndex : 0;
+            currentRound = state != null ? state.currentRound : 1;
+            flowers = state != null
+                && state.player_to_info.TryGetValue("self", out var selfInfo)
+                && selfInfo.huapai_list != null
+                    ? new List<int>(selfInfo.huapai_list)
+                    : new List<int>();
+            detailedConfig = state != null ? state.detailedConfig : null;
+            readyQualification = state != null ? state.selfReadyQualification : null;
+        }
+
+        int seatWind = 41 + Mathf.Clamp(selfIndex, 0, 3);
+        int roundWind = 41 + Mathf.Clamp((currentRound - 1) / 4, 0, 3);
+        int hepaiLimit = GetActiveHepaiLimit();
+        var ronResult = TaiwanExternal.HepaiCheck(
+            handList,
+            combinationList,
+            hepaiTile,
+            false,
+            seatWind,
+            roundWind,
+            flowers,
+            detailedConfig,
+            readyQualification);
+
+        string label;
+        string kind;
+        if (ronResult.Item1 >= hepaiLimit) {
+            label = $"{ronResult.Item1}台";
+            kind = "dianhe";
+        } else {
+            var selfDrawResult = TaiwanExternal.HepaiCheck(
+                handList,
+                combinationList,
+                hepaiTile,
+                true,
+                seatWind,
+                roundWind,
+                flowers,
+                detailedConfig,
+                readyQualification);
+            if (selfDrawResult.Item1 >= hepaiLimit) {
+                label = "仅自摸";
+                kind = "zimo";
+            } else {
+                label = "未起和";
+                kind = "wuyi";
+            }
+        }
+
+        InstantiateTipsTile(hepaiTile);
+        GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+        SetTipsFanCount(
+            fanObject,
+            FormatTipsFanLabel(label, hepaiTile),
+            kind,
             hepaiTile);
     }
 

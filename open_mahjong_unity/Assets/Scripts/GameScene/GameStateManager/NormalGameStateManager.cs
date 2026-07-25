@@ -38,7 +38,8 @@ public partial class NormalGameStateManager : MonoBehaviour{
     public string roomType; // 房间类型（custom/match等）
     public string roomRule; // 房间规则（guobiao/qingque等）
     public string subRule;  // 子规则（guobiao/standard、guobiao/xiaolin、qingque/standard）
-    public int hepaiLimit = 8; // 起和番限制（国标有效，服务器下发的 hepai_limit，默认8）
+    public int hepaiLimit = 8; // 起和番限制
+    public Dictionary<string, object> detailedConfig = new Dictionary<string, object>(); // 当前规则的详细配置
     public bool changshaBaseScoreNoDealer;
     public int changshaSmallHuScore = 2;
     public int changshaBigHuScore = 8;

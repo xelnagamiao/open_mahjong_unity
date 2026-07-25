@@ -11,7 +11,7 @@ public partial class NormalGameStateManager {
     };
 
     private static readonly string[] HandActionsBlockingAutoCut = {
-        "buzhang", "angang", "jiagang", "hu_self", "initial_hu", "sea_bottom", "buhua"
+        "buzhang", "angang", "jiagang", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buhua"
     };
 
     /// <summary>取消未完成的自动操作协程，避免手动/自动 ChooseAction 后过期协程再次 ClearAction。</summary>
@@ -168,6 +168,13 @@ public partial class NormalGameStateManager {
             && AutoAction.Instance.ShouldAutoWinTsumo()
             && !AutoAction.Instance.ShouldAutoPassForCurrentDraw()) {
             actionType = "hu_self";
+            return true;
+        }
+
+        if (allowActionList.Contains("hu_flower")
+            && AutoAction.Instance.ShouldAutoWinTsumo()
+            && !AutoAction.Instance.ShouldAutoPassForCurrentDraw()) {
+            actionType = "hu_flower";
             return true;
         }
 

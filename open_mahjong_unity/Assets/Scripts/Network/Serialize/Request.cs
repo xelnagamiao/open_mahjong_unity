@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 public class LoginRequest { // 登录请求
     public string type;
@@ -94,6 +95,25 @@ public class CreateChangshaRoomRequest { // 创建长沙麻将房间请求
     public int small_hu_score;
     public int big_hu_score;
     public string event_id; // 赛事房间：有则 room_type=events
+}
+
+public class CreateTaiwanRoomRequest { // 创建台湾麻将房间请求
+    public string type;
+    public string rule;
+    public string sub_rule;
+    public string roomname;
+    public int gameround;
+    public int roundTimerValue;
+    public int stepTimerValue;
+    public bool tips;
+    public string password;
+    public string random_seed;
+    public bool tourist_limit;
+    public bool allow_spectator;
+    public bool open_cuohe;
+    public int cuohe_type;
+    public string event_id;
+    public Dictionary<string, object> detailed_config; // 馆规详细配置
 }
 
 public class GetRoomListRequest { // 获取房间列表请求

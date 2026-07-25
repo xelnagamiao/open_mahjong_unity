@@ -148,7 +148,7 @@ public partial class GameRecordManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 荣和 tick 推演：正确和牌写入和牌张；国标错和续局不写入手牌（展示由 BuildDisplayHand 拼）。
+    /// 荣和 tick 推演：正确和牌写入和牌张；局中错和续局不写入手牌（展示由 BuildDisplayHand 拼）。
     /// </summary>
     private void ApplyRecordRonHuToHandState(List<string> tick, string action) {
         if (action != "hu_first" && action != "hu_second" && action != "hu_third") {
@@ -165,6 +165,7 @@ public partial class GameRecordManager : MonoBehaviour {
             return;
         }
         string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "");
+        if (RecordHuHandBuilder.IsFlowerWin(tick, recordRule)) return;
         RecordHuHandBuilder.TryParseHepaiTile(tick, recordRule, out int parsedHepaiTile);
         int winTile = parsedHepaiTile >= 10 ? parsedHepaiTile
             : (lastWinnableTileId >= 10 ? lastWinnableTileId : 0);
@@ -175,7 +176,7 @@ public partial class GameRecordManager : MonoBehaviour {
             huPlayer.tileList.RemoveAt(huPlayer.tileList.Count - 1);
             huPlayer.showHandDrawSlotActive = false;
         }
-        if (huPlayer.tileList.Count == 0 || huPlayer.tileList[huPlayer.tileList.Count - 1] != winTile) {
+        if (RecordHuHandBuilder.NeedsRonTile(huPlayer.tileList)) {
             huPlayer.tileList.Add(winTile);
         }
     }
@@ -218,6 +219,10 @@ public partial class GameRecordManager : MonoBehaviour {
         public int profile_used;
         public int character_used;
         public int voice_used;
+        /// <summary>台湾麻将：应计入哪种听牌资格。</summary>
+        public string readyQualification;
+        /// <summary>由牌谱状态事件重建的玩家标签。</summary>
+        public List<string> tagList = new List<string>();
     }
 
     public class PlayerSetting{
@@ -436,6 +441,7 @@ public partial class GameRecordManager : MonoBehaviour {
             currentOriginalIndices = new List<int>();
             for (int i = 0; i < originalTilesList.Count; i++) currentOriginalIndices.Add(i);
             backwardTilesType = "double";
+            ResetRecordRuleState();
         } else {
             originalTilesList = new List<int>();
             currentTilesList = new List<int>();
@@ -443,6 +449,7 @@ public partial class GameRecordManager : MonoBehaviour {
             consumedBackIndices = new HashSet<int>();
             currentOriginalIndices = new List<int>();
             backwardTilesType = "double";
+            ResetRecordRuleState();
         }
 
         BuildTileListInContainer(); // 初始化牌山视图
@@ -506,6 +513,8 @@ public partial class GameRecordManager : MonoBehaviour {
             recordPlayer.discardRiichiFlags.Clear();
             recordPlayer.pendingRiichiHorizontal = false;
             recordPlayer.isRiichi = false;
+            recordPlayer.readyQualification = null;
+            recordPlayer.tagList.Clear();
             recordPlayer.isHu = false;
             recordPlayer.dingqueSuit = 0;
             recordPlayer.showHandDrawSlotActive = false;
@@ -556,7 +565,7 @@ public partial class GameRecordManager : MonoBehaviour {
             int startRemainTiles = 0;
             int displayRound = currentRoundIndex;
             if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round currentRoundData)) {
-                startRemainTiles = currentRoundData.tilesList != null ? currentRoundData.tilesList.Count : 0;
+                startRemainTiles = GetRecordRemainTiles();
                 if (currentRoundData.currentRound > 0) {
                     displayRound = currentRoundData.currentRound;
                 }
@@ -587,7 +596,7 @@ public partial class GameRecordManager : MonoBehaviour {
         } else {
             recordRiichiDoraIndicators.Clear();
         }
-        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
         RefreshRecordRiichiRoundPanel();
         RefreshRecordChongHint();
         RefreshRecordTips();
@@ -676,19 +685,21 @@ public partial class GameRecordManager : MonoBehaviour {
         string displayAction = (action == "ca" && tick.Count >= 3)
             ? ToDisplayAction(tick[2])
             : ToDisplayAction(action);
-        if (action != "riichi") {
+        bool isRecordState = action == "state";
+        if (action != "riichi" && !isRecordState) {
             SoundManager.Instance.PlayActionSound(currentPlayerPosition, displayAction);
             SoundManager.Instance.PlayPhysicsSound(displayAction);
         }
         int nextPlayerIndex = currentPlayerIndex;
+        bool isRuleStateAction = ApplyRecordRuleActionBeforeMutation(tick);
 
-        if (action == "d" || action == "gd" || action == "bd") {
+        if (!isRuleStateAction && (action == "d" || action == "gd" || action == "bd")) {
             int dealTile = ParseTickInt(tick, 1);
             currentRecordPlayer.tileList.Add(dealTile);
             currentRecordPlayer.showHandDrawSlotActive = true;
             waitingForDrawAfterCut = false;
 
-            if (currentTilesList.Count > 0) {
+            if (!TryConsumeRecordRuleWallTile(action) && currentTilesList.Count > 0) {
                 // 川麻杠后补牌与普通摸牌同向从头取；其他规则 gd/bd 走倒序岭上
                 bool drawFromFront = action == "d" || (action == "gd" && IsSichuanRecord());
                 if (!drawFromFront && (action == "gd" || action == "bd")) {
@@ -751,11 +762,21 @@ public partial class GameRecordManager : MonoBehaviour {
             if (isMoBuhua) {
                 currentRecordPlayer.showHandDrawSlotActive = false;
             }
-            currentRecordPlayer.huapaiList.Add(buhuaTile);
+            bool hasFlowerTransfer = ApplyRecordBuhuaOwnership(
+                tick,
+                actingPlayerIndex,
+                buhuaTile,
+                out string transferFromPosition,
+                out string recipientPosition,
+                out int transferTile
+            );
             if (currentPlayerPosition == "self") {
                 GameCanvas.Instance.ChangeHandCards("RemoveBuhuaCard", buhuaTile, null, null);
             }
             Game3DManager.Instance.Change3DTile("Buhua", buhuaTile, 0, currentPlayerPosition, isMoBuhua, null);
+            if (hasFlowerTransfer) {
+                Game3DManager.Instance.TransferFlowerWinTile(transferTile, transferFromPosition, recipientPosition);
+            }
             GameCanvas.Instance.ShowActionDisplay(currentPlayerPosition, "buhua");
             nextPlayerIndex = actingPlayerIndex;
         }
@@ -858,7 +879,7 @@ public partial class GameRecordManager : MonoBehaviour {
                 currentPlayerIndex = nextPlayerIndex;
                 currentNode++;
                 GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
-                BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+                BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
                 RefreshTileListViewIfVisible();
                 UpdateCurrentXunmuText();
                 RefreshRecordChongHint();
@@ -882,8 +903,8 @@ public partial class GameRecordManager : MonoBehaviour {
             }
             RecordHuHandBuilder.TryParseHepaiTile(tick, recordRule, out int parsedHepaiTile);
             ApplyRecordRonHuToHandState(tick, action);
-            int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHand(
-                huPlayer.tileList, action, parsedHepaiTile, lastWinnableTileId);
+            int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHandFromTick(
+                tick, recordRule, huPlayer.tileList, action, lastWinnableTileId);
             int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
             int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
 
@@ -1042,14 +1063,15 @@ public partial class GameRecordManager : MonoBehaviour {
         currentPlayerIndex = nextPlayerIndex;
         currentNode++;
         // 与对局侧一致：仅在回合流转（下一家行动）时整理手牌，摸牌后同一家继续行动不排序
-        if (nextPlayerIndex != actingPlayerIndex) {
+        if (!isRecordState && nextPlayerIndex != actingPlayerIndex) {
             GameCanvas.Instance.ChangeHandCards("ReSetHandCards", 0, null, null);
         }
-        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+        BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
         RefreshTileListViewIfVisible();
         UpdateCurrentXunmuText();
         RefreshRecordChongHint();
         RefreshRecordTips();
+        if (isRuleStateAction) RefreshRecordRulePlayerTags();
     }
 
     /// <summary>
@@ -1538,8 +1560,9 @@ public partial class GameRecordManager : MonoBehaviour {
         }
 
         string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
-        GameCanvas.Instance.ShowActionDisplay(huPosition, huClass);
-        SoundManager.Instance.PlayActionSound(huPosition, huClass);
+        string presentationAction = HepaiRevealDirector.ResolveHuPresentationAction(roomType, huClass, huFan, GetDetailedConfigSnapshot());
+        GameCanvas.Instance.ShowActionDisplay(huPosition, presentationAction);
+        SoundManager.Instance.PlayActionSound(huPosition, presentationAction);
 
         if (playerToScoreAfter != null && playerToScoreAfter.Count > 0) {
             BoardCanvas.Instance.UpdatePlayerScores(playerToScoreAfter, indexToPosition);
@@ -1606,10 +1629,9 @@ public partial class GameRecordManager : MonoBehaviour {
         string huPosition = indexToPosition.ContainsKey(hepaiPlayerIndex) ? indexToPosition[hepaiPlayerIndex] : "self";
         RecordPlayer huPlayer = recordPlayer_to_info[huPosition];
         string recordRule = ReadGameTitleString(gameRecord.gameTitle, "rule", "riichi").ToLowerInvariant();
-        RecordHuHandBuilder.TryParseHepaiTile(tick, recordRule, out int parsedHepaiTile);
         ApplyRecordRonHuToHandState(tick, huClass);
-        int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHand(
-            huPlayer.tileList, huClass, parsedHepaiTile, lastWinnableTileId);
+        int[] hepaiPlayerHand = RecordHuHandBuilder.BuildDisplayHandFromTick(
+            tick, recordRule, huPlayer.tileList, huClass, lastWinnableTileId);
         int[] hepaiPlayerHuapai = huPlayer.huapaiList.ToArray();
         int[][] hepaiPlayerCombinationMask = huPlayer.combinationMasks.ToArray();
 
@@ -1969,7 +1991,8 @@ public partial class GameRecordManager : MonoBehaviour {
     /// <summary>牌谱元事件：不改变手牌巡目，也不应触发「主局开始回庄」。</summary>
     private static bool IsRecordMetaAction(string action) {
         return action == "ask_hand" || action == "ask_other" || action == "ca"
-            || action == "end" || action == "dora" || action == "riichi";
+            || action == "end" || action == "dora" || action == "riichi"
+            || action == "state";
     }
 
     /// <summary>
@@ -1984,7 +2007,7 @@ public partial class GameRecordManager : MonoBehaviour {
         currentPlayerIndex = roundData.startPlayerIndex;
         mainPhaseStarted = true;
         if (updateBoardHighlight) {
-            BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], currentTilesList.Count);
+            BoardCanvas.Instance.ShowCurrentPlayer(indexToPosition[currentPlayerIndex], GetRecordRemainTiles());
         }
     }
 

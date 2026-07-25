@@ -159,6 +159,8 @@ public partial class GameCanvas{
             return "杠";
         } else if (actionType == "initial_hu") {
             return "起手胡";
+        } else if (actionType == "hu_flower") {
+            return "花胡";
         } else if (actionType == "hu" || actionType == "hu_self" || actionType == "hu_first" || actionType == "hu_second" || actionType == "hu_third"){
             GameRecordManager.ResolveActionRuleContext(roomRule, null, out string rule, out string subRule);
             if (actionType == "hu_self"){

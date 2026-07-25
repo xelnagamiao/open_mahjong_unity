@@ -32,6 +32,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     public void HandleGameStateMessage(Response response) {
         switch (response.type) {
             case "gamestate/guobiao/game_start":
+            case "gamestate/taiwan/game_start":
             case "gamestate/qingque/game_start":
             case "gamestate/classical/game_start":
             case "gamestate/riichi/game_start":
@@ -41,6 +42,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 HandleGameStart(response);
                 break;
             case "gamestate/guobiao/broadcast_hand_action":
+            case "gamestate/taiwan/broadcast_hand_action":
             case "gamestate/qingque/broadcast_hand_action":
             case "gamestate/classical/broadcast_hand_action":
             case "gamestate/riichi/broadcast_hand_action":
@@ -50,6 +52,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 HandleBroadcastHandAction(response);
                 break;
             case "gamestate/guobiao/ask_other_action":
+            case "gamestate/taiwan/ask_other_action":
             case "gamestate/qingque/ask_other_action":
             case "gamestate/classical/ask_other_action":
             case "gamestate/riichi/ask_other_action":
@@ -59,6 +62,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 HandleAskOtherAction(response);
                 break;
             case "gamestate/guobiao/do_action":
+            case "gamestate/taiwan/do_action":
             case "gamestate/qingque/do_action":
             case "gamestate/classical/do_action":
             case "gamestate/riichi/do_action":
@@ -68,6 +72,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 HandleDoAction(response);
                 break;
             case "gamestate/guobiao/show_result":
+            case "gamestate/taiwan/show_result":
             case "gamestate/qingque/show_result":
             case "gamestate/classical/show_result":
             case "gamestate/riichi/show_result":
@@ -77,6 +82,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 HandleShowResult(response);
                 break;
             case "gamestate/guobiao/game_end":
+            case "gamestate/taiwan/game_end":
             case "gamestate/qingque/game_end":
             case "gamestate/classical/game_end":
             case "gamestate/riichi/game_end":
@@ -107,6 +113,7 @@ public class GameStateNetworkManager : MonoBehaviour {
                 HandleGetSpectatorListResponse(response);
                 break;
             case "gamestate/guobiao/ready_status":
+            case "gamestate/taiwan/ready_status":
             case "gamestate/qingque/ready_status":
             case "gamestate/classical/ready_status":
             case "gamestate/riichi/ready_status":
@@ -156,7 +163,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             handresponse.action_list,
             handresponse.riichi_candidate_cuts,
             handresponse.forbidden_cut_tiles,
-            handresponse.forced_cut_tiles
+            handresponse.forced_cut_tiles,
+            handresponse.ready_qualification
         );
     }
 
@@ -234,7 +242,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.is_mo_buhua,
             doresponse.action_tick,
             doresponse.cut_from_player,
-            doresponse.sea_bottom_discard
+            doresponse.sea_bottom_discard,
+            doresponse.buhua_recipient,
+            doresponse.ready_qualification
         );
     }
 

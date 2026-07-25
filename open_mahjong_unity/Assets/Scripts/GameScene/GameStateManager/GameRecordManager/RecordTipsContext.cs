@@ -13,8 +13,10 @@ public class RecordTipsContext {
     public List<int> SelfHuapaiList;
     public List<int[]> SelfCombinationMasks;
     public bool SelfIsRiichi;
+    public string ReadyQualification;
     public List<int> DoraIndicators;
     public int SelfDingqueSuit;
+    public Dictionary<string, object> DetailedConfig;
     public Dictionary<string, RecordTipsPlayerVisible> PlayersByPosition;
 }
 

@@ -191,7 +191,7 @@ public partial class Game3DManager : MonoBehaviour {
             cardsPerRow = 4;
         }
         else if (SetType == "Record") {
-            cardsPerRow = 14;
+            cardsPerRow = GetRevealedHandCardsPerRow();
         }
         else {
             Debug.LogError($"SetType {SetType} 错误");

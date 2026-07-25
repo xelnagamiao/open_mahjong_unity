@@ -7,7 +7,7 @@ public class RoomInfo {
     public string room_type;
     public string room_rule;
     public string sub_rule;       // 子规则，如 guobiao/standard、guobiao/xiaolin、qingque/standard
-    public int hepai_limit;       // 起和番数（国标有效）
+    public int hepai_limit;       // 起和番限制
     public bool tourist_limit;    // 是否限制游客加入
     public bool allow_spectator;  // 是否允许观战
     public int max_player;
@@ -46,6 +46,7 @@ public class RoomInfo {
     public bool base_score_no_dealer;
     public int small_hu_score;
     public int big_hu_score;
+    public Dictionary<string, object> detailed_config; // 当前规则的详细配置
     public string event_id; // 赛事房间关联的赛事 ID
 }
 
@@ -156,6 +157,8 @@ public class AskHandActionGBInfo { // 询问手牌操作
     public Dictionary<int, int[]> riichi_candidate_cuts;
     // 立直麻将：吃后切牌阶段的禁切牌列表（食替规则），客户端用于变暗与禁点
     public int[] forbidden_cut_tiles;
+    // 台湾麻将：应计入哪种听牌资格。
+    public string ready_qualification;
 }
 
 public class AskOtherActionGBInfo { // 询问切牌后操作
@@ -193,9 +196,13 @@ public class DoActionInfo { // 执行操作
     public bool? is_mo_gang;
     // 补花：True=摸补（末张花牌），False=手补
     public bool? is_mo_buhua;
+    // 花胡转移后的花牌归属者；为空时等同 action_player。
+    public int? buhua_recipient;
     // 四川刮风下雨：即时分变 {player_index: delta}
     public Dictionary<int, int> gang_score_changes;
     public string gang_score_type; // guafeng / xiayu1 / xiayu2
+    // 台湾麻将：应计入哪种听牌资格。
+    public string ready_qualification;
 }
 
 public class PlayerInfo { // 房间信息中单个玩家信息
@@ -242,7 +249,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public string room_type;            // 房间类型（custom/match等）
     public string room_rule;            // 房间规则（guobiao/qingque等）
     public string sub_rule;             // 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
-    public int hepai_limit;             // 起和番限制（国标有效，默认8）
+    public int? hepai_limit;           // 起和番限制
     public bool open_cuohe;             // 是否开启错和
     public bool show_moqie_hint;        // 手摸切灰显
     public bool tactical_call;          // 战术鸣牌（国标/青雀）
@@ -273,6 +280,7 @@ public class GameInfo { // 游戏开始时传递房间信息
     public bool? base_score_no_dealer;
     public int? small_hu_score;
     public int? big_hu_score;
+    public Dictionary<string, object> detailed_config; // 当前规则的详细配置
 }
 
 public class SwitchSeatInfo { // 换位信息

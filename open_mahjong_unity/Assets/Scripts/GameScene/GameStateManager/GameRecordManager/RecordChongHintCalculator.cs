@@ -9,13 +9,14 @@ public static class RecordChongHintCalculator {
   /// <summary>合并所有未和牌玩家的待牌（用于牌山铳牌标红）。</summary>
   public static HashSet<int> ComputeDangerTiles(
     Dictionary<string, GameRecordManager.RecordPlayer> players,
-    string roomRule) {
+    string roomRule,
+    IDictionary<string, object> detailedConfig = null) {
     var danger = new HashSet<int>();
     if (players == null || string.IsNullOrEmpty(roomRule)) return danger;
 
     foreach (var kv in players) {
       if (kv.Value == null || kv.Value.isHu) continue;
-      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule)) {
+      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig)) {
         danger.Add(tileId);
       }
     }
@@ -28,7 +29,8 @@ public static class RecordChongHintCalculator {
   public static HashSet<int> ComputeRonDangerForHandOwner(
     Dictionary<string, GameRecordManager.RecordPlayer> players,
     string handOwnerPosition,
-    string roomRule) {
+    string roomRule,
+    IDictionary<string, object> detailedConfig = null) {
     var danger = new HashSet<int>();
     if (players == null || string.IsNullOrEmpty(roomRule) || string.IsNullOrEmpty(handOwnerPosition)) {
       return danger;
@@ -37,7 +39,7 @@ public static class RecordChongHintCalculator {
     foreach (var kv in players) {
       if (kv.Key == handOwnerPosition) continue;
       if (kv.Value == null || kv.Value.isHu) continue;
-      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule)) {
+      foreach (int tileId in ComputeWaitingTilesForPlayer(kv.Value, roomRule, detailedConfig)) {
         danger.Add(tileId);
       }
     }
@@ -46,7 +48,8 @@ public static class RecordChongHintCalculator {
 
   public static HashSet<int> ComputeWaitingTilesForPlayer(
     GameRecordManager.RecordPlayer player,
-    string roomRule) {
+    string roomRule,
+    IDictionary<string, object> detailedConfig = null) {
     if (player == null) return new HashSet<int>();
 
     List<int> handForCheck = NormalizeHandForTingpai(player.tileList);
@@ -80,6 +83,9 @@ public static class RecordChongHintCalculator {
       }
       else if (roomRule == "jiandan") {
         waitingTiles = JiandanExternal.TingpaiCheck(handForCheck, combinations);
+      }
+      else if (roomRule == "taiwan") {
+        waitingTiles = TaiwanExternal.TingpaiCheck(handForCheck, combinations, detailedConfig);
       }
       else {
         waitingTiles = new HashSet<int>();
@@ -146,6 +152,7 @@ public static class RecordChongHintCalculator {
       if (originalIndex >= wallCount) break;
       if (originalIndex < front) continue;
       if (mgr.IsOriginalWallIndexBackConsumed(originalIndex)) continue;
+      if (!mgr.IsOriginalWallIndexNormalDrawable(originalIndex)) break;
       outIndices.Add(originalIndex);
     }
   }

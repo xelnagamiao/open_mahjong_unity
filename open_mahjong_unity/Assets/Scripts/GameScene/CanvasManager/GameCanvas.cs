@@ -178,6 +178,7 @@ public partial class GameCanvas : MonoBehaviour {
     // 初始化游戏UI
     public void InitializeUIInfo(GameInfo gameInfo,Dictionary<int, string> indexToPosition){
         gameObject.SetActive(true);
+        ConfigureHandLayoutForRule(gameInfo?.room_rule, gameInfo?.sub_rule);
         StopAndClearChangeHandCardQueue();
         ClearActionDisplay();
         ClearActionButton();
@@ -319,6 +320,7 @@ public partial class GameCanvas : MonoBehaviour {
         string roomRule = ReadStringValue(gameRecord.gameTitle, "rule", "");
         string subRule = ReadStringValue(gameRecord.gameTitle, "sub_rule", "");
         string recordRoomType = ReadStringValue(gameRecord.gameTitle, "room_type", "");
+        ConfigureHandLayoutForRule(roomRule, subRule);
         string ruleForPanel = subRule;
         int maxRound = ReadIntValue(gameRecord.gameTitle, "max_round", 0);
 
@@ -394,14 +396,23 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     // 更新玩家标签列表
-    public void UpdatePlayerTagList(Dictionary<int, string[]> player_to_tag_list) {
+    public void UpdatePlayerTagList(
+        Dictionary<int, string[]> player_to_tag_list,
+        IReadOnlyDictionary<int, string> player_positions = null,
+        string roomRule = null
+    ) {
+        bool useLiveContext = player_positions == null;
+        if (useLiveContext) {
+            player_positions = NormalGameStateManager.Instance.indexToPosition;
+        }
+        if (player_to_tag_list == null || player_positions == null) return;
+
         foreach (var kvp in player_to_tag_list) {
             int player_index = kvp.Key;
             string[] tag_list = kvp.Value;
 
             // 根据 player_index 找到对应的玩家位置和面板
-            if (NormalGameStateManager.Instance.indexToPosition.ContainsKey(player_index)) {
-                string position = NormalGameStateManager.Instance.indexToPosition[player_index];
+            if (player_positions.TryGetValue(player_index, out string position)) {
                 GamePlayerPanel targetPanel = null;
 
                 // 根据位置获取对应的面板
@@ -422,11 +433,11 @@ public partial class GameCanvas : MonoBehaviour {
 
                 // 更新面板的标签列表
                 if (targetPanel != null) {
-                    targetPanel.UpdateTagList(tag_list);
+                    targetPanel.UpdateTagList(tag_list, roomRule);
                 }
             }
         }
-        RefreshRiichiStatusIndicators();
+        if (useLiveContext) RefreshRiichiStatusIndicators();
     }
 
     public void RefreshRiichiStatusIndicators() {
@@ -520,7 +531,7 @@ public partial class GameCanvas : MonoBehaviour {
     /// <summary>
     /// 根据当前立直/食替/已立直锁手/四川定缺状态统一刷新自家手牌的可点状态：
     /// - 处于立直选牌模式：仅 riichi_candidate_cuts 中存在的 tile_id 可点；
-    /// - 自家已立直（tag_list 含 riichi/daburu_riichi）：仅最右摸入牌（currentGetTile=true）可点，其余全部置灰；
+    /// - 自家已立直/报听：仅最右摸入牌（currentGetTile=true）可点，其余全部置灰；
     /// - 四川定缺：手牌仍含定缺花色时仅定缺花色可点（须优先打出）；
     /// - 强制出牌阶段：仅服务端指定的摸入牌可点；
     /// - 普通切牌阶段：按服务端下发的 forbidden_cut_tiles 禁点（食替）。
@@ -535,11 +546,11 @@ public partial class GameCanvas : MonoBehaviour {
             && forced.Count > 0
             && NormalGameStateManager.Instance.allowActionList.Contains("cut");
         bool mustCutDingque = NormalGameStateManager.Instance.MustCutDingqueFirst();
-        bool selfRiichi = false;
+        bool selfReadyLocked = false;
         var selfTags = NormalGameStateManager.Instance.player_to_info["self"].tag_list;
         if (selfTags != null) {
             for (int i = 0; i < selfTags.Length; i++) {
-                if (selfTags[i] == "riichi" || selfTags[i] == "daburu_riichi") { selfRiichi = true; break; }
+                if (NormalGameStateManager.IsReadyLockTag(selfTags[i])) { selfReadyLocked = true; break; }
             }
         }
         for (int i = 0; i < handCardsContainer.childCount; i++) {
@@ -550,7 +561,7 @@ public partial class GameCanvas : MonoBehaviour {
                 selectable = tc.currentGetTile && forced.Contains(tc.tileId);
             } else if (inRiichiCutMode) {
                 selectable = candidates.ContainsKey(tc.tileId);
-            } else if (selfRiichi) {
+            } else if (selfReadyLocked) {
                 selectable = tc.currentGetTile;
             } else if (mustCutDingque) {
                 selectable = NormalGameStateManager.Instance.IsDingqueSuitTile(tc.tileId);

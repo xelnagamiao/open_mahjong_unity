@@ -18,6 +18,7 @@ public static class ScoreHistorySettlementHelper {
             "sichuan" => "sichuan/standard",
             "changsha" => "changsha/classic_double_bird",
             "jiandan" => "jiandan/standard",
+            "taiwan" => "taiwan/standard",
             _ => r
         };
     }
@@ -100,6 +101,10 @@ public static class ScoreHistorySettlementHelper {
         if (display.EndsWith("翻")
             && int.TryParse(display.Substring(0, display.Length - 1), out int classicalFan)) {
             return classicalFan;
+        }
+        if (display.EndsWith("台")
+            && int.TryParse(display.Substring(0, display.Length - 1), out int taiwanTai)) {
+            return taiwanTai;
         }
         if (display.EndsWith("Fan")
             && int.TryParse(display.Substring(0, display.Length - 3), out int engFan)) {
@@ -233,6 +238,7 @@ public static class ScoreHistorySettlementHelper {
         bool isSichuan = subRule != null && subRule.StartsWith("sichuan");
         bool isChangsha = subRule != null && subRule.StartsWith("changsha");
         bool isJiandan = subRule != null && subRule.StartsWith("jiandan");
+        bool isTaiwan = subRule != null && subRule.StartsWith("taiwan");
 
         string fanPart;
         if (isRiichi && snapshot.han.HasValue) {
@@ -246,6 +252,8 @@ public static class ScoreHistorySettlementHelper {
             fanPart = $"{snapshot.huScore}分";
         } else if (isJiandan) {
             fanPart = $"{CalculateJiandanFanTotal(subRule, snapshot.huFan)}番";
+        } else if (isTaiwan) {
+            fanPart = $"{snapshot.huScore}台";
         } else {
             fanPart = $"{snapshot.huScore}番";
         }

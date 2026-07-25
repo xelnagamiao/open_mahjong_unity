@@ -79,7 +79,7 @@ public static class ScoreHistoryRecordSettlementExtractor {
         foreach (List<string> tick in round.actionTicks) {
             if (tick == null || tick.Count == 0) continue;
             string action = tick[0];
-            if (action == "ask_hand" || action == "ask_other" || action == "ca" || action == "end" || action == "dora" || action == "riichi") {
+            if (action == "ask_hand" || action == "ask_other" || action == "ca" || action == "end" || action == "dora" || action == "riichi" || action == "state") {
                 continue;
             }
 
@@ -335,7 +335,8 @@ public static class ScoreHistoryRecordSettlementExtractor {
         SimPlayer huPlayer = players[hepaiPlayerIndex];
         string rule = ResolveRecordRule(gameTitle, subRule);
         RecordHuHandBuilder.TryParseHepaiTile(tick, rule, out int hepaiTile);
-        int[] hand = BuildScoreboardHuHand(huPlayer.tileList, huClass, hepaiTile, lastDiscardTileId);
+        string displayHuClass = RecordHuHandBuilder.IsFlowerWin(tick, rule) ? "hu_self" : huClass;
+        int[] hand = BuildScoreboardHuHand(huPlayer.tileList, displayHuClass, hepaiTile, lastDiscardTileId);
 
         int winnerDelta = 0;
         int[] scoreChanges = ParseScoreChanges(tick, 4);

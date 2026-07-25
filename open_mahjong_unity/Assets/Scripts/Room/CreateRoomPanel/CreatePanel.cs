@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using TMPro;
 
 /// <summary>
-/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / riichi / qingque / classical / sichuan / changsha / jiandan）
+/// 统一创建房间面板。通过规则下拉状态字符串（guobiao / riichi / qingque / classical / sichuan / changsha / jiandan / taiwan）
 /// 驱动配置项的显隐与默认值。
 ///
 /// 设计要点：头部 <see cref="RuleConfigs"/> 为每条规则"全量"登记需要的配置项及默认值。
@@ -13,7 +13,7 @@ using TMPro;
 /// - 若某规则的字典里不含某个键 → 该配置项对此规则隐藏，发送房间配置时使用 <c>CreateRoom</c> 内的硬编码缺省值。
 /// - 国标的错和/起和番仍受子规则二次收窄：小林规隐藏错和；蓝十隐藏起和番自定义；标准/K神/小林均可配置起和番（K神默认8、小林默认1）。
 /// </summary>
-public class CreatePanel : MonoBehaviour {
+public partial class CreatePanel : MonoBehaviour {
     // ===== 配置键：所有可能出现的配置项（含公共与差异） =====
     private const string CfgGameRound      = "game_round";       // 局数 1-4
     private const string CfgRoundTimer     = "round_timer";      // 局时下拉索引
@@ -25,7 +25,7 @@ public class CreatePanel : MonoBehaviour {
     private const string CfgAllowSpectator = "allow_spectator";  // 允许旁观
     private const string CfgSubRule        = "sub_rule";         // 子规则下拉索引（国标）
     private const string CfgCuohe          = "cuohe";            // 错和
-    private const string CfgCuoheType      = "cuohe_type";       // 错和形式（国标）：0=错和者-30/其余+10，1=错和者-40/其余+0
+    private const string CfgCuoheType      = "cuohe_type";       // 错和形式：0=错和者-30/其余+10，1=错和者-40/其余+0
     private const string CfgHepaiLimit     = "hepai_limit";      // 自定义起和番数（整数；Toggle 与 Input 成组显隐）
     private const string CfgRedDora        = "red_dora";         // 赤宝牌
     private const string CfgAllowKuikae    = "allow_kuikae";    // 禁止食替 Toggle：开=禁切（allow_kuikae 关）
@@ -151,9 +151,21 @@ public class CreatePanel : MonoBehaviour {
             { CfgCsSmallHuScore, 2 },
             { CfgCsBigHuScore, 8 },
         } },
+        { "taiwan", new Dictionary<string, object> {
+            { CfgGameRound,      4 },
+            { CfgRoundTimer,     2 },
+            { CfgStepTimer,      1 },
+            { CfgTips,           true },
+            { CfgPassword,       false },
+            { CfgRandomSeed,     false },
+            { CfgTouristLimit,   false },
+            { CfgAllowSpectator, true },
+            { CfgCuohe,          false },
+            { CfgCuoheType,      0 },
+        } },
     };
 
-    /// <summary>规则状态：guobiao / riichi / qingque / classical / sichuan / changsha / jiandan。</summary>
+    /// <summary>规则状态：guobiao / riichi / qingque / classical / sichuan / changsha / jiandan / taiwan。</summary>
     private string _ruleState = "guobiao";
 
     [Header("Dropdown")]
@@ -231,12 +243,15 @@ public class CreatePanel : MonoBehaviour {
         if (chooseRule == null) return;
         bool hasChangsha = false;
         bool hasJiandan = false;
+        bool hasTaiwan = false;
         foreach (TMP_Dropdown.OptionData option in chooseRule.options) {
             if (option.text.Contains("长沙")) hasChangsha = true;
             if (option.text.Contains("简单")) hasJiandan = true;
+            if (option.text.Contains("台湾")) hasTaiwan = true;
         }
         if (!hasChangsha) chooseRule.options.Add(new TMP_Dropdown.OptionData("长沙麻将"));
         if (!hasJiandan) chooseRule.options.Add(new TMP_Dropdown.OptionData("简单麻将"));
+        if (!hasTaiwan) chooseRule.options.Add(new TMP_Dropdown.OptionData("台湾麻将"));
         chooseRule.RefreshShownValue();
     }
 
@@ -290,6 +305,7 @@ public class CreatePanel : MonoBehaviour {
     }
 
     private void OnDisable() {
+        CancelDetailedConfigChanges();
         if (EventNetworkManager.Instance == null) return;
         EventNetworkManager.Instance.OnActiveEventsUpdated -= RefreshEventControls;
     }
@@ -303,6 +319,7 @@ public class CreatePanel : MonoBehaviour {
             4 => "sichuan",
             5 => "changsha",
             6 => "jiandan",
+            7 => "taiwan",
             _ => "guobiao"
         };
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
@@ -386,8 +403,6 @@ public class CreatePanel : MonoBehaviour {
     private void RefreshVisibility() {
         Dictionary<string, object> visible = RuleConfigs[_ruleState];
 
-        SubRuleDropdown.gameObject.SetActive(visible.ContainsKey(CfgSubRule));
-
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
         bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
@@ -411,6 +426,7 @@ public class CreatePanel : MonoBehaviour {
         SetChangshaOptionsVisible(_ruleState == "changsha");
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
+        RefreshDetailedConfigEntry();
     }
 
     private string GetCurrentSubRuleKey() {
@@ -419,6 +435,7 @@ public class CreatePanel : MonoBehaviour {
         if (_ruleState == "sichuan") return "sichuan/standard";
         if (_ruleState == "changsha") return "changsha/classic_double_bird";
         if (_ruleState == "jiandan") return "jiandan/standard";
+        if (_ruleState == "taiwan") return "taiwan/standard";
         if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
         return GetSelectedSubRule();
     }
@@ -858,6 +875,11 @@ public class CreatePanel : MonoBehaviour {
             CreateChangshaRoom();
             return;
         }
+
+        if (_ruleState == "taiwan") {
+            CreateTaiwanRoom();
+            return;
+        }
     }
 
     private void CreateRiichiRoom() {
@@ -979,6 +1001,33 @@ public class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Qingque_Room(config);
+    }
+
+    private void CreateTaiwanRoom() {
+        var config = new Taiwan_Create_RoomConfig {
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "taiwan",
+            SubRule = "taiwan/standard",
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = AllowSpectatorToggle.isOn,
+            CuoHe = CuoHeheToggle.isOn,
+            CuoheType = GetSelectedCuoheType(),
+            DetailedConfig = BuildDetailedConfigValues("taiwan"),
+            EventId = GetSelectedEventId(),
+        };
+
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            Debug.LogWarning(error);
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Taiwan_Room(config);
     }
 
     private void CreateClassicalRoom() {
@@ -1172,8 +1221,8 @@ public class CreatePanel : MonoBehaviour {
     private void RefreshCuoheTypePanelVisibility() {
         if (CuoheTypePanel == null) return;
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
-        bool showPanel = _ruleState == "guobiao"
-            && RuleConfigs[_ruleState].ContainsKey(CfgCuohe)
+        bool showPanel = RuleConfigs.TryGetValue(_ruleState, out var config)
+            && config.ContainsKey(CfgCuoheType)
             && !isXiaolin
             && CuoHeheToggle.isOn;
         CuoheTypePanel.SetActive(showPanel);

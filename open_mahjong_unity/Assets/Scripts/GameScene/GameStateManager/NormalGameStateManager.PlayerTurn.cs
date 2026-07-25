@@ -140,10 +140,14 @@ public partial class NormalGameStateManager {
         string[] tags = player_to_info["self"].tag_list;
         if (tags == null) return false;
         for (int i = 0; i < tags.Length; i++){
-            if (tags[i] == "riichi" || tags[i] == "daburu_riichi"){
+            if (IsReadyLockTag(tags[i])){
                 return true;
             }
         }
         return false;
+    }
+
+    public static bool IsReadyLockTag(string tag){
+        return tag == "riichi" || tag == "daburu_riichi" || tag == "declared_ready";
     }
 }

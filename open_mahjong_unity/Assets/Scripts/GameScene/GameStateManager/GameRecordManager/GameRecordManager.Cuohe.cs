@@ -1,4 +1,4 @@
-/// <summary>牌谱国标错和：结算确认或观战续打后恢复和牌者 3D/2D 手牌区。</summary>
+/// <summary>牌谱局中错和：结算确认或观战续打后恢复和牌者 3D/2D 手牌区。</summary>
 public partial class GameRecordManager {
     private string _pendingRecordCuoheWinnerPosition;
 
@@ -10,16 +10,16 @@ public partial class GameRecordManager {
         return false;
     }
 
-    private bool IsGuobiaoRecordRule() {
+    private bool UsesMidGameCuoheRecord() {
         if (gameRecord?.gameTitle == null) return false;
         string subRule = ReadGameTitleString(gameRecord.gameTitle, "sub_rule", "").ToLowerInvariant();
-        if (HepaiRevealDirector.IsGuobiaoRuleKey(subRule)) return true;
+        if (HepaiRevealDirector.IsGuobiaoRuleKey(subRule) || HepaiRevealDirector.IsTaiwanRuleKey(subRule)) return true;
         string rule = ReadGameTitleString(gameRecord.gameTitle, "rule", "").ToLowerInvariant();
-        return HepaiRevealDirector.IsGuobiaoRuleKey(rule);
+        return HepaiRevealDirector.IsGuobiaoRuleKey(rule) || HepaiRevealDirector.IsTaiwanRuleKey(rule);
     }
 
     private void MarkPendingRecordCuoheContinue(string huPosition, string[] huFan) {
-        if (!HuFanContainsCuohe(huFan) || !IsGuobiaoRecordRule()) return;
+        if (!HuFanContainsCuohe(huFan) || !UsesMidGameCuoheRecord()) return;
         _pendingRecordCuoheWinnerPosition = huPosition;
     }
 

@@ -97,6 +97,8 @@ public partial class BoardCanvas : MonoBehaviour {
             roundMap = RoundTextDictionary.CurrentRoundTextChangsha;
         } else if (roomType == "jiandan") {
             roundMap = RoundTextDictionary.CurrentRoundTextJiandan;
+        } else if (roomType == "taiwan") {
+            roundMap = RoundTextDictionary.CurrentRoundTextTaiwan;
         }
 
         if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {
@@ -165,6 +167,8 @@ public partial class BoardCanvas : MonoBehaviour {
             roundMap = RoundTextDictionary.CurrentRoundTextChangsha;
         } else if (roomType == "jiandan") {
             roundMap = RoundTextDictionary.CurrentRoundTextJiandan;
+        } else if (roomType == "taiwan") {
+            roundMap = RoundTextDictionary.CurrentRoundTextTaiwan;
         }
 
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string currentRoundStr)) {
