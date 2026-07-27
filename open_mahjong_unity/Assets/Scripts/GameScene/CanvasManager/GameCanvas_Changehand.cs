@@ -23,7 +23,8 @@ public partial class GameCanvas{
     private IEnumerator ProcessChangeHandCardQueue(){
         // 手牌处理运行
         isChangeHandCardProcessing = true;
-        handCardDragController?.AbortForHandChange("手牌队列开始处理");
+        // 不在此无条件 Abort：空跑的 ReSetHandCards（他家换人且已理牌）不应打断进行中的拖拽。
+        // 真正增删/重排由 ChangeHandCardsCoroutine 按类型调用 AbortForHandChange。
         while (changeHandCardQueue.Count > 0){
             // 拿取下一个任务
             System.Func<Coroutine> changeHandCardAction = changeHandCardQueue.Dequeue();
@@ -37,10 +38,25 @@ public partial class GameCanvas{
         isChangeHandCardProcessing = false;
     }
 
+    /// <summary>
+    /// 本条手牌变更是否会增删或真重排（需强制结束拖拽）。
+    /// ReSetHandCards 在已 isArranged 时为空跑，保留拖拽。
+    /// </summary>
+    private bool ShouldAbortDragForHandChange(string changeType) {
+        if (changeType == "ReSetHandCards") {
+            return !isArranged;
+        }
+        return true;
+    }
+
     // 手牌处理
     public IEnumerator ChangeHandCardsCoroutine(string ChangeType,int tileId,int[] TilesList,int? cut_tile_index){
 
         Debug.Log($"手牌处理: {ChangeType}");
+
+        if (ShouldAbortDragForHandChange(ChangeType)) {
+            handCardDragController?.AbortForHandChange($"手牌变更:{ChangeType}");
+        }
 
         // 初始化手牌（全部直接创建）
         if (ChangeType == "InitHandCards"){

@@ -203,6 +203,9 @@ public static class AutoReconnect {
 
         // 走到这里说明已确认断线，正式进入恢复流程。此时才提示并离开可能失效的对局界面。
         NotificationManager.Instance.ShowTip("重连", true, "正在恢复连接…");
+        // 服务端 disconnect 会静默移出匹配等待队列且不发 leave_queue_done；
+        // 必须在此对齐本地排队/匹配成功面板，否则切回匹配页会误显示仍在匹配。
+        MatchNetworkManager.Instance?.ClearLocalMatchState();
         if (ExpectGameRestore)
         {
             // 离开可能已失效的对局界面，避免停留在空桌；重回对局须等到收到 game_start。

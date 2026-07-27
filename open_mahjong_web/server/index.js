@@ -51,6 +51,7 @@ const { ensureAuditTable } = require('./utils/audit');
 const { ensureEventsTables } = require('./utils/eventsTables');
 const { ensureUserEmailTables } = require('./utils/userEmailTables');
 const { ensureLibraryTables } = require('./utils/libraryTables');
+const { ensureGuessFanTables } = require('./utils/guessFanTables');
 const libraryRoutes = require('./routes/library');
 
 // 牌理 / 听牌 / 国标算分等转发 Python：每 IP 每分钟约 40 次
@@ -151,6 +152,12 @@ async function startServer() {
     console.log('麻雀图书馆表已就绪');
   } catch (err) {
     console.error('麻雀图书馆表初始化失败:', err);
+  }
+  try {
+    await ensureGuessFanTables();
+    console.log('猜番对抗排行表已就绪');
+  } catch (err) {
+    console.error('猜番对抗排行表初始化失败:', err);
   }
   server.listen(config.app.port, () => {
     console.log(`服务器运行在端口 ${config.app.port}`);

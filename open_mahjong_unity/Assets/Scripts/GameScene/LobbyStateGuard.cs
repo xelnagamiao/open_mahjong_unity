@@ -12,7 +12,7 @@ public static class LobbyStateGuard {
         }
     }
 
-    /// <summary>若已在房间则提示并返回 true（应中止匹配）。</summary>
+    /// <summary>若已在房间则提示并返回 true（应中止加入匹配队列；不影响查阅匹配页）。</summary>
     public static bool BlockIfInRoomForMatch() {
         if (!IsInRoom) return false;
         NotificationManager.Instance.ShowTip("匹配", false, "请先退出当前房间再进行排位匹配");

@@ -129,9 +129,7 @@ public class HeaderPanel : MonoBehaviour {
     private void SceneConfig() => WindowsManager.Instance.SwitchWindow("sceneConfig");
     private void Spectator() => WindowsManager.Instance.SwitchWindow("spectator");
     private void Match() {
-        if (LobbyStateGuard.BlockIfInRoomForMatch()) {
-            return;
-        }
+        // 对局/房间中允许查阅匹配页人数；真正加入队列时再由 MatchNetworkManager 拦截
         WindowsManager.Instance.SwitchWindow("match");
     }
 

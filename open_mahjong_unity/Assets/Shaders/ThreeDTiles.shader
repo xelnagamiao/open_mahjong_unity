@@ -16,7 +16,7 @@ Shader "Custom/ThreeDTiles"
 
         _GrayScale ("Gray Scale", Range(0, 1)) = 0.0
         _FrontRotation ("Front Rotation (度)", Range(0, 360)) = 0.0
-        _OutlineId ("Outline Id", Float) = 0
+        [HideInInspector] _TileInstanceParams ("Tile Instance Params", Vector) = (0,0,0,0)
     }
 
     SubShader
@@ -55,15 +55,19 @@ Shader "Custom/ThreeDTiles"
                 float4 _FrontTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
-                half4 _FrontColor;
-                half4 _BackColor;
-                half4 _SideColor;
-                float4 _FrontTilingOffset;
                 float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
-                half _GrayScale;
                 half _FrontRotation;
             CBUFFER_END
+
+            UNITY_INSTANCING_BUFFER_START(TilePerInstance)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _FrontColor)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _BackColor)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _SideColor)
+                // x = gray scale, y = outline ObjectID
+                UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
+            UNITY_INSTANCING_BUFFER_END(TilePerInstance)
 
             struct Attributes
             {
@@ -114,24 +118,37 @@ Shader "Custom/ThreeDTiles"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-                float2 frontUV = input.uvFront * _FrontTilingOffset.xy + _FrontTilingOffset.zw;
+                float4 frontTilingOffset =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontTilingOffset);
+                half4 frontColor =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontColor);
+                half4 backColor =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackColor);
+                half4 sideColor =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _SideColor);
+                float4 instanceParams =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _TileInstanceParams);
+
+                float2 frontUV =
+                    input.uvFront * frontTilingOffset.xy + frontTilingOffset.zw;
                 if (_FrontRotation != 0.0h)
                 {
                     frontUV = RotateUV(frontUV, _FrontRotation);
                 }
 
-                half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * _FrontColor;
+                half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
                 float2 backUV = input.uvBack * _BackTilingOffset.xy + _BackTilingOffset.zw;
-                half4 back = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV) * _BackColor;
+                half4 back = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV) * backColor;
                 float2 sideUV = input.uvSide * _SideTilingOffset.xy + _SideTilingOffset.zw;
-                half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV) * _SideColor;
+                half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV) * sideColor;
 
                 half4 col = front * input.color.r + back * input.color.g + side * input.color.b;
 
-                if (_GrayScale > 0.0h)
+                half grayScale = (half)instanceParams.x;
+                if (grayScale > 0.0h)
                 {
                     half gray = dot(col.rgb, half3(0.299h, 0.587h, 0.114h));
-                    col.rgb = lerp(col.rgb, half3(gray, gray, gray), _GrayScale);
+                    col.rgb = lerp(col.rgb, half3(gray, gray, gray), grayScale);
                 }
 
                 col.a = 1.0h;
@@ -140,7 +157,7 @@ Shader "Custom/ThreeDTiles"
             ENDHLSL
         }
 
-        // 写 ObjectID（MaterialPropertyBlock._OutlineId），供全屏描边
+        // 写逐实例 ObjectID（_TileInstanceParams.y），供全屏描边
         Pass
         {
             Name "TileId"
@@ -159,7 +176,10 @@ Shader "Custom/ThreeDTiles"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            float _OutlineId;
+            UNITY_INSTANCING_BUFFER_START(TilePerInstance)
+                // x = gray scale, y = outline ObjectID
+                UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
+            UNITY_INSTANCING_BUFFER_END(TilePerInstance)
 
             struct Attributes
             {
@@ -182,7 +202,8 @@ Shader "Custom/ThreeDTiles"
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-                output.outlineId = _OutlineId;
+                output.outlineId =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _TileInstanceParams).y;
                 return output;
             }
 
@@ -219,13 +240,8 @@ Shader "Custom/ThreeDTiles"
                 float4 _FrontTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
-                half4 _FrontColor;
-                half4 _BackColor;
-                half4 _SideColor;
-                float4 _FrontTilingOffset;
                 float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
-                half _GrayScale;
                 half _FrontRotation;
             CBUFFER_END
 
@@ -302,13 +318,8 @@ Shader "Custom/ThreeDTiles"
                 float4 _FrontTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
-                half4 _FrontColor;
-                half4 _BackColor;
-                half4 _SideColor;
-                float4 _FrontTilingOffset;
                 float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
-                half _GrayScale;
                 half _FrontRotation;
             CBUFFER_END
 

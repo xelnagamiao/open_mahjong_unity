@@ -154,7 +154,7 @@ public class HandCardDragController : MonoBehaviour {
         }
     }
 
-    private void AbortPressSession(string reason) {
+    private void AbortPressSession(string reason, bool forceRelayout = false) {
         Debug.LogWarning($"[HandInput] 强制复位拖拽输入状态 | 原因={reason}");
         StopGapAnimation();
         CancelFinishingDrag(commitPendingReorder: false, relayout: false);
@@ -165,8 +165,9 @@ public class HandCardDragController : MonoBehaviour {
         BlockTileClickUntilFrame = Time.frameCount;
         TileCard.ClearPendingPointerState();
         // 拖拽会话被异常中止时，按快照标记复位并按当前顺序重新布局，避免被拖拽牌悬浮/错位。
+        // forceRelayout：手牌队列已置 processing 时仍须落位（否则空跑/并发 Abort 会卡在半空）。
         if (wasDragging && gameCanvas != null && gameCanvas.HandCardsContainer != null
-            && !gameCanvas.IsChangeHandCardProcessing) {
+            && (forceRelayout || !gameCanvas.IsChangeHandCardProcessing)) {
             try {
                 RestoreSnapshotData();
                 gameCanvas.LayoutHandCardsFromCurrentOrder();
@@ -195,13 +196,20 @@ public class HandCardDragController : MonoBehaviour {
 
     /// <summary>
     /// 手牌即将增删/重排时强制结束拖拽（即使指针仍按下），避免与 RemoveCombinationCard 等并发。
+    /// 仅应由真正改手牌的 ChangeType 调用；空跑 ReSetHandCards 不得调用。
     /// </summary>
     public void AbortForHandChange(string reason) {
         if (isFinishingDrag || finishDragCoroutine != null) {
+            // 先把未播完的理牌落地，再清会话；勿再走 AbortPressSession 的快照回滚，否则会撤销刚提交的顺序。
             CancelFinishingDrag(commitPendingReorder: true, relayout: false);
+            CleanupAllHandDragCanvases();
+            ResetState();
+            SuppressPointerHover = false;
+            BlockTileClickUntilFrame = Time.frameCount;
+            TileCard.ClearPendingPointerState();
         }
         if (pendingPress || dragSessionActive) {
-            AbortPressSession(reason);
+            AbortPressSession(reason, forceRelayout: true);
         }
     }
 

@@ -34,12 +34,12 @@ public class Card3DHoverManager : MonoBehaviour
     public Color DangerOverlayColor => dangerOverlayColor;
     public float DangerOverlayIntensity => dangerOverlayIntensity;
 
-    // 存储每个卡牌的原始材质属性
+    // 存储每个卡牌的实例视觉状态；不持有或修改材质实例。
     private Dictionary<GameObject, CardMaterialData> cardMaterialData = new Dictionary<GameObject, CardMaterialData>();
 
     private class CardMaterialData
     {
-        public Material material;
+        public Tile3D tile3D;
         public float originalGrayScale;
         public Color originalFrontColor;
         public Color originalBackColor;
@@ -73,16 +73,14 @@ public class Card3DHoverManager : MonoBehaviour
             tileIdToCards[key].Add(cardObj);
             cardToTileId[cardObj] = key;
 
-            // 复用 Tile3D 已缓存的材质实例，避免再次访问 Renderer.materials
             Tile3D tile3D = cardObj.GetComponent<Tile3D>();
-            Material mat = tile3D != null ? tile3D.GetMaterial() : null;
-            if (mat != null && mat.shader != null && mat.shader.name == "Custom/ThreeDTiles") {
+            if (tile3D != null) {
                 CardMaterialData data = new CardMaterialData {
-                    material = mat,
-                    originalGrayScale = mat.HasProperty("_GrayScale") ? mat.GetFloat("_GrayScale") : 0.0f,
-                    originalFrontColor = mat.HasProperty("_FrontColor") ? mat.GetColor("_FrontColor") : Color.white,
-                    originalBackColor = mat.HasProperty("_BackColor") ? mat.GetColor("_BackColor") : Color.white,
-                    originalSideColor = mat.HasProperty("_SideColor") ? mat.GetColor("_SideColor") : Color.white
+                    tile3D = tile3D,
+                    originalGrayScale = tile3D.BaseGrayScale,
+                    originalFrontColor = tile3D.BaseFrontColor,
+                    originalBackColor = tile3D.BaseBackColor,
+                    originalSideColor = tile3D.BaseSideColor
                 };
                 cardMaterialData[cardObj] = data;
             }
@@ -110,10 +108,11 @@ public class Card3DHoverManager : MonoBehaviour
     public void ResetAndUnregisterCard(GameObject cardObj) {
         if (cardMaterialData.ContainsKey(cardObj)) {
             CardMaterialData data = cardMaterialData[cardObj];
-            if (data.material.HasProperty("_FrontColor")) data.material.SetColor("_FrontColor", data.originalFrontColor);
-            if (data.material.HasProperty("_BackColor")) data.material.SetColor("_BackColor", data.originalBackColor);
-            if (data.material.HasProperty("_SideColor")) data.material.SetColor("_SideColor", data.originalSideColor);
-            if (data.material.HasProperty("_GrayScale")) data.material.SetFloat("_GrayScale", data.originalGrayScale);
+            data.tile3D?.ResetInstanceVisualState();
+        }
+        else {
+            Tile3D tile3D = cardObj != null ? cardObj.GetComponent<Tile3D>() : null;
+            tile3D?.ResetInstanceVisualState();
         }
         if (cardToTileId.TryGetValue(cardObj, out int tileId)) {
             UnregisterCard(cardObj, tileId);
@@ -158,21 +157,14 @@ public class Card3DHoverManager : MonoBehaviour
                 Color baseFront = GetBaseColor(data.originalFrontColor, data);
                 Color baseBack = GetBaseColor(data.originalBackColor, data);
                 Color baseSide = GetBaseColor(data.originalSideColor, data);
-                if (data.material.HasProperty("_FrontColor")) {
-                    Color c = Color.Lerp(baseFront, hoverColor, hoverIntensity);
-                    c.a = baseFront.a;
-                    data.material.SetColor("_FrontColor", c);
-                }
-                if (data.material.HasProperty("_BackColor")) {
-                    Color c = Color.Lerp(baseBack, hoverColor, hoverIntensity);
-                    c.a = baseBack.a;
-                    data.material.SetColor("_BackColor", c);
-                }
-                if (data.material.HasProperty("_SideColor")) {
-                    Color c = Color.Lerp(baseSide, hoverColor, hoverIntensity);
-                    c.a = baseSide.a;
-                    data.material.SetColor("_SideColor", c);
-                }
+                Color front = Color.Lerp(baseFront, hoverColor, hoverIntensity);
+                Color back = Color.Lerp(baseBack, hoverColor, hoverIntensity);
+                Color side = Color.Lerp(baseSide, hoverColor, hoverIntensity);
+                front.a = baseFront.a;
+                back.a = baseBack.a;
+                side.a = baseSide.a;
+                data.tile3D?.SetInstanceVisualState(
+                    front, back, side, data.originalGrayScale);
             }
         }
     }
@@ -201,18 +193,7 @@ public class Card3DHoverManager : MonoBehaviour
         foreach (GameObject cardObj in tileIdToCards[tileId]) {
             if (cardMaterialData.ContainsKey(cardObj)) {
                 CardMaterialData data = cardMaterialData[cardObj];
-                if (data.material.HasProperty("_FrontColor")) {
-                    data.material.SetColor("_FrontColor", GetBaseColor(data.originalFrontColor, data));
-                }
-                if (data.material.HasProperty("_BackColor")) {
-                    data.material.SetColor("_BackColor", GetBaseColor(data.originalBackColor, data));
-                }
-                if (data.material.HasProperty("_SideColor")) {
-                    data.material.SetColor("_SideColor", GetBaseColor(data.originalSideColor, data));
-                }
-                if (data.material.HasProperty("_GrayScale")) {
-                    data.material.SetFloat("_GrayScale", data.originalGrayScale);
-                }
+                ApplyCardVisual(data, false);
             }
         }
     }
@@ -259,15 +240,26 @@ public class Card3DHoverManager : MonoBehaviour
     }
 
     private void ApplyCardBaseColors(GameObject cardObj, CardMaterialData data) {
-        if (data.material.HasProperty("_FrontColor")) {
-            data.material.SetColor("_FrontColor", GetBaseColor(data.originalFrontColor, data));
+        bool hovered = currentHoveredTileId != -1
+            && cardToTileId.TryGetValue(cardObj, out int tileId)
+            && tileId == currentHoveredTileId;
+        ApplyCardVisual(data, hovered);
+    }
+
+    private void ApplyCardVisual(CardMaterialData data, bool hovered) {
+        Color front = GetBaseColor(data.originalFrontColor, data);
+        Color back = GetBaseColor(data.originalBackColor, data);
+        Color side = GetBaseColor(data.originalSideColor, data);
+        if (hovered) {
+            front = Color.Lerp(front, hoverColor, hoverIntensity);
+            back = Color.Lerp(back, hoverColor, hoverIntensity);
+            side = Color.Lerp(side, hoverColor, hoverIntensity);
+            front.a = data.originalFrontColor.a;
+            back.a = data.originalBackColor.a;
+            side.a = data.originalSideColor.a;
         }
-        if (data.material.HasProperty("_BackColor")) {
-            data.material.SetColor("_BackColor", GetBaseColor(data.originalBackColor, data));
-        }
-        if (data.material.HasProperty("_SideColor")) {
-            data.material.SetColor("_SideColor", GetBaseColor(data.originalSideColor, data));
-        }
+        data.tile3D?.SetInstanceVisualState(
+            front, back, side, data.originalGrayScale);
     }
 
     /// <summary>

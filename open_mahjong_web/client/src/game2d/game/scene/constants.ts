@@ -50,7 +50,11 @@ export const TILE_TEXTURE_PATHS: { alias: string; src: string }[] = [
   })),
 ]
 
-/** Map tile id → texture alias (e.g. 0b01000001 → "Man1") */
+/**
+ * Map tile id → texture alias (e.g. 0b01000001 → "Man1").
+ * Honor ranks follow salasasa/server ids: z5=中 z6=白 z7=发
+ * (not Japanese pack order 白发中).
+ */
 export function tileIdToAlias(tid: number): string {
   const suit = tid & 0b11100000
   const num = tid & 0b00001111

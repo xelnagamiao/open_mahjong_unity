@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 
 public partial class GameCanvas : MonoBehaviour {
     // 显示倒计时
@@ -20,12 +19,7 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 设置倒计时初始值
         if (remianTimeText == null) return;
-        remianTimeText.color = Color.white;
-        if (_currentCutTime > 0){
-            remianTimeText.text = $"{_currentRemainingTime}+{_currentCutTime}";
-        } else {
-            remianTimeText.text = $"{_currentRemainingTime}";
-        }
+        RefreshRemainTimeDisplay();
         TryPlayCountdownTickSound();
 
         // 启动倒计时协程
@@ -50,27 +44,18 @@ public partial class GameCanvas : MonoBehaviour {
                 yield break;
             }
 
-            // 减少切牌时间
+            // 先扣步时，再扣储备
             if (_currentCutTime > 0){
                 _currentCutTime--;
             }
             else if (_currentRemainingTime > 0){
                 _currentRemainingTime--;
             }
-            // 更新文本内容
+
             if (remianTimeText == null) yield break;
-            if (_currentCutTime > 0){
-                remianTimeText.text = $"{_currentRemainingTime}+{_currentCutTime}";
-            } else {
-                remianTimeText.text = $"{_currentRemainingTime}";
-            }
+            RefreshRemainTimeDisplay();
             TryPlayCountdownTickSound();
-            // 决定文本颜色 低于5秒时显示红色
-            if (_currentRemainingTime <= 5 && _currentCutTime <= 0) {
-                remianTimeText.color = Color.red;
-            } else {
-                remianTimeText.color = Color.white;
-            }
+
             // 剩余时间为0 结束协程
             if (_currentRemainingTime <= 0 && _currentCutTime <= 0){
                 remianTimeText.text = "";
@@ -92,10 +77,22 @@ public partial class GameCanvas : MonoBehaviour {
         remianTimeText.color = Color.white;
     }
 
-    /// <summary>切牌时结束后，剩余秒数显示为 3/2/1 时各播一次提示音。</summary>
+    private int TotalRemainSeconds => _currentRemainingTime + _currentCutTime;
+
+    private void RefreshRemainTimeDisplay() {
+        if (_currentCutTime > 0){
+            remianTimeText.text = $"{_currentRemainingTime}+{_currentCutTime}";
+        } else {
+            remianTimeText.text = $"{_currentRemainingTime}";
+        }
+        // 本巡总剩余 ≤5 秒变红（含仍在扣步时、储备不足的情况）
+        remianTimeText.color = TotalRemainSeconds <= 5 ? Color.red : Color.white;
+    }
+
+    /// <summary>本巡总剩余为 3/2/1 秒时各播一次提示音。</summary>
     private void TryPlayCountdownTickSound() {
-        if (_currentCutTime > 0) return;
-        if (_currentRemainingTime < 1 || _currentRemainingTime > 3) return;
+        int total = TotalRemainSeconds;
+        if (total < 1 || total > 3) return;
         if (SoundManager.Instance == null) return;
         SoundManager.Instance.PlayCountdownTickSound();
     }

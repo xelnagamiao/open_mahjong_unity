@@ -98,12 +98,20 @@ export class Display extends Container {
 
   // ── Score & round ────────────────────────────────────────────────
 
-  setScore(name: string, score: number, direction: number, offline = false, maxLength = 4.0): void {
+  setScore(
+    name: string,
+    score: number,
+    direction: number,
+    offline = false,
+    maxLength = 4.0,
+    windLabel = '',
+  ): void {
     const scoreStr = score > 0 ? `+${score}` : `${score}`
     const [x, y, rot] = SCORE_POSITIONS[direction] ?? [0, 0.8, 0]
+    const windPrefix = windLabel ? `${windLabel} ` : ''
     this.addText(
-      `score${direction}`, `${name} ${scoreStr}`,
-      x, y, rot, 230, true, offline ? 0x888888 : 0x000000, false, maxLength,
+      `score${direction}`, `${windPrefix}${name} ${scoreStr}`,
+      x, y, rot, 230, true, offline ? 0x888888 : 0x000000, false, Math.max(maxLength, windLabel ? 4.8 : maxLength),
     )
   }
 
@@ -409,13 +417,11 @@ export class DirLabel extends Container {
   private readonly bg: Graphics
   private readonly dirText: Text
   private readonly localDir: number
-  private readonly waitDisplay: WaitDisplay | null
 
-  constructor(parent: Container, localDir = 0, assocWaitDisplay: WaitDisplay | null = null) {
+  constructor(parent: Container, localDir = 0, _assocWaitDisplay: WaitDisplay | null = null) {
     super()
 
     this.localDir = localDir
-    this.waitDisplay = assocWaitDisplay
 
     this.bg = new Graphics()
     this.bg.roundRect(-TILE_HEIGHT * 0.5, -TILE_HEIGHT * 0.5, TILE_HEIGHT, TILE_HEIGHT, TILE_RADIUS)
@@ -434,16 +440,9 @@ export class DirLabel extends Container {
     this.x = (-SCALE_FACTOR / 2 + TILE_HEIGHT / 2) * ([1, -1, -1, 1][localDir] ?? 1)
     this.y = (SCALE_FACTOR / 2 - TILE_HEIGHT / 2) * ([1, 1, -1, -1][localDir] ?? 1)
 
-    this.eventMode = 'static'
-    this.cursor = 'pointer'
-    this.on('pointerover', () => {
-      this.bg.tint = 0xe0e0e0
-      this.waitDisplay?.loadData(0)
-    })
-    this.on('pointerout', () => {
-      this.bg.tint = 0xffffff
-      this.waitDisplay?.reset()
-    })
+    // Corner wind disks are unused in live salasasa UI (winds sit on the center panel).
+    this.visible = false
+    this.eventMode = 'none'
 
     parent.addChild(this)
   }
@@ -451,5 +450,65 @@ export class DirLabel extends Container {
   setDir(dir: number): void {
     const actualDir = (this.localDir + dir + 4) % 4
     this.dirText.text = ['東', '南', '西', '北'][actualDir] ?? ''
+  }
+}
+
+// ── TenpaiTipButton ───────────────────────────────────────────────────
+
+/**
+ * Right-side tip button shown while self is in tenpai (stable waits).
+ * Hover reveals WaitDisplay details (same role as Unity TipsBlock).
+ */
+export class TenpaiTipButton extends Container {
+  private readonly bg: Graphics
+  private readonly label: Text
+  private waitDisplay: WaitDisplay | null = null
+
+  constructor(parent: Container) {
+    super()
+
+    this.bg = new Graphics()
+    this.bg.roundRect(-TILE_HEIGHT * 0.55, -TILE_HEIGHT * 0.55, TILE_HEIGHT * 1.1, TILE_HEIGHT * 1.1, TILE_RADIUS)
+    this.bg.fill({ color: FRONT_COLOR })
+    this.bg.stroke({ color: BORDER_COLOR, width: LINE_WIDTH })
+    this.addChild(this.bg)
+
+    this.label = new Text({
+      text: '听',
+      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 300, fill: 0x000000, align: 'center' },
+    })
+    this.label.anchor.set(0.5)
+    this.addChild(this.label)
+
+    // Mid-right of the table (countdown sits bottom-right).
+    this.x = SCALE_FACTOR / 2 - TILE_HEIGHT * 0.55
+    this.y = 0
+    this.zIndex = 100001
+
+    this.eventMode = 'static'
+    this.cursor = 'pointer'
+    this.visible = false
+    this.on('pointerover', () => {
+      this.bg.tint = 0xe0e0e0
+      this.waitDisplay?.loadData(0)
+    })
+    this.on('pointerout', () => {
+      this.bg.tint = 0xffffff
+      this.waitDisplay?.restoreDefault()
+    })
+
+    parent.addChild(this)
+  }
+
+  bindWaitDisplay(waitDisplay: WaitDisplay | null): void {
+    this.waitDisplay = waitDisplay
+  }
+
+  /** Show only for stable tenpai waits (not discard-preview waits_all). */
+  setTenpaiActive(active: boolean): void {
+    this.visible = active
+    if (!active) {
+      this.bg.tint = 0xffffff
+    }
   }
 }
