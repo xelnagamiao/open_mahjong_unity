@@ -85,12 +85,13 @@ namespace Taiwan {
                 new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "all_pungs", "碰碰胡", 4, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "half_flush", "混一色", 4, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "full_flush", "清一色", 8, TaiwanFanCountMode.Once),
-                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "no_flowers_or_honors", "无字无花", 2, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "eight_and_a_half_pairs", "八对半", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "four_kongs", "四杠子", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "five_kongs", "五杠子", 16, TaiwanFanCountMode.Once),
 
                 new TaiwanFanDefinition(TaiwanFanCategory.Honors, "seat_wind_pung", "门风刻", 1, TaiwanFanCountMode.PerGroup),
                 new TaiwanFanDefinition(TaiwanFanCategory.Honors, "prevalent_wind_pung", "圈风刻", 1, TaiwanFanCountMode.PerGroup),
-                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "wind_pung", "见字", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "wind_pung", "风刻", 1, TaiwanFanCountMode.PerGroup),
                 new TaiwanFanDefinition(TaiwanFanCategory.Honors, "dragon_pung", "三元牌", 1, TaiwanFanCountMode.PerGroup),
                 new TaiwanFanDefinition(TaiwanFanCategory.Honors, "little_three_dragons", "小三元", 4, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.Honors, "big_three_dragons", "大三元", 8, TaiwanFanCountMode.Once),
@@ -101,6 +102,7 @@ namespace Taiwan {
                 new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "flower_tile", "正花", 1, TaiwanFanCountMode.PerTile),
                 new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "flower_kong", "花杠", 1, TaiwanFanCountMode.PerGroup),
                 new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "no_flowers", "无花", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "no_flowers_or_honors", "无字无花", 2, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "initial_flower_bonus", "配牌花胡", 4, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "eight_flowers_and_seasons", "八仙过海", 8, TaiwanFanCountMode.Once),
                 new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "seven_flowers_steal_eighth", "七抢一", 8, TaiwanFanCountMode.Once),
@@ -159,7 +161,7 @@ namespace Taiwan {
                 definition => definition.Name,
                 definition => definition.Id,
                 StringComparer.Ordinal);
-            result["见花"] = "flower_tile";
+            result["花牌"] = "flower_tile";
             return result;
         }
 
@@ -195,7 +197,9 @@ namespace Taiwan {
     /// </summary>
     public sealed class TaiwanRuleConfig {
         public bool EightAndAHalfPairsEnabled { get; private set; }
-        public string FlowerScoringMode { get; private set; } = "seat_flowers_only";
+        public bool FourKongsEnabled { get; private set; }
+        public bool FiveKongsEnabled { get; private set; }
+        public bool AllFlowerTilesEnabled { get; private set; }
         public bool NoFlowersEnabled { get; private set; }
         public string ScoringPreset { get; private set; } = "sml";
         public string AllChowsDefinition { get; private set; } = "relaxed";
@@ -219,7 +223,9 @@ namespace Taiwan {
             var result = new TaiwanRuleConfig();
             if (values == null) return result;
             result.EightAndAHalfPairsEnabled = ReadBool(values, "eight_and_a_half_pairs_enabled", false);
-            result.FlowerScoringMode = ReadString(values, "flower_scoring_mode", "seat_flowers_only");
+            result.FourKongsEnabled = ReadBool(values, "four_kongs_enabled", false);
+            result.FiveKongsEnabled = ReadBool(values, "five_kongs_enabled", false);
+            result.AllFlowerTilesEnabled = ReadBool(values, "all_flower_tiles_enabled", false);
             result.NoFlowersEnabled = ReadBool(values, "no_flowers_enabled", false);
             result.ScoringPreset = ReadString(values, "scoring_preset", "sml");
             result.AllChowsDefinition = ReadString(
@@ -609,6 +615,12 @@ namespace Taiwan {
             else if (concealedTriplets >= 4) AddFan(fans, "四暗刻", 5);
             else if (concealedTriplets >= 3) AddFan(fans, "三暗刻", 2);
 
+            int kongCount = melds.Count(meld => meld.Kind == TaiwanMeldKind.Kong);
+            if (kongCount >= 5 && rules.FiveKongsEnabled) {
+                AddFan(fans, "五杠子", 16);
+            } else if (kongCount >= 4 && rules.FourKongsEnabled) {
+                AddFan(fans, "四杠子", 8);
+            }
             if (allExposed && !isSelfDraw) {
                 AddFan(fans, "全求人", rules.ResolveFanTai("全求人", 2));
             }
@@ -689,7 +701,7 @@ namespace Taiwan {
             }
             if (rules.AllWindPungsEnabled) {
                 int count = Winds.Count(tripletTiles.Contains);
-                if (count > 0) AddFan(fans, "见字", 1, count);
+                if (count > 0) AddFan(fans, "风刻", 1, count);
             }
             if (rules.NoFlowersOrHonorsEnabled
                 && flowers.Count == 0
@@ -716,7 +728,7 @@ namespace Taiwan {
                     && rules.EightFlowersMode != "compound")) {
                 return;
             }
-            fans.RemoveAll(fan => fan.Name == "正花" || fan.Name == "见花" || fan.Name == "花杠");
+            fans.RemoveAll(fan => fan.Name == "正花" || fan.Name == "花牌" || fan.Name == "花杠");
             AddFan(fans, "八仙过海", 8);
         }
 
@@ -754,8 +766,8 @@ namespace Taiwan {
                 flowerKongTiles.UnionWith(group);
             }
 
-            if (rules.FlowerScoringMode == "all_flowers") {
-                if (flowers.Count > 0) AddFan(fans, "见花", 1, flowers.Count);
+            if (rules.AllFlowerTilesEnabled) {
+                if (flowers.Count > 0) AddFan(fans, "花牌", 1, flowers.Count);
             } else {
                 int firstFlower = 51 + Math.Max(0, Math.Min(3, seatWind - 41));
                 int secondFlower = firstFlower + 4;
@@ -763,9 +775,9 @@ namespace Taiwan {
                     (tile == firstFlower || tile == secondFlower)
                     && !flowerKongTiles.Contains(tile));
                 if (correctCount > 0) AddFan(fans, "正花", 1, correctCount);
+                if (flowerKongCount > 0) AddFan(fans, "花杠", 1, flowerKongCount);
             }
 
-            if (flowerKongCount > 0) AddFan(fans, "花杠", 1, flowerKongCount);
             if (flowers.Count == 0 && rules.NoFlowersEnabled) {
                 AddFan(fans, "无花", 1);
             }

@@ -134,9 +134,9 @@ def _flower_fans(context: HandContext, *, suppress: bool = False) -> List[Fan]:
         tile for group in completed_flower_sets for tile in group
     }
     fans: List[Fan] = []
-    if rules.flower_scoring_mode == "all_flowers":
+    if rules.all_flower_tiles_enabled:
         if context.flowers:
-            fans.append(Fan("flower_tile", "见花", 1, len(context.flowers)))
+            fans.append(Fan("flower_tile", "花牌", 1, len(context.flowers)))
     else:
         correct = sum(
             1
@@ -146,9 +146,9 @@ def _flower_fans(context: HandContext, *, suppress: bool = False) -> List[Fan]:
         )
         if correct:
             fans.append(_fan("flower_tile", correct))
-    flower_kong_count = len(completed_flower_sets)
-    if flower_kong_count:
-        fans.append(_fan("flower_kong", count=flower_kong_count))
+        flower_kong_count = len(completed_flower_sets)
+        if flower_kong_count:
+            fans.append(_fan("flower_kong", count=flower_kong_count))
     if not context.flowers and rules.no_flowers_enabled:
         fans.append(_fan("no_flowers"))
     return fans
@@ -323,6 +323,11 @@ def _score_decomposition(
     elif concealed_count >= 3:
         fans.append(_fan("three_concealed_pungs"))
 
+    kong_count = sum(meld.kind == "kong" for meld in decomposition.melds)
+    if kong_count >= 5 and rules.five_kongs_enabled:
+        fans.append(_fan("five_kongs"))
+    elif kong_count >= 4 and rules.four_kongs_enabled:
+        fans.append(_fan("four_kongs"))
     if all_exposed and not self_draw:
         fans.append(_fan("all_begging"))
     if (
@@ -574,13 +579,7 @@ def settle_win(
     if winner not in player_indices or dealer not in player_indices:
         raise ValueError("赢家或庄家座位非法")
     capped_tai = min(hand_tai, rules.tai_cap) if rules.tai_cap else hand_tai
-    if liable_payer is not None:
-        if liable_payer == winner or liable_payer not in player_indices:
-            raise ValueError("包赔责任人座位非法")
-        # 包牌者承担原本三名输家的全部逐笔支付；每笔仍按原付款人与庄家的
-        # 关系计算连庄拉庄，最后合并记到责任人名下。
-        payers = [index for index in player_indices if index != winner]
-    elif win_source == "self_draw":
+    if win_source == "self_draw":
         payers = [index for index in player_indices if index != winner]
     elif win_source in ("discard", "robbing_kong", "seven_flowers_steal_eighth"):
         if discarder is None or discarder == winner or discarder not in player_indices:
@@ -588,17 +587,38 @@ def settle_win(
         payers = [discarder]
     else:
         raise ValueError(f"未知胡牌来源: {win_source}")
+    if liable_payer is not None:
+        if liable_payer == winner or liable_payer not in player_indices:
+            raise ValueError("包赔责任人座位非法")
+        if win_source not in ("self_draw", "discard", "robbing_kong"):
+            raise ValueError("包牌责任只适用于自摸、点胡或抢杠")
 
     dealer_relation = 1 + 2 * max(0, dealer_streak)
     changes: Dict[int, int] = {index: 0 for index in player_indices}
     payments: List[Payment] = []
     for original_payer in payers:
-        payer = liable_payer if liable_payer is not None else original_payer
         relation_tai = dealer_relation if dealer in (winner, original_payer) else 0
         amount = rules.base_points + (capped_tai + relation_tai) * rules.points_per_tai
-        changes[payer] -= amount
-        changes[winner] += amount
-        payments.append(Payment(payer, winner, capped_tai, relation_tai, amount))
+        if (
+            liable_payer is not None
+            and win_source in ("discard", "robbing_kong")
+            and liable_payer != original_payer
+            and rules.liability_ron_split_enabled
+        ):
+            shared_amount = (amount + 1) // 2
+            payment_parts = (
+                (liable_payer, shared_amount),
+                (original_payer, shared_amount),
+            )
+        else:
+            payer = liable_payer if liable_payer is not None else original_payer
+            payment_parts = ((payer, amount),)
+        for payer, payment_amount in payment_parts:
+            if payment_amount <= 0:
+                continue
+            changes[payer] -= payment_amount
+            changes[winner] += payment_amount
+            payments.append(Payment(payer, winner, capped_tai, relation_tai, payment_amount))
 
     if sum(changes.values()) != 0:
         raise AssertionError("台湾麻将结算账本必须为零和")

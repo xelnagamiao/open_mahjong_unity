@@ -90,8 +90,8 @@ public class Taiwan_Create_RoomConfig {
             new DetailedConfigOption("杠牌", "concealed_kong_enabled", "暗杠计台", new[] { "关闭", "开启" }, new object[] { false, true }, false),
 
             new DetailedConfigOption("花牌字牌", "opening_flower_replacement_order", "开局补花顺序", new[] { "本家补完再轮下家", "分轮补花（新花下一轮）" }, new object[] { "player_complete", "round_robin" }, "player_complete"),
-            new DetailedConfigOption("花牌字牌", "flower_scoring_mode", "见花", new[] { "只计正花", "计所有花" }, new object[] { "seat_flowers_only", "all_flowers" }, "seat_flowers_only"),
-            new DetailedConfigOption("花牌字牌", "all_wind_pungs_enabled", "见字", new[] { "只计场风门风", "所有风刻均计台" }, new object[] { false, true }, false),
+            new DetailedConfigOption("花牌字牌", "all_flower_tiles_enabled", "见花见台", new[] { "只计正花、花杠", "所有花牌均计台" }, new object[] { false, true }, false),
+            new DetailedConfigOption("花牌字牌", "all_wind_pungs_enabled", "见风见台", new[] { "只计门风刻、圈风刻", "所有风刻均计台" }, new object[] { false, true }, false),
             new DetailedConfigOption("花牌字牌", "no_flowers_enabled", "无花", new[] { "关闭", "开启" }, new object[] { false, true }, false),
             new DetailedConfigOption("花牌字牌", "no_flowers_or_honors_enabled", "无字无花", new[] { "关闭", "开启" }, new object[] { false, true }, false),
 
@@ -99,13 +99,25 @@ public class Taiwan_Create_RoomConfig {
             new DetailedConfigOption("花胡", "seven_flowers_steal_eighth_enabled", "七抢一", new[] { "开启", "关闭" }, new object[] { true, false }, true),
             new DetailedConfigOption("花胡", "initial_flower_bonus_enabled", "配牌花胡", new[] { "关闭", "开启（天地和时机花胡加计）" }, new object[] { false, true }, false),
 
-            new DetailedConfigOption("包牌", "dangerous_discard_liability", "危险弃牌包赔", new[] { "关闭", "开启" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "liability_ron_split_enabled", "非包牌家放铳", new[] { "包牌家全付", "包牌家与铳家平分" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "big_four_winds_liability_enabled", "大四喜", new[] { "关闭", "喂出第4副风刻/杠" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "little_four_winds_liability_enabled", "小四喜", new[] { "关闭", "喂出第3副风刻/杠" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "big_three_dragons_liability_enabled", "大三元", new[] { "关闭", "喂出第3副三元刻/杠" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "little_three_dragons_liability_enabled", "小三元", new[] { "关闭", "喂出第2副三元刻/杠" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "all_honors_liability_enabled", "字一色", new[] { "关闭", "喂出第4副字牌副露" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "full_flush_liability_enabled", "清一色", new[] { "关闭", "喂出第4副同色副露" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "half_flush_liability_enabled", "混一色", new[] { "关闭", "喂出第4副同色/字牌副露" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "all_pungs_liability_enabled", "碰碰胡", new[] { "关闭", "喂出第4副明刻/明杠" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "five_kongs_liability_enabled", "五杠子", new[] { "关闭", "喂出第5副明杠" }, new object[] { false, true }, false),
+            new DetailedConfigOption("包牌", "four_kongs_liability_enabled", "四杠子", new[] { "关闭", "喂出第4副明杠" }, new object[] { false, true }, false),
 
+            new DetailedConfigOption("扩展台种", "last_tile_claim_enabled", "河底捞鱼", new[] { "关闭", "开启" }, new object[] { false, true }, false),
             new DetailedConfigOption("扩展台种", "eight_and_a_half_pairs_enabled", "八对半", new[] { "关闭", "开启" }, new object[] { false, true }, false),
             new DetailedConfigOption("扩展台种", "half_begging_enabled", "半求人", new[] { "关闭", "开启" }, new object[] { false, true }, false),
-            new DetailedConfigOption("扩展台种", "last_tile_claim_enabled", "河底捞鱼", new[] { "关闭", "开启" }, new object[] { false, true }, false),
+            new DetailedConfigOption("扩展台种", "four_kongs_enabled", "四杠子", new[] { "关闭", "开启（8台）" }, new object[] { false, true }, false),
+            new DetailedConfigOption("扩展台种", "five_kongs_enabled", "五杠子", new[] { "关闭", "开启（16台）" }, new object[] { false, true }, false),
 
-            new DetailedConfigOption("特殊规则", "all_chows_definition", "平胡要求", new[] { "宽松：非门清、非自摸、非独听", "严格：在宽松基础上再要求无字无花" }, new object[] { "relaxed", "strict" }, "relaxed"),
+            new DetailedConfigOption("特殊规则", "all_chows_definition", "平胡要求", new[] { "宽松（非门清、非自摸、非独听）", "严格（在宽松基础上再要求无字无花）" }, new object[] { "relaxed", "strict" }, "relaxed"),
             new DetailedConfigOption("特殊规则", "little_four_winds_add_wind_pungs", "小四喜复合风牌", new[] { "不加计门风/圈风", "加计门风/圈风" }, new object[] { false, true }, false),
             new DetailedConfigOption("特殊规则", "all_honors_add_all_pungs", "字一色复合碰碰胡", new[] { "加计碰碰胡", "不加计碰碰胡" }, new object[] { true, false }, true),
             new DetailedConfigOption("特殊规则", "prefer_triplet_decomposition_on_discard_win", "非自摸拆分优先", new[] { "选择最高台解释", "点胡/抢杠时刻子优先" }, new object[] { false, true }, false),
@@ -141,7 +153,7 @@ public class Taiwan_Create_RoomConfig {
                 }),
             new DetailedConfigPreset(
                 "明星三缺一",
-                "对齐明星三缺一流程与公开台表：见花见字、每杠加一张尾牌、最多连 10、天地听不得过水、花胡可选。",
+                "对齐明星三缺一流程与公开台表：见花见台、见风见台、每杠加一张尾牌、最多连 10、天地听不得过水、花胡可选。",
                 new Dictionary<string, object> {
                     { "dealer_streak_limit", 10 },
                     { "dead_wall_mode", "kong_expands_tail" },
@@ -149,7 +161,7 @@ public class Taiwan_Create_RoomConfig {
                     { "missed_win_blocks_claims", false },
                     { "eight_flowers_mode", "optional_standalone" },
                     { "seven_flowers_steal_eighth_enabled", false },
-                    { "flower_scoring_mode", "all_flowers" },
+                    { "all_flower_tiles_enabled", true },
                     { "public_ready_enabled", true },
                     { "scoring_preset", "star31" },
                     { "all_chows_definition", "strict" },
@@ -285,6 +297,10 @@ public class Taiwan_Create_RoomConfig {
                 return ReadBool(values, "initial_flower_bonus_enabled");
             case "eight_and_a_half_pairs":
                 return ReadBool(values, "eight_and_a_half_pairs_enabled");
+            case "four_kongs":
+                return ReadBool(values, "four_kongs_enabled");
+            case "five_kongs":
+                return ReadBool(values, "five_kongs_enabled");
             case "seven_flowers_steal_eighth":
                 return ReadBool(values, "seven_flowers_steal_eighth_enabled", true);
             default:

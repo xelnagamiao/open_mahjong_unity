@@ -10,6 +10,7 @@ FAN_DEFINITIONS: Mapping[str, Tuple[str, int]] = MappingProxyType({
     "self_draw": ("自摸", 1),
     "seat_wind_pung": ("门风刻", 1),
     "prevalent_wind_pung": ("圈风刻", 1),
+    "wind_pung": ("风刻", 1),
     "flower_tile": ("正花", 1),
     "dragon_pung": ("三元牌", 1),
     "single_wait": ("独听", 1),
@@ -21,7 +22,6 @@ FAN_DEFINITIONS: Mapping[str, Tuple[str, int]] = MappingProxyType({
     "declared_ready": ("报听", 1),
     "half_begging": ("半求人", 1),
     "last_tile_claim": ("河底捞鱼", 1),
-    "wind_pung": ("见字", 1),
     "melded_kong": ("明杠", 1),
     "all_chows": ("平胡", 2),
     "three_concealed_pungs": ("三暗刻", 2),
@@ -47,6 +47,8 @@ FAN_DEFINITIONS: Mapping[str, Tuple[str, int]] = MappingProxyType({
     "all_honors": ("字一色", 16),
     "big_four_winds": ("大四喜", 16),
     "heavenly_win": ("天胡", 24),
+    "four_kongs": ("四杠子", 8),
+    "five_kongs": ("五杠子", 16),
 })
 
 

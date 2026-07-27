@@ -27,6 +27,19 @@ FLOWER_SETS: Tuple[FrozenSet[int], ...] = (
     frozenset((55, 56, 57, 58)),
 )
 
+LIABILITY_FAN_CONFIG_FIELDS: Dict[str, str] = {
+    "five_kongs": "five_kongs_liability_enabled",
+    "four_kongs": "four_kongs_liability_enabled",
+    "big_four_winds": "big_four_winds_liability_enabled",
+    "little_four_winds": "little_four_winds_liability_enabled",
+    "big_three_dragons": "big_three_dragons_liability_enabled",
+    "little_three_dragons": "little_three_dragons_liability_enabled",
+    "all_honors": "all_honors_liability_enabled",
+    "full_flush": "full_flush_liability_enabled",
+    "half_flush": "half_flush_liability_enabled",
+    "all_pungs": "all_pungs_liability_enabled",
+}
+
 
 @dataclass(frozen=True)
 class TaiwanRules:
@@ -61,7 +74,7 @@ class TaiwanRules:
     eight_flowers_mode: str = "optional_standalone"
     seven_flowers_steal_eighth_enabled: bool = True
     initial_flower_bonus_enabled: bool = False
-    flower_scoring_mode: str = "seat_flowers_only"
+    all_flower_tiles_enabled: bool = False
     no_flowers_enabled: bool = False
 
     ready_qualification_mode: str = "standard_with_dealer_heavenly_ready"
@@ -87,17 +100,41 @@ class TaiwanRules:
     same_turn_claim_forbidden: bool = False
 
     eight_and_a_half_pairs_enabled: bool = False
+    four_kongs_enabled: bool = False
+    five_kongs_enabled: bool = False
     half_begging_enabled: bool = False
     last_tile_claim_enabled: bool = False
     all_wind_pungs_enabled: bool = False
     no_flowers_or_honors_enabled: bool = False
     melded_kong_enabled: bool = False
     concealed_kong_enabled: bool = False
-    dangerous_discard_liability: bool = False
+    liability_ron_split_enabled: bool = False
+    full_flush_liability_enabled: bool = False
+    big_three_dragons_liability_enabled: bool = False
+    big_four_winds_liability_enabled: bool = False
+    all_pungs_liability_enabled: bool = False
+    half_flush_liability_enabled: bool = False
+    little_three_dragons_liability_enabled: bool = False
+    little_four_winds_liability_enabled: bool = False
+    all_honors_liability_enabled: bool = False
+    five_kongs_liability_enabled: bool = False
+    four_kongs_liability_enabled: bool = False
 
     @property
     def required_claim_wall_reserve(self) -> int:
         return 4 if self.claim_wall_reserve else 0
+
+    def liability_enabled_for_fan(self, fan_id: str) -> bool:
+        field_name = LIABILITY_FAN_CONFIG_FIELDS.get(fan_id)
+        return bool(field_name and getattr(self, field_name))
+
+    @property
+    def liability_fan_ids(self) -> Tuple[str, ...]:
+        return tuple(
+            fan_id
+            for fan_id in LIABILITY_FAN_CONFIG_FIELDS
+            if self.liability_enabled_for_fan(fan_id)
+        )
 
     @classmethod
     def from_dict(cls, raw: Optional[dict]) -> "TaiwanRules":
@@ -166,8 +203,6 @@ class TaiwanRules:
             raise ValueError("不支持的多响模式")
         if self.chow_discard_restriction_mode not in ("strict", "same_tile", "none"):
             raise ValueError("不支持的食替模式")
-        if self.flower_scoring_mode not in ("seat_flowers_only", "all_flowers"):
-            raise ValueError("花牌计台只支持座位正花或任意花")
         if self.eight_flowers_mode not in (
             "optional_standalone",
             "forced_standalone",
@@ -231,17 +266,30 @@ class TaiwanRules:
             "four_kongs_abort",
             "seven_flowers_steal_eighth_enabled",
             "initial_flower_bonus_enabled",
+            "all_flower_tiles_enabled",
             "no_flowers_enabled",
             "public_ready_enabled",
             "declared_ready_auto_added_kong",
             "eight_and_a_half_pairs_enabled",
+            "four_kongs_enabled",
+            "five_kongs_enabled",
             "half_begging_enabled",
             "last_tile_claim_enabled",
             "all_wind_pungs_enabled",
             "no_flowers_or_honors_enabled",
             "melded_kong_enabled",
             "concealed_kong_enabled",
-            "dangerous_discard_liability",
+            "liability_ron_split_enabled",
+            "full_flush_liability_enabled",
+            "big_three_dragons_liability_enabled",
+            "big_four_winds_liability_enabled",
+            "all_pungs_liability_enabled",
+            "half_flush_liability_enabled",
+            "little_three_dragons_liability_enabled",
+            "little_four_winds_liability_enabled",
+            "all_honors_liability_enabled",
+            "four_kongs_liability_enabled",
+            "five_kongs_liability_enabled",
             "little_four_winds_add_wind_pungs",
             "all_honors_add_all_pungs",
             "prefer_triplet_decomposition_on_discard_win",

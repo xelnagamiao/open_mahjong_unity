@@ -18,6 +18,7 @@ from server.game_calculation.hand_structure import (
 )
 from server.game_calculation.taiwan.rules import (
     FLOWER_TILES,
+    LIABILITY_FAN_CONFIG_FIELDS,
     STRUCTURE_TILES,
     HandContext,
     TaiwanRules,
@@ -88,8 +89,7 @@ class DummyPlayer:
         self.declared_ready = False
         self.ready_locked = False
         self.last_discarded_tile = None
-        self.liability_payer = None
-        self.liability_fan_id = None
+        self.liability_payers = {}
         self.riichi_candidate_cuts = {}
         self.tag_list = []
 
@@ -353,6 +353,81 @@ class TaiwanScoringTest(unittest.TestCase):
                 self.assertEqual(result.tai, tai)
                 self.assertEqual(set(result.fan_ids), fan_ids)
 
+    def test_four_kongs_is_a_scoring_fan_and_supports_custom_tai(self):
+        hand = [25, 25, 25, 45, 45]
+        melds = ["G11", "g12", "G13", "g14"]
+
+        disabled = self.score(
+            hand,
+            melds=melds,
+            tile=45,
+            source="self_draw",
+        )
+        result = self.score(
+            hand,
+            melds=melds,
+            tile=45,
+            source="self_draw",
+            rules=TaiwanRules(four_kongs_enabled=True),
+        )
+        custom = self.score(
+            hand,
+            melds=melds,
+            tile=45,
+            source="self_draw",
+            rules=TaiwanRules(
+                four_kongs_enabled=True,
+                fan_tai_overrides={"four_kongs": 13},
+            ),
+        )
+
+        self.assertNotIn("four_kongs", disabled.fan_ids)
+        self.assertTrue(result.is_win)
+        self.assertIn("four_kongs", result.fan_ids)
+        self.assertEqual(
+            next(fan.tai for fan in result.fans if fan.fan_id == "four_kongs"),
+            8,
+        )
+        self.assertEqual(custom.tai - result.tai, 5)
+
+    def test_five_kongs_is_a_16_tai_extension_and_replaces_four_kongs(self):
+        hand = [45, 45]
+        melds = ["G11", "g12", "G13", "g14", "G15"]
+
+        disabled = self.score(
+            hand,
+            melds=melds,
+            tile=45,
+            source="self_draw",
+        )
+        enabled = self.score(
+            hand,
+            melds=melds,
+            tile=45,
+            source="self_draw",
+            rules=TaiwanRules(
+                four_kongs_enabled=True,
+                five_kongs_enabled=True,
+            ),
+        )
+        four_only = self.score(
+            hand,
+            melds=melds,
+            tile=45,
+            source="self_draw",
+            rules=TaiwanRules(four_kongs_enabled=True),
+        )
+
+        self.assertNotIn("four_kongs", disabled.fan_ids)
+        self.assertNotIn("five_kongs", disabled.fan_ids)
+        self.assertIn("five_kongs", enabled.fan_ids)
+        self.assertNotIn("four_kongs", enabled.fan_ids)
+        self.assertEqual(
+            next(fan.tai for fan in enabled.fans if fan.fan_id == "five_kongs"),
+            16,
+        )
+        self.assertIn("four_kongs", four_only.fan_ids)
+
     def test_starting_win_suppresses_only_the_defined_fans(self):
         hand = [11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 45, 45]
         heavenly = self.score(
@@ -392,18 +467,20 @@ class TaiwanScoringTest(unittest.TestCase):
             flowers=[51, 52, 53, 54],
             seat_wind=41,
             rules=TaiwanRules(
-                flower_scoring_mode="all_flowers",
+                all_flower_tiles_enabled=True,
                 fan_tai_overrides={"flower_kong": 2},
             ),
         )
-        self.assertEqual(any_flower.tai, 6)
+        self.assertEqual(any_flower.tai, 4)
+        self.assertEqual(any_flower.fan_ids, ["flower_tile"])
         any_flower_fan = next(
             fan for fan in any_flower.fans if fan.fan_id == "flower_tile"
         )
         self.assertEqual(
             (any_flower_fan.name, any_flower_fan.count, any_flower_fan.total),
-            ("见花", 4, 4),
+            ("花牌", 4, 4),
         )
+        self.assertNotIn("flower_kong", any_flower.fan_ids)
 
         both_flower_kongs = self.score(
             [11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 45, 45],
@@ -446,14 +523,27 @@ class TaiwanScoringTest(unittest.TestCase):
         )
         self.assertEqual(river.fan_ids, ["last_tile_claim"])
 
+        standard_winds = self.score(
+            [11, 12, 13, 21, 22, 23, 31, 32, 33, 45, 45],
+            melds=["k41", "k42"],
+            tile=11,
+            seat_wind=41,
+            round_wind=42,
+        )
+        self.assertIn("seat_wind_pung", standard_winds.fan_ids)
+        self.assertIn("prevalent_wind_pung", standard_winds.fan_ids)
+        self.assertNotIn("wind_pung", standard_winds.fan_ids)
+
         winds = self.score(
             [11, 12, 13, 21, 22, 23, 31, 32, 33, 45, 45],
             melds=["k41", "k42"],
             tile=11,
+            seat_wind=41,
+            round_wind=42,
             rules=TaiwanRules(all_wind_pungs_enabled=True),
         )
         wind_fan = next(fan for fan in winds.fans if fan.fan_id == "wind_pung")
-        self.assertEqual((wind_fan.count, wind_fan.total), (2, 2))
+        self.assertEqual((wind_fan.name, wind_fan.count, wind_fan.total), ("风刻", 2, 2))
         self.assertNotIn("seat_wind_pung", winds.fan_ids)
         self.assertNotIn("prevalent_wind_pung", winds.fan_ids)
 
@@ -464,6 +554,14 @@ class TaiwanScoringTest(unittest.TestCase):
             rules=TaiwanRules(no_flowers_or_honors_enabled=True),
         )
         self.assertIn("no_flowers_or_honors", no_honor.fan_ids)
+        self.assertEqual(
+            next(
+                fan.name
+                for fan in no_honor.fans
+                if fan.fan_id == "no_flowers_or_honors"
+            ),
+            "无字无花",
+        )
 
         melded_kong = self.score(
             base_hand,
@@ -792,7 +890,7 @@ class TaiwanScoringTest(unittest.TestCase):
                 discarder=True,
             )
 
-    def test_dangerous_discard_liability_moves_all_payments_to_one_player(self):
+    def test_liability_moves_all_self_draw_payments_to_one_player(self):
         settlement = settle_win(
             winner=1,
             hand_tai=3,
@@ -805,17 +903,74 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertEqual([payment.payer for payment in settlement.payments], [2, 2, 2])
         self.assertEqual([payment.amount for payment in settlement.payments], [9, 8, 8])
 
-    def test_persisted_liability_requires_the_final_dangerous_fan(self):
+    def test_liability_ron_from_liable_payer_matches_normal_settlement(self):
+        normal = settle_win(
+            winner=1,
+            hand_tai=3,
+            win_source="discard",
+            dealer=0,
+            dealer_streak=0,
+            discarder=2,
+        )
+        liable = settle_win(
+            winner=1,
+            hand_tai=3,
+            win_source="discard",
+            dealer=0,
+            dealer_streak=0,
+            discarder=2,
+            liable_payer=2,
+        )
+
+        self.assertEqual(liable, normal)
+
+    def test_liability_ron_from_other_player_is_paid_by_liable_payer(self):
+        settlement = settle_win(
+            winner=1,
+            hand_tai=3,
+            win_source="discard",
+            dealer=0,
+            dealer_streak=0,
+            discarder=3,
+            liable_payer=2,
+        )
+
+        self.assertEqual(settlement.score_changes, {0: 0, 1: 8, 2: -8, 3: 0})
+        self.assertEqual([payment.payer for payment in settlement.payments], [2])
+        self.assertEqual([payment.amount for payment in settlement.payments], [8])
+
+    def test_liability_ron_split_rounds_both_shares_up(self):
+        settlement = settle_win(
+            winner=1,
+            hand_tai=3,
+            win_source="discard",
+            dealer=0,
+            dealer_streak=0,
+            discarder=0,
+            liable_payer=2,
+            rules=TaiwanRules(liability_ron_split_enabled=True),
+        )
+
+        self.assertEqual(settlement.score_changes, {0: -5, 1: 10, 2: -5, 3: 0})
+        self.assertEqual([payment.payer for payment in settlement.payments], [2, 0])
+        self.assertEqual([payment.amount for payment in settlement.payments], [5, 5])
+
+    def test_persisted_liability_requires_the_final_matching_fan(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(dangerous_discard_liability=True)
+        state.rules = TaiwanRules(
+            full_flush_liability_enabled=True,
+            half_flush_liability_enabled=True,
+        )
         state.player_list = [DummyPlayer(i) for i in range(4)]
         winner = state.player_list[1]
-        winner.combination_tiles = ["k11", "k12", "k13", "k14", "k15"]
+        winner.combination_tiles = ["k11", "k12", "k13", "k14"]
 
         state._remember_claim_liability(1, 2, 15)
 
-        self.assertEqual(winner.liability_payer, 2)
-        self.assertEqual(winner.liability_fan_id, "full_flush")
+        self.assertEqual(
+            winner.liability_payers,
+            {"full_flush": 2, "half_flush": 2},
+        )
         half_flush = state._build_pending_winner(
             1,
             "self_draw",
@@ -823,7 +978,7 @@ class TaiwanScoringTest(unittest.TestCase):
             {"fan_ids": ["half_flush"], "tai": 4},
             45,
         )
-        self.assertIsNone(half_flush["liable_payer"])
+        self.assertEqual(half_flush["liable_payer"], 2)
 
         full_flush = state._build_pending_winner(
             1,
@@ -834,20 +989,22 @@ class TaiwanScoringTest(unittest.TestCase):
         )
         self.assertEqual(full_flush["liable_payer"], 2)
 
-        winner.liability_payer = None
-        winner.liability_fan_id = None
-        winner.combination_tiles = ["k11", "k12", "k13", "k14"]
-        state.playable_wall_count = lambda: 6
-        immediate_half_flush = state._build_pending_winner(
+        non_matching = state._build_pending_winner(
             1,
-            "discard",
-            "hu_first",
-            {"fan_ids": ["half_flush"], "tai": 4},
+            "self_draw",
+            "hu_self",
+            {"fan_ids": ["all_pungs"], "tai": 4},
             15,
-            3,
         )
-        self.assertIsNone(immediate_half_flush["liable_payer"])
-        immediate_full_flush = state._build_pending_winner(
+        self.assertIsNone(non_matching["liable_payer"])
+
+    def test_liability_is_carried_into_discard_and_robbing_kong_wins(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(full_flush_liability_enabled=True)
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.player_list[1].liability_payers = {"full_flush": 2}
+
+        discard_win = state._build_pending_winner(
             1,
             "discard",
             "hu_first",
@@ -855,7 +1012,252 @@ class TaiwanScoringTest(unittest.TestCase):
             15,
             3,
         )
-        self.assertEqual(immediate_full_flush["liable_payer"], 3)
+        robbing_kong = state._build_pending_winner(
+            1,
+            "robbing_kong",
+            "hu_first",
+            {"fan_ids": ["full_flush", "robbing_kong"], "tai": 9},
+            15,
+            3,
+        )
+
+        self.assertEqual(discard_win["payer"], 3)
+        self.assertEqual(discard_win["liable_payer"], 2)
+        self.assertEqual(robbing_kong["payer"], 3)
+        self.assertEqual(robbing_kong["liable_payer"], 2)
+
+    def test_each_liability_fan_can_be_enabled_independently(self):
+        cases = (
+            (
+                "all_pungs_liability_enabled",
+                "all_pungs",
+                ["k11", "k12", "k13", "k14"],
+                14,
+            ),
+            (
+                "half_flush_liability_enabled",
+                "half_flush",
+                ["s12", "k15", "k41", "k45"],
+                45,
+            ),
+            (
+                "full_flush_liability_enabled",
+                "full_flush",
+                ["k11", "k12", "k13", "k14"],
+                14,
+            ),
+            (
+                "big_three_dragons_liability_enabled",
+                "big_three_dragons",
+                ["k45", "k46", "k47"],
+                47,
+            ),
+            (
+                "little_three_dragons_liability_enabled",
+                "little_three_dragons",
+                ["k45", "k46"],
+                46,
+            ),
+            (
+                "big_four_winds_liability_enabled",
+                "big_four_winds",
+                ["k41", "k42", "k43", "k44"],
+                44,
+            ),
+            (
+                "little_four_winds_liability_enabled",
+                "little_four_winds",
+                ["k41", "k42", "k43"],
+                43,
+            ),
+            (
+                "all_honors_liability_enabled",
+                "all_honors",
+                ["k41", "k42", "k43", "k44"],
+                44,
+            ),
+        )
+        for field_name, fan_id, completed_melds, tile in cases:
+            with self.subTest(fan_id=fan_id):
+                state = object.__new__(TaiwanGameState)
+                state.rules = TaiwanRules(**{field_name: True})
+                state.player_list = [DummyPlayer(i) for i in range(4)]
+                winner = state.player_list[1]
+                winner.combination_tiles = completed_melds[:-1]
+                state._remember_claim_liability(1, 3, tile)
+                self.assertEqual(winner.liability_payers, {})
+
+                winner.combination_tiles = completed_melds
+                state._remember_claim_liability(1, 2, tile)
+
+                self.assertEqual(winner.liability_payers, {fan_id: 2})
+                pending = state._build_pending_winner(
+                    1,
+                    "self_draw",
+                    "hu_self",
+                    {"fan_ids": [fan_id], "tai": 8},
+                    tile,
+                )
+                self.assertEqual(pending["liable_payer"], 2)
+
+                state.rules = TaiwanRules()
+                winner.liability_payers = {}
+                state._remember_claim_liability(1, 3, tile)
+                self.assertEqual(winner.liability_payers, {})
+
+    def test_four_kongs_liability_requires_discard_claimed_fourth_kong(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            four_kongs_enabled=True,
+            four_kongs_liability_enabled=True,
+        )
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        winner = state.player_list[1]
+        winner.combination_tiles = ["G11", "g12", "G13"]
+
+        state._remember_claim_liability(1, 3, 14)
+        self.assertEqual(winner.liability_payers, {})
+
+        winner.combination_tiles.append("g14")
+        state._remember_claim_liability(1, 2, 14)
+        self.assertEqual(winner.liability_payers, {"four_kongs": 2})
+        pending = state._build_pending_winner(
+            1,
+            "self_draw",
+            "hu_self",
+            {"fan_ids": ["self_draw"], "tai": 1},
+            25,
+        )
+        self.assertIsNone(pending["liable_payer"])
+        pending = state._build_pending_winner(
+            1,
+            "self_draw",
+            "hu_self",
+            {"fan_ids": ["self_draw", "four_kongs"], "tai": 9},
+            25,
+        )
+        self.assertEqual(pending["liable_payer"], 2)
+
+        self_acquired = object.__new__(TaiwanGameState)
+        self_acquired.rules = TaiwanRules(
+            four_kongs_enabled=True,
+            four_kongs_liability_enabled=True,
+        )
+        self_acquired.player_list = [DummyPlayer(i) for i in range(4)]
+        self_acquired.player_list[1].combination_tiles = [
+            "G11",
+            "g12",
+            "G13",
+            "G14",
+        ]
+        self_acquired._remember_claim_liability(1, 3, 14)
+        self.assertEqual(self_acquired.player_list[1].liability_payers, {})
+
+    def test_five_kongs_liability_requires_discard_claimed_fifth_kong(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            five_kongs_enabled=True,
+            five_kongs_liability_enabled=True,
+        )
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        winner = state.player_list[1]
+        winner.combination_tiles = ["G11", "g12", "G13", "g14"]
+
+        state._remember_claim_liability(1, 3, 15)
+        self.assertEqual(winner.liability_payers, {})
+
+        winner.combination_tiles.append("g15")
+        state._remember_claim_liability(1, 2, 15)
+        self.assertEqual(winner.liability_payers, {"five_kongs": 2})
+        pending = state._build_pending_winner(
+            1,
+            "self_draw",
+            "hu_self",
+            {"fan_ids": ["self_draw", "five_kongs"], "tai": 17},
+            25,
+        )
+        self.assertEqual(pending["liable_payer"], 2)
+
+    def test_five_kongs_liability_precedes_compound_all_pungs_liability(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            five_kongs_enabled=True,
+            five_kongs_liability_enabled=True,
+            all_pungs_liability_enabled=True,
+        )
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.player_list[1].liability_payers = {
+            "all_pungs": 2,
+            "five_kongs": 3,
+        }
+
+        self.assertEqual(
+            state._liability_payer_for_win(
+                1,
+                "self_draw",
+                None,
+                25,
+                {"fan_ids": ["all_pungs", "five_kongs"]},
+            ),
+            3,
+        )
+
+    def test_compound_liability_uses_stable_specific_fan_priority(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            big_four_winds_liability_enabled=True,
+            all_honors_liability_enabled=True,
+        )
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.player_list[1].liability_payers = {
+            "all_honors": 2,
+            "big_four_winds": 3,
+        }
+        self.assertEqual(
+            state._liability_payer_for_win(
+                1,
+                "self_draw",
+                None,
+                45,
+                {"fan_ids": ["all_honors", "big_four_winds"]},
+            ),
+            3,
+        )
+
+    def test_later_claim_does_not_replace_the_original_liability_payer(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            full_flush_liability_enabled=True,
+            half_flush_liability_enabled=True,
+        )
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        winner = state.player_list[1]
+        winner.combination_tiles = ["k11", "k12", "k13", "k14"]
+        state._remember_claim_liability(1, 2, 14)
+        self.assertEqual(
+            winner.liability_payers,
+            {"full_flush": 2, "half_flush": 2},
+        )
+
+        winner.combination_tiles.append("k15")
+        state._remember_claim_liability(1, 3, 15)
+        self.assertEqual(
+            winner.liability_payers,
+            {"full_flush": 2, "half_flush": 2},
+        )
+
+    def test_removed_liability_master_switch_is_rejected(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "dangerous_discard_liability",
+        ):
+            TaiwanRules.from_dict({"dangerous_discard_liability": True})
+
+    def test_every_liability_target_is_a_published_scoring_fan(self):
+        self.assertLessEqual(
+            set(LIABILITY_FAN_CONFIG_FIELDS),
+            set(FAN_DEFINITIONS),
+        )
 
     def test_scoring_presets_only_override_fan_values(self):
         hand = [
@@ -975,12 +1377,12 @@ class TaiwanScoringTest(unittest.TestCase):
 
     def test_published_scoring_preset_contract(self):
         # 简易迁移保险：删除已发布预设或改变其完整台表都会失败。
-        # 只有完成外部牌谱迁移后，才应人工更新/移除这里的契约。
+        # 本次按允许的破坏性变更加入 five_kongs，显式更新完整台表契约。
         expected_hashes = {
-            "sml": "ebd41fb8cefe0f2835cc0c46c95a70c8f972b7e956ed5936db1970f0737c63db",
-            "cml": "ebd41fb8cefe0f2835cc0c46c95a70c8f972b7e956ed5936db1970f0737c63db",
-            "star31": "8e7c9b80f1a17d7dfcc19b2c7679f1066487b9161a325517ed91f690931a0112",
-            "shenlaiye": "76fb8534a294bcbb4768e170b649f49b1873a36e7fb9be276edd0ae083cbf248",
+            "sml": "d4afe7e589612aee8fcb87beefad1a52214b1432798a3499f36d3a385557f418",
+            "cml": "d4afe7e589612aee8fcb87beefad1a52214b1432798a3499f36d3a385557f418",
+            "star31": "d15b991235e535ac8a58ab01b181d4a5baa92998bfa98722a0eedc0258851220",
+            "shenlaiye": "dfc4b8e693cfdaf0cf8a2bcf5769b05d897246fcc1a1294c610874251f0b5608",
         }
         self.assertEqual(set(SCORING_PRESET_TABLES), set(expected_hashes))
         for preset_id, expected_hash in expected_hashes.items():
@@ -1659,6 +2061,12 @@ class TaiwanScoringTest(unittest.TestCase):
             TaiwanRules.from_dict({"ready_qualification_mode": "preset"})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"claim_wall_reserve": 4})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"full_flush_liability_enabled": 1})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"all_flower_tiles_enabled": "true"})
+        with self.assertRaisesRegex(ValueError, "flower_scoring_mode"):
+            TaiwanRules.from_dict({"flower_scoring_mode": "all_flowers"})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"qualified_ready_win_policy": 1})
         with self.assertRaises(ValueError):
@@ -5178,13 +5586,15 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                     "flower_kong": 3,
                     "all_chows": 6,
                 },
-                "flower_scoring_mode": "all_flowers",
+                "all_flower_tiles_enabled": True,
                 "no_flowers_enabled": True,
                 "ready_qualification_mode": "each_player_first_discard",
                 "public_ready_enabled": True,
                 "declared_ready_win_policy": "force_win",
                 "qualified_ready_win_policy": "force_win",
                 "eight_and_a_half_pairs_enabled": True,
+                "four_kongs_enabled": True,
+                "five_kongs_enabled": True,
                 "scoring_preset": "shenlaiye",
                 "all_chows_definition": "strict",
                 "little_four_winds_add_wind_pungs": True,
@@ -5205,7 +5615,17 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 "concealed_kong_enabled": True,
                 "minimum_tai": 3,
                 "tai_cap": 24,
-                "dangerous_discard_liability": True,
+                "liability_ron_split_enabled": True,
+                "all_pungs_liability_enabled": True,
+                "half_flush_liability_enabled": True,
+                "full_flush_liability_enabled": True,
+                "little_three_dragons_liability_enabled": True,
+                "big_three_dragons_liability_enabled": True,
+                "little_four_winds_liability_enabled": True,
+                "big_four_winds_liability_enabled": True,
+                "all_honors_liability_enabled": True,
+                "five_kongs_liability_enabled": True,
+                "four_kongs_liability_enabled": True,
             },
         )
         self.assertEqual(custom.detailed_config["dead_wall_mode"], "fixed_replacement_wall_16")
@@ -5231,10 +5651,23 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             "round_robin",
         )
         self.assertTrue(custom.detailed_config["initial_flower_bonus_enabled"])
+        self.assertTrue(custom.detailed_config["all_flower_tiles_enabled"])
         self.assertTrue(custom.detailed_config["public_ready_enabled"])
         self.assertEqual(custom.detailed_config["declared_ready_win_policy"], "force_win")
         self.assertEqual(custom.detailed_config["qualified_ready_win_policy"], "force_win")
-        self.assertTrue(custom.detailed_config["dangerous_discard_liability"])
+        self.assertTrue(custom.detailed_config["liability_ron_split_enabled"])
+        self.assertTrue(custom.detailed_config["all_pungs_liability_enabled"])
+        self.assertTrue(custom.detailed_config["half_flush_liability_enabled"])
+        self.assertTrue(custom.detailed_config["full_flush_liability_enabled"])
+        self.assertTrue(custom.detailed_config["little_three_dragons_liability_enabled"])
+        self.assertTrue(custom.detailed_config["big_three_dragons_liability_enabled"])
+        self.assertTrue(custom.detailed_config["little_four_winds_liability_enabled"])
+        self.assertTrue(custom.detailed_config["big_four_winds_liability_enabled"])
+        self.assertTrue(custom.detailed_config["all_honors_liability_enabled"])
+        self.assertTrue(custom.detailed_config["five_kongs_liability_enabled"])
+        self.assertTrue(custom.detailed_config["four_kongs_liability_enabled"])
+        self.assertTrue(custom.detailed_config["four_kongs_enabled"])
+        self.assertTrue(custom.detailed_config["five_kongs_enabled"])
         self.assertEqual(custom.detailed_config["tai_cap"], 24)
         self.assertEqual(
             custom.detailed_config["fan_tai_overrides"],

@@ -149,8 +149,7 @@ class TaiwanPlayer:
         self.ready_locked = False
         self.riichi_candidate_cuts = {}
         self.last_discarded_tile = None
-        self.liability_payer = None
-        self.liability_fan_id = None
+        self.liability_payers = {}
 
     def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         tile = tiles_list.pop(0)
@@ -421,8 +420,7 @@ class TaiwanGameState:
             player.ready_locked = False
             player.riichi_candidate_cuts = {}
             player.last_discarded_tile = None
-            player.liability_payer = None
-            player.liability_fan_id = None
+            player.liability_payers = {}
             if "declared_ready" in player.tag_list:
                 player.tag_list.remove("declared_ready")
 
@@ -836,45 +834,67 @@ class TaiwanGameState:
             return [tile - 1, tile, tile + 1]
         return [tile, tile, tile]
 
-    def _dangerous_pattern_fan_id(
-        self,
-        player_index: int,
-        tile: int,
-        *,
-        completed: bool,
-    ) -> Optional[str]:
-        """返回危险弃牌对应的最终台种；completed 用于鸣牌后的持续包赔。"""
-        normal = normalize_tile(tile)
-        codes = [code for code in self.player_list[player_index].combination_tiles if code and code[0] != "G"]
-        same_suit = [
-            code for code in codes
-            if normal < 40
-            and all(value < 40 and value // 10 == normal // 10 for value in self._meld_structure_tiles(code))
-        ]
-        dangerous_meld_count = SIXTEEN_TILE_MAHJONG.meld_count
-        if len(same_suit) >= (
-            dangerous_meld_count if completed else dangerous_meld_count - 1
-        ):
-            return "full_flush"
+    def _liability_fan_ids_for_codes(self, codes: List[str]) -> Set[str]:
+        """返回给定公开组合已经达到责任门槛的候选台种。"""
+        candidates: Set[str] = set()
+        twelve_tile_meld_count = SIXTEEN_TILE_MAHJONG.meld_count - 1
+        if len(codes) >= twelve_tile_meld_count:
+            meld_tiles = [
+                value
+                for code in codes
+                for value in self._meld_structure_tiles(code)
+            ]
+            number_suits = {value // 10 for value in meld_tiles if value < 40}
+            has_honors = any(value >= 40 for value in meld_tiles)
+            if len(number_suits) == 1 and not has_honors:
+                candidates.add("full_flush")
+            if meld_tiles and len(number_suits) <= 1:
+                candidates.add("half_flush")
+            if meld_tiles and all(value >= 40 for value in meld_tiles):
+                candidates.add("all_honors")
+            if all(code[0] in ("k", "g") for code in codes):
+                candidates.add("all_pungs")
         triplets = {
             normalize_tile(int(code[1:]))
             for code in codes
             if code[0] in ("k", "g") and code[1:].isdigit()
         }
-        if normal in (41, 42, 43, 44):
-            if len(triplets.intersection((41, 42, 43, 44))) >= (4 if completed else 3):
-                return "big_four_winds"
-        if normal in (45, 46, 47):
-            if len(triplets.intersection((45, 46, 47))) >= (3 if completed else 2):
-                return "big_three_dragons"
-        return None
+        wind_triplet_count = len(triplets.intersection((41, 42, 43, 44)))
+        dragon_triplet_count = len(triplets.intersection((45, 46, 47)))
+        if wind_triplet_count >= 3:
+            candidates.add("little_four_winds")
+        if wind_triplet_count >= 4:
+            candidates.add("big_four_winds")
+        if dragon_triplet_count >= 2:
+            candidates.add("little_three_dragons")
+        if dragon_triplet_count >= 3:
+            candidates.add("big_three_dragons")
+        return candidates
 
-    def _dangerous_pattern(self, player_index: int, tile: int, *, completed: bool) -> bool:
-        return self._dangerous_pattern_fan_id(
-            player_index,
-            tile,
-            completed=completed,
-        ) is not None
+    def _liability_candidate_fan_ids(
+        self,
+        player_index: int,
+    ) -> Set[str]:
+        """只返回由刚落地的最后一副公开鸣牌新触发的候选台种。"""
+        all_codes = [code for code in self.player_list[player_index].combination_tiles if code]
+        external_codes = [code for code in all_codes if code[0] != "G"]
+        if not external_codes:
+            return set()
+        candidates = (
+            self._liability_fan_ids_for_codes(external_codes)
+            - self._liability_fan_ids_for_codes(external_codes[:-1])
+        )
+        if all_codes and all_codes[-1][0] == "g":
+            kong_count = sum(code[0] in ("g", "G") for code in all_codes)
+            previous_kong_count = sum(
+                code[0] in ("g", "G")
+                for code in all_codes[:-1]
+            )
+            if kong_count >= 4 and previous_kong_count < 4:
+                candidates.add("four_kongs")
+            if kong_count >= 5 and previous_kong_count < 5:
+                candidates.add("five_kongs")
+        return candidates
 
     @staticmethod
     def _detail_fan_ids(detail: Optional[dict]) -> Set[str]:
@@ -890,20 +910,6 @@ class TaiwanGameState:
                 fan_ids.add(fan["id"])
         return fan_ids
 
-    def _tile_was_unseen_before_discard(self, discarder: int, tile: int) -> bool:
-        normal = normalize_tile(tile)
-        visible = 0
-        for player in self.player_list:
-            visible += sum(normalize_tile(value) == normal for value in player.discard_tiles)
-            visible += sum(normalize_tile(value) == normal for value in player.discard_origin_tiles)
-            for code in player.combination_tiles:
-                if code and code[0] != "G":
-                    visible += sum(value == normal for value in self._meld_structure_tiles(code))
-        # execute_cut 已把当前弃牌放入牌河，因此只出现这一张即表示此前为生张。
-        return visible == 1 and any(
-            normalize_tile(value) == normal for value in self.player_list[discarder].discard_tiles[-1:]
-        )
-
     def _liability_payer_for_win(
         self,
         winner: int,
@@ -912,47 +918,27 @@ class TaiwanGameState:
         tile: Optional[int],
         detail: Optional[dict] = None,
     ) -> Optional[int]:
-        if not self.rules.dangerous_discard_liability:
+        if source not in ("self_draw", "discard", "robbing_kong"):
             return None
         player = self.player_list[winner]
         fan_ids = self._detail_fan_ids(detail)
-        persisted = getattr(player, "liability_payer", None)
-        persisted_fan_id = getattr(player, "liability_fan_id", None)
-        if (
-            persisted is not None
-            and persisted_fan_id is not None
-            and persisted_fan_id in fan_ids
-        ):
-            return persisted
-        if source not in ("discard", "robbing_kong") or payer is None or tile is None:
+        persisted = getattr(player, "liability_payers", {})
+        if not isinstance(persisted, dict):
             return None
-        dangerous_fan_id = self._dangerous_pattern_fan_id(
-            winner,
-            tile,
-            completed=False,
-        )
-        if dangerous_fan_id is not None and dangerous_fan_id in fan_ids:
-            return payer
-        if (
-            source == "discard"
-            and self.playable_wall_count() <= 5
-            and self._tile_was_unseen_before_discard(payer, tile)
-        ):
-            return payer
+        for fan_id in self.rules.liability_fan_ids:
+            if fan_id in fan_ids and fan_id in persisted:
+                return persisted[fan_id]
         return None
 
     def _remember_claim_liability(self, player_index: int, payer: int, tile: int) -> None:
-        if not self.rules.dangerous_discard_liability:
-            return
-        fan_id = self._dangerous_pattern_fan_id(
-            player_index,
-            tile,
-            completed=True,
-        )
-        if fan_id is not None:
-            player = self.player_list[player_index]
-            player.liability_payer = payer
-            player.liability_fan_id = fan_id
+        player = self.player_list[player_index]
+        persisted = getattr(player, "liability_payers", None)
+        if not isinstance(persisted, dict):
+            persisted = {}
+            player.liability_payers = persisted
+        for fan_id in self._liability_candidate_fan_ids(player_index):
+            if self.rules.liability_enabled_for_fan(fan_id):
+                persisted[fan_id] = payer
 
     def _special_flower_detail(
         self,
