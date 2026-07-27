@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
+from .fan import FAN_DEFINITIONS, SCORING_PRESET_TABLES, preset_fan_tai
+
 
 NUMBER_TILES: Tuple[int, ...] = tuple(
     tile
@@ -42,42 +44,60 @@ class TaiwanRules:
     draw_increments_streak: bool = True
     dealer_streak_limit: Optional[int] = None
     negative_score_ends_match: bool = False
-    dead_wall_mode: str = "fixed_16"
+    dead_wall_mode: str = "fixed_tail_16"
 
-    multi_win_mode: str = "two_head_three_all"
-    strict_kuikae: str = "strict"
-    peng_kuikae_forbidden: bool = True
+    multi_win_mode: str = "double_head_bump_triple_all"
+    chow_discard_restriction_mode: str = "strict"
+    pung_same_tile_discard_forbidden: bool = True
     allow_kong_from_upper_discard: bool = False
-    water_blocks_self_draw: bool = True
-    water_release_by_kong: bool = True
-    water_blocks_claims: bool = True
-    kong_discard_self_draw: bool = False
+    missed_win_blocks_self_draw: bool = True
+    missed_win_released_by_kong: bool = True
+    missed_win_blocks_claims: bool = True
+    direct_kong_replacement_win_allowed: bool = False
     allow_rob_added_kong: bool = True
     four_winds_abort: bool = False
     four_kongs_abort: bool = False
 
-    eight_immortals_mode: str = "optional_separate"
-    seven_robs_one: bool = True
-    heavenly_earthly_flower_tai: int = 0
-    flower_kong_tai: int = 1
-    flower_scoring: str = "seat"
-    no_flower_tai: int = 0
+    eight_flowers_mode: str = "optional_standalone"
+    seven_flowers_steal_eighth_enabled: bool = True
+    initial_flower_bonus_enabled: bool = False
+    flower_scoring_mode: str = "seat_flowers_only"
+    no_flowers_enabled: bool = False
 
-    heavenly_earthly_ready_enabled: bool = True
+    ready_qualification_mode: str = "standard_with_dealer_heavenly_ready"
+    public_ready_enabled: bool = False
     declared_ready_win_policy: str = "allow_pass"
-
-    public_ready_tai: int = 0
+    qualified_ready_win_policy: str = "follow_declared_ready_policy"
+    declared_ready_auto_added_kong: bool = False
 
     scoring_preset: str = "sml"
+    fan_tai_overrides: Dict[str, int] = field(default_factory=dict)
 
-    eight_pairs_half: bool = False
-    half_exposed_tai: int = 0
-    river_bottom_tai: int = 0
-    all_winds_tai: int = 0
-    no_honor_no_flower_tai: int = 0
-    open_kong_tai: int = 0
-    concealed_kong_tai: int = 0
+    all_chows_definition: str = "relaxed"
+    little_four_winds_add_wind_pungs: bool = False
+    all_honors_add_all_pungs: bool = True
+    prefer_triplet_decomposition_on_discard_win: bool = False
+    earthly_ready_excludes_concealed_and_declared_ready: bool = False
+
+    human_win_definition: str = "before_first_draw"
+    earthly_win_allows_open_calls: bool = False
+
+    opening_flower_replacement_order: str = "player_complete"
+    claim_wall_reserve: bool = False
+    same_turn_claim_forbidden: bool = False
+
+    eight_and_a_half_pairs_enabled: bool = False
+    half_begging_enabled: bool = False
+    last_tile_claim_enabled: bool = False
+    all_wind_pungs_enabled: bool = False
+    no_flowers_or_honors_enabled: bool = False
+    melded_kong_enabled: bool = False
+    concealed_kong_enabled: bool = False
     dangerous_discard_liability: bool = False
+
+    @property
+    def required_claim_wall_reserve(self) -> int:
+        return 4 if self.claim_wall_reserve else 0
 
     @classmethod
     def from_dict(cls, raw: Optional[dict]) -> "TaiwanRules":
@@ -90,15 +110,30 @@ class TaiwanRules:
         if unknown:
             raise ValueError(f"未知台湾麻将馆规字段: {', '.join(unknown)}")
         values = {key: raw[key] for key in allowed if key in raw}
-        preset = values.get("scoring_preset", "sml")
-        if "flower_kong_tai" not in raw and preset in (
-            "star31",
-            "shenlaiye",
-        ):
-            values["flower_kong_tai"] = 2
+        overrides = values.get("fan_tai_overrides")
+        if overrides is not None:
+            if not isinstance(overrides, dict):
+                raise ValueError("自定义台表必须是对象")
+            values["fan_tai_overrides"] = dict(overrides)
         rules = cls(**values)
         rules.validate()
-        return rules
+        normalized_overrides = {
+            fan_id: tai
+            for fan_id, tai in rules.fan_tai_overrides.items()
+            if tai != preset_fan_tai(rules.scoring_preset, fan_id)
+        }
+        if normalized_overrides == rules.fan_tai_overrides:
+            return rules
+        return cls(
+            **{
+                **{
+                    key: getattr(rules, key)
+                    for key in allowed
+                    if key != "fan_tai_overrides"
+                },
+                "fan_tai_overrides": normalized_overrides,
+            }
+        )
 
     def validate(self) -> None:
         numeric_fields = (
@@ -106,23 +141,13 @@ class TaiwanRules:
             "points_per_tai",
             "minimum_tai",
             "dead_wall_count",
-            "heavenly_earthly_flower_tai",
-            "flower_kong_tai",
-            "no_flower_tai",
-            "public_ready_tai",
-            "half_exposed_tai",
-            "river_bottom_tai",
-            "all_winds_tai",
-            "no_honor_no_flower_tai",
-            "open_kong_tai",
-            "concealed_kong_tai",
         )
         if any(type(getattr(self, name)) is not int for name in numeric_fields):
             raise ValueError("台湾麻将数值馆规必须是整数")
         if any(getattr(self, name) < 0 for name in numeric_fields):
-            raise ValueError("台湾麻将台数与分值不能为负数")
-        if self.base_points < 0 or self.points_per_tai < 0:
-            raise ValueError("底分与每台分值不能为负数")
+            raise ValueError("台湾麻将数值馆规不能为负数")
+        if self.base_points != 5 or self.points_per_tai != 1:
+            raise ValueError("当前台湾麻将底分固定为 5、每台分值固定为 1")
         if self.minimum_tai not in (0, 1, 2, 3):
             raise ValueError("最低起胡只支持 0、1、2、3 台")
         if self.tai_cap is not None and type(self.tai_cap) is not int:
@@ -135,50 +160,95 @@ class TaiwanRules:
             raise ValueError("连庄上限必须是整数或空值")
         if self.dealer_streak_limit not in (None, 9, 10):
             raise ValueError("连庄上限只支持不限、9 或 10")
-        if self.dead_wall_mode not in ("fixed_16", "kong_add_one", "replacement_wall_16"):
+        if self.dead_wall_mode not in ("fixed_tail_16", "kong_expands_tail", "fixed_replacement_wall_16"):
             raise ValueError("不支持的尾牌模型")
-        if self.multi_win_mode not in ("two_head_three_all", "multi", "head_bump"):
+        if self.multi_win_mode not in ("double_head_bump_triple_all", "multiple_winners", "head_bump"):
             raise ValueError("不支持的多响模式")
-        if self.strict_kuikae not in ("strict", "same_tile", "none"):
+        if self.chow_discard_restriction_mode not in ("strict", "same_tile", "none"):
             raise ValueError("不支持的食替模式")
-        if self.flower_scoring not in ("seat", "any"):
+        if self.flower_scoring_mode not in ("seat_flowers_only", "all_flowers"):
             raise ValueError("花牌计台只支持座位正花或任意花")
-        if self.heavenly_earthly_flower_tai not in (0, 4):
-            raise ValueError("天地和时点花胡加台只支持关闭或 4 台")
-        if self.eight_immortals_mode not in (
-            "optional_separate",
-            "forced_separate",
-            "add_to_normal",
+        if self.eight_flowers_mode not in (
+            "optional_standalone",
+            "forced_standalone",
+            "additive",
             "compound",
         ):
             raise ValueError("不支持的八仙过海模式")
         if self.declared_ready_win_policy not in ("allow_pass", "force_win"):
             raise ValueError("不支持的报听后拒胡处理模式")
-        if self.scoring_preset not in (
-            "sml",
-            "star31",
-            "shenlaiye",
-            "cml",
+        if self.qualified_ready_win_policy not in (
+            "follow_declared_ready_policy",
+            "lose_earthly_on_pass",
+            "force_win",
         ):
+            raise ValueError("不支持的天地听拒胡处理模式")
+        if self.ready_qualification_mode not in (
+            "disabled",
+            "standard_with_dealer_heavenly_ready",
+            "standard_without_dealer_heavenly_ready",
+            "first_eight_table_discards",
+            "each_player_first_discard",
+        ):
+            raise ValueError("不支持的天地听资格模式")
+        if self.scoring_preset not in SCORING_PRESET_TABLES:
             raise ValueError("不支持的台湾麻将台表预设")
-
+        if not isinstance(self.fan_tai_overrides, dict):
+            raise ValueError("自定义台表必须是对象")
+        for fan_id, tai in self.fan_tai_overrides.items():
+            if not isinstance(fan_id, str) or fan_id not in FAN_DEFINITIONS:
+                raise ValueError(f"未知台湾麻将台种: {fan_id}")
+            if type(tai) is not int or not 1 <= tai <= 64:
+                raise ValueError("自定义台值必须是 1 至 64 的整数")
+        if self.all_chows_definition not in (
+            "relaxed",
+            "strict",
+        ):
+            raise ValueError("不支持的平胡定义")
+        if self.human_win_definition not in (
+            "before_first_draw",
+            "discarder_first_discard",
+            "disabled",
+        ):
+            raise ValueError("不支持的人胡定义")
+        if self.opening_flower_replacement_order not in (
+            "player_complete",
+            "round_robin",
+        ):
+            raise ValueError("不支持的开局补花顺序")
         boolean_fields = (
             "draw_continues_dealer",
             "draw_increments_streak",
             "negative_score_ends_match",
-            "peng_kuikae_forbidden",
+            "pung_same_tile_discard_forbidden",
             "allow_kong_from_upper_discard",
-            "water_blocks_self_draw",
-            "water_release_by_kong",
-            "water_blocks_claims",
-            "kong_discard_self_draw",
+            "missed_win_blocks_self_draw",
+            "missed_win_released_by_kong",
+            "missed_win_blocks_claims",
+            "direct_kong_replacement_win_allowed",
             "allow_rob_added_kong",
             "four_winds_abort",
             "four_kongs_abort",
-            "seven_robs_one",
-            "heavenly_earthly_ready_enabled",
-            "eight_pairs_half",
+            "seven_flowers_steal_eighth_enabled",
+            "initial_flower_bonus_enabled",
+            "no_flowers_enabled",
+            "public_ready_enabled",
+            "declared_ready_auto_added_kong",
+            "eight_and_a_half_pairs_enabled",
+            "half_begging_enabled",
+            "last_tile_claim_enabled",
+            "all_wind_pungs_enabled",
+            "no_flowers_or_honors_enabled",
+            "melded_kong_enabled",
+            "concealed_kong_enabled",
             "dangerous_discard_liability",
+            "little_four_winds_add_wind_pungs",
+            "all_honors_add_all_pungs",
+            "prefer_triplet_decomposition_on_discard_win",
+            "earthly_win_allows_open_calls",
+            "earthly_ready_excludes_concealed_and_declared_ready",
+            "claim_wall_reserve",
+            "same_turn_claim_forbidden",
         )
         if any(type(getattr(self, name)) is not bool for name in boolean_fields):
             raise ValueError("台湾麻将开关馆规必须是布尔值")
@@ -261,9 +331,9 @@ class HandContext:
     seat_wind: int = 41
     round_wind: int = 41
 
-    after_kong: bool = False
+    out_with_replacement_tile: bool = False
     last_tile: bool = False
-    river_bottom: bool = False
+    last_tile_claim: bool = False
     heavenly_ready: bool = False
     earthly_ready: bool = False
     declared_ready: bool = False
@@ -271,9 +341,9 @@ class HandContext:
     earthly_win: bool = False
     human_win: bool = False
 
-    eight_immortals: bool = False
-    seven_robs_one: bool = False
-    eight_immortals_declined: bool = False
+    eight_flowers_and_seasons: bool = False
+    seven_flowers_steal_eighth: bool = False
+    eight_flowers_declined: bool = False
     rules: TaiwanRules = field(default_factory=TaiwanRules)
 
     @classmethod

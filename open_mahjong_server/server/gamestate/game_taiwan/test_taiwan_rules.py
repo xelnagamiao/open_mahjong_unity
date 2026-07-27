@@ -1,6 +1,9 @@
 """台湾麻将规则与状态机边界回归测试。"""
 
 import asyncio
+import hashlib
+import json
+import time
 import unittest
 from collections import Counter
 from dataclasses import asdict
@@ -19,12 +22,17 @@ from server.game_calculation.taiwan.rules import (
     HandContext,
     TaiwanRules,
 )
+from server.game_calculation.taiwan.fan import (
+    FAN_DEFINITIONS,
+    SCORING_PRESET_TABLES,
+)
 from server.game_calculation.taiwan.scoring import (
     TaiwanScorer,
     settle_win,
     settlement_display_fan_names,
 )
 from server.game_calculation.taiwan.solver import (
+    enumerate_decompositions,
     parse_meld_code,
     structural_waits,
 )
@@ -42,7 +50,11 @@ from server.gamestate.game_taiwan.boardcast import (
     broadcast_do_action,
 )
 from server.gamestate.game_taiwan.init_tiles import init_taiwan_tiles
-from server.gamestate.game_taiwan.wait_action import _collect_responses, wait_action
+from server.gamestate.game_taiwan.wait_action import (
+    _build_ask_deadlines,
+    _collect_responses,
+    wait_action,
+)
 from server.gamestate.public.ai.auto_cut_ai import auto_cut_action
 from server.gamestate.public.ai.smart_bot_logic import should_accept_hu
 from server.room.room_manager import RoomManager
@@ -71,11 +83,13 @@ class DummyPlayer:
         self.qualification_ever = False
         self.heavenly_ready = False
         self.earthly_ready = False
-        self.eight_immortals_declined = False
-        self.pending_eight_immortals = False
+        self.eight_flowers_declined = False
+        self.pending_eight_flowers = False
         self.declared_ready = False
         self.ready_locked = False
+        self.last_discarded_tile = None
         self.liability_payer = None
+        self.liability_fan_id = None
         self.riichi_candidate_cuts = {}
         self.tag_list = []
 
@@ -192,7 +206,7 @@ class TaiwanScoringTest(unittest.TestCase):
     def test_eight_pairs_half_waits_are_unioned_with_standard_shape(self):
         pre_win = [tile for tile in range(21, 29) for _ in range(2)]
         expected = set(range(21, 29))
-        rules = TaiwanRules(eight_pairs_half=True)
+        rules = TaiwanRules(eight_and_a_half_pairs_enabled=True)
 
         # 只按五面子一将时 3p、6p 并不是待牌；开启八对半后，特殊结构
         # 必须与普通结构取并集，不能因同一手也存在普通拆分而被覆盖。
@@ -211,20 +225,20 @@ class TaiwanScoringTest(unittest.TestCase):
                     rules=rules,
                 )
                 self.assertTrue(result.is_win)
-                self.assertIn("eight_pairs_half", result.fan_ids)
-                self.assertEqual(result.fan_ids.count("eight_pairs_half"), 1)
+                self.assertIn("eight_and_a_half_pairs", result.fan_ids)
+                self.assertEqual(result.fan_ids.count("eight_and_a_half_pairs"), 1)
                 self.assertEqual(result.waits, frozenset(expected))
 
     def test_eight_pairs_half_waits_count_four_identical_tiles_as_two_pairs(self):
         pre_win = [11] * 4 + [12] * 4 + [13] * 2 + [14] * 2 + [15] * 2 + [16] * 2
         disabled = structural_waits(pre_win, [], TaiwanRules())
-        enabled = structural_waits(pre_win, [], TaiwanRules(eight_pairs_half=True))
+        enabled = structural_waits(pre_win, [], TaiwanRules(eight_and_a_half_pairs_enabled=True))
 
         self.assertNotIn(15, disabled)
         self.assertIn(15, enabled)
 
     def test_eight_pairs_half_waits_cover_existing_triplet_shapes(self):
-        rules = TaiwanRules(eight_pairs_half=True)
+        rules = TaiwanRules(eight_and_a_half_pairs_enabled=True)
         triplet_and_single = (
             [11] * 3
             + [12]
@@ -254,7 +268,7 @@ class TaiwanScoringTest(unittest.TestCase):
                         rules=rules,
                     )
                     self.assertTrue(result.is_win)
-                    self.assertIn("eight_pairs_half", result.fan_ids)
+                    self.assertIn("eight_and_a_half_pairs", result.fan_ids)
 
     def test_zero_tai_is_a_legal_win(self):
         result = self.score(
@@ -267,6 +281,28 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertEqual(result.fan_ids, [])
         self.assertEqual(result.waits, frozenset({21, 24, 27}))
 
+    def test_solver_rejects_physical_tile_overflow_across_external_melds(self):
+        hand = [
+            11, 11, 11, 12, 13, 14, 21,
+            22, 23, 31, 32, 33, 45, 45,
+        ]
+        self.assertEqual(
+            enumerate_decompositions(hand, ["k11"], winning_tile=45),
+            [],
+        )
+
+    def test_structural_waits_reject_physical_tile_overflow_across_external_melds(self):
+        # 牌形上 45 看似能补成一将，但暗手已有三张 11，外部碰又占用三张
+        # 11；等待枚举不能把这副不存在的牌当成天地听/过水依据。
+        pre_win = [
+            11, 11, 11,
+            12, 13, 14,
+            15, 16, 17,
+            21, 22, 23,
+            45,
+        ]
+        self.assertEqual(structural_waits(pre_win, ["k11"]), set())
+
     def test_scoring_reference_examples(self):
         cases = {
             "menqing_self_draw": (
@@ -275,15 +311,15 @@ class TaiwanScoringTest(unittest.TestCase):
                 21,
                 "self_draw",
                 3,
-                {"menqing", "self_reliant", "self_draw"},
+                {"concealed_hand", "fully_concealed_hand", "self_draw"},
             ),
-            "pinfu": (
+            "all_chows": (
                 [21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 45, 45],
                 ["s12"],
                 21,
                 "discard",
                 2,
-                {"pinfu"},
+                {"all_chows"},
             ),
             "five_concealed_triplets": (
                 [11, 11, 11, 12, 12, 12, 21, 21, 21, 22, 22, 22, 31, 31, 31, 45, 45],
@@ -291,7 +327,7 @@ class TaiwanScoringTest(unittest.TestCase):
                 31,
                 "self_draw",
                 15,
-                {"menqing", "self_reliant", "self_draw", "five_concealed", "all_triplets"},
+                {"concealed_hand", "fully_concealed_hand", "self_draw", "five_concealed_pungs", "all_pungs"},
             ),
             "big_dragons_replaces_dragon_fans": (
                 [11, 12, 13, 21, 22, 23, 31, 31],
@@ -299,15 +335,15 @@ class TaiwanScoringTest(unittest.TestCase):
                 11,
                 "discard",
                 8,
-                {"big_dragons"},
+                {"big_three_dragons"},
             ),
-            "fully_exposed": (
+            "all_begging": (
                 [11, 11],
                 ["s22", "s25", "s32", "s35", "k42"],
                 11,
                 "discard",
                 2,
-                {"fully_exposed"},
+                {"all_begging"},
             ),
         }
         for name, (hand, melds, tile, source, tai, fan_ids) in cases.items():
@@ -324,7 +360,7 @@ class TaiwanScoringTest(unittest.TestCase):
             tile=21,
             source="self_draw",
             heavenly_win=True,
-            after_kong=True,
+            out_with_replacement_tile=True,
         )
         self.assertEqual(heavenly.tai, 25)
         self.assertEqual(set(heavenly.fan_ids), {"self_draw", "heavenly_win"})
@@ -337,7 +373,7 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertEqual(human.tai, 16)
         self.assertEqual(set(human.fan_ids), {"human_win"})
 
-    def test_flower_scoring_and_no_flower_extension(self):
+    def test_flower_scoring_and_no_flowers_extension(self):
         hand = [21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 45, 45]
         flower = self.score(
             hand,
@@ -356,13 +392,13 @@ class TaiwanScoringTest(unittest.TestCase):
             flowers=[51, 52, 53, 54],
             seat_wind=41,
             rules=TaiwanRules(
-                flower_scoring="any",
-                flower_kong_tai=2,
+                flower_scoring_mode="all_flowers",
+                fan_tai_overrides={"flower_kong": 2},
             ),
         )
         self.assertEqual(any_flower.tai, 6)
         any_flower_fan = next(
-            fan for fan in any_flower.fans if fan.fan_id == "seat_flower"
+            fan for fan in any_flower.fans if fan.fan_id == "flower_tile"
         )
         self.assertEqual(
             (any_flower_fan.name, any_flower_fan.count, any_flower_fan.total),
@@ -374,145 +410,174 @@ class TaiwanScoringTest(unittest.TestCase):
             tile=21,
             source="self_draw",
             flowers=list(FLOWER_TILES),
-            eight_immortals_declined=True,
+            eight_flowers_declined=True,
         )
         flower_kong = next(fan for fan in both_flower_kongs.fans if fan.fan_id == "flower_kong")
         self.assertEqual(flower_kong.count, 2)
         self.assertEqual(flower_kong.total, 2)
-        self.assertNotIn("seat_flower", both_flower_kongs.fan_ids)
+        self.assertNotIn("flower_tile", both_flower_kongs.fan_ids)
 
-        no_flower = self.score(
+        no_flowers = self.score(
             hand,
             melds=["k11"],
             tile=21,
-            rules=TaiwanRules(no_flower_tai=1),
+            rules=TaiwanRules(no_flowers_enabled=True),
         )
-        self.assertEqual(no_flower.tai, 1)
-        self.assertEqual(no_flower.fan_ids, ["no_flower"])
+        self.assertEqual(no_flowers.tai, 1)
+        self.assertEqual(no_flowers.fan_ids, ["no_flowers"])
 
     def test_extension_fans_follow_their_exact_shapes(self):
-        half_exposed = self.score(
+        half_begging = self.score(
             [11, 11],
             melds=["s22", "s25", "s32", "s35", "k42"],
             tile=11,
             source="self_draw",
-            rules=TaiwanRules(half_exposed_tai=1),
+            rules=TaiwanRules(half_begging_enabled=True),
         )
-        self.assertEqual(set(half_exposed.fan_ids), {"self_draw", "half_exposed"})
+        self.assertEqual(set(half_begging.fan_ids), {"self_draw", "half_begging"})
 
         base_hand = [21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 45, 45]
         river = self.score(
             base_hand,
             melds=["k11"],
             tile=21,
-            river_bottom=True,
-            rules=TaiwanRules(river_bottom_tai=1),
+            last_tile_claim=True,
+            rules=TaiwanRules(last_tile_claim_enabled=True),
         )
-        self.assertEqual(river.fan_ids, ["river_bottom"])
+        self.assertEqual(river.fan_ids, ["last_tile_claim"])
 
         winds = self.score(
             [11, 12, 13, 21, 22, 23, 31, 32, 33, 45, 45],
             melds=["k41", "k42"],
             tile=11,
-            rules=TaiwanRules(all_winds_tai=1),
+            rules=TaiwanRules(all_wind_pungs_enabled=True),
         )
-        wind_fan = next(fan for fan in winds.fans if fan.fan_id == "all_winds")
+        wind_fan = next(fan for fan in winds.fans if fan.fan_id == "wind_pung")
         self.assertEqual((wind_fan.count, wind_fan.total), (2, 2))
-        self.assertNotIn("seat_wind", winds.fan_ids)
-        self.assertNotIn("round_wind", winds.fan_ids)
+        self.assertNotIn("seat_wind_pung", winds.fan_ids)
+        self.assertNotIn("prevalent_wind_pung", winds.fan_ids)
 
         no_honor = self.score(
             [21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 39, 39],
             melds=["k11"],
             tile=21,
-            rules=TaiwanRules(no_honor_no_flower_tai=2),
+            rules=TaiwanRules(no_flowers_or_honors_enabled=True),
         )
-        self.assertIn("no_honor_no_flower", no_honor.fan_ids)
+        self.assertIn("no_flowers_or_honors", no_honor.fan_ids)
 
-        open_kong = self.score(
+        melded_kong = self.score(
             base_hand,
             melds=["g11"],
             tile=21,
-            rules=TaiwanRules(open_kong_tai=1),
+            rules=TaiwanRules(melded_kong_enabled=True),
         )
         concealed_kong = self.score(
             base_hand,
             melds=["G11"],
             tile=21,
-            rules=TaiwanRules(concealed_kong_tai=2),
+            rules=TaiwanRules(concealed_kong_enabled=True),
         )
-        self.assertIn("open_kong", open_kong.fan_ids)
+        self.assertIn("melded_kong", melded_kong.fan_ids)
         self.assertIn("concealed_kong", concealed_kong.fan_ids)
 
-    def test_eight_immortals_modes_and_seven_robs_one_are_fixed_specials(self):
+    def test_eight_flowers_modes_and_seven_flowers_steal_eighth_are_fixed_specials(self):
         flowers = list(FLOWER_TILES)
         invalid_shape = [11] * 4
-        for mode in ("optional_separate", "forced_separate"):
+        for mode in ("optional_standalone", "forced_standalone"):
             with self.subTest(mode=mode):
                 result = self.score(
                     invalid_shape,
                     tile=11,
                     source="self_draw",
                     flowers=flowers,
-                    eight_immortals=True,
-                    rules=TaiwanRules(eight_immortals_mode=mode),
+                    eight_flowers_and_seasons=True,
+                    rules=TaiwanRules(eight_flowers_mode=mode),
                 )
                 self.assertTrue(result.is_win)
                 self.assertEqual(result.tai, 8)
-                self.assertEqual(result.fan_ids, ["eight_immortals"])
-                self.assertEqual(result.as_dict()["decomposition"], ["special:eight_immortals"])
+                self.assertEqual(result.fan_ids, ["eight_flowers_and_seasons"])
+                self.assertEqual(result.as_dict()["decomposition"], ["special:eight_flowers_and_seasons"])
 
         seven = self.score(
             invalid_shape,
             tile=11,
-            source="seven_robs_one",
+            source="seven_flowers_steal_eighth",
             flowers=flowers,
-            seven_robs_one=True,
+            seven_flowers_steal_eighth=True,
         )
         self.assertTrue(seven.is_win)
         self.assertEqual(seven.tai, 8)
-        self.assertEqual(seven.fan_ids, ["seven_robs_one"])
+        self.assertEqual(seven.fan_ids, ["seven_flowers_steal_eighth"])
 
         starting_flower_win = self.score(
             invalid_shape,
             tile=11,
             source="self_draw",
             flowers=flowers,
-            eight_immortals=True,
+            eight_flowers_and_seasons=True,
             heavenly_win=True,
             rules=TaiwanRules(
-                eight_immortals_mode="compound",
-                heavenly_earthly_flower_tai=4,
+                eight_flowers_mode="compound",
+                initial_flower_bonus_enabled=True,
             ),
         )
         self.assertEqual(starting_flower_win.tai, 12)
         self.assertEqual(
             starting_flower_win.fan_ids,
-            ["eight_immortals"],
+            ["eight_flowers_and_seasons", "initial_flower_bonus"],
         )
+        opening_bonus = next(
+            fan
+            for fan in starting_flower_win.fans
+            if fan.fan_id == "initial_flower_bonus"
+        )
+        self.assertEqual(opening_bonus.tai, 4)
 
-        starting_seven_robs_one = self.score(
+        custom_starting_flower_win = self.score(
             invalid_shape,
             tile=11,
-            source="seven_robs_one",
+            source="self_draw",
             flowers=flowers,
-            seven_robs_one=True,
-            earthly_win=True,
-            rules=TaiwanRules(heavenly_earthly_flower_tai=4),
+            eight_flowers_and_seasons=True,
+            heavenly_win=True,
+            rules=TaiwanRules(
+                eight_flowers_mode="compound",
+                initial_flower_bonus_enabled=True,
+                fan_tai_overrides={"initial_flower_bonus": 6},
+            ),
         )
-        self.assertEqual(starting_seven_robs_one.tai, 12)
+        self.assertEqual(custom_starting_flower_win.tai, 14)
         self.assertEqual(
-            starting_seven_robs_one.fan_ids,
-            ["seven_robs_one"],
+            next(
+                fan.tai
+                for fan in custom_starting_flower_win.fans
+                if fan.fan_id == "initial_flower_bonus"
+            ),
+            6,
+        )
+
+        starting_seven_flowers_steal_eighth = self.score(
+            invalid_shape,
+            tile=11,
+            source="seven_flowers_steal_eighth",
+            flowers=flowers,
+            seven_flowers_steal_eighth=True,
+            earthly_win=True,
+            rules=TaiwanRules(initial_flower_bonus_enabled=True),
+        )
+        self.assertEqual(starting_seven_flowers_steal_eighth.tai, 12)
+        self.assertEqual(
+            starting_seven_flowers_steal_eighth.fan_ids,
+            ["seven_flowers_steal_eighth", "initial_flower_bonus"],
         )
 
         disabled = self.score(
             invalid_shape,
             tile=11,
-            source="seven_robs_one",
+            source="seven_flowers_steal_eighth",
             flowers=flowers,
-            seven_robs_one=True,
-            rules=TaiwanRules(seven_robs_one=False),
+            seven_flowers_steal_eighth=True,
+            rules=TaiwanRules(seven_flowers_steal_eighth_enabled=False),
         )
         self.assertFalse(disabled.is_win)
         self.assertIn("未启用七抢一", disabled.reason)
@@ -524,38 +589,38 @@ class TaiwanScoringTest(unittest.TestCase):
             melds=["k11"],
             tile=21,
             source="self_draw",
-            after_kong=True,
+            out_with_replacement_tile=True,
         )
-        self.assertIn("after_kong", self_draw.fan_ids)
+        self.assertIn("out_with_replacement_tile", self_draw.fan_ids)
 
         robbed_kong = self.score(
             hand,
             melds=["k11"],
             tile=21,
-            source="rob_kong",
-            after_kong=True,
+            source="robbing_kong",
+            out_with_replacement_tile=True,
         )
-        self.assertIn("rob_kong", robbed_kong.fan_ids)
-        self.assertNotIn("after_kong", robbed_kong.fan_ids)
+        self.assertIn("robbing_kong", robbed_kong.fan_ids)
+        self.assertNotIn("out_with_replacement_tile", robbed_kong.fan_ids)
 
-    def test_compound_and_additive_eight_immortals_modes(self):
+    def test_compound_and_additive_eight_flowers_modes(self):
         flowers = list(FLOWER_TILES)
         hand = [11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 31, 32, 33, 45, 45]
-        compound_rules = TaiwanRules(eight_immortals_mode="compound")
+        compound_rules = TaiwanRules(eight_flowers_mode="compound")
         compound = self.score(
             hand,
             tile=21,
             source="self_draw",
             flowers=flowers,
-            eight_immortals=True,
+            eight_flowers_and_seasons=True,
             rules=compound_rules,
         )
         self.assertEqual(compound.tai, 11)
         self.assertEqual(
             set(compound.fan_ids),
-            {"menqing", "self_reliant", "self_draw", "eight_immortals"},
+            {"concealed_hand", "fully_concealed_hand", "self_draw", "eight_flowers_and_seasons"},
         )
-        self.assertNotIn("seat_flower", compound.fan_ids)
+        self.assertNotIn("flower_tile", compound.fan_ids)
         self.assertNotIn("flower_kong", compound.fan_ids)
 
         compound_without_shape = self.score(
@@ -563,27 +628,27 @@ class TaiwanScoringTest(unittest.TestCase):
             tile=11,
             source="self_draw",
             flowers=flowers,
-            eight_immortals=True,
+            eight_flowers_and_seasons=True,
             rules=compound_rules,
         )
-        self.assertEqual(compound_without_shape.fan_ids, ["eight_immortals"])
+        self.assertEqual(compound_without_shape.fan_ids, ["eight_flowers_and_seasons"])
 
         additive = self.score(
             hand,
             tile=21,
             source="self_draw",
             flowers=flowers,
-            rules=TaiwanRules(eight_immortals_mode="add_to_normal"),
+            rules=TaiwanRules(eight_flowers_mode="additive"),
         )
         self.assertEqual(additive.tai, 11)
-        self.assertIn("eight_immortals", additive.fan_ids)
+        self.assertIn("eight_flowers_and_seasons", additive.fan_ids)
 
     def test_eight_pairs_half_uses_the_complete_hand_for_suit_fans(self):
         mixed = self.score(
             [11, 11, 11, 12, 12, 13, 13, 21, 21, 22, 22, 23, 23, 31, 31, 32, 32],
             tile=11,
             source="self_draw",
-            rules=TaiwanRules(eight_pairs_half=True),
+            rules=TaiwanRules(eight_and_a_half_pairs_enabled=True),
         )
         self.assertEqual(mixed.tai, 11)
         self.assertNotIn("full_flush", mixed.fan_ids)
@@ -593,11 +658,11 @@ class TaiwanScoringTest(unittest.TestCase):
             [11, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18],
             tile=11,
             source="self_draw",
-            rules=TaiwanRules(eight_pairs_half=True),
+            rules=TaiwanRules(eight_and_a_half_pairs_enabled=True),
         )
         self.assertEqual(full_flush.tai, 19)
         self.assertIn("full_flush", full_flush.fan_ids)
-        self.assertEqual(full_flush.as_dict()["decomposition"], ["special:eight_pairs_half"])
+        self.assertEqual(full_flush.as_dict()["decomposition"], ["special:eight_and_a_half_pairs"])
 
     def test_minimum_tai_rejects_zero_tai_but_default_accepts_it(self):
         hand = [21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 45, 45]
@@ -683,6 +748,50 @@ class TaiwanScoringTest(unittest.TestCase):
         )
         self.assertEqual([payment.amount for payment in capped.payments], [26, 26, 26])
 
+    def test_settlement_rejects_invalid_tai_streak_and_seat_inputs(self):
+        with self.assertRaises(ValueError):
+            settle_win(
+                winner=0,
+                hand_tai=-1,
+                win_source="self_draw",
+                dealer=0,
+                dealer_streak=0,
+            )
+        with self.assertRaises(ValueError):
+            settle_win(
+                winner=0,
+                hand_tai=1,
+                win_source="self_draw",
+                dealer=0,
+                dealer_streak=-1,
+            )
+        with self.assertRaises(ValueError):
+            settle_win(
+                winner=0,
+                hand_tai=1,
+                win_source="self_draw",
+                dealer=0,
+                dealer_streak=0,
+                player_indices=(0, 0, 1, 2),
+            )
+        with self.assertRaises(ValueError):
+            settle_win(
+                winner=True,
+                hand_tai=1,
+                win_source="self_draw",
+                dealer=0,
+                dealer_streak=0,
+            )
+        with self.assertRaises(ValueError):
+            settle_win(
+                winner=0,
+                hand_tai=1,
+                win_source="discard",
+                dealer=0,
+                dealer_streak=0,
+                discarder=True,
+            )
+
     def test_dangerous_discard_liability_moves_all_payments_to_one_player(self):
         settlement = settle_win(
             winner=1,
@@ -696,7 +805,59 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertEqual([payment.payer for payment in settlement.payments], [2, 2, 2])
         self.assertEqual([payment.amount for payment in settlement.payments], [9, 8, 8])
 
-    def test_scoring_presets_override_named_fans(self):
+    def test_persisted_liability_requires_the_final_dangerous_fan(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(dangerous_discard_liability=True)
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        winner = state.player_list[1]
+        winner.combination_tiles = ["k11", "k12", "k13", "k14", "k15"]
+
+        state._remember_claim_liability(1, 2, 15)
+
+        self.assertEqual(winner.liability_payer, 2)
+        self.assertEqual(winner.liability_fan_id, "full_flush")
+        half_flush = state._build_pending_winner(
+            1,
+            "self_draw",
+            "hu_self",
+            {"fan_ids": ["half_flush"], "tai": 4},
+            45,
+        )
+        self.assertIsNone(half_flush["liable_payer"])
+
+        full_flush = state._build_pending_winner(
+            1,
+            "self_draw",
+            "hu_self",
+            {"fan_ids": ["full_flush"], "tai": 8},
+            15,
+        )
+        self.assertEqual(full_flush["liable_payer"], 2)
+
+        winner.liability_payer = None
+        winner.liability_fan_id = None
+        winner.combination_tiles = ["k11", "k12", "k13", "k14"]
+        state.playable_wall_count = lambda: 6
+        immediate_half_flush = state._build_pending_winner(
+            1,
+            "discard",
+            "hu_first",
+            {"fan_ids": ["half_flush"], "tai": 4},
+            15,
+            3,
+        )
+        self.assertIsNone(immediate_half_flush["liable_payer"])
+        immediate_full_flush = state._build_pending_winner(
+            1,
+            "discard",
+            "hu_first",
+            {"fan_ids": ["full_flush"], "tai": 8},
+            15,
+            3,
+        )
+        self.assertEqual(immediate_full_flush["liable_payer"], 3)
+
+    def test_scoring_presets_only_override_fan_values(self):
         hand = [
             11, 12, 13, 14, 15, 16, 21, 22, 23,
             24, 25, 26, 31, 32, 33, 45, 45,
@@ -719,47 +880,57 @@ class TaiwanScoringTest(unittest.TestCase):
             heavenly_ready=True,
             rules=TaiwanRules(scoring_preset="cml"),
         )
+        shenlaiye_heavenly_ready = self.score(
+            hand,
+            tile=21,
+            heavenly_ready=True,
+            rules=TaiwanRules(scoring_preset="shenlaiye"),
+        )
         self.assertEqual(shenlaiye.tai, 8)
         self.assertEqual(shenlaiye.fan_ids, ["human_win"])
-        self.assertNotIn("human_win", star31.fan_ids)
-        self.assertIn("menqing", star31.fan_ids)
+        self.assertEqual(star31.tai, 16)
+        self.assertEqual(star31.fan_ids, ["human_win"])
         self.assertIn("heavenly_ready", cml.fan_ids)
+        self.assertEqual(
+            next(
+                fan.tai
+                for fan in shenlaiye_heavenly_ready.fans
+                if fan.fan_id == "heavenly_ready"
+            ),
+            16,
+        )
 
-        platform_pinfu = self.score(
-            [21, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 36, 45, 45],
-            melds=["s12"],
-            tile=21,
+        ambiguous_hand = [
+            13, 14, 14, 14, 14, 15, 25, 25, 32,
+            32, 32, 35, 35, 35, 37, 38, 39,
+        ]
+        preset_only = self.score(
+            ambiguous_hand,
+            tile=14,
             rules=TaiwanRules(scoring_preset="star31"),
         )
-        self.assertNotIn("pinfu", platform_pinfu.fan_ids)
-
-        ambiguous_edge_wait = [
-            11, 12, 13, 13, 14, 15, 21, 22, 23,
-            24, 25, 26, 31, 32, 33, 27, 27,
-        ]
-        for preset in ("star31", "shenlaiye"):
-            with self.subTest(preset=preset):
-                result = self.score(
-                    ambiguous_edge_wait,
-                    tile=13,
-                    rules=TaiwanRules(scoring_preset=preset),
-                )
-                self.assertEqual(result.waits, frozenset({13, 16}))
-                self.assertNotIn("pinfu", result.fan_ids)
-
-        star_triplet_priority = self.score(
+        explicit_triplet_priority = self.score(
             [
                 13, 14, 14, 14, 14, 15, 25, 25, 32,
                 32, 32, 35, 35, 35, 37, 38, 39,
             ],
             tile=14,
-            rules=TaiwanRules(scoring_preset="star31"),
+            rules=TaiwanRules(
+                scoring_preset="star31",
+                prefer_triplet_decomposition_on_discard_win=True,
+            ),
         )
-        self.assertEqual(star_triplet_priority.decomposition.winning_component[0], "triplet")
-        self.assertNotIn("three_concealed", star_triplet_priority.fan_ids)
-
+        self.assertEqual(preset_only.decomposition.winning_component[0], "sequence")
+        self.assertIn("three_concealed_pungs", preset_only.fan_ids)
         self.assertEqual(
-            TaiwanRules.from_dict({"scoring_preset": "star31"}).flower_kong_tai,
+            explicit_triplet_priority.decomposition.winning_component[0],
+            "triplet",
+        )
+        self.assertNotIn("three_concealed_pungs", explicit_triplet_priority.fan_ids)
+
+        # 台表选择不再补齐任何隐藏判定馆规；它只选择完整基础台表。
+        self.assertEqual(
+            SCORING_PRESET_TABLES["star31"]["flower_kong"],
             2,
         )
         self.assertEqual(
@@ -767,28 +938,297 @@ class TaiwanScoringTest(unittest.TestCase):
             "cml",
         )
 
-    def test_platform_small_winds_keeps_matching_wind_fans(self):
-        hand = [11, 12, 13, 21, 22, 23, 44, 44]
-        for preset in ("shenlaiye", "cml"):
+    def test_fan_tai_overrides_are_sparse_and_apply_to_every_fan(self):
+        rules = TaiwanRules.from_dict(
+            {
+                "scoring_preset": "star31",
+                "fan_tai_overrides": {
+                    "all_chows": 6,
+                    "flower_kong": 2,
+                },
+            }
+        )
+        # 与明星三缺一基础台表相同的花杠值不重复保存。
+        self.assertEqual(rules.fan_tai_overrides, {"all_chows": 6})
+
+        hand = [
+            21, 22, 23, 24, 25, 26, 31,
+            32, 33, 34, 35, 36, 45, 45,
+        ]
+        result = self.score(
+            hand,
+            melds=["s12"],
+            tile=21,
+            rules=rules,
+        )
+        all_chows = next(fan for fan in result.fans if fan.fan_id == "all_chows")
+        self.assertEqual(all_chows.tai, 6)
+
+        with self.assertRaisesRegex(ValueError, "未知台湾麻将台种"):
+            TaiwanRules.from_dict({"fan_tai_overrides": {"removed_fan": 8}})
+        for invalid in (0, 65, True, "8"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "1 至 64"):
+                    TaiwanRules.from_dict(
+                        {"fan_tai_overrides": {"all_chows": invalid}}
+                    )
+
+    def test_published_scoring_preset_contract(self):
+        # 简易迁移保险：删除已发布预设或改变其完整台表都会失败。
+        # 只有完成外部牌谱迁移后，才应人工更新/移除这里的契约。
+        expected_hashes = {
+            "sml": "ebd41fb8cefe0f2835cc0c46c95a70c8f972b7e956ed5936db1970f0737c63db",
+            "cml": "ebd41fb8cefe0f2835cc0c46c95a70c8f972b7e956ed5936db1970f0737c63db",
+            "star31": "8e7c9b80f1a17d7dfcc19b2c7679f1066487b9161a325517ed91f690931a0112",
+            "shenlaiye": "76fb8534a294bcbb4768e170b649f49b1873a36e7fb9be276edd0ae083cbf248",
+        }
+        self.assertEqual(set(SCORING_PRESET_TABLES), set(expected_hashes))
+        for preset_id, expected_hash in expected_hashes.items():
+            with self.subTest(preset_id=preset_id):
+                table = SCORING_PRESET_TABLES[preset_id]
+                self.assertEqual(set(table), set(FAN_DEFINITIONS))
+                payload = json.dumps(
+                    dict(table),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_hash)
+        with self.assertRaises(TypeError):
+            FAN_DEFINITIONS["all_chows"] = ("平胡", 99)
+        with self.assertRaises(TypeError):
+            SCORING_PRESET_TABLES["sml"]["all_chows"] = 99
+
+    def test_scoring_preset_does_not_infer_other_rule_fields(self):
+        expected = asdict(TaiwanRules())
+        expected.pop("scoring_preset")
+        for preset in ("sml", "cml", "star31", "shenlaiye"):
             with self.subTest(preset=preset):
-                result = self.score(
-                    hand,
-                    melds=["k41", "k42", "k43"],
-                    tile=13,
-                    seat_wind=41,
-                    round_wind=42,
-                    rules=TaiwanRules(scoring_preset=preset),
+                actual = asdict(
+                    TaiwanRules.from_dict({"scoring_preset": preset})
                 )
-                self.assertIn("small_winds", result.fan_ids)
-                self.assertIn("seat_wind", result.fan_ids)
-                self.assertIn("round_wind", result.fan_ids)
+                actual.pop("scoring_preset")
+                self.assertEqual(actual, expected)
+
+    def test_pinfu_definition_is_independent_from_scoring_preset(self):
+        open_honor_hand = [
+            21, 22, 23, 24, 25, 26, 31,
+            32, 33, 34, 35, 36, 45, 45,
+        ]
+        open_result = self.score(
+            open_honor_hand,
+            melds=["s12"],
+            tile=21,
+            flowers=[51],
+            rules=TaiwanRules(scoring_preset="star31"),
+        )
+        self.assertIn("all_chows", open_result.fan_ids)
+        self.assertIn("flower_tile", open_result.fan_ids)
+
+        open_self_draw = self.score(
+            open_honor_hand,
+            melds=["s12"],
+            tile=21,
+            source="self_draw",
+            rules=TaiwanRules(),
+        )
+        self.assertNotIn("all_chows", open_self_draw.fan_ids)
+
+        closed_result = self.score(
+            [
+                11, 12, 13, 14, 15, 16, 21, 22, 23,
+                24, 25, 26, 31, 32, 33, 45, 45,
+            ],
+            tile=11,
+            rules=TaiwanRules(),
+        )
+        self.assertNotIn("all_chows", closed_result.fan_ids)
+
+        strict_hand = [
+            21, 22, 23, 25, 26, 27, 31,
+            32, 33, 35, 36, 37, 29, 29,
+        ]
+        strict_rules = TaiwanRules(
+            scoring_preset="sml",
+            all_chows_definition="strict",
+        )
+        strict_pair_wait = self.score(
+            strict_hand,
+            melds=["s12"],
+            tile=29,
+            rules=strict_rules,
+        )
+        self.assertEqual(strict_pair_wait.waits, frozenset({29}))
+        self.assertEqual(
+            strict_pair_wait.decomposition.winning_component[0],
+            "pair",
+        )
+        self.assertNotIn("all_chows", strict_pair_wait.fan_ids)
+        self.assertIn("single_wait", strict_pair_wait.fan_ids)
+
+        open_pair_wait = self.score(
+            strict_hand,
+            melds=["s12"],
+            tile=29,
+            rules=TaiwanRules(all_chows_definition="relaxed"),
+        )
+        self.assertNotIn("all_chows", open_pair_wait.fan_ids)
+        self.assertIn("single_wait", open_pair_wait.fan_ids)
+
+        # 同一张 5 既存在于将牌、又可作为顺子和牌张时，
+        # 应按形式听牌集合判定非独听，而不是被其它拆分落点否决。
+        ambiguous_wait = [
+            23, 24, 25, 25, 25,
+            31, 32, 33,
+            34, 35, 36,
+            37, 38, 39,
+        ]
+        for definition in ("relaxed", "strict"):
+            with self.subTest(all_chows_definition=definition, ambiguous_use=True):
+                result = self.score(
+                    ambiguous_wait,
+                    melds=["s12"],
+                    tile=25,
+                    rules=TaiwanRules(all_chows_definition=definition),
+                )
+                self.assertIn("all_chows", result.fan_ids)
+                # 同一张牌也可落在将牌或顺子拆分；平胡只看整手形式听牌
+                # 是否为非独听，不要求把最终拆分强制选成顺子和牌。
+                self.assertIn(
+                    result.decomposition.winning_component[0],
+                    ("pair", "sequence"),
+                )
+
+        # 牌张在某个拆分里虽然落在边张位置，但整手形式听牌有三张；
+        # SML 只排除独听，不再附加“必须结构两面”的限制。
+        edge_with_multiple_waits = self.score(
+            [
+                21, 22, 23, 24, 25, 26, 31,
+                32, 33, 34, 35, 36, 29, 29,
+            ],
+            melds=["s12"],
+            tile=21,
+            rules=TaiwanRules(all_chows_definition="strict"),
+        )
+        self.assertEqual(edge_with_multiple_waits.waits, frozenset({21, 24, 27}))
+        self.assertIn("all_chows", edge_with_multiple_waits.fan_ids)
+
+        strict_self_draw = self.score(
+            strict_hand,
+            melds=["s12"],
+            tile=29,
+            source="self_draw",
+            rules=strict_rules,
+        )
+        strict_with_flower = self.score(
+            strict_hand,
+            melds=["s12"],
+            tile=29,
+            flowers=[51],
+            rules=strict_rules,
+        )
+        strict_with_honor = self.score(
+            open_honor_hand,
+            melds=["s12"],
+            tile=45,
+            rules=strict_rules,
+        )
+        self.assertNotIn("all_chows", strict_self_draw.fan_ids)
+        self.assertNotIn("all_chows", strict_with_flower.fan_ids)
+        self.assertNotIn("all_chows", strict_with_honor.fan_ids)
+
+        self.assertEqual(
+            TaiwanRules(scoring_preset="star31").all_chows_definition,
+            "relaxed",
+        )
+        self.assertEqual(
+            TaiwanRules.from_dict(
+                {"scoring_preset": "shenlaiye"}
+            ).all_chows_definition,
+            "relaxed",
+        )
+        self.assertEqual(
+            TaiwanRules.from_dict(
+                {"all_chows_definition": "strict"}
+            ).scoring_preset,
+            "sml",
+        )
+
+    def test_small_winds_wind_fans_are_explicitly_configured(self):
+        hand = [11, 12, 13, 21, 22, 23, 44, 44]
+        preset_only = self.score(
+            hand,
+            melds=["k41", "k42", "k43"],
+            tile=13,
+            seat_wind=41,
+            round_wind=42,
+            rules=TaiwanRules(scoring_preset="shenlaiye"),
+        )
+        explicit = self.score(
+            hand,
+            melds=["k41", "k42", "k43"],
+            tile=13,
+            seat_wind=41,
+            round_wind=42,
+            rules=TaiwanRules(
+                scoring_preset="sml",
+                little_four_winds_add_wind_pungs=True,
+            ),
+        )
+        self.assertIn("little_four_winds", preset_only.fan_ids)
+        self.assertNotIn("seat_wind_pung", preset_only.fan_ids)
+        self.assertNotIn("prevalent_wind_pung", preset_only.fan_ids)
+        self.assertIn("little_four_winds", explicit.fan_ids)
+        self.assertIn("seat_wind_pung", explicit.fan_ids)
+        self.assertIn("prevalent_wind_pung", explicit.fan_ids)
+
+    def test_all_honors_combination_is_explicitly_configured(self):
+        hand = [
+            41, 41, 41, 42, 42, 42, 43, 43, 43,
+            44, 44, 44, 45, 45, 45, 46, 46,
+        ]
+        preset_only = self.score(
+            hand,
+            tile=46,
+            rules=TaiwanRules(scoring_preset="shenlaiye"),
+        )
+        explicit_exclusion = self.score(
+            hand,
+            tile=46,
+            rules=TaiwanRules(all_honors_add_all_pungs=False),
+        )
+        self.assertIn("all_honors", preset_only.fan_ids)
+        self.assertIn("all_pungs", preset_only.fan_ids)
+        self.assertIn("all_honors", explicit_exclusion.fan_ids)
+        self.assertNotIn("all_pungs", explicit_exclusion.fan_ids)
+
+    def test_earthly_ready_menqing_combination_is_explicitly_configured(self):
+        hand = [
+            11, 12, 13, 14, 15, 16, 21, 22, 23,
+            24, 25, 26, 31, 32, 33, 45, 45,
+        ]
+        preset_only = self.score(
+            hand,
+            tile=21,
+            earthly_ready=True,
+            rules=TaiwanRules(scoring_preset="shenlaiye"),
+        )
+        explicit_exclusion = self.score(
+            hand,
+            tile=21,
+            earthly_ready=True,
+            rules=TaiwanRules(earthly_ready_excludes_concealed_and_declared_ready=True),
+        )
+        self.assertIn("concealed_hand", preset_only.fan_ids)
+        self.assertIn("earthly_ready", preset_only.fan_ids)
+        self.assertNotIn("concealed_hand", explicit_exclusion.fan_ids)
+        self.assertIn("earthly_ready", explicit_exclusion.fan_ids)
 
     def test_public_ready_requires_the_public_declaration(self):
         hand = [
             11, 12, 13, 14, 15, 16, 21, 22, 23,
             24, 25, 26, 31, 32, 33, 45, 45,
         ]
-        rules = TaiwanRules(public_ready_tai=1)
+        rules = TaiwanRules(public_ready_enabled=True)
         hidden = self.score(hand, tile=21, heavenly_ready=True, rules=rules)
         declared = self.score(
             hand,
@@ -808,7 +1248,7 @@ class TaiwanScoringTest(unittest.TestCase):
         player.qualification_alive = True
         player.qualification_ever = True
         state.player_list = [DummyPlayer(0), player]
-        state.rules = TaiwanRules(public_ready_tai=1)
+        state.rules = TaiwanRules(public_ready_enabled=True)
         state.rules_dict = asdict(state.rules)
         state.table_claim_or_kong = False
         state.calculation_service = SimpleNamespace(
@@ -823,7 +1263,7 @@ class TaiwanScoringTest(unittest.TestCase):
 
         player.qualification_alive = True
         player.qualification_ever = True
-        state.rules = TaiwanRules(public_ready_tai=1)
+        state.rules = TaiwanRules(public_ready_enabled=True)
         state.rules_dict = asdict(state.rules)
         self.assertEqual(set(state.ready_candidate_cuts(1)), {11, 12})
 
@@ -831,7 +1271,7 @@ class TaiwanScoringTest(unittest.TestCase):
         state = object.__new__(TaiwanGameState)
         dealer = DummyPlayer(0, [11, 12])
         state.player_list = [dealer] + [DummyPlayer(index) for index in range(1, 4)]
-        state.rules = TaiwanRules(public_ready_tai=1)
+        state.rules = TaiwanRules(public_ready_enabled=True)
         state.rules_dict = asdict(state.rules)
         state.table_claim_or_kong = False
         state.calculation_service = SimpleNamespace(
@@ -899,10 +1339,10 @@ class TaiwanScoringTest(unittest.TestCase):
 
         dealer.qualification_ever = True
         dealer.declared_ready = True
-        state.rules = TaiwanRules(public_ready_tai=1)
+        state.rules = TaiwanRules(public_ready_enabled=True)
         self.assertEqual(state.taiwan_hint_ready_qualification(0), "public")
 
-        state.rules = TaiwanRules(heavenly_earthly_ready_enabled=False)
+        state.rules = TaiwanRules(ready_qualification_mode="disabled")
         dealer.declared_ready = False
         self.assertEqual(state.taiwan_hint_ready_qualification(0), "none")
 
@@ -914,7 +1354,7 @@ class TaiwanScoringTest(unittest.TestCase):
         dealer.normal_draw_count = 1
         dealer.discard_count = 2
         state.player_list = [dealer]
-        state.rules = TaiwanRules(public_ready_tai=1)
+        state.rules = TaiwanRules(public_ready_enabled=True)
         state.rules_dict = asdict(state.rules)
         state.table_claim_or_kong = False
         state.calculation_service = SimpleNamespace(
@@ -943,16 +1383,17 @@ class TaiwanScoringTest(unittest.TestCase):
             heavenly_ready=True,
             declared_ready=True,
             rules=TaiwanRules(
-                heavenly_earthly_ready_enabled=False,
-                public_ready_tai=1,
+                ready_qualification_mode="disabled",
+                public_ready_enabled=True,
             ),
         )
         self.assertNotIn("heavenly_ready", result.fan_ids)
         self.assertIn("declared_ready", result.fan_ids)
+        self.assertIn("报听", result.fan_names)
 
     def test_disabled_heavenly_ready_does_not_register_qualification(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(heavenly_earthly_ready_enabled=False)
+        state.rules = TaiwanRules(ready_qualification_mode="disabled")
         state.player_list = [DummyPlayer(i) for i in range(4)]
         state.calculation_service = SimpleNamespace(
             Taiwan_tingpai_check=lambda *_args, **_kwargs: {21}
@@ -964,9 +1405,109 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertFalse(any(player.qualification_alive for player in state.player_list))
         self.assertFalse(any(player.heavenly_ready for player in state.player_list))
 
-    def test_cml_heavenly_ready_excludes_only_the_dealer(self):
+    def test_starting_win_definitions_are_explicitly_configured(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(scoring_preset="cml")
+        state.player_list = [DummyPlayer(index) for index in range(4)]
+        state.current_round = 1
+        state.current_player_index = 0
+        state.table_claim_or_kong = False
+        state.opening_dealer_action = False
+        state.last_draw_after_kong = False
+        state.last_draw_was_last = False
+        state.can_take_wall_tile = lambda: True
+
+        discarder = state.player_list[0]
+        winner = state.player_list[1]
+        discarder.discard_count = 1
+        state.rules = TaiwanRules(scoring_preset="star31")
+        state.rules_dict = asdict(state.rules)
+        self.assertTrue(
+            state._score_context(1, "discard", include_special=False)["human_win"]
+        )
+
+        state.rules = TaiwanRules(human_win_definition="disabled")
+        state.rules_dict = asdict(state.rules)
+        self.assertFalse(
+            state._score_context(1, "discard", include_special=False)["human_win"]
+        )
+
+        winner.normal_draw_count = 2
+        state.rules = TaiwanRules(
+            human_win_definition="discarder_first_discard"
+        )
+        state.rules_dict = asdict(state.rules)
+        self.assertTrue(
+            state._score_context(1, "discard", include_special=False)["human_win"]
+        )
+        discarder.discard_count = 2
+        self.assertFalse(
+            state._score_context(1, "discard", include_special=False)["human_win"]
+        )
+
+        winner.normal_draw_count = 1
+        winner.discard_count = 0
+        state.table_claim_or_kong = True
+        state.rules = TaiwanRules(earthly_win_allows_open_calls=False)
+        state.rules_dict = asdict(state.rules)
+        self.assertFalse(
+            state._score_context(1, "self_draw", include_special=False)[
+                "earthly_win"
+            ]
+        )
+        state.rules = TaiwanRules(earthly_win_allows_open_calls=True)
+        state.rules_dict = asdict(state.rules)
+        self.assertTrue(
+            state._score_context(1, "self_draw", include_special=False)[
+                "earthly_win"
+            ]
+        )
+        state.player_list[2].combination_tiles = ["G22"]
+        self.assertFalse(
+            state._score_context(1, "self_draw", include_special=False)[
+                "earthly_win"
+            ]
+        )
+
+    def test_ready_qualification_mode_is_explicitly_configured(self):
+        state = object.__new__(TaiwanGameState)
+        state.player_list = [DummyPlayer(index) for index in range(4)]
+        state.table_claim_or_kong = False
+        state.rules = TaiwanRules(scoring_preset="star31")
+        self.assertEqual(state.taiwan_hint_ready_qualification(1), "none")
+
+        state.rules = TaiwanRules(
+            ready_qualification_mode="first_eight_table_discards"
+        )
+        self.assertEqual(
+            state.taiwan_hint_ready_qualification(0),
+            "heavenly",
+        )
+        self.assertEqual(
+            state.taiwan_hint_ready_qualification(1),
+            "earthly",
+        )
+        for player in state.player_list:
+            player.discard_count = 2
+        self.assertEqual(state.taiwan_hint_ready_qualification(1), "none")
+
+        for player in state.player_list:
+            player.discard_count = 0
+        state.rules = TaiwanRules(
+            ready_qualification_mode="each_player_first_discard"
+        )
+        self.assertEqual(
+            state.taiwan_hint_ready_qualification(1),
+            "earthly",
+        )
+        state.player_list[1].discard_count = 1
+        self.assertEqual(state.taiwan_hint_ready_qualification(1), "none")
+
+    def test_non_dealer_standard_mode_excludes_dealer_heavenly_ready(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            scoring_preset="sml",
+            ready_qualification_mode="standard_without_dealer_heavenly_ready",
+        )
         state.rules_dict = asdict(state.rules)
         state.player_list = [DummyPlayer(index, [11, 12]) for index in range(4)]
         state.table_claim_or_kong = False
@@ -983,11 +1524,18 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertFalse(state.player_list[0].qualification_alive)
         self.assertEqual(state.taiwan_hint_ready_qualification(0), "none")
 
+        state.rules = TaiwanRules(scoring_preset="cml")
+        state.rules_dict = asdict(state.rules)
+        state._register_ready_after_discard(0)
+        self.assertTrue(state.player_list[0].heavenly_ready)
+        self.assertTrue(state.player_list[0].qualification_alive)
+
     def test_concealed_kong_breaks_heavenly_earthly_win_and_ready(self):
         state = object.__new__(TaiwanGameState)
         state.rules = TaiwanRules(
-            scoring_preset="shenlaiye",
-            public_ready_tai=1,
+            public_ready_enabled=True,
+            earthly_win_allows_open_calls=True,
+            ready_qualification_mode="each_player_first_discard",
         )
         state.rules_dict = asdict(state.rules)
         state.player_list = [DummyPlayer(index, [11, 12]) for index in range(4)]
@@ -1028,12 +1576,14 @@ class TaiwanScoringTest(unittest.TestCase):
         state = TaiwanGameState.__new__(TaiwanGameState)
         player = DummyPlayer(0)
         player.qualification_alive = True
+        player.earthly_ready = True
         player.declared_ready = True
         player.ready_locked = True
         player.tag_list.append("declared_ready")
         state.player_list = [player]
         state.rules = TaiwanRules(
-            public_ready_tai=1,
+            scoring_preset="shenlaiye",
+            public_ready_enabled=True,
             declared_ready_win_policy="allow_pass",
         )
 
@@ -1046,13 +1596,73 @@ class TaiwanScoringTest(unittest.TestCase):
         self.assertTrue(player.ready_locked)
         self.assertIn("declared_ready", player.tag_list)
 
+    def test_qualified_ready_default_follows_secret_registration_rules(self):
+        state = TaiwanGameState.__new__(TaiwanGameState)
+        player = DummyPlayer(0)
+        player.qualification_alive = True
+        player.earthly_ready = True
+        state.player_list = [player]
+        state.rules = TaiwanRules(
+            qualified_ready_win_policy="follow_declared_ready_policy",
+        )
+
+        tag_changed = state.enter_water(0)
+
+        self.assertFalse(tag_changed)
+        self.assertTrue(player.water)
+        self.assertFalse(player.qualification_alive)
+        self.assertTrue(player.earthly_ready)
+
+    def test_qualified_ready_pass_policy_can_revoke_only_earthly_ready(self):
+        state = TaiwanGameState.__new__(TaiwanGameState)
+        player = DummyPlayer(0)
+        player.qualification_alive = True
+        player.earthly_ready = True
+        player.declared_ready = True
+        player.ready_locked = True
+        player.tag_list.append("declared_ready")
+        state.player_list = [player]
+        state.rules = TaiwanRules(
+            public_ready_enabled=True,
+            declared_ready_win_policy="allow_pass",
+            qualified_ready_win_policy="lose_earthly_on_pass",
+        )
+
+        tag_changed = state.enter_water(0)
+
+        self.assertFalse(tag_changed)
+        self.assertTrue(player.water)
+        self.assertFalse(player.qualification_alive)
+        self.assertFalse(player.earthly_ready)
+        self.assertTrue(player.declared_ready)
+        self.assertTrue(player.ready_locked)
+
+        player.qualification_alive = True
+        player.heavenly_ready = True
+        player.earthly_ready = False
+        state.enter_water(0)
+        self.assertTrue(player.qualification_alive)
+        self.assertTrue(player.heavenly_ready)
+
     def test_invalid_rules_melds_and_payment_seats_fail_closed(self):
         with self.assertRaises(ValueError):
-            TaiwanRules.from_dict({"water_blocks_self_draw": "false"})
+            TaiwanRules.from_dict({"missed_win_blocks_self_draw": "false"})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"base_points": True})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"typo_rule": 1})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"all_chows_definition": "invalid"})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"human_win_definition": "preset"})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"ready_qualification_mode": "preset"})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"claim_wall_reserve": 4})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"qualified_ready_win_policy": 1})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"opening_flower_replacement_order": "simultaneous"})
         with self.assertRaises(ValueError):
             parse_meld_code("s11")
         with self.assertRaises(ValueError):
@@ -1100,6 +1710,45 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         winner.combination_tiles = ["k11"]
         winner.last_drawn_tile = 21
         return state
+
+    @staticmethod
+    def _seven_flower_minimum_state(*, open_cuohe: bool):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            minimum_tai=3,
+            fan_tai_overrides={"seven_flowers_steal_eighth": 1},
+        )
+        state.rules_dict = asdict(state.rules)
+        state.hepai_limit = 3
+        state.open_cuohe = open_cuohe
+        state.current_round = 1
+        state.current_player_index = 1
+        state.last_draw_after_kong = False
+        state.last_draw_was_last = False
+        state.opening_dealer_action = False
+        state.table_claim_or_kong = False
+        state.supplement_win_allowed = True
+        state.calculation_service = TaiwanDetailCalculation()
+        state.game_status = "playing"
+        state.action_dict = {0: [], 1: [], 2: [], 3: []}
+        state.pending_winners = []
+        state.pending_cuohe = None
+        state.jiagang_tile = None
+        state.tiles_list = [22] * 16 + [21]
+        state.dead_wall_count = 16
+        state.replacement_wall_remaining = 16
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.player_list[0].hand_tiles = [11] * 4
+        state.player_list[0].huapai_list = list(FLOWER_TILES[:-1])
+        state.prepare_action_window = Mock()
+        state.wait_action = AsyncMock(return_value=True)
+
+        candidate = state._seven_flowers_steal_eighth_candidate(
+            1,
+            FLOWER_TILES[-1],
+        )
+        state._publish_flower(1, FLOWER_TILES[-1])
+        return state, candidate
 
     @staticmethod
     def _discard_response_state(mode: str, details: dict):
@@ -1193,7 +1842,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         state = make_action_state(
             rules=TaiwanRules(
                 minimum_tai=1,
-                public_ready_tai=1,
+                public_ready_enabled=True,
                 declared_ready_win_policy="force_win",
             )
         )
@@ -1233,6 +1882,17 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         discard_state = asyncio.run(pass_low_tai())
         discard_state.enter_water.assert_not_called()
         self.assertEqual(discard_state.game_status, "deal_card")
+
+    def test_smart_bot_accepts_riichi_han_result(self):
+        state = SimpleNamespace(
+            hepai_limit=1,
+            result_dict={"hu_self": {"han": 3, "fu": 40}},
+            player_list=[DummyPlayer(i) for i in range(4)],
+        )
+
+        self.assertTrue(should_accept_hu(state, 0, "hu_self"))
+        state.hepai_limit = 4
+        self.assertFalse(should_accept_hu(state, 0, "hu_self"))
 
     def test_head_bump_selects_nearest_declaration_before_cuohe_check(self):
         wrong = {
@@ -1274,7 +1934,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         }
         legal = {"is_win": True, "tai": 1, "capped_tai": 1}
         state = self._discard_response_state(
-            "multi",
+            "multiple_winners",
             {"hu_first": wrong, "hu_second": legal},
         )
 
@@ -1308,7 +1968,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         }
         legal = {"is_win": True, "tai": 1, "capped_tai": 1}
         state = self._discard_response_state(
-            "multi",
+            "multiple_winners",
             {"hu_first": wrong, "hu_second": legal},
         )
         state.jiagang_tile = 23
@@ -1357,7 +2017,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         }
         legal = {"is_win": True, "tai": 1, "capped_tai": 1}
         state = self._discard_response_state(
-            "two_head_three_all",
+            "double_head_bump_triple_all",
             {
                 "hu_first": wrong,
                 "hu_second": legal,
@@ -1570,7 +2230,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         for policy, may_refuse in (("allow_pass", True), ("force_win", False)):
             with self.subTest(policy=policy):
                 rules = TaiwanRules(
-                    public_ready_tai=1,
+                    public_ready_enabled=True,
                     declared_ready_win_policy=policy,
                 )
 
@@ -1609,22 +2269,29 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                     ["hu_first", "pass"] if may_refuse else ["hu_first"],
                 )
 
-    def test_star31_forces_qualified_ready_but_not_general_ready(self):
+    def test_qualified_ready_win_policy_is_explicitly_configured(self):
         state = make_action_state(
             rules=TaiwanRules(
                 scoring_preset="star31",
-                public_ready_tai=1,
+                public_ready_enabled=True,
                 declared_ready_win_policy="allow_pass",
             )
         )
         player = state.player_list[0]
         player.hand_tiles = [11, 12, 13]
-        player.declared_ready = True
-        player.ready_locked = True
         player.earthly_ready = True
         player.qualification_alive = True
         state.score_candidate = lambda *_args, **_kwargs: {"is_win": True}
 
+        self.assertEqual(
+            check_action_hand_action(state, 0)[0],
+            ["hu_self", "cut"],
+        )
+        state.rules = TaiwanRules(
+            public_ready_enabled=True,
+            declared_ready_win_policy="allow_pass",
+            qualified_ready_win_policy="force_win",
+        )
         self.assertEqual(check_action_hand_action(state, 0)[0], ["hu_self"])
 
         player.earthly_ready = False
@@ -1648,7 +2315,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 player_list=players,
                 current_player_index=0,
                 rules=TaiwanRules(
-                    public_ready_tai=1,
+                    public_ready_enabled=True,
                     declared_ready_win_policy="force_win",
                 ),
                 has_normal_self_draw=lambda _index: True,
@@ -1681,8 +2348,33 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             state.current_player_index = 0
             state.player_list = [DummyPlayer(i) for i in range(4)]
             state.player_list[1].declared_ready = True
-            state.player_list[0].combination_tiles = ["g23"]
-            state.player_list[0].combination_mask = [[3, 23, 1, 23, 0, 23, 0, 23]]
+            declarer = state.player_list[0]
+            # 模拟 execute_jiagang 已进入抢杠窗口：牌面暂时是加杠，
+            # 但 _pending_jiagang 保存着可被抢杠撤销的原始碰牌。
+            declarer.hand_tiles = []
+            declarer.combination_tiles = ["g23"]
+            declarer.combination_mask = [[3, 23, 1, 23, 0, 23, 0, 23]]
+            state._pending_jiagang = {
+                "player_index": 0,
+                "hand_tiles": [23],
+                "combination_tiles": ["k23"],
+                "combination_mask": [[1, 23, 0, 23, 0, 23]],
+                "has_draw_slot": False,
+                "last_drawn_tile": None,
+                "water": False,
+                "qualification_alive": False,
+                "qualification_ever": False,
+                "heavenly_ready": False,
+                "earthly_ready": False,
+                "declared_ready": False,
+                "ready_locked": False,
+                "tag_list": [],
+                "table_claim_or_kong": False,
+                "jiagang_tile": None,
+                "is_mo_gang": False,
+                "normal": 23,
+            }
+            state.table_claim_or_kong = True
             state.jiagang_tile = 23
             state.result_dict = {"hu_first": {"is_win": True}}
             state._liability_payer_for_win = lambda *_args: None
@@ -1698,12 +2390,15 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         rob_state = asyncio.run(run_rob_case())
         self.assertEqual(rob_state.game_status, "END")
         self.assertEqual(rob_state.pending_winners[0]["index"], 1)
-        self.assertEqual(rob_state.pending_winners[0]["source"], "rob_kong")
+        self.assertEqual(rob_state.pending_winners[0]["source"], "robbing_kong")
         self.assertIsNone(rob_state.jiagang_tile)
-        self.assertEqual(rob_state.player_list[0].combination_tiles, ["g23"])
+        self.assertFalse(rob_state.table_claim_or_kong)
+        self.assertIsNone(rob_state._pending_jiagang)
+        self.assertEqual(rob_state.player_list[0].hand_tiles, [])
+        self.assertEqual(rob_state.player_list[0].combination_tiles, ["k23"])
         self.assertEqual(
             rob_state.player_list[0].combination_mask,
-            [[3, 23, 1, 23, 0, 23, 0, 23]],
+            [[1, 23, 0, 23, 0, 23]],
         )
 
     def test_dealer_continuation_options_and_limit(self):
@@ -1936,7 +2631,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             "random_seed": 123,
             "allow_spectator": False,
             "hepai_limit": 0,
-            "detailed_config": {"eight_pairs_half": True},
+            "detailed_config": {"eight_and_a_half_pairs_enabled": True},
         }
         state = TaiwanGameState(
             SimpleNamespace(),
@@ -1965,7 +2660,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 self.assertIn("hu_self", actions[0])
                 self.assertEqual(
                     state.result_dict["hu_self"]["special"],
-                    "eight_pairs_half",
+                    "eight_and_a_half_pairs",
                 )
 
     def test_last_flower_replacement_is_marked_as_last_draw(self):
@@ -2026,6 +2721,26 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(player.hand_tiles, [11, 12, 51])
         self.assertEqual(player.huapai_list, [])
         self.assertEqual(check_action_hand_action(state, 0)[0], ["buhua"])
+
+    def test_direct_kong_supplement_self_draw_policy_is_explicit(self):
+        for allowed in (False, True):
+            with self.subTest(allowed=allowed):
+                state = object.__new__(TaiwanGameState)
+                player = DummyPlayer(0, [11])
+                state.player_list = [player]
+                state.rules = TaiwanRules(
+                    direct_kong_replacement_win_allowed=allowed,
+                )
+                state.last_draw_was_last = False
+                state.game_status = "playing"
+
+                continued = asyncio.run(
+                    state._process_drawn_flowers(0, "direct_kong")
+                )
+
+                self.assertTrue(continued)
+                self.assertTrue(state.last_draw_after_kong)
+                self.assertEqual(state.supplement_win_allowed, allowed)
 
     def test_execute_buhua_replaces_only_after_action(self):
         state = object.__new__(TaiwanGameState)
@@ -2091,7 +2806,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
     def test_opening_flowers_are_replaced_one_at_a_time(self):
         async def run_case():
             state = object.__new__(TaiwanGameState)
-            state.rules = TaiwanRules(seven_robs_one=False)
+            state.rules = TaiwanRules(seven_flowers_steal_eighth_enabled=False)
             state.player_list = [
                 DummyPlayer(0, [51, 52, 11]),
                 DummyPlayer(1, [12]),
@@ -2118,7 +2833,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             state._broadcast_flower = broadcast
             state._record_published_flower = Mock()
             state._draw_tail_for_player = draw
-            state._ask_eight_immortals = AsyncMock()
+            state._ask_eight_flowers = AsyncMock()
 
             await state._opening_flower_replacement()
             return state, events
@@ -2138,13 +2853,61 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(state.player_list[0].hand_tiles, [11, 21, 22])
         self.assertEqual(state.player_list[0].huapai_list, [51, 52])
 
-    def test_seven_robs_one_transfers_authoritative_flower_ownership(self):
+    def test_round_robin_opening_flowers_defer_new_flowers_to_the_next_round(self):
+        async def run_case():
+            state = object.__new__(TaiwanGameState)
+            state.rules = TaiwanRules(
+                seven_flowers_steal_eighth_enabled=False,
+                opening_flower_replacement_order="round_robin",
+            )
+            state.player_list = [
+                DummyPlayer(0, [51, 52, 11]),
+                DummyPlayer(1, [53, 12]),
+                DummyPlayer(2, [13]),
+                DummyPlayer(3, [14]),
+            ]
+            state.game_status = "playing"
+            events = []
+            replacement_tiles = iter((54, 21, 22, 23))
+
+            async def request(player_index):
+                events.append(("ask", player_index))
+
+            async def broadcast(owner_index, tile, **_kwargs):
+                events.append(("flower", owner_index, tile))
+
+            async def draw(player_index, *, opening):
+                tile = next(replacement_tiles)
+                state.player_list[player_index].hand_tiles.append(tile)
+                events.append(("draw", player_index, tile, opening))
+                return tile
+
+            state._request_opening_buhua = request
+            state._broadcast_flower = broadcast
+            state._record_published_flower = Mock()
+            state._draw_tail_for_player = draw
+            state._ask_eight_flowers = AsyncMock()
+
+            await state._opening_flower_replacement()
+            return state, events
+
+        state, events = asyncio.run(run_case())
+        self.assertEqual(
+            [event for event in events if event[0] == "ask"],
+            [("ask", 0), ("ask", 0), ("ask", 1), ("ask", 0)],
+        )
+        self.assertEqual(state.player_list[0].hand_tiles, [11, 21, 23])
+        self.assertEqual(state.player_list[0].huapai_list, [51, 52, 54])
+        self.assertEqual(state.player_list[1].hand_tiles, [12, 22])
+        self.assertEqual(state.player_list[1].huapai_list, [53])
+
+    def test_seven_flowers_steal_eighth_transfers_authoritative_flower_ownership(self):
         state = object.__new__(TaiwanGameState)
         state.rules = TaiwanRules()
         state.player_list = [DummyPlayer(i) for i in range(4)]
 
         state.player_list[0].huapai_list = list(FLOWER_TILES[:-1])
-        special = TaiwanGameState._seven_robs_one_candidate(
+        special = TaiwanGameState._seven_flowers_steal_eighth_candidate(
             state,
             1,
             FLOWER_TILES[-1],
@@ -2161,7 +2924,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         state.player_list = [DummyPlayer(i) for i in range(4)]
         state.player_list[0].huapai_list = list(FLOWER_TILES[:6])
         state.player_list[1].huapai_list = [FLOWER_TILES[6]]
-        special = TaiwanGameState._seven_robs_one_candidate(
+        special = TaiwanGameState._seven_flowers_steal_eighth_candidate(
             state,
             0,
             FLOWER_TILES[7],
@@ -2174,7 +2937,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(set(state.player_list[0].huapai_list), set(FLOWER_TILES))
         self.assertEqual(state.player_list[1].huapai_list, [])
 
-    def test_seven_robs_one_can_be_declined_without_transferring_flower(self):
+    def test_seven_flowers_steal_eighth_can_be_declined_without_transferring_flower(self):
         players = [DummyPlayer(i) for i in range(4)]
         players[0].huapai_list = list(FLOWER_TILES[:-1])
         state = object.__new__(TaiwanGameState)
@@ -2184,14 +2947,17 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         state.action_dict = {0: [], 1: [], 2: [], 3: []}
         state.prepare_action_window = Mock()
         state.wait_action = AsyncMock(return_value=False)
-        candidate = state._seven_robs_one_candidate(1, FLOWER_TILES[-1])
+        state._preview_seven_flowers_steal_eighth_detail = Mock(
+            return_value={"is_win": True},
+        )
+        candidate = state._seven_flowers_steal_eighth_candidate(1, FLOWER_TILES[-1])
         state._publish_flower(1, FLOWER_TILES[-1])
 
         with patch(
             "server.gamestate.game_taiwan.TaiwanGameState.broadcast_ask_hand_action",
             new_callable=AsyncMock,
         ) as broadcaster:
-            special = asyncio.run(state._ask_seven_robs_one(candidate))
+            special = asyncio.run(state._ask_seven_flowers_steal_eighth(candidate))
 
         self.assertIsNone(special)
         self.assertEqual(state.current_player_index, 1)
@@ -2200,7 +2966,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(players[0].huapai_list, list(FLOWER_TILES[:-1]))
         self.assertEqual(players[1].huapai_list, [FLOWER_TILES[-1]])
 
-    def test_seven_robs_one_is_asked_after_flower_is_published_before_replacement(self):
+    def test_seven_flowers_steal_eighth_is_asked_after_flower_is_published_before_replacement(self):
         async def run_case():
             state = object.__new__(TaiwanGameState)
             state.rules = TaiwanRules()
@@ -2219,9 +2985,10 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 )
                 events.append("buhua")
 
-            async def ask(candidate):
+            async def ask(candidate, *, opening):
                 self.assertEqual(events, ["buhua"])
                 self.assertEqual(candidate["mode"], "seven_then_last")
+                self.assertFalse(opening)
                 events.append("ask")
                 return candidate
 
@@ -2239,10 +3006,10 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 events.append("replacement")
 
             state._broadcast_flower = broadcast
-            state._ask_seven_robs_one = ask
+            state._ask_seven_flowers_steal_eighth = ask
             state._record_published_flower = record
             state._broadcast_flower_win = broadcast_win
-            state._complete_seven_robs_one = complete
+            state._complete_seven_flowers_steal_eighth = complete
 
             continued = await state._replace_one_flower(
                 1,
@@ -2261,7 +3028,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(set(state.player_list[0].huapai_list), set(FLOWER_TILES))
         self.assertEqual(state.player_list[1].huapai_list, [])
 
-    def test_declined_seven_robs_one_draws_only_after_choice(self):
+    def test_declined_seven_flowers_steal_eighth_draws_only_after_choice(self):
         async def run_case():
             state = object.__new__(TaiwanGameState)
             state.rules = TaiwanRules()
@@ -2273,9 +3040,10 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             async def broadcast(*_args, **_kwargs):
                 events.append("buhua")
 
-            async def ask(candidate):
+            async def ask(candidate, *, opening):
                 self.assertEqual(events, ["buhua"])
                 self.assertIsNotNone(candidate)
+                self.assertFalse(opening)
                 events.append("ask")
                 return None
 
@@ -2291,10 +3059,10 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 return 21
 
             state._broadcast_flower = broadcast
-            state._ask_seven_robs_one = ask
+            state._ask_seven_flowers_steal_eighth = ask
             state._record_published_flower = record
             state._broadcast_flower_win = AsyncMock()
-            state._complete_seven_robs_one = AsyncMock()
+            state._complete_seven_flowers_steal_eighth = AsyncMock()
             state._draw_tail_for_player = draw
 
             continued = await state._replace_one_flower(
@@ -2310,6 +3078,202 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(events, ["buhua", "ask", "record", "replacement"])
         self.assertEqual(state.player_list[0].huapai_list, list(FLOWER_TILES[:-1]))
         self.assertEqual(state.player_list[1].huapai_list, [FLOWER_TILES[-1]])
+
+    def test_seven_flower_below_minimum_is_not_offered_without_cuohe(self):
+        state, candidate = self._seven_flower_minimum_state(open_cuohe=False)
+
+        with patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.broadcast_ask_hand_action",
+            new_callable=AsyncMock,
+        ) as broadcaster:
+            special = asyncio.run(
+                state._ask_seven_flowers_steal_eighth(candidate)
+            )
+
+        self.assertIsNone(special)
+        state.wait_action.assert_not_awaited()
+        broadcaster.assert_not_awaited()
+        self.assertEqual(
+            state.player_list[0].huapai_list,
+            list(FLOWER_TILES[:-1]),
+        )
+        self.assertEqual(
+            state.player_list[1].huapai_list,
+            [FLOWER_TILES[-1]],
+        )
+        self.assertEqual(state.game_status, "playing")
+
+    def test_seven_flower_below_minimum_enters_cuohe_after_declaration(self):
+        state, candidate = self._seven_flower_minimum_state(open_cuohe=True)
+
+        with patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.broadcast_ask_hand_action",
+            new_callable=AsyncMock,
+        ):
+            special = asyncio.run(
+                state._ask_seven_flowers_steal_eighth(candidate)
+            )
+
+        self.assertIs(special, candidate)
+        state._transfer_flower_win(special)
+
+        async def draw_replacement(player_index, *, opening):
+            self.assertEqual(player_index, 0)
+            self.assertFalse(opening)
+            tile = state.tiles_list.pop()
+            state.player_list[player_index].hand_tiles.append(tile)
+            state.last_draw_was_last = not state.can_take_normal_tile()
+            return tile
+
+        state._draw_tail_for_player = draw_replacement
+        asyncio.run(
+            state._complete_seven_flowers_steal_eighth(
+                special,
+                opening=False,
+            )
+        )
+
+        self.assertEqual(state.game_status, "check_cuohe")
+        self.assertEqual(state.pending_winners, [])
+        self.assertEqual(state.pending_cuohe["players"][0]["index"], 0)
+        detail = state.pending_cuohe["players"][0]["detail"]
+        self.assertFalse(detail["is_win"])
+        self.assertTrue(detail["below_minimum"])
+        self.assertEqual(detail["tai"], 1)
+
+    def test_legal_seven_flower_uses_the_unified_winner_queue(self):
+        state, candidate = self._seven_flower_minimum_state(open_cuohe=False)
+        state.rules = TaiwanRules()
+        state.rules_dict = asdict(state.rules)
+        state.hepai_limit = 0
+
+        with patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.broadcast_ask_hand_action",
+            new_callable=AsyncMock,
+        ):
+            special = asyncio.run(
+                state._ask_seven_flowers_steal_eighth(candidate)
+            )
+
+        self.assertIs(special, candidate)
+        state._transfer_flower_win(special)
+
+        async def draw_replacement(player_index, *, opening):
+            tile = state.tiles_list.pop()
+            state.player_list[player_index].hand_tiles.append(tile)
+            state.last_draw_was_last = not state.can_take_normal_tile()
+            return tile
+
+        state._draw_tail_for_player = draw_replacement
+        asyncio.run(
+            state._complete_seven_flowers_steal_eighth(
+                special,
+                opening=False,
+            )
+        )
+
+        self.assertEqual(state.game_status, "END")
+        self.assertIsNone(state.pending_cuohe)
+        self.assertEqual(len(state.pending_winners), 1)
+        self.assertTrue(state.pending_winners[0]["detail"]["is_win"])
+        self.assertEqual(
+            state.pending_winners[0]["detail"]["fan_ids"],
+            ["seven_flowers_steal_eighth"],
+        )
+
+    def test_seven_flower_minimum_is_applied_after_combining_normal_tai(self):
+        state, _ = self._seven_flower_minimum_state(open_cuohe=False)
+        normal_detail = {
+            "is_win": True,
+            "tai": 2,
+            "capped_tai": 2,
+            "fan_ids": ["normal"],
+            "fan_names": ["普通"],
+            "fan_detail": [],
+            "decomposition": ["normal"],
+        }
+        flower_detail = {
+            "is_win": True,
+            "tai": 1,
+            "capped_tai": 1,
+            "fan_ids": ["seven_flowers_steal_eighth"],
+            "fan_names": ["七抢一"],
+            "fan_detail": [],
+            "decomposition": ["special:seven_flowers_steal_eighth"],
+        }
+
+        detail = state._combine_flower_details(
+            normal_detail,
+            flower_detail,
+        )
+
+        self.assertTrue(detail["is_win"])
+        self.assertFalse(detail["below_minimum"])
+        self.assertEqual(detail["tai"], 3)
+
+    def test_seven_flower_wall_preview_matches_actual_supplement_boundary(self):
+        for mode in (
+            "fixed_tail_16",
+            "kong_expands_tail",
+            "fixed_replacement_wall_16",
+        ):
+            for wall_length in (16, 17, 18, 24):
+                with self.subTest(mode=mode, wall_length=wall_length):
+                    state = object.__new__(TaiwanGameState)
+                    state.rules = TaiwanRules(dead_wall_mode=mode)
+                    state.tiles_list = [11] * wall_length
+                    state.dead_wall_count = 16
+                    state.replacement_wall_remaining = 16
+
+                    preview = (
+                        state._supplement_draw_will_exhaust_normal_wall()
+                    )
+                    state._take_supplement_tile()
+                    actual = not state.can_take_normal_tile()
+
+                    self.assertEqual(preview, actual)
+
+    def test_seven_flowers_steal_eighth_rejects_an_impossible_ninth_flower(self):
+        state = object.__new__(TaiwanGameState)
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.draw_reason = None
+        state.game_status = "playing"
+        state._draw_tail_for_player = AsyncMock(return_value=FLOWER_TILES[0])
+
+        asyncio.run(
+            state._complete_seven_flowers_steal_eighth(
+                {
+                    "winner": 0,
+                    "payer": 1,
+                    "tile": FLOWER_TILES[-1],
+                    "mode": "seven_then_last",
+                },
+                opening=False,
+            )
+        )
+
+        state._draw_tail_for_player.assert_awaited_once_with(0, opening=False)
+        self.assertEqual(state.draw_reason, "invalid_flower_wall")
+        self.assertEqual(state.game_status, "END")
+        self.assertEqual(state.player_list[0].hand_tiles, [])
+
+    def test_flower_replacement_rejects_a_ninth_flower_in_any_flow(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules()
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.player_list[0].huapai_list = list(FLOWER_TILES)
+        state.tiles_list = [FLOWER_TILES[0]]
+        state.dead_wall_count = 0
+        state.replacement_wall_remaining = 0
+
+        result = asyncio.run(
+            state._draw_tail_for_player(0, opening=False)
+        )
+
+        self.assertIsNone(result)
+        self.assertEqual(state.draw_reason, "invalid_flower_wall")
+        self.assertEqual(state.game_status, "END")
+        self.assertEqual(state.player_list[0].hand_tiles, [])
 
     def test_auto_cut_robot_passes_flower_win_after_window_opens(self):
         async def run_case():
@@ -2348,19 +3312,19 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             None,
         )
 
-    def test_auto_cut_robot_declines_forced_eight_immortals(self):
+    def test_auto_cut_robot_declines_forced_eight_flowers(self):
         state = object.__new__(TaiwanGameState)
         player = DummyPlayer(0)
         player.user_id = 0
-        player.pending_eight_immortals = True
+        player.pending_eight_flowers = True
         state.player_list = [player]
-        state.rules = TaiwanRules(eight_immortals_mode="forced_separate")
+        state.rules = TaiwanRules(eight_flowers_mode="forced_standalone")
         state.game_status = "playing"
 
-        asyncio.run(state._ask_eight_immortals(0))
+        asyncio.run(state._ask_eight_flowers(0))
 
-        self.assertFalse(player.pending_eight_immortals)
-        self.assertTrue(player.eight_immortals_declined)
+        self.assertFalse(player.pending_eight_flowers)
+        self.assertTrue(player.eight_flowers_declined)
         self.assertEqual(state.game_status, "playing")
 
     def test_buhua_action_is_dispatched_from_hand_window(self):
@@ -2409,7 +3373,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         execute_buhua = asyncio.run(run_case())
         execute_buhua.assert_awaited_once_with(0)
 
-    def test_seven_robs_one_record_and_flower_win_broadcast_carry_transfer_metadata(self):
+    def test_seven_flowers_steal_eighth_record_and_flower_win_broadcast_carry_transfer_metadata(self):
         cases = (
             (
                 1,
@@ -2470,11 +3434,31 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertIn("peng", actions[2])
         self.assertIn("gang", actions[2])
 
-    def test_cml_claims_preserve_four_playable_wall_tiles(self):
-        state = make_action_state(
+    def test_claim_wall_reserve_is_explicitly_configured(self):
+        disabled_rules = TaiwanRules()
+        enabled_rules = TaiwanRules(claim_wall_reserve=True)
+        self.assertEqual(disabled_rules.required_claim_wall_reserve, 0)
+        self.assertEqual(enabled_rules.required_claim_wall_reserve, 4)
+        self.assertNotIn("required_claim_wall_reserve", asdict(enabled_rules))
+
+        preset_only = make_action_state(
             rules=TaiwanRules(
                 scoring_preset="cml",
                 allow_kong_from_upper_discard=True,
+            )
+        )
+        preset_only.player_list[1].hand_tiles = [12, 13, 25]
+        preset_only.player_list[2].hand_tiles = [11, 11, 11, 26]
+        preset_only.playable_wall_count = lambda: 3
+        preset_actions = check_action_after_cut(preset_only, 11)
+        self.assertIn("chi_right", preset_actions[1])
+        self.assertIn("peng", preset_actions[2])
+
+        state = make_action_state(
+            rules=TaiwanRules(
+                allow_kong_from_upper_discard=True,
+                claim_wall_reserve=True,
+                dead_wall_mode="kong_expands_tail",
             )
         )
         state.player_list[1].hand_tiles = [12, 13, 25]
@@ -2492,16 +3476,39 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertNotIn("gang", actions[2])
 
         state.playable_wall_count = lambda: 5
+        # ``kong_expands_tail`` consumes two playable units when a replacement is
+        # available, so five tiles cannot both preserve the four-tile reserve
+        # and complete the kong.
+        self.assertNotIn("gang", check_action_after_cut(state, 11)[2])
+        state.playable_wall_count = lambda: 6
         self.assertIn("gang", check_action_after_cut(state, 11)[2])
 
         state.player_list[0].hand_tiles = [21, 21, 21, 21, 25]
-        state.playable_wall_count = lambda: 4
-        self.assertNotIn("angang", check_action_hand_action(state, 0)[0])
+        state.rules = TaiwanRules(
+            claim_wall_reserve=True,
+            dead_wall_mode="kong_expands_tail",
+        )
         state.playable_wall_count = lambda: 5
+        self.assertNotIn("angang", check_action_hand_action(state, 0)[0])
+        state.playable_wall_count = lambda: 6
         self.assertIn("angang", check_action_hand_action(state, 0)[0])
 
-    def test_cml_same_round_discard_blocks_linked_chi_and_same_tile_peng(self):
-        state = make_action_state(rules=TaiwanRules(scoring_preset="cml"))
+    def test_same_round_claim_limit_is_explicitly_configured(self):
+        preset_only = make_action_state(
+            rules=TaiwanRules(scoring_preset="cml")
+        )
+        preset_only.playable_wall_count = lambda: 20
+        preset_only.player_list[1].hand_tiles = [12, 13, 25]
+        preset_only.player_list[1].discard_tiles = [14]
+        preset_only.player_list[2].hand_tiles = [11, 11, 26]
+        preset_only.player_list[2].discard_tiles = [11]
+        preset_actions = check_action_after_cut(preset_only, 11)
+        self.assertIn("chi_right", preset_actions[1])
+        self.assertIn("peng", preset_actions[2])
+
+        state = make_action_state(
+            rules=TaiwanRules(same_turn_claim_forbidden=True)
+        )
         state.playable_wall_count = lambda: 20
         state.player_list[1].hand_tiles = [12, 13, 25]
         state.player_list[1].discard_tiles = [14]
@@ -2519,11 +3526,23 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertIn("chi_right", actions[1])
         self.assertIn("peng", actions[2])
 
-    def test_cml_last_normal_draw_flower_is_not_replaced_or_discarded(self):
+        state.player_list[1].discard_tiles = []
+        state.player_list[1].discard_origin_tiles = [14]
+        state.player_list[1].last_discarded_tile = 14
+        state.player_list[2].discard_tiles = []
+        state.player_list[2].discard_origin_tiles = [11]
+        state.player_list[2].last_discarded_tile = 11
+        actions = check_action_after_cut(state, 11)
+        self.assertNotIn("chi_right", actions[1])
+        self.assertNotIn("peng", actions[2])
+
+    def test_terminal_flower_follows_the_actual_supplement_wall_boundary(self):
         state = object.__new__(TaiwanGameState)
         player = DummyPlayer(0, [11, 12, 51])
         state.player_list = [player]
-        state.rules = TaiwanRules(scoring_preset="cml")
+        state.rules = TaiwanRules()
+        state.dead_wall_count = 16
+        state.tiles_list = [21] * 16
         state.last_draw_was_last = True
         state.game_status = "playing"
         state._broadcast_flower = AsyncMock()
@@ -2541,9 +3560,27 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             is_drawn=True,
         )
 
-    def test_cml_last_normal_draw_may_complete_kong_without_replacement(self):
+        replacement_state = object.__new__(TaiwanGameState)
+        replacement_player = DummyPlayer(0, [11, 12, 51])
+        replacement_state.player_list = [replacement_player]
+        replacement_state.rules = TaiwanRules(dead_wall_mode="fixed_replacement_wall_16")
+        replacement_state.dead_wall_count = 16
+        replacement_state.replacement_wall_remaining = 16
+        replacement_state.tiles_list = [21] * 16
+        replacement_state.last_draw_was_last = True
+        replacement_state.game_status = "playing"
+
+        self.assertTrue(
+            asyncio.run(
+                replacement_state._process_drawn_flowers(0, "normal")
+            )
+        )
+        self.assertEqual(replacement_player.hand_tiles, [11, 12, 51])
+        self.assertEqual(replacement_state.game_status, "playing")
+
+    def test_last_normal_draw_may_complete_kong_without_replacement(self):
         state = make_action_state(
-            rules=TaiwanRules(scoring_preset="cml"),
+            rules=TaiwanRules(),
             can_draw=False,
         )
         state.last_draw_was_last = True
@@ -2551,9 +3588,8 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
 
         self.assertIn("angang", check_action_hand_action(state, 0)[0])
 
-    def test_shenlaiye_declared_ready_automatically_adds_drawn_kong_tile(self):
+    def test_declared_ready_auto_added_kong_is_explicitly_configured(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(scoring_preset="shenlaiye")
         state.current_player_index = 0
         state.player_list = [DummyPlayer(i) for i in range(4)]
         player = state.player_list[0]
@@ -2569,13 +3605,61 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         state.score_candidate = lambda *_args, **_kwargs: None
         state.execute_jiagang = AsyncMock()
 
+        state.rules = TaiwanRules(scoring_preset="shenlaiye")
+        self.assertIsNone(state._declared_ready_auto_jiagang_tile(0))
+        state.rules = TaiwanRules(declared_ready_auto_added_kong=True)
         asyncio.run(state._prepare_hand_action_after_draw())
 
         state.execute_jiagang.assert_awaited_once_with(0, 12)
 
-    def test_shenlaiye_automatic_added_kong_keeps_public_ready_lock(self):
+    def test_declared_ready_auto_added_kong_respects_claim_wall_reserve(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(scoring_preset="shenlaiye")
+        state.current_player_index = 0
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        player = state.player_list[0]
+        player.hand_tiles = [12, 11]
+        player.combination_tiles = ["k11"]
+        player.combination_mask = [[1, 11, 0, 11, 0, 11]]
+        player.last_drawn_tile = 11
+        player.has_draw_slot = True
+        player.ready_locked = True
+        state.rules = TaiwanRules(
+            declared_ready_auto_added_kong=True,
+            claim_wall_reserve=True,
+            dead_wall_mode="kong_expands_tail",
+        )
+        state.rules_dict = asdict(state.rules)
+        state.dead_wall_count = 16
+        state.replacement_wall_remaining = 16
+        state.tiles_list = list(range(21))  # playable=5，杠后只剩 3 张
+        state.last_draw_was_last = False
+        state.result_dict = {}
+        state.game_status = "deal_card"
+
+        with patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.check_action_hand_action",
+            return_value={0: [], 1: [], 2: [], 3: []},
+        ):
+            asyncio.run(state._prepare_hand_action_after_draw())
+
+        self.assertEqual(state.game_status, "waiting_hand_action")
+        self.assertEqual(player.hand_tiles, [12, 11])
+        self.assertEqual(player.combination_tiles, ["k11"])
+
+        # 补杠后的自动摸牌流程从 deal_card_after_gang 进入；自动动作若
+        # 被执行层拒绝，也必须回到询问窗口，不能重复消耗补牌墙。
+        state.game_status = "deal_card_after_gang"
+        state.execute_jiagang = AsyncMock()
+        with patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.check_action_hand_action",
+            return_value={0: [], 1: [], 2: [], 3: []},
+        ):
+            asyncio.run(state._prepare_hand_action_after_draw())
+        self.assertEqual(state.game_status, "waiting_hand_action")
+
+    def test_automatic_added_kong_keeps_public_ready_lock(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(declared_ready_auto_added_kong=True)
         player = DummyPlayer(0)
         player.declared_ready = True
         player.ready_locked = True
@@ -2620,7 +3704,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertFalse(state._is_four_winds_abort())
 
         state.rules = TaiwanRules(
-            dead_wall_mode="kong_add_one",
+            dead_wall_mode="kong_expands_tail",
             four_kongs_abort=True,
         )
         state.dead_wall_count = 16
@@ -2635,7 +3719,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
 
     def test_kong_add_one_requires_a_tile_beyond_the_new_dead_wall(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(dead_wall_mode="kong_add_one")
+        state.rules = TaiwanRules(dead_wall_mode="kong_expands_tail")
         state.dead_wall_count = 16
         state.tiles_list = list(range(17))
         state.player_list = [DummyPlayer(i) for i in range(4)]
@@ -2653,12 +3737,150 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertIn("angang", check_action_hand_action(state, 0)[0])
 
         state.tiles_list.pop()
-        state.rules = TaiwanRules(dead_wall_mode="kong_add_one", four_kongs_abort=True)
+        state.rules = TaiwanRules(dead_wall_mode="kong_expands_tail", four_kongs_abort=True)
         state.player_list[1].combination_tiles = ["g21", "G22", "g23"]
         self.assertTrue(state.can_establish_kong())
 
+    def test_expected_playable_wall_after_kong_models_each_boundary(self):
+        def make_wall_state(mode, playable, *, four_kongs=False):
+            state = object.__new__(TaiwanGameState)
+            state.rules = TaiwanRules(
+                dead_wall_mode=mode,
+                four_kongs_abort=four_kongs,
+            )
+            state.dead_wall_count = 16
+            state.replacement_wall_remaining = 16
+            state.tiles_list = list(range(16 + playable))
+            state.player_list = [DummyPlayer(i) for i in range(4)]
+            return state
+
+        # A normal kong in kong_expands_tail consumes the boundary extension and,
+        # when possible, one replacement draw as well.
+        self.assertEqual(
+            make_wall_state("kong_expands_tail", 6).expected_playable_wall_after_kong(),
+            4,
+        )
+        self.assertEqual(
+            make_wall_state("kong_expands_tail", 3).expected_playable_wall_after_kong(),
+            1,
+        )
+        # At p=1 the boundary grows but no replacement exists (cost one);
+        # at p=0 there is no further wall movement at all.
+        self.assertEqual(
+            make_wall_state("kong_expands_tail", 1).expected_playable_wall_after_kong(),
+            0,
+        )
+        self.assertEqual(
+            make_wall_state("kong_expands_tail", 0).expected_playable_wall_after_kong(),
+            0,
+        )
+
+        # Fixed and replacement walls consume one only when a replacement can
+        # actually be drawn.
+        self.assertEqual(
+            make_wall_state("fixed_tail_16", 2).expected_playable_wall_after_kong(),
+            1,
+        )
+        self.assertEqual(
+            make_wall_state("fixed_tail_16", 0).expected_playable_wall_after_kong(),
+            0,
+        )
+        self.assertEqual(
+            make_wall_state("fixed_replacement_wall_16", 2).expected_playable_wall_after_kong(),
+            1,
+        )
+        self.assertEqual(
+            make_wall_state("fixed_replacement_wall_16", 0).expected_playable_wall_after_kong(),
+            0,
+        )
+
+        # The fourth kong aborts before either boundary extension or
+        # replacement draw, so the reserve is evaluated against the unchanged
+        # playable wall.
+        abort_state = make_wall_state(
+            "kong_expands_tail",
+            4,
+            four_kongs=True,
+        )
+        abort_state.player_list[0].combination_tiles = [
+            "g21",
+            "G22",
+            "g23",
+        ]
+        self.assertEqual(
+            abort_state.expected_playable_wall_after_kong(),
+            4,
+        )
+
+        multi_state = make_wall_state(
+            "kong_expands_tail",
+            6,
+            four_kongs=True,
+        )
+        multi_state.player_list[0].combination_tiles = ["g21", "G22"]
+        self.assertEqual(
+            multi_state.expected_playable_wall_after_kong(additional_kongs=2),
+            4,
+        )
+
+    def test_kong_add_one_reserve_checks_the_post_kong_wall(self):
+        state = make_action_state(
+            rules=TaiwanRules(
+                dead_wall_mode="kong_expands_tail",
+                claim_wall_reserve=True,
+                allow_kong_from_upper_discard=True,
+            )
+        )
+        state.player_list[2].hand_tiles = [11, 11, 11, 26]
+        state.can_establish_kong = lambda: True
+
+        state.playable_wall_count = lambda: 5
+        self.assertNotIn("gang", check_action_after_cut(state, 11)[2])
+
+        state.playable_wall_count = lambda: 6
+        self.assertIn("gang", check_action_after_cut(state, 11)[2])
+
+        # 第四杠流局在成立后不摸补牌，刚好保留四张时应放行。
+        state.rules = TaiwanRules(
+            dead_wall_mode="kong_expands_tail",
+            claim_wall_reserve=True,
+            allow_kong_from_upper_discard=True,
+            four_kongs_abort=True,
+        )
+        state.player_list[0].combination_tiles = ["g21", "G22", "g23"]
+        state.playable_wall_count = lambda: 4
+        self.assertIn("gang", check_action_after_cut(state, 11)[2])
+
+    def test_terminal_kong_still_honors_claim_wall_reserve(self):
+        state = make_action_state(
+            rules=TaiwanRules(
+                dead_wall_mode="kong_expands_tail",
+                claim_wall_reserve=True,
+            ),
+            can_draw=False,
+        )
+        state.last_draw_was_last = True
+        state.player_list[0].hand_tiles = [21, 21, 21, 21, 25]
+        # 尾牌区扩充后无法保留四张可摸牌，因此不得成立该杠。
+        state.playable_wall_count = lambda: 4
+        self.assertNotIn("angang", check_action_hand_action(state, 0)[0])
+        state.rules = TaiwanRules(dead_wall_mode="kong_expands_tail")
+        self.assertIn("angang", check_action_hand_action(state, 0)[0])
+
+        fixed = make_action_state(
+            rules=TaiwanRules(
+                dead_wall_mode="fixed_tail_16",
+            ),
+            can_draw=False,
+        )
+        fixed.last_draw_was_last = True
+        fixed.player_list[0].hand_tiles = [21, 21, 21, 21, 25]
+        fixed.playable_wall_count = lambda: 0
+        # Fixed-tail terminal kong consumes zero when the wall is exhausted.
+        self.assertIn("angang", check_action_hand_action(fixed, 0)[0])
+
     def test_water_switches_independently_control_self_draw_and_claims(self):
-        state = make_action_state(rules=TaiwanRules(water_blocks_self_draw=False))
+        state = make_action_state(rules=TaiwanRules(missed_win_blocks_self_draw=False))
         player = state.player_list[0]
         player.hand_tiles = [11, 12, 13]
         player.water = True
@@ -2671,12 +3893,84 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         blocked.score_candidate = lambda *_args, **_kwargs: {"is_win": True}
         self.assertNotIn("hu_self", check_action_hand_action(blocked, 0)[0])
 
-        claims = make_action_state(rules=TaiwanRules(water_blocks_claims=False))
+        claims = make_action_state(rules=TaiwanRules(missed_win_blocks_claims=False))
         claims.player_list[2].hand_tiles = [11, 11, 11, 25]
         claims.player_list[2].water = True
         claim_actions = check_action_after_cut(claims, 11)
         self.assertIn("peng", claim_actions[2])
         self.assertIn("gang", claim_actions[2])
+
+    def test_water_release_uses_legal_score_not_structural_wait_only(self):
+        state = object.__new__(TaiwanGameState)
+        player = DummyPlayer(0)
+        player.water = True
+        state.player_list = [player]
+        state.score_candidate = Mock(
+            side_effect=[
+                {"is_win": False, "below_minimum": True},
+                {"is_win": True},
+            ]
+        )
+
+        self.assertFalse(state._discard_may_win(0, 21))
+        self.assertTrue(player.water)
+        self.assertTrue(state._discard_may_win(0, 21))
+        self.assertTrue(player.water)
+        self.assertEqual(
+            state.score_candidate.call_args_list[0].kwargs,
+            {"include_special": False},
+        )
+
+    def test_kong_water_release_checks_the_fourth_tile_in_complete_hand(self):
+        state = object.__new__(TaiwanGameState)
+        player = DummyPlayer(0, [
+            11, 11, 11, 11,
+            12, 13, 14,
+            21, 22, 23,
+            24, 25, 26,
+            31, 32, 33,
+            45,
+        ])
+        player.water = True
+        state.player_list = [player]
+        original_hand = list(player.hand_tiles)
+
+        def score_with_explicit_fourth(_index, source, tile, **kwargs):
+            self.assertEqual(source, "self_draw")
+            self.assertEqual(tile, 11)
+            self.assertEqual(len(player.hand_tiles), 17)
+            self.assertEqual(kwargs, {"include_special": False})
+            return {"is_win": True}
+
+        state.score_candidate = score_with_explicit_fourth
+        self.assertTrue(state._kong_fourth_may_win(0, 11))
+        self.assertEqual(player.hand_tiles, original_hand)
+        self.assertTrue(player.water)
+
+    def test_kong_water_release_uses_real_complete_hand_scoring(self):
+        state = object.__new__(TaiwanGameState)
+        player = DummyPlayer(0, [
+            11, 11, 11, 11,
+            12, 13, 14,
+            15, 16, 17,
+            18, 19, 21,
+            22, 23,
+            45, 45,
+        ])
+        player.water = True
+        state.player_list = [player]
+        state.rules = TaiwanRules()
+        state.rules_dict = asdict(state.rules)
+        state.current_round = 1
+        state.current_player_index = 0
+        state.table_claim_or_kong = False
+        state.opening_dealer_action = False
+        state.last_draw_after_kong = False
+        state.last_draw_was_last = False
+        state.calculation_service = TaiwanDetailCalculation()
+
+        self.assertTrue(state._kong_fourth_may_win(0, 11))
+        self.assertTrue(player.water)
 
     def test_strict_kuikae_and_chi_without_legal_discard(self):
         self.assertEqual(strict_kuikae_forbidden("chi_left", 15, "strict"), {12, 15})
@@ -2688,7 +3982,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         strict_state.player_list[1].hand_tiles = [12, 12, 13, 14]
         self.assertNotIn("chi_left", check_action_after_cut(strict_state, 15)[1])
 
-        permissive_state = make_action_state(rules=TaiwanRules(strict_kuikae="none"))
+        permissive_state = make_action_state(rules=TaiwanRules(chow_discard_restriction_mode="none"))
         permissive_state.player_list[1].hand_tiles = [12, 12, 13, 14]
         self.assertIn("chi_left", check_action_after_cut(permissive_state, 15)[1])
 
@@ -2707,6 +4001,21 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         )
 
         self.assertEqual(player.hand_tiles, [12, 15, 21])
+
+    def test_execute_cut_cannot_discard_a_flower(self):
+        state = object.__new__(TaiwanGameState)
+        player = DummyPlayer(0, [FLOWER_TILES[0], 21])
+        state.player_list = [player]
+
+        asyncio.run(
+            TaiwanGameState.execute_cut(
+                state,
+                0,
+                {"TileId": FLOWER_TILES[0], "cutClass": False, "cutIndex": 0},
+            )
+        )
+
+        self.assertEqual(player.hand_tiles, [FLOWER_TILES[0], 21])
 
     def test_execute_kong_rechecks_target_server_side(self):
         state = object.__new__(TaiwanGameState)
@@ -2759,11 +4068,124 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             [[3, 11, 1, 11, 0, 11, 0, 11]],
         )
         self.assertEqual(state.game_status, "waiting_action_qianggang")
+        # 牌谱记录“声明加杠”；只有后续补杠摸牌才表示该杠成立。
         self.assertEqual(
             state.game_record["game_round"]["round_index_1"]["action_ticks"],
             [["jg", 11, "T"]],
         )
         broadcast.assert_awaited_once()
+
+    def test_robbed_added_kong_restores_original_pung_and_hand(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules()
+        state.rules_dict = asdict(state.rules)
+        state.current_player_index = 0
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        player = state.player_list[0]
+        player.hand_tiles = [12, 11]
+        player.has_draw_slot = True
+        player.last_drawn_tile = 11
+        player.combination_tiles = ["k11"]
+        player.combination_mask = [[1, 11, 0, 11, 0, 11]]
+        state.dead_wall_count = 16
+        state.replacement_wall_remaining = 16
+        state.tiles_list = list(range(30))
+        state.last_draw_was_last = False
+        state.table_claim_or_kong = False
+        state.jiagang_tile = None
+        state.game_status = "waiting_hand_action"
+        state.round_index = 1
+        state.player_action_tick = 0
+        state.server_action_tick = 0
+        state.game_record = {
+            "game_round": {"round_index_1": {"action_ticks": []}},
+        }
+        state.result_dict = {"hu_first": {"is_win": True}}
+        state._liability_payer_for_win = lambda *_args: None
+
+        with (
+            patch(
+                "server.gamestate.game_taiwan.TaiwanGameState.broadcast_do_action",
+                new=AsyncMock(),
+            ),
+            patch(
+                "server.gamestate.game_taiwan.TaiwanGameState.check_action_jiagang",
+                return_value={0: [], 1: ["hu_first"], 2: [], 3: []},
+            ),
+        ):
+            asyncio.run(TaiwanGameState.execute_jiagang(state, 0, 11))
+            self.assertEqual(player.combination_tiles, ["g11"])
+            self.assertEqual(
+                state.game_record["game_round"]["round_index_1"]["action_ticks"],
+                [["jg", 11, "T"]],
+            )
+            asyncio.run(
+                state.resolve_rob_kong_responses(
+                    {1: {"action_type": "hu_first"}},
+                    {1: ["hu_first"]},
+                )
+            )
+
+        self.assertEqual(player.hand_tiles, [12])
+        self.assertFalse(player.has_draw_slot)
+        self.assertIsNone(player.last_drawn_tile)
+        self.assertEqual(player.combination_tiles, ["k11"])
+        self.assertEqual(
+            player.combination_mask,
+            [[1, 11, 0, 11, 0, 11]],
+        )
+        self.assertFalse(state.table_claim_or_kong)
+        self.assertIsNone(state._pending_jiagang)
+        self.assertEqual(state.game_status, "END")
+        self.assertEqual(
+            state.game_record["game_round"]["round_index_1"]["action_ticks"],
+            [["jg", 11, "T"]],
+        )
+
+    def test_robbed_hand_added_kong_preserves_the_other_draw_slot(self):
+        state = object.__new__(TaiwanGameState)
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        player = state.player_list[0]
+        player.hand_tiles = [12]
+        player.combination_tiles = ["g11"]
+        player.combination_mask = [[3, 11, 1, 11, 0, 11, 0, 11]]
+        player.has_draw_slot = False
+        player.last_drawn_tile = None
+        state.table_claim_or_kong = True
+        state.jiagang_tile = 11
+        state._pending_jiagang = {
+            "player_index": 0,
+            "combination_index": 0,
+            "hand_tiles": [11, 12],
+            "combination_tiles": ["k11"],
+            "combination_mask": [[1, 11, 0, 11, 0, 11]],
+            "has_draw_slot": True,
+            "last_drawn_tile": 12,
+            "water": False,
+            "qualification_alive": False,
+            "qualification_ever": False,
+            "heavenly_ready": False,
+            "earthly_ready": False,
+            "declared_ready": False,
+            "ready_locked": False,
+            "tag_list": [],
+            "table_claim_or_kong": False,
+            "jiagang_tile": None,
+            "is_mo_gang": False,
+            "normal": 11,
+            "actual_tile": 11,
+        }
+
+        state._rollback_pending_jiagang(consume_robbed_tile=True)
+
+        self.assertEqual(player.hand_tiles, [12])
+        self.assertTrue(player.has_draw_slot)
+        self.assertEqual(player.last_drawn_tile, 12)
+        self.assertEqual(player.combination_tiles, ["k11"])
+        self.assertEqual(player.combination_mask, [[1, 11, 0, 11, 0, 11]])
+        self.assertFalse(state.table_claim_or_kong)
+        self.assertIsNone(state.jiagang_tile)
+        self.assertIsNone(state._pending_jiagang)
 
     def test_recommended_multi_win_mode_is_two_head_three_all(self):
         state = object.__new__(TaiwanGameState)
@@ -2781,7 +4203,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         )
         self.assertEqual(three, [(1, "hu_first"), (2, "hu_second"), (3, "hu_third")])
 
-    def test_optional_eight_immortals_is_a_fixed_separate_flower_win(self):
+    def test_optional_eight_flowers_is_a_fixed_separate_flower_win(self):
         state = object.__new__(TaiwanGameState)
         state.rules = TaiwanRules()
         state.rules_dict = asdict(state.rules)
@@ -2804,19 +4226,102 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         ]
         winner.last_drawn_tile = 31
         winner.huapai_list = list(FLOWER_TILES)
-        winner.pending_eight_immortals = True
+        winner.pending_eight_flowers = True
         state.player_list = players
 
         detail = TaiwanGameState.score_candidate(state, 1, "self_draw")
 
         self.assertIsNotNone(detail)
         self.assertEqual(detail["tai"], 8)
-        self.assertEqual(detail["special"], "eight_immortals")
-        self.assertEqual(detail["fan_ids"], ["eight_immortals"])
+        self.assertEqual(detail["special"], "eight_flowers_and_seasons")
+        self.assertEqual(
+            detail["fan_ids"],
+            ["eight_flowers_and_seasons"],
+        )
+
+    def test_special_flower_below_minimum_cannot_end_without_cuohe(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            minimum_tai=3,
+            fan_tai_overrides={"eight_flowers_and_seasons": 1},
+            eight_flowers_mode="forced_standalone",
+        )
+        state.rules_dict = asdict(state.rules)
+        state.current_round = 1
+        state.last_draw_after_kong = False
+        state.last_draw_was_last = False
+        state.opening_dealer_action = False
+        state.table_claim_or_kong = False
+        state.calculation_service = TaiwanDetailCalculation()
+        state.open_cuohe = False
+        state.hepai_limit = 3
+        state.game_status = "waiting_hand_action"
+        state.result_dict = {}
+        players = [DummyPlayer(i) for i in range(4)]
+        winner = players[1]
+        winner.user_id = 10
+        winner.hand_tiles = [
+            11, 11, 11,
+            12, 12, 12,
+            21, 21, 21,
+            22, 22, 22,
+            31, 31, 31,
+            45, 45,
+        ]
+        winner.last_drawn_tile = 31
+        winner.huapai_list = list(FLOWER_TILES)
+        winner.pending_eight_flowers = True
+        state.player_list = players
+
+        asyncio.run(state._ask_eight_flowers(1))
+
+        self.assertNotEqual(state.game_status, "END")
+        self.assertFalse(winner.pending_eight_flowers)
+        self.assertTrue(winner.eight_flowers_declined)
+
+    def test_special_flower_below_minimum_can_enter_cuohe_only_after_declaration(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules(
+            minimum_tai=3,
+            fan_tai_overrides={"eight_flowers_and_seasons": 1},
+            eight_flowers_mode="forced_standalone",
+        )
+        state.rules_dict = asdict(state.rules)
+        state.current_round = 1
+        state.last_draw_after_kong = False
+        state.last_draw_was_last = False
+        state.opening_dealer_action = False
+        state.table_claim_or_kong = False
+        state.calculation_service = TaiwanDetailCalculation()
+        state.open_cuohe = True
+        state.hepai_limit = 3
+        state.game_status = "waiting_hand_action"
+        state.result_dict = {}
+        state._liability_payer_for_win = lambda *_args: None
+        players = [DummyPlayer(i) for i in range(4)]
+        winner = players[1]
+        winner.user_id = 10
+        winner.hand_tiles = [
+            11, 11, 11,
+            12, 12, 12,
+            21, 21, 21,
+            22, 22, 22,
+            31, 31, 31,
+            45, 45,
+        ]
+        winner.last_drawn_tile = 31
+        winner.huapai_list = list(FLOWER_TILES)
+        winner.pending_eight_flowers = True
+        state.player_list = players
+
+        asyncio.run(state._ask_eight_flowers(1))
+
+        self.assertEqual(state.game_status, "check_cuohe")
+        self.assertEqual(state.pending_cuohe["players"][0]["index"], 1)
 
     def test_opening_flower_win_uses_starting_timing_bonus(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(heavenly_earthly_flower_tai=4)
+        state.rules = TaiwanRules(initial_flower_bonus_enabled=True)
         state.rules_dict = asdict(state.rules)
         state.current_round = 1
         state.last_draw_after_kong = False
@@ -2837,15 +4342,18 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         )
 
         self.assertEqual(detail["tai"], 12)
-        self.assertEqual(detail["fan_ids"], ["eight_immortals"])
+        self.assertEqual(
+            detail["fan_ids"],
+            ["eight_flowers_and_seasons", "initial_flower_bonus"],
+        )
 
-    def test_shenlaiye_six_plus_one_uses_split_normal_and_flower_payments(self):
+    def test_six_plus_one_uses_split_normal_and_flower_payments(self):
         state = object.__new__(TaiwanGameState)
-        state.rules = TaiwanRules(scoring_preset="shenlaiye")
+        state.rules = TaiwanRules()
         state.dealer_streak = 0
         item = {
             "index": 1,
-            "source": "seven_robs_one",
+            "source": "seven_flowers_steal_eighth",
             "payer": 2,
             "detail": {"tai": 17},
             "seven_robs_mode": "six_plus_one",
@@ -2861,7 +4369,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             [(2, 8), (0, 9), (2, 9), (3, 9)],
         )
 
-    def test_multi_ron_broadcasts_scores_after_each_winner(self):
+    def test_multiple_winners_broadcasts_scores_after_each_winner(self):
         async def run_case():
             state = object.__new__(TaiwanGameState)
             state.rules = TaiwanRules()
@@ -3026,18 +4534,31 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 },
             }]
 
+            result_broadcast = AsyncMock()
             with patch(
                 "server.gamestate.game_taiwan.TaiwanGameState.broadcast_result",
-                new_callable=AsyncMock,
+                new=result_broadcast,
             ):
                 await state._settle_hand({index: 100 for index in range(4)})
-            return state.game_record["game_round"]["round_index_1"]["action_ticks"]
+            return (
+                state.game_record["game_round"]["round_index_1"]["action_ticks"],
+                result_broadcast.await_args.kwargs,
+            )
 
-        for source, tile in (("rob_kong", 23), ("seven_robs_one", FLOWER_TILES[-1])):
+        for source, tile in (("robbing_kong", 23), ("seven_flowers_steal_eighth", FLOWER_TILES[-1])):
             with self.subTest(source=source):
-                ticks = asyncio.run(run_case(source, tile))
+                ticks, result = asyncio.run(run_case(source, tile))
                 self.assertEqual(ticks[0][0], "hu_first")
                 self.assertEqual(ticks[0][5], tile)
+                self.assertEqual(result["hepai_tile"], tile)
+                self.assertEqual(
+                    result["is_qianggang"],
+                    True if source == "robbing_kong" else None,
+                )
+                self.assertEqual(
+                    result["ron_discarder_index"],
+                    0 if source == "robbing_kong" else None,
+                )
 
     def test_drawn_eighth_flower_opens_separate_choice_before_normal_actions(self):
         async def run_case():
@@ -3046,7 +4567,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             player.huapai_list = list(FLOWER_TILES)
             player.last_drawn_tile = 11
             state.player_list = [player] + [DummyPlayer(i) for i in range(1, 4)]
-            state.rules = TaiwanRules(eight_immortals_mode="optional_separate")
+            state.rules = TaiwanRules(eight_flowers_mode="optional_standalone")
             state.current_player_index = 0
             state.game_status = "playing"
             state.result_dict = {}
@@ -3057,8 +4578,8 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             state._special_flower_detail = lambda _index, **_kwargs: {
                 "is_win": True,
                 "tai": 8,
-                "special": "eight_immortals",
-                "fan_ids": ["eight_immortals"],
+                "special": "eight_flowers_and_seasons",
+                "fan_ids": ["eight_flowers_and_seasons"],
             }
             state.wait_action = AsyncMock(return_value=False)
 
@@ -3073,7 +4594,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertTrue(continued)
         self.assertEqual(state.game_status, "waiting_flower_choice")
         self.assertEqual(state.action_dict[0], ["hu_flower", "pass"])
-        self.assertEqual(state.result_dict["hu_self"]["special"], "eight_immortals")
+        self.assertEqual(state.result_dict["hu_self"]["special"], "eight_flowers_and_seasons")
         state.wait_action.assert_awaited_once()
 
     def test_flower_choice_returns_hu_flower_or_decline(self):
@@ -3121,6 +4642,149 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         responses, allowed = asyncio.run(run_case())
         self.assertEqual(responses[1]["action_type"], "hu_first")
         self.assertEqual(allowed[1], ["hu_first", "pass"])
+
+    def test_invalid_queued_response_does_not_hide_following_valid_response(self):
+        async def run_case():
+            events = [asyncio.Event() for _ in range(4)]
+            queues = [asyncio.Queue() for _ in range(4)]
+            await queues[1].put(None)
+            await queues[1].put({"action_type": "not_allowed"})
+            await queues[1].put({"action_type": "pass"})
+            events[1].set()
+            state = SimpleNamespace(
+                action_dict={0: [], 1: ["pass"], 2: [], 3: []},
+                waiting_players_list=[],
+                action_events=events,
+                action_queues=queues,
+                game_status="waiting_action_after_cut",
+                step_time=0,
+                player_list=[DummyPlayer(i) for i in range(4)],
+            )
+            return await _collect_responses(state)
+
+        responses, _ = asyncio.run(run_case())
+        self.assertEqual(responses[1]["action_type"], "pass")
+
+    def test_response_time_is_charged_per_player(self):
+        async def run_case():
+            events = [asyncio.Event() for _ in range(4)]
+            queues = [asyncio.Queue() for _ in range(4)]
+            players = [DummyPlayer(i) for i in range(4)]
+            players[1].remaining_time = 30
+            players[2].remaining_time = 30
+            for index in (1, 2):
+                await queues[index].put({"action_type": "pass"})
+                events[index].set()
+            state = SimpleNamespace(
+                action_dict={0: [], 1: ["pass"], 2: ["pass"], 3: []},
+                waiting_players_list=[],
+                action_events=events,
+                action_queues=queues,
+                game_status="waiting_action_after_cut",
+                step_time=5,
+                player_list=players,
+            )
+            elapsed = {1: 6.2, 2: 20.9}
+            with patch(
+                "server.gamestate.game_taiwan.wait_action.get_ask_elapsed",
+                side_effect=lambda _state, index: elapsed[index],
+            ):
+                await _collect_responses(state)
+            return players
+
+        players = asyncio.run(run_case())
+        self.assertEqual(players[1].remaining_time, 29)
+        self.assertEqual(players[2].remaining_time, 15)
+
+    def test_ask_deadline_starts_at_each_seat_delivery(self):
+        players = [DummyPlayer(i) for i in range(4)]
+        players[1].remaining_time = 10
+        players[2].remaining_time = 10
+        state = SimpleNamespace(
+            player_list=players,
+            _ask_delivered_at={1: 100.0, 2: 101.5},
+            _ask_broadcast_time=99.0,
+        )
+
+        # 第二个座位晚 1.5 秒送达，因此 deadline 也应晚 1.5 秒，
+        # 而不是与第一个座位共享广播结束时刻。
+        with patch(
+            "server.gamestate.game_taiwan.wait_action.time.time",
+            return_value=101.7,
+        ):
+            deadlines = _build_ask_deadlines(state, (1, 2), grace=0.5, started=200.0)
+
+        self.assertAlmostEqual(deadlines[1], 208.8)
+        self.assertAlmostEqual(deadlines[2], 210.3)
+
+    def test_response_already_past_delivery_deadline_is_rejected(self):
+        async def run_case():
+            events = [asyncio.Event() for _ in range(4)]
+            queues = [asyncio.Queue() for _ in range(4)]
+            players = [DummyPlayer(i) for i in range(4)]
+            players[1].remaining_time = 1
+            await queues[1].put({"action_type": "pass"})
+            events[1].set()
+            now_wall = time.time()
+            state = SimpleNamespace(
+                action_dict={0: [], 1: ["pass"], 2: [], 3: []},
+                waiting_players_list=[],
+                action_events=events,
+                action_queues=queues,
+                game_status="waiting_action_after_cut",
+                step_time=0,
+                player_list=players,
+                _ask_delivered_at={1: now_wall - 2},
+                _ask_broadcast_time=now_wall - 2,
+            )
+            return await _collect_responses(state)
+
+        responses, allowed = asyncio.run(run_case())
+        self.assertEqual(allowed[1], ["pass"])
+        self.assertEqual(responses, {})
+
+    def test_done_event_is_rechecked_against_deadline_before_consumption(self):
+        async def run_case():
+            events = [asyncio.Event() for _ in range(4)]
+            queues = [asyncio.Queue() for _ in range(4)]
+            players = [DummyPlayer(i) for i in range(4)]
+            await queues[1].put({"action_type": "pass"})
+            events[1].set()
+            deadlines = {}
+            state = SimpleNamespace(
+                action_dict={0: [], 1: ["pass"], 2: [], 3: []},
+                waiting_players_list=[],
+                action_events=events,
+                action_queues=queues,
+                game_status="waiting_action_after_cut",
+                step_time=0,
+                player_list=players,
+            )
+
+            def build_deadlines(current_state, allowed, grace, started):
+                deadlines.update(
+                    _build_ask_deadlines(current_state, allowed, grace, started)
+                )
+                return deadlines
+
+            async def wait_and_expire(tasks, timeout, return_when):
+                await asyncio.gather(*tasks)
+                # Simulate the event becoming ready just before the deadline,
+                # followed by a scheduling delay before the consumer handles it.
+                deadlines[1] = time.monotonic() - 1
+                return set(tasks), set()
+
+            with patch(
+                "server.gamestate.game_taiwan.wait_action._build_ask_deadlines",
+                side_effect=build_deadlines,
+            ), patch(
+                "server.gamestate.game_taiwan.wait_action.asyncio.wait",
+                new=wait_and_expire,
+            ):
+                return await _collect_responses(state)
+
+        responses, _ = asyncio.run(run_case())
+        self.assertEqual(responses, {})
 
     def test_taiwan_uses_rule_local_broadcast_module(self):
         self.assertEqual(
@@ -3461,12 +5125,27 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertFalse(validated.open_cuohe)
         self.assertEqual(validated.cuohe_type, 0)
         self.assertEqual(validated.detailed_config["dead_wall_count"], 16)
-        self.assertEqual(validated.detailed_config["multi_win_mode"], "two_head_three_all")
+        self.assertEqual(validated.detailed_config["multi_win_mode"], "double_head_bump_triple_all")
         self.assertEqual(validated.detailed_config["minimum_tai"], 0)
-        self.assertEqual(validated.detailed_config["heavenly_earthly_flower_tai"], 0)
-        self.assertTrue(validated.detailed_config["heavenly_earthly_ready_enabled"])
-        self.assertEqual(validated.detailed_config["public_ready_tai"], 0)
+        self.assertFalse(validated.detailed_config["initial_flower_bonus_enabled"])
+        self.assertEqual(validated.detailed_config["ready_qualification_mode"], "standard_with_dealer_heavenly_ready")
+        self.assertFalse(validated.detailed_config["public_ready_enabled"])
         self.assertEqual(validated.detailed_config["declared_ready_win_policy"], "allow_pass")
+        self.assertEqual(
+            validated.detailed_config["qualified_ready_win_policy"],
+            "follow_declared_ready_policy",
+        )
+        self.assertEqual(validated.detailed_config["all_chows_definition"], "relaxed")
+        self.assertFalse(validated.detailed_config["little_four_winds_add_wind_pungs"])
+        self.assertEqual(
+            validated.detailed_config["human_win_definition"],
+            "before_first_draw",
+        )
+        self.assertEqual(
+            validated.detailed_config["opening_flower_replacement_order"],
+            "player_complete",
+        )
+        self.assertIs(validated.detailed_config["claim_wall_reserve"], False)
 
         custom = TaiwanRoomValidator(
             room_name="custom",
@@ -3480,50 +5159,87 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 "draw_increments_streak": False,
                 "dealer_streak_limit": 9,
                 "negative_score_ends_match": True,
-                "dead_wall_mode": "replacement_wall_16",
-                "multi_win_mode": "multi",
-                "strict_kuikae": "same_tile",
-                "peng_kuikae_forbidden": False,
+                "dead_wall_mode": "fixed_replacement_wall_16",
+                "multi_win_mode": "multiple_winners",
+                "chow_discard_restriction_mode": "same_tile",
+                "pung_same_tile_discard_forbidden": False,
                 "allow_kong_from_upper_discard": True,
-                "water_blocks_self_draw": False,
-                "water_release_by_kong": False,
-                "water_blocks_claims": False,
-                "kong_discard_self_draw": True,
+                "missed_win_blocks_self_draw": False,
+                "missed_win_released_by_kong": False,
+                "missed_win_blocks_claims": False,
+                "direct_kong_replacement_win_allowed": True,
                 "allow_rob_added_kong": False,
                 "four_winds_abort": True,
                 "four_kongs_abort": True,
-                "eight_immortals_mode": "compound",
-                "seven_robs_one": False,
-                "heavenly_earthly_flower_tai": 4,
-                "flower_kong_tai": 2,
-                "flower_scoring": "any",
-                "no_flower_tai": 1,
-                "heavenly_earthly_ready_enabled": False,
-                "public_ready_tai": 1,
+                "eight_flowers_mode": "compound",
+                "seven_flowers_steal_eighth_enabled": False,
+                "initial_flower_bonus_enabled": True,
+                "fan_tai_overrides": {
+                    "flower_kong": 3,
+                    "all_chows": 6,
+                },
+                "flower_scoring_mode": "all_flowers",
+                "no_flowers_enabled": True,
+                "ready_qualification_mode": "each_player_first_discard",
+                "public_ready_enabled": True,
                 "declared_ready_win_policy": "force_win",
-                "eight_pairs_half": True,
+                "qualified_ready_win_policy": "force_win",
+                "eight_and_a_half_pairs_enabled": True,
                 "scoring_preset": "shenlaiye",
-                "half_exposed_tai": 1,
-                "river_bottom_tai": 1,
-                "all_winds_tai": 1,
-                "no_honor_no_flower_tai": 2,
-                "open_kong_tai": 1,
-                "concealed_kong_tai": 2,
+                "all_chows_definition": "strict",
+                "little_four_winds_add_wind_pungs": True,
+                "all_honors_add_all_pungs": False,
+                "prefer_triplet_decomposition_on_discard_win": True,
+                "human_win_definition": "discarder_first_discard",
+                "earthly_win_allows_open_calls": True,
+                "earthly_ready_excludes_concealed_and_declared_ready": True,
+                "declared_ready_auto_added_kong": True,
+                "opening_flower_replacement_order": "round_robin",
+                "claim_wall_reserve": True,
+                "same_turn_claim_forbidden": True,
+                "half_begging_enabled": True,
+                "last_tile_claim_enabled": True,
+                "all_wind_pungs_enabled": True,
+                "no_flowers_or_honors_enabled": True,
+                "melded_kong_enabled": True,
+                "concealed_kong_enabled": True,
                 "minimum_tai": 3,
                 "tai_cap": 24,
                 "dangerous_discard_liability": True,
             },
         )
-        self.assertEqual(custom.detailed_config["dead_wall_mode"], "replacement_wall_16")
+        self.assertEqual(custom.detailed_config["dead_wall_mode"], "fixed_replacement_wall_16")
         self.assertTrue(custom.open_cuohe)
         self.assertEqual(custom.cuohe_type, 1)
         self.assertEqual(custom.detailed_config["scoring_preset"], "shenlaiye")
-        self.assertFalse(custom.detailed_config["heavenly_earthly_ready_enabled"])
-        self.assertEqual(custom.detailed_config["heavenly_earthly_flower_tai"], 4)
-        self.assertEqual(custom.detailed_config["public_ready_tai"], 1)
+        self.assertEqual(
+            custom.detailed_config["all_chows_definition"],
+            "strict",
+        )
+        self.assertTrue(custom.detailed_config["prefer_triplet_decomposition_on_discard_win"])
+        self.assertEqual(
+            custom.detailed_config["human_win_definition"],
+            "discarder_first_discard",
+        )
+        self.assertEqual(
+            custom.detailed_config["ready_qualification_mode"],
+            "each_player_first_discard",
+        )
+        self.assertIs(custom.detailed_config["claim_wall_reserve"], True)
+        self.assertEqual(
+            custom.detailed_config["opening_flower_replacement_order"],
+            "round_robin",
+        )
+        self.assertTrue(custom.detailed_config["initial_flower_bonus_enabled"])
+        self.assertTrue(custom.detailed_config["public_ready_enabled"])
         self.assertEqual(custom.detailed_config["declared_ready_win_policy"], "force_win")
+        self.assertEqual(custom.detailed_config["qualified_ready_win_policy"], "force_win")
         self.assertTrue(custom.detailed_config["dangerous_discard_liability"])
         self.assertEqual(custom.detailed_config["tai_cap"], 24)
+        self.assertEqual(
+            custom.detailed_config["fan_tai_overrides"],
+            {"flower_kong": 3, "all_chows": 6},
+        )
 
         with self.assertRaises(ValidationError):
             TaiwanRoomValidator(
@@ -3539,7 +5255,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 game_round=1,
                 round_timer=20,
                 step_timer=5,
-                detailed_config={"water_blocks_claims": "false"},
+                detailed_config={"missed_win_blocks_claims": "false"},
             )
         with self.assertRaises(ValidationError):
             TaiwanRoomValidator(
@@ -3555,7 +5271,32 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 game_round=1,
                 round_timer=20,
                 step_timer=5,
-                detailed_config={"heavenly_earthly_flower_tai": 3},
+                detailed_config={"initial_flower_bonus_enabled": 1},
+            )
+        with self.assertRaises(ValidationError):
+            TaiwanRoomValidator(
+                room_name="hidden points",
+                game_round=1,
+                round_timer=20,
+                step_timer=5,
+                detailed_config={"base_points": 999999},
+            )
+        with self.assertRaises(ValidationError):
+            TaiwanRoomValidator(
+                room_name="invalid fan value",
+                game_round=1,
+                round_timer=20,
+                step_timer=5,
+                detailed_config={"fan_tai_overrides": {"flower_kong": 999999}},
+            )
+        with self.assertRaises(ValidationError):
+            TaiwanRoomValidator(
+                room_name="tips and cuohe",
+                game_round=1,
+                round_timer=20,
+                step_timer=5,
+                tips=True,
+                open_cuohe=True,
             )
         with self.assertRaises(ValidationError):
             TaiwanRoomValidator(
@@ -3567,7 +5308,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             )
 
     def test_room_manager_persists_taiwan_cuohe_type(self):
-        async def create_room(cuohe_type: int, room_id: str):
+        async def create_room(cuohe_type: int, room_id: str, *, tips: bool = False):
             player = SimpleNamespace(
                 user_id=1,
                 username="host",
@@ -3599,7 +5340,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 "",
                 20,
                 5,
-                False,
+                tips,
                 0,
                 "taiwan/standard",
                 False,
@@ -3619,6 +5360,13 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 self.assertTrue(response.room_info["open_cuohe"])
                 self.assertEqual(manager.rooms[room_id]["cuohe_type"], expected)
                 manager._broadcast_room_info.assert_awaited_once_with(room_id)
+
+        response, manager = asyncio.run(
+            create_room(0, "112233", tips=True)
+        )
+        self.assertFalse(response.success)
+        self.assertIn("提示与错和不能同时开启", response.message)
+        self.assertNotIn("112233", manager.rooms)
 
 
 if __name__ == "__main__":

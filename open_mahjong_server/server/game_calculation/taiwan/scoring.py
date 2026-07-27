@@ -5,6 +5,7 @@ from dataclasses import replace
 from typing import Dict, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple
 
 from ..hand_structure import SIXTEEN_TILE_MAHJONG
+from .fan import FAN_DEFINITIONS, resolved_fan_tai
 from .rules import (
     DRAGON_TILES,
     FLOWER_SETS,
@@ -29,109 +30,49 @@ from .solver import (
     parse_melds,
     structural_waits,
     winning_use_is_single_wait,
-    winning_uses_only_two_sided,
 )
 
 
-FAN = {
-    "menqing": ("门清", 1),
-    "self_reliant": ("不求人", 1),
-    "self_draw": ("自摸", 1),
-    "seat_wind": ("门风刻", 1),
-    "round_wind": ("圈风刻", 1),
-    "seat_flower": ("正花", 1),
-    "dragon": ("三元牌", 1),
-    "single_wait": ("独听", 1),
-    "rob_kong": ("抢杠", 1),
-    "after_kong": ("杠上开花", 1),
-    "last_draw": ("海底捞月", 1),
-    "flower_kong": ("花杠", 1),
-    "pinfu": ("平胡", 2),
-    "three_concealed": ("三暗刻", 2),
-    "fully_exposed": ("全求人", 2),
-    "all_triplets": ("碰碰胡", 4),
-    "small_dragons": ("小三元", 4),
-    "half_flush": ("混一色", 4),
-    "four_concealed": ("四暗刻", 5),
-    "earthly_ready": ("地听", 8),
-    "five_concealed": ("五暗刻", 8),
-    "big_dragons": ("大三元", 8),
-    "small_winds": ("小四喜", 8),
-    "full_flush": ("清一色", 8),
-    "eight_immortals": ("八仙过海", 8),
-    "seven_robs_one": ("七抢一", 8),
-    "eight_pairs_half": ("八对半", 8),
-    "heavenly_ready": ("天听", 16),
-    "earthly_win": ("地胡", 16),
-    "human_win": ("人胡", 16),
-    "all_honors": ("字一色", 16),
-    "big_winds": ("大四喜", 16),
-    "heavenly_win": ("天胡", 24),
-}
+def _fan(fan_id: str, count: int = 1) -> Fan:
+    name, default_tai = FAN_DEFINITIONS[fan_id]
+    return Fan(fan_id, name, default_tai, count)
 
 
-PRESET_FAN_TAI = {
-    "star31": {
-        "heavenly_win": 24,
-        "earthly_win": 16,
-        "human_win": 0,
-        "heavenly_ready": 8,
-        "earthly_ready": 4,
-        "fully_exposed": 2,
-        "all_honors": 8,
-        "pinfu": 2,
-    },
-    "shenlaiye": {
-        "heavenly_win": 24,
-        "earthly_win": 16,
-        "human_win": 8,
-        "heavenly_ready": 0,
-        "earthly_ready": 4,
-        "fully_exposed": 2,
-        "all_honors": 8,
-        "pinfu": 2,
-    },
-}
+def _apply_scoring_table(fans: Iterable[Fan], rules: TaiwanRules) -> Tuple[Fan, ...]:
+    """依所选完整预设台表与房间稀疏差异解析每个台种。"""
 
-
-def _fan(fan_id: str, count: int = 1, tai: Optional[int] = None) -> Fan:
-    name, default_tai = FAN[fan_id]
-    return Fan(fan_id, name, default_tai if tai is None else tai, count)
-
-
-def _apply_scoring_preset(fans: Iterable[Fan], rules: TaiwanRules) -> Tuple[Fan, ...]:
-    """套用预设台表；独立馆规（例如花杠台数）仍以字段值为准。"""
-
-    overrides = PRESET_FAN_TAI.get(rules.scoring_preset, {})
     resolved = [
-        replace(fan, tai=overrides[fan.fan_id])
-        if fan.fan_id in overrides
-        else fan
+        replace(
+            fan,
+            tai=resolved_fan_tai(
+                rules.scoring_preset,
+                rules.fan_tai_overrides,
+                fan.fan_id,
+            ),
+        )
         for fan in fans
     ]
-    resolved = [fan for fan in resolved if fan.tai > 0]
-    if rules.scoring_preset == "shenlaiye" and any(
-        fan.fan_id == "all_honors" for fan in resolved
-    ):
-        resolved = [fan for fan in resolved if fan.fan_id != "all_triplets"]
     return tuple(resolved)
 
 
-def _score_tai(context: HandContext, fans: Sequence[Fan]) -> int:
-    tai = sum(fan.total for fan in fans)
+def _append_opening_flower_bonus(
+    fans: List[Fan],
+    context: HandContext,
+) -> None:
     has_flower_win = any(
-        fan.fan_id in ("eight_immortals", "seven_robs_one")
+        fan.fan_id in ("eight_flowers_and_seasons", "seven_flowers_steal_eighth")
         for fan in fans
     )
     if (
         has_flower_win
-        and (
-            context.heavenly_win
-            or context.earthly_win
-        )
+        and (context.heavenly_win or context.earthly_win)
+        and context.rules.initial_flower_bonus_enabled
     ):
-        tai += context.rules.heavenly_earthly_flower_tai
-    return tai
+        fans.append(_fan("initial_flower_bonus"))
+
+
+def _score_tai(fans: Sequence[Fan]) -> int:
+    return sum(fan.total for fan in fans)
 
 
 def _is_self_draw(context: HandContext) -> bool:
@@ -139,7 +80,7 @@ def _is_self_draw(context: HandContext) -> bool:
 
 
 def _is_rob_kong(context: HandContext) -> bool:
-    return context.win_source == "rob_kong"
+    return context.win_source == "robbing_kong"
 
 
 def _all_structure_tiles(decomposition: Decomposition) -> List[int]:
@@ -193,9 +134,9 @@ def _flower_fans(context: HandContext, *, suppress: bool = False) -> List[Fan]:
         tile for group in completed_flower_sets for tile in group
     }
     fans: List[Fan] = []
-    if rules.flower_scoring == "any":
+    if rules.flower_scoring_mode == "all_flowers":
         if context.flowers:
-            fans.append(Fan("seat_flower", "见花", 1, len(context.flowers)))
+            fans.append(Fan("flower_tile", "见花", 1, len(context.flowers)))
     else:
         correct = sum(
             1
@@ -204,12 +145,12 @@ def _flower_fans(context: HandContext, *, suppress: bool = False) -> List[Fan]:
             and tile not in flower_kong_tiles
         )
         if correct:
-            fans.append(_fan("seat_flower", correct))
+            fans.append(_fan("flower_tile", correct))
     flower_kong_count = len(completed_flower_sets)
     if flower_kong_count:
-        fans.append(_fan("flower_kong", count=flower_kong_count, tai=rules.flower_kong_tai))
-    if not context.flowers and rules.no_flower_tai:
-        fans.append(Fan("no_flower", "无花", rules.no_flower_tai))
+        fans.append(_fan("flower_kong", count=flower_kong_count))
+    if not context.flowers and rules.no_flowers_enabled:
+        fans.append(_fan("no_flowers"))
     return fans
 
 
@@ -223,30 +164,34 @@ def _append_extension_fans(
     rules = context.rules
     structure = (
         list(context.hand_tiles)
-        if decomposition.special == "eight_pairs_half"
+        if decomposition.special == "eight_and_a_half_pairs"
         else _all_structure_tiles(decomposition)
     )
     triplets = _triplet_tiles(decomposition)
 
-    if rules.half_exposed_tai and all_exposed and _is_self_draw(context):
-        fans.append(Fan("half_exposed", "半求人", rules.half_exposed_tai))
-    if rules.river_bottom_tai and context.river_bottom and not _is_self_draw(context):
-        fans.append(Fan("river_bottom", "河底捞鱼", rules.river_bottom_tai))
-    if rules.all_winds_tai:
+    if rules.half_begging_enabled and all_exposed and _is_self_draw(context):
+        fans.append(_fan("half_begging"))
+    if rules.last_tile_claim_enabled and context.last_tile_claim and not _is_self_draw(context):
+        fans.append(_fan("last_tile_claim"))
+    if rules.all_wind_pungs_enabled:
         wind_count = sum(1 for tile in WIND_TILES if tile in triplets)
         if wind_count:
-            fans.append(Fan("all_winds", "见字", rules.all_winds_tai, wind_count))
-    if rules.no_honor_no_flower_tai and not context.flowers and all(tile < 40 for tile in structure):
-        fans[:] = [fan for fan in fans if fan.fan_id != "no_flower"]
-        fans.append(Fan("no_honor_no_flower", "无字无花", rules.no_honor_no_flower_tai))
-    if rules.open_kong_tai:
+            fans.append(_fan("wind_pung", wind_count))
+    if (
+        rules.no_flowers_or_honors_enabled
+        and not context.flowers
+        and all(tile < 40 for tile in structure)
+    ):
+        fans[:] = [fan for fan in fans if fan.fan_id != "no_flowers"]
+        fans.append(_fan("no_flowers_or_honors"))
+    if rules.melded_kong_enabled:
         count = sum(1 for meld in decomposition.melds if meld.kind == "kong" and not meld.concealed)
         if count:
-            fans.append(Fan("open_kong", "明杠", rules.open_kong_tai, count))
-    if rules.concealed_kong_tai:
+            fans.append(_fan("melded_kong", count))
+    if rules.concealed_kong_enabled:
         count = sum(1 for meld in decomposition.melds if meld.kind == "kong" and meld.concealed)
         if count:
-            fans.append(Fan("concealed_kong", "暗杠", rules.concealed_kong_tai, count))
+            fans.append(_fan("concealed_kong", count))
 
 
 def _starting_win(context: HandContext) -> Optional[str]:
@@ -262,14 +207,14 @@ def _starting_win(context: HandContext) -> Optional[str]:
 def _qualification_fan(context: HandContext) -> Optional[str]:
     # 开放公开听牌后，天地听与普通公开听牌使用同一套公开声明；
     # 未开放时天地听由服务器秘密登记，不要求玩家额外报听。
-    if context.rules.public_ready_tai and not context.declared_ready:
+    if context.rules.public_ready_enabled and not context.declared_ready:
         return None
-    if context.rules.heavenly_earthly_ready_enabled:
+    if context.rules.ready_qualification_mode != "disabled":
         if context.heavenly_ready:
             return "heavenly_ready"
         if context.earthly_ready:
             return "earthly_ready"
-    if context.declared_ready and context.rules.public_ready_tai:
+    if context.declared_ready and context.rules.public_ready_enabled:
         return "declared_ready"
     return None
 
@@ -286,19 +231,16 @@ def _score_decomposition(
     # 否则伪刻子恰在单一花色时会把混合牌手误判成清一色。
     structure = (
         list(context.hand_tiles)
-        if decomposition.special == "eight_pairs_half"
+        if decomposition.special == "eight_and_a_half_pairs"
         else _all_structure_tiles(decomposition)
     )
-    menqing = _is_menqing(decomposition.melds)
+    concealed_hand = _is_menqing(decomposition.melds)
     self_draw = _is_self_draw(context)
     all_exposed = (
         len(decomposition.melds) == SIXTEEN_TILE_MAHJONG.meld_count
         and all(meld.external and not meld.concealed for meld in decomposition.melds)
     )
     starting = _starting_win(context)
-    if starting and PRESET_FAN_TAI.get(rules.scoring_preset, {}).get(starting) == 0:
-        # 该台表不设此起手胡时，按普通胡牌计分，而不是先套用起手胡排除项再删掉 0 台项。
-        starting = None
 
     single_wait = bool(
         winning_tile is not None
@@ -306,32 +248,27 @@ def _score_decomposition(
         and winning_use_is_single_wait(decomposition, winning_tile)
         and not all_exposed
     )
-    if rules.scoring_preset in ("star31", "shenlaiye"):
-        pinfu = (
-            decomposition_is_all_sequences(decomposition)
-            and not self_draw
+    all_chows = (
+        decomposition_is_all_sequences(decomposition)
+        and not concealed_hand
+        and not self_draw
+        and len(waits) >= 2
+    )
+    if rules.all_chows_definition == "strict":
+        all_chows = (
+            all_chows
             and not context.flowers
-            and decomposition.pair < 40
             and all(tile < 40 for tile in structure)
-            and len(waits) >= 2
-            and winning_uses_only_two_sided(decomposition, winning_tile)
-        )
-    else:
-        pinfu = (
-            decomposition_is_all_sequences(decomposition)
-            and any(meld.external for meld in decomposition.melds)
-            and len(waits) >= 2
-            and decomposition.winning_component[0] != "pair"
         )
 
-    big_dragons = all(tile in triplets for tile in DRAGON_TILES)
+    big_three_dragons = all(tile in triplets for tile in DRAGON_TILES)
     dragon_triplet_count = sum(1 for tile in DRAGON_TILES if tile in triplets)
     dragon_pair_count = int(decomposition.pair in DRAGON_TILES)
-    small_dragons = not big_dragons and dragon_triplet_count == 2 and dragon_pair_count == 1
+    little_three_dragons = not big_three_dragons and dragon_triplet_count == 2 and dragon_pair_count == 1
 
     wind_triplet_count = sum(1 for tile in WIND_TILES if tile in triplets)
-    big_winds = wind_triplet_count == 4
-    small_winds = not big_winds and wind_triplet_count == 3 and decomposition.pair in WIND_TILES
+    big_four_winds = wind_triplet_count == 4
+    little_four_winds = not big_four_winds and wind_triplet_count == 3 and decomposition.pair in WIND_TILES
 
     suits = {tile // 10 for tile in structure if tile < 40}
     has_honor = any(tile >= 40 for tile in structure)
@@ -343,66 +280,66 @@ def _score_decomposition(
     fans: List[Fan] = []
 
     # 起手胡的排除项在加入基础台时直接应用；天胡、地胡仍另计自摸。
-    pinfu_excludes_menqing = pinfu and rules.scoring_preset not in ("star31", "shenlaiye")
-    if menqing and starting not in ("heavenly_win", "earthly_win", "human_win") and not pinfu_excludes_menqing:
-        fans.append(_fan("menqing"))
-    if menqing and self_draw and starting not in ("heavenly_win", "earthly_win"):
-        fans.append(_fan("self_reliant"))
+    if concealed_hand and starting not in ("heavenly_win", "earthly_win", "human_win"):
+        fans.append(_fan("concealed_hand"))
+    if concealed_hand and self_draw and starting not in ("heavenly_win", "earthly_win"):
+        fans.append(_fan("fully_concealed_hand"))
     if self_draw:
         fans.append(_fan("self_draw"))
 
-    small_winds_keeps_wind_fans = (
-        small_winds and rules.scoring_preset in ("shenlaiye", "cml")
-    )
+    little_four_winds_keeps_wind_fans = little_four_winds and rules.little_four_winds_add_wind_pungs
     if (
-        not big_winds
-        and (not small_winds or small_winds_keeps_wind_fans)
-        and not rules.all_winds_tai
+        not big_four_winds
+        and (not little_four_winds or little_four_winds_keeps_wind_fans)
+        and not rules.all_wind_pungs_enabled
     ):
         if context.seat_wind in triplets:
-            fans.append(_fan("seat_wind"))
+            fans.append(_fan("seat_wind_pung"))
         if context.round_wind in triplets:
-            fans.append(_fan("round_wind"))
+            fans.append(_fan("prevalent_wind_pung"))
 
     fans.extend(_flower_fans(context))
 
-    if not (big_dragons or small_dragons) and dragon_triplet_count:
-        fans.append(_fan("dragon", dragon_triplet_count))
+    if not (big_three_dragons or little_three_dragons) and dragon_triplet_count:
+        fans.append(_fan("dragon_pung", dragon_triplet_count))
 
-    if single_wait and not pinfu and starting != "heavenly_win":
+    if single_wait and starting != "heavenly_win":
         fans.append(_fan("single_wait"))
     if _is_rob_kong(context):
-        fans.append(_fan("rob_kong"))
-    if context.after_kong and self_draw and starting != "heavenly_win":
-        fans.append(_fan("after_kong"))
+        fans.append(_fan("robbing_kong"))
+    if context.out_with_replacement_tile and self_draw and starting != "heavenly_win":
+        fans.append(_fan("out_with_replacement_tile"))
     if context.last_tile and self_draw:
-        fans.append(_fan("last_draw"))
+        fans.append(_fan("last_tile_draw"))
 
-    if pinfu:
-        fans.append(_fan("pinfu"))
+    if all_chows:
+        fans.append(_fan("all_chows"))
 
     concealed_count = _concealed_triplet_count(decomposition, context)
     if concealed_count >= SIXTEEN_TILE_MAHJONG.meld_count:
-        fans.append(_fan("five_concealed"))
+        fans.append(_fan("five_concealed_pungs"))
     elif concealed_count >= 4:
-        fans.append(_fan("four_concealed"))
+        fans.append(_fan("four_concealed_pungs"))
     elif concealed_count >= 3:
-        fans.append(_fan("three_concealed"))
+        fans.append(_fan("three_concealed_pungs"))
 
     if all_exposed and not self_draw:
-        fans.append(_fan("fully_exposed"))
-    if decomposition_is_all_triplets(decomposition):
-        fans.append(_fan("all_triplets"))
-    if big_dragons:
-        fans.append(_fan("big_dragons"))
-    elif small_dragons:
-        fans.append(_fan("small_dragons"))
+        fans.append(_fan("all_begging"))
+    if (
+        decomposition_is_all_triplets(decomposition)
+        and (rules.all_honors_add_all_pungs or not all_honors)
+    ):
+        fans.append(_fan("all_pungs"))
+    if big_three_dragons:
+        fans.append(_fan("big_three_dragons"))
+    elif little_three_dragons:
+        fans.append(_fan("little_three_dragons"))
     if half_flush:
         fans.append(_fan("half_flush"))
-    if big_winds:
-        fans.append(_fan("big_winds"))
-    elif small_winds:
-        fans.append(_fan("small_winds"))
+    if big_four_winds:
+        fans.append(_fan("big_four_winds"))
+    elif little_four_winds:
+        fans.append(_fan("little_four_winds"))
     if full_flush:
         fans.append(_fan("full_flush"))
     if all_honors:
@@ -411,11 +348,11 @@ def _score_decomposition(
     qualification = _qualification_fan(context)
     if qualification and not starting:
         if qualification == "declared_ready":
-            fans.append(Fan("declared_ready", "公开听牌", rules.public_ready_tai))
+            fans.append(_fan("declared_ready"))
         else:
             fans.append(_fan(qualification))
-        if rules.scoring_preset == "shenlaiye" and qualification == "earthly_ready":
-            fans = [fan for fan in fans if fan.fan_id not in ("menqing", "declared_ready")]
+        if rules.earthly_ready_excludes_concealed_and_declared_ready and qualification == "earthly_ready":
+            fans = [fan for fan in fans if fan.fan_id not in ("concealed_hand", "declared_ready")]
 
     if starting:
         fans.append(_fan(starting))
@@ -423,11 +360,12 @@ def _score_decomposition(
     _append_extension_fans(fans, context, decomposition, all_exposed=all_exposed)
 
     # 八花普通胡牌加计/复合模式替代正花、花杠后再加 8 台。
-    if len(set(context.flowers)) == 8 and rules.eight_immortals_mode in ("add_to_normal", "compound"):
-        fans = [fan for fan in fans if fan.fan_id not in ("seat_flower", "flower_kong")]
-        fans.append(_fan("eight_immortals"))
+    if len(set(context.flowers)) == 8 and rules.eight_flowers_mode in ("additive", "compound"):
+        fans = [fan for fan in fans if fan.fan_id not in ("flower_tile", "flower_kong")]
+        fans.append(_fan("eight_flowers_and_seasons"))
 
-    return _apply_scoring_preset(fans, rules)
+    _append_opening_flower_bonus(fans, context)
+    return _apply_scoring_table(fans, rules)
 
 
 def _score_eight_pairs_half(context: HandContext, waits: FrozenSet[int]) -> Tuple[Fan, ...]:
@@ -439,34 +377,34 @@ def _score_eight_pairs_half(context: HandContext, waits: FrozenSet[int]) -> Tupl
         pair=min(tile for tile, count in counter.items() if count >= 2 and tile != triplet_tile),
         melds=(pseudo_meld,),
         winning_component=("special", -1),
-        special="eight_pairs_half",
+        special="eight_and_a_half_pairs",
     )
     fans = list(_score_decomposition(context, decomposition, waits))
-    forbidden = {"three_concealed", "four_concealed", "five_concealed", "all_triplets", "fully_exposed"}
+    forbidden = {"three_concealed_pungs", "four_concealed_pungs", "five_concealed_pungs", "all_pungs", "all_begging"}
     fans = [fan for fan in fans if fan.fan_id not in forbidden]
-    fans.append(_fan("eight_pairs_half"))
-    return _apply_scoring_preset(fans, context.rules)
+    fans.append(_fan("eight_and_a_half_pairs"))
+    return _apply_scoring_table(fans, context.rules)
 
 
 class TaiwanScorer:
-    """线程安全、无内部可变状态的台湾麻将计算器。"""
+    """台湾麻将计算器。"""
 
     def score_hand(self, context: HandContext) -> ScoreResult:
         context.rules.validate()
 
-        if context.seven_robs_one:
-            if not context.rules.seven_robs_one:
+        if context.seven_flowers_steal_eighth:
+            if not context.rules.seven_flowers_steal_eighth_enabled:
                 return ScoreResult(False, reason="房间未启用七抢一")
             if len(set(context.flowers)) != 8:
                 return ScoreResult(False, reason="七抢一结算必须集齐八张花牌")
-            return self._special_result(context, "seven_robs_one")
-        compound_eight_immortals = False
-        if context.eight_immortals:
+            return self._special_result(context, "seven_flowers_steal_eighth")
+        compound_eight_flowers = False
+        if context.eight_flowers_and_seasons:
             if len(set(context.flowers)) != 8:
                 return ScoreResult(False, reason="八仙过海必须取得全部八张花牌")
-            if context.rules.eight_immortals_mode in ("optional_separate", "forced_separate"):
-                return self._special_result(context, "eight_immortals")
-            compound_eight_immortals = context.rules.eight_immortals_mode == "compound"
+            if context.rules.eight_flowers_mode in ("optional_standalone", "forced_standalone"):
+                return self._special_result(context, "eight_flowers_and_seasons")
+            compound_eight_flowers = context.rules.eight_flowers_mode == "compound"
 
         winning_tile = context.winning_tile
         if winning_tile not in STRUCTURE_TILES:
@@ -489,28 +427,28 @@ class TaiwanScorer:
         candidates: List[Tuple[int, int, tuple, Tuple[Fan, ...], Decomposition]] = []
         for decomposition in decompositions:
             fans = _score_decomposition(context, decomposition, waits)
-            tai = _score_tai(context, fans)
+            tai = _score_tai(fans)
             candidates.append((tai, len(fans), decomposition.stable_key(), fans, decomposition))
 
-        if context.rules.eight_pairs_half and is_eight_pairs_half(context.hand_tiles, context.meld_codes):
+        if context.rules.eight_and_a_half_pairs_enabled and is_eight_pairs_half(context.hand_tiles, context.meld_codes):
             fans = _score_eight_pairs_half(context, waits)
             decomposition = Decomposition(
                 pair=0,
                 melds=(),
                 winning_component=("special", -1),
-                special="eight_pairs_half",
+                special="eight_and_a_half_pairs",
             )
-            candidates.append((_score_tai(context, fans), len(fans), decomposition.stable_key(), fans, decomposition))
+            candidates.append((_score_tai(fans), len(fans), decomposition.stable_key(), fans, decomposition))
 
-        if not candidates and compound_eight_immortals:
+        if not candidates and compound_eight_flowers:
             # 复合模式在补齐八花时强制结束；当时没有普通牌形也仍按固定花胡结算。
-            return self._special_result(context, "eight_immortals")
+            return self._special_result(context, "eight_flowers_and_seasons")
         if not candidates:
             return ScoreResult(False, waits=waits, reason="不满足标准面子加一将结构")
 
         selection_pool = candidates
         if (
-            context.rules.scoring_preset == "star31"
+            context.rules.prefer_triplet_decomposition_on_discard_win
             and context.win_source != "self_draw"
         ):
             triplet_wins = [
@@ -548,8 +486,10 @@ class TaiwanScorer:
         return ScoreResult(True, tai, capped, fans, decomposition, waits)
 
     def _special_result(self, context: HandContext, fan_id: str) -> ScoreResult:
-        resolved = _apply_scoring_preset((_fan(fan_id),), context.rules)
-        tai = _score_tai(context, resolved)
+        fans = [_fan(fan_id)]
+        _append_opening_flower_bonus(fans, context)
+        resolved = _apply_scoring_table(fans, context.rules)
+        tai = _score_tai(resolved)
         if tai < context.rules.minimum_tai:
             return ScoreResult(
                 False,
@@ -606,6 +546,31 @@ def settle_win(
 
     rules = rules or TaiwanRules()
     rules.validate()
+    if type(hand_tai) is not int or hand_tai < 0:
+        raise ValueError("和牌台数必须是非负整数")
+    if type(dealer_streak) is not int or dealer_streak < 0:
+        raise ValueError("连庄数必须是非负整数")
+    if (
+        type(winner) is not int
+        or type(dealer) is not int
+        or winner < 0
+        or dealer < 0
+    ):
+        raise ValueError("赢家与庄家座位必须是非负整数")
+    if discarder is not None and (
+        type(discarder) is not int or discarder < 0
+    ):
+        raise ValueError("放铳座位必须是非负整数或空值")
+    if liable_payer is not None and (
+        type(liable_payer) is not int or liable_payer < 0
+    ):
+        raise ValueError("包赔责任人座位必须是非负整数或空值")
+    if (
+        not player_indices
+        or any(type(index) is not int or index < 0 for index in player_indices)
+        or len(set(player_indices)) != len(player_indices)
+    ):
+        raise ValueError("结算座位必须是非负且互不重复的整数")
     if winner not in player_indices or dealer not in player_indices:
         raise ValueError("赢家或庄家座位非法")
     capped_tai = min(hand_tai, rules.tai_cap) if rules.tai_cap else hand_tai
@@ -617,7 +582,7 @@ def settle_win(
         payers = [index for index in player_indices if index != winner]
     elif win_source == "self_draw":
         payers = [index for index in player_indices if index != winner]
-    elif win_source in ("discard", "rob_kong", "seven_robs_one"):
+    elif win_source in ("discard", "robbing_kong", "seven_flowers_steal_eighth"):
         if discarder is None or discarder == winner or discarder not in player_indices:
             raise ValueError("点胡、抢杠或七抢一必须指定责任付款人")
         payers = [discarder]

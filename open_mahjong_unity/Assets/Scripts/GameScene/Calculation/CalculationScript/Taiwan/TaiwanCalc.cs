@@ -1,91 +1,322 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace Taiwan {
+    /// <summary>
+    /// 台种目录的稳定展示分类。仅用于分组与排序，不参与计分判定或房间序列化。
+    /// </summary>
+    public enum TaiwanFanCategory {
+        Basic = 0,
+        HandPattern = 1,
+        Honors = 2,
+        Flowers = 3,
+        Kongs = 4,
+        Ready = 5,
+        WinEvent = 6,
+        SpecialWin = 7,
+    }
+
+    /// <summary>
+    /// 台种的展示计数方式。实际成立次数仍由计分结果中的 Count 决定。
+    /// </summary>
+    public enum TaiwanFanCountMode {
+        Once = 0,
+        PerGroup = 1,
+        PerTile = 2,
+    }
+
+    public sealed class TaiwanFanDefinition {
+        public TaiwanFanCategory Group { get; }
+        public string Id { get; }
+        public string Name { get; }
+        public int Fan { get; }
+        public TaiwanFanCountMode Unit { get; }
+
+        public TaiwanFanDefinition(
+            TaiwanFanCategory group,
+            string id,
+            string name,
+            int fan,
+            TaiwanFanCountMode unit) {
+            if (!Enum.IsDefined(typeof(TaiwanFanCategory), group)) {
+                throw new ArgumentOutOfRangeException(nameof(group), group, "未知台湾麻将台种分类");
+            }
+            if (string.IsNullOrWhiteSpace(id)) {
+                throw new ArgumentException("台湾麻将台种 ID 不能为空", nameof(id));
+            }
+            if (string.IsNullOrWhiteSpace(name)) {
+                throw new ArgumentException("台湾麻将台种名称不能为空", nameof(name));
+            }
+            if (fan < 1 || fan > 64) {
+                throw new ArgumentOutOfRangeException(nameof(fan), fan, "台湾麻将基础台值必须在 1 至 64 之间");
+            }
+            if (!Enum.IsDefined(typeof(TaiwanFanCountMode), unit)) {
+                throw new ArgumentOutOfRangeException(nameof(unit), unit, "未知台湾麻将台种计数方式");
+            }
+            Group = group;
+            Id = id;
+            Name = name;
+            Fan = fan;
+            Unit = unit;
+        }
+    }
+
+    /// <summary>
+    /// 台湾麻将稳定台种目录与完整基础台表。
+    /// fan_id 会写入馆规及牌谱，不得复用或随显示名调整。
+    /// </summary>
+    public static class TaiwanFanCatalog {
+        public static readonly IReadOnlyList<TaiwanFanDefinition> Definitions =
+            new List<TaiwanFanDefinition> {
+                new TaiwanFanDefinition(TaiwanFanCategory.Basic, "concealed_hand", "门清", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Basic, "self_draw", "自摸", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Basic, "single_wait", "独听", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Basic, "fully_concealed_hand", "不求人", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Basic, "all_begging", "全求人", 2, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Basic, "half_begging", "半求人", 1, TaiwanFanCountMode.Once),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "all_chows", "平胡", 2, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "three_concealed_pungs", "三暗刻", 2, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "four_concealed_pungs", "四暗刻", 5, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "five_concealed_pungs", "五暗刻", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "all_pungs", "碰碰胡", 4, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "half_flush", "混一色", 4, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "full_flush", "清一色", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "no_flowers_or_honors", "无字无花", 2, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.HandPattern, "eight_and_a_half_pairs", "八对半", 8, TaiwanFanCountMode.Once),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "seat_wind_pung", "门风刻", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "prevalent_wind_pung", "圈风刻", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "wind_pung", "见字", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "dragon_pung", "三元牌", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "little_three_dragons", "小三元", 4, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "big_three_dragons", "大三元", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "little_four_winds", "小四喜", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "big_four_winds", "大四喜", 16, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Honors, "all_honors", "字一色", 16, TaiwanFanCountMode.Once),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "flower_tile", "正花", 1, TaiwanFanCountMode.PerTile),
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "flower_kong", "花杠", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "no_flowers", "无花", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "initial_flower_bonus", "配牌花胡", 4, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "eight_flowers_and_seasons", "八仙过海", 8, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Flowers, "seven_flowers_steal_eighth", "七抢一", 8, TaiwanFanCountMode.Once),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.Kongs, "melded_kong", "明杠", 1, TaiwanFanCountMode.PerGroup),
+                new TaiwanFanDefinition(TaiwanFanCategory.Kongs, "concealed_kong", "暗杠", 2, TaiwanFanCountMode.PerGroup),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.Ready, "declared_ready", "报听", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Ready, "heavenly_ready", "天听", 16, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.Ready, "earthly_ready", "地听", 8, TaiwanFanCountMode.Once),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.WinEvent, "robbing_kong", "抢杠", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.WinEvent, "out_with_replacement_tile", "杠上开花", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.WinEvent, "last_tile_draw", "海底捞月", 1, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.WinEvent, "last_tile_claim", "河底捞鱼", 1, TaiwanFanCountMode.Once),
+
+                new TaiwanFanDefinition(TaiwanFanCategory.SpecialWin, "heavenly_win", "天胡", 24, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.SpecialWin, "earthly_win", "地胡", 16, TaiwanFanCountMode.Once),
+                new TaiwanFanDefinition(TaiwanFanCategory.SpecialWin, "human_win", "人胡", 16, TaiwanFanCountMode.Once),
+            }.AsReadOnly();
+
+        private static readonly Dictionary<string, TaiwanFanDefinition> ById =
+            Definitions.ToDictionary(definition => definition.Id, StringComparer.Ordinal);
+        private static readonly Dictionary<string, string> IdByName = BuildIdByName();
+        private static readonly Dictionary<string, Dictionary<string, int>> PresetTables =
+            BuildPresetTables();
+
+        public static bool TryGetDefinition(string fanId, out TaiwanFanDefinition definition) {
+            return ById.TryGetValue(fanId ?? "", out definition);
+        }
+
+        public static bool TryResolveFanId(string fanIdOrName, out string fanId) {
+            if (ById.ContainsKey(fanIdOrName ?? "")) {
+                fanId = fanIdOrName;
+                return true;
+            }
+            return IdByName.TryGetValue(fanIdOrName ?? "", out fanId);
+        }
+
+        public static int GetPresetTai(string scoringPreset, string fanId) {
+            if (!PresetTables.TryGetValue(scoringPreset ?? "", out Dictionary<string, int> table)) {
+                throw new ArgumentException(
+                    $"未知台湾麻将基础台表：{scoringPreset}",
+                    nameof(scoringPreset));
+            }
+            if (!table.TryGetValue(fanId ?? "", out int value)) {
+                throw new ArgumentException(
+                    $"未知台湾麻将台种：{fanId}",
+                    nameof(fanId));
+            }
+            return value;
+        }
+
+        private static Dictionary<string, string> BuildIdByName() {
+            var result = Definitions.ToDictionary(
+                definition => definition.Name,
+                definition => definition.Id,
+                StringComparer.Ordinal);
+            result["见花"] = "flower_tile";
+            return result;
+        }
+
+        private static Dictionary<string, Dictionary<string, int>> BuildPresetTables() {
+            var sml = Definitions.ToDictionary(
+                definition => definition.Id,
+                definition => definition.Fan,
+                StringComparer.Ordinal);
+            var cml = new Dictionary<string, int>(sml, StringComparer.Ordinal);
+            var star31 = new Dictionary<string, int>(sml, StringComparer.Ordinal) {
+                ["flower_kong"] = 2,
+                ["heavenly_ready"] = 8,
+                ["earthly_ready"] = 4,
+                ["all_honors"] = 8,
+            };
+            var shenlaiye = new Dictionary<string, int>(sml, StringComparer.Ordinal) {
+                ["flower_kong"] = 2,
+                ["human_win"] = 8,
+                ["earthly_ready"] = 4,
+                ["all_honors"] = 8,
+            };
+            return new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal) {
+                ["sml"] = sml,
+                ["cml"] = cml,
+                ["star31"] = star31,
+                ["shenlaiye"] = shenlaiye,
+            };
+        }
+    }
+
     /// <summary>
     /// 客户端提示所需的台湾馆规子集。
     /// </summary>
     public sealed class TaiwanRuleConfig {
-        public bool EightPairsHalf { get; private set; }
-        public int FlowerKongTai { get; private set; } = 1;
-        public string FlowerScoring { get; private set; } = "seat";
-        public int NoFlowerTai { get; private set; }
+        public bool EightAndAHalfPairsEnabled { get; private set; }
+        public string FlowerScoringMode { get; private set; } = "seat_flowers_only";
+        public bool NoFlowersEnabled { get; private set; }
         public string ScoringPreset { get; private set; } = "sml";
-        public int HalfExposedTai { get; private set; }
-        public int RiverBottomTai { get; private set; }
-        public int AllWindsTai { get; private set; }
-        public int NoHonorNoFlowerTai { get; private set; }
-        public int OpenKongTai { get; private set; }
-        public int ConcealedKongTai { get; private set; }
-        public bool HeavenlyEarthlyReadyEnabled { get; private set; } = true;
-        public int PublicReadyTai { get; private set; }
-        public string EightImmortalsMode { get; private set; } = "optional_separate";
+        public string AllChowsDefinition { get; private set; } = "relaxed";
+        public bool LittleFourWindsAddWindPungs { get; private set; }
+        public bool AllHonorsAddAllPungs { get; private set; } = true;
+        public bool PreferTripletDecompositionOnDiscardWin { get; private set; }
+        public bool EarthlyReadyExcludesConcealedAndDeclaredReady { get; private set; }
+        public bool HalfBeggingEnabled { get; private set; }
+        public bool AllWindPungsEnabled { get; private set; }
+        public bool NoFlowersOrHonorsEnabled { get; private set; }
+        public bool MeldedKongEnabled { get; private set; }
+        public bool ConcealedKongEnabled { get; private set; }
+        public string ReadyQualificationMode { get; private set; } = "standard_with_dealer_heavenly_ready";
+        public bool PublicReadyEnabled { get; private set; }
+        public string EightFlowersMode { get; private set; } = "optional_standalone";
         public int? TaiCap { get; private set; }
+        private Dictionary<string, int> FanTaiOverrides { get; } =
+            new Dictionary<string, int>(StringComparer.Ordinal);
 
         public static TaiwanRuleConfig FromDictionary(IDictionary<string, object> values) {
             var result = new TaiwanRuleConfig();
             if (values == null) return result;
-            result.EightPairsHalf = ReadBool(values, "eight_pairs_half", false);
-            result.FlowerKongTai = ReadInt(values, "flower_kong_tai", 1);
-            result.FlowerScoring = ReadString(values, "flower_scoring", "seat");
-            result.NoFlowerTai = ReadInt(values, "no_flower_tai", 0);
+            result.EightAndAHalfPairsEnabled = ReadBool(values, "eight_and_a_half_pairs_enabled", false);
+            result.FlowerScoringMode = ReadString(values, "flower_scoring_mode", "seat_flowers_only");
+            result.NoFlowersEnabled = ReadBool(values, "no_flowers_enabled", false);
             result.ScoringPreset = ReadString(values, "scoring_preset", "sml");
-            result.HalfExposedTai = ReadInt(values, "half_exposed_tai", 0);
-            result.RiverBottomTai = ReadInt(values, "river_bottom_tai", 0);
-            result.AllWindsTai = ReadInt(values, "all_winds_tai", 0);
-            result.NoHonorNoFlowerTai = ReadInt(values, "no_honor_no_flower_tai", 0);
-            result.OpenKongTai = ReadInt(values, "open_kong_tai", 0);
-            result.ConcealedKongTai = ReadInt(values, "concealed_kong_tai", 0);
-            result.HeavenlyEarthlyReadyEnabled = ReadBool(values, "heavenly_earthly_ready_enabled", true);
-            result.PublicReadyTai = ReadInt(values, "public_ready_tai", 0);
-            result.EightImmortalsMode = ReadString(values, "eight_immortals_mode", "optional_separate");
+            result.AllChowsDefinition = ReadString(
+                values,
+                "all_chows_definition",
+                "relaxed");
+            result.LittleFourWindsAddWindPungs = ReadBool(
+                values,
+                "little_four_winds_add_wind_pungs",
+                false);
+            result.AllHonorsAddAllPungs = ReadBool(
+                values,
+                "all_honors_add_all_pungs",
+                true);
+            result.PreferTripletDecompositionOnDiscardWin = ReadBool(
+                values,
+                "prefer_triplet_decomposition_on_discard_win",
+                false);
+            result.EarthlyReadyExcludesConcealedAndDeclaredReady = ReadBool(
+                values,
+                "earthly_ready_excludes_concealed_and_declared_ready",
+                false);
+            result.HalfBeggingEnabled = ReadBool(values, "half_begging_enabled", false);
+            result.AllWindPungsEnabled = ReadBool(values, "all_wind_pungs_enabled", false);
+            result.NoFlowersOrHonorsEnabled = ReadBool(values, "no_flowers_or_honors_enabled", false);
+            result.MeldedKongEnabled = ReadBool(values, "melded_kong_enabled", false);
+            result.ConcealedKongEnabled = ReadBool(values, "concealed_kong_enabled", false);
+            result.ReadyQualificationMode = ReadString(values, "ready_qualification_mode", "standard_with_dealer_heavenly_ready");
+            result.PublicReadyEnabled = ReadBool(values, "public_ready_enabled", false);
+            result.EightFlowersMode = ReadString(values, "eight_flowers_mode", "optional_standalone");
             result.TaiCap = ReadNullableInt(values, "tai_cap");
+            foreach (KeyValuePair<string, int> entry in ReadFanTaiOverrides(values)) {
+                if (TaiwanFanCatalog.TryGetDefinition(entry.Key, out _)
+                    && entry.Value >= 1
+                    && entry.Value <= 64) {
+                    result.FanTaiOverrides[entry.Key] = entry.Value;
+                }
+            }
             return result;
         }
 
-        public int ResolveFanTai(string fanName, int fallback) {
-            switch (fanName) {
-                case "花杠": return FlowerKongTai;
-                case "无花": return NoFlowerTai;
-                case "公开听牌": return PublicReadyTai;
-                case "半求人": return HalfExposedTai;
-                case "河底捞鱼": return RiverBottomTai;
-                case "见字": return AllWindsTai;
-                case "无字无花": return NoHonorNoFlowerTai;
-                case "明杠": return OpenKongTai;
-                case "暗杠": return ConcealedKongTai;
+        public int ResolveFanTai(string fanIdOrName, int fallback) {
+            if (!TaiwanFanCatalog.TryResolveFanId(fanIdOrName, out string fanId)) {
+                return fallback;
             }
-            if (ScoringPreset == "star31") {
-                switch (fanName) {
-                    case "天胡": return 24;
-                    case "地胡": return 16;
-                    case "人胡": return 0;
-                    case "天听": return 8;
-                    case "地听": return 4;
-                    case "全求人": return 2;
-                    case "字一色": return 8;
-                    case "平胡": return 2;
-                }
+            if (FanTaiOverrides.TryGetValue(fanId, out int customTai)) {
+                return customTai;
             }
-            else if (ScoringPreset == "shenlaiye") {
-                switch (fanName) {
-                    case "天胡": return 24;
-                    case "地胡": return 16;
-                    case "人胡": return 8;
-                    case "天听": return 0;
-                    case "地听": return 4;
-                    case "全求人": return 2;
-                    case "字一色": return 8;
-                    case "平胡": return 2;
-                }
-            }
-            return fallback;
+            int presetTai = TaiwanFanCatalog.GetPresetTai(ScoringPreset, fanId);
+            return presetTai > 0 ? presetTai : fallback;
         }
 
-        private static int ReadInt(IDictionary<string, object> values, string key, int fallback) {
-            if (!values.TryGetValue(key, out object raw) || raw == null) return fallback;
-            return int.TryParse(raw.ToString(), out int value) ? value : fallback;
+        internal void ApplyScoringTable(IEnumerable<TaiwanFan> fans) {
+            foreach (TaiwanFan fan in fans) {
+                fan.SetTai(ResolveFanTai(fan.FanId, fan.Tai));
+            }
+        }
+
+        private static Dictionary<string, int> ReadFanTaiOverrides(
+            IDictionary<string, object> values) {
+            var result = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (!values.TryGetValue("fan_tai_overrides", out object raw) || raw == null) {
+                return result;
+            }
+            if (raw is JObject jsonObject) {
+                foreach (JProperty property in jsonObject.Properties()) {
+                    if (int.TryParse(property.Value.ToString(), out int tai)) {
+                        result[property.Name] = tai;
+                    }
+                }
+                return result;
+            }
+            if (raw is IDictionary<string, int> intValues) {
+                foreach (KeyValuePair<string, int> entry in intValues) {
+                    result[entry.Key] = entry.Value;
+                }
+                return result;
+            }
+            if (raw is IDictionary<string, object> objectValues) {
+                foreach (KeyValuePair<string, object> entry in objectValues) {
+                    if (entry.Value != null
+                        && int.TryParse(entry.Value.ToString(), out int tai)) {
+                        result[entry.Key] = tai;
+                    }
+                }
+                return result;
+            }
+            if (raw is IDictionary dictionary) {
+                foreach (DictionaryEntry entry in dictionary) {
+                    if (entry.Key != null
+                        && entry.Value != null
+                        && int.TryParse(entry.Value.ToString(), out int tai)) {
+                        result[entry.Key.ToString()] = tai;
+                    }
+                }
+            }
+            return result;
         }
 
         private static int? ReadNullableInt(IDictionary<string, object> values, string key) {
@@ -138,18 +369,44 @@ namespace Taiwan {
             }
 
             Dictionary<int, int> counts = CountTiles(handTiles);
+            Dictionary<int, int> physicalCounts = CloneCounts(counts);
+            foreach (TaiwanMeld meld in external) {
+                if (meld.Kind == TaiwanMeldKind.Sequence) {
+                    IncrementCount(physicalCounts, meld.Tile - 1);
+                    IncrementCount(physicalCounts, meld.Tile);
+                    IncrementCount(physicalCounts, meld.Tile + 1);
+                } else {
+                    int count = meld.Kind == TaiwanMeldKind.Kong ? 4 : 3;
+                    physicalCounts[meld.Tile] = physicalCounts.TryGetValue(
+                        meld.Tile,
+                        out int existing)
+                        ? existing + count
+                        : count;
+                }
+            }
+            if (physicalCounts.Values.Any(count => count > 4)) {
+                return waits;
+            }
             string cacheKey = BuildCountKey(counts, concealedNeeded)
-                + "|eight_pairs_half=" + (rules.EightPairsHalf ? "1" : "0");
+                + "|eight_and_a_half_pairs_enabled=" + (rules.EightAndAHalfPairsEnabled ? "1" : "0");
             if (TryGetCachedWaits(cacheKey, out HashSet<int> cachedWaits)) {
-                return cachedWaits;
+                return new HashSet<int>(cachedWaits.Where(tile =>
+                    !physicalCounts.TryGetValue(tile, out int physicalCount)
+                    || physicalCount < 4));
             }
 
             var meldShapeCache = new Dictionary<string, bool>();
             foreach (int tile in StructureTiles) {
-                if (counts.TryGetValue(tile, out int count) && count >= 4) continue;
+                if (physicalCounts.TryGetValue(tile, out int physicalCount)
+                    && physicalCount >= 4) {
+                    continue;
+                }
+                int count = counts.TryGetValue(tile, out int existingCount)
+                    ? existingCount
+                    : 0;
 
                 counts[tile] = count + 1;
-                bool isEightPairsHalfWait = rules.EightPairsHalf
+                bool isEightPairsHalfWait = rules.EightAndAHalfPairsEnabled
                     && concealedNeeded == Structure.MeldCount
                     && IsEightPairsHalfCounts(counts);
                 bool isStandardWait = isEightPairsHalfWait || HasStandardShape(
@@ -184,7 +441,7 @@ namespace Taiwan {
 
             List<TaiwanDecomposition> decompositions =
                 EnumerateDecompositions(handTiles, external, winningTile);
-            bool eightPairsHalf = rules.EightPairsHalf && IsEightPairsHalf(handTiles, external);
+            bool eightPairsHalf = rules.EightAndAHalfPairsEnabled && IsEightPairsHalf(handTiles, external);
             if (decompositions.Count == 0 && !eightPairsHalf) return empty;
 
             var preWinTiles = new List<int>(handTiles);
@@ -205,8 +462,9 @@ namespace Taiwan {
                     flowers ?? Array.Empty<int>(),
                     rules);
                 AddReadyQualificationFan(fans, readyQualification, rules);
+                rules.ApplyScoringTable(fans);
                 int tai = fans.Sum(fan => fan.Tai * fan.Count);
-                int interpretationPriority = rules.ScoringPreset == "star31"
+                int interpretationPriority = rules.PreferTripletDecompositionOnDiscardWin
                     && !isSelfDraw
                     && decomposition.WinningKind == "triplet"
                         ? 1
@@ -231,6 +489,7 @@ namespace Taiwan {
                     flowers ?? Array.Empty<int>(),
                     rules);
                 AddReadyQualificationFan(fans, readyQualification, rules);
+                rules.ApplyScoringTable(fans);
                 int tai = fans.Sum(fan => fan.Tai * fan.Count);
                 if (bestInterpretationPriority <= 0
                     && (tai > bestTai
@@ -257,15 +516,15 @@ namespace Taiwan {
             string readyQualification,
             TaiwanRuleConfig rules) {
             if (fans == null || string.IsNullOrEmpty(readyQualification)) return;
-            if (readyQualification == "heavenly" && rules.HeavenlyEarthlyReadyEnabled) {
+            if (readyQualification == "heavenly" && rules.ReadyQualificationMode != "disabled") {
                 AddFan(fans, "天听", rules.ResolveFanTai("天听", 16));
-            } else if (readyQualification == "earthly" && rules.HeavenlyEarthlyReadyEnabled) {
-                if (rules.ScoringPreset == "shenlaiye") {
-                    fans.RemoveAll(fan => fan.Name == "门清" || fan.Name == "公开听牌");
+            } else if (readyQualification == "earthly" && rules.ReadyQualificationMode != "disabled") {
+                if (rules.EarthlyReadyExcludesConcealedAndDeclaredReady) {
+                    fans.RemoveAll(fan => fan.Name == "门清" || fan.Name == "报听");
                 }
                 AddFan(fans, "地听", rules.ResolveFanTai("地听", 8));
-            } else if (readyQualification == "public") {
-                AddFan(fans, "公开听牌", rules.PublicReadyTai);
+            } else if (readyQualification == "public" && rules.PublicReadyEnabled) {
+                AddFan(fans, "报听", rules.ResolveFanTai("报听", 1));
             }
         }
 
@@ -284,28 +543,21 @@ namespace Taiwan {
                     .Select(meld => meld.Tile));
             List<int> structure = BuildStructureTiles(decomposition);
 
-            bool menqing = melds.All(meld => meld.Concealed);
+            bool concealed_hand = melds.All(meld => meld.Concealed);
             bool allExposed = melds.Count == Structure.MeldCount
                 && melds.All(meld => meld.External && !meld.Concealed);
             bool allSequences = melds.All(meld => meld.Kind == TaiwanMeldKind.Sequence);
             bool allTriplets = melds.All(
                 meld => meld.Kind == TaiwanMeldKind.Triplet || meld.Kind == TaiwanMeldKind.Kong);
 
-            bool pinfu;
-            if (rules.ScoringPreset == "star31"
-                || rules.ScoringPreset == "shenlaiye") {
-                pinfu = allSequences
-                    && !isSelfDraw
+            bool all_chows = allSequences
+                && !concealed_hand
+                && !isSelfDraw
+                && waits.Count >= 2;
+            if (rules.AllChowsDefinition == "strict") {
+                all_chows = all_chows
                     && flowers.Count == 0
-                    && decomposition.Pair < 40
-                    && structure.All(tile => tile < 40)
-                    && waits.Count >= 2
-                    && IsExclusivelyTwoSidedWait(decomposition, winningTile);
-            } else {
-                pinfu = allSequences
-                    && melds.Any(meld => meld.External)
-                    && waits.Count >= 2
-                    && decomposition.WinningKind != "pair";
+                    && structure.All(tile => tile < 40);
             }
             bool singleWait = waits.Count == 1
                 && IsSingleWaitUse(decomposition, winningTile)
@@ -331,18 +583,15 @@ namespace Taiwan {
             bool allHonors = !hasNumber;
 
             var fans = new List<TaiwanFan>();
-            bool pinfuExcludesMenqing = pinfu
-                && rules.ScoringPreset != "star31"
-                && rules.ScoringPreset != "shenlaiye";
-            if (menqing && !pinfuExcludesMenqing) AddFan(fans, "门清", 1);
-            if (menqing && isSelfDraw) AddFan(fans, "不求人", 1);
+            if (concealed_hand) AddFan(fans, "门清", 1);
+            if (concealed_hand && isSelfDraw) AddFan(fans, "不求人", 1);
             if (isSelfDraw) AddFan(fans, "自摸", 1);
 
             bool smallWindsKeepsWindFans = smallWinds
-                && (rules.ScoringPreset == "shenlaiye" || rules.ScoringPreset == "cml");
+                && rules.LittleFourWindsAddWindPungs;
             if (!bigWinds
                 && (!smallWinds || smallWindsKeepsWindFans)
-                && rules.AllWindsTai == 0) {
+                && !rules.AllWindPungsEnabled) {
                 if (tripletTiles.Contains(seatWind)) AddFan(fans, "门风刻", 1);
                 if (tripletTiles.Contains(roundWind)) AddFan(fans, "圈风刻", 1);
             }
@@ -352,8 +601,8 @@ namespace Taiwan {
             if (!(bigDragons || smallDragons) && dragonTripletCount > 0) {
                 AddFan(fans, "三元牌", 1, dragonTripletCount);
             }
-            if (singleWait && !pinfu) AddFan(fans, "独听", 1);
-            if (pinfu) AddFan(fans, "平胡", 2);
+            if (singleWait) AddFan(fans, "独听", 1);
+            if (all_chows) AddFan(fans, "平胡", 2);
 
             int concealedTriplets = CountConcealedTriplets(decomposition, isSelfDraw);
             if (concealedTriplets >= Structure.MeldCount) AddFan(fans, "五暗刻", 8);
@@ -363,7 +612,7 @@ namespace Taiwan {
             if (allExposed && !isSelfDraw) {
                 AddFan(fans, "全求人", rules.ResolveFanTai("全求人", 2));
             }
-            if (allTriplets && !(rules.ScoringPreset == "shenlaiye" && allHonors)) {
+            if (allTriplets && (rules.AllHonorsAddAllPungs || !allHonors)) {
                 AddFan(fans, "碰碰胡", 4);
             }
             if (bigDragons) AddFan(fans, "大三元", 8);
@@ -383,7 +632,7 @@ namespace Taiwan {
                 isSelfDraw,
                 flowers,
                 rules);
-            ApplyEightImmortalsToNormalHand(fans, flowers, rules);
+            ApplyEightFlowersToNormalHand(fans, flowers, rules);
             return fans;
         }
 
@@ -403,7 +652,7 @@ namespace Taiwan {
                 AddFan(fans, "不求人", 1);
                 AddFan(fans, "自摸", 1);
             }
-            if (rules.AllWindsTai == 0) {
+            if (!rules.AllWindPungsEnabled) {
                 if (tripletTile == seatWind) AddFan(fans, "门风刻", 1);
                 if (tripletTile == roundWind) AddFan(fans, "圈风刻", 1);
             }
@@ -421,7 +670,7 @@ namespace Taiwan {
             var tripletSet = new HashSet<int> { tripletTile };
             AddExtensionFans(fans, new List<TaiwanMeld>(), handTiles.ToList(), tripletSet, false, isSelfDraw, flowers, rules);
 
-            ApplyEightImmortalsToNormalHand(fans, flowers, rules);
+            ApplyEightFlowersToNormalHand(fans, flowers, rules);
             AddFan(fans, "八对半", 8);
             return fans;
         }
@@ -435,36 +684,36 @@ namespace Taiwan {
             bool isSelfDraw,
             IList<int> flowers,
             TaiwanRuleConfig rules) {
-            if (rules.HalfExposedTai > 0 && allExposed && isSelfDraw) {
-                AddFan(fans, "半求人", rules.HalfExposedTai);
+            if (rules.HalfBeggingEnabled && allExposed && isSelfDraw) {
+                AddFan(fans, "半求人", 1);
             }
-            if (rules.AllWindsTai > 0) {
+            if (rules.AllWindPungsEnabled) {
                 int count = Winds.Count(tripletTiles.Contains);
-                if (count > 0) AddFan(fans, "见字", rules.AllWindsTai, count);
+                if (count > 0) AddFan(fans, "见字", 1, count);
             }
-            if (rules.NoHonorNoFlowerTai > 0
+            if (rules.NoFlowersOrHonorsEnabled
                 && flowers.Count == 0
                 && structure.All(tile => tile < 40)) {
                 fans.RemoveAll(fan => fan.Name == "无花");
-                AddFan(fans, "无字无花", rules.NoHonorNoFlowerTai);
+                AddFan(fans, "无字无花", 2);
             }
-            if (rules.OpenKongTai > 0) {
+            if (rules.MeldedKongEnabled) {
                 int count = melds.Count(meld => meld.Kind == TaiwanMeldKind.Kong && !meld.Concealed);
-                if (count > 0) AddFan(fans, "明杠", rules.OpenKongTai, count);
+                if (count > 0) AddFan(fans, "明杠", 1, count);
             }
-            if (rules.ConcealedKongTai > 0) {
+            if (rules.ConcealedKongEnabled) {
                 int count = melds.Count(meld => meld.Kind == TaiwanMeldKind.Kong && meld.Concealed);
-                if (count > 0) AddFan(fans, "暗杠", rules.ConcealedKongTai, count);
+                if (count > 0) AddFan(fans, "暗杠", 2, count);
             }
         }
 
-        private static void ApplyEightImmortalsToNormalHand(
+        private static void ApplyEightFlowersToNormalHand(
             List<TaiwanFan> fans,
             IList<int> flowers,
             TaiwanRuleConfig rules) {
             if (flowers.Distinct().Count() != 8
-                || (rules.EightImmortalsMode != "add_to_normal"
-                    && rules.EightImmortalsMode != "compound")) {
+                || (rules.EightFlowersMode != "additive"
+                    && rules.EightFlowersMode != "compound")) {
                 return;
             }
             fans.RemoveAll(fan => fan.Name == "正花" || fan.Name == "见花" || fan.Name == "花杠");
@@ -505,7 +754,7 @@ namespace Taiwan {
                 flowerKongTiles.UnionWith(group);
             }
 
-            if (rules.FlowerScoring == "any") {
+            if (rules.FlowerScoringMode == "all_flowers") {
                 if (flowers.Count > 0) AddFan(fans, "见花", 1, flowers.Count);
             } else {
                 int firstFlower = 51 + Math.Max(0, Math.Min(3, seatWind - 41));
@@ -516,9 +765,9 @@ namespace Taiwan {
                 if (correctCount > 0) AddFan(fans, "正花", 1, correctCount);
             }
 
-            if (flowerKongCount > 0) AddFan(fans, "花杠", rules.FlowerKongTai, flowerKongCount);
-            if (flowers.Count == 0 && rules.NoFlowerTai > 0) {
-                AddFan(fans, "无花", rules.NoFlowerTai);
+            if (flowerKongCount > 0) AddFan(fans, "花杠", 1, flowerKongCount);
+            if (flowers.Count == 0 && rules.NoFlowersEnabled) {
+                AddFan(fans, "无花", 1);
             }
         }
 
@@ -541,30 +790,6 @@ namespace Taiwan {
             int rank = winningTile % 10;
             return (winningTile == high && rank == 3)
                 || (winningTile == low && rank == 7);
-        }
-
-        private static bool IsExclusivelyTwoSidedWait(
-            TaiwanDecomposition decomposition,
-            int winningTile) {
-            if (decomposition.Pair == winningTile) return false;
-            List<TaiwanMeld> uses = decomposition.Melds
-                .Where(meld => meld.Kind == TaiwanMeldKind.Sequence
-                    && !meld.External
-                    && meld.Contains(winningTile))
-                .ToList();
-            if (uses.Count == 0) return false;
-            foreach (TaiwanMeld meld in uses) {
-                int low = meld.Tile - 1;
-                int middle = meld.Tile;
-                int high = meld.Tile + 1;
-                if (winningTile == middle) return false;
-                int rank = winningTile % 10;
-                if ((winningTile == high && rank == 3)
-                    || (winningTile == low && rank == 7)) {
-                    return false;
-                }
-            }
-            return true;
         }
 
         private static List<int> BuildStructureTiles(TaiwanDecomposition decomposition) {
@@ -595,6 +820,25 @@ namespace Taiwan {
             }
 
             Dictionary<int, int> counts = CountTiles(handTiles);
+            Dictionary<int, int> physicalCounts = CloneCounts(counts);
+            foreach (TaiwanMeld meld in external) {
+                if (meld.Kind == TaiwanMeldKind.Sequence) {
+                    IncrementCount(physicalCounts, meld.Tile - 1);
+                    IncrementCount(physicalCounts, meld.Tile);
+                    IncrementCount(physicalCounts, meld.Tile + 1);
+                } else {
+                    int count = meld.Kind == TaiwanMeldKind.Kong ? 4 : 3;
+                    physicalCounts[meld.Tile] = physicalCounts.TryGetValue(
+                        meld.Tile,
+                        out int existing)
+                        ? existing + count
+                        : count;
+                }
+            }
+            if (physicalCounts.Values.Any(count => count > 4)) {
+                return new List<TaiwanDecomposition>();
+            }
+
             var pairTiles = counts.Where(entry => entry.Value >= 2).Select(entry => entry.Key).OrderBy(tile => tile);
             var results = new List<TaiwanDecomposition>();
             var partitionCache = new Dictionary<string, List<List<TaiwanMeld>>>();
@@ -855,6 +1099,10 @@ namespace Taiwan {
             return counts.ToDictionary(entry => entry.Key, entry => entry.Value);
         }
 
+        private static void IncrementCount(Dictionary<int, int> counts, int tile) {
+            counts[tile] = counts.TryGetValue(tile, out int count) ? count + 1 : 1;
+        }
+
         private static void RemoveCount(Dictionary<int, int> counts, int tile, int amount) {
             int remaining = counts[tile] - amount;
             if (remaining == 0) counts.Remove(tile);
@@ -943,14 +1191,21 @@ namespace Taiwan {
     }
 
     internal sealed class TaiwanFan {
+        public string FanId { get; }
         public string Name { get; }
-        public int Tai { get; }
+        public int Tai { get; private set; }
         public int Count { get; }
 
         public TaiwanFan(string name, int tai, int count) {
+            TaiwanFanCatalog.TryResolveFanId(name, out string fanId);
+            FanId = fanId ?? name;
             Name = name;
             Tai = tai;
             Count = count;
+        }
+
+        public void SetTai(int tai) {
+            Tai = tai;
         }
 
         public string DisplayName => Count == 1 ? Name : Name + "*" + Count;

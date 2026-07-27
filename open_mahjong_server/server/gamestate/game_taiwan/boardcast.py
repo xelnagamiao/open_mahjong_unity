@@ -318,6 +318,8 @@ async def broadcast_ask_hand_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if player_actions:
+                    # 自动操作没有 websocket 送达回调；将创建自动响应任务的时刻视为该座位的逻辑送达时刻。
+                    note_ask_delivered(self, seat_index)
                     asyncio.create_task(offline_auto_action(
                         self, seat_index, player_actions,
                         bot_ask_hand_game_status(self, seat_index)))
@@ -326,12 +328,14 @@ async def broadcast_ask_hand_action(self):
             # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if player_actions:
+                    note_ask_delivered(self, seat_index)
                     asyncio.create_task(auto_cut_action(
                         self, seat_index, player_actions,
                         bot_ask_hand_game_status(self, seat_index)))
                 continue
             elif current_player.user_id == 2:
                 if player_actions:
+                    note_ask_delivered(self, seat_index)
                     asyncio.create_task(smart_bot_action(
                         self, seat_index, player_actions,
                         bot_ask_hand_game_status(self, seat_index)))
@@ -384,6 +388,7 @@ async def broadcast_ask_other_action(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 if player_actions:
+                    note_ask_delivered(self, seat_index)
                     asyncio.create_task(offline_auto_action(
                         self, seat_index, player_actions, self.game_status))
                 continue
@@ -391,11 +396,13 @@ async def broadcast_ask_other_action(self):
             # 如果是机器人，启动自动操作并跳过广播；保留 user_id < 10 整段视为机器人
             if current_player.user_id == 0:
                 if player_actions:
+                    note_ask_delivered(self, seat_index)
                     asyncio.create_task(auto_cut_action(
                         self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id == 2:
                 if player_actions:
+                    note_ask_delivered(self, seat_index)
                     asyncio.create_task(smart_bot_action(
                         self, seat_index, player_actions, self.game_status))
                 continue
@@ -650,6 +657,7 @@ async def broadcast_result(self,
                           next_status: Optional[str] = None,
                           hepai_tile: Optional[int] = None,
                           multi_ron: Optional[bool] = None,
+                          is_qianggang: Optional[bool] = None,
                           ron_discarder_index: Optional[int] = None,
                           recycle_discard: Optional[bool] = None):
     self.server_action_tick += 1
@@ -688,6 +696,7 @@ async def broadcast_result(self,
                         next_status=next_status,
                         hepai_tile=hepai_tile,
                         multi_ron=multi_ron,
+                        is_qianggang=is_qianggang,
                         ron_discarder_index=ron_discarder_index,
                         recycle_discard=recycle_discard,
                     )

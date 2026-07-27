@@ -20,6 +20,8 @@ public static partial class HepaiRevealDirector {
             winnerPosition, huClass, hand, huFan, recordRule, discardPlayerPosition);
         request.IsRecordShowCardsExpanded = showCardsExpanded;
         request.RecordRule = recordRule;
+        if (hepaiTile > 0) request.HepaiTile = hepaiTile;
+        ConfigureRuleSpecificRecordRequest(request, recordRule, huFan);
         return request;
     }
 

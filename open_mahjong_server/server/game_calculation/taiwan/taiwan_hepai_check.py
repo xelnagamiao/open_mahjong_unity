@@ -30,7 +30,7 @@ class Taiwan_Hepai_Check:
             winning_tile=get_tile,
             win_source=win_source,
             flowers=list(flowers),
-            after_kong=bool(raw.pop("after_kong", False) or "杠上开花" in way_to_hepai),
+            out_with_replacement_tile=bool(raw.pop("out_with_replacement_tile", False) or "杠上开花" in way_to_hepai),
             last_tile=bool(raw.pop("last_tile", False) or "海底捞月" in way_to_hepai),
             heavenly_win=bool(raw.pop("heavenly_win", False) or "天胡" in way_to_hepai),
             earthly_win=bool(raw.pop("earthly_win", False) or "地胡" in way_to_hepai),
@@ -62,7 +62,7 @@ class Taiwan_Hepai_Check:
     @staticmethod
     def _win_source(way_to_hepai: List[str]) -> str:
         if "抢杠" in way_to_hepai or "抢杠和" in way_to_hepai:
-            return "rob_kong"
+            return "robbing_kong"
         if "点胡" in way_to_hepai or "点和" in way_to_hepai:
             return "discard"
         return "self_draw"

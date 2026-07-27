@@ -23,22 +23,22 @@ public static class TaiwanExternal {
         IList<string> fanNames,
         IDictionary<string, object> ruleValues) {
         if (fanNames == null) return huClass;
-        bool hasEightImmortals = false;
+        bool hasEightFlowers = false;
         for (int i = 0; i < fanNames.Count; i++) {
             if (fanNames[i] == "七抢一") return "hu_flower";
             if (fanNames[i] == "八仙过海") {
-                hasEightImmortals = true;
+                hasEightFlowers = true;
             }
         }
-        if (huClass != "hu_self" || !hasEightImmortals) return huClass;
+        if (huClass != "hu_self" || !hasEightFlowers) return huClass;
 
-        string mode = "optional_separate";
+        string mode = "optional_standalone";
         if (ruleValues != null
-            && ruleValues.TryGetValue("eight_immortals_mode", out object rawMode)
+            && ruleValues.TryGetValue("eight_flowers_mode", out object rawMode)
             && rawMode != null) {
             mode = rawMode.ToString();
         }
-        return mode == "optional_separate" || mode == "forced_separate" || mode == "compound"
+        return mode == "optional_standalone" || mode == "forced_standalone" || mode == "compound"
             ? "hu_flower"
             : huClass;
     }

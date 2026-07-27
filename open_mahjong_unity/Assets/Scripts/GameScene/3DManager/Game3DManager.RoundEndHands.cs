@@ -31,6 +31,9 @@ public partial class Game3DManager {
         System.Array.Sort(closed, TileIdOrder.Comparer);
         ForceHandRevealIdle(panel);
         ClearHandCardsPosition(panel.cardsPosition);
+        if (request.IsQianggang && request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) {
+            RecycleRobbedAddedKongSource(request);
+        }
         switch (request.WinTileMode) {
             case HepaiWinTilePresentMode.TsumoTravel:
                 yield return CoTsumoTravelReveal(pos, panel, closed, winTileId);
@@ -45,6 +48,19 @@ public partial class Game3DManager {
         }
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(HepaiRevealTiming.ExpandHoldSeconds);
+    }
+
+    /// <summary>
+    /// 被抢加杠在服务端确认前已按加杠暂态展示；和牌确认后应撤回该加杠牌。
+    /// </summary>
+    private void RecycleRobbedAddedKongSource(HepaiPresentationRequest request) {
+        GameObject source = TryResolveJiagangSourceObject(
+            request.DiscardPlayerPosition,
+            request.HepaiTile);
+        if (source == null) return;
+        ClearLastJiagangIfMatches(request.DiscardPlayerPosition, source);
+        source.transform.SetParent(null, worldPositionStays: true);
+        MahjongObjectPool.Instance.Return(-1, source);
     }
     /// <summary>
     /// 牌谱/观战和牌 3D：自家始终与对局一致（隐藏 2D 手牌区 + cardsPosition 倒牌）；
@@ -61,6 +77,9 @@ public partial class Game3DManager {
             yield break;
         }
         if (request.IsRecordShowCardsExpanded) {
+            if (request.IsQianggang) {
+                RecycleRobbedAddedKongSource(request);
+            }
             if (ShouldRecordShowCardsGuobiaoWinMove(request)) {
                 yield return CoRecordShowCardsGuobiaoWinTileToDrawSlot(request);
             }

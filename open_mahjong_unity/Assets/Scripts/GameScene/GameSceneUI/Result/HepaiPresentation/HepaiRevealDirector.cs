@@ -6,7 +6,14 @@ using UnityEngine;
 /// 和牌倒牌策略入口：按规则与 hu_class 选择展示方式，委托 Game3DManager 执行 3D 演出。
 /// </summary>
 public static partial class HepaiRevealDirector {
-    public static IEnumerator Play(int hepaiPlayerIndex, int[] hepaiPlayerHand, string huClass, string[] huFan) {
+    public static IEnumerator Play(
+        int hepaiPlayerIndex,
+        int[] hepaiPlayerHand,
+        string huClass,
+        string[] huFan,
+        bool isQianggang = false,
+        int? ronDiscarderIndex = null,
+        int hepaiTile = 0) {
         if (hepaiPlayerHand == null || hepaiPlayerHand.Length == 0) {
             yield break;
         }
@@ -17,6 +24,7 @@ public static partial class HepaiRevealDirector {
         string ruleKey = ResolveLiveRuleKey();
         string discardPos = NormalGameStateManager.Instance.lastDiscardPlayerPosition;
         HepaiPresentationRequest request = BuildRequestCore(winnerPos, huClass, hepaiPlayerHand, huFan, ruleKey, discardPos);
+        ConfigureRuleSpecificRonRequest(request, ruleKey, isQianggang, ronDiscarderIndex, hepaiTile);
         yield return Game3DManager.Instance.PlayHepaiHandReveal(request);
         // 错和续局的手牌恢复在 ready 结束后由 NormalGameStateManager.TryResumeAfterCuoheContinue 统一处理
     }

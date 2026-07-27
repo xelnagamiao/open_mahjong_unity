@@ -13,7 +13,7 @@ from .action_check import (
     check_action_hand_action,
     check_action_jiagang,
     hu_action_for_player,
-    is_forced_declared_ready_win,
+    is_forced_ready_win,
     is_kuikae_forbidden_cut,
     refresh_waiting_tiles,
     strict_kuikae_forbidden,
@@ -143,12 +143,14 @@ class TaiwanPlayer:
         self.first_discard_done = False
         self.discard_count = 0
         self.last_drawn_tile = None
-        self.pending_eight_immortals = False
-        self.eight_immortals_declined = False
+        self.pending_eight_flowers = False
+        self.eight_flowers_declined = False
         self.declared_ready = False
         self.ready_locked = False
         self.riichi_candidate_cuts = {}
+        self.last_discarded_tile = None
         self.liability_payer = None
+        self.liability_fan_id = None
 
     def get_tile(self, tiles_list, *, mark_draw_slot: bool = True):
         tile = tiles_list.pop(0)
@@ -246,6 +248,7 @@ class TaiwanGameState:
         self.pending_cuohe: Optional[dict] = None
         self._hand_scores_before: Dict[int, int] = {}
         self.jiagang_tile: Optional[int] = None
+        self._pending_jiagang: Optional[dict] = None
         self.draw_reason = "exhaustive"
         self.table_claim_or_kong = False
         self.opening_dealer_action = False
@@ -411,13 +414,15 @@ class TaiwanGameState:
             player.first_discard_done = False
             player.discard_count = 0
             player.last_drawn_tile = None
-            player.pending_eight_immortals = False
-            player.eight_immortals_declined = False
+            player.pending_eight_flowers = False
+            player.eight_flowers_declined = False
             player.has_draw_slot = False
             player.declared_ready = False
             player.ready_locked = False
             player.riichi_candidate_cuts = {}
+            player.last_discarded_tile = None
             player.liability_payer = None
+            player.liability_fan_id = None
             if "declared_ready" in player.tag_list:
                 player.tag_list.remove("declared_ready")
 
@@ -425,6 +430,7 @@ class TaiwanGameState:
         self.pending_winners = []
         self.pending_cuohe = None
         self.jiagang_tile = None
+        self._pending_jiagang = None
         self.result_dict = {}
         self.hu_class = None
         self.draw_reason = "exhaustive"
@@ -443,26 +449,27 @@ class TaiwanGameState:
         return len(self.tiles_list) > self.dead_wall_count
 
     def can_take_supplement_tile(self) -> bool:
-        mode = getattr(getattr(self, "rules", None), "dead_wall_mode", "fixed_16")
-        if mode == "replacement_wall_16":
+        mode = getattr(getattr(self, "rules", None), "dead_wall_mode", "fixed_tail_16")
+        if mode == "fixed_replacement_wall_16":
             remaining = getattr(self, "replacement_wall_remaining", self.dead_wall_count)
             return remaining > 0 and bool(self.tiles_list)
         return len(self.tiles_list) > self.dead_wall_count
 
     def can_establish_kong(self) -> bool:
-        """判断现在成立一杠后是否仍有合法补牌。
-
-        “每杠加一张”会先把普通侧的一张牌划入尾牌，因此必须比当前尾界
-        至少多两张。若第四杠会直接触发四杠散了，则按馆规先流局，无需补牌。
-        末张暗杠/加杠的无补牌例外由动作检查层单独放行，碰杠不适用。
-        """
+        """判断现在成立一杠后是否仍有合法补牌。"""
         if self.rules.four_kongs_abort and self._kong_count() >= 3:
             return True
-        if self.rules.dead_wall_mode == "kong_add_one":
+        if self.rules.dead_wall_mode == "kong_expands_tail":
             return len(self.tiles_list) > self.dead_wall_count + 1
         return self.can_take_supplement_tile()
 
-    # 公共流程读取此入口；其语义始终是“普通侧仍可摸”。
+    def _can_establish_kong_for_action(self) -> bool:
+        """检查当前是否允许成立杠牌。"""
+
+        if not hasattr(self, "tiles_list"):
+            return True
+        return self.can_establish_kong()
+
     def can_take_wall_tile(self) -> bool:
         return self.can_take_normal_tile()
 
@@ -471,8 +478,8 @@ class TaiwanGameState:
 
     def _take_supplement_tile(self) -> int:
         tile = self.tiles_list.pop(-1)
-        mode = getattr(getattr(self, "rules", None), "dead_wall_mode", "fixed_16")
-        if mode == "replacement_wall_16":
+        mode = getattr(getattr(self, "rules", None), "dead_wall_mode", "fixed_tail_16")
+        if mode == "fixed_replacement_wall_16":
             remaining = getattr(self, "replacement_wall_remaining", self.dead_wall_count)
             self.replacement_wall_remaining = max(0, remaining - 1)
             if len(self.tiles_list) > self.replacement_wall_remaining:
@@ -488,21 +495,94 @@ class TaiwanGameState:
             if code and code[0] in ("g", "G")
         )
 
+    def expected_playable_wall_after_kong(self, additional_kongs: int = 1) -> int:
+        """估算完成一次杠后剩余的可摸牌墙数量。"""
+
+        if type(additional_kongs) is not int or additional_kongs < 1:
+            raise ValueError("additional_kongs must be a positive integer")
+
+        try:
+            before = max(0, int(self.playable_wall_count()))
+        except (AttributeError, TypeError, ValueError):
+            before = 0
+        try:
+            wall_length = len(self.tiles_list)
+            dead_wall = int(self.dead_wall_count)
+        except (AttributeError, TypeError, ValueError):
+            if self.rules.dead_wall_mode == "kong_expands_tail":
+                remaining = before
+                established_kongs = self._kong_count()
+                for _ in range(additional_kongs):
+                    if self.rules.four_kongs_abort and established_kongs >= 3:
+                        break
+                    cost = 2 if remaining > 1 else (1 if remaining else 0)
+                    remaining = max(0, remaining - cost)
+                    established_kongs += 1
+                return remaining
+            supplement_checker = getattr(self, "can_take_supplement_tile", None)
+            if callable(supplement_checker):
+                remaining = before
+                established_kongs = self._kong_count()
+                for _ in range(additional_kongs):
+                    if self.rules.four_kongs_abort and established_kongs >= 3:
+                        break
+                    if not supplement_checker():
+                        break
+                    remaining = max(0, remaining - 1)
+                    established_kongs += 1
+                return remaining
+            return max(0, before - min(additional_kongs, before))
+
+        if self.rules.four_kongs_abort and self._kong_count() >= 3:
+            return before
+
+        mode = self.rules.dead_wall_mode
+        replacement_remaining = int(
+            getattr(self, "replacement_wall_remaining", dead_wall)
+        )
+        established_kongs = self._kong_count()
+        for _ in range(additional_kongs):
+            if self.rules.four_kongs_abort and established_kongs >= 3:
+                break
+            if mode == "kong_expands_tail":
+                dead_wall += 1
+                if wall_length > dead_wall:
+                    wall_length -= 1
+            elif mode == "fixed_replacement_wall_16":
+                if replacement_remaining > 0 and wall_length:
+                    wall_length -= 1
+                    replacement_remaining = max(0, replacement_remaining - 1)
+                    if wall_length > replacement_remaining:
+                        replacement_remaining += 1
+                    dead_wall = replacement_remaining
+            else:
+                if wall_length > dead_wall:
+                    wall_length -= 1
+            established_kongs += 1
+
+        return max(0, wall_length - dead_wall)
+
+    def can_keep_wall_after_kong(self) -> bool:
+        """检查当前杠牌后是否有合法补牌。"""
+
+        reserve = self.rules.required_claim_wall_reserve
+        return (
+            reserve <= 0
+            or self.expected_playable_wall_after_kong() >= reserve
+        )
+
     def _on_kong_established(self) -> bool:
-        """返回是否已按四杠散了结束本手；结束时不得移动尾界。"""
+        """检查是否已按四杠散了结束本手。"""
         if self.rules.four_kongs_abort and self._kong_count() >= 4:
             self.draw_reason = "four_kongs_abort"
             self.game_status = "END"
             return True
-        if self.rules.dead_wall_mode == "kong_add_one":
+        if self.rules.dead_wall_mode == "kong_expands_tail":
             self.dead_wall_count += 1
         return False
 
     def _round_wind(self) -> int:
         return 41 + min(3, (self.current_round - 1) // 4)
-
-    def _uses_scoring_preset(self, preset: str) -> bool:
-        return self.rules.scoring_preset == preset
 
     def _has_table_concealed_kong(self) -> bool:
         return any(
@@ -562,7 +642,6 @@ class TaiwanGameState:
     ) -> dict:
         player = self.player_list[player_index]
         is_self = source == "self_draw"
-        shenlaiye = self._uses_scoring_preset("shenlaiye")
         table_concealed_kong = self._has_table_concealed_kong()
         opening_flower_timing = bool(
             opening_flower_win
@@ -584,9 +663,9 @@ class TaiwanGameState:
             ),
             "seat_wind": 41 + player_index,
             "round_wind": self._round_wind(),
-            "after_kong": bool(self.last_draw_after_kong),
+            "out_with_replacement_tile": bool(self.last_draw_after_kong),
             "last_tile": bool(is_self and self.last_draw_was_last),
-            "river_bottom": bool(source == "discard" and not self.can_take_wall_tile()),
+            "last_tile_claim": bool(source == "discard" and not self.can_take_wall_tile()),
             "heavenly_ready": bool(player.qualification_alive and player.heavenly_ready),
             "earthly_ready": bool(player.qualification_alive and player.earthly_ready),
             "declared_ready": bool(getattr(player, "declared_ready", False)),
@@ -607,16 +686,20 @@ class TaiwanGameState:
                     and player.discard_count == 0
                     and (
                         not self.table_claim_or_kong
-                        or (shenlaiye and not table_concealed_kong)
+                        or (
+                            self.rules.earthly_win_allows_open_calls
+                            and not table_concealed_kong
+                        )
                     )
                 )
                 or (opening_flower_timing and player_index != 0)
             ),
             "human_win": bool(
                 source == "discard"
+                and self.rules.human_win_definition != "disabled"
                 and (
                     discarder_first_cut
-                    if shenlaiye
+                    if self.rules.human_win_definition == "discarder_first_discard"
                     else (
                         player_index != 0
                         and player.normal_draw_count == 0
@@ -624,10 +707,10 @@ class TaiwanGameState:
                     )
                 )
             ),
-            "eight_immortals_declined": bool(player.eight_immortals_declined),
+            "eight_flowers_declined": bool(player.eight_flowers_declined),
         }
-        if include_special and player.pending_eight_immortals:
-            context["eight_immortals"] = True
+        if include_special and player.pending_eight_flowers:
+            context["eight_flowers_and_seasons"] = True
         return context
 
     def score_candidate(
@@ -643,7 +726,7 @@ class TaiwanGameState:
     ) -> Optional[dict]:
         player = self.player_list[player_index]
         final_hand = list(player.hand_tiles)
-        if source in ("discard", "rob_kong"):
+        if source in ("discard", "robbing_kong"):
             if tile is None:
                 return None
             final_hand.append(tile)
@@ -651,10 +734,10 @@ class TaiwanGameState:
         else:
             winning_tile = tile or player.last_drawn_tile or (final_hand[-1] if final_hand else None)
 
-        if winning_tile is None and not (include_special and player.pending_eight_immortals):
+        if winning_tile is None and not (include_special and player.pending_eight_flowers):
             return None
         contexts = []
-        if include_special and player.pending_eight_immortals:
+        if include_special and player.pending_eight_flowers:
             contexts.append(
                 self._score_context(
                     player_index,
@@ -735,7 +818,7 @@ class TaiwanGameState:
     def has_normal_self_draw(self, player_index: int) -> bool:
         if "peida" in self.player_list[player_index].tag_list:
             return False
-        if self.player_list[player_index].water and self.rules.water_blocks_self_draw:
+        if self.player_list[player_index].water and self.rules.missed_win_blocks_self_draw:
             return False
         if not self.supplement_win_allowed:
             return False
@@ -753,8 +836,14 @@ class TaiwanGameState:
             return [tile - 1, tile, tile + 1]
         return [tile, tile, tile]
 
-    def _dangerous_pattern(self, player_index: int, tile: int, *, completed: bool) -> bool:
-        """判断清一色、四喜或三元的危险弃牌；completed 用于鸣牌后的持续包赔。"""
+    def _dangerous_pattern_fan_id(
+        self,
+        player_index: int,
+        tile: int,
+        *,
+        completed: bool,
+    ) -> Optional[str]:
+        """返回危险弃牌对应的最终台种；completed 用于鸣牌后的持续包赔。"""
         normal = normalize_tile(tile)
         codes = [code for code in self.player_list[player_index].combination_tiles if code and code[0] != "G"]
         same_suit = [
@@ -766,17 +855,40 @@ class TaiwanGameState:
         if len(same_suit) >= (
             dangerous_meld_count if completed else dangerous_meld_count - 1
         ):
-            return True
+            return "full_flush"
         triplets = {
             normalize_tile(int(code[1:]))
             for code in codes
             if code[0] in ("k", "g") and code[1:].isdigit()
         }
         if normal in (41, 42, 43, 44):
-            return len(triplets.intersection((41, 42, 43, 44))) >= (4 if completed else 3)
+            if len(triplets.intersection((41, 42, 43, 44))) >= (4 if completed else 3):
+                return "big_four_winds"
         if normal in (45, 46, 47):
-            return len(triplets.intersection((45, 46, 47))) >= (3 if completed else 2)
-        return False
+            if len(triplets.intersection((45, 46, 47))) >= (3 if completed else 2):
+                return "big_three_dragons"
+        return None
+
+    def _dangerous_pattern(self, player_index: int, tile: int, *, completed: bool) -> bool:
+        return self._dangerous_pattern_fan_id(
+            player_index,
+            tile,
+            completed=completed,
+        ) is not None
+
+    @staticmethod
+    def _detail_fan_ids(detail: Optional[dict]) -> Set[str]:
+        if not detail:
+            return set()
+        fan_ids = {
+            fan_id
+            for fan_id in (detail.get("fan_ids") or ())
+            if isinstance(fan_id, str)
+        }
+        for fan in (detail.get("fan_detail") or ()):
+            if isinstance(fan, dict) and isinstance(fan.get("id"), str):
+                fan_ids.add(fan["id"])
+        return fan_ids
 
     def _tile_was_unseen_before_discard(self, discarder: int, tile: int) -> bool:
         normal = normalize_tile(tile)
@@ -797,16 +909,29 @@ class TaiwanGameState:
         winner: int,
         source: str,
         payer: Optional[int],
-        tile: int,
+        tile: Optional[int],
+        detail: Optional[dict] = None,
     ) -> Optional[int]:
         if not self.rules.dangerous_discard_liability:
             return None
-        persisted = getattr(self.player_list[winner], "liability_payer", None)
-        if persisted is not None:
+        player = self.player_list[winner]
+        fan_ids = self._detail_fan_ids(detail)
+        persisted = getattr(player, "liability_payer", None)
+        persisted_fan_id = getattr(player, "liability_fan_id", None)
+        if (
+            persisted is not None
+            and persisted_fan_id is not None
+            and persisted_fan_id in fan_ids
+        ):
             return persisted
-        if source not in ("discard", "rob_kong") or payer is None:
+        if source not in ("discard", "robbing_kong") or payer is None or tile is None:
             return None
-        if self._dangerous_pattern(winner, tile, completed=False):
+        dangerous_fan_id = self._dangerous_pattern_fan_id(
+            winner,
+            tile,
+            completed=False,
+        )
+        if dangerous_fan_id is not None and dangerous_fan_id in fan_ids:
             return payer
         if (
             source == "discard"
@@ -817,27 +942,33 @@ class TaiwanGameState:
         return None
 
     def _remember_claim_liability(self, player_index: int, payer: int, tile: int) -> None:
-        if (
-            self.rules.dangerous_discard_liability
-            and self._dangerous_pattern(player_index, tile, completed=True)
-        ):
-            self.player_list[player_index].liability_payer = payer
+        if not self.rules.dangerous_discard_liability:
+            return
+        fan_id = self._dangerous_pattern_fan_id(
+            player_index,
+            tile,
+            completed=True,
+        )
+        if fan_id is not None:
+            player = self.player_list[player_index]
+            player.liability_payer = payer
+            player.liability_fan_id = fan_id
 
     def _special_flower_detail(
         self,
         player_index: int,
-        seven_robs_one: bool = False,
+        seven_flowers_steal_eighth: bool = False,
         *,
         opening: bool = False,
     ) -> dict:
         player = self.player_list[player_index]
         context = self._score_context(
             player_index,
-            "seven_robs_one" if seven_robs_one else "self_draw",
+            "seven_flowers_steal_eighth" if seven_flowers_steal_eighth else "self_draw",
             include_special=False,
             opening_flower_win=opening,
         )
-        context["seven_robs_one" if seven_robs_one else "eight_immortals"] = True
+        context["seven_flowers_steal_eighth" if seven_flowers_steal_eighth else "eight_flowers_and_seasons"] = True
         return self.calculation_service.Taiwan_hepai_detail(
             list(player.hand_tiles),
             player.combination_tiles,
@@ -848,20 +979,32 @@ class TaiwanGameState:
 
     def _combine_flower_details(self, normal: Optional[dict], flower: dict) -> dict:
         if not normal:
-            return flower
-        result = dict(normal)
-        result["tai"] = normal["tai"] + flower["tai"]
+            result = dict(flower)
+        else:
+            result = dict(normal)
+            result["tai"] = normal["tai"] + flower["tai"]
+            for key in ("fan_ids", "fan_names", "fan_detail"):
+                result[key] = list(normal.get(key, [])) + list(flower.get(key, []))
+            result["decomposition"] = list(normal.get("decomposition", [])) + [
+                "special:seven_flowers_steal_eighth"
+            ]
+            result["special"] = "seven_flowers_steal_eighth"
+
+        minimum_tai = int(
+            getattr(self, "hepai_limit", self.rules.minimum_tai) or 0
+        )
+        result["is_win"] = result["tai"] >= minimum_tai
+        result["below_minimum"] = not result["is_win"]
+        result["reason"] = (
+            ""
+            if result["is_win"]
+            else f"未达到最低 {minimum_tai} 台"
+        )
         result["capped_tai"] = (
             min(result["tai"], self.rules.tai_cap)
             if self.rules.tai_cap
             else result["tai"]
         )
-        for key in ("fan_ids", "fan_names", "fan_detail"):
-            result[key] = list(normal.get(key, [])) + list(flower.get(key, []))
-        result["decomposition"] = list(normal.get("decomposition", [])) + [
-            "special:seven_robs_one"
-        ]
-        result["special"] = "seven_robs_one"
         return result
 
     # ------------------------------------------------------------------
@@ -898,7 +1041,7 @@ class TaiwanGameState:
             player.water = True
             self._record_water_state(player_index)
         if (
-            self._uses_scoring_preset("shenlaiye")
+            self.rules.qualified_ready_win_policy == "lose_earthly_on_pass"
             and player.qualification_alive
             and player.earthly_ready
         ):
@@ -920,31 +1063,49 @@ class TaiwanGameState:
             self._record_water_state(player_index)
 
     def _discard_may_win(self, player_index: int, discarded_tile: int) -> bool:
-        player = self.player_list[player_index]
-        waits = self.calculation_service.Taiwan_tingpai_check(
-            player.hand_tiles,
-            player.combination_tiles,
-            self.rules_dict,
+        return self._tile_is_legal_win_without_water(
+            player_index,
+            "discard",
+            discarded_tile,
         )
-        return normalize_tile(discarded_tile) in {normalize_tile(tile) for tile in waits}
 
     def _kong_fourth_may_win(self, player_index: int, tile: int) -> bool:
+        """判断杠所用的第四张牌本身是否原本就是合法胡牌张。"""
+
         player = self.player_list[player_index]
-        pre_win = list(player.hand_tiles)
         normal = normalize_tile(tile)
-        remove_index = next(
-            (idx for idx, value in enumerate(pre_win) if normalize_tile(value) == normal),
-            None,
-        )
-        if remove_index is None:
+        if not any(
+            normalize_tile(hand_tile) == normal
+            for hand_tile in player.hand_tiles
+        ):
             return False
-        pre_win.pop(remove_index)
-        waits = self.calculation_service.Taiwan_tingpai_check(
-            pre_win,
-            player.combination_tiles,
-            self.rules_dict,
+        return self._tile_is_legal_win_without_water(
+            player_index,
+            "self_draw",
+            normal,
         )
-        return normal in {normalize_tile(value) for value in waits}
+
+    def _tile_is_legal_win_without_water(
+        self,
+        player_index: int,
+        source: str,
+        tile: int,
+    ) -> bool:
+        """判断移除过水限制后，该牌是否仍是完整合法和牌。"""
+
+        player = self.player_list[player_index]
+        was_water = bool(getattr(player, "water", False))
+        player.water = False
+        try:
+            detail = self.score_candidate(
+                player_index,
+                source,
+                tile,
+                include_special=False,
+            )
+        finally:
+            player.water = was_water
+        return bool(detail and detail.get("is_win", False))
 
     def _is_four_winds_abort(self) -> bool:
         if not self.rules.four_winds_abort or self.table_claim_or_kong:
@@ -960,9 +1121,10 @@ class TaiwanGameState:
         self.game_status = "END"
 
     def _register_initial_heavenly_ready(self) -> None:
-        if not self.rules.heavenly_earthly_ready_enabled:
-            return
-        if self.rules.scoring_preset in ("star31", "shenlaiye"):
+        if self.rules.ready_qualification_mode not in (
+            "standard_with_dealer_heavenly_ready",
+            "standard_without_dealer_heavenly_ready",
+        ):
             return
         for index in (1, 2, 3):
             player = self.player_list[index]
@@ -975,6 +1137,7 @@ class TaiwanGameState:
     def ready_candidate_cuts(self, player_index: int) -> Dict[int, List[int]]:
         """返回公开报听可选的弃牌及对应等待集合。"""
         player = self.player_list[player_index]
+        table_claim_or_kong = bool(getattr(self, "table_claim_or_kong", False))
         dealer_opening_cut = (
             player_index == 0
             and player.discard_count == 0
@@ -987,18 +1150,27 @@ class TaiwanGameState:
             and not player.qualification_ever
         )
         total_discards = sum(item.discard_count for item in self.player_list)
-        star31_window = (
-            self._uses_scoring_preset("star31")
-            and not self.table_claim_or_kong
+        ready_mode = self.rules.ready_qualification_mode
+        first_eight_discards_window = (
+            ready_mode == "first_eight_table_discards"
+            and not table_claim_or_kong
             and not player.qualification_ever
             and total_discards < 8
         )
-        shenlaiye_window = (
-            self._uses_scoring_preset("shenlaiye")
+        first_discard_window = (
+            ready_mode == "each_player_first_discard"
             and not player.qualification_ever
             and player.discard_count == 0
             and not player.combination_tiles
             and not self._has_table_concealed_kong()
+        )
+        standard_window = (
+            ready_mode in ("standard_with_dealer_heavenly_ready", "standard_without_dealer_heavenly_ready")
+            and not table_claim_or_kong
+            and (
+                (dealer_opening_cut and ready_mode == "standard_with_dealer_heavenly_ready")
+                or first_normal_draw_cut
+            )
         )
 
         # 庄家的开局完整手牌没有普通摸牌槽，但第一打仍是合法的天听声明时点。
@@ -1006,25 +1178,16 @@ class TaiwanGameState:
             return {}
 
         qualification_window = (
-            self.rules.heavenly_earthly_ready_enabled
-            and bool(self.rules.public_ready_tai)
+            ready_mode != "disabled"
+            and self.rules.public_ready_enabled
             and (
                 player.qualification_alive
-                or star31_window
-                or shenlaiye_window
-                or (
-                    not self.table_claim_or_kong
-                    and (
-                        (
-                            dealer_opening_cut
-                            and not self._uses_scoring_preset("cml")
-                        )
-                        or first_normal_draw_cut
-                    )
-                )
+                or first_eight_discards_window
+                or first_discard_window
+                or standard_window
             )
         )
-        if not qualification_window and not self.rules.public_ready_tai:
+        if not qualification_window and not self.rules.public_ready_enabled:
             return {}
 
         candidates: Dict[int, List[int]] = {}
@@ -1045,7 +1208,8 @@ class TaiwanGameState:
     def taiwan_hint_ready_qualification(self, player_index: int) -> str:
         """返回当前动作提示应采用的私有听牌资格。"""
         player = self.player_list[player_index]
-        if self.rules.heavenly_earthly_ready_enabled:
+        ready_mode = self.rules.ready_qualification_mode
+        if ready_mode != "disabled":
             if player.qualification_alive:
                 if player.heavenly_ready:
                     return "heavenly"
@@ -1063,26 +1227,42 @@ class TaiwanGameState:
                     and player.discard_count == (1 if player_index == 0 else 0)
                     and not player.pre_first_draw_waiting
                 )
-                if self._uses_scoring_preset("star31") and not self.table_claim_or_kong:
-                    if dealer_opening_cut:
-                        return "heavenly"
-                    if sum(item.discard_count for item in self.player_list) < 8:
+                if ready_mode == "first_eight_table_discards":
+                    if not self.table_claim_or_kong:
+                        if dealer_opening_cut:
+                            return "heavenly"
+                        if sum(item.discard_count for item in self.player_list) < 8:
+                            return "earthly"
+                    return (
+                        "public"
+                        if player.declared_ready and self.rules.public_ready_enabled
+                        else "none"
+                    )
+                if ready_mode == "each_player_first_discard":
+                    if (
+                        player.discard_count == 0
+                        and not player.combination_tiles
+                        and not self._has_table_concealed_kong()
+                    ):
                         return "earthly"
-                if (
-                    self._uses_scoring_preset("shenlaiye")
-                    and player.discard_count == 0
-                    and not player.combination_tiles
-                    and not self._has_table_concealed_kong()
-                ):
-                    return "earthly"
-                if self.table_claim_or_kong:
-                    return "public" if player.declared_ready and self.rules.public_ready_tai else "none"
-                if dealer_opening_cut and not self._uses_scoring_preset("cml"):
-                    return "heavenly"
-                if first_normal_draw_cut:
-                    return "earthly"
+                    return (
+                        "public"
+                        if player.declared_ready and self.rules.public_ready_enabled
+                        else "none"
+                    )
+                if ready_mode in ("standard_with_dealer_heavenly_ready", "standard_without_dealer_heavenly_ready"):
+                    if self.table_claim_or_kong:
+                        return (
+                            "public"
+                            if player.declared_ready and self.rules.public_ready_enabled
+                            else "none"
+                        )
+                    if dealer_opening_cut and ready_mode == "standard_with_dealer_heavenly_ready":
+                        return "heavenly"
+                    if first_normal_draw_cut:
+                        return "earthly"
 
-        if player.declared_ready and self.rules.public_ready_tai:
+        if player.declared_ready and self.rules.public_ready_enabled:
             return "public"
         return "none"
 
@@ -1163,13 +1343,14 @@ class TaiwanGameState:
         self._record_ready_state(player_index)
 
     def _register_ready_after_discard(self, player_index: int) -> None:
-        if not self.rules.heavenly_earthly_ready_enabled:
+        ready_mode = self.rules.ready_qualification_mode
+        if ready_mode == "disabled":
             return
         player = self.player_list[player_index]
         waits = refresh_waiting_tiles(self, player_index)
         if not waits or player.qualification_ever:
             return
-        if self._uses_scoring_preset("star31"):
+        if ready_mode == "first_eight_table_discards":
             if self.table_claim_or_kong or sum(item.discard_count for item in self.player_list) > 8:
                 return
             if player_index == 0 and player.discard_count == 1:
@@ -1180,7 +1361,7 @@ class TaiwanGameState:
             player.qualification_ever = True
             self._record_ready_state(player_index)
             return
-        if self._uses_scoring_preset("shenlaiye"):
+        if ready_mode == "each_player_first_discard":
             if (
                 player.discard_count != 1
                 or player.combination_tiles
@@ -1192,13 +1373,15 @@ class TaiwanGameState:
             player.qualification_ever = True
             self._record_ready_state(player_index)
             return
+        if ready_mode not in ("standard_with_dealer_heavenly_ready", "standard_without_dealer_heavenly_ready"):
+            return
         if self.table_claim_or_kong:
             return
         if (
             player_index == 0
             and player.discard_count == 1
             and player.normal_draw_count == 0
-            and not self._uses_scoring_preset("cml")
+            and ready_mode == "standard_with_dealer_heavenly_ready"
         ):
             player.heavenly_ready = True
             player.qualification_alive = True
@@ -1220,40 +1403,40 @@ class TaiwanGameState:
         if declare_ready:
             self._declare_ready(player_index)
         elif (
-            self.rules.public_ready_tai
+            self.rules.public_ready_enabled
             and player.qualification_alive
             and not player.declared_ready
         ):
             # 公开模式必须在资格产生的当次动作确认；跳过后不能延后补报。
             self._revoke_qualification(player_index)
 
-    def decline_eight_immortals(self, player_index: int) -> None:
+    def decline_eight_flowers(self, player_index: int) -> None:
         player = self.player_list[player_index]
-        if player.pending_eight_immortals:
-            player.pending_eight_immortals = False
-            player.eight_immortals_declined = True
+        if player.pending_eight_flowers:
+            player.pending_eight_flowers = False
+            player.eight_flowers_declined = True
 
-    async def _ask_eight_immortals(
+    async def _ask_eight_flowers(
         self,
         player_index: int,
         *,
         opening: bool = False,
     ) -> None:
         player = self.player_list[player_index]
-        if not player.pending_eight_immortals or self.game_status == "END":
+        if not player.pending_eight_flowers or self.game_status == "END":
             return
         if getattr(player, "user_id", None) == 0:
             # 摸切机器人只负责推进牌局，所有和牌机会均放弃。
-            self.decline_eight_immortals(player_index)
+            self.decline_eight_flowers(player_index)
             return
-        if self.rules.eight_immortals_mode == "forced_separate":
+        if self.rules.eight_flowers_mode == "forced_standalone":
             self.result_dict["hu_self"] = self._special_flower_detail(
                 player_index,
                 opening=opening,
             )
             self.accept_self_draw(player_index)
             return
-        if self.rules.eight_immortals_mode == "compound":
+        if self.rules.eight_flowers_mode == "compound":
             self.result_dict["hu_self"] = self.score_candidate(
                 player_index,
                 "self_draw",
@@ -1261,8 +1444,8 @@ class TaiwanGameState:
             )
             self.accept_self_draw(player_index)
             return
-        if self.rules.eight_immortals_mode != "optional_separate":
-            player.pending_eight_immortals = False
+        if self.rules.eight_flowers_mode != "optional_standalone":
+            player.pending_eight_flowers = False
             return
         self.current_player_index = player_index
         self.action_dict = {0: [], 1: [], 2: [], 3: []}
@@ -1278,16 +1461,16 @@ class TaiwanGameState:
         if await self.wait_action():
             self.accept_self_draw(player_index)
         else:
-            self.decline_eight_immortals(player_index)
+            self.decline_eight_flowers(player_index)
 
     # ------------------------------------------------------------------
     # 花牌与统一牌墙
     # ------------------------------------------------------------------
 
-    def _seven_robs_one_candidate(self, owner_index: int, tile: int) -> Optional[dict]:
+    def _seven_flowers_steal_eighth_candidate(self, owner_index: int, tile: int) -> Optional[dict]:
         """检查本次补花是否产生七抢一机会，不提前改变花牌归属。"""
 
-        if not self.rules.seven_robs_one:
+        if not self.rules.seven_flowers_steal_eighth_enabled:
             return None
         public_before = {
             flower
@@ -1351,10 +1534,142 @@ class TaiwanGameState:
         self.player_list[winner].huapai_list.append(tile)
         return winner
 
-    async def _ask_seven_robs_one(self, special: Optional[dict]) -> Optional[dict]:
+    def _supplement_draw_will_exhaust_normal_wall(self) -> bool:
+        """预览取走当前牌尾补牌后，普通牌墙是否随即耗尽。"""
+
+        wall_length = max(0, len(self.tiles_list) - 1)
+        dead_wall_count = self.dead_wall_count
+        if self.rules.dead_wall_mode == "fixed_replacement_wall_16":
+            replacement_remaining = max(
+                0,
+                getattr(
+                    self,
+                    "replacement_wall_remaining",
+                    dead_wall_count,
+                ) - 1,
+            )
+            if wall_length > replacement_remaining:
+                replacement_remaining += 1
+            dead_wall_count = replacement_remaining
+        return wall_length <= dead_wall_count
+
+    def _seven_flowers_steal_eighth_details(
+        self,
+        info: dict,
+        replacement_tile: int,
+        *,
+        opening: bool,
+        transfer_completed: bool,
+    ) -> Tuple[Optional[dict], dict, dict]:
+        """按最低台数为零取得组成明细，再对花胡与普通牌形的合计台数统一验限。"""
+
+        winner = info["winner"]
+        player = self.player_list[winner]
+        final_hand = list(player.hand_tiles)
+        winner_flowers = list(player.huapai_list)
+        if not transfer_completed:
+            final_hand.append(replacement_tile)
+            _, transfer_tile = self._flower_win_transfer(info)
+            winner_flowers.append(transfer_tile)
+
+        scoring_rules = dict(self.rules_dict)
+        scoring_rules["minimum_tai"] = 0
+
+        flower_context = self._score_context(
+            winner,
+            "seven_flowers_steal_eighth",
+            include_special=False,
+            flowers_override=winner_flowers,
+            opening_flower_win=opening,
+        )
+        flower_context["rules"] = scoring_rules
+        flower_context["out_with_replacement_tile"] = True
+        flower_context["seven_flowers_steal_eighth"] = True
+        flower_detail = self.calculation_service.Taiwan_hepai_detail(
+            final_hand,
+            player.combination_tiles,
+            [],
+            replacement_tile,
+            flower_context,
+        )
+        if not flower_detail.get("is_win"):
+            return None, flower_detail, flower_detail
+
+        if info["mode"] == "seven_then_last":
+            normal_source = "seven_flowers_steal_eighth"
+            normal_flowers = []
+        else:
+            normal_source = "self_draw"
+            normal_flowers = list(winner_flowers)
+            normal_flowers.remove(info["stolen"])
+
+        normal_context = self._score_context(
+            winner,
+            normal_source,
+            include_special=False,
+            flowers_override=normal_flowers,
+        )
+        normal_context["rules"] = scoring_rules
+        normal_context["out_with_replacement_tile"] = True
+        if normal_source == "self_draw":
+            normal_context["last_tile"] = bool(
+                self.last_draw_was_last
+                if opening or transfer_completed
+                else self._supplement_draw_will_exhaust_normal_wall()
+            )
+        normal_detail = self.calculation_service.Taiwan_hepai_detail(
+            final_hand,
+            player.combination_tiles,
+            [],
+            replacement_tile,
+            normal_context,
+        )
+        if not normal_detail.get("is_win"):
+            normal_detail = None
+
+        return (
+            normal_detail,
+            flower_detail,
+            self._combine_flower_details(normal_detail, flower_detail),
+        )
+
+    def _preview_seven_flowers_steal_eighth_detail(
+        self,
+        info: dict,
+        *,
+        opening: bool,
+    ) -> Optional[dict]:
+        if not self.can_take_supplement_tile() or not self.tiles_list:
+            return None
+        replacement_tile = self.tiles_list[-1]
+        if replacement_tile in FLOWER_TILES:
+            return None
+        _, _, detail = self._seven_flowers_steal_eighth_details(
+            info,
+            replacement_tile,
+            opening=opening,
+            transfer_completed=False,
+        )
+        return detail
+
+    async def _ask_seven_flowers_steal_eighth(
+        self,
+        special: Optional[dict],
+        *,
+        opening: bool = False,
+    ) -> Optional[dict]:
         """提示七抢一花胡；取消或超时均按普通补花继续。"""
 
         if special is None:
+            return None
+        detail = self._preview_seven_flowers_steal_eighth_detail(
+            special,
+            opening=opening,
+        )
+        if not detail or (
+            not detail.get("is_win", False)
+            and not self._is_cuohe_detail(detail)
+        ):
             return None
 
         previous_player_index = self.current_player_index
@@ -1439,7 +1754,7 @@ class TaiwanGameState:
 
         player = self.player_list[player_index]
         flower = player.hand_tiles[flower_index]
-        candidate = self._seven_robs_one_candidate(player_index, flower)
+        candidate = self._seven_flowers_steal_eighth_candidate(player_index, flower)
 
         player.hand_tiles.pop(flower_index)
         self._publish_flower(player_index, flower)
@@ -1451,7 +1766,10 @@ class TaiwanGameState:
             record=False,
         )
 
-        special = await self._ask_seven_robs_one(candidate)
+        special = await self._ask_seven_flowers_steal_eighth(
+            candidate,
+            opening=opening,
+        )
         recipient = player_index
         if special:
             recipient = self._transfer_flower_win(special)
@@ -1464,7 +1782,7 @@ class TaiwanGameState:
 
         if special:
             await self._broadcast_flower_win(special)
-            await self._complete_seven_robs_one(special, opening=opening)
+            await self._complete_seven_flowers_steal_eighth(special, opening=opening)
             return False
         return await self._draw_tail_for_player(recipient, opening=opening) is not None
 
@@ -1474,6 +1792,25 @@ class TaiwanGameState:
             self.game_status = "END"
             return None
         tile = self._take_supplement_tile()
+        known_flowers = sum(
+            1
+            for player in self.player_list
+            for value in (
+                list(getattr(player, "hand_tiles", ()))
+                + list(getattr(player, "huapai_list", ()))
+            )
+            if value in FLOWER_TILES
+        )
+        if tile in FLOWER_TILES and known_flowers >= len(FLOWER_TILES):
+            logger.error(
+                "台湾麻将补牌违反八花牌墙不变量 player=%s tile=%s known_flowers=%s",
+                player_index,
+                tile,
+                known_flowers,
+            )
+            self.draw_reason = "invalid_flower_wall"
+            self.game_status = "END"
+            return None
         player = self.player_list[player_index]
         player.hand_tiles.append(tile)
         if not opening:
@@ -1490,48 +1827,33 @@ class TaiwanGameState:
         )
         return tile
 
-    async def _complete_seven_robs_one(self, info: dict, *, opening: bool) -> None:
+    async def _complete_seven_flowers_steal_eighth(self, info: dict, *, opening: bool) -> None:
         winner = info["winner"]
         tile = await self._draw_tail_for_player(winner, opening=opening)
         if tile is None:
             return
-        # 八花均已公开，理论上补牌不可能再是花；保留循环用于损坏牌墙的安全裁决。
-        while tile in FLOWER_TILES:
-            self.player_list[winner].hand_tiles.remove(tile)
-            self.player_list[winner].huapai_list.append(tile)
-            await self._broadcast_flower(winner, tile, is_drawn=True)
-            tile = await self._draw_tail_for_player(winner, opening=opening)
-            if tile is None:
-                return
+        if tile in FLOWER_TILES:
+            logger.error(
+                "台湾麻将七抢一后补牌违反八花牌墙不变量 winner=%s tile=%s",
+                winner,
+                tile,
+            )
+            self.draw_reason = "invalid_flower_wall"
+            self.game_status = "END"
+            return
         self.player_list[winner].last_drawn_tile = tile
-        player = self.player_list[winner]
         self.last_draw_after_kong = True
-        flower_detail = self._special_flower_detail(
-            winner,
-            seven_robs_one=True,
-            opening=opening,
+        normal_detail, flower_detail, detail = (
+            self._seven_flowers_steal_eighth_details(
+                info,
+                tile,
+                opening=opening,
+                transfer_completed=True,
+            )
         )
-        normal_detail = None
-        if info["mode"] == "seven_then_last":
-            normal_detail = self.score_candidate(
-                winner,
-                "seven_robs_one",
-                include_special=False,
-                flowers_override=[],
-            )
-        else:
-            own_flowers = list(player.huapai_list)
-            own_flowers.remove(info["stolen"])
-            normal_detail = self.score_candidate(
-                winner,
-                "self_draw",
-                include_special=False,
-                flowers_override=own_flowers,
-            )
-        detail = self._combine_flower_details(normal_detail, flower_detail)
-        self.pending_winners = [{
+        item = {
             "index": winner,
-            "source": "seven_robs_one",
+            "source": "seven_flowers_steal_eighth",
             "payer": info["payer"],
             "tile": info["tile"],
             "hu_class": hu_action_for_player(info["payer"], winner),
@@ -1539,23 +1861,32 @@ class TaiwanGameState:
             "seven_robs_mode": info["mode"],
             "normal_detail": normal_detail,
             "flower_detail": flower_detail,
-        }]
-        self.hu_class = self.pending_winners[0]["hu_class"]
-        self.game_status = "END"
+        }
+        if not detail.get("is_win", False) and not self._is_cuohe_detail(detail):
+            logger.error(
+                "台湾麻将七抢一确认后未通过最低台数检查 winner=%s detail=%s",
+                winner,
+                detail,
+            )
+            self.pending_winners = []
+            self.draw_reason = "invalid_seven_flowers_steal_eighth"
+            self.game_status = "END"
+            return
+        self._queue_winner_resolution([item])
 
-    def _mark_eight_immortals_if_ready(
+    def _mark_eight_flowers_if_ready(
         self,
         player_index: int,
     ) -> None:
         player = self.player_list[player_index]
-        if player.eight_immortals_declined or len(set(player.huapai_list)) != 8:
+        if player.eight_flowers_declined or len(set(player.huapai_list)) != 8:
             return
-        if self.rules.eight_immortals_mode in (
-            "optional_separate",
-            "forced_separate",
+        if self.rules.eight_flowers_mode in (
+            "optional_standalone",
+            "forced_standalone",
             "compound",
         ):
-            player.pending_eight_immortals = True
+            player.pending_eight_flowers = True
 
     async def _request_opening_buhua(self, player_index: int) -> None:
         """开局补花仍按既定顺序执行，但先等待玩家的补花操作。"""
@@ -1569,33 +1900,56 @@ class TaiwanGameState:
         # 补花是必选动作；超时只影响等待时长，不会把花牌留在手牌中。
         await self.wait_action()
 
+    async def _replace_opening_flower(self, owner_index: int, flower: int) -> bool:
+        """逐张确认并补掉一张指定的开局花牌。"""
+
+        player = self.player_list[owner_index]
+        await self._request_opening_buhua(owner_index)
+        flower_index = player.hand_tiles.index(flower)
+        if not await self._replace_one_flower(
+            owner_index,
+            flower_index,
+            is_drawn=False,
+            opening=True,
+        ):
+            return False
+
+        self._mark_eight_flowers_if_ready(owner_index)
+        await self._ask_eight_flowers(owner_index, opening=True)
+        return self.game_status != "END"
+
     async def _opening_flower_replacement(self) -> None:
-        """庄、南、西、北依次逐张确认、公开并补牌，直到该玩家手中无花。"""
+        """按馆规逐张确认、公开并补完开局花牌。"""
 
-        for owner_index in range(4):
-            player = self.player_list[owner_index]
+        if self.rules.opening_flower_replacement_order == "round_robin":
+            # 分轮补花：每家本轮开始时已有的花全部补完；本轮补得的新花留到所有玩家完成后，再由庄家开始下一轮。
             while True:
-                flower = next(
-                    (tile for tile in player.hand_tiles if tile in FLOWER_TILES),
-                    None,
-                )
-                if flower is None:
+                replaced_in_round = False
+                for owner_index in range(4):
+                    player = self.player_list[owner_index]
+                    flowers_this_round = [
+                        tile for tile in player.hand_tiles if tile in FLOWER_TILES
+                    ]
+                    if flowers_this_round:
+                        replaced_in_round = True
+                    for flower in flowers_this_round:
+                        if not await self._replace_opening_flower(owner_index, flower):
+                            return
+                if not replaced_in_round:
                     break
-
-                await self._request_opening_buhua(owner_index)
-                flower_index = player.hand_tiles.index(flower)
-                if not await self._replace_one_flower(
-                    owner_index,
-                    flower_index,
-                    is_drawn=False,
-                    opening=True,
-                ):
-                    return
-
-                self._mark_eight_immortals_if_ready(owner_index)
-                await self._ask_eight_immortals(owner_index, opening=True)
-                if self.game_status == "END":
-                    return
+        else:
+            # 推荐标准：某家连同补得的新花全部补完后，再轮到下一家。
+            for owner_index in range(4):
+                player = self.player_list[owner_index]
+                while True:
+                    flower = next(
+                        (tile for tile in player.hand_tiles if tile in FLOWER_TILES),
+                        None,
+                    )
+                    if flower is None:
+                        break
+                    if not await self._replace_opening_flower(owner_index, flower):
+                        return
 
         for player in self.player_list:
             player.has_draw_slot = False
@@ -1605,12 +1959,12 @@ class TaiwanGameState:
         player = self.player_list[player_index]
         if (
             origin == "normal"
-            and self._uses_scoring_preset("cml")
-            and self.last_draw_was_last
+            and getattr(self, "last_draw_was_last", False)
+            and not self.can_take_supplement_tile()
             and player.hand_tiles
             and player.hand_tiles[-1] in FLOWER_TILES
         ):
-            # CML 末张摸花须公开，但不再补牌或弃牌，直接结束本手。
+            # 没有合法补牌时，仅公开末张花并结束本手。
             flower = player.hand_tiles.pop()
             self._publish_flower(player_index, flower)
             await self._broadcast_flower(
@@ -1625,15 +1979,18 @@ class TaiwanGameState:
             return False
         player.last_drawn_tile = player.hand_tiles[-1] if player.hand_tiles else None
         self.last_draw_after_kong = origin in ("angang", "jiagang", "direct_kong")
-        self.supplement_win_allowed = origin != "direct_kong" or self.rules.kong_discard_self_draw
+        self.supplement_win_allowed = (
+            origin != "direct_kong"
+            or self.rules.direct_kong_replacement_win_allowed
+        )
         if player.hand_tiles and player.hand_tiles[-1] in FLOWER_TILES:
             # 由标准手牌操作窗口提供 buhua；客户端的“自动补花”只决定是否自动提交。
             return True
 
-        self._mark_eight_immortals_if_ready(player_index)
-        if player.pending_eight_immortals:
+        self._mark_eight_flowers_if_ready(player_index)
+        if player.pending_eight_flowers:
             # 行牌中补齐八花也必须先处理独立花胡选择；放弃后才回到普通动作窗口。
-            await self._ask_eight_immortals(player_index)
+            await self._ask_eight_flowers(player_index)
             if self.game_status == "END":
                 return False
         return self.game_status != "END"
@@ -1674,9 +2031,9 @@ class TaiwanGameState:
             await self._prepare_hand_action_after_draw()
             return
 
-        self._mark_eight_immortals_if_ready(player_index)
-        if player.pending_eight_immortals:
-            await self._ask_eight_immortals(player_index)
+        self._mark_eight_flowers_if_ready(player_index)
+        if player.pending_eight_flowers:
+            await self._ask_eight_flowers(player_index)
             if self.game_status == "END":
                 return
         await self._prepare_hand_action_after_draw()
@@ -1703,6 +2060,7 @@ class TaiwanGameState:
                 source,
                 payer,
                 tile,
+                detail,
             ),
             "hu_class": hu_class,
             "detail": detail,
@@ -1730,7 +2088,7 @@ class TaiwanGameState:
             return
 
         self.pending_winners = winners
-        if winners[0]["source"] == "rob_kong":
+        if winners[0]["source"] == "robbing_kong":
             self.jiagang_tile = None
         self.hu_class = winners[0]["hu_class"]
         self.game_status = "END"
@@ -1742,6 +2100,31 @@ class TaiwanGameState:
         )
         if not detail:
             logger.error("台湾麻将自摸缺少有效计分结果 player=%s", player_index)
+            return
+        if not detail.get("is_win", False):
+            if self._is_cuohe_detail(detail):
+                self._queue_winner_resolution([
+                    self._build_pending_winner(
+                        player_index,
+                        "self_draw",
+                        "hu_self",
+                        detail,
+                        self.player_list[player_index].last_drawn_tile
+                        or (
+                            self.player_list[player_index].hand_tiles[-1]
+                            if self.player_list[player_index].hand_tiles
+                            else None
+                        ),
+                    )
+                ])
+                return
+            if getattr(self.player_list[player_index], "pending_eight_flowers", False):
+                self.decline_eight_flowers(player_index)
+            logger.warning(
+                "台湾麻将拒绝未通过合法性检查的自摸 player=%s detail=%s",
+                player_index,
+                detail,
+            )
             return
         player = self.player_list[player_index]
         winning_tile = player.last_drawn_tile or (player.hand_tiles[-1] if player.hand_tiles else None)
@@ -1758,6 +2141,14 @@ class TaiwanGameState:
     async def execute_cut(self, player_index: int, action_data: dict, *, declare_ready: bool = False) -> None:
         player = self.player_list[player_index]
         requested_tile = action_data.get("TileId")
+        if requested_tile in FLOWER_TILES:
+            # 花牌只能公开并补花。
+            logger.warning(
+                "台湾麻将拒绝弃出花牌 player=%s tile=%s",
+                player_index,
+                requested_tile,
+            )
+            return
         if getattr(player, "ready_locked", False) and player.last_drawn_tile is not None:
             if requested_tile is None or normalize_tile(requested_tile) != normalize_tile(player.last_drawn_tile):
                 logger.warning(
@@ -1800,6 +2191,7 @@ class TaiwanGameState:
 
         player.last_drawn_tile = None
         player.kuikae_forbidden_tiles = set()
+        player.last_discarded_tile = tile
         player.discard_tiles.append(tile)
         player.discard_count += 1
         player.first_discard_done = True
@@ -1866,9 +2258,28 @@ class TaiwanGameState:
                 player.hand_tiles,
             )
             return
+        can_supplement = self._can_establish_kong_for_action()
+        terminal_kong = (
+            getattr(self, "last_draw_was_last", False)
+            and not can_supplement
+        )
+        if (
+            not self.can_keep_wall_after_kong()
+            or not (can_supplement or terminal_kong)
+        ):
+            try:
+                playable = self.playable_wall_count()
+            except (AttributeError, TypeError, ValueError):
+                playable = "unknown"
+            logger.warning(
+                "台湾麻将拒绝牌墙不足的暗杠 player=%s playable=%s",
+                player_index,
+                playable,
+            )
+            return
         if (
             player.water
-            and self.rules.water_release_by_kong
+            and self.rules.missed_win_released_by_kong
             and not self._kong_fourth_may_win(player_index, normal)
         ):
             self._clear_water(player_index)
@@ -1923,23 +2334,70 @@ class TaiwanGameState:
                 player.combination_tiles,
             )
             return
+        can_supplement = self._can_establish_kong_for_action()
+        terminal_kong = (
+            getattr(self, "last_draw_was_last", False)
+            and not can_supplement
+        )
+        if (
+            not self.can_keep_wall_after_kong()
+            or not (can_supplement or terminal_kong)
+        ):
+            try:
+                playable = self.playable_wall_count()
+            except (AttributeError, TypeError, ValueError):
+                playable = "unknown"
+            logger.warning(
+                "台湾麻将拒绝牌墙不足的加杠 player=%s playable=%s",
+                player_index,
+                playable,
+            )
+            return
+        self._pending_jiagang = {
+            "player_index": player_index,
+            "combination_index": combination_index,
+            "hand_tiles": list(player.hand_tiles),
+            "combination_tiles": list(player.combination_tiles),
+            "combination_mask": [
+                list(mask) if isinstance(mask, (list, tuple)) else mask
+                for mask in player.combination_mask
+            ],
+            "has_draw_slot": bool(getattr(player, "has_draw_slot", False)),
+            "last_drawn_tile": getattr(player, "last_drawn_tile", None),
+            "water": bool(getattr(player, "water", False)),
+            "qualification_alive": bool(getattr(player, "qualification_alive", False)),
+            "qualification_ever": bool(getattr(player, "qualification_ever", False)),
+            "heavenly_ready": bool(getattr(player, "heavenly_ready", False)),
+            "earthly_ready": bool(getattr(player, "earthly_ready", False)),
+            "declared_ready": bool(getattr(player, "declared_ready", False)),
+            "ready_locked": bool(getattr(player, "ready_locked", False)),
+            "tag_list": list(getattr(player, "tag_list", [])),
+            "table_claim_or_kong": bool(getattr(self, "table_claim_or_kong", False)),
+            "jiagang_tile": getattr(self, "jiagang_tile", None),
+            "is_mo_gang": False,
+            "normal": normal,
+            "actual_tile": None,
+        }
         if (
             player.water
-            and self.rules.water_release_by_kong
+            and self.rules.missed_win_released_by_kong
             and not self._kong_fourth_may_win(player_index, normal)
         ):
             self._clear_water(player_index)
         draw_slot = has_draw_slot(player)
         is_mo = resolve_is_mo_gang(player.hand_tiles, normal, draw_slot=draw_slot)
+        self._pending_jiagang["is_mo_gang"] = bool(is_mo)
         actual = remove_cut_tile(player.hand_tiles, target_tile, is_mo, draw_slot=draw_slot)
         if actual is None:
+            self._rollback_pending_jiagang()
             return
+        self._pending_jiagang["actual_tile"] = actual
         clear_draw_slot(player)
         player.last_drawn_tile = None
         self._revoke_qualification(
             player_index,
             keep_declared=(
-                self._uses_scoring_preset("shenlaiye")
+                self.rules.declared_ready_auto_added_kong
                 and bool(getattr(player, "ready_locked", False))
             ),
         )
@@ -1986,7 +2444,81 @@ class TaiwanGameState:
         mask[insert_at:insert_at] = [3, actual_tile]
         return mask
 
+    def _rollback_pending_jiagang(self, *, consume_robbed_tile: bool = False) -> None:
+        """撤销暂态加杠；抢杠成立时让第四张离开加杠者手牌。"""
+
+        pending = getattr(self, "_pending_jiagang", None)
+        if not pending:
+            return
+        player = self.player_list[pending["player_index"]]
+        current_water = bool(getattr(player, "water", False))
+        current_ready = (
+            bool(getattr(player, "qualification_alive", False)),
+            bool(getattr(player, "qualification_ever", False)),
+            bool(getattr(player, "heavenly_ready", False)),
+            bool(getattr(player, "earthly_ready", False)),
+            bool(getattr(player, "declared_ready", False)),
+            bool(getattr(player, "ready_locked", False)),
+            tuple(getattr(player, "tag_list", [])),
+        )
+
+        player.hand_tiles[:] = pending["hand_tiles"]
+        player.combination_tiles[:] = pending["combination_tiles"]
+        player.combination_mask[:] = [
+            list(mask) if isinstance(mask, (list, tuple)) else mask
+            for mask in pending["combination_mask"]
+        ]
+        player.has_draw_slot = pending["has_draw_slot"]
+        player.last_drawn_tile = pending["last_drawn_tile"]
+        player.water = pending["water"]
+        player.qualification_alive = pending["qualification_alive"]
+        player.qualification_ever = pending["qualification_ever"]
+        player.heavenly_ready = pending["heavenly_ready"]
+        player.earthly_ready = pending["earthly_ready"]
+        player.declared_ready = pending["declared_ready"]
+        player.ready_locked = pending["ready_locked"]
+        player.tag_list[:] = pending["tag_list"]
+        self.table_claim_or_kong = pending["table_claim_or_kong"]
+        self.jiagang_tile = pending["jiagang_tile"]
+        self._pending_jiagang = None
+
+        if consume_robbed_tile:
+            robbed_tile = pending.get("actual_tile") or pending["normal"]
+            removed = remove_cut_tile(
+                player.hand_tiles,
+                robbed_tile,
+                bool(pending["is_mo_gang"]),
+                draw_slot=bool(pending["has_draw_slot"]),
+            )
+            if removed is None:
+                logger.error(
+                    "台湾麻将抢杠回滚未能移除被抢牌 player=%s tile=%s hand=%s",
+                    pending["player_index"],
+                    robbed_tile,
+                    player.hand_tiles,
+                )
+            elif pending["is_mo_gang"]:
+                clear_draw_slot(player)
+                player.last_drawn_tile = None
+
+        if current_water != bool(player.water):
+            self._record_water_state(pending["player_index"])
+        restored_ready = (
+            bool(getattr(player, "qualification_alive", False)),
+            bool(getattr(player, "qualification_ever", False)),
+            bool(getattr(player, "heavenly_ready", False)),
+            bool(getattr(player, "earthly_ready", False)),
+            bool(getattr(player, "declared_ready", False)),
+            bool(getattr(player, "ready_locked", False)),
+            tuple(getattr(player, "tag_list", [])),
+        )
+        if current_ready != restored_ready:
+            self._record_ready_state(pending["player_index"])
+
     async def finalize_jiagang(self) -> None:
+        pending = getattr(self, "_pending_jiagang", None)
+        if pending is not None:
+            self._pending_jiagang = None
         self.jiagang_tile = None
         if self._on_kong_established():
             return
@@ -2033,6 +2565,21 @@ class TaiwanGameState:
             logger.error("台湾麻将非法鸣牌 player=%s action=%s tile=%s", player_index, action_type, tile)
             self.game_status = "deal_card"
             return
+        if action_type == "gang" and (
+            not self._can_establish_kong_for_action()
+            or not self.can_keep_wall_after_kong()
+        ):
+            try:
+                playable = self.playable_wall_count()
+            except (AttributeError, TypeError, ValueError):
+                playable = "unknown"
+            logger.warning(
+                "台湾麻将拒绝牌墙不足的直杠 player=%s playable=%s",
+                player_index,
+                playable,
+            )
+            self.game_status = "deal_card"
+            return
         for required_tile in required:
             player.hand_tiles.remove(required_tile)
         player.combination_tiles.append(code)
@@ -2067,12 +2614,14 @@ class TaiwanGameState:
             if self._on_kong_established():
                 return
             self.next_supplement_kind = "direct_kong"
-            self.supplement_win_allowed = self.rules.kong_discard_self_draw
+            self.supplement_win_allowed = (
+                self.rules.direct_kong_replacement_win_allowed
+            )
             self.game_status = "deal_card_after_gang"
         else:
-            kuikae_mode = self.rules.strict_kuikae
+            kuikae_mode = self.rules.chow_discard_restriction_mode
             if action_type == "peng":
-                kuikae_mode = "same_tile" if self.rules.peng_kuikae_forbidden else "none"
+                kuikae_mode = "same_tile" if self.rules.pung_same_tile_discard_forbidden else "none"
             player.kuikae_forbidden_tiles = strict_kuikae_forbidden(
                 action_type,
                 tile,
@@ -2083,7 +2632,7 @@ class TaiwanGameState:
     def _selected_winners(self, selected: List[Tuple[int, str]]) -> List[Tuple[int, str]]:
         selected = sorted(selected, key=lambda item: (item[0] - self.current_player_index) % 4)
         mode = self.rules.multi_win_mode
-        if mode == "multi":
+        if mode == "multiple_winners":
             return selected
         if mode == "head_bump":
             return selected[:1]
@@ -2103,7 +2652,7 @@ class TaiwanGameState:
                     self.result_dict.get(action, {}).get("is_win", True)
                     for action in hu_actions
                 )
-                and is_forced_declared_ready_win(self, index)
+                and is_forced_ready_win(self, index)
             ):
                 chosen = hu_actions[0]
             if chosen in hu_actions:
@@ -2135,7 +2684,7 @@ class TaiwanGameState:
         claims: List[Tuple[int, int, str, int]] = []
         for index, data in responses.items():
             action = data.get("action_type")
-            if self.player_list[index].water and self.rules.water_blocks_claims:
+            if self.player_list[index].water and self.rules.missed_win_blocks_claims:
                 continue
             priority = self.action_priority.get(action, 0)
             if action in ("peng", "gang", "chi_left", "chi_mid", "chi_right"):
@@ -2166,7 +2715,7 @@ class TaiwanGameState:
                     self.result_dict.get(action, {}).get("is_win", True)
                     for action in hu_actions
                 )
-                and is_forced_declared_ready_win(self, index)
+                and is_forced_ready_win(self, index)
             ):
                 chosen = hu_actions[0]
             if chosen in hu_actions:
@@ -2180,10 +2729,16 @@ class TaiwanGameState:
             await broadcast_refresh_player_tag_list(self)
         winners = self._selected_winners(selected_hu)
         if winners:
+            has_legal_winner = any(
+                not self._is_cuohe_detail(self.result_dict.get(action))
+                for _, action in winners
+            )
+            if has_legal_winner:
+                self._rollback_pending_jiagang(consume_robbed_tile=True)
             self._queue_winner_resolution([
                 self._build_pending_winner(
                     index,
-                    "rob_kong",
+                    "robbing_kong",
                     action,
                     self.result_dict[action],
                     tile,
@@ -2269,7 +2824,7 @@ class TaiwanGameState:
                 hu_fan=hu_fan,
                 hepai_player_index=player_index,
                 score_changes=score_changes,
-                hepai_tile=tile if source in ("discard", "rob_kong") else None,
+                hepai_tile=tile if source in ("discard", "robbing_kong") else None,
             )
 
             for item in self.player_list:
@@ -2286,7 +2841,7 @@ class TaiwanGameState:
             self._hand_scores_before = scores_before
 
             display_hand = list(player.hand_tiles)
-            if source in ("discard", "rob_kong") and tile is not None:
+            if source in ("discard", "robbing_kong") and tile is not None:
                 display_hand.append(tile)
             await self.broadcast_result(
                 hepai_player_index=player_index,
@@ -2319,7 +2874,7 @@ class TaiwanGameState:
 
         if pending_winners:
             self.pending_winners = pending_winners
-            if source == "rob_kong":
+            if source == "robbing_kong":
                 self.jiagang_tile = None
             self.hu_class = pending_winners[0]["hu_class"]
             self.game_status = "END"
@@ -2340,7 +2895,7 @@ class TaiwanGameState:
             else:
                 self.game_status = "deal_card"
             return
-        if source == "rob_kong" and self.jiagang_tile is not None:
+        if source == "robbing_kong" and self.jiagang_tile is not None:
             self.action_dict = check_action_jiagang(self, self.jiagang_tile)
             if any(self.action_dict.values()):
                 self.game_status = "waiting_action_qianggang"
@@ -2351,10 +2906,10 @@ class TaiwanGameState:
         logger.error("台湾麻将错和续局未知来源 source=%s", source)
         self.game_status = "deal_card"
 
-    def _shenlaiye_ready_auto_jiagang_tile(self, player_index: int) -> Optional[int]:
+    def _declared_ready_auto_jiagang_tile(self, player_index: int) -> Optional[int]:
         player = self.player_list[player_index]
         if (
-            not self._uses_scoring_preset("shenlaiye")
+            not self.rules.declared_ready_auto_added_kong
             or not getattr(player, "ready_locked", False)
             or player.last_drawn_tile is None
         ):
@@ -2366,6 +2921,9 @@ class TaiwanGameState:
         ):
             return None
         can_supplement = self.can_establish_kong()
+        can_keep_wall = getattr(self, "can_keep_wall_after_kong", None)
+        if callable(can_keep_wall) and not can_keep_wall():
+            return None
         if not can_supplement and not self.last_draw_was_last:
             return None
         return tile
@@ -2374,12 +2932,29 @@ class TaiwanGameState:
         player_index = self.current_player_index
         self.result_dict = {}
         self.action_dict = check_action_hand_action(self, player_index)
-        auto_jiagang_tile = self._shenlaiye_ready_auto_jiagang_tile(player_index)
+        auto_jiagang_tile = self._declared_ready_auto_jiagang_tile(player_index)
         if (
             auto_jiagang_tile is not None
             and "hu_self" not in self.action_dict[player_index]
         ):
+            previous_status = getattr(self, "game_status", "deal_card")
+            player = self.player_list[player_index]
+            hand_before = tuple(player.hand_tiles)
+            combinations_before = tuple(player.combination_tiles)
             await self.execute_jiagang(player_index, auto_jiagang_tile)
+            action_established = (
+                tuple(player.hand_tiles) != hand_before
+                or tuple(player.combination_tiles) != combinations_before
+                or getattr(self, "game_status", None)
+                not in ("deal_card", "deal_card_after_gang")
+            )
+            if (
+                not action_established
+                and getattr(self, "game_status", previous_status)
+                in ("deal_card", "deal_card_after_gang")
+            ):
+                self.game_status = "waiting_hand_action"
+                self.action_dict = check_action_hand_action(self, player_index)
             return
         self.game_status = "waiting_hand_action"
 
@@ -2494,7 +3069,7 @@ class TaiwanGameState:
                 settle_win(
                     winner=item["index"],
                     hand_tai=item["flower_detail"]["tai"],
-                    win_source="seven_robs_one",
+                    win_source="seven_flowers_steal_eighth",
                     dealer=0,
                     dealer_streak=self.dealer_streak,
                     rules=self.rules,
@@ -2550,7 +3125,7 @@ class TaiwanGameState:
         next_status = "match_end" if match_end else "round_end_by_ready"
 
         if self.pending_winners:
-            multi = len(self.pending_winners) > 1
+            multi_ron = len(self.pending_winners) > 1
             for winner_number, (item, settlement) in enumerate(zip(self.pending_winners, settlements)):
                 for index, change in settlement.score_changes.items():
                     self.player_list[index].score += change
@@ -2588,13 +3163,13 @@ class TaiwanGameState:
                     hepai_player_index=winner,
                     score_changes=changes_list,
                     hepai_tile=item["tile"],
-                    multi_ron=multi if item["source"] == "discard" else None,
+                    multi_ron=multi_ron if item["source"] == "discard" else None,
                     ron_discarder_index=item["payer"] if item["source"] == "discard" else None,
                     recycle_discard=(winner_number == len(self.pending_winners) - 1) if item["source"] == "discard" else None,
                 )
 
                 display_hand = list(player.hand_tiles)
-                if item["source"] in ("discard", "rob_kong"):
+                if item["source"] in ("discard", "robbing_kong"):
                     display_hand.append(item["tile"])
                 result_next = next_status if winner_number == len(self.pending_winners) - 1 else "round_continue"
                 await broadcast_result(
@@ -2612,9 +3187,14 @@ class TaiwanGameState:
                         for p in self.player_list
                     },
                     revealed_angang_masks=build_revealed_angang_masks(self.player_list),
-                    hepai_tile=item["tile"] if item["source"] != "rob_kong" else None,
-                    multi_ron=multi if item["source"] == "discard" else None,
-                    ron_discarder_index=item["payer"] if item["source"] == "discard" else None,
+                    hepai_tile=item["tile"],
+                    multi_ron=multi_ron if item["source"] == "discard" else None,
+                    is_qianggang=True if item["source"] == "robbing_kong" else None,
+                    ron_discarder_index=(
+                        item["payer"]
+                        if item["source"] in ("discard", "robbing_kong")
+                        else None
+                    ),
                     recycle_discard=(winner_number == len(self.pending_winners) - 1) if item["source"] == "discard" else None,
                     next_status=result_next,
                 )

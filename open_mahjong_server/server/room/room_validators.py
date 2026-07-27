@@ -276,6 +276,7 @@ class TaiwanRoomValidator(BaseModel):
     round_timer: int
     step_timer: int
     random_seed: Union[int, str] = 0
+    tips: bool = False
     open_cuohe: bool = False
     cuohe_type: int = 0
     sub_rule: str = "taiwan/standard"
@@ -311,6 +312,12 @@ class TaiwanRoomValidator(BaseModel):
             return parse_user_master_seed(v)
         except ValueError as e:
             raise ValueError(str(e)) from e
+
+    @validator('open_cuohe')
+    def validate_tips_and_cuohe(cls, v, values):
+        if v and values.get('tips'):
+            raise ValueError('提示与错和不能同时开启')
+        return v
 
     @validator('cuohe_type')
     def validate_cuohe_type(cls, v):

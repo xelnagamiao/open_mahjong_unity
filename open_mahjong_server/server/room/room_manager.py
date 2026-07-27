@@ -873,6 +873,7 @@ class RoomManager:
                 "step_timer": stepTimerValue,
                 "random_seed": random_seed,
                 "sub_rule": sub_rule or "taiwan/standard",
+                "tips": tips,
                 "open_cuohe": open_cuohe,
                 "cuohe_type": cuohe_type,
                 "detailed_config": detailed_config,
@@ -905,7 +906,7 @@ class RoomManager:
                     }
                 },
                 "has_password": has_password,
-                "tips": bool(tips),
+                "tips": validated_config.tips,
                 "show_moqie_hint": False,
                 "open_cuohe": validated_config.open_cuohe,
                 "cuohe_type": validated_config.cuohe_type,
@@ -1759,6 +1760,7 @@ class RoomManager:
                 validated = self.room_validators["taiwan"](
                     **base_config,
                     sub_rule=sub_rule,
+                    tips=tips,
                     open_cuohe=bool(room_config.get("open_cuohe", False)),
                     cuohe_type=int(room_config.get("cuohe_type", 0) or 0),
                     detailed_config=room_config.get("detailed_config"),

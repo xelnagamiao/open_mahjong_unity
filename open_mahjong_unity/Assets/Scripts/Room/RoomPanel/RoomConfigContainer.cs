@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -99,13 +101,78 @@ public class RoomConfigContainer : MonoBehaviour {
         IDictionary<string, object> values = roomInfo.detailed_config;
         if (values == null || values.Count == 0) {
             ConfigItem fallback = Instantiate(configItemPrefab, container);
-            fallback.SetConfig(definition.EmptyDisplayLabel, definition.EmptyDisplayValue);
+            fallback.SetConfig(
+                definition.Presentation.EmptyDisplayLabel,
+                definition.Presentation.EmptyDisplayValue);
             return;
         }
         foreach (DetailedConfigOption option in definition.Options) {
             if (!values.TryGetValue(option.Key, out object raw)) continue;
             ConfigItem item = Instantiate(configItemPrefab, container);
             item.SetConfig(option.Label, option.FormatValue(raw));
+        }
+        if (definition.FanTable != null) {
+            var overrides = new Dictionary<string, int>();
+            if (values.TryGetValue(definition.FanTable.Key, out object raw)) {
+                ReadFanTaiOverrides(raw, overrides);
+            }
+            var customFans = new List<KeyValuePair<DetailedConfigFanValue, int>>();
+            foreach (DetailedConfigFanValue fan in definition.FanTable.Fans) {
+                if (overrides.TryGetValue(fan.Id, out int tai)) {
+                    customFans.Add(
+                        new KeyValuePair<DetailedConfigFanValue, int>(fan, tai));
+                }
+            }
+            ConfigItem summary = Instantiate(configItemPrefab, container);
+            summary.SetConfig(
+                definition.FanTable.Label,
+                customFans.Count == 0
+                    ? "无自定义（使用基础台表）"
+                    : $"{customFans.Count}项差异");
+            foreach (KeyValuePair<DetailedConfigFanValue, int> entry in customFans) {
+                ConfigItem fanItem = Instantiate(configItemPrefab, container);
+                fanItem.SetConfig(
+                    $"台值·{entry.Key.Label}",
+                    $"{entry.Value}台");
+            }
+        }
+    }
+
+    private static void ReadFanTaiOverrides(
+        object raw,
+        IDictionary<string, int> target) {
+        if (raw == null || target == null) return;
+        if (raw is JObject jsonObject) {
+            foreach (JProperty property in jsonObject.Properties()) {
+                if (int.TryParse(property.Value.ToString(), out int tai)) {
+                    target[property.Name] = tai;
+                }
+            }
+            return;
+        }
+        if (raw is IDictionary<string, int> intValues) {
+            foreach (KeyValuePair<string, int> entry in intValues) {
+                target[entry.Key] = entry.Value;
+            }
+            return;
+        }
+        if (raw is IDictionary<string, object> objectValues) {
+            foreach (KeyValuePair<string, object> entry in objectValues) {
+                if (entry.Value != null
+                    && int.TryParse(entry.Value.ToString(), out int tai)) {
+                    target[entry.Key] = tai;
+                }
+            }
+            return;
+        }
+        if (raw is IDictionary dictionary) {
+            foreach (DictionaryEntry entry in dictionary) {
+                if (entry.Key != null
+                    && entry.Value != null
+                    && int.TryParse(entry.Value.ToString(), out int tai)) {
+                    target[entry.Key.ToString()] = tai;
+                }
+            }
         }
     }
 

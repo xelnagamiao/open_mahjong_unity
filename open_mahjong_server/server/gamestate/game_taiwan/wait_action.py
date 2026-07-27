@@ -5,11 +5,38 @@ import logging
 import time
 from typing import Dict, Optional, Tuple
 
-from .action_check import HU_ACTIONS, is_forced_declared_ready_win
+from ..public.ask_timing import get_ask_elapsed
+from .action_check import HU_ACTIONS, is_forced_ready_win
 from .boardcast import broadcast_ready_status
 
 
 logger = logging.getLogger(__name__)
+
+
+def _ask_elapsed_for_deadline(game_state, player_index: int, now_wall: float) -> float:
+    delivered = getattr(game_state, "_ask_delivered_at", None) or {}
+    started_at = delivered.get(player_index)
+    if started_at is None:
+        started_at = getattr(game_state, "_ask_broadcast_time", None)
+    if started_at is None:
+        return 0.0
+    return max(0.0, now_wall - started_at)
+
+
+def _build_ask_deadlines(
+    game_state,
+    allowed,
+    grace: float,
+    started: float,
+) -> Dict[int, float]:
+    now_wall = time.time()
+    allowance = max(0.0, float(grace))
+    deadlines = {}
+    for index in allowed:
+        elapsed = _ask_elapsed_for_deadline(game_state, index, now_wall)
+        remaining = max(0.0, float(game_state.player_list[index].remaining_time))
+        deadlines[index] = started + max(0.0, remaining + allowance - elapsed)
+    return deadlines
 
 
 async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, list]]:
@@ -39,10 +66,7 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
 
     started = time.monotonic()
     grace = 0 if game_state.game_status == "waiting_ready" else game_state.step_time
-    deadlines = {
-        index: started + max(0, game_state.player_list[index].remaining_time + grace)
-        for index in allowed
-    }
+    deadlines = _build_ask_deadlines(game_state, allowed, grace, started)
     pending = set(allowed)
     responses: Dict[int, dict] = {}
 
@@ -52,6 +76,13 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
         for index in expired:
             pending.remove(index)
             game_state.player_list[index].remaining_time = 0
+            game_state.action_events[index].clear()
+            queue = game_state.action_queues[index]
+            while not queue.empty():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
         if not pending:
             break
 
@@ -67,33 +98,58 @@ async def _collect_responses(game_state) -> Tuple[Dict[int, dict], Dict[int, lis
         )
         for task in unfinished:
             task.cancel()
+        if unfinished:
+            await asyncio.gather(*unfinished, return_exceptions=True)
 
         for task in done:
             index = tasks[task]
             game_state.action_events[index].clear()
-            try:
-                data = game_state.action_queues[index].get_nowait()
-            except asyncio.QueueEmpty:
+            if time.monotonic() >= deadlines[index]:
+                pending.discard(index)
+                game_state.player_list[index].remaining_time = 0
+                queue = game_state.action_queues[index]
+                while not queue.empty():
+                    try:
+                        queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
                 continue
-            action_type = data.get("action_type")
-            if action_type not in allowed[index]:
-                logger.warning(
-                    "台湾麻将丢弃窗口内非法动作 player=%s action=%s allowed=%s",
-                    index,
-                    action_type,
-                    allowed[index],
-                )
+            data = None
+            while True:
+                try:
+                    candidate = game_state.action_queues[index].get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+                if not isinstance(candidate, dict):
+                    logger.warning(
+                        "台湾麻将丢弃窗口内格式非法的动作 player=%s candidate=%r",
+                        index,
+                        candidate,
+                    )
+                    continue
+                action_type = candidate.get("action_type")
+                if action_type not in allowed[index]:
+                    logger.warning(
+                        "台湾麻将丢弃窗口内非法动作 player=%s action=%s allowed=%s",
+                        index,
+                        action_type,
+                        allowed[index],
+                    )
+                    continue
+                data = candidate
+                break
+            if data is None:
                 continue
             responses[index] = dict(data)
             pending.discard(index)
-
-    elapsed = time.monotonic() - started
-    if grace:
-        charged = max(0, int(elapsed) - grace)
-        if charged:
-            for index in responses:
-                player = game_state.player_list[index]
-                player.remaining_time = max(0, player.remaining_time - charged)
+            if game_state.game_status != "waiting_ready":
+                elapsed = get_ask_elapsed(game_state, index)
+                if elapsed <= 0:
+                    elapsed = time.monotonic() - started
+                charged = max(0, int(elapsed) - grace)
+                if charged:
+                    player = game_state.player_list[index]
+                    player.remaining_time = max(0, player.remaining_time - charged)
 
     game_state.waiting_players_list = []
     return responses, allowed
@@ -126,7 +182,7 @@ async def wait_action(game_state) -> Optional[bool]:
         if (
             "hu_self" in allowed.get(index, ())
             and (hu_detail is None or hu_detail.get("is_win", True))
-            and is_forced_declared_ready_win(game_state, index)
+            and is_forced_ready_win(game_state, index)
         ):
             # 禁止拒胡窗口即使没有收到回复（断线或超时）也必须落为胡牌。
             action_type = "hu_self"
@@ -135,8 +191,8 @@ async def wait_action(game_state) -> Optional[bool]:
         if action_type != "hu_self" and had_normal_hu:
             if game_state.enter_water(index):
                 await game_state.broadcast_refresh_player_tag_list()
-        if game_state.player_list[index].pending_eight_immortals and action_type != "hu_self":
-            game_state.decline_eight_immortals(index)
+        if game_state.player_list[index].pending_eight_flowers and action_type != "hu_self":
+            game_state.decline_eight_flowers(index)
 
         if action_type == "hu_self":
             game_state.accept_self_draw(index)

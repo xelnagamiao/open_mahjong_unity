@@ -205,7 +205,15 @@ def enumerate_decompositions(
         return []
 
     counter = Counter(hand_tiles)
-    if any(count > 4 for count in counter.values()):
+    external_counter = Counter(
+        tile
+        for meld in external
+        for tile in meld.tiles
+    )
+    if any(
+        counter[tile] + external_counter[tile] > 4
+        for tile in set(counter) | set(external_counter)
+    ):
         return []
 
     results: List[Decomposition] = []
@@ -261,15 +269,30 @@ def structural_waits(
     if len(hand_tiles) != expected or any(tile not in STRUCTURE_TILES for tile in hand_tiles):
         return set()
     counter = Counter(hand_tiles)
-    if any(count > 4 for count in counter.values()):
+    external_counter = Counter(
+        tile
+        for meld in external
+        for tile in meld.tiles
+    )
+    if any(
+        counter[tile] + external_counter[tile] > 4
+        for tile in set(counter) | set(external_counter)
+    ):
         return set()
+    available_counts = Counter(counter)
+    available_counts.update(external_counter)
+    waits = set(
+        tile
+        for tile in STRUCTURE_TILES
+        if available_counts[tile] < 4
+    )
     return set(
         _structural_waits_cached(
             _counter_key(counter),
             concealed_needed,
-            rules.eight_pairs_half,
+            rules.eight_and_a_half_pairs_enabled,
         )
-    )
+    ).intersection(waits)
 
 
 def derive_pre_win_tiles(hand_tiles: Sequence[int], winning_tile: int) -> List[int]:
@@ -293,34 +316,6 @@ def winning_use_is_single_wait(decomposition: Decomposition, winning_tile: int) 
         return True
     rank = winning_tile % 10
     return (winning_tile == high and rank == 3) or (winning_tile == low and rank == 7)
-
-
-def winning_uses_only_two_sided(
-    decomposition: Decomposition,
-    winning_tile: int,
-) -> bool:
-    """判断和牌张在当前拆分中的所有可用位置是否均为两面等待。"""
-    if decomposition.pair == winning_tile:
-        return False
-    uses = [
-        meld
-        for meld in decomposition.melds
-        if meld.kind == "sequence"
-        and not meld.external
-        and winning_tile in meld.tiles
-    ]
-    if not uses:
-        return False
-    for meld in uses:
-        low, middle, high = meld.tiles
-        if winning_tile == middle:
-            return False
-        rank = winning_tile % 10
-        if (winning_tile == high and rank == 3) or (
-            winning_tile == low and rank == 7
-        ):
-            return False
-    return True
 
 
 def decomposition_is_all_sequences(decomposition: Decomposition) -> bool:
