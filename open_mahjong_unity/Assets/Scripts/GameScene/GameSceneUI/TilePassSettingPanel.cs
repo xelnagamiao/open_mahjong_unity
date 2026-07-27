@@ -32,6 +32,7 @@ public class TilePassSettingPanel : MonoBehaviour {
     [SerializeField] private Toggle selectAllPinToggle;
     [SerializeField] private Toggle selectAllHonorToggle;
     [SerializeField] private Toggle selectAllRedDoraToggle;
+    [SerializeField] private Button clearAllTilesButton;
     [SerializeField] private Toggle passChiToggle;
     [SerializeField] private Toggle passPengToggle;
     [SerializeField] private Toggle passMingGangToggle;
@@ -154,6 +155,7 @@ public class TilePassSettingPanel : MonoBehaviour {
         WireSelectAllToggle(selectAllHonorToggle, RowTileIds[3]);
         WireSelectAllToggle(selectAllRedDoraToggle, RedDoraTileIds);
         WireSelectAllTilesToggle();
+        WireClearAllTilesButton();
 
         WireMeldPassToggle(passChiToggle, value => passChi = value);
         WireMeldPassToggle(passPengToggle, value => passPeng = value);
@@ -233,6 +235,28 @@ public class TilePassSettingPanel : MonoBehaviour {
         if (toggle == null || tileIds == null) return;
         toggle.onValueChanged.RemoveAllListeners();
         toggle.onValueChanged.AddListener(isOn => OnSelectAllChanged(tileIds, isOn));
+    }
+
+    private void WireClearAllTilesButton() {
+        if (clearAllTilesButton == null) return;
+        // 保持按钮在悬停、按下和选中时使用设计好的原始颜色。
+        ColorBlock colors = clearAllTilesButton.colors;
+        colors.highlightedColor = colors.normalColor;
+        colors.pressedColor = colors.normalColor;
+        colors.selectedColor = colors.normalColor;
+        colors.disabledColor = colors.normalColor;
+        clearAllTilesButton.colors = colors;
+        clearAllTilesButton.onClick.RemoveAllListeners();
+        clearAllTilesButton.onClick.AddListener(ClearAllTiles);
+    }
+
+    /// <summary>清除所有牌张选择，不影响其他自动操作选项。</summary>
+    public void ClearAllTiles() {
+        OnSelectAllChanged(RowTileIds[0], false);
+        OnSelectAllChanged(RowTileIds[1], false);
+        OnSelectAllChanged(RowTileIds[2], false);
+        OnSelectAllChanged(RowTileIds[3], false);
+        OnSelectAllChanged(RedDoraTileIds, false);
     }
 
     private void WireMeldPassToggle(Toggle toggle, System.Action<bool> setter) {

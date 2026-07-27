@@ -71,7 +71,19 @@ public class MatchNetworkManager : MonoBehaviour {
     }
 
     private void HandleLeaveQueueDone(Response response) {
+        ClearLocalMatchState();
+    }
+
+    /// <summary>
+    /// 清理本地匹配 UI / 排队状态（不向服务端发 leave_queue）。
+    /// 用于断线后服务端已静默移出队列、但客户端收不到 leave_queue_done 的场景
+    /// （例如安卓后台断线后的 AutoReconnect）。
+    /// </summary>
+    public void ClearLocalMatchState() {
         isMatchFoundLocked = false;
+        lastJoinedQueueType = null;
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance.StopNamed(CoroutineKeys.MatchQueueingPanelDelay);
         MatchStateManager.Instance.StopQueueing();
         MatchQueueingPanel.Instance?.HideImmediately();
         MatchFoundedPanel.Instance?.StopCountdownAndHide();
@@ -110,7 +122,7 @@ public class MatchNetworkManager : MonoBehaviour {
             return;
         }
         if (GameSessionGuard.HasExclusiveSession) {
-            NotificationManager.Instance.ShowTip("匹配", false, "当前对局尚未结束，无法匹配");
+            NotificationManager.Instance.ShowTip("匹配", false, "对局进行中，无法进入匹配");
             return;
         }
         if (LobbyStateGuard.BlockIfInRoomForMatch()) {

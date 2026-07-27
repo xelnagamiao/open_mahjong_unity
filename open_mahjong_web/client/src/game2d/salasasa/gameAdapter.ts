@@ -21,6 +21,7 @@ import type {
 import type { WaitInfoData } from '../game/scene/WaitDisplay'
 import { buildLocalWaitData, type LocalWaitInfoData } from '../calc/guobiao'
 
+/** Salasasa/server tile ids: 45中 46白 47发 → mmcr honor ranks z5/z6/z7 (same order). */
 export function salasasaTileToMmcr(tile: number | null | undefined): number {
   if (!tile || tile < 0) return 0
   const normalized = tile >= 100 ? tile % 100 : tile

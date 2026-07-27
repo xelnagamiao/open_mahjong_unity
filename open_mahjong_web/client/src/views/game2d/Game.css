@@ -23,12 +23,14 @@
   min-width: 0;
   min-height: 0;
   display: flex;
+  width: 100%;
 }
 
 .game-page__stage-shell {
   position: relative;
   flex: 1 1 auto;
   height: calc(100dvh - 36px);
+  min-width: 0;
   min-height: 0;
   border: 2px solid rgba(96, 96, 96, 0.7);
   border-radius: 18px;
@@ -36,14 +38,50 @@
   background: #097fa0;
 }
 
-.game-page__sidebar {
-  width: 240px;
-  min-width: 240px;
+/* 桌布内部：左侧对局区 + 右侧设置轨（同属边框内） */
+.game-felt-layout {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.game-felt-playfield {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.game-felt-rail {
+  width: 220px;
+  min-width: 220px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(0, 0, 0, 0.14);
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  z-index: 20;
+}
+
+.game-felt-rail__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.game-felt-rail__panel {
   position: relative;
+  width: 100%;
 }
 
 .game-page__ratings-area {
@@ -63,22 +101,6 @@
 
 .game-page__sidebar-card .player-name { font-size: 14px; font-weight: 500; }
 .game-page__sidebar-card .player-rating { font-size: 11px; color: #888; margin-top: 2px; }
-
-.game-page__sidebar-bottom-row {
-  display: flex;
-  gap: 6px;
-  position: sticky;
-  bottom: 0;
-  background: inherit;
-  padding-top: 4px;
-  z-index: 20;
-  margin-top: auto;
-}
-
-.game-page__sidebar-bottom-row .scene-appearance-toggle__button {
-  flex: 1 1 0;
-  min-width: 0;
-}
 
 .scene-appearance-panel { display: flex; flex-direction: column; gap: 12px; }
 
@@ -158,22 +180,15 @@
 .scene-appearance-panel__ghost-button:disabled { cursor: not-allowed; opacity: 0.55; }
 .scene-appearance-panel__section { display: flex; flex-direction: column; gap: 8px; }
 
-.scene-appearance-toggle__panel {
-  position: fixed;
-  right: 18px;
-  bottom: 68px;
-  width: 240px;
-  max-height: min(70dvh, 560px);
-  overflow-y: auto;
-  z-index: 200;
-}
-
 .scene-appearance-toggle__card {
   background: rgba(255, 255, 255, 0.96);
   border-radius: 14px;
   padding: 12px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .scene-appearance-toggle__button {
@@ -187,6 +202,7 @@
   font-size: 13px;
   line-height: 1.25;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .scene-appearance-toggle__button:hover { background: rgba(255, 255, 255, 0.99); }
@@ -195,40 +211,42 @@
   border-color: rgba(24, 144, 255, 0.45);
 }
 
-.game-stage { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
-
-.game-stage-toolbar {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 30;
+.game-felt-rail .assist-inline {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
-  justify-content: flex-end;
-  max-width: min(720px, calc(100% - 20px));
-  pointer-events: auto;
 }
 
-.game-stage-toolbar .scene-appearance-toggle__button {
-  width: auto;
-  min-width: 72px;
-  padding: 8px 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+.game-felt-rail .assist-switch {
+  width: 100%;
+  justify-content: space-between;
+  border-radius: 12px;
+  box-shadow: none;
 }
 
-.game-stage-panel {
+.game-felt-rail .scene-appearance-panel__select {
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.game-felt-rail .scene-appearance-panel__field:has(.scene-appearance-panel__range-row) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.game-felt-rail .scene-appearance-panel__range-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.game-stage {
   position: absolute;
-  top: 56px;
-  right: 10px;
-  width: min(300px, calc(100% - 20px));
-  max-height: min(70dvh, 560px);
-  overflow-y: auto;
-  z-index: 31;
-}
-
-.game-stage-panel--wide {
-  width: min(420px, calc(100% - 20px));
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Shared assist toggle switch (GameAssistPanel / GameTileSkipPanel) */
@@ -704,26 +722,25 @@
 .game-blocked-actions button:hover { background: #e8e8e0; }
 
 @media (max-width: 900px) {
-  .game-page__layout { flex-direction: column; height: 100dvh; gap: 10px; padding: 12px; }
+  .game-page__layout { height: 100dvh; gap: 10px; padding: 12px; }
   .game-page__board-panel { flex: 1 1 auto; min-height: 0; }
   .game-page__stage-shell { height: 100%; }
-  .game-page__sidebar { width: 100%; min-width: unset; flex: 0 0 auto; gap: 6px; overflow: hidden; }
+  .game-felt-layout { flex-direction: column; }
+  .game-felt-rail {
+    order: -1;
+    width: 100%;
+    min-width: unset;
+    max-height: min(40dvh, 340px);
+    border-left: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .game-felt-playfield { order: 1; flex: 1 1 auto; min-height: 0; }
   .game-page__ratings-area { display: flex; }
   .game-page__ratings-area:not(.is-expanded) { display: none; }
   .game-page__ratings-area.is-expanded { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .game-page__sidebar-card { min-width: 0; padding: 8px 10px; }
   .game-page__sidebar-card .player-name { font-size: 13px; }
   .game-page__sidebar-card .player-rating { font-size: 10px; }
-  .scene-appearance-toggle__panel { right: 12px; bottom: 52px; width: min(300px, 92vw); max-height: min(55dvh, 440px); }
-  .game-stage-toolbar { top: 8px; right: 8px; }
-  .game-stage-panel {
-    top: auto;
-    bottom: 12px;
-    right: 8px;
-    left: 8px;
-    width: auto;
-    max-height: min(55dvh, 440px);
-  }
   .end-result-panel--draw {
     width: min(64%, 360px);
     max-height: min(52%, 360px);

@@ -216,8 +216,8 @@ function formatRankPt(row) {
 function canEnterTier(tierKey) {
   if (tierKey === 'beginner') return true
   const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
-  if (tierKey === 'intermediate') return rankIndex >= 9
-  if (tierKey === 'advanced') return rankIndex >= 13
+  if (tierKey === 'intermediate') return rankIndex >= 8
+  if (tierKey === 'advanced') return rankIndex >= 12
   if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
   return false
 }

@@ -8,7 +8,8 @@ Shader "Hidden/TileOutlineEdge"
         ZWrite Off
         ZTest Always
         Cull Off
-        Blend Off
+        // RGB 直接叠加到相机颜色；alpha 保持目标原值。
+        Blend SrcAlpha OneMinusSrcAlpha, Zero One
 
         Pass
         {
@@ -24,6 +25,7 @@ Shader "Hidden/TileOutlineEdge"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
             TEXTURE2D_X(_TileIdTex);
+            TEXTURE2D_X(_TileOutlineMask);
             float4 _OutlineColor;
             float _OutlineWidth;
             float _OutlineExpand;
@@ -36,7 +38,12 @@ Shader "Hidden/TileOutlineEdge"
 
             float SampleLinearDepth(float2 uv)
             {
-                float raw = SampleSceneDepth(uv);
+                // 显式 LOD 避免在动态邻域循环中生成隐式梯度指令。
+                float2 depthUv = ClampAndScaleUVForBilinear(
+                    UnityStereoTransformScreenSpaceTex(uv),
+                    _CameraDepthTexture_TexelSize.xy);
+                float raw = SAMPLE_TEXTURE2D_X_LOD(
+                    _CameraDepthTexture, sampler_PointClamp, depthUv, 0).r;
                 return LinearEyeDepth(raw, _ZBufferParams);
             }
 
@@ -115,45 +122,35 @@ Shader "Hidden/TileOutlineEdge"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float2 uv = input.texcoord;
 
-                float2 px = abs(_BlitTexture_TexelSize.xy);
-                if (px.x < 1e-8 || px.y < 1e-8)
-                {
-                    px = rcp(max(_ScreenParams.xy, float2(1, 1)));
-                }
-
-                float expandPx = max(_OutlineExpand, 1.0);
-                float strokePx = clamp(_OutlineWidth, 0.5, expandPx);
-                half4 scene = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv, 0);
-
+                // 调试模式绕过边缘 mask，保持完整牌面 ID 可见。
                 if (_DebugVisualizeId > 0.5)
                 {
                     float idC = SampleId(uv);
                     float thr = 0.5 / 255.0;
                     if (idC < thr)
                     {
-                        return scene;
+                        clip(-1);
                     }
                     half3 red = half3(1, 0.05, 0.05);
-                    return half4(lerp(scene.rgb, red, 0.75), 1);
+                    return half4(red, 0.75);
                 }
 
-                float cover = 0.0;
-                [unroll]
-                for (int iy = 0; iy < 4; iy++)
-                {
-                    [unroll]
-                    for (int ix = 0; ix < 4; ix++)
-                    {
-                        float2 offset = float2(
-                            ((ix + 0.5) * 0.25 - 0.5),
-                            ((iy + 0.5) * 0.25 - 0.5));
-                        cover += OutwardCoverage(uv + offset * px, px, expandPx, strokePx);
-                    }
-                }
-                cover *= (1.0 / 16.0);
+                // 空白桌面和牌面深处在任何 ObjectID/深度邻域采样之前退出。
+                float edgeCandidate = SAMPLE_TEXTURE2D_X_LOD(
+                    _TileOutlineMask, sampler_PointClamp, uv, 0).r;
+                clip(edgeCandidate - 0.5);
+
+                // ID、mask 与 activeColor 同分辨率；_ScreenParams 同时兼容动态分辨率和 XR。
+                float2 px = rcp(max(_ScreenParams.xy, float2(1, 1)));
+
+                float expandPx = max(_OutlineExpand, 1.0);
+                float strokePx = clamp(_OutlineWidth, 0.5, expandPx);
+
+                // 单次覆盖率（关闭 4x4 SSAA；仅影响描边，与 URP MSAA 无关）
+                float cover = OutwardCoverage(uv, px, expandPx, strokePx);
                 cover = smoothstep(0.08, 0.72, cover);
 
-                return half4(lerp(scene.rgb, _OutlineColor.rgb, cover), scene.a);
+                return half4(_OutlineColor.rgb, cover);
             }
             ENDHLSL
         }

@@ -18,7 +18,7 @@ import { FROM_DRAWN_TINT, Tile } from './Tile'
 import { River } from './River'
 import { WaitDisplay, type WaitInfoData } from './WaitDisplay'
 import { Hand } from './Hand'
-import { Display, Countdown, DirLabel, TempLabel } from './Display'
+import { Display, Countdown, DirLabel, TempLabel, TenpaiTipButton } from './Display'
 import { MeldChoices, type MeldViewerSnapshot } from './MeldChoices'
 import type { ActiveSessionSnapshot, SeatSnapshot } from './types'
 import { hasSingleFanAtLeast } from '../../../constants/guessFanCatalog'
@@ -113,6 +113,7 @@ export class MahjongScene {
   private tempDisplay!: Display
   private volDisplay!: Display
   private directionLabels!: [DirLabel, DirLabel, DirLabel, DirLabel]
+  private tenpaiTipButton!: TenpaiTipButton
   private countdown!: Countdown
   private meldChoicesPanel: MeldChoices | null = null
   private latencyIndicator: Container | null = null
@@ -561,6 +562,18 @@ export class MahjongScene {
   }
 
   private handleWheel = (e: WheelEvent): void => {
+    // 侧栏 / 弹窗等 UI 需要原生滚轮滚动；勿全局 preventDefault
+    const target = e.target
+    if (target instanceof Element) {
+      if (target.closest('.game-felt-rail, .game-page__sidebar, .el-overlay, .el-dialog, .el-message-box')) {
+        return
+      }
+      const overStage = Boolean(
+        this.hostElement?.contains(target)
+        || this.app?.canvas?.contains(target),
+      )
+      if (!overStage) return
+    }
     e.preventDefault()
   }
 
@@ -628,6 +641,27 @@ export class MahjongScene {
     this.waitDisplay.setData(data)
     if (!data) {
       this.waitDisplay.reset()
+    }
+    const isStableTenpai = Boolean(data && data.type === 'waits' && data.details.length > 0)
+    this.tenpaiTipButton?.setTenpaiActive(
+      isStableTenpai && this.presentationMode !== 'replay',
+    )
+  }
+
+  private seatWindLabel(localDir: number): string {
+    return ['東', '南', '西', '北'][(localDir + this.selfDir) % 4] ?? ''
+  }
+
+  private applyCenterScores(): void {
+    for (let i = 0; i < 4; i += 1) {
+      this.stateDisplay.setScore(
+        this.names[i],
+        this.scores[i],
+        i,
+        !this.present[i],
+        4.0,
+        this.seatWindLabel(i),
+      )
     }
   }
 
@@ -1131,9 +1165,10 @@ export class MahjongScene {
     }
   }
 
-  private setDirectionLabelsVisible(visible: boolean): void {
+  private setDirectionLabelsVisible(_visible: boolean): void {
+    // Corner wind disks retired: seat winds render beside center-panel names.
     for (let localDir = 0; localDir < 4; localDir += 1) {
-      this.directionLabels[localDir].visible = visible && (this.presentationMode === 'replay' || localDir === 0)
+      this.directionLabels[localDir].visible = false
     }
   }
 
@@ -1177,6 +1212,7 @@ export class MahjongScene {
 
   private createSubComponents(): void {
     const c = this.center
+    c.sortableChildren = true
 
     this.waitDisplay = new WaitDisplay(c)
 
@@ -1198,11 +1234,13 @@ export class MahjongScene {
     this.tempDisplay = new Display(c)
     this.volDisplay = new Display(c)
     this.directionLabels = [
-      new DirLabel(c, 0, this.presentationMode === 'replay' ? null : this.waitDisplay),
+      new DirLabel(c, 0, null),
       new DirLabel(c, 1, null),
       new DirLabel(c, 2, null),
       new DirLabel(c, 3, null),
     ]
+    this.tenpaiTipButton = new TenpaiTipButton(c)
+    this.tenpaiTipButton.bindWaitDisplay(this.presentationMode === 'replay' ? null : this.waitDisplay)
     this.countdown = new Countdown(c)
     this.countdown.onLatencyClick = this.handleCountdownLatencyClick
 
@@ -1420,9 +1458,7 @@ export class MahjongScene {
 
     // Display
     this.stateDisplay.setRound(this.round)
-    for (let i = 0; i < 4; i += 1) {
-      this.stateDisplay.setScore(this.names[i], this.scores[i], i, !this.present[i])
-    }
+    this.applyCenterScores()
     this.stateDisplay.setRemaining(this.remainingTiles)
     this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir))
     this.tempDisplay.clear()
@@ -1756,7 +1792,14 @@ export class MahjongScene {
           ? true
           : !((ss.afk as boolean) || Boolean(ss.disconnected))
       }
-      this.stateDisplay.setScore(this.names[dir], this.scores[dir], dir, !this.present[dir])
+      this.stateDisplay.setScore(
+        this.names[dir],
+        this.scores[dir],
+        dir,
+        !this.present[dir],
+        4.0,
+        this.seatWindLabel(dir),
+      )
     }
     if (kind === 'player_left') this.handlePlayerLeft(actorSeat)
     if (kind === 'player_resumed') this.handlePlayerResumed(actorSeat)
@@ -2045,6 +2088,8 @@ export class MahjongScene {
         scoresBySeat[seat] ?? this.scores[dir] ?? 0,
         dir,
         !this.present[dir],
+        4.0,
+        this.seatWindLabel(dir),
       )
     }
     this.tempDisplay.visible = true

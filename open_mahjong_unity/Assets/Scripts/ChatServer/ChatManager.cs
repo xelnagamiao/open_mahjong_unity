@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using NativeWebSocket;
 using System.Collections.Generic;
+using System.Collections;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 
@@ -11,6 +12,9 @@ public class ChatManager : MonoBehaviour {
     private WebSocket websocket;
     private string connectId; // 唯一标识连接的会话id 不是userid哦
     private Queue<byte[]> ConcurrentQueue = new Queue<byte[]>(); // 定义消息队列
+    private const int InitialConnectionMaxAttempts = 3;
+    private const float ConnectionAttemptTimeoutSeconds = 10f;
+    private const float InitialConnectionRetryDelaySeconds = 1.5f;
 
     // 初始化连接
     private void Awake() {
@@ -20,50 +24,105 @@ public class ChatManager : MonoBehaviour {
             return;
         }
         Instance = this;
-        connectId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的连接id
-        websocket = new WebSocket($"{ConfigManager.chatUrl}/{connectId}"); // 初始化WebSocket
+        CreateWebSocket();
+    }
 
+    private void CreateWebSocket() {
+        connectId = System.Guid.NewGuid().ToString(); // 生成一个不同机器唯一的连接id
+        WebSocket newSocket = new WebSocket($"{ConfigManager.chatUrl}/{connectId}");
+        websocket = newSocket;
         // 配置WebSocket事件处理器（NativeWebSocket格式）
-        websocket.OnOpen += () => {
+        newSocket.OnOpen += () => {
+            if (newSocket != websocket) return;
             Debug.Log("WebSocket To ChatServer连接已打开");
             isConnecting = false;
         };
 
-        websocket.OnMessage += (bytes) => {
+        newSocket.OnMessage += (bytes) => {
+            if (newSocket != websocket) return;
             lock(ConcurrentQueue) {
                 ConcurrentQueue.Enqueue(bytes);
             }
         };
 
-        websocket.OnError += (errorMsg) => {
+        newSocket.OnError += (errorMsg) => {
+            if (newSocket != websocket) return;
             Debug.Log($"WebSocket To ChatServer错误: {errorMsg}");
             isConnecting = false;
         };
 
-        websocket.OnClose += (code) => {
+        newSocket.OnClose += (code) => {
+            if (newSocket != websocket) return;
             Debug.Log($"WebSocket To ChatServer已关闭: {code}");
             isConnecting = false;
         };
     }
 
-    // 连接到聊天服务器
-    private async void Start() {
-        // 确保网络管理器唯一，并且没有在连接中
-        if (Instance == this && !isConnecting) {
-            isConnecting = true;
-            try {
-                Debug.Log($"开始连接聊天服务器，当前状态: {websocket.State}");
-                await websocket.Connect();
-                Debug.Log($"连接聊天服务器完成，当前状态: {websocket.State}");
-            }
-            catch (Exception e) {
+    private async void RunConnectLoop(WebSocket targetSocket) {
+        try {
+            await targetSocket.Connect();
+        }
+        catch (Exception e) {
+            if (targetSocket == websocket) {
                 Debug.Log($"连接聊天服务器错误: {e.Message}");
-                NotificationManager.Instance.ShowTip("WebSocket To ChatServer错误", false, e.Message);
-            }
-            finally {
-                isConnecting = false; // 连接失败，设置连接状态为false
+                isConnecting = false;
             }
         }
+    }
+
+    // 连接到聊天服务器；与游戏主连接一致，首次瞬时失败会自动退避重试。
+    private IEnumerator Start() {
+        if (Instance != this || isConnecting) yield break;
+
+        for (int attempt = 1; attempt <= InitialConnectionMaxAttempts; attempt++) {
+            if (attempt > 1) {
+                float retryDelay = InitialConnectionRetryDelaySeconds * (attempt - 1);
+                while (retryDelay > 0f) {
+                    retryDelay -= Time.unscaledDeltaTime;
+                    yield return null;
+                }
+                CreateWebSocket();
+            }
+
+            isConnecting = true;
+            WebSocket attemptSocket = websocket;
+            Debug.Log(
+                $"开始连接聊天服务器，第 {attempt}/{InitialConnectionMaxAttempts} 次尝试，"
+                + $"当前状态: {attemptSocket.State}"
+            );
+            RunConnectLoop(attemptSocket);
+
+            float elapsed = 0f;
+            while (elapsed < ConnectionAttemptTimeoutSeconds) {
+                if (attemptSocket != websocket) yield break;
+                if (attemptSocket.State == WebSocketState.Open) {
+                    Debug.Log($"聊天服务器连接成功（第 {attempt} 次尝试）");
+                    yield break;
+                }
+                if (attemptSocket.State == WebSocketState.Closed) {
+                    break;
+                }
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            Debug.LogWarning(
+                $"聊天服务器第 {attempt}/{InitialConnectionMaxAttempts} 次连接失败"
+                + $"（State={attemptSocket.State}）"
+            );
+            try {
+                attemptSocket.CancelConnection();
+            } catch (Exception e) {
+                Debug.LogWarning($"取消聊天服务器连接尝试时出错: {e.Message}");
+            }
+        }
+
+        isConnecting = false;
+        NotificationManager.Instance.ShowTip(
+            "WebSocket To ChatServer错误",
+            false,
+            "无法连接聊天服务器，请稍后重试"
+        );
     }
 
     // 收到聊天服务器消息

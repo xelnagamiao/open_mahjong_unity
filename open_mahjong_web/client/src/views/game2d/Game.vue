@@ -14,250 +14,269 @@
     <div class="game-page__layout" :style="{ background: appearance.backgroundColorOutside }">
       <section class="game-page__board-panel">
         <div class="game-page__stage-shell" :style="{ background: appearance.backgroundColorTable }">
-          <div ref="stageElement" class="game-stage" />
-          <div class="game-stage-toolbar">
-            <GameAssistPanel
-              :settings="assistSettings"
-              :expanded="assistExpandOpen"
-              @update="patchAssistSettings"
-              @toggle-expand="toggleAssistExpand"
-            />
-            <button
-              type="button"
-              class="scene-appearance-toggle__button"
-              :aria-expanded="tileSkipOpen"
-              @click="toggleTileSkipPanel"
-            >
-              牌张设置
-            </button>
-          </div>
-          <div v-if="assistExpandOpen" class="game-stage-panel">
-            <div class="scene-appearance-toggle__card">
-              <GameAssistPanel
-                detail-only
-                :settings="assistSettings"
-                :expanded="true"
-                @update="patchAssistSettings"
-              />
-            </div>
-          </div>
-          <div v-if="tileSkipOpen" class="game-stage-panel game-stage-panel--wide">
-            <div class="scene-appearance-toggle__card">
-              <GameTileSkipPanel
-                :settings="assistSettings"
-                :tile-src="mmcrTileAsset"
-                @update="patchAssistSettings"
-                @clear-tiles="patchAssistSettings({ silentTiles: [] })"
-              />
-            </div>
-          </div>
-          <div v-if="!sceneReady || !hasSnapshot" class="game-loading">
-            {{ sceneReady ? '等待服务端恢复国标牌局…' : '正在加载中…' }}
-          </div>
-
-          <div v-if="roundResult && !finalResult" class="end-result-layer">
-            <!-- 流局：立刻出框，无按键 -->
-            <section
-              v-if="isDrawResult"
-              class="end-result-panel end-result-panel--draw"
-              aria-label="本局流局"
-            >
-              <div
-                v-for="seat in drawSeatDeltas"
-                :key="`draw-delta-${seat.relative}`"
-                class="end-result-draw-delta"
-                :class="`is-rel-${seat.relative}`"
-              >
-                <span class="end-result-draw-delta__name">{{ seat.username }}</span>
-                <span
-                  v-if="seat.change"
-                  class="end-result-draw-delta__change"
-                  :class="seat.change > 0 ? 'is-plus' : 'is-minus'"
-                >
-                  {{ seat.change > 0 ? '+' : '' }}{{ seat.change }}
-                </span>
-                <span v-else class="end-result-draw-delta__change is-zero">0</span>
+          <div class="game-felt-layout">
+            <div class="game-felt-playfield">
+              <div ref="stageElement" class="game-stage" />
+              <div v-if="!sceneReady || !hasSnapshot" class="game-loading">
+                {{ sceneReady ? '等待服务端恢复国标牌局…' : '正在加载中…' }}
               </div>
-              <div class="end-result-draw-title">流局</div>
-            </section>
 
-            <!-- 和牌：2D 牌面 + 两排番表 + 棱形座位 + 右下角确定倒计时 -->
-            <template v-else>
-              <button
-                type="button"
-                class="end-result-visibility"
-                @click="resultContentVisible = !resultContentVisible"
-              >
-                {{ resultContentVisible ? '隐藏面板' : '显示面板' }}
-              </button>
-              <section
-                v-show="resultContentVisible"
-                class="end-result-panel end-result-panel--win"
-                aria-label="本局和牌结算"
-              >
-                <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
-                  <span
-                    v-for="(tile, index) in resultClosedTiles"
-                    :key="`closed-${index}`"
-                    class="end-result-tile"
-                  >
-                    <img :src="tileAsset(tile)" alt="" />
-                  </span>
-                  <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
-                  <span
-                    v-for="(tile, index) in resultMeldTiles"
-                    :key="`meld-${index}`"
-                    class="end-result-tile"
-                  >
-                    <img :src="tileAsset(tile)" alt="" />
-                  </span>
-                  <span class="end-result-hand__split" />
-                  <span v-if="resultWinTile" class="end-result-tile is-winning">
-                    <img :src="tileAsset(resultWinTile)" alt="和牌张" />
-                  </span>
-                </div>
-                <div v-if="resultFlowerTiles.length" class="end-result-flowers">
-                  <span class="end-result-flowers__label">花</span>
-                  <span
-                    v-for="(tile, index) in resultFlowerTiles"
-                    :key="`flower-${index}`"
-                    class="end-result-tile end-result-tile--flower"
-                  >
-                    <img :src="tileAsset(tile)" alt="" />
-                  </span>
-                </div>
-
-                <div
-                  class="end-result-fan-grid"
-                  aria-label="番种"
-                  :style="{ minHeight: fanGridMinHeight }"
+              <div v-if="roundResult && !finalResult" class="end-result-layer">
+                <!-- 流局：立刻出框，无按键 -->
+                <section
+                  v-if="isDrawResult"
+                  class="end-result-panel end-result-panel--draw"
+                  aria-label="本局流局"
                 >
                   <div
-                    v-for="(fan, index) in resultFans"
-                    :key="`${fan.name}-${index}`"
-                    class="end-result-fan"
-                    :class="{ 'is-visible': index < revealedFanCount }"
+                    v-for="seat in drawSeatDeltas"
+                    :key="`draw-delta-${seat.relative}`"
+                    class="end-result-draw-delta"
+                    :class="`is-rel-${seat.relative}`"
                   >
-                    <span>{{ fan.name }}</span>
-                    <strong>{{ fan.value }}</strong>
+                    <span class="end-result-draw-delta__name">{{ seat.username }}</span>
+                    <span
+                      v-if="seat.change"
+                      class="end-result-draw-delta__change"
+                      :class="seat.change > 0 ? 'is-plus' : 'is-minus'"
+                    >
+                      {{ seat.change > 0 ? '+' : '' }}{{ seat.change }}
+                    </span>
+                    <span v-else class="end-result-draw-delta__change is-zero">0</span>
                   </div>
-                </div>
+                  <div class="end-result-draw-title">流局</div>
+                </section>
 
-                <div
-                  class="end-result-total"
-                  aria-label="总番数"
-                  :class="{ 'is-visible': showResultTotal }"
-                >
-                  <div class="end-result-total__line">
-                    <strong>{{ roundResult.hu_score ?? 0 }}</strong><span>番</span>
-                  </div>
-                  <small>{{ resultClassLabel }}</small>
-                </div>
-
-                <div class="end-result-diamond" aria-label="分数">
-                  <article
-                    v-for="slot in diamondSlots"
-                    :key="`seat-rel-${slot.relative}`"
-                    class="end-result-seat"
-                    :class="[
-                      `is-rel-${slot.relative}`,
-                      {
-                        'is-ready': slot.player?.ready,
-                        'is-winner': slot.player
-                          && slot.player.player_index === roundResult.hepai_player_index,
-                      },
-                    ]"
+                <!-- 和牌：2D 牌面 + 两排番表 + 棱形座位 + 右下角确定倒计时 -->
+                <template v-else>
+                  <button
+                    type="button"
+                    class="end-result-visibility"
+                    @click="resultContentVisible = !resultContentVisible"
                   >
-                    <template v-if="slot.player">
-                      <strong class="end-result-seat__name">{{ slot.player.username }}</strong>
-                      <div class="end-result-seat__score">
-                        <span>{{ slot.player.score }}</span>
-                        <span
-                          v-if="slot.player.change"
-                          :class="slot.player.change > 0 ? 'is-plus' : 'is-minus'"
-                        >
-                          {{ slot.player.change > 0 ? '+' : '' }}{{ slot.player.change }}
-                        </span>
-                        <span v-else class="is-zero">0</span>
+                    {{ resultContentVisible ? '隐藏面板' : '显示面板' }}
+                  </button>
+                  <section
+                    v-show="resultContentVisible"
+                    class="end-result-panel end-result-panel--win"
+                    aria-label="本局和牌结算"
+                  >
+                    <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
+                      <span
+                        v-for="(tile, index) in resultClosedTiles"
+                        :key="`closed-${index}`"
+                        class="end-result-tile"
+                      >
+                        <img :src="tileAsset(tile)" alt="" />
+                      </span>
+                      <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
+                      <span
+                        v-for="(tile, index) in resultMeldTiles"
+                        :key="`meld-${index}`"
+                        class="end-result-tile"
+                      >
+                        <img :src="tileAsset(tile)" alt="" />
+                      </span>
+                      <span class="end-result-hand__split" />
+                      <span v-if="resultWinTile" class="end-result-tile is-winning">
+                        <img :src="tileAsset(resultWinTile)" alt="和牌张" />
+                      </span>
+                    </div>
+                    <div v-if="resultFlowerTiles.length" class="end-result-flowers">
+                      <span class="end-result-flowers__label">花</span>
+                      <span
+                        v-for="(tile, index) in resultFlowerTiles"
+                        :key="`flower-${index}`"
+                        class="end-result-tile end-result-tile--flower"
+                      >
+                        <img :src="tileAsset(tile)" alt="" />
+                      </span>
+                    </div>
+
+                    <div
+                      class="end-result-fan-grid"
+                      aria-label="番种"
+                      :style="{ minHeight: fanGridMinHeight }"
+                    >
+                      <div
+                        v-for="(fan, index) in resultFans"
+                        :key="`${fan.name}-${index}`"
+                        class="end-result-fan"
+                        :class="{ 'is-visible': index < revealedFanCount }"
+                      >
+                        <span>{{ fan.name }}</span>
+                        <strong>{{ fan.value }}</strong>
                       </div>
-                    </template>
-                  </article>
-                </div>
+                    </div>
 
+                    <div
+                      class="end-result-total"
+                      aria-label="总番数"
+                      :class="{ 'is-visible': showResultTotal }"
+                    >
+                      <div class="end-result-total__line">
+                        <strong>{{ roundResult.hu_score ?? 0 }}</strong><span>番</span>
+                      </div>
+                      <small>{{ resultClassLabel }}</small>
+                    </div>
+
+                    <div class="end-result-diamond" aria-label="分数">
+                      <article
+                        v-for="slot in diamondSlots"
+                        :key="`seat-rel-${slot.relative}`"
+                        class="end-result-seat"
+                        :class="[
+                          `is-rel-${slot.relative}`,
+                          {
+                            'is-ready': slot.player?.ready,
+                            'is-winner': slot.player
+                              && slot.player.player_index === roundResult.hepai_player_index,
+                          },
+                        ]"
+                      >
+                        <template v-if="slot.player">
+                          <strong class="end-result-seat__name">{{ slot.player.username }}</strong>
+                          <div class="end-result-seat__score">
+                            <span>{{ slot.player.score }}</span>
+                            <span
+                              v-if="slot.player.change"
+                              :class="slot.player.change > 0 ? 'is-plus' : 'is-minus'"
+                            >
+                              {{ slot.player.change > 0 ? '+' : '' }}{{ slot.player.change }}
+                            </span>
+                            <span v-else class="is-zero">0</span>
+                          </div>
+                        </template>
+                      </article>
+                    </div>
+
+                    <button
+                      v-if="showReadyButton"
+                      type="button"
+                      class="end-result-ready-button"
+                      :disabled="readySent"
+                      @click="sendReady"
+                    >
+                      {{ readyButtonLabel }}
+                    </button>
+                  </section>
+                </template>
+              </div>
+            </div>
+
+            <!-- 桌布内侧右侧轨：在 stage-shell 边框内，占用桌布空间而非盖住牌面 -->
+            <aside class="game-felt-rail">
+              <div class="game-felt-rail__section">
                 <button
-                  v-if="showReadyButton"
                   type="button"
-                  class="end-result-ready-button"
-                  :disabled="readySent"
-                  @click="sendReady"
+                  class="scene-appearance-toggle__button"
+                  :aria-expanded="settingsOpen"
+                  @click="toggleSettingsPanel"
                 >
-                  {{ readyButtonLabel }}
+                  操作设置
                 </button>
-              </section>
-            </template>
+                <div v-if="settingsOpen" class="game-felt-rail__panel">
+                  <div class="scene-appearance-toggle__card">
+                    <GameAssistPanel
+                      :settings="assistSettings"
+                      :expanded="assistExpandOpen"
+                      @update="patchAssistSettings"
+                      @toggle-expand="assistExpandOpen = !assistExpandOpen"
+                    />
+                    <GameAssistPanel
+                      v-if="assistExpandOpen"
+                      detail-only
+                      :settings="assistSettings"
+                      :expanded="true"
+                      @update="patchAssistSettings"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="game-felt-rail__section">
+                <button
+                  type="button"
+                  class="scene-appearance-toggle__button"
+                  :aria-expanded="tileSkipOpen"
+                  @click="toggleTileSkipPanel"
+                >
+                  牌张设置
+                </button>
+                <div v-if="tileSkipOpen" class="game-felt-rail__panel">
+                  <div class="scene-appearance-toggle__card">
+                    <GameTileSkipPanel
+                      :settings="assistSettings"
+                      :tile-src="mmcrTileAsset"
+                      @update="patchAssistSettings"
+                      @clear-tiles="patchAssistSettings({ silentTiles: [] })"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="game-felt-rail__section">
+                <button
+                  type="button"
+                  class="scene-appearance-toggle__button"
+                  :aria-expanded="appearanceOpen"
+                  @click="toggleAppearancePanel"
+                >
+                  外观
+                </button>
+                <div v-if="appearanceOpen" class="game-felt-rail__panel">
+                  <div class="scene-appearance-toggle__card">
+                    <SceneAppearancePanel
+                      :appearance="appearance"
+                      :background-image-name="backgroundImage?.name ?? null"
+                      :background-image-loading="backgroundImageLoading"
+                      :volume="volume"
+                      @volume="changeVolume"
+                      @table-color="setAppearanceField('backgroundColorTable', $event)"
+                      @outside-color="setAppearanceField('backgroundColorOutside', $event)"
+                      @image-enabled="setAppearanceField('backgroundImageEnabled', $event)"
+                      @image-alpha="setAppearanceField('backgroundImageAlpha', $event)"
+                      @image-selected="uploadBackgroundImage"
+                      @image-cleared="clearBackgroundImage"
+                      @cover-color="setTileCoverColor"
+                      @add-cover-color="addTileCoverColor"
+                      @remove-cover-color="removeTileCoverColor"
+                      @cover-rotate-mode="setAppearanceField('tileCoverRotateMode', $event)"
+                      @moqie-shortcut="setAppearanceField('moqieShortcutMode', $event)"
+                      @pass-shortcut="setAppearanceField('passShortcutMode', $event)"
+                      @flower-area-display="setAppearanceField('flowerAreaDisplay', $event)"
+                      @flower-area-color="setAppearanceField('flowerAreaColor', $event)"
+                      @flower-area-alpha="setAppearanceField('flowerAreaAlpha', $event)"
+                      @tile-face-theme="setAppearanceField('tileFaceTheme', $event)"
+                      @flower-face-theme="setAppearanceField('flowerFaceTheme', $event)"
+                      @reset="resetAppearance"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="game-felt-rail__section">
+                <button
+                  v-if="sidebarPlayers.length"
+                  type="button"
+                  class="scene-appearance-toggle__button"
+                  :aria-expanded="ratingsExpanded"
+                  @click="toggleRatings"
+                >
+                  玩家信息
+                </button>
+                <div class="game-page__ratings-area" :class="{ 'is-expanded': ratingsExpanded }">
+                  <div v-for="player in sidebarPlayers" :key="player.player_index" class="game-page__sidebar-card">
+                    <div class="player-name">{{ player.username || `#${player.user_id}` }}</div>
+                    <div class="player-rating">{{ player.guobiao_rank }} · {{ player.guobiao_score.toFixed(2) }} PT</div>
+                    <div class="player-rating">对局分 {{ player.score }}</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
       </section>
-
-      <aside class="game-page__sidebar">
-        <div class="game-page__ratings-area" :class="{ 'is-expanded': ratingsExpanded }">
-          <div v-for="player in sidebarPlayers" :key="player.player_index" class="game-page__sidebar-card">
-            <div class="player-name">{{ player.username || `#${player.user_id}` }}</div>
-            <div class="player-rating">{{ player.guobiao_rank }} · {{ player.guobiao_score.toFixed(2) }} PT</div>
-            <div class="player-rating">对局分 {{ player.score }}</div>
-          </div>
-        </div>
-
-        <div class="game-page__sidebar-bottom-row">
-          <button
-            v-if="sidebarPlayers.length"
-            type="button"
-            class="scene-appearance-toggle__button"
-            :aria-expanded="ratingsExpanded"
-            @click="toggleRatings"
-          >
-            玩家信息
-          </button>
-          <button
-            type="button"
-            class="scene-appearance-toggle__button"
-            :aria-expanded="appearanceOpen"
-            @click="appearanceOpen = !appearanceOpen; assistExpandOpen = false; tileSkipOpen = false"
-          >
-            外观
-          </button>
-        </div>
-
-        <div v-if="appearanceOpen" class="scene-appearance-toggle__panel">
-          <div class="scene-appearance-toggle__card">
-            <SceneAppearancePanel
-              :appearance="appearance"
-              :background-image-name="backgroundImage?.name ?? null"
-              :background-image-loading="backgroundImageLoading"
-              :volume="volume"
-              @volume="changeVolume"
-              @table-color="setAppearanceField('backgroundColorTable', $event)"
-              @outside-color="setAppearanceField('backgroundColorOutside', $event)"
-              @image-enabled="setAppearanceField('backgroundImageEnabled', $event)"
-              @image-alpha="setAppearanceField('backgroundImageAlpha', $event)"
-              @image-selected="uploadBackgroundImage"
-              @image-cleared="clearBackgroundImage"
-              @cover-color="setTileCoverColor"
-              @add-cover-color="addTileCoverColor"
-              @remove-cover-color="removeTileCoverColor"
-              @cover-rotate-mode="setAppearanceField('tileCoverRotateMode', $event)"
-              @moqie-shortcut="setAppearanceField('moqieShortcutMode', $event)"
-              @pass-shortcut="setAppearanceField('passShortcutMode', $event)"
-              @flower-area-display="setAppearanceField('flowerAreaDisplay', $event)"
-              @flower-area-color="setAppearanceField('flowerAreaColor', $event)"
-              @flower-area-alpha="setAppearanceField('flowerAreaAlpha', $event)"
-              @tile-face-theme="setAppearanceField('tileFaceTheme', $event)"
-              @flower-face-theme="setAppearanceField('flowerFaceTheme', $event)"
-              @reset="resetAppearance"
-            />
-          </div>
-        </div>
-      </aside>
     </div>
 
     <el-dialog
@@ -340,9 +359,10 @@ const readyStatus = ref({})
 const resultContentVisible = ref(true)
 const finalResult = ref(null)
 const appearanceOpen = ref(false)
+const settingsOpen = ref(false)
 const assistExpandOpen = ref(false)
 const tileSkipOpen = ref(false)
-const ratingsExpanded = ref(window.matchMedia('(min-width: 901px)').matches)
+const ratingsExpanded = ref(false)
 const sidebarPlayers = ref([])
 const volume = ref(loadStoredVolume())
 const appearance = ref(loadStoredSceneAppearance())
@@ -745,20 +765,40 @@ function sendReady() {
   readyStatus.value = { ...readyStatus.value, [String(selfSeat.value)]: true }
 }
 
+function scheduleFeltResize() {
+  window.setTimeout(() => scene?.forceResize(), 100)
+}
+
+function closeFeltPanels() {
+  settingsOpen.value = false
+  tileSkipOpen.value = false
+  appearanceOpen.value = false
+  assistExpandOpen.value = false
+}
+
+function toggleSettingsPanel() {
+  const next = !settingsOpen.value
+  closeFeltPanels()
+  settingsOpen.value = next
+  scheduleFeltResize()
+}
+
 function toggleAssistExpand() {
   assistExpandOpen.value = !assistExpandOpen.value
-  if (assistExpandOpen.value) {
-    tileSkipOpen.value = false
-    appearanceOpen.value = false
-  }
 }
 
 function toggleTileSkipPanel() {
-  tileSkipOpen.value = !tileSkipOpen.value
-  if (tileSkipOpen.value) {
-    assistExpandOpen.value = false
-    appearanceOpen.value = false
-  }
+  const next = !tileSkipOpen.value
+  closeFeltPanels()
+  tileSkipOpen.value = next
+  scheduleFeltResize()
+}
+
+function toggleAppearancePanel() {
+  const next = !appearanceOpen.value
+  closeFeltPanels()
+  appearanceOpen.value = next
+  scheduleFeltResize()
 }
 
 function patchAssistSettings(partial) {

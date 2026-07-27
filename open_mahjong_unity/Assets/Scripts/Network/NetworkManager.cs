@@ -25,6 +25,7 @@ public class NetworkManager : MonoBehaviour {
     }
     private string playerId; // 定义玩家ID
     private bool isConnecting = false; // 定义连接状态
+    private bool suppressConnectionFailureUi = false;
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
     private readonly Queue<byte[]> priorityMessageQueue = new Queue<byte[]>(); // 需立即处理的消息（如 match/match_found）
     private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
@@ -36,6 +37,9 @@ public class NetworkManager : MonoBehaviour {
     private const float PingIntervalSeconds = 2f; // ping 发送间隔
     private const float PingTimeoutSeconds = 6f; // 超过该秒数未收到 pong 时视为高延迟
     private const int PingTimeoutMs = 9999; // 超时未收到 pong 时显示的延迟值
+    private const int InitialConnectionMaxAttempts = 3;
+    private const float ConnectionAttemptTimeoutSeconds = 10f;
+    private const float InitialConnectionRetryDelaySeconds = 1.5f;
     private float _pingTimer = PingIntervalSeconds; // 初始为间隔值，连接后立刻 ping 一次
     private long _lastPingTs;
     private float _lastPongElapsed; // 距离上次收到 pong 的时间，用于检测超时
@@ -108,6 +112,7 @@ public class NetworkManager : MonoBehaviour {
             if (ws != websocket) return;
             Debug.Log("WebSocket连接成功");
             isConnecting = false;
+            suppressConnectionFailureUi = false;
             OnConnectionEstablished();
             ExecuteOnMainThread(() => {
                 if (IsOnLoginPage()) {
@@ -121,6 +126,7 @@ public class NetworkManager : MonoBehaviour {
             if (ws != websocket) return;
             Debug.LogError($"WebSocket连接失败: {errorMsg}");
             isConnecting = false;
+            if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (IsOnLoginPage()) {
                     LoginPanel.Instance?.ConnectErrorText(errorMsg);
@@ -133,6 +139,7 @@ public class NetworkManager : MonoBehaviour {
             if (ws != websocket) return;
             Debug.Log($"WebSocket已关闭: {code}");
             isConnecting = false;
+            if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
                 if (AutoReconnect.TryHandleOnClose()) return;
                 if (IsOnLoginPage()) {
@@ -267,6 +274,7 @@ public class NetworkManager : MonoBehaviour {
             Debug.LogWarning("[NetworkManager] 无法重连：NetworkManager 未激活");
             return;
         }
+        suppressConnectionFailureUi = false;
         _disconnectDialogState = DisconnectDialogState.Start;
         CoroutineManager.Ensure();
         CoroutineManager.Instance.RunNamed(
@@ -357,12 +365,67 @@ public class NetworkManager : MonoBehaviour {
         }
     }
 
+    private IEnumerator InitialConnectRoutine() {
+        suppressConnectionFailureUi = true;
+
+        for (int attempt = 1; attempt <= InitialConnectionMaxAttempts; attempt++) {
+            if (attempt > 1) {
+                float retryDelay = InitialConnectionRetryDelaySeconds * (attempt - 1);
+                Debug.Log($"[NetworkManager] 首次连接重试前等待 {retryDelay:0.0}s");
+                while (retryDelay > 0f) {
+                    retryDelay -= Time.unscaledDeltaTime;
+                    yield return null;
+                }
+
+                BeginNewConnection();
+            } else {
+                isConnecting = true;
+                Debug.Log($"开始连接服务器，当前状态: {websocket.State}");
+                RunConnectLoop(websocket);
+            }
+
+            WebSocket attemptSocket = websocket;
+            Debug.Log($"[NetworkManager] 首次连接第 {attempt}/{InitialConnectionMaxAttempts} 次尝试");
+
+            float elapsed = 0f;
+            while (elapsed < ConnectionAttemptTimeoutSeconds) {
+                if (attemptSocket != websocket) {
+                    yield break;
+                }
+                if (attemptSocket.State == WebSocketState.Open) {
+                    suppressConnectionFailureUi = false;
+                    Debug.Log($"[NetworkManager] 首次连接成功（第 {attempt} 次尝试）");
+                    yield break;
+                }
+                if (attemptSocket.State == WebSocketState.Closed) {
+                    break;
+                }
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            Debug.LogWarning(
+                $"[NetworkManager] 首次连接第 {attempt}/{InitialConnectionMaxAttempts} 次失败"
+                + $"（State={attemptSocket.State}）"
+            );
+            try {
+                attemptSocket.CancelConnection();
+            } catch (Exception e) {
+                Debug.LogWarning($"[NetworkManager] 取消首次连接尝试时出错: {e.Message}");
+            }
+        }
+
+        isConnecting = false;
+        if (IsOnLoginPage()) {
+            LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
+        }
+        HandleConnectionLostUi();
+    }
+
     // 2.Start方法用于连接到服务器
     private void Start() {
         if (Instance == this && !isConnecting) {
-            isConnecting = true;
-            Debug.Log($"开始连接服务器，当前状态: {websocket.State}");
-            RunConnectLoop(websocket);
+            StartCoroutine(InitialConnectRoutine());
         }
     }
 

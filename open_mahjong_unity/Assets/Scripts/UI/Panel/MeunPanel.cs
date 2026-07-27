@@ -46,9 +46,7 @@ public class MeunPanel : MonoBehaviour {
     }
 
     public void GoToMatch() {
-        if (LobbyStateGuard.BlockIfInRoomForMatch()) {
-            return;
-        }
+        // 对局/房间中允许查阅匹配页人数；真正加入队列时再由 MatchNetworkManager 拦截
         WindowsManager.Instance.SwitchWindow("match");
     }
 
