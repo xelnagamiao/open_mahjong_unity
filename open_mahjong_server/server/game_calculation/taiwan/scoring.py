@@ -142,7 +142,10 @@ def _flower_fans(context: HandContext, *, suppress: bool = False) -> List[Fan]:
             1
             for tile in context.flowers
             if tile in SEAT_FLOWERS.get(context.seat_wind, ())
-            and tile not in flower_kong_tiles
+            and (
+                not rules.flower_kong_excludes_seat_flower
+                or tile not in flower_kong_tiles
+            )
         )
         if correct:
             fans.append(_fan("flower_tile", correct))

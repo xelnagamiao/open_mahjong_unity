@@ -75,6 +75,7 @@ class TaiwanRules:
     seven_flowers_steal_eighth_enabled: bool = True
     initial_flower_bonus_enabled: bool = False
     all_flower_tiles_enabled: bool = False
+    flower_kong_excludes_seat_flower: bool = False
     no_flowers_enabled: bool = False
 
     ready_qualification_mode: str = "standard_with_dealer_heavenly_ready"
@@ -267,6 +268,7 @@ class TaiwanRules:
             "seven_flowers_steal_eighth_enabled",
             "initial_flower_bonus_enabled",
             "all_flower_tiles_enabled",
+            "flower_kong_excludes_seat_flower",
             "no_flowers_enabled",
             "public_ready_enabled",
             "declared_ready_auto_added_kong",

@@ -90,6 +90,7 @@ public class Taiwan_Create_RoomConfig {
             new DetailedConfigOption("杠牌", "concealed_kong_enabled", "暗杠计台", new[] { "关闭", "开启" }, new object[] { false, true }, false),
 
             new DetailedConfigOption("花牌字牌", "opening_flower_replacement_order", "开局补花顺序", new[] { "本家补完再轮下家", "分轮补花（新花下一轮）" }, new object[] { "player_complete", "round_robin" }, "player_complete"),
+            new DetailedConfigOption("花牌字牌", "flower_kong_excludes_seat_flower", "花杠覆盖正花", new[] { "关闭", "开启" }, new object[] { false, true }, false),
             new DetailedConfigOption("花牌字牌", "all_flower_tiles_enabled", "见花见台", new[] { "只计正花、花杠", "所有花牌均计台" }, new object[] { false, true }, false),
             new DetailedConfigOption("花牌字牌", "all_wind_pungs_enabled", "见风见台", new[] { "只计门风刻、圈风刻", "所有风刻均计台" }, new object[] { false, true }, false),
             new DetailedConfigOption("花牌字牌", "no_flowers_enabled", "无花", new[] { "关闭", "开启" }, new object[] { false, true }, false),
@@ -131,7 +132,7 @@ public class Taiwan_Create_RoomConfig {
         var presets = new List<DetailedConfigPreset> {
             new DetailedConfigPreset(
                 "推荐标准",
-                "对齐SML竞技流程：固定尾 16、严格食替与过水、双响头跳/三响全胡。作为推荐标准馆规。",
+                "对齐SML竞技流程：固定尾 16、严格食替与过水、双响头跳/三响全胡，正花与花杠复合计台。",
                 new Dictionary<string, object>()),
             new DetailedConfigPreset(
                 "CML竞技",
@@ -145,6 +146,7 @@ public class Taiwan_Create_RoomConfig {
                     { "opening_flower_replacement_order", "round_robin" },
                     { "eight_flowers_mode", "additive" },
                     { "seven_flowers_steal_eighth_enabled", false },
+                    { "flower_kong_excludes_seat_flower", true },
                     { "scoring_preset", "cml" },
                     { "little_four_winds_add_wind_pungs", true },
                     { "ready_qualification_mode", "standard_without_dealer_heavenly_ready" },
@@ -153,7 +155,7 @@ public class Taiwan_Create_RoomConfig {
                 }),
             new DetailedConfigPreset(
                 "明星三缺一",
-                "对齐明星三缺一流程与公开台表：见花见台、见风见台、每杠加一张尾牌、最多连 10、天地听不得过水、花胡可选。",
+                "对齐明星三缺一流程：见花见台、见风见台、每杠加一张尾牌、最多连 10、天地听不得过水、花胡可选。",
                 new Dictionary<string, object> {
                     { "dealer_streak_limit", 10 },
                     { "dead_wall_mode", "kong_expands_tail" },
@@ -162,6 +164,7 @@ public class Taiwan_Create_RoomConfig {
                     { "eight_flowers_mode", "optional_standalone" },
                     { "seven_flowers_steal_eighth_enabled", false },
                     { "all_flower_tiles_enabled", true },
+                    { "flower_kong_excludes_seat_flower", true },
                     { "public_ready_enabled", true },
                     { "scoring_preset", "star31" },
                     { "all_chows_definition", "strict" },
@@ -176,7 +179,7 @@ public class Taiwan_Create_RoomConfig {
                 }),
             new DetailedConfigPreset(
                 "神来也",
-                "对齐神来也流程与公开台表：头跳、每杠加一张尾牌、最多连 9、配牌花胡、半求人。",
+                "对齐神来也流程：头跳、每杠加一张尾牌、最多连 9、配牌花胡、半求人。",
                 new Dictionary<string, object> {
                     { "dealer_streak_limit", 9 },
                     { "dead_wall_mode", "kong_expands_tail" },
@@ -185,6 +188,7 @@ public class Taiwan_Create_RoomConfig {
                     { "missed_win_blocks_claims", false },
                     { "eight_flowers_mode", "compound" },
                     { "initial_flower_bonus_enabled", true },
+                    { "flower_kong_excludes_seat_flower", true },
                     { "public_ready_enabled", true },
                     { "scoring_preset", "shenlaiye" },
                     { "all_chows_definition", "strict" },

@@ -457,8 +457,33 @@ class TaiwanScoringTest(unittest.TestCase):
             flowers=[51, 52, 53, 54],
             seat_wind=41,
         )
-        self.assertEqual(flower.tai, 1)
-        self.assertEqual(flower.fan_ids, ["flower_kong"])
+        self.assertEqual(flower.tai, 2)
+        self.assertEqual(flower.fan_ids, ["flower_tile", "flower_kong"])
+
+        subsumed_flower = self.score(
+            hand,
+            melds=["k11"],
+            tile=21,
+            flowers=[51, 52, 53, 54],
+            seat_wind=41,
+            rules=TaiwanRules(flower_kong_excludes_seat_flower=True),
+        )
+        self.assertEqual(subsumed_flower.tai, 1)
+        self.assertEqual(subsumed_flower.fan_ids, ["flower_kong"])
+
+        upgraded_flower = self.score(
+            hand,
+            melds=["k11"],
+            tile=21,
+            flowers=[51, 52, 53, 54],
+            seat_wind=41,
+            rules=TaiwanRules(
+                flower_kong_excludes_seat_flower=True,
+                fan_tai_overrides={"flower_kong": 2},
+            ),
+        )
+        self.assertEqual(upgraded_flower.tai, 2)
+        self.assertEqual(upgraded_flower.fan_ids, ["flower_kong"])
 
         any_flower = self.score(
             hand,
@@ -492,7 +517,9 @@ class TaiwanScoringTest(unittest.TestCase):
         flower_kong = next(fan for fan in both_flower_kongs.fans if fan.fan_id == "flower_kong")
         self.assertEqual(flower_kong.count, 2)
         self.assertEqual(flower_kong.total, 2)
-        self.assertNotIn("flower_tile", both_flower_kongs.fan_ids)
+        flower_tile = next(fan for fan in both_flower_kongs.fans if fan.fan_id == "flower_tile")
+        self.assertEqual(flower_tile.count, 2)
+        self.assertEqual(flower_tile.total, 2)
 
         no_flowers = self.score(
             hand,
@@ -2065,6 +2092,8 @@ class TaiwanScoringTest(unittest.TestCase):
             TaiwanRules.from_dict({"full_flush_liability_enabled": 1})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"all_flower_tiles_enabled": "true"})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"flower_kong_excludes_seat_flower": 1})
         with self.assertRaisesRegex(ValueError, "flower_scoring_mode"):
             TaiwanRules.from_dict({"flower_scoring_mode": "all_flowers"})
         with self.assertRaises(ValueError):
@@ -5536,6 +5565,9 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertEqual(validated.detailed_config["multi_win_mode"], "double_head_bump_triple_all")
         self.assertEqual(validated.detailed_config["minimum_tai"], 0)
         self.assertFalse(validated.detailed_config["initial_flower_bonus_enabled"])
+        self.assertFalse(
+            validated.detailed_config["flower_kong_excludes_seat_flower"]
+        )
         self.assertEqual(validated.detailed_config["ready_qualification_mode"], "standard_with_dealer_heavenly_ready")
         self.assertFalse(validated.detailed_config["public_ready_enabled"])
         self.assertEqual(validated.detailed_config["declared_ready_win_policy"], "allow_pass")
@@ -5582,6 +5614,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 "eight_flowers_mode": "compound",
                 "seven_flowers_steal_eighth_enabled": False,
                 "initial_flower_bonus_enabled": True,
+                "flower_kong_excludes_seat_flower": True,
                 "fan_tai_overrides": {
                     "flower_kong": 3,
                     "all_chows": 6,
@@ -5651,6 +5684,9 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             "round_robin",
         )
         self.assertTrue(custom.detailed_config["initial_flower_bonus_enabled"])
+        self.assertTrue(
+            custom.detailed_config["flower_kong_excludes_seat_flower"]
+        )
         self.assertTrue(custom.detailed_config["all_flower_tiles_enabled"])
         self.assertTrue(custom.detailed_config["public_ready_enabled"])
         self.assertEqual(custom.detailed_config["declared_ready_win_policy"], "force_win")

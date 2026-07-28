@@ -200,6 +200,7 @@ namespace Taiwan {
         public bool FourKongsEnabled { get; private set; }
         public bool FiveKongsEnabled { get; private set; }
         public bool AllFlowerTilesEnabled { get; private set; }
+        public bool FlowerKongExcludesSeatFlower { get; private set; }
         public bool NoFlowersEnabled { get; private set; }
         public string ScoringPreset { get; private set; } = "sml";
         public string AllChowsDefinition { get; private set; } = "relaxed";
@@ -226,6 +227,10 @@ namespace Taiwan {
             result.FourKongsEnabled = ReadBool(values, "four_kongs_enabled", false);
             result.FiveKongsEnabled = ReadBool(values, "five_kongs_enabled", false);
             result.AllFlowerTilesEnabled = ReadBool(values, "all_flower_tiles_enabled", false);
+            result.FlowerKongExcludesSeatFlower = ReadBool(
+                values,
+                "flower_kong_excludes_seat_flower",
+                false);
             result.NoFlowersEnabled = ReadBool(values, "no_flowers_enabled", false);
             result.ScoringPreset = ReadString(values, "scoring_preset", "sml");
             result.AllChowsDefinition = ReadString(
@@ -773,7 +778,8 @@ namespace Taiwan {
                 int secondFlower = firstFlower + 4;
                 int correctCount = flowers.Count(tile =>
                     (tile == firstFlower || tile == secondFlower)
-                    && !flowerKongTiles.Contains(tile));
+                    && (!rules.FlowerKongExcludesSeatFlower
+                        || !flowerKongTiles.Contains(tile)));
                 if (correctCount > 0) AddFan(fans, "正花", 1, correctCount);
                 if (flowerKongCount > 0) AddFan(fans, "花杠", 1, flowerKongCount);
             }
