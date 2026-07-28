@@ -2,7 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 public partial class Game3DManager {
-    private const int RecordHandCardsPerRow = 14;
+    /// <summary>按当前规则的手牌结构返回局终单行明牌容量。</summary>
+    private int GetRevealedHandCardsPerRow() {
+        GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
+        return HandStructures.Resolve(roomRule, subRule).CompleteHandTileCount;
+    }
     /// <summary>
     /// 按 selfHandTiles 排序后重建自家 3D 手牌为明牌；仅在局终隐藏操作区（HideSelfGameplayControl）时调用。
     /// </summary>
@@ -27,6 +31,9 @@ public partial class Game3DManager {
         System.Array.Sort(closed, TileIdOrder.Comparer);
         ForceHandRevealIdle(panel);
         ClearHandCardsPosition(panel.cardsPosition);
+        if (request.IsQianggang && request.WinTileMode == HepaiWinTilePresentMode.RonInstantThenPause) {
+            RecycleRobbedAddedKongSource(request);
+        }
         switch (request.WinTileMode) {
             case HepaiWinTilePresentMode.TsumoTravel:
                 yield return CoTsumoTravelReveal(pos, panel, closed, winTileId);
@@ -41,6 +48,19 @@ public partial class Game3DManager {
         }
         PlayHandRevealAnimation(panel);
         yield return new WaitForSeconds(HepaiRevealTiming.ExpandHoldSeconds);
+    }
+
+    /// <summary>
+    /// 被抢加杠在服务端确认前已按加杠暂态展示；和牌确认后应撤回该加杠牌。
+    /// </summary>
+    private void RecycleRobbedAddedKongSource(HepaiPresentationRequest request) {
+        GameObject source = TryResolveJiagangSourceObject(
+            request.DiscardPlayerPosition,
+            request.HepaiTile);
+        if (source == null) return;
+        ClearLastJiagangIfMatches(request.DiscardPlayerPosition, source);
+        source.transform.SetParent(null, worldPositionStays: true);
+        MahjongObjectPool.Instance.Return(-1, source);
     }
     /// <summary>
     /// 牌谱/观战和牌 3D：自家始终与对局一致（隐藏 2D 手牌区 + cardsPosition 倒牌）；
@@ -57,6 +77,9 @@ public partial class Game3DManager {
             yield break;
         }
         if (request.IsRecordShowCardsExpanded) {
+            if (request.IsQianggang) {
+                RecycleRobbedAddedKongSource(request);
+            }
             if (ShouldRecordShowCardsGuobiaoWinMove(request)) {
                 yield return CoRecordShowCardsGuobiaoWinTileToDrawSlot(request);
             }
@@ -195,10 +218,10 @@ public partial class Game3DManager {
     }
     private Vector3 GetRecordHandSlotWorldPosition(string playerPosition, Transform cardsPosition, int slotIndex) {
         GetRecordHandLayoutDirections(playerPosition, out Vector3 widthDir, out Vector3 heightDir);
-        int row = slotIndex / RecordHandCardsPerRow;
-        int col = slotIndex % RecordHandCardsPerRow;
-        float colOffset = ComputeRowCenterOffset(
-            cardsPosition, row, col, RecordHandCardsPerRow, false, useHandSpacing: true);
+        int cardsPerRow = GetRevealedHandCardsPerRow();
+        int row = slotIndex / cardsPerRow;
+        int col = slotIndex % cardsPerRow;
+        float colOffset = ComputeRowCenterOffset(cardsPosition, row, col, cardsPerRow, false, useHandSpacing: true);
         Vector3 pos = cardsPosition.position;
         pos += widthDir.normalized * colOffset;
         pos += heightDir.normalized * cardHeight * row;

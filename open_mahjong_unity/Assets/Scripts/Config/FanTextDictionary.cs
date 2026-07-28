@@ -424,6 +424,51 @@ public static class FanTextDictionary {
     };
 
     /// <summary>
+    /// 台湾麻将台数说明
+    /// </summary>
+
+    private static readonly Dictionary<string, int> TaiwanBaseTai = new Dictionary<string, int> {
+        {"门清", 1}, {"不求人", 1}, {"自摸", 1}, {"门风刻", 1}, {"圈风刻", 1},
+        {"正花", 1}, {"花牌", 1}, {"三元牌", 1}, {"独听", 1}, {"抢杠", 1}, {"杠上开花", 1},
+        {"连庄拉庄", 1},
+        {"海底捞月", 1}, {"花杠", 1},
+        {"平胡", 2}, {"三暗刻", 2}, {"全求人", 2},
+        {"碰碰胡", 4}, {"小三元", 4}, {"混一色", 4},
+        {"四暗刻", 5},
+        {"地听", 8}, {"五暗刻", 8}, {"大三元", 8}, {"小四喜", 8}, {"清一色", 8},
+        {"八仙过海", 8}, {"七抢一", 8}, {"八对半", 8}, {"四杠子", 8},
+        {"天听", 16}, {"地胡", 16}, {"人胡", 16}, {"字一色", 16}, {"大四喜", 16}, {"五杠子", 16},
+        {"天胡", 24},
+        {"报听", 1}, {"无花", 1}, {"半求人", 1}, {"河底捞鱼", 1}, {"风刻", 1},
+        {"无字无花", 2}, {"明杠", 1}, {"暗杠", 2}, {"配牌花胡", 4},
+    };
+
+    private static string GetTaiwanFanDisplayText(string fanName) {
+        if (string.IsNullOrEmpty(fanName)) return "0台";
+        string baseName = fanName;
+        int count = 1;
+        int starIndex = fanName.LastIndexOf('*');
+        if (starIndex > 0
+            && int.TryParse(fanName.Substring(starIndex + 1), out int parsedCount)
+            && parsedCount > 0) {
+            baseName = fanName.Substring(0, starIndex);
+            count = parsedCount;
+        }
+        if (!TaiwanBaseTai.TryGetValue(baseName, out int tai)) return "0台";
+        IDictionary<string, object> ruleValues = null;
+        GameRecordManager record = GameRecordManager.Instance;
+        if (record != null && record.gameObject.activeSelf) {
+            ruleValues = record.GetDetailedConfigSnapshot();
+        }
+        NormalGameStateManager state = NormalGameStateManager.Instance;
+        if (ruleValues == null && state != null && state.roomRule == "taiwan") {
+            ruleValues = state.detailedConfig;
+        }
+        tai = TaiwanExternal.ResolveFanTai(baseName, tai, ruleValues);
+        return $"{tai * count}台";
+    }
+
+    /// <summary>
     /// 古典规则：根据副种名称返回副数显示文本（如 "10副"），未命中时返回 "0副"。
     /// </summary>
     public static string GetFuDisplayText(string fuName) {
@@ -498,6 +543,9 @@ public static class FanTextDictionary {
             if (FanToDisplayRiichi.TryGetValue(fanName, out string riichiDisplay)) return riichiDisplay;
             if (FanToDisplayRiichiInactive.TryGetValue(fanName, out riichiDisplay)) return riichiDisplay;
             return "0番";
+        }
+        else if (rule != null && rule.StartsWith("taiwan")) {
+            return GetTaiwanFanDisplayText(fanName);
         }
         if (map != null && map.TryGetValue(fanName, out string display)) return display;
         return "0番";

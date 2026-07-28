@@ -2579,6 +2579,11 @@ from .changsha.store_changsha import store_changsha_game_record, store_changsha_
 DatabaseManager.store_changsha_game_record = store_changsha_game_record
 DatabaseManager.store_changsha_game_stats = store_changsha_game_stats
 
+# 挂载台湾麻将相关方法到 DatabaseManager 类
+from .taiwan.store_taiwan import store_taiwan_game_record
+
+DatabaseManager.store_taiwan_game_record = store_taiwan_game_record
+
 # Jiandan keeps replay and statistics adapters in the rule-local database module.
 from .jiandan.store_jiandan import (
     store_jiandan_fan_stats,

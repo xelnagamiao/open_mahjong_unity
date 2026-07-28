@@ -52,11 +52,19 @@ public static class RecordHuHandBuilder {
         string huClass,
         int lastWinnableTileId) {
         TryParseHepaiTile(tick, rule, out int hepaiTile);
+        if (IsFlowerWin(tick, rule)) {
+            return BuildDisplayHand(closedHand, "hu_self", 0, 0);
+        }
         return BuildDisplayHand(closedHand, huClass, hepaiTile, lastWinnableTileId);
     }
 
+    /// <summary>和牌触发牌为花牌时，按花胡处理且不将触发花加入暗手。</summary>
+    public static bool IsFlowerWin(List<string> tick, string rule) {
+        return TryParseHepaiTile(tick, rule, out int tile) && tile >= 51 && tile <= 58;
+    }
+
     /// <summary>
-    /// 构建和牌面板用手牌：荣和时在末尾追加和牌张（状态推演已写入荣和张时不再重复追加）。
+    /// 构建和牌面板用手牌：荣和时按手牌结构在末尾追加和牌张。
     /// </summary>
     public static int[] BuildDisplayHand(
         IReadOnlyList<int> closedHand,
@@ -72,7 +80,7 @@ public static class RecordHuHandBuilder {
         int winTile = hepaiTile >= 10 ? hepaiTile : (lastWinnableTileId >= 10 ? lastWinnableTileId : 0);
         if (winTile <= 10) return hand;
 
-        if (hand.Length > 0 && hand[hand.Length - 1] == winTile) {
+        if (!NeedsRonTile(hand)) {
             return hand;
         }
 
@@ -80,6 +88,11 @@ public static class RecordHuHandBuilder {
         Array.Copy(hand, extended, hand.Length);
         extended[hand.Length] = winTile;
         return extended;
+    }
+
+    /// <summary>荣和前暗手张数恒为 3n+1；写入和牌张后为 3n+2。</summary>
+    public static bool NeedsRonTile(IReadOnlyList<int> hand) {
+        return hand != null && hand.Count % 3 == 1;
     }
 
     private static int ParseTickInt(IReadOnlyList<string> tick, int index) {

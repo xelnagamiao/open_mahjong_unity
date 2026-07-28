@@ -55,13 +55,15 @@ public partial class GameRecordManager {
         }
 
         currentDangerTileIds.Clear();
-        foreach (int tileId in RecordChongHintCalculator.ComputeDangerTiles(recordPlayer_to_info, roomRule)) {
+        Dictionary<string, RecordPlayer> hintPlayers = GetRecordPlayersForChongHint();
+        Dictionary<string, object> detailedConfig = GetDetailedConfigSnapshot();
+        foreach (int tileId in RecordChongHintCalculator.ComputeDangerTiles(hintPlayers, roomRule, detailedConfig)) {
             currentDangerTileIds.Add(tileId);
         }
 
         var hiddenHands = GetChongHintHiddenHandPositions();
-        Game3DManager.Instance.ApplyRecordChongHintToShowHands(recordPlayer_to_info, roomRule, hiddenHands);
-        ApplyChongToSelf2DHand(roomRule, hiddenHands);
+        Game3DManager.Instance.ApplyRecordChongHintToShowHands(hintPlayers, roomRule, hiddenHands, detailedConfig);
+        ApplyChongToSelf2DHand(hintPlayers, roomRule, hiddenHands, detailedConfig);
         UpdateTileListOpacity();
     }
 
@@ -82,12 +84,16 @@ public partial class GameRecordManager {
         ClearTileListWallTints();
     }
 
-    private void ApplyChongToSelf2DHand(string roomRule, HashSet<string> hiddenHands) {
+    private void ApplyChongToSelf2DHand(
+        Dictionary<string, RecordPlayer> players,
+        string roomRule,
+        HashSet<string> hiddenHands,
+        IDictionary<string, object> detailedConfig = null
+    ) {
         if (hiddenHands.Contains("self")) return;
         if (GameCanvas.Instance.HandCardsContainer == null) return;
 
-        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(
-            recordPlayer_to_info, "self", roomRule);
+        HashSet<int> dangerTileIds = RecordChongHintCalculator.ComputeRonDangerForHandOwner(players, "self", roomRule, detailedConfig);
 
         Transform container = GameCanvas.Instance.HandCardsContainer;
         for (int i = 0; i < container.childCount; i++) {
@@ -108,7 +114,12 @@ public partial class GameRecordManager {
         if (GameCanvas.Instance.HandCardsContainer == null) return;
         TryGetActiveRecordRuleContext(out string roomRule, out _);
         var hiddenHands = GetChongHintHiddenHandPositions();
-        ApplyChongToSelf2DHand(roomRule, hiddenHands);
+        ApplyChongToSelf2DHand(
+            GetRecordPlayersForChongHint(),
+            roomRule,
+            hiddenHands,
+            GetDetailedConfigSnapshot()
+        );
     }
 
     private void ClearSelf2DHandDangerOverlays() {

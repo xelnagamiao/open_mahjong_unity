@@ -134,7 +134,7 @@ public static class GameRecordJsonDecoder {
     }
 
     /// <summary>
-    /// 从单条 tick 累计本局 score_changes（兼容 hu_* / hu_riichi / ryuukyoku，含国标错和 hu_* tick）。
+    /// 从单条 tick 累计本局 score_changes（兼容 hu_* / hu_riichi / ryuukyoku，含局中错和 hu_* tick）。
     /// 供牌谱初次解析与观战增量解析共用，确保观战分值列不为 0。
     /// </summary>
     public static void AccumulateScoreChangesFromTick(Round round, List<string> tick) {
@@ -194,6 +194,27 @@ public static class GameRecordJsonDecoder {
         return flag == "T";
     }
 
+    /// <summary>补花的实际归属者；未附加归属段时即为行动者。</summary>
+    public static int ResolveBuhuaRecipient(List<string> tick, int actionPlayer) {
+        if (tick != null && tick.Count >= 5
+            && int.TryParse(tick[4]?.Trim(), out int recipient)
+            && recipient >= 0 && recipient < 4) {
+            return recipient;
+        }
+        return actionPlayer;
+    }
+
+    /// <summary>补花归属转移扩展：[来源座位, 花牌]。</summary>
+    public static bool TryResolveBuhuaTransfer(List<string> tick, out int fromPlayer, out int tileId) {
+        fromPlayer = -1;
+        tileId = 0;
+        return tick != null && tick.Count >= 7
+            && int.TryParse(tick[5]?.Trim(), out fromPlayer)
+            && fromPlayer >= 0 && fromPlayer < 4
+            && int.TryParse(tick[6]?.Trim(), out tileId)
+            && tileId >= 51 && tileId <= 58;
+    }
+
     /// <summary>
     /// 牌谱 tick 内显式行动者：bh/bd/鸣牌/和牌等；无则返回 defaultPlayer。
     /// </summary>
@@ -206,6 +227,10 @@ public static class GameRecordJsonDecoder {
         }
         if (action == "ca" && tick.Count >= 2) {
             if (!int.TryParse(tick[1]?.Trim(), out int seat)) return defaultPlayer;
+            return seat;
+        }
+        if (action == "state" && tick.Count >= 3) {
+            if (!int.TryParse(tick[2]?.Trim(), out int seat)) return defaultPlayer;
             return seat;
         }
         if ((action == "hu_self" || action == "hu_first" || action == "hu_second" || action == "hu_third"

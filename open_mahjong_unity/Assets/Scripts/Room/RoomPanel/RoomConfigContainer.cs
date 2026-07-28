@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -43,6 +45,10 @@ public class RoomConfigContainer : MonoBehaviour {
             "room_type", "game_round", "round_timer", "step_timer", "random_seed",
             "tips", "has_password", "tourist_limit", "allow_spectator",
         } },
+        { "taiwan", new List<string> {
+            "room_type", "game_round", "round_timer", "step_timer", "random_seed",
+            "tips", "open_cuohe", "has_password", "tourist_limit", "allow_spectator",
+        } },
     };
 
     private static readonly List<string> DefaultDisplayFields = new List<string> {
@@ -70,12 +76,103 @@ public class RoomConfigContainer : MonoBehaviour {
             ? ruleFields
             : DefaultDisplayFields;
 
+        bool hasDetailedConfig = DetailedConfigRegistry.TryGet(roomInfo.room_rule, out _);
+        bool detailedConfigAdded = false;
         foreach (string fieldName in fields) {
             if (!TryBuildField(roomInfo, fieldName, out string displayName, out string displayValue)) {
                 continue;
             }
             ConfigItem configItem = Instantiate(configItemPrefab, container);
             configItem.SetConfig(displayName, displayValue);
+            if (hasDetailedConfig && fieldName == "tips") {
+                AddDetailedConfig(roomInfo, container);
+                detailedConfigAdded = true;
+            }
+        }
+        if (hasDetailedConfig && !detailedConfigAdded) {
+            AddDetailedConfig(roomInfo, container);
+        }
+    }
+
+    private void AddDetailedConfig(RoomInfo roomInfo, Transform container) {
+        if (!DetailedConfigRegistry.TryGet(roomInfo.room_rule, out DetailedConfigDefinition definition)) {
+            return;
+        }
+        IDictionary<string, object> values = roomInfo.detailed_config;
+        if (values == null || values.Count == 0) {
+            ConfigItem fallback = Instantiate(configItemPrefab, container);
+            fallback.SetConfig(
+                definition.Presentation.EmptyDisplayLabel,
+                definition.Presentation.EmptyDisplayValue);
+            return;
+        }
+        foreach (DetailedConfigOption option in definition.Options) {
+            if (!values.TryGetValue(option.Key, out object raw)) continue;
+            ConfigItem item = Instantiate(configItemPrefab, container);
+            item.SetConfig(option.Label, option.FormatValue(raw));
+        }
+        if (definition.FanTable != null) {
+            var overrides = new Dictionary<string, int>();
+            if (values.TryGetValue(definition.FanTable.Key, out object raw)) {
+                ReadFanTaiOverrides(raw, overrides);
+            }
+            var customFans = new List<KeyValuePair<DetailedConfigFanValue, int>>();
+            foreach (DetailedConfigFanValue fan in definition.FanTable.Fans) {
+                if (overrides.TryGetValue(fan.Id, out int tai)) {
+                    customFans.Add(
+                        new KeyValuePair<DetailedConfigFanValue, int>(fan, tai));
+                }
+            }
+            ConfigItem summary = Instantiate(configItemPrefab, container);
+            summary.SetConfig(
+                definition.FanTable.Label,
+                customFans.Count == 0
+                    ? "无自定义（使用基础台表）"
+                    : $"{customFans.Count}项差异");
+            foreach (KeyValuePair<DetailedConfigFanValue, int> entry in customFans) {
+                ConfigItem fanItem = Instantiate(configItemPrefab, container);
+                fanItem.SetConfig(
+                    $"台值·{entry.Key.Label}",
+                    $"{entry.Value}台");
+            }
+        }
+    }
+
+    private static void ReadFanTaiOverrides(
+        object raw,
+        IDictionary<string, int> target) {
+        if (raw == null || target == null) return;
+        if (raw is JObject jsonObject) {
+            foreach (JProperty property in jsonObject.Properties()) {
+                if (int.TryParse(property.Value.ToString(), out int tai)) {
+                    target[property.Name] = tai;
+                }
+            }
+            return;
+        }
+        if (raw is IDictionary<string, int> intValues) {
+            foreach (KeyValuePair<string, int> entry in intValues) {
+                target[entry.Key] = entry.Value;
+            }
+            return;
+        }
+        if (raw is IDictionary<string, object> objectValues) {
+            foreach (KeyValuePair<string, object> entry in objectValues) {
+                if (entry.Value != null
+                    && int.TryParse(entry.Value.ToString(), out int tai)) {
+                    target[entry.Key] = tai;
+                }
+            }
+            return;
+        }
+        if (raw is IDictionary dictionary) {
+            foreach (DictionaryEntry entry in dictionary) {
+                if (entry.Key != null
+                    && entry.Value != null
+                    && int.TryParse(entry.Value.ToString(), out int tai)) {
+                    target[entry.Key.ToString()] = tai;
+                }
+            }
         }
     }
 

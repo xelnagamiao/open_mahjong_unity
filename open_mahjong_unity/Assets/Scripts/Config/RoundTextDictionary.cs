@@ -18,6 +18,7 @@ public static class RoundTextDictionary {
     public static readonly Dictionary<int, string> CurrentRoundTextRiichi = new Dictionary<int, string>(CurrentRoundTextQingque);
     public static readonly Dictionary<int, string> CurrentRoundTextClassical = new Dictionary<int, string>(CurrentRoundTextQingque);
     public static readonly Dictionary<int, string> CurrentRoundTextJiandan = new Dictionary<int, string>(CurrentRoundTextQingque);
+    public static readonly Dictionary<int, string> CurrentRoundTextTaiwan = new Dictionary<int, string>(CurrentRoundTextQingque);
 
     public static readonly Dictionary<int, string> CurrentRoundTextSichuan = new Dictionary<int, string>() {
         {1, "第一副"}, {2, "第二副"}, {3, "第三副"}, {4, "第四副"},
@@ -55,6 +56,7 @@ public static class RoundTextDictionary {
         else if (rule == "sichuan") roundMap = CurrentRoundTextSichuan;
         else if (rule == "changsha") roundMap = CurrentRoundTextChangsha;
         else if (rule == "jiandan") roundMap = CurrentRoundTextJiandan;
+        else if (rule == "taiwan") roundMap = CurrentRoundTextTaiwan;
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string roundName)) {
             return roundName;
         }

@@ -498,6 +498,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                     NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>()
                 );
             }
+            else if (NormalGameStateManager.Instance.roomRule == "taiwan"){
+                waitingTiles = TaiwanExternal.TingpaiCheck(
+                    tempHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
+                    NormalGameStateManager.Instance.detailedConfig
+                );
+            }
             else
             {
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");

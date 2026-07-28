@@ -337,6 +337,10 @@ class GameServer:
     async def create_Sichuan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "sichuan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, blood_battle: bool = True, claim_protection: bool = True, event_id=None) -> Response:
         return await self.room_manager.create_Sichuan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, blood_battle, claim_protection, event_id)
 
+    # 创建台湾麻将房间
+    async def create_Taiwan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "taiwan/standard", tourist_limit: bool = False, allow_spectator: bool = True, open_cuohe: bool = False, cuohe_type: int = 0, detailed_config: dict = None, event_id=None) -> Response:
+        return await self.room_manager.create_Taiwan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, open_cuohe, cuohe_type, detailed_config, event_id)
+
     # 获取房间列表
     def get_room_list(self, show_tip: bool = False) -> Response:
         return self.room_manager.get_room_list(show_tip=show_tip)
@@ -936,4 +940,3 @@ async def player_login(
             else ("登录成功" if player is not None else "注册并登录成功")
         ),
     )
-

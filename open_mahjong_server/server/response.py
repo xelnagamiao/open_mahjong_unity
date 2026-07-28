@@ -52,7 +52,7 @@ class GameInfo(BaseModel):
     room_type: str
     room_rule: str
     sub_rule: Optional[str] = None  # 子规则（如 guobiao/standard、guobiao/xiaolin），用于番表显示
-    hepai_limit: Optional[int] = None  # 起和番限制（国标有效，默认8）
+    hepai_limit: Optional[int] = None  # 起和番限制
     open_cuohe: Optional[bool] = False  # 是否开启错和（默认为False）
     show_moqie_hint: Optional[bool] = False  # 是否显示手摸切灰显（河牌摸切灰、手切正常，默认关）
     tactical_call: Optional[bool] = False  # 是否开启战术鸣牌（国标/青雀有效）
@@ -72,6 +72,7 @@ class GameInfo(BaseModel):
     small_hu_score: Optional[int] = None
     big_hu_score: Optional[int] = None
     self_hand_tiles: Optional[List[int]] = None
+    detailed_config: Optional[Dict[str, object]] = None  # 当前规则的详细配置
     # 立直麻将专用字段
     honba: Optional[int] = None  # 本场棒数
     riichi_sticks: Optional[int] = None  # 场供立直棒数
@@ -105,6 +106,8 @@ class Ask_hand_action_info(BaseModel):
     riichi_candidate_cuts: Optional[Dict[int, List[int]]] = None
     # 立直麻将：吃后切牌阶段，本家被禁切的牌（食替规则：吃来源 + 两面搭子的筋）；客户端用于变暗与禁点
     forbidden_cut_tiles: Optional[List[int]] = None
+    # 台湾麻将：应计入哪种听牌资格。
+    ready_qualification: Optional[str] = None
 
 class Ask_other_action_info(BaseModel):
     remaining_time: int
@@ -146,11 +149,15 @@ class Do_action_info(BaseModel):
     is_mo_gang: Optional[bool] = None
     # 补花：True=摸补（末张花牌），False=手补
     is_mo_buhua: Optional[bool] = None
+    # 花胡转移后的花牌归属者；为空时等同 action_player。
+    buhua_recipient: Optional[int] = None
     # 四川麻将（血战到底）专用
     dingque_suit: Optional[int] = None  # 定缺广播：仅对应玩家收到自己的定缺花色（1万2饼3条）
     player_to_dingque: Optional[Dict[int, int]] = None  # 定缺完成广播：{player_index: suit}
     gang_score_changes: Optional[Dict[int, int]] = None  # 刮风下雨即时分变 {player_index: delta}
     gang_score_type: Optional[str] = None  # 刮风下雨类型：guafeng/xiayu1/xiayu2
+    # 台湾麻将：应计入哪种听牌资格。
+    ready_qualification: Optional[str] = None
 
 class Show_result_info(BaseModel):
     hepai_player_index: Optional[int] = None  # 和牌玩家索引

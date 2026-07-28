@@ -3,10 +3,26 @@ using System.Linq;
 using UnityEngine;
 
 public partial class NormalGameStateManager {
+    /// <summary>自身当前听牌资格；仅用于客户端和牌提示计算。</summary>
+    public string selfReadyQualification { get; private set; }
+
+    private void UpdateSelfReadyQualification(
+        int playerIndex,
+        string readyQualification) {
+        if (playerIndex != selfIndex || string.IsNullOrEmpty(readyQualification)) return;
+        selfReadyQualification = readyQualification == "none"
+            ? null
+            : readyQualification;
+    }
+
+    private void ResetSelfReadyQualification() {
+        selfReadyQualification = null;
+    }
+
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time, int playerIndex, int remain_tiles, string[] action_list,
                               Dictionary<int, int[]> riichi_candidate_cuts = null, int[] forbidden_cut_tiles = null,
-                              int[] forced_cut_tiles = null) {
+                              int[] forced_cut_tiles = null, string ready_qualification = null) {
         TryResumeAfterCuoheContinue();
         TryResumeAfterSichuanContinue();
         string GetCardPlayer = indexToPosition[playerIndex];
@@ -19,12 +35,13 @@ public partial class NormalGameStateManager {
         selfForcedCutTiles = forced_cut_tiles != null
             ? new HashSet<int>(forced_cut_tiles)
             : new HashSet<int>();
+        UpdateSelfReadyQualification(playerIndex, ready_qualification);
         RefreshChangshaSeaBottomConcealedTile(remain_tiles);
         // 如果行动者是自己
         if (playerIndex == selfIndex){
             allowActionList.Clear();
-            // 存储全部可用行动；riichi_cut 在 UI 上以「立直」按钮展示
-            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self", "initial_hu", "sea_bottom", "buzhang", "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
+            // 存储全部可用行动；riichi_cut 的显示名称由当前规则决定。
+            string[] AllowHandActionCheck = new string[] {"cut", "buhua", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buzhang", "angang", "jiagang", "jiuzhongjiupai", "riichi_cut", "pass"};
             foreach (string action in action_list){
                 if (AllowHandActionCheck.Contains(action)){
                     allowActionList.Add(action);
@@ -57,8 +74,9 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, bool? sea_bottom_discard = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, bool? sea_bottom_discard = null, int? buhua_recipient = null, string ready_qualification = null) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
+        UpdateSelfReadyQualification(action_player, ready_qualification);
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
             // 战术鸣牌申请：仅发声/字体；荣和即使无更高优先级竞争者也会由服务端下发 is_claim
@@ -179,6 +197,14 @@ public partial class NormalGameStateManager {
                         player_to_info[GetCardPlayer].hand_tiles_count--;
                     }
                     Game3DManager.Instance.Change3DTile("Buhua", buhua_tile_id, 0, GetCardPlayer, isMoBuhua, null);
+                    break;
+
+                // 花胡
+                case "hu_flower":
+                    ApplyFlowerWinTransfer(
+                        buhua_recipient,
+                        buhua_tile,
+                        GetCardPlayer);
                     break;
 
                 // 和牌：语音与动作文字已在 do_action 阶段播放

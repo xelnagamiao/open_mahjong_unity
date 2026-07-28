@@ -1,11 +1,19 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// 和牌倒牌策略入口：按规则与 hu_class 选择展示方式，委托 Game3DManager 执行 3D 演出。
 /// </summary>
 public static partial class HepaiRevealDirector {
-    public static IEnumerator Play(int hepaiPlayerIndex, int[] hepaiPlayerHand, string huClass, string[] huFan) {
+    public static IEnumerator Play(
+        int hepaiPlayerIndex,
+        int[] hepaiPlayerHand,
+        string huClass,
+        string[] huFan,
+        bool isQianggang = false,
+        int? ronDiscarderIndex = null,
+        int hepaiTile = 0) {
         if (hepaiPlayerHand == null || hepaiPlayerHand.Length == 0) {
             yield break;
         }
@@ -16,6 +24,7 @@ public static partial class HepaiRevealDirector {
         string ruleKey = ResolveLiveRuleKey();
         string discardPos = NormalGameStateManager.Instance.lastDiscardPlayerPosition;
         HepaiPresentationRequest request = BuildRequestCore(winnerPos, huClass, hepaiPlayerHand, huFan, ruleKey, discardPos);
+        ConfigureRuleSpecificRonRequest(request, ruleKey, isQianggang, ronDiscarderIndex, hepaiTile);
         yield return Game3DManager.Instance.PlayHepaiHandReveal(request);
         // 错和续局的手牌恢复在 ready 结束后由 NormalGameStateManager.TryResumeAfterCuoheContinue 统一处理
     }
@@ -77,6 +86,12 @@ public static partial class HepaiRevealDirector {
         return ruleKey == "guobiao" || ruleKey.StartsWith("guobiao");
     }
 
+    internal static bool IsTaiwanRuleKey(string ruleKey) {
+        if (string.IsNullOrEmpty(ruleKey)) return false;
+        ruleKey = ruleKey.ToLowerInvariant();
+        return ruleKey == "taiwan" || ruleKey.StartsWith("taiwan");
+    }
+
     private static bool IsGuobiaoRule() => IsGuobiaoRuleKey(ResolveLiveRuleKey());
 
     private static bool ContainsCuohe(string[] huFan) {
@@ -132,5 +147,20 @@ public static partial class HepaiRevealDirector {
         HepaiPresentationRequest request = BuildSichuanMidGameRequest(
             winnerPos, huClass, hepaiTile, multiRon, ronDiscarderIndex, recycleDiscard, isQianggang);
         yield return Game3DManager.Instance.PlaySichuanMidGameHu(request);
+    }
+
+    /// <summary>
+    /// 花胡的最终结算仍使用 hu_self、hu_first 等普通 hu_class，以保留自摸、付款关系和倒牌语义，本身只属于动作文字与音效的展示差异。
+    /// 现场结算与牌谱复现共用此入口，因此在这里按规则分派到台湾模块，可以避免修改结算协议与牌谱格式，也避免两个调用方各自重复判断。
+    /// 具体花胡条件仍由 TaiwanExternal 负责，通用流程不解释台湾馆规。
+    /// </summary>
+    public static string ResolveHuPresentationAction(
+        string ruleKey,
+        string huClass,
+        IList<string> fanNames,
+        IDictionary<string, object> detailedConfig) {
+        return IsTaiwanRuleKey(ruleKey)
+            ? TaiwanExternal.ResolveHuPresentationAction(huClass, fanNames, detailedConfig)
+            : huClass;
     }
 }

@@ -81,7 +81,7 @@ public class SoundManager : MonoBehaviour {
     private static string ResolveActionVoiceKey(string actionType) {
         GameRecordManager.ResolveActionRuleContext(null, null, out string roomRule, out string subRule);
 
-        if (actionType == "hu_self") {
+        if (actionType == "hu_self" || actionType == "hu_flower") {
             if (GameRecordManager.IsGuobiaoRule(roomRule, subRule)) {
                 return "hu";
             }

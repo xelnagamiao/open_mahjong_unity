@@ -327,13 +327,16 @@ public partial class GameRecordManager {
             }
 
             string nextAction = PeekNextTickAction();
+            bool holdPreviousHuResult = ShouldHoldPreviousHuResult(nextAction);
             // end tick 会清除上一条结算（和牌/流局）面板。这里需按结算面板的完整演出时长保持，
             // 否则会出现“和牌面板一闪而过就进入下一局”的问题（应与真实玩家 8 秒确认倒计时一致）。
-            float delay = nextAction == "end" ? GetSpectatorEndHoldDelay() : GetSpectatorDelay(nextAction);
+            float delay = nextAction == "end" || holdPreviousHuResult
+                ? GetSpectatorEndHoldDelay()
+                : GetSpectatorDelay(nextAction);
             yield return new WaitForSeconds(delay / autoPlaySpeed);
             // end tick 会 ClearRecordRoundEndPanels → CancelRecordHuPresentation，中断进行中的和牌 3D 演出协程。
             // 必须等演出协程结束再执行 end，否则和牌面板一闪而过或根本没显示完。
-            if (nextAction == "end") {
+            if (nextAction == "end" || holdPreviousHuResult) {
                 float waited = 0f;
                 while (_recordHuPresentationActive && waited < 10f) {
                     yield return new WaitForSeconds(0.1f);
@@ -360,6 +363,7 @@ public partial class GameRecordManager {
 
     private float GetSpectatorDelay(string action) {
         switch (action) {
+            case "state": return 0f;
             case "d":
             case "gd":
             case "bd": return 0.3f;
@@ -465,7 +469,7 @@ public partial class GameRecordManager {
             currentNode++;
             UpdateCurrentXunmuText();
         } else {
-            // 国标错和不结束本局、不产生 end tick，其结算面板没有关闭时机。
+            // 局中错和不结束本局、不产生 end tick，其结算面板没有关闭时机。
             // 当本局继续打牌的行动 tick 到来、且仍残留着上一条（错和）结算面板时，先关闭面板，避免观战画面被一直盖住而“卡住”。
             if (IsContinuingPlayTickAction(action) && EndResultPanel.Instance != null
                 && EndResultPanel.Instance.IsAwaitingRecordResultConfirm) {
@@ -519,6 +523,7 @@ public partial class GameRecordManager {
         }
         // 快进到最新 node，但保留末尾「结算 + end」给 AutoPlay 正常播和牌/流局面板；GotoAction 只重建状态不触发演出。
         int catchUpNode = ResolveSpectatorCatchUpNode(actionTicks);
+        catchUpNode = PreserveTrailingUnfinishedSettlements(actionTicks, catchUpNode);
         if (catchUpNode > 0) {
             GotoAction(catchUpNode);
         }

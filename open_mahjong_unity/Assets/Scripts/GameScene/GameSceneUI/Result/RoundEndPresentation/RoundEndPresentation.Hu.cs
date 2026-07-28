@@ -40,15 +40,21 @@ public partial class RoundEndPresentation {
         }
 
         if (!isSilent && !isEndgameScoreOnly) {
-            GameCanvas.Instance.ShowActionDisplay(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);
-            SoundManager.Instance.PlayActionSound(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], hu_class);
+            string presentationAction = HepaiRevealDirector.ResolveHuPresentationAction(
+                NormalGameStateManager.Instance.roomRule,
+                hu_class,
+                hu_fan,
+                NormalGameStateManager.Instance.detailedConfig
+            );
+            GameCanvas.Instance.ShowActionDisplay(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], presentationAction);
+            SoundManager.Instance.PlayActionSound(NormalGameStateManager.Instance.indexToPosition[hepai_player_index], presentationAction);
         }
 
         if (isMidGameSichuanHu) {
             yield return HepaiRevealDirector.PlaySichuanMidGame(
                 hepai_player_index, hu_class, hepaiTile, multiRon, ronDiscarderIndex, recycleDiscard, isQianggang);
         } else if (willRevealWinnerHand) {
-            yield return HepaiRevealDirector.Play(hepai_player_index, hepai_player_hand, hu_class, hu_fan);
+            yield return HepaiRevealDirector.Play(hepai_player_index, hepai_player_hand, hu_class, hu_fan, isQianggang, ronDiscarderIndex, hepaiTile);
         }
 
         if (deferScoreSettlement && !endgameScoreOnly) {

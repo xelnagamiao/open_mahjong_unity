@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 public partial class GameRecordManager {
     /// <summary>牌谱听牌提示与对局当时 tips 房间设置无关；game_title.tips 仅作信息面板元数据。</summary>
@@ -34,7 +35,8 @@ public partial class GameRecordManager {
         }
 
         TryGetActiveRecordRuleContext(out string roomRule, out _);
-        HashSet<int> waiting = RecordChongHintCalculator.ComputeWaitingTilesForPlayer(selfPlayer, roomRule);
+        Dictionary<string, object> detailedConfig = GetDetailedConfigSnapshot();
+        HashSet<int> waiting = RecordChongHintCalculator.ComputeWaitingTilesForPlayer(selfPlayer, roomRule, detailedConfig);
         if (waiting.Count == 0) {
             HideRecordTips();
             return;
@@ -47,10 +49,9 @@ public partial class GameRecordManager {
     private RecordTipsContext BuildRecordTipsContext(RecordPlayer selfPlayer) {
         TryGetActiveRecordRuleContext(out string roomRule, out string subRule);
 
-        int hepaiLimit = ReadGameTitleInt(gameRecord.gameTitle, "hepai_limit", 0);
-        if (hepaiLimit <= 0) {
-            hepaiLimit = roomRule == "riichi" || roomRule == "changsha" ? 1 : 8;
-        }
+        int hepaiLimit = gameRecord.gameTitle.ContainsKey("hepai_limit")
+            ? ReadGameTitleInt(gameRecord.gameTitle, "hepai_limit", 0)
+            : roomRule == "riichi" || roomRule == "changsha" ? 1 : 8;
 
         int displayRound = currentRoundIndex;
         if (gameRecord.gameRound.rounds.TryGetValue(currentRoundIndex, out Round roundData) && roundData.currentRound > 0) {
@@ -63,12 +64,14 @@ public partial class GameRecordManager {
             HepaiLimit = hepaiLimit,
             CurrentRound = displayRound,
             SelfPlayerIndex = selectedPlayerIndex,
-            RemainTiles = currentTilesList.Count,
+            RemainTiles = GetRecordRemainTiles(),
             SelfHuapaiList = selfPlayer.huapaiList ?? new List<int>(),
             SelfCombinationMasks = selfPlayer.combinationMasks ?? new List<int[]>(),
             SelfIsRiichi = selfPlayer.isRiichi,
+            ReadyQualification = selfPlayer.readyQualification,
             DoraIndicators = new List<int>(recordRiichiDoraIndicators),
             SelfDingqueSuit = selfPlayer.dingqueSuit,
+            DetailedConfig = GetDetailedConfigSnapshot(),
             PlayersByPosition = new Dictionary<string, RecordTipsPlayerVisible>(),
         };
 
@@ -81,5 +84,12 @@ public partial class GameRecordManager {
         }
 
         return ctx;
+    }
+
+    public Dictionary<string, object> GetDetailedConfigSnapshot() {
+        if (!gameObject.activeSelf || gameRecord?.gameTitle == null || !gameRecord.gameTitle.TryGetValue("detailed_config", out object raw) || raw == null) return null;
+        if (raw is JObject objectValue) return objectValue.ToObject<Dictionary<string, object>>();
+        if (raw is IDictionary<string, object> dictionary) return new Dictionary<string, object>(dictionary);
+        return null;
     }
 }

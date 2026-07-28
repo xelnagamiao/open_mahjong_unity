@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator
+from .room_validators import GBRoomValidator, MMCValidator, RiichiRoomValidator, SichuanRoomValidator, ChangshaRoomValidator, JiandanRoomValidator, TaiwanRoomValidator
 from ..response import Response
 from ..gamestate.game_guobiao.GuobiaoGameState import GuobiaoGameState
 from ..game_calculation.game_calculation_service import Chinese_Hepai_Check
@@ -28,7 +28,8 @@ class RoomManager:
             "jiandan": JiandanRoomValidator,
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator,
-            "sichuan": SichuanRoomValidator
+            "sichuan": SichuanRoomValidator,
+            "taiwan": TaiwanRoomValidator,
         }
         # 不同规则挂载的游戏验证器
         self.Chinese_Hepai_Check = Chinese_Hepai_Check()
@@ -832,6 +833,108 @@ class RoomManager:
         except Exception as e:
             return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
 
+    async def create_Taiwan_room(self, player_id: str, room_name: str, gameround: int,
+                                  password: str, roundTimerValue: int, stepTimerValue: int,
+                                  tips: bool, random_seed: int = 0,
+                                  sub_rule: str = "taiwan/standard",
+                                  tourist_limit: bool = False,
+                                  allow_spectator: bool = True,
+                                  open_cuohe: bool = False,
+                                  cuohe_type: int = 0,
+                                  detailed_config: Optional[dict] = None,
+                                  event_id: Optional[str] = None) -> Response:
+        """创建台湾麻将标准规则房间。"""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            host_user_id = player.user_id
+            blocked = self._reject_room_entry_conflicts(host_user_id, "创建房间")
+            if blocked:
+                return blocked
+            event_id = self._normalize_event_id(event_id)
+            event_blocked = self._validate_event_for_room(event_id, host_user_id)
+            if event_blocked:
+                return event_blocked
+            host_name = player.username
+
+            host_settings = self.game_server.db_manager.get_user_settings(host_user_id)
+            if not host_settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+
+            cuohe_type = 0 if cuohe_type not in (0, 1) else cuohe_type
+            room_config = {
+                "room_name": room_name,
+                "game_round": gameround,
+                "round_timer": roundTimerValue,
+                "step_timer": stepTimerValue,
+                "random_seed": random_seed,
+                "sub_rule": sub_rule or "taiwan/standard",
+                "tips": tips,
+                "open_cuohe": open_cuohe,
+                "cuohe_type": cuohe_type,
+                "detailed_config": detailed_config,
+            }
+            try:
+                validated_config = self.room_validators["taiwan"](**room_config)
+            except ValueError as e:
+                return Response(type="tips", success=False, message=f"房间配置无效: {str(e)}")
+
+            room_id = self._generate_room_id()
+            has_password = password != ""
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "taiwan",
+                "sub_rule": validated_config.sub_rule,
+                "hepai_limit": validated_config.detailed_config["minimum_tai"],
+                "tourist_limit": tourist_limit,
+                "allow_spectator": allow_spectator,
+                "max_player": 4,
+                "player_list": [host_user_id],
+                "player_settings": {
+                    host_user_id: {
+                        "user_id": host_user_id,
+                        "username": host_settings.get('username', host_name),
+                        "title_id": host_settings.get('title_id', 1),
+                        "profile_image_id": host_settings.get('profile_image_id', 1),
+                        "character_id": host_settings.get('character_id', 1),
+                        "voice_id": host_settings.get('voice_id', 1),
+                    }
+                },
+                "has_password": has_password,
+                "tips": validated_config.tips,
+                "show_moqie_hint": False,
+                "open_cuohe": validated_config.open_cuohe,
+                "cuohe_type": validated_config.cuohe_type,
+                "tactical_call": False,
+                "claim_protection": False,
+                "host_user_id": host_user_id,
+                "host_name": host_name,
+                "is_game_running": False,
+            }
+            self._apply_event_fields(room_data, event_id)
+            room_data.update(validated_config.dict())
+            room_data["is_player_set_random_seed"] = validated_config.random_seed != 0
+
+            self.rooms[room_id] = room_data
+            if has_password:
+                self.room_passwords[room_id] = password
+            player.current_room_id = room_id
+
+            await self._broadcast_room_info(room_id)
+            return Response(
+                type="room/create_room_done",
+                success=True,
+                message="房间创建成功",
+                room_info=room_data,
+            )
+        except Exception as e:
+            return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
+
     async def create_Riichi_room(self, player_id: str, room_name: str, gameround: int,
                                  password: str, roundTimerValue: int, stepTimerValue: int,
                                  tips: bool, random_seed: int = 0,
@@ -1590,6 +1693,7 @@ class RoomManager:
             "riichi": ("riichi/standard", "riichi"),
             "sichuan": ("sichuan/standard", "sichuan"),
             "changsha": ("changsha/classic_double_bird", "changsha"),
+            "taiwan": ("taiwan/standard", "taiwan"),
         }
         if rule not in rule_defaults:
             return Response(type="tips", success=False, message=f"不支持的规则: {rule}")
@@ -1652,6 +1756,16 @@ class RoomManager:
                     claim_protection=bool(room_config.get("claim_protection", True)),
                 )
                 hepai_limit = 1
+            elif rule == "taiwan":
+                validated = self.room_validators["taiwan"](
+                    **base_config,
+                    sub_rule=sub_rule,
+                    tips=tips,
+                    open_cuohe=bool(room_config.get("open_cuohe", False)),
+                    cuohe_type=int(room_config.get("cuohe_type", 0) or 0),
+                    detailed_config=room_config.get("detailed_config"),
+                )
+                hepai_limit = validated.detailed_config["minimum_tai"]
             else:
                 validated = self.room_validators["changsha"](
                     **base_config,
@@ -1776,5 +1890,4 @@ class RoomManager:
             del self.room_passwords[room_id]
         
         logger.info(f"房间 {room_id} 已销毁") 
-
 

@@ -300,6 +300,40 @@ public class RoomNetworkManager : MonoBehaviour {
         }
     }
 
+    /// <summary>创建台湾麻将标准规则房间。</summary>
+    public async void Create_Taiwan_Room(Taiwan_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+
+            var request = new CreateTaiwanRoomRequest {
+                type = "room/create_Taiwan_room",
+                rule = "taiwan",
+                sub_rule = config.SubRule ?? "taiwan/standard",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = config.AllowSpectator,
+                open_cuohe = config.CuoHe,
+                cuohe_type = config.CuoheType,
+                detailed_config = config.DetailedConfig,
+                event_id = string.IsNullOrEmpty(config.EventId) ? null : config.EventId
+            };
+            Debug.Log($"发送创建台湾麻将房间消息: {config.RoomName}, {config.GameRound}, {config.SubRule}, {config.RoundTimer}, {config.StepTimer}, Tips: {config.Tips}, RandomSeed: {randomSeed}, CuoHe: {config.CuoHe}, CuoheType: {config.CuoheType}");
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
+
     /// <summary>Create a fixed first-win Jiandan room using the existing room DTO shape.</summary>
     public async void Create_Jiandan_Room(Jiandan_Create_RoomConfig config) {
         if (BlockRoomEntryRequest()) return;

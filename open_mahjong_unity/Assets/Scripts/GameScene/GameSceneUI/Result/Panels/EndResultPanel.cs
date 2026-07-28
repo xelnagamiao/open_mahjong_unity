@@ -93,6 +93,8 @@ public class EndResultPanel : MonoBehaviour {
     private CanvasGroup panelContentCanvasGroup;
     private bool isPanelContentVisible = true;
     private bool endButtonConfirmed = false;
+    // 当前赢家在本局结算中的实际净得点。
+    private int? currentWinnerPointDelta;
     private const string HidePanelButtonText = "隐藏面板";
     private const string ShowPanelButtonText = "显示面板";
 
@@ -315,6 +317,7 @@ public class EndResultPanel : MonoBehaviour {
 
     public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
         currentState = StateGame;
+        currentWinnerPointDelta = null;
         gameObject.SetActive(true);
         ResetPanelContentVisibility();
         endButtonConfirmed = false;
@@ -357,6 +360,9 @@ public class EndResultPanel : MonoBehaviour {
             ShowResultPlayerScoreResolver.ResolveBeforeAfter(
                 playerInfo.score, seatIdx, origIdx,
                 effectiveScoreChanges, player_to_score, out int beforeScore, out int afterScore);
+            if (seatIdx == hepai_player_index) {
+                currentWinnerPointDelta = afterScore - beforeScore;
+            }
             playerInfo.score = afterScore;
             string scoreText = FormatScoreWithDiff(beforeScore, afterScore);
             string displayName = StreamerModeHelper.FormatGamestatePlayerName(
@@ -496,6 +502,7 @@ public class EndResultPanel : MonoBehaviour {
         }
         matchEndMode = false;
         currentState = StateRecord;
+        currentWinnerPointDelta = null;
         gameObject.SetActive(true);
         ResetPanelContentVisibility();
         endButtonConfirmed = false;
@@ -533,6 +540,9 @@ public class EndResultPanel : MonoBehaviour {
                 string position = indexToPosition[player.Key];
                 int scoreBefore = player_to_score_before != null && player_to_score_before.ContainsKey(player.Key) ? player_to_score_before[player.Key] : 0;
                 int scoreAfter = player.Value;
+                if (player.Key == hepai_player_index) {
+                    currentWinnerPointDelta = scoreAfter - scoreBefore;
+                }
                 string scoreText = FormatScoreWithDiff(scoreBefore, scoreAfter);
 
                 if (position == "self") SelfScore.text = scoreText;
@@ -955,6 +965,8 @@ public class EndResultPanel : MonoBehaviour {
         bool isRiichi = rule != null && rule.StartsWith("riichi");
         bool isSichuan = rule != null && rule.StartsWith("sichuan");
         bool isChangsha = rule != null && rule.StartsWith("changsha");
+        bool isTaiwan = rule != null && rule.StartsWith("taiwan");
+        TotalFan.gameObject.SetActive(!isTaiwan);
 
         if (isRiichi && riichiExtras != null) {
             TotalFu.gameObject.SetActive(true);
@@ -984,7 +996,16 @@ public class EndResultPanel : MonoBehaviour {
             TotalFan.text = $"{huScore}番";
         }
 
-        TotalScore.text = isChangsha ? $"{huScore}分" : $"{huScore}点";
+        if (isChangsha) {
+            TotalScore.text = $"{huScore}分";
+        } else if (isTaiwan) {
+            string pointText = currentWinnerPointDelta.HasValue
+                ? currentWinnerPointDelta.Value.ToString()
+                : "—";
+            TotalScore.text = $"{huScore}台  {pointText}点";
+        } else {
+            TotalScore.text = $"{huScore}点";
+        }
 
         bool showLimit = isClassical && huScore >= 300;
         TotalLimitDisplay.gameObject.SetActive(showLimit);
@@ -1053,6 +1074,7 @@ public class EndResultPanel : MonoBehaviour {
         }
         currentState = StateNone;
         matchEndMode = false;
+        currentWinnerPointDelta = null;
         // 新一局：清空准备缓存与被检查高亮，座位配色复位
         cachedReadyStatus.Clear();
         checkedFocusSeat = -1;

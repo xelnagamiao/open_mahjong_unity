@@ -89,6 +89,7 @@ public partial class GameCanvas : MonoBehaviour {
             case "hu_third":
                 return actionButtonColorPresets.hu;
             case "hu_self":
+            case "hu_flower":
             case "initial_hu":
                 return actionButtonColorPresets.huSelf;
             case "buhua":
@@ -172,6 +173,13 @@ public partial class GameCanvas : MonoBehaviour {
                 TMP_Text buttonText = ActionButtonObj.TextObject;
                 buttonText.text = huSelfText;
                 Debug.Log($"{huSelfText}按钮: {ActionButtonObj}");
+                ActionButtonObj.actionTypeList.Add(action_list[i]);
+            }
+            else if (action_list[i] == "hu_flower"){
+                Debug.Log("花胡");
+                ActionButton ActionButtonObj = CreateActionButton(colorPreset);
+                TMP_Text buttonText = ActionButtonObj.TextObject;
+                buttonText.text = "花胡";
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             else if (action_list[i] == "initial_hu"){
@@ -259,12 +267,13 @@ public partial class GameCanvas : MonoBehaviour {
                 buttonText.text = "九老峰回";
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
-            // 立直（仅在自家门清听牌且服务器允许时下发；点击后进入立直选牌模式）
+            // 听牌声明（仅在服务器允许时下发；点击后进入声明切牌选择模式）
             else if (action_list[i] == "riichi_cut"){
-                Debug.Log($"立直");
+                string readyText = ReadyDeclarationTextDictionary.GetReadyDeclarationText(NormalGameStateManager.Instance.roomRule);
+                Debug.Log(readyText);
                 ActionButton ActionButtonObj = CreateActionButton(colorPreset);
                 TMP_Text buttonText = ActionButtonObj.TextObject;
-                buttonText.text = "立直";
+                buttonText.text = readyText;
                 ActionButtonObj.actionTypeList.Add(action_list[i]);
             }
             // 取消

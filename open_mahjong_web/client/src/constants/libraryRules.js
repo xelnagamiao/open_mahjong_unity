@@ -142,6 +142,22 @@ export const LIBRARY_RULES = [
     ],
   },
   {
+    key: 'taiwan',
+    label: '台湾麻将',
+    short: '台麻',
+    categories: ['platform', 'local'],
+    description: '采用 144 张牌与 16 张手牌，并以台数结算的台湾麻将规则。',
+    accent: '#14b8a6',
+    resources: [
+      {
+        title: '台湾麻将台数表',
+        desc: '本平台台湾麻将采用的台数参考表。',
+        url: '/rulebooks/taiwan-yaku-table.pdf',
+        filename: '台湾麻将台数表.pdf',
+      },
+    ],
+  },
+  {
     key: 'jiandan',
     label: '简单麻将',
     short: '简单',
