@@ -70,7 +70,7 @@
               Salasasa平台是open_mahjong_unity项目的示例服务器，目前支持国标/立直/青雀/川麻/长麻以及一些子规则
             </p>
           </router-link>
-          <router-link class="platform-2d-link" to="/2d">2d模式测试</router-link>
+          <router-link class="platform-2d-link" to="/2d">进入2D模式</router-link>
         </div>
 
         <div class="panel recent">
@@ -101,8 +101,11 @@
             <router-link class="panel-btn" to="/account">进入管理面板</router-link>
           </template>
           <template v-else>
-            <p>绑定邮箱、修改密码、申请、管理赛事</p>
-            <router-link class="panel-btn" to="/login?redirect=/account">进入管理面板</router-link>
+            <p>网站账户与游戏内账户互通，注册后可直接登录对战平台。</p>
+            <div class="panel-actions">
+              <router-link class="panel-btn" to="/register?redirect=/account">注册</router-link>
+              <router-link class="panel-btn ghost" to="/login?redirect=/account">登录</router-link>
+            </div>
           </template>
         </div>
       </div>
@@ -507,7 +510,7 @@ onMounted(() => {
 }
 
 .tier-tabs.sub button {
-  font-size: 12px;
+  font-size: 13px;
   padding: 6px 10px;
 }
 
@@ -698,6 +701,17 @@ onMounted(() => {
   background: #fff;
   color: #409eff;
   border: 1px solid #409eff;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.panel-actions .panel-btn {
+  margin-top: 0;
 }
 
 .apply-form {

@@ -20,11 +20,11 @@ public class HandCardDragController : MonoBehaviour {
 
     [SerializeField] private RectTransform discardDropZone;
     [SerializeField] private float dragLiftY = 24f;
-    [SerializeField] private float clickMoveThreshold = 6f;
+    [SerializeField] private float clickMoveThreshold = 10f;
     [SerializeField] private float dragActivationDelay = 0.12f;
     [SerializeField] private float gapShiftAnimDuration = 0.15f;
     [SerializeField] private float snapAnimDuration = 0.2f;
-    // 误入拖拽会话的"微点击"判定：位移与按压时长都很小且顺序未变时按点击出牌处理
+    // 误入拖拽会话的"微点击"判定：位移与按压时长都很小时优先按点击出牌处理
     [SerializeField] private float microClickMaxDistance = 16f;
     [SerializeField] private float microClickMaxDuration = 0.35f;
 
@@ -209,7 +209,26 @@ public class HandCardDragController : MonoBehaviour {
             TileCard.ClearPendingPointerState();
         }
         if (pendingPress || dragSessionActive) {
-            AbortPressSession(reason, forceRelayout: true);
+            if (dragSessionActive && dragCard != null) {
+                // 摸牌等真实手牌变化到达时，保留玩家当前看到的理牌结果。
+                // 旧逻辑按按下快照回滚，会表现为轮到自己时正在移动的牌突然飞回原位。
+                try {
+                    StopGapAnimation();
+                    CommitReorder(activeGapIndex, activeMergeDraw);
+                    CleanupAllHandDragCanvases();
+                    ResetState();
+                    SuppressPointerHover = false;
+                    BlockTileClickUntilFrame = Time.frameCount;
+                    TileCard.ClearPendingPointerState();
+                }
+                catch (System.Exception e) {
+                    Debug.LogWarning($"[HandInput] 手牌变化前提交当前理牌失败，改为快照复位: {e.Message}");
+                    AbortPressSession(reason, forceRelayout: true);
+                }
+            }
+            else {
+                AbortPressSession(reason, forceRelayout: true);
+            }
         }
     }
 
@@ -308,7 +327,8 @@ public class HandCardDragController : MonoBehaviour {
             FinishDiscardImmediate(card);
             return true;
         }
-        if (!OrderChanged(activeGapIndex, activeMergeDraw) && IsMicroClick(eventData.position)) {
+        // 快速短距离操作优先按点击处理；即使抖动恰好跨过空位分界，也不应吞掉出牌点击。
+        if (IsMicroClick(eventData.position)) {
             FinishMicroClickDiscard(card, eventData.position);
             return true;
         }
@@ -331,7 +351,7 @@ public class HandCardDragController : MonoBehaviour {
     /// <summary>
     /// 快速点击时指针轻微抖动（≥clickMoveThreshold）会误入拖拽会话，原逻辑松手只复位不出牌，
     /// 且会话激活时已 DisarmAll，确认模式下表现为"牌能浮起就是打不出去"。
-    /// 顺序未变 + 位移小 + 按压短：立即复位布局并按点击提交（还原按下时的确认选中态）。
+    /// 位移小 + 按压短：立即复位布局并按点击提交（还原按下时的确认选中态）。
     /// </summary>
     private void FinishMicroClickDiscard(TileCard card, Vector2 releaseScreenPos) {
         MarkFinishingDrag();

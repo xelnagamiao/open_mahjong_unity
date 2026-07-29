@@ -7,6 +7,7 @@ import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
 import AccountLayout from '@/layouts/AccountLayout.vue'
 import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
+import Register from '@/views/Register.vue'
 import Account from '@/views/Account.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetail from '@/views/EventDetail.vue'
@@ -63,6 +64,12 @@ const routes = [
         name: 'Login',
         component: Login,
         meta: { title: '玩家登录 - salasasa.cn' }
+      },
+      {
+        path: 'register',
+        name: 'Register',
+        component: Register,
+        meta: { title: '玩家注册 - salasasa.cn' }
       },
       {
         path: 'events',

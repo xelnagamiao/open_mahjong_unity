@@ -13,7 +13,12 @@ import {
   type SceneAppearanceSettings,
 } from '../../lib/sceneAppearance'
 import { ensureTexturesLoaded, setTileThemes } from './textures'
-import { waitForGameFonts } from '../fontLoader'
+import {
+  getGameFontFamily,
+  setGameFontTheme,
+  setGameLatinFontTheme,
+  waitForGameFonts,
+} from '../fontLoader'
 import { FROM_DRAWN_TINT, Tile } from './Tile'
 import { River } from './River'
 import { WaitDisplay, type WaitInfoData } from './WaitDisplay'
@@ -33,6 +38,7 @@ export type { WaitInfoData, AssistSettings }
 // 仅当番种明细里存在单个 >=32 番的番种时播放敲锣音；总番数不参与判断。
 const DUANG_CUTOFF = 32
 const AUTO_WIN_DELAY_MS = 1600
+const AUTO_DISCARD_DELAY_MS = 500
 const PASS_DEBOUNCE_MS = 200
 
 type ViewerSyncContext = {
@@ -123,6 +129,7 @@ export class MahjongScene {
   // ── State ─────────────────────────────────────────────────────────
   private selfDir = 0
   private names: [string, string, string, string] = ['', '', '', '']
+  private ranks: [string, string, string, string] = ['', '', '', '']
   private scores: [number, number, number, number] = [0, 0, 0, 0]
   private voiceIds: [number, number, number, number] = [1, 1, 1, 1]
   private present: [boolean, boolean, boolean, boolean] = [true, true, true, true]
@@ -138,6 +145,8 @@ export class MahjongScene {
   private pendingPassAckStageCounter: number | null = null
   private lastPassAttemptAtMs = 0
   private roundEnded = false
+  private scoreDifferenceVisible = false
+  private scoreDifferenceTimeout: ReturnType<typeof setTimeout> | null = null
   waitInfoData: WaitInfoData = null
 
   // ── Settings ──────────────────────────────────────────────────────
@@ -226,18 +235,52 @@ export class MahjongScene {
 
   setAppearance(appearance: SceneAppearanceSettings): void {
     const next = normalizeSceneAppearanceSettings(appearance)
-    const paletteChanged =
-      next.tileCoverRotateMode !== this.appearance.tileCoverRotateMode
-      || next.tileCoverColors.join(',') !== this.appearance.tileCoverColors.join(',')
+    const fontChanged =
+      next.fontTheme !== this.appearance.fontTheme
+      || next.latinFontTheme !== this.appearance.latinFontTheme
+    const coverColorsChanged =
+      next.tileCoverColors.join(',') !== this.appearance.tileCoverColors.join(',')
     this.appearance = next
-    if (paletteChanged) {
-      this.activeCoverRound = -1
+    setGameFontTheme(next.fontTheme)
+    setGameLatinFontTheme(next.latinFontTheme)
+    // Editing/reordering the palette updates the selected cover in place.
+    // Changing only the rotation strategy takes effect next round and must not
+    // reroll the cover currently shown on the table.
+    if (coverColorsChanged && this.activeCoverRound === this.round) {
+      const index = Math.max(0, Math.min(next.tileCoverColors.length - 1, next.lastTileCoverIndex))
+      this.activeCoverColor = hexColorToNumber(next.tileCoverColors[index])
     }
     this.redrawBackground()
     this.updateBackgroundImagePresentation()
     this.applyTileCoverPalette()
     this.applyFlowerAreaAppearance()
     this.applyTileFaceTheme()
+    if (fontChanged) this.applyFontTheme()
+  }
+
+  setActiveTileCoverIndex(index: number): void {
+    const colors = this.appearance.tileCoverColors
+    if (colors.length === 0) return
+    const selected = Math.max(0, Math.min(colors.length - 1, Math.trunc(index)))
+    this.appearance = normalizeSceneAppearanceSettings({
+      ...this.appearance,
+      lastTileCoverIndex: selected,
+    })
+    this.activeCoverRound = this.round
+    this.activeCoverColor = hexColorToNumber(colors[selected])
+    this.applyTileCoverPalette()
+  }
+
+  private applyFontTheme(): void {
+    if (!this.center) return
+    const family = getGameFontFamily(this.appearance.fontTheme, this.appearance.latinFontTheme)
+    const visit = (container: Container): void => {
+      for (const child of container.children) {
+        if (child instanceof Text) child.style.fontFamily = family
+        if (child instanceof Container) visit(child)
+      }
+    }
+    visit(this.center)
   }
 
   setBackgroundImage(source: string | null): void {
@@ -337,6 +380,7 @@ export class MahjongScene {
     this.clearPendingChoicesTimeout()
     this.clearAutoActionTimeout()
     this.clearPredrawSortTimeout()
+    this.clearScoreDifferenceTimeout()
     this.stopLatencyMeasurement()
     window.removeEventListener('resize', this.handleResize)
     document.removeEventListener('contextmenu', this.handleRightClick)
@@ -407,15 +451,21 @@ export class MahjongScene {
   }
 
   private tryShortcutMoqie(): boolean {
-    if (!this.hands?.[0]?.drawnTile || !this.hasAction('discard_tile')) return false
+    if (!this.hasAction('discard_tile')) return false
+    const hand = this.hands?.[0]
+    if (!hand) return false
+    // Match Unity TriggerMoqieHandCardClick: prefer the draw-slot tile; after
+    // chow/pung there is no draw slot, so discard the rightmost hand tile.
+    const target = hand.drawnTile ?? hand.rightList[0]
+    if (!target || target.tid <= 0) return false
+    const useDrawnTile = target === hand.drawnTile
     this.clearMeldChoices()
-    const dt = this.hands[0].drawnTile
-    this.hands[0].unwaitDiscard()
+    hand.unwaitDiscard()
     this.countdown.stop()
     this.sendGameInput({
       kind: 'discard_tile',
-      tile: dt.tid,
-      use_drawn_tile: true,
+      tile: target.tid,
+      use_drawn_tile: useDrawnTile,
     })
     return true
   }
@@ -435,6 +485,18 @@ export class MahjongScene {
       return true
     }
     return false
+  }
+
+  /** Stop local action UI while a custom-room vote has suspended the server loop. */
+  suspendForVote(): void {
+    this.currentPendingStatus = 'none'
+    this.currentViewerActions = []
+    this.pendingPassAckStageCounter = null
+    this.clearPendingChoicesTimeout()
+    this.clearAutoActionTimeout()
+    this.clearMeldChoices()
+    this.hands[0]?.unwaitDiscard()
+    this.countdown.stop()
   }
 
   private clearPendingChoicesTimeout(): void {
@@ -628,7 +690,7 @@ export class MahjongScene {
         this.clearMeldChoices()
         this.hands[0].unwaitDiscard()
       }
-      this.countdown.setTimeMillis(dt)
+      this.countdown.setTimeMillis(dt, this.currentStageCounter)
       this.countdown.visible = true
     } else {
       this.countdown.stop()
@@ -654,6 +716,7 @@ export class MahjongScene {
 
   private applyCenterScores(): void {
     for (let i = 0; i < 4; i += 1) {
+      this.rivers[i]?.setPlayerInfo(this.ranks[i], this.names[i], !this.present[i])
       this.stateDisplay.setScore(
         this.names[i],
         this.scores[i],
@@ -663,6 +726,52 @@ export class MahjongScene {
         this.seatWindLabel(i),
       )
     }
+  }
+
+  private clearScoreDifferenceTimeout(): void {
+    if (this.scoreDifferenceTimeout !== null) {
+      clearTimeout(this.scoreDifferenceTimeout)
+      this.scoreDifferenceTimeout = null
+    }
+  }
+
+  private renderScoreDifferences(): void {
+    const selfScore = Number(this.scores[0] ?? 0)
+    for (let direction = 0; direction < 4; direction += 1) {
+      if (direction === 0) {
+        const text = selfScore > 0 ? `+${selfScore}` : `${selfScore}`
+        this.stateDisplay.setScoreText(
+          text,
+          direction,
+          this.present[direction] ? 0x000000 : 0x888888,
+        )
+        continue
+      }
+
+      const difference = selfScore - Number(this.scores[direction] ?? 0)
+      const text = difference > 0 ? `+${difference}` : `${difference}`
+      const color = !this.present[direction]
+        ? 0x888888
+        : difference > 0
+          ? 0x008c35
+          : difference < 0
+            ? 0xd02020
+            : 0x000000
+      this.stateDisplay.setScoreText(text, direction, color)
+    }
+  }
+
+  private showScoreDifferences = (): void => {
+    if (!this.mounted || !this.stateDisplay.visible) return
+
+    this.scoreDifferenceVisible = true
+    this.renderScoreDifferences()
+    this.clearScoreDifferenceTimeout()
+    this.scoreDifferenceTimeout = setTimeout(() => {
+      this.scoreDifferenceTimeout = null
+      this.scoreDifferenceVisible = false
+      if (this.mounted) this.applyCenterScores()
+    }, 2000)
   }
 
   private findAvailableAction(kinds: string[]): Record<string, any> | null {
@@ -772,21 +881,33 @@ export class MahjongScene {
     ) {
       const drawnTile = this.hands[0].drawnTile
       this.clearAutoActionTimeout()
-      this.countdown.stop()
       this.clearMeldChoices()
-      this.hands[0].unwaitDiscard()
+      // Match Unity WaitAutoCut: keep the real decision timer and hand input
+      // active during the 0.5 s grace period so a manual discard can override.
+      this.hands[0].waitDiscard((tid, useDrawn) => {
+        this.clearAutoActionTimeout()
+        this.countdown.stop()
+        this.hands[0].unwaitDiscard()
+        this.sendGameInput({
+          kind: 'discard_tile',
+          tile: tid,
+          use_drawn_tile: useDrawn,
+        })
+      })
       this.autoActionTimeout = setTimeout(() => {
         this.autoActionTimeout = null
         if (!this.hasAction('discard_tile') || !drawnTile || this.hands[0].drawnTile !== drawnTile) {
           return
         }
+        this.countdown.stop()
+        this.hands[0].unwaitDiscard()
         this.waitDisplay.reset()
         this.sendGameInput({
           kind: 'discard_tile',
           tile: drawnTile.tid,
           use_drawn_tile: true,
         })
-      }, 400 + Math.floor(Math.random() * 1000))
+      }, AUTO_DISCARD_DELAY_MS)
       return true
     }
     return false
@@ -934,7 +1055,7 @@ export class MahjongScene {
     this.clearPendingButton()
 
     const style = new TextStyle({
-      fontFamily: 'CmuSerif, SimFang, sans-serif',
+      fontFamily: getGameFontFamily(),
       fontSize: 28,
       fill: 0x000000,
       align: 'center',
@@ -1111,6 +1232,9 @@ export class MahjongScene {
         this.appearance.flowerAreaDisplay,
         hexColorToNumber(this.appearance.flowerAreaColor),
         this.appearance.flowerAreaAlpha,
+        hexColorToNumber(this.appearance.flowerAreaLabelColor),
+        hexColorToNumber(this.appearance.flowerAreaCountColor),
+        this.appearance.flowerAreaLabelScale,
       )
     }
   }
@@ -1176,6 +1300,19 @@ export class MahjongScene {
     return new Hand(direction, parent, river, waitDisplay, this.presentationMode === 'replay')
   }
 
+  private createRiver(direction: number, parent: Container): River {
+    return new River(
+      direction,
+      parent,
+      this.appearance.flowerAreaDisplay,
+      hexColorToNumber(this.appearance.flowerAreaColor),
+      this.appearance.flowerAreaAlpha,
+      hexColorToNumber(this.appearance.flowerAreaLabelColor),
+      hexColorToNumber(this.appearance.flowerAreaCountColor),
+      this.appearance.flowerAreaLabelScale,
+    )
+  }
+
   private createSceneTile(tid: number): Tile {
     const tile = Tile.newInvisible(tid)
     if (this.presentationMode === 'replay') {
@@ -1217,10 +1354,10 @@ export class MahjongScene {
     this.waitDisplay = new WaitDisplay(c)
 
     this.rivers = [
-      new River(0, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-      new River(1, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-      new River(2, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-      new River(3, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      this.createRiver(0, c),
+      this.createRiver(1, c),
+      this.createRiver(2, c),
+      this.createRiver(3, c),
     ]
 
     this.hands = [
@@ -1231,6 +1368,7 @@ export class MahjongScene {
     ]
 
     this.stateDisplay = new Display(c)
+    this.stateDisplay.setPanelClickHandler(this.showScoreDifferences)
     this.tempDisplay = new Display(c)
     this.volDisplay = new Display(c)
     this.directionLabels = [
@@ -1243,6 +1381,9 @@ export class MahjongScene {
     this.tenpaiTipButton.bindWaitDisplay(this.presentationMode === 'replay' ? null : this.waitDisplay)
     this.countdown = new Countdown(c)
     this.countdown.onLatencyClick = this.handleCountdownLatencyClick
+    this.countdown.onUrgentSecond = () => {
+      this.playSound('decision-countdown-tick')
+    }
 
     const latencyIndicator = new Container()
     latencyIndicator.x = 5 * TILE_HEIGHT
@@ -1255,7 +1396,7 @@ export class MahjongScene {
 
     const latencyText = new Text({
       text: '延迟：\u2014',
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 160, fill: 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: 160, fill: 0x000000, align: 'center' },
     })
     latencyText.anchor.set(0.5)
     latencyIndicator.addChild(latencyText)
@@ -1339,10 +1480,10 @@ export class MahjongScene {
     // Recreate
     const c = this.center
     this.rivers = [
-      new River(0, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-      new River(1, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-      new River(2, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-      new River(3, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+      this.createRiver(0, c),
+      this.createRiver(1, c),
+      this.createRiver(2, c),
+      this.createRiver(3, c),
     ]
     this.hands = [
       this.createHand(0, c, this.rivers[0], this.waitDisplay),
@@ -1380,6 +1521,7 @@ export class MahjongScene {
       if (!seat) continue
 
       this.names[localDir] = displayPlayerName(seat.username)
+      this.ranks[localDir] = seat.rank || '—'
       this.scores[localDir] = seat.score
       this.voiceIds[localDir] = seat.voice_id === 2 ? 2 : 1
       this.present[localDir] = (this.presentationMode === 'replay' && this.replayRecordVersion < 6) ? true : !(seat.afk || seat.disconnected)
@@ -1565,10 +1707,10 @@ export class MahjongScene {
           }
           const c = this.center
           this.rivers = [
-            new River(0, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-            new River(1, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-            new River(2, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
-            new River(3, c, this.appearance.flowerAreaDisplay, hexColorToNumber(this.appearance.flowerAreaColor), this.appearance.flowerAreaAlpha),
+            this.createRiver(0, c),
+            this.createRiver(1, c),
+            this.createRiver(2, c),
+            this.createRiver(3, c),
           ]
           this.hands = [
             this.createHand(0, c, this.rivers[0], this.waitDisplay),
@@ -1783,6 +1925,7 @@ export class MahjongScene {
     for (const ss of seatStatus) {
       const dir = transDir(ss.seat_index as number, this.selfDir)
       this.names[dir] = displayPlayerName(ss.username)
+      if (typeof ss.rank === 'string') this.ranks[dir] = ss.rank || '—'
       this.scores[dir] = ss.score as number ?? 0
       const isActorPresenceEvent =
         (kind === 'player_left' || kind === 'player_resumed') &&
@@ -1800,6 +1943,10 @@ export class MahjongScene {
         4.0,
         this.seatWindLabel(dir),
       )
+      this.rivers[dir]?.setPlayerInfo(this.ranks[dir], this.names[dir], !this.present[dir])
+    }
+    if (this.scoreDifferenceVisible) {
+      this.renderScoreDifferences()
     }
     if (kind === 'player_left') this.handlePlayerLeft(actorSeat)
     if (kind === 'player_resumed') this.handlePlayerResumed(actorSeat)
@@ -1869,6 +2016,7 @@ export class MahjongScene {
     const dir = transDir(seat, this.selfDir)
     this.present[dir] = false
     this.stateDisplay.setPresent(dir, false)
+    this.rivers[dir]?.setPlayerName(this.names[dir], true)
   }
 
   handlePlayerResumed(seat: number): void {
@@ -1876,6 +2024,7 @@ export class MahjongScene {
     const dir = transDir(seat, this.selfDir)
     this.present[dir] = true
     this.stateDisplay.setPresent(dir, true)
+    this.rivers[dir]?.setPlayerName(this.names[dir], false)
   }
 
   applyReplayCue(category: string, event: Record<string, any> | null): void {
@@ -2008,7 +2157,7 @@ export class MahjongScene {
 
     const label = new Text({
       text: ready ? '取消准备' : '准备',
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 200, fill: 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: 200, fill: 0x000000, align: 'center' },
     })
     label.anchor.set(0.5)
     btn.addChild(label)
@@ -2055,7 +2204,7 @@ export class MahjongScene {
     if (twoRows) {
       const t1 = new Text({
         text: `${oldRank} → ${newRank}`,
-        style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 160 / textScale, fill: 0x000000, align: 'center' },
+        style: { fontFamily: getGameFontFamily(), fontSize: 160 / textScale, fill: 0x000000, align: 'center' },
       })
       t1.anchor.set(0.5, 0.5)
       t1.scale.set(textScale)
@@ -2067,7 +2216,7 @@ export class MahjongScene {
     const line2 = `积分 ${deltaPoints >= 0 ? '+' : '\u2212'}${Math.abs(deltaPoints).toFixed(2)} (等级分 ${deltaMu >= 0 ? '+' : '\u2212'}${Math.abs(deltaMu).toFixed(2)})`
     const t2 = new Text({
       text: line2,
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: (twoRows ? 110 : 140) / textScale, fill: twoRows ? 0x333333 : 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: (twoRows ? 110 : 140) / textScale, fill: twoRows ? 0x333333 : 0x000000, align: 'center' },
     })
     t2.anchor.set(0.5)
     t2.scale.set(textScale)

@@ -57,6 +57,19 @@ export const usePlayerAuthStore = defineStore('playerAuth', {
       })
       applyEventAdminSession(data)
     },
+    async register(username, password) {
+      const res = await playerApi.post('/auth/register', { username, password })
+      const data = res.data.data
+      this._setSession({
+        token: data.token,
+        userId: data.user_id,
+        username: data.username,
+        email: data.email,
+        emailVerified: data.email_verified,
+        isEventAdmin: !!data.is_event_admin,
+      })
+      applyEventAdminSession(data)
+    },
     logout() {
       setPlayerToken(null)
       this.token = ''

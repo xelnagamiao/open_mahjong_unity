@@ -103,6 +103,7 @@ function playerToSeat(player: SalasasaPlayerInfo): SeatSnapshot {
     has_drawn_tile: hasDrawnTile,
     player_id: player.user_id,
     username: player.username,
+    rank: player.guobiao_rank ?? null,
     voice_id: player.voice_used ?? 1,
     discard_pile: (player.discard_tiles ?? []).map(salasasaTileToMmcr),
     melds,
@@ -210,6 +211,8 @@ function seatStatusFromSnapshot(snapshot: ActiveSessionSnapshot): CompactSeatSta
     hand_tile_count: seat.hand_tile_count,
     has_drawn_tile: seat.has_drawn_tile,
     username: seat.username,
+    player_id: seat.player_id,
+    rank: seat.rank,
   }))
 }
 
@@ -710,9 +713,9 @@ export class SalasasaGameAdapter {
     return this.event('transition', isDraw ? 'drawn_game' : isSelfDrawn ? 'self_drawn_win' : 'discard_win', winner, info.action_tick ?? snapshot.state.stage_counter + 1, viewer, {
       tile: salasasaTileToMmcr(isSelfDrawn ? info.hepai_player_hand?.at(-1) : this.lastDiscardTile),
       revealed_hand_tiles: info.hepai_player_hand?.map(salasasaTileToMmcr),
-      // Guobiao hu voice plays once on this show_result event (hand reveal).
-      // Vue settlement panel must not replay hu; it only reveals fans + optional gong.
-      silent: false,
+      // Tactical claim already played the call. The server marks show_result
+      // silent so the hand reveal does not announce "hu" a second time.
+      silent: Boolean(info.silent),
       // Salasasa uses the Vue settlement panel. Keep the Pixi table unobstructed
       // during the hand-reveal pause instead of drawing mmcr's result text over it.
       suppress_result_display: true,

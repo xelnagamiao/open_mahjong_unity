@@ -33,6 +33,7 @@ export interface SalasasaResponse {
   show_result_info?: SalasasaResultInfo
   game_end_info?: SalasasaGameEndInfo
   ready_status_info?: SalasasaReadyStatusInfo
+  vote_info?: SalasasaVoteInfo
   [key: string]: unknown
 }
 
@@ -54,6 +55,8 @@ export interface SalasasaPlayerInfo {
   has_draw_slot?: boolean
   voice_used?: number
   tag_list?: string[]
+  score_history?: string[]
+  round_number_history?: number[]
 }
 
 export interface SalasasaGameInfo {
@@ -126,11 +129,24 @@ export interface SalasasaResultInfo {
   hepai_player_combination_mask?: number[][]
   action_tick?: number
   score_changes?: Record<string, number>
+  /** Tactical claim already played the win call; result reveal must stay silent. */
+  silent?: boolean
   next_status?: string
 }
 
 export interface SalasasaReadyStatusInfo {
   player_to_ready: Record<string, boolean>
+}
+
+export interface SalasasaVoteInfo {
+  phase: 'idle' | 'voting' | 'pause_pending' | 'paused' | 'resume_voting' | 'rejected' | 'resume_countdown' | 'end_countdown'
+  vote_type?: 'pause' | 'end' | 'resume' | null
+  agree: number
+  refuse: number
+  total: number
+  countdown: number
+  votes?: Record<string, 'agree' | 'refuse' | 'none' | 'bot'>
+  reason?: string
 }
 
 export interface SalasasaGameEndInfo {

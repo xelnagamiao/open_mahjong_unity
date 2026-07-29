@@ -4,6 +4,7 @@ import {
   FRONT_COLOR, BORDER_COLOR, MELD_OPT_SCALE,
 } from './constants'
 import { Tile } from './Tile'
+import { getGameFontFamily } from '../fontLoader'
 
 export type MeldButtonType = 'chow' | 'pung' | 'ckong' | 'hkong' | 'rkong' | 'hwin' | 'rkwin' | 'flower' | 'pass' | 'final_pass'
 
@@ -56,11 +57,19 @@ export class MeldButton extends Container {
     // Label
     const label = new Text({
       text: meldType === 'flower' ? '花' : (MELD_LABELS[meldType] ?? '?'),
-      style: { fontFamily: 'SimFang, sans-serif', fontSize: 200, fill: 0x000000, align: 'center' },
+      style: {
+        fontFamily: getGameFontFamily(),
+        fontSize: 200,
+        fill: 0x000000,
+        align: 'center',
+        // Centre the visible glyph rather than the font's line box. Different
+        // CJK fonts have substantially different ascender/descender metrics.
+        trim: true,
+      },
     })
     label.anchor.set(0.5)
     label.x = -TILE_WIDTH * 0.7
-    label.y = -20
+    label.y = 0
     this.addChild(label)
 
     if (!isSimple) {

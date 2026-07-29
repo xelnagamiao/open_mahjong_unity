@@ -72,8 +72,9 @@ public class MatchButton : MonoBehaviour {
         if (mask == null) return;
         string rankName = UserDataManager.Instance.GuobiaoRank;
         bool isMcrpl = UserDataManager.Instance.IsMcrplQualified;
+        bool isSponsor = UserDataManager.Instance.IsSponsor;
         int rankLevel = RankConfig.GetRankLevel(rankName);
-        bool canPlay = RankConfig.CanPlayTier(rankLevel, TierKeys[(int)tier], isMcrpl);
+        bool canPlay = RankConfig.CanPlayTier(rankLevel, TierKeys[(int)tier], isMcrpl, isSponsor);
         mask.SetActive(!canPlay);
     }
 

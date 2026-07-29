@@ -216,7 +216,9 @@ function formatRankPt(row) {
 function canEnterTier(tierKey) {
   if (tierKey === 'beginner') return true
   const rankIndex = getRankEntry(session.rank?.guobiao_rank)?.index ?? 0
-  if (tierKey === 'intermediate') return rankIndex >= 8
+  if (tierKey === 'intermediate') {
+    return rankIndex < 16 && (rankIndex >= 8 || Boolean(session.rank?.is_sponsor))
+  }
   if (tierKey === 'advanced') return rankIndex >= 12
   if (tierKey === 'mcrpl') return Boolean(session.rank?.is_mcrpl_qualified)
   return false
@@ -344,8 +346,19 @@ function openPlayer(row) {
 
 onMounted(async () => {
   unsubscribe = salasasaClient.subscribe(handleResponse)
-  if (!auth.loaded) await auth.fetchMe()
-  await Promise.all([session.init(), refreshLeaderboard()])
+  try {
+    await Promise.all([
+      import('./Game.vue'),
+      auth.loaded ? Promise.resolve() : auth.fetchMe(),
+    ])
+    await Promise.all([session.init(), refreshLeaderboard()])
+  } catch (error) {
+    console.error('[2D] 资源预加载失败', error)
+    const detail = error instanceof Error && error.message
+      ? error.message
+      : '请检查网络后刷新页面'
+    ElMessage.error(`2D 资源加载失败：${detail}`)
+  }
 })
 
 onBeforeUnmount(() => {

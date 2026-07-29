@@ -1,6 +1,7 @@
 import { Container, Text } from 'pixi.js'
 import { TILE_WIDTH, TILE_HEIGHT } from './constants'
 import { Tile } from './Tile'
+import { getGameFontFamily } from '../fontLoader'
 
 /**
  * One entry in the wait-info bar. Shows a tile with its base fan,
@@ -27,7 +28,7 @@ export class WaitEntry extends Container {
     const fanText = new Text({
       text: fanLabel,
       style: {
-        fontFamily: 'SimKai, CmuSerif, serif',
+        fontFamily: getGameFontFamily(),
         fontSize: fanLabel.length > 3 ? 142 : 185,
         fill: notEnough ? 0x8b2f2f : selfDrawnOnly ? 0x777777 : 0x000000,
         align: 'center',
@@ -40,7 +41,7 @@ export class WaitEntry extends Container {
     // Remaining count
     const remText = new Text({
       text: `${remainingCount}`,
-      style: { fontFamily: 'CmuSerif', fontSize: 170, fill: remainingCount <= 0 ? 0x8b2f2f : 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: 170, fill: remainingCount <= 0 ? 0x8b2f2f : 0x000000, align: 'center' },
     })
     remText.anchor.set(0.5)
     remText.x = TILE_WIDTH / 2 + 90

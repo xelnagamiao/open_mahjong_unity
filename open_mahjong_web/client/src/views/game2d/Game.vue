@@ -10,16 +10,68 @@
     </div>
   </div>
 
-  <div v-else class="mahjongGame" :style="{ background: appearance.backgroundColorOutside }">
+  <div
+    v-else
+    class="mahjongGame"
+    :class="{ 'is-black-tile-face': appearance.tileFaceTheme === 'black' }"
+    :style="{ background: appearance.backgroundColorOutside }"
+  >
     <div class="game-page__layout" :style="{ background: appearance.backgroundColorOutside }">
       <section class="game-page__board-panel">
         <div class="game-page__stage-shell" :style="{ background: appearance.backgroundColorTable }">
           <div class="game-felt-layout">
             <div class="game-felt-playfield">
               <div ref="stageElement" class="game-stage" />
+              <div class="game-stage-toolbar">
+                <GameAssistPanel
+                  :settings="assistSettings"
+                  :expanded="assistExpandOpen"
+                  show-tile-settings
+                  :tile-settings-expanded="tileSkipOpen"
+                  @update="patchAssistSettings"
+                  @toggle-expand="toggleAssistExpand"
+                  @toggle-tile-settings="toggleTileSkipPanel"
+                >
+                  <template v-if="tileSkipOpen" #tile-panel>
+                    <div class="scene-appearance-toggle__card">
+                      <GameTileSkipPanel
+                        :settings="assistSettings"
+                        :tile-src="mmcrTileAsset"
+                        @update="patchAssistSettings"
+                        @clear-tiles="patchAssistSettings({ silentTiles: [] })"
+                      />
+                    </div>
+                  </template>
+                </GameAssistPanel>
+              </div>
+              <div v-if="assistExpandOpen" class="game-stage-panel">
+                <div class="scene-appearance-toggle__card">
+                  <GameAssistPanel
+                    detail-only
+                    :settings="assistSettings"
+                    :expanded="true"
+                    @update="patchAssistSettings"
+                  />
+                </div>
+              </div>
               <div v-if="!sceneReady || !hasSnapshot" class="game-loading">
                 {{ sceneReady ? '等待服务端恢复国标牌局…' : '正在加载中…' }}
               </div>
+
+              <GameScoreboardPanel
+                v-if="scoreboardOpen"
+                :players="sidebarPlayers"
+                :settlements="scoreboardSettlements"
+                @close="scoreboardOpen = false"
+              />
+              <GameVotePanel
+                :info="voteInfo"
+                :players="sidebarPlayers"
+                :self-seat="selfSeat"
+                :countdown="voteCountdown"
+                @respond="sendVoteResponse"
+                @resume="sendVoteResume"
+              />
 
               <div v-if="roundResult && !finalResult" class="end-result-layer">
                 <!-- 流局：立刻出框，无按键 -->
@@ -115,9 +167,9 @@
                       :class="{ 'is-visible': showResultTotal }"
                     >
                       <div class="end-result-total__line">
+                        <span class="end-result-total__method">{{ winMethodLabel }}</span>
                         <strong>{{ roundResult.hu_score ?? 0 }}</strong><span>番</span>
                       </div>
-                      <small>{{ resultClassLabel }}</small>
                     </div>
 
                     <div class="end-result-diamond" aria-label="分数">
@@ -166,53 +218,34 @@
 
             <!-- 桌布内侧右侧轨：在 stage-shell 边框内，占用桌布空间而非盖住牌面 -->
             <aside class="game-felt-rail">
-              <div class="game-felt-rail__section">
+              <div v-if="isCustomRoom" class="game-felt-rail__section game-vote-start">
                 <button
                   type="button"
-                  class="scene-appearance-toggle__button"
-                  :aria-expanded="settingsOpen"
-                  @click="toggleSettingsPanel"
+                  class="scene-appearance-toggle__button game-vote-start__button"
+                  :disabled="voteIsBusy"
+                  @click="sendVoteStart('pause')"
                 >
-                  操作设置
+                  投票暂停
                 </button>
-                <div v-if="settingsOpen" class="game-felt-rail__panel">
-                  <div class="scene-appearance-toggle__card">
-                    <GameAssistPanel
-                      :settings="assistSettings"
-                      :expanded="assistExpandOpen"
-                      @update="patchAssistSettings"
-                      @toggle-expand="assistExpandOpen = !assistExpandOpen"
-                    />
-                    <GameAssistPanel
-                      v-if="assistExpandOpen"
-                      detail-only
-                      :settings="assistSettings"
-                      :expanded="true"
-                      @update="patchAssistSettings"
-                    />
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  class="scene-appearance-toggle__button game-vote-start__button is-danger"
+                  :disabled="voteIsBusy"
+                  @click="sendVoteStart('end')"
+                >
+                  投票结束
+                </button>
               </div>
 
               <div class="game-felt-rail__section">
                 <button
                   type="button"
                   class="scene-appearance-toggle__button"
-                  :aria-expanded="tileSkipOpen"
-                  @click="toggleTileSkipPanel"
+                  :aria-expanded="scoreboardOpen"
+                  @click="scoreboardOpen = !scoreboardOpen"
                 >
-                  牌张设置
+                  {{ scoreboardOpen ? '关闭计分板' : '打开计分板' }}
                 </button>
-                <div v-if="tileSkipOpen" class="game-felt-rail__panel">
-                  <div class="scene-appearance-toggle__card">
-                    <GameTileSkipPanel
-                      :settings="assistSettings"
-                      :tile-src="mmcrTileAsset"
-                      @update="patchAssistSettings"
-                      @clear-tiles="patchAssistSettings({ silentTiles: [] })"
-                    />
-                  </div>
-                </div>
               </div>
 
               <div class="game-felt-rail__section">
@@ -222,7 +255,7 @@
                   :aria-expanded="appearanceOpen"
                   @click="toggleAppearancePanel"
                 >
-                  外观
+                  画面设置
                 </button>
                 <div v-if="appearanceOpen" class="game-felt-rail__panel">
                   <div class="scene-appearance-toggle__card">
@@ -241,15 +274,42 @@
                       @cover-color="setTileCoverColor"
                       @add-cover-color="addTileCoverColor"
                       @remove-cover-color="removeTileCoverColor"
+                      @reorder-cover-colors="reorderTileCoverColors"
+                      @select-cover-index="selectTileCoverIndex"
                       @cover-rotate-mode="setAppearanceField('tileCoverRotateMode', $event)"
-                      @moqie-shortcut="setAppearanceField('moqieShortcutMode', $event)"
-                      @pass-shortcut="setAppearanceField('passShortcutMode', $event)"
                       @flower-area-display="setAppearanceField('flowerAreaDisplay', $event)"
                       @flower-area-color="setAppearanceField('flowerAreaColor', $event)"
                       @flower-area-alpha="setAppearanceField('flowerAreaAlpha', $event)"
+                      @flower-area-label-color="setAppearanceField('flowerAreaLabelColor', $event)"
+                      @flower-area-count-color="setAppearanceField('flowerAreaCountColor', $event)"
+                      @flower-area-label-scale="setAppearanceField('flowerAreaLabelScale', $event)"
                       @tile-face-theme="setAppearanceField('tileFaceTheme', $event)"
                       @flower-face-theme="setAppearanceField('flowerFaceTheme', $event)"
+                      @font-theme="setAppearanceField('fontTheme', $event)"
+                      @latin-font-theme="setAppearanceField('latinFontTheme', $event)"
                       @reset="resetAppearance"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="game-felt-rail__section">
+                <button
+                  type="button"
+                  class="scene-appearance-toggle__button"
+                  :aria-expanded="gameSettingsOpen"
+                  @click="toggleGameSettingsPanel"
+                >
+                  对局设置
+                </button>
+                <div v-if="gameSettingsOpen" class="game-felt-rail__panel">
+                  <div class="scene-appearance-toggle__card">
+                    <GamePlaySettingsPanel
+                      :appearance="appearance"
+                      :settings="assistSettings"
+                      @moqie-shortcut="setAppearanceField('moqieShortcutMode', $event)"
+                      @pass-shortcut="setAppearanceField('passShortcutMode', $event)"
+                      @assist-update="patchAssistSettings"
                     />
                   </div>
                 </div>
@@ -291,7 +351,8 @@
         <el-table-column prop="rank" label="名次" width="80"><template #default="scope">第 {{ scope.row.rank }} 名</template></el-table-column>
         <el-table-column prop="username" label="玩家" />
         <el-table-column prop="score" label="总分" width="90" />
-        <el-table-column label="段位变化" width="160"><template #default="scope">{{ scope.row.rank_before ?? '—' }} → {{ scope.row.rank_after ?? '—' }}</template></el-table-column>
+        <el-table-column label="PT 变化" width="100"><template #default="scope">{{ formatPtChange(scope.row.pt) }}</template></el-table-column>
+        <el-table-column label="段位变化" width="160"><template #default="scope">{{ formatRankChange(scope.row) }}</template></el-table-column>
       </el-table>
       <template #footer><el-button type="primary" @click="router.push('/2d')">返回匹配大厅</el-button></template>
     </el-dialog>
@@ -304,9 +365,13 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
 import GameAssistPanel from './GameAssistPanel.vue'
+import GamePlaySettingsPanel from './GamePlaySettingsPanel.vue'
 import GameTileSkipPanel from './GameTileSkipPanel.vue'
+import GameScoreboardPanel from './GameScoreboardPanel.vue'
+import GameVotePanel from './GameVotePanel.vue'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
+import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
 import { SalasasaGameAdapter } from '@/game2d/salasasa/gameAdapter'
 import { salasasaClient } from '@/game2d/salasasa/client'
 import {
@@ -319,6 +384,7 @@ import {
 import {
   loadStoredAssistSettings,
   normalizeAssistSettings,
+  resetRoundAssistSettings,
   saveStoredAssistSettings,
 } from '@/game2d/lib/assistSettings'
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
@@ -328,19 +394,6 @@ import {
   loadStoredSceneBackgroundImage,
   saveStoredSceneBackgroundImage,
 } from '@/game2d/lib/sceneBackgroundImage'
-
-const SOUND_ASSETS = [
-  ...[
-    '01-start', '03-cd', '05-draw', '06-discard', '08-inquire', '09-cpk', '25-xchg',
-  ].map((alias) => ({ alias, file: `${alias}.wav` })),
-  { alias: 'fan-reveal', file: 'fan-reveal.mp3' },
-  ...[1, 2].flatMap((voiceId) =>
-    ['chi', 'peng', 'gang', 'buhua', 'hu'].map((voice) => ({
-      alias: `voice-${voiceId}-${voice}`,
-      file: `voices/${voiceId}/${voice}.mp3`,
-    })),
-  ),
-]
 
 // Align with Unity RoundEndTiming / HepaiRevealTiming.
 const RESULT_HAND_REVEAL_MS = 1700
@@ -359,10 +412,16 @@ const readyStatus = ref({})
 const resultContentVisible = ref(true)
 const finalResult = ref(null)
 const appearanceOpen = ref(false)
-const settingsOpen = ref(false)
+const gameSettingsOpen = ref(false)
 const assistExpandOpen = ref(false)
 const tileSkipOpen = ref(false)
 const ratingsExpanded = ref(false)
+const scoreboardOpen = ref(false)
+const scoreboardSettlements = ref([])
+const roomType = ref('')
+const voteInfo = ref(null)
+const voteCountdown = ref(0)
+const voteStartPending = ref(false)
 const sidebarPlayers = ref([])
 const volume = ref(loadStoredVolume())
 const appearance = ref(loadStoredSceneAppearance())
@@ -380,11 +439,14 @@ let scene = null
 let adapter = null
 let unsubscribe = null
 let mounted = false
+let matchStartDefaultsApplied = false
+let lastAssistRoundKey = null
 let pendingGameResponses = []
 /** @type {number[]} */
 let resultTimers = []
 /** Invalidates pending reveal/countdown timers without relying on reactive Proxy identity. */
 let resultRevealToken = 0
+let voteCountdownTimer = null
 
 function clearResultTimers() {
   for (const id of resultTimers) window.clearTimeout(id)
@@ -479,7 +541,8 @@ function beginReadyCountdown(token) {
   for (let tick = 1; tick <= HU_CONFIRM_COUNTDOWN_SEC; tick += 1) {
     scheduleResultTimer(() => {
       if (!mounted || token !== resultRevealToken) return
-      readyCountdown.value = Math.max(0, HU_CONFIRM_COUNTDOWN_SEC - tick)
+      const remaining = Math.max(0, HU_CONFIRM_COUNTDOWN_SEC - tick)
+      readyCountdown.value = remaining
     }, tick * 1000)
   }
 }
@@ -488,11 +551,13 @@ const selfSeat = computed(() => sidebarPlayers.value.find(
   (player) => Number(player.user_id) === Number(session.player?.user_id),
 )?.player_index ?? 0)
 
-const isDrawResult = computed(() => roundResult.value?.hepai_player_index == null)
+const isCustomRoom = computed(() => roomType.value === 'custom')
+const voteIsBusy = computed(() => (
+  voteStartPending.value
+  || Boolean(voteInfo.value && voteInfo.value.phase !== 'idle')
+))
 
-const resultClassLabel = computed(() => ({
-  hu_self: '自摸', hu_first: '荣和', hu_second: '荣和', hu_third: '荣和', liuju: '流局',
-}[roundResult.value?.hu_class] || roundResult.value?.hu_class || '本局结算'))
+const isDrawResult = computed(() => roundResult.value?.hepai_player_index == null)
 
 const resultPlayers = computed(() => sidebarPlayers.value
   .map((player) => {
@@ -535,6 +600,9 @@ const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) =
   const definition = findFanByName(name, ['guobiao'])
   return { name, value: definition ? `${formatFanField(definition.fan)}番` : '' }
 }))
+const winMethodLabel = computed(() => (
+  roundResult.value?.hu_class === 'hu_self' ? '自摸' : '点和'
+))
 /** Reserve fan rows up front so the diamond does not jump as fans appear. */
 const fanGridMinHeight = computed(() => {
   const rows = Math.max(1, Math.ceil((resultFans.value.length || 1) / 2))
@@ -551,14 +619,137 @@ const finalRows = computed(() => Object.entries(finalResult.value?.player_final_
   .map(([seat, value]) => ({ seat, ...value }))
   .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)))
 
+function formatPtChange(value) {
+  const pt = Number(value)
+  if (!Number.isFinite(pt)) return '—'
+  return `${pt > 0 ? '+' : ''}${pt.toFixed(2)}`
+}
+
+function formatRankChange(row) {
+  const before = typeof row?.rank_before === 'string' ? row.rank_before.trim() : ''
+  const after = typeof row?.rank_after === 'string' ? row.rank_after.trim() : ''
+  return before && after && before !== after ? `${before} → ${after}` : '—'
+}
+
 function updateSidebarPlayers() {
+  roomType.value = String(adapter?.gameInfo?.room_type ?? '')
   sidebarPlayers.value = [...(adapter?.gameInfo?.players_info ?? [])]
     .sort((left, right) => left.player_index - right.player_index)
     .map((player) => ({
       ...player,
       guobiao_rank: player.guobiao_rank || '10级',
       guobiao_score: Number(player.guobiao_score ?? 0),
+      score_history: [...(player.score_history ?? [])],
+      round_number_history: [...(player.round_number_history ?? [])],
     }))
+}
+
+function pickScoreboardMainFan(fans) {
+  if (fans.includes('错和')) return '错和'
+  return [...fans]
+    .filter((fan) => !String(fan).startsWith('花牌'))
+    .sort((left, right) => {
+      const leftFan = findFanByName(left, ['guobiao'])?.fan
+      const rightFan = findFanByName(right, ['guobiao'])?.fan
+      const leftValue = Array.isArray(leftFan) ? Math.max(...leftFan.map(Number)) : Number(leftFan ?? 0)
+      const rightValue = Array.isArray(rightFan) ? Math.max(...rightFan.map(Number)) : Number(rightFan ?? 0)
+      return rightValue - leftValue
+    })[0] ?? '—'
+}
+
+function appendScoreboardResult(result) {
+  const rowIndex = sidebarPlayers.value.reduce(
+    (count, player) => Math.max(count, player.score_history?.length ?? 0),
+    0,
+  )
+  const roundNumber = Number(adapter?.gameInfo?.current_round ?? rowIndex + 1)
+  sidebarPlayers.value = sidebarPlayers.value.map((player) => {
+    const changeKey = String(player.original_player_index ?? player.player_index)
+    const change = Number(result?.score_changes?.[changeKey] ?? 0)
+    const scoreHistory = [...(player.score_history ?? [])]
+    const roundHistory = [...(player.round_number_history ?? [])]
+    scoreHistory[rowIndex] = change > 0 ? `+${change}` : String(change)
+    roundHistory[rowIndex] = roundNumber
+    return {
+      ...player,
+      score_history: scoreHistory,
+      round_number_history: roundHistory,
+    }
+  })
+
+  const fans = Array.isArray(result?.hu_fan) ? result.hu_fan : []
+  const mainFan = result?.hepai_player_index == null
+    ? '流局'
+    : pickScoreboardMainFan(fans)
+  const settlements = [...scoreboardSettlements.value]
+  settlements[rowIndex] = mainFan
+  scoreboardSettlements.value = settlements
+}
+
+function stopVoteCountdown() {
+  if (voteCountdownTimer !== null) {
+    window.clearInterval(voteCountdownTimer)
+    voteCountdownTimer = null
+  }
+}
+
+function clearVoteState() {
+  stopVoteCountdown()
+  voteStartPending.value = false
+  voteInfo.value = null
+  voteCountdown.value = 0
+}
+
+function applyVoteInfo(info) {
+  stopVoteCountdown()
+  voteStartPending.value = false
+  if (!info || !info.phase || info.phase === 'idle') {
+    clearVoteState()
+    return
+  }
+  voteInfo.value = { ...info, votes: { ...(info.votes ?? {}) } }
+  voteCountdown.value = Math.max(0, Number(info.countdown ?? 0))
+  if (voteCountdown.value > 0) {
+    const deadline = performance.now() + voteCountdown.value * 1000
+    voteCountdownTimer = window.setInterval(() => {
+      voteCountdown.value = Math.max(0, (deadline - performance.now()) / 1000)
+      if (voteCountdown.value <= 0) stopVoteCountdown()
+    }, 200)
+  }
+  if (['end_countdown', 'paused', 'resume_voting', 'resume_countdown'].includes(info.phase)) {
+    scene?.suspendForVote()
+  }
+}
+
+function sendVoteMessage(message) {
+  const gamestateId = adapter?.gamestateId
+  if (!gamestateId || !salasasaClient.send({ ...message, gamestate_id: gamestateId })) {
+    ElMessage.error('投票操作发送失败，请等待连接恢复')
+    return false
+  }
+  return true
+}
+
+function sendVoteStart(voteType) {
+  if (!isCustomRoom.value || voteIsBusy.value) return
+  if (sendVoteMessage({ type: 'gamestate/vote_start', vote_type: voteType })) {
+    voteStartPending.value = true
+  }
+}
+
+function sendVoteResponse(vote) {
+  if (!sendVoteMessage({ type: 'gamestate/vote_response', vote }) || !voteInfo.value) return
+  voteInfo.value = {
+    ...voteInfo.value,
+    votes: {
+      ...(voteInfo.value.votes ?? {}),
+      [String(selfSeat.value)]: vote,
+    },
+  }
+}
+
+function sendVoteResume() {
+  sendVoteMessage({ type: 'gamestate/vote_resume' })
 }
 
 function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
@@ -567,6 +758,23 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
     const update = targetAdapter.accept(response)
     if (!update) return
     if (update.snapshot) {
+      const roundKey = `${update.snapshot.session_id}:${Number(update.snapshot.state.round_counter ?? 0)}`
+      if (roundKey !== lastAssistRoundKey) {
+        lastAssistRoundKey = roundKey
+        assistSettings.value = resetRoundAssistSettings(assistSettings.value)
+        saveStoredAssistSettings(assistSettings.value)
+        targetScene.setAssistSettings(assistSettings.value)
+      }
+      if (!matchStartDefaultsApplied) {
+        matchStartDefaultsApplied = true
+        const isFirstRound = Number(update.snapshot.state.round_counter ?? 0) <= 1
+        if (
+          isFirstRound
+          && assistSettings.value.autoFlower !== assistSettings.value.autoFlowerOnMatchStart
+        ) {
+          patchAssistSettings({ autoFlower: assistSettings.value.autoFlowerOnMatchStart })
+        }
+      }
       clearRoundResultUi()
       targetScene.flushFromSnapshot(update.snapshot)
       hasSnapshot.value = true
@@ -586,6 +794,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
           score: update.result.player_to_score[String(player.player_index)] ?? player.score,
         }))
       }
+      appendScoreboardResult(update.result)
       revealRoundResultAfterHand(update.result, targetScene)
     }
     if (update.ready) readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
@@ -612,6 +821,15 @@ function handleResponse(response) {
     ).finally(() => router.push('/2d'))
     return
   }
+  if (response.type === 'gamestate/vote_update') {
+    applyVoteInfo(response.vote_info ?? null)
+    return
+  }
+  if (response.type === 'gamestate/vote_end') {
+    clearVoteState()
+    void router.push('/2d')
+    return
+  }
   if (response.type.startsWith('gamestate/guobiao/')) {
     if (!sceneReady.value || !adapter || !scene) {
       pendingGameResponses.push(response)
@@ -619,7 +837,10 @@ function handleResponse(response) {
       applyMessage(response)
     }
   }
-  if (response.type === 'tips' && response.message) ElMessage.info(response.message)
+  if (['tips', 'error_message'].includes(response.type) && response.message) {
+    if (response.type === 'error_message') voteStartPending.value = false
+    response.success === false ? ElMessage.error(response.message) : ElMessage.info(response.message)
+  }
 }
 
 function flushPendingGameResponses(currentAdapter, currentScene) {
@@ -652,21 +873,29 @@ async function mountScene() {
   currentScene.setAppearance(appearance.value)
   currentScene.setBackgroundImage(backgroundImage.value?.dataUrl ?? null)
   currentScene.setAssistSettings(assistSettings.value)
-  for (const sound of SOUND_ASSETS) {
-    const audio = new Audio(`${import.meta.env.BASE_URL}game2d-assets/sounds/${sound.file}`)
+  for (const sound of GAME_SOUND_ASSETS) {
+    const audio = new Audio(getPreloadedSoundUrl(sound.file))
     audio.preload = 'auto'
     audio.load()
     currentScene.loadSound(sound.alias, audio)
   }
   sceneReady.value = true
   flushPendingGameResponses(currentAdapter, currentScene)
+  if (salasasaClient.lastVoteUpdate?.vote_info) {
+    applyVoteInfo(salasasaClient.lastVoteUpdate.vote_info)
+  }
 }
 
 function destroyScene() {
   clearRoundResultUi()
+  clearVoteState()
   sceneReady.value = false
   hasSnapshot.value = false
   sidebarPlayers.value = []
+  scoreboardOpen.value = false
+  scoreboardSettlements.value = []
+  roomType.value = ''
+  lastAssistRoundKey = null
   pendingGameResponses = []
   scene?.destroy()
   scene = null
@@ -700,10 +929,34 @@ function addTileCoverColor() {
 
 function removeTileCoverColor(index) {
   if (appearance.value.tileCoverColors.length <= 1) return
+  const currentIndex = appearance.value.lastTileCoverIndex
+  const colors = appearance.value.tileCoverColors.filter((_, colorIndex) => colorIndex !== index)
+  const nextIndex = index < currentIndex
+    ? currentIndex - 1
+    : index === currentIndex
+      ? Math.min(index, colors.length - 1)
+      : currentIndex
   persistAppearance({
     ...appearance.value,
-    tileCoverColors: appearance.value.tileCoverColors.filter((_, colorIndex) => colorIndex !== index),
+    tileCoverColors: colors,
+    lastTileCoverIndex: nextIndex,
   })
+}
+
+function reorderTileCoverColors(colors, activeIndex) {
+  persistAppearance({
+    ...appearance.value,
+    tileCoverColors: colors,
+    lastTileCoverIndex: activeIndex,
+  })
+}
+
+function selectTileCoverIndex(index) {
+  persistAppearance({
+    ...appearance.value,
+    lastTileCoverIndex: index,
+  })
+  scene?.setActiveTileCoverIndex(index)
 }
 
 function onTileCoverIndexChosen(index) {
@@ -770,21 +1023,17 @@ function scheduleFeltResize() {
 }
 
 function closeFeltPanels() {
-  settingsOpen.value = false
   tileSkipOpen.value = false
   appearanceOpen.value = false
+  gameSettingsOpen.value = false
   assistExpandOpen.value = false
 }
 
-function toggleSettingsPanel() {
-  const next = !settingsOpen.value
-  closeFeltPanels()
-  settingsOpen.value = next
-  scheduleFeltResize()
-}
-
 function toggleAssistExpand() {
-  assistExpandOpen.value = !assistExpandOpen.value
+  const next = !assistExpandOpen.value
+  closeFeltPanels()
+  assistExpandOpen.value = next
+  scheduleFeltResize()
 }
 
 function toggleTileSkipPanel() {
@@ -798,6 +1047,13 @@ function toggleAppearancePanel() {
   const next = !appearanceOpen.value
   closeFeltPanels()
   appearanceOpen.value = next
+  scheduleFeltResize()
+}
+
+function toggleGameSettingsPanel() {
+  const next = !gameSettingsOpen.value
+  closeFeltPanels()
+  gameSettingsOpen.value = next
   scheduleFeltResize()
 }
 

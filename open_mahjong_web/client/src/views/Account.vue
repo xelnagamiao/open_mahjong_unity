@@ -80,10 +80,21 @@
       </el-card>
 
       <el-card v-show="activeSection === 'sec-apply'" id="sec-apply" class="block section" data-sec="sec-apply">
-        <template #header>提交办赛申请</template>
+        <template #header>{{ editingApplicationId ? '修改办赛申请' : '提交办赛申请' }}</template>
+        <div class="event-application-rules">
+          <strong>Salasasa 平台赛事规约</strong>
+          <ol>
+            <li>赛事的组织、奖金等各项成本开支不得低于报名费的 80%，如赛事奖励中提供更上级比赛名额或特殊奖励的，可以进行独立核算。</li>
+            <li>收取报名费的赛事必须明确规定赛事规则与奖励方式；该内容同样受赛事介绍中平台可能对赛制争端进行介入的声明约束。</li>
+            <li>涉及烟、酒、槟榔等成瘾品赞助的赛事，须提前联系平台管理员后再申报。</li>
+          </ol>
+        </div>
         <el-form label-position="top" class="apply-form" @submit.prevent="submitApplication">
           <el-form-item label="赛事名称" required>
             <el-input v-model="applyForm.name" maxlength="128" show-word-limit />
+            <p class="field-note">
+              赛事名称必须提交中文、英文或其他语言的完整赛事全称，不得使用简写、表述不清或者有公共性质的赛事名称；错误案例：国标麻将比赛、FST杯；正确案例：第一届神秘嘉宾杯国标麻将比赛、咕咕嘎嘎国标麻将群内赛。
+            </p>
           </el-form-item>
 
           <el-form-item label="拟定开始时间 / 拟定结束时间" required>
@@ -138,8 +149,9 @@
 
           <el-form-item>
             <el-button type="primary" :loading="applyLoading" @click="submitApplication">
-              提交办赛申请
+              {{ editingApplicationId && editingApplicationStatus === 'rejected' ? '修改并重新提交' : editingApplicationId ? '保存申请修改' : '提交办赛申请' }}
             </el-button>
+            <el-button v-if="editingApplicationId" @click="cancelApplicationEdit">取消修改</el-button>
           </el-form-item>
         </el-form>
       </el-card>
@@ -166,18 +178,27 @@
                 <el-tag :type="appStatusType(row.status)" size="small">{{ appStatusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column label="审核意见" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.review_note || '—' }}</template>
+            </el-table-column>
             <el-table-column label="提交时间" width="160">
               <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="100">
+            <el-table-column label="操作" width="190" fixed="right">
               <template #default="{ row }">
+                <el-button link type="primary" @click="previewApplication(row)">预览</el-button>
+                <el-button
+                  v-if="row.status === 'pending' || row.status === 'rejected'"
+                  link
+                  type="warning"
+                  @click="editApplication(row)"
+                >{{ row.status === 'rejected' ? '修改重提' : '修改申请' }}</el-button>
                 <el-button
                   v-if="row.event_id"
                   link
                   type="primary"
                   @click="$router.push(`/events/${row.event_id}`)"
                 >公开页</el-button>
-                <span v-else class="muted">—</span>
               </template>
             </el-table-column>
           </el-table>
@@ -232,6 +253,10 @@
           @updated="loadMyEvents"
         />
       </el-card>
+
+      <el-dialog v-model="applicationPreviewVisible" title="赛事页面预览" width="640px">
+        <EventPreviewCard v-if="previewedApplication" :event="previewedApplication" />
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -244,6 +269,7 @@ import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import playerApi from '@/api/playerClient'
 import EventManagePanel from '@/components/EventManagePanel.vue'
+import EventPreviewCard from '@/components/EventPreviewCard.vue'
 import { eventRoleLabel, eventStatusLabel, eventStatusTagType } from '@/utils/eventMeta'
 
 const auth = usePlayerAuthStore()
@@ -277,6 +303,10 @@ const applyForm = reactive({
   remark: '',
 })
 const applyLoading = ref(false)
+const editingApplicationId = ref(null)
+const editingApplicationStatus = ref('')
+const applicationPreviewVisible = ref(false)
+const previewedApplication = ref(null)
 const myApplications = ref([])
 const myEvents = ref([])
 const eventsLoading = ref(false)
@@ -286,8 +316,38 @@ function toggleManage(eventId) {
   managingEventId.value = managingEventId.value === eventId ? null : eventId
 }
 
+function applyApplicationToForm(row) {
+  applyForm.name = row.name || ''
+  applyForm.planned_start_at = formatDay(row.planned_start_at) || null
+  applyForm.planned_end_at = formatDay(row.planned_end_at) || null
+  applyForm.description = row.description || row.reason || ''
+  applyForm.remark = row.remark || ''
+}
+
+function editApplication(row) {
+  editingApplicationId.value = row.application_id
+  editingApplicationStatus.value = row.status
+  applyApplicationToForm(row)
+  router.push({ path: '/account', hash: '#sec-apply' })
+}
+
+function cancelApplicationEdit() {
+  editingApplicationId.value = null
+  editingApplicationStatus.value = ''
+  applyForm.name = ''
+  applyForm.planned_start_at = null
+  applyForm.planned_end_at = null
+  applyForm.description = ''
+  applyForm.remark = ''
+}
+
+function previewApplication(row) {
+  previewedApplication.value = row
+  applicationPreviewVisible.value = true
+}
+
 function appStatusLabel(s) {
-  return ({ pending: '待审', approved: '已通过', rejected: '已拒绝', cancelled: '已取消' })[s] || s
+  return ({ pending: '待审', approved: '已通过', rejected: '已打回', cancelled: '已取消' })[s] || s
 }
 
 function appStatusType(s) {
@@ -494,19 +554,26 @@ async function submitApplication() {
   }
   applyLoading.value = true
   try {
-    await playerApi.post('/event-applications', {
+    const payload = {
       name: applyForm.name,
       planned_start_at: applyForm.planned_start_at,
       planned_end_at: applyForm.planned_end_at || null,
       description: applyForm.description,
       remark: applyForm.remark,
-    })
-    ElMessage.success('申请已提交，请等待管理员审核')
-    applyForm.name = ''
-    applyForm.planned_start_at = null
-    applyForm.planned_end_at = null
-    applyForm.description = ''
-    applyForm.remark = ''
+    }
+    if (editingApplicationId.value) {
+      if (editingApplicationStatus.value === 'rejected') {
+        await playerApi.post(`/event-applications/${editingApplicationId.value}/resubmit`, payload)
+        ElMessage.success('已重新提交，请等待管理员审核')
+      } else {
+        await playerApi.put(`/event-applications/${editingApplicationId.value}`, payload)
+        ElMessage.success('申请修改已保存')
+      }
+    } else {
+      await playerApi.post('/event-applications', payload)
+      ElMessage.success('申请已提交，请等待管理员审核')
+    }
+    cancelApplicationEdit()
     await loadMyApplications()
     await auth.fetchMe()
   } catch (e) {
@@ -542,6 +609,20 @@ async function submitApplication() {
 .apply-form {
   max-width: 100%;
   min-width: 0;
+}
+.event-application-rules {
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border: 1px solid #e6a23c;
+  border-radius: 4px;
+  background: #fdf6ec;
+  color: #7a4b00;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.event-application-rules ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
 }
 .apply-form :deep(.el-form-item__content) {
   max-width: 100%;

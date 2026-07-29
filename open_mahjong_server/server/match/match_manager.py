@@ -86,8 +86,9 @@ class MatchManager:
         sponsor_mcrpl = self.game_server.db_manager.get_user_sponsor_mcrpl(user_id)
         rank_name = rank_data["guobiao_rank"] if rank_data else "10级"
         is_mcrpl = sponsor_mcrpl.get("is_mcrpl_qualified", False) if sponsor_mcrpl else False
+        is_sponsor = sponsor_mcrpl.get("is_sponsor", False) if sponsor_mcrpl else False
 
-        if not can_play_tier(rank_name, tier, is_mcrpl):
+        if not can_play_tier(rank_name, tier, is_mcrpl, is_sponsor):
             return Response(type="tips", success=False, message="段位不足，无法进入该场次")
 
         # 加入队列

@@ -18,10 +18,10 @@ public static class RankConfig {
     /// <summary>
     /// 根据段位等级判断是否能进入指定场次
     /// </summary>
-    public static bool CanPlayTier(int rankLevel, string tier, bool isMcrplQualified) {
+    public static bool CanPlayTier(int rankLevel, string tier, bool isMcrplQualified, bool isSponsor = false) {
         switch (tier) {
             case "beginner": return true;
-            case "intermediate": return rankLevel >= 8;   // 2级
+            case "intermediate": return rankLevel < 16 && (rankLevel >= 8 || isSponsor); // 七段不可进入；赞助者可突破最低段位
             case "advanced": return rankLevel >= 12;       // 三段
             case "mcrpl": return isMcrplQualified;
             default: return false;

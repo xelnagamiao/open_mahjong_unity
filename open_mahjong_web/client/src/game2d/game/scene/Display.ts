@@ -5,6 +5,7 @@ import {
   IS_MOBILE_ANY,
 } from './constants'
 import type { WaitDisplay } from './WaitDisplay'
+import { getGameFontFamily } from '../fontLoader'
 
 // ── MyText ────────────────────────────────────────────────────────────
 
@@ -29,6 +30,14 @@ const SCORE_POSITIONS: [number, number, number][] = [
   [-0.8, 0, 3],   // dir 3 – left
 ]
 
+const WIND_NUDGE = 8 / (TILE_WIDTH * 3)
+const WIND_POSITIONS: [number, number, number][] = [
+  [-0.84 + WIND_NUDGE, 0.84 - WIND_NUDGE, 0],
+  [0.84 - WIND_NUDGE, 0.84 - WIND_NUDGE, 1],
+  [0.84 - WIND_NUDGE, -0.84 + WIND_NUDGE, 2],
+  [-0.84 + WIND_NUDGE, -0.84 + WIND_NUDGE, 3],
+]
+
 /**
  * A central information panel. Shows round, scores, remaining tiles,
  * current-turn indicator, queue, and win results.
@@ -36,6 +45,7 @@ const SCORE_POSITIONS: [number, number, number][] = [
 export class Display extends Container {
   private readonly textEntries = new Map<string, MyText | Graphics>()
   private indicatorList: Graphics[] = []
+  private onPanelClick: (() => void) | null = null
 
   constructor(parent: Container) {
     super()
@@ -47,6 +57,18 @@ export class Display extends Container {
     this.addChild(bg)
 
     parent.addChild(this)
+  }
+
+  setPanelClickHandler(handler: (() => void) | null): void {
+    this.onPanelClick = handler
+    this.eventMode = handler ? 'static' : 'passive'
+    this.cursor = 'default'
+    this.removeAllListeners('pointertap')
+    if (!handler) return
+    this.on('pointertap', (event: FederatedPointerEvent) => {
+      if (event.button !== 0) return
+      this.onPanelClick?.()
+    })
   }
 
   // ── Text management ──────────────────────────────────────────────
@@ -61,9 +83,7 @@ export class Display extends Container {
 
     const processed = math ? text.replace(/-/g, '\u2212') : text
     const defaultScale = IS_MOBILE_ANY ? 4 : 1
-    const fontFamily = simfang
-      ? 'CmuSerif, SimFang, sans-serif'
-      : 'CmuSerif, SimKai, sans-serif'
+    const fontFamily = getGameFontFamily()
 
     const label = new MyText(processed, {
       fontFamily, fontSize: fontSize / defaultScale, fill: color, align: 'center',
@@ -99,32 +119,67 @@ export class Display extends Container {
   // ── Score & round ────────────────────────────────────────────────
 
   setScore(
-    name: string,
+    _name: string,
     score: number,
     direction: number,
     offline = false,
-    maxLength = 4.0,
+    _maxLength = 4.0,
     windLabel = '',
   ): void {
     const scoreStr = score > 0 ? `+${score}` : `${score}`
     const [x, y, rot] = SCORE_POSITIONS[direction] ?? [0, 0.8, 0]
-    const windPrefix = windLabel ? `${windLabel} ` : ''
     this.addText(
-      `score${direction}`, `${windPrefix}${name} ${scoreStr}`,
-      x, y, rot, 230, true, offline ? 0x888888 : 0x000000, false, Math.max(maxLength, windLabel ? 4.8 : maxLength),
+      `score${direction}`, scoreStr,
+      x, y, rot, 280, true, offline ? 0x888888 : 0x000000, false, 2.7,
     )
+    if (windLabel) {
+      const [windX, windY, windRot] = WIND_POSITIONS[direction] ?? [-0.84, 0.84, 0]
+      this.addText(
+        `wind${direction}`, windLabel,
+        windX, windY, windRot, 360, false, offline ? 0x888888 : 0x000000, true, 0.9,
+      )
+    } else {
+      this.removeText(`wind${direction}`)
+    }
   }
 
   setRound(roundCounter: number): void {
+    for (let index = 0; index < 3; index += 1) {
+      this.removeText(`round${index}`)
+    }
     if (roundCounter === -1) {
       this.addText('round', '结束', 0, 0, 0, 390, false, 0x000000, true)
       return
     }
+    this.removeText('round')
     const roundIndex = Math.max(0, roundCounter - 1)
-    const wind = ['東', '南', '西', '北'][Math.floor(roundIndex / 4) % 4] ?? '東'
-    const num = (roundIndex % 4) + 1 + 4 * Math.floor(roundIndex / 16)
-    const label = `${wind} ${num}`
-    this.addText('round', label, 0, -0.12, 0, label.length > 3 ? 360 : 450)
+    const winds = ['东', '南', '西', '北']
+    const prevailingWind = winds[Math.floor(roundIndex / 4) % 4] ?? '东'
+    const handWind = winds[roundIndex % 4] ?? '东'
+    const roundLabel = `${prevailingWind}风${handWind}`
+    const roundCharacterX = [-0.315, -0.01, 0.315]
+    for (let index = 0; index < roundLabel.length; index += 1) {
+      this.addText(
+        `round${index}`,
+        roundLabel[index] ?? '',
+        roundCharacterX[index] ?? 0,
+        -0.12,
+        0,
+        360,
+      )
+    }
+  }
+
+  setScoreText(
+    text: string,
+    direction: number,
+    color = 0x000000,
+  ): void {
+    const [x, y, rot] = SCORE_POSITIONS[direction] ?? [0, 0.8, 0]
+    this.addText(
+      `score${direction}`, text,
+      x, y, rot, 280, true, color, false, 2.7,
+    )
   }
 
   setRemaining(rem: number): void {
@@ -132,9 +187,11 @@ export class Display extends Container {
   }
 
   setPresent(direction: number, present: boolean): void {
-    const entry = this.textEntries.get(`score${direction}`)
-    if (entry instanceof MyText) {
-      entry.textObj.style.fill = present ? 0x000000 : 0x888888
+    for (const key of [`score${direction}`, `wind${direction}`]) {
+      const entry = this.textEntries.get(key)
+      if (entry instanceof MyText) {
+        entry.textObj.style.fill = present ? 0x000000 : 0x888888
+      }
     }
   }
 
@@ -253,12 +310,15 @@ export class Display extends Container {
 export class Countdown extends Container {
   private expireTime = 0
   private timerId: ReturnType<typeof setTimeout> | null = null
+  private timerKey: number | string | null = null
+  private lastUrgentSecond: number | null = null
   private readonly bg: Graphics
   private readonly timeText: Text
   /** Optional callback when the player clicks to draw. */
   onDrawClick: (() => void) | null = null
   onExpire: (() => void) | null = null
   onLatencyClick: (() => void) | null = null
+  onUrgentSecond: ((second: number) => void) | null = null
 
   constructor(parent: Container) {
     super()
@@ -271,7 +331,7 @@ export class Countdown extends Container {
 
     this.timeText = new Text({
       text: '\u2212',
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 270, fill: 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: 270, fill: 0x000000, align: 'center' },
     })
     this.timeText.anchor.set(0.5)
     this.addChild(this.timeText)
@@ -297,7 +357,11 @@ export class Countdown extends Container {
     parent.addChild(this)
   }
 
-  setTimeMillis(ms: number): void {
+  setTimeMillis(ms: number, timerKey: number | string | null = null): void {
+    if (timerKey !== this.timerKey) {
+      this.timerKey = timerKey
+      this.lastUrgentSecond = null
+    }
     this.expireTime = Date.now() + ms
     this.visible = true
     this.tick()
@@ -309,6 +373,8 @@ export class Countdown extends Container {
       this.timerId = null
     }
     this.expireTime = 0
+    this.timerKey = null
+    this.lastUrgentSecond = null
     this.bg.tint = 0xffffff
     this.timeText.text = '\u2212'
     this.onDrawClick = null
@@ -340,7 +406,16 @@ export class Countdown extends Container {
       onExpire?.()
       return
     }
-    this.timeText.text = `${Math.ceil(remaining / 1000)}`
+    const remainingSecond = Math.ceil(remaining / 1000)
+    this.timeText.text = `${remainingSecond}`
+    if (
+      remainingSecond >= 1
+      && remainingSecond <= 3
+      && remainingSecond !== this.lastUrgentSecond
+    ) {
+      this.lastUrgentSecond = remainingSecond
+      this.onUrgentSecond?.(remainingSecond)
+    }
     this.timerId = setTimeout(() => this.tick(), 100)
   }
 }
@@ -370,7 +445,7 @@ export class TempLabel extends Container {
 
     const label = new Text({
       text,
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 270, fill: 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: 270, fill: 0x000000, align: 'center' },
     })
     label.anchor.set(0.5)
     this.addChild(label)
@@ -431,7 +506,7 @@ export class DirLabel extends Container {
 
     this.dirText = new Text({
       text: '',
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 330, fill: 0x000000, align: 'center' },
+      style: { fontFamily: getGameFontFamily(), fontSize: 330, fill: 0x000000, align: 'center' },
     })
     this.dirText.anchor.set(0.5)
     this.dirText.rotation = -Math.PI * localDir / 2
@@ -461,39 +536,53 @@ export class DirLabel extends Container {
  */
 export class TenpaiTipButton extends Container {
   private readonly bg: Graphics
-  private readonly label: Text
   private waitDisplay: WaitDisplay | null = null
 
   constructor(parent: Container) {
     super()
 
     this.bg = new Graphics()
-    this.bg.roundRect(-TILE_HEIGHT * 0.55, -TILE_HEIGHT * 0.55, TILE_HEIGHT * 1.1, TILE_HEIGHT * 1.1, TILE_RADIUS)
-    this.bg.fill({ color: FRONT_COLOR })
-    this.bg.stroke({ color: BORDER_COLOR, width: LINE_WIDTH })
+    const halfSize = TILE_HEIGHT * 0.48
+    this.bg.poly([
+      0, -halfSize,
+      halfSize, 0,
+      0, halfSize,
+      -halfSize, 0,
+    ], true)
+    this.bg.fill({ color: 0x000000 })
+    this.bg.stroke({ color: 0xffffff, width: LINE_WIDTH })
+    this.bg.alpha = 0.68
     this.addChild(this.bg)
 
-    this.label = new Text({
-      text: '听',
-      style: { fontFamily: 'CmuSerif, SimFang, sans-serif', fontSize: 300, fill: 0x000000, align: 'center' },
+    const label = new Text({
+      text: '!',
+      style: {
+        fontFamily: getGameFontFamily(),
+        fontSize: 270,
+        fontWeight: '700',
+        fill: 0xffffff,
+        align: 'center',
+        trim: true,
+      },
     })
-    this.label.anchor.set(0.5)
-    this.addChild(this.label)
+    label.anchor.set(0.5)
+    this.addChild(label)
 
-    // Mid-right of the table (countdown sits bottom-right).
-    this.x = SCALE_FACTOR / 2 - TILE_HEIGHT * 0.55
-    this.y = 0
+    // Same square and horizontal alignment as countdown; keep an extra ~10px
+    // of visual separation at the standard table scale.
+    this.x = SCALE_FACTOR / 2 - TILE_HEIGHT / 2
+    this.y = SCALE_FACTOR / 2 - TILE_HEIGHT * 1.85
     this.zIndex = 100001
 
     this.eventMode = 'static'
     this.cursor = 'pointer'
     this.visible = false
     this.on('pointerover', () => {
-      this.bg.tint = 0xe0e0e0
+      this.bg.alpha = 0.86
       this.waitDisplay?.loadData(0)
     })
     this.on('pointerout', () => {
-      this.bg.tint = 0xffffff
+      this.bg.alpha = 0.68
       this.waitDisplay?.restoreDefault()
     })
 
@@ -508,7 +597,7 @@ export class TenpaiTipButton extends Container {
   setTenpaiActive(active: boolean): void {
     this.visible = active
     if (!active) {
-      this.bg.tint = 0xffffff
+      this.bg.alpha = 0.68
     }
   }
 }

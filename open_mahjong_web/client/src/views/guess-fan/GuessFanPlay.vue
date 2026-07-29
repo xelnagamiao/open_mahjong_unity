@@ -5,10 +5,17 @@
         <div class="meta-left">
           <strong class="title">{{ title }}</strong>
           <span v-if="subtitle" class="sub">{{ subtitle }}</span>
-          <span v-if="statusText" class="status">{{ statusText }}</span>
-          <span v-if="timeLimitSec > 0" class="limit-tag">限时 {{ timeLimitSec }}s</span>
+          <span v-if="!scoreText && statusText" class="status">{{ statusText }}</span>
+        </div>
+        <div v-if="scoreText" class="match-summary">
+          <strong class="match-score">{{ scoreText }}</strong>
+          <div class="match-details">
+            <span v-if="statusText" class="status">{{ statusText }}</span>
+            <span v-if="timeLimitSec > 0" class="limit-tag">限时 {{ timeLimitSec }}s</span>
+          </div>
         </div>
         <div class="meta-actions">
+          <span v-if="!scoreText && timeLimitSec > 0" class="limit-tag">限时 {{ timeLimitSec }}s</span>
           <slot name="actions" />
           <button type="button" class="btn ghost" @click="emitLeave">离开</button>
         </div>
@@ -141,6 +148,7 @@ import { MAX_GUESSES } from '@/constants/guessFanCatalog'
 defineProps({
   title: { type: String, default: '猜番对抗' },
   subtitle: { type: String, default: '' },
+  scoreText: { type: String, default: '' },
   statusText: { type: String, default: '' },
   remainSec: { default: null },
   timeLimitSec: { type: Number, default: 0 },
@@ -206,10 +214,9 @@ function slotClassPreview(rows, idx) {
 
 .play-top {
   flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding: 10px 16px;
   background: #1a1a1a;
@@ -224,6 +231,35 @@ function slotClassPreview(rows, idx) {
   gap: 8px 14px;
   min-width: 0;
   font-size: 13px;
+}
+
+.match-summary {
+  position: relative;
+  white-space: nowrap;
+}
+
+.match-score {
+  padding: 2px 0;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.2;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.match-details {
+  position: absolute;
+  left: calc(100% + 18px);
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transform: translateY(-50%);
+}
+
+.match-details .status {
+  font-size: 11px;
 }
 
 .title {
@@ -247,6 +283,7 @@ function slotClassPreview(rows, idx) {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-self: end;
 }
 
 .btn {
@@ -282,10 +319,10 @@ function slotClassPreview(rows, idx) {
 }
 
 .countdown {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: baseline;
-  justify-content: center;
-  gap: 8px;
+  column-gap: 8px;
   margin: 0 auto 14px;
   padding: 10px 18px;
   max-width: 280px;
@@ -303,6 +340,7 @@ function slotClassPreview(rows, idx) {
 }
 
 .cd-label {
+  justify-self: end;
   font-size: 12px;
   opacity: 0.75;
 }
@@ -317,6 +355,7 @@ function slotClassPreview(rows, idx) {
 }
 
 .cd-unit {
+  justify-self: start;
   font-size: 12px;
   opacity: 0.75;
 }
@@ -466,6 +505,24 @@ function slotClassPreview(rows, idx) {
 @keyframes countdown-pop { from { opacity: 0; transform: scale(.68); } to { opacity: 1; transform: scale(1); } }
 
 @media (max-width: 860px) {
+  .play-top {
+    grid-template-columns: 1fr auto;
+  }
+  .match-summary {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: center;
+  }
+  .match-details {
+    position: static;
+    justify-content: center;
+    margin-top: 4px;
+    transform: none;
+  }
+  .meta-left,
+  .meta-actions {
+    grid-row: 2;
+  }
   .boards.dual,
   .progress.dual {
     grid-template-columns: 1fr;

@@ -22,7 +22,19 @@ export function loadStoredSceneAppearance(): SceneAppearanceSettings {
   const raw = localStorage.getItem(SCENE_APPEARANCE_STORAGE_KEY)
   if (!raw) return DEFAULT_SCENE_APPEARANCE
   try {
-    return normalizeSceneAppearanceSettings(JSON.parse(raw) as Partial<SceneAppearanceSettings>)
+    const stored = JSON.parse(raw) as Partial<SceneAppearanceSettings>
+    // Migrate the former untouched flower-area default while preserving
+    // players who had already chosen a custom background.
+    if (
+      stored.flowerAreaLabelColor === undefined
+      && stored.flowerAreaLabelScale === undefined
+      && stored.flowerAreaColor?.toLowerCase() === '#f7f7f0'
+      && Number(stored.flowerAreaAlpha) === 0.82
+    ) {
+      stored.flowerAreaColor = DEFAULT_SCENE_APPEARANCE.flowerAreaColor
+      stored.flowerAreaAlpha = DEFAULT_SCENE_APPEARANCE.flowerAreaAlpha
+    }
+    return normalizeSceneAppearanceSettings(stored)
   } catch {
     localStorage.removeItem(SCENE_APPEARANCE_STORAGE_KEY)
     return DEFAULT_SCENE_APPEARANCE
