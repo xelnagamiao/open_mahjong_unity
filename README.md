@@ -130,8 +130,6 @@ open_mahjong_unity/
 └── README.md
 ```
 
-> `Library/`、`Temp/`、`Logs/`、`node_modules/`、`dist/`、`.venv/` 等缓存、依赖和构建产物未在结构中列出。
-
 ## 3.技术栈
 
 ### 游戏客户端 (open_mahjong_unity)
