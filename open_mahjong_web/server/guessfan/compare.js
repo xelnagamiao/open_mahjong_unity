@@ -59,10 +59,13 @@ function resolveFanTone({ answer, rolledFan, guess, disableRelated }) {
   const rolled = String(rolledFan)
   const guessPrimary = Array.isArray(guess.fan) ? guess.fan[0] : guess.fan
 
-  if (guessOpts.includes(rolled)) {
+  if (guess.id === answer.id || String(guessPrimary) === rolled) {
     return { tone: 'green', hint: null }
   }
-  if (answerOpts.length > 1 && guessOpts.some((g) => answerOpts.includes(g) && g !== rolled)) {
+  if (
+    guessOpts.includes(rolled) ||
+    (answerOpts.length > 1 && guessOpts.some((g) => answerOpts.includes(g) && g !== rolled))
+  ) {
     return { tone: Y('yellow'), hint: null }
   }
 

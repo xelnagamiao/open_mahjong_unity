@@ -112,5 +112,18 @@ run('10. 多类型番 vs 单类型：里宝牌 vs 立直 → 类型黄', () => {
   assert(r.types.tone === 'yellow', `types=${JSON.stringify(r.types)}`)
 })
 
+run('11. Secondary fan value is yellow', () => {
+  const answer = GUESS_FAN_BY_ID['guobiao:pinghe']
+  const guess = GUESS_FAN_BY_ID['riichi:honitsu']
+  const r = compareGuess({ answer, rolledFan: 2, guess })
+  assert(r.fan.tone === 'yellow', `fan=${r.fan.tone}`)
+})
+
+run('12. Exact fan remains green at its secondary value', () => {
+  const answer = GUESS_FAN_BY_ID['riichi:honitsu']
+  const r = compareGuess({ answer, rolledFan: 2, guess: answer })
+  assert(r.fan.tone === 'green', `fan=${r.fan.tone}`)
+})
+
 console.log(`\n==== ${passed} passed, ${failed} failed ====`)
 process.exit(failed ? 1 : 0)

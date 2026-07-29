@@ -230,6 +230,8 @@
 
             />
 
+            <el-checkbox v-model="renameForm.sync_history">同步该 UID 的全部历史牌谱名</el-checkbox>
+
             <el-button type="primary" @click="renameUser" :loading="renaming">保存新用户名</el-button>
 
           </div>
@@ -261,6 +263,26 @@
       </el-card>
 
 
+
+      <el-card class="block">
+
+        <template #header>历史牌谱用户名迁移</template>
+
+        <p class="rename-hint">只修改当前 UID 下，原历史用户名完全匹配的牌谱快照；不会影响其他 UID 的同名玩家，也不会改变当前账户用户名。</p>
+
+        <div class="credential-row">
+
+          <el-input v-model="historyRename.oldUsername" placeholder="原历史用户名" style="max-width: 180px" />
+
+          <el-input v-model="historyRename.newUsername" placeholder="新历史用户名" style="max-width: 180px" />
+
+          <el-input v-model="historyRename.reason" placeholder="变更原因（必填）" style="max-width: 220px" />
+
+          <el-button type="warning" plain :loading="renamingHistory" @click="renameHistoryUsername">迁移历史用户名</el-button>
+
+        </div>
+
+      </el-card>
 
       <el-card class="block">
 
@@ -409,6 +431,8 @@ const kicking = ref(false)
 
 const renaming = ref(false)
 
+const renamingHistory = ref(false)
+
 const resettingRank = ref(false)
 
 const detail = ref(null)
@@ -435,9 +459,13 @@ const renameForm = reactive({
 
   new_username: '',
 
+  sync_history: false,
+
   reason: '',
 
 })
+
+const historyRename = reactive({ oldUsername: '', newUsername: '', reason: '' })
 
 
 
@@ -532,6 +560,8 @@ function syncEditFromDetail() {
   edit.ban_reason = detail.value.user.ban_reason || ''
 
   renameForm.new_username = detail.value.user.username || ''
+
+  renameForm.sync_history = false
 
   renameForm.reason = ''
 
@@ -779,6 +809,8 @@ async function renameUser() {
 
       new_username: newName,
 
+      sync_history: renameForm.sync_history,
+
       reason: renameForm.reason.trim(),
 
     })
@@ -802,6 +834,38 @@ async function renameUser() {
 }
 
 
+
+async function renameHistoryUsername() {
+  const oldName = historyRename.oldUsername.trim()
+  const newName = historyRename.newUsername.trim()
+  if (!oldName || !newName || !historyRename.reason.trim()) {
+    ElMessage.warning('请填写原历史用户名、新历史用户名和变更原因')
+    return
+  }
+  const { value: confirmation } = await ElMessageBox.prompt(
+    `只会修改 UID ${detail.value?.user?.user_id} 下的历史用户名“${oldName}”。请输入“${oldName}”确认。`,
+    '确认迁移历史用户名',
+    { type: 'warning', confirmButtonText: '确认迁移', cancelButtonText: '取消' },
+  ).catch(() => null)
+  if (confirmation !== oldName) return
+  renamingHistory.value = true
+  try {
+    const res = await adminApi.post(`/users/${route.params.userId}/history-username`, {
+      old_username: oldName,
+      new_username: newName,
+      reason: historyRename.reason.trim(),
+    })
+    ElMessage.success(`已更新 ${res.data.data.updated_game_player_records} 条历史牌谱记录`)
+    historyRename.oldUsername = ''
+    historyRename.newUsername = ''
+    historyRename.reason = ''
+    await load()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '历史用户名迁移失败')
+  } finally {
+    renamingHistory.value = false
+  }
+}
 
 async function resetRank() {
 

@@ -41,6 +41,55 @@ async function fetchUserOnline(userId) {
   return { online: !!data.online, username: data.username || null };
 }
 
+function rewriteRecordSnapshot(value, userId, { oldUsername = null, newUsername }) {
+  let changed = false;
+  const visit = (node) => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!node || typeof node !== 'object') return;
+    const id = node.user_id ?? node.userId;
+    if (Number(id) === userId && (oldUsername === null || node.username === oldUsername)) {
+      if (typeof node.username === 'string' && node.username !== newUsername) {
+        node.username = newUsername;
+        changed = true;
+      }
+    }
+    // 牌谱 game_title 使用 p0_uid / p0_name（而不是玩家对象）保存四家快照。
+    for (const key of Object.keys(node)) {
+      const match = key.match(/^(p\d+)_uid$/);
+      if (!match || Number(node[key]) !== userId) continue;
+      const nameKey = `${match[1]}_name`;
+      if ((oldUsername === null || node[nameKey] === oldUsername) && typeof node[nameKey] === 'string' && node[nameKey] !== newUsername) {
+        node[nameKey] = newUsername;
+        changed = true;
+      }
+    }
+    Object.values(node).forEach(visit);
+  };
+  visit(value);
+  return changed;
+}
+
+async function rewriteGameRecordSnapshots(client, userId, options) {
+  const rows = await client.query(
+    `SELECT gr.game_id, gr.record
+       FROM game_records gr
+      WHERE EXISTS (SELECT 1 FROM game_player_records gpr
+                     WHERE gpr.game_id = gr.game_id AND gpr.user_id = $1
+                       AND ($2::text IS NULL OR gpr.username = $2))
+      FOR UPDATE`,
+    [userId, options.oldUsername]
+  );
+  let count = 0;
+  for (const row of rows.rows) {
+    const record = typeof row.record === 'string' ? JSON.parse(row.record) : row.record;
+    if (rewriteRecordSnapshot(record, userId, options)) {
+      await client.query(`UPDATE game_records SET record = $1::jsonb WHERE game_id = $2`, [JSON.stringify(record), row.game_id]);
+      count += 1;
+    }
+  }
+  return count;
+}
+
 const BAN_TYPES = new Set(['login', 'chat', 'match', 'full']);
 
 function parseBanExpiresAt(value) {
@@ -432,7 +481,7 @@ router.delete('/:userId', async (req, res) => {
 router.post('/:userId/rename', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
-    const { new_username, reason } = req.body || {};
+    const { new_username, sync_history = false, reason } = req.body || {};
     if (Number.isNaN(userId)) {
       return res.status(400).json({ success: false, message: '无效的用户 ID' });
     }
@@ -468,7 +517,26 @@ router.post('/:userId/rename', async (req, res) => {
       return res.status(409).json({ success: false, message: '用户名已存在' });
     }
 
-    await pool.query(`UPDATE users SET username = $1 WHERE user_id = $2`, [newName, userId]);
+    const client = await pool.connect();
+    let syncedRecordCount = 0;
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE users SET username = $1 WHERE user_id = $2`, [newName, userId]);
+      if (sync_history) {
+        const records = await client.query(
+          `UPDATE game_player_records SET username = $1 WHERE user_id = $2`,
+          [newName, userId]
+        );
+        syncedRecordCount = records.rowCount;
+        await rewriteGameRecordSnapshots(client, userId, { newUsername: newName });
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
 
     let syncedOnline = false;
     try {
@@ -490,13 +558,15 @@ router.post('/:userId/rename', async (req, res) => {
         before: { username: user.username },
         after: { username: newName },
         synced_online: syncedOnline,
+        synced_history: !!sync_history,
+        synced_game_player_records: syncedRecordCount,
       },
       reason: String(reason).trim(),
     });
 
     res.json({
       success: true,
-      data: { user_id: userId, username: newName, synced_online: syncedOnline },
+      data: { user_id: userId, username: newName, synced_online: syncedOnline, synced_history: !!sync_history, synced_game_player_records: syncedRecordCount },
       message: syncedOnline
         ? '改名成功，已同步在线会话（玩家需重新登录聊天服）'
         : '改名成功',
@@ -507,6 +577,49 @@ router.post('/:userId/rename', async (req, res) => {
     }
     console.error('admin user rename:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+router.post('/:userId/history-username', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    const { old_username, new_username, reason } = req.body || {};
+    const oldName = String(old_username || '').trim();
+    const newName = String(new_username || '').trim();
+    if (!Number.isSafeInteger(userId) || !oldName || !newName || oldName === newName || !String(reason || '').trim()) {
+      return res.status(400).json({ success: false, message: '请填写原历史用户名、新用户名和变更原因' });
+    }
+    const newNameError = validateUsername(newName);
+    if (newNameError) return res.status(400).json({ success: false, message: newNameError });
+
+    const client = await pool.connect();
+    let updatedRecords = 0;
+    try {
+      await client.query('BEGIN');
+      const user = await client.query(`SELECT user_id FROM users WHERE user_id = $1 FOR UPDATE`, [userId]);
+      if (!user.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, message: '用户不存在' });
+      }
+      await rewriteGameRecordSnapshots(client, userId, { oldUsername: oldName, newUsername: newName });
+      const records = await client.query(
+        `UPDATE game_player_records SET username = $1 WHERE user_id = $2 AND username = $3`,
+        [newName, userId, oldName]
+      );
+      updatedRecords = records.rowCount;
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    await writeAudit({ adminUserId: req.admin.userId, action: 'user.rename_history_username', targetType: 'user', targetId: userId,
+      payload: { old_username: oldName, new_username: newName, updated_game_player_records: updatedRecords }, reason: String(reason).trim() });
+    res.json({ success: true, data: { user_id: userId, old_username: oldName, new_username: newName, updated_game_player_records: updatedRecords } });
+  } catch (err) {
+    console.error('admin history username rename:', err);
+    res.status(500).json({ success: false, message: '历史牌谱用户名迁移失败，已回滚' });
   }
 });
 

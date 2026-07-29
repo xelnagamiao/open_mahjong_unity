@@ -24,6 +24,7 @@ class SalasasaClient {
   private loginValue: SalasasaLoginInfo | null = null
   private rankValue: SalasasaRankData | null = null
   private lastGameStartValue: SalasasaResponse | null = null
+  private lastVoteUpdateValue: SalasasaResponse | null = null
   /**
    * Ordered guobiao messages since the latest game_start, kept only until the
    * Game page drains them. Survives Lobby→Game navigation where Lobby
@@ -45,6 +46,7 @@ class SalasasaClient {
   get loginInfo(): SalasasaLoginInfo | null { return this.loginValue }
   get rankData(): SalasasaRankData | null { return this.rankValue }
   get lastGameStart(): SalasasaResponse | null { return this.lastGameStartValue }
+  get lastVoteUpdate(): SalasasaResponse | null { return this.lastVoteUpdateValue }
   get isLoggedIn(): boolean { return this.loginValue !== null && this.statusValue === 'online' }
 
   /**
@@ -176,6 +178,7 @@ class SalasasaClient {
         }
         if (message.type === 'gamestate/guobiao/game_start' && message.game_info) {
           this.lastGameStartValue = message
+          this.lastVoteUpdateValue = null
           this.guobiaoBuffer = [message]
           this.guobiaoBufferActive = true
         } else if (
@@ -190,6 +193,11 @@ class SalasasaClient {
           this.lastGameStartValue = null
           this.guobiaoBuffer = []
           this.guobiaoBufferActive = false
+        }
+        if (message.type === 'gamestate/vote_update') {
+          this.lastVoteUpdateValue = message.vote_info?.phase === 'idle' ? null : message
+        } else if (message.type === 'gamestate/vote_end') {
+          this.lastVoteUpdateValue = null
         }
         for (const listener of this.listeners) listener(message)
         if (loginKickedOut) {
@@ -268,6 +276,7 @@ class SalasasaClient {
     this.loginValue = null
     this.rankValue = null
     this.lastGameStartValue = null
+    this.lastVoteUpdateValue = null
     this.guobiaoBuffer = []
     this.guobiaoBufferActive = false
     this.socket?.close(1000, 'logout')

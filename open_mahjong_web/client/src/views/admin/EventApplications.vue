@@ -5,7 +5,7 @@
         <el-radio-button label="">全部</el-radio-button>
         <el-radio-button label="pending">待审</el-radio-button>
         <el-radio-button label="approved">已通过</el-radio-button>
-        <el-radio-button label="rejected">已拒绝</el-radio-button>
+        <el-radio-button label="rejected">已打回</el-radio-button>
       </el-radio-group>
       <el-button size="small" :loading="loading" @click="load">刷新</el-button>
     </div>
@@ -37,9 +37,10 @@
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
+          <el-button link type="primary" @click="previewApplication(row)">预览</el-button>
           <template v-if="row.status === 'pending'">
             <el-button type="success" link @click="openApprove(row)">通过</el-button>
-            <el-button type="danger" link @click="openReject(row)">拒绝</el-button>
+            <el-button type="danger" link @click="openReject(row)">打回</el-button>
           </template>
           <router-link
             v-else-if="row.event_id"
@@ -76,15 +77,15 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="rejectVisible" title="拒绝办赛申请" width="420px">
+    <el-dialog v-model="rejectVisible" title="打回办赛申请" width="420px">
       <el-form label-width="80px">
-        <el-form-item label="拒绝原因" required>
+        <el-form-item label="打回原因" required>
           <el-input v-model="rejectForm.review_note" type="textarea" rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="rejectVisible = false">取消</el-button>
-        <el-button type="danger" :loading="acting" @click="doReject">确认拒绝</el-button>
+        <el-button type="danger" :loading="acting" @click="doReject">确认打回</el-button>
       </template>
     </el-dialog>
 
@@ -124,6 +125,7 @@
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
+          <el-button link type="primary" @click="previewProfileChange(row)">预览</el-button>
           <template v-if="row.status === 'pending'">
             <el-button type="success" link @click="approveProfile(row)">通过</el-button>
             <el-button type="danger" link @click="rejectProfile(row)">拒绝</el-button>
@@ -132,6 +134,10 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="previewVisible" title="赛事页面预览" width="640px">
+      <EventPreviewCard v-if="previewEvent" :event="previewEvent" :status-label="previewStatusLabel" />
+    </el-dialog>
   </div>
 </template>
 
@@ -139,6 +145,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminClient'
+import EventPreviewCard from '@/components/EventPreviewCard.vue'
 
 const items = ref([])
 const loading = ref(false)
@@ -153,13 +160,16 @@ const rejectVisible = ref(false)
 const currentId = ref(null)
 const approveForm = reactive({ name: '', review_note: '' })
 const rejectForm = reactive({ review_note: '' })
+const previewVisible = ref(false)
+const previewEvent = ref(null)
+const previewStatusLabel = ref('申请中的赛事页面预览')
 
 const profileItems = ref([])
 const profileLoading = ref(false)
 const profileStatusFilter = ref('pending')
 
 function statusLabel(s) {
-  return ({ pending: '待审', approved: '已通过', rejected: '已拒绝', cancelled: '已取消' })[s] || s
+  return ({ pending: '待审', approved: '已通过', rejected: '已打回', cancelled: '已取消' })[s] || s
 }
 
 function statusType(s) {
@@ -226,6 +236,22 @@ function openReject(row) {
   rejectVisible.value = true
 }
 
+function previewApplication(row) {
+  previewEvent.value = row
+  previewStatusLabel.value = '办赛申请预览'
+  previewVisible.value = true
+}
+
+function previewProfileChange(row) {
+  previewEvent.value = {
+    name: row.proposed_name,
+    description: row.proposed_description,
+    requester_username: row.requester_username,
+  }
+  previewStatusLabel.value = '赛事资料修改后预览'
+  previewVisible.value = true
+}
+
 async function doApprove() {
   acting.value = true
   try {
@@ -245,7 +271,7 @@ async function doApprove() {
 
 async function doReject() {
   if (!rejectForm.review_note.trim()) {
-    ElMessage.warning('请填写拒绝原因')
+    ElMessage.warning('请填写打回原因')
     return
   }
   acting.value = true
@@ -253,7 +279,7 @@ async function doReject() {
     await adminApi.post(`/event-applications/${currentId.value}/reject`, {
       review_note: rejectForm.review_note,
     })
-    ElMessage.success('已拒绝')
+    ElMessage.success('已打回')
     rejectVisible.value = false
     await load()
   } catch (e) {

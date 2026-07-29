@@ -12,6 +12,10 @@ export function setTileThemes(tileTheme: TileFaceTheme, flowerTheme: FlowerFaceT
   flowerFaceTheme = flowerTheme
 }
 
+export function isBlackTileFaceTheme(): boolean {
+  return tileFaceTheme === 'black'
+}
+
 /** Ensure all tile textures are loaded. Safe to call multiple times. */
 export function ensureTexturesLoaded(): Promise<void> {
   if (loaded) return Promise.resolve()

@@ -111,6 +111,13 @@ public partial class GameCanvas{
 
         // 摸牌 添加摸牌区手牌
         else if (ChangeType == "GetCard"){
+            // 牌谱跳转可能停在开局补花的最后一张补牌上，此时该牌仍固定在摸牌区。
+            // 下一次正常摸牌前先将旧摸牌收拢进主列，否则新旧两张会落在同一个摸牌位置，
+            // 视觉上像是补牌被新摸牌顶掉、手牌少一张。
+            if (IsHandRecordPlayback() && GetPinnedDrawTile() != null){
+                yield return StartCoroutine(RearrangeHandCardsWithAnimation());
+            }
+
             GameObject cardObj = Instantiate(tileCardPrefab, handCardsContainer);
             TileCard tileCard = cardObj.GetComponent<TileCard>();
             // 同一时刻最多一张摸切语义牌：先清旧标再给新张打标

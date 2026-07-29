@@ -80,16 +80,31 @@ TIER_MIN_RANK_INDEX = {
     "mcrpl": 0,          # MCRPL 由 is_mcrpl_qualified 控制，不用段位限制
 }
 
+# 场次最高准入段位（上限不包含在内）。中级场仅开放至六段，达到七段后不可继续对局。
+TIER_MAX_RANK_INDEX = {
+    "intermediate": 16,  # 七段（index 16）及以上不可进入
+}
+
 
 def get_rank_index(rank_name: str) -> int:
     return RANK_NAME_TO_INDEX.get(rank_name, 0)
 
 
-def can_play_tier(rank_name: str, tier: str, is_mcrpl_qualified: bool = False) -> bool:
+def can_play_tier(
+    rank_name: str,
+    tier: str,
+    is_mcrpl_qualified: bool = False,
+    is_sponsor: bool = False,
+) -> bool:
     """判断段位是否有资格进入指定场次"""
     if tier == "mcrpl":
         return is_mcrpl_qualified
     rank_idx = get_rank_index(rank_name)
+    max_rank_idx = TIER_MAX_RANK_INDEX.get(tier)
+    if max_rank_idx is not None and rank_idx >= max_rank_idx:
+        return False
+    if tier == "intermediate" and is_sponsor:
+        return True
     return rank_idx >= TIER_MIN_RANK_INDEX.get(tier, 0)
 
 

@@ -3,10 +3,11 @@ import {
   TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS, LINE_WIDTH,
   FRONT_COLOR, BACK_COLOR, BORDER_COLOR, ANIMATION_TIME,
 } from './constants'
-import { getTexture } from './textures'
+import { getTexture, isBlackTileFaceTheme } from './textures'
 
 export const TILE_HOVER_TINT = 0xe0e0e0
 export const FROM_DRAWN_TINT = 0xcccccc
+const BLACK_FRONT_COLOR = 0x1e1e1e
 
 function shouldUseTimerFallback(): boolean {
   return typeof document !== 'undefined'
@@ -70,6 +71,9 @@ export class Tile extends Container {
   private hoverVisualEnabled = true
   private inputEnabled = true
   private hoverWhileDisabled = false
+  private concealedFaceDown = false
+  private concealedPeekEnabled = false
+  private concealedPeekActive = false
 
   constructor(tid: number, shown = true) {
     super()
@@ -78,9 +82,7 @@ export class Tile extends Container {
 
     // Background
     this.bg = new Graphics()
-    this.bg.roundRect(-TILE_WIDTH / 2, -TILE_HEIGHT / 2, TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS)
-    this.bg.fill({ color: FRONT_COLOR })
-    this.bg.stroke({ color: BORDER_COLOR, width: LINE_WIDTH })
+    this.redrawBackground()
     this.bg.visible = this.shown
     this.addChild(this.bg)
 
@@ -104,11 +106,17 @@ export class Tile extends Container {
 
     // Interactive (hover + click)
     this.on('pointerover', () => {
+      if (this.concealedPeekEnabled) {
+        this.setConcealedPeekActive(true)
+      }
       this.hoverTint = this.hoverVisualEnabled ? this.hoverTintColor : null
       this.applyTint()
       this.onHoverIn?.()
     })
     this.on('pointerout', () => {
+      if (this.concealedPeekEnabled) {
+        this.setConcealedPeekActive(false)
+      }
       this.hoverTint = null
       this.applyTint()
       this.onHoverOut?.()
@@ -127,6 +135,13 @@ export class Tile extends Container {
     this.cover.roundRect(-TILE_WIDTH / 2, -TILE_HEIGHT / 2, TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS)
     this.cover.fill({ color: this.coverColor })
     this.cover.stroke({ color: BORDER_COLOR, width: LINE_WIDTH })
+  }
+
+  private redrawBackground(): void {
+    this.bg.clear()
+    this.bg.roundRect(-TILE_WIDTH / 2, -TILE_HEIGHT / 2, TILE_WIDTH, TILE_HEIGHT, TILE_RADIUS)
+    this.bg.fill({ color: isBlackTileFaceTheme() ? BLACK_FRONT_COLOR : FRONT_COLOR })
+    this.bg.stroke({ color: BORDER_COLOR, width: LINE_WIDTH })
   }
 
   private applyTint(): void {
@@ -171,7 +186,8 @@ export class Tile extends Container {
   }
 
   setHoverEnabled(enabled: boolean): void {
-    const hoverActive = enabled && (this.inputEnabled || this.hoverWhileDisabled)
+    const hoverActive = this.concealedPeekEnabled
+      || (enabled && (this.inputEnabled || this.hoverWhileDisabled))
     this.eventMode = hoverActive ? 'static' : 'passive'
     this.cursor = enabled && this.inputEnabled ? 'pointer' : 'default'
     if (!hoverActive) {
@@ -185,10 +201,45 @@ export class Tile extends Container {
     this.onHoverOut = onHoverOut
   }
 
+  /**
+   * Keep a known concealed-kong tile face-down while retaining its real tile id.
+   * The local player's tile may temporarily turn face-up on pointer hover.
+   */
+  setConcealedFaceDown(concealed: boolean, peekOnHover = false): void {
+    this.concealedFaceDown = concealed
+    this.concealedPeekEnabled = concealed && peekOnHover && this.tid > 0
+    this.concealedPeekActive = false
+    this.shown = !concealed
+    this.applyConcealedFaceVisibility()
+    this.setHoverEnabled(this.shown)
+  }
+
+  private setConcealedPeekActive(active: boolean): void {
+    if (!this.concealedFaceDown || !this.concealedPeekEnabled) return
+    this.concealedPeekActive = active
+    this.applyConcealedFaceVisibility()
+  }
+
+  private applyConcealedFaceVisibility(): void {
+    if (!this.concealedFaceDown) {
+      if (this.sprite) this.sprite.visible = this.shown
+      this.bg.visible = this.shown
+      this.cover.visible = !this.shown
+      return
+    }
+    const faceUp = this.concealedPeekActive
+    if (this.sprite) this.sprite.visible = faceUp
+    this.bg.visible = faceUp
+    this.cover.visible = !faceUp
+  }
+
   // ── Visibility ────────────────────────────────────────────────────
 
   hide(): void {
     if (this.tid === 0) return
+    this.concealedFaceDown = false
+    this.concealedPeekEnabled = false
+    this.concealedPeekActive = false
     this.shown = false
     if (this.sprite) this.sprite.visible = false
     this.bg.visible = false
@@ -198,6 +249,9 @@ export class Tile extends Container {
 
   show(): void {
     if (this.tid === 0) return
+    this.concealedFaceDown = false
+    this.concealedPeekEnabled = false
+    this.concealedPeekActive = false
     this.shown = true
     if (this.sprite) this.sprite.visible = true
     this.bg.visible = true
@@ -214,22 +268,24 @@ export class Tile extends Container {
   }
 
   refreshTexture(): void {
+    this.redrawBackground()
     if (!this.sprite) return
     this.sprite.texture = getTexture(this.tid)
     this.fitSpriteToTileFace()
+    this.applyTint()
+    this.applyConcealedFaceVisibility()
   }
 
   updateTid(newTid: number): void {
     if (newTid === 0) { this.hide(); this.tid = 0; return }
     this.tid = newTid
+    this.redrawBackground()
     const texture = getTexture(newTid)
     if (texture && this.sprite) {
       this.sprite.texture = texture
       this.fitSpriteToTileFace()
-      this.sprite.visible = this.shown
     }
-    this.bg.visible = this.shown
-    this.cover.visible = !this.shown
+    this.applyConcealedFaceVisibility()
     this.setHoverEnabled(this.shown)
   }
 
@@ -285,7 +341,12 @@ export class Tile extends Container {
   gradualAppear(time = ANIMATION_TIME, flush = false): Promise<void> {
     return new Promise((resolve) => {
       if (this.visible && this.alpha >= 0.9 && !flush) { resolve(); return }
-      this.show()
+      if (this.concealedFaceDown) {
+        this.applyConcealedFaceVisibility()
+        this.setHoverEnabled(false)
+      } else {
+        this.show()
+      }
       this.alpha = this.alpha <= 0.1 || this.alpha >= 0.9 ? 0 : this.alpha
       this.visible = true
       runTimedAnimation(time, (t) => {

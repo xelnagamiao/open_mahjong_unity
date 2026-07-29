@@ -6,12 +6,19 @@ const config = require('../../config/config');
 const { verifyPassword, hashPassword } = require('../../utils/password');
 const { signToken } = require('../../utils/jwt');
 const { requirePlayer } = require('../../middleware/requirePlayer');
+const { createWindowLimiter, getClientIp } = require('../../middleware/rateLimit');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
 const { sendEmailBindCode } = require('../../utils/mailer');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
+const registrationLimiter = createWindowLimiter({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 3,
+  keyFn: (req) => `${getClientIp(req)}:player-register`,
+  countSuccessfulOnly: true,
+});
 
 function normalizeEmail(raw) {
   const email = String(raw || '').trim().toLowerCase();
@@ -23,6 +30,37 @@ function normalizeEmail(raw) {
 
 function generateCode() {
   return String(crypto.randomInt(100000, 1000000));
+}
+
+function validateUsername(raw) {
+  const username = String(raw || '').trim();
+  if (!username) return { error: '用户名不能为空' };
+  if (username.length > 16) return { error: '用户名不能超过16个字符' };
+
+  let length = 0;
+  for (const char of username) {
+    if (/[\u4e00-\u9fff]/u.test(char)) {
+      length += 2;
+    } else if (/[A-Za-z0-9]/.test(char)) {
+      length += 1;
+    }
+  }
+  if (length < 2) {
+    return { error: '用户名长度至少需要2（中文=2，数字=1，英文=1）' };
+  }
+  if (length > 20) return { error: '用户名不能超过20' };
+  return { value: username };
+}
+
+function validateNewPassword(raw) {
+  const password = String(raw || '');
+  if (!password) return { error: '密码不能为空' };
+  if (password.length < 6) return { error: '密码至少需要6个字符' };
+  if (password.length > 32) return { error: '密码不能超过32个字符' };
+  if (!/^[\x21-\x7e]+$/.test(password)) {
+    return { error: '密码只能包含英文、数字或特殊字符' };
+  }
+  return { value: password };
 }
 
 async function buildAuthPayload(userId, username) {
@@ -56,6 +94,92 @@ async function buildAuthPayload(userId, username) {
     events,
   };
 }
+
+router.post('/register', registrationLimiter, async (req, res) => {
+  const parsedUsername = validateUsername(req.body?.username);
+  if (parsedUsername.error) {
+    return res.status(400).json({ success: false, message: parsedUsername.error });
+  }
+  const parsedPassword = validateNewPassword(req.body?.password);
+  if (parsedPassword.error) {
+    return res.status(400).json({ success: false, message: parsedPassword.error });
+  }
+
+  const username = parsedUsername.value;
+  const password = parsedPassword.value;
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT 1 FROM users WHERE username = $1 LIMIT 1`,
+      [username]
+    );
+    if (existing.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, message: '用户名已存在' });
+    }
+
+    const created = await client.query(
+      `INSERT INTO users (username, password, is_tourist)
+       VALUES ($1, $2, FALSE)
+       RETURNING user_id, username`,
+      [username, hashPassword(password)]
+    );
+    const user = created.rows[0];
+
+    // 与 Python 游戏服务的 create_user 保持一致，保证网页注册的账号可直接进入游戏。
+    await client.query(
+      `INSERT INTO user_settings (user_id, title_id, profile_image_id, character_id, voice_id)
+       VALUES ($1, 1, 1, 1, 1)`,
+      [user.user_id]
+    );
+    await client.query(
+      `INSERT INTO user_config (user_id, volume) VALUES ($1, 100)`,
+      [user.user_id]
+    );
+    await client.query(
+      `INSERT INTO rank_data (user_id, guobiao_rank, guobiao_score)
+       VALUES ($1, '10级', 0)`,
+      [user.user_id]
+    );
+    await client.query('COMMIT');
+
+    const token = signToken(
+      {
+        user_id: user.user_id,
+        username: user.username,
+        aud: config.playerAuth.audience,
+      },
+      config.playerAuth.jwtSecret,
+      config.playerAuth.jwtExpiresSec
+    );
+    const payload = await buildAuthPayload(user.user_id, user.username);
+    return res.status(201).json({
+      success: true,
+      message: '注册成功',
+      data: {
+        token,
+        ...payload,
+      },
+    });
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* transaction may already be closed */
+      }
+    }
+    if (err.code === '23505') {
+      return res.status(409).json({ success: false, message: '用户名已存在' });
+    }
+    console.error('player register error:', err);
+    return res.status(500).json({ success: false, message: '注册失败，请稍后重试' });
+  } finally {
+    client?.release();
+  }
+});
 
 router.post('/login', async (req, res) => {
   try {

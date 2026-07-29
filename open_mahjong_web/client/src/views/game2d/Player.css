@@ -1,4 +1,4 @@
-.profile-page { --el-color-primary: #126e82; min-height: 100dvh; padding: 34px 18px; background: linear-gradient(145deg, #dbe9e6, #8bb9b8); color: #173b40; font-family: CmuSerif, SimKai, "Noto Serif SC", serif; }
+.profile-page { --el-color-primary: #126e82; min-height: 100dvh; padding: 34px 18px; background: linear-gradient(145deg, #dbe9e6, #8bb9b8); color: #173b40; font-family: var(--game2d-font-family, serif); }
 .profile-wrap { width: min(920px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .back-button { align-self: flex-start; }
 .identity-body { display: flex; align-items: center; gap: 22px; }

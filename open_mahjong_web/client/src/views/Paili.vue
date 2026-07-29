@@ -1,9 +1,9 @@
-<!-- 牌理：单列紧凑，结果嵌在输入与按钮之间；空提交随机 14 张 -->
+<!-- 牌理：13 张直接分析听牌/进张，14 张分析切牌；空提交随机 14 张 -->
 <template>
   <div class="paili">
     <div class="page-header">
       <h1>牌理</h1>
-      <p class="subtitle">14 张（或副露等价张数）。手牌与简写均为空时点击「计算」将随机生成示例。</p>
+      <p class="subtitle">13 张直接显示听牌与进张，14 张显示切牌分析（副露按等价张数计算）。输入为空时将随机生成示例。</p>
     </div>
 
     <MahjongNotationHelp />
@@ -32,7 +32,7 @@
 
       <div class="row block">
         <div class="row-line">
-          <span class="row-label">手牌 {{ form.hand.length }}/{{ expectedCount }}</span>
+          <span class="row-label">手牌 {{ form.hand.length }}/{{ expectedCountLabel }}</span>
           <el-tag size="small" :type="handCountTagType" effect="plain">{{ handCountText }}</el-tag>
         </div>
         <div
@@ -218,11 +218,18 @@ const lockFuluSlot = (idx, opt) => fulu.lockSlot(idx, opt)
 const removeFuluDraft = fulu.removeDraftTile
 const removeFuluLocked = fulu.removeLockedTile
 
-// 14 张：副露 0 时手牌 14 张；每副露 -3 张
+// 13 张直接分析听牌/进张，14 张分析切牌；每组副露等价占 3 张。
 const expectedCount = computed(() => 14 - lockedFuluCount.value * 3)
-const handCountText = computed(() => `${form.hand.length}/${expectedCount.value}`)
+const expectedTingCount = computed(() => 13 - lockedFuluCount.value * 3)
+const expectedCountLabel = computed(
+  () => `${expectedTingCount.value} 或 ${expectedCount.value}`
+)
+const handCountText = computed(() => `${form.hand.length}/${expectedCountLabel.value}`)
 const handCountTagType = computed(() => {
-  if (form.hand.length === expectedCount.value) return 'success'
+  if (
+    form.hand.length === expectedTingCount.value
+    || form.hand.length === expectedCount.value
+  ) return 'success'
   if (form.hand.length > expectedCount.value) return 'danger'
   return 'warning'
 })
@@ -288,12 +295,13 @@ const resetAll = () => {
 }
 
 const ensureReadyForAnalyze = () => {
-  const exp = expectedCount.value
+  const exp13 = expectedTingCount.value
+  const exp14 = expectedCount.value
   if (textInput.value?.trim()) {
     try {
       const parsed = parseNotationText(textInput.value)
-      if (parsed.length > exp) {
-        ElMessage.error(`手牌应为 ${exp} 张，当前简写解析为 ${parsed.length} 张`)
+      if (parsed.length > exp14) {
+        ElMessage.error(`手牌最多为 ${exp14} 张，当前简写解析为 ${parsed.length} 张`)
         return false
       }
       form.hand = parsed
@@ -304,12 +312,14 @@ const ensureReadyForAnalyze = () => {
     }
   }
   if (form.hand.length === 0 && !textInput.value?.trim()) {
-    form.hand = randomHandTiles(exp)
+    form.hand = randomHandTiles(exp14)
     textInput.value = tilesToNotationText(form.hand)
     return true
   }
-  if (form.hand.length !== exp) {
-    ElMessage.error(`手牌须恰好 ${exp} 张（当前 ${form.hand.length} 张）`)
+  if (form.hand.length !== exp13 && form.hand.length !== exp14) {
+    ElMessage.error(
+      `手牌须为 ${exp13} 张（听牌分析）或 ${exp14} 张（切牌分析），当前 ${form.hand.length} 张`
+    )
     return false
   }
   return true

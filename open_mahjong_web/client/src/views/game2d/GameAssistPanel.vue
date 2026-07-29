@@ -18,35 +18,51 @@
       </span>
     </button>
     <p class="scene-appearance-panel__hint">
-      「不吃碰杠」与前三项联动：全开则亮，任一关闭则灭。不点和参与自动过牌筛除；不自摸/不抢杠仅在自动和牌开启时生效。
+      不自摸/不抢杠仅在自动和牌开启时作为阻挡项生效。
     </p>
   </div>
 
   <div v-else class="assist-inline">
-    <button
-      v-for="item in mainToggles"
-      :key="item.key"
-      type="button"
-      class="assist-switch"
-      :class="{ 'is-on': item.value }"
-      :aria-pressed="item.value"
-      @click="item.toggle()"
-    >
-      <span class="assist-switch__label">{{ item.label }}</span>
-      <span class="assist-switch__track" aria-hidden="true">
-        <span class="assist-switch__thumb" />
-      </span>
-    </button>
+    <div v-if="showTileSettings" class="assist-inline__tile-column">
+      <button
+        type="button"
+        class="assist-switch assist-switch--expand assist-inline__tile-settings"
+        :class="{ 'is-on': tileSettingsExpanded }"
+        :aria-expanded="tileSettingsExpanded"
+        @click="$emit('toggle-tile-settings')"
+      >
+        <span class="assist-switch__label">牌张设置</span>
+      </button>
+      <div v-if="$slots['tile-panel']" class="assist-inline__tile-panel">
+        <slot name="tile-panel" />
+      </div>
+    </div>
 
-    <button
-      type="button"
-      class="assist-switch assist-switch--expand"
-      :class="{ 'is-on': expanded }"
-      :aria-expanded="expanded"
-      @click="$emit('toggle-expand')"
-    >
-      <span class="assist-switch__label">展开</span>
-    </button>
+    <div class="assist-inline__operation-column">
+      <button
+        v-for="item in mainToggles"
+        :key="item.key"
+        type="button"
+        class="assist-switch"
+        :class="{ 'is-on': item.value }"
+        :aria-pressed="item.value"
+        @click="item.toggle()"
+      >
+        <span class="assist-switch__label">{{ item.label }}</span>
+        <span class="assist-switch__track" aria-hidden="true">
+          <span class="assist-switch__thumb" />
+        </span>
+      </button>
+      <button
+        type="button"
+        class="assist-switch assist-switch--expand"
+        :class="{ 'is-on': expanded }"
+        :aria-expanded="expanded"
+        @click="$emit('toggle-expand')"
+      >
+        <span class="assist-switch__label">展开</span>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -58,9 +74,11 @@ const props = defineProps({
   settings: { type: Object, required: true },
   expanded: { type: Boolean, default: false },
   detailOnly: { type: Boolean, default: false },
+  showTileSettings: { type: Boolean, default: false },
+  tileSettingsExpanded: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update', 'toggle-expand'])
+const emit = defineEmits(['update', 'toggle-expand', 'toggle-tile-settings'])
 
 const mainToggles = computed(() => [
   {
@@ -131,11 +149,43 @@ const detailToggles = computed(() => [
 
 <style scoped>
 .assist-inline {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: max-content max-content;
   gap: 6px;
-  align-items: center;
-  justify-content: flex-end;
+  align-items: start;
+  justify-content: end;
+}
+
+.assist-inline__operation-column {
+  display: grid;
+  width: max-content;
+  gap: 6px;
+}
+
+.assist-inline__operation-column > .assist-switch {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.assist-inline__tile-settings {
+  width: auto;
+  min-width: 92px;
+  justify-content: center;
+}
+
+.assist-inline__tile-column {
+  position: relative;
+  width: max-content;
+}
+
+.assist-inline__tile-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 32;
+  width: min(420px, calc(100vw - 36px));
+  max-height: min(70dvh, 560px);
+  overflow-y: auto;
 }
 
 .assist-detail {

@@ -333,7 +333,7 @@
   </g>
   <!-- Flower face added for Salasasa MCR; tile body is FluffyStuff's public-domain Front.svg. -->
   <g aria-label="兰 ORCHID">
-    <text x="150" y="240" text-anchor="middle" font-family="KaiTi, STKaiti, SimKai, serif" font-size="182" font-weight="600" fill="#7552a3">兰</text>
-    <text x="150" y="316" text-anchor="middle" font-family="Georgia, serif" font-size="27" letter-spacing="2" fill="#7552a3">ORCHID</text>
+    <text x="150" y="248" text-anchor="middle" font-family="KaiTi, STKaiti, SimKai, serif" font-size="200" font-weight="600" fill="#7552a3">兰</text>
+    <text x="150" y="324" text-anchor="middle" font-family="Georgia, serif" font-size="31" letter-spacing="1.5" fill="#7552a3">ORCHID</text>
   </g>
 </svg>

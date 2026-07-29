@@ -15,6 +15,10 @@
         <button type="submit" :disabled="loading">{{ loading ? '登录中…' : '登录' }}</button>
       </form>
       <p v-if="error" class="err">{{ error }}</p>
+      <p class="switch-page">
+        还没有账号？
+        <router-link :to="registerTarget">立即注册</router-link>
+      </p>
     </div>
   </div>
 </template>
@@ -30,6 +34,10 @@ const auth = usePlayerAuthStore()
 const loading = ref(false)
 const error = ref('')
 const form = reactive({ username: '', password: '' })
+const registerTarget = {
+  path: '/register',
+  query: typeof route.query.redirect === 'string' ? { redirect: route.query.redirect } : {},
+}
 
 function goAfterLogin() {
   const redirect = route.query.redirect
@@ -113,5 +121,16 @@ button:disabled {
   color: #c00;
   font-size: 13px;
   margin-top: 12px;
+}
+.switch-page {
+  margin: 16px 0 0;
+  color: #777;
+  font-size: 13px;
+  text-align: center;
+}
+.switch-page a {
+  color: #1677c8;
+  font-weight: 700;
+  text-decoration: none;
 }
 </style>

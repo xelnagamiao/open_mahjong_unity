@@ -538,15 +538,19 @@ export class Hand extends Container {
       return
     }
     if (concealed) {
-      const firstShown = Tile.newInvisible(middleTid)
-      const lastShown = Tile.newInvisible(middleTid)
+      const concealedTiles = [
+        Tile.newInvisible(middleTid),
+        Tile.newInvisible(middleTid),
+        Tile.newInvisible(middleTid),
+        Tile.newInvisible(middleTid),
+      ]
       if (concealedFromDrawnTile) {
-        lastShown.setPersistentTint(TILE_HOVER_TINT)
+        concealedTiles[3].setPersistentTint(TILE_HOVER_TINT)
       }
-      this.appendLeftList(firstShown, false)
-      this.appendLeftList(Tile.newInvisible(0), false)
-      this.appendLeftList(Tile.newInvisible(0), false)
-      this.appendLeftList(lastShown, false)
+      for (const tile of concealedTiles) {
+        tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+        this.appendLeftList(tile, false)
+      }
       return
     }
     this.appendMeldedKong(middleTid, meldFromRel, claimedFromDrawnDiscard)
@@ -689,7 +693,9 @@ export class Hand extends Container {
     if (this.replayStyle && useDrawnTile && fd) {
       fd.setPersistentTint(TILE_HOVER_TINT)
     }
-    all[0].show(); all[1]?.hide(); all[2]?.hide(); all[3]?.show()
+    for (const tile of all) {
+      tile.setConcealedFaceDown(true, this.direction === 0 && !this.replayStyle)
+    }
     this.appendLeftList(all[3], false); this.appendLeftList(all[2], false)
     this.appendLeftList(all[1], false); this.appendLeftList(all[0], false)
     this.updateDisplay(true)

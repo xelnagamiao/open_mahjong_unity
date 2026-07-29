@@ -43,259 +43,94 @@ open_mahjong_unity是一款基于unity/python-fastapi的麻将平台项目，该
 
 ## 2.项目结构
 
-本项目的文件结构如下：
+仓库由 Unity 客户端、Python 游戏服务器、Node.js/Vue Web 平台和 Go 聊天服务器组成。以下仅列出主要源码目录；规则实现、第三方资源以及构建生成目录不继续展开。
 
-```
+```text
 open_mahjong_unity/
-├── open_mahjong_unity/        # Unity 游戏客户端
-│   ├── Assets/                # Unity 资源文件
-│   │   ├── Prefabs/           # 预制体
-│   │   │   ├── Chat/          # 聊天相关预制体
-│   │   │   ├── GameScene/     # 游戏场景预制体
-│   │   │   ├── Notification/  # 通知相关预制体
-│   │   │   │   └── PlayerInfo/ # 玩家信息预制体
-│   │   │   ├── Record/        # 记录相关预制体
-│   │   │   └── Room/          # 房间相关预制体
-│   │   ├── Scenes/            # 场景文件
-│   │   │   ├── MainScene.unity
-│   │   │   └── GameScene.unity
-│   │   ├── Scripts/           # C# 脚本
-│   │   │   ├── ChatServer/    # 聊天服务器相关脚本
-│   │   │   │   ├── ChatManager.cs      # 聊天管理器
-│   │   │   │   ├── ChatRequest.cs      # 聊天请求
-│   │   │   │   └── ChatResponse.cs     # 聊天响应
-│   │   │   ├── Config/        # 配置管理脚本
-│   │   │   │   ├── ConfigManager.cs   # 配置管理器
-│   │   │   │   └── UserDataManager.cs # 用户数据管理器
-│   │   │   ├── GameScene/     # 游戏场景脚本
-│   │   │   │   ├── 3DManager/          # 3D 管理相关脚本
-│   │   │   │   │   ├── Game3DManager.cs # 3D 游戏管理器（主文件）
-│   │   │   │   │   ├── Game3DManager.Actions.cs # 操作相关
-│   │   │   │   │   ├── Game3DManager.Animations.cs # 动画相关
-│   │   │   │   │   ├── Game3DManager.GetTile.cs # 获取牌
-│   │   │   │   │   ├── Game3DManager.HandCardArrangement.cs # 手牌排列
-│   │   │   │   │   ├── Game3DManager.RemoveHandCards.cs # 移除手牌
-│   │   │   │   │   ├── Game3DManager.SetTile.cs # 设置牌
-│   │   │   │   │   ├── PosPanel3D.cs # 3D 位置面板
-│   │   │   │   │   └── 3DObject/      # 3D 对象相关
-│   │   │   │   │       ├── Card3DHoverManager.cs # 3D 卡牌悬停管理
-│   │   │   │   │       ├── MahjongObjectPool.cs # 麻将对象池
-│   │   │   │   │       ├── OutlineNormalsCalculator.cs # 轮廓法线计算
-│   │   │   │   │       └── Tile3D.cs # 3D 牌对象
-│   │   │   │   ├── BoardManager/      # 桌面管理相关脚本
-│   │   │   │   │   ├── BoardCanvas.cs # 桌面画布
-│   │   │   │   │   ├── BoardCanvas_CurrentDisplay.cs # 当前显示
-│   │   │   │   │   └── ControPanel.cs # 控制面板
-│   │   │   │   ├── Calculation/       # 计算相关脚本
-│   │   │   │   │   ├── GBhepai.cs    # 国标和牌检查
-│   │   │   │   │   ├── GBtingpai.cs  # 国标听牌检查
-│   │   │   │   │   ├── Qingque13External.cs # 青雀外部接口
-│   │   │   │   │   ├── TestPanel.cs  # 测试面板
-│   │   │   │   │   └── Qingque13/    # 青雀计算模块
-│   │   │   │   │       └── Qingque13Calc/ # 青雀计算核心
-│   │   │   │   │           ├── Core/  # 核心类
-│   │   │   │   │           ├── Criteria/ # 番种判断
-│   │   │   │   │           ├── Patterns/ # 牌型模式
-│   │   │   │   │           ├── Qingque13Hepai.cs # 和牌检查
-│   │   │   │   │           ├── Qingque13Tingpai.cs # 听牌检查
-│   │   │   │   │           ├── QingqueDerepellenise.cs # 去重复
-│   │   │   │   │           ├── QingqueFan.cs # 番数计算
-│   │   │   │   │           ├── QingqueFanEvaluator.cs # 番数评估
-│   │   │   │   │           └── QingqueScoring.cs # 计分
-│   │   │   │   ├── CanvasManager/    # 画布管理相关脚本
-│   │   │   │   │   ├── GameCanvas.cs # 游戏画布
-│   │   │   │   │   ├── GameCanvas_ActionButton.cs # 操作按钮
-│   │   │   │   │   ├── GameCanvas_ActionDisplay.cs # 操作显示
-│   │   │   │   │   ├── GameCanvas_Changehand.cs # 手牌变更
-│   │   │   │   │   ├── GameCanvas_Timer.cs # 计时器
-│   │   │   │   │   └── CanvasControl/ # 画布控制
-│   │   │   │   │       ├── ActionButton.cs # 操作按钮
-│   │   │   │   │       ├── BlockClick.cs # 块点击
-│   │   │   │   │       ├── HoverEventTrigger.cs # 悬停事件
-│   │   │   │   │       ├── StaticCard.cs # 静态卡牌
-│   │   │   │   │       ├── TileCard.cs # 牌卡
-│   │   │   │   │       └── Tips/ # 提示相关
-│   │   │   │   │           ├── FanCount.cs # 番数
-│   │   │   │   │           └── TipsFanCount.cs # 提示番数
-│   │   │   │   ├── GameSceneUI/      # 游戏场景 UI
-│   │   │   │   │   ├── AutoAction.cs # 自动操作
-│   │   │   │   │   ├── EndGamePanel.cs # 游戏结束面板
-│   │   │   │   │   ├── EndLiujuPanel.cs # 流局面板
-│   │   │   │   │   ├── EndResultPanel.cs # 结果面板
-│   │   │   │   │   ├── GamePlayerPanel.cs # 玩家面板
-│   │   │   │   │   ├── GameSceneUIManager.cs # UI 管理器
-│   │   │   │   │   ├── GameScoreRecord.cs # 游戏分数记录
-│   │   │   │   │   ├── RecordSetting.cs # 记录设置
-│   │   │   │   │   ├── RoundPanel.cs # 轮次面板
-│   │   │   │   │   ├── StartGamePanel.cs # 开始游戏面板
-│   │   │   │   │   ├── SwitchSeatPanel.cs # 换位面板
-│   │   │   │   │   ├── TipsBlock.cs # 提示块
-│   │   │   │   │   └── TipsContainer.cs # 提示容器
-│   │   │   │   ├── GameStateManager/ # 游戏状态管理
-│   │   │   │   │   ├── NormalGameStateManager.cs # 普通游戏状态管理器
-│   │   │   │   │   ├── SpectatorGameStateManager.cs # 观战游戏状态管理器
-│   │   │   │   │   └── GameRecordManager/ # 游戏记录管理
-│   │   │   │   │       ├── GameRecordData.cs # 游戏记录数据
-│   │   │   │   │       ├── GameRecordJsonDecoder.cs # JSON 解码器
-│   │   │   │   │       └── GameRecordManager.cs # 游戏记录管理器
-│   │   │   │   └── GameSceneConfig/  # 游戏场景配置
-│   │   │   │       ├── CharacterPanel.cs # 角色面板
-│   │   │   │       ├── Desktop.cs # 桌面
-│   │   │   │       ├── SceneConfigPanel.cs # 场景配置面板
-│   │   │   │       ├── TableCloth.cs # 桌布
-│   │   │   │       ├── TableClothPanel.cs # 桌布面板
-│   │   │   │       ├── TableEdge.cs # 桌边
-│   │   │   │       ├── TableEdgePanel.cs # 桌边面板
-│   │   │   │       └── UploadFile.cs # 上传文件
-│   │   │   ├── Network/       # 网络通信脚本
-│   │   │   │   ├── NetworkManager.cs     # 网络管理器
-│   │   │   │   ├── DataNetworkManager.cs # 数据网络管理器
-│   │   │   │   ├── GameStateNetworkManager.cs # 游戏状态网络管理器
-│   │   │   │   ├── RoomNetworkManager.cs # 房间网络管理器
-│   │   │   │   ├── Request.cs            # 请求类
-│   │   │   │   └── Response.cs           # 响应类
-│   │   │   ├── Others/        # 其他工具脚本
-│   │   │   │   ├── Destroyer.cs           # 销毁器
-│   │   │   │   └── SoundManager.cs       # 音效管理器
-│   │   │   ├── Room/          # 房间管理脚本
-│   │   │   │   ├── CreateRoomPanel/      # 创建房间面板
-│   │   │   │   │   ├── CreatePanel.cs    # 创建面板
-│   │   │   │   │   ├── GB_Create_Panel.cs # 国标创建面板
-│   │   │   │   │   ├── GB_Create_RoomConfig.cs # 国标房间配置
-│   │   │   │   │   ├── Qingque_Create_Panel.cs # 清雀创建面板
-│   │   │   │   │   └── Qingque_Create_RoomConfig.cs # 清雀房间配置
-│   │   │   │   ├── RoomListPanel/        # 房间列表面板
-│   │   │   │   │   ├── RoomListPanel.cs  # 房间列表
-│   │   │   │   │   └── RoomItem.cs      # 房间项
-│   │   │   │   └── RoomPanel/            # 房间面板
-│   │   │   │       ├── RoomPanel.cs      # 房间面板
-│   │   │   │       ├── PlayerRoomPanel.cs # 玩家房间面板
-│   │   │   │       ├── RoomConfigContainer.cs # 房间配置容器
-│   │   │   │       └── ConfigItem.cs     # 配置项
-│   │   │   ├── Editor/        # 编辑器脚本
-│   │   │   └── UI/            # UI 相关脚本
-│   │   │       ├── Manager/              # UI 管理器
-│   │   │       │   ├── WindowsManager.cs # 窗口管理器
-│   │   │       │   ├── NotificationManager.cs # 通知管理器
-│   │   │       │   └── RoomWindowsManager.cs # 房间窗口管理器
-│   │   │       ├── PageContent/          # 页面内容
-│   │   │       │   ├── ConfigSlider.cs   # 配置滑块
-│   │   │       │   └── LinksContent.cs   # 链接内容
-│   │   │       ├── Panel/                # 面板脚本
-│   │   │       │   ├── AboutUsPanel.cs   # 关于我们面板
-│   │   │       │   ├── AppConfigPanel.cs # 应用配置面板
-│   │   │       │   ├── ChatPanel.cs      # 聊天面板
-│   │   │       │   ├── HeaderPanel.cs    # 头部面板
-│   │   │       │   ├── LoginPanel.cs     # 登录面板
-│   │   │       │   ├── MainPanel.cs      # 主面板
-│   │   │       │   ├── MeunPanel.cs      # 菜单面板
-│   │   │       │   ├── NowPlayer.cs      # 当前玩家
-│   │   │       │   └── PlayerConfigPanel.cs # 玩家配置面板
-│   │   │       ├── PlayerInfo/           # 玩家信息
-│   │   │       ├── Prefab/               # 预制体脚本
-│   │   │       └── Scripts/              # UI 脚本
-│   │   ├── Plugins/           # 插件目录
-│   │   │   ├── Dark UI/       # Dark UI 插件
-│   │   │   ├── Free UI Click Sound Effects Pack/ # UI 音效包
-│   │   │   ├── TextMesh Pro/ # TextMesh Pro 资源
-│   │   │   ├── UI pack/       # UI 包
-│   │   │   ├── UnityStandaloneFileBrowser/ # 文件浏览器插件
-│   │   │   └── websocket-sharp/ # WebSocket 客户端库
-│   │   ├── Resources/         # 资源文件
-│   │   │   ├── 3D/            # 3D 模型资源
-│   │   │   ├── font/          # 字体资源
-│   │   │   ├── image/         # 图片资源
-│   │   │   └── Sound/         # 音效资源
-│   │   └── Shaders/           # 着色器文件
-│   └── ProjectSettings/       # Unity 项目设置
+├── open_mahjong_unity/             # Unity 游戏客户端
+│   ├── Assets/
+│   │   ├── Editor/                 # Unity 编辑器扩展
+│   │   ├── Plugins/                # 第三方插件
+│   │   ├── Prefabs/                # UI、房间及牌桌预制体
+│   │   ├── Resources/              # 模型、图片、字体、音效等运行时资源
+│   │   ├── Scenes/                 # Unity 场景
+│   │   ├── Scripts/
+│   │   │   ├── ChatServer/         # 聊天功能
+│   │   │   ├── Config/             # 客户端配置与用户数据
+│   │   │   ├── GameScene/          # 对局、牌桌、计分及各规则表现
+│   │   │   ├── GameSceneConfig/    # 牌桌外观配置
+│   │   │   ├── Network/            # HTTP/WebSocket 通信
+│   │   │   ├── Rendering/          # 渲染相关功能
+│   │   │   ├── Room/               # 房间创建与管理
+│   │   │   └── UI/                 # 主界面与通用 UI
+│   │   └── Shaders/                # 着色器
+│   ├── Packages/                   # Unity 包配置
+│   └── ProjectSettings/            # Unity 项目设置
 │
-├── open_mahjong_server/       # Python 游戏服务器
-│   ├── requirements.txt        # Python 依赖
-│   ├── pyproject.toml         # Python 项目配置
-│   ├── uv.lock                # UV 锁文件
-│   ├── start_server.bat       # 启动脚本
-│   ├── logs/                  # 日志目录
-│   │   └── app.log*           # 应用日志文件
-│   └── server/                # 服务器核心代码
-│       ├── server.py          # FastAPI 主服务器
-│       ├── response.py        # 响应处理
-│       ├── local_config.py    # 本地配置
-│       ├── test_config.py     # 测试配置
-│       ├── secret_key.txt     # 密钥文件
-│       ├── database/          # 数据库相关
-│       │   ├── db_manager.py  # 数据库管理器
-│       │   ├── data_router.py # 数据路由处理
-│       │   ├── db_design.md   # 数据库设计文档
-│       │   ├── guobiao/       # 国标麻将数据库操作
-│       │   │   ├── store_guobiao.py    # 存储国标游戏记录
-│       │   │   └── get_guobiao_stats.py # 获取国标统计数据
-│       │   └── riichi/        # 立直麻将数据库操作
-│       ├── game_calculation/  # 游戏计算服务
-│       │   ├── game_calculation_service.py # 游戏计算服务
-│       │   ├── gb_hepai_check.py           # 国标和牌检查
-│       │   ├── gb_tingpai_check.py         # 国标听牌检查
-│       │   ├── qingque13_bridge.py         # 青雀计算桥接
-│       │   └── Qingque13Calc/              # 青雀计算模块
-│       ├── gamestate/         # 游戏状态管理
-│       │   ├── gamestate_manager.py    # 游戏状态管理器
-│       │   ├── gamestate_router.py     # 游戏状态路由处理
-│       │   ├── game_guobiao/           # 国标麻将游戏逻辑
-│       │   │   ├── GuobiaoGameState.py # 国标游戏状态
-│       │   │   ├── boardcast.py        # 广播处理
-│       │   │   ├── get_action.py       # 获取操作
-│       │   │   ├── wait_action.py      # 等待操作
-│       │   │   ├── action_check.py     # 动作检查
-│       │   │   └── spectator_manager.py # 观战管理器
-│       │   ├── game_mmcr/              # 青雀麻将游戏逻辑
-│       │   │   ├── QingqueGameState.py # 青雀游戏状态
-│       │   │   ├── boardcast.py        # 广播处理
-│       │   │   ├── get_action.py       # 获取操作
-│       │   │   ├── wait_action.py      # 等待操作
-│       │   │   └── action_check.py     # 动作检查
-│       │   └── public/                 # 公共游戏状态模块
-│       │       ├── init_game_tiles.py  # 初始化游戏牌
-│       │       ├── game_record_manager.py # 游戏记录管理
-│       │       ├── auto_cut_ai.py      # 自动切牌AI
-│       │       ├── next_game_round.py  # 下一局游戏
-│       │       └── logic_common.py     # 通用逻辑
-│       ├── room/              # 房间管理
-│       │   ├── room_manager.py    # 房间管理器
-│       │   ├── room_router.py     # 房间路由处理
-│       │   ├── room_validators.py # 房间验证
-│       │   └── readme.md          # 房间模块说明
-│       └── chat_server/       # 聊天服务器管理
-│           ├── chat_server.py # 聊天服务器接口
-│           ├── open_mahjong_chatServer.exe # 聊天服务器可执行文件
-│           └── secret_key.txt # 聊天服务器密钥
+├── open_mahjong_server/            # Python/FastAPI 游戏服务器
+│   ├── main.py                     # 服务启动入口
+│   ├── server/
+│   │   ├── server.py               # FastAPI 与 WebSocket 主服务
+│   │   ├── chat_server/            # 聊天服务接入
+│   │   ├── database/               # 数据库、统计与牌谱存储
+│   │   ├── event/                  # 赛事功能
+│   │   ├── friend/                 # 好友系统
+│   │   ├── game_calculation/       # 和牌、听牌及规则计算
+│   │   ├── gamestate/              # 各麻将规则的对局状态机
+│   │   ├── match/                  # 匹配系统
+│   │   ├── public/                 # 公共服务与限流等模块
+│   │   ├── room/                   # 房间管理
+│   │   └── webapi/                 # Web 计算接口
+│   ├── scripts/                    # 维护与迁移脚本
+│   ├── load_test/                  # 负载测试
+│   ├── pyproject.toml              # Python 项目配置
+│   ├── requirements.txt            # Python 依赖
+│   ├── uv.lock                     # uv 依赖锁定
+│   └── start_server.bat            # Windows 启动脚本
 │
-├── open_mahjong_web/          # Node.js/Vue3 Web 平台
-│   ├── server/                # Node.js 后端
-│   │   ├── index.js           # Express 主服务器
-│   │   ├── config/            # 配置文件
-│   │   │   └── database.js    # 数据库配置
-│   │   └── routes/            # API 路由
-│   │       ├── auth.js        # 认证路由
-│   │       └── mahjong.js     # 麻将相关路由
-│   ├── client/                # Vue3 前端
-│   │   ├── src/               # 源代码
-│   │   │   ├── views/         # 页面组件
-│   │   │   ├── components/    # 通用组件
-│   │   │   ├── router/        # 路由配置
-│   │   │   ├── stores/        # 状态管理
-│   │   │   └── dll/           # 动态链接库相关
-│   │   ├── public/            # 静态资源
-│   │   ├── package.json       # 前端依赖
-│   │   └── vite.config.js     # Vite 配置
-│   ├── package.json           # 后端依赖
-│   └── start.bat              # 启动脚本
+├── open_mahjong_web/               # Node.js/Vue 3 Web 平台
+│   ├── client/                     # Vue 3 前端
+│   │   ├── public/                 # 静态资源与 Unity WebGL 文件
+│   │   ├── src/
+│   │   │   ├── api/                # HTTP 客户端
+│   │   │   ├── components/         # 通用组件
+│   │   │   ├── composables/        # Vue 组合式逻辑
+│   │   │   ├── game2d/             # 2D 对局前端
+│   │   │   ├── layouts/            # 页面布局
+│   │   │   ├── router/             # 路由
+│   │   │   ├── stores/             # Pinia 状态管理
+│   │   │   ├── styles/             # 全局样式
+│   │   │   ├── utils/              # 前端工具
+│   │   │   └── views/              # 页面
+│   │   ├── package.json
+│   │   └── vite.config.js
+│   ├── server/                     # Express/Socket.IO 后端
+│   │   ├── index.js                # Node.js 服务入口
+│   │   ├── botapi/                 # 机器人接口
+│   │   ├── config/                 # 数据库及环境配置
+│   │   ├── guessfan/               # 猜番对抗服务
+│   │   ├── middleware/             # 鉴权与限流中间件
+│   │   ├── routes/                 # Web API 路由
+│   │   ├── services/               # 服务层
+│   │   └── utils/                  # 服务端工具
+│   ├── docs/                       # Web 部署与功能文档
+│   ├── scripts/                    # 构建、部署脚本
+│   ├── package.json
+│   └── start.bat
 │
-└── open_mahjong_chatServer/   # Go 聊天服务器
-    ├── Main.go                # 主程序入口
-    ├── ConnectPool.go         # 连接池管理
-    ├── RoomManager.go         # 房间管理
-    ├── go.mod                 # Go 模块定义
-    └── go.sum                 # Go 依赖校验
+├── open_mahjong_chatServer/        # Go 聊天服务器
+│   ├── Main.go                     # 程序入口
+│   ├── ConnectPool.go              # 连接池
+│   ├── RoomManager.go              # 聊天房间管理
+│   ├── go.mod
+│   └── go.sum
+│
+├── other/                          # 美术源文件、实验代码、规则资料与辅助素材
+├── LICENSE
+└── README.md
 ```
+
+> `Library/`、`Temp/`、`Logs/`、`node_modules/`、`dist/`、`.venv/` 等缓存、依赖和构建产物未在结构中列出。
 
 ## 3.技术栈
 
@@ -322,9 +157,25 @@ open_mahjong_unity/
 
 ### 4.交流
 
-- **测试/开发群号**: 906497522
+- **Salasasa平台测试群**: 906497522
+- **open_mahjong_unity开发交流群**: 1084537740
 - **项目地址**: [https://github.com/xelnagamiao/open_mahjong_unity](https://github.com/xelnagamiao/open_mahjong_unity)
 - **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
 - **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
+- **赞助**: q1448826180
 
-*最后更新：2026年6月2日 dev ver 0.4.60.12 *
+### 5.鸣谢
+
+牌面提供者：雪枫XueFun9
+表情包提供者：影子
+随机种子设计：Zoe
+新编MCR编著者：Natsuki
+青雀设计者：莫莫柴
+浪涌麻将设计者：自恧
+直播宣传：Cloud980Ti  轻轻的飘
+赞助：九曜、健哥、何苏、Null、莫莫柴、Zazaka、中山大学国标麻将同好会、kiki、东西喵、GitHub/baisebaoma
+特别感谢：莫莫柴、码龙、Null、影子、chinkaku
+支持：棋牌游戏研究院、立直麻雀研习社、柴の麻将群
+早期测试：夜色祢 chlorine 陪练的命运
+
+*最后更新：2026年7月29日 dev ver 0.4.74.0*

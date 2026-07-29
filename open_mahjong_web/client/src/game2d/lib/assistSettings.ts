@@ -3,6 +3,8 @@
 export interface AssistSettings {
   /** 自动补花 */
   autoFlower: boolean
+  /** 整场对局开始时默认开启自动补花；小局切换不重新应用。 */
+  autoFlowerOnMatchStart: boolean
   /** 自动摸切 */
   autoDiscard: boolean
   /** 自动和牌（开/关） */
@@ -32,6 +34,7 @@ export interface AssistSettings {
 
 export const DEFAULT_ASSIST_SETTINGS: AssistSettings = {
   autoFlower: true,
+  autoFlowerOnMatchStart: true,
   autoDiscard: false,
   autoWin: false,
   autoPass: false,
@@ -77,6 +80,7 @@ export function normalizeAssistSettings(raw: Partial<AssistSettings> | null | un
 
   return {
     autoFlower: raw?.autoFlower !== false,
+    autoFlowerOnMatchStart: raw?.autoFlowerOnMatchStart !== false,
     autoDiscard: Boolean(raw?.autoDiscard),
     autoWin,
     autoPass,
@@ -111,6 +115,25 @@ export function withMeldPassOption(
   const next = { ...settings, [key]: enabled }
   next.autoPass = Boolean(next.passChi && next.passPeng && next.passMingGang)
   return normalizeAssistSettings(next)
+}
+
+/**
+ * Clear per-round temporary actions, matching Unity's AutoAction /
+ * TilePassSettingPanel reset boundary. Persistent preferences remain unchanged.
+ */
+export function resetRoundAssistSettings(settings: AssistSettings): AssistSettings {
+  return normalizeAssistSettings({
+    ...settings,
+    autoDiscard: false,
+    autoPass: false,
+    passChi: false,
+    passPeng: false,
+    passMingGang: false,
+    noRon: false,
+    noTsumo: false,
+    noRobKong: false,
+    silentTiles: [],
+  })
 }
 
 export function loadStoredAssistSettings(): AssistSettings {

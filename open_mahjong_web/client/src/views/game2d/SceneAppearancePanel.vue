@@ -1,76 +1,134 @@
 <template>
   <div class="scene-appearance-panel">
     <div class="scene-appearance-panel__header">
-      <h3 class="scene-appearance-panel__title">外观</h3>
+      <h3 class="scene-appearance-panel__title">画面设置</h3>
       <button type="button" class="scene-appearance-panel__ghost-button" @click="$emit('reset')">重置</button>
     </div>
 
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">牌桌内背景</span>
-      <input type="color" :value="appearance.backgroundColorTable" @input="emitColor('table-color', $event)">
-    </label>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">牌桌外背景</span>
-      <input type="color" :value="appearance.backgroundColorOutside" @input="emitColor('outside-color', $event)">
-    </label>
-
-    <label class="scene-appearance-panel__field scene-appearance-panel__field--toggle">
-      <span class="scene-appearance-panel__label">启用本地图像</span>
-      <input
-        type="checkbox"
-        :checked="appearance.backgroundImageEnabled"
-        @change="$emit('image-enabled', $event.target.checked)"
-      >
-    </label>
-
-    <div class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">图像不透明度</span>
-      <div class="scene-appearance-panel__range-row">
-        <input
-          class="scene-appearance-panel__range"
-          type="range"
-          min="0"
-          max="100"
-          :value="Math.round(appearance.backgroundImageAlpha * 100)"
-          :disabled="!backgroundImageName"
-          @input="$emit('image-alpha', Number($event.target.value) / 100)"
+    <section class="scene-appearance-panel__section">
+      <h4 class="scene-appearance-panel__section-title">界面</h4>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">中文字体</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.fontTheme"
+          @change="$emit('font-theme', $event.target.value)"
         >
-        <span class="scene-appearance-panel__value">{{ Math.round(appearance.backgroundImageAlpha * 100) }}%</span>
+          <option value="arphic-ukai">AR PL</option>
+          <option value="system-kaiti">系统楷体</option>
+          <option value="source-serif">思源宋体</option>
+          <option value="system-default">系统默认</option>
+        </select>
+      </label>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">英文字体</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.latinFontTheme"
+          @change="$emit('latin-font-theme', $event.target.value)"
+        >
+          <option value="latin-modern">Latin Modern</option>
+          <option value="noto-sans-latin">Noto Sans</option>
+          <option value="noto-serif-latin">Noto Serif</option>
+        </select>
+      </label>
+
+      <div class="scene-appearance-panel__field scene-appearance-panel__field--stacked">
+        <span class="scene-appearance-panel__label">音量</span>
+        <div class="scene-appearance-panel__range-row">
+          <input
+            class="scene-appearance-panel__range"
+            type="range"
+            min="0"
+            max="100"
+            :value="Math.round(volume * 100)"
+            @input="$emit('volume', Number($event.target.value) / 100)"
+          >
+          <span class="scene-appearance-panel__value">{{ Math.round(volume * 100) }}%</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="scene-appearance-panel__button-row">
-      <button type="button" class="scene-appearance-panel__button" @click="fileInput?.click()">选择图片</button>
-      <button
-        type="button"
-        class="scene-appearance-panel__button"
-        :disabled="!backgroundImageName"
-        @click="$emit('image-cleared')"
-      >
-        移除图片
-      </button>
-      <input ref="fileInput" type="file" accept="image/*" hidden @change="selectImage">
-    </div>
-
-    <div class="scene-appearance-panel__hint">
-      {{ backgroundImageLoading ? '正在读取已保存图片…' : backgroundImageName ? `已保存图片：${backgroundImageName}` : '未选择背景图片' }}
-    </div>
-
-    <div class="scene-appearance-panel__section">
-      <div class="scene-appearance-panel__section-header">
-        <span class="scene-appearance-panel__label">牌背覆盖色</span>
+    <section class="scene-appearance-panel__section">
+      <h4 class="scene-appearance-panel__section-title">桌布</h4>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">牌桌内背景</span>
+        <input type="color" :value="appearance.backgroundColorTable" @input="emitColor('table-color', $event)">
+      </label>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">牌桌外背景</span>
+        <input type="color" :value="appearance.backgroundColorOutside" @input="emitColor('outside-color', $event)">
+      </label>
+      <label class="scene-appearance-panel__field scene-appearance-panel__field--toggle">
+        <span class="scene-appearance-panel__label">启用本地图像</span>
+        <input
+          type="checkbox"
+          :checked="appearance.backgroundImageEnabled"
+          @change="$emit('image-enabled', $event.target.checked)"
+        >
+      </label>
+      <div class="scene-appearance-panel__field scene-appearance-panel__field--stacked">
+        <span class="scene-appearance-panel__label">图像不透明度</span>
+        <div class="scene-appearance-panel__range-row">
+          <input
+            class="scene-appearance-panel__range"
+            type="range"
+            min="0"
+            max="100"
+            :value="Math.round(appearance.backgroundImageAlpha * 100)"
+            :disabled="!backgroundImageName"
+            @input="$emit('image-alpha', Number($event.target.value) / 100)"
+          >
+          <span class="scene-appearance-panel__value">{{ Math.round(appearance.backgroundImageAlpha * 100) }}%</span>
+        </div>
+      </div>
+      <div class="scene-appearance-panel__button-row">
+        <button type="button" class="scene-appearance-panel__button" @click="fileInput?.click()">选择图片</button>
         <button
           type="button"
-          class="scene-appearance-panel__ghost-button"
-          :disabled="appearance.tileCoverColors.length >= 8"
-          @click="$emit('add-cover-color')"
+          class="scene-appearance-panel__button"
+          :disabled="!backgroundImageName"
+          @click="$emit('image-cleared')"
         >
-          添加颜色
+          移除图片
         </button>
+        <input ref="fileInput" type="file" accept="image/*" hidden @change="selectImage">
       </div>
+      <div class="scene-appearance-panel__hint">
+        {{ backgroundImageLoading ? '正在读取已保存图片…' : backgroundImageName ? `已保存图片：${backgroundImageName}` : '未选择背景图片' }}
+      </div>
+    </section>
+
+    <section class="scene-appearance-panel__section">
+      <h4 class="scene-appearance-panel__section-title">牌面</h4>
       <label class="scene-appearance-panel__field">
-        <span class="scene-appearance-panel__label">牌背轮换</span>
+        <span class="scene-appearance-panel__label">牌面样式</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.tileFaceTheme"
+          @change="$emit('tile-face-theme', $event.target.value)"
+        >
+          <option value="regular">标准白色</option>
+          <option value="black">FluffyStuff 黑色</option>
+        </select>
+      </label>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">花牌样式</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.flowerFaceTheme"
+          @change="$emit('flower-face-theme', $event.target.value)"
+        >
+          <option value="unity">Unity 样式</option>
+          <option value="flat">平面文字样式</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="scene-appearance-panel__section">
+      <h4 class="scene-appearance-panel__section-title">牌背</h4>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">轮换方式</span>
         <select
           class="scene-appearance-panel__select"
           :value="appearance.tileCoverRotateMode"
@@ -81,131 +139,133 @@
           <option value="random-no-repeat">随机（两局不重复）</option>
         </select>
       </label>
-      <p class="scene-appearance-panel__hint">最多 8 种颜色；按局切换牌背覆盖色。</p>
-      <div class="scene-appearance-panel__swatch-list">
-        <div v-for="(color, index) in appearance.tileCoverColors" :key="index" class="scene-appearance-panel__swatch-row">
-          <input type="color" :value="color" @input="emitCoverColor(index, $event)">
-          <span class="scene-appearance-panel__swatch-code">{{ color.toUpperCase() }}</span>
+
+      <div class="tile-cover-sorter" aria-label="牌背排列框">
+        <article
+          v-for="(color, index) in appearance.tileCoverColors"
+          :key="`${color}-${index}`"
+          class="tile-cover-card"
+          role="button"
+          tabindex="0"
+          draggable="true"
+          :aria-label="`使用或拖动第 ${index + 1} 个牌背`"
+          :aria-pressed="appearance.lastTileCoverIndex === index"
+          :class="{
+            'is-active': appearance.lastTileCoverIndex === index,
+            'is-dragging': draggingCoverIndex === index,
+            'is-drop-target': dropCoverIndex === index && draggingCoverIndex !== index,
+          }"
+          @click="$emit('select-cover-index', index)"
+          @keydown.enter.prevent="$emit('select-cover-index', index)"
+          @keydown.space.prevent="$emit('select-cover-index', index)"
+          @dragstart="startCoverDrag(index, $event)"
+          @dragend="finishCoverDrag"
+          @dragover.prevent="dropCoverIndex = index"
+          @dragleave="clearDropTarget(index)"
+          @drop.prevent="dropCover(index)"
+        >
+          <span
+            class="tile-cover-card__drag"
+            aria-hidden="true"
+          >
+            ⠿
+          </span>
+          <label class="tile-cover-card__color">
+            <input
+              type="color"
+              :value="color"
+              :aria-label="`修改第 ${index + 1} 个牌背颜色`"
+              @input="emitCoverColor(index, $event)"
+            >
+          </label>
           <button
             type="button"
-            class="scene-appearance-panel__ghost-button"
+            class="tile-cover-card__remove"
             :disabled="appearance.tileCoverColors.length <= 1"
-            @click="$emit('remove-cover-color', index)"
+            :aria-label="`删除第 ${index + 1} 个牌背`"
+            @click.stop="$emit('remove-cover-color', index)"
           >
-            删除
+            ×
           </button>
+        </article>
+
+        <button
+          type="button"
+          class="tile-cover-card tile-cover-card--add"
+          :disabled="appearance.tileCoverColors.length >= 8"
+          aria-label="添加牌背"
+          @click="$emit('add-cover-color')"
+        >
+          <span aria-hidden="true">＋</span>
+          <span>添加牌背</span>
+        </button>
+      </div>
+      <p class="scene-appearance-panel__hint">拖动牌背调整排列顺序，最多添加 8 个。</p>
+    </section>
+
+    <section class="scene-appearance-panel__section">
+      <h4 class="scene-appearance-panel__section-title">补花区</h4>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">底框显示</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.flowerAreaDisplay"
+          @change="$emit('flower-area-display', $event.target.value)"
+        >
+          <option value="always">始终显示</option>
+          <option value="when-present">有花牌时显示</option>
+          <option value="never">固定不显示</option>
+        </select>
+      </label>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">底框颜色</span>
+        <input type="color" :value="appearance.flowerAreaColor" @input="$emit('flower-area-color', $event.target.value)">
+      </label>
+      <div class="scene-appearance-panel__field scene-appearance-panel__field--stacked">
+        <span class="scene-appearance-panel__label">底框透明度</span>
+        <div class="scene-appearance-panel__range-row">
+          <input
+            class="scene-appearance-panel__range"
+            type="range"
+            min="0"
+            max="100"
+            :value="Math.round(appearance.flowerAreaAlpha * 100)"
+            @input="$emit('flower-area-alpha', Number($event.target.value) / 100)"
+          >
+          <span class="scene-appearance-panel__value">{{ Math.round(appearance.flowerAreaAlpha * 100) }}%</span>
         </div>
       </div>
-    </div>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">摸切快捷</span>
-      <select
-        class="scene-appearance-panel__select"
-        :value="appearance.moqieShortcutMode"
-        @change="$emit('moqie-shortcut', Number($event.target.value))"
-      >
-        <option :value="0">双击摸切</option>
-        <option :value="1">右键摸切</option>
-        <option :value="2">无快捷键</option>
-      </select>
-    </label>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">过牌快捷</span>
-      <select
-        class="scene-appearance-panel__select"
-        :value="appearance.passShortcutMode"
-        @change="$emit('pass-shortcut', Number($event.target.value))"
-      >
-        <option :value="0">右键取消</option>
-        <option :value="1">双击取消</option>
-        <option :value="2">无快捷键</option>
-      </select>
-    </label>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">补花区底框</span>
-      <select
-        class="scene-appearance-panel__select"
-        :value="appearance.flowerAreaDisplay"
-        @change="$emit('flower-area-display', $event.target.value)"
-      >
-        <option value="always">始终显示</option>
-        <option value="when-present">有花牌时显示</option>
-        <option value="never">固定不显示</option>
-      </select>
-    </label>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">补花区颜色</span>
-      <input
-        type="color"
-        :value="appearance.flowerAreaColor"
-        @input="$emit('flower-area-color', $event.target.value)"
-      >
-    </label>
-
-    <div class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">补花区透明度</span>
-      <div class="scene-appearance-panel__range-row">
-        <input
-          class="scene-appearance-panel__range"
-          type="range"
-          min="0"
-          max="100"
-          :value="Math.round(appearance.flowerAreaAlpha * 100)"
-          @input="$emit('flower-area-alpha', Number($event.target.value) / 100)"
-        >
-        <span class="scene-appearance-panel__value">{{ Math.round(appearance.flowerAreaAlpha * 100) }}%</span>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">文字颜色</span>
+        <input type="color" :value="appearance.flowerAreaLabelColor" @input="$emit('flower-area-label-color', $event.target.value)">
+      </label>
+      <label class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">数字强调色</span>
+        <input type="color" :value="appearance.flowerAreaCountColor" @input="$emit('flower-area-count-color', $event.target.value)">
+      </label>
+      <div class="scene-appearance-panel__field scene-appearance-panel__field--stacked">
+        <span class="scene-appearance-panel__label">玩家名大小</span>
+        <div class="scene-appearance-panel__range-row">
+          <input
+            class="scene-appearance-panel__range"
+            type="range"
+            min="50"
+            max="180"
+            step="5"
+            :value="Math.round(appearance.flowerAreaLabelScale * 100)"
+            @input="$emit('flower-area-label-scale', Number($event.target.value) / 100)"
+          >
+          <span class="scene-appearance-panel__value">{{ Math.round(appearance.flowerAreaLabelScale * 100) }}%</span>
+        </div>
       </div>
-    </div>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">牌面样式</span>
-      <select
-        class="scene-appearance-panel__select"
-        :value="appearance.tileFaceTheme"
-        @change="$emit('tile-face-theme', $event.target.value)"
-      >
-        <option value="regular">标准白色</option>
-        <option value="black">FluffyStuff 黑色</option>
-      </select>
-    </label>
-
-    <label class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">花牌样式</span>
-      <select
-        class="scene-appearance-panel__select"
-        :value="appearance.flowerFaceTheme"
-        @change="$emit('flower-face-theme', $event.target.value)"
-      >
-        <option value="flat">当前平面花牌</option>
-        <option value="unity">Unity 原版花牌</option>
-      </select>
-    </label>
-
-    <div class="scene-appearance-panel__field">
-      <span class="scene-appearance-panel__label">音量</span>
-      <div class="scene-appearance-panel__range-row">
-        <input
-          class="scene-appearance-panel__range"
-          type="range"
-          min="0"
-          max="100"
-          :value="Math.round(volume * 100)"
-          @input="$emit('volume', Number($event.target.value) / 100)"
-        >
-        <span class="scene-appearance-panel__value">{{ Math.round(volume * 100) }}%</span>
-      </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 
-defineProps({
+const props = defineProps({
   appearance: { type: Object, required: true },
   backgroundImageName: { type: String, default: null },
   backgroundImageLoading: { type: Boolean, default: false },
@@ -215,11 +275,15 @@ defineProps({
 const emit = defineEmits([
   'reset', 'table-color', 'outside-color', 'image-enabled', 'image-alpha',
   'image-selected', 'image-cleared', 'cover-color', 'add-cover-color',
-  'remove-cover-color', 'cover-rotate-mode', 'moqie-shortcut', 'pass-shortcut',
+  'remove-cover-color', 'reorder-cover-colors', 'select-cover-index', 'cover-rotate-mode',
   'flower-area-display', 'flower-area-color',
-  'flower-area-alpha', 'tile-face-theme', 'flower-face-theme', 'volume',
+  'flower-area-alpha', 'flower-area-label-color', 'flower-area-count-color', 'flower-area-label-scale',
+  'tile-face-theme', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'volume',
 ])
+
 const fileInput = ref(null)
+const draggingCoverIndex = ref(null)
+const dropCoverIndex = ref(null)
 
 function emitColor(name, event) {
   emit(name, event.target.value)
@@ -227,6 +291,35 @@ function emitColor(name, event) {
 
 function emitCoverColor(index, event) {
   emit('cover-color', index, event.target.value)
+}
+
+function startCoverDrag(index, event) {
+  draggingCoverIndex.value = index
+  dropCoverIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function clearDropTarget(index) {
+  if (dropCoverIndex.value === index) dropCoverIndex.value = null
+}
+
+function dropCover(targetIndex) {
+  const sourceIndex = draggingCoverIndex.value
+  finishCoverDrag()
+  if (sourceIndex == null || sourceIndex === targetIndex) return
+  const entries = props.appearance.tileCoverColors.map((color, originalIndex) => ({ color, originalIndex }))
+  const [moved] = entries.splice(sourceIndex, 1)
+  entries.splice(targetIndex, 0, moved)
+  const activeIndex = entries.findIndex((entry) => entry.originalIndex === props.appearance.lastTileCoverIndex)
+  emit('reorder-cover-colors', entries.map((entry) => entry.color), Math.max(0, activeIndex))
+}
+
+function finishCoverDrag() {
+  draggingCoverIndex.value = null
+  dropCoverIndex.value = null
 }
 
 function selectImage(event) {

@@ -93,6 +93,7 @@ export interface SeatSnapshot {
   has_drawn_tile: boolean
   player_id: number | null
   username: string | null
+  rank?: string | null
   voice_id?: number
   discard_pile: number[]
   discard_drawn_flags?: boolean[]
@@ -168,6 +169,8 @@ export interface CompactSeatStatus {
   hand_tile_count: number
   has_drawn_tile: boolean
   username?: string | null
+  player_id?: number | null
+  rank?: string | null
 }
 
 export interface GameEventPayload {

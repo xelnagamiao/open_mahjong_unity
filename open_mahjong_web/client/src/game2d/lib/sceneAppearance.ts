@@ -1,3 +1,10 @@
+import {
+  normalizeGameFontTheme,
+  normalizeGameLatinFontTheme,
+  type GameFontTheme,
+  type GameLatinFontTheme,
+} from '../game/fontLoader'
+
 export type FlowerAreaDisplay = 'always' | 'when-present' | 'never'
 export type TileFaceTheme = 'regular' | 'black'
 export type FlowerFaceTheme = 'flat' | 'unity'
@@ -20,10 +27,15 @@ export type SceneAppearanceSettings = {
   flowerAreaDisplay: FlowerAreaDisplay
   flowerAreaColor: string
   flowerAreaAlpha: number
+  flowerAreaLabelColor: string
+  flowerAreaCountColor: string
+  flowerAreaLabelScale: number
   tileFaceTheme: TileFaceTheme
   flowerFaceTheme: FlowerFaceTheme
   moqieShortcutMode: MoqieShortcutMode
   passShortcutMode: PassShortcutMode
+  fontTheme: GameFontTheme
+  latinFontTheme: GameLatinFontTheme
 }
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
@@ -38,12 +50,17 @@ export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
   tileCoverRotateMode: 'cycle',
   lastTileCoverIndex: 0,
   flowerAreaDisplay: 'always',
-  flowerAreaColor: '#f7f7f0',
-  flowerAreaAlpha: 0.82,
+  flowerAreaColor: '#000000',
+  flowerAreaAlpha: 0.85,
+  flowerAreaLabelColor: '#ffffff',
+  flowerAreaCountColor: '#ffa726',
+  flowerAreaLabelScale: 1,
   tileFaceTheme: 'regular',
   flowerFaceTheme: 'unity',
   moqieShortcutMode: 1,
   passShortcutMode: 0,
+  fontTheme: 'arphic-ukai',
+  latinFontTheme: 'latin-modern',
 }
 
 function normalizeHexColor(value: unknown, fallback: string): string {
@@ -73,6 +90,12 @@ function clampUnitInterval(value: unknown, fallback: number): number {
     return fallback
   }
   return Math.min(1, Math.max(0, parsed))
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(max, Math.max(min, parsed))
 }
 
 function normalizeTileCoverColors(value: unknown): string[] {
@@ -120,10 +143,26 @@ export function normalizeSceneAppearanceSettings(
       : 'always',
     flowerAreaColor: normalizeHexColor(value?.flowerAreaColor, DEFAULT_SCENE_APPEARANCE.flowerAreaColor),
     flowerAreaAlpha: clampUnitInterval(value?.flowerAreaAlpha, DEFAULT_SCENE_APPEARANCE.flowerAreaAlpha),
+    flowerAreaLabelColor: normalizeHexColor(
+      value?.flowerAreaLabelColor,
+      DEFAULT_SCENE_APPEARANCE.flowerAreaLabelColor,
+    ),
+    flowerAreaCountColor: normalizeHexColor(
+      value?.flowerAreaCountColor,
+      DEFAULT_SCENE_APPEARANCE.flowerAreaCountColor,
+    ),
+    flowerAreaLabelScale: clampNumber(
+      value?.flowerAreaLabelScale,
+      0.5,
+      1.8,
+      DEFAULT_SCENE_APPEARANCE.flowerAreaLabelScale,
+    ),
     tileFaceTheme: value?.tileFaceTheme === 'black' ? 'black' : 'regular',
     flowerFaceTheme: value?.flowerFaceTheme === 'flat' ? 'flat' : 'unity',
     moqieShortcutMode: normalizeShortcutMode(value?.moqieShortcutMode, DEFAULT_SCENE_APPEARANCE.moqieShortcutMode),
     passShortcutMode: normalizeShortcutMode(value?.passShortcutMode, DEFAULT_SCENE_APPEARANCE.passShortcutMode),
+    fontTheme: normalizeGameFontTheme(value?.fontTheme),
+    latinFontTheme: normalizeGameLatinFontTheme(value?.latinFontTheme),
   }
 }
 
