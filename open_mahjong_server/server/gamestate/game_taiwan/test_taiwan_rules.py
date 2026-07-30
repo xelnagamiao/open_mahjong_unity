@@ -1460,7 +1460,15 @@ class TaiwanScoringTest(unittest.TestCase):
             source="self_draw",
             rules=TaiwanRules(),
         )
+        allowed_self_draw = self.score(
+            open_honor_hand,
+            melds=["s12"],
+            tile=21,
+            source="self_draw",
+            rules=TaiwanRules(all_chows_self_draw_allowed=True),
+        )
         self.assertNotIn("all_chows", open_self_draw.fan_ids)
+        self.assertIn("all_chows", allowed_self_draw.fan_ids)
 
         closed_result = self.score(
             [
@@ -1472,63 +1480,42 @@ class TaiwanScoringTest(unittest.TestCase):
         )
         self.assertNotIn("all_chows", closed_result.fan_ids)
 
-        strict_hand = [
+        pair_wait_hand = [
             21, 22, 23, 25, 26, 27, 31,
             32, 33, 35, 36, 37, 29, 29,
         ]
-        strict_rules = TaiwanRules(
-            scoring_preset="sml",
-            all_chows_definition="strict",
-        )
-        strict_pair_wait = self.score(
-            strict_hand,
+        pair_wait = self.score(
+            pair_wait_hand,
             melds=["s12"],
             tile=29,
-            rules=strict_rules,
+            rules=TaiwanRules(),
         )
-        self.assertEqual(strict_pair_wait.waits, frozenset({29}))
+        self.assertEqual(pair_wait.waits, frozenset({29}))
         self.assertEqual(
-            strict_pair_wait.decomposition.winning_component[0],
+            pair_wait.decomposition.winning_component[0],
             "pair",
         )
-        self.assertNotIn("all_chows", strict_pair_wait.fan_ids)
-        self.assertIn("single_wait", strict_pair_wait.fan_ids)
+        self.assertNotIn("all_chows", pair_wait.fan_ids)
+        self.assertIn("single_wait", pair_wait.fan_ids)
 
-        open_pair_wait = self.score(
-            strict_hand,
-            melds=["s12"],
-            tile=29,
-            rules=TaiwanRules(all_chows_definition="relaxed"),
-        )
-        self.assertNotIn("all_chows", open_pair_wait.fan_ids)
-        self.assertIn("single_wait", open_pair_wait.fan_ids)
-
-        # 同一张 5 既存在于将牌、又可作为顺子和牌张时，
-        # 应按形式听牌集合判定非独听，而不是被其它拆分落点否决。
         ambiguous_wait = [
             23, 24, 25, 25, 25,
             31, 32, 33,
             34, 35, 36,
             37, 38, 39,
         ]
-        for definition in ("relaxed", "strict"):
-            with self.subTest(all_chows_definition=definition, ambiguous_use=True):
-                result = self.score(
-                    ambiguous_wait,
-                    melds=["s12"],
-                    tile=25,
-                    rules=TaiwanRules(all_chows_definition=definition),
-                )
-                self.assertIn("all_chows", result.fan_ids)
-                # 同一张牌也可落在将牌或顺子拆分；平胡只看整手形式听牌
-                # 是否为非独听，不要求把最终拆分强制选成顺子和牌。
-                self.assertIn(
-                    result.decomposition.winning_component[0],
-                    ("pair", "sequence"),
-                )
+        ambiguous_result = self.score(
+            ambiguous_wait,
+            melds=["s12"],
+            tile=25,
+            rules=TaiwanRules(),
+        )
+        self.assertIn("all_chows", ambiguous_result.fan_ids)
+        self.assertEqual(
+            ambiguous_result.decomposition.winning_component[0],
+            "sequence",
+        )
 
-        # 牌张在某个拆分里虽然落在边张位置，但整手形式听牌有三张；
-        # SML 只排除独听，不再附加“必须结构两面”的限制。
         edge_with_multiple_waits = self.score(
             [
                 21, 22, 23, 24, 25, 26, 31,
@@ -1536,51 +1523,164 @@ class TaiwanScoringTest(unittest.TestCase):
             ],
             melds=["s12"],
             tile=21,
-            rules=TaiwanRules(all_chows_definition="strict"),
+            rules=TaiwanRules(),
         )
         self.assertEqual(edge_with_multiple_waits.waits, frozenset({21, 24, 27}))
         self.assertIn("all_chows", edge_with_multiple_waits.fan_ids)
 
-        strict_self_draw = self.score(
-            strict_hand,
-            melds=["s12"],
-            tile=29,
-            source="self_draw",
-            rules=strict_rules,
-        )
-        strict_with_flower = self.score(
-            strict_hand,
-            melds=["s12"],
-            tile=29,
-            flowers=[51],
-            rules=strict_rules,
-        )
-        strict_with_honor = self.score(
+        honor_disallowed = self.score(
             open_honor_hand,
             melds=["s12"],
-            tile=45,
-            rules=strict_rules,
+            tile=21,
+            rules=TaiwanRules(
+                all_chows_honors_and_flowers_allowed=False,
+            ),
         )
-        self.assertNotIn("all_chows", strict_self_draw.fan_ids)
-        self.assertNotIn("all_chows", strict_with_flower.fan_ids)
-        self.assertNotIn("all_chows", strict_with_honor.fan_ids)
+        flower_disallowed = self.score(
+            [
+                21, 22, 23, 24, 25, 26, 31,
+                32, 33, 34, 35, 36, 29, 29,
+            ],
+            melds=["s12"],
+            tile=21,
+            flowers=[51],
+            rules=TaiwanRules(
+                all_chows_honors_and_flowers_allowed=False,
+            ),
+        )
+        no_honor_or_flower = self.score(
+            [
+                21, 22, 23, 24, 25, 26, 31,
+                32, 33, 34, 35, 36, 29, 29,
+            ],
+            melds=["s12"],
+            tile=21,
+            rules=TaiwanRules(
+                all_chows_honors_and_flowers_allowed=False,
+            ),
+        )
+        self.assertNotIn("all_chows", honor_disallowed.fan_ids)
+        self.assertNotIn("all_chows", flower_disallowed.fan_ids)
+        self.assertIn("all_chows", no_honor_or_flower.fan_ids)
+
+    def test_pinfu_stacks_with_no_flower_fans(self):
+        hand = [
+            21, 22, 23, 24, 25, 26, 31,
+            32, 33, 34, 35, 36, 29, 29,
+        ]
+        no_flower = self.score(
+            hand,
+            melds=["s12"],
+            tile=21,
+            rules=TaiwanRules(
+                all_chows_honors_and_flowers_allowed=False,
+                no_flowers_enabled=True,
+            ),
+        )
+        no_flowers_or_honors = self.score(
+            hand,
+            melds=["s12"],
+            tile=21,
+            rules=TaiwanRules(
+                all_chows_honors_and_flowers_allowed=False,
+                no_flowers_enabled=True,
+                no_flowers_or_honors_enabled=True,
+            ),
+        )
 
         self.assertEqual(
-            TaiwanRules(scoring_preset="star31").all_chows_definition,
-            "relaxed",
+            set(no_flower.fan_ids),
+            {"all_chows", "no_flowers"},
         )
         self.assertEqual(
-            TaiwanRules.from_dict(
-                {"scoring_preset": "shenlaiye"}
-            ).all_chows_definition,
-            "relaxed",
+            set(no_flowers_or_honors.fan_ids),
+            {"all_chows", "no_flowers_or_honors"},
         )
+
+    def test_pinfu_concealed_hand_and_pair_completion_follow_independent_options(self):
+        closed_hand = [
+            11, 12, 13, 14, 15, 16, 21, 22, 23,
+            24, 25, 26, 31, 32, 33, 45, 45,
+        ]
+        closed_disallowed = self.score(
+            closed_hand,
+            tile=11,
+            rules=TaiwanRules(),
+        )
+        closed_allowed = self.score(
+            closed_hand,
+            tile=11,
+            rules=TaiwanRules(all_chows_concealed_allowed=True),
+        )
+        self.assertNotIn("all_chows", closed_disallowed.fan_ids)
+        self.assertIn("all_chows", closed_allowed.fan_ids)
+        self.assertIn("concealed_hand", closed_allowed.fan_ids)
+
+        pair_wait_pre_win = [
+            21, 22, 23, 24, 25, 26, 31,
+            32, 33, 11, 12, 13, 14,
+        ]
+        pair_disallowed = self.score(
+            pair_wait_pre_win + [11],
+            melds=["s34"],
+            tile=11,
+            rules=TaiwanRules(),
+        )
+        self.assertEqual(pair_disallowed.waits, frozenset({11, 14}))
         self.assertEqual(
-            TaiwanRules.from_dict(
-                {"all_chows_definition": "strict"}
-            ).scoring_preset,
-            "sml",
+            pair_disallowed.decomposition.winning_component[0],
+            "pair",
         )
+        self.assertNotIn("all_chows", pair_disallowed.fan_ids)
+
+        pair_unrestricted = self.score(
+            pair_wait_pre_win + [11],
+            melds=["s34"],
+            tile=11,
+            rules=TaiwanRules(all_chows_wait_mode="unrestricted"),
+        )
+        self.assertIn("all_chows", pair_unrestricted.fan_ids)
+
+    def test_pinfu_wait_mode_checks_true_two_sided_interpretations(self):
+        for ambiguous_tiles, winning_tile in (
+            ([11, 12, 13, 14, 15], 13),
+            ([15, 16, 17, 18, 19], 17),
+        ):
+            with self.subTest(
+                ambiguous_tiles=ambiguous_tiles,
+                winning_tile=winning_tile,
+            ):
+                pre_win = [
+                    21, 22, 23, 24, 25, 26, 29, 29,
+                    *ambiguous_tiles,
+                ]
+                any_two_sided = self.score(
+                    pre_win + [winning_tile],
+                    melds=["s34"],
+                    tile=winning_tile,
+                    rules=TaiwanRules(
+                        all_chows_wait_mode="any_two_sided",
+                    ),
+                )
+                only_two_sided = self.score(
+                    pre_win + [winning_tile],
+                    melds=["s34"],
+                    tile=winning_tile,
+                    rules=TaiwanRules(
+                        all_chows_wait_mode="only_two_sided",
+                    ),
+                )
+                unrestricted = self.score(
+                    pre_win + [winning_tile],
+                    melds=["s34"],
+                    tile=winning_tile,
+                    rules=TaiwanRules(
+                        all_chows_wait_mode="unrestricted",
+                    ),
+                )
+                self.assertIn("all_chows", any_two_sided.fan_ids)
+                self.assertNotIn("all_chows", only_two_sided.fan_ids)
+                self.assertIn("all_chows", unrestricted.fan_ids)
 
     def test_small_winds_wind_fans_are_explicitly_configured(self):
         hand = [11, 12, 13, 21, 22, 23, 44, 44]
@@ -2081,7 +2181,9 @@ class TaiwanScoringTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"typo_rule": 1})
         with self.assertRaises(ValueError):
-            TaiwanRules.from_dict({"all_chows_definition": "invalid"})
+            TaiwanRules.from_dict({"all_chows_definition": "strict"})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"all_chows_wait_mode": "multiple_waits"})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"human_win_definition": "preset"})
         with self.assertRaises(ValueError):
@@ -2092,6 +2194,8 @@ class TaiwanScoringTest(unittest.TestCase):
             TaiwanRules.from_dict({"full_flush_liability_enabled": 1})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"all_flower_tiles_enabled": "true"})
+        with self.assertRaises(ValueError):
+            TaiwanRules.from_dict({"all_chows_concealed_allowed": 1})
         with self.assertRaises(ValueError):
             TaiwanRules.from_dict({"flower_kong_excludes_seat_flower": 1})
         with self.assertRaisesRegex(ValueError, "flower_scoring_mode"):
@@ -5575,7 +5679,17 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
             validated.detailed_config["qualified_ready_win_policy"],
             "follow_declared_ready_policy",
         )
-        self.assertEqual(validated.detailed_config["all_chows_definition"], "relaxed")
+        self.assertFalse(validated.detailed_config["all_chows_concealed_allowed"])
+        self.assertFalse(validated.detailed_config["all_chows_self_draw_allowed"])
+        self.assertTrue(
+            validated.detailed_config[
+                "all_chows_honors_and_flowers_allowed"
+            ]
+        )
+        self.assertEqual(
+            validated.detailed_config["all_chows_wait_mode"],
+            "any_two_sided",
+        )
         self.assertFalse(validated.detailed_config["little_four_winds_add_wind_pungs"])
         self.assertEqual(
             validated.detailed_config["human_win_definition"],
@@ -5629,7 +5743,10 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
                 "four_kongs_enabled": True,
                 "five_kongs_enabled": True,
                 "scoring_preset": "shenlaiye",
-                "all_chows_definition": "strict",
+                "all_chows_concealed_allowed": True,
+                "all_chows_self_draw_allowed": True,
+                "all_chows_honors_and_flowers_allowed": False,
+                "all_chows_wait_mode": "only_two_sided",
                 "little_four_winds_add_wind_pungs": True,
                 "all_honors_add_all_pungs": False,
                 "prefer_triplet_decomposition_on_discard_win": True,
@@ -5665,28 +5782,17 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertTrue(custom.open_cuohe)
         self.assertEqual(custom.cuohe_type, 1)
         self.assertEqual(custom.detailed_config["scoring_preset"], "shenlaiye")
-        self.assertEqual(
-            custom.detailed_config["all_chows_definition"],
-            "strict",
-        )
+        self.assertTrue(custom.detailed_config["all_chows_concealed_allowed"])
+        self.assertTrue(custom.detailed_config["all_chows_self_draw_allowed"])
+        self.assertFalse(custom.detailed_config["all_chows_honors_and_flowers_allowed"])
+        self.assertEqual(custom.detailed_config["all_chows_wait_mode"], "only_two_sided")
         self.assertTrue(custom.detailed_config["prefer_triplet_decomposition_on_discard_win"])
-        self.assertEqual(
-            custom.detailed_config["human_win_definition"],
-            "discarder_first_discard",
-        )
-        self.assertEqual(
-            custom.detailed_config["ready_qualification_mode"],
-            "each_player_first_discard",
-        )
+        self.assertEqual(custom.detailed_config["human_win_definition"], "discarder_first_discard")
+        self.assertEqual(custom.detailed_config["ready_qualification_mode"], "each_player_first_discard")
         self.assertIs(custom.detailed_config["claim_wall_reserve"], True)
-        self.assertEqual(
-            custom.detailed_config["opening_flower_replacement_order"],
-            "round_robin",
-        )
+        self.assertEqual(custom.detailed_config["opening_flower_replacement_order"], "round_robin")
         self.assertTrue(custom.detailed_config["initial_flower_bonus_enabled"])
-        self.assertTrue(
-            custom.detailed_config["flower_kong_excludes_seat_flower"]
-        )
+        self.assertTrue(custom.detailed_config["flower_kong_excludes_seat_flower"])
         self.assertTrue(custom.detailed_config["all_flower_tiles_enabled"])
         self.assertTrue(custom.detailed_config["public_ready_enabled"])
         self.assertEqual(custom.detailed_config["declared_ready_win_policy"], "force_win")
@@ -5705,10 +5811,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertTrue(custom.detailed_config["four_kongs_enabled"])
         self.assertTrue(custom.detailed_config["five_kongs_enabled"])
         self.assertEqual(custom.detailed_config["tai_cap"], 24)
-        self.assertEqual(
-            custom.detailed_config["fan_tai_overrides"],
-            {"flower_kong": 3, "all_chows": 6},
-        )
+        self.assertEqual(custom.detailed_config["fan_tai_overrides"], {"flower_kong": 3, "all_chows": 6})
 
         with self.assertRaises(ValidationError):
             TaiwanRoomValidator(

@@ -304,20 +304,6 @@ def derive_pre_win_tiles(hand_tiles: Sequence[int], winning_tile: int) -> List[i
     return tiles
 
 
-def winning_use_is_single_wait(decomposition: Decomposition, winning_tile: int) -> bool:
-    component, index = decomposition.winning_component
-    if component == "pair":
-        return True
-    if component != "sequence" or index < 0:
-        return False
-    meld = decomposition.melds[index]
-    low, middle, high = meld.tiles
-    if winning_tile == middle:
-        return True
-    rank = winning_tile % 10
-    return (winning_tile == high and rank == 3) or (winning_tile == low and rank == 7)
-
-
 def decomposition_is_all_sequences(decomposition: Decomposition) -> bool:
     return all(meld.kind == "sequence" for meld in decomposition.melds)
 
