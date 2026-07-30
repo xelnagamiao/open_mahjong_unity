@@ -520,6 +520,111 @@
   transform: translateX(16px);
 }
 
+/*
+ * Optional replay-inspired dark chrome. Deliberately scoped to the right rail
+ * and the upper-right setting controls: the table, flowers, player labels,
+ * scoreboard and round-result panels keep their gameplay colors.
+ */
+.mahjongGame.is-dark-interface .game-felt-rail {
+  border-left-color: rgba(255, 255, 255, 0.16);
+  background: rgba(24, 27, 29, 0.94);
+  color: #f4f4f2;
+  scrollbar-color: #60686c #24292c;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .scene-appearance-toggle__card {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #181b1d;
+  color: #f4f4f2;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  :is(.scene-appearance-toggle__button, .assist-switch, .scene-appearance-panel__button, .scene-appearance-panel__ghost-button) {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: #252a2d;
+  color: #f4f5f5;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.22);
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  :is(.scene-appearance-toggle__button, .scene-appearance-panel__button, .scene-appearance-panel__ghost-button):hover {
+  border-color: #df7d23;
+  background: #303538;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .scene-appearance-toggle__button[aria-expanded='true'] {
+  border-color: rgba(223, 125, 35, 0.8);
+  background: #303538;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .assist-switch.is-on {
+  border-color: rgba(223, 125, 35, 0.72);
+  background: rgba(104, 58, 20, 0.92);
+  color: #ffd09c;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  :is(.scene-appearance-panel__title, .scene-appearance-panel__section-title) {
+  color: #edf0ef;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .scene-appearance-panel__section-title {
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  :is(.scene-appearance-panel__label, .scene-appearance-panel__hint, .scene-appearance-panel__value, .scene-appearance-panel__swatch-code) {
+  color: #b8bec0;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .scene-appearance-panel__select {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: #252a2d;
+  color: #f4f5f5;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .tile-cover-sorter {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #202529;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  .tile-cover-card {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #252a2d;
+  color: #e7e9e9;
+}
+
+.mahjongGame.is-dark-interface
+  :is(.game-felt-rail, .game-stage-toolbar, .game-stage-panel)
+  :is(.tile-cover-card__drag, .tile-cover-card__remove) {
+  color: #aeb5b7;
+}
+
+.mahjongGame.is-dark-interface .game-felt-rail .game-vote-start__button.is-danger {
+  border-color: rgba(211, 89, 89, 0.62);
+  background: #382426;
+  color: #ffb5b5;
+}
+
 .game-loading {
   position: absolute;
   inset: 0;

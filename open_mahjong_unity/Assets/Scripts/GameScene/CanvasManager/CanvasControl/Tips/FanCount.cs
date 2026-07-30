@@ -23,6 +23,15 @@ public class FanCount : MonoBehaviour {
         SplitLongChangshaDetail(ref name, ref valueDisplay);
         FanName.text = name;
         FanValue.text = valueDisplay;
+
+        EndResultPanel endResultPanel = GetComponentInParent<EndResultPanel>(true);
+        Transform boundary = endResultPanel != null ? endResultPanel.transform : null;
+        if (boundary == null) {
+            ShuheweiPlayerPanel shuheweiPanel =
+                GetComponentInParent<ShuheweiPlayerPanel>(true);
+            boundary = shuheweiPanel != null ? shuheweiPanel.transform : null;
+        }
+        LayoutHierarchyRebuilder.RebuildUpwards(transform, boundary);
     }
 
     private static void SplitLongChangshaDetail(ref string name, ref string valueDisplay) {

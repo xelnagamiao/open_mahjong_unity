@@ -168,13 +168,15 @@ export class MahjongScene {
   private readonly sounds = new Map<string, HTMLAudioElement>()
   private readonly primedSounds = new WeakSet<HTMLAudioElement>()
   private readonly primingSounds = new WeakMap<HTMLAudioElement, Promise<void>>()
-  private activeVoice: HTMLAudioElement | null = null
-  private voiceRequestId = 0
+  private readonly activeSoundInstances = new Set<HTMLAudioElement>()
 
   get globalVolume(): number { return this.volume }
   set globalVolume(value: number) {
     this.volume = Math.max(0, Math.min(1, value))
     for (const audio of this.sounds.values()) {
+      audio.volume = this.volume
+    }
+    for (const audio of this.activeSoundInstances) {
       audio.volume = this.volume
     }
   }
@@ -419,7 +421,7 @@ export class MahjongScene {
     document.removeEventListener('keydown', this.handleUserGesture)
     document.removeEventListener('visibilitychange', this.handleVisibilityChange)
     this.clearPendingButton()
-    this.stopActiveVoice()
+    this.stopActiveSounds()
     if (this.app) {
       this.app.destroy(true, { children: true, texture: true })
       this.app = null
@@ -1831,6 +1833,9 @@ export class MahjongScene {
           const centralTile = tile ?? 0
           const chowMode = event.ui64_value ?? 0
           this.hands[actorDir].chowFromRiver(this.rivers[discarderRelDir], centralTile, chowMode)
+          if (this.presentationMode === 'replay' && !event.silent) {
+            this.showReplayClaimLabel(actorDir, '吃', true)
+          }
           if (!event.silent) this.playCallSound('chi', actorDir)
           break
         }
@@ -1839,6 +1844,9 @@ export class MahjongScene {
           const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
           const t = tile ?? 0
           this.hands[actorDir].pungFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
+          if (this.presentationMode === 'replay' && !event.silent) {
+            this.showReplayClaimLabel(actorDir, '碰', true)
+          }
           if (!event.silent) this.playCallSound('peng', actorDir)
           break
         }
@@ -1847,6 +1855,9 @@ export class MahjongScene {
           const t = tile ?? 0
           const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
           this.hands[actorDir].meldedKongFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
+          if (this.presentationMode === 'replay' && !event.silent) {
+            this.showReplayClaimLabel(actorDir, '杠', true)
+          }
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
         }
@@ -1858,6 +1869,9 @@ export class MahjongScene {
           } else {
             this.hands[actorDir].mKongFromHand(t, useDrawn)
           }
+          if (this.presentationMode === 'replay' && !event.silent) {
+            this.showReplayClaimLabel(actorDir, '杠', true)
+          }
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
         }
@@ -1868,6 +1882,9 @@ export class MahjongScene {
             this.hands[0].cKongFromHand(t, useDrawn)
           } else {
             this.hands[actorDir].cKongFromHand(t, useDrawn)
+          }
+          if (this.presentationMode === 'replay' && !event.silent) {
+            this.showReplayClaimLabel(actorDir, '杠', true)
           }
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
@@ -2084,7 +2101,7 @@ export class MahjongScene {
       }
       const text = labelMap[kind]
       if (text) {
-        this.showReplayClaimLabel(actorDir, text, false)
+        this.showReplayClaimLabel(actorDir, text, true)
         if (kind === 'chow') this.playCallSound('chi', actorDir, false)
         else if (kind === 'pung') this.playCallSound('peng', actorDir, false)
         else if (kind.includes('kong')) this.playCallSound('gang', actorDir, false)
@@ -2449,19 +2466,46 @@ export class MahjongScene {
     if (!audio) return
     const play = () => {
       if (this.destroyed) return
-      audio.currentTime = 0
-      audio.play().catch(() => { /* autoplay policy */ })
+      this.playSoundInstance(audio)
     }
     const priming = this.primingSounds.get(audio)
     if (priming) void priming.then(play)
     else play()
   }
 
-  private stopActiveVoice(): void {
-    if (!this.activeVoice) return
-    this.activeVoice.pause()
-    this.activeVoice.currentTime = 0
-    this.activeVoice = null
+  /**
+   * Play an independent instance so rapid consecutive calls never rewind one
+   * another. This is especially important during the opening flower round,
+   * where several buhua voices may arrive before the previous clip finishes.
+   */
+  private playSoundInstance(source: HTMLAudioElement): void {
+    const instance = source.cloneNode(true) as HTMLAudioElement
+    instance.volume = this.globalVolume
+    instance.muted = false
+    instance.currentTime = 0
+    this.activeSoundInstances.add(instance)
+
+    let cleaned = false
+    const cleanup = () => {
+      if (cleaned) return
+      cleaned = true
+      instance.onended = null
+      instance.onerror = null
+      this.activeSoundInstances.delete(instance)
+    }
+    instance.onended = cleanup
+    instance.onerror = cleanup
+    instance.play().catch(cleanup)
+  }
+
+  private stopActiveSounds(): void {
+    for (const audio of this.activeSoundInstances) {
+      audio.pause()
+      audio.currentTime = 0
+      audio.onended = null
+      audio.onerror = null
+    }
+    this.activeSoundInstances.clear()
   }
 
   /** MMCR table effects remain unchanged; only the character speech uses Salasasa voices. */
@@ -2474,22 +2518,10 @@ export class MahjongScene {
       return
     }
 
-    const requestId = ++this.voiceRequestId
     const play = () => {
-      if (this.destroyed || requestId !== this.voiceRequestId) return
-      if (tableAudio) {
-        tableAudio.currentTime = 0
-        tableAudio.play().catch(() => { /* autoplay policy */ })
-      }
-      this.stopActiveVoice()
-      this.activeVoice = voiceAudio
-      voiceAudio.currentTime = 0
-      voiceAudio.onended = () => {
-        if (this.activeVoice === voiceAudio) this.activeVoice = null
-      }
-      voiceAudio.play().catch(() => {
-        if (this.activeVoice === voiceAudio) this.activeVoice = null
-      })
+      if (this.destroyed) return
+      if (tableAudio) this.playSoundInstance(tableAudio)
+      this.playSoundInstance(voiceAudio)
     }
 
     const pending = [tableAudio, voiceAudio]

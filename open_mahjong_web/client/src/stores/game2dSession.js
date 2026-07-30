@@ -46,6 +46,19 @@ export const useGame2dSessionStore = defineStore('game2dSession', {
       await salasasaClient.connect(username, password)
       this.syncFromClient()
     },
+    async reconnect() {
+      const token = getPlayerToken()
+      if (!token) throw new Error('网站登录状态已失效，请重新登录')
+      restorePromise = null
+      await preloadGame2dResources()
+      await salasasaClient.connectWithToken(token)
+      this.syncFromClient()
+    },
+    disconnectForGameExit() {
+      salasasaClient.disconnectForGameExit()
+      restorePromise = null
+      this.syncFromClient()
+    },
     logout() {
       salasasaClient.logout()
       restorePromise = null

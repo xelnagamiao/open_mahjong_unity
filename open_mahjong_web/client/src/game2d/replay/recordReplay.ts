@@ -212,7 +212,6 @@ export class RecordReplay {
     return [0, 1, 2, 3].map((seat) => (
       ((round[`p${seat}_tiles` as keyof RecordRound] as number[] | undefined) || [])
         .map(salasasaTileToMmcr)
-        .sort((left, right) => left - right)
     ))
   }
 

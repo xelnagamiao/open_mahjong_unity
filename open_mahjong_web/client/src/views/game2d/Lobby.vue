@@ -200,6 +200,30 @@ const leadersBusy = ref(true)
 const activeSection = ref('battle')
 let unsubscribe = null
 let queueTimer = null
+let reconnectPromptOpen = false
+
+function promptReconnectOffer() {
+  if (reconnectPromptOpen || !salasasaClient.hasReconnectOffer) return
+  reconnectPromptOpen = true
+  void ElMessageBox.confirm(
+    '您有一场正在对局的游戏，是否重连？',
+    '对局重连',
+    {
+      confirmButtonText: '返回牌桌',
+      cancelButtonText: '暂不重连',
+      type: 'warning',
+      closeOnClickModal: false,
+    },
+  ).then(() => {
+    if (!salasasaClient.acceptReconnect()) {
+      ElMessage.error('重连请求发送失败，请重新连接后再试')
+    }
+  }).catch(() => {
+    // Keep the pending offer so entering or refreshing the 2D lobby asks again.
+  }).finally(() => {
+    reconnectPromptOpen = false
+  })
+}
 
 const tierGroups = computed(() => TIERS.map((tier) => ({
   ...tier,
@@ -268,6 +292,10 @@ function handleResponse(response) {
         closeOnPressEscape: false,
       },
     )
+    return
+  }
+  if (response.type === 'message' && response.message === 'reconnect_ask') {
+    promptReconnectOffer()
     return
   }
   if (response.type === 'match/queue_status' && response.queue_status) queueStatus.value = response.queue_status
@@ -387,6 +415,7 @@ onMounted(async () => {
       auth.loaded ? Promise.resolve() : auth.fetchMe(),
     ])
     await Promise.all([session.init(), refreshLeaderboard()])
+    promptReconnectOffer()
   } catch (error) {
     console.error('[2D] 资源预加载失败', error)
     const detail = error instanceof Error && error.message

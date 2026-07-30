@@ -25,6 +25,7 @@ class SalasasaClient {
   private rankValue: SalasasaRankData | null = null
   private lastGameStartValue: SalasasaResponse | null = null
   private lastVoteUpdateValue: SalasasaResponse | null = null
+  private reconnectOfferValue = false
   /**
    * Ordered guobiao messages since the latest game_start, kept only until the
    * Game page drains them. Survives Lobby→Game navigation where Lobby
@@ -37,8 +38,8 @@ class SalasasaClient {
   private listeners = new Set<MessageListener>()
   private stateListeners = new Set<StateListener>()
   private connectPromise: Promise<SalasasaLoginInfo> | null = null
-  private reconnectTimer: number | null = null
   private heartbeatTimer: number | null = null
+  private heartbeatLastPongAt = 0
   private restoreBlockedToken: string | null = null
   private intentionalClose = false
 
@@ -47,6 +48,7 @@ class SalasasaClient {
   get rankData(): SalasasaRankData | null { return this.rankValue }
   get lastGameStart(): SalasasaResponse | null { return this.lastGameStartValue }
   get lastVoteUpdate(): SalasasaResponse | null { return this.lastVoteUpdateValue }
+  get hasReconnectOffer(): boolean { return this.reconnectOfferValue }
   get isLoggedIn(): boolean { return this.loginValue !== null && this.statusValue === 'online' }
 
   /**
@@ -174,9 +176,13 @@ class SalasasaClient {
         }
 
         if (message.type === 'message' && message.message === 'reconnect_ask') {
-          this.send({ type: 'reconnect_response', reconnect: true })
+          this.reconnectOfferValue = true
+        }
+        if (message.type === 'pong') {
+          this.heartbeatLastPongAt = Date.now()
         }
         if (message.type === 'gamestate/guobiao/game_start' && message.game_info) {
+          this.reconnectOfferValue = false
           this.lastGameStartValue = message
           this.lastVoteUpdateValue = null
           this.guobiaoBuffer = [message]
@@ -190,6 +196,7 @@ class SalasasaClient {
           this.guobiaoBuffer.push(message)
         }
         if (message.type === 'gamestate/guobiao/game_end') {
+          this.reconnectOfferValue = false
           this.lastGameStartValue = null
           this.guobiaoBuffer = []
           this.guobiaoBufferActive = false
@@ -215,14 +222,17 @@ class SalasasaClient {
       }
 
       socket.onclose = () => {
+        // A deliberately closed socket may finish its close handshake after a
+        // replacement connection has already been opened. It must not reset
+        // the state of that newer connection.
+        if (this.socket !== socket) return
         window.clearTimeout(timeout)
         this.stopHeartbeat()
-        if (this.socket === socket) this.socket = null
+        this.socket = null
         this.connectPromise = null
         if (!authenticationFailed && !this.intentionalClose && this.credentials) {
           this.loginValue = null
           this.setStatus('offline')
-          this.scheduleReconnect()
         } else {
           this.setStatus('idle')
         }
@@ -234,24 +244,20 @@ class SalasasaClient {
     return this.connectPromise
   }
 
-  private scheduleReconnect(): void {
-    if (this.reconnectTimer !== null || !this.credentials) return
-    this.reconnectTimer = window.setTimeout(() => {
-      this.reconnectTimer = null
-      if (!this.credentials || this.intentionalClose) return
-      const creds = this.credentials
-      const retry = creds.mode === 'token'
-        ? this.connectWithToken(creds.token)
-        : this.connect(creds.username, creds.password)
-      void retry.catch(() => {
-        this.scheduleReconnect()
-      })
-    }, 2_000)
-  }
-
   private startHeartbeat(): void {
     this.stopHeartbeat()
+    this.heartbeatLastPongAt = Date.now()
     this.heartbeatTimer = window.setInterval(() => {
+      if (Date.now() - this.heartbeatLastPongAt > 12_000) {
+        const staleSocket = this.socket
+        this.socket = null
+        this.stopHeartbeat()
+        this.connectPromise = null
+        this.loginValue = null
+        this.setStatus('offline')
+        staleSocket?.close(4000, 'heartbeat-timeout')
+        return
+      }
       this.send({ type: 'ping', client_ts: Date.now() })
     }, 5_000)
   }
@@ -259,6 +265,7 @@ class SalasasaClient {
   private stopHeartbeat(): void {
     if (this.heartbeatTimer !== null) window.clearInterval(this.heartbeatTimer)
     this.heartbeatTimer = null
+    this.heartbeatLastPongAt = 0
   }
 
   send(message: Record<string, unknown>): boolean {
@@ -267,10 +274,36 @@ class SalasasaClient {
     return true
   }
 
+  acceptReconnect(): boolean {
+    const sent = this.send({ type: 'reconnect_response', reconnect: true })
+    if (sent) this.reconnectOfferValue = false
+    return sent
+  }
+
+  /**
+   * Leave an active table without logging out of the website account.
+   * The next lobby/session initialization opens a fresh connection, at which
+   * point the server may offer the unfinished game for explicit reconnection.
+   */
+  disconnectForGameExit(): void {
+    this.intentionalClose = true
+    this.stopHeartbeat()
+    this.loginValue = null
+    this.rankValue = null
+    this.lastGameStartValue = null
+    this.lastVoteUpdateValue = null
+    this.guobiaoBuffer = []
+    this.guobiaoBufferActive = false
+    this.reconnectOfferValue = false
+    const socket = this.socket
+    this.socket = null
+    socket?.close(1000, 'leave-active-game')
+    this.connectPromise = null
+    this.setStatus('idle')
+  }
+
   logout(): void {
     this.intentionalClose = true
-    if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer)
-    this.reconnectTimer = null
     this.stopHeartbeat()
     this.credentials = null
     this.loginValue = null
@@ -279,6 +312,7 @@ class SalasasaClient {
     this.lastVoteUpdateValue = null
     this.guobiaoBuffer = []
     this.guobiaoBufferActive = false
+    this.reconnectOfferValue = false
     this.socket?.close(1000, 'logout')
     this.socket = null
     this.setStatus('idle')
