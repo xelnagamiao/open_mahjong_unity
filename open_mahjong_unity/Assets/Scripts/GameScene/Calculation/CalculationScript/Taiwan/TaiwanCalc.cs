@@ -401,17 +401,11 @@ namespace Taiwan {
             string cacheKey = BuildCountKey(counts, concealedNeeded)
                 + "|eight_and_a_half_pairs_enabled=" + (rules.EightAndAHalfPairsEnabled ? "1" : "0");
             if (TryGetCachedWaits(cacheKey, out HashSet<int> cachedWaits)) {
-                return new HashSet<int>(cachedWaits.Where(tile =>
-                    !physicalCounts.TryGetValue(tile, out int physicalCount)
-                    || physicalCount < 4));
+                return FilterPhysicallyAvailableWaits(cachedWaits, physicalCounts);
             }
 
             var meldShapeCache = new Dictionary<string, bool>();
             foreach (int tile in StructureTiles) {
-                if (physicalCounts.TryGetValue(tile, out int physicalCount)
-                    && physicalCount >= 4) {
-                    continue;
-                }
                 int count = counts.TryGetValue(tile, out int existingCount)
                     ? existingCount
                     : 0;
@@ -428,7 +422,7 @@ namespace Taiwan {
                 if (isStandardWait) waits.Add(tile);
             }
             CacheWaits(cacheKey, waits);
-            return waits;
+            return FilterPhysicallyAvailableWaits(waits, physicalCounts);
         }
 
         public static Tuple<int, List<string>> HepaiCheck(
@@ -808,6 +802,14 @@ namespace Taiwan {
             int rank = winningTile % 10;
             return (winningTile == high && rank == 3)
                 || (winningTile == low && rank == 7);
+        }
+
+        private static HashSet<int> FilterPhysicallyAvailableWaits(
+            IEnumerable<int> waits,
+            IDictionary<int, int> physicalCounts) {
+            return new HashSet<int>(waits.Where(tile =>
+                !physicalCounts.TryGetValue(tile, out int physicalCount)
+                || physicalCount < 4));
         }
 
         private static List<int> BuildStructureTiles(TaiwanDecomposition decomposition) {
