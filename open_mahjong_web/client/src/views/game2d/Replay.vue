@@ -1366,7 +1366,10 @@ function changeVolume(next: number) {
 
 async function copyShareLink(kind: '2d' | '3d') {
   const gameId = String(detail.value?.game_id || route.params.gameId)
-  const url = new URL(`/${kind}/record/${encodeURIComponent(gameId)}`, window.location.origin).toString()
+  const path = kind === '3d'
+    ? `/unity-game/record/${encodeURIComponent(gameId)}`
+    : `/2d/record/${encodeURIComponent(gameId)}`
+  const url = new URL(path, window.location.origin).toString()
   try {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind

@@ -15,7 +15,7 @@ public class LoginPanel : MonoBehaviour {
     [SerializeField] private GameObject TestPanel;
 
     public static LoginPanel Instance { get; private set; }
-    private string userNameTips = "输入用户名登录；也可以在这里粘贴 3D 牌谱分享链接免登录查看";
+    private string userNameTips = "输入用户名登录";
     private string passwordTips = "密码应当在6-32个字符之间，只能包含英文、数字、特殊字符";
 
     private Coroutine serverConnectCoroutine;
@@ -66,15 +66,6 @@ public class LoginPanel : MonoBehaviour {
         // 获取用户名和密码
         string userName = inputUser.text.Trim();
         string password = inputPassword.text.Trim();
-
-        if (SharedRecordLink.LooksLikeShareLink(userName)) {
-            if (SharedRecordLink.Open(userName)) {
-                ShowTip("正在免登录打开分享牌谱…");
-            } else {
-                ShowTip("牌谱分享链接格式不正确");
-            }
-            return;
-        }
 
         loginButton.interactable = false; // 禁用按钮
         // 直接缓存本次输入的账号密码（假定 UserDataManager 一定存在）

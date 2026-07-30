@@ -8,6 +8,7 @@ public static class PostGameNavigator {
     /// </summary>
     /// <param name="forceTeardown">对局结束、退出牌谱等须强制清理；延时观战被踢等可保留进行中的对局场景。</param>
     public static void ExitToLobby(bool forceTeardown = false) {
+        bool wasPublicSharePlayback = SharedRecordLink.IsPublicSharePlayback;
         bool wasSpectating = GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating;
         if (wasSpectating) {
             GameRecordManager.Instance.StopSpectating();
@@ -30,8 +31,15 @@ public static class PostGameNavigator {
             UserDataManager.Instance.SetRoomId("");
         }
 
-        // Public share-link viewers have no player session. Return them to login
-        // instead of opening a lobby tab whose data sources require authentication.
+        // A public share link is a self-contained, read-only visit. Always return
+        // to login after it ends, even if WebGL retained an older local login.
+        if (wasPublicSharePlayback) {
+            SharedRecordLink.EndPublicSharePlayback();
+            WindowsManager.Instance.ExitGameTo("login");
+            return;
+        }
+
+        // Other unauthenticated entry paths also cannot open a lobby tab.
         if (UserDataManager.Instance.UserId == 0) {
             WindowsManager.Instance.ExitGameTo("login");
             return;

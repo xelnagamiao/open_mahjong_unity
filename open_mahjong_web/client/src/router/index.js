@@ -193,7 +193,7 @@ const routes = [
     meta: { title: '麻将对战平台 - salasasa.cn' }
   },
   {
-    path: '/3d/record/:gameId',
+    path: '/unity-game/record/:gameId',
     name: 'Unity3DRecord',
     component: UnityRecord,
     meta: { title: 'Salasasa Unity 3D 牌谱分享' }
