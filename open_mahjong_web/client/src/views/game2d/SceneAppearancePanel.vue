@@ -7,6 +7,17 @@
 
     <section class="scene-appearance-panel__section">
       <h4 class="scene-appearance-panel__section-title">界面</h4>
+      <label v-if="showInterfaceTheme" class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">侧边界面</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.interfaceTheme"
+          @change="$emit('interface-theme', $event.target.value)"
+        >
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
+      </label>
       <label class="scene-appearance-panel__field">
         <span class="scene-appearance-panel__label">中文字体</span>
         <select
@@ -270,6 +281,7 @@ const props = defineProps({
   backgroundImageName: { type: String, default: null },
   backgroundImageLoading: { type: Boolean, default: false },
   volume: { type: Number, required: true },
+  showInterfaceTheme: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -278,7 +290,7 @@ const emit = defineEmits([
   'remove-cover-color', 'reorder-cover-colors', 'select-cover-index', 'cover-rotate-mode',
   'flower-area-display', 'flower-area-color',
   'flower-area-alpha', 'flower-area-label-color', 'flower-area-count-color', 'flower-area-label-scale',
-  'tile-face-theme', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'volume',
+  'tile-face-theme', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'interface-theme', 'volume',
 ])
 
 const fileInput = ref(null)

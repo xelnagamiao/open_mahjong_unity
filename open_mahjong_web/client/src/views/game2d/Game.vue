@@ -13,7 +13,10 @@
   <div
     v-else
     class="mahjongGame"
-    :class="{ 'is-black-tile-face': appearance.tileFaceTheme === 'black' }"
+    :class="{
+      'is-black-tile-face': appearance.tileFaceTheme === 'black',
+      'is-dark-interface': appearance.interfaceTheme === 'dark',
+    }"
     :style="{ background: appearance.backgroundColorOutside }"
   >
     <div class="game-page__layout" :style="{ background: appearance.backgroundColorOutside }">
@@ -265,7 +268,9 @@
                       :background-image-name="backgroundImage?.name ?? null"
                       :background-image-loading="backgroundImageLoading"
                       :volume="volume"
+                      show-interface-theme
                       @volume="changeVolume"
+                      @interface-theme="setAppearanceField('interfaceTheme', $event)"
                       @table-color="setAppearanceField('backgroundColorTable', $event)"
                       @outside-color="setAppearanceField('backgroundColorOutside', $event)"
                       @image-enabled="setAppearanceField('backgroundImageEnabled', $event)"
@@ -362,7 +367,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
 import GameAssistPanel from './GameAssistPanel.vue'
@@ -428,6 +433,9 @@ const volume = ref(loadStoredVolume())
 const appearance = ref(loadStoredSceneAppearance())
 const assistSettings = ref(loadStoredAssistSettings())
 const backgroundImage = ref(null)
+const reconnectPromptOpen = ref(false)
+let reconnectApproved = false
+let leavingActiveGame = false
 const backgroundImageLoading = ref(true)
 
 /** Staged win reveal: how many fan rows are visible. */
@@ -830,6 +838,32 @@ function handleResponse(response) {
     ).finally(() => router.push('/2d'))
     return
   }
+  if (response.type === 'message' && response.message === 'reconnect_ask') {
+    if (reconnectApproved) {
+      reconnectApproved = false
+      salasasaClient.acceptReconnect()
+      return
+    }
+    if (reconnectPromptOpen.value) return
+    reconnectPromptOpen.value = true
+    void ElMessageBox.confirm(
+      '您有一场正在对局的游戏，是否重连？',
+      '对局重连',
+      {
+        confirmButtonText: '重新连接',
+        cancelButtonText: '暂不重连',
+        type: 'warning',
+        closeOnClickModal: false,
+      },
+    ).then(() => {
+      salasasaClient.acceptReconnect()
+    }).catch(() => {
+      // The player remains offline until they explicitly reconnect.
+    }).finally(() => {
+      reconnectPromptOpen.value = false
+    })
+    return
+  }
   if (response.type === 'gamestate/vote_update') {
     applyVoteInfo(response.vote_info ?? null)
     return
@@ -1106,6 +1140,60 @@ watch(() => session.player?.user_id, async (userId) => {
   await nextTick()
   await mountScene()
 }, { flush: 'post' })
+
+watch(() => session.status, (status, previousStatus) => {
+  if (
+    status !== 'offline'
+    || previousStatus === 'offline'
+    || leavingActiveGame
+    || finalResult.value
+    || reconnectPromptOpen.value
+  ) return
+  reconnectPromptOpen.value = true
+  void ElMessageBox.confirm(
+    '与游戏服务器的连接已断开，是否重连？',
+    '连接中断',
+    {
+      confirmButtonText: '重新连接',
+      cancelButtonText: '暂不重连',
+      type: 'warning',
+      closeOnClickModal: false,
+    },
+  ).then(async () => {
+    reconnectApproved = true
+    try {
+      await session.reconnect()
+    } catch (error) {
+      reconnectApproved = false
+      ElMessage.error(error instanceof Error ? error.message : '重新连接失败')
+    }
+  }).catch(() => {
+    reconnectApproved = false
+  }).finally(() => {
+    reconnectPromptOpen.value = false
+  })
+})
+
+onBeforeRouteLeave(async () => {
+  if (!hasSnapshot.value || finalResult.value || leavingActiveGame) return true
+  try {
+    await ElMessageBox.confirm(
+      '游戏正在对局中，您确定要退出吗？',
+      '退出对局',
+      {
+        confirmButtonText: '确定退出',
+        cancelButtonText: '继续对局',
+        type: 'warning',
+        closeOnClickModal: false,
+      },
+    )
+    leavingActiveGame = true
+    session.disconnectForGameExit()
+    return true
+  } catch {
+    return false
+  }
+})
 
 onMounted(async () => {
   mounted = true

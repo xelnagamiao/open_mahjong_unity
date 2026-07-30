@@ -14,8 +14,10 @@ export type MoqieShortcutMode = 0 | 1 | 2
 export type PassShortcutMode = 0 | 1 | 2
 /** 牌背覆盖色轮换 */
 export type TileCoverRotateMode = 'cycle' | 'random' | 'random-no-repeat'
+export type InterfaceTheme = 'light' | 'dark'
 
 export type SceneAppearanceSettings = {
+  interfaceTheme: InterfaceTheme
   backgroundColorTable: string
   backgroundColorOutside: string
   backgroundImageEnabled: boolean
@@ -42,6 +44,7 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
 export const MAX_TILE_COVER_COLORS = 8
 
 export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
+  interfaceTheme: 'light',
   backgroundColorTable: '#999999',
   backgroundColorOutside: '#666666',
   backgroundImageEnabled: false,
@@ -131,6 +134,7 @@ export function normalizeSceneAppearanceSettings(
     ? Math.max(0, Math.min(tileCoverColors.length - 1, lastRaw))
     : 0
   return {
+    interfaceTheme: value?.interfaceTheme === 'dark' ? 'dark' : 'light',
     backgroundColorTable: normalizeHexColor(value?.backgroundColorTable, DEFAULT_SCENE_APPEARANCE.backgroundColorTable),
     backgroundColorOutside: normalizeHexColor(value?.backgroundColorOutside, DEFAULT_SCENE_APPEARANCE.backgroundColorOutside),
     backgroundImageEnabled: normalizeBoolean(value?.backgroundImageEnabled, DEFAULT_SCENE_APPEARANCE.backgroundImageEnabled),

@@ -175,6 +175,7 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown SubRuleDropdown;
 
     [Header("描述文本")]
+    [SerializeField] private TMP_Text SubRuleText;
     [SerializeField] private TMP_Text SubRuleDescriptionText;
 
     [Header("开关")]
@@ -235,6 +236,7 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Button closeButton;
     [SerializeField] private Button createButton;
     [SerializeField] private Button addRuleButton;
+    [SerializeField] private Button DetailedConfigButton;
 
     private bool _gameRoundLabelsCached;
     private string[] _defaultGameRoundLabels;
@@ -245,11 +247,11 @@ public partial class CreatePanel : MonoBehaviour {
             "国标麻将",
             "立直麻将",
             "青雀",
-            "古典麻将",
             "四川麻将",
             "长沙麻将",
-            "简单麻将",
             "台湾麻将",
+            "古典麻将",
+            "简单麻将",
         };
         bool needsRefresh = chooseRule.options.Count != expectedOptions.Length;
         if (!needsRefresh) {
@@ -268,11 +270,22 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void Start() {
+        if (SubRuleText == null) {
+            Transform subRuleTextTransform = transform.Find("HeaderPanel/SubRuleText");
+            if (subRuleTextTransform != null) {
+                SubRuleText = subRuleTextTransform.GetComponent<TMP_Text>();
+            }
+        }
+        BindDetailedConfigControls("taiwan");
         EnsureRuleDropdownOptions();
         chooseRule.onValueChanged.AddListener(OnRuleDropdownChanged);
         closeButton.onClick.AddListener(ClosePanel);
         createButton.onClick.AddListener(CreateRoom);
         addRuleButton.onClick.AddListener(OnAddRuleClick);
+        if (DetailedConfigButton != null) {
+            DetailedConfigButton.onClick.AddListener(
+                () => ShowDetailedConfigPanel(_ruleState));
+        }
 
         SetRandomSeedPanel.SetActive(false);
         PasswordPanel.SetActive(false);
@@ -327,11 +340,11 @@ public partial class CreatePanel : MonoBehaviour {
             0 => "guobiao",
             1 => "riichi",
             2 => "qingque",
-            3 => "classical",
-            4 => "sichuan",
-            5 => "changsha",
-            6 => "jiandan",
-            7 => "taiwan",
+            3 => "sichuan",
+            4 => "changsha",
+            5 => "taiwan",
+            6 => "classical",
+            7 => "jiandan",
             _ => "guobiao"
         };
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
@@ -439,6 +452,27 @@ public partial class CreatePanel : MonoBehaviour {
         ApplyGameRoundDisplayForRule();
         RefreshCuoheTypePanelVisibility();
         RefreshDetailedConfigEntry();
+        RebuildCreateRoomLayoutHierarchy();
+    }
+
+    private void RebuildCreateRoomLayoutHierarchy() {
+        Transform body = transform.Find("Create_Panel");
+        if (body != null) {
+            // ToggleContainer owns a GridLayoutGroup + ContentSizeFitter. Its
+            // height must be settled before Content's VerticalLayoutGroup can
+            // place it below RuleDescribePanel. Rebuilding from Create_Panel
+            // skips that inner fitter and leaves Content using the old height.
+            Transform toggleContainer = body.Find("Scroll View/Viewport/Content/ToggleContainer");
+            if (toggleContainer != null) {
+                LayoutHierarchyRebuilder.RebuildUpwards(toggleContainer, transform);
+            } else {
+                LayoutHierarchyRebuilder.RebuildUpwards(body, transform);
+            }
+        }
+        Transform header = transform.Find("HeaderPanel");
+        if (header != null) {
+            LayoutHierarchyRebuilder.RebuildUpwards(header, transform);
+        }
     }
 
     private string GetCurrentSubRuleKey() {
@@ -458,6 +492,8 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void RefreshSubRuleDescription() {
         SubRuleDescriptionText.text = SubRuleDescriptionDictionary.GetDescription(GetCurrentSubRuleKey());
+        SubRuleDescriptionText.ForceMeshUpdate();
+        LayoutHierarchyRebuilder.RebuildUpwards(SubRuleDescriptionText.rectTransform, transform);
     }
 
     private void InitSubRuleDropdown() {

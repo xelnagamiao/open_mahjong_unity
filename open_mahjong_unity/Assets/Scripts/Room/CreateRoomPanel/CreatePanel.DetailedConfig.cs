@@ -25,11 +25,14 @@ public partial class CreatePanel {
             new Dictionary<string, GameObject>(StringComparer.Ordinal);
         public GameObject Panel;
         public GameObject FanTablePanel;
+        public RectTransform Content;
+        public RectTransform FanContent;
+        public ScrollRect Scroll;
+        public ScrollRect FanScroll;
         public TMP_Dropdown PresetDropdown;
         public TMP_Text PresetDescription;
         public TMP_Dropdown FanTableEntryDropdown;
         public TMP_Dropdown FanFilterDropdown;
-        public float LabelColumnWidth;
         public bool HasSnapshot;
         public bool HasFanEditorSnapshot;
         public bool ShowAllFans;
@@ -46,706 +49,166 @@ public partial class CreatePanel {
 
     private readonly Dictionary<string, DetailedConfigState> _detailedConfigStates =
         new Dictionary<string, DetailedConfigState>();
-    private Button _detailedConfigDropdownButton;
 
-    private DetailedConfigState GetDetailedConfigState(string ruleKey, bool create) {
-        if (string.IsNullOrEmpty(ruleKey)
-            || !DetailedConfigRegistry.TryGet(ruleKey, out DetailedConfigDefinition definition)) {
-            return null;
-        }
-        if (_detailedConfigStates.TryGetValue(ruleKey, out DetailedConfigState state) || !create) {
-            return state;
-        }
-        state = new DetailedConfigState(definition);
-        _detailedConfigStates[ruleKey] = state;
-        ApplyDetailedConfigPreset(state, definition.DefaultPresetIndex);
-        return state;
+    private DetailedConfigState GetDetailedConfigState(string ruleKey) {
+        return !string.IsNullOrEmpty(ruleKey)
+            && _detailedConfigStates.TryGetValue(ruleKey, out DetailedConfigState state)
+                ? state
+                : null;
     }
 
-    private void EnsureDetailedConfigControls(string ruleKey) {
-        DetailedConfigState state = GetDetailedConfigState(ruleKey, true);
-        if (state == null || state.Panel != null
-            || HepaiWayPanel == null
-            || HepaiWayDropdown == null
-            || SubRuleDescriptionText == null
-            || createButton == null) return;
+    private void BindDetailedConfigControls(string ruleKey) {
+        if (!DetailedConfigRegistry.TryGet(
+                ruleKey,
+                out DetailedConfigDefinition definition)) return;
 
-        state.LabelColumnWidth = CalculateDetailedConfigLabelColumnWidth(state.Definition);
-
-        Transform headerSource = transform.Find("HeaderPanel");
-        Transform bodySource = transform.Find("Create_Panel");
-        if (headerSource == null
-            || bodySource == null
-            || FindDetailedConfigHeaderTextSource(headerSource) == null) return;
-
-        state.Panel = new GameObject(
-            $"DetailedConfigPanel_{state.Definition.RuleKey}",
-            typeof(RectTransform));
-        state.Panel.transform.SetParent(transform, false);
-        StretchDetailedConfigRect(
-            state.Panel.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-
-        GameObject backdropObject = new GameObject(
-            "Backdrop",
-            typeof(RectTransform),
-            typeof(CanvasRenderer),
-            typeof(Image));
-        backdropObject.transform.SetParent(state.Panel.transform, false);
-        StretchDetailedConfigRect(
-            backdropObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-        Image backdropImage = backdropObject.GetComponent<Image>();
-        backdropImage.sprite = null;
-        backdropImage.color = new Color(0.16f, 0.16f, 0.16f, 0.42f);
-        backdropImage.raycastTarget = true;
-
-        GameObject dialogObject = new GameObject("Dialog", typeof(RectTransform));
-        dialogObject.transform.SetParent(state.Panel.transform, false);
-        StretchDetailedConfigRect(
-            dialogObject.GetComponent<RectTransform>(),
-            new Vector2(0.18f, 0.10f),
-            new Vector2(0.82f, 0.90f),
-            Vector2.zero,
-            Vector2.zero);
-
-        RectTransform sourceHeaderRect = headerSource.GetComponent<RectTransform>();
-        float headerHeightRatio = sourceHeaderRect.anchorMax.y - sourceHeaderRect.anchorMin.y;
-        if (headerHeightRatio <= 0f || headerHeightRatio >= 1f) headerHeightRatio = 0.16f;
-
-        GameObject bodyObject = Instantiate(bodySource.gameObject, dialogObject.transform, false);
-        bodyObject.name = "Create_Panel";
-        bodyObject.SetActive(true);
-        StretchDetailedConfigRect(
-            bodyObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            new Vector2(1f, 1f - headerHeightRatio),
-            Vector2.zero,
-            Vector2.zero);
-        SetDetailedConfigChildrenActive(bodyObject.transform, false);
-        Image bodyImage = bodyObject.GetComponent<Image>();
-        if (bodyImage != null) bodyImage.raycastTarget = true;
-
-        GameObject headerObject = Instantiate(headerSource.gameObject, dialogObject.transform, false);
-        headerObject.name = "HeaderPanel";
-        headerObject.SetActive(true);
-        StretchDetailedConfigRect(
-            headerObject.GetComponent<RectTransform>(),
-            new Vector2(0f, 1f - headerHeightRatio),
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-        TMP_Text headerTitle = FindDetailedConfigHeaderTextSource(headerObject.transform);
-        if (headerTitle == null) {
-            Destroy(state.Panel);
-            state.Panel = null;
+        Transform panelTransform = transform.Find($"DetailedConfigPanel_{ruleKey}");
+        if (panelTransform == null) {
+            Debug.LogError($"Missing prebuilt detailed config panel for rule '{ruleKey}'.", this);
             return;
         }
-        RetainDetailedConfigHeaderTitle(headerObject.transform, headerTitle.transform);
-        headerTitle.text = state.Definition.Presentation.DialogTitle;
 
-        GameObject scrollObject = new GameObject("ScrollArea", typeof(RectTransform), typeof(ScrollRect));
-        scrollObject.transform.SetParent(bodyObject.transform, false);
-        StretchDetailedConfigRect(
-            scrollObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            new Vector2(54f, 112f),
-            new Vector2(-54f, -24f));
+        var state = new DetailedConfigState(definition) {
+            Panel = panelTransform.gameObject,
+            Content = panelTransform.Find(
+                "Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform,
+            Scroll = panelTransform.Find(
+                "Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>(),
+            FanTablePanel = panelTransform.Find("FanTablePanel")?.gameObject,
+            FanContent = panelTransform.Find(
+                "FanTablePanel/Dialog/Create_Panel/ScrollArea/Viewport/Content") as RectTransform,
+            FanScroll = panelTransform.Find(
+                "FanTablePanel/Dialog/Create_Panel/ScrollArea")?.GetComponent<ScrollRect>(),
+        };
+        _detailedConfigStates[ruleKey] = state;
 
-        GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
-        viewportObject.transform.SetParent(scrollObject.transform, false);
-        RectTransform viewport = viewportObject.GetComponent<RectTransform>();
-        StretchDetailedConfigRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        if (state.Content == null || state.Scroll == null) {
+            Debug.LogError($"Prebuilt detailed config panel '{ruleKey}' is incomplete.", this);
+            return;
+        }
+        ConfigureDetailedConfigScrollViewport(state.Scroll);
+        ConfigureDetailedConfigScrollViewport(state.FanScroll);
 
-        GameObject contentObject = new GameObject(
-            "Content",
-            typeof(RectTransform),
-            typeof(VerticalLayoutGroup),
-            typeof(ContentSizeFitter));
-        contentObject.transform.SetParent(viewportObject.transform, false);
-        RectTransform content = contentObject.GetComponent<RectTransform>();
-        content.anchorMin = new Vector2(0f, 1f);
-        content.anchorMax = new Vector2(1f, 1f);
-        content.pivot = new Vector2(0.5f, 1f);
-        content.offsetMin = Vector2.zero;
-        content.offsetMax = Vector2.zero;
-        VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(14, 14, 12, 18);
-        layout.spacing = 7f;
-        layout.childAlignment = TextAnchor.UpperCenter;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
-        contentObject.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        Transform presetRow = state.Content.Find("DetailedConfigPreset");
+        state.PresetDropdown = presetRow?.GetComponentInChildren<TMP_Dropdown>(true);
+        state.PresetDescription = state.Content.Find(
+            "PresetDescription")?.GetComponent<TMP_Text>();
+        if (state.PresetDropdown != null) {
+            state.PresetDropdown.onValueChanged.RemoveAllListeners();
+            state.PresetDropdown.onValueChanged.AddListener(
+                index => ApplyDetailedConfigPreset(state, index));
+        }
 
-        ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
-        scroll.viewport = viewport;
-        scroll.content = content;
-        scroll.horizontal = false;
-        scroll.vertical = true;
-        scroll.movementType = ScrollRect.MovementType.Clamped;
-        scroll.scrollSensitivity = 42f;
+        foreach (DetailedConfigOption option in definition.Options) {
+            Transform row = state.Content.Find($"DetailedConfig_{option.Key}");
+            TMP_Dropdown dropdown = row?.GetComponentInChildren<TMP_Dropdown>(true);
+            if (dropdown == null) continue;
+            state.Dropdowns[option.Key] = dropdown;
+            string optionKey = option.Key;
+            dropdown.onValueChanged.RemoveAllListeners();
+            dropdown.onValueChanged.AddListener(
+                index => OnDetailedConfigOptionChanged(state, optionKey, index));
+        }
 
-        AddDetailedConfigPresetControls(state, content);
-        AddDetailedConfigOptionControls(state, content);
-        AddDetailedConfigFanTableEntry(state, content);
+        DetailedConfigFanTable table = definition.FanTable;
+        if (table != null) {
+            Transform fanEntryRow = state.Content.Find($"DetailedConfig_{table.Key}");
+            state.FanTableEntryDropdown =
+                fanEntryRow?.GetComponentInChildren<TMP_Dropdown>(true);
+            Button openFanTableButton = fanEntryRow
+                ?.Find("Dropdown/OpenFanTableEditor")
+                ?.GetComponent<Button>();
+            if (openFanTableButton != null) {
+                openFanTableButton.onClick.RemoveAllListeners();
+                openFanTableButton.onClick.AddListener(
+                    () => ShowDetailedConfigFanTablePanel(state));
+            }
 
-        GameObject footerObject = new GameObject("Footer", typeof(RectTransform));
-        footerObject.transform.SetParent(bodyObject.transform, false);
-        StretchDetailedConfigRect(
-            footerObject.GetComponent<RectTransform>(),
-            new Vector2(0f, 0f),
-            new Vector2(1f, 0f),
-            new Vector2(36f, 18f),
-            new Vector2(-36f, 94f));
+            if (state.FanContent != null) {
+                Transform filterRow = state.FanContent.Find("FanTableFilter");
+                state.FanFilterDropdown =
+                    filterRow?.GetComponentInChildren<TMP_Dropdown>(true);
+                if (state.FanFilterDropdown != null) {
+                    state.FanFilterDropdown.onValueChanged.RemoveAllListeners();
+                    state.FanFilterDropdown.onValueChanged.AddListener(index => {
+                        if (state.IsRefreshingFanTable) return;
+                        state.ShowAllFans = index == 1;
+                        RefreshDetailedConfigFanTable(state);
+                    });
+                }
 
-        Button resetButton = CreateDetailedConfigDialogButton(footerObject.transform, "Reset", "恢复推荐", new Vector2(0.01f, 0.12f), new Vector2(0.31f, 0.88f));
-        Button cancelButton = CreateDetailedConfigDialogButton(footerObject.transform, "Cancel", "取消", new Vector2(0.35f, 0.12f), new Vector2(0.65f, 0.88f));
-        Button confirmButton = CreateDetailedConfigDialogButton(footerObject.transform, "Confirm", "确定", new Vector2(0.69f, 0.12f), new Vector2(0.99f, 0.88f));
-        if (resetButton != null) resetButton.onClick.AddListener(() => ResetDetailedConfig(state));
-        if (cancelButton != null) cancelButton.onClick.AddListener(() => CancelDetailedConfigChanges(state));
-        if (confirmButton != null) confirmButton.onClick.AddListener(() => ConfirmDetailedConfigChanges(state));
+                foreach (DetailedConfigFanValue fan in table.Fans) {
+                    Transform row = state.FanContent.Find($"FanTai_{fan.Id}");
+                    TMP_Dropdown dropdown =
+                        row?.GetComponentInChildren<TMP_Dropdown>(true);
+                    if (row == null || dropdown == null) continue;
+                    state.FanRows[fan.Id] = row.gameObject;
+                    state.FanTaiDropdowns[fan.Id] = dropdown;
+                    string fanId = fan.Id;
+                    dropdown.onValueChanged.RemoveAllListeners();
+                    dropdown.onValueChanged.AddListener(
+                        index => OnDetailedConfigFanTaiChanged(state, fanId, index));
 
-        EnsureDetailedConfigFanTablePanel(state, headerSource, bodySource, headerHeightRatio);
+                    Transform section = state.FanContent.Find($"Section_{fan.Section}");
+                    if (section != null) {
+                        state.FanSectionHeaders[fan.Section] = section.gameObject;
+                    }
+                }
+            }
+        }
+
+        BindDetailedConfigDialogButtons(state);
+        ApplyDetailedConfigPreset(state, definition.DefaultPresetIndex);
+        if (state.FanTablePanel != null) state.FanTablePanel.SetActive(false);
         state.Panel.SetActive(false);
     }
 
-    private void AddDetailedConfigOptionControls(DetailedConfigState state, Transform parent) {
-        float sourceRowHeight = GetDetailedConfigSourceRowHeight();
-        string previousSection = null;
-        foreach (DetailedConfigOption option in state.Definition.Options) {
-            if (previousSection != option.Section) {
-                AddDetailedConfigSectionHeader(parent, option.Section);
-                previousSection = option.Section;
-            }
-            GameObject row = Instantiate(HepaiWayPanel, parent);
-            row.name = $"DetailedConfig_{option.Key}";
-            row.SetActive(true);
-            SetPanelLabel(row, option.Label);
-            LayoutElement rowLayout = row.GetComponent<LayoutElement>();
-            if (rowLayout == null) rowLayout = row.AddComponent<LayoutElement>();
-            rowLayout.minHeight = sourceRowHeight;
-            rowLayout.preferredHeight = sourceRowHeight;
-            rowLayout.flexibleWidth = 1f;
-
-            TMP_Dropdown dropdown = row.GetComponentInChildren<TMP_Dropdown>(true);
-            if (dropdown == null) continue;
-            dropdown.onValueChanged.RemoveAllListeners();
-            dropdown.ClearOptions();
-            dropdown.AddOptions(new List<string>(option.Choices));
-            state.Dropdowns[option.Key] = dropdown;
-            LayoutDetailedConfigRow(state, row, dropdown);
-
-            string optionKey = option.Key;
-            dropdown.onValueChanged.AddListener(index => OnDetailedConfigOptionChanged(state, optionKey, index));
-            SetDetailedConfigDropdownValue(state, option, state.SelectedIndices[option.Key]);
-        }
-    }
-
-    private void AddDetailedConfigFanTableEntry(
-        DetailedConfigState state,
-        Transform parent) {
-        DetailedConfigFanTable table = state.Definition.FanTable;
-        if (table == null) return;
-
-        AddDetailedConfigSectionHeader(parent, table.Section);
-        GameObject row = Instantiate(HepaiWayPanel, parent);
-        row.name = $"DetailedConfig_{table.Key}";
-        row.SetActive(true);
-        SetPanelLabel(row, table.Label);
-        LayoutElement rowLayout = row.GetComponent<LayoutElement>();
-        if (rowLayout == null) rowLayout = row.AddComponent<LayoutElement>();
-        float sourceRowHeight = GetDetailedConfigSourceRowHeight();
-        rowLayout.minHeight = sourceRowHeight;
-        rowLayout.preferredHeight = sourceRowHeight;
-        rowLayout.flexibleWidth = 1f;
-
-        TMP_Dropdown dropdown = row.GetComponentInChildren<TMP_Dropdown>(true);
-        if (dropdown == null) return;
-        dropdown.onValueChanged.RemoveAllListeners();
-        dropdown.ClearOptions();
-        dropdown.AddOptions(new List<string> { "使用基础台表" });
-        dropdown.SetValueWithoutNotify(0);
-        dropdown.RefreshShownValue();
-        dropdown.interactable = true;
-        state.FanTableEntryDropdown = dropdown;
-        LayoutDetailedConfigRow(state, row, dropdown);
-
-        GameObject overlay = new GameObject(
-            "OpenFanTableEditor",
-            typeof(RectTransform),
-            typeof(CanvasRenderer),
-            typeof(Image),
-            typeof(Button));
-        overlay.transform.SetParent(dropdown.transform, false);
-        StretchDetailedConfigRect(
-            overlay.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-        Image overlayImage = overlay.GetComponent<Image>();
-        overlayImage.color = Color.clear;
-        overlayImage.raycastTarget = true;
-        Button button = overlay.GetComponent<Button>();
-        button.targetGraphic = overlayImage;
-        button.onClick.AddListener(() => ShowDetailedConfigFanTablePanel(state));
-        RefreshDetailedConfigFanTableEntry(state);
-    }
-
-    private void EnsureDetailedConfigFanTablePanel(
-        DetailedConfigState state,
-        Transform headerSource,
-        Transform bodySource,
-        float headerHeightRatio) {
-        DetailedConfigFanTable table = state.Definition.FanTable;
-        if (table == null || state.FanTablePanel != null) return;
-
-        state.FanTablePanel = new GameObject(
-            "FanTablePanel",
-            typeof(RectTransform));
-        state.FanTablePanel.transform.SetParent(state.Panel.transform, false);
-        StretchDetailedConfigRect(
-            state.FanTablePanel.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-
-        GameObject backdropObject = new GameObject(
-            "Backdrop",
-            typeof(RectTransform),
-            typeof(CanvasRenderer),
-            typeof(Image));
-        backdropObject.transform.SetParent(state.FanTablePanel.transform, false);
-        StretchDetailedConfigRect(
-            backdropObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-        Image backdrop = backdropObject.GetComponent<Image>();
-        backdrop.sprite = null;
-        backdrop.color = new Color(0.10f, 0.10f, 0.10f, 0.58f);
-        backdrop.raycastTarget = true;
-
-        GameObject dialogObject = new GameObject("Dialog", typeof(RectTransform));
-        dialogObject.transform.SetParent(state.FanTablePanel.transform, false);
-        StretchDetailedConfigRect(
-            dialogObject.GetComponent<RectTransform>(),
-            new Vector2(0.18f, 0.08f),
-            new Vector2(0.82f, 0.92f),
-            Vector2.zero,
-            Vector2.zero);
-
-        GameObject bodyObject = Instantiate(bodySource.gameObject, dialogObject.transform, false);
-        bodyObject.name = "Create_Panel";
-        bodyObject.SetActive(true);
-        StretchDetailedConfigRect(
-            bodyObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            new Vector2(1f, 1f - headerHeightRatio),
-            Vector2.zero,
-            Vector2.zero);
-        SetDetailedConfigChildrenActive(bodyObject.transform, false);
-        Image bodyImage = bodyObject.GetComponent<Image>();
-        if (bodyImage != null) bodyImage.raycastTarget = true;
-
-        GameObject headerObject = Instantiate(headerSource.gameObject, dialogObject.transform, false);
-        headerObject.name = "HeaderPanel";
-        headerObject.SetActive(true);
-        StretchDetailedConfigRect(
-            headerObject.GetComponent<RectTransform>(),
-            new Vector2(0f, 1f - headerHeightRatio),
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-        TMP_Text headerTitle = FindDetailedConfigHeaderTextSource(headerObject.transform);
-        if (headerTitle == null) {
-            Destroy(state.FanTablePanel);
-            state.FanTablePanel = null;
-            return;
-        }
-        RetainDetailedConfigHeaderTitle(headerObject.transform, headerTitle.transform);
-        headerTitle.text = "台种设置";
-
-        GameObject scrollObject = new GameObject(
-            "ScrollArea",
-            typeof(RectTransform),
-            typeof(ScrollRect));
-        scrollObject.transform.SetParent(bodyObject.transform, false);
-        StretchDetailedConfigRect(
-            scrollObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            new Vector2(54f, 112f),
-            new Vector2(-54f, -24f));
-
-        GameObject viewportObject = new GameObject(
-            "Viewport",
-            typeof(RectTransform),
-            typeof(RectMask2D));
-        viewportObject.transform.SetParent(scrollObject.transform, false);
-        RectTransform viewport = viewportObject.GetComponent<RectTransform>();
-        StretchDetailedConfigRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-
-        GameObject contentObject = new GameObject(
-            "Content",
-            typeof(RectTransform),
-            typeof(VerticalLayoutGroup),
-            typeof(ContentSizeFitter));
-        contentObject.transform.SetParent(viewportObject.transform, false);
-        RectTransform content = contentObject.GetComponent<RectTransform>();
-        content.anchorMin = new Vector2(0f, 1f);
-        content.anchorMax = new Vector2(1f, 1f);
-        content.pivot = new Vector2(0.5f, 1f);
-        content.offsetMin = Vector2.zero;
-        content.offsetMax = Vector2.zero;
-        VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(14, 14, 12, 18);
-        layout.spacing = 7f;
-        layout.childAlignment = TextAnchor.UpperCenter;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
-        contentObject.GetComponent<ContentSizeFitter>().verticalFit =
-            ContentSizeFitter.FitMode.PreferredSize;
-
-        ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
-        scroll.viewport = viewport;
-        scroll.content = content;
+    private static void ConfigureDetailedConfigScrollViewport(ScrollRect scroll) {
+        if (scroll == null || scroll.viewport == null) return;
+        Graphic viewportGraphic = scroll.viewport.GetComponent<Graphic>();
+        if (viewportGraphic != null) viewportGraphic.raycastTarget = true;
         scroll.horizontal = false;
         scroll.vertical = true;
-        scroll.movementType = ScrollRect.MovementType.Clamped;
-        scroll.scrollSensitivity = 42f;
+    }
 
-        AddDetailedConfigFanFilter(state, content);
-        AddDetailedConfigFanRows(state, content);
-
-        GameObject footerObject = new GameObject("Footer", typeof(RectTransform));
-        footerObject.transform.SetParent(bodyObject.transform, false);
-        StretchDetailedConfigRect(
-            footerObject.GetComponent<RectTransform>(),
-            new Vector2(0f, 0f),
-            new Vector2(1f, 0f),
-            new Vector2(36f, 18f),
-            new Vector2(-36f, 94f));
-        Button resetButton = CreateDetailedConfigDialogButton(
-            footerObject.transform,
-            "Reset",
-            "恢复基础台表",
-            new Vector2(0.01f, 0.12f),
-            new Vector2(0.31f, 0.88f));
-        Button cancelButton = CreateDetailedConfigDialogButton(
-            footerObject.transform,
-            "Cancel",
-            "取消",
-            new Vector2(0.35f, 0.12f),
-            new Vector2(0.65f, 0.88f));
-        Button confirmButton = CreateDetailedConfigDialogButton(
-            footerObject.transform,
-            "Confirm",
-            "确定",
-            new Vector2(0.69f, 0.12f),
-            new Vector2(0.99f, 0.88f));
+    private void BindDetailedConfigDialogButtons(DetailedConfigState state) {
+        Transform footer = state.Panel.transform.Find("Dialog/Create_Panel/Footer");
+        Button resetButton = footer?.Find("Reset")?.GetComponent<Button>();
+        Button cancelButton = footer?.Find("Cancel")?.GetComponent<Button>();
+        Button confirmButton = footer?.Find("Confirm")?.GetComponent<Button>();
         if (resetButton != null) {
-            resetButton.onClick.AddListener(() => ResetDetailedConfigFanTable(state));
+            resetButton.onClick.RemoveAllListeners();
+            resetButton.onClick.AddListener(() => ResetDetailedConfig(state));
         }
         if (cancelButton != null) {
-            cancelButton.onClick.AddListener(() => CancelDetailedConfigFanTable(state));
+            cancelButton.onClick.RemoveAllListeners();
+            cancelButton.onClick.AddListener(() => CancelDetailedConfigChanges(state));
         }
         if (confirmButton != null) {
-            confirmButton.onClick.AddListener(() => ConfirmDetailedConfigFanTable(state));
-        }
-        state.FanTablePanel.SetActive(false);
-    }
-
-    private void AddDetailedConfigFanFilter(
-        DetailedConfigState state,
-        Transform parent) {
-        GameObject row = Instantiate(HepaiWayPanel, parent);
-        row.name = "FanTableFilter";
-        row.SetActive(true);
-        SetPanelLabel(row, "显示范围");
-        LayoutElement rowLayout = row.GetComponent<LayoutElement>();
-        if (rowLayout == null) rowLayout = row.AddComponent<LayoutElement>();
-        float sourceRowHeight = GetDetailedConfigSourceRowHeight();
-        rowLayout.minHeight = sourceRowHeight;
-        rowLayout.preferredHeight = sourceRowHeight;
-        rowLayout.flexibleWidth = 1f;
-
-        state.FanFilterDropdown = row.GetComponentInChildren<TMP_Dropdown>(true);
-        if (state.FanFilterDropdown == null) return;
-        state.FanFilterDropdown.onValueChanged.RemoveAllListeners();
-        state.FanFilterDropdown.ClearOptions();
-        state.FanFilterDropdown.AddOptions(
-            new List<string> { "仅显示已启用", "显示全部台种" });
-        state.FanFilterDropdown.SetValueWithoutNotify(state.ShowAllFans ? 1 : 0);
-        state.FanFilterDropdown.onValueChanged.AddListener(index => {
-            if (state.IsRefreshingFanTable) return;
-            state.ShowAllFans = index == 1;
-            RefreshDetailedConfigFanTable(state);
-        });
-        LayoutDetailedConfigRow(state, row, state.FanFilterDropdown);
-    }
-
-    private void AddDetailedConfigFanRows(
-        DetailedConfigState state,
-        Transform parent) {
-        DetailedConfigFanTable table = state.Definition.FanTable;
-        if (table == null) return;
-        var taiChoices = new List<string>();
-        for (int tai = table.MinimumTai; tai <= table.MaximumTai; tai++) {
-            taiChoices.Add($"{tai}台");
+            confirmButton.onClick.RemoveAllListeners();
+            confirmButton.onClick.AddListener(() => ConfirmDetailedConfigChanges(state));
         }
 
-        string previousSection = null;
-        foreach (DetailedConfigFanValue fan in table.Fans) {
-            if (previousSection != fan.Section) {
-                GameObject header = AddDetailedConfigSectionHeader(parent, fan.Section);
-                if (header != null) state.FanSectionHeaders[fan.Section] = header;
-                previousSection = fan.Section;
-            }
-
-            GameObject row = Instantiate(HepaiWayPanel, parent);
-            row.name = $"FanTai_{fan.Id}";
-            row.SetActive(true);
-            string label = string.IsNullOrEmpty(fan.Unit)
-                ? fan.Label
-                : $"{fan.Label}（{fan.Unit}）";
-            SetPanelLabel(row, label);
-            LayoutElement rowLayout = row.GetComponent<LayoutElement>();
-            if (rowLayout == null) rowLayout = row.AddComponent<LayoutElement>();
-            float sourceRowHeight = GetDetailedConfigSourceRowHeight();
-            rowLayout.minHeight = sourceRowHeight;
-            rowLayout.preferredHeight = sourceRowHeight;
-            rowLayout.flexibleWidth = 1f;
-
-            TMP_Dropdown dropdown = row.GetComponentInChildren<TMP_Dropdown>(true);
-            if (dropdown == null) continue;
-            dropdown.onValueChanged.RemoveAllListeners();
-            dropdown.ClearOptions();
-            dropdown.AddOptions(taiChoices);
-            state.FanRows[fan.Id] = row;
-            state.FanTaiDropdowns[fan.Id] = dropdown;
-            LayoutDetailedConfigRow(state, row, dropdown);
-
-            string fanId = fan.Id;
-            dropdown.onValueChanged.AddListener(
-                index => OnDetailedConfigFanTaiChanged(state, fanId, index));
+        Transform fanFooter = state.FanTablePanel != null
+            ? state.FanTablePanel.transform.Find("Dialog/Create_Panel/Footer")
+            : null;
+        Button fanResetButton = fanFooter?.Find("Reset")?.GetComponent<Button>();
+        Button fanCancelButton = fanFooter?.Find("Cancel")?.GetComponent<Button>();
+        Button fanConfirmButton = fanFooter?.Find("Confirm")?.GetComponent<Button>();
+        if (fanResetButton != null) {
+            fanResetButton.onClick.RemoveAllListeners();
+            fanResetButton.onClick.AddListener(() => ResetDetailedConfigFanTable(state));
+        }
+        if (fanCancelButton != null) {
+            fanCancelButton.onClick.RemoveAllListeners();
+            fanCancelButton.onClick.AddListener(() => CancelDetailedConfigFanTable(state));
+        }
+        if (fanConfirmButton != null) {
+            fanConfirmButton.onClick.RemoveAllListeners();
+            fanConfirmButton.onClick.AddListener(() => ConfirmDetailedConfigFanTable(state));
         }
     }
 
-    private GameObject AddDetailedConfigSectionHeader(Transform parent, string section) {
-        TMP_Text source = FindDetailedConfigRowLabel(HepaiWayPanel);
-        if (source == null) source = SubRuleDescriptionText;
-        TMP_Text header = CloneDetailedConfigText(source, parent, $"Section_{section}", section);
-        if (header == null) return null;
-        header.alignment = TextAlignmentOptions.Center;
-        header.margin = new Vector4(8f, 4f, 8f, 2f);
-        header.textWrappingMode = TextWrappingModes.NoWrap;
-        header.overflowMode = TextOverflowModes.Ellipsis;
-        LayoutElement headerLayout = header.GetComponent<LayoutElement>();
-        if (headerLayout == null) headerLayout = header.gameObject.AddComponent<LayoutElement>();
-        float inheritedRowHeight = GetDetailedConfigSourceRowHeight();
-        headerLayout.minHeight = Mathf.Max(30f, inheritedRowHeight * 0.72f);
-        headerLayout.preferredHeight = Mathf.Max(34f, inheritedRowHeight * 0.78f);
-        headerLayout.flexibleWidth = 1f;
-        return header.gameObject;
-    }
-
-    private void AddDetailedConfigPresetControls(DetailedConfigState state, Transform parent) {
-        GameObject row = Instantiate(HepaiWayPanel, parent);
-        row.name = "DetailedConfigPreset";
-        row.SetActive(true);
-        SetPanelLabel(row, state.Definition.Presentation.PresetLabel);
-        LayoutElement rowLayout = row.GetComponent<LayoutElement>();
-        if (rowLayout == null) rowLayout = row.AddComponent<LayoutElement>();
-        float sourceRowHeight = GetDetailedConfigSourceRowHeight();
-        rowLayout.minHeight = sourceRowHeight;
-        rowLayout.preferredHeight = sourceRowHeight;
-        rowLayout.flexibleWidth = 1f;
-
-        state.PresetDropdown = row.GetComponentInChildren<TMP_Dropdown>(true);
-        if (state.PresetDropdown != null) {
-            state.PresetDropdown.onValueChanged.RemoveAllListeners();
-            state.PresetDropdown.ClearOptions();
-            var names = new List<string>();
-            foreach (DetailedConfigPreset preset in state.Definition.Presets) names.Add(preset.Name);
-            names.Add(state.Definition.Presentation.CustomPresetName);
-            state.PresetDropdown.AddOptions(names);
-            state.PresetDropdown.onValueChanged.AddListener(index => ApplyDetailedConfigPreset(state, index));
-            LayoutDetailedConfigRow(state, row, state.PresetDropdown);
-        }
-
-        string description = state.Definition.DefaultPreset.Description;
-        state.PresetDescription = CloneDetailedConfigText(
-            SubRuleDescriptionText,
-            parent,
-            "PresetDescription",
-            description);
-    }
-
-    private void LayoutDetailedConfigRow(DetailedConfigState state, GameObject row, TMP_Dropdown dropdown) {
-        TMP_Text rowLabel = FindDetailedConfigRowLabel(row);
-        if (rowLabel == null) return;
-
-        rowLabel.textWrappingMode = TextWrappingModes.NoWrap;
-        rowLabel.overflowMode = TextOverflowModes.Ellipsis;
-        RectTransform labelRect = rowLabel.rectTransform;
-        float originalWidth = labelRect.rect.width;
-        float widthDelta = Mathf.Max(0f, state.LabelColumnWidth - originalWidth);
-        if (widthDelta > 0f) {
-            Vector2 size = labelRect.sizeDelta;
-            size.x += widthDelta;
-            labelRect.sizeDelta = size;
-            Vector2 position = labelRect.anchoredPosition;
-            position.x += widthDelta * labelRect.pivot.x;
-            labelRect.anchoredPosition = position;
-        }
-
-        if (dropdown == null) return;
-        RectTransform dropdownRect = dropdown.GetComponent<RectTransform>();
-        if (dropdownRect != null && widthDelta > 0f) {
-            Vector2 offsetMin = dropdownRect.offsetMin;
-            offsetMin.x += widthDelta;
-            dropdownRect.offsetMin = offsetMin;
-        }
-        if (dropdown.captionText != null) {
-            dropdown.captionText.textWrappingMode = TextWrappingModes.NoWrap;
-            dropdown.captionText.overflowMode = TextOverflowModes.Ellipsis;
-        }
-    }
-
-    private float CalculateDetailedConfigLabelColumnWidth(DetailedConfigDefinition definition) {
-        TMP_Text sourceLabel = FindDetailedConfigRowLabel(HepaiWayPanel);
-        if (sourceLabel == null) return 0f;
-
-        float sourceWidth = sourceLabel.rectTransform.rect.width;
-        if (sourceWidth <= 0f) sourceWidth = Mathf.Abs(sourceLabel.rectTransform.sizeDelta.x);
-        float sourceTextWidth = sourceLabel.GetPreferredValues(sourceLabel.text).x;
-        float inheritedPadding = Mathf.Max(0f, sourceWidth - sourceTextWidth);
-        float requiredWidth = sourceWidth;
-        foreach (DetailedConfigOption option in definition.Options) {
-            requiredWidth = Mathf.Max(
-                requiredWidth,
-                sourceLabel.GetPreferredValues(option.Label).x + inheritedPadding);
-        }
-        requiredWidth = Mathf.Max(
-            requiredWidth,
-            sourceLabel.GetPreferredValues(definition.Presentation.PresetLabel).x + inheritedPadding);
-        if (definition.FanTable != null) {
-            requiredWidth = Mathf.Max(
-                requiredWidth,
-                sourceLabel.GetPreferredValues(definition.FanTable.Label).x + inheritedPadding);
-            foreach (DetailedConfigFanValue fan in definition.FanTable.Fans) {
-                string label = string.IsNullOrEmpty(fan.Unit)
-                    ? fan.Label
-                    : $"{fan.Label}（{fan.Unit}）";
-                requiredWidth = Mathf.Max(
-                    requiredWidth,
-                    sourceLabel.GetPreferredValues(label).x + inheritedPadding);
-            }
-        }
-        return Mathf.Ceil(requiredWidth);
-    }
-
-    private float GetDetailedConfigSourceRowHeight() {
-        RectTransform source = HepaiWayPanel != null ? HepaiWayPanel.GetComponent<RectTransform>() : null;
-        if (source == null) return 1f;
-        float height = Mathf.Abs(source.rect.height);
-        if (height <= 0f) height = Mathf.Abs(source.sizeDelta.y);
-        return Mathf.Max(1f, height);
-    }
-
-    private static TMP_Text FindDetailedConfigRowLabel(GameObject row) {
-        if (row == null) return null;
-        foreach (TMP_Text label in row.GetComponentsInChildren<TMP_Text>(true)) {
-            if (label.GetComponentInParent<TMP_Dropdown>() == null) return label;
-        }
-        return null;
-    }
-
-    private static TMP_Text FindDetailedConfigHeaderTextSource(Transform header) {
-        if (header == null) return null;
-        foreach (TMP_Text text in header.GetComponentsInChildren<TMP_Text>(true)) {
-            if (text.GetComponentInParent<TMP_Dropdown>() != null) continue;
-            if (text.GetComponentInParent<Button>() != null) continue;
-            return text;
-        }
-        return null;
-    }
-
-    private static TMP_Text CloneDetailedConfigText(
-        TMP_Text source,
-        Transform parent,
-        string objectName,
-        string value) {
-        if (source == null) return null;
-        TMP_Text clone = Instantiate(source, parent, false);
-        clone.name = objectName;
-        clone.gameObject.SetActive(true);
-        clone.text = value;
-        return clone;
-    }
-
-    private static void SetDetailedConfigChildrenActive(Transform parent, bool active) {
-        if (parent == null) return;
-        foreach (Transform child in parent) child.gameObject.SetActive(active);
-    }
-
-    private static void RetainDetailedConfigHeaderTitle(Transform parent, Transform title) {
-        if (parent == null || title == null) return;
-        foreach (Transform child in parent) {
-            bool keep = child == title || title.IsChildOf(child);
-            child.gameObject.SetActive(keep);
-            if (keep && child != title) RetainDetailedConfigHeaderTitle(child, title);
-        }
-    }
-
-    private Button CreateDetailedConfigDialogButton(
-        Transform parent,
-        string objectName,
-        string label,
-        Vector2 anchorMin,
-        Vector2 anchorMax) {
-        if (createButton == null) return null;
-        Button button = Instantiate(createButton, parent);
-        button.name = objectName;
-        button.gameObject.SetActive(true);
-        button.onClick.RemoveAllListeners();
-        StretchDetailedConfigRect(
-            button.GetComponent<RectTransform>(),
-            anchorMin,
-            anchorMax,
-            new Vector2(6f, 4f),
-            new Vector2(-6f, -4f));
-        TMP_Text text = button.GetComponentInChildren<TMP_Text>(true);
-        if (text != null) text.text = label;
-        return button;
-    }
-
-    private static void StretchDetailedConfigRect(
-        RectTransform rect,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        Vector2 offsetMin,
-        Vector2 offsetMax) {
-        rect.anchorMin = anchorMin;
-        rect.anchorMax = anchorMax;
-        rect.offsetMin = offsetMin;
-        rect.offsetMax = offsetMax;
-        rect.localScale = Vector3.one;
-    }
 
     private static Dictionary<string, object> GetDetailedConfigSelectedValues(
         DetailedConfigState state) {
@@ -843,6 +306,9 @@ public partial class CreatePanel {
             state.IsRefreshingFanTable = false;
         }
         RefreshDetailedConfigFanTableEntry(state);
+        if (state.FanContent != null) {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(state.FanContent);
+        }
     }
 
     private void OnDetailedConfigFanTaiChanged(
@@ -875,8 +341,8 @@ public partial class CreatePanel {
         RefreshDetailedConfigFanTable(state);
         state.FanTablePanel.SetActive(true);
         state.FanTablePanel.transform.SetAsLastSibling();
-        LayoutRebuilder.ForceRebuildLayoutImmediate(
-            state.FanTablePanel.GetComponent<RectTransform>());
+        Canvas.ForceUpdateCanvases();
+        if (state.FanScroll != null) state.FanScroll.verticalNormalizedPosition = 1f;
     }
 
     private void ResetDetailedConfigFanTable(DetailedConfigState state) {
@@ -940,7 +406,6 @@ public partial class CreatePanel {
             state.IsApplyingPreset = false;
         }
         RefreshDetailedConfigFanTable(state);
-        RefreshDetailedConfigDropdownCaption(state, presetIndex);
     }
 
     private void OnDetailedConfigOptionChanged(DetailedConfigState state, string optionKey, int index) {
@@ -967,7 +432,6 @@ public partial class CreatePanel {
                 ? state.Definition.Presets[matchingPreset].Description
                 : state.Definition.Presentation.CustomDescription;
         }
-        RefreshDetailedConfigDropdownCaption(state, matchingPreset);
     }
 
     private static int FindMatchingDetailedConfigPresetIndex(DetailedConfigState state) {
@@ -1068,7 +532,7 @@ public partial class CreatePanel {
     }
 
     private Dictionary<string, object> BuildDetailedConfigValues(string ruleKey) {
-        DetailedConfigState state = GetDetailedConfigState(ruleKey, true);
+        DetailedConfigState state = GetDetailedConfigState(ruleKey);
         var result = new Dictionary<string, object>();
         if (state == null) return result;
 
@@ -1087,13 +551,13 @@ public partial class CreatePanel {
 
     private bool ShowDetailedConfigPanel(string ruleKey) {
         if (!DetailedConfigRegistry.TryGet(ruleKey, out _)) return false;
-        EnsureDetailedConfigControls(ruleKey);
-        DetailedConfigState state = GetDetailedConfigState(ruleKey, false);
+        DetailedConfigState state = GetDetailedConfigState(ruleKey);
         if (state == null || state.Panel == null || state.Panel.activeSelf) return true;
         CaptureDetailedConfigSnapshot(state);
         state.Panel.SetActive(true);
         state.Panel.transform.SetAsLastSibling();
-        LayoutRebuilder.ForceRebuildLayoutImmediate(state.Panel.GetComponent<RectTransform>());
+        Canvas.ForceUpdateCanvases();
+        if (state.Scroll != null) state.Scroll.verticalNormalizedPosition = 1f;
         return true;
     }
 
@@ -1103,76 +567,28 @@ public partial class CreatePanel {
         if (state.Panel != null) state.Panel.SetActive(false);
     }
 
-    private void EnsureDetailedConfigDropdownButton() {
-        if (_detailedConfigDropdownButton != null || SubRuleDropdown == null) return;
-        GameObject buttonObject = new GameObject(
-            "DetailedConfigButton",
-            typeof(RectTransform),
-            typeof(CanvasRenderer),
-            typeof(Image),
-            typeof(Button));
-        buttonObject.transform.SetParent(SubRuleDropdown.transform, false);
-        StretchDetailedConfigRect(
-            buttonObject.GetComponent<RectTransform>(),
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero);
-        Image raycastImage = buttonObject.GetComponent<Image>();
-        raycastImage.color = Color.clear;
-        raycastImage.raycastTarget = true;
-
-        _detailedConfigDropdownButton = buttonObject.GetComponent<Button>();
-        _detailedConfigDropdownButton.targetGraphic = SubRuleDropdown.targetGraphic;
-        _detailedConfigDropdownButton.transition = SubRuleDropdown.transition;
-        _detailedConfigDropdownButton.colors = SubRuleDropdown.colors;
-        _detailedConfigDropdownButton.spriteState = SubRuleDropdown.spriteState;
-        _detailedConfigDropdownButton.animationTriggers = SubRuleDropdown.animationTriggers;
-        _detailedConfigDropdownButton.navigation = SubRuleDropdown.navigation;
-        _detailedConfigDropdownButton.onClick.AddListener(
-            () => ShowDetailedConfigPanel(_ruleState));
-        buttonObject.SetActive(false);
-    }
-
-    private void RefreshDetailedConfigDropdownCaption(
-        DetailedConfigState state,
-        int matchingPreset) {
-        if (state == null
-            || state.Definition.RuleKey != _ruleState
-            || SubRuleDropdown == null
-            || _detailedConfigDropdownButton == null) return;
-
-        string displayName = matchingPreset >= 0
-            ? state.Definition.Presets[matchingPreset].Name
-            : "自定义规则";
-        SubRuleDropdown.ClearOptions();
-        SubRuleDropdown.AddOptions(new List<string> { displayName });
-        SubRuleDropdown.SetValueWithoutNotify(0);
-        SubRuleDropdown.RefreshShownValue();
-    }
-
     private void RefreshDetailedConfigEntry() {
         if (SubRuleDropdown == null) return;
         bool hasSubRule = RuleConfigs.TryGetValue(
             _ruleState,
             out Dictionary<string, object> ruleConfig)
             && ruleConfig.ContainsKey(CfgSubRule);
-        bool useDetailedConfigDropdown = !hasSubRule
+        bool showTaiwanDetailedConfig = _ruleState == "taiwan"
             && DetailedConfigRegistry.TryGet(_ruleState, out _);
 
-        EnsureDetailedConfigDropdownButton();
-        SubRuleDropdown.gameObject.SetActive(hasSubRule || useDetailedConfigDropdown);
-        SubRuleDropdown.enabled = true;
-        _detailedConfigDropdownButton.gameObject.SetActive(useDetailedConfigDropdown);
-
-        if (useDetailedConfigDropdown) {
-            DetailedConfigState state = GetDetailedConfigState(_ruleState, true);
-            RefreshDetailedConfigDropdownCaption(
-                state,
-                FindMatchingDetailedConfigPresetIndex(state));
+        if (SubRuleText != null) {
+            SubRuleText.text = showTaiwanDetailedConfig ? "设置馆规" : "子规则";
+            SubRuleText.gameObject.SetActive(hasSubRule || showTaiwanDetailedConfig);
         }
-        if (SubRuleDropdown.transform.parent is RectTransform rowRect) {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(rowRect);
+        SubRuleDropdown.gameObject.SetActive(hasSubRule);
+        SubRuleDropdown.enabled = true;
+        if (DetailedConfigButton != null) {
+            DetailedConfigButton.gameObject.SetActive(showTaiwanDetailedConfig);
+        }
+        if (SubRuleDropdown.transform.parent != null) {
+            LayoutHierarchyRebuilder.RebuildUpwards(
+                SubRuleDropdown.transform.parent,
+                transform);
         }
 
         foreach (KeyValuePair<string, DetailedConfigState> entry in _detailedConfigStates) {

@@ -1,4 +1,4 @@
-import{ao as U,ay as g,az as c,aA as _,aB as m,ag as S,au as h}from"./index-_VhXQfKk.js";import{u as I}from"./Game.css_vue_type_style_index_0_src_true_lang-CZike1jh.js";const x={name:"local-uniform-bit",vertex:{header:`
+import{ao as U,az as g,aA as c,aB as _,aC as m,ag as S,av as h}from"./index-DcBLEJ0M.js";import{u as I}from"./Game.css_vue_type_style_index_0_src_true_lang-CZJYXJGi.js";const x={name:"local-uniform-bit",vertex:{header:`
 
             struct LocalUniforms {
                 uTransformMatrix:mat3x3<f32>,
@@ -15,7 +15,7 @@ import{ao as U,ay as g,az as c,aA as _,aB as m,ag as S,au as h}from"./index-_VhX
             {
                 vPosition = vec4(roundPixels(vPosition.xy, globalUniforms.uResolution), vPosition.zw);
             }
-        `}},C={...x,vertex:{...x.vertex,header:x.vertex.header.replace("group(1)","group(2)")}},D={name:"local-uniform-bit",vertex:{header:`
+        `}},A={...x,vertex:{...x.vertex,header:x.vertex.header.replace("group(1)","group(2)")}},D={name:"local-uniform-bit",vertex:{header:`
 
             uniform mat3 uTransformMatrix;
             uniform vec4 uColor;
@@ -182,4 +182,4 @@ import{ao as U,ay as g,az as c,aA as _,aB as m,ag as S,au as h}from"./index-_VhX
         data[offset + 1] = v[1];
         data[offset + 2] = v[2];
         data[offset + 3] = v[3];
-    `};class z extends S{constructor({buffer:t,offset:a,size:r}){super(),this.uid=h("buffer"),this._resourceType="bufferResource",this._touched=0,this._resourceId=h("resource"),this._bufferResource=!0,this.destroyed=!1,this.buffer=t,this.offset=a|0,this.size=r,this.buffer.on("change",this.onBufferChange,this)}onBufferChange(){this._resourceId=h("resource"),this.emit("change",this)}destroy(t=!1){this.destroyed=!0,t&&this.buffer.destroy(),this.emit("change",this),this.buffer=null,this.removeAllListeners()}}export{z as B,l as G,k as U,x as a,F as b,w as c,p as d,B as e,D as f,R as g,C as l,O as t,P as u};
+    `};class z extends S{constructor({buffer:t,offset:a,size:r}){super(),this.uid=h("buffer"),this._resourceType="bufferResource",this._touched=0,this._resourceId=h("resource"),this._bufferResource=!0,this.destroyed=!1,this.buffer=t,this.offset=a|0,this.size=r,this.buffer.on("change",this.onBufferChange,this)}onBufferChange(){this._resourceId=h("resource"),this.emit("change",this)}destroy(t=!1){this.destroyed=!0,t&&this.buffer.destroy(),this.emit("change",this),this.buffer=null,this.removeAllListeners()}}export{z as B,l as G,k as U,x as a,F as b,w as c,p as d,B as e,D as f,R as g,A as l,O as t,P as u};

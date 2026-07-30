@@ -978,6 +978,7 @@ public class EndResultPanel : MonoBehaviour {
                 TotalScore.text = $"{huScore}点";
             }
             TotalLimitDisplay.gameObject.SetActive(false);
+            RebuildResultLayoutHierarchy(FanCountTotalPanel.transform);
             return;
         }
 
@@ -1010,6 +1011,11 @@ public class EndResultPanel : MonoBehaviour {
         bool showLimit = isClassical && huScore >= 300;
         TotalLimitDisplay.gameObject.SetActive(showLimit);
         if (showLimit) TotalLimitDisplay.text = "满贯";
+        RebuildResultLayoutHierarchy(FanCountTotalPanel.transform);
+    }
+
+    private void RebuildResultLayoutHierarchy(Transform changed) {
+        LayoutHierarchyRebuilder.RebuildUpwards(changed, transform);
     }
 
     /// <summary>

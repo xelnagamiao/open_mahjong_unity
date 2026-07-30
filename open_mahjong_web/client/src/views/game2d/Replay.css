@@ -32,7 +32,7 @@
   inset: auto;
   flex: 1 1 auto;
   min-height: 0;
-  cursor: pointer;
+  cursor: default;
 }
 
 .replay-sidebar {
@@ -109,16 +109,16 @@
 .replay-section h2 { margin: 0 0 9px; color: #d9dddd; font-size: 12px; font-weight: 650; letter-spacing: 0.08em; }
 .replay-rounds { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
 .replay-rounds button { min-width: 0; height: 29px; padding: 0; border-radius: 4px; font-size: 12px; }
-.replay-rounds button.is-active,
 .replay-viewpoints button.is-active { border-color: #df7d23; background: #df7d23; color: #fff; }
 .replay-rounds button.is-draw { border-color: #798084; background: #555c60; }
 .replay-rounds button.is-win { border-color: #46aa70; background: #287c4b; }
 .replay-rounds button.is-ron-loss { border-color: #c55d5d; background: #8d3636; }
 .replay-rounds button.is-tsumo-loss { border-color: #5c91d8; background: #315f9d; }
-.replay-rounds button.is-draw.is-active { border-color: #aeb4b6; background: #6d7579; }
-.replay-rounds button.is-win.is-active { border-color: #7de0a5; background: #32935a; }
-.replay-rounds button.is-ron-loss.is-active { border-color: #f18a8a; background: #ad4444; }
-.replay-rounds button.is-tsumo-loss.is-active { border-color: #8dbaff; background: #4279bd; }
+.replay-rounds button.is-active {
+  border: 2px solid #ff982f;
+  box-shadow: 0 0 0 1px rgba(255, 187, 112, 0.78);
+  color: #fff;
+}
 .replay-round-tooltip {
   position: fixed;
   z-index: 100;
@@ -294,12 +294,13 @@
   display: grid;
   place-items: center;
   padding: 22px;
-  background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
   box-sizing: border-box;
 }
 
 .replay-wall {
   position: relative;
+  pointer-events: auto;
   width: min(82%, 820px);
   max-height: min(70%, 560px);
   padding: 12px;
@@ -415,6 +416,9 @@
 .replay-page.is-black-tile-face .replay-wall__row > span { border-color: #a64a20; background: #1e1e1e; }
 .replay-end-result { z-index: 55; }
 .replay-end-result .end-result-panel--draw { padding-bottom: 48px; }
+.replay-end-result.is-instant-fans .end-result-fan.is-visible {
+  animation: none;
+}
 
 .replay-settings-layer {
   position: absolute;

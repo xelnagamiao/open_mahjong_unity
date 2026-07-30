@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 
 /// <summary>
 /// Opens a read-only 3D replay from a public share link without creating a login session.
-/// Canonical link: https://salasasa.cn/3d/record/{gameId}
+/// Canonical link: https://salasasa.cn/unity-game/record/{gameId}
 /// </summary>
 public sealed class SharedRecordLink : MonoBehaviour {
     private const int MaxGameIdLength = 16;
@@ -19,8 +19,14 @@ public sealed class SharedRecordLink : MonoBehaviour {
     private bool _isLoading;
     private string _queuedGameId;
 
+    /// <summary>
+    /// True only while a replay opened through a public 3D share URL is active.
+    /// This must not be inferred from UserId: WebGL can retain a previous login in local storage.
+    /// </summary>
+    public static bool IsPublicSharePlayback { get; private set; }
+
     public static string BuildShareUrl(string gameId) {
-        return $"{ConfigManager.webUrl}/3d/record/{gameId}";
+        return $"{ConfigManager.webUrl}/unity-game/record/{gameId}";
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -76,9 +82,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
         if (string.IsNullOrWhiteSpace(value)) return false;
         string text = value.Trim();
         return text.IndexOf("://", StringComparison.Ordinal) >= 0
-            || text.IndexOf("/3d/record/", StringComparison.OrdinalIgnoreCase) >= 0
-            || text.IndexOf("/unity/record/", StringComparison.OrdinalIgnoreCase) >= 0
-            || text.IndexOf("/2d/record/", StringComparison.OrdinalIgnoreCase) >= 0;
+            || text.IndexOf("/unity-game/record/", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool TryExtractGameId(string value, out string gameId) {
@@ -102,9 +106,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
             string[] segments = uri.AbsolutePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i + 2 < segments.Length; i++) {
                 bool supportedPrefix =
-                    (segments[i].Equals("3d", StringComparison.OrdinalIgnoreCase)
-                        || segments[i].Equals("unity", StringComparison.OrdinalIgnoreCase)
-                        || segments[i].Equals("2d", StringComparison.OrdinalIgnoreCase))
+                    segments[i].Equals("unity-game", StringComparison.OrdinalIgnoreCase)
                     && segments[i + 1].Equals("record", StringComparison.OrdinalIgnoreCase);
                 if (supportedPrefix) {
                     candidate = Uri.UnescapeDataString(segments[i + 2]);
@@ -144,7 +146,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
     }
 
     private IEnumerator FetchAndOpen(string gameId) {
-        ShowTip("牌谱", true, "正在免登录读取分享牌谱…");
+        IsPublicSharePlayback = false;
         string endpoint = $"{ConfigManager.webUrl}/api/platform/unity-record/{UnityWebRequest.EscapeURL(gameId)}";
 
         using (UnityWebRequest request = UnityWebRequest.Get(endpoint)) {
@@ -173,18 +175,41 @@ public sealed class SharedRecordLink : MonoBehaviour {
             }
 
             float deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
-            while ((WindowsManager.Instance == null || GameRecordManager.Instance == null)
-                && Time.realtimeSinceStartup < deadline) {
+            while (WindowsManager.Instance == null && Time.realtimeSinceStartup < deadline) {
                 yield return null;
             }
 
-            if (WindowsManager.Instance == null || GameRecordManager.Instance == null) {
-                ShowTip("无法打开牌谱", false, "3D 牌谱场景尚未就绪，请重启客户端后再试");
+            if (WindowsManager.Instance == null) {
+                Debug.LogError("打开分享牌谱失败：窗口管理器未就绪");
+                yield break;
+            }
+
+            IsPublicSharePlayback = true;
+            // GameRecordManager lives under the inactive game panel. Activate the
+            // record scene first; waiting for it before switching creates a deadlock.
+            WindowsManager.Instance.SwitchWindow("recordscene");
+
+            deadline = Time.realtimeSinceStartup + SceneReadyTimeoutSeconds;
+            while (GameRecordManager.Instance == null && Time.realtimeSinceStartup < deadline) {
+                yield return null;
+            }
+
+            if (GameRecordManager.Instance == null) {
+                Debug.LogError("打开分享牌谱失败：3D 牌谱场景未能初始化");
+                IsPublicSharePlayback = false;
+                WindowsManager.Instance.ExitGameTo("login");
                 yield break;
             }
 
             RecordPanel.OpenRecord(detail);
         }
+    }
+
+    /// <summary>
+    /// Ends the one-shot public share session when the viewer leaves the replay.
+    /// </summary>
+    public static void EndPublicSharePlayback() {
+        IsPublicSharePlayback = false;
     }
 
     private static string ReadServerError(UnityWebRequest request) {

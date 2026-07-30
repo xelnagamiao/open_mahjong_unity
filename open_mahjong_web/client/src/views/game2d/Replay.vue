@@ -43,7 +43,7 @@
           </button>
         </div>
 
-        <div v-if="wallVisible" class="replay-wall-layer" @click.self="wallVisible = false">
+        <div v-if="wallVisible" class="replay-wall-layer">
         <section class="replay-wall" aria-label="当前牌山">
           <header>
             <strong>牌山阅览</strong>
@@ -133,7 +133,11 @@
           </section>
         </div>
 
-        <div v-if="resultPanelVisible && roundResult" class="end-result-layer replay-end-result">
+        <div
+          v-if="resultPanelVisible && roundResult"
+          class="end-result-layer replay-end-result"
+          :class="{ 'is-instant-fans': !playWinAnimation }"
+        >
           <section
             v-if="roundResult.kind === 'draw'"
             class="end-result-panel end-result-panel--draw"
@@ -343,7 +347,7 @@
 
         <section v-if="detail" class="replay-section replay-meta">
           <h2>对局信息</h2>
-          <div class="replay-meta__scroll">
+          <div ref="gameInfoScrollElement" class="replay-meta__scroll" @wheel.prevent="onGameInfoWheel">
             <dl>
               <div v-for="row in gameInfoRows" :key="row.label">
                 <dt>{{ row.label }}</dt>
@@ -407,10 +411,11 @@ const playing = ref(false)
 const sceneReady = ref(false)
 const copiedKind = ref<'2d' | '3d' | null>(null)
 const currentScores = ref<number[]>([])
-const showOtherHands = ref(false)
-const playWinAnimation = ref(true)
+const showOtherHands = ref(true)
+const playWinAnimation = ref(false)
 const chongHintEnabled = ref(true)
 const showMoqieMode = ref(true)
+const gameInfoScrollElement = ref<HTMLElement | null>(null)
 const wallVisible = ref(false)
 const resultPanelVisible = ref(false)
 const revealedFanCount = ref(0)
@@ -897,12 +902,18 @@ function presentTerminalResult(action: string, handRevealApplied = false) {
     resetTerminalPresentation()
     return
   }
-  if (!handRevealApplied) revealReplayWinHand(playWinAnimation.value)
+  // The table win action is independent from the settlement-panel animation:
+  // always reveal the winner's hand and play the final win sound.
+  if (!handRevealApplied) revealReplayWinHand(true)
   if (!playWinAnimation.value) {
-    resultPanelVisible.value = true
     revealedFanCount.value = resultFans.value.length
     showResultTotal.value = true
     showResultConfirm.value = true
+    // Keep the same table-side "和" / voice / hand-reveal presentation time.
+    // Only the fan rows themselves skip their staggered entrance.
+    scheduleResult(() => {
+      resultPanelVisible.value = true
+    }, 1500)
     return
   }
   revealedFanCount.value = 0
@@ -965,11 +976,9 @@ function advanceAnimatedStep() {
   decorateEventRanks(update)
   node.value = nextNode
   if (update) {
-    if (action.startsWith('hu_') && !playWinAnimation.value) {
-      scene.flushFromSnapshot(nextPosition.snapshot)
-    } else {
-      scene.handleEvent(update)
-    }
+    // Even in instant-panel mode, execute the same table-side win event as a
+    // normal replay step so the hand reveal and final win audio are preserved.
+    scene.handleEvent(update)
     refreshReplayHints(nextPosition.snapshot)
     actionLabel.value = nextPosition.actionLabel
     const seatMap = replay.value.rounds[roundIndex.value].seats || [0, 1, 2, 3]
@@ -977,7 +986,7 @@ function advanceAnimatedStep() {
     skipNextPositionRender = true
   }
   if (action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku') {
-    presentTerminalResult(action, Boolean(update) && playWinAnimation.value)
+    presentTerminalResult(action, Boolean(update))
   }
 }
 
@@ -1083,7 +1092,6 @@ function selectRound(index: number) {
   if (terminalLocked.value) return
   stopPlaying()
   resetTerminalPresentation()
-  wallVisible.value = false
   roundIndex.value = index
   node.value = 0
 }
@@ -1247,6 +1255,17 @@ function toggleMoqieHint() {
   renderPosition()
 }
 
+function onGameInfoWheel(event: WheelEvent) {
+  const element = gameInfoScrollElement.value
+  if (!element) return
+  const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? 16
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? element.clientHeight
+      : 1
+  element.scrollTop += event.deltaY * unit * 0.5
+}
+
 function mmcrTileAsset(tid: number) {
   const suit = Number(tid) & 0xe0
   const rank = Number(tid) & 0x0f
@@ -1347,7 +1366,10 @@ function changeVolume(next: number) {
 
 async function copyShareLink(kind: '2d' | '3d') {
   const gameId = String(detail.value?.game_id || route.params.gameId)
-  const url = new URL(`/${kind}/record/${encodeURIComponent(gameId)}`, window.location.origin).toString()
+  const path = kind === '3d'
+    ? `/unity-game/record/${encodeURIComponent(gameId)}`
+    : `/2d/record/${encodeURIComponent(gameId)}`
+  const url = new URL(path, window.location.origin).toString()
   try {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind
@@ -1419,7 +1441,10 @@ async function loadRecord() {
     roundIndex.value = 0
     node.value = 0
     viewerOriginal.value = 0
-    showOtherHands.value = false
+    showOtherHands.value = true
+    playWinAnimation.value = false
+    chongHintEnabled.value = true
+    showMoqieMode.value = true
     wallVisible.value = false
     scoreboardOpen.value = false
     settingsOpen.value = false
