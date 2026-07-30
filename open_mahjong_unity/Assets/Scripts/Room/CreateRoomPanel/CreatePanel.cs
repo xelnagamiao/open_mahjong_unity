@@ -458,7 +458,16 @@ public partial class CreatePanel : MonoBehaviour {
     private void RebuildCreateRoomLayoutHierarchy() {
         Transform body = transform.Find("Create_Panel");
         if (body != null) {
-            LayoutHierarchyRebuilder.RebuildUpwards(body, transform);
+            // ToggleContainer owns a GridLayoutGroup + ContentSizeFitter. Its
+            // height must be settled before Content's VerticalLayoutGroup can
+            // place it below RuleDescribePanel. Rebuilding from Create_Panel
+            // skips that inner fitter and leaves Content using the old height.
+            Transform toggleContainer = body.Find("Scroll View/Viewport/Content/ToggleContainer");
+            if (toggleContainer != null) {
+                LayoutHierarchyRebuilder.RebuildUpwards(toggleContainer, transform);
+            } else {
+                LayoutHierarchyRebuilder.RebuildUpwards(body, transform);
+            }
         }
         Transform header = transform.Find("HeaderPanel");
         if (header != null) {
@@ -483,6 +492,8 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void RefreshSubRuleDescription() {
         SubRuleDescriptionText.text = SubRuleDescriptionDictionary.GetDescription(GetCurrentSubRuleKey());
+        SubRuleDescriptionText.ForceMeshUpdate();
+        LayoutHierarchyRebuilder.RebuildUpwards(SubRuleDescriptionText.rectTransform, transform);
     }
 
     private void InitSubRuleDropdown() {
