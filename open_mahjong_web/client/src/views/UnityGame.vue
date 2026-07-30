@@ -239,6 +239,7 @@ async function loadUnityGame(gen) {
     companyName: 'DefaultCompany',
     productName: 'open_mahjong_unity',
     productVersion: '0.0.31.0',
+    autoSyncPersistentDataPath: true,
     showBanner: unityShowBanner
   }
 
