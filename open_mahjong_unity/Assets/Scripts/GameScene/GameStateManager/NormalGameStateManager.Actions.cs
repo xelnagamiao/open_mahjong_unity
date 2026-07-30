@@ -74,9 +74,10 @@ public partial class NormalGameStateManager {
     }
 
     // 执行行动
-    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, bool? sea_bottom_discard = null, int? buhua_recipient = null, string ready_qualification = null) {
+    public void DoAction(string[] action_list, int action_player, int? cut_tile, int[] cut_tiles, int? cut_tile_index, bool? cut_class, int? deal_tile, int[] deal_tiles, int? buhua_tile, int[] combination_mask,string combination_target, bool? is_riichi_horizontal = null, bool isClaim = false, bool isSilent = false, bool? is_mo_gang = null, Dictionary<int, int> gangScoreChanges = null, bool? is_mo_buhua = null, int action_tick = 0, int? cut_from_player = null, bool? sea_bottom_discard = null, int? buhua_recipient = null, string ready_qualification = null, bool isTimeoutAction = false) {
         string GetCardPlayer = indexToPosition[action_player]; // 获取执行操作的玩家位置
         UpdateSelfReadyQualification(action_player, ready_qualification);
+        RegisterSelfTimeoutCut(action_list, action_player, isTimeoutAction);
         bool isRiichiHorizontalCut = is_riichi_horizontal == true;
         if (isClaim) {
             // 战术鸣牌申请：仅发声/字体；荣和即使无更高优先级竞争者也会由服务端下发 is_claim

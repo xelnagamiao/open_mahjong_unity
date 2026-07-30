@@ -5,6 +5,9 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     private Coroutine waitAutoActionCoroutine;
+    private const int TimeoutCutsBeforeAutoMoqie = 3;
+    private int consecutiveSelfTimeoutCuts;
+    private bool timeoutAutoMoqieActive;
 
     private static readonly HashSet<string> HuActionNames = new HashSet<string> {
         "hu", "hu_first", "hu_second", "hu_third"
@@ -13,6 +16,37 @@ public partial class NormalGameStateManager {
     private static readonly string[] HandActionsBlockingAutoCut = {
         "buzhang", "angang", "jiagang", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buhua"
     };
+
+    /// <summary>
+    /// 只统计服务端明确标记的自家超时切牌。达到阈值后锁存自动摸切，
+    /// 此后普通切牌回包不再清零，直到玩家主动关闭自动摸切。
+    /// </summary>
+    private void RegisterSelfTimeoutCut(string[] actions, int actionPlayer, bool isTimeoutAction) {
+        if (IsRealtimeSpectator || timeoutAutoMoqieActive || actionPlayer != selfIndex ||
+            actions == null || !actions.Contains("cut")) {
+            return;
+        }
+
+        if (!isTimeoutAction) {
+            consecutiveSelfTimeoutCuts = 0;
+            return;
+        }
+
+        consecutiveSelfTimeoutCuts++;
+        Debug.Log($"[AutoAction] 连续超时切牌 {consecutiveSelfTimeoutCuts}/{TimeoutCutsBeforeAutoMoqie}");
+        if (consecutiveSelfTimeoutCuts < TimeoutCutsBeforeAutoMoqie) {
+            return;
+        }
+
+        timeoutAutoMoqieActive = true;
+        AutoAction.Instance?.EnableAutoCutFromTimeout();
+        Debug.Log("[AutoAction] 连续超时达到阈值，已开启自动摸切");
+    }
+
+    public void ResetTimeoutAutoMoqieTracking() {
+        consecutiveSelfTimeoutCuts = 0;
+        timeoutAutoMoqieActive = false;
+    }
 
     /// <summary>取消未完成的自动操作协程，避免手动/自动 ChooseAction 后过期协程再次 ClearAction。</summary>
     public void CancelWaitAutoAction(string reason) {

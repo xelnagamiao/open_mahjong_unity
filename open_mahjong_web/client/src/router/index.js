@@ -26,6 +26,7 @@ import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
 import GuessFanApp from '@/views/guess-fan/GuessFanApp.vue'
 import RecordConvert from '@/views/RecordConvert.vue'
+import UnityRecord from '@/views/UnityRecord.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AdminLogin from '@/views/admin/Login.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
@@ -192,6 +193,12 @@ const routes = [
     meta: { title: '麻将对战平台 - salasasa.cn' }
   },
   {
+    path: '/3d/record/:gameId',
+    name: 'Unity3DRecord',
+    component: UnityRecord,
+    meta: { title: 'Salasasa Unity 3D 牌谱分享' }
+  },
+  {
     path: '/2d',
     name: 'Game2DLobby',
     component: () => import('@/views/game2d/Lobby.vue'),
@@ -202,6 +209,12 @@ const routes = [
     name: 'Game2D',
     component: () => import('@/views/game2d/Game.vue'),
     meta: { title: 'Salasasa 2D 国标对局' }
+  },
+  {
+    path: '/2d/record/:gameId',
+    name: 'Game2DRecord',
+    component: () => import('@/views/game2d/Replay.vue'),
+    meta: { title: 'Salasasa 2D 牌谱阅览' }
   },
   {
     path: '/2d/player/:id',

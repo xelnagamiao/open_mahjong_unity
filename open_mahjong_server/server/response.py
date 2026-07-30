@@ -130,6 +130,7 @@ class Do_action_info(BaseModel):
     cut_tiles: Optional[List[int]] = None
     cut_class: Optional[bool] = None # 在切牌时广播切牌手模切类型
     cut_tile_index: Optional[int] = None # 在切牌时广播切牌位置
+    is_timeout_action: Optional[bool] = None # 服务端等待超时后代为执行的切牌
     deal_tile: Optional[int] = None # 在摸牌时广播摸牌
     deal_tiles: Optional[List[int]] = None
     buhua_tile: Optional[int] = None # 在补花时广播补花

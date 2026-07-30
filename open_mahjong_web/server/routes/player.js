@@ -6,7 +6,6 @@ const {
   resolveUserId,
   fetchPlayerRankStats,
   buildRecordFilters,
-  buildRecordMeta,
   listPublicEvents,
   fetchPublicEventDetail,
   LIST_PAGE_MAX,

@@ -1,7 +1,7 @@
 <template>
   <div class="scene-appearance-panel">
     <div class="scene-appearance-panel__header">
-      <h3 class="scene-appearance-panel__title">画面设置</h3>
+      <h3 class="scene-appearance-panel__title">游戏设置</h3>
       <button type="button" class="scene-appearance-panel__ghost-button" @click="$emit('reset')">重置</button>
     </div>
 

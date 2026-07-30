@@ -309,7 +309,7 @@ async def wait_action(self):
                 tile_id = player.hand_tiles[-1] if draw_slot else _pick_timeout_cut_tile(player)
                 remove_cut_tile(player.hand_tiles, tile_id, is_moqie, draw_slot=draw_slot)
                 clear_draw_slot(player)
-                await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False, already_removed=True)
+                await _execute_cut(self, self.current_player_index, tile_id, is_moqie, None, is_riichi=False, already_removed=True, is_timeout_action=True)
                 return
 
         case "waiting_action_after_cut":
@@ -484,7 +484,7 @@ async def wait_action(self):
                 tile_id = pick_timeout_discard_tile(player.hand_tiles, forbidden)
                 remove_cut_tile(player.hand_tiles, tile_id, False, draw_slot=False)
                 clear_draw_slot(player)
-                await _execute_cut(self, self.current_player_index, tile_id, False, None, is_riichi=False, already_removed=True)
+                await _execute_cut(self, self.current_player_index, tile_id, False, None, is_riichi=False, already_removed=True, is_timeout_action=True)
                 return
 
         case "waiting_action_qianggang":
@@ -561,6 +561,7 @@ async def _execute_cut(
     cut_tile_index,
     is_riichi: bool,
     already_removed: bool = False,
+    is_timeout_action: bool = False,
 ):
     """切牌/立直切，更新振听并广播。
     立直家被鸣后续切的牌也需横置，由 player.riichi_marker_pending 触发——和 is_riichi 任一为真都会让本次弃牌标记为横置。"""
@@ -609,7 +610,7 @@ async def _execute_cut(
 
     await broadcast_do_action(self, action_list=["cut"], action_player=self.current_player_index,
                               cut_tile=tile_id, cut_class=is_moqie, cut_tile_index=cut_tile_index,
-                              is_riichi_horizontal=horizontal_flag)
+                              is_riichi_horizontal=horizontal_flag, is_timeout_action=is_timeout_action)
 
     # 明杠/加杠的杠宝牌指示牌在"打完牌"之后才翻（标准立直规则）。
     while getattr(self, "_pending_kan_dora_count", 0) > 0:

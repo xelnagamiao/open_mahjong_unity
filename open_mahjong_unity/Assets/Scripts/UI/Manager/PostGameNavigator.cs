@@ -30,6 +30,13 @@ public static class PostGameNavigator {
             UserDataManager.Instance.SetRoomId("");
         }
 
+        // Public share-link viewers have no player session. Return them to login
+        // instead of opening a lobby tab whose data sources require authentication.
+        if (UserDataManager.Instance.UserId == 0) {
+            WindowsManager.Instance.ExitGameTo("login");
+            return;
+        }
+
         string tab = WindowsManager.Instance.GetLastLobbyTab();
         WindowsManager.Instance.ExitGameToLastLobbyTab();
         RefreshLobbyTabIfNeeded(tab);

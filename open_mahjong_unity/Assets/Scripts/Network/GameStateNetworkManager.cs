@@ -244,7 +244,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             doresponse.cut_from_player,
             doresponse.sea_bottom_discard,
             doresponse.buhua_recipient,
-            doresponse.ready_qualification
+            doresponse.ready_qualification,
+            doresponse.is_timeout_action == true
         );
     }
 

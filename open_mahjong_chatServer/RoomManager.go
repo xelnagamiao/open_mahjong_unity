@@ -5,172 +5,253 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"os"
 	"strconv"
 	"sync"
 )
 
-// 发送消息结构体
 type ChatResponse struct {
 	ResponseType string `json:"responseType"`
-	TargetRoomId int    `json:"roomId"`
+	TargetRoomID int    `json:"roomId"`
 	Content      string `json:"content"`
 }
 
-// 聊天管理器
+type LoginResult struct {
+	Response             ChatResponse
+	ReplacedConnectionID string
+	Success              bool
+}
+
+// RoomManager owns authenticated-session and room-membership state.
+//
+// A username has exactly one active connection ID. Maps are used as sets for
+// room membership so login/join operations are idempotent.
 type RoomManager struct {
-	secretKey      string            // 密钥
-	mu             sync.RWMutex      // 读写锁
-	uuidToUsername map[string]string // 用户ID与用户名的映射
-	usernameTouuid map[string]string // 用户名与用户ID的映射
-	usernameToRoom map[string][]int  // 通过用户ID获取所在房间列表
-	roomToUsername map[int][]string  // 通过房间ID获取用户列表
+	secretKey      string
+	mu             sync.RWMutex
+	uuidToUsername map[string]string
+	usernameToUUID map[string]string
+	usernameRooms  map[string]map[int]struct{}
+	roomUsers      map[int]map[string]struct{}
 }
 
 func GetSecretKey() string {
-	keyfile, _ := os.Open("secret_key.txt") // 读取密钥文件
-	defer keyfile.Close()                   // 完成函数后关闭
-	scanner := bufio.NewScanner(keyfile)    // 打开文件读取器
-	scanner.Scan()                          // 读取第一行
-	secretKey := scanner.Text()             // 保存密钥
-	fmt.Println("secret key:", secretKey)
+	keyFile, err := os.Open("secret_key.txt")
+	if err != nil {
+		log.Fatalf("failed to open secret_key.txt: %v", err)
+	}
+	defer keyFile.Close()
+
+	scanner := bufio.NewScanner(keyFile)
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			log.Fatalf("failed to read secret_key.txt: %v", err)
+		}
+		log.Fatal("secret_key.txt is empty")
+	}
+	secretKey := scanner.Text()
+	if secretKey == "" {
+		log.Fatal("secret_key.txt is empty")
+	}
 	return secretKey
 }
 
-// 不启用的构造方法
-func (rm *RoomManager) init() {
-	rm.roomToUsername[0] = []string{} // 初始化房间0的用户列表为空
-}
+func (rm *RoomManager) loginChatHall(uuid string, username string, userKey string) LoginResult {
+	input := username + rm.secretKey
+	hashBytes := sha256.Sum256([]byte(input))
+	expectedKey := hex.EncodeToString(hashBytes[:])
+	if expectedKey != userKey {
+		log.Printf("chat login rejected: username=%q connection_id=%s", username, uuid)
+		return LoginResult{
+			Response: ChatResponse{
+				ResponseType: "False",
+				TargetRoomID: 0,
+				Content:      "登录聊天大厅失败,用户密钥错误",
+			},
+		}
+	}
 
-// 登录聊天服务器方法(自动登录聊天大厅)
-func (rm *RoomManager) loginChatHall(uuid string, username string, userKey string) ChatResponse {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	input := username + rm.secretKey           // 拼接用户名和盐值
-	hasher := sha256.New()                     // 创建哈希器
-	hasher.Write([]byte(input))                // 将拼接后的字符串转换为字节切片并写入哈希器
-	hashBytes := hasher.Sum(nil)               // 获取哈希结果的字节切片
-	hexString := hex.EncodeToString(hashBytes) // 将哈希结果转换为16进制字符串
+	// A connection that authenticates as another username must first release
+	// its previous identity.
+	if previousUsername, exists := rm.uuidToUsername[uuid]; exists && previousUsername != username {
+		rm.removeSessionLocked(uuid, previousUsername)
+	}
 
-	if hexString == userKey { // 验证用户密钥是否正确
-		rm.mu.Lock()                       // 加读写锁
-		defer rm.mu.Unlock()               // 解锁
-		rm.uuidToUsername[uuid] = username // 保存用户ID和用户名的映射
-		rm.usernameTouuid[username] = uuid // 保存用户名和用户ID的映射
-		// 保存用户所在房间0(0 = 聊天大厅)
-		rm.usernameToRoom[username] = append(rm.usernameToRoom[username], 0)
-		// 保存房间0的用户列表
-		rm.roomToUsername[0] = append(rm.roomToUsername[0], username)
-		log.Println("登录成功", username, uuid)
-		resp := ChatResponse{ResponseType: "Tips", TargetRoomId: 0, Content: "登录聊天大厅成功"}
-		return resp
-	} else {
-		log.Println("登录失败,用户名:", username, "用户ID:", uuid, "用户密钥:", userKey, "用户密钥哈希:", hexString)
-		resp := ChatResponse{ResponseType: "False", TargetRoomId: 0, Content: "登录聊天大厅失败,用户密钥错误"} // 失败仍然传递true值
-		return resp
+	replacedUUID := rm.usernameToUUID[username]
+	replacedConnectionID := ""
+	if replacedUUID != "" && replacedUUID != uuid {
+		replacedConnectionID = replacedUUID
+		delete(rm.uuidToUsername, replacedUUID)
+		rm.removeUsernameRoomsLocked(username)
+	}
+
+	rm.uuidToUsername[uuid] = username
+	rm.usernameToUUID[username] = uuid
+	rm.addMembershipLocked(username, 0)
+
+	log.Printf("chat login succeeded: username=%q connection_id=%s replaced_connection_id=%s", username, uuid, replacedUUID)
+	return LoginResult{
+		Response: ChatResponse{
+			ResponseType: "Tips",
+			TargetRoomID: 0,
+			Content:      "登录聊天大厅成功",
+		},
+		ReplacedConnectionID: replacedConnectionID,
+		Success:              true,
 	}
 }
 
-// 登录后加入特定房间方法(加入游戏房间或者聊天频道)
 func (rm *RoomManager) joinRoom(uuid string, roomID int) ChatResponse {
-	rm.mu.Lock()         // 加读写锁
-	defer rm.mu.Unlock() // 解锁
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	if username, ok := rm.uuidToUsername[uuid]; ok { // 用户已登录
-		// 将房间加入用户的房间列表
-		rm.usernameToRoom[username] = append(rm.usernameToRoom[username], roomID)
-		// 将用户加入房间的用户列表
-		rm.roomToUsername[roomID] = append(rm.roomToUsername[roomID], username)
-		resp := ChatResponse{ResponseType: "Tips", TargetRoomId: roomID, Content: "加入房间" + strconv.Itoa(roomID) + "成功"}
-		return resp
+	username, ok := rm.currentUsernameLocked(uuid)
+	if !ok {
+		return ChatResponse{ResponseType: "False", TargetRoomID: roomID, Content: "加入房间失败,用户未登录"}
 	}
-	resp := ChatResponse{ResponseType: "False", TargetRoomId: roomID, Content: "加入房间失败,用户未登录"}
-	return resp // 用户未登录
+	rm.addMembershipLocked(username, roomID)
+	return ChatResponse{
+		ResponseType: "Tips",
+		TargetRoomID: roomID,
+		Content:      "加入房间" + strconv.Itoa(roomID) + "成功",
+	}
 }
 
-// 退出房间方法
 func (rm *RoomManager) exitRoom(uuid string, roomID int) ChatResponse {
-	rm.mu.Lock()         // 加读写锁
-	defer rm.mu.Unlock() // 解锁
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	if username, ok := rm.uuidToUsername[uuid]; ok { // 用户已登录
-		// 退出房间
-		rm.usernameToRoom[username] = rm.removeIntFromSlice(rm.usernameToRoom[username], roomID)
-		// 退出房间的用户列表
-		rm.roomToUsername[roomID] = rm.removeStringFromSlice(rm.roomToUsername[roomID], username)
-		resp := ChatResponse{ResponseType: "Tips", TargetRoomId: roomID, Content: "退出房间" + strconv.Itoa(roomID) + "成功"}
-		return resp
+	username, ok := rm.currentUsernameLocked(uuid)
+	if !ok {
+		return ChatResponse{ResponseType: "False", TargetRoomID: roomID, Content: "退出房间失败,用户未登录"}
 	}
-	resp := ChatResponse{ResponseType: "False", TargetRoomId: roomID, Content: "退出房间失败,用户未登录"}
-	return resp // 用户未登录
+	rm.removeMembershipLocked(username, roomID)
+	return ChatResponse{
+		ResponseType: "Tips",
+		TargetRoomID: roomID,
+		Content:      "退出房间" + strconv.Itoa(roomID) + "成功",
+	}
 }
 
-// 注销用户方法
+// logout removes state only when uuid still owns the username session. A stale
+// handler from a replaced connection must never tear down the new session.
 func (rm *RoomManager) logout(uuid string) bool {
-	rm.mu.Lock()         // 加读写锁
-	defer rm.mu.Unlock() // 解锁
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	if username, ok := rm.uuidToUsername[uuid]; ok { // 用户已登录
-		needToExitRooms := rm.usernameToRoom[username] // 需要退出的房间列表
-		for _, roomID := range needToExitRooms {       // 把所在房间的username删除
-			rm.roomToUsername[roomID] = rm.removeStringFromSlice(rm.roomToUsername[roomID], username)
-		}
-		// 删除用户的房间列表
-		delete(rm.usernameToRoom, username)
-		// 删除用户的用户名和用户ID的映射
-		delete(rm.usernameTouuid, username)
-		// 删除用户的用户ID和用户名的映射
-		delete(rm.uuidToUsername, uuid)
-		return true
+	username, exists := rm.uuidToUsername[uuid]
+	if !exists {
+		return false
 	}
-	return false // 用户未登录
+	delete(rm.uuidToUsername, uuid)
+	if rm.usernameToUUID[username] != uuid {
+		return false
+	}
+	rm.removeSessionLocked(uuid, username)
+	return true
 }
 
-// 广播消息方法
-func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int, Pool *ConnectionPool) bool {
-	// 加只读锁
-	var recipients []*websocket.Conn                 // 用于存储有效的连接指针
-	if username, ok := rm.uuidToUsername[uuid]; ok { // 用户已登录
-		rm.mu.RLock()
-		for _, user := range rm.roomToUsername[targetRoom] { // 遍历房间内的用户
-			// if user != username { 暂时不排除自己 因为没做客户端发送消息失败的验证 广播回客户端表示消息是否发送成功
-			if conn, exists := Pool.Get(rm.usernameTouuid[user]); exists {
-				// 连接存在就复制指针
-				recipients = append(recipients, conn)
+func (rm *RoomManager) broadcastChat(uuid string, message string, targetRoom int, pool *ConnectionPool) bool {
+	username, recipientIDs, ok := rm.chatRecipients(uuid, targetRoom)
+	if !ok {
+		return false
+	}
+
+	response := ChatResponse{
+		ResponseType: "Chat",
+		TargetRoomID: targetRoom,
+		Content:      fmt.Sprintf("%s: %s", username, message),
+	}
+	delivered := false
+	for _, recipientID := range recipientIDs {
+		client, exists := pool.Get(recipientID)
+		if !exists {
+			continue
+		}
+		if err := client.WriteJSON(response); err != nil {
+			log.Printf("failed to send chat message to connection %s: %v", recipientID, err)
+			continue
+		}
+		delivered = true
+	}
+	return delivered
+}
+
+// chatRecipients takes a consistent, unique snapshot without holding the room
+// lock during network I/O.
+func (rm *RoomManager) chatRecipients(uuid string, targetRoom int) (string, []string, bool) {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+
+	username, ok := rm.currentUsernameLocked(uuid)
+	if !ok {
+		return "", nil, false
+	}
+	if _, member := rm.usernameRooms[username][targetRoom]; !member {
+		return "", nil, false
+	}
+
+	roomMembers := rm.roomUsers[targetRoom]
+	recipients := make([]string, 0, len(roomMembers))
+	for memberUsername := range roomMembers {
+		if recipientID := rm.usernameToUUID[memberUsername]; recipientID != "" {
+			recipients = append(recipients, recipientID)
+		}
+	}
+	return username, recipients, len(recipients) > 0
+}
+
+func (rm *RoomManager) currentUsernameLocked(uuid string) (string, bool) {
+	username, exists := rm.uuidToUsername[uuid]
+	return username, exists && rm.usernameToUUID[username] == uuid
+}
+
+func (rm *RoomManager) addMembershipLocked(username string, roomID int) {
+	if rm.usernameRooms[username] == nil {
+		rm.usernameRooms[username] = make(map[int]struct{})
+	}
+	if rm.roomUsers[roomID] == nil {
+		rm.roomUsers[roomID] = make(map[string]struct{})
+	}
+	rm.usernameRooms[username][roomID] = struct{}{}
+	rm.roomUsers[roomID][username] = struct{}{}
+}
+
+func (rm *RoomManager) removeMembershipLocked(username string, roomID int) {
+	if rooms := rm.usernameRooms[username]; rooms != nil {
+		delete(rooms, roomID)
+		if len(rooms) == 0 {
+			delete(rm.usernameRooms, username)
+		}
+	}
+	if users := rm.roomUsers[roomID]; users != nil {
+		delete(users, username)
+		if len(users) == 0 {
+			delete(rm.roomUsers, roomID)
+		}
+	}
+}
+
+func (rm *RoomManager) removeUsernameRoomsLocked(username string) {
+	for roomID := range rm.usernameRooms[username] {
+		if users := rm.roomUsers[roomID]; users != nil {
+			delete(users, username)
+			if len(users) == 0 {
+				delete(rm.roomUsers, roomID)
 			}
-			//}
-		}
-		rm.mu.RUnlock() // 解锁
-		// 遍历 recipients[]conn切片发送消息
-		for _, conn := range recipients {
-			// 检查 WriteMessage 是否出错
-			resp := ChatResponse{ResponseType: "Chat", TargetRoomId: targetRoom, Content: username + ": " + message}
-			if err := conn.WriteJSON(resp); err != nil {
-				log.Printf("Error sending message to connection: %v", err)
-				return false
-			}
 		}
 	}
-	return recipients != nil
+	delete(rm.usernameRooms, username)
 }
 
-// 从 []int 切片中移除指定的整数
-func (rm *RoomManager) removeIntFromSlice(slice []int, item int) []int {
-	for i, v := range slice {
-		if v == item {
-			return append(slice[:i], slice[i+1:]...)
-		}
+func (rm *RoomManager) removeSessionLocked(uuid string, username string) {
+	delete(rm.uuidToUsername, uuid)
+	if rm.usernameToUUID[username] == uuid {
+		delete(rm.usernameToUUID, username)
+		rm.removeUsernameRoomsLocked(username)
 	}
-	return slice
-}
-
-// 从 []string 切片中移除指定的字符串
-func (rm *RoomManager) removeStringFromSlice(slice []string, item string) []string {
-	for i, v := range slice {
-		if v == item {
-			return append(slice[:i], slice[i+1:]...)
-		}
-	}
-	return slice
 }

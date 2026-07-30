@@ -30,7 +30,14 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.key" :class="{ 'is-predicted': row.predicted }">
+            <tr
+              v-for="row in rows"
+              :key="row.key"
+              :class="{ 'is-predicted': row.predicted, 'is-selectable': selectable && !row.predicted }"
+              :tabindex="selectable && !row.predicted ? 0 : undefined"
+              @click="selectable && !row.predicted && $emit('select-row', row.sourceIndex)"
+              @keydown.enter="selectable && !row.predicted && $emit('select-row', row.sourceIndex)"
+            >
               <th>{{ row.roundLabel }}</th>
               <td>{{ row.predicted ? '' : (row.mainFan || '—') }}</td>
               <template v-for="cell in row.players" :key="`${row.key}-${cell.seat}`">
@@ -56,9 +63,10 @@ import { computed } from 'vue'
 const props = defineProps({
   players: { type: Array, default: () => [] },
   settlements: { type: Array, default: () => [] },
+  selectable: { type: Boolean, default: false },
 })
 
-defineEmits(['close'])
+defineEmits(['close', 'select-row'])
 
 const ROUND_NAMES = [
   '',
@@ -112,6 +120,7 @@ const rows = computed(() => {
     const round = Number(roundHistory[index] ?? index + 1)
     result.push({
       key: `played-${index}`,
+      sourceIndex: index,
       predicted: false,
       roundLabel: roundLabel(round),
       mainFan: props.settlements[index] ?? '—',
@@ -144,6 +153,7 @@ const rows = computed(() => {
   for (let round = maxPlayedRound + 1; round <= 16; round += 1) {
     result.push({
       key: `predicted-${round}`,
+      sourceIndex: -1,
       predicted: true,
       roundLabel: roundLabel(round),
       mainFan: '',
@@ -260,5 +270,11 @@ const rows = computed(() => {
 .scoreboard-table .is-loss { color: #ae1427; font-weight: 700; }
 .scoreboard-table .is-zero { color: #303030; }
 .scoreboard-table tr.is-predicted { color: #555; }
+.scoreboard-table tbody tr.is-selectable { cursor: pointer; }
+.scoreboard-table tbody tr.is-selectable:hover > *,
+.scoreboard-table tbody tr.is-selectable:focus > * {
+  background: #d8e6f5;
+  outline: none;
+}
 .scoreboard-table__empty { height: 88px !important; color: #444; }
 </style>

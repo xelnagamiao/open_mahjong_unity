@@ -33,6 +33,8 @@ public class RecordPrefab : MonoBehaviour {
     [Header("按钮")]
     [SerializeField] private Button LoadRecordButton;
     [SerializeField] private Button CopyIdButton;
+    [SerializeField] private Button Copy2DLinkButton;
+    [SerializeField] private Button Copy3DLinkButton;
     [SerializeField] private Button FavoriteButton;
 
     private string gameId;
@@ -103,6 +105,12 @@ public class RecordPrefab : MonoBehaviour {
     private void Awake() {
         LoadRecordButton.onClick.AddListener(LoadRecord);
         CopyIdButton.onClick.AddListener(CopyRecordId);
+        if (Copy2DLinkButton != null) {
+            Copy2DLinkButton.onClick.AddListener(Copy2DRecordLink);
+        }
+        if (Copy3DLinkButton != null) {
+            Copy3DLinkButton.onClick.AddListener(Copy3DRecordLink);
+        }
         FavoriteButton.onClick.AddListener(ToggleFavorite);
     }
 
@@ -113,6 +121,18 @@ public class RecordPrefab : MonoBehaviour {
     private void CopyRecordId() {
         ClipboardUtility.Copy(gameId);
         NotificationManager.Instance.ShowTip("牌谱", true, $"已复制牌谱ID: {gameId}");
+    }
+
+    private void Copy2DRecordLink() {
+        string shareUrl = $"{ConfigManager.webUrl}/2d/record/{gameId}";
+        ClipboardUtility.Copy(shareUrl);
+        NotificationManager.Instance.ShowTip("牌谱", true, "已复制 2D 牌谱链接");
+    }
+
+    private void Copy3DRecordLink() {
+        string shareUrl = SharedRecordLink.BuildShareUrl(gameId);
+        ClipboardUtility.Copy(shareUrl);
+        NotificationManager.Instance.ShowTip("牌谱", true, "已复制 3D 牌谱链接");
     }
 
     private void ToggleFavorite() {

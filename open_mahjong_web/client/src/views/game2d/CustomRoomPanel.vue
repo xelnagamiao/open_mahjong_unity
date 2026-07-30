@@ -1,5 +1,5 @@
 <template>
-  <div class="custom-room">
+  <div :class="['custom-room', { 'custom-room--expanded': expanded }]">
     <div class="section-title">
       <h2>自定义房间</h2>
       <el-space wrap>
@@ -64,6 +64,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column v-if="expanded" label="配置" min-width="180">
+          <template #default="{ row }">
+            <span class="room-config-summary">{{ roomConfigSummary(row) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="密码" width="64">
           <template #default="{ row }">{{ row.has_password ? '有' : '无' }}</template>
         </el-table-column>
@@ -80,7 +85,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="createOpen" title="创建国标房间" width="min(96vw, 720px)" destroy-on-close>
+    <el-dialog v-model="createOpen" title="创建国标房间" :width="expanded ? 'min(96vw, 1040px)' : 'min(96vw, 720px)'" destroy-on-close>
       <el-form label-position="top" @submit.prevent="submitCreate">
         <el-form-item label="房间名" required>
           <el-input v-model="createForm.room_name" maxlength="24" placeholder="例如：周末国标桌" />
@@ -104,6 +109,7 @@ const props = defineProps({
   online: { type: Boolean, default: false },
   myUserId: { type: [Number, String], default: null },
   joinedQueue: { type: [String, Object], default: null },
+  expanded: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['occupy-changed'])
@@ -197,6 +203,17 @@ function isSupportedRoom(room) {
 function ruleLabel(room) {
   if (room?.sub_rule) return subRuleLabel(room.sub_rule)
   return RULE_LABELS[room?.room_rule] || room?.room_rule || '未知规则'
+}
+
+function roomConfigSummary(room) {
+  const round = Number(room?.game_round || room?.gameround)
+  const roundLabel = round === 1 ? '东风' : round === 2 ? '半庄' : round === 4 ? '全庄' : '标准局数'
+  const parts = [roundLabel]
+  if (room?.round_timer != null) parts.push(`局时 ${room.round_timer} 秒`)
+  if (room?.step_timer != null) parts.push(`步时 ${room.step_timer} 秒`)
+  if (room?.hepai_limit != null) parts.push(`${room.hepai_limit} 番起和`)
+  if (room?.tactical_call) parts.push('战术鸣牌')
+  return parts.join(' · ')
 }
 
 function canJoinRoom(room) {
@@ -416,6 +433,10 @@ defineExpose({ handleResponse, refreshRoomList, hasRoom: () => Boolean(currentRo
 .section-title { min-height: 52px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
 .section-title h2 { margin: 0; color: #262626; font-size: 21px; font-weight: 600; }
 .room-panel, .room-list-card { background: #fff; border-color: #e8e8e8; }
+.room-config-summary { color: #66758a; font-size: 12px; white-space: nowrap; }
+.custom-room--expanded :deep(.el-dialog__body) { padding-top: 12px; }
+.custom-room--expanded :deep(.gb-room-config) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
+.custom-room--expanded :deep(.gb-room-config .el-form-item) { min-width: 0; }
 .room-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .room-panel__head > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .seat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -430,5 +451,7 @@ defineExpose({ handleResponse, refreshRoomList, hasRoom: () => Boolean(currentRo
 @media (max-width: 860px) {
   .seat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .section-title { flex-direction: column; }
+  .custom-room--expanded :deep(.gb-room-config) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 560px) { .custom-room--expanded :deep(.gb-room-config) { grid-template-columns: 1fr; } }
 </style>

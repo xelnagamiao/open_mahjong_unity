@@ -454,8 +454,27 @@
                   </el-tooltip>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="72" fixed="right">
+              <el-table-column label="操作" width="168" fixed="right">
                 <template #default="{ row }">
+                  <el-button
+                    v-if="row.rule === 'guobiao'"
+                    link
+                    type="warning"
+                    size="small"
+                    tag="a"
+                    :href="`/2d/record/${encodeURIComponent(row.game_id)}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >2D</el-button>
+                  <el-button
+                    link
+                    type="success"
+                    size="small"
+                    tag="a"
+                    :href="`/3d/record/${encodeURIComponent(row.game_id)}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >3D</el-button>
                   <el-button link type="primary" size="small" @click="downloadOne(row.game_id)">
                     JSON
                   </el-button>

@@ -65,9 +65,11 @@ app.use('/api/mahjong', mahjongCalcLimiter, mahjongRoutes);
 const playerAuthRoutes = require('./routes/player/auth');
 const playerEventApplicationsRoutes = require('./routes/player/eventApplications');
 const playerMyEventsRoutes = require('./routes/player/myEvents');
+const player2dRecordsRoutes = require('./routes/player/records2d');
 app.use('/api/player/auth', playerAuthRoutes);
 app.use('/api/player/event-applications', playerEventApplicationsRoutes);
 app.use('/api/player', playerMyEventsRoutes);
+app.use('/api/player', player2dRecordsRoutes);
 // 玩家查询限流按路由粒度挂载（见 routes/player.js），热点/排行榜等轻量接口不受重查询限流
 app.use('/api/player', playerRoutes);
 const platformStatsLimiter = createWindowLimiter({

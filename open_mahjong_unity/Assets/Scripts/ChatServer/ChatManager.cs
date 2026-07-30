@@ -160,6 +160,14 @@ public class ChatManager : MonoBehaviour {
             // 解析消息
             ChatResponse response = JsonConvert.DeserializeObject<ChatResponse>(message);
             Debug.Log($"处理聊天消息: {response.content}");
+            if (response.responseType == "login_kickout") {
+                NotificationManager.Instance.ShowTip(
+                    "账号已在其他位置登录",
+                    false,
+                    response.content
+                );
+                return;
+            }
             ChatPanel.Instance.ShowChatMessage(response.responseType, response.roomId, response.content);
         }
         catch (Exception e) {

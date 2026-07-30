@@ -182,6 +182,7 @@ public class DoActionInfo { // 执行操作
     public int[] cut_tiles;
     public int? cut_tile_index;     // 可空类型
     public bool? cut_class;         // 可空类型
+    public bool? is_timeout_action; // 服务端等待超时后代为执行的切牌
     public int? deal_tile;          // 可空类型
     public int[] deal_tiles;
     public int? buhua_tile;         // 可空类型
