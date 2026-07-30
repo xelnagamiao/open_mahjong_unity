@@ -91,6 +91,7 @@ public class AutoAction : MonoBehaviour{
     // 初始化自动行为配置（由 GameSceneUIManager 调用）
     public void Initialize() {
         gameObject.SetActive(true); // 显示自动行为组件
+        NormalGameStateManager.Instance?.ResetTimeoutAutoMoqieTracking();
 
         // 重置除了自动排列手牌和自动补花以外的选项为false
         isAutoHepai = false;
@@ -122,6 +123,7 @@ public class AutoAction : MonoBehaviour{
     /// <summary>实时观战：仅保留自动排列手牌，其余自动操作与鸣牌展开隐藏且不起效。</summary>
     public void InitializeForSpectator() {
         gameObject.SetActive(true);
+        NormalGameStateManager.Instance?.ResetTimeoutAutoMoqieTracking();
 
         isAutoHepai = false;
         isAutoPass = false;
@@ -254,7 +256,18 @@ public class AutoAction : MonoBehaviour{
     // 切换自动出牌
     private void ToggleAutoCutCard(){
         if (isAutoCutLocked) return;
+        bool wasEnabled = isAutoCut;
         ToggleAutoOption(ref isAutoCut, autoCutCardText);
+        if (wasEnabled && !isAutoCut) {
+            NormalGameStateManager.Instance?.ResetTimeoutAutoMoqieTracking();
+        }
+    }
+
+    /// <summary>连续三次服务端超时切牌后开启；保持可点击，玩家可随时手动关闭。</summary>
+    public void EnableAutoCutFromTimeout(){
+        if (isAutoCutLocked) return;
+        isAutoCut = true;
+        UpdateTextColor(autoCutCardText, true);
     }
 
     public void SetAutoCutLocked(bool locked){

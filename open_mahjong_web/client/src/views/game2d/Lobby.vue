@@ -11,7 +11,7 @@
           aria-label="牌桌设计鸣谢 mmcr.online"
         >牌桌设计鸣谢：mmcr.online</a>
       </div>
-      <el-space wrap>
+      <el-space wrap class="lobby-header__actions">
         <el-icon v-if="session.restoring" class="is-loading"><Loading /></el-icon>
         <template v-if="session.player">
           <el-tag :type="session.status === 'online' ? 'success' : 'warning'">
@@ -32,7 +32,22 @@
       </el-space>
     </header>
 
+    <nav class="lobby-subheader" aria-label="2D 大厅功能">
+      <div class="lobby-subheader__inner">
+        <button :class="['lobby-subheader__unit', { active: activeSection === 'battle' }]" @click="activeSection = 'battle'">
+          <span>对战</span><small>BATTLE</small>
+        </button>
+        <button :class="['lobby-subheader__unit', { active: activeSection === 'record' }]" @click="activeSection = 'record'">
+          <span>牌谱阅览</span><small>RECORD</small>
+        </button>
+        <button class="lobby-subheader__unit lobby-subheader__data" @click="openDataStation">
+          <span>前往数据站</span><small>DATA</small>
+        </button>
+      </div>
+    </nav>
+
     <main class="lobby-main">
+      <section v-show="activeSection === 'battle'" class="battle-mode">
       <section class="lobby-summary">
         <div class="lobby-summary__copy">
           <h1>国标游戏大厅</h1>
@@ -40,16 +55,16 @@
         <div class="rank-summary">
           <span>当前段位</span>
           <strong>{{ session.rank?.guobiao_rank ?? '—' }}</strong>
-          <small>{{ session.rank ? `${formatPt(session.rank.guobiao_score)} PT` : '— PT' }}</small>
+          <small>{{ session.rank ? `${formatRankPt(session.rank)} PT` : '— / — PT' }}</small>
         </div>
       </section>
-
       <section class="custom-room-section">
         <CustomRoomPanel
           ref="roomPanelRef"
           :online="session.status === 'online'"
           :my-user-id="session.player?.user_id"
           :joined-queue="joinedQueue"
+          expanded
           @occupy-changed="inCustomRoom = $event"
         />
       </section>
@@ -136,6 +151,9 @@
           </el-card>
         </aside>
       </div>
+      </section>
+
+      <LobbyRecordPanel v-if="activeSection === 'record'" />
     </main>
 
   </div>
@@ -149,10 +167,11 @@ import { Loading, SwitchButton, User } from '@element-plus/icons-vue'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { getPlayerToken } from '@/api/playerClient'
-import { leaderboardUrl, publicApiGet } from '@/game2d/salasasa/api'
+import { leaderboardUrl, publicApiGet, queueStatusUrl } from '@/game2d/salasasa/api'
 import { salasasaClient } from '@/game2d/salasasa/client'
 import { getRankEntry } from '@/constants/rankTable'
 import CustomRoomPanel from './CustomRoomPanel.vue'
+import LobbyRecordPanel from './LobbyRecordPanel.vue'
 
 const TIERS = [
   { key: 'beginner', title: '初级场' },
@@ -178,6 +197,7 @@ const matchFound = ref(false)
 const inCustomRoom = ref(false)
 const leaders = ref([])
 const leadersBusy = ref(true)
+const activeSection = ref('battle')
 let unsubscribe = null
 let queueTimer = null
 
@@ -271,17 +291,23 @@ function handleResponse(response) {
   if (response.type === 'gamestate/guobiao/game_start') router.push('/2d/game')
 }
 
-function refreshQueueStatus() {
-  salasasaClient.send({ type: 'match/get_queue_status' })
+async function refreshQueueStatus() {
+  if (session.status === 'online') {
+    salasasaClient.send({ type: 'match/get_queue_status' })
+    return
+  }
+  try {
+    const status = await publicApiGet(queueStatusUrl())
+    if (session.status !== 'online') queueStatus.value = status
+  } catch (error) {
+    console.warn('[2D] 公开匹配人数加载失败', error)
+  }
 }
 
 watch(() => session.status, (status) => {
   if (queueTimer) window.clearInterval(queueTimer)
-  queueTimer = null
-  if (status === 'online') {
-    refreshQueueStatus()
-    queueTimer = window.setInterval(refreshQueueStatus, 5_000)
-  }
+  void refreshQueueStatus()
+  queueTimer = window.setInterval(() => void refreshQueueStatus(), 5_000)
 }, { immediate: true })
 
 function ensureConnected() {
@@ -342,6 +368,15 @@ function handleLogout() {
 
 function openPlayer(row) {
   router.push({ path: '/player-data', query: { player: String(row.user_id) } })
+}
+
+function openDataStation() {
+  const userId = session.player?.user_id ?? auth.userId
+  if (userId != null) {
+    router.push({ path: '/player-data', query: { player: String(userId) } })
+    return
+  }
+  router.push('/player-data/platform')
 }
 
 onMounted(async () => {

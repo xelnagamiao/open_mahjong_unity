@@ -547,7 +547,7 @@ async def wait_action(self):
                 self.last_draw_was_gang = False
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
                 broadcast_cut_tile = getattr(self, "current_claim_cut_tile", None) or tile_id
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = broadcast_cut_tile,cut_tiles = cut_tiles if len(cut_tiles) > 1 else None,cut_class = is_moqie)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = broadcast_cut_tile,cut_tiles = cut_tiles if len(cut_tiles) > 1 else None,cut_class = is_moqie,is_timeout_action = True)
                 self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut" # 转移行为
@@ -817,7 +817,7 @@ async def wait_action(self):
                 pre_action_dict = check_action_after_cut(self,tile_id)
                 self.last_draw_was_gang = False
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True)
                 self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut" # 转移行为

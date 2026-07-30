@@ -224,6 +224,7 @@ async def broadcast_do_action(
     is_claim: bool = False,
     silent: bool = False,
     cut_from_player: int = None,
+    is_timeout_action: bool = False,
 ):
     if not is_claim:
         self.server_action_tick += 1
@@ -248,6 +249,7 @@ async def broadcast_do_action(
                     cut_tile=cut_tile,
                     cut_class=cut_class,
                     cut_tile_index=cut_tile_index,
+                    is_timeout_action=True if is_timeout_action else None,
                     deal_tile=viewer_deal_tile,
                     buhua_tile=buhua_tile,
                     combination_mask=combination_mask,

@@ -533,6 +533,7 @@ def _build_do_action_payload(
     is_mo_buhua=None,
     buhua_recipient=None,
     cut_from_player=None,
+    is_timeout_action=False,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -549,6 +550,7 @@ def _build_do_action_payload(
         "cut_tile": cut_tile,
         "cut_class": cut_class,
         "cut_tile_index": cut_tile_index,
+        "is_timeout_action": True if is_timeout_action else None,
         "deal_tile": viewer_deal_tile,
         "buhua_tile": buhua_tile,
         "combination_mask": viewer_mask,
@@ -600,6 +602,7 @@ async def broadcast_do_action(
     is_mo_buhua: bool = None,
     buhua_recipient: int = None,
     cut_from_player: int = None,
+    is_timeout_action: bool = False,
     ):
     self.server_action_tick += 1
     if hasattr(self, "_ask_broadcast_time"):
@@ -630,6 +633,7 @@ async def broadcast_do_action(
                 is_mo_buhua=is_mo_buhua,
                 buhua_recipient=buhua_recipient,
                 cut_from_player=cut_from_player,
+                is_timeout_action=is_timeout_action,
             )
 
             if current_player.user_id in self.game_server.user_id_to_connection:

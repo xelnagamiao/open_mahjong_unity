@@ -377,6 +377,7 @@ def _build_do_action_payload(
     is_mo_gang=None,
     is_mo_buhua=None,
     cut_from_player=None,
+    is_timeout_action=False,
 ):
     viewer_mask = combination_mask
     viewer_target = combination_target
@@ -393,6 +394,7 @@ def _build_do_action_payload(
         "cut_tile": cut_tile,
         "cut_class": cut_class,
         "cut_tile_index": cut_tile_index,
+        "is_timeout_action": True if is_timeout_action else None,
         "deal_tile": viewer_deal_tile,
         "buhua_tile": buhua_tile,
         "combination_mask": viewer_mask,
@@ -453,6 +455,7 @@ async def broadcast_do_action(
     is_mo_gang: bool = None,
     is_mo_buhua: bool = None,
     cut_from_player: int = None,
+    is_timeout_action: bool = False,
     ):
     # 战术鸣牌的实际行为静默执行：申请阶段已发声/动画，本次仅状态变更
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
@@ -521,6 +524,7 @@ async def broadcast_do_action(
                 is_mo_gang=is_mo_gang,
                 is_mo_buhua=is_mo_buhua,
                 cut_from_player=cut_from_player,
+                is_timeout_action=is_timeout_action,
             )
 
             # 出牌对受保护观众延迟：暂存，待鸣牌/申请/pass/超时触发 flush

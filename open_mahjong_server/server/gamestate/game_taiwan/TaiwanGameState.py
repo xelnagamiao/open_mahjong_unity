@@ -2124,7 +2124,7 @@ class TaiwanGameState:
             )
         ])
 
-    async def execute_cut(self, player_index: int, action_data: dict, *, declare_ready: bool = False) -> None:
+    async def execute_cut(self, player_index: int, action_data: dict, *, declare_ready: bool = False, is_timeout_action: bool = False) -> None:
         player = self.player_list[player_index]
         requested_tile = action_data.get("TileId")
         if requested_tile in FLOWER_TILES:
@@ -2204,6 +2204,7 @@ class TaiwanGameState:
             cut_tile=tile,
             cut_class=is_moqie,
             cut_tile_index=cut_index,
+            is_timeout_action=is_timeout_action,
         )
         if declare_ready:
             await broadcast_refresh_player_tag_list(self)
@@ -2229,6 +2230,7 @@ class TaiwanGameState:
         await self.execute_cut(
             player_index,
             {"TileId": tile, "cutClass": is_moqie, "cutIndex": None},
+            is_timeout_action=True,
         )
 
     async def execute_angang(self, player_index: int, target_tile: int) -> None:

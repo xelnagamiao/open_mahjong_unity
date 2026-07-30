@@ -3,6 +3,11 @@
  */
 const { GUESS_FAN_BY_ID, findFanByName } = require('./catalog')
 const { compareGuess } = require('./compare')
+const {
+  MATCH_OPENING_COUNTDOWN_MS,
+  ROUND_RESULT_WAIT_MS,
+  shouldUseMatchOpeningCountdown,
+} = require('./timing')
 
 let passed = 0
 let failed = 0
@@ -123,6 +128,64 @@ run('12. Exact fan remains green at its secondary value', () => {
   const answer = GUESS_FAN_BY_ID['riichi:honitsu']
   const r = compareGuess({ answer, rolledFan: 2, guess: answer })
   assert(r.fan.tone === 'green', `fan=${r.fan.tone}`)
+})
+
+run('13. 大小四喜、三四暗刻、大小三元互为黄色关联', () => {
+  const families = [
+    ['guobiao:dasixi', 'guobiao:xiaosixi', 'riichi:daisushi', 'riichi:shousuushi'],
+    ['guobiao:sianke', 'guobiao:sananke', 'riichi:suuankou', 'riichi:sanankou'],
+    ['guobiao:dasanyuan', 'guobiao:xiaosanyuan', 'riichi:daisangen', 'riichi:shousangen'],
+  ]
+  for (const ids of families) {
+    for (const answerId of ids) {
+      for (const guessId of ids) {
+        if (answerId === guessId) continue
+        const answer = GUESS_FAN_BY_ID[answerId]
+        const guess = GUESS_FAN_BY_ID[guessId]
+        const rolledFan = Array.isArray(answer.fan) ? answer.fan[0] : answer.fan
+        const r = compareGuess({ answer, rolledFan, guess })
+        assert(r.name.tone === 'yellow', `${answerId} <- ${guessId}: ${r.name.tone}`)
+      }
+    }
+  }
+
+  const answer = GUESS_FAN_BY_ID['guobiao:dasixi']
+  const guess = GUESS_FAN_BY_ID['guobiao:xiaosixi']
+  const disabled = compareGuess({ answer, rolledFan: answer.fan, guess, disableRelated: true })
+  assert(disabled.name.tone === 'gray', `disabled=${disabled.name.tone}`)
+})
+
+run('14. 首次开局3秒与局间6秒不叠加', () => {
+  assert(MATCH_OPENING_COUNTDOWN_MS === 3000, `opening=${MATCH_OPENING_COUNTDOWN_MS}`)
+  assert(ROUND_RESULT_WAIT_MS === 6000, `between=${ROUND_RESULT_WAIT_MS}`)
+  assert(
+    shouldUseMatchOpeningCountdown({ round: 0, openingCountdownUsed: false }),
+    'first match opening uses 3s',
+  )
+  assert(
+    !shouldUseMatchOpeningCountdown({ round: 0, openingCountdownUsed: true }),
+    'used opening does not repeat 3s',
+  )
+  assert(
+    !shouldUseMatchOpeningCountdown({ round: 1, openingCountdownUsed: false }),
+    'later round does not add 3s',
+  )
+})
+
+run('15. 双龙会与两规则平和均为条件系', () => {
+  const ids = [
+    'guobiao:yiseshuanglonghui',
+    'guobiao:sanseshuanglonghui',
+    'guobiao:pinghe',
+    'riichi:pinfu',
+  ]
+  for (const id of ids) {
+    const fan = GUESS_FAN_BY_ID[id]
+    assert(
+      fan.types.length === 1 && fan.types[0] === '条件系',
+      `${id}=${fan.types.join('、')}`,
+    )
+  }
 })
 
 console.log(`\n==== ${passed} passed, ${failed} failed ====`)

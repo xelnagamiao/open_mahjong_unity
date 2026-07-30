@@ -46,6 +46,7 @@ export class River extends Container {
   private flowerAreaLabelScale = 1
   private flowerAreaNameOffline = false
   private flowerRank = ''
+  private flowerCount = 0
   private flowerFadeFrame: number | null = null
   private flowerAreaHovered = false
   num = 0
@@ -222,7 +223,52 @@ export class River extends Container {
   private updateFlowerAreaVisibility(): void {
     this.flowerAreaBackground.visible = this.flowerAreaHovered
       || this.flowerAreaDisplay === 'always'
-      || (this.flowerAreaDisplay === 'when-present' && this.flowerList.length > 0)
+      || (this.flowerAreaDisplay === 'when-present' && this.flowerCount > 0)
+  }
+
+  /**
+   * Update only the summarized flower count. Replay seeks use this so
+   * rebuilding a snapshot does not lay every historical flower onto the table.
+   */
+  setFlowerCount(count: number): void {
+    this.flowerCount = Math.max(0, Math.trunc(Number(count) || 0))
+    this.flowerAreaCountValue.text = String(this.flowerCount)
+    this.resizeFlowerAreaInfo()
+    this.updateFlowerAreaVisibility()
+  }
+
+  /**
+   * Restore replay flower identities without showing the historical tiles
+   * immediately. Hovering the flower area reveals the full-size faces.
+   */
+  setReplayFlowers(tids: number[]): void {
+    this.cancelFlowerFade()
+    for (const tile of this.flowerList) {
+      tile.removeFromParent()
+      tile.destroy({ children: true })
+    }
+    this.flowerList.length = 0
+    this.flowerLayer.removeChildren()
+
+    tids.forEach((tid, index) => {
+      const tile = Tile.newInvisible(tid)
+      tile.updateTid(tid)
+      tile.show()
+      tile.off('pointerdown')
+      tile.setHoverCallbacks(null, null)
+      tile.setHoverWhileDisabled(true)
+      tile.setInputEnabled(false)
+      tile.x = FLOWER_START_X + (index % FLOWER_COLUMNS) * FLOWER_GAP_X
+      tile.y = FLOWER_START_Y + Math.floor(index / FLOWER_COLUMNS) * FLOWER_GAP_Y
+      tile.rotation = 0
+      tile.scale.set(1)
+      tile.visible = true
+      this.flowerList.push(tile)
+      this.flowerLayer.addChild(tile)
+    })
+
+    this.setFlowerCount(tids.length)
+    this.flowerFadeFilter.alpha = this.flowerAreaHovered ? 1 : 0
   }
 
   private cancelFlowerFade(): void {
@@ -267,7 +313,7 @@ export class River extends Container {
 
   /** Place full-size flower tiles outside the river, with a fixed clear gap. */
   addFlower(tile: Tile, animate = false): void {
-    const index = this.flowerList.length
+    const index = this.flowerCount
     const x = FLOWER_START_X + (index % FLOWER_COLUMNS) * FLOWER_GAP_X
     const y = FLOWER_START_Y + Math.floor(index / FLOWER_COLUMNS) * FLOWER_GAP_Y
     tile.off('pointerdown')
@@ -275,9 +321,7 @@ export class River extends Container {
     tile.setHoverWhileDisabled(true)
     tile.setInputEnabled(false)
     this.flowerList.push(tile)
-    this.flowerAreaCountValue.text = String(this.flowerList.length)
-    this.resizeFlowerAreaInfo()
-    this.updateFlowerAreaVisibility()
+    this.setFlowerCount(this.flowerCount + 1)
     this.cancelFlowerFade()
     this.flowerFadeFilter.alpha = 1
     if (animate && tile.parent) {

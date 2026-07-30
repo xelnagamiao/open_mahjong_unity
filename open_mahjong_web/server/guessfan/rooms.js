@@ -7,6 +7,11 @@ const {
 } = require('./catalog')
 const { compareGuess, revealAnswer, extractTonePreview } = require('./compare')
 const {
+  MATCH_OPENING_COUNTDOWN_MS,
+  ROUND_RESULT_WAIT_MS,
+  shouldUseMatchOpeningCountdown,
+} = require('./timing')
+const {
   fetchLeaderboardTop,
   applyMatchRating,
 } = require('../utils/guessFanTables')
@@ -28,8 +33,6 @@ const rooms = new Map()
 const matchQueue = new Map()
 
 const LOBBY_CHANNEL = 'guessfan:lobby'
-const START_COUNTDOWN_MS = 3000
-
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let s = ''
@@ -213,6 +216,7 @@ function createRoom({
     roundStartsAt: null,
     nextRoundAt: null,
     roundTimer: null,
+    openingCountdownUsed: false,
     endedByForfeit: false,
     forfeitedNick: null,
     createdAt: Date.now(),
@@ -345,10 +349,17 @@ function startRound(room, io) {
   }
 }
 
-function prepareRound(room, io) {
+function prepareMatchOpening(room, io) {
   clearRoundTimer(room)
+  // 3 秒准备只属于整场首次开局。后续小局由结算阶段的 6 秒计时
+  // 直接进入 startRound，不能再次经过这里叠加 3 秒。
+  if (!shouldUseMatchOpeningCountdown(room)) {
+    startRound(room, io)
+    return
+  }
+  room.openingCountdownUsed = true
   room.status = 'starting'
-  room.roundStartsAt = Date.now() + START_COUNTDOWN_MS
+  room.roundStartsAt = Date.now() + MATCH_OPENING_COUNTDOWN_MS
   room.roundEndsAt = null
   room.nextRoundAt = null
   room.reveal = null
@@ -361,7 +372,7 @@ function prepareRound(room, io) {
     if (room.status !== 'starting' || room.players.size < 2) return
     startRound(room, io)
     if (io) emitRoomState(io, room)
-  }, START_COUNTDOWN_MS)
+  }, MATCH_OPENING_COUNTDOWN_MS)
 }
 
 async function recordMatchResult(room) {
@@ -388,6 +399,7 @@ async function finishRound(room, winnerId, io) {
   if (room.status !== 'playing') return
   clearRoundTimer(room)
   room.roundEndsAt = null
+  room.roundStartsAt = null
   room.nextRoundAt = null
   room.status = 'round_over'
   room.roundWinnerId = winnerId || null
@@ -409,13 +421,14 @@ async function finishRound(room, winnerId, io) {
 
   // 非终局统一展示 6 秒结算，再由服务端自动开始下一局，保证双方同步。
   if (room.status === 'round_over') {
-    room.nextRoundAt = Date.now() + 6000
+    room.nextRoundAt = Date.now() + ROUND_RESULT_WAIT_MS
     room.roundTimer = setTimeout(() => {
       room.roundTimer = null
       if (room.status !== 'round_over' || room.players.size < 2) return
+      room.nextRoundAt = null
       startRound(room, io)
       if (io) emitRoomState(io, room)
-    }, 6000)
+    }, ROUND_RESULT_WAIT_MS)
   }
 }
 
@@ -500,7 +513,7 @@ function tryMatch(io) {
   if (sa) sa.join(`guessfan:${room.code}`)
   if (sb) sb.join(`guessfan:${room.code}`)
 
-  prepareRound(room, io)
+  prepareMatchOpening(room, io)
   const stateA = roomPublicState(room, a.socketId)
   const stateB = roomPublicState(room, b.socketId)
   if (sa) sa.emit('guessfan:matched', { state: stateA })
@@ -633,7 +646,8 @@ function registerGuessFanHandlers(socket, io) {
       if (room.hostId !== socket.id) throw new Error('仅房主可开始')
       if (room.players.size < 2) throw new Error('需要两位玩家')
       if (room.status === 'match_over') throw new Error('比赛已结束')
-      prepareRound(room, io)
+      if (room.status !== 'lobby') throw new Error('对局已经开始')
+      prepareMatchOpening(room, io)
       emitRoomState(io, room)
       await broadcastLobby(io)
       if (typeof cb === 'function') cb({ ok: true, state: roomPublicState(room, socket.id) })

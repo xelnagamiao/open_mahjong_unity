@@ -398,6 +398,7 @@ class JiandanGameState:
             "TileId": tile,
             "cutIndex": cut_index if action_type == "cut" else -1,
             "cutClass": cut_class,
+            "is_timeout_action": action_type == "cut",
         }
 
     async def wait_action(self, timeout: Optional[float] = None) -> Dict[int, dict]:
@@ -976,6 +977,7 @@ class JiandanGameState:
                 "tile": tile,
                 "cutIndex": action_data.get("cutIndex"),
                 "cutClass": action_data.get("cutClass", False),
+                "is_timeout_action": action_data.get("is_timeout_action", False),
             }
             result = next_window.get("result") or {}
             for key in ("meld_code", "combination_mask", "is_mo_gang"):

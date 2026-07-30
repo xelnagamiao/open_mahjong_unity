@@ -326,10 +326,6 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
     return { total, items: [], filters };
   }
 
-  const recordsResult = await pool.query(
-    'SELECT game_id, record FROM game_records WHERE game_id = ANY($1::varchar[])',
-    [gameIds]
-  );
   const playersResult = await pool.query(
     `SELECT game_id, user_id, username, score, rank, rule, sub_rule, match_type, room_type,
             match_tier, event_id,
@@ -341,6 +337,7 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
   );
 
   const playersByGame = new Map();
+  const metaByGame = new Map();
   for (const row of playersResult.rows) {
     if (!playersByGame.has(row.game_id)) playersByGame.set(row.game_id, []);
     playersByGame.get(row.game_id).push({
@@ -353,15 +350,21 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
       profile_used: row.profile_used,
       voice_used: row.voice_used,
     });
+    if (!metaByGame.has(row.game_id)) {
+      metaByGame.set(row.game_id, {
+        rule: row.rule || '',
+        sub_rule: row.sub_rule || null,
+        match_type: row.match_type || null,
+        room_type: row.room_type || null,
+        match_tier: row.match_tier || null,
+        event_id: row.event_id || null,
+      });
+    }
   }
-  const recordsByGame = new Map(recordsResult.rows.map((r) => [r.game_id, r]));
 
   const items = [];
   for (const gameId of gameIds) {
-    const gameRecord = recordsByGame.get(gameId);
-    if (!gameRecord) continue;
-    const playersRows = playersResult.rows.filter((r) => r.game_id === gameId);
-    const meta = buildRecordMeta(gameRecord, playersRows);
+    const meta = metaByGame.get(gameId) || {};
     items.push({
       game_id: gameId,
       created_at: createdAtByGame.get(gameId),
@@ -369,8 +372,8 @@ async function fetchPlayerRecords(userId, query, offset, limit) {
       sub_rule: meta.sub_rule,
       match_type: meta.match_type,
       room_type: meta.room_type,
-      match_tier: playersRows[0]?.match_tier || null,
-      event_id: meta.event_id || playersRows[0]?.event_id || null,
+      match_tier: meta.match_tier || null,
+      event_id: meta.event_id || null,
       event_name: null,
       players: playersByGame.get(gameId) || [],
     });

@@ -85,7 +85,7 @@
       </div>
 
       <!-- 第二行：全部天梯 / 初级 / 中级 / 高级 / mcrpl / 自定义 / 比赛场 -->
-      <div class="filter-row with-date">
+      <div class="filter-row with-date scene-filter-row">
         <div class="tier-group">
           <button
             v-for="s in SCENE_OPTIONS"
@@ -285,8 +285,27 @@
               </el-tooltip>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="86" fixed="right">
+          <el-table-column label="操作" width="168" fixed="right">
             <template #default="{ row }">
+              <el-button
+                v-if="row.rule === 'guobiao'"
+                link
+                type="warning"
+                size="small"
+                tag="a"
+                :href="`/2d/record/${encodeURIComponent(row.game_id)}`"
+                target="_blank"
+                rel="noopener noreferrer"
+              >2D</el-button>
+              <el-button
+                link
+                type="success"
+                size="small"
+                tag="a"
+                :href="`/3d/record/${encodeURIComponent(row.game_id)}`"
+                target="_blank"
+                rel="noopener noreferrer"
+              >3D</el-button>
               <el-button link type="primary" size="small" @click="downloadOne(row.game_id)">JSON</el-button>
             </template>
           </el-table-column>
@@ -337,8 +356,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import { analyzeRecords } from '../utils/recordAnalyzer'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames } from '../utils/statsDisplay'
+import { usePlayerAuthStore } from '@/stores/playerAuth'
 
 const route = useRoute()
+const auth = usePlayerAuthStore()
 const IS_DEV_CLIENT = import.meta.env.DEV
 const ANALYZE_DAILY_MAX = 3
 
@@ -1231,10 +1252,20 @@ const loadQuickLists = () => {
   return quickListsPromise
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadQuickLists()
   const queryPlayer = Array.isArray(route.query.player) ? route.query.player[0] : route.query.player
-  if (queryPlayer) searchPlayer(String(queryPlayer), false)
+  const legacyQueryPlayer = Array.isArray(route.query.q) ? route.query.q[0] : route.query.q
+  const requestedPlayer = queryPlayer || legacyQueryPlayer
+  if (requestedPlayer) {
+    await searchPlayer(String(requestedPlayer), false)
+    return
+  }
+
+  if (!auth.loaded) await auth.fetchMe()
+  if (auth.isLoggedIn && auth.userId != null) {
+    await searchPlayer(String(auth.userId), false)
+  }
 })
 </script>
 
@@ -1392,6 +1423,7 @@ onMounted(() => {
 .filter-row.with-date {
   justify-content: space-between;
 }
+.scene-filter-row { margin-bottom: 4px; }
 .tier-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .event-select { width: 200px; }
 .filter-date { width: 240px !important; }

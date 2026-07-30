@@ -195,14 +195,14 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private Toggle TobiToggle;
     [SerializeField] private Toggle TacticalCallToggle;
     [SerializeField] private Toggle BloodBattleToggle;
-    private Toggle ChangshaInitialSiXiToggle;
-    private Toggle ChangshaInitialBanBanHuToggle;
-    private Toggle ChangshaInitialQueYiSeToggle;
-    private Toggle ChangshaInitialLiuLiuShunToggle;
-    private Toggle ChangshaInitialSanTongToggle;
-    private Toggle ChangshaDealerBirdToggle;
-    private Toggle ChangshaBaseScoreNoDealerToggle;
-    private Toggle EventModeToggle;
+    [SerializeField] private Toggle ChangshaInitialSiXiToggle;
+    [SerializeField] private Toggle ChangshaInitialBanBanHuToggle;
+    [SerializeField] private Toggle ChangshaInitialQueYiSeToggle;
+    [SerializeField] private Toggle ChangshaInitialLiuLiuShunToggle;
+    [SerializeField] private Toggle ChangshaInitialSanTongToggle;
+    [SerializeField] private Toggle ChangshaDealerBirdToggle;
+    [SerializeField] private Toggle ChangshaBaseScoreNoDealerToggle;
+    [SerializeField] private Toggle EventModeToggle;
 
     [Header("面板")]
     [SerializeField] private GameObject SetRandomSeedPanel;
@@ -212,17 +212,17 @@ public partial class CreatePanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown HepaiWayDropdown;
     [SerializeField] private GameObject CuoheTypePanel;
     [SerializeField] private TMP_Dropdown CuoheTypeDropdown;
-    private GameObject ChangshaOpenKongPanel;
-    private TMP_Dropdown ChangshaOpenKongDropdown;
-    private GameObject ChangshaBirdCountPanel;
-    private TMP_Dropdown ChangshaBirdCountDropdown;
-    private GameObject ChangshaScoreRow;
-    private GameObject ChangshaSmallHuScorePanel;
-    private GameObject ChangshaBigHuScorePanel;
-    private TMP_InputField ChangshaSmallHuScoreInput;
-    private TMP_InputField ChangshaBigHuScoreInput;
-    private GameObject EventDropdownPanel;
-    private TMP_Dropdown EventDropdown;
+    [SerializeField] private GameObject ChangshaOpenKongPanel;
+    [SerializeField] private TMP_Dropdown ChangshaOpenKongDropdown;
+    [SerializeField] private GameObject ChangshaBirdCountPanel;
+    [SerializeField] private TMP_Dropdown ChangshaBirdCountDropdown;
+    [SerializeField] private GameObject ChangshaScoreRow;
+    [SerializeField] private GameObject ChangshaSmallHuScorePanel;
+    [SerializeField] private GameObject ChangshaBigHuScorePanel;
+    [SerializeField] private TMP_InputField ChangshaSmallHuScoreInput;
+    [SerializeField] private TMP_InputField ChangshaBigHuScoreInput;
+    [SerializeField] private GameObject EventDropdownPanel;
+    [SerializeField] private TMP_Dropdown EventDropdown;
     private readonly List<string> _eventIds = new List<string>();
 
     [Header("输入字段")]
@@ -241,17 +241,29 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void EnsureRuleDropdownOptions() {
         if (chooseRule == null) return;
-        bool hasChangsha = false;
-        bool hasJiandan = false;
-        bool hasTaiwan = false;
-        foreach (TMP_Dropdown.OptionData option in chooseRule.options) {
-            if (option.text.Contains("长沙")) hasChangsha = true;
-            if (option.text.Contains("简单")) hasJiandan = true;
-            if (option.text.Contains("台湾")) hasTaiwan = true;
+        string[] expectedOptions = {
+            "国标麻将",
+            "立直麻将",
+            "青雀",
+            "古典麻将",
+            "四川麻将",
+            "长沙麻将",
+            "简单麻将",
+            "台湾麻将",
+        };
+        bool needsRefresh = chooseRule.options.Count != expectedOptions.Length;
+        if (!needsRefresh) {
+            for (int i = 0; i < expectedOptions.Length; i++) {
+                if (chooseRule.options[i].text == expectedOptions[i]) continue;
+                needsRefresh = true;
+                break;
+            }
         }
-        if (!hasChangsha) chooseRule.options.Add(new TMP_Dropdown.OptionData("长沙麻将"));
-        if (!hasJiandan) chooseRule.options.Add(new TMP_Dropdown.OptionData("简单麻将"));
-        if (!hasTaiwan) chooseRule.options.Add(new TMP_Dropdown.OptionData("台湾麻将"));
+        if (!needsRefresh) return;
+
+        chooseRule.ClearOptions();
+        var options = new List<string>(expectedOptions);
+        chooseRule.AddOptions(options);
         chooseRule.RefreshShownValue();
     }
 
@@ -614,7 +626,6 @@ public partial class CreatePanel : MonoBehaviour {
             "不区分庄闲",
             false);
         if (ChangshaBaseScoreNoDealerToggle != null) {
-            ChangshaBaseScoreNoDealerToggle.transform.SetParent(ChangshaScoreRow.transform, false);
             ChangshaBaseScoreNoDealerToggle.onValueChanged.RemoveListener(OnChangshaBaseScoreModeChanged);
             ChangshaBaseScoreNoDealerToggle.onValueChanged.AddListener(OnChangshaBaseScoreModeChanged);
         }
@@ -760,6 +771,7 @@ public partial class CreatePanel : MonoBehaviour {
         SetToggleVisible(ChangshaInitialLiuLiuShunToggle, visible);
         SetToggleVisible(ChangshaInitialSanTongToggle, visible);
         SetToggleVisible(ChangshaDealerBirdToggle, visible);
+        SetToggleVisible(ChangshaBaseScoreNoDealerToggle, visible);
         if (ChangshaScoreRow != null) ChangshaScoreRow.SetActive(visible);
         RefreshChangshaScoreInputVisibility();
     }

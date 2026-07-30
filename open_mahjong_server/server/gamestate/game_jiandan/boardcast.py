@@ -240,6 +240,7 @@ def visible_action_payload(
             "cut_tile": cut_tile,
             "cut_tile_index": action_info.get("cutIndex"),
             "cut_class": action_info.get("cutClass", False),
+            "is_timeout_action": True if action_info.get("is_timeout_action") else None,
             "deal_tile": viewer_deal_tile,
             "combination_target": combination_target,
             "combination_mask": combination_mask,

@@ -9,6 +9,8 @@ const {
   queryHomeHierarchyStats,
   queryRecentLadderRecords,
 } = require('../services/platformStats');
+const { getPublicQueueStatus } = require('../services/matchQueueStatus');
+const { getPublicGameRecord, getPublicUnityGameRecord } = require('../services/publicGameRecord');
 
 function defaultDateRange(asOfDate, days = 30) {
   const to = asOfDate ? new Date(`${asOfDate}T12:00:00`) : new Date();
@@ -22,6 +24,18 @@ function defaultDateRange(asOfDate, days = 30) {
   };
   return { date_from: fmt(from), date_to: fmt(to) };
 }
+
+/** 2D 大厅公开只读匹配人数；加入队列等操作仍必须登录游戏服。 */
+router.get('/queue-status', async (_req, res) => {
+  try {
+    const data = await getPublicQueueStatus();
+    res.set('Cache-Control', 'public, max-age=2, stale-while-revalidate=10');
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('platform queue-status error:', error);
+    res.status(502).json({ success: false, message: '暂时无法读取匹配人数' });
+  }
+});
 
 router.get('/stats', async (req, res) => {
   try {
@@ -97,6 +111,36 @@ router.get('/recent-records', async (req, res) => {
   } catch (error) {
     console.error('platform recent-records error:', error);
     res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+/** 可分享的国标 2D 牌谱；只公开牌桌回放所需的对局和玩家公开资料。 */
+router.get('/record/:gameId', async (req, res) => {
+  try {
+    const result = await getPublicGameRecord(String(req.params.gameId || ''));
+    if (result.status !== 200) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    console.error('platform public record error:', error);
+    return res.status(500).json({ success: false, message: '牌谱读取失败' });
+  }
+});
+
+/** Public read-only record payload for the Unity 3D replay viewer (all supported rules). */
+router.get('/unity-record/:gameId', async (req, res) => {
+  try {
+    const result = await getPublicUnityGameRecord(String(req.params.gameId || ''));
+    if (result.status !== 200) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    console.error('platform public Unity record error:', error);
+    return res.status(500).json({ success: false, message: '牌谱读取失败' });
   }
 });
 

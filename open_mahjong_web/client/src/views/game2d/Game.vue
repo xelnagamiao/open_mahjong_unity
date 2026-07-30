@@ -155,6 +155,7 @@
                         :key="`${fan.name}-${index}`"
                         class="end-result-fan"
                         :class="{ 'is-visible': index < revealedFanCount }"
+                        :style="{ '--fan-name-size': `${fanNameFontSize(fan.name)}px` }"
                       >
                         <span>{{ fan.name }}</span>
                         <strong>{{ fan.value }}</strong>
@@ -255,7 +256,7 @@
                   :aria-expanded="appearanceOpen"
                   @click="toggleAppearancePanel"
                 >
-                  画面设置
+                  游戏设置
                 </button>
                 <div v-if="appearanceOpen" class="game-felt-rail__panel">
                   <div class="scene-appearance-toggle__card">
@@ -300,7 +301,7 @@
                   :aria-expanded="gameSettingsOpen"
                   @click="toggleGameSettingsPanel"
                 >
-                  对局设置
+                  快捷设置
                 </button>
                 <div v-if="gameSettingsOpen" class="game-felt-rail__panel">
                   <div class="scene-appearance-toggle__card">
@@ -600,6 +601,14 @@ const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) =
   const definition = findFanByName(name, ['guobiao'])
   return { name, value: definition ? `${formatFanField(definition.fan)}番` : '' }
 }))
+function fanNameFontSize(value) {
+  const units = Array.from(String(value || '')).reduce(
+    (total, character) => total + (/^[\x00-\xff]$/.test(character) ? 0.55 : 1),
+    0,
+  )
+  if (units <= 7) return 20
+  return Math.max(12, Math.round((20 * 7 / units) * 10) / 10)
+}
 const winMethodLabel = computed(() => (
   roundResult.value?.hu_class === 'hu_self' ? '自摸' : '点和'
 ))

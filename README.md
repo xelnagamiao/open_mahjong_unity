@@ -130,8 +130,6 @@ open_mahjong_unity/
 └── README.md
 ```
 
-> `Library/`、`Temp/`、`Logs/`、`node_modules/`、`dist/`、`.venv/` 等缓存、依赖和构建产物未在结构中列出。
-
 ## 3.技术栈
 
 ### 游戏客户端 (open_mahjong_unity)
@@ -159,6 +157,7 @@ open_mahjong_unity/
 
 - **Salasasa平台测试群**: 906497522
 - **open_mahjong_unity开发交流群**: 1084537740
+- **项目负责人微信**: q1448826180 / 18006251803
 - **项目地址**: [https://github.com/xelnagamiao/open_mahjong_unity](https://github.com/xelnagamiao/open_mahjong_unity)
 - **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
 - **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
@@ -167,15 +166,25 @@ open_mahjong_unity/
 ### 5.鸣谢
 
 牌面提供者：雪枫XueFun9
+
 表情包提供者：影子
+
 随机种子设计：Zoe
+
 新编MCR编著者：Natsuki
+
 青雀设计者：莫莫柴
+
 浪涌麻将设计者：自恧
+
 直播宣传：Cloud980Ti  轻轻的飘
+
 赞助：九曜、健哥、何苏、Null、莫莫柴、Zazaka、中山大学国标麻将同好会、kiki、东西喵、GitHub/baisebaoma
+
 特别感谢：莫莫柴、码龙、Null、影子、chinkaku
+
 支持：棋牌游戏研究院、立直麻雀研习社、柴の麻将群
+
 早期测试：夜色祢 chlorine 陪练的命运
 
 *最后更新：2026年7月29日 dev ver 0.4.74.0*

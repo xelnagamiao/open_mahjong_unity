@@ -376,7 +376,7 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
                               combination_mask: List[int] = None, is_mo_gang: bool = None,
                               gang_score_changes: Dict[int, int] = None, gang_score_type: str = None,
                               is_claim: bool = False, silent: bool = False,
-                              cut_from_player: int = None):
+                              cut_from_player: int = None, is_timeout_action: bool = False):
     if not is_claim and not silent and getattr(self, "_tactical_silent_action", False):
         silent = True
         self._tactical_silent_action = False
@@ -436,6 +436,7 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
                 gang_score_changes=gang_score_changes,
                 gang_score_type=gang_score_type,
                 cut_from_player=cut_from_player,
+                is_timeout_action=is_timeout_action,
             )
 
             if protected and is_cut:
@@ -493,6 +494,7 @@ def _build_do_action_payload(
     gang_score_changes=None,
     gang_score_type=None,
     cut_from_player=None,
+    is_timeout_action=False,
 ):
     viewer_deal_tile = sanitize_deal_tile_for_viewer(deal_tile, action_player, viewer_index)
     return {
@@ -502,6 +504,7 @@ def _build_do_action_payload(
         "cut_tile": cut_tile,
         "cut_class": cut_class,
         "cut_tile_index": cut_tile_index,
+        "is_timeout_action": True if is_timeout_action else None,
         "deal_tile": viewer_deal_tile,
         "combination_mask": combination_mask,
         "combination_target": combination_target,

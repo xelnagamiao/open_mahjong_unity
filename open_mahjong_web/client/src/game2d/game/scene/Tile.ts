@@ -7,6 +7,7 @@ import { getTexture, isBlackTileFaceTheme } from './textures'
 
 export const TILE_HOVER_TINT = 0xe0e0e0
 export const FROM_DRAWN_TINT = 0xcccccc
+export const RECORD_DANGER_TINT = 0xff9b9b
 const BLACK_FRONT_COLOR = 0x1e1e1e
 
 function shouldUseTimerFallback(): boolean {
@@ -66,6 +67,7 @@ export class Tile extends Container {
   private onHoverIn: (() => void) | null = null
   private onHoverOut: (() => void) | null = null
   private persistentTint = 0xffffff
+  private dangerTint: number | null = null
   private hoverTint: number | null = null
   private hoverTintColor: number | null = TILE_HOVER_TINT
   private hoverVisualEnabled = true
@@ -145,7 +147,7 @@ export class Tile extends Container {
   }
 
   private applyTint(): void {
-    this.setTint(this.hoverTint ?? this.persistentTint)
+    this.setTint(this.hoverTint ?? this.dangerTint ?? this.persistentTint)
   }
 
   setCoverColor(color: number): void {
@@ -156,6 +158,11 @@ export class Tile extends Container {
 
   setPersistentTint(tint: number | null): void {
     this.persistentTint = tint ?? 0xffffff
+    this.applyTint()
+  }
+
+  setRecordDangerHighlighted(enabled: boolean): void {
+    this.dangerTint = enabled ? RECORD_DANGER_TINT : null
     this.applyTint()
   }
 

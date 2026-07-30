@@ -10,16 +10,16 @@ import (
 
 // 全局连接池实例
 var Pool = ConnectionPool{
-	connections: make(map[string]*websocket.Conn),
+	connections: make(map[string]*Client),
 }
 
 // 房间管理器实例
 var roomManager = RoomManager{
 	secretKey:      GetSecretKey(),
 	uuidToUsername: make(map[string]string),
-	usernameTouuid: make(map[string]string),
-	usernameToRoom: make(map[string][]int),
-	roomToUsername: make(map[int][]string),
+	usernameToUUID: make(map[string]string),
+	usernameRooms:  make(map[string]map[int]struct{}),
+	roomUsers:      make(map[int]map[string]struct{}),
 }
 
 // 定义 WebSocket 连接的升级器
@@ -54,19 +54,25 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to upgrade connection for player %s: %v", playerId, err)
 		return
 	}
-	defer conn.Close()
-
-	// 3. 将新连接添加到连接池
-	Pool.Add(playerId, conn)                                                // 玩家id:连接服务的指针
+	client := NewClient(conn)
+	if !Pool.Add(playerId, client) {
+		log.Printf("Duplicate connection ID rejected: %s", playerId)
+		client.Close()
+		return
+	}
 	log.Printf("WebSocket connection established for player: %s", playerId) // 连接建立
 
-	defer Pool.Remove(playerId)                                              // 连接断开时清理掉引用
-	defer roomManager.logout(playerId)                                       // 玩家断开连接时退出所有房间
-	defer log.Printf("WebSocket connection closed for player: %s", playerId) // 连接关闭
+	defer func() {
+		roomManager.logout(playerId)
+		Pool.Remove(playerId, client)
+		client.Close()
+		log.Printf("WebSocket connection closed for player: %s", playerId)
+	}()
 
 	// 4. 处理来自客户端的消息
+	authenticated := false
 	for {
-		_, message, err := conn.ReadMessage()
+		_, message, err := client.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("Error reading message from player %s: %v", playerId, err)
@@ -109,16 +115,41 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		switch jsonMsg.Type {
 		// 登录游戏大厅
 		case "login":
+			if authenticated {
+				if err := client.WriteJSON(ChatResponse{
+					ResponseType: "False",
+					TargetRoomID: 0,
+					Content:      "当前聊天连接已经登录",
+				}); err != nil {
+					return
+				}
+				continue
+			}
 			var loginMsg LoginMsg
 			if err := json.Unmarshal(jsonMsg.Data, &loginMsg); err != nil {
 				log.Printf("Error parsing login message from player %s: %v", playerId, err)
 				continue // 跳过当前消息，继续处理下一条
 			}
 			// 登录游戏大厅 发送登录大厅结果
-			resp := roomManager.loginChatHall(playerId, loginMsg.Username, loginMsg.Userkey)
-			if err := conn.WriteJSON(resp); err != nil {
+			result := roomManager.loginChatHall(playerId, loginMsg.Username, loginMsg.Userkey)
+			authenticated = result.Success
+			if result.Success && result.ReplacedConnectionID != "" {
+				if oldClient, exists := Pool.Get(result.ReplacedConnectionID); exists {
+					kickout := ChatResponse{
+						ResponseType: "login_kickout",
+						TargetRoomID: 0,
+						Content:      "您的账号已在其他位置登录，当前聊天连接已断开",
+					}
+					if err := oldClient.WriteJSON(kickout); err != nil {
+						log.Printf("Failed to notify replaced connection %s: %v", result.ReplacedConnectionID, err)
+					}
+					Pool.Remove(result.ReplacedConnectionID, oldClient)
+					oldClient.CloseWithReason(4001, "login_kickout")
+				}
+			}
+			if err := client.WriteJSON(result.Response); err != nil {
 				log.Printf("Error sending login message to player %s: %v", playerId, err)
-				break // 如果发送失败，通常意味着连接有问题，断开
+				return
 			}
 
 		// 加入聊天房间
@@ -130,9 +161,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			// 加入聊天房间 发送加入房间结果
 			resp := roomManager.joinRoom(playerId, joinRoomMsg.RoomId)
-			if err := conn.WriteJSON(resp); err != nil {
+			if err := client.WriteJSON(resp); err != nil {
 				log.Printf("Error sending join room success message to player %s: %v", playerId, err)
-				break
+				return
 			}
 
 		// 离开聊天房间
@@ -144,9 +175,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			// 处理离开房间消息 发送离开房间结果
 			resp := roomManager.exitRoom(playerId, leaveRoomMsg.RoomId)
-			if err := conn.WriteJSON(resp); err != nil {
+			if err := client.WriteJSON(resp); err != nil {
 				log.Printf("Error sending leave room success message to player %s: %v", playerId, err)
-				break
+				return
 			}
 
 		// 发送聊天消息
@@ -158,10 +189,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			if roomManager.broadcastChat(playerId, sendChatMsg.Content, sendChatMsg.RoomId, &Pool) {
 				// 聊天成功，向客户端发送聊天成功消息
-				resp := ChatResponse{ResponseType: "sendChatOk", TargetRoomId: sendChatMsg.RoomId, Content: sendChatMsg.Content} // 发送接受到的聊天信息原句
-				if err := conn.WriteJSON(resp); err != nil {
+				resp := ChatResponse{ResponseType: "sendChatOk", TargetRoomID: sendChatMsg.RoomId, Content: sendChatMsg.Content} // 发送接受到的聊天信息原句
+				if err := client.WriteJSON(resp); err != nil {
 					log.Printf("Error sending chat success message to player %s: %v", playerId, err)
-					break
+					return
 				}
 			}
 		default:

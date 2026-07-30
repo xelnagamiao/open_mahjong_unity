@@ -207,6 +207,8 @@ export class MahjongScene {
   private hostElement: HTMLElement | null = null
   private presentationMode: ScenePresentationMode = 'game'
   private replayRecordVersion = 0
+  private replayWaitTipsEnabled = false
+  private replayMoqieHintEnabled = true
   private replayClaimLabel: TempLabel | null = null
   private appearance: SceneAppearanceSettings = DEFAULT_SCENE_APPEARANCE
   private backgroundImageSource: string | null = null
@@ -227,6 +229,33 @@ export class MahjongScene {
 
   setReplayRecordVersion(version: number): void {
     this.replayRecordVersion = version
+  }
+
+  setReplayMoqieHintEnabled(enabled: boolean): void {
+    this.replayMoqieHintEnabled = enabled
+  }
+
+  setReplayWaitTips(data: WaitInfoData): void {
+    this.replayWaitTipsEnabled = true
+    if (!this.waitDisplay) return
+    this.tenpaiTipButton?.bindWaitDisplay(this.waitDisplay)
+    this.setViewerWaitInfo(data)
+    this.waitDisplay.visible = true
+  }
+
+  /**
+   * Apply Unity-style record danger highlights to the currently rendered
+   * closed hands. The map is keyed by absolute seat index.
+   */
+  setReplayDangerTiles(dangerBySeat: Map<number, Set<number>> | null): void {
+    for (let localDir = 0; localDir < this.hands.length; localDir += 1) {
+      const absoluteSeat = (localDir + this.selfDir) % 4
+      const danger = dangerBySeat?.get(absoluteSeat) ?? new Set<number>()
+      const hand = this.hands[localDir]
+      for (const tile of [...hand.rightList, ...(hand.drawnTile ? [hand.drawnTile] : [])]) {
+        tile.setRecordDangerHighlighted(danger.has(tile.tid))
+      }
+    }
   }
 
   setOnConnectionLost(cb: () => void): void {
@@ -706,7 +735,7 @@ export class MahjongScene {
     }
     const isStableTenpai = Boolean(data && data.type === 'waits' && data.details.length > 0)
     this.tenpaiTipButton?.setTenpaiActive(
-      isStableTenpai && this.presentationMode !== 'replay',
+      isStableTenpai && (this.presentationMode !== 'replay' || this.replayWaitTipsEnabled),
     )
   }
 
@@ -1378,7 +1407,9 @@ export class MahjongScene {
       new DirLabel(c, 3, null),
     ]
     this.tenpaiTipButton = new TenpaiTipButton(c)
-    this.tenpaiTipButton.bindWaitDisplay(this.presentationMode === 'replay' ? null : this.waitDisplay)
+    this.tenpaiTipButton.bindWaitDisplay(
+      this.presentationMode === 'replay' && !this.replayWaitTipsEnabled ? null : this.waitDisplay,
+    )
     this.countdown = new Countdown(c)
     this.countdown.onLatencyClick = this.handleCountdownLatencyClick
     this.countdown.onUrgentSecond = () => {
@@ -1411,7 +1442,7 @@ export class MahjongScene {
     this.countdown.visible = false
     this.setLatencyIndicatorVisible(false)
     this.volDisplay.visible = false
-    this.waitDisplay.visible = this.presentationMode !== 'replay'
+    this.waitDisplay.visible = this.presentationMode !== 'replay' || this.replayWaitTipsEnabled
 
     if (!this.app) return
     this.redrawBackground()
@@ -1535,7 +1566,7 @@ export class MahjongScene {
       }
       const discardDrawnFlags = Array.isArray(seat.discard_drawn_flags) ? seat.discard_drawn_flags : []
       discardDrawnFlags.forEach((usedDrawnTile, discardIndex) => {
-        if (!usedDrawnTile || this.presentationMode !== 'replay') return
+        if (!usedDrawnTile || this.presentationMode !== 'replay' || !this.replayMoqieHintEnabled) return
         const riverTile = this.rivers[localDir].tileList[discardIndex]
         riverTile?.setPersistentTint(FROM_DRAWN_TINT)
       })
@@ -1552,8 +1583,12 @@ export class MahjongScene {
           concealedFromDrawnTile: meld.concealed_from_drawn_tile ?? false,
         })
       }
-      for (const flowerTile of seat.flower_tiles ?? []) {
-        this.hands[localDir].addFlower(flowerTile)
+      if (this.presentationMode === 'replay') {
+        this.rivers[localDir].setReplayFlowers(seat.flower_tiles ?? [])
+      } else {
+        for (const flowerTile of seat.flower_tiles ?? []) {
+          this.hands[localDir].addFlower(flowerTile)
+        }
       }
 
       // Hand tiles
@@ -1616,7 +1651,7 @@ export class MahjongScene {
 
     // Reveal game elements
     this.setDirectionLabelsVisible(true)
-    this.waitDisplay.visible = this.presentationMode !== 'replay'
+    this.waitDisplay.visible = this.presentationMode !== 'replay' || this.replayWaitTipsEnabled
     if (this.presentationMode === 'replay') {
       this.countdown.stop()
       this.countdown.visible = false
@@ -1774,7 +1809,7 @@ export class MahjongScene {
           } else if (tile !== undefined) {
             this.hands[actorDir].discardTile(tile, useDrawn)
           }
-          if (useDrawn && this.presentationMode === 'replay') {
+          if (useDrawn && this.presentationMode === 'replay' && this.replayMoqieHintEnabled) {
             const riverTile = this.rivers[actorDir].tileList[this.rivers[actorDir].num - 1]
             riverTile?.setPersistentTint(FROM_DRAWN_TINT)
           }
@@ -2121,7 +2156,7 @@ export class MahjongScene {
     this.countdown.visible = false
     this.volDisplay.visible = false
     this.setViewerWaitInfo(null)
-    this.waitDisplay.visible = this.presentationMode !== 'replay'
+    this.waitDisplay.visible = this.presentationMode !== 'replay' || this.replayWaitTipsEnabled
 
     // Show player list on the temporary center overlay, matching the legacy scene.
     this.stateDisplay.clear()

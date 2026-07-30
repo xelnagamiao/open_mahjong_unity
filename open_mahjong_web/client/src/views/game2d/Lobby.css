@@ -7,12 +7,12 @@
 }
 
 .lobby-header {
-  min-height: 64px;
+  min-height: 72px;
   padding: 8px max(24px, calc((100vw - 1280px) / 2));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 18px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
   position: sticky;
@@ -30,6 +30,16 @@
   line-height: 1;
 }
 .lobby-table-credit:hover { color: #0958d9; text-decoration: underline; }
+.lobby-header__actions { flex: none; }
+.lobby-subheader { height: 58px; background: #fff; border-bottom: 1px solid #dfe5ec; box-shadow: 0 2px 5px rgba(16, 34, 54, .025); }
+.lobby-subheader__inner { width: min(1280px, calc(100% - 40px)); height: 100%; margin: 0 auto; display: flex; align-items: stretch; }
+.lobby-subheader__unit { min-width: 132px; padding: 0 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #68778b; font: inherit; font-size: 14px; font-weight: 650; background: #fff; border: 0; border-right: 1px solid #e5eaf0; cursor: pointer; transition: background .16s, color .16s; }
+.lobby-subheader__unit:first-child { border-left: 1px solid #e5eaf0; }
+.lobby-subheader__unit small { color: #a1acba; font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+.lobby-subheader__unit:hover { color: #1677ff; background: #f6f9fd; }
+.lobby-subheader__unit.active { color: #fff; background: #1677ff; box-shadow: inset 0 -3px #0958d9; }
+.lobby-subheader__unit.active small { color: rgba(255,255,255,.75); }
+.lobby-subheader__data { margin-left: auto; color: #1677ff; }
 
 .lobby-main {
   width: min(1280px, calc(100% - 40px));
@@ -182,6 +192,9 @@
 
 @media (max-width: 720px) {
   .lobby-header { padding: 8px 14px; flex-wrap: wrap; }
+  .lobby-subheader { height: 54px; overflow-x: auto; }
+  .lobby-subheader__inner { width: max-content; min-width: 100%; padding: 0 12px; }
+  .lobby-subheader__unit { min-width: 110px; padding: 0 14px; }
   .lobby-main { width: min(100% - 24px, 680px); padding-top: 16px; }
   .lobby-summary { padding: 20px; align-items: stretch; flex-direction: column; }
   .rank-summary { min-width: 0; padding: 14px 0 0; border-top: 1px solid #e8e8e8; border-left: 0; }
@@ -194,10 +207,11 @@
 @media (max-width: 500px) {
   .lobby-brand { gap: 8px; }
   .lobby-brand strong { font-size: 18px; }
-  .lobby-table-credit { font-size: 10px; }
+  .lobby-table-credit { display: none; }
   .population-summary { width: 100%; justify-content: space-between; }
   .tier-card__header { padding-inline: 10px; }
   .match-row { grid-template-columns: minmax(92px, 1fr) 104px 50px; }
   .match-row__counts > span { font-size: 10px; }
   .match-row__counts b { font-size: 16px; }
 }
+.battle-mode .queue-banner + .lobby-grid { margin-top: 20px; }

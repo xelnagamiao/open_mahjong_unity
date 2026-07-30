@@ -301,7 +301,7 @@ async def wait_action(self):
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
                 pre_action_dict = check_action_after_cut(self,tile_id)
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True)
                 self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut" # 转移行为
@@ -492,7 +492,7 @@ async def wait_action(self):
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
                 pre_action_dict = check_action_after_cut(self,tile_id)
                 begin_claim_protection_interval(self, pre_action_dict, self.current_player_index)
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True)
                 self.action_dict = pre_action_dict
                 if any(self.action_dict[i] for i in self.action_dict):
                     self.game_status = "waiting_action_after_cut" # 转移行为

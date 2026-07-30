@@ -1,7 +1,7 @@
 <template>
   <div class="scene-appearance-panel">
     <div class="scene-appearance-panel__header">
-      <h3 class="scene-appearance-panel__title">对局设置</h3>
+      <h3 class="scene-appearance-panel__title">快捷设置</h3>
     </div>
 
     <label class="scene-appearance-panel__field">

@@ -175,9 +175,6 @@ export class Hand extends Container {
     const handA = Tile.newInvisible(tid)
     const handB = Tile.newInvisible(tid)
     const stacked = Tile.newInvisible(tid)
-    if (claimedFromDrawnDiscard) {
-      claimed.setPersistentTint(TILE_HOVER_TINT)
-    }
     if (addedFromDrawnTile) {
       stacked.setPersistentTint(TILE_HOVER_TINT)
     }
@@ -219,10 +216,6 @@ export class Hand extends Container {
     const handA = Tile.newInvisible(tid)
     const handB = Tile.newInvisible(tid)
     const handC = Tile.newInvisible(tid)
-    if (claimedFromDrawnDiscard) {
-      claimed.setPersistentTint(TILE_HOVER_TINT)
-    }
-
     switch (normalized) {
       case 1:
         this.appendLeftList(claimed, true)
@@ -511,9 +504,6 @@ export class Hand extends Container {
       if (!chowTiles) return
       const [claimedTid, handTidA, handTidB] = chowTiles
       const claimed = Tile.newInvisible(claimedTid)
-      if (claimedFromDrawnDiscard) {
-        claimed.setPersistentTint(TILE_HOVER_TINT)
-      }
       this.appendLeftList(claimed, true)
       this.appendLeftList(Tile.newInvisible(handTidA), false)
       this.appendLeftList(Tile.newInvisible(handTidB), false)
@@ -522,9 +512,6 @@ export class Hand extends Container {
     if (type === 'pung') {
       if (!Hand.normalizeOpenMeldFromRel(meldFromRel)) return
       const claimed = Tile.newInvisible(middleTid)
-      if (claimedFromDrawnDiscard) {
-        claimed.setPersistentTint(TILE_HOVER_TINT)
-      }
       this.appendOpenTriplet(
         claimed,
         Tile.newInvisible(middleTid),
@@ -610,6 +597,10 @@ export class Hand extends Container {
     }
 
     claimed.updateTid(claimedTid)
+    claimed.setPersistentTint(null)
+    claimed.setRecordDangerHighlighted(false)
+    handA.setRecordDangerHighlighted(false)
+    handB.setRecordDangerHighlighted(false)
     claimed.show()
     handA.updateTid(handTidA)
     handA.show()
@@ -632,6 +623,10 @@ export class Hand extends Container {
       return
     }
     const [handA, handB] = tiles
+    claimed.setPersistentTint(null)
+    claimed.setRecordDangerHighlighted(false)
+    handA.setRecordDangerHighlighted(false)
+    handB.setRecordDangerHighlighted(false)
     for (const current of [claimed, handA, handB]) {
       current.updateTid(tid)
       current.show()
@@ -650,7 +645,10 @@ export class Hand extends Container {
     const [handA, handB, handC] = hts
     const claimed = river.tileList[river.num - 1] ?? null
     if (!claimed) { this.restoreHand(hts); return }
+    claimed.setPersistentTint(null)
+    claimed.setRecordDangerHighlighted(false)
     for (const current of [handA, handB, handC, claimed]) {
+      current.setRecordDangerHighlighted(false)
       current.updateTid(tid)
       current.show()
     }
@@ -689,7 +687,10 @@ export class Hand extends Container {
     if (fh.length < need || (useDrawnTile && !fd)) { this.restoreHand(fh); if (fd) this.drawnTile = fd; return }
     this.unwaitDiscard()
     const all = fd ? [fd, ...fh] : [...fh]
-    for (const t of all) t.updateTid(tid)
+    for (const t of all) {
+      t.setRecordDangerHighlighted(false)
+      t.updateTid(tid)
+    }
     if (this.replayStyle && useDrawnTile && fd) {
       fd.setPersistentTint(TILE_HOVER_TINT)
     }
@@ -706,7 +707,7 @@ export class Hand extends Container {
     if (useDrawnTile && this.drawnTile) { tile = this.drawnTile; this.drawnTile = null }
     else tile = this.popFromHand(tid)
     if (!tile) return
-    this.unwaitDiscard(); tile.updateTid(tid); tile.show()
+    this.unwaitDiscard(); tile.setRecordDangerHighlighted(false); tile.updateTid(tid); tile.show()
     if (this.replayStyle && useDrawnTile) {
       tile.setPersistentTint(TILE_HOVER_TINT)
     }
@@ -744,6 +745,7 @@ export class Hand extends Container {
     if (useDrawnTile && this.drawnTile) {
       this.discardIndex = -1
       const dt = this.drawnTile  // capture before nulling
+      dt.setRecordDangerHighlighted(false)
       dt.updateTid(tid); dt.show(); dt.scale.set(1.0)
       river.waiting = true
       const [rx, ry] = [river.getX(river.num), river.getY(river.num)]
@@ -751,6 +753,7 @@ export class Hand extends Container {
       dt.generalMove(river as Container, rx, ry, 0).catch(() => {})
     } else {
       const tile = this.popFromHand(tid); if (!tile) return
+      tile.setRecordDangerHighlighted(false)
       tile.updateTid(tid); tile.show(); tile.scale.set(1.0)
       river.waiting = true
       const [rx, ry] = [river.getX(river.num), river.getY(river.num)]

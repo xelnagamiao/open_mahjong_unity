@@ -277,7 +277,7 @@ async def wait_action(self):
                 if self.current_player_index == 0:
                     self.xunmu += 1
                 
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True) # 广播摸切动画 摸切玩家索引 手模切 摸切牌id 操作帧
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
 
                 self.action_dict = check_action_after_cut(self,tile_id) # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
@@ -446,7 +446,7 @@ async def wait_action(self):
                 # 牌谱记录摸切
                 player_action_record_cut(self,cut_tile = tile_id,is_moqie = is_moqie)
                 # 广播摸切动画
-                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie)
+                await broadcast_do_action(self,action_list = ["cut"],action_player = self.current_player_index,cut_tile = tile_id,cut_class = is_moqie,is_timeout_action = True)
                 refresh_waiting_tiles(self,self.current_player_index) # 更新听牌
                 self.action_dict = check_action_after_cut(self,tile_id) # 检查手牌操作 如果有切牌后操作则执行转移行为(询问其他玩家操作) 否则历时行为(下一个玩家摸牌)
                 if any(self.action_dict[i] for i in self.action_dict):
