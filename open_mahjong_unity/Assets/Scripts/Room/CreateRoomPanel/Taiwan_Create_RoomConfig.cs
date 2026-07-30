@@ -77,12 +77,18 @@ public class Taiwan_Create_RoomConfig {
             new DetailedConfigOption("流局", "four_winds_abort", "四风连打", new[] { "继续行牌", "途中流局" }, new object[] { false, true }, false),
             new DetailedConfigOption("流局", "four_kongs_abort", "四杠散了", new[] { "继续行牌", "途中流局" }, new object[] { false, true }, false),
 
-            new DetailedConfigOption("食替", "chow_discard_restriction_mode", "吃后食替", new[] { "严格食替", "只禁同牌", "无限制" }, new object[] { "strict", "same_tile", "none" }, "strict"),
-            new DetailedConfigOption("食替", "pung_same_tile_discard_forbidden", "碰后食替", new[] { "禁弃同牌", "无限制" }, new object[] { true, false }, true),
-
             new DetailedConfigOption("过水", "missed_win_blocks_self_draw", "过水范围", new[] { "点胡/抢杠/自摸", "点胡/抢杠" }, new object[] { true, false }, true),
             new DetailedConfigOption("过水", "missed_win_released_by_kong", "解除动作", new[] { "弃非胡牌或暗/加杠", "仅有弃非胡牌" }, new object[] { true, false }, true),
             new DetailedConfigOption("过水", "missed_win_blocks_claims", "过水期间副露", new[] { "禁止", "允许" }, new object[] { true, false }, true),
+
+            new DetailedConfigOption("平胡", "all_chows_wait_mode", "听牌解释", new[] { "应能解释为两面听", "仅能解释为两面听", "无要求" }, new object[] { "any_two_sided", "only_two_sided", "unrestricted" }, "any_two_sided"),
+            new DetailedConfigOption("平胡", "all_chows_concealed_allowed", "门清可计", new[] { "不允许", "允许" }, new object[] { false, true }, false),
+            new DetailedConfigOption("平胡", "all_chows_self_draw_allowed", "自摸可计", new[] { "不允许", "允许" }, new object[] { false, true }, false),
+            new DetailedConfigOption("平胡", "all_chows_honors_and_flowers_allowed", "花牌字牌可计", new[] { "不允许", "允许" }, new object[] { false, true }, true),
+
+            new DetailedConfigOption("食替", "chow_discard_restriction_mode", "吃后食替", new[] { "严格食替", "只禁同牌", "无限制" }, new object[] { "strict", "same_tile", "none" }, "strict"),
+            new DetailedConfigOption("食替", "pung_same_tile_discard_forbidden", "碰后食替", new[] { "禁弃同牌", "无限制" }, new object[] { true, false }, true),
+
             new DetailedConfigOption("杠牌", "allow_rob_added_kong", "抢杠", new[] { "可抢加杠", "关闭" }, new object[] { true, false }, true),
             new DetailedConfigOption("杠牌", "allow_kong_from_upper_discard", "上家弃牌碰杠", new[] { "仅允许碰", "允许碰杠" }, new object[] { false, true }, false),
             new DetailedConfigOption("杠牌", "direct_kong_replacement_win_allowed", "碰杠补牌自摸", new[] { "禁止（含连续补花）", "允许" }, new object[] { false, true }, false),
@@ -118,7 +124,6 @@ public class Taiwan_Create_RoomConfig {
             new DetailedConfigOption("扩展台种", "four_kongs_enabled", "四杠子", new[] { "关闭", "开启（8台）" }, new object[] { false, true }, false),
             new DetailedConfigOption("扩展台种", "five_kongs_enabled", "五杠子", new[] { "关闭", "开启（16台）" }, new object[] { false, true }, false),
 
-            new DetailedConfigOption("特殊规则", "all_chows_definition", "平胡要求", new[] { "宽松（非门清、非自摸、非独听）", "严格（在宽松基础上再要求无字无花）" }, new object[] { "relaxed", "strict" }, "relaxed"),
             new DetailedConfigOption("特殊规则", "little_four_winds_add_wind_pungs", "小四喜复合风牌", new[] { "不加计门风/圈风", "加计门风/圈风" }, new object[] { false, true }, false),
             new DetailedConfigOption("特殊规则", "all_honors_add_all_pungs", "字一色复合碰碰胡", new[] { "加计碰碰胡", "不加计碰碰胡" }, new object[] { true, false }, true),
             new DetailedConfigOption("特殊规则", "prefer_triplet_decomposition_on_discard_win", "非自摸拆分优先", new[] { "选择最高台解释", "点胡/抢杠时刻子优先" }, new object[] { false, true }, false),
@@ -148,6 +153,7 @@ public class Taiwan_Create_RoomConfig {
                     { "seven_flowers_steal_eighth_enabled", false },
                     { "flower_kong_excludes_seat_flower", true },
                     { "scoring_preset", "cml" },
+                    { "all_chows_honors_and_flowers_allowed", false },
                     { "little_four_winds_add_wind_pungs", true },
                     { "ready_qualification_mode", "standard_without_dealer_heavenly_ready" },
                     { "claim_wall_reserve", true },
@@ -167,7 +173,7 @@ public class Taiwan_Create_RoomConfig {
                     { "flower_kong_excludes_seat_flower", true },
                     { "public_ready_enabled", true },
                     { "scoring_preset", "star31" },
-                    { "all_chows_definition", "strict" },
+                    { "all_chows_honors_and_flowers_allowed", false },
                     { "prefer_triplet_decomposition_on_discard_win", true },
                     { "human_win_definition", "disabled" },
                     { "ready_qualification_mode", "first_eight_table_discards" },
@@ -179,7 +185,7 @@ public class Taiwan_Create_RoomConfig {
                 }),
             new DetailedConfigPreset(
                 "神来也",
-                "对齐神来也流程：头跳、每杠加一张尾牌、最多连 9、配牌花胡、半求人。",
+                "对齐神来也流程：头跳、每杠加一张尾牌、最多连 9、配牌花胡、半求人；平胡允许门清，歧义听型从严判定。",
                 new Dictionary<string, object> {
                     { "dealer_streak_limit", 9 },
                     { "dead_wall_mode", "kong_expands_tail" },
@@ -191,7 +197,9 @@ public class Taiwan_Create_RoomConfig {
                     { "flower_kong_excludes_seat_flower", true },
                     { "public_ready_enabled", true },
                     { "scoring_preset", "shenlaiye" },
-                    { "all_chows_definition", "strict" },
+                    { "all_chows_wait_mode", "only_two_sided" },
+                    { "all_chows_concealed_allowed", true },
+                    { "all_chows_honors_and_flowers_allowed", false },
                     { "little_four_winds_add_wind_pungs", true },
                     { "all_honors_add_all_pungs", false },
                     { "human_win_definition", "discarder_first_discard" },

@@ -87,7 +87,10 @@ class TaiwanRules:
     scoring_preset: str = "sml"
     fan_tai_overrides: Dict[str, int] = field(default_factory=dict)
 
-    all_chows_definition: str = "relaxed"
+    all_chows_wait_mode: str = "any_two_sided"
+    all_chows_concealed_allowed: bool = False
+    all_chows_self_draw_allowed: bool = False
+    all_chows_honors_and_flowers_allowed: bool = True
     little_four_winds_add_wind_pungs: bool = False
     all_honors_add_all_pungs: bool = True
     prefer_triplet_decomposition_on_discard_win: bool = False
@@ -236,11 +239,12 @@ class TaiwanRules:
                 raise ValueError(f"未知台湾麻将台种: {fan_id}")
             if type(tai) is not int or not 1 <= tai <= 64:
                 raise ValueError("自定义台值必须是 1 至 64 的整数")
-        if self.all_chows_definition not in (
-            "relaxed",
-            "strict",
+        if self.all_chows_wait_mode not in (
+            "any_two_sided",
+            "only_two_sided",
+            "unrestricted",
         ):
-            raise ValueError("不支持的平胡定义")
+            raise ValueError("不支持的平胡听牌解释模式")
         if self.human_win_definition not in (
             "before_first_draw",
             "discarder_first_discard",
@@ -292,6 +296,9 @@ class TaiwanRules:
             "all_honors_liability_enabled",
             "four_kongs_liability_enabled",
             "five_kongs_liability_enabled",
+            "all_chows_concealed_allowed",
+            "all_chows_self_draw_allowed",
+            "all_chows_honors_and_flowers_allowed",
             "little_four_winds_add_wind_pungs",
             "all_honors_add_all_pungs",
             "prefer_triplet_decomposition_on_discard_win",

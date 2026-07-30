@@ -29,7 +29,6 @@ from .solver import (
     is_eight_pairs_half,
     parse_melds,
     structural_waits,
-    winning_use_is_single_wait,
 )
 
 
@@ -225,10 +224,11 @@ def _qualification_fan(context: HandContext) -> Optional[str]:
 def _score_decomposition(
     context: HandContext,
     decomposition: Decomposition,
-    waits: FrozenSet[int],
+    *,
+    single_wait: bool,
+    all_chows: bool,
 ) -> Tuple[Fan, ...]:
     rules = context.rules
-    winning_tile = context.winning_tile
     triplets = _triplet_tiles(decomposition)
     # 八对半只借一个伪刻子复用风牌刻判断；一色类必须检查完整手牌，
     # 否则伪刻子恰在单一花色时会把混合牌手误判成清一色。
@@ -244,25 +244,6 @@ def _score_decomposition(
         and all(meld.external and not meld.concealed for meld in decomposition.melds)
     )
     starting = _starting_win(context)
-
-    single_wait = bool(
-        winning_tile is not None
-        and len(waits) == 1
-        and winning_use_is_single_wait(decomposition, winning_tile)
-        and not all_exposed
-    )
-    all_chows = (
-        decomposition_is_all_sequences(decomposition)
-        and not concealed_hand
-        and not self_draw
-        and len(waits) >= 2
-    )
-    if rules.all_chows_definition == "strict":
-        all_chows = (
-            all_chows
-            and not context.flowers
-            and all(tile < 40 for tile in structure)
-        )
 
     big_three_dragons = all(tile in triplets for tile in DRAGON_TILES)
     dragon_triplet_count = sum(1 for tile in DRAGON_TILES if tile in triplets)
@@ -376,7 +357,7 @@ def _score_decomposition(
     return _apply_scoring_table(fans, rules)
 
 
-def _score_eight_pairs_half(context: HandContext, waits: FrozenSet[int]) -> Tuple[Fan, ...]:
+def _score_eight_pairs_half(context: HandContext) -> Tuple[Fan, ...]:
     counter = Counter(context.hand_tiles)
     triplet_tile = next(tile for tile, count in counter.items() if count == 3)
     pseudo_meld = Meld("triplet", triplet_tile, True, f"K{triplet_tile}")
@@ -387,11 +368,98 @@ def _score_eight_pairs_half(context: HandContext, waits: FrozenSet[int]) -> Tupl
         winning_component=("special", -1),
         special="eight_and_a_half_pairs",
     )
-    fans = list(_score_decomposition(context, decomposition, waits))
+    fans = list(
+        _score_decomposition(
+            context,
+            decomposition,
+            single_wait=False,
+            all_chows=False,
+        )
+    )
     forbidden = {"three_concealed_pungs", "four_concealed_pungs", "five_concealed_pungs", "all_pungs", "all_begging"}
     fans = [fan for fan in fans if fan.fan_id not in forbidden]
     fans.append(_fan("eight_and_a_half_pairs"))
     return _apply_scoring_table(fans, context.rules)
+
+
+def _analyze_winning_interpretations(
+    context: HandContext,
+    decompositions: Sequence[Decomposition],
+    winning_tile: int,
+    waits: FrozenSet[int],
+) -> Tuple[FrozenSet[tuple], FrozenSet[tuple]]:
+    single_wait_keys = set()
+    all_chows_keys = set()
+    all_chows_two_sided_keys = set()
+
+    for decomposition in decompositions:
+        component, index = decomposition.winning_component
+        single_wait_use = component == "pair"
+        two_sided_use = False
+        if (
+            component == "sequence"
+            and 0 <= index < len(decomposition.melds)
+        ):
+            low, middle, high = decomposition.melds[index].tiles
+            rank = winning_tile % 10
+            single_wait_use = (
+                winning_tile == middle
+                or (winning_tile == high and rank == 3)
+                or (winning_tile == low and rank == 7)
+            )
+            two_sided_use = not single_wait_use
+
+        all_exposed = (
+            len(decomposition.melds) == SIXTEEN_TILE_MAHJONG.meld_count
+            and all(
+                meld.external and not meld.concealed
+                for meld in decomposition.melds
+            )
+        )
+        if len(waits) == 1 and single_wait_use and not all_exposed:
+            single_wait_keys.add(decomposition.stable_key())
+
+        all_chows = (
+            decomposition_is_all_sequences(decomposition)
+            and (
+                context.rules.all_chows_concealed_allowed
+                or not _is_menqing(decomposition.melds)
+            )
+            and (
+                context.rules.all_chows_self_draw_allowed
+                or not _is_self_draw(context)
+            )
+            and (
+                context.rules.all_chows_honors_and_flowers_allowed
+                or (
+                    not context.flowers
+                    and all(
+                        tile < 40
+                        for tile in _all_structure_tiles(decomposition)
+                    )
+                )
+            )
+        )
+        if all_chows:
+            key = decomposition.stable_key()
+            all_chows_keys.add(key)
+            if two_sided_use:
+                all_chows_two_sided_keys.add(key)
+
+    single_wait_eligible = frozenset(single_wait_keys)
+    all_chows_eligible = frozenset(all_chows_keys)
+    if context.rules.all_chows_wait_mode == "unrestricted":
+        return single_wait_eligible, all_chows_eligible
+
+    two_sided = frozenset(all_chows_two_sided_keys)
+    if context.rules.all_chows_wait_mode == "any_two_sided":
+        return single_wait_eligible, two_sided
+    if (
+        context.rules.all_chows_wait_mode == "only_two_sided"
+        and len(two_sided) == len(all_chows_eligible)
+    ):
+        return single_wait_eligible, two_sided
+    return single_wait_eligible, frozenset()
 
 
 class TaiwanScorer:
@@ -431,15 +499,35 @@ class TaiwanScorer:
             context.meld_codes,
             winning_tile,
         )
+        (
+            single_wait_eligible_keys,
+            all_chows_eligible_keys,
+        ) = _analyze_winning_interpretations(
+            context,
+            decompositions,
+            winning_tile,
+            waits,
+        )
 
         candidates: List[Tuple[int, int, tuple, Tuple[Fan, ...], Decomposition]] = []
         for decomposition in decompositions:
-            fans = _score_decomposition(context, decomposition, waits)
+            fans = _score_decomposition(
+                context,
+                decomposition,
+                single_wait=(
+                    decomposition.stable_key()
+                    in single_wait_eligible_keys
+                ),
+                all_chows=(
+                    decomposition.stable_key()
+                    in all_chows_eligible_keys
+                ),
+            )
             tai = _score_tai(fans)
             candidates.append((tai, len(fans), decomposition.stable_key(), fans, decomposition))
 
         if context.rules.eight_and_a_half_pairs_enabled and is_eight_pairs_half(context.hand_tiles, context.meld_codes):
-            fans = _score_eight_pairs_half(context, waits)
+            fans = _score_eight_pairs_half(context)
             decomposition = Decomposition(
                 pair=0,
                 melds=(),

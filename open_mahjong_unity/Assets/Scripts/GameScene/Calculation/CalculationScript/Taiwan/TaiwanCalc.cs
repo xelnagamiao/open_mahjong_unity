@@ -203,7 +203,10 @@ namespace Taiwan {
         public bool FlowerKongExcludesSeatFlower { get; private set; }
         public bool NoFlowersEnabled { get; private set; }
         public string ScoringPreset { get; private set; } = "sml";
-        public string AllChowsDefinition { get; private set; } = "relaxed";
+        public string AllChowsWaitMode { get; private set; } = "any_two_sided";
+        public bool AllChowsConcealedAllowed { get; private set; }
+        public bool AllChowsSelfDrawAllowed { get; private set; }
+        public bool AllChowsHonorsAndFlowersAllowed { get; private set; } = true;
         public bool LittleFourWindsAddWindPungs { get; private set; }
         public bool AllHonorsAddAllPungs { get; private set; } = true;
         public bool PreferTripletDecompositionOnDiscardWin { get; private set; }
@@ -233,10 +236,22 @@ namespace Taiwan {
                 false);
             result.NoFlowersEnabled = ReadBool(values, "no_flowers_enabled", false);
             result.ScoringPreset = ReadString(values, "scoring_preset", "sml");
-            result.AllChowsDefinition = ReadString(
+            result.AllChowsConcealedAllowed = ReadBool(
                 values,
-                "all_chows_definition",
-                "relaxed");
+                "all_chows_concealed_allowed",
+                false);
+            result.AllChowsSelfDrawAllowed = ReadBool(
+                values,
+                "all_chows_self_draw_allowed",
+                false);
+            result.AllChowsHonorsAndFlowersAllowed = ReadBool(
+                values,
+                "all_chows_honors_and_flowers_allowed",
+                true);
+            result.AllChowsWaitMode = ReadString(
+                values,
+                "all_chows_wait_mode",
+                "any_two_sided");
             result.LittleFourWindsAddWindPungs = ReadBool(
                 values,
                 "little_four_winds_add_wind_pungs",
@@ -452,6 +467,16 @@ namespace Taiwan {
             var preWinTiles = new List<int>(handTiles);
             if (!preWinTiles.Remove(winningTile)) return empty;
             HashSet<int> waits = TingpaiCheck(preWinTiles, meldCodes, rules);
+            IList<int> flowerTiles = flowers ?? Array.Empty<int>();
+            AnalyzeWinningInterpretations(
+                decompositions,
+                winningTile,
+                waits,
+                isSelfDraw,
+                flowerTiles,
+                rules,
+                out HashSet<string> singleWaitEligibleKeys,
+                out HashSet<string> allChowsEligibleKeys);
 
             int bestTai = -1;
             int bestInterpretationPriority = -1;
@@ -459,13 +484,13 @@ namespace Taiwan {
             foreach (TaiwanDecomposition decomposition in decompositions) {
                 List<TaiwanFan> fans = ScoreDecomposition(
                     decomposition,
-                    winningTile,
-                    waits,
                     isSelfDraw,
                     seatWind,
                     roundWind,
-                    flowers ?? Array.Empty<int>(),
-                    rules);
+                    flowerTiles,
+                    rules,
+                    singleWaitEligibleKeys.Contains(decomposition.StableKey),
+                    allChowsEligibleKeys.Contains(decomposition.StableKey));
                 AddReadyQualificationFan(fans, readyQualification, rules);
                 rules.ApplyScoringTable(fans);
                 int tai = fans.Sum(fan => fan.Tai * fan.Count);
@@ -535,13 +560,13 @@ namespace Taiwan {
 
         private static List<TaiwanFan> ScoreDecomposition(
             TaiwanDecomposition decomposition,
-            int winningTile,
-            HashSet<int> waits,
             bool isSelfDraw,
             int seatWind,
             int roundWind,
             IList<int> flowers,
-            TaiwanRuleConfig rules) {
+            TaiwanRuleConfig rules,
+            bool singleWait,
+            bool allChows) {
             List<TaiwanMeld> melds = decomposition.Melds;
             var tripletTiles = new HashSet<int>(
                 melds.Where(meld => meld.Kind == TaiwanMeldKind.Triplet || meld.Kind == TaiwanMeldKind.Kong)
@@ -551,22 +576,8 @@ namespace Taiwan {
             bool concealed_hand = melds.All(meld => meld.Concealed);
             bool allExposed = melds.Count == Structure.MeldCount
                 && melds.All(meld => meld.External && !meld.Concealed);
-            bool allSequences = melds.All(meld => meld.Kind == TaiwanMeldKind.Sequence);
             bool allTriplets = melds.All(
                 meld => meld.Kind == TaiwanMeldKind.Triplet || meld.Kind == TaiwanMeldKind.Kong);
-
-            bool all_chows = allSequences
-                && !concealed_hand
-                && !isSelfDraw
-                && waits.Count >= 2;
-            if (rules.AllChowsDefinition == "strict") {
-                all_chows = all_chows
-                    && flowers.Count == 0
-                    && structure.All(tile => tile < 40);
-            }
-            bool singleWait = waits.Count == 1
-                && IsSingleWaitUse(decomposition, winningTile)
-                && !allExposed;
 
             int dragonTripletCount = Dragons.Count(tripletTiles.Contains);
             bool bigDragons = dragonTripletCount == 3;
@@ -607,7 +618,7 @@ namespace Taiwan {
                 AddFan(fans, "三元牌", 1, dragonTripletCount);
             }
             if (singleWait) AddFan(fans, "独听", 1);
-            if (all_chows) AddFan(fans, "平胡", 2);
+            if (allChows) AddFan(fans, "平胡", 2);
 
             int concealedTriplets = CountConcealedTriplets(decomposition, isSelfDraw);
             if (concealedTriplets >= Structure.MeldCount) AddFan(fans, "五暗刻", 8);
@@ -787,21 +798,83 @@ namespace Taiwan {
             if (tai > 0 && count > 0) fans.Add(new TaiwanFan(name, tai, count));
         }
 
-        private static bool IsSingleWaitUse(TaiwanDecomposition decomposition, int winningTile) {
-            if (decomposition.WinningKind == "pair") return true;
-            if (decomposition.WinningKind != "sequence"
-                || decomposition.WinningIndex < 0
-                || decomposition.WinningIndex >= decomposition.Melds.Count) {
-                return false;
+        private static void AnalyzeWinningInterpretations(
+            IList<TaiwanDecomposition> decompositions,
+            int winningTile,
+            HashSet<int> waits,
+            bool isSelfDraw,
+            IList<int> flowers,
+            TaiwanRuleConfig rules,
+            out HashSet<string> singleWaitEligibleKeys,
+            out HashSet<string> allChowsEligibleKeys) {
+            singleWaitEligibleKeys =
+                new HashSet<string>(StringComparer.Ordinal);
+            var allChowsKeys =
+                new HashSet<string>(StringComparer.Ordinal);
+            var allChowsTwoSidedKeys =
+                new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (TaiwanDecomposition decomposition in decompositions) {
+                bool singleWaitUse = decomposition.WinningKind == "pair";
+                bool twoSidedUse = false;
+                if (decomposition.WinningKind == "sequence"
+                    && decomposition.WinningIndex >= 0
+                    && decomposition.WinningIndex
+                        < decomposition.Melds.Count) {
+                    TaiwanMeld meld =
+                        decomposition.Melds[decomposition.WinningIndex];
+                    int low = meld.Tile - 1;
+                    int middle = meld.Tile;
+                    int high = meld.Tile + 1;
+                    int rank = winningTile % 10;
+                    singleWaitUse =
+                        winningTile == middle
+                        || (winningTile == high && rank == 3)
+                        || (winningTile == low && rank == 7);
+                    twoSidedUse = !singleWaitUse;
+                }
+
+                bool allExposed =
+                    decomposition.Melds.Count == Structure.MeldCount
+                    && decomposition.Melds.All(meld =>
+                        meld.External && !meld.Concealed);
+                if (waits.Count == 1 && singleWaitUse && !allExposed) {
+                    singleWaitEligibleKeys.Add(decomposition.StableKey);
+                }
+
+                bool allChows =
+                    decomposition.Melds.All(meld =>
+                        meld.Kind == TaiwanMeldKind.Sequence)
+                    && (rules.AllChowsConcealedAllowed
+                        || !decomposition.Melds.All(meld => meld.Concealed))
+                    && (rules.AllChowsSelfDrawAllowed || !isSelfDraw)
+                    && (rules.AllChowsHonorsAndFlowersAllowed
+                        || (flowers.Count == 0
+                            && BuildStructureTiles(decomposition)
+                                .All(tile => tile < 40)));
+                if (!allChows) continue;
+                allChowsKeys.Add(decomposition.StableKey);
+                if (twoSidedUse) {
+                    allChowsTwoSidedKeys.Add(decomposition.StableKey);
+                }
             }
-            TaiwanMeld meld = decomposition.Melds[decomposition.WinningIndex];
-            int low = meld.Tile - 1;
-            int middle = meld.Tile;
-            int high = meld.Tile + 1;
-            if (winningTile == middle) return true;
-            int rank = winningTile % 10;
-            return (winningTile == high && rank == 3)
-                || (winningTile == low && rank == 7);
+
+            if (rules.AllChowsWaitMode == "unrestricted") {
+                allChowsEligibleKeys = allChowsKeys;
+                return;
+            }
+
+            if (rules.AllChowsWaitMode == "any_two_sided") {
+                allChowsEligibleKeys = allChowsTwoSidedKeys;
+                return;
+            }
+            if (rules.AllChowsWaitMode == "only_two_sided"
+                && allChowsTwoSidedKeys.Count == allChowsKeys.Count) {
+                allChowsEligibleKeys = allChowsTwoSidedKeys;
+                return;
+            }
+            allChowsEligibleKeys =
+                new HashSet<string>(StringComparer.Ordinal);
         }
 
         private static HashSet<int> FilterPhysicallyAvailableWaits(
