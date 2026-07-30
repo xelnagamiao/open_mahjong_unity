@@ -139,7 +139,7 @@
               type="success"
               size="small"
               tag="a"
-              :href="`/unity-game/record/${encodeURIComponent(row.game_id)}`"
+              :href="`/game-unity?recordId=${encodeURIComponent(row.game_id)}`"
               target="_blank"
               rel="noopener noreferrer"
             >3D</el-button>

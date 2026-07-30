@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 
 /// <summary>
 /// Opens a read-only 3D replay from a public share link without creating a login session.
-/// Canonical link: https://salasasa.cn/unity-game/record/{gameId}
+/// Canonical link: https://salasasa.cn/game-unity?recordId={gameId}
 /// </summary>
 public sealed class SharedRecordLink : MonoBehaviour {
     private const int MaxGameIdLength = 16;
@@ -26,7 +26,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
     public static bool IsPublicSharePlayback { get; private set; }
 
     public static string BuildShareUrl(string gameId) {
-        return $"{ConfigManager.webUrl}/unity-game/record/{gameId}";
+        return $"{ConfigManager.webUrl}/game-unity?recordId={Uri.EscapeDataString(gameId)}";
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -82,7 +82,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
         if (string.IsNullOrWhiteSpace(value)) return false;
         string text = value.Trim();
         return text.IndexOf("://", StringComparison.Ordinal) >= 0
-            || text.IndexOf("/unity-game/record/", StringComparison.OrdinalIgnoreCase) >= 0;
+            || text.IndexOf("/game-unity?recordId=", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static bool TryExtractGameId(string value, out string gameId) {
@@ -103,15 +103,8 @@ public sealed class SharedRecordLink : MonoBehaviour {
                 candidate = uri.AbsolutePath.Trim('/');
             }
         } else if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) {
-            string[] segments = uri.AbsolutePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i + 2 < segments.Length; i++) {
-                bool supportedPrefix =
-                    segments[i].Equals("unity-game", StringComparison.OrdinalIgnoreCase)
-                    && segments[i + 1].Equals("record", StringComparison.OrdinalIgnoreCase);
-                if (supportedPrefix) {
-                    candidate = Uri.UnescapeDataString(segments[i + 2]);
-                    break;
-                }
+            if (uri.AbsolutePath.TrimEnd('/').Equals("/game-unity", StringComparison.OrdinalIgnoreCase)) {
+                candidate = GetQueryParameter(uri, "recordId");
             }
         }
 
@@ -121,6 +114,22 @@ public sealed class SharedRecordLink : MonoBehaviour {
 
         gameId = candidate;
         return true;
+    }
+
+    private static string GetQueryParameter(Uri uri, string expectedName) {
+        string query = uri.Query;
+        if (string.IsNullOrEmpty(query)) return null;
+
+        foreach (string pair in query.TrimStart('?').Split('&')) {
+            int separator = pair.IndexOf('=');
+            string encodedName = separator >= 0 ? pair.Substring(0, separator) : pair;
+            if (!Uri.UnescapeDataString(encodedName).Equals(expectedName, StringComparison.OrdinalIgnoreCase)) {
+                continue;
+            }
+            string encodedValue = separator >= 0 ? pair.Substring(separator + 1) : "";
+            return Uri.UnescapeDataString(encodedValue.Replace("+", " "));
+        }
+        return null;
     }
 
     public static bool Open(string value) {

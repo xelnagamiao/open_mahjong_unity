@@ -329,6 +329,7 @@ public class WindowsManager : MonoBehaviour {
                 break;
             case "game":
             case "recordscene":
+                Off(loginPanel);
                 Off(menuPanel);
                 Off(headerPanel);
                 On(gamePanel);
