@@ -7,6 +7,7 @@ import {
 import { Tile } from './Tile'
 import type { FlowerAreaDisplay } from '../../lib/sceneAppearance'
 import { getGameFontFamily } from '../fontLoader'
+import { tr } from '../../../i18n'
 
 const RIVER_X = [0, TILE_SEP + TILE_WIDTH * 3 + TILE_HEIGHT / 2, 0, -TILE_SEP - TILE_WIDTH * 3 - TILE_HEIGHT / 2] as const
 const RIVER_Y = [TILE_SEP + TILE_WIDTH * 3 + TILE_HEIGHT / 2, 0, -TILE_SEP - TILE_WIDTH * 3 - TILE_HEIGHT / 2, 0] as const
@@ -88,7 +89,7 @@ export class River extends Container {
       style: { ...infoTextStyle, fontSize: 220 },
     })
     this.flowerAreaCountLabel = new Text({
-      text: '花牌：',
+      text: tr('花牌：'),
       style: infoTextStyle,
     })
     this.flowerAreaCountValue = new Text({
@@ -145,7 +146,7 @@ export class River extends Container {
 
   setPlayerInfo(rank: string, name: string, offline = false): void {
     this.flowerRank = rank
-    this.flowerAreaRank.text = rank
+    this.flowerAreaRank.text = tr(rank)
     this.flowerAreaName.text = name
     this.flowerAreaNameOffline = offline
     this.resizeFlowerAreaInfo()

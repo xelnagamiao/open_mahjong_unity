@@ -110,6 +110,15 @@ public partial class GameRecordManager {
 
     public void StopSpectating() {
         if (!IsSpectating) return;
+        AbandonDelayedSpectatorSessionOnServer();
+        ResetForSessionEnd();
+        GameSceneTeardown.ResetToIdle();
+    }
+
+    /// <summary>
+    /// 会话结束时只清理本地观战状态，不再通过即将被替换的 WebSocket 发送退出请求。
+    /// </summary>
+    public void ResetForSessionEnd() {
         IsSpectating = false;
         IsLiveSpectatorMode = true;
         CurrentMode = RecordManagerMode.Record;
@@ -122,8 +131,7 @@ public partial class GameRecordManager {
             StopCoroutine(autoPlayCoroutine);
             autoPlayCoroutine = null;
         }
-        AbandonDelayedSpectatorSessionOnServer();
-        GameSceneTeardown.ResetToIdle();
+        ClearDelayedSpectatorSession();
     }
 
     /// <summary>切换到牌谱阅览模式：用于观战中手动切离最后节点。</summary>

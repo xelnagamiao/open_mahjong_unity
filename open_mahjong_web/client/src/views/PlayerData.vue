@@ -330,14 +330,14 @@
               size="small"
               :disabled="selectedIds.length === 0"
               @click="downloadSelected"
-            >下载选中({{ selectedIds.length }})</el-button>
+            >{{ tr('下载选中({count})', { count: selectedIds.length }) }}</el-button>
             <el-button
               size="small"
               type="primary"
               :loading="downloading"
               :disabled="recordsTotal === 0"
               @click="downloadFiltered"
-            >下载筛选结果(ZIP)</el-button>
+            >{{ tr('下载筛选结果(ZIP)') }}</el-button>
           </div>
         </div>
       </div>
@@ -357,6 +357,7 @@ import axios from 'axios'
 import { analyzeRecords } from '../utils/recordAnalyzer'
 import { buildPlayerStatsRows, rankRatePieLabel, rankedGames } from '../utils/statsDisplay'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { tr } from '@/i18n'
 
 const route = useRoute()
 const auth = usePlayerAuthStore()
@@ -447,7 +448,7 @@ const EMPTY_TOTAL = {
 const searchForm = reactive({ key: '' })
 const playerInfo = ref(null)
 const gameRecords = ref([])
-const recentRecords = ref([])  // 玩家最近 20 局（独立于筛选，用于折线图）
+const recentRecords = ref([])  // 当前筛选下玩家最近 20 局，用于折线图
 const recordsTotal = ref(0)
 const searched = ref(false)
 const loading = ref(false)
@@ -516,6 +517,7 @@ const rankStatsCache = ref({})
 const scopeCountsFromApi = ref(null)
 let rankStatsSeq = 0
 let scopeCountsSeq = 0
+let recentRanksSeq = 0
 
 const resolveScopeTier = (opts = {}) => {
   if (opts.scope != null || opts.tier !== undefined) {
@@ -671,7 +673,7 @@ const showStatsTable = computed(() => !!activeStats.value)
 const statsDisplay = computed(() => activeStats.value ? buildPlayerStatsRows(activeStats.value) : [])
 
 // ===== 图表数据 =====
-// 最近 20 局顺位：独立拉取玩家最近 20 局（不带筛选），按时间正序
+// 当前筛选下最近 20 局顺位，按时间正序
 const recentRanks = computed(() => {
   const rows = recentRecords.value || []
   return rows.map(r => myRank(r)).filter(r => r >= 1 && r <= 4).slice(0, 20).reverse()
@@ -825,14 +827,20 @@ const loadRecords = async () => {
   }
 }
 
-// 拉取玩家最近 20 局（不带任何筛选），用于折线图
+// 拉取当前筛选下玩家最近 20 局，用于折线图
 const loadRecentRanks = async () => {
   const userId = playerInfo.value?.user_id
   if (!userId) return
-  const seq = searchSeq
+  const searchToken = searchSeq
+  const seq = ++recentRanksSeq
+  const params = {
+    limit: 20,
+    offset: 0,
+    ...filterPayload(),
+  }
   try {
-    const resp = await axios.get(`/api/player/records/${userId}`, { params: { limit: 20, offset: 0 } })
-    if (seq !== searchSeq || playerInfo.value?.user_id !== userId) return
+    const resp = await axios.get(`/api/player/records/${userId}`, { params })
+    if (searchToken !== searchSeq || seq !== recentRanksSeq || playerInfo.value?.user_id !== userId) return
     if (resp.data.success) {
       recentRecords.value = resp.data.data?.items || []
     } else {
@@ -840,7 +848,9 @@ const loadRecentRanks = async () => {
     }
   } catch (e) {
     // 折线图失败不阻塞主流程，仅在控制台留痕
-    recentRecords.value = []
+    if (searchToken === searchSeq && seq === recentRanksSeq && playerInfo.value?.user_id === userId) {
+      recentRecords.value = []
+    }
   }
 }
 
@@ -943,6 +953,7 @@ const onFilterChange = () => {
   selectedIds.value = []
   if (playerInfo.value) {
     loadRecords()
+    loadRecentRanks()
     loadRankStats()
     loadScopeCounts()
   }

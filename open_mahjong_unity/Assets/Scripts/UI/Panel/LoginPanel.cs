@@ -43,8 +43,7 @@ public class LoginPanel : MonoBehaviour {
         inputUser.text = UserDataManager.Instance.SavedLoginUsername ?? "";
         inputPassword.text = UserDataManager.Instance.SavedLoginPassword ?? "";
 
-        // 启动连接显示协程
-        serverConnectCoroutine = StartCoroutine(ServerConnectCoroutine());
+        ShowConnectingState();
     }
 
     private void ShowTestPanel()
@@ -98,7 +97,7 @@ public class LoginPanel : MonoBehaviour {
     }
 
     // 连接成功时调用
-    public void ConnectOkText() {
+    public void ShowConnectedState() {
         if (!NetworkManager.Instance.IsWebSocketOpen) return;
         // 终止协程
         if (serverConnectCoroutine != null) {
@@ -106,10 +105,12 @@ public class LoginPanel : MonoBehaviour {
             serverConnectCoroutine = null;
         }
         connectStatusText.text = "连接成功";
+        loginButton.interactable = true;
+        touristButton.interactable = true;
     }
 
     // 连接失败时调用
-    public void ConnectErrorText(string text) {
+    public void ShowConnectionError(string text) {
         // 终止协程
         if (serverConnectCoroutine != null) {
             StopCoroutine(serverConnectCoroutine);
@@ -127,9 +128,9 @@ public class LoginPanel : MonoBehaviour {
     /// <summary>
     /// 断线后回到登录界面：恢复按钮并重新显示连接等待动画。
     /// </summary>
-    public void PrepareForReconnect() {
-        loginButton.interactable = true;
-        touristButton.interactable = true;
+    public void ShowConnectingState() {
+        loginButton.interactable = false;
+        touristButton.interactable = false;
         if (serverConnectCoroutine != null) {
             StopCoroutine(serverConnectCoroutine);
         }

@@ -13,7 +13,6 @@ public static class CoroutineKeys {
     public const string CommitmentSaltHide = "ui.commitment_salt_hide";
     public const string BoardScoreDifference = "ui.board_score_difference";
     public const string BoardCurrentFlash = "ui.board_current_flash";
-    public const string NetworkReconnect = "network.reconnect";
     public const string NetworkAutoReconnect = "network.auto_reconnect";
 }
 

@@ -26,6 +26,8 @@ public class NetworkManager : MonoBehaviour {
     private string playerId; // 定义玩家ID
     private bool isConnecting = false; // 定义连接状态
     private bool suppressConnectionFailureUi = false;
+    private Coroutine loginConnectionRestartCoroutine;
+    private int loginConnectionRestartVersion;
     private Queue<byte[]> messageQueue = new Queue<byte[]>(); // 定义消息队列
     private readonly Queue<byte[]> priorityMessageQueue = new Queue<byte[]>(); // 需立即处理的消息（如 match/match_found）
     private const string MatchFoundTypeJson = "\"type\":\"match/match_found\"";
@@ -106,7 +108,10 @@ public class NetworkManager : MonoBehaviour {
     }
 
     private void BindWebSocketEvents(WebSocket ws) {
-        ws.OnMessage += EnqueueIncomingMessage;
+        ws.OnMessage += bytes => {
+            if (ws != websocket) return;
+            EnqueueIncomingMessage(bytes);
+        };
 
         ws.OnOpen += () => {
             if (ws != websocket) return;
@@ -115,8 +120,9 @@ public class NetworkManager : MonoBehaviour {
             suppressConnectionFailureUi = false;
             OnConnectionEstablished();
             ExecuteOnMainThread(() => {
+                if (ws != websocket) return;
                 if (IsOnLoginPage()) {
-                    LoginPanel.Instance?.ConnectOkText();
+                    LoginPanel.Instance?.ShowConnectedState();
                 }
             });
             SendReleaseVersion();
@@ -128,8 +134,9 @@ public class NetworkManager : MonoBehaviour {
             isConnecting = false;
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
+                if (ws != websocket) return;
                 if (IsOnLoginPage()) {
-                    LoginPanel.Instance?.ConnectErrorText(errorMsg);
+                    LoginPanel.Instance?.ShowConnectionError(errorMsg);
                 }
                 HandleConnectionLostUi();
             });
@@ -141,9 +148,10 @@ public class NetworkManager : MonoBehaviour {
             isConnecting = false;
             if (suppressConnectionFailureUi) return;
             ExecuteOnMainThread(() => {
+                if (ws != websocket) return;
                 if (AutoReconnect.TryHandleOnClose()) return;
                 if (IsOnLoginPage()) {
-                    LoginPanel.Instance?.ConnectErrorText("连接已关闭");
+                    LoginPanel.Instance?.ShowConnectionError("连接已关闭");
                 }
                 HandleConnectionLostUi();
             });
@@ -237,13 +245,15 @@ public class NetworkManager : MonoBehaviour {
     }
 
     public WebSocket BeginNewConnection() {
-        if (websocket != null) {
-            try { var _ = websocket.Close(); } catch { }
-        }
+        WebSocket oldSocket = websocket;
+        websocket = null;
 
         lock (messageQueue) {
             messageQueue.Clear();
             priorityMessageQueue.Clear();
+        }
+        lock (mainThreadActions) {
+            mainThreadActions.Clear();
         }
 
         _latencyMs = -1;
@@ -262,86 +272,83 @@ public class NetworkManager : MonoBehaviour {
         isConnecting = true;
         Debug.Log($"[NetworkManager] 新建 WebSocket 连接：{url}");
         RunConnectLoop(newSocket);
+        CloseReplacedSocket(oldSocket);
 
         return newSocket;
     }
 
     /// <summary>
-    /// 断线后软重置 WebSocket（主线程协程发起，不阻塞 Receive 循环）。
+    /// 结束当前会话并为登录页建立一条全新的匿名连接。
+    /// 旧连接先脱离当前会话，再限时关闭；其迟到消息和回调都会被忽略。
     /// </summary>
-    public void RequestReconnectWebSocket() {
+    public void RestartLoginConnection() {
         if (!isActiveAndEnabled) {
-            Debug.LogWarning("[NetworkManager] 无法重连：NetworkManager 未激活");
+            Debug.LogWarning("[NetworkManager] 无法重建登录连接：NetworkManager 未激活");
             return;
         }
+
+        int version = ++loginConnectionRestartVersion;
+        if (loginConnectionRestartCoroutine != null) {
+            StopCoroutine(loginConnectionRestartCoroutine);
+        }
         suppressConnectionFailureUi = false;
-        _disconnectDialogState = DisconnectDialogState.Start;
-        CoroutineManager.Ensure();
-        CoroutineManager.Instance.RunNamed(
-            CoroutineKeys.NetworkReconnect,
-            ReconnectWebSocketRoutine(),
-            restartIfRunning: true
-        );
+        loginConnectionRestartCoroutine = StartCoroutine(RestartLoginConnectionRoutine(version));
     }
 
-    private IEnumerator ReconnectWebSocketRoutine() {
+    private IEnumerator RestartLoginConnectionRoutine(int version) {
+        WebSocket oldSocket = websocket;
+        // 先切断身份关系。旧连接从这一刻起不能再投递消息或改变 UI。
+        websocket = null;
+        isConnecting = true;
         _disconnectDialogState = DisconnectDialogState.Start;
-        isConnecting = false;
-
-        if (websocket != null
-            && (websocket.State == WebSocketState.Open || websocket.State == WebSocketState.Connecting)) {
-            Task closeTask = null;
-            try {
-                closeTask = websocket.Close();
-            } catch (Exception e) {
-                Debug.LogWarning($"[NetworkManager] 关闭旧 WebSocket 时出错: {e.Message}");
-            }
-            if (closeTask != null) {
-                float closeWait = 0f;
-                while (!closeTask.IsCompleted && closeWait < 3f) {
-                    closeWait += Time.unscaledDeltaTime;
-                    yield return null;
-                }
-            }
-        }
 
         lock (messageQueue) {
             messageQueue.Clear();
             priorityMessageQueue.Clear();
         }
+        lock (mainThreadActions) {
+            mainThreadActions.Clear();
+        }
 
-        _latencyMs = -1;
-        _pingTimer = PingIntervalSeconds;
-        _lastPongElapsed = 0f;
-        _lastPingTs = 0;
+        if (oldSocket != null) {
+            if (oldSocket.State == WebSocketState.Connecting) {
+                try {
+                    oldSocket.CancelConnection();
+                } catch (Exception e) {
+                    Debug.LogWarning($"[NetworkManager] 取消旧登录连接时出错: {e.Message}");
+                }
+            } else if (oldSocket.State == WebSocketState.Open) {
+                Task closeTask = null;
+                try {
+                    closeTask = oldSocket.Close();
+                } catch (Exception e) {
+                    Debug.LogWarning($"[NetworkManager] 关闭旧登录连接时出错: {e.Message}");
+                }
 
-        playerId = System.Guid.NewGuid().ToString();
-        string url = $"{ConfigManager.gameUrl}/{playerId}";
-        WebSocket newSocket = new WebSocket(url);
-        websocket = newSocket;
-        BindWebSocketEvents(newSocket);
-
-        isConnecting = true;
-        Debug.Log($"[NetworkManager] 发起 WebSocket 重连: {url}, State={newSocket.State}");
-        RunConnectLoop(newSocket);
-
-        const float timeoutSeconds = 15f;
-        float elapsed = 0f;
-        while (elapsed < timeoutSeconds) {
-            if (newSocket.State == WebSocketState.Open) {
-                Debug.Log("[NetworkManager] WebSocket 重连成功");
-                yield break;
+                const float closeTimeoutSeconds = 1.5f;
+                float elapsed = 0f;
+                while (closeTask != null && !closeTask.IsCompleted && elapsed < closeTimeoutSeconds) {
+                    if (version != loginConnectionRestartVersion) yield break;
+                    elapsed += Time.unscaledDeltaTime;
+                    yield return null;
+                }
             }
-            elapsed += Time.unscaledDeltaTime;
-            yield return null;
         }
 
-        Debug.LogError($"[NetworkManager] WebSocket 重连超时或失败，State={newSocket.State}");
-        isConnecting = false;
-        if (IsOnLoginPage()) {
-            LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
+        if (version != loginConnectionRestartVersion) yield break;
+
+        BeginNewConnection();
+        loginConnectionRestartCoroutine = null;
+    }
+
+    private async void CloseReplacedSocket(WebSocket oldSocket) {
+        if (oldSocket == null) return;
+        if (oldSocket.State != WebSocketState.Open && oldSocket.State != WebSocketState.Connecting) return;
+        try {
+            await oldSocket.Close();
+        } catch (Exception e) {
+            Debug.LogWarning($"[NetworkManager] 后台关闭旧 WebSocket 时出错: {e.Message}");
         }
-        HandleConnectionLostUi();
     }
 
     /// <summary>
@@ -356,8 +363,9 @@ public class NetworkManager : MonoBehaviour {
             if (ws == websocket) {
                 isConnecting = false;
                 ExecuteOnMainThread(() => {
+                    if (ws != websocket) return;
                     if (IsOnLoginPage()) {
-                        LoginPanel.Instance?.ConnectErrorText(e.Message);
+                        LoginPanel.Instance?.ShowConnectionError(e.Message);
                     }
                     HandleConnectionLostUi();
                 });
@@ -417,7 +425,7 @@ public class NetworkManager : MonoBehaviour {
 
         isConnecting = false;
         if (IsOnLoginPage()) {
-            LoginPanel.Instance?.ConnectErrorText("无法连接至服务器，请稍后重试");
+            LoginPanel.Instance?.ShowConnectionError("无法连接至服务器，请稍后重试");
         }
         HandleConnectionLostUi();
     }

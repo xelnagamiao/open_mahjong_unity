@@ -8,7 +8,12 @@ public static class PostGameNavigator {
     /// </summary>
     /// <param name="forceTeardown">对局结束、退出牌谱等须强制清理；延时观战被踢等可保留进行中的对局场景。</param>
     public static void ExitToLobby(bool forceTeardown = false) {
-        bool wasPublicSharePlayback = SharedRecordLink.IsPublicSharePlayback;
+        // 未登录访问没有“大厅会话”可返回，统一结束当前会话并建立全新的登录连接。
+        if (SharedRecordLink.IsPublicSharePlayback || UserDataManager.Instance.UserId == 0) {
+            AppSession.ReturnToLogin();
+            return;
+        }
+
         bool wasSpectating = GameRecordManager.Instance != null && GameRecordManager.Instance.IsSpectating;
         if (wasSpectating) {
             GameRecordManager.Instance.StopSpectating();
@@ -29,20 +34,6 @@ public static class PostGameNavigator {
 
         if (wasMatch) {
             UserDataManager.Instance.SetRoomId("");
-        }
-
-        // A public share link is a self-contained, read-only visit. Always return
-        // to login after it ends, even if WebGL retained an older local login.
-        if (wasPublicSharePlayback) {
-            SharedRecordLink.EndPublicSharePlayback();
-            WindowsManager.Instance.ExitGameTo("login");
-            return;
-        }
-
-        // Other unauthenticated entry paths also cannot open a lobby tab.
-        if (UserDataManager.Instance.UserId == 0) {
-            WindowsManager.Instance.ExitGameTo("login");
-            return;
         }
 
         string tab = WindowsManager.Instance.GetLastLobbyTab();

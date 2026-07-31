@@ -44,17 +44,17 @@ public class MessagePrefab : MonoBehaviour {
         } else if (type == "login_kickout") {
             YesButtonText.text = "重新登陆";
             BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(DisconnectReconnectClick);
+            YesButton.onClick.AddListener(ReturnToLoginClick);
             BackButton.onClick.AddListener(DisconnectCloseClick);
         } else if (type == "disconnect") {
             YesButtonText.text = "重连";
             BackButtonText.text = "关闭";
-            YesButton.onClick.AddListener(DisconnectReconnectClick);
+            YesButton.onClick.AddListener(ReturnToLoginClick);
             BackButton.onClick.AddListener(DisconnectCloseClick);
         } else if (type == "logout_confirm") {
             YesButtonText.text = "是";
             BackButtonText.text = "否";
-            YesButton.onClick.AddListener(DisconnectReconnectClick);
+            YesButton.onClick.AddListener(ReturnToLoginClick);
             BackButton.onClick.AddListener(CloseMessage);
         } else {
             YesButtonText.text = "好的";
@@ -87,8 +87,8 @@ public class MessagePrefab : MonoBehaviour {
         CloseMessage();
     }
 
-    private void DisconnectReconnectClick() {
-        AppSession.ResetToLogin();
+    private void ReturnToLoginClick() {
+        AppSession.ReturnToLogin();
         CloseMessage();
     }
 

@@ -395,6 +395,12 @@ import {
 } from '@/game2d/lib/assistSettings'
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
 import { findFanByName, formatFanField } from '@/constants/guessFanCatalog'
+import { formatFanCount, translateFanName } from '@/i18n/fanNames'
+import { tr } from '@/i18n'
+import {
+  salasasaSettlementSortKey,
+  splitSettlementHand,
+} from '@/game2d/lib/settlementHand'
 import {
   clearStoredSceneBackgroundImage,
   loadStoredSceneBackgroundImage,
@@ -580,7 +586,7 @@ const resultPlayers = computed(() => sidebarPlayers.value
       score,
       change,
       ready: Boolean(readyStatus.value[String(seat)]),
-      position: ['自家', '下家', '对家', '上家'][relative],
+      position: tr(['自家', '下家', '对家', '上家'][relative]),
       relative,
     }
   })
@@ -600,14 +606,22 @@ const diamondSlots = computed(() => {
 })
 
 const resultRawHand = computed(() => roundResult.value?.hepai_player_hand ?? [])
-const resultWinTile = computed(() => resultRawHand.value.at(-1) ?? 0)
-const resultClosedTiles = computed(() => resultRawHand.value.slice(0, -1).sort((a, b) => a - b))
+const resultWinTile = computed(() => roundResult.value?.hepai_tile ?? resultRawHand.value.at(-1) ?? 0)
+const resultClosedTiles = computed(() => splitSettlementHand(
+  resultRawHand.value,
+  resultWinTile.value,
+  roundResult.value?.hepai_player_combination_mask?.length ?? 0,
+  salasasaSettlementSortKey,
+))
 const resultMeldTiles = computed(() => (roundResult.value?.hepai_player_combination_mask ?? [])
   .flatMap((mask) => mask.filter((value, index) => index % 2 === 1 && value > 10)))
 const resultFlowerTiles = computed(() => roundResult.value?.hepai_player_huapai ?? [])
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
   const definition = findFanByName(name, ['guobiao'])
-  return { name, value: definition ? `${formatFanField(definition.fan)}番` : '' }
+  return {
+    name: translateFanName(name),
+    value: definition ? formatFanCount(formatFanField(definition.fan)) : '',
+  }
 }))
 function fanNameFontSize(value) {
   const units = Array.from(String(value || '')).reduce(
@@ -618,7 +632,7 @@ function fanNameFontSize(value) {
   return Math.max(12, Math.round((20 * 7 / units) * 10) / 10)
 }
 const winMethodLabel = computed(() => (
-  roundResult.value?.hu_class === 'hu_self' ? '自摸' : '点和'
+  tr(roundResult.value?.hu_class === 'hu_self' ? '自摸' : '点和')
 ))
 /** Reserve fan rows up front so the diamond does not jump as fans appear. */
 const fanGridMinHeight = computed(() => {
@@ -662,8 +676,8 @@ function updateSidebarPlayers() {
 }
 
 function pickScoreboardMainFan(fans) {
-  if (fans.includes('错和')) return '错和'
-  return [...fans]
+  if (fans.includes('错和')) return translateFanName('错和')
+  const fan = [...fans]
     .filter((fan) => !String(fan).startsWith('花牌'))
     .sort((left, right) => {
       const leftFan = findFanByName(left, ['guobiao'])?.fan
@@ -671,7 +685,8 @@ function pickScoreboardMainFan(fans) {
       const leftValue = Array.isArray(leftFan) ? Math.max(...leftFan.map(Number)) : Number(leftFan ?? 0)
       const rightValue = Array.isArray(rightFan) ? Math.max(...rightFan.map(Number)) : Number(rightFan ?? 0)
       return rightValue - leftValue
-    })[0] ?? '—'
+    })[0]
+  return fan ? translateFanName(fan) : '—'
 }
 
 function appendScoreboardResult(result) {
@@ -696,7 +711,7 @@ function appendScoreboardResult(result) {
 
   const fans = Array.isArray(result?.hu_fan) ? result.hu_fan : []
   const mainFan = result?.hepai_player_index == null
-    ? '流局'
+    ? tr('流局')
     : pickScoreboardMainFan(fans)
   const settlements = [...scoreboardSettlements.value]
   settlements[rowIndex] = mainFan
@@ -847,11 +862,11 @@ function handleResponse(response) {
     if (reconnectPromptOpen.value) return
     reconnectPromptOpen.value = true
     void ElMessageBox.confirm(
-      '您有一场正在对局的游戏，是否重连？',
-      '对局重连',
+      tr('您有一场正在对局的游戏，是否重连？'),
+      tr('对局重连'),
       {
-        confirmButtonText: '重新连接',
-        cancelButtonText: '暂不重连',
+        confirmButtonText: tr('重新连接'),
+        cancelButtonText: tr('暂不重连'),
         type: 'warning',
         closeOnClickModal: false,
       },
@@ -1151,11 +1166,11 @@ watch(() => session.status, (status, previousStatus) => {
   ) return
   reconnectPromptOpen.value = true
   void ElMessageBox.confirm(
-    '与游戏服务器的连接已断开，是否重连？',
-    '连接中断',
+    tr('与游戏服务器的连接已断开，是否重连？'),
+    tr('连接中断'),
     {
-      confirmButtonText: '重新连接',
-      cancelButtonText: '暂不重连',
+      confirmButtonText: tr('重新连接'),
+      cancelButtonText: tr('暂不重连'),
       type: 'warning',
       closeOnClickModal: false,
     },
@@ -1165,7 +1180,7 @@ watch(() => session.status, (status, previousStatus) => {
       await session.reconnect()
     } catch (error) {
       reconnectApproved = false
-      ElMessage.error(error instanceof Error ? error.message : '重新连接失败')
+      ElMessage.error(error instanceof Error ? error.message : tr('重新连接失败'))
     }
   }).catch(() => {
     reconnectApproved = false
@@ -1178,11 +1193,11 @@ onBeforeRouteLeave(async () => {
   if (!hasSnapshot.value || finalResult.value || leavingActiveGame) return true
   try {
     await ElMessageBox.confirm(
-      '游戏正在对局中，您确定要退出吗？',
-      '退出对局',
+      tr('游戏正在对局中，您确定要退出吗？'),
+      tr('退出对局'),
       {
-        confirmButtonText: '确定退出',
-        cancelButtonText: '继续对局',
+        confirmButtonText: tr('确定退出'),
+        cancelButtonText: tr('继续对局'),
         type: 'warning',
         closeOnClickModal: false,
       },

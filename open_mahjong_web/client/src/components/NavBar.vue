@@ -29,20 +29,23 @@
         </template>
       </div>
       <div class="nav-spacer" />
-      <router-link
-        v-if="isLoggedIn"
-        to="/account"
-        class="nav-link auth"
-        :class="{ on: route.path === '/account' }"
-        @click="closeMenu"
-      >{{ displayName }}</router-link>
-      <router-link
-        v-else
-        to="/login?redirect=/"
-        class="nav-link auth"
-        :class="{ on: route.path === '/login' }"
-        @click="closeMenu"
-      >登录</router-link>
+      <div class="nav-controls">
+        <language-select />
+        <router-link
+          v-if="isLoggedIn"
+          to="/account"
+          class="nav-link auth"
+          :class="{ on: route.path === '/account' }"
+          @click="closeMenu"
+        >{{ displayName }}</router-link>
+        <router-link
+          v-else
+          to="/login?redirect=/"
+          class="nav-link auth"
+          :class="{ on: route.path === '/login' }"
+          @click="closeMenu"
+        >登录</router-link>
+      </div>
     </div>
   </nav>
 </template>
@@ -53,6 +56,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { useMobile } from '@/composables/useMobile'
+import LanguageSelect from '@/components/LanguageSelect.vue'
 
 const route = useRoute()
 const auth = usePlayerAuthStore()
@@ -144,14 +148,18 @@ onMounted(() => {
 }
 
 .nav-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: contents;
 }
 
 .nav-spacer {
-  flex: 1;
-  min-width: 8px;
+  display: none;
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  margin-left: auto;
 }
 
 .nav-link {
@@ -206,6 +214,11 @@ onMounted(() => {
 
   .nav-spacer {
     display: none;
+  }
+
+  .nav-controls {
+    align-self: center;
+    margin-left: auto;
   }
 
   .nav-bar-row {

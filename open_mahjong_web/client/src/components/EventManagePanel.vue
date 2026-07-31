@@ -499,14 +499,14 @@
                   :disabled="selectedRecordIds.length === 0"
                   :loading="downloadingRecords"
                   @click="downloadSelected"
-                >下载选中({{ selectedRecordIds.length }})</el-button>
+                >{{ tr('下载选中({count})', { count: selectedRecordIds.length }) }}</el-button>
                 <el-button
                   size="small"
                   type="primary"
                   :disabled="recordsTotal === 0"
                   :loading="downloadingRecords"
                   @click="downloadFiltered"
-                >下载筛选结果(ZIP)</el-button>
+                >{{ tr('下载筛选结果(ZIP)') }}</el-button>
               </div>
             </div>
           </div>
@@ -518,6 +518,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
+import { tr } from '@/i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import eventAdminApi, { getEventAdminToken } from '@/api/eventAdminClient'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'

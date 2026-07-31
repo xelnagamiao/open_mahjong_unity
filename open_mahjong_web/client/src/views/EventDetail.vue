@@ -41,7 +41,7 @@
       <section class="announcements">
         <div class="ann-head">
           <h2>比赛公告</h2>
-          <span class="ann-count">{{ announcements.length }} 条</span>
+          <span class="ann-count">{{ announcements.length === 1 ? tr('1 条公告') : tr('公告数量({count})', { count: announcements.length }) }}</span>
         </div>
         <div v-if="!announcements.length" class="ann-empty">暂无公告</div>
         <ul v-else class="ann-list">
@@ -66,6 +66,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { eventStatusLabel } from '@/utils/eventMeta'
+import { locale, tr } from '@/i18n'
 
 const route = useRoute()
 const event = ref(null)
@@ -77,7 +78,7 @@ function formatDate(v) {
   if (!v) return ''
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return String(v)
-  return d.toLocaleString('zh-CN', { hour12: false })
+  return d.toLocaleString(locale.value, { hour12: false })
 }
 
 async function load() {
@@ -87,7 +88,7 @@ async function load() {
     const res = await axios.get(`/api/player/events/${encodeURIComponent(route.params.eventId)}`)
     event.value = res.data?.data || null
     if (event.value?.name) {
-      document.title = `${event.value.name} - salasasa.cn`
+      document.title = `${tr(event.value.name)} - salasasa.cn`
     }
   } catch {
     event.value = null

@@ -125,6 +125,8 @@ export interface SalasasaResultInfo {
   hu_fan?: string[]
   hu_class?: string
   hepai_player_hand?: number[]
+  /** Winning tile in Salasasa/server tile id format, added by the 2D adapter. */
+  hepai_tile?: number
   hepai_player_huapai?: number[]
   hepai_player_combination_mask?: number[][]
   action_tick?: number

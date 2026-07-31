@@ -279,7 +279,7 @@
           <button type="button" class="replay-icon-button" title="返回大厅" @click="router.push('/2d')">×</button>
         </header>
 
-        <div class="replay-share">
+        <div v-if="!localRecord" class="replay-share">
           <div class="replay-share__split">
             <button type="button" class="replay-primary-button replay-primary-button--2d" @click="copyShareLink('2d')">
               {{ copiedKind === '2d' ? '链接已复制' : '复制分享链接' }}
@@ -371,6 +371,7 @@ import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
 import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
 import { playerProfileUrl, publicApiGet, publicRecordUrl } from '@/game2d/salasasa/api'
 import { RecordReplay, type PublicGameRecord, type RecordRound, type RecordTick } from '@/game2d/replay/recordReplay'
+import { isLocalReplayRecord, loadLocalReplayRecord } from '@/game2d/replay/localReplayRecord'
 import {
   loadStoredSceneAppearance,
   loadStoredVolume,
@@ -392,6 +393,12 @@ import { tingpaiCheck } from '@/game2d/calc/guobiao'
 import { buildLocalWaitData } from '@/game2d/calc/guobiao/waitTips'
 import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAdapter'
 import { findFanByName, formatFanField } from '@/constants/guessFanCatalog'
+import { formatFanCount, translateFanName } from '@/i18n/fanNames'
+import { tr } from '@/i18n'
+import {
+  mmcrSettlementSortKey,
+  splitSettlementHand,
+} from '@/game2d/lib/settlementHand'
 import type { ActiveSessionSnapshot, MeldSnapshot } from '@/game2d/game/scene/types'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import SceneAppearancePanel from './SceneAppearancePanel.vue'
@@ -410,6 +417,7 @@ const actionLabel = ref('局初')
 const playing = ref(false)
 const sceneReady = ref(false)
 const copiedKind = ref<'2d' | '3d' | null>(null)
+const localRecord = computed(() => isLocalReplayRecord(route.params.gameId))
 const currentScores = ref<number[]>([])
 const showOtherHands = ref(true)
 const playWinAnimation = ref(false)
@@ -442,10 +450,10 @@ const currentRound = computed(() => replay.value?.rounds[roundIndex.value])
 const winds = ['东', '南', '西', '北']
 const roundNames = [
   '',
-  '东风东', '东风南', '东风西', '东风北',
-  '南风东', '南风南', '南风西', '南风北',
-  '西风东', '西风南', '西风西', '西风北',
-  '北风东', '北风南', '北风西', '北风北',
+  '东一局', '东二局', '东三局', '东四局',
+  '南一局', '南二局', '南三局', '南四局',
+  '西一局', '西二局', '西三局', '西四局',
+  '北一局', '北二局', '北三局', '北四局',
 ]
 
 const viewpointPlayers = computed(() => {
@@ -647,10 +655,12 @@ const resultWinTile = computed(() => {
 const resultClosedTiles = computed(() => {
   const tiles = [...(resultWinner.value?.hand_tiles ?? [])]
   if (resultWinner.value?.drawn_tile != null) tiles.push(resultWinner.value.drawn_tile)
-  const winning = resultWinTile.value
-  const index = tiles.lastIndexOf(winning)
-  if (index >= 0) tiles.splice(index, 1)
-  return tiles.sort((left, right) => left - right)
+  return splitSettlementHand(
+    tiles,
+    resultWinTile.value,
+    resultWinner.value?.melds.length ?? 0,
+    mmcrSettlementSortKey,
+  )
 })
 function expandResultMeld(meld: MeldSnapshot): number[] {
   if (meld.type === 'sequence') return [meld.tile - 1, meld.tile, meld.tile + 1]
@@ -669,7 +679,10 @@ const resultFans = computed(() => roundResult.value?.kind === 'win'
     const value = definition
       ? `${Number.isFinite(numeric) ? numeric * multiplier : formatFanField(raw)}番`
       : ''
-    return { name, value }
+    return {
+      name: translateFanName(name),
+      value: value ? formatFanCount(value.replace(/番$/, '')) : '',
+    }
   })
   : [])
 function fanNameFontSize(value: string): number {
@@ -681,8 +694,8 @@ function fanNameFontSize(value: string): number {
   return Math.max(12, Math.round((20 * 7 / units) * 10) / 10)
 }
 const winMethodLabel = computed(() => roundResult.value?.kind === 'win' && roundResult.value.action === 'hu_self'
-  ? '自摸'
-  : '点和')
+  ? tr('自摸')
+  : tr('点和'))
 const fanGridMinHeight = computed(() => `${Math.max(1, Math.ceil((resultFans.value.length || 1) / 2)) * 36}px`)
 const resultPlayers = computed(() => {
   const round = currentRound.value
@@ -948,11 +961,22 @@ function step(delta: number) {
     node.value = next
   } else if (next < 0 && roundIndex.value > 0) {
     roundIndex.value -= 1
-    node.value = replay.value?.rounds[roundIndex.value]?.action_ticks?.length ?? 0
+    node.value = roundBackTargetNode(roundIndex.value)
   } else if (next > maxNode.value && replay.value && roundIndex.value < replay.value.rounds.length - 1) {
     roundIndex.value += 1
     node.value = 0
   }
+}
+
+function roundBackTargetNode(index: number): number {
+  const ticks = replay.value?.rounds[index]?.action_ticks ?? []
+  const terminalIndex = ticks.findIndex((tick) => {
+    const action = String(tick?.[0] ?? '')
+    return action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku'
+  })
+  // node is the number of ticks already applied, so the terminal tick's index
+  // is exactly the stable position immediately before its presentation starts.
+  return terminalIndex >= 0 ? terminalIndex : ticks.length
 }
 
 function advanceAnimatedStep() {
@@ -1434,8 +1458,11 @@ async function loadRecord() {
   stopPlaying()
   resetTerminalPresentation()
   try {
-    const value = await publicApiGet<PublicGameRecord>(publicRecordUrl(String(route.params.gameId || '')))
-    await loadCurrentRanks(value)
+    const gameId = String(route.params.gameId || '')
+    const value = loadLocalReplayRecord(gameId)
+      || await publicApiGet<PublicGameRecord>(publicRecordUrl(gameId))
+    if (isLocalReplayRecord(gameId)) currentRanks.value = {}
+    else await loadCurrentRanks(value)
     replay.value = new RecordReplay(value)
     detail.value = value
     roundIndex.value = 0

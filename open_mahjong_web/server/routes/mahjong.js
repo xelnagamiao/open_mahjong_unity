@@ -4,6 +4,96 @@ const config = require('../config/config');
 
 const CALC_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
 const CALC_TIMEOUT_MS = config.calcServer.timeoutMs;
+const TZIAKCHA_BASE_URL = 'https://tziakcha.net';
+const TZIAKCHA_TIMEOUT_MS = 12_000;
+const TZIAKCHA_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+function parseTziakchaInput(value) {
+  const input = String(value || '').trim();
+  if (!input || input.length > 512) throw new Error('请输入雀渣牌谱链接或牌谱 ID');
+  if (!input.includes('/') && !input.includes('?')) {
+    if (!TZIAKCHA_ID_RE.test(input)) throw new Error('雀渣牌谱 ID 格式不正确');
+    return { id: input, kind: 'unknown' };
+  }
+
+  let url;
+  try {
+    url = new URL(input, TZIAKCHA_BASE_URL);
+  } catch {
+    throw new Error('雀渣牌谱链接格式不正确');
+  }
+  if (url.hostname !== 'tziakcha.net' && url.hostname !== 'www.tziakcha.net') {
+    throw new Error('仅支持 tziakcha.net 的牌谱链接');
+  }
+  const recordMatch = url.pathname.match(/^\/record\/([^/?#]+)/);
+  const isRecordPath = /^\/record\/?$/.test(url.pathname) || Boolean(recordMatch);
+  const id = recordMatch?.[1] || url.searchParams.get('id');
+  if (!id || !TZIAKCHA_ID_RE.test(id)) throw new Error('链接中没有可识别的雀渣牌谱 ID');
+  return { id, kind: isRecordPath ? 'record' : 'session' };
+}
+
+async function fetchTziakchaJson(path, init) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TZIAKCHA_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${TZIAKCHA_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        'User-Agent': 'salasasa-record-converter/1.0',
+        ...(init?.headers || {}),
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`雀渣返回 HTTP ${response.status}`);
+    const data = await response.json();
+    if (!data || typeof data !== 'object') throw new Error('雀渣返回了无法识别的数据');
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchTziakchaRound(recordId) {
+  const data = await fetchTziakchaJson('/_qry/record/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    body: new URLSearchParams({ id: recordId }).toString(),
+  });
+  if (typeof data.script !== 'string' || !data.script) throw new Error('没有找到该小局的牌谱数据');
+  return { ...data, id: data.id || recordId };
+}
+
+async function fetchTziakchaSession(sessionId) {
+  const session = await fetchTziakchaJson(`/_qry/game/?id=${encodeURIComponent(sessionId)}`, {
+    method: 'POST',
+  });
+  const refs = Array.isArray(session.records) ? session.records : [];
+  const recordIds = refs.map((item) => item?.i || item?.id).filter((id) => TZIAKCHA_ID_RE.test(String(id))).slice(0, 64);
+  if (!recordIds.length) throw new Error('没有找到该场对局的小局牌谱');
+  const records = await Promise.all(recordIds.map((id) => fetchTziakchaRound(String(id))));
+  return {
+    session: { ...session, id: session.id || sessionId },
+    records,
+  };
+}
+
+async function fetchTziakchaRecordInput(parsed) {
+  if (parsed.kind === 'session') return fetchTziakchaSession(parsed.id);
+  try {
+    const round = await fetchTziakchaRound(parsed.id);
+    if (round.belongs && TZIAKCHA_ID_RE.test(String(round.belongs))) {
+      try {
+        return await fetchTziakchaSession(String(round.belongs));
+      } catch (_) {
+        // 整场信息不可用时仍允许转换当前小局。
+      }
+    }
+    return round;
+  } catch (roundError) {
+    if (parsed.kind === 'record') throw roundError;
+    return fetchTziakchaSession(parsed.id);
+  }
+}
 
 // 国标麻将合法牌号集合（11-19 万 / 21-29 饼 / 31-39 条 / 41-44 风 / 45-47 中白发）
 const VALID_TILES = new Set();
@@ -60,6 +150,23 @@ function validateGBCalcInput(body, requireGetTile) {
 
   return errors;
 }
+
+// 根据雀渣牌谱链接读取公开牌谱；上游地址固定，用户输入只用于牌谱 ID。
+router.post('/tziakcha-record', async (req, res) => {
+  try {
+    const parsed = parseTziakchaInput(req.body?.input);
+    const data = await fetchTziakchaRecordInput(parsed);
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error?.name === 'AbortError'
+      ? '读取雀渣牌谱超时，请稍后重试'
+      : error?.message || '无法读取雀渣牌谱';
+    return res.status(message.includes('格式') || message.includes('请输入') || message.includes('仅支持') ? 400 : 502).json({
+      success: false,
+      message,
+    });
+  }
+});
 
 // 调用 Python FastAPI 计算服务并透传响应
 async function proxyToCalcServer(path, body) {

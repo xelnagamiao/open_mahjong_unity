@@ -193,6 +193,12 @@ public partial class NormalGameStateManager {
             return false;
         }
 
+        // 杠后补牌保留完整的手动决策窗口：不自动和牌、不自动补花。
+        // 自动摸切由 ShouldStartAutoCut 中同一条件拦截。
+        if (lastDealTileType == "deal_gang_tile") {
+            return false;
+        }
+
         if (allowActionList.Contains("initial_hu") && AutoAction.Instance.IsAutoHepai) {
             actionType = "initial_hu";
             return true;

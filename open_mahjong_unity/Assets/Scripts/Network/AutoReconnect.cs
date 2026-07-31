@@ -127,6 +127,20 @@ public static class AutoReconnect {
         return _state == State.Reconnecting;
     }
 
+    /// <summary>
+    /// 主动结束会话时取消后台自动恢复，避免它与新的登录连接竞争。
+    /// </summary>
+    public static void CancelForSessionReset() {
+        CoroutineManager.Ensure();
+        CoroutineManager.Instance.StopNamed(CoroutineKeys.NetworkAutoReconnect);
+        _state = State.Idle;
+        _snapshot = default;
+        _waitState = null;
+        _backgroundDisconnectDetected = false;
+        _retryCycle = 0;
+        ExpectGameRestore = false;
+    }
+
     private static void CaptureSnapshot() {
         var udm = UserDataManager.Instance;
         string currentWindow = WindowsManager.Instance.GetCurrentWindow();
