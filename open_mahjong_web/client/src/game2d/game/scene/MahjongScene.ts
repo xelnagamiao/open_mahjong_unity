@@ -32,6 +32,7 @@ import {
   normalizeAssistSettings,
   type AssistSettings,
 } from '../../lib/assistSettings'
+import { tr } from '../../../i18n'
 
 export type { WaitInfoData, AssistSettings }
 
@@ -45,6 +46,7 @@ type ViewerSyncContext = {
   category: string
   kind: string
   actorSeat: number
+  drawSource?: string
 }
 
 type ScenePresentationMode = 'game' | 'replay'
@@ -568,7 +570,7 @@ export class MahjongScene {
   private updateLatencyIndicator(value: string): void {
     if (!this.latencyIndicatorBg || !this.latencyIndicatorText) return
 
-    this.latencyIndicatorText.text = `延迟：${value}`
+    this.latencyIndicatorText.text = tr(`延迟：${value}`)
     const width = Math.max(TILE_WIDTH * 3.4, this.latencyIndicatorText.width + TILE_WIDTH * 1.2)
     const height = TILE_WIDTH * 0.9
 
@@ -851,6 +853,11 @@ export class MahjongScene {
   }
 
   private tryAutoHelperAction(context: ViewerSyncContext | null, reactionTile: number | null = null): boolean {
+    // 杠后补牌必须保留完整的手动决策窗口：不自动和牌、补花或摸切。
+    if (context?.drawSource === 'deal_gang_tile' && context.actorSeat === this.selfDir) {
+      return false
+    }
+
     const selfWinAction = this.findAvailableAction(['self_drawn_win'])
     const claimRonAction = this.findAvailableAction(['discard_win'])
     const claimRobAction = this.findAvailableAction(['rob_added_kong_win'])
@@ -1428,7 +1435,7 @@ export class MahjongScene {
     latencyIndicator.addChild(latencyBg)
 
     const latencyText = new Text({
-      text: '延迟：\u2014',
+      text: tr('延迟：\u2014'),
       style: { fontFamily: getGameFontFamily(), fontSize: 160, fill: 0x000000, align: 'center' },
     })
     latencyText.anchor.set(0.5)
@@ -1834,7 +1841,7 @@ export class MahjongScene {
           const chowMode = event.ui64_value ?? 0
           this.hands[actorDir].chowFromRiver(this.rivers[discarderRelDir], centralTile, chowMode)
           if (this.presentationMode === 'replay' && !event.silent) {
-            this.showReplayClaimLabel(actorDir, '吃', true)
+            this.showReplayClaimLabel(actorDir, tr('吃'), true)
           }
           if (!event.silent) this.playCallSound('chi', actorDir)
           break
@@ -1845,7 +1852,7 @@ export class MahjongScene {
           const t = tile ?? 0
           this.hands[actorDir].pungFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
           if (this.presentationMode === 'replay' && !event.silent) {
-            this.showReplayClaimLabel(actorDir, '碰', true)
+            this.showReplayClaimLabel(actorDir, tr('碰'), true)
           }
           if (!event.silent) this.playCallSound('peng', actorDir)
           break
@@ -1856,7 +1863,7 @@ export class MahjongScene {
           const meldFromRel = backendMeldFromRel(actorSeat, this.lastDiscarderSeat)
           this.hands[actorDir].meldedKongFromRiver(this.rivers[discarderRelDir], meldFromRel, t)
           if (this.presentationMode === 'replay' && !event.silent) {
-            this.showReplayClaimLabel(actorDir, '杠', true)
+            this.showReplayClaimLabel(actorDir, tr('杠'), true)
           }
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
@@ -1870,7 +1877,7 @@ export class MahjongScene {
             this.hands[actorDir].mKongFromHand(t, useDrawn)
           }
           if (this.presentationMode === 'replay' && !event.silent) {
-            this.showReplayClaimLabel(actorDir, '杠', true)
+            this.showReplayClaimLabel(actorDir, tr('杠'), true)
           }
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
@@ -1884,7 +1891,7 @@ export class MahjongScene {
             this.hands[actorDir].cKongFromHand(t, useDrawn)
           }
           if (this.presentationMode === 'replay' && !event.silent) {
-            this.showReplayClaimLabel(actorDir, '杠', true)
+            this.showReplayClaimLabel(actorDir, tr('杠'), true)
           }
           if (!event.silent) this.playCallSound('gang', actorDir)
           break
@@ -1901,8 +1908,8 @@ export class MahjongScene {
           this.countdown.stop()
           this.clearMeldChoices()
           if (!event.silent) {
-            if (this.presentationMode === 'replay') this.showReplayClaimLabel(actorDir, '和', true)
-            else new TempLabel(this.center, actorDir, '和', 1000)
+            if (this.presentationMode === 'replay') this.showReplayClaimLabel(actorDir, tr('和'), true)
+            else new TempLabel(this.center, actorDir, tr('和'), 1000)
             this.playCallSound('hu', actorDir)
           }
           break
@@ -1919,8 +1926,8 @@ export class MahjongScene {
           this.countdown.stop()
           this.clearMeldChoices()
           if (!event.silent) {
-            if (this.presentationMode === 'replay') this.showReplayClaimLabel(actorDir, '和', true)
-            else new TempLabel(this.center, actorDir, '和', 1000)
+            if (this.presentationMode === 'replay') this.showReplayClaimLabel(actorDir, tr('和'), true)
+            else new TempLabel(this.center, actorDir, tr('和'), 1000)
             this.playCallSound('hu', actorDir)
           }
           break
@@ -1933,7 +1940,7 @@ export class MahjongScene {
           // Salasasa uses the Vue settlement panel; skip the Pixi center "流局" text.
           if (!event.suppress_result_display) {
             this.tempDisplay.clear()
-            this.tempDisplay.addText('drawnGame', '流局', 0, 0, 0, 390, false, 0x000000, true)
+            this.tempDisplay.addText('drawnGame', tr('流局'), 0, 0, 0, 390, false, 0x000000, true)
             this.tempDisplay.visible = true
           }
           break
@@ -1956,7 +1963,7 @@ export class MahjongScene {
         concealed_kong: '杠', discard_win: '和', rob_added_kong_win: '和',
         self_drawn_win: '和',
       }
-      const text = labelMap[kind]
+      const text = tr(labelMap[kind])
       if (text) {
         if (this.presentationMode === 'replay') {
           this.showReplayClaimLabel(actorDir, text, true)
@@ -2025,7 +2032,12 @@ export class MahjongScene {
     // Don't update viewer controls for player status events (leave/resume),
     // as they don't affect meld choices or available actions.
     if (kind !== 'player_left' && kind !== 'player_resumed') {
-      this.syncViewerControls(viewer, tile ?? null, { category, kind, actorSeat })
+      this.syncViewerControls(viewer, tile ?? null, {
+        category,
+        kind,
+        actorSeat,
+        drawSource: typeof event.draw_source === 'string' ? event.draw_source : undefined,
+      })
     }
     if (kind === 'end' && category === 'transition') {
       this.showFinalScores(Array.isArray(event.scores) ? event.scores as number[] : [])
@@ -2099,7 +2111,7 @@ export class MahjongScene {
         concealed_kong: '杠', discard_win: '和', rob_added_kong_win: '和',
         self_drawn_win: '和',
       }
-      const text = labelMap[kind]
+      const text = tr(labelMap[kind])
       if (text) {
         this.showReplayClaimLabel(actorDir, text, true)
         if (kind === 'chow') this.playCallSound('chi', actorDir, false)
@@ -2184,7 +2196,7 @@ export class MahjongScene {
       .filter((s) => s.username.length > 0)
       .map((s) => ({ label: s.username, color: s.ready ? 0x000000 : 0x888888 }))
     if (entries.length === 0) {
-      this.tempDisplay.addText('pending', '等待玩家加入', 0, 0, 0, 240, false, 0x000000, true)
+      this.tempDisplay.addText('pending', tr('等待玩家加入'), 0, 0, 0, 240, false, 0x000000, true)
     } else {
       this.tempDisplay.displayQueue(entries)
     }
@@ -2208,7 +2220,7 @@ export class MahjongScene {
     btn.addChild(bg)
 
     const label = new Text({
-      text: ready ? '取消准备' : '准备',
+      text: tr(ready ? '取消准备' : '准备'),
       style: { fontFamily: getGameFontFamily(), fontSize: 200, fill: 0x000000, align: 'center' },
     })
     label.anchor.set(0.5)
@@ -2265,7 +2277,7 @@ export class MahjongScene {
       btn.addChild(t1)
     }
 
-    const line2 = `积分 ${deltaPoints >= 0 ? '+' : '\u2212'}${Math.abs(deltaPoints).toFixed(2)} (等级分 ${deltaMu >= 0 ? '+' : '\u2212'}${Math.abs(deltaMu).toFixed(2)})`
+    const line2 = `${tr('积分')} ${deltaPoints >= 0 ? '+' : '\u2212'}${Math.abs(deltaPoints).toFixed(2)} (${tr('等级分')} ${deltaMu >= 0 ? '+' : '\u2212'}${Math.abs(deltaMu).toFixed(2)})`
     const t2 = new Text({
       text: line2,
       style: { fontFamily: getGameFontFamily(), fontSize: (twoRows ? 110 : 140) / textScale, fill: twoRows ? 0x333333 : 0x000000, align: 'center' },
@@ -2320,7 +2332,7 @@ export class MahjongScene {
     if (kind === 'drawn_game') {
       if (!event.suppress_result_display) {
         this.tempDisplay.clear()
-        this.tempDisplay.addText('drawnGame', '流局', 0, 0, 0, 390, false, 0x000000, true)
+        this.tempDisplay.addText('drawnGame', tr('流局'), 0, 0, 0, 390, false, 0x000000, true)
         this.tempDisplay.visible = true
       }
       return

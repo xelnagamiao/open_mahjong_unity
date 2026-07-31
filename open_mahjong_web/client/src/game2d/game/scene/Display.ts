@@ -6,6 +6,7 @@ import {
 } from './constants'
 import type { WaitDisplay } from './WaitDisplay'
 import { getGameFontFamily } from '../fontLoader'
+import { tr } from '../../../i18n'
 
 // ── MyText ────────────────────────────────────────────────────────────
 
@@ -155,19 +156,9 @@ export class Display extends Container {
     const roundIndex = Math.max(0, roundCounter - 1)
     const winds = ['东', '南', '西', '北']
     const prevailingWind = winds[Math.floor(roundIndex / 4) % 4] ?? '东'
-    const handWind = winds[roundIndex % 4] ?? '东'
-    const roundLabel = `${prevailingWind}风${handWind}`
-    const roundCharacterX = [-0.315, -0.01, 0.315]
-    for (let index = 0; index < roundLabel.length; index += 1) {
-      this.addText(
-        `round${index}`,
-        roundLabel[index] ?? '',
-        roundCharacterX[index] ?? 0,
-        -0.12,
-        0,
-        360,
-      )
-    }
+    const handNumbers = ['一', '二', '三', '四']
+    const handNumber = handNumbers[roundIndex % 4] ?? '一'
+    this.addText('round0', tr(`${prevailingWind}${handNumber}局`), 0, -0.12, 0, 360, false, 0x000000, false, 4.8)
   }
 
   setScoreText(

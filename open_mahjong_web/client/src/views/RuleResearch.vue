@@ -89,6 +89,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { tr } from '@/i18n'
 
 const route = useRoute()
 const slug = computed(() => route.params.slug || '')
@@ -166,14 +167,14 @@ watch(
     else {
       data.value = null
       loadIndex()
-      document.title = '规则资料搜集 - salasasa.cn'
+      document.title = tr('规则资料搜集 - salasasa.cn')
     }
   },
   { immediate: true },
 )
 
 watch(data, (d) => {
-  if (d?.label) document.title = `${d.label} · 规则搜集 - salasasa.cn`
+  if (d?.label) document.title = `${tr(d.label)} · ${tr('规则搜集 - salasasa.cn')}`
 })
 </script>
 

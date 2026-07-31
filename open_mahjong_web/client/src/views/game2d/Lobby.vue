@@ -12,6 +12,7 @@
         >牌桌设计鸣谢：mmcr.online</a>
       </div>
       <el-space wrap class="lobby-header__actions">
+        <LanguageSelect variant="lobby" />
         <el-icon v-if="session.restoring" class="is-loading"><Loading /></el-icon>
         <template v-if="session.player">
           <el-tag :type="session.status === 'online' ? 'success' : 'warning'">
@@ -81,7 +82,18 @@
       <div class="lobby-grid">
         <section class="match-section">
           <div class="section-title">
-            <h2>匹配场</h2>
+            <div class="match-title-row">
+              <h2>匹配场</h2>
+              <el-button
+                class="match-help-button"
+                text
+                circle
+                :icon="QuestionFilled"
+                aria-label="查看匹配场说明"
+                title="查看匹配场说明"
+                @click="matchHelpVisible = true"
+              />
+            </div>
             <div class="population-summary">
               <span>等待：<b>{{ totalWaiting }}</b></span>
               <span>对局：<b>{{ totalPlaying }}</b></span>
@@ -156,6 +168,67 @@
       <LobbyRecordPanel v-if="activeSection === 'record'" />
     </main>
 
+    <el-dialog
+      v-model="matchHelpVisible"
+      class="match-help-dialog"
+      title="匹配场说明"
+      width="min(820px, calc(100vw - 28px))"
+      append-to-body
+    >
+      <div class="match-help-content">
+        <p class="match-help-intro">配置与 Unity 版一致。第一、第二名获得 PT；第三、第四名按本人段位扣减 PT。</p>
+        <el-tabs v-model="activeHelpTier" class="match-help-tabs">
+          <el-tab-pane
+            v-for="tier in MATCH_HELP_TIERS"
+            :key="tier.key"
+            :label="tier.title"
+            :name="tier.key"
+          >
+            <dl class="match-help-meta">
+              <div><dt>入场门槛</dt><dd>{{ tier.admission }}</dd></div>
+              <div><dt>对局设置</dt><dd>{{ tier.settings }}</dd></div>
+              <div><dt>分配比例</dt><dd>+0.8 / +0.2 / -0.3 / -0.7</dd></div>
+            </dl>
+            <div class="match-help-table-wrap">
+              <table class="match-help-table">
+                <thead>
+                  <tr><th>局制</th><th>小局数</th><th>场得 PT</th><th>时间限制</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="format in tier.formats" :key="format.key">
+                    <td>{{ format.title }}</td>
+                    <td>{{ format.rounds }}</td>
+                    <td>{{ format.gain }}</td>
+                    <td>{{ tier.time }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+
+        <section class="match-loss-section">
+          <h3>扣减分逻辑</h3>
+          <p>第三名扣除“段位均失 PT × 0.3”，第四名扣除“段位均失 PT × 0.7”；与匹配场次和局制无关。</p>
+          <div class="match-help-table-wrap match-loss-table-wrap">
+            <table class="match-help-table match-loss-table">
+              <thead>
+                <tr><th>段位</th><th>段位均失 PT</th><th>第三名</th><th>第四名</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in RANK_LOSS_ROWS" :key="row.rank">
+                  <td>{{ row.rank }}</td>
+                  <td>{{ row.loss }}</td>
+                  <td>{{ formatLoss(row.loss, 0.3) }}</td>
+                  <td>{{ formatLoss(row.loss, 0.7) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -163,15 +236,17 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, SwitchButton, User } from '@element-plus/icons-vue'
+import { Loading, QuestionFilled, SwitchButton, User } from '@element-plus/icons-vue'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { getPlayerToken } from '@/api/playerClient'
 import { leaderboardUrl, publicApiGet, queueStatusUrl } from '@/game2d/salasasa/api'
 import { salasasaClient } from '@/game2d/salasasa/client'
 import { getRankEntry } from '@/constants/rankTable'
+import { tr } from '@/i18n'
 import CustomRoomPanel from './CustomRoomPanel.vue'
 import LobbyRecordPanel from './LobbyRecordPanel.vue'
+import LanguageSelect from '@/components/LanguageSelect.vue'
 
 const TIERS = [
   { key: 'beginner', title: '初级场' },
@@ -186,6 +261,46 @@ const FORMATS = [
   { key: 'quanzhuang', title: '全庄', rounds: '16 小局' },
 ]
 
+const MATCH_HELP_TIERS = [
+  {
+    key: 'beginner', title: '初级场', admission: '无', base: 30, time: '20+5',
+    settings: '有提示、无错和、战术鸣牌',
+  },
+  {
+    key: 'intermediate', title: '中级场', admission: '2级及以上，七段及以上不可进入；赞助者可突破最低段位', base: 65, time: '20+8',
+    settings: '无提示、错和、战术鸣牌',
+  },
+  {
+    key: 'advanced', title: '高级场', admission: '三段及以上', base: 105, time: '20+5',
+    settings: '无提示、无指针提示、错和、战术鸣牌',
+  },
+  {
+    key: 'mcrpl', title: 'MCRPL', admission: 'Salasasa七段及以上或职业五段及以上并实名注册', base: 135, time: '20+5',
+    settings: '无提示、无指针提示、错和、战术鸣牌、禁止聊天、仅 PC 端',
+  },
+].map((tier) => ({
+  ...tier,
+  formats: FORMATS.map((format) => ({
+    ...format,
+    gain: `${tier.base}${format.key === 'quanzhuang' ? '' : format.key === 'banzhuang' ? ' × 0.7' : ' × 0.49'}`,
+  })),
+}))
+
+const RANK_LOSS_ROWS = [
+  { rank: '10级－3级', loss: 0 },
+  { rank: '2级', loss: 15 },
+  { rank: '1级', loss: 35 },
+  { rank: '初段', loss: 45 },
+  { rank: '二段', loss: 55 },
+  { rank: '三段', loss: 65 },
+  { rank: '四段', loss: 95 },
+  { rank: '五段', loss: 105 },
+  { rank: '六段', loss: 120 },
+  { rank: '七段', loss: 135 },
+  { rank: '八段', loss: 165 },
+  { rank: '九段', loss: 180 },
+]
+
 const router = useRouter()
 const session = useGame2dSessionStore()
 const auth = usePlayerAuthStore()
@@ -198,6 +313,8 @@ const inCustomRoom = ref(false)
 const leaders = ref([])
 const leadersBusy = ref(true)
 const activeSection = ref('battle')
+const matchHelpVisible = ref(false)
+const activeHelpTier = ref('beginner')
 let unsubscribe = null
 let queueTimer = null
 let reconnectPromptOpen = false
@@ -206,17 +323,17 @@ function promptReconnectOffer() {
   if (reconnectPromptOpen || !salasasaClient.hasReconnectOffer) return
   reconnectPromptOpen = true
   void ElMessageBox.confirm(
-    '您有一场正在对局的游戏，是否重连？',
-    '对局重连',
+    tr('您有一场正在对局的游戏，是否重连？'),
+    tr('对局重连'),
     {
-      confirmButtonText: '返回牌桌',
-      cancelButtonText: '暂不重连',
+      confirmButtonText: tr('返回牌桌'),
+      cancelButtonText: tr('暂不重连'),
       type: 'warning',
       closeOnClickModal: false,
     },
   ).then(() => {
     if (!salasasaClient.acceptReconnect()) {
-      ElMessage.error('重连请求发送失败，请重新连接后再试')
+      ElMessage.error(tr('重连请求发送失败，请重新连接后再试'))
     }
   }).catch(() => {
     // Keep the pending offer so entering or refreshing the 2D lobby asks again.
@@ -330,6 +447,11 @@ async function refreshQueueStatus() {
   } catch (error) {
     console.warn('[2D] 公开匹配人数加载失败', error)
   }
+}
+
+function formatLoss(loss, coefficient) {
+  const value = Number((loss * coefficient).toFixed(2))
+  return value ? `-${value}` : '0'
 }
 
 watch(() => session.status, (status) => {

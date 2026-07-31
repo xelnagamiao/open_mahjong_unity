@@ -13,8 +13,7 @@ export const CONVERT_MODES = [
     label: '雀渣 → salasasa（国标）',
     group: 'guobiao',
     accept: '.json,application/json,text/plain',
-    hint: '粘贴雀渣 raw（含 script）/ 解码 step / session+records JSON。',
-    reliability: '完整（推荐）',
+    hint: '推荐粘贴雀渣牌谱链接并使用下方的“读取并转换”；也支持已有的 script、step 或 session+records JSON。',
     approxRows: [
       {
         field: '手牌 / 牌山 / 摸切吃碰杠和',
@@ -43,8 +42,7 @@ export const CONVERT_MODES = [
     label: 'salasasa → 雀渣（国标）',
     group: 'guobiao',
     accept: '.json,application/json',
-    hint: '输出解码态 records（step），勿当作雀渣官网下载的原谱。',
-    reliability: '近似（勿当原谱）',
+    hint: 'salasasa 导出的单局 JSON 牌谱。结果是供分析使用的雀渣 step 数据，不是雀渣网站的原始下载文件。',
     approxRows: [
       {
         field: 'step.w（牌墙 hex）',
@@ -91,8 +89,7 @@ export const CONVERT_MODES = [
     label: 'salasasa → Botzone（国标）',
     group: 'guobiao',
     accept: '.json,application/json',
-    hint: '输出 Botzone 风格 lines + text。',
-    reliability: '基本完整（受 Botzone 协议限制）',
+    hint: 'salasasa 导出的单局 JSON 牌谱。结果同时包含 Botzone 的逐行记录（lines）和完整文本（text）。',
     approxRows: [
       {
         field: '他人摸牌',
@@ -121,8 +118,7 @@ export const CONVERT_MODES = [
     label: 'Botzone → salasasa（国标）',
     group: 'guobiao',
     accept: '.json,.txt,text/plain,application/json',
-    hint: 'Botzone 协议文本或 {games/lines/text} JSON。',
-    reliability: '近似（隐藏信息很多）',
+    hint: 'Botzone 对局协议文本（每条消息一行），或包含 games、lines、text 任一字段的 JSON 文件。',
     approxRows: [
       {
         field: 'p1_tiles / p2_tiles / p3_tiles（他人手牌）',
@@ -175,8 +171,7 @@ export const CONVERT_MODES = [
     label: 'salasasa → MJAI（日麻）',
     group: 'riichi',
     accept: '.json,application/json',
-    hint: '输出 events 与 ndjson。',
-    reliability: '基本完整',
+    hint: 'salasasa 导出的日麻单局 JSON 牌谱。结果同时包含 MJAI 事件数组（events）和逐行文本（ndjson）。',
     approxRows: [
       {
         field: 'hora.pai（和了哪张）',
@@ -205,8 +200,7 @@ export const CONVERT_MODES = [
     label: 'MJAI → salasasa（日麻）',
     group: 'riichi',
     accept: '.json,.mjson,.txt,application/json,text/plain',
-    hint: 'MJAI NDJSON（每行一个事件）或 events 数组 JSON。',
-    reliability: '近似（看源事件是否齐全）',
+    hint: 'MJAI 的 .mjson / NDJSON 文件（每行一个事件），或直接包含事件数组的 JSON 文件。',
     approxRows: [
       {
         field: 'tiles_list（剩余牌山）',

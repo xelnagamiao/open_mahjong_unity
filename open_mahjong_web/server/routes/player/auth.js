@@ -41,12 +41,12 @@ function validateUsername(raw) {
   for (const char of username) {
     if (/[\u4e00-\u9fff]/u.test(char)) {
       length += 2;
-    } else if (/[A-Za-z0-9]/.test(char)) {
+    } else {
       length += 1;
     }
   }
   if (length < 2) {
-    return { error: '用户名长度至少需要2（中文=2，数字=1，英文=1）' };
+    return { error: '用户名长度至少需要2（中文=2，其他字符=1）' };
   }
   if (length > 20) return { error: '用户名不能超过20' };
   return { value: username };

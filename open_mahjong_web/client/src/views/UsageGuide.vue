@@ -240,34 +240,7 @@
                     <code>random.seed(round_random_seed)</code>
                     ，再做 Fisher-Yates 洗牌。相同种子产生相同牌序，过程完全可复现。示例代码：
                   </p>
-                  <pre class="code-block"><code>import hashlib
-import random
-
-master_seed = 0x1234567890abcdef01234567890abcdef01234567890abcdef01234567890abcdef
-salt = "0123456789abcdef0123456789abcdef"
-commitment = int(hashlib.sha256((format(master_seed, '064x') + salt).encode()).hexdigest(), 16)
-
-sth_tiles_set = {
-    11, 12, 13, 14, 15, 16, 17, 18, 19,  # 万
-    21, 22, 23, 24, 25, 26, 27, 28, 29,  # 饼
-    31, 32, 33, 34, 35, 36, 37, 38, 39,  # 条
-    41, 42, 43, 44,                      # 东南西北
-    45, 46, 47,                          # 中白发
-}
-hua_tiles_set = {51, 52, 53, 54, 55, 56, 57, 58}  # 春夏秋冬 梅兰竹菊
-tiles_list = []
-for tile in sth_tiles_set:
-    tiles_list.extend([tile] * 4)
-tiles_list.extend(hua_tiles_set)
-
-# 立直/古典用 round_index，国标/青雀用 current_round
-round_number = 1
-round_random_seed = int(
-    hashlib.sha256((format(master_seed, '064x') + str(round_number)).encode()).hexdigest(),
-    16,
-)
-random.seed(round_random_seed)
-random.shuffle(tiles_list)</code></pre>
+                  <pre class="code-block"><code>{{ seedExampleCode }}</code></pre>
                 </li>
               </ol>
             </template>
@@ -541,7 +514,65 @@ random.shuffle(tiles_list)</code></pre>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { locale } from '@/i18n'
+
+const seedCodeLabels = {
+  'zh-CN': {
+    characters: '万', dots: '饼', bamboos: '条', winds: '东南西北', dragons: '中白发',
+    flowers: '春夏秋冬 梅兰竹菊', round: '立直/古典用 round_index，国标/青雀用 current_round',
+  },
+  'zh-TW': {
+    characters: '萬', dots: '筒', bamboos: '索', winds: '東南西北', dragons: '中白發',
+    flowers: '春夏秋冬 梅蘭竹菊', round: '立直/古典使用 round_index，國標/青雀使用 current_round',
+  },
+  'zh-HK': {
+    characters: '萬', dots: '筒', bamboos: '索', winds: '東南西北', dragons: '中白發',
+    flowers: '春夏秋冬 梅蘭竹菊', round: '立直/古典使用 round_index，國標/青雀使用 current_round',
+  },
+  en: {
+    characters: 'Characters', dots: 'Dots', bamboos: 'Bamboos', winds: 'East, South, West, North',
+    dragons: 'Red, White, Green', flowers: 'Spring, Summer, Autumn, Winter; Plum, Orchid, Bamboo, Chrysanthemum',
+    round: 'Riichi/Classical use round_index; MCR/Qingque use current_round',
+  },
+  ja: {
+    characters: '萬子', dots: '筒子', bamboos: '索子', winds: '東・南・西・北',
+    dragons: '中・白・發', flowers: '春・夏・秋・冬、梅・蘭・竹・菊',
+    round: 'リーチ/古典では round_index、国標/青雀では current_round を使用',
+  },
+}
+
+const seedExampleCode = computed(() => {
+  const labels = seedCodeLabels[locale.value] || seedCodeLabels['zh-CN']
+  return `import hashlib
+import random
+
+master_seed = 0x1234567890abcdef01234567890abcdef01234567890abcdef01234567890abcdef
+salt = "0123456789abcdef0123456789abcdef"
+commitment = int(hashlib.sha256((format(master_seed, '064x') + salt).encode()).hexdigest(), 16)
+
+sth_tiles_set = {
+    11, 12, 13, 14, 15, 16, 17, 18, 19,  # ${labels.characters}
+    21, 22, 23, 24, 25, 26, 27, 28, 29,  # ${labels.dots}
+    31, 32, 33, 34, 35, 36, 37, 38, 39,  # ${labels.bamboos}
+    41, 42, 43, 44,                      # ${labels.winds}
+    45, 46, 47,                          # ${labels.dragons}
+}
+hua_tiles_set = {51, 52, 53, 54, 55, 56, 57, 58}  # ${labels.flowers}
+tiles_list = []
+for tile in sth_tiles_set:
+    tiles_list.extend([tile] * 4)
+tiles_list.extend(hua_tiles_set)
+
+# ${labels.round}
+round_number = 1
+round_random_seed = int(
+    hashlib.sha256((format(master_seed, '064x') + str(round_number)).encode()).hexdigest(),
+    16,
+)
+random.seed(round_random_seed)
+random.shuffle(tiles_list)`
+})
 
 const sections = [
   { id: 'intro', title: '一、平台简介' },

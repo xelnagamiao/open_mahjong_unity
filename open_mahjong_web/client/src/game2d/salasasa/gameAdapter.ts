@@ -225,6 +225,8 @@ export class SalasasaGameAdapter {
   private selfHandRaw: number[] = []
   private selfMeldTargets: string[] = []
   private selfHuapai: number[] = []
+  /** Carries the self draw source into the following hand prompt. */
+  private pendingSelfDrawSource: string | null = null
   /** Salasasa-format river tiles per seat (for tip remaining / 绝张). */
   private seatDiscards: number[][] = emptySeatLists()
   /** Salasasa-format meld keys per seat. */
@@ -261,10 +263,19 @@ export class SalasasaGameAdapter {
       case 'gamestate/guobiao/do_action':
         return message.do_action_info ? { events: this.fromActions(message.do_action_info) } : null
       case 'gamestate/guobiao/show_result':
-        return message.show_result_info ? {
-          event: this.fromResult(message.show_result_info),
-          result: message.show_result_info,
-        } : null
+        if (!message.show_result_info) return null
+        {
+          const result = {
+            ...message.show_result_info,
+            hepai_tile: message.show_result_info.hu_class === 'hu_self'
+              ? message.show_result_info.hepai_player_hand?.at(-1)
+              : this.lastDiscardTile,
+          }
+          return {
+            event: this.fromResult(result),
+            result,
+          }
+        }
       case 'gamestate/guobiao/game_end':
         return message.game_end_info ? { event: this.fromEnd(message.game_end_info), ended: message.game_end_info } : null
       case 'gamestate/guobiao/ready_status':
@@ -285,6 +296,7 @@ export class SalasasaGameAdapter {
     this.selfHandRaw = [...(selfPlayer?.hand_tiles ?? [])]
     this.selfMeldTargets = [...(selfPlayer?.combination_tiles ?? [])]
     this.selfHuapai = [...(selfPlayer?.huapai_list ?? [])]
+    this.pendingSelfDrawSource = null
     this.seatDiscards = emptySeatLists()
     this.seatCombinations = emptySeatCombos()
     for (const player of playersInfo) {
@@ -397,8 +409,13 @@ export class SalasasaGameAdapter {
     const playIndex = info.opening_buhua_complete
       ? (info.dealer_index ?? this.gameInfoValue?.dealer_index ?? info.player_index)
       : info.player_index
+    const drawSource = info.player_index === this.selfSeat ? this.pendingSelfDrawSource : null
+    if (info.player_index === this.selfSeat) {
+      this.pendingSelfDrawSource = null
+    }
     return this.event('control', 'hand_prompt', playIndex, info.action_tick, viewer, {
       opening_buhua_complete: Boolean(info.opening_buhua_complete),
+      draw_source: drawSource,
     })
   }
 
@@ -429,6 +446,12 @@ export class SalasasaGameAdapter {
   private fromActions(info: SalasasaDoActionInfo): GameEventPayload[] {
     const previousWaitData = this.ensureSnapshot().viewer.wait_data ?? null
     const actions = info.action_list.length ? info.action_list : ['']
+    if (info.action_player === this.selfSeat) {
+      const drawSource = actions.find((action) => (
+        action === 'deal_tile' || action === 'deal_gang_tile' || action === 'deal_buhua_tile'
+      ))
+      this.pendingSelfDrawSource = drawSource ?? null
+    }
     // 开局补花会把“移除花牌”和“补进岭上牌”合并在同一帧中。
     // 两个动作都必须保留，否则画面只会增加替代牌，原花牌仍卡在手牌区。
     const events = actions.flatMap((action) => {
@@ -604,6 +627,9 @@ export class SalasasaGameAdapter {
     const category = info.is_claim ? 'claim' : 'transition'
     return this.event(category, kind, info.action_player, info.action_tick, viewer, {
       tile: salasasaTileToMmcr(tile),
+      draw_source: action === 'deal_tile' || action === 'deal_gang_tile' || action === 'deal_buhua_tile'
+        ? action
+        : undefined,
       use_drawn_tile: info.cut_class ?? info.is_mo_gang ?? info.is_mo_buhua ?? false,
       ui64_value: ui64Value,
       silent: Boolean(info.silent),
@@ -711,7 +737,7 @@ export class SalasasaGameAdapter {
       available_actions: [],
     }
     return this.event('transition', isDraw ? 'drawn_game' : isSelfDrawn ? 'self_drawn_win' : 'discard_win', winner, info.action_tick ?? snapshot.state.stage_counter + 1, viewer, {
-      tile: salasasaTileToMmcr(isSelfDrawn ? info.hepai_player_hand?.at(-1) : this.lastDiscardTile),
+      tile: salasasaTileToMmcr(info.hepai_tile),
       revealed_hand_tiles: info.hepai_player_hand?.map(salasasaTileToMmcr),
       // Tactical claim already played the call. The server marks show_result
       // silent so the hand reveal does not announce "hu" a second time.

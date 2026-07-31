@@ -72,7 +72,19 @@ export async function loadTziakchaRecord(input) {
     }
   }
   if (data?.w && data?.a) return { step: data }
-  if (data?.session && Array.isArray(data.records)) return data
+  if (data?.session && Array.isArray(data.records)) {
+    const records = await Promise.all(data.records.map(async (record) => {
+      if (record?.step && typeof record.step === 'object') return record
+      if (record?.script) {
+        return {
+          ...record,
+          step: JSON.parse(await inflateZlibBase64(record.script))
+        }
+      }
+      throw new Error(`雀渣小局 ${record?.id || ''} 缺少 script / step`)
+    }))
+    return { ...data, records }
+  }
   if (data?.game_title && data?.game_round) {
     throw new Error('这是 salasasa 牌谱，请选择 salasasa → 雀渣')
   }
@@ -266,13 +278,15 @@ export function convertTziakchaStepToSalasasaRound(step, roundOrdinal = 1, recor
       let code
       let handTiles
       if (offer <= 1) {
-        code = 'cl'
+        // 雀渣的 offer 表示被吃牌在顺子中的位置；salasasa 的
+        // cl/cr 表示手牌位于被吃牌左/右侧，方向与之相反。
+        code = 'cr'
         handTiles = [t1, t2]
       } else if (offer === 2) {
         code = 'cm'
         handTiles = [t0, t2]
       } else {
-        code = 'cr'
+        code = 'cl'
         handTiles = [t0, t1]
       }
       const removed = handTiles.map((t) => removeExact(pl.hand, t))

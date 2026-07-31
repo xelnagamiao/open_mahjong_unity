@@ -70,7 +70,9 @@
               Salasasa平台是open_mahjong_unity项目的示例服务器，目前支持国标/立直/青雀/川麻/长麻以及一些子规则
             </p>
           </router-link>
-          <router-link class="platform-2d-link" to="/2d">进入2D模式</router-link>
+          <router-link class="platform-2d-link" to="/2d">
+            进入2D模式<span v-if="locale !== 'zh-CN'">（完整支持繁体中文、英语、日语）</span>
+          </router-link>
         </div>
 
         <div class="panel recent">
@@ -115,8 +117,29 @@
       <div class="sec-h">■ 其他入口</div>
       <div class="grid g4">
         <template v-for="item in battleLinks" :key="item.title">
+          <div
+            v-if="item.footerHref"
+            class="card card-with-footer"
+            :style="{ background: item.color }"
+          >
+            <a
+              class="card-main"
+              :href="item.href"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </a>
+            <a
+              class="card-footer-link"
+              :href="item.footerHref"
+              target="_blank"
+              rel="noopener noreferrer"
+            >{{ item.footerLabel }}</a>
+          </div>
           <a
-            v-if="item.href"
+            v-else-if="item.href"
             class="card"
             :style="{ background: item.color }"
             :href="item.href"
@@ -199,6 +222,7 @@ import axios from 'axios'
 import { buildPlatformStatsRows } from '@/utils/statsDisplay'
 import { eventStatusLabel } from '@/utils/eventMeta'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { locale } from '@/i18n'
 
 const auth = usePlayerAuthStore()
 
@@ -350,6 +374,8 @@ const battleLinks = [
     title: '加入QQ群',
     description: '加入平台交流群，与群友约桌与反馈',
     color: '#12b7f5',
+    footerHref: 'https://discord.gg/RqvxDDgdFH',
+    footerLabel: '项目Discord入口',
   },
   { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
 ]
@@ -370,6 +396,7 @@ const toolLinks = [
     description: '平台简介、公平机制、随机种子与自定义规则等说明。',
     color: '#5470c6',
   },
+  { to: '/tools/record-convert', title: '牌谱格式转换', description: '在Salasasa、Botzone、雀渣 与 MJAI 牌谱格式之间转换。', color: '#409eff' },
 ]
 
 const loadStats = async () => {
@@ -830,6 +857,45 @@ onMounted(() => {
 
 .card:hover {
   filter: brightness(1.05);
+}
+
+.card.card-with-footer {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.card.card-with-footer:hover {
+  filter: none;
+}
+
+.card-with-footer .card-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 22px 18px 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.card-with-footer .card-main:hover {
+  filter: brightness(1.05);
+}
+
+.card-with-footer .card-footer-link {
+  display: block;
+  padding: 9px 16px;
+  background: #5865f2;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.card-with-footer .card-footer-link:hover {
+  background: #4752c4;
 }
 
 .card.card-placeholder {

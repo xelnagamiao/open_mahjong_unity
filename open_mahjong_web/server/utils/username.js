@@ -14,16 +14,12 @@ function validateUsername(username) {
     const code = char.charCodeAt(0);
     if (code >= 0x4e00 && code <= 0x9fff) {
       length += 2;
-    } else if (/[a-zA-Z]/.test(char)) {
-      length += 1;
-    } else if (/[0-9]/.test(char)) {
-      length += 1;
     } else {
-      return '用户名只能包含中文、英文或数字';
+      length += 1;
     }
   }
   if (length < 2) {
-    return '用户名长度至少需要2（中文=2，数字=1，英文=1）';
+    return '用户名长度至少需要2（中文=2，其他字符=1）';
   }
   if (length > 20) {
     return '用户名不能超过20';

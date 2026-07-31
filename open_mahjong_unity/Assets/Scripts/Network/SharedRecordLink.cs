@@ -205,8 +205,7 @@ public sealed class SharedRecordLink : MonoBehaviour {
 
             if (GameRecordManager.Instance == null) {
                 Debug.LogError("打开分享牌谱失败：3D 牌谱场景未能初始化");
-                IsPublicSharePlayback = false;
-                WindowsManager.Instance.ExitGameTo("login");
+                AppSession.ReturnToLogin();
                 yield break;
             }
 

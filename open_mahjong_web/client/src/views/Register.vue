@@ -12,7 +12,7 @@
             maxlength="16"
             autofocus
           />
-          <small>最多 16 个字符；中文按 2 个长度计算。</small>
+          <small>支持中文、字母、数字、符号等字符；中文按 2 个长度计算，其他字符按 1 计算。</small>
         </label>
         <label>
           <span>密码</span>

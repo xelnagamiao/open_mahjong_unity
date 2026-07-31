@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
+import { watch } from 'vue'
+import { locale, tr } from '@/i18n'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
 import AccountLayout from '@/layouts/AccountLayout.vue'
@@ -331,7 +333,7 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   if (to.meta.title) {
-    document.title = to.meta.title
+    document.title = tr(to.meta.title)
   }
 
   if (to.path.startsWith('/admin')) {
@@ -381,6 +383,22 @@ router.beforeEach(async (to, from, next) => {
   }
 
   next()
+})
+
+function routeTitle(route) {
+  const title = route.meta.title
+  if (!title) return ''
+  return route.path.startsWith('/admin') ? title : tr(title)
+}
+
+watch(locale, () => {
+  const title = routeTitle(router.currentRoute.value)
+  if (title) document.title = title
+}, { immediate: true })
+
+router.afterEach((to) => {
+  const title = routeTitle(to)
+  if (title) document.title = title
 })
 
 export default router
