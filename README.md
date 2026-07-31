@@ -162,6 +162,7 @@ open_mahjong_unity/
 - **语雀文档(未完成)**: [https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#](https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#)
 - **开发进度表**: [https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2](https://docs.qq.com/sheet/DZkh2a2VBQkpucXNr?tab=BB08J2)
 - **赞助**: q1448826180
+- **求职**: 上海-苏州-无锡-常州-南京-杭州 岗位可联系
 
 ### 5.鸣谢
 

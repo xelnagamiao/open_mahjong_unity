@@ -392,7 +392,7 @@ import {
 import { tingpaiCheck } from '@/game2d/calc/guobiao'
 import { buildLocalWaitData } from '@/game2d/calc/guobiao/waitTips'
 import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAdapter'
-import { findFanByName, formatFanField } from '@/constants/guessFanCatalog'
+import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { tr } from '@/i18n'
 import {
@@ -670,14 +670,9 @@ const resultMeldTiles = computed(() => (resultWinner.value?.melds ?? []).flatMap
 const resultFlowerTiles = computed(() => resultWinner.value?.flower_tiles ?? [])
 const resultFans = computed(() => roundResult.value?.kind === 'win'
   ? roundResult.value.fans.map((name) => {
-    const repeated = name.match(/^(.*?)[*×](\d+)$/)
-    const baseName = repeated?.[1] || name
-    const multiplier = Math.max(1, Number(repeated?.[2]) || 1)
-    const definition = findFanByName(baseName, ['guobiao'])
-    const raw = definition?.fan
-    const numeric = typeof raw === 'number' ? raw : Number(raw)
+    const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
     const value = definition
-      ? `${Number.isFinite(numeric) ? numeric * multiplier : formatFanField(raw)}番`
+      ? `${totalValue ?? formatFanField(definition.fan)}番`
       : ''
     return {
       name: translateFanName(name),
@@ -1000,9 +995,18 @@ function advanceAnimatedStep() {
   decorateEventRanks(update)
   node.value = nextNode
   if (update) {
-    // Even in instant-panel mode, execute the same table-side win event as a
-    // normal replay step so the hand reveal and final win audio are preserved.
-    scene.handleEvent(update)
+    const snapshotClaimKinds = new Set(['chow', 'pung', 'melded_kong'])
+    if (snapshotClaimKinds.has(String(update.event?.kind || ''))) {
+      // A replay already has the authoritative post-claim hand, river and meld
+      // in nextPosition. Rebuild those three together so an incremental claim
+      // can never leave only the call label without its exposed meld.
+      scene.flushFromSnapshot(nextPosition.snapshot)
+      scene.applyReplayCue('claim', update.event)
+    } else {
+      // Even in instant-panel mode, execute the same table-side win event as a
+      // normal replay step so the hand reveal and final win audio are preserved.
+      scene.handleEvent(update)
+    }
     refreshReplayHints(nextPosition.snapshot)
     actionLabel.value = nextPosition.actionLabel
     const seatMap = replay.value.rounds[roundIndex.value].seats || [0, 1, 2, 3]

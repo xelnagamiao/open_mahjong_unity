@@ -19,6 +19,13 @@ type SnapshotMeldSpec = {
   concealedFromDrawnTile?: boolean
 }
 
+function handSortWeight(tid: number): number {
+  const suit = tid & 0xe0
+  if (suit === 0xe0) return tid + 2000
+  if (suit === 0xa0) return tid + 1000
+  return tid
+}
+
 export class Hand extends Container {
   readonly direction: number
   readonly leftList: Tile[] = []
@@ -139,6 +146,13 @@ export class Hand extends Container {
     tile.setHoverVisualEnabled(!this.replayStyle)
   }
 
+  private createVisibleTile(tid: number): Tile {
+    const tile = Tile.newInvisible(tid)
+    tile.updateTid(tid)
+    tile.show()
+    return tile
+  }
+
   private appendOpenTriplet(claimed: Tile, handA: Tile, handB: Tile, meldFromRel: number): void {
     const normalized = Hand.normalizeOpenMeldFromRel(meldFromRel)
     switch (normalized) {
@@ -171,10 +185,10 @@ export class Hand extends Container {
     const normalized = Hand.normalizeOpenMeldFromRel(meldFromRel)
     if (!normalized) return
 
-    const claimed = Tile.newInvisible(tid)
-    const handA = Tile.newInvisible(tid)
-    const handB = Tile.newInvisible(tid)
-    const stacked = Tile.newInvisible(tid)
+    const claimed = this.createVisibleTile(tid)
+    const handA = this.createVisibleTile(tid)
+    const handB = this.createVisibleTile(tid)
+    const stacked = this.createVisibleTile(tid)
     if (addedFromDrawnTile) {
       stacked.setPersistentTint(TILE_HOVER_TINT)
     }
@@ -212,10 +226,10 @@ export class Hand extends Container {
     const normalized = Hand.normalizeOpenMeldFromRel(meldFromRel)
     if (!normalized) return
 
-    const claimed = Tile.newInvisible(tid)
-    const handA = Tile.newInvisible(tid)
-    const handB = Tile.newInvisible(tid)
-    const handC = Tile.newInvisible(tid)
+    const claimed = this.createVisibleTile(tid)
+    const handA = this.createVisibleTile(tid)
+    const handB = this.createVisibleTile(tid)
+    const handC = this.createVisibleTile(tid)
     switch (normalized) {
       case 1:
         this.appendLeftList(claimed, true)
@@ -300,20 +314,12 @@ export class Hand extends Container {
   }
 
   sortRightList(): void {
-    this.rightList.sort((a, b) => {
-      const oa = (a.tid & 0b11100000) === 0b10100000 ? 1000 : 0
-      const ob = (b.tid & 0b11100000) === 0b10100000 ? 1000 : 0
-      return b.tid + ob - (a.tid + oa)
-    })
+    this.rightList.sort((a, b) => handSortWeight(b.tid) - handSortWeight(a.tid))
   }
 
   revealHand(tiles: number[], drawnTile: number | null = null): void {
     this.discardIndex = -1
-    const sorted = [...tiles].sort((left, right) => {
-      const leftOffset = (left & 0b11100000) === 0b10100000 ? 1000 : 0
-      const rightOffset = (right & 0b11100000) === 0b10100000 ? 1000 : 0
-      return right + rightOffset - (left + leftOffset)
-    })
+    const sorted = [...tiles].sort((left, right) => handSortWeight(right) - handSortWeight(left))
 
     while (this.rightList.length > sorted.length) {
       const extra = this.rightList.pop()
@@ -503,19 +509,19 @@ export class Hand extends Container {
       const chowTiles = Hand.getChowTilesFromCentral(middleTid, chowMode)
       if (!chowTiles) return
       const [claimedTid, handTidA, handTidB] = chowTiles
-      const claimed = Tile.newInvisible(claimedTid)
+      const claimed = this.createVisibleTile(claimedTid)
       this.appendLeftList(claimed, true)
-      this.appendLeftList(Tile.newInvisible(handTidA), false)
-      this.appendLeftList(Tile.newInvisible(handTidB), false)
+      this.appendLeftList(this.createVisibleTile(handTidA), false)
+      this.appendLeftList(this.createVisibleTile(handTidB), false)
       return
     }
     if (type === 'pung') {
       if (!Hand.normalizeOpenMeldFromRel(meldFromRel)) return
-      const claimed = Tile.newInvisible(middleTid)
+      const claimed = this.createVisibleTile(middleTid)
       this.appendOpenTriplet(
         claimed,
-        Tile.newInvisible(middleTid),
-        Tile.newInvisible(middleTid),
+        this.createVisibleTile(middleTid),
+        this.createVisibleTile(middleTid),
         meldFromRel,
       )
       return
@@ -526,10 +532,10 @@ export class Hand extends Container {
     }
     if (concealed) {
       const concealedTiles = [
-        Tile.newInvisible(middleTid),
-        Tile.newInvisible(middleTid),
-        Tile.newInvisible(middleTid),
-        Tile.newInvisible(middleTid),
+        this.createVisibleTile(middleTid),
+        this.createVisibleTile(middleTid),
+        this.createVisibleTile(middleTid),
+        this.createVisibleTile(middleTid),
       ]
       if (concealedFromDrawnTile) {
         concealedTiles[3].setPersistentTint(TILE_HOVER_TINT)
@@ -721,7 +727,7 @@ export class Hand extends Container {
 
   // ── Draw / Discard ───────────────────────────────────────────────
 
-  drawTile(tile: Tile): void {
+  drawTile(tile: Tile, settleAfterDraw = false): void {
     this.discardIndex = -1
     // A replacement/next draw can arrive while the previous replacement tile is
     // still rendered in the draw slot (most notably during the opening flower
@@ -732,6 +738,13 @@ export class Hand extends Container {
     this.bindWaitHover(tile)
     this.drawnTile = tile
     this.updateDisplay(false, false, true)
+    if (settleAfterDraw) {
+      // Let the draw-slot movement finish first. Starting both movements in the
+      // same frame lets the earlier animation win and leaves a permanent gap.
+      setTimeout(() => {
+        if (this.drawnTile === tile) this.settleDrawnTile()
+      }, ANIMATION_TIME)
+    }
   }
 
   /** Merge the current draw-slot tile into the concealed hand. */

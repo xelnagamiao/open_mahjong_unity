@@ -1799,10 +1799,10 @@ export class MahjongScene {
           this.stateDisplay.setRemaining(this.remainingTiles)
           if ((actorDir === 0 || revealAllHands) && tile !== undefined) {
             const t = Tile.newInvisible(tile); t.updateTid(tile); t.show()
-            this.hands[actorDir].drawTile(t)
+            this.hands[actorDir].drawTile(t, Boolean(event.settle_drawn_tile))
           } else {
             const t = Tile.newInvisible(0); t.hide()
-            this.hands[actorDir].drawTile(t)
+            this.hands[actorDir].drawTile(t, Boolean(event.settle_drawn_tile))
           }
           this.countdown.stop()
           this.clearMeldChoices()

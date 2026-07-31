@@ -133,6 +133,15 @@ function sceneKindForAction(action: string): string {
   return kinds[action] || action
 }
 
+function mainPhaseStartedBefore(ticks: RecordTick[], node: number): boolean {
+  const openingActions = new Set(['bh', 'bd', 'ask_hand', 'ask_other', 'ca'])
+  for (let index = 0; index < node; index += 1) {
+    const action = String(ticks[index]?.[0] ?? '')
+    if (action && !openingActions.has(action)) return true
+  }
+  return false
+}
+
 export class RecordReplay {
   readonly detail: PublicGameRecord
   readonly rounds: RecordRound[]
@@ -285,8 +294,19 @@ export class RecordReplay {
     if (tick.length > 1 && ['d', 'gd', 'bd', 'c', 'bh', 'cl', 'cm', 'cr', 'p', 'g', 'ag', 'jg'].includes(action)) {
       event.tile = salasasaTileToMmcr(int(tick[1]))
     }
+    // chowFromRiver receives the sequence's central tile, while a stored
+    // cl/cm/cr tick records the claimed discard. Convert the latter just as
+    // the live Salasasa adapter does, otherwise it searches the hand for the
+    // wrong two tiles and aborts without creating a meld.
+    if (action === 'cl') event.tile = salasasaTileToMmcr(normalizedTile(int(tick[1])) - 1)
+    if (action === 'cr') event.tile = salasasaTileToMmcr(normalizedTile(int(tick[1])) + 1)
     if (action === 'c') event.use_drawn_tile = bool(tick[2])
     if (action === 'bh') event.use_drawn_tile = tick.length >= 4 && bool(tick[3])
+    if (action === 'bd') {
+      const startPlayer = int(round.start_player_index, 0)
+      event.settle_drawn_tile = !mainPhaseStartedBefore(ticks, currentNode)
+        && actorSeat !== startPlayer
+    }
     if (action === 'cl') event.ui64_value = 3
     if (action === 'cm') event.ui64_value = 2
     if (action === 'cr') event.ui64_value = 1
@@ -377,7 +397,13 @@ export class RecordReplay {
 
       if (['d', 'gd', 'bd'].includes(action)) {
         if (state.drawn != null) state.hand.push(state.drawn)
-        state.drawn = int(tick[1])
+        const drawnTile = int(tick[1])
+        if (action === 'bd' && !mainPhaseStarted && actor !== startPlayer) {
+          state.hand.push(drawnTile)
+          state.drawn = null
+        } else {
+          state.drawn = drawnTile
+        }
         remaining = Math.max(0, remaining - 1)
         currentPlayer = actor
       } else if (action === 'c') {
@@ -460,6 +486,9 @@ export class RecordReplay {
     }
 
     const viewerSeat = seatMap[Math.max(0, Math.min(3, viewerOriginal))] ?? 0
+    // 开局补花属于发牌阶段，不会改变庄家的首次行动权。若当前节点仍未
+    // 进入正常行牌阶段，下一位行动者必须保持为 start_player_index。
+    const snapshotCurrentPlayer = mainPhaseStarted ? currentPlayer : startPlayer
     const seats: SeatSnapshot[] = states.map((state, seat) => {
       const player = this.playerForSeat(round, seat)
       return {
@@ -488,7 +517,7 @@ export class RecordReplay {
           round_counter: int(round.current_round, safeRoundIndex + 1),
           stage_counter: node,
           remaining_tile_count: remaining,
-          current_player: currentPlayer,
+          current_player: snapshotCurrentPlayer,
           last_actor: lastActor,
           last_event_kind: node > 0 ? sceneKindForAction(String(ticks[node - 1]?.[0] ?? '')) : 'round_start',
         },
