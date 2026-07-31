@@ -220,6 +220,41 @@ export function findFanByName(name, preferredRules = ['guobiao', 'riichi']) {
 }
 
 /**
+ * Parse calculation labels such as "幺九刻*2" without changing the text shown to users.
+ * @param {string} label
+ * @returns {{ label: string, baseName: string, multiplier: number }}
+ */
+export function parseFanMultiplier(label) {
+  const normalized = String(label || '').trim()
+  const repeated = normalized.match(/^(.*?)\s*[*×xX]\s*(\d+)\s*$/)
+  const parsedMultiplier = Number(repeated?.[2])
+  return {
+    label: normalized,
+    baseName: repeated?.[1]?.trim() || normalized,
+    multiplier: Number.isInteger(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1,
+  }
+}
+
+/**
+ * Resolve a possibly repeated fan label and its multiplied numeric value.
+ * @param {string} label
+ * @param {FanRule[]} [preferredRules]
+ */
+export function resolveFanLabel(label, preferredRules = ['guobiao', 'riichi']) {
+  const parsed = parseFanMultiplier(label)
+  const definition = findFanByName(parsed.baseName, preferredRules)
+  const rawValues = Array.isArray(definition?.fan) ? definition.fan : [definition?.fan]
+  const numericValues = rawValues.map(Number).filter(Number.isFinite)
+  const baseValue = numericValues.length ? Math.max(...numericValues) : null
+  return {
+    ...parsed,
+    definition,
+    baseValue,
+    totalValue: baseValue == null ? null : baseValue * parsed.multiplier,
+  }
+}
+
+/**
  * Whether the result contains at least one individual fan at or above cutoff.
  * A repeated label such as "花牌*8" is evaluated by the base fan value, not
  * by multiplying it and not by using the hand's total fan score.
@@ -230,7 +265,7 @@ export function findFanByName(name, preferredRules = ['guobiao', 'riichi']) {
 export function hasSingleFanAtLeast(fanNames, cutoff, rule = 'guobiao') {
   if (!Array.isArray(fanNames)) return false
   return fanNames.some((label) => {
-    const baseName = String(label || '').replace(/\s*[*×xX]\s*\d+\s*$/, '').trim()
+    const { baseName } = parseFanMultiplier(label)
     const definition = findFanByName(baseName, [rule])
     if (!definition || !definition.rules.includes(rule)) return false
     const values = Array.isArray(definition.fan) ? definition.fan : [definition.fan]

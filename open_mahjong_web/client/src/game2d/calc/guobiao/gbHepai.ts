@@ -85,6 +85,52 @@ export class PlayerTiles {
   }
 }
 
+const repeatFan = (fan: string, count: number): string[] => Array(count).fill(fan)
+
+/** Direct translation of Python Chinese_Hepai_Check.repel_model_dict. */
+const REPEL_MODEL_DICT: Record<string, string[]> = {
+  dasixi: ['pengpenghe', 'quanfengke', 'menfengke', ...repeatFan('yaojiuke', 4)],
+  dasanyuan: repeatFan('yaojiuke', 3),
+  lvyise: ['hunyise'],
+  sigang: ['pengpenghe', 'dandiaojiang'],
+  jiulianbaodeng_dianhe: ['qingyise', 'wuzi', 'yaojiuke', 'menqianqing'],
+  jiulianbaodeng_zimo: ['qingyise', 'wuzi', 'buqiuren', 'yaojiuke'],
+  lianqidui_dianhe: ['qidui', 'qingyise', 'wuzi', 'menqianqing'],
+  lianqidui_zimo: ['qidui', 'qingyise', 'wuzi', 'buqiuren'],
+  shisanyao_dianhe: ['hunyaojiu', 'wumenqi', 'menqianqing'],
+  shisanyao_zimo: ['hunyaojiu', 'wumenqi', 'buqiuren'],
+  qingyaojiu: ['pengpenghe', 'quandaiyao', 'shuangtongke', 'shuangtongke', 'wuzi', ...repeatFan('yaojiuke', 4)],
+  xiaosixi: ['sanfengke', ...repeatFan('yaojiuke', 3)],
+  xiaosanyuan: ['shuangjianke', ...repeatFan('yaojiuke', 2)],
+  ziyise: ['pengpenghe', 'quandaiyao', ...repeatFan('yaojiuke', 4)],
+  sianke_dianhe: ['pengpenghe', 'menqianqing'],
+  sianke_zimo: ['pengpenghe', 'buqiuren'],
+  yiseshuanglonghui: ['qingyise', 'pinghe', 'wuzi', 'yibangao', 'yibangao'],
+  yisesitongshun: repeatFan('siguiyi', 4),
+  yisesijiegao: ['pengpenghe'], yisesibugao: [], sangang: [],
+  hunyaojiu: ['pengpenghe', 'quandaiyao', ...repeatFan('yaojiuke', 4)],
+  qiduizi_dianhe: ['menqianqing'], qiduizi_zimo: ['buqiuren'],
+  qixingbukao_dianhe: ['quanbukao', 'wumenqi', 'menqianqing'],
+  qixingbukao_zimo: ['quanbukao', 'wumenqi', 'buqiuren'],
+  quanshuangke: ['pengpenghe', 'duanyao', 'wuzi'], qingyise: ['wuzi'],
+  yisesantongshun: [], yisesanjiegao: [], quanda: ['dayuwu', 'wuzi'],
+  quanzhong: ['duanyao', 'wuzi'], quanxiao: ['xiaoyuwu', 'wuzi'], qinglong: [],
+  sanseshuanglonghui: ['pinghe', 'wuzi'], yisesanbugao: [],
+  quandaiwu: ['duanyao', 'wuzi'], santongke: [], sananke: [],
+  quanbukao_dianhe: ['menqianqing'], quanbukao_zimo: ['buqiuren'],
+  zuhelong: [], dayuwu: ['wuzi'], xiaoyuwu: ['wuzi'], sanfengke: [], hualong: [],
+  tuibudao: ['queyimen'], sansesantongshun: [], sansesanjiegao: [], wufanhe: [],
+  miaoshouhuichun: ['zimo'], haidilaoyue: [], gangshangkaihua: ['zimo'],
+  qiangganghe: ['hejuezhang'], pengpenghe: [], hunyise: [], sansesanbugao: [],
+  wumenqi: [], quanqiuren: ['dandiaojiang'], shuangangang: ['shuanganke'],
+  shuangjianke: repeatFan('yaojiuke', 2), quandaiyao: [], buqiuren: ['zimo'],
+  shuangminggang: [], hejuezhang: [], jianke: ['yaojiuke'], quanfengke: [],
+  menfengke: [], menqianqing: [], pinghe: ['wuzi'], siguiyi: [], shuangtongke: [],
+  shuanganke: [], angang: [], duanyao: ['wuzi'], yibangao: [], xixiangfeng: [],
+  lianliu: [], laoshaofu: [], yaojiuke: [], minggang: [], queyimen: [], wuzi: [],
+  bianzhang: [], qianzhang: [], dandiaojiang: [], zimo: [], huapai: [], mingangang: [],
+}
+
 export class Chinese_Hepai_Check {
   debug: boolean
   _count_model_dict: Record<string, number>
@@ -139,8 +185,6 @@ export class Chinese_Hepai_Check {
   
   static yaojiuke_set = new Set(["k11", "K11", "k19", "K19", "k21", "K21", "k29", "K29", "k31", "K31", "k39", "K39", "k41", "K41", "k42", "K42", "k43", "K43", "k44", "K44", "k45", "K45", "k46", "K46", "k47", "K47", "g11", "G11", "g19", "G19", "g21", "G21", "g29", "G29", "g31", "G31", "g39", "G39", "g41", "G41", "g42", "G42", "g43", "G43", "g44", "G44", "g45", "G45", "g46", "G46", "g47", "G47"])
   
-  static repel_model_dict: Record<string, string[]> = { dasixi: (["pengpenghe", "quanfengke", "menfengke"] + (["yaojiuke"] * 4)), dasanyuan: ["yaojiuke", "yaojiuke", "yaojiuke"], lvyise: ["hunyise"], sigang: ["pengpenghe", "dandiaojiang"], jiulianbaodeng_dianhe: ["qingyise", "wuzi", "yaojiuke", "menqianqing"], jiulianbaodeng_zimo: ["qingyise", "wuzi", "buqiuren", "yaojiuke"], lianqidui_dianhe: ["qidui", "qingyise", "wuzi", "menqianqing"], lianqidui_zimo: ["qidui", "qingyise", "wuzi", "buqiuren"], shisanyao_dianhe: ["hunyaojiu", "wumenqi", "menqianqing"], shisanyao_zimo: ["hunyaojiu", "wumenqi", "buqiuren"], qingyaojiu: (["pengpenghe", "quandaiyao", "shuangtongke", "shuangtongke", "wuzi"] + (["yaojiuke"] * 4)), xiaosixi: (["sanfengke"] + (["yaojiuke"] * 3)), xiaosanyuan: (["shuangjianke"] + (["yaojiuke"] * 2)), ziyise: (["pengpenghe", "quandaiyao"] + (["yaojiuke"] * 4)), sianke_dianhe: ["pengpenghe", "menqianqing"], sianke_zimo: ["pengpenghe", "buqiuren"], yiseshuanglonghui: ["qingyise", "pinghe", "wuzi", "yibangao", "yibangao"], yisesitongshun: (["siguiyi"] * 4), yisesijiegao: ["pengpenghe"], yisesibugao: [], sangang: [], hunyaojiu: (["pengpenghe", "quandaiyao"] + (["yaojiuke"] * 4)), qiduizi_dianhe: ["menqianqing"], qiduizi_zimo: ["buqiuren"], qixingbukao_dianhe: ["quanbukao", "wumenqi", "menqianqing"], qixingbukao_zimo: ["quanbukao", "wumenqi", "buqiuren"], quanshuangke: ["pengpenghe", "duanyao", "wuzi"], qingyise: ["wuzi"], yisesantongshun: [], yisesanjiegao: [], quanda: ["dayuwu", "wuzi"], quanzhong: ["duanyao", "wuzi"], quanxiao: ["xiaoyuwu", "wuzi"], qinglong: [], sanseshuanglonghui: ["pinghe", "wuzi"], yisesanbugao: [], quandaiwu: ["duanyao", "wuzi"], santongke: [], sananke: [], quanbukao_dianhe: ["menqianqing"], quanbukao_zimo: ["buqiuren"], zuhelong: [], dayuwu: ["wuzi"], xiaoyuwu: ["wuzi"], sanfengke: [], hualong: [], tuibudao: ["queyimen"], sansesantongshun: [], sansesanjiegao: [], wufanhe: [], miaoshouhuichun: ["zimo"], haidilaoyue: [], gangshangkaihua: ["zimo"], qiangganghe: ["hejuezhang"], pengpenghe: [], hunyise: [], sansesanbugao: [], wumenqi: [], quanqiuren: ["dandiaojiang"], shuangangang: ["shuanganke"], shuangjianke: (["yaojiuke"] * 2), quandaiyao: [], buqiuren: ["zimo"], shuangminggang: [], hejuezhang: [], jianke: (["yaojiuke"] * 1), quanfengke: [], menfengke: [], menqianqing: [], pinghe: ["wuzi"], siguiyi: [], shuangtongke: [], shuanganke: [], angang: [], duanyao: ["wuzi"], yibangao: [], xixiangfeng: [], lianliu: [], laoshaofu: [], yaojiuke: [], minggang: [], queyimen: [], wuzi: [], bianzhang: [], qianzhang: [], dandiaojiang: [], zimo: [], huapai: [], mingangang: [] }
-  
   static count_model_dict_default: Record<string, number> = { dasixi: 88, dasanyuan: 88, lvyise: 88, jiulianbaodeng: 88, sigang: 88, lianqidui: 88, shisanyao: 88, qingyaojiu: 64, xiaosixi: 64, xiaosanyuan: 64, ziyise: 64, sianke: 64, yiseshuanglonghui: 64, yisesitongshun: 48, yisesijiegao: 48, yisesibugao: 32, sangang: 32, hunyaojiu: 32, qiduizi: 24, qixingbukao: 24, quanshuangke: 24, qingyise: 24, yisesantongshun: 24, yisesanjiegao: 24, quanda: 24, quanzhong: 24, quanxiao: 24, qinglong: 16, sanseshuanglonghui: 16, yisesanbugao: 16, quandaiwu: 16, santongke: 16, sananke: 16, quanbukao: 12, zuhelong: 12, dayuwu: 12, xiaoyuwu: 12, sanfengke: 12, hualong: 8, tuibudao: 8, sansesantongshun: 8, sansesanjiegao: 8, wufanhe: 8, miaoshouhuichun: 8, haidilaoyue: 8, gangshangkaihua: 8, qiangganghe: 8, pengpenghe: 6, hunyise: 6, sansesanbugao: 6, wumenqi: 6, quanqiuren: 6, shuangangang: 6, shuangjianke: 6, quandaiyao: 4, buqiuren: 4, shuangminggang: 4, hejuezhang: 4, jianke: 2, quanfengke: 2, menfengke: 2, menqianqing: 2, pinghe: 2, siguiyi: 2, shuangtongke: 2, shuanganke: 2, angang: 2, duanyao: 2, yibangao: 1, xixiangfeng: 1, lianliu: 1, laoshaofu: 1, yaojiuke: 1, minggang: 1, queyimen: 1, wuzi: 1, bianzhang: 1, qianzhang: 1, dandiaojiang: 1, zimo: 1, huapai: 1, mingangang: 5 }
   
   static eng_to_chinese_dict: Record<string, any> = { dasixi: "大四喜", dasanyuan: "大三元", lvyise: "绿一色", jiulianbaodeng: "九莲宝灯", sigang: "四杠", sangang: "三杠", lianqidui: "连七对", shisanyao: "十三幺", qingyaojiu: "清幺九", xiaosixi: "小四喜", xiaosanyuan: "小三元", ziyise: "字一色", sianke: "四暗刻", yiseshuanglonghui: "一色双龙会", yisesitongshun: "一色四同顺", yisesijiegao: "一色四节高", yisesibugao: "一色四步高", hunyaojiu: "混幺九", qiduizi: "七对", qixingbukao: "七星不靠", quanshuangke: "全双刻", qingyise: "清一色", yisesantongshun: "一色三同顺", yisesanjiegao: "一色三节高", quanda: "全大", quanzhong: "全中", quanxiao: "全小", qinglong: "清龙", sanseshuanglonghui: "三色双龙会", yisesanbugao: "一色三步高", quandaiwu: "全带五", santongke: "三同刻", sananke: "三暗刻", quanbukao: "全不靠", zuhelong: "组合龙", dayuwu: "大于五", xiaoyuwu: "小于五", sanfengke: "三风刻", hualong: "花龙", tuibudao: "推不倒", sansesantongshun: "三色三同顺", sansesanjiegao: "三色三节高", wufanhe: "无番和", miaoshouhuichun: "妙手回春", haidilaoyue: "海底捞月", gangshangkaihua: "杠上开花", qiangganghe: "抢杠和", pengpenghe: "碰碰和", hunyise: "混一色", sansesanbugao: "三色三步高", wumenqi: "五门齐", quanqiuren: "全求人", shuangangang: "双暗杠", shuangjianke: "双箭刻", quandaiyao: "全带幺", buqiuren: "不求人", shuangminggang: "双明杠", hejuezhang: "和绝张", jianke: "箭刻", quanfengke: "圈风刻", menfengke: "门风刻", menqianqing: "门前清", pinghe: "平和", siguiyi: "四归一", shuangtongke: "双同刻", shuanganke: "双暗刻", angang: "暗杠", duanyao: "断幺", yibangao: "一般高", xixiangfeng: "喜相逢", lianliu: "连六", laoshaofu: "老少副", yaojiuke: "幺九刻", minggang: "明杠", queyimen: "缺一门", wuzi: "无字", bianzhang: "边张", qianzhang: "嵌张", dandiaojiang: "单钓将", zimo: "自摸", huapai: "花牌", mingangang: "明暗杠" }
@@ -150,12 +194,8 @@ export class Chinese_Hepai_Check {
     this._count_model_dict = (typeof count_dict !== 'undefined' && count_dict) ? count_dict : Chinese_Hepai_Check.count_model_dict_default
   }
   
-  debug_print() {
-    "只在debug模式下打印"
-    if (this.debug) {
-      this.debug_print(...args)
-      this.debug_print(...args)
-    }
+  debug_print(...args: unknown[]) {
+    if (this.debug) console.debug(...args)
   }
   
   static combination_to_tiles_dict = { s12: [11, 12, 13], s13: [12, 13, 14], s14: [13, 14, 15], s15: [14, 15, 16], s16: [15, 16, 17], s17: [16, 17, 18], s18: [17, 18, 19], s22: [21, 22, 23], s23: [22, 23, 24], s24: [23, 24, 25], s25: [24, 25, 26], s26: [25, 26, 27], s27: [26, 27, 28], s28: [27, 28, 29], s32: [31, 32, 33], s33: [32, 33, 34], s34: [33, 34, 35], s35: [34, 35, 36], s36: [35, 36, 37], s37: [36, 37, 38], s38: [37, 38, 39], S12: [11, 12, 13], S13: [12, 13, 14], S14: [13, 14, 15], S15: [14, 15, 16], S16: [15, 16, 17], S17: [16, 17, 18], S18: [17, 18, 19], S22: [21, 22, 23], S23: [22, 23, 24], S24: [23, 24, 25], S25: [24, 25, 26], S26: [25, 26, 27], S27: [26, 27, 28], S28: [27, 28, 29], S32: [31, 32, 33], S33: [32, 33, 34], S34: [33, 34, 35], S35: [34, 35, 36], S36: [35, 36, 37], S37: [36, 37, 38], S38: [37, 38, 39], k11: [11, 11, 11], k12: [12, 12, 12], k13: [13, 13, 13], k14: [14, 14, 14], k15: [15, 15, 15], k16: [16, 16, 16], k17: [17, 17, 17], k18: [18, 18, 18], k19: [19, 19, 19], k21: [21, 21, 21], k22: [22, 22, 22], k23: [23, 23, 23], k24: [24, 24, 24], k25: [25, 25, 25], k26: [26, 26, 26], k27: [27, 27, 27], k28: [28, 28, 28], k29: [29, 29, 29], k31: [31, 31, 31], k32: [32, 32, 32], k33: [33, 33, 33], k34: [34, 34, 34], k35: [35, 35, 35], k36: [36, 36, 36], k37: [37, 37, 37], k38: [38, 38, 38], k39: [39, 39, 39], k41: [41, 41, 41], k42: [42, 42, 42], k43: [43, 43, 43], k44: [44, 44, 44], k45: [45, 45, 45], k46: [46, 46, 46], k47: [47, 47, 47], K11: [11, 11, 11], K12: [12, 12, 12], K13: [13, 13, 13], K14: [14, 14, 14], K15: [15, 15, 15], K16: [16, 16, 16], K17: [17, 17, 17], K18: [18, 18, 18], K19: [19, 19, 19], K21: [21, 21, 21], K22: [22, 22, 22], K23: [23, 23, 23], K24: [24, 24, 24], K25: [25, 25, 25], K26: [26, 26, 26], K27: [27, 27, 27], K28: [28, 28, 28], K29: [29, 29, 29], K31: [31, 31, 31], K32: [32, 32, 32], K33: [33, 33, 33], K34: [34, 34, 34], K35: [35, 35, 35], K36: [36, 36, 36], K37: [37, 37, 37], K38: [38, 38, 38], K39: [39, 39, 39], K41: [41, 41, 41], K42: [42, 42, 42], K43: [43, 43, 43], K44: [44, 44, 44], K45: [45, 45, 45], K46: [46, 46, 46], K47: [47, 47, 47], q11: [11, 11], q12: [12, 12], q13: [13, 13], q14: [14, 14], q15: [15, 15], q16: [16, 16], q17: [17, 17], q18: [18, 18], q19: [19, 19], q21: [21, 21], q22: [22, 22], q23: [23, 23], q24: [24, 24], q25: [25, 25], q26: [26, 26], q27: [27, 27], q28: [28, 28], q29: [29, 29], q31: [31, 31], q32: [32, 32], q33: [33, 33], q34: [34, 34], q35: [35, 35], q36: [36, 36], q37: [37, 37], q38: [38, 38], q39: [39, 39], q41: [41, 41], q42: [42, 42], q43: [43, 43], q44: [44, 44], q45: [45, 45], q46: [46, 46], q47: [47, 47], g11: [11, 11, 11], g12: [12, 12, 12], g13: [13, 13, 13], g14: [14, 14, 14], g15: [15, 15, 15], g16: [16, 16, 16], g17: [17, 17, 17], g18: [18, 18, 18], g19: [19, 19, 19], g21: [21, 21, 21], g22: [22, 22, 22], g23: [23, 23, 23], g24: [24, 24, 24], g25: [25, 25, 25], g26: [26, 26, 26], g27: [27, 27, 27], g28: [28, 28, 28], g29: [29, 29, 29], g31: [31, 31, 31], g32: [32, 32, 32], g33: [33, 33, 33], g34: [34, 34, 34], g35: [35, 35, 35], g36: [36, 36, 36], g37: [37, 37, 37], g38: [38, 38, 38], g39: [39, 39, 39], g41: [41, 41, 41], g42: [42, 42, 42], g43: [43, 43, 43], g44: [44, 44, 44], g45: [45, 45, 45], g46: [46, 46, 46], g47: [47, 47, 47], G11: [11, 11, 11], G12: [12, 12, 12], G13: [13, 13, 13], G14: [14, 14, 14], G15: [15, 15, 15], G16: [16, 16, 16], G17: [17, 17, 17], G18: [18, 18, 18], G19: [19, 19, 19], G21: [21, 21, 21], G22: [22, 22, 22], G23: [23, 23, 23], G24: [24, 24, 24], G25: [25, 25, 25], G26: [26, 26, 26], G27: [27, 27, 27], G28: [28, 28, 28], G29: [29, 29, 29], G31: [31, 31, 31], G32: [32, 32, 32], G33: [33, 33, 33], G34: [34, 34, 34], G35: [35, 35, 35], G36: [36, 36, 36], G37: [37, 37, 37], G38: [38, 38, 38], G39: [39, 39, 39], G41: [41, 41, 41], G42: [42, 42, 42], G43: [43, 43, 43], G44: [44, 44, 44], G45: [45, 45, 45], G46: [46, 46, 46], G47: [47, 47, 47], z0: [11, 14, 17, 22, 25, 28, 33, 36, 39], z1: [11, 14, 17, 32, 35, 38, 23, 26, 29], z2: [21, 24, 27, 12, 15, 18, 33, 36, 39], z3: [21, 24, 27, 32, 35, 38, 13, 16, 19], z4: [31, 34, 37, 22, 25, 28, 13, 16, 19], z5: [31, 34, 37, 12, 15, 18, 23, 26, 29] }
@@ -454,7 +494,12 @@ export class Chinese_Hepai_Check {
         player_tiles.fan_list.push("quanzhong")
       }
     }
-    if ((([...hand_tiles_list].every((i) => ((containsIn((Chinese_Hepai_Check.wan_set | Chinese_Hepai_Check.zipai_set), i))))) || ([...hand_tiles_list].every((i) => ((containsIn((Chinese_Hepai_Check.bing_set | Chinese_Hepai_Check.zipai_set), i))))) || ([...hand_tiles_list].every((i) => ((containsIn((Chinese_Hepai_Check.tiao_set | Chinese_Hepai_Check.zipai_set), i))))))) {
+    const isSingleSuitWithHonors = [
+      Chinese_Hepai_Check.wan_set,
+      Chinese_Hepai_Check.bing_set,
+      Chinese_Hepai_Check.tiao_set,
+    ].some((suit) => hand_tiles_list.every((tile) => suit.has(tile) || Chinese_Hepai_Check.zipai_set.has(tile)))
+    if (isSingleSuitWithHonors) {
       if ((([...hand_tiles_list].every((i) => ((containsIn(Chinese_Hepai_Check.wan_set, i))))) || ([...hand_tiles_list].every((i) => ((containsIn(Chinese_Hepai_Check.bing_set, i))))) || ([...hand_tiles_list].every((i) => ((containsIn(Chinese_Hepai_Check.tiao_set, i))))))) {
         let temp_tiles_list = (hand_tiles_list instanceof Set ? new Set(hand_tiles_list) : [...hand_tiles_list])
         this.debug_print("temp_tiles_list", temp_tiles_list)
@@ -519,7 +564,7 @@ export class Chinese_Hepai_Check {
     let count_pointer = 0
     for (let i of hand_tiles_list) {
       if ((countOccurrences(hand_tiles_list, i) === 4)) {
-        if (((!(containsIn(player_tiles.combination_list, new Set([`g${i}`, `G${i}`])))) && (count_pointer !== i))) {
+        if (!player_tiles.combination_list.includes(`g${i}`) && !player_tiles.combination_list.includes(`G${i}`) && count_pointer !== i) {
           count_pointer = i
           player_tiles.fan_list.push("siguiyi")
         }
@@ -1089,34 +1134,34 @@ export class Chinese_Hepai_Check {
     let need_to_remove = []
     let max_yaojiuke_count = 0
     for (const fan of player_tiles.fan_list) {
-      if ((containsIn(Chinese_Hepai_Check.repel_model_dict, fan))) {
-        for (let i of Chinese_Hepai_Check.repel_model_dict[fan]) {
+      if ((containsIn(REPEL_MODEL_DICT, fan))) {
+        for (let i of REPEL_MODEL_DICT[fan]) {
           if ((i !== "yaojiuke")) {
             need_to_remove.push(i)
           } else if ((i === "yaojiuke")) {
-            let yaojiuke_count = countOccurrences(Chinese_Hepai_Check.repel_model_dict[fan], "yaojiuke")
+            let yaojiuke_count = countOccurrences(REPEL_MODEL_DICT[fan], "yaojiuke")
             if ((yaojiuke_count > max_yaojiuke_count)) {
               max_yaojiuke_count = yaojiuke_count
             }
           }
         }
       } else if (zimo_or_not) {
-        for (let i of Chinese_Hepai_Check.repel_model_dict[`${fan}_zimo`]) {
+        for (let i of REPEL_MODEL_DICT[`${fan}_zimo`]) {
           if ((i !== "yaojiuke")) {
             need_to_remove.push(i)
           } else if ((i === "yaojiuke")) {
-            let yaojiuke_count = countOccurrences(Chinese_Hepai_Check.repel_model_dict[`${fan}_zimo`], "yaojiuke")
+            let yaojiuke_count = countOccurrences(REPEL_MODEL_DICT[`${fan}_zimo`], "yaojiuke")
             if ((yaojiuke_count > max_yaojiuke_count)) {
               max_yaojiuke_count = yaojiuke_count
             }
           }
         }
       } else {
-        for (let i of Chinese_Hepai_Check.repel_model_dict[`${fan}_dianhe`]) {
+        for (let i of REPEL_MODEL_DICT[`${fan}_dianhe`]) {
           if ((i !== "yaojiuke")) {
             need_to_remove.push(i)
           } else if ((i === "yaojiuke")) {
-            let yaojiuke_count = countOccurrences(Chinese_Hepai_Check.repel_model_dict[`${fan}_dianhe`], "yaojiuke")
+            let yaojiuke_count = countOccurrences(REPEL_MODEL_DICT[`${fan}_dianhe`], "yaojiuke")
             if ((yaojiuke_count > max_yaojiuke_count)) {
               max_yaojiuke_count = yaojiuke_count
             }
@@ -1139,7 +1184,7 @@ export class Chinese_Hepai_Check {
       }
     }
     this.debug_print("全部被添加的番种", player_tiles.fan_list)
-    player_tiles.fan_list.sort((a: any, b: any) => (a > b ? 1 : a < b ? -1 : 0))
+    player_tiles.fan_list.sort((a, b) => this._count_model_dict[b] - this._count_model_dict[a])
     this.debug_print("需要被阻挡的番种", need_to_remove)
     for (let i of need_to_remove) {
       if ((containsIn(player_tiles.fan_list, i))) {

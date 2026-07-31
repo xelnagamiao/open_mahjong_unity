@@ -394,7 +394,7 @@ import {
   saveStoredAssistSettings,
 } from '@/game2d/lib/assistSettings'
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
-import { findFanByName, formatFanField } from '@/constants/guessFanCatalog'
+import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { tr } from '@/i18n'
 import {
@@ -617,10 +617,12 @@ const resultMeldTiles = computed(() => (roundResult.value?.hepai_player_combinat
   .flatMap((mask) => mask.filter((value, index) => index % 2 === 1 && value > 10)))
 const resultFlowerTiles = computed(() => roundResult.value?.hepai_player_huapai ?? [])
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
-  const definition = findFanByName(name, ['guobiao'])
+  const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
   return {
     name: translateFanName(name),
-    value: definition ? formatFanCount(formatFanField(definition.fan)) : '',
+    value: definition
+      ? formatFanCount(totalValue ?? formatFanField(definition.fan))
+      : '',
   }
 }))
 function fanNameFontSize(value) {
@@ -680,10 +682,8 @@ function pickScoreboardMainFan(fans) {
   const fan = [...fans]
     .filter((fan) => !String(fan).startsWith('花牌'))
     .sort((left, right) => {
-      const leftFan = findFanByName(left, ['guobiao'])?.fan
-      const rightFan = findFanByName(right, ['guobiao'])?.fan
-      const leftValue = Array.isArray(leftFan) ? Math.max(...leftFan.map(Number)) : Number(leftFan ?? 0)
-      const rightValue = Array.isArray(rightFan) ? Math.max(...rightFan.map(Number)) : Number(rightFan ?? 0)
+      const leftValue = resolveFanLabel(left, ['guobiao']).totalValue ?? 0
+      const rightValue = resolveFanLabel(right, ['guobiao']).totalValue ?? 0
       return rightValue - leftValue
     })[0]
   return fan ? translateFanName(fan) : '—'

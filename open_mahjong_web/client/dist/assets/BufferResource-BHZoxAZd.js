@@ -1,4 +1,4 @@
-import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CmDFHTGC.js";import{u as I}from"./Game.css_vue_type_style_index_0_src_true_lang-CNvCeNWk.js";const x={name:"local-uniform-bit",vertex:{header:`
+import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CFtSUjDF.js";import{u as I}from"./Game.css_vue_type_style_index_0_src_true_lang-BUligten.js";const x={name:"local-uniform-bit",vertex:{header:`
 
             struct LocalUniforms {
                 uTransformMatrix:mat3x3<f32>,
