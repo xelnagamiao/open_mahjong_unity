@@ -7,6 +7,7 @@ import { Tile, TILE_HOVER_TINT } from './Tile'
 import { River } from './River'
 import { DiscardHelper } from './DiscardHelper'
 import { WaitDisplay } from './WaitDisplay'
+import { splitWinningTileFromRevealedHand } from '../../lib/settlementHand.js'
 
 export type MeldType = 'chow' | 'pung' | 'kong'
 
@@ -356,6 +357,15 @@ export class Hand extends Container {
     }
 
     this.updateDisplay(false, false, false, false, false)
+  }
+
+  revealWinningHand(tiles: number[], winningTile: number | null): void {
+    const concealedTiles = splitWinningTileFromRevealedHand(
+      tiles,
+      winningTile,
+      this.rightList.length,
+    )
+    this.revealHand(concealedTiles, winningTile)
   }
 
   // ── Display update ───────────────────────────────────────────────

@@ -4,6 +4,7 @@ import {
   mmcrSettlementSortKey,
   salasasaSettlementSortKey,
   splitSettlementHand,
+  splitWinningTileFromRevealedHand,
 } from '../src/game2d/lib/settlementHand.js'
 
 test('ron seven pairs keeps the unmatched East and renders the winning East separately', () => {
@@ -28,6 +29,20 @@ test('open ron keeps the complete pre-win concealed hand', () => {
 
   assert.equal(closed.length, 10)
   assert.equal(closed.filter((tile) => tile === 45).length, 1)
+})
+
+test('complete ron separates the discarded 8 from the 67 wait', () => {
+  const completeHand = [11, 11, 11, 12, 13, 14, 15, 15, 15, 16, 17, 21, 21, 18]
+  const closed = splitSettlementHand(completeHand, 18, 0, salasasaSettlementSortKey)
+
+  assert.equal(closed.length, 13)
+  assert.equal(closed.includes(18), false)
+  assert.deepEqual(closed.slice(9, 11), [16, 17])
+  assert.deepEqual(
+    splitWinningTileFromRevealedHand(completeHand, 18, 13)
+      .sort((a, b) => salasasaSettlementSortKey(a) - salasasaSettlementSortKey(b)),
+    closed,
+  )
 })
 
 test('settlement sorting is Man, Pin, Sou, winds, then dragons', () => {

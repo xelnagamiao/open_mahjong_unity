@@ -1903,13 +1903,10 @@ export class MahjongScene {
         }
         case 'self_drawn_win': {
           this.roundEnded = true
-          if (actorDir === 0 && tile !== undefined && this.hands[0].drawnTile) {
-            this.hands[0].drawnTile.updateTid(tile)
-            this.hands[0].drawnTile.show()
-            this.waitDisplay.reset()
-          } else if (actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-            this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[], tile ?? null)
+          if (Array.isArray(event.revealed_hand_tiles)) {
+            this.hands[actorDir].revealWinningHand(event.revealed_hand_tiles as number[], tile ?? null)
           }
+          if (actorDir === 0) this.waitDisplay.reset()
           this.countdown.stop()
           this.clearMeldChoices()
           if (!event.silent) {
@@ -1922,8 +1919,8 @@ export class MahjongScene {
         case 'discard_win':
         case 'rob_added_kong_win': {
           this.roundEnded = true
-          if (actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-            this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[])
+          if (Array.isArray(event.revealed_hand_tiles)) {
+            this.hands[actorDir].revealWinningHand(event.revealed_hand_tiles as number[], tile ?? null)
           }
           if (actorDir === 0) {
             this.waitDisplay.reset()
@@ -2326,15 +2323,11 @@ export class MahjongScene {
     const actorDir = transDir(actorSeat, this.selfDir)
     const tile = typeof event.tile === 'number' ? event.tile : null
 
-    if (kind === 'self_drawn_win') {
-      if (actorDir === 0 && tile !== null && this.hands[0].drawnTile) {
-        this.hands[0].drawnTile.updateTid(tile)
-        this.hands[0].drawnTile.show()
-      } else if (actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-        this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[], tile)
-      }
-    } else if ((kind === 'discard_win' || kind === 'rob_added_kong_win') && actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-      this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[])
+    if (
+      (kind === 'self_drawn_win' || kind === 'discard_win' || kind === 'rob_added_kong_win')
+      && Array.isArray(event.revealed_hand_tiles)
+    ) {
+      this.hands[actorDir].revealWinningHand(event.revealed_hand_tiles as number[], tile)
     }
 
     if (kind === 'drawn_game') {
