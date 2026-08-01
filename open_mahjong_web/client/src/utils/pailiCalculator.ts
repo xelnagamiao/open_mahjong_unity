@@ -1,6 +1,7 @@
 export interface PailiOptions {
   mcrSevenPairs?: boolean;
   riichiSevenPairs?: boolean;
+  thirteenOrphans?: boolean;
   unrelatedTiles?: boolean;
   combinationDragon?: boolean;
 }
@@ -383,7 +384,8 @@ function calculateShanten(
 ): number {
   let shanten = normalShanten(counts, openMelds);
   if (openMelds === 0) {
-    shanten = Math.min(shanten, thirteenOrphansShanten(counts));
+    if (options.thirteenOrphans)
+      shanten = Math.min(shanten, thirteenOrphansShanten(counts));
     if (options.mcrSevenPairs)
       shanten = Math.min(shanten, mcrSevenPairsShanten(counts));
     if (options.riichiSevenPairs)
@@ -445,6 +447,7 @@ export function calculatePaili(request: PailiRequest): PailiResult {
   const options: Required<PailiOptions> = {
     mcrSevenPairs: request.options?.mcrSevenPairs !== false,
     riichiSevenPairs: request.options?.riichiSevenPairs === true,
+    thirteenOrphans: request.options?.thirteenOrphans !== false,
     unrelatedTiles: request.options?.unrelatedTiles !== false,
     combinationDragon: request.options?.combinationDragon !== false,
   };

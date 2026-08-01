@@ -50,6 +50,13 @@
             @change="onRiichiSevenPairsChange"
           />
           <el-switch
+            v-model="includeThirteenOrphans"
+            size="small"
+            active-text="十三幺"
+            :disabled="loading"
+            @change="onSpecialHandChange"
+          />
+          <el-switch
             v-model="includeUnrelatedTiles"
             size="small"
             active-text="全不靠"
@@ -204,6 +211,7 @@ const loading = ref(false)
 const result = ref(null)
 const includeMcrSevenPairs = ref(true)
 const includeRiichiSevenPairs = ref(false)
+const includeThirteenOrphans = ref(true)
 const includeUnrelatedTiles = ref(true)
 const includeCombinationDragon = ref(true)
 const workerRequests = new Map()
@@ -444,6 +452,7 @@ const analyze = async () => {
       options: {
         mcrSevenPairs: includeMcrSevenPairs.value,
         riichiSevenPairs: includeRiichiSevenPairs.value,
+        thirteenOrphans: includeThirteenOrphans.value,
         unrelatedTiles: includeUnrelatedTiles.value,
         combinationDragon: includeCombinationDragon.value,
       },
