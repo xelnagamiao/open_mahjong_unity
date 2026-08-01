@@ -107,6 +107,7 @@ export interface SalasasaDoActionInfo {
   cut_tiles?: number[]
   cut_tile_index?: number
   cut_class?: boolean
+  is_timeout_action?: boolean
   deal_tile?: number
   deal_tiles?: number[]
   buhua_tile?: number

@@ -456,6 +456,7 @@ let unsubscribe = null
 let mounted = false
 let matchStartDefaultsApplied = false
 let lastAssistRoundKey = null
+let consecutiveSelfTimeoutCuts = 0
 let pendingGameResponses = []
 /** @type {number[]} */
 let resultTimers = []
@@ -784,15 +785,38 @@ function sendVoteResume() {
   sendVoteMessage({ type: 'gamestate/vote_resume' })
 }
 
+function resetTimeoutAutoDiscardTracking() {
+  consecutiveSelfTimeoutCuts = 0
+}
+
+function registerSelfCutResponse(response, targetAdapter) {
+  const info = response?.do_action_info
+  if (
+    !Array.isArray(info?.action_list)
+    || !info.action_list.includes('cut')
+    || Number(info.action_player) !== Number(targetAdapter.snapshot?.viewer?.seat_index)
+  ) return
+  if (!info.is_timeout_action) {
+    consecutiveSelfTimeoutCuts = 0
+    return
+  }
+  consecutiveSelfTimeoutCuts += 1
+  if (consecutiveSelfTimeoutCuts < 3) return
+  consecutiveSelfTimeoutCuts = 0
+  if (!assistSettings.value.autoDiscard) patchAssistSettings({ autoDiscard: true })
+}
+
 function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
   if (!targetAdapter || !targetScene) return
   try {
     const update = targetAdapter.accept(response)
     if (!update) return
+    registerSelfCutResponse(response, targetAdapter)
     if (update.snapshot) {
       const roundKey = `${update.snapshot.session_id}:${Number(update.snapshot.state.round_counter ?? 0)}`
       if (roundKey !== lastAssistRoundKey) {
         lastAssistRoundKey = roundKey
+        resetTimeoutAutoDiscardTracking()
         assistSettings.value = resetRoundAssistSettings(assistSettings.value)
         saveStoredAssistSettings(assistSettings.value)
         targetScene.setAssistSettings(assistSettings.value)
@@ -954,6 +978,7 @@ function destroyScene() {
   scoreboardSettlements.value = []
   roomType.value = ''
   lastAssistRoundKey = null
+  resetTimeoutAutoDiscardTracking()
   pendingGameResponses = []
   scene?.destroy()
   scene = null
@@ -1116,6 +1141,7 @@ function toggleGameSettingsPanel() {
 }
 
 function patchAssistSettings(partial) {
+  if (partial?.autoDiscard === false) resetTimeoutAutoDiscardTracking()
   assistSettings.value = normalizeAssistSettings({ ...assistSettings.value, ...partial })
   saveStoredAssistSettings(assistSettings.value)
   scene?.setAssistSettings(assistSettings.value)
