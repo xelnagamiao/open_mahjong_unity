@@ -59,22 +59,16 @@
 
 <script setup>
 import { computed } from 'vue'
+import { locale, roundLabelKey, tr } from '@/i18n'
 
 const props = defineProps({
   players: { type: Array, default: () => [] },
   settlements: { type: Array, default: () => [] },
   selectable: { type: Boolean, default: false },
+  roundLabelFormat: { type: String, default: 'wind-seat' },
 })
 
 defineEmits(['close', 'select-row'])
-
-const ROUND_NAMES = [
-  '',
-  '东一局', '东二局', '东三局', '东四局',
-  '南一局', '南二局', '南三局', '南四局',
-  '西一局', '西二局', '西三局', '西四局',
-  '北一局', '北二局', '北三局', '北四局',
-]
 
 const orderedPlayers = computed(() => [...props.players]
   .sort((left, right) => (
@@ -89,7 +83,7 @@ function parseDelta(value) {
 
 function roundLabel(round) {
   const number = Number(round)
-  return ROUND_NAMES[number] || `第${number}局`
+  return tr(roundLabelKey(number, props.roundLabelFormat, locale.value))
 }
 
 function scoreClass(value) {

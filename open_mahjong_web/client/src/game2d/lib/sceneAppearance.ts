@@ -15,6 +15,7 @@ export type PassShortcutMode = 0 | 1 | 2
 /** 牌背覆盖色轮换 */
 export type TileCoverRotateMode = 'cycle' | 'random' | 'random-no-repeat'
 export type InterfaceTheme = 'light' | 'dark'
+export type RoundLabelFormat = 'wind-seat' | 'round-number'
 
 export type SceneAppearanceSettings = {
   interfaceTheme: InterfaceTheme
@@ -36,6 +37,7 @@ export type SceneAppearanceSettings = {
   flowerFaceTheme: FlowerFaceTheme
   moqieShortcutMode: MoqieShortcutMode
   passShortcutMode: PassShortcutMode
+  roundLabelFormat: RoundLabelFormat
   fontTheme: GameFontTheme
   latinFontTheme: GameLatinFontTheme
 }
@@ -62,6 +64,7 @@ export const DEFAULT_SCENE_APPEARANCE: SceneAppearanceSettings = {
   flowerFaceTheme: 'unity',
   moqieShortcutMode: 1,
   passShortcutMode: 0,
+  roundLabelFormat: 'wind-seat',
   fontTheme: 'arphic-ukai',
   latinFontTheme: 'latin-modern',
 }
@@ -165,6 +168,7 @@ export function normalizeSceneAppearanceSettings(
     flowerFaceTheme: value?.flowerFaceTheme === 'flat' ? 'flat' : 'unity',
     moqieShortcutMode: normalizeShortcutMode(value?.moqieShortcutMode, DEFAULT_SCENE_APPEARANCE.moqieShortcutMode),
     passShortcutMode: normalizeShortcutMode(value?.passShortcutMode, DEFAULT_SCENE_APPEARANCE.passShortcutMode),
+    roundLabelFormat: value?.roundLabelFormat === 'round-number' ? 'round-number' : 'wind-seat',
     fontTheme: normalizeGameFontTheme(value?.fontTheme),
     latinFontTheme: normalizeGameLatinFontTheme(value?.latinFontTheme),
   }

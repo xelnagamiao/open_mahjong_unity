@@ -288,7 +288,12 @@ export class MahjongScene {
     this.applyTileCoverPalette()
     this.applyFlowerAreaAppearance()
     this.applyTileFaceTheme()
+    this.refreshRoundLabel()
     if (fontChanged) this.applyFontTheme()
+  }
+
+  refreshRoundLabel(): void {
+    if (this.center) this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
   }
 
   setActiveTileCoverIndex(index: number): void {
@@ -1643,7 +1648,7 @@ export class MahjongScene {
     }
 
     // Display
-    this.stateDisplay.setRound(this.round)
+    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
     this.applyCenterScores()
     this.stateDisplay.setRemaining(this.remainingTiles)
     this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir))
@@ -2017,7 +2022,10 @@ export class MahjongScene {
     }
     // Round & remaining
     const rc: number = state.round_counter ?? -1
-    if (rc >= 0 && rc !== this.round) { this.round = rc; this.stateDisplay.setRound(this.round) }
+    if (rc >= 0 && rc !== this.round) {
+      this.round = rc
+      this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
+    }
     this.stateDisplay.setRemaining(state.remaining_tile_count ?? this.remainingTiles)
     this.applyTileCoverPalette()
     // Meld choices

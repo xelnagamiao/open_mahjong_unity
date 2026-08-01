@@ -65,6 +65,7 @@
                 v-if="scoreboardOpen"
                 :players="sidebarPlayers"
                 :settlements="scoreboardSettlements"
+                :round-label-format="appearance.roundLabelFormat"
                 @close="scoreboardOpen = false"
               />
               <GameVotePanel
@@ -271,6 +272,7 @@
                       show-interface-theme
                       @volume="changeVolume"
                       @interface-theme="setAppearanceField('interfaceTheme', $event)"
+                      @round-label-format="setAppearanceField('roundLabelFormat', $event)"
                       @table-color="setAppearanceField('backgroundColorTable', $event)"
                       @outside-color="setAppearanceField('backgroundColorOutside', $event)"
                       @image-enabled="setAppearanceField('backgroundImageEnabled', $event)"
@@ -396,7 +398,7 @@ import {
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
-import { tr } from '@/i18n'
+import { locale, tr } from '@/i18n'
 import {
   salasasaSettlementSortKey,
   splitSettlementHand,
@@ -1213,6 +1215,10 @@ watch(() => session.status, (status, previousStatus) => {
   }).finally(() => {
     reconnectPromptOpen.value = false
   })
+})
+
+watch(locale, () => {
+  scene?.refreshRoundLabel()
 })
 
 onBeforeRouteLeave(async () => {

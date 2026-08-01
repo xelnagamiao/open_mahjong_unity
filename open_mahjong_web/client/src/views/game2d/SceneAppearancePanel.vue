@@ -18,6 +18,17 @@
           <option value="dark">深色</option>
         </select>
       </label>
+      <label v-if="locale !== 'en'" class="scene-appearance-panel__field">
+        <span class="scene-appearance-panel__label">局数显示</span>
+        <select
+          class="scene-appearance-panel__select"
+          :value="appearance.roundLabelFormat"
+          @change="$emit('round-label-format', $event.target.value)"
+        >
+          <option value="wind-seat">东风东</option>
+          <option value="round-number">东一局</option>
+        </select>
+      </label>
       <label class="scene-appearance-panel__field">
         <span class="scene-appearance-panel__label">中文字体</span>
         <select
@@ -275,6 +286,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { locale } from '@/i18n'
 
 const props = defineProps({
   appearance: { type: Object, required: true },
@@ -290,7 +302,8 @@ const emit = defineEmits([
   'remove-cover-color', 'reorder-cover-colors', 'select-cover-index', 'cover-rotate-mode',
   'flower-area-display', 'flower-area-color',
   'flower-area-alpha', 'flower-area-label-color', 'flower-area-count-color', 'flower-area-label-scale',
-  'tile-face-theme', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'interface-theme', 'volume',
+  'tile-face-theme', 'flower-face-theme', 'font-theme', 'latin-font-theme', 'interface-theme',
+  'round-label-format', 'volume',
 ])
 
 const fileInput = ref(null)
