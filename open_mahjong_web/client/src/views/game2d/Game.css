@@ -177,10 +177,10 @@
 .scene-appearance-panel__field input[type='checkbox'] { accent-color: #1890ff; }
 
 .scene-appearance-panel__select {
-  flex: 0 0 108px;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  flex: 0 0 106px;
+  width: 106px;
+  min-width: 106px;
+  max-width: 106px;
   height: 30px;
   padding: 4px 18px 4px 6px;
   box-sizing: border-box;
@@ -399,10 +399,10 @@
 }
 
 .game-felt-rail .scene-appearance-panel__select {
-  flex: 0 0 108px;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  flex: 0 0 106px;
+  width: 106px;
+  min-width: 106px;
+  max-width: 106px;
 }
 
 .game-felt-rail .scene-appearance-panel__field:has(.scene-appearance-panel__range-row) {
