@@ -30,6 +30,42 @@
         <el-button type="primary" size="small" plain :loading="loading" @click="analyze">解析</el-button>
       </div>
 
+      <div class="row option-row">
+        <span class="row-label">特殊牌型</span>
+        <div class="special-options">
+          <el-switch
+            v-model="includeMcrSevenPairs"
+            size="small"
+            active-text="国标七对"
+            title="允许出现相同对子"
+            :disabled="loading"
+            @change="onMcrSevenPairsChange"
+          />
+          <el-switch
+            v-model="includeRiichiSevenPairs"
+            size="small"
+            active-text="日麻七对"
+            title="不许出现相同对子"
+            :disabled="loading"
+            @change="onRiichiSevenPairsChange"
+          />
+          <el-switch
+            v-model="includeUnrelatedTiles"
+            size="small"
+            active-text="全不靠"
+            :disabled="loading"
+            @change="onSpecialHandChange"
+          />
+          <el-switch
+            v-model="includeCombinationDragon"
+            size="small"
+            active-text="组合龙"
+            :disabled="loading"
+            @change="onSpecialHandChange"
+          />
+        </div>
+      </div>
+
       <div class="row block">
         <div class="row-line">
           <span class="row-label">手牌 {{ form.hand.length }}/{{ expectedCountLabel }}</span>
@@ -140,10 +176,9 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import axios from 'axios'
 import TileChip from '@/components/TileChip.vue'
 import TilePalette from '@/components/TilePalette.vue'
 import TileMiniGlyph from '@/components/TileMiniGlyph.vue'
@@ -158,6 +193,7 @@ import {
   meldDisplayTiles,
 } from '@/composables/useMahjongTiles'
 import { useFuluSlots } from '@/composables/useFuluSlots'
+import { calculatePaili } from '@/utils/pailiCalculator'
 
 const form = reactive({
   hand: [],
@@ -166,6 +202,64 @@ const form = reactive({
 const textInput = ref('')
 const loading = ref(false)
 const result = ref(null)
+const includeMcrSevenPairs = ref(true)
+const includeRiichiSevenPairs = ref(false)
+const includeUnrelatedTiles = ref(true)
+const includeCombinationDragon = ref(true)
+const workerRequests = new Map()
+let pailiWorker = null
+let workerRequestId = 0
+
+const terminatePailiWorker = (error) => {
+  pailiWorker?.terminate()
+  pailiWorker = null
+  for (const request of workerRequests.values()) {
+    clearTimeout(request.timer)
+    request.reject(error)
+  }
+  workerRequests.clear()
+}
+
+const getPailiWorker = () => {
+  if (pailiWorker || typeof Worker === 'undefined') return pailiWorker
+  try {
+    pailiWorker = new Worker(
+      new URL('../utils/pailiWorker.ts', import.meta.url),
+      { type: 'module' },
+    )
+    pailiWorker.onmessage = ({ data }) => {
+      const request = workerRequests.get(data.id)
+      if (!request) return
+      workerRequests.delete(data.id)
+      clearTimeout(request.timer)
+      if (data.error) request.reject(new Error(data.error))
+      else request.resolve(data.result)
+    }
+    pailiWorker.onerror = () => {
+      terminatePailiWorker(new Error('Web Worker 运行失败'))
+    }
+  } catch (error) {
+    pailiWorker = null
+    console.warn('无法创建牌理 Web Worker，将在主线程计算', error)
+  }
+  return pailiWorker
+}
+
+const calculateInWorker = (payload) => {
+  const worker = getPailiWorker()
+  if (!worker) return Promise.resolve(calculatePaili(payload))
+
+  return new Promise((resolve, reject) => {
+    const id = ++workerRequestId
+    const timer = setTimeout(() => {
+      terminatePailiWorker(new Error('Web Worker 计算超时'))
+    }, 15_000)
+    workerRequests.set(id, { resolve, reject, timer })
+    worker.postMessage({ id, payload })
+  })
+}
+
+onBeforeUnmount(() => terminatePailiWorker(new Error('页面已关闭')))
 
 const countMeldTiles = (meld, tileId) => {
   if (!meld) return 0
@@ -294,6 +388,20 @@ const resetAll = () => {
   fulu.resetAll()
 }
 
+const onSpecialHandChange = () => {
+  result.value = null
+}
+
+const onMcrSevenPairsChange = (enabled) => {
+  if (enabled) includeRiichiSevenPairs.value = false
+  onSpecialHandChange()
+}
+
+const onRiichiSevenPairsChange = (enabled) => {
+  if (enabled) includeMcrSevenPairs.value = false
+  onSpecialHandChange()
+}
+
 const ensureReadyForAnalyze = () => {
   const exp13 = expectedTingCount.value
   const exp14 = expectedCount.value
@@ -330,20 +438,25 @@ const analyze = async () => {
   loading.value = true
   result.value = null
   try {
-    const tilesCombination = lockedFuluList.value.map((m) => m.code)
-    const resp = await axios.post('/api/mahjong/paili', {
-      hand_tiles: [...form.hand],
-      tiles_combination: tilesCombination
-    })
-    if (!resp.data.success) {
-      ElMessage.error(resp.data.message || '计算失败')
-      return
+    const payload = {
+      handTiles: [...form.hand],
+      combinations: lockedFuluList.value.map((m) => m.code),
+      options: {
+        mcrSevenPairs: includeMcrSevenPairs.value,
+        riichiSevenPairs: includeRiichiSevenPairs.value,
+        unrelatedTiles: includeUnrelatedTiles.value,
+        combinationDragon: includeCombinationDragon.value,
+      },
     }
-    result.value = resp.data.data
+    try {
+      result.value = await calculateInWorker(payload)
+    } catch (workerError) {
+      console.warn('牌理 Web Worker 不可用，将在主线程重试', workerError)
+      result.value = calculatePaili(payload)
+    }
   } catch (err) {
     console.error(err)
-    const msg = err.response?.data?.message || err.message
-    ElMessage.error(`计算失败：${msg}`)
+    ElMessage.error(`计算失败：${err.message}`)
   } finally {
     loading.value = false
   }
@@ -414,6 +527,13 @@ const analyze = async () => {
 }
 
 .row.block { display: block; }
+.option-row { flex-wrap: wrap; }
+.special-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
 
 .row + .row {
   border-top: 1px dashed var(--omu-border, #ebeef5);
