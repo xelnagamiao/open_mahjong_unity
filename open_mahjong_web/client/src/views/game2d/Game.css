@@ -65,6 +65,7 @@
   box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: rgba(0, 0, 0, 0.14);
