@@ -758,19 +758,54 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
+  min-width: 0;
   overflow: hidden;
   padding: 2px 0;
   flex-shrink: 0;
+}
+
+.end-result-hand {
+  align-items: flex-end;
+  gap: 0;
+  --end-result-tile-width: 42px;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}
+
+.end-result-hand:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.end-result-hand::-webkit-scrollbar {
+  height: 3px;
+}
+
+.end-result-hand::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.end-result-hand::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.end-result-hand:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .end-result-tile {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 1 1 42px;
-  width: 42px;
-  min-width: 18px;
-  max-width: 42px;
+  flex: 0 0 var(--end-result-tile-width, 42px);
+  width: var(--end-result-tile-width, 42px);
+  min-width: var(--end-result-tile-width, 42px);
+  max-width: var(--end-result-tile-width, 42px);
   aspect-ratio: 3 / 4;
   border-radius: 4px;
   border: 1.5px solid rgba(40, 48, 52, 0.9);
@@ -791,6 +826,78 @@
   display: block;
 }
 
+.end-result-melds {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.end-result-meld {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  gap: 0;
+  min-width: 0;
+}
+
+.end-result-meld__slot {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  flex: 0 0 var(--end-result-tile-width, 42px);
+  width: var(--end-result-tile-width, 42px);
+  min-width: var(--end-result-tile-width, 42px);
+  max-width: var(--end-result-tile-width, 42px);
+}
+
+.end-result-meld__slot.is-sideways {
+  flex-basis: calc(var(--end-result-tile-width, 42px) * 4 / 3);
+  width: calc(var(--end-result-tile-width, 42px) * 4 / 3);
+  min-width: calc(var(--end-result-tile-width, 42px) * 4 / 3);
+  max-width: calc(var(--end-result-tile-width, 42px) * 4 / 3);
+}
+
+.end-result-meld__tile-frame {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  flex: none;
+  aspect-ratio: 3 / 4;
+  line-height: 0;
+}
+
+.end-result-meld__tile {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  flex: none;
+}
+
+.end-result-meld__slot.is-sideways .end-result-meld__tile-frame {
+  aspect-ratio: 4 / 3;
+}
+
+.end-result-meld__slot.is-sideways .end-result-meld__tile {
+  position: absolute;
+  top: -16.6667%;
+  left: 12.5%;
+  width: 75%;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.end-result-tile.is-face-down {
+  border-color: #606060;
+}
+
+.mahjongGame.is-black-tile-face .end-result-tile.is-face-down {
+  border-color: #606060;
+}
+
 .end-result-tile.is-winning {
   margin-left: 4px;
   box-shadow: 0 0 0 2px rgba(255, 186, 72, 0.95);
@@ -806,6 +913,7 @@
   width: 10px;
   min-width: 3px;
   flex: 0 1 10px;
+  margin-inline: 3px;
 }
 
 .end-result-flowers__label {

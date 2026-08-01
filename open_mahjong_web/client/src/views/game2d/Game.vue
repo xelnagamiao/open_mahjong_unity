@@ -117,7 +117,11 @@
                     class="end-result-panel end-result-panel--win"
                     aria-label="本局和牌结算"
                   >
-                    <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
+                    <div
+                      v-if="resultClosedTiles.length || resultWinTile"
+                      class="end-result-hand"
+                      @wheel="scrollSettlementHand"
+                    >
                       <span
                         v-for="(tile, index) in resultClosedTiles"
                         :key="`closed-${index}`"
@@ -125,13 +129,38 @@
                       >
                         <img :src="tileAsset(tile)" alt="" />
                       </span>
-                      <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
-                      <span
-                        v-for="(tile, index) in resultMeldTiles"
-                        :key="`meld-${index}`"
-                        class="end-result-tile"
-                      >
-                        <img :src="tileAsset(tile)" alt="" />
+                      <span v-if="resultMeldGroups.length" class="end-result-hand__split" />
+                      <span v-if="resultMeldGroups.length" class="end-result-melds">
+                        <span
+                          v-for="(meld, meldIndex) in resultMeldGroups"
+                          :key="`meld-${meldIndex}`"
+                          class="end-result-meld"
+                        >
+                          <span
+                            v-for="(tile, tileIndex) in meld.tiles"
+                            :key="`meld-${meldIndex}-${tileIndex}`"
+                            class="end-result-meld__slot"
+                            :class="{
+                              'is-sideways': tile.sideways,
+                              'has-stacked-tile': tile.stackedTile,
+                            }"
+                          >
+                            <span v-if="tile.stackedTile" class="end-result-meld__tile-frame">
+                              <span class="end-result-tile end-result-meld__tile">
+                                <img :src="tileAsset(tile.stackedTile)" alt="" />
+                              </span>
+                            </span>
+                            <span class="end-result-meld__tile-frame">
+                              <span
+                                class="end-result-tile end-result-meld__tile"
+                                :class="{ 'is-face-down': tile.faceDown }"
+                                :style="tile.faceDown ? { backgroundColor: resultTileCoverColor } : null"
+                              >
+                                <img v-if="!tile.faceDown" :src="tileAsset(tile.tile)" alt="" />
+                              </span>
+                            </span>
+                          </span>
+                        </span>
                       </span>
                       <span class="end-result-hand__split" />
                       <span v-if="resultWinTile" class="end-result-tile is-winning">
@@ -400,6 +429,7 @@ import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
 import { locale, tr } from '@/i18n'
 import {
+  buildSettlementMeldGroups,
   salasasaSettlementSortKey,
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
@@ -616,9 +646,31 @@ const resultClosedTiles = computed(() => splitSettlementHand(
   roundResult.value?.hepai_player_combination_mask?.length ?? 0,
   salasasaSettlementSortKey,
 ))
-const resultMeldTiles = computed(() => (roundResult.value?.hepai_player_combination_mask ?? [])
-  .flatMap((mask) => mask.filter((value, index) => index % 2 === 1 && value > 10)))
+const resultMeldGroups = computed(() => buildSettlementMeldGroups(
+  roundResult.value?.hepai_player_combination_mask ?? [],
+))
+const resultTileCoverColor = computed(() => {
+  const colors = appearance.value.tileCoverColors ?? []
+  const index = Math.max(0, Math.min(colors.length - 1, appearance.value.lastTileCoverIndex ?? 0))
+  return colors[index] ?? '#f6bc1e'
+})
 const resultFlowerTiles = computed(() => roundResult.value?.hepai_player_huapai ?? [])
+
+function scrollSettlementHand(event) {
+  const hand = event.currentTarget
+  if (!hand || hand.scrollWidth <= hand.clientWidth) return
+
+  const delta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY
+  if (!delta) return
+
+  const maxScrollLeft = hand.scrollWidth - hand.clientWidth
+  const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, hand.scrollLeft + delta))
+  if (nextScrollLeft === hand.scrollLeft) return
+
+  event.preventDefault()
+  hand.scrollLeft = nextScrollLeft
+}
+
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
   const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
   return {

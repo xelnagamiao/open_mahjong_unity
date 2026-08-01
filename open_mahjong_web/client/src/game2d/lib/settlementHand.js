@@ -28,6 +28,57 @@ export function splitSettlementHand(handTiles, winningTile, meldCount, sortKey) 
   ).sort((left, right) => sortKey(left) - sortKey(right))
 }
 
+/**
+ * Convert server combination masks into the settlement-only meld layout.
+ *
+ * Mask modes: 0 upright, 1 sideways (the claimed tile), 2 concealed,
+ * 3 stacked added-kong tile, 4 empty. Concealed kongs stay fully hidden in
+ * play, but settlement follows the common riichi layout: back, face, face,
+ * back.
+ */
+export function buildSettlementMeldGroups(combinationMasks) {
+  if (!Array.isArray(combinationMasks)) return []
+
+  return combinationMasks.map((mask) => {
+    if (!Array.isArray(mask)) return null
+
+    const pairs = []
+    for (let index = 0; index + 1 < mask.length; index += 2) {
+      const mode = Number(mask[index])
+      const tile = Number(mask[index + 1])
+      if (mode !== 4 && tile > 10) pairs.push({ mode, tile })
+    }
+    if (!pairs.length) return null
+
+    const isConcealedKong = pairs.length === 4 && pairs.every(({ mode }) => mode === 2)
+    if (isConcealedKong) {
+      return {
+        type: 'concealed-kong',
+        tiles: pairs.map(({ tile }, index) => ({
+          tile,
+          sideways: false,
+          faceDown: index === 0 || index === pairs.length - 1,
+          stackedTile: null,
+        })),
+      }
+    }
+
+    const stackedTile = pairs.find(({ mode }) => mode === 3)?.tile ?? null
+    const basePairs = pairs.filter(({ mode }) => mode !== 3)
+    const sidewaysIndex = basePairs.findIndex(({ mode }) => mode === 1)
+
+    return {
+      type: 'open',
+      tiles: basePairs.map(({ mode, tile }, index) => ({
+        tile,
+        sideways: mode === 1,
+        faceDown: mode === 2,
+        stackedTile: stackedTile && index === sidewaysIndex ? stackedTile : null,
+      })),
+    }
+  }).filter((group) => group?.tiles.length)
+}
+
 /** Salasasa ids: 11-19万, 21-29筒, 31-39索, 41-47字, 51-58花. */
 export function salasasaSettlementSortKey(tile) {
   const normalized = Number(tile) >= 100 ? Number(tile) % 100 : Number(tile)

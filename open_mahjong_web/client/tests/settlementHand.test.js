@@ -1,11 +1,56 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildSettlementMeldGroups,
   mmcrSettlementSortKey,
   salasasaSettlementSortKey,
   splitSettlementHand,
   splitWinningTileFromRevealedHand,
 } from '../src/game2d/lib/settlementHand.js'
+
+test('settlement melds preserve the claimed tile orientation', () => {
+  const groups = buildSettlementMeldGroups([
+    [1, 13, 0, 11, 0, 12],
+    [0, 21, 0, 21, 1, 21],
+    [0, 31, 1, 31, 0, 31, 0, 31],
+  ])
+
+  assert.deepEqual(
+    groups.map((group) => group.tiles.map((tile) => tile.sideways)),
+    [
+      [true, false, false],
+      [false, false, true],
+      [false, true, false, false],
+    ],
+  )
+})
+
+test('settlement added kong stacks its fourth tile on the claimed tile', () => {
+  const [group] = buildSettlementMeldGroups([
+    [0, 25, 0, 25, 3, 25, 1, 25],
+  ])
+
+  assert.equal(group.tiles.length, 3)
+  assert.deepEqual(group.tiles[2], {
+    tile: 25,
+    sideways: true,
+    faceDown: false,
+    stackedTile: 25,
+  })
+})
+
+test('settlement concealed kong reveals only its two middle tiles', () => {
+  const [group] = buildSettlementMeldGroups([
+    [2, 47, 2, 47, 2, 47, 2, 47],
+  ])
+
+  assert.equal(group.type, 'concealed-kong')
+  assert.deepEqual(
+    group.tiles.map((tile) => tile.faceDown),
+    [true, false, false, true],
+  )
+  assert.equal(group.tiles.some((tile) => tile.sideways), false)
+})
 
 test('ron seven pairs keeps the unmatched East and renders the winning East separately', () => {
   const preWinHand = [13, 13, 19, 19, 21, 21, 25, 25, 38, 38, 47, 47, 41]
