@@ -125,6 +125,7 @@ export function resetRoundAssistSettings(settings: AssistSettings): AssistSettin
   return normalizeAssistSettings({
     ...settings,
     autoDiscard: false,
+    autoWin: false,
     autoPass: false,
     passChi: false,
     passPeng: false,
