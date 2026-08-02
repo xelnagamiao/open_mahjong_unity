@@ -6,6 +6,7 @@ import time
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
+from ..public.ai.guobiao_heuristic_ai import guobiao_heuristic_action
 from .combination_mask_view import (
     get_combination_fields_for_viewer,
     sanitize_angang_mask,
@@ -202,6 +203,11 @@ async def broadcast_ask_hand_action(self):
                     logger.info(f"派发牌效机器人操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
                     asyncio.create_task(smart_bot_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
                 continue
+            elif current_player.user_id == 3:
+                if player_actions:
+                    logger.info(f"派发高性能罗伯特操作 seat={seat_index} status={bot_ask_hand_game_status(self, seat_index)} actions={player_actions}")
+                    asyncio.create_task(guobiao_heuristic_action(self, seat_index, player_actions, bot_ask_hand_game_status(self, seat_index)))
+                continue
             elif current_player.user_id < 10:
                 if player_actions:
                     logger.warning(f"未知保留机器人 user_id={current_player.user_id}，按摸切机器人处理 seat={seat_index} actions={player_actions}")
@@ -266,6 +272,11 @@ async def broadcast_ask_other_action(self, remaining_time_override: Optional[int
                 if player_actions:
                     logger.info(f"派发牌效机器人操作 seat={seat_index} status={self.game_status} actions={player_actions}")
                     asyncio.create_task(smart_bot_action(self, seat_index, player_actions, self.game_status))
+                continue
+            elif current_player.user_id == 3:
+                if player_actions:
+                    logger.info(f"派发高性能罗伯特操作 seat={seat_index} status={self.game_status} actions={player_actions}")
+                    asyncio.create_task(guobiao_heuristic_action(self, seat_index, player_actions, self.game_status))
                 continue
             elif current_player.user_id < 10:
                 if player_actions:
