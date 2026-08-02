@@ -368,6 +368,11 @@ class GameServer:
         response = await self.room_manager.add_smart_bot_to_room(Connect_id, room_id)
         await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
 
+    # 添加国标启发式机器人（高性能罗伯特）到房间
+    async def add_guobiao_heuristic_bot_to_room(self, Connect_id: str, room_id: str):
+        response = await self.room_manager.add_guobiao_heuristic_bot_to_room(Connect_id, room_id)
+        await self.players[Connect_id].websocket.send_json(response.dict(exclude_none=True))
+
     # 房主移除玩家
     async def kick_player_from_room(self, Connect_id: str, room_id: str, target_user_id: int):
         response = await self.room_manager.kick_player_from_room(Connect_id, room_id, target_user_id)

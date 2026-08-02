@@ -630,6 +630,17 @@ public class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
+    /// 添加国标启发式机器人（高性能罗伯特，user_id=3）到房间
+    /// </summary>
+    public async void AddGuobiaoHeuristicBotToRoom(string roomId) {
+        var request = new AddBotToRoomRequest {
+            type = "room/add_guobiao_heuristic_bot",
+            room_id = roomId
+        };
+        await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+    }
+
+    /// <summary>
     /// 设置准备状态（非房主玩家可用）
     /// </summary>
     public async void SetReady(string roomId, bool ready) {

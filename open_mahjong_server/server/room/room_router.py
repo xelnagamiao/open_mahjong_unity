@@ -84,6 +84,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_add_bot_to_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/add_smart_bot":
         await handle_add_smart_bot_to_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/add_guobiao_heuristic_bot":
+        await handle_add_guobiao_heuristic_bot_to_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/kick_player":
         await handle_kick_player_from_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/set_ready":
@@ -366,6 +368,10 @@ async def handle_add_bot_to_room(game_server, Connect_id: str, message: dict, we
 async def handle_add_smart_bot_to_room(game_server, Connect_id: str, message: dict, websocket):
     """处理添加牌效机器人到房间请求"""
     await game_server.add_smart_bot_to_room(Connect_id, message["room_id"])
+
+async def handle_add_guobiao_heuristic_bot_to_room(game_server, Connect_id: str, message: dict, websocket):
+    """处理添加国标启发式机器人（高性能罗伯特）到房间请求"""
+    await game_server.add_guobiao_heuristic_bot_to_room(Connect_id, message["room_id"])
 
 async def handle_kick_player_from_room(game_server, Connect_id: str, message: dict, websocket):
     """处理房主移除玩家请求"""

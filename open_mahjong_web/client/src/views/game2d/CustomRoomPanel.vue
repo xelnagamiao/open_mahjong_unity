@@ -42,6 +42,12 @@
         <template v-if="isHost">
           <el-button :disabled="!canAddBot" @click="addBot(false)">添加机器人</el-button>
           <el-button :disabled="!canAddBot" @click="addBot(true)">添加牌效机器人</el-button>
+          <el-button
+            v-if="isGuobiaoRoom"
+            :disabled="!canAddHeuristicBot"
+            :title="heuristicBotTitle"
+            @click="addHeuristicBot"
+          >{{ heuristicBotLabel }}</el-button>
           <el-button type="primary" :disabled="!canStart" @click="startGame">开始对局</el-button>
         </template>
         <el-button v-else type="primary" @click="toggleReady">
@@ -182,6 +188,24 @@ const canAddBot = computed(() => {
   if (!room) return false
   return (room.player_list || []).length < (room.max_player || 4)
 })
+
+const isGuobiaoRoom = computed(() => currentRoom.value?.room_rule === 'guobiao')
+
+const isGuobiaoStandardRoom = computed(() => {
+  const room = currentRoom.value
+  if (!room || room.room_rule !== 'guobiao') return false
+  return (room.sub_rule || 'guobiao/standard') === 'guobiao/standard'
+})
+
+const canAddHeuristicBot = computed(() => canAddBot.value && isGuobiaoStandardRoom.value)
+
+const heuristicBotLabel = computed(() =>
+  isGuobiaoStandardRoom.value ? '添加高性能罗伯特' : '暂未支持',
+)
+
+const heuristicBotTitle = computed(() =>
+  isGuobiaoStandardRoom.value ? '' : '高性能罗伯特暂未支持该国标变种规则',
+)
 
 const canStart = computed(() => {
   const room = currentRoom.value
@@ -368,6 +392,21 @@ function addBot(smart) {
   if (!room) return
   const type = smart ? 'room/add_smart_bot' : 'room/add_bot'
   if (!salasasaClient.send({ type, room_id: String(room.room_id) })) {
+    ElMessage.error('游戏连接尚未就绪')
+  }
+}
+
+function addHeuristicBot() {
+  const room = currentRoom.value
+  if (!room) return
+  if (!isGuobiaoStandardRoom.value) {
+    ElMessage.info('高性能罗伯特暂未支持该国标变种规则')
+    return
+  }
+  if (!salasasaClient.send({
+    type: 'room/add_guobiao_heuristic_bot',
+    room_id: String(room.room_id),
+  })) {
     ElMessage.error('游戏连接尚未就绪')
   }
 }
