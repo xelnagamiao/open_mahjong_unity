@@ -33,6 +33,20 @@ function detectLocale() {
 
 export const locale = ref(typeof window === 'undefined' ? 'zh-CN' : detectLocale())
 
+const ROUND_WINDS = ['东', '南', '西', '北']
+const ROUND_NUMBERS = ['一', '二', '三', '四']
+
+export function roundLabelKey(roundCounter, format = 'wind-seat', targetLocale = locale.value) {
+  const number = Number(roundCounter)
+  if (!Number.isFinite(number)) return ''
+  const index = Math.max(0, Math.trunc(number) - 1)
+  const prevailingWind = ROUND_WINDS[Math.floor(index / 4) % 4]
+  const handIndex = index % 4
+  return targetLocale === 'en' || format === 'round-number'
+    ? `${prevailingWind}${ROUND_NUMBERS[handIndex]}局`
+    : `${prevailingWind}风${ROUND_WINDS[handIndex]}`
+}
+
 export function setLocale(value) {
   const next = normalizeLocale(value) || 'zh-CN'
   locale.value = next

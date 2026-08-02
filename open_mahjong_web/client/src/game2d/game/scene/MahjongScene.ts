@@ -145,6 +145,7 @@ export class MahjongScene {
   private currentPendingStatus = 'none'
   private inputEnabled = false
   private pendingPassAckStageCounter: number | null = null
+  private openingReplacementTile: Tile | null = null
   private lastPassAttemptAtMs = 0
   private roundEnded = false
   private scoreDifferenceVisible = false
@@ -288,7 +289,12 @@ export class MahjongScene {
     this.applyTileCoverPalette()
     this.applyFlowerAreaAppearance()
     this.applyTileFaceTheme()
+    this.refreshRoundLabel()
     if (fontChanged) this.applyFontTheme()
+  }
+
+  refreshRoundLabel(): void {
+    if (this.center) this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
   }
 
   setActiveTileCoverIndex(index: number): void {
@@ -487,9 +493,13 @@ export class MahjongScene {
     if (!this.hasAction('discard_tile')) return false
     const hand = this.hands?.[0]
     if (!hand) return false
-    // Match Unity TriggerMoqieHandCardClick: prefer the draw-slot tile; after
-    // chow/pung there is no draw slot, so discard the rightmost hand tile.
-    const target = hand.drawnTile ?? hand.rightList[0]
+    // Prefer the draw-slot tile, then the last opening replacement after it has
+    // been merged for display; otherwise discard the rightmost hand tile.
+    const openingReplacement = this.openingReplacementTile
+      && hand.rightList.includes(this.openingReplacementTile)
+      ? this.openingReplacementTile
+      : null
+    const target = hand.drawnTile ?? openingReplacement ?? hand.rightList[0]
     if (!target || target.tid <= 0) return false
     const useDrawnTile = target === hand.drawnTile
     this.clearMeldChoices()
@@ -1491,6 +1501,7 @@ export class MahjongScene {
     const { viewer, seats, state } = snapshot
     const revealAllHands = Boolean(snapshot.reveal_all_hands)
     this.pendingPassAckStageCounter = null
+    this.openingReplacementTile = null
     this.selfDir = viewer.seat_index
     this.currentStageCounter = state.stage_counter
     this.rememberViewer(viewer as Record<string, any>)
@@ -1643,7 +1654,7 @@ export class MahjongScene {
     }
 
     // Display
-    this.stateDisplay.setRound(this.round)
+    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
     this.applyCenterScores()
     this.stateDisplay.setRemaining(this.remainingTiles)
     this.stateDisplay.setCurrent(transDir(this.currentDir, this.selfDir))
@@ -1703,17 +1714,14 @@ export class MahjongScene {
     const actorDir = transDir(actorSeat, this.selfDir)
     const tile: number | undefined = event.tile
 
-    // Opening flower replacements are broadcast as ordinary draws so that they
-    // animate, but once the flower round finishes other seats go flat again.
-    // Keep the self draw-slot when we can discard: otherwise right-click 摸切
-    // has no drawnTile on the dealer's first prompt (until a later real draw).
+    // Opening flower replacements are part of the initial hand on the server.
+    // Merge every replacement tile after the flower round so all 14 dealer
+    // tiles use the same layout, matching the no-flower opening path.
     if (kind === 'hand_prompt' && event.opening_buhua_complete) {
       const selfCanDiscard = Array.isArray(viewer.available_actions)
         && viewer.available_actions.some((action: { kind?: string }) => action.kind === 'discard_tile')
-      for (let i = 0; i < this.hands.length; i += 1) {
-        if (i === 0 && selfCanDiscard) continue
-        this.hands[i].settleDrawnTile()
-      }
+      this.openingReplacementTile = selfCanDiscard ? this.hands[0].drawnTile : null
+      for (const hand of this.hands) hand.settleDrawnTile()
     }
 
     // ── Phase A: Board mutation (TRANSITION only) ──────────────────
@@ -1723,6 +1731,7 @@ export class MahjongScene {
           // New round: clear all tiles and reposition based on the new seat wind
           this.roundEnded = false
           this.pendingPassAckStageCounter = null
+          this.openingReplacementTile = null
           this.currentPendingStatus = 'none'
           this.currentViewerActions = []
           this.inputEnabled = false
@@ -1814,6 +1823,7 @@ export class MahjongScene {
           this.lastDiscarderSeat = actorSeat
           const useDrawn = event.use_drawn_tile ?? false
           if (actorDir === 0 && tile !== undefined) {
+            this.openingReplacementTile = null
             this.hands[0].discardTile(tile, useDrawn)
           } else if (tile !== undefined) {
             this.hands[actorDir].discardTile(tile, useDrawn)
@@ -1898,13 +1908,10 @@ export class MahjongScene {
         }
         case 'self_drawn_win': {
           this.roundEnded = true
-          if (actorDir === 0 && tile !== undefined && this.hands[0].drawnTile) {
-            this.hands[0].drawnTile.updateTid(tile)
-            this.hands[0].drawnTile.show()
-            this.waitDisplay.reset()
-          } else if (actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-            this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[], tile ?? null)
+          if (Array.isArray(event.revealed_hand_tiles)) {
+            this.hands[actorDir].revealWinningHand(event.revealed_hand_tiles as number[], tile ?? null)
           }
+          if (actorDir === 0) this.waitDisplay.reset()
           this.countdown.stop()
           this.clearMeldChoices()
           if (!event.silent) {
@@ -1917,8 +1924,8 @@ export class MahjongScene {
         case 'discard_win':
         case 'rob_added_kong_win': {
           this.roundEnded = true
-          if (actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-            this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[])
+          if (Array.isArray(event.revealed_hand_tiles)) {
+            this.hands[actorDir].revealWinningHand(event.revealed_hand_tiles as number[], tile ?? null)
           }
           if (actorDir === 0) {
             this.waitDisplay.reset()
@@ -2017,7 +2024,10 @@ export class MahjongScene {
     }
     // Round & remaining
     const rc: number = state.round_counter ?? -1
-    if (rc >= 0 && rc !== this.round) { this.round = rc; this.stateDisplay.setRound(this.round) }
+    if (rc >= 0 && rc !== this.round) {
+      this.round = rc
+      this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
+    }
     this.stateDisplay.setRemaining(state.remaining_tile_count ?? this.remainingTiles)
     this.applyTileCoverPalette()
     // Meld choices
@@ -2318,15 +2328,11 @@ export class MahjongScene {
     const actorDir = transDir(actorSeat, this.selfDir)
     const tile = typeof event.tile === 'number' ? event.tile : null
 
-    if (kind === 'self_drawn_win') {
-      if (actorDir === 0 && tile !== null && this.hands[0].drawnTile) {
-        this.hands[0].drawnTile.updateTid(tile)
-        this.hands[0].drawnTile.show()
-      } else if (actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-        this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[], tile)
-      }
-    } else if ((kind === 'discard_win' || kind === 'rob_added_kong_win') && actorDir !== 0 && Array.isArray(event.revealed_hand_tiles)) {
-      this.hands[actorDir].revealHand(event.revealed_hand_tiles as number[])
+    if (
+      (kind === 'self_drawn_win' || kind === 'discard_win' || kind === 'rob_added_kong_win')
+      && Array.isArray(event.revealed_hand_tiles)
+    ) {
+      this.hands[actorDir].revealWinningHand(event.revealed_hand_tiles as number[], tile)
     }
 
     if (kind === 'drawn_game') {

@@ -65,6 +65,7 @@
                 v-if="scoreboardOpen"
                 :players="sidebarPlayers"
                 :settlements="scoreboardSettlements"
+                :round-label-format="appearance.roundLabelFormat"
                 @close="scoreboardOpen = false"
               />
               <GameVotePanel
@@ -116,7 +117,11 @@
                     class="end-result-panel end-result-panel--win"
                     aria-label="本局和牌结算"
                   >
-                    <div v-if="resultClosedTiles.length || resultWinTile" class="end-result-hand">
+                    <div
+                      v-if="resultClosedTiles.length || resultWinTile"
+                      class="end-result-hand"
+                      @wheel="scrollSettlementHand"
+                    >
                       <span
                         v-for="(tile, index) in resultClosedTiles"
                         :key="`closed-${index}`"
@@ -124,13 +129,38 @@
                       >
                         <img :src="tileAsset(tile)" alt="" />
                       </span>
-                      <span v-if="resultMeldTiles.length" class="end-result-hand__split" />
-                      <span
-                        v-for="(tile, index) in resultMeldTiles"
-                        :key="`meld-${index}`"
-                        class="end-result-tile"
-                      >
-                        <img :src="tileAsset(tile)" alt="" />
+                      <span v-if="resultMeldGroups.length" class="end-result-hand__split" />
+                      <span v-if="resultMeldGroups.length" class="end-result-melds">
+                        <span
+                          v-for="(meld, meldIndex) in resultMeldGroups"
+                          :key="`meld-${meldIndex}`"
+                          class="end-result-meld"
+                        >
+                          <span
+                            v-for="(tile, tileIndex) in meld.tiles"
+                            :key="`meld-${meldIndex}-${tileIndex}`"
+                            class="end-result-meld__slot"
+                            :class="{
+                              'is-sideways': tile.sideways,
+                              'has-stacked-tile': tile.stackedTile,
+                            }"
+                          >
+                            <span v-if="tile.stackedTile" class="end-result-meld__tile-frame">
+                              <span class="end-result-tile end-result-meld__tile">
+                                <img :src="tileAsset(tile.stackedTile)" alt="" />
+                              </span>
+                            </span>
+                            <span class="end-result-meld__tile-frame">
+                              <span
+                                class="end-result-tile end-result-meld__tile"
+                                :class="{ 'is-face-down': tile.faceDown }"
+                                :style="tile.faceDown ? { backgroundColor: resultTileCoverColor } : null"
+                              >
+                                <img v-if="!tile.faceDown" :src="tileAsset(tile.tile)" alt="" />
+                              </span>
+                            </span>
+                          </span>
+                        </span>
                       </span>
                       <span class="end-result-hand__split" />
                       <span v-if="resultWinTile" class="end-result-tile is-winning">
@@ -271,6 +301,7 @@
                       show-interface-theme
                       @volume="changeVolume"
                       @interface-theme="setAppearanceField('interfaceTheme', $event)"
+                      @round-label-format="setAppearanceField('roundLabelFormat', $event)"
                       @table-color="setAppearanceField('backgroundColorTable', $event)"
                       @outside-color="setAppearanceField('backgroundColorOutside', $event)"
                       @image-enabled="setAppearanceField('backgroundImageEnabled', $event)"
@@ -396,8 +427,9 @@ import {
 import { DEFAULT_SCENE_APPEARANCE, MAX_TILE_COVER_COLORS, normalizeSceneAppearanceSettings } from '@/game2d/lib/sceneAppearance'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
-import { tr } from '@/i18n'
+import { locale, tr } from '@/i18n'
 import {
+  buildSettlementMeldGroups,
   salasasaSettlementSortKey,
   splitSettlementHand,
 } from '@/game2d/lib/settlementHand'
@@ -456,6 +488,7 @@ let unsubscribe = null
 let mounted = false
 let matchStartDefaultsApplied = false
 let lastAssistRoundKey = null
+let consecutiveSelfTimeoutCuts = 0
 let pendingGameResponses = []
 /** @type {number[]} */
 let resultTimers = []
@@ -613,9 +646,31 @@ const resultClosedTiles = computed(() => splitSettlementHand(
   roundResult.value?.hepai_player_combination_mask?.length ?? 0,
   salasasaSettlementSortKey,
 ))
-const resultMeldTiles = computed(() => (roundResult.value?.hepai_player_combination_mask ?? [])
-  .flatMap((mask) => mask.filter((value, index) => index % 2 === 1 && value > 10)))
+const resultMeldGroups = computed(() => buildSettlementMeldGroups(
+  roundResult.value?.hepai_player_combination_mask ?? [],
+))
+const resultTileCoverColor = computed(() => {
+  const colors = appearance.value.tileCoverColors ?? []
+  const index = Math.max(0, Math.min(colors.length - 1, appearance.value.lastTileCoverIndex ?? 0))
+  return colors[index] ?? '#f6bc1e'
+})
 const resultFlowerTiles = computed(() => roundResult.value?.hepai_player_huapai ?? [])
+
+function scrollSettlementHand(event) {
+  const hand = event.currentTarget
+  if (!hand || hand.scrollWidth <= hand.clientWidth) return
+
+  const delta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY
+  if (!delta) return
+
+  const maxScrollLeft = hand.scrollWidth - hand.clientWidth
+  const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, hand.scrollLeft + delta))
+  if (nextScrollLeft === hand.scrollLeft) return
+
+  event.preventDefault()
+  hand.scrollLeft = nextScrollLeft
+}
+
 const resultFans = computed(() => (roundResult.value?.hu_fan ?? []).map((name) => {
   const { definition, totalValue } = resolveFanLabel(name, ['guobiao'])
   return {
@@ -784,15 +839,38 @@ function sendVoteResume() {
   sendVoteMessage({ type: 'gamestate/vote_resume' })
 }
 
+function resetTimeoutAutoDiscardTracking() {
+  consecutiveSelfTimeoutCuts = 0
+}
+
+function registerSelfCutResponse(response, targetAdapter) {
+  const info = response?.do_action_info
+  if (
+    !Array.isArray(info?.action_list)
+    || !info.action_list.includes('cut')
+    || Number(info.action_player) !== Number(targetAdapter.snapshot?.viewer?.seat_index)
+  ) return
+  if (!info.is_timeout_action) {
+    consecutiveSelfTimeoutCuts = 0
+    return
+  }
+  consecutiveSelfTimeoutCuts += 1
+  if (consecutiveSelfTimeoutCuts < 3) return
+  consecutiveSelfTimeoutCuts = 0
+  if (!assistSettings.value.autoDiscard) patchAssistSettings({ autoDiscard: true })
+}
+
 function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
   if (!targetAdapter || !targetScene) return
   try {
     const update = targetAdapter.accept(response)
     if (!update) return
+    registerSelfCutResponse(response, targetAdapter)
     if (update.snapshot) {
       const roundKey = `${update.snapshot.session_id}:${Number(update.snapshot.state.round_counter ?? 0)}`
       if (roundKey !== lastAssistRoundKey) {
         lastAssistRoundKey = roundKey
+        resetTimeoutAutoDiscardTracking()
         assistSettings.value = resetRoundAssistSettings(assistSettings.value)
         saveStoredAssistSettings(assistSettings.value)
         targetScene.setAssistSettings(assistSettings.value)
@@ -954,6 +1032,7 @@ function destroyScene() {
   scoreboardSettlements.value = []
   roomType.value = ''
   lastAssistRoundKey = null
+  resetTimeoutAutoDiscardTracking()
   pendingGameResponses = []
   scene?.destroy()
   scene = null
@@ -1116,6 +1195,7 @@ function toggleGameSettingsPanel() {
 }
 
 function patchAssistSettings(partial) {
+  if (partial?.autoDiscard === false) resetTimeoutAutoDiscardTracking()
   assistSettings.value = normalizeAssistSettings({ ...assistSettings.value, ...partial })
   saveStoredAssistSettings(assistSettings.value)
   scene?.setAssistSettings(assistSettings.value)
@@ -1187,6 +1267,10 @@ watch(() => session.status, (status, previousStatus) => {
   }).finally(() => {
     reconnectPromptOpen.value = false
   })
+})
+
+watch(locale, () => {
+  scene?.refreshRoundLabel()
 })
 
 onBeforeRouteLeave(async () => {

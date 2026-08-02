@@ -93,6 +93,7 @@
           selectable
           :players="scoreboardPlayers"
           :settlements="scoreboardSettlements"
+          :round-label-format="appearance.roundLabelFormat"
           @select-row="jumpToScoreboardRound"
           @close="scoreboardOpen = false"
         />
@@ -106,6 +107,7 @@
               :background-image-loading="backgroundImageLoading"
               :volume="volume"
               @volume="changeVolume"
+              @round-label-format="setAppearanceField('roundLabelFormat', $event)"
               @table-color="setAppearanceField('backgroundColorTable', $event)"
               @outside-color="setAppearanceField('backgroundColorOutside', $event)"
               @image-enabled="setAppearanceField('backgroundImageEnabled', $event)"
@@ -394,7 +396,7 @@ import { buildLocalWaitData } from '@/game2d/calc/guobiao/waitTips'
 import { mmcrTileToSalasasa, salasasaTileToMmcr } from '@/game2d/salasasa/gameAdapter'
 import { formatFanField, resolveFanLabel } from '@/constants/guessFanCatalog'
 import { formatFanCount, translateFanName } from '@/i18n/fanNames'
-import { tr } from '@/i18n'
+import { locale, roundLabelKey, tr } from '@/i18n'
 import {
   mmcrSettlementSortKey,
   splitSettlementHand,
@@ -448,14 +450,6 @@ let activeTerminalKey = ''
 const maxNode = computed(() => replay.value?.rounds[roundIndex.value]?.action_ticks?.length ?? 0)
 const currentRound = computed(() => replay.value?.rounds[roundIndex.value])
 const winds = ['东', '南', '西', '北']
-const roundNames = [
-  '',
-  '东一局', '东二局', '东三局', '东四局',
-  '南一局', '南二局', '南三局', '南四局',
-  '西一局', '西二局', '西三局', '西四局',
-  '北一局', '北二局', '北三局', '北四局',
-]
-
 const viewpointPlayers = computed(() => {
   if (!replay.value || !currentRound.value) return []
   return [0, 1, 2, 3].map((original) => {
@@ -1113,7 +1107,7 @@ function showRoundTooltipFromFocus(index: number, event: FocusEvent) {
 
 function roundSelectLabel(round: RecordRound, index: number) {
   const number = Number(round.current_round ?? index + 1)
-  return roundNames[number] || `第${index + 1}局`
+  return tr(roundLabelKey(number, appearance.value.roundLabelFormat, locale.value))
 }
 
 function selectRound(index: number) {
@@ -1496,6 +1490,9 @@ watch([roundIndex, node, viewerOriginal], () => {
     return
   }
   renderPosition()
+})
+watch(locale, () => {
+  scene?.refreshRoundLabel()
 })
 watch(() => route.params.gameId, loadRecord)
 
