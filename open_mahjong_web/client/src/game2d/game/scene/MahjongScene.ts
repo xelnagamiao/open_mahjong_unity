@@ -294,7 +294,8 @@ export class MahjongScene {
   }
 
   refreshRoundLabel(): void {
-    if (this.center) this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
+    if (!this.mounted) return
+    this.stateDisplay.setRound(this.round, this.appearance.roundLabelFormat)
   }
 
   setActiveTileCoverIndex(index: number): void {
