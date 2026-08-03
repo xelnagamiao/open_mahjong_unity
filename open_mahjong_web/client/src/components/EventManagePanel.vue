@@ -537,7 +537,7 @@ const RULE_LABELS = {
   classical: '古典',
   sichuan: '四川',
   changsha: '长沙',
-  jiandan: '简单',
+  jiandan: '南雀',
 }
 
 const GAME_TYPE_OPTIONS = [

@@ -80,7 +80,7 @@ public class PlayerInfoEntry : MonoBehaviour{
                 }
             }
             else if (playerStatsInfo.rule == "jiandan"){
-                ShowText = "简单麻将";
+                ShowText = "南雀麻将";
 
                 if (playerStatsInfo.mode == "4/4"){
                     ShowText += "全庄战";
@@ -133,7 +133,7 @@ public class PlayerInfoEntry : MonoBehaviour{
                 ShowText = "青雀番数总计";
             }
             else if (playerStatsInfo.rule == "jiandan"){
-                ShowText = "简单麻将番数总计";
+                ShowText = "南雀麻将番数总计";
             }
             else{
                 ShowText = "其他麻将达成番种总计:";

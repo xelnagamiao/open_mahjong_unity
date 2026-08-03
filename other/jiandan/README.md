@@ -1,6 +1,6 @@
-# 简单麻将（Jiandan）
+# 南雀麻将（Nanque）
 
-`jiandan` 是简单麻将的正式规则标识。本目录记录 PR A 实际提交的规则、模块边界和番种说明。
+`jiandan` 是南雀麻将沿用的内部规则标识；为兼容现有代码、协议与数据，本次不更改该标识。本目录记录 PR A 实际提交的规则、模块边界和番种说明。
 
 ## 本次范围
 
@@ -28,8 +28,8 @@ Unity：
 
 - `CalculationScript/Jiandan/JiandanAssembly`：独立的客户端提示计算内核。
 - `JiandanExternal`：`CalculationScriptAssembly` 内面向游戏层的唯一计算桥接。
-- `GameStateNetworkManager` / `RoomNetworkManager`：Jiandan 路由。
-- `DataNetworkManager` / `PlayerInfoPanel`：Jiandan 历史战绩与番种统计。
+- `GameStateNetworkManager` / `RoomNetworkManager`：南雀路由。
+- `DataNetworkManager` / `PlayerInfoPanel`：南雀历史战绩与番种统计。
 - 四个最小提示桥接点：`TipsBlock`、`TipsContainer`、`TileCard`、`RecordChongHintCalculator`。
 
 ## 验证
