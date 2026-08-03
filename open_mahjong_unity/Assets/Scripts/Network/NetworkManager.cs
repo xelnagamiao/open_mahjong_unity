@@ -719,6 +719,7 @@ public class NetworkManager : MonoBehaviour {
                 case "gamestate/jiandan/show_result":
                 case "gamestate/jiandan/game_end":
                 case "gamestate/jiandan/ready_status":
+                case "gamestate/hongque/state":
                 case "switch_seat":
                 case "refresh_player_tag_list":
                 case "gamestate/broadcast_sticker":

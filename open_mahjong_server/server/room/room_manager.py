@@ -27,6 +27,7 @@ class RoomManager:
             "guobiao": GBRoomValidator,
             "changsha": ChangshaRoomValidator,
             "jiandan": JiandanRoomValidator,
+            "hongque": JiandanRoomValidator,
             "mmc": MMCValidator,
             "riichi": RiichiRoomValidator,
             "sichuan": SichuanRoomValidator,
@@ -641,6 +642,72 @@ class RoomManager:
         except Exception as e:
             logger.error("创建简单麻将房间失败: %s", e, exc_info=True)
             return Response(type="error_message", success=False, message=f"创建房间失败: {str(e)}")
+
+    async def create_Hongque_room(
+        self, player_id: str, room_name: str, gameround: int, password: str,
+        roundTimerValue: int, stepTimerValue: int, tips: bool,
+        random_seed: int = 0, sub_rule: str = "hongque/v1.6",
+        tourist_limit: bool = False, allow_spectator: bool = False,
+    ) -> Response:
+        """Create a memory-only Hongque prototype room."""
+        try:
+            if player_id not in self.game_server.players:
+                return Response(type="tips", success=False, message="请先登录")
+            player = self.game_server.players[player_id]
+            if not player.user_id:
+                return Response(type="tips", success=False, message="请先登录")
+            blocked = self._reject_room_entry_conflicts(player.user_id, "创建房间")
+            if blocked:
+                return blocked
+            settings = self.game_server.db_manager.get_user_settings(player.user_id)
+            if not settings:
+                return Response(type="tips", success=False, message="获取用户设置失败")
+            validated = self.room_validators["hongque"](
+                room_name=room_name, game_round=gameround,
+                round_timer=roundTimerValue, step_timer=stepTimerValue,
+                random_seed=random_seed,
+            )
+            room_id = self._generate_room_id()
+            room_data = {
+                "room_id": room_id,
+                "room_type": "custom",
+                "room_rule": "hongque",
+                "sub_rule": sub_rule,
+                "hepai_limit": 0,
+                "open_cuohe": False,
+                "tourist_limit": tourist_limit,
+                "allow_spectator": False,
+                "max_player": 4,
+                "player_list": [player.user_id],
+                "player_settings": {player.user_id: {
+                    "user_id": player.user_id,
+                    "username": settings.get("username", player.username),
+                    "title_id": settings.get("title_id", 1),
+                    "profile_image_id": settings.get("profile_image_id", 1),
+                    "character_id": settings.get("character_id", 1),
+                    "voice_id": settings.get("voice_id", 1),
+                }},
+                "has_password": bool(password),
+                "tips": tips,
+                "show_moqie_hint": False,
+                "host_user_id": player.user_id,
+                "host_name": player.username,
+                "is_game_running": False,
+            }
+            room_data.update(validated.dict())
+            room_data["is_player_set_random_seed"] = validated.random_seed != 0
+            self.rooms[room_id] = room_data
+            if password:
+                self.room_passwords[room_id] = password
+            player.current_room_id = room_id
+            await self._broadcast_room_info(room_id)
+            return Response(type="room/create_room_done", success=True,
+                            message="虹雀原型房间创建成功", room_info=room_data)
+        except ValueError as exc:
+            return Response(type="tips", success=False, message=f"房间配置无效: {exc}")
+        except Exception as exc:
+            logger.error("创建虹雀原型房间失败: %s", exc, exc_info=True)
+            return Response(type="error_message", success=False, message=f"创建房间失败: {exc}")
 
     async def create_Classical_room(self, player_id: str, room_name: str, gameround: int,
                                     password: str, roundTimerValue: int, stepTimerValue: int,
@@ -1931,4 +1998,3 @@ class RoomManager:
             del self.room_passwords[room_id]
         
         logger.info(f"房间 {room_id} 已销毁") 
-

@@ -147,6 +147,13 @@ public partial class GameCanvas : MonoBehaviour {
             Debug.Log($"询问操作: {action_list[i]}");
             ActionButtonColorPreset colorPreset = GetActionButtonColorPreset(action_list[i]);
 
+            if (action_list[i].StartsWith("hongque_")) {
+                ActionButton actionButton = CreateActionButton(colorPreset);
+                actionButton.TextObject.text = HongqueTableAdapter.GetActionLabel(action_list[i]);
+                actionButton.actionTypeList.Add(action_list[i]);
+                continue;
+            }
+
             // 碰牌
             if (action_list[i] == "peng"){
                 Debug.Log($"碰牌");
@@ -299,6 +306,7 @@ public partial class GameCanvas : MonoBehaviour {
     // 选择行动
     public void ChooseAction(string actionType, int targetTile, int chiComboIndex = -1){
         if (NormalGameStateManager.Instance.IsRealtimeSpectator) return;
+        if (HongqueTableAdapter.IsActive && HongqueTableAdapter.Instance.TryChooseAction(actionType)) return;
         NormalGameStateManager.Instance.CancelWaitAutoAction($"ChooseAction({actionType})");
         NormalGameStateManager.Instance.SwitchCurrentPlayer("self","ClearAction",0);
         // 发送行动：立直麻将涉赤 5 时通过 chiComboIndex 指明所选吃牌候选（默认 0 表示优先非赤 5）

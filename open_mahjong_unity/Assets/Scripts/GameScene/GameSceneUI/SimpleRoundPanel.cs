@@ -27,27 +27,7 @@ public class SimpleRoundPanel : MonoBehaviour {
             baseRule = roomType.Substring(0, slash);
         }
         GameRoundText.text = RoundTextDictionary.GetMaxRoundText(baseRule, gameInfo.max_round);
-        Dictionary<int, string> roundMap = null;
-        if (baseRule == "guobiao") {
-            roundMap = RoundTextDictionary.CurrentRoundTextGB;
-        } else if (baseRule == "qingque") {
-            roundMap = RoundTextDictionary.CurrentRoundTextQingque;
-        } else if (baseRule == "classical") {
-            roundMap = RoundTextDictionary.CurrentRoundTextClassical;
-        } else if (baseRule == "sichuan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
-        } else if (baseRule == "changsha") {
-            roundMap = RoundTextDictionary.CurrentRoundTextChangsha;
-        } else if (baseRule == "jiandan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextJiandan;
-        } else if (baseRule == "taiwan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextTaiwan;
-        }
-        if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string roundText)) {
-            roomNowRoundText.text = roundText;
-        } else {
-            roomNowRoundText.text = "未知轮数";
-        }
+        roomNowRoundText.text = RoundTextDictionary.GetRoundName(baseRule, gameInfo.current_round);
 
         isCuoheOpenText.text = gameInfo.open_cuohe ? "错和:开" : "错和:关";
         isTipsOpenText.text = gameInfo.tips ? "提示:开" : "提示:关";

@@ -331,6 +331,7 @@ public class PlayerInfoPanel : MonoBehaviour {
                 "2/4" + suffix,
                 "1/4" + suffix
             };
+            List<PlayerStatsInfo> guobiaoModeStats = new List<PlayerStatsInfo>();
 
             // 创建字典以便快速查找统计数据
             Dictionary<string, PlayerStatsInfo> statsDict = new Dictionary<string, PlayerStatsInfo>();
@@ -369,11 +370,20 @@ public class PlayerInfoPanel : MonoBehaviour {
                         total_round_score = 0
                     };
                 }
+                guobiaoModeStats.Add(stat);
 
             GameObject playerInfoEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
             PlayerInfoEntry playerInfoEntry = playerInfoEntryObject.GetComponent<PlayerInfoEntry>();
             playerInfoEntry.SetPlayerInfoEntry("mode", this, stat);
         }
+
+            // 天梯场次在四个场次之后追加合计行，所有原始计数字段按场次相加。
+            if (isRank) {
+                PlayerStatsInfo rankedTotal = AggregatePlayerStats("guobiao", "__rank_total__", guobiaoModeStats);
+                GameObject totalEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
+                PlayerInfoEntry totalEntry = totalEntryObject.GetComponent<PlayerInfoEntry>();
+                totalEntry.SetPlayerInfoEntry("mode", this, rankedTotal);
+            }
 
             totalFanStats = guobiaoTotalFanStats;
         }
@@ -587,6 +597,46 @@ public class PlayerInfoPanel : MonoBehaviour {
         GameObject fanStatsEntryObject = Instantiate(PlayerInfoEntryPrefab, RecordEntryContainer);
         PlayerInfoEntry fanStatsEntry = fanStatsEntryObject.GetComponent<PlayerInfoEntry>();
         fanStatsEntry.SetPlayerInfoEntry("fanStats", this, fanStatsInfo);
+    }
+
+    private static PlayerStatsInfo AggregatePlayerStats(string rule, string mode, List<PlayerStatsInfo> stats) {
+        PlayerStatsInfo total = new PlayerStatsInfo { rule = rule, mode = mode };
+        if (stats == null) return total;
+
+        total.total_games = SumStat(stats, s => s.total_games);
+        total.total_rounds = SumStat(stats, s => s.total_rounds);
+        total.win_count = SumStat(stats, s => s.win_count);
+        total.self_draw_count = SumStat(stats, s => s.self_draw_count);
+        total.deal_in_count = SumStat(stats, s => s.deal_in_count);
+        total.total_fan_score = SumStat(stats, s => s.total_fan_score);
+        total.total_win_turn = SumStat(stats, s => s.total_win_turn);
+        total.total_fangchong_score = SumStat(stats, s => s.total_fangchong_score);
+        total.first_place_count = SumStat(stats, s => s.first_place_count);
+        total.second_place_count = SumStat(stats, s => s.second_place_count);
+        total.third_place_count = SumStat(stats, s => s.third_place_count);
+        total.fourth_place_count = SumStat(stats, s => s.fourth_place_count);
+        total.fulu_round_count = SumStat(stats, s => s.fulu_round_count);
+        total.cuohe_count = SumStat(stats, s => s.cuohe_count);
+        total.total_round_score = SumStat(stats, s => s.total_round_score);
+
+        total.fan_stats = new Dictionary<string, int>();
+        foreach (PlayerStatsInfo stat in stats) {
+            if (stat?.fan_stats == null) continue;
+            foreach (KeyValuePair<string, int> fan in stat.fan_stats) {
+                total.fan_stats[fan.Key] = total.fan_stats.TryGetValue(fan.Key, out int current)
+                    ? current + fan.Value
+                    : fan.Value;
+            }
+        }
+        return total;
+    }
+
+    private static int SumStat(List<PlayerStatsInfo> stats, System.Func<PlayerStatsInfo, int?> selector) {
+        int total = 0;
+        foreach (PlayerStatsInfo stat in stats) {
+            if (stat != null) total += selector(stat) ?? 0;
+        }
+        return total;
     }
 
     // 清空容器

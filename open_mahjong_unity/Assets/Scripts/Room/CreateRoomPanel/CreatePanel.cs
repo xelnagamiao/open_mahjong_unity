@@ -107,6 +107,15 @@ public partial class CreatePanel : MonoBehaviour {
             { CfgTouristLimit,   false },
             { CfgAllowSpectator, true },
         } },
+        { "hongque", new Dictionary<string, object> {
+            { CfgGameRound,      1 },
+            { CfgRoundTimer,     3 },
+            { CfgStepTimer,      1 },
+            { CfgTips,           true },
+            { CfgPassword,       false },
+            { CfgRandomSeed,     false },
+            { CfgTouristLimit,   false },
+        } },
         { "classical", new Dictionary<string, object> {
             { CfgGameRound,      4 },
             { CfgRoundTimer,     3 },
@@ -252,6 +261,7 @@ public partial class CreatePanel : MonoBehaviour {
             "台湾麻将",
             "古典麻将",
             "南雀",
+            "虹雀²（原型）",
         };
         bool needsRefresh = chooseRule.options.Count != expectedOptions.Length;
         if (!needsRefresh) {
@@ -345,6 +355,7 @@ public partial class CreatePanel : MonoBehaviour {
             5 => "taiwan",
             6 => "classical",
             7 => "jiandan",
+            8 => "hongque",
             _ => "guobiao"
         };
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
@@ -481,6 +492,7 @@ public partial class CreatePanel : MonoBehaviour {
         if (_ruleState == "sichuan") return "sichuan/standard";
         if (_ruleState == "changsha") return "changsha/classic_double_bird";
         if (_ruleState == "jiandan") return "jiandan/standard";
+        if (_ruleState == "hongque") return "hongque/v1.6";
         if (_ruleState == "taiwan") return "taiwan/standard";
         if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
         return GetSelectedSubRule();
@@ -931,6 +943,11 @@ public partial class CreatePanel : MonoBehaviour {
             CreateTaiwanRoom();
             return;
         }
+
+        if (_ruleState == "hongque") {
+            CreateHongqueRoom();
+            return;
+        }
     }
 
     private void CreateRiichiRoom() {
@@ -1158,6 +1175,29 @@ public partial class CreatePanel : MonoBehaviour {
             return;
         }
         RoomNetworkManager.Instance.Create_Jiandan_Room(config);
+    }
+
+    private void CreateHongqueRoom() {
+        var config = new Jiandan_Create_RoomConfig {
+            RoomName = roomNameInput.text.Trim(),
+            GameRound = GetSelectedGameTime(),
+            Password = passwordToggle.isOn ? passwordInput.text.Trim() : "",
+            RandomSeed = SetRandomSeedToggle.isOn ? randomSeedInput.text.Trim() : "",
+            Rule = "hongque",
+            SubRule = "hongque/v1.6",
+            RoundTimer = GetSelectedRoundTimer(),
+            StepTimer = GetSelectedStepTimer(),
+            Tips = tipsToggle.isOn,
+            TouristLimit = TouristLimitToggle.isOn,
+            AllowSpectator = false,
+            TacticalCall = false,
+            EventId = null,
+        };
+        if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {
+            NotificationManager.Instance.ShowTip("create_room", false, $"创建房间失败: {error}");
+            return;
+        }
+        RoomNetworkManager.Instance.Create_Hongque_Room(config);
     }
 
     private void CreateChangshaRoom() {

@@ -290,8 +290,12 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             faceResourceId = ConfigManager.BlankFaceImageId;
         }
         // 不需要添加扩展名
-        string path = $"image/CardFaceImage_xuefun/{faceResourceId}";
-        Sprite sprite = Resources.Load<Sprite>(path);
+        string path = HongqueTileVisual.IsHongqueId(id)
+            ? HongqueTileVisual.ResourcePath(id)
+            : $"image/CardFaceImage_xuefun/{faceResourceId}";
+        Sprite sprite = HongqueTileVisual.IsHongqueId(id)
+            ? HongqueTileVisual.LoadSprite(id)
+            : Resources.Load<Sprite>(path);
 
         if (sprite != null) {
             tileImage.sprite = sprite;
@@ -319,6 +323,10 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         // 如果切牌在允许操作列表中
         if (NormalGameStateManager.Instance.allowActionList.Contains("cut")){
             GameCanvas.Instance.MarkPendingLocalCut(this);
+            if (HongqueTableAdapter.IsActive && HongqueTileVisual.IsHongqueId(tileId)) {
+                HongqueTableAdapter.Instance.SendDiscard(tileId);
+                return;
+            }
             int cutIndex = transform.GetSiblingIndex();// 获取切牌是父物体的第几个子物体
             GameStateNetworkManager.Instance.SendChineseGameTile(currentGetTile,tileId,cutIndex); // 发送切牌请求
         } else {
@@ -505,6 +513,10 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                     NormalGameStateManager.Instance.detailedConfig
                 );
             }
+            else if (NormalGameStateManager.Instance.roomRule == "hongque"){
+                // 虹雀提示由服务端权威快照提供，避免 Unity 复制一套变长组合判定。
+                waitingTiles = new HashSet<int>();
+            }
             else
             {
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
@@ -572,13 +584,13 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     private void OnDestroy()
     {
-        HandCardSelectionController.Instance.OnCardDestroyed(this);
+        HandCardSelectionController.Instance?.OnCardDestroyed(this);
         // 隐藏提示（参照tips的设计模式）
-        TipsContainer.Instance.HideTips();
+        TipsContainer.Instance?.HideTips();
         // 清除3D卡牌高亮效果（如果正在悬停）
         if (isHovering)
         {
-            Card3DHoverManager.Instance.OnCardExit();
+            Card3DHoverManager.Instance?.OnCardExit();
         }
     }
 }

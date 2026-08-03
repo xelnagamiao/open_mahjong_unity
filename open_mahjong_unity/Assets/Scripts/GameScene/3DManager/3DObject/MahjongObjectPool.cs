@@ -31,6 +31,7 @@ public class MahjongObjectPool : MonoBehaviour {
     [SerializeField] SpriteAtlas cardAtlas;
     private Dictionary<int, Queue<GameObject>> poolDictionary;
     private Dictionary<int, Sprite> spriteCache = new Dictionary<int, Sprite>();
+    private Dictionary<int, Material> hongqueMaterialCache = new Dictionary<int, Material>();
 
     private void Awake() {
         if (Instance == null) {
@@ -129,6 +130,7 @@ public class MahjongObjectPool : MonoBehaviour {
             objectPool.Enqueue(obj);
             poolDictionary[tileId] = objectPool;
         }
+
     }
 
     private void SetupPooledTile(GameObject obj) {
@@ -195,6 +197,17 @@ public class MahjongObjectPool : MonoBehaviour {
     /// 从池中取出一张指定类型的牌
     /// </summary>
     public GameObject Spawn(int type, Vector3 position, Quaternion rotation) {
+        if (HongqueTileVisual.IsHongqueId(type) && !poolDictionary.ContainsKey(type)) {
+            // 不让普通麻将启动时承担 126 个额外对象；首次真正出现该虹雀牌时再建池。
+            Queue<GameObject> objectPool = new Queue<GameObject>();
+            GameObject obj = Instantiate(tile3DPrefab);
+            obj.SetActive(false);
+            obj.transform.SetParent(transform);
+            SetupPooledTile(obj);
+            ApplyCardTexture(obj, type);
+            objectPool.Enqueue(obj);
+            poolDictionary[type] = objectPool;
+        }
         if (!poolDictionary.ContainsKey(type)) {
             Debug.LogError("牌型不存在于对象池中: " + type);
             return null;
@@ -282,6 +295,31 @@ public class MahjongObjectPool : MonoBehaviour {
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D == null) {
             tile3D = cardObj.AddComponent<Tile3D>();
+        }
+        if (HongqueTileVisual.IsHongqueId(tileId)) {
+            Texture2D texture = HongqueTileVisual.LoadTexture(tileId);
+            if (texture == null) {
+                Debug.LogError($"找不到虹雀 3D 牌面: {HongqueTileVisual.ResourcePath(tileId)}");
+                return;
+            }
+            if (!hongqueMaterialCache.TryGetValue(tileId, out Material material)) {
+                Renderer renderer = cardObj.GetComponent<Renderer>() ?? cardObj.GetComponentInChildren<Renderer>();
+                Material template = null;
+                if (renderer != null) {
+                    foreach (Material candidate in renderer.sharedMaterials) {
+                        if (candidate != null && candidate.shader != null && candidate.shader.name == "Custom/ThreeDTiles") {
+                            template = candidate;
+                            break;
+                        }
+                    }
+                }
+                if (template == null) return;
+                material = new Material(template) { name = $"Hongque_{HongqueTileVisual.ToCode(tileId)}" };
+                material.SetTexture("_FrontTex", texture);
+                hongqueMaterialCache[tileId] = material;
+            }
+            tile3D.SetStandaloneCardTexture(tileId, texture, material);
+            return;
         }
         if (spriteCache.TryGetValue(tileId, out Sprite cachedSprite)) {
             tile3D.SetCardSprite(tileId, cachedSprite, CARD_FACE_VERTICAL_STRETCH);

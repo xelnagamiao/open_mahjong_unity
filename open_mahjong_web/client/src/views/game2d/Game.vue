@@ -803,7 +803,7 @@ function applyVoteInfo(info) {
       if (voteCountdown.value <= 0) stopVoteCountdown()
     }, 200)
   }
-  if (['end_countdown', 'paused', 'resume_voting', 'resume_countdown'].includes(info.phase)) {
+  if (['paused', 'resume_voting', 'resume_countdown'].includes(info.phase)) {
     scene?.suspendForVote()
   }
 }
@@ -973,6 +973,8 @@ function handleResponse(response) {
   }
   if (response.type === 'gamestate/vote_end') {
     clearVoteState()
+    // 服务端投票结束属于已完成的对局退出，不再弹出主动离桌确认。
+    leavingActiveGame = true
     void router.push('/2d')
     return
   }

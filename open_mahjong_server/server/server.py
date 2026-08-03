@@ -167,6 +167,8 @@ async def lifespan(app: FastAPI):
     # 测试环境下启动聊天服务器
     if Config.auto_create_chatserver:
         await chat_server.start_chat_server()
+    from .gamestate.public.ai.bot_executor import warm_bot_executor, shutdown_bot_executor
+    await warm_bot_executor()
     reset_task = asyncio.create_task(_daily_ip_limit_reset_loop())
     sampler_task = asyncio.create_task(_online_sampler_loop())
     stats_task = asyncio.create_task(_daily_stats_loop())
@@ -183,6 +185,7 @@ async def lifespan(app: FastAPI):
         await restore_task
     except asyncio.CancelledError:
         pass
+    await shutdown_bot_executor()
     # 关闭时执行（如果需要清理资源，在这里添加）
 
 # 创建游戏服务器实例
@@ -326,6 +329,9 @@ class GameServer:
     # Jiandan is a fixed first-win rule; room creation intentionally exposes no hand-flow option.
     async def create_Jiandan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "jiandan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None) -> Response:
         return await self.room_manager.create_Jiandan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id)
+
+    async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False) -> Response:
+        return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator)
 
     # 创建古典麻将房间
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None) -> Response:

@@ -40,7 +40,10 @@ public class PlayerInfoEntry : MonoBehaviour{
             if (playerStatsInfo.rule == "guobiao"){
                 ShowText = "国标麻将";
 
-                if (playerStatsInfo.mode == "4/4" || playerStatsInfo.mode == "4/4_rank"){
+                if (playerStatsInfo.mode == "__rank_total__") {
+                    ShowText += "总计（天梯）";
+                }
+                else if (playerStatsInfo.mode == "4/4" || playerStatsInfo.mode == "4/4_rank"){
                     ShowText += "全庄战";
                 }
                 else if (playerStatsInfo.mode == "3/4" || playerStatsInfo.mode == "3/4_rank"){

@@ -467,11 +467,134 @@ public class VoteInfo { // 房间对局投票暂停/结束状态同步
     public string reason;           // 取消原因等提示
 }
 
+[System.Serializable]
+public class HongqueMeldInfo {
+    public string kind;
+    public string[] tiles;
+    public int from_player;
+    public string claimed_tile;
+}
+
+[System.Serializable]
+public class HongqueCandidateInfo {
+    public string id;
+    public string kind;
+    public string[] tiles;
+    public string[] hand_tiles;
+    public int priority;
+    public int meld_index;
+}
+
+[System.Serializable]
+public class HongqueDiscardInfo { public int player; public string tile; }
+
+[System.Serializable]
+public class HongqueEventInfo {
+    public int id;
+    public string type;
+    public int player;
+    public int from_player;
+    public string tile;
+    public string[] tiles;
+    public string[] hand_tiles;
+    public string base_kind;
+    public int meld_index;
+    public bool cut_class;
+    public int[] players;
+}
+
+[System.Serializable]
+public class HongqueRoundResultInfo {
+    public string reason;
+    public int[] winner_indices;
+    public HongqueWinnerResultInfo[] winners;
+}
+
+[System.Serializable]
+public class HongqueFanInfo {
+    public string name;
+    public int value;
+    public int count;
+    public int total;
+}
+
+[System.Serializable]
+public class HongqueWinnerResultInfo {
+    public int player;
+    public string[] hand;
+    public string[][] partition;
+    public string[][] groups;
+    public int @base;
+    public HongqueFanInfo[] fans;
+    public int fan_total;
+    public int points;
+    public HongqueMeldInfo[] melds;
+}
+
+[System.Serializable]
+public class HongqueScoreHintInfo {
+    public string tile;
+    public int @base;
+    public int fan_total;
+    public int points;
+    public HongqueFanInfo[] fans;
+}
+
+[System.Serializable]
+public class HongquePlayerInfo {
+    public int index;
+    public int user_id;
+    public string username;
+    public int hand_count;
+    public string[] hand;
+    public string[] discards;
+    public HongqueMeldInfo[] melds;
+    public int score;
+    public int supplements;
+    public bool online;
+    public int title_used;
+    public int profile_used;
+    public int character_used;
+    public int voice_used;
+}
+
+[System.Serializable]
+public class HongqueStateInfo {
+    public int room_id;
+    public string phase;
+    public int round;
+    public int max_round;
+    public int dealer;
+    public int current_player;
+    public int wall_count;
+    public int you;
+    public int action_tick;
+    public int remaining_time;
+    public int step_remaining;
+    public int round_time;
+    public int step_time;
+    public bool tips;
+    public string message;
+    public HongqueRoundResultInfo round_result;
+    public HongqueEventInfo last_event;
+    public HongqueEventInfo[] events;
+    public HongqueDiscardInfo last_discard;
+    public string[] hand;
+    public string[] legal_actions;
+    public HongqueCandidateInfo[] candidates;
+    public HongqueScoreHintInfo win_hint;
+    public string[] waiting_tiles;
+    public HongqueScoreHintInfo[] waiting_hints;
+    public string[][] winning_partition;
+    public HongquePlayerInfo[] players;
+}
+
 public class Response { // 所有后端的返回数据都由Response类接收
     // 消息头
     public string type; // 消息类型
     public bool success; // 消息是否成功
     public string message; // 消息内容
+    public string gamestate_id; // 轻量原型状态使用
     public bool show_tip; // room/get_room_list 时回显：True=显示刷新成功tips
     // 消息体
     public MessageInfo message_info; // 用于返回消息信息
@@ -518,5 +641,6 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public LeaderboardEntry[] leaderboard_list; // 国标段位排行榜
     public StickerInfo sticker_info; // 对局表情包广播
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步
+    public HongqueStateInfo hongque_state; // 虹雀 v1.6 内存原型快照
     public EventListEntry[] event_list; // 当前用户可建房的 active 赛事列表
 }

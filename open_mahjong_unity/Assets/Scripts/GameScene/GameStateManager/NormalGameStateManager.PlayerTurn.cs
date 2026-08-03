@@ -4,7 +4,9 @@ public partial class NormalGameStateManager {
     // 切换玩家状态
     public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time,
                                     int askHandPlayerIndex = -1, bool isTacticalRecheck = false,
-                                    string dealTileType = null) {
+                                    string dealTileType = null, int stepTimeOverride = -1) {
+
+        int displayStepTime = stepTimeOverride >= 0 ? stepTimeOverride : roomStepTime;
 
         // 询问手牌操作
         if (SwitchType == "askHandAction"){
@@ -28,7 +30,7 @@ public partial class NormalGameStateManager {
                 }
                 else {
                     GameCanvas.Instance.SetActionButton(allowActionList);
-                    GameCanvas.Instance.LoadingRemianTime(remaining_time, roomStepTime);
+                    GameCanvas.Instance.LoadingRemianTime(remaining_time, displayStepTime);
                     if (ShouldStartAutoCut(dealTileType)) {
                         StartWaitAutoCut();
                     }
@@ -64,7 +66,9 @@ public partial class NormalGameStateManager {
             else {
                 GameCanvas.Instance.SetActionButton(allowActionList);
                 // 战术鸣牌打断窗口：remaining_time 即为 grace 秒数，不再叠加步时（避免显示 5+5）
-                GameCanvas.Instance.LoadingRemianTime(remaining_time, isTacticalRecheck ? 0 : roomStepTime);
+                GameCanvas.Instance.LoadingRemianTime(
+                    remaining_time,
+                    isTacticalRecheck ? 0 : displayStepTime);
             }
             IsSelfActionRequired = true;
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskOther);

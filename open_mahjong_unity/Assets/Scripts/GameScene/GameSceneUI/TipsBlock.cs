@@ -57,6 +57,11 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
                     NormalGameStateManager.Instance.detailedConfig
                 );
             }
+            else if (NormalGameStateManager.Instance.roomRule == "hongque"){
+                // 虹雀使用变长组合与 126 张唯一牌，权威等待牌及计分随状态快照下发；
+                // HongqueTableAdapter 会在本次公共动作处理结束后调用 ShowHongqueTips。
+                waitingTiles = new HashSet<int>();
+            }
             else{
                 Debug.LogWarning($"未知的规则类型: {NormalGameStateManager.Instance.roomRule}");
                 waitingTiles = new HashSet<int>();
@@ -86,6 +91,17 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         gameObject.SetActive(true);
         TipsContainer.Instance.CacheTenpaiTips(handTiles, waitingTiles);
         TipsContainer.Instance.SetTipsWithRecordContext(ctx, handTiles, waitingTiles);
+    }
+
+    public void ShowHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
+        bool hasWaits = waitHints != null && waitHints.Any(hint => hint != null);
+        if (!hasWaits && winHint == null) {
+            HideTipsBlock();
+            return;
+        }
+        gameObject.SetActive(true);
+        TipsContainer.Instance.CacheHongqueTips(waitHints, winHint);
+        TipsContainer.Instance.SetHongqueTips(waitHints, winHint);
     }
 
     public void HideTipsBlock(){

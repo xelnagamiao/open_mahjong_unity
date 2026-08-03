@@ -492,6 +492,10 @@ public static class FanTextDictionary {
         if (string.IsNullOrEmpty(fanName)) {
             return fanName;
         }
+        if (rule != null && rule.StartsWith("hongque")) {
+            int separator = fanName.LastIndexOf('|');
+            return separator > 0 ? fanName.Substring(0, separator) : fanName;
+        }
         if (rule == "guobiao/standard" && ConfigManager.IsEnglish) {
             if (FanNameToEnglishGuobiao.TryGetValue(fanName, out string englishName)) {
                 return englishName;
@@ -513,6 +517,13 @@ public static class FanTextDictionary {
     /// 根据规则与番种名称返回显示文本（如 "88番"），未命中时返回 "0番"。
     /// </summary>
     public static string GetFanDisplayText(string rule, string fanName) {
+        if (rule != null && rule.StartsWith("hongque")) {
+            int separator = fanName?.LastIndexOf('|') ?? -1;
+            if (separator > 0 && int.TryParse(fanName.Substring(separator + 1), out int fan)) {
+                return $"{fan}番";
+            }
+            return "0番";
+        }
         if (rule == "guobiao/standard" && ConfigManager.IsEnglish) {
             if (FanToDisplayGuobiaoEnglish.TryGetValue(fanName, out string englishDisplay)) {
                 return englishDisplay;

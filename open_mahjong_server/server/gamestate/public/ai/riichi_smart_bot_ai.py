@@ -9,6 +9,7 @@ import logging
 from typing import List, Set
 
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
+from .bot_executor import bot_action_is_current, run_room_bot_cpu
 from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, evaluate_hand,
@@ -151,6 +152,90 @@ def _remove_one_normalized(hand: List[int], normal_target: int) -> bool:
     return False
 
 
+def _choose_riichi_hand_plan(
+    hand, combs, meld_count, visible, action_list, is_riichi, candidates, forbidden
+):
+    hand = list(hand)
+    combs = list(combs)
+    actions = set(action_list)
+    if "riichi_cut" in actions and candidates:
+        tile, index = _pick_best_riichi_cut(hand, meld_count, visible, candidates)
+        if tile is not None:
+            return "riichi_cut", tile, index
+    if "angang" in actions:
+        seen = set()
+        for tile in hand:
+            norm = normalize_tile(tile)
+            if norm in seen:
+                continue
+            seen.add(norm)
+            if _count_normalized(hand, norm) >= 4:
+                test = [t for t in hand if normalize_tile(t) != norm]
+                if evaluate_hand(test, meld_count + 1, visible) >= evaluate_hand(hand, meld_count, visible):
+                    return "angang", tile, -1
+    if "jiagang" in actions:
+        for c in combs:
+            if not c.startswith("k"):
+                continue
+            try:
+                tile = int(c[1:])
+            except ValueError:
+                continue
+            if _count_normalized(hand, tile) >= 1:
+                test = hand[:]
+                _remove_one_normalized(test, tile)
+                if evaluate_hand(test, meld_count, visible) >= evaluate_hand(hand, meld_count, visible):
+                    return "jiagang", tile, -1
+    if is_riichi and "cut" in actions and hand:
+        return "cut", hand[-1], len(hand) - 1
+    if "cut" in actions and hand:
+        tile, index = find_best_cut(hand, meld_count, visible, set(forbidden))
+        return "cut", tile, index
+    return "pass", None, -1
+
+
+def _choose_riichi_claim_plan(hand, meld_count, visible, action_list, cut_tile):
+    hand = list(hand)
+    actions = set(action_list)
+    normal_cut = normalize_tile(cut_tile)
+    best_action = "pass"
+    best_score = evaluate_hand(hand, meld_count, visible)
+    if "peng" in actions and _count_normalized(hand, normal_cut) >= 2:
+        test = hand[:]
+        _remove_one_normalized(test, normal_cut)
+        _remove_one_normalized(test, normal_cut)
+        score = find_best_cut_score(
+            test, meld_count + 1, visible, _kuikae_forbidden_for_peng(cut_tile)
+        )
+        if score > best_score:
+            best_action, best_score = "peng", score
+    for action in ("chi_left", "chi_mid", "chi_right"):
+        if action not in actions:
+            continue
+        if action == "chi_left":
+            need = (normal_cut - 2, normal_cut - 1)
+        elif action == "chi_mid":
+            need = (normal_cut - 1, normal_cut + 1)
+        else:
+            need = (normal_cut + 1, normal_cut + 2)
+        test = hand[:]
+        if not all(_remove_one_normalized(test, n) for n in need):
+            continue
+        score = find_best_cut_score(
+            test, meld_count + 1, visible, _kuikae_forbidden_for_chi(action, cut_tile)
+        )
+        if score > best_score:
+            best_action, best_score = action, score
+    if "gang" in actions and _count_normalized(hand, normal_cut) >= 3:
+        test = hand[:]
+        for _ in range(3):
+            _remove_one_normalized(test, normal_cut)
+        score = evaluate_hand(test, meld_count + 1, visible)
+        if score > best_score:
+            best_action = "gang"
+    return best_action
+
+
 # ─── 入口与各 game_status 处理 ─────────────────────────────
 
 async def riichi_smart_bot_action(game_state, player_index: int, action_list: list, game_status: str):
@@ -209,74 +294,35 @@ async def _handle_hand_action(game_state, player_index, action_list, player, kui
 
     is_riichi = "riichi" in player.tag_list or "daburu_riichi" in player.tag_list
     hand = player.hand_tiles[:]
-    combs = getattr(player, 'combination_tiles', [])
+    combs = list(getattr(player, 'combination_tiles', []))
     meld_count = count_melds(combs)
     visible = count_visible_tiles(game_state)
-
-    # 门清听牌：直接宣告立直并切出听牌枚数最大的候选张，避免错过立直机会
-    if "riichi_cut" in action_list:
-        candidates = getattr(player, "riichi_candidate_cuts", None) or {}
-        if candidates:
-            tile_id, cut_index = _pick_best_riichi_cut(hand, meld_count, visible, candidates)
-            if tile_id is not None:
-                is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
-                logger.info(
-                    f"日麻牌效AI {player_index} ({player.username}) 选择 riichi_cut, tile_id={tile_id}, moqie={is_moqie}, waits={candidates.get(tile_id)}"
-                )
-                await get_ai_action(game_state, player_index, "riichi_cut", is_moqie, tile_id, cut_index, None)
-                return
-
-    # 暗杠：手中四张相同（按归一化匹配，红5与普通5视为同种）
-    if "angang" in action_list:
-        seen_norms = set()
-        for tile in hand:
-            norm = normalize_tile(tile)
-            if norm in seen_norms:
-                continue
-            seen_norms.add(norm)
-            if _count_normalized(hand, norm) >= 4:
-                test_hand = [t for t in hand if normalize_tile(t) != norm]
-                base_score = evaluate_hand(hand, meld_count, visible)
-                gang_score = evaluate_hand(test_hand, meld_count + 1, visible)
-                if gang_score >= base_score:
-                    logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 angang, tile={tile}")
-                    await get_ai_action(game_state, player_index, "angang", None, None, None, tile)
-                    return
-
-    # 加杠：副露中已有碰，手中又摸到第四张（按归一化匹配）
-    if "jiagang" in action_list:
-        for c in combs:
-            if c.startswith("k"):
-                try:
-                    ktile = int(c[1:])
-                except ValueError:
-                    continue
-                if _count_normalized(hand, ktile) >= 1:
-                    test_hand = hand[:]
-                    _remove_one_normalized(test_hand, ktile)
-                    base_score = evaluate_hand(hand, meld_count, visible)
-                    jia_score = evaluate_hand(test_hand, meld_count, visible)
-                    if jia_score >= base_score:
-                        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 jiagang, tile={ktile}")
-                        await get_ai_action(game_state, player_index, "jiagang", None, None, None, ktile)
-                        return
-
-    if is_riichi and "cut" in action_list and player.hand_tiles:
-        tile_id = player.hand_tiles[-1]
-        cut_index = len(player.hand_tiles) - 1
-        is_moqie = infer_bot_cut_class(player.hand_tiles, tile_id, cut_index, draw_slot=has_draw_slot(player))
-        logger.info(f"日麻牌效AI {player_index} ({player.username}) 立直后选择切牌, tile_id={tile_id}, moqie={is_moqie}")
-        await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
+    forbidden = set(kuikae_forbidden or set())
+    forbidden.update(normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or []))
+    candidates = dict(getattr(player, "riichi_candidate_cuts", None) or {})
+    expected_tick = getattr(game_state, "server_action_tick", None)
+    action, tile_id, cut_index = await run_room_bot_cpu(
+        game_state,
+        _choose_riichi_hand_plan,
+        tuple(hand),
+        tuple(combs),
+        meld_count,
+        tuple(visible),
+        tuple(action_list),
+        is_riichi,
+        candidates,
+        frozenset(forbidden),
+    )
+    if not bot_action_is_current(game_state, player_index, expected_tick):
         return
-
-    # 切牌：枚举每张手牌切出后的评分，选最优（吃碰后需排除食替禁切牌）
-    if "cut" in action_list and hand:
-        forbidden = set(kuikae_forbidden or set())
-        forbidden.update(normalize_tile(t) for t in (getattr(player, 'kuikae_forbidden_tiles', None) or []))
-        tile_id, cut_index = find_best_cut(hand, meld_count, visible, forbidden)
+    if action in ("cut", "riichi_cut") and tile_id is not None:
         is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
-        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}, forbidden={sorted(forbidden)}")
-        await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
+        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {action}, tile_id={tile_id}, moqie={is_moqie}")
+        await get_ai_action(game_state, player_index, action, is_moqie, tile_id, cut_index, None)
+        return
+    if action in ("angang", "jiagang"):
+        logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {action}, tile={tile_id}")
+        await get_ai_action(game_state, player_index, action, None, None, None, tile_id)
         return
 
 
@@ -338,60 +384,20 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     combs = getattr(player, 'combination_tiles', [])
     meld_count = count_melds(combs)
     visible = count_visible_tiles(game_state)
-    normal_cut = normalize_tile(cut_tile)
+    expected_tick = getattr(game_state, "server_action_tick", None)
+    best_action = await run_room_bot_cpu(
+        game_state,
+        _choose_riichi_claim_plan,
+        tuple(hand),
+        meld_count,
+        tuple(visible),
+        tuple(action_list),
+        cut_tile,
+    )
+    if not bot_action_is_current(game_state, player_index, expected_tick):
+        return
 
-    base_score = evaluate_hand(hand, meld_count, visible)
-    best_action = "pass"
-    best_action_score = base_score
-
-    # 评估碰：碰后需要切一张，取切后最优评分（排除食替禁切牌）
-    if "peng" in action_list and _count_normalized(hand, normal_cut) >= 2:
-        test_hand = hand[:]
-        _remove_one_normalized(test_hand, normal_cut)
-        _remove_one_normalized(test_hand, normal_cut)
-        if test_hand:
-            peng_forbidden = _kuikae_forbidden_for_peng(cut_tile)
-            peng_best = find_best_cut_score(test_hand, meld_count + 1, visible, peng_forbidden)
-            if peng_best > best_action_score:
-                best_action = "peng"
-                best_action_score = peng_best
-
-    # 评估吃：吃后需要切一张，取切后最优评分（排除食替禁切牌）
-    for chi_type in ("chi_left", "chi_mid", "chi_right"):
-        if chi_type not in action_list:
-            continue
-        if chi_type == "chi_left":
-            need = [normal_cut - 2, normal_cut - 1]
-        elif chi_type == "chi_mid":
-            need = [normal_cut - 1, normal_cut + 1]
-        else:
-            need = [normal_cut + 1, normal_cut + 2]
-        test_hand = hand[:]
-        valid = True
-        for n in need:
-            if not _remove_one_normalized(test_hand, n):
-                valid = False
-                break
-        if not valid:
-            continue
-        if test_hand:
-            chi_forbidden = _kuikae_forbidden_for_chi(chi_type, cut_tile)
-            chi_best = find_best_cut_score(test_hand, meld_count + 1, visible, chi_forbidden)
-            if chi_best > best_action_score:
-                best_action = chi_type
-                best_action_score = chi_best
-
-    # 评估明杠：杠后不需要切牌，直接评估手牌
-    if "gang" in action_list and _count_normalized(hand, normal_cut) >= 3:
-        test_hand = hand[:]
-        for _ in range(3):
-            _remove_one_normalized(test_hand, normal_cut)
-        gang_score = evaluate_hand(test_hand, meld_count + 1, visible)
-        if gang_score > best_action_score:
-            best_action = "gang"
-            best_action_score = gang_score
-
-    logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {best_action} (score={best_action_score})")
+    logger.info(f"日麻牌效AI {player_index} ({player.username}) 选择 {best_action}")
     if best_action != "pass":
         await asyncio.sleep(0.5)
     await get_ai_action(game_state, player_index, best_action, None, None, None, None)

@@ -260,6 +260,26 @@ public class Tile3D : MonoBehaviour
         ApplyPropertyBlock();
     }
 
+    /// <summary>
+    /// 虹雀资源并非现有麻将 SpriteAtlas 的一部分，因此为每个唯一牌面复用一份独立材质。
+    /// 虹雀牌在牌库中各一张，这条低频路径不会影响普通麻将的 GPU Instancing。
+    /// </summary>
+    public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0 || texture == null || faceMaterial == null) return;
+        Material[] materials = cardRenderer.sharedMaterials;
+        materials[tileMaterialIndex] = faceMaterial;
+        cardRenderer.sharedMaterials = materials;
+        sharedTileMaterial = faceMaterial;
+        currentTileId = tileId;
+        currentPoolTileId = tileId;
+        const float stretch = 1.1f;
+        float tiling = 1f / stretch;
+        frontTilingOffset = new Vector4(tiling, 1f, (1f - tiling) * 0.5f, 0f);
+        if (isActiveAndEnabled && outlineId <= 0) AcquireOutlineId();
+        ApplyPropertyBlock();
+    }
+
     /// <summary>应用逐牌颜色/灰度，只更新实例数据，不创建或修改材质实例。</summary>
     public void SetInstanceVisualState(
         Color frontColor,

@@ -64,6 +64,8 @@ async def handle_room_message(game_server, Connect_id: str, message: dict, webso
         await handle_create_Changsha_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Jiandan_room":
         await handle_create_Jiandan_room(game_server, Connect_id, message, websocket)
+    elif message_type == "room/create_Hongque_room":
+        await handle_create_Hongque_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Classical_room":
         await handle_create_Classical_room(game_server, Connect_id, message, websocket)
     elif message_type == "room/create_Sichuan_room":
@@ -221,6 +223,29 @@ async def handle_create_Jiandan_room(game_server, Connect_id: str, message: dict
         False,
         message.get("claim_protection", True),
         message.get("event_id"),
+    )
+    await websocket.send_json(response.dict(exclude_none=True))
+
+
+async def handle_create_Hongque_room(game_server, Connect_id: str, message: dict, websocket):
+    """Create a no-stats/no-record Hongque prototype room."""
+    if Connect_id in game_server.players:
+        blocked = _reject_room_entry(game_server, game_server.players[Connect_id])
+        if blocked:
+            await websocket.send_json(blocked.dict(exclude_none=True))
+            return
+    response = await game_server.create_Hongque_room(
+        Connect_id,
+        message["roomname"],
+        message["gameround"],
+        message["password"],
+        message.get("roundTimerValue", 20),
+        message.get("stepTimerValue", 5),
+        message.get("tips", True),
+        message.get("random_seed", 0),
+        message.get("sub_rule", "hongque/v1.6"),
+        message.get("tourist_limit", False),
+        False,
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

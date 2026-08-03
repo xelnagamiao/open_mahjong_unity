@@ -20,6 +20,8 @@ public class TipsContainer : MonoBehaviour
     private readonly List<int> _cachedHandTiles = new List<int>();
     private readonly List<int> _cachedWaitingTiles = new List<int>();
     private bool _hasCachedTenpaiTips;
+    private HongqueScoreHintInfo[] _cachedHongqueWaitHints = Array.Empty<HongqueScoreHintInfo>();
+    private HongqueScoreHintInfo _cachedHongqueWinHint;
     private RecordTipsContext _recordTipsContext;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
@@ -39,10 +41,35 @@ public class TipsContainer : MonoBehaviour
         _hasCachedTenpaiTips = false;
         _cachedHandTiles.Clear();
         _cachedWaitingTiles.Clear();
+        _cachedHongqueWaitHints = Array.Empty<HongqueScoreHintInfo>();
+        _cachedHongqueWinHint = null;
         waitingTiles.Clear();
     }
 
-    public bool HasCachedTenpaiTips => _hasCachedTenpaiTips && _cachedWaitingTiles.Count > 0;
+    public bool HasCachedTenpaiTips => _hasCachedTenpaiTips
+        && (_cachedWaitingTiles.Count > 0 || _cachedHongqueWinHint != null);
+
+    /// <summary>缓存服务端权威计算的虹雀听牌/和牌提示，仍由公共提示容器负责展示。</summary>
+    public void CacheHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
+        _cachedHongqueWaitHints = waitHints ?? Array.Empty<HongqueScoreHintInfo>();
+        _cachedHongqueWinHint = winHint;
+        _cachedHandTiles.Clear();
+        _cachedWaitingTiles.Clear();
+        foreach (HongqueScoreHintInfo hint in _cachedHongqueWaitHints) {
+            if (hint == null || string.IsNullOrEmpty(hint.tile)) continue;
+            int tileId = HongqueTileVisual.FromCode(hint.tile);
+            if (tileId != 0) _cachedWaitingTiles.Add(tileId);
+        }
+        if (winHint != null && !string.IsNullOrEmpty(winHint.tile)) {
+            int tileId = HongqueTileVisual.FromCode(winHint.tile);
+            if (tileId != 0 && !_cachedWaitingTiles.Contains(tileId)) {
+                _cachedWaitingTiles.Add(tileId);
+            }
+        }
+        waitingTiles.Clear();
+        waitingTiles.AddRange(_cachedWaitingTiles);
+        _hasCachedTenpaiTips = _cachedHongqueWaitHints.Length > 0 || winHint != null;
+    }
 
     /// <summary>牌桌弃牌/副露变化后重算听牌提示 UI（完整手牌、无切牌预览），不重跑听牌检测。</summary>
     /// <param name="syncHandFromLiveState">为 true 时用当前 selfHandTiles 覆盖缓存，避免鸣牌后余张多算。</param>
@@ -51,6 +78,10 @@ public class TipsContainer : MonoBehaviour
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null || !gameManager.tips) return;
         _pendingCutTileId = null;
+        if (gameManager.roomRule == "hongque") {
+            SetHongqueTips(_cachedHongqueWaitHints, _cachedHongqueWinHint);
+            return;
+        }
         if (syncHandFromLiveState) {
             _cachedHandTiles.Clear();
             _cachedHandTiles.AddRange(gameManager.selfHandTiles);
@@ -97,6 +128,36 @@ public class TipsContainer : MonoBehaviour
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null) return;
         SetTipsWithHand(gameManager.selfHandTiles, waitingTiles);
+    }
+
+    /// <summary>
+    /// 虹雀的牌型与计分由服务端权威脚本完成；Unity 只把结果渲染进与其他规则
+    /// 相同的 TileContainer/FanContainer，不再把公式塞进操作按钮文字。
+    /// </summary>
+    public void SetHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
+        List<Transform> toDestroy = new List<Transform>();
+        foreach (Transform child in TileContainer.transform) toDestroy.Add(child);
+        foreach (Transform child in FanContainer.transform) toDestroy.Add(child);
+        foreach (Transform child in toDestroy) Destroyer.Instance.AddToDestroyer(child);
+
+        HongqueScoreHintInfo[] hints = winHint != null
+            ? new[] { winHint }
+            : (waitHints ?? Array.Empty<HongqueScoreHintInfo>());
+        List<int> shownWaits = new List<int>();
+        foreach (HongqueScoreHintInfo hint in hints) {
+            if (hint == null) continue;
+            int tileId = string.IsNullOrEmpty(hint.tile) ? 0 : HongqueTileVisual.FromCode(hint.tile);
+            if (tileId != 0) {
+                shownWaits.Add(tileId);
+                InstantiateTipsTile(tileId);
+            }
+            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+            string label = hint.fan_total > 0
+                ? $"{hint.@base}底×{hint.fan_total}番={hint.points}分"
+                : $"0番={hint.points}分";
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
+        }
+        UpdateRyuukyokuTenpaiChoice(shownWaits);
     }
 
     /// <summary>
