@@ -159,7 +159,7 @@ export const LIBRARY_RULES = [
   },
   {
     key: 'jiandan',
-    label: '南雀麻将',
+    label: '南雀',
     short: '南雀',
     categories: ['platform'],
     description: '平台轻量入门向规则，便于快速上手对局。',

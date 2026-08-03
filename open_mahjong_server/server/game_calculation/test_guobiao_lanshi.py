@@ -37,6 +37,20 @@ def test_shunwang_requires_two_identical_relations():
     assert not checker._same_relation_twice([(1, 1), (1, 4), (2, 1), (2, 4)])
 
 
+def test_shunhuan_and_low_sequence_matching_reference():
+    checker = Lanshi_Hepai_Check()
+    consecutive = [(1, 1), (1, 4), (2, 1), (2, 4)]
+    terminal = [(1, 1), (1, 7), (2, 1), (2, 7)]
+    invalid = [(1, 1), (1, 4), (2, 1), (2, 5)]
+
+    assert checker._shunhuan(consecutive)
+    assert checker._low_sequence_fans(consecutive) == ["lianliu", "lianliu"]
+    assert checker._shunhuan(terminal)
+    assert checker._low_sequence_fans(terminal) == ["laoshaofu", "laoshaofu"]
+    assert not checker._shunhuan(invalid)
+    assert checker._low_sequence_fans(invalid) == ["lianliu"]
+
+
 def test_lanshi_four_player_payments():
     assert calculate_lanshi_score_changes(range(4), 0, 5) == {0: 30, 1: -10, 2: -10, 3: -10}
     assert calculate_lanshi_score_changes(range(4), 0, 5, 1) == {0: 30, 1: -20, 2: -5, 3: -5}

@@ -251,7 +251,7 @@ public partial class CreatePanel : MonoBehaviour {
             "长沙麻将",
             "台湾麻将",
             "古典麻将",
-            "南雀麻将",
+            "南雀",
         };
         bool needsRefresh = chooseRule.options.Count != expectedOptions.Length;
         if (!needsRefresh) {

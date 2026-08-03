@@ -714,9 +714,8 @@ async def handle_get_jiandan_stats(game_server, Connect_id: str, message: dict, 
     response = Response(
         type="data/get_jiandan_stats",
         success=True,
-        message="获取南雀麻将统计数据成功",
+        message="获取南雀统计数据成功",
         rule_stats=rule_stats_response,
         player_info=player_info,
     )
     await websocket.send_json(response.dict(exclude_none=True))
-
