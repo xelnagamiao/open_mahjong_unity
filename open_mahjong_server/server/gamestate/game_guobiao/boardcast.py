@@ -14,6 +14,7 @@ from .combination_mask_view import (
 )
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
+from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.claim_protection import (
     claim_protection_enabled,
     init_claim_protection_state,
@@ -64,6 +65,7 @@ async def _send_ask_response_to_viewer(
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
     """广播游戏开始信息"""
+    ensure_hand_draw_source_round(self)
     # 重置操作帧（每次广播开始时重置）
     self.server_action_tick = 0
     
@@ -224,6 +226,7 @@ async def broadcast_ask_hand_action(self):
                     remain_tiles=len(self.tiles_list),
                     action_list=player_actions,
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     dealer_index=getattr(self, 'dealer_index', 0),
                     opening_buhua_complete=getattr(self, '_opening_buhua_complete_pending', False) or None,
                 )
@@ -341,6 +344,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
                     remain_tiles=len(self.tiles_list),
                     action_list=self.action_dict.get(reconnect_idx, []),
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     dealer_index=getattr(self, 'dealer_index', 0),
                     opening_buhua_complete=getattr(self, '_opening_buhua_complete_pending', False) or None,
                 ),
@@ -475,6 +479,7 @@ async def broadcast_do_action(
     # 战术鸣牌的 is_claim 广播不递增操作帧，避免破坏客户端 action_tick 对齐
     # 实际行为（含 silent）正常递增 action_tick
     if not is_claim:
+        update_hand_draw_source(self, action_list, action_player)
         self.server_action_tick += 1
         if hasattr(self, "_ask_broadcast_time"):
             delattr(self, "_ask_broadcast_time")

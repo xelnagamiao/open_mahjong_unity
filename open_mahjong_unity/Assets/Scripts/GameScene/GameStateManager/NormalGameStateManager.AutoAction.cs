@@ -186,7 +186,7 @@ public partial class NormalGameStateManager {
     /// 手牌询问是否可在显示按钮前立刻自动处理（自摸/起手胡/补花）。
     /// 自动出牌仍需手牌 UI，不走此路径。
     /// </summary>
-    private bool TryResolveImmediateAutoHand(out string actionType, out float delaySeconds) {
+    private bool TryResolveImmediateAutoHand(string dealTileType, out string actionType, out float delaySeconds) {
         actionType = null;
         delaySeconds = 0.3f;
         if (IsRealtimeSpectator) {
@@ -195,7 +195,7 @@ public partial class NormalGameStateManager {
 
         // 杠后补牌保留完整的手动决策窗口：不自动和牌、不自动补花。
         // 自动摸切由 ShouldStartAutoCut 中同一条件拦截。
-        if (lastDealTileType == "deal_gang_tile") {
+        if (dealTileType == "deal_gang_tile") {
             return false;
         }
 
@@ -227,14 +227,14 @@ public partial class NormalGameStateManager {
     }
 
     /// <summary>是否应在已显示按钮后挂起自动摸切协程。</summary>
-    private bool ShouldStartAutoCut() {
+    private bool ShouldStartAutoCut(string dealTileType) {
         if (IsRealtimeSpectator || !AutoAction.Instance.IsAutoCut) {
             return false;
         }
         if (HandActionsBlockingAutoCut.Any(allowActionList.Contains)) {
             return false;
         }
-        if (lastDealTileType == "deal_gang_tile") {
+        if (dealTileType == "deal_gang_tile") {
             return false;
         }
         return true;

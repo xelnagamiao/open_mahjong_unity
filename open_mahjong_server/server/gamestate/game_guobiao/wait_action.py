@@ -19,6 +19,7 @@ from ..public.hand_slot_utils import (
     pick_timeout_discard_tile,
     remove_angang_tiles,
     remove_cut_tile,
+    resolve_timeout_cut,
     resolve_is_mo_gang,
 )
 from ..public.claim_protection import (
@@ -340,8 +341,12 @@ async def wait_action(self):
                 player = self.player_list[self.current_player_index]
                 hand = player.hand_tiles
                 draw_slot = has_draw_slot(player)
-                is_moqie = draw_slot
-                tile_id = hand[-1] if draw_slot else pick_timeout_discard_tile(hand)
+                tile_id, is_moqie = resolve_timeout_cut(
+                    player,
+                    opening_first_discard=bool(
+                        getattr(self, "_opening_buhua_complete_pending", False)
+                    ),
+                )
                 remove_cut_tile(hand, tile_id, is_moqie, draw_slot=draw_slot)
                 clear_draw_slot(player)
                 self.player_list[self.current_player_index].discard_tiles.append(tile_id)

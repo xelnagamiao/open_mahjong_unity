@@ -20,6 +20,7 @@ from ...response import (
     Refresh_player_tag_list_info,
     Ready_status_info,
 )
+from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.offline import offline_auto_action
 from ..public.ai.riichi_smart_bot_ai import riichi_smart_bot_action as smart_bot_action
@@ -101,6 +102,7 @@ def _build_player_info(player, viewer_uid: int, viewer_player_index: int) -> dic
 
 
 async def broadcast_game_start(self):
+    ensure_hand_draw_source_round(self)
     base = _build_base_game_info(self)
     for cp in self.player_list:
         try:
@@ -153,6 +155,7 @@ async def broadcast_ask_hand_action(self):
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict[i],
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     riichi_candidate_cuts=riichi_cuts,
                     forbidden_cut_tiles=forbidden,
                 ),
@@ -227,6 +230,7 @@ async def broadcast_do_action(
     is_timeout_action: bool = False,
 ):
     if not is_claim:
+        update_hand_draw_source(self, action_list, action_player)
         self.server_action_tick += 1
         if hasattr(self, "_ask_broadcast_time"):
             delattr(self, "_ask_broadcast_time")
@@ -509,6 +513,7 @@ async def reconnected_send_pending_ask_for_viewer(self, spectator_user_id: int, 
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict.get(idx, []),
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     riichi_candidate_cuts=riichi_cuts,
                     forbidden_cut_tiles=forbidden,
                 ),

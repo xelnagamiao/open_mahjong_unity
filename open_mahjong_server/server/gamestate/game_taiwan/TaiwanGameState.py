@@ -58,8 +58,10 @@ from ..public.hand_action_notify import apply_player_cut
 from ..public.hand_slot_utils import (
     clear_draw_slot,
     has_draw_slot,
+    mark_draw_slot,
     normalize_tile,
-    pick_timeout_discard_tile,
+    resolve_timeout_cut,
+    retain_opening_first_player_draw_slot,
     remove_angang_tiles,
     remove_cut_tile,
     resolve_is_mo_buhua,
@@ -1802,8 +1804,18 @@ class TaiwanGameState:
         if not opening:
             # 普通摸牌或任何补牌只要取走最后一张可摸牌，都属于海底。
             self.last_draw_was_last = not self.can_take_normal_tile()
-        player.has_draw_slot = not opening
-        player.last_drawn_tile = None if opening else tile
+        # 开局补花结束后只有庄家会立刻进入首次出牌窗口。庄家的最后一张
+        # 开局补花替代牌继续作为该窗口的摸牌槽，使客户端 currentGetTile
+        # 提交的摸切能够通过服务端槽位校验；其余玩家仍不保留开局摸牌槽。
+        opening_dealer_draw = (
+            opening
+            and bool(getattr(self, "opening_dealer_action", False))
+            and player_index == getattr(self, "dealer_index", 0)
+        )
+        if not opening or opening_dealer_draw:
+            mark_draw_slot(player, tile)
+        else:
+            clear_draw_slot(player)
         player_action_record_deal(self, tile, "bd", player_index)
         await broadcast_do_action(
             self,
@@ -1937,9 +1949,12 @@ class TaiwanGameState:
                     if not await self._replace_opening_flower(owner_index, flower):
                         return
 
-        for player in self.player_list:
-            player.has_draw_slot = False
-            player.last_drawn_tile = None
+        # 非庄家不会在开局补花后直接出牌；公共槽位策略只保留庄家
+        # 最后一张有效替代牌。庄家未补花时仍然没有摸牌槽。
+        retain_opening_first_player_draw_slot(
+            self.player_list,
+            getattr(self, "dealer_index", 0),
+        )
 
     async def _process_drawn_flowers(self, player_index: int, origin: str) -> bool:
         player = self.player_list[player_index]
@@ -2220,13 +2235,16 @@ class TaiwanGameState:
     async def execute_timeout_cut(self, player_index: int) -> None:
         player = self.player_list[player_index]
         forbidden = {normalize_tile(tile) for tile in player.kuikae_forbidden_tiles}
-        draw_slot = has_draw_slot(player)
-        if draw_slot and normalize_tile(player.hand_tiles[-1]) not in forbidden:
-            tile = player.hand_tiles[-1]
-            is_moqie = True
-        else:
-            tile = pick_timeout_discard_tile(player.hand_tiles, forbidden)
-            is_moqie = False
+        opening_first_discard = (
+            bool(getattr(self, "opening_dealer_action", False))
+            and player_index == getattr(self, "dealer_index", 0)
+        )
+        tile, is_moqie = resolve_timeout_cut(
+            player,
+            forbidden,
+            opening_first_discard=opening_first_discard,
+            excluded_tiles=FLOWER_TILES,
+        )
         await self.execute_cut(
             player_index,
             {"TileId": tile, "cutClass": is_moqie, "cutIndex": None},

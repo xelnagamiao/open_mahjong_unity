@@ -11,6 +11,7 @@ try:
     from .guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles
     from .guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check
     from .guobiao_kshen_hepai_check import Kshen_Hepai_Check
+    from .guobiao_lanshi_hepai_check import Lanshi_Hepai_Check
     from .gb_tingpai_check import Chinese_Tingpai_Check
     from .classical.classical_hepai_check import Classical_Hepai_Check
     from .classical.classical_tingpai_check import Classical_Tingpai_Check
@@ -28,6 +29,7 @@ except ImportError:
     from guobiao_hepai_check import Chinese_Hepai_Check, PlayerTiles  # type: ignore
     from guobiao_xiaolin_hepai_check import Xiaolin_Hepai_Check  # type: ignore
     from guobiao_kshen_hepai_check import Kshen_Hepai_Check  # type: ignore
+    from guobiao_lanshi_hepai_check import Lanshi_Hepai_Check  # type: ignore
     from gb_tingpai_check import Chinese_Tingpai_Check  # type: ignore
     from classical.classical_hepai_check import Classical_Hepai_Check  # type: ignore
     from classical.classical_tingpai_check import Classical_Tingpai_Check  # type: ignore
@@ -73,6 +75,7 @@ class GameCalculationService:
         self._hepai_check = Chinese_Hepai_Check()
         self._xiaolin_hepai_check = Xiaolin_Hepai_Check()
         self._kshen_hepai_check = Kshen_Hepai_Check()
+        self._lanshi_hepai_check = Lanshi_Hepai_Check()
         self._tingpai_check = Chinese_Tingpai_Check()
         self._classical_hepai_check = Classical_Hepai_Check()
         self._classical_tingpai_check = Classical_Tingpai_Check()
@@ -195,6 +198,15 @@ class GameCalculationService:
         with self._lock:
             score, fan_list = self._kshen_hepai_check.hepai_check(hand_list, tiles_combination, way_to_hepai, get_tile)
             return score, fan_list
+
+    def GB_lanshi_hepai_check(self, hand_list: List[int], tiles_combination: List,
+                   way_to_hepai: List[str], get_tile: int) -> Tuple[int, List[str]]:
+        """蓝十改和牌检查；按规则将番种总分封顶为 100 分。"""
+        with self._lock:
+            score, fan_list = self._lanshi_hepai_check.hepai_check(
+                hand_list, tiles_combination, way_to_hepai, get_tile
+            )
+            return min(score, 100), fan_list
     
     def GB_tingpai_check(self, hand_tile_list: List[int], combination_list: List) -> Set[int]:
         """

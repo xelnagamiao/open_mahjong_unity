@@ -843,6 +843,15 @@ function resetTimeoutAutoDiscardTracking() {
   consecutiveSelfTimeoutCuts = 0
 }
 
+function resetRoundAssistUi(targetScene = scene) {
+  resetTimeoutAutoDiscardTracking()
+  assistSettings.value = resetRoundAssistSettings(assistSettings.value)
+  saveStoredAssistSettings(assistSettings.value)
+  targetScene?.setAssistSettings(assistSettings.value)
+  assistExpandOpen.value = false
+  tileSkipOpen.value = false
+}
+
 function registerSelfCutResponse(response, targetAdapter) {
   const info = response?.do_action_info
   if (
@@ -870,10 +879,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       const roundKey = `${update.snapshot.session_id}:${Number(update.snapshot.state.round_counter ?? 0)}`
       if (roundKey !== lastAssistRoundKey) {
         lastAssistRoundKey = roundKey
-        resetTimeoutAutoDiscardTracking()
-        assistSettings.value = resetRoundAssistSettings(assistSettings.value)
-        saveStoredAssistSettings(assistSettings.value)
-        targetScene.setAssistSettings(assistSettings.value)
+        resetRoundAssistUi(targetScene)
       }
       if (!matchStartDefaultsApplied) {
         matchStartDefaultsApplied = true
@@ -893,6 +899,9 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
     if (update.event) targetScene.handleEvent(update.event)
     if (update.events) update.events.forEach((event) => targetScene.handleEvent(event))
     if (update.result) {
+      // Unity initializes AutoAction for every hand. Reset immediately at hand
+      // end too, rather than carrying temporary choices through settlement.
+      resetRoundAssistUi(targetScene)
       readySent.value = false
       resultContentVisible.value = true
       readyStatus.value = Object.fromEntries(sidebarPlayers.value.map((player) => [
@@ -909,6 +918,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
     }
     if (update.ready) readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
     if (update.ended) {
+      resetRoundAssistUi(targetScene)
       clearResultTimers()
       finalResult.value = update.ended
     }

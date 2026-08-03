@@ -21,6 +21,7 @@ from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
 from .public.client_ip import get_client_ip_from_websocket
 from .public.ip_registration_limiter import IpRegistrationLimiter
+from .public.username_validation import normalize_username, validate_username
 from .chat_server.chat_server import ChatServer
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
@@ -629,36 +630,6 @@ async def message_input(websocket: WebSocket, Connect_id: str):
         # 确保在连接断开时调用 disconnect 方法
         asyncio.create_task(game_server.disconnect(Connect_id))
 
-def validate_username(username: str) -> Optional[str]:
-    """
-    验证用户名：不超过16个字符，中文=2，其他字符=1，总长度>=2，不超过20
-    Returns:
-        如果验证失败返回错误消息，否则返回None
-    """
-    if not username or not username.strip():
-        return "用户名不能为空"
-    
-    username = username.strip()
-    
-    # 检查字符数（不超过16个字符）
-    if len(username) > 16:
-        return "用户名不能超过16个字符"
-    
-    # 计算长度（中文=2，其他 Unicode 字符=1）
-    length = 0
-    for char in username:
-        if '\u4e00' <= char <= '\u9fff':
-            length += 2  # 中文=2
-        else:
-            length += 1
-
-    if length < 2:
-        return "用户名长度至少需要2（中文=2，其他字符=1）"
-    if length > 20:
-        return "用户名不能超过20"
-    
-    return None
-
 def validate_password(password: str) -> Optional[str]:
     """
     验证密码：6-32个字符，只能包含英文、数字或特殊字符
@@ -877,6 +848,7 @@ async def player_login(
     
     # 验证用户名和密码（游客不需要验证，因为已经生成）
     if not is_tourist:
+        username = normalize_username(username)
         username_error = validate_username(username)
         if username_error:
             return Response(

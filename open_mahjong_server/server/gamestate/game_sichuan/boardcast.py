@@ -13,6 +13,7 @@ from ..public.offline import offline_auto_action
 from ..public.ai.smart_bot_ai import smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
+from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.claim_protection import (
     claim_protection_enabled,
     is_protected_viewer,
@@ -130,6 +131,7 @@ def _base_game_info(self):
 
 
 async def broadcast_game_start(self):
+    ensure_hand_draw_source_round(self)
     base_game_info = _base_game_info(self)
     for current_player in self.player_list:
         try:
@@ -258,6 +260,7 @@ async def broadcast_ask_hand_action(self):
                     remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                     action_list=self.action_dict[i],
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                 ),
             )
             is_actor = i == self.current_player_index
@@ -345,6 +348,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
                 remaining_time=remaining_sent, player_index=reconnect_idx,
                 remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
                 action_list=self.action_dict.get(reconnect_idx, []), action_tick=self.server_action_tick,
+                deal_tile_type=get_hand_draw_source(self, self.current_player_index),
             ),
         )
         await player_conn.websocket.send_json(response.dict(exclude_none=True))
@@ -381,6 +385,7 @@ async def broadcast_do_action(self, action_list: List[str], action_player: int,
         silent = True
         self._tactical_silent_action = False
     if not is_claim:
+        update_hand_draw_source(self, action_list, action_player)
         self.server_action_tick += 1
         if hasattr(self, "_ask_broadcast_time"):
             delattr(self, "_ask_broadcast_time")

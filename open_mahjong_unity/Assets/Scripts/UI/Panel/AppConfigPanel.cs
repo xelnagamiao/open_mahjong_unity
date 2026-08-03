@@ -27,6 +27,7 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown handSortDragonDropdown;
     [SerializeField] private TMP_Dropdown handSortRiichiDragonDropdown;
     [SerializeField] private TMP_Dropdown actionButtonColorDropdown;
+    [SerializeField] private TMP_Dropdown openingAutoBuhuaDropdown;
 
     [Header("提示音效")]
     [SerializeField] private TMP_Dropdown gongHuSoundDropdown;
@@ -71,6 +72,9 @@ public class AppConfigPanel : MonoBehaviour {
         }
         if (actionButtonColorDropdown != null) {
             actionButtonColorDropdown.onValueChanged.AddListener(OnActionButtonColorDropdownChanged);
+        }
+        if (openingAutoBuhuaDropdown != null) {
+            openingAutoBuhuaDropdown.onValueChanged.AddListener(OnOpeningAutoBuhuaDropdownChanged);
         }
         if (gongHuSoundDropdown != null) {
             gongHuSoundDropdown.onValueChanged.AddListener(OnGongHuSoundDropdownChanged);
@@ -146,6 +150,10 @@ public class AppConfigPanel : MonoBehaviour {
             actionButtonColorDropdown.ClearOptions();
             actionButtonColorDropdown.AddOptions(new List<string> { "关", "开" });
         }
+        if (openingAutoBuhuaDropdown != null) {
+            openingAutoBuhuaDropdown.ClearOptions();
+            openingAutoBuhuaDropdown.AddOptions(new List<string> { "关", "开" });
+        }
         if (gongHuSoundDropdown != null) {
             gongHuSoundDropdown.ClearOptions();
             gongHuSoundDropdown.AddOptions(new List<string> { "关", "开" });
@@ -206,6 +214,10 @@ public class AppConfigPanel : MonoBehaviour {
         if (actionButtonColorDropdown != null) {
             actionButtonColorDropdown.SetValueWithoutNotify(ConfigManager.Instance.ActionButtonColorEnabled ? 1 : 0);
             actionButtonColorDropdown.RefreshShownValue();
+        }
+        if (openingAutoBuhuaDropdown != null) {
+            openingAutoBuhuaDropdown.SetValueWithoutNotify(ConfigManager.Instance.OpeningAutoBuhuaEnabled ? 1 : 0);
+            openingAutoBuhuaDropdown.RefreshShownValue();
         }
         if (gongHuSoundDropdown != null) {
             gongHuSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.GongHuSoundEnabled ? 1 : 0);
@@ -278,6 +290,10 @@ public class AppConfigPanel : MonoBehaviour {
 
     private void OnActionButtonColorDropdownChanged(int value) {
         ConfigManager.Instance.SetActionButtonColorEnabled(value == 1);
+    }
+
+    private void OnOpeningAutoBuhuaDropdownChanged(int value) {
+        ConfigManager.Instance.SetOpeningAutoBuhuaEnabled(value == 1);
     }
 
     private void OnGongHuSoundDropdownChanged(int value) {

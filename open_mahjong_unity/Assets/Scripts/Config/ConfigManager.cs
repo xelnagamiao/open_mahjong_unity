@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = false;
+    public static bool Debug = true;
 
     public static string webUrl;
     public static string gameUrl;
@@ -67,6 +67,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_ACTION_BUTTON_COLOR_ENABLED = "ActionButtonColorEnabled";
     private const string KEY_GONG_HU_SOUND_ENABLED = "GongHuSoundEnabled";
     private const string KEY_MATCH_SUCCESS_SOUND_ENABLED = "MatchSuccessSoundEnabled";
+    private const string KEY_OPENING_AUTO_BUHUA_ENABLED = "OpeningAutoBuhuaEnabled";
     private const string KEY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
@@ -104,6 +105,7 @@ public class ConfigManager : MonoBehaviour {
     public bool GongHuSoundEnabled { get; private set; }
     /// <summary>匹配成功音效：默认开启</summary>
     public bool MatchSuccessSoundEnabled { get; private set; }
+    public bool OpeningAutoBuhuaEnabled { get; private set; }
     /// <summary>3D 牌描边预设：1=标准纯黑(2/2)，2=粗深黑(3/3)，默认 1</summary>
     public int TileOutlinePreset { get; private set; }
 
@@ -167,6 +169,7 @@ public class ConfigManager : MonoBehaviour {
         ActionButtonColorEnabled = PlayerPrefs.GetInt(KEY_ACTION_BUTTON_COLOR_ENABLED, 0) == 1;
         GongHuSoundEnabled = PlayerPrefs.GetInt(KEY_GONG_HU_SOUND_ENABLED, 1) == 1;
         MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
+        OpeningAutoBuhuaEnabled = PlayerPrefs.GetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, 1) == 1;
         TileOutlinePreset = Mathf.Clamp(PlayerPrefs.GetInt(KEY_TILE_OUTLINE_PRESET, 1), 1, 2);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -359,6 +362,12 @@ public class ConfigManager : MonoBehaviour {
     public void SetMatchSuccessSoundEnabled(bool enabled) {
         MatchSuccessSoundEnabled = enabled;
         PlayerPrefs.SetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetOpeningAutoBuhuaEnabled(bool enabled) {
+        OpeningAutoBuhuaEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
     }
 

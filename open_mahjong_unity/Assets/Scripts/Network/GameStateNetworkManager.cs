@@ -164,7 +164,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             handresponse.riichi_candidate_cuts,
             handresponse.forbidden_cut_tiles,
             handresponse.forced_cut_tiles,
-            handresponse.ready_qualification
+            handresponse.ready_qualification,
+            handresponse.deal_tile_type
         );
     }
 

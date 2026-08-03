@@ -55,7 +55,7 @@ public partial class CreatePanel : MonoBehaviour {
     private static readonly Dictionary<string, Dictionary<string, object>> RuleConfigs = new Dictionary<string, Dictionary<string, object>> {
         { "guobiao", new Dictionary<string, object> {
             { CfgGameRound,      4 }, // 默认半庄
-            { CfgRoundTimer,     2 }, // 5 10 [20] 40 60
+            { CfgRoundTimer,     3 }, // 0 5 10 [20] 40 60
             { CfgStepTimer,      1 }, // 3 [5] 10 20 40
             { CfgTips,           true }, // 提示
             { CfgPassword,       false }, // 密码
@@ -70,7 +70,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "riichi", new Dictionary<string, object> {
             { CfgGameRound,      2 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -88,7 +88,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "qingque", new Dictionary<string, object> {
             { CfgGameRound,      4 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -99,7 +99,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "jiandan", new Dictionary<string, object> {
             { CfgGameRound,      4 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -109,7 +109,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "classical", new Dictionary<string, object> {
             { CfgGameRound,      4 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -119,7 +119,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "sichuan", new Dictionary<string, object> {
             { CfgGameRound,      4 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -131,7 +131,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "changsha", new Dictionary<string, object> {
             { CfgGameRound,      4 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -153,7 +153,7 @@ public partial class CreatePanel : MonoBehaviour {
         } },
         { "taiwan", new Dictionary<string, object> {
             { CfgGameRound,      4 },
-            { CfgRoundTimer,     2 },
+            { CfgRoundTimer,     3 },
             { CfgStepTimer,      1 },
             { CfgTips,           true },
             { CfgPassword,       false },
@@ -432,8 +432,8 @@ public partial class CreatePanel : MonoBehaviour {
         bool isLanshi  = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool isLangyong = _ruleState == "riichi" && SubRuleDropdown.value == 1;
 
-        // 小林规仍隐藏错和；K神/标准规可开错和
-        bool showCuohe = visible.ContainsKey(CfgCuohe) && !isXiaolin;
+        // 蓝十改固定启用“错和扣 40 分”，不暴露可变开关。
+        bool showCuohe = visible.ContainsKey(CfgCuohe) && !isXiaolin && !isLanshi;
         CuoHeheToggle.gameObject.SetActive(showCuohe);
 
         // 蓝十仍隐藏起和番自定义；标准/小林/K神均可改
@@ -508,7 +508,7 @@ public partial class CreatePanel : MonoBehaviour {
             SubRuleDropdown.AddOptions(new List<string> { "立直麻将(标准)", "浪涌麻将" });
         } else {
             // 国标：SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
-            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "K神麻将" });
+            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "K神麻将", "国标麻将(蓝十改)" });
         }
         SubRuleDropdown.value = 0;
     }
@@ -530,6 +530,9 @@ public partial class CreatePanel : MonoBehaviour {
                 HepaiLimitInput.text = "8";
             } else if (isLanshi) {
                 HepaiLimitInput.text = "5";
+                CuoHeheToggle.onValueChanged.RemoveListener(ToggleCuoHehe);
+                CuoHeheToggle.isOn = true;
+                CuoHeheToggle.onValueChanged.AddListener(ToggleCuoHehe);
             } else {
                 HepaiLimitInput.text = "8";
             }
@@ -1009,8 +1012,8 @@ public partial class CreatePanel : MonoBehaviour {
             RoundTimer = GetSelectedRoundTimer(),
             StepTimer = GetSelectedStepTimer(),
             Tips = tipsToggle.isOn,
-            CuoHe = CuoHeheToggle.isOn,
-            CuoheType = GetSelectedCuoheType(),
+            CuoHe = subRule == "guobiao/lanshi" || CuoHeheToggle.isOn,
+            CuoheType = subRule == "guobiao/lanshi" ? 1 : GetSelectedCuoheType(),
             HepaiLimit = hepaiLimit,
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = AllowSpectatorToggle.isOn,
@@ -1213,11 +1216,12 @@ public partial class CreatePanel : MonoBehaviour {
 
     private int GetSelectedRoundTimer() {
         return roundTimer.value switch {
-            0 => 5,
-            1 => 10,
-            2 => 20,
-            3 => 40,
-            4 => 60,
+            0 => 0,
+            1 => 5,
+            2 => 10,
+            3 => 20,
+            4 => 40,
+            5 => 60,
             _ => 20
         };
     }
@@ -1269,9 +1273,11 @@ public partial class CreatePanel : MonoBehaviour {
     private void RefreshCuoheTypePanelVisibility() {
         if (CuoheTypePanel == null) return;
         bool isXiaolin = _ruleState == "guobiao" && SubRuleDropdown.value == 1;
+        bool isLanshi = _ruleState == "guobiao" && SubRuleDropdown.value == 3;
         bool showPanel = RuleConfigs.TryGetValue(_ruleState, out var config)
             && config.ContainsKey(CfgCuoheType)
             && !isXiaolin
+            && !isLanshi
             && CuoHeheToggle.isOn;
         CuoheTypePanel.SetActive(showPanel);
     }

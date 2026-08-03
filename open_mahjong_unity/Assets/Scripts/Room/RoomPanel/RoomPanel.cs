@@ -6,8 +6,6 @@ public class RoomPanel : MonoBehaviour {
     public static RoomPanel Instance { get; private set; }
 
     private const string GuobiaoStandardSubRule = "guobiao/standard";
-    private const string HeuristicBotButtonLabel = "添加高性能罗伯特";
-    private const string HeuristicBotUnsupportedLabel = "暂未支持";
 
     [SerializeField] private TMP_Text roomIdText; // 房间号
     [SerializeField] private TMP_Text roomnameText; // 房间名
@@ -21,7 +19,7 @@ public class RoomPanel : MonoBehaviour {
     [SerializeField] private TMP_Text readyButtonText; // 准备按钮文本（可选，用于切换“准备/取消准备”）
     [SerializeField] private Button addBotButton; // 添加摸切机器人按钮
     [SerializeField] private Button addSmartBotButton; // 添加牌效机器人按钮
-    [SerializeField] private Button addGuobiaoHeuristicBotButton; // 添加高性能罗伯特（可空：运行时从牌效按钮克隆）
+    [SerializeField] private Button addGuobiaoHeuristicBotButton; // 添加高性能机器人按钮（请在 Inspector 中拖拽绑定）
     [SerializeField] private RoomConfigContainer roomConfigContainer; // 房间设置容器
     [SerializeField] private GameObject noRecordText;
     [SerializeField] private GameObject noSpectatorsText;
@@ -33,11 +31,9 @@ public class RoomPanel : MonoBehaviour {
 
     bool selfReady = false; // 当前玩家（非房主）的准备状态
     private RoomInfo lastRoomInfo;
-    private TMP_Text heuristicBotLabel;
 
     // Start is called before the first frame update
     void Start() {
-        EnsureGuobiaoHeuristicBotButton();
         backButton.onClick.AddListener(BackButtonClicked);
         startButton.onClick.AddListener(StartButtonClicked);
         if (readyButton != null) {
@@ -51,36 +47,17 @@ public class RoomPanel : MonoBehaviour {
     }
 
     private void Awake() {
+        // Awake 先于房间信息回调；避免 Start 覆盖首次回调已经设置好的显示状态。
+        if (addGuobiaoHeuristicBotButton != null) {
+            addGuobiaoHeuristicBotButton.gameObject.SetActive(false);
+        }
+
         // 单例模式 - 在Awake中初始化，确保在Start之前完成
         if (Instance == null) {
             Instance = this;
         } else if (Instance != this) {
             Debug.LogWarning($"发现重复的RoomPanel实例，销毁新实例: {gameObject.name}");
             Destroy(gameObject);
-        }
-    }
-
-    /// <summary>
-    /// 场景未挂第三按钮时，从「添加牌效机器人」克隆一颗，避免必须改 MainScene 序列化。
-    /// </summary>
-    private void EnsureGuobiaoHeuristicBotButton() {
-        if (addGuobiaoHeuristicBotButton != null) {
-            heuristicBotLabel = addGuobiaoHeuristicBotButton.GetComponentInChildren<TMP_Text>(true);
-            return;
-        }
-        if (addSmartBotButton == null) return;
-
-        GameObject clone = Instantiate(addSmartBotButton.gameObject, addSmartBotButton.transform.parent);
-        clone.name = "AddGuobiaoHeuristicBot";
-        clone.transform.SetSiblingIndex(addSmartBotButton.transform.GetSiblingIndex() + 1);
-
-        addGuobiaoHeuristicBotButton = clone.GetComponent<Button>();
-        heuristicBotLabel = clone.GetComponentInChildren<TMP_Text>(true);
-        if (heuristicBotLabel != null) {
-            heuristicBotLabel.text = HeuristicBotButtonLabel;
-        }
-        if (addGuobiaoHeuristicBotButton != null) {
-            addGuobiaoHeuristicBotButton.onClick.RemoveAllListeners();
         }
     }
 
@@ -93,20 +70,16 @@ public class RoomPanel : MonoBehaviour {
     private void UpdateGuobiaoHeuristicBotButton(RoomInfo roomInfo, bool isHost) {
         if (addGuobiaoHeuristicBotButton == null) return;
 
+        // 高性能机器人仅适用于国标规则，其他规则必须隐藏按钮。
         bool isGuobiao = roomInfo != null && roomInfo.room_rule == "guobiao";
         addGuobiaoHeuristicBotButton.gameObject.SetActive(isGuobiao);
         if (!isGuobiao) return;
 
         bool standard = IsGuobiaoStandard(roomInfo);
         bool canAdd = isHost && roomInfo.player_list != null && roomInfo.player_list.Length < 4;
-        if (heuristicBotLabel == null) {
-            heuristicBotLabel = addGuobiaoHeuristicBotButton.GetComponentInChildren<TMP_Text>(true);
-        }
         if (standard) {
-            if (heuristicBotLabel != null) heuristicBotLabel.text = HeuristicBotButtonLabel;
             addGuobiaoHeuristicBotButton.interactable = canAdd;
         } else {
-            if (heuristicBotLabel != null) heuristicBotLabel.text = HeuristicBotUnsupportedLabel;
             addGuobiaoHeuristicBotButton.interactable = false;
         }
     }

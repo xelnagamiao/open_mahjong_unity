@@ -211,6 +211,20 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
     if len(self.player_list[player_index].waiting_tiles) == 1:
         way_to_hepai.append("和单张")
 
+    # 蓝十改天和/地和。以“尚无任何鸣牌或杠”和各家首次出牌状态判定。
+    if getattr(self, "sub_rule", "") == "guobiao/lanshi":
+        no_calls_or_kongs = all(not player.combination_tiles for player in self.player_list)
+        discard_counts = [len(player.discard_tiles) for player in self.player_list]
+        if hepai_type == "handgot" and no_calls_or_kongs and discard_counts[player_index] == 0:
+            if player_index == self.dealer_index and sum(discard_counts) == 0:
+                way_to_hepai.append("天和")
+            elif player_index != self.dealer_index:
+                way_to_hepai.append("天和")
+        elif (hepai_type == "dianhe" and no_calls_or_kongs and player_index != self.dealer_index
+              and self.current_player_index == self.dealer_index
+              and discard_counts[self.dealer_index] == 1 and sum(discard_counts) == 1):
+            way_to_hepai.append("地和")
+
     # 和绝张检查 弃牌+1 有顺子+1 有刻+2
     show_tiles_count = 0
     now_combinations = []
@@ -244,6 +258,8 @@ def check_hepai(self,temp_action_dict,hepai_tile,player_index,hepai_type,is_firs
         result = self.calculation_service.GB_xiaolin_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     elif hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/kshen":
         result = self.calculation_service.GB_kshen_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
+    elif hasattr(self, 'sub_rule') and self.sub_rule == "guobiao/lanshi":
+        result = self.calculation_service.GB_lanshi_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
     else:
         result = self.calculation_service.GB_hepai_check(tiles_list,combination_tiles,way_to_hepai,hepai_tile)
 

@@ -153,6 +153,7 @@ public class AskHandActionGBInfo { // 询问手牌操作
     public int remain_tiles; // 剩余牌数 只有摸牌以后牌堆牌数会减少
     public int[] forced_cut_tiles;
     public int action_tick;
+    public string deal_tile_type; // 当前手牌询问对应的摸牌来源
     // 立直麻将：可立直切牌候选 {tile_id: [waiting_tile_id, ...]}，仅 action_list 含 riichi_cut 时下发
     public Dictionary<int, int[]> riichi_candidate_cuts;
     // 立直麻将：吃后切牌阶段的禁切牌列表（食替规则），客户端用于变暗与禁点

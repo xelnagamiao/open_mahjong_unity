@@ -19,7 +19,7 @@ from .store_guobiao import FAN_FIELDS
 logger = logging.getLogger(__name__)
 
 REGISTERED_USER_ID_MIN = 10000000
-_SKIP_SUB_RULES = ("guobiao/xiaolin", "guobiao/kshen")
+_SKIP_SUB_RULES = ("guobiao/xiaolin", "guobiao/kshen", "guobiao/lanshi")
 
 
 def backfill_guobiao_history_stats(db_manager) -> None:

@@ -64,6 +64,7 @@ export interface SalasasaGameInfo {
   gamestate_id: string
   current_player_index: number
   action_tick: number
+  deal_tile_type?: string
   max_round: number
   tile_count: number
   current_round: number

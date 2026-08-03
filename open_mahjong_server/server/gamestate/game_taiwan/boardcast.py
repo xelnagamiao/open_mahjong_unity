@@ -14,6 +14,7 @@ from ..game_guobiao.combination_mask_view import (
 )
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status
+from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.ask_timing import begin_ask_round, note_ask_delivered, reconnect_remaining_time
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ def _pending_other_action_tile(game_state) -> int:
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
     """广播游戏开始信息"""
+    ensure_hand_draw_source_round(self)
     # 重置操作帧（每次广播开始时重置）
     self.server_action_tick = 0
 
@@ -360,6 +362,7 @@ async def broadcast_ask_hand_action(self):
                     remain_tiles=self.playable_wall_count(),
                     action_list=player_actions,
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     **private_info,
                 ),
             )
@@ -479,6 +482,7 @@ async def reconnected_send_pending_ask_for_viewer(
                     remain_tiles=self.playable_wall_count(),
                     action_list=self.action_dict.get(view_player_index, []),
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     **self.build_private_hand_action_info(view_player_index),
                 ),
             )
@@ -604,6 +608,7 @@ async def broadcast_do_action(
     cut_from_player: int = None,
     is_timeout_action: bool = False,
     ):
+    update_hand_draw_source(self, action_list, action_player)
     self.server_action_tick += 1
     if hasattr(self, "_ask_broadcast_time"):
         delattr(self, "_ask_broadcast_time")

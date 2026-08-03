@@ -385,7 +385,7 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
-    /// 处理国标规则的和牌提示：guobiao/standard 用 GBhepai，guobiao/xiaolin 用 GBhepaiXiaolin，guobiao/kshen 用 GBhepaiKshen。
+    /// 处理国标规则的和牌提示，并按子规则选择对应番表。
     /// </summary>
     private void ProcessGuobiaoTile(
         int hepaiTile,
@@ -404,6 +404,8 @@ public class TipsContainer : MonoBehaviour
             dianheResult = GBhepaiXiaolin.FilterZeroValueFans(dianheResult.Item1, dianheResult.Item2);
         } else if (subRule == "guobiao/kshen") {
             dianheResult = GBhepaiKshen.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
+        } else if (subRule == "guobiao/lanshi") {
+            dianheResult = GBhepaiLanshi.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         } else {
             dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         }
@@ -424,6 +426,8 @@ public class TipsContainer : MonoBehaviour
                 zimoResult = GBhepaiXiaolin.FilterZeroValueFans(zimoResult.Item1, zimoResult.Item2);
             } else if (subRule == "guobiao/kshen") {
                 zimoResult = GBhepaiKshen.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
+            } else if (subRule == "guobiao/lanshi") {
+                zimoResult = GBhepaiLanshi.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
             } else {
                 zimoResult = GBhepai.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
             }

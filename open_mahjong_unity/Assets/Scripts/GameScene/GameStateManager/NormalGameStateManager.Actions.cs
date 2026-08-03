@@ -22,7 +22,8 @@ public partial class NormalGameStateManager {
     // 询问手牌操作 手牌操作包括 切牌 补花 胡 暗杠 加杠
     public void AskHandAction(int remaining_time, int playerIndex, int remain_tiles, string[] action_list,
                               Dictionary<int, int[]> riichi_candidate_cuts = null, int[] forbidden_cut_tiles = null,
-                              int[] forced_cut_tiles = null, string ready_qualification = null) {
+                              int[] forced_cut_tiles = null, string ready_qualification = null,
+                              string dealTileType = null) {
         TryResumeAfterCuoheContinue();
         TryResumeAfterSichuanContinue();
         string GetCardPlayer = indexToPosition[playerIndex];
@@ -49,7 +50,8 @@ public partial class NormalGameStateManager {
             }
         }
         // 切换行动者
-        SwitchCurrentPlayer(GetCardPlayer, "askHandAction", remaining_time, playerIndex);
+        SwitchCurrentPlayer(GetCardPlayer, "askHandAction", remaining_time, playerIndex,
+            dealTileType: dealTileType);
     }
 
     // 询问鸣牌操作 鸣牌操作包括 吃 碰 杠 胡 跳过
@@ -106,7 +108,6 @@ public partial class NormalGameStateManager {
                 case "deal_tile":
                 case "deal_gang_tile":
                 case "deal_buhua_tile":
-                    lastDealTileType = action;
                     int[] resolvedDealTiles = deal_tiles != null && deal_tiles.Length > 0
                         ? deal_tiles
                         : (deal_tile.HasValue ? new int[] { deal_tile.Value } : new int[0]);

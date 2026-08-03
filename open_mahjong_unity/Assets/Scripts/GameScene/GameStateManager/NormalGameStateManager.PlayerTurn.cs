@@ -2,7 +2,9 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     // 切换玩家状态
-    public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time, int askHandPlayerIndex = -1, bool isTacticalRecheck = false) {
+    public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time,
+                                    int askHandPlayerIndex = -1, bool isTacticalRecheck = false,
+                                    string dealTileType = null) {
 
         // 询问手牌操作
         if (SwitchType == "askHandAction"){
@@ -21,13 +23,13 @@ public partial class NormalGameStateManager {
                 GameCanvas.Instance.RefreshHandTileSelectability();
 
                 // 全量自动（自摸/起手胡/补花）：不出按钮，仅延迟发网，避免闪按钮泄密
-                if (TryResolveImmediateAutoHand(out string autoHandAction, out float autoHandDelay)) {
+                if (TryResolveImmediateAutoHand(dealTileType, out string autoHandAction, out float autoHandDelay)) {
                     StartDelayedAutoChoose(autoHandAction, autoHandDelay);
                 }
                 else {
                     GameCanvas.Instance.SetActionButton(allowActionList);
                     GameCanvas.Instance.LoadingRemianTime(remaining_time, roomStepTime);
-                    if (ShouldStartAutoCut()) {
+                    if (ShouldStartAutoCut(dealTileType)) {
                         StartWaitAutoCut();
                     }
                 }

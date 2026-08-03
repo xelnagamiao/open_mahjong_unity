@@ -18,13 +18,18 @@
       </el-select>
     </el-form-item>
     <el-form-item label="局时(分)">
-      <el-input-number
+      <el-select
         :model-value="modelValue.round_timer"
-        :min="0"
-        :max="120"
-        controls-position="right"
+        style="width: 140px"
         @update:model-value="patch('round_timer', $event)"
-      />
+      >
+        <el-option
+          v-for="opt in roundTimerOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
+      </el-select>
     </el-form-item>
     <el-form-item label="步时(秒)">
       <el-input-number
@@ -89,6 +94,15 @@ const props = defineProps({
   subRuleOptions: { type: Array, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
+
+const roundTimerOptions = [
+  { value: 0, label: '0（不限时）' },
+  { value: 5, label: '5' },
+  { value: 10, label: '10' },
+  { value: 20, label: '20（标准）' },
+  { value: 40, label: '40' },
+  { value: 60, label: '60' },
+]
 
 const defaultSubRuleOptions = [
   { value: 'guobiao/standard', label: '国标标准' },

@@ -1,11 +1,14 @@
 # 国标麻将牌堆初始化
 import random
 from ..public.random_seed_manager import derive_round_seed
+from ..public.hand_slot_utils import clear_draw_slot
 from .guobiao_debug import apply_guobiao_debug_hands, prepare_debug_wall
 
 
 def init_guobiao_tiles(self):
     """初始化国标麻将牌堆（每人13张 + 庄家额外1张）"""
+    for player in self.player_list:
+        clear_draw_slot(player)
     # 标准牌堆
     sth_tiles_set = {
         11, 12, 13, 14, 15, 16, 17, 18, 19,  # 万

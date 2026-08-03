@@ -22,7 +22,6 @@ public partial class NormalGameStateManager {
         currentMeldClaimedTileId = 0;
         CurrentPlayer = null;
         lastAskHandPlayerIndex = -1;
-        lastDealTileType = null;
         lastDealTileId = 0;
         selfRiichiCandidateCuts.Clear();
         selfForbiddenCutTiles.Clear();
