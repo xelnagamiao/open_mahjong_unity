@@ -47,6 +47,8 @@ NEAR_EXHAUST_WALL = 16
 WIND_IDS = (41, 42, 43, 44)  # 东南西北
 DRAGON_IDS = (45, 46, 47)  # 中发白
 
+_SHARED_TINGPAI = None
+
 # FanScorer(hand14, combos, way_to_hepai, win_tile) -> (score, fan_names)
 FanScorer = Callable[[List[int], List[str], List[str], int], Tuple[int, List[str]]]
 
@@ -182,11 +184,48 @@ def _wind_label(idx: int) -> str:
     return ("东", "南", "西", "北")[idx % 4]
 
 
+def _tingpai_checker():
+    """进程内单例：与 action_check.refresh_waiting_tiles 同源。"""
+    global _SHARED_TINGPAI
+    if _SHARED_TINGPAI is not None:
+        return _SHARED_TINGPAI
+    try:
+        from ....game_calculation.gb_tingpai_check import Chinese_Tingpai_Check
+    except ImportError:
+        from game_calculation.gb_tingpai_check import Chinese_Tingpai_Check  # type: ignore
+    _SHARED_TINGPAI = Chinese_Tingpai_Check()
+    return _SHARED_TINGPAI
+
+
+def tenpai_wait_tiles(
+    concealed: Counts,
+    combos: Sequence[str],
+    n_melds: int,
+) -> List[int]:
+    """结构听种：优先 GB_tingpai（对齐 waiting_tiles / 「和单张」门闩）。
+
+    `effective_tiles` 会跳过手内已 4 枚的牌种，但 GB_tingpai 仍可能把它们算进
+    waiting_tiles。若只用 effective_tiles 判独听，会误加「和单张」把假听当合法听。
+    """
+    hand: List[int] = []
+    for tid, c in concealed.items():
+        if c > 0:
+            hand.extend([int(tid)] * int(c))
+    try:
+        waits = _tingpai_checker().tingpai_check(hand, list(combos))
+        if waits:
+            return sorted(int(w) for w in waits)
+    except Exception:
+        pass
+    return list(effective_tiles(concealed, n_melds))
+
+
 def build_way(
     win_type: str,
     ctx: HeuristicContext,
     wall_left: int,
     juezhang: bool,
+    single_wait: bool = False,
 ) -> List[str]:
     way: List[str] = ["花牌"] * max(0, ctx.flower_count)
     if win_type == "tsumo":
@@ -201,6 +240,10 @@ def build_way(
     way.append(f"自风{_wind_label(ctx.seat_wind)}")
     if juezhang:
         way.append("和绝张")
+    # 与 OMC singleWait / action_check.waiting_tiles==1 对齐：
+    # Chinese_Hepai_Check 仅在 way 含「和单张」时计边张/嵌张/单吊将。
+    if single_wait:
+        way.append("和单张")
     return way
 
 
@@ -220,6 +263,7 @@ def _fan_memo_key(
     round_wind: int,
     seat_wind: int,
     flower_count: int,
+    single_wait: bool,
 ) -> Tuple:
     return (
         counts_key(concealed),
@@ -231,6 +275,7 @@ def _fan_memo_key(
         round_wind,
         seat_wind,
         flower_count,
+        single_wait,
     )
 
 
@@ -241,6 +286,7 @@ def hypothetical_fan(
     win_tile: int,
     win_type: str,
     juezhang: bool = False,
+    single_wait: bool = False,
 ) -> int:
     """返回够 minFan 的非花番分，否则 0。"""
     if ctx.scorer is None:
@@ -259,6 +305,7 @@ def hypothetical_fan(
             ctx.round_wind,
             ctx.seat_wind,
             ctx.flower_count,
+            single_wait,
         )
         cached = memo.get(memo_key)
         if cached is not None:
@@ -267,16 +314,15 @@ def hypothetical_fan(
     hand_tiles: List[int] = []
     for tid, c in concealed.items():
         hand_tiles.extend([tid] * c)
-    way = build_way(win_type, ctx, wall, juezhang)
+    way = build_way(win_type, ctx, wall, juezhang, single_wait=single_wait)
     # Fresh combos copy: scorer/hepai historically mutated combination_list.
     combos_arg = list(combos)
     try:
-        # 与 action_check.check_hepai 对齐：
-        # 自摸：hand 不含和牌，get_tile=和牌；点和：hand 含和牌。
-        if win_type == "tsumo":
-            score, fans = ctx.scorer(hand_tiles, combos_arg, way, win_tile)
-        else:
-            score, fans = ctx.scorer(hand_tiles + [win_tile], combos_arg, way, win_tile)
+        # Chinese_Hepai_Check 要求完整 14 张（含和牌）才会走一般型/七对等拆解；
+        # 传 13 张时自摸路径恒为 (0,[])，会把「仅不求人够 8 番」的合法听打成假听。
+        # 与 action_check.check_hepai 一致：荣和/自摸均 hand=13+和牌；自摸 vs 点和只靠 way。
+        # （OMC getGuobiaoFanScore 同样始终 hand=[...concealed, winTile]。）
+        score, fans = ctx.scorer(hand_tiles + [win_tile], combos_arg, way, win_tile)
     except Exception:
         return 0
     value = _non_flower_fan(score, fans, ctx.flower_count)
@@ -293,7 +339,9 @@ def analyze_live_waits(
     combos: List[str],
     n_melds: int,
 ) -> Dict[str, float]:
-    waits = effective_tiles(remaining, n_melds)
+    waits = tenpai_wait_tiles(remaining, combos, n_melds)
+    # 结构听种唯一 → 和单张（边嵌吊）；必须与 action_check.waiting_tiles 同源
+    single_wait = len(waits) == 1
     max_fan = 0
     qualifying = 0.0
     ron_ukeire = 0.0
@@ -305,8 +353,12 @@ def analyze_live_waits(
             continue
         visible_outside = ctx.visible.get(w, 0) - remaining.get(w, 0)
         juezhang = visible_outside == 3
-        ron = hypothetical_fan(ctx, remaining, combos, w, "ron", juezhang)
-        tsumo = hypothetical_fan(ctx, remaining, combos, w, "tsumo", juezhang)
+        ron = hypothetical_fan(
+            ctx, remaining, combos, w, "ron", juezhang, single_wait=single_wait
+        )
+        tsumo = hypothetical_fan(
+            ctx, remaining, combos, w, "tsumo", juezhang, single_wait=single_wait
+        )
         v = max(ron, tsumo)
         if v > max_fan:
             max_fan = v
@@ -358,7 +410,8 @@ def qualifying_wait_weight(
     combos: List[str],
     n_melds: int,
 ) -> float:
-    waits = effective_tiles(remaining, n_melds)
+    waits = tenpai_wait_tiles(remaining, combos, n_melds)
+    single_wait = len(waits) == 1
     best = 0.0
     for w in waits:
         live = max(0, 4 - ctx.visible.get(w, remaining.get(w, 0)))
@@ -366,9 +419,19 @@ def qualifying_wait_weight(
             continue
         visible_outside = ctx.visible.get(w, 0) - remaining.get(w, 0)
         juezhang = visible_outside == 3
-        if hypothetical_fan(ctx, remaining, combos, w, "ron", juezhang) >= ctx.min_fan:
+        if (
+            hypothetical_fan(
+                ctx, remaining, combos, w, "ron", juezhang, single_wait=single_wait
+            )
+            >= ctx.min_fan
+        ):
             return 1.0
-        if hypothetical_fan(ctx, remaining, combos, w, "tsumo", juezhang) >= ctx.min_fan:
+        if (
+            hypothetical_fan(
+                ctx, remaining, combos, w, "tsumo", juezhang, single_wait=single_wait
+            )
+            >= ctx.min_fan
+        ):
             best = TSUMO_ONLY_UKEIRE_WEIGHT
     return best
 
@@ -631,10 +694,15 @@ def evaluate_claim(
             ukeire = waits["qualifying_ukeire"]
         best_remaining = remaining
     else:
+        # 鸣后必切：用完整 analyze_live_waits 字段走 is_better_discard
+        #（含 ron_ukeire / L-D 仅自摸种 / L-H 可荣种），与主切牌路径一致。
         near_exhaust = ctx.wall_left < NEAR_EXHAUST_WALL
         shanten_after = 99
         ukeire = -1.0
         max_fan = -1
+        best_ron_ukeire = -1.0
+        best_tsumo_only = 0
+        best_ron_kinds = 0
         best_remaining = remaining
         for tid in list(remaining.keys()):
             if remaining.get(tid, 0) <= 0:
@@ -645,20 +713,39 @@ def evaluate_claim(
                 continue
             u = float(live_copies(effective_tiles(after_disc, n_after), after_disc, ctx.visible))
             fan = 0
+            ron_u = 0.0
+            tsumo_only = 0
+            ron_kinds = 0
             if s == 0:
                 waits = analyze_live_waits(ctx, after_disc, combos_after, n_after)
                 fan = int(waits["max_fan"])
                 u = waits["qualifying_ukeire"]
-            cand = DiscardScore(shanten=s, max_wait_fan=fan, ukeire=u)
+                ron_u = waits["ron_ukeire"]
+                tsumo_only = int(waits["tsumo_only_kinds"])
+                ron_kinds = int(waits["ron_wait_kinds"])
+            cand = DiscardScore(
+                shanten=s,
+                max_wait_fan=fan,
+                ukeire=u,
+                ron_ukeire=ron_u,
+                tsumo_only_kinds=tsumo_only,
+                ron_wait_kinds=ron_kinds,
+            )
             best = DiscardScore(
                 shanten=shanten_after if shanten_after < 99 else 8,
                 max_wait_fan=max(0, max_fan),
                 ukeire=max(0.0, ukeire),
+                ron_ukeire=max(0.0, best_ron_ukeire),
+                tsumo_only_kinds=best_tsumo_only,
+                ron_wait_kinds=best_ron_kinds,
             )
             if shanten_after >= 99 or is_better_discard(cand, best, near_exhaust):
                 shanten_after = s
                 ukeire = u
                 max_fan = fan
+                best_ron_ukeire = ron_u
+                best_tsumo_only = tsumo_only
+                best_ron_kinds = ron_kinds
                 best_remaining = after_disc
 
     value_honour_pon = (
@@ -672,8 +759,9 @@ def evaluate_claim(
         else shanten_after < shanten_before
     )
 
+    # 仅明顺/明刻/明杠算已副露；暗杠 G 仍门清（对齐 OMC open meld 判定）
     was_closed = not any(
-        c and c[0] in ("s", "k", "g") for c in ctx.combination_tiles
+        c and c[0] in ("s", "S", "k", "K", "g") for c in ctx.combination_tiles
     )
     if (
         not advances
@@ -703,6 +791,17 @@ def evaluate_claim(
             ctx, best_remaining, combos_after, n_after
         )
         if after_u <= before_u:
+            return None
+        ukeire = after_u
+
+    # 推进到一向听但一摸无法进合法听 = 死一向听陷阱。
+    # 弃牌侧已有死形→二向听逃逸；鸣牌若仍跳进死形，会提前锁薄听/耗壁。
+    # （OMC 弃牌死形逃逸同源；鸣牌侧补同构闸，避免「向听好看、合法进张为零」。）
+    if shanten_after == 1:
+        after_u = qualifying_tenpai_ukeire_one_draw(
+            ctx, best_remaining, combos_after, n_after
+        )
+        if after_u <= 0:
             return None
         ukeire = after_u
 
@@ -836,6 +935,104 @@ def choose_claim(
     return best.action if best else "pass"
 
 
+def _winning_after_counts(
+    ctx: HeuristicContext,
+    remaining: Counts,
+    combos: List[str],
+    n_melds: int,
+) -> Tuple[int, float]:
+    """返回 (winning_shanten, qualifying_ukeire)。"""
+    s = guobiao_shanten(remaining, n_melds)
+    if s != 0:
+        return s, 0.0
+    waits = analyze_live_waits(ctx, remaining, combos, n_melds)
+    max_fan = int(waits["max_fan"])
+    ukeire = float(waits["qualifying_ukeire"])
+    if max_fan == 0:
+        return 1, ukeire
+    return 0, ukeire
+
+
+def choose_closed_kan(
+    ctx: HeuristicContext,
+    *,
+    allow_angang: bool,
+    allow_jiagang: bool,
+    baseline_discard: Optional[int] = None,
+) -> Optional[Tuple[str, int]]:
+    """暗杠/加杠：对齐 OMC —— 相对最优切不恶化 winningShanten，不削合法听进张。
+
+    返回 ("angang"|"jiagang", tile_id) 或 None（应切牌）。
+    若已算过最优切，传入 baseline_discard 避免重复 choose_best_discard。
+    """
+    if not allow_angang and not allow_jiagang:
+        return None
+    hand = [
+        normalize_tile(t)
+        for t in ctx.hand
+        if normalize_tile(t) <= 47 and normalize_tile(t) // 10 != 5
+    ]
+    if not hand:
+        return None
+
+    best_disc = baseline_discard if baseline_discard is not None else choose_best_discard(ctx)
+    if best_disc is None:
+        return None
+    base_score = score_discard(ctx, best_disc)
+    baseline_winning = winning_shanten(base_score)
+    baseline_ukeire = base_score.ukeire if baseline_winning == 0 else -1.0
+    baseline_raw = base_score.shanten
+
+    hand_counts = counts_from_tiles(hand)
+    n_melds = _meld_count(ctx.combination_tiles)
+    combos = list(ctx.combination_tiles)
+
+    if allow_angang:
+        for tid, cnt in list(hand_counts.items()):
+            if cnt < 4:
+                continue
+            after = dict(hand_counts)
+            del after[tid]
+            combos_after = combos + [f"G{tid}"]
+            after_winning, after_ukeire = _winning_after_counts(
+                ctx, after, combos_after, n_melds + 1
+            )
+            after_raw = guobiao_shanten(after, n_melds + 1)
+            if after_winning > baseline_winning:
+                continue
+            if baseline_winning == 0 and after_winning == 0 and after_ukeire < baseline_ukeire:
+                continue
+            if baseline_winning > 0 and after_raw > baseline_raw:
+                continue
+            return ("angang", tid)
+
+    if allow_jiagang:
+        for c in combos:
+            if not c or c[0] != "k":
+                continue
+            try:
+                ktile = normalize_tile(int(c[1:]))
+            except ValueError:
+                continue
+            if hand_counts.get(ktile, 0) <= 0:
+                continue
+            after = remove_tile(hand_counts, ktile)
+            combos_after = [f"g{ktile}" if x == c else x for x in combos]
+            after_winning, after_ukeire = _winning_after_counts(
+                ctx, after, combos_after, n_melds
+            )
+            after_raw = guobiao_shanten(after, n_melds)
+            if after_winning > baseline_winning:
+                continue
+            if baseline_winning == 0 and after_winning == 0 and after_ukeire < baseline_ukeire:
+                continue
+            if baseline_winning > 0 and after_raw > baseline_raw:
+                continue
+            return ("jiagang", ktile)
+
+    return None
+
+
 def count_visible_from_game(game_state, player_index: int) -> Counts:
     """从对局状态统计可见牌（含自己手牌）。"""
     visible: Counts = {}
@@ -892,8 +1089,13 @@ def make_default_scorer() -> FanScorer:
     _SHARED_CHECKER = checker
 
     def score(hand, combos, way, get_tile):
-        s, fans = checker.hepai_check(list(hand), list(combos), list(way), get_tile)
-        return checker.filter_zero_value_fans(s, fans)
+        # hepai_decompose 对每个拆解拷贝 way，避免 fan_count 的暗转明/门风圈风
+        # 就地改写串到后续拆解；取最高番（与 hepai_check 的 max 语义一致）。
+        results = checker.hepai_decompose(list(hand), list(combos), list(way), get_tile)
+        if not results:
+            return 0, []
+        best = results[0]
+        return checker.filter_zero_value_fans(best["score"], best["fan_list"])
 
     _SHARED_SCORER = score
     return score

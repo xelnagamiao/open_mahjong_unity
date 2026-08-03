@@ -281,7 +281,9 @@ class Chinese_Hepai_Check:
         allow_list = []
         if check_done_list:
             for i in check_done_list:
-                allow_list.append(self.fan_count(i,get_tile,way_to_hepai))
+                # 每拆解拷贝 way：fan_count 会就地 append 暗转明/门风圈风相同，
+                # 共享 list 会污染后续拆解的取 max。
+                allow_list.append(self.fan_count(i, get_tile, list(way_to_hepai)))
 
         fancount_time_end = time()
         logger.debug(f"番种计算耗时：{fancount_time_end - fancount_time_start}秒")
@@ -793,11 +795,11 @@ class Chinese_Hepai_Check:
                             if i in suit_list[2]:
                                 player_tiles.fan_list.append("sansesantongshun") # 三色三同顺
                                 break
-                    # 三色三步高判断
+                    # 三色三步高判断（连步 step=1 + 隔步 step=2，对齐国标/OMC）
                     for i in suit_list[0]:
                         i = int(i)
                         self.debug_print(i)
-                        # 如果[i,i+1,i+2 或者 i,i+1,i-1] 则三色三步高
+                        # 连步：起始相差 1（i,i±1,i±2 及色序置换）
                         if str(i+1) in suit_list[1]:
                             if str(i+2) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
@@ -805,7 +807,6 @@ class Chinese_Hepai_Check:
                             if str(i-1) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
-                        # 如果[i,i-1,i-2 或者 i,i-1,i+1] 则三色三步高
                         if str(i-1) in suit_list[1]:
                             if str(i-2) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
@@ -813,7 +814,6 @@ class Chinese_Hepai_Check:
                             if str(i+1) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
-                        # 如果[i,i+1,i+2 或者 i,i+1,i-1] 则三色三步高
                         if str(i+1) in suit_list[2]:
                             if str(i+2) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
@@ -821,12 +821,40 @@ class Chinese_Hepai_Check:
                             if str(i-1) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
-                        # 如果[i,i-1,i-2 或者 i,i-1,i+1] 则三色三步高
                         if str(i-1) in suit_list[2]:
                             if str(i-2) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
                             if str(i+1) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        # 隔步：起始相差 2（i,i±2,i±4 及色序置换）
+                        if str(i+2) in suit_list[1]:
+                            if str(i+4) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i-2) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        if str(i-2) in suit_list[1]:
+                            if str(i-4) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i+2) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        if str(i+2) in suit_list[2]:
+                            if str(i+4) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i-2) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        if str(i-2) in suit_list[2]:
+                            if str(i-4) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i+2) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
 

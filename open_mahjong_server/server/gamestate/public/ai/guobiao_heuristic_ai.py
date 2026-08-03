@@ -15,9 +15,14 @@ import time
 
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
 from .get_action import get_ai_action
-from .guobiao_heuristic_logic import choose_best_discard, choose_claim, context_from_game
-from .guobiao_shanten import counts_from_tiles as _cft, guobiao_shanten as _gs, normalize_tile
-from .smart_bot_logic import count_melds, should_accept_hu
+from .guobiao_heuristic_logic import (
+    choose_best_discard,
+    choose_claim,
+    choose_closed_kan,
+    context_from_game,
+)
+from .guobiao_shanten import normalize_tile
+from .smart_bot_logic import should_accept_hu
 
 logger = logging.getLogger(__name__)
 
@@ -125,41 +130,28 @@ async def _handle_hand_action(game_state, player_index, action_list, player, *, 
 
     ctx = context_from_game(game_state, player_index)
     hand = [normalize_tile(t) for t in player.hand_tiles]
-    combs = list(getattr(player, "combination_tiles", []))
-    meld_count = count_melds(combs)
-    base_shanten = _gs(_cft(hand), meld_count)
 
-    # 暗杠 / 加杠：不恶化 winningShanten（合法听不削进张 —— 简化：向听不变差）
-    if "angang" in action_list:
-        for tile in set(hand):
-            if hand.count(tile) >= 4:
-                test = [t for t in hand if t != tile]
-                after = _gs(_cft(test), meld_count + 1)
-                if after <= base_shanten:
-                    logger.info(f"高性能罗伯特 {player_index} 选择 angang tile={tile}")
-                    await _submit("angang", gang_tile=tile)
-                    return
-
-    if "jiagang" in action_list or "buzhang" in action_list:
-        for c in combs:
-            if not c.startswith("k"):
-                continue
-            try:
-                ktile = normalize_tile(int(c[1:]))
-            except ValueError:
-                continue
-            if ktile in hand:
-                test = hand[:]
-                test.remove(ktile)
-                after = _gs(_cft(test), meld_count)
-                if after <= base_shanten:
-                    action = "jiagang" if "jiagang" in action_list else "buzhang"
-                    logger.info(f"高性能罗伯特 {player_index} 选择 {action} tile={ktile}")
-                    await _submit(action, gang_tile=ktile)
-                    return
+    # 先算最优切作基线；暗杠/加杠仅在不恶化 winningShanten、不削合法听进张时取
+    best_disc = choose_best_discard(ctx) if ("cut" in action_list and hand) else None
+    kan = choose_closed_kan(
+        ctx,
+        allow_angang="angang" in action_list,
+        allow_jiagang=("jiagang" in action_list or "buzhang" in action_list),
+        baseline_discard=best_disc,
+    )
+    if kan is not None:
+        kind, tile = kan
+        if kind == "angang":
+            logger.info(f"高性能罗伯特 {player_index} 选择 angang tile={tile}")
+            await _submit("angang", gang_tile=tile)
+            return
+        action = "jiagang" if "jiagang" in action_list else "buzhang"
+        logger.info(f"高性能罗伯特 {player_index} 选择 {action} tile={tile}")
+        await _submit(action, gang_tile=tile)
+        return
 
     if "cut" in action_list and hand:
-        tile_id = choose_best_discard(ctx)
+        tile_id = best_disc if best_disc is not None else choose_best_discard(ctx)
         if tile_id is None:
             tile_id = hand[-1]
         cut_index = player.hand_tiles.index(tile_id) if tile_id in player.hand_tiles else 0

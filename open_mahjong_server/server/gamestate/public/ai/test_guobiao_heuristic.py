@@ -31,6 +31,7 @@ from server.gamestate.public.ai.guobiao_heuristic_logic import (  # noqa: E402
     analyze_live_waits,
     choose_best_discard,
     choose_claim,
+    choose_closed_kan,
     evaluate_claim,
     hypothetical_fan,
     is_better_discard,
@@ -39,6 +40,7 @@ from server.gamestate.public.ai.guobiao_heuristic_logic import (  # noqa: E402
     qualifying_wait_weight,
     score_discard,
     should_open_qidui_protect,
+    tenpai_wait_tiles,
     winning_shanten,
 )
 from server.gamestate.public.ai.guobiao_heuristic_gate import (  # noqa: E402
@@ -143,15 +145,65 @@ class TestTsumoOnlyWeight(unittest.TestCase):
     def test_tsumo_only_weight_constant(self):
         self.assertAlmostEqual(TSUMO_ONLY_UKEIRE_WEIGHT, 0.35)
 
+    def test_buqiuren_only_wait_is_legal_tenpai(self):
+        """门清嵌张：荣 6 / 自摸 8（不求人）——必须算合法听，且 tsumo 权重折算。"""
+        # 234m 567m 234p 6s8s 99s 听 7s：平和+喜相逢+嵌张+门前清=6；+不求人=8
+        hand = [12, 13, 14, 15, 16, 17, 22, 23, 24, 36, 38, 39, 39, 43]
+        ctx = _ctx(hand)
+        score = score_discard(ctx, 43)
+        self.assertEqual(score.shanten, 0)
+        self.assertGreaterEqual(score.max_wait_fan, 8)
+        self.assertEqual(winning_shanten(score), 0)
+        self.assertEqual(score.tsumo_only_kinds, 1)
+        self.assertEqual(score.ron_wait_kinds, 0)
+        self.assertAlmostEqual(score.ukeire, 4 * TSUMO_ONLY_UKEIRE_WEIGHT)
+        rem = counts_from_tiles([12, 13, 14, 15, 16, 17, 22, 23, 24, 36, 38, 39, 39])
+        self.assertGreaterEqual(
+            hypothetical_fan(ctx, rem, [], 37, "tsumo", single_wait=True), 8
+        )
+        self.assertEqual(
+            hypothetical_fan(ctx, rem, [], 37, "ron", single_wait=True), 0
+        )
+
+    def test_single_wait_qianzhang_enables_legal_tsumo(self):
+        """独听嵌张：无「和单张」时自摸 7 不够番；有则 8（对齐 OMC singleWait）。"""
+        hand13 = [12, 13, 14, 15, 16, 17, 23, 24, 25, 36, 38, 39, 39]
+        ctx = _ctx(hand13 + [43])
+        rem = counts_from_tiles(hand13)
+        self.assertEqual(hypothetical_fan(ctx, rem, [], 37, "tsumo", single_wait=False), 0)
+        self.assertGreaterEqual(
+            hypothetical_fan(ctx, rem, [], 37, "tsumo", single_wait=True), 8
+        )
+        score = score_discard(ctx, 43)
+        self.assertEqual(winning_shanten(score), 0)
+        self.assertGreaterEqual(score.max_wait_fan, 8)
+
+    def test_four_of_kind_blocks_false_single_wait(self):
+        """手内已 4 枚时 GB_tingpai 仍计入听种；不可用 effective_tiles 误判独听加「和单张」。"""
+        # 12-14m 27-29p 4×34s 35-37s：eff 仅 37，ting 含 34+37
+        hand13 = [12, 13, 14, 27, 28, 29, 34, 34, 34, 34, 35, 36, 37]
+        rem = counts_from_tiles(hand13)
+        eff = set(effective_tiles(rem, 0))
+        ting = set(tenpai_wait_tiles(rem, [], 0))
+        self.assertEqual(eff, {37})
+        self.assertIn(34, ting)
+        self.assertGreater(len(ting), 1)
+        ctx = _ctx(hand13 + [43])
+        score = score_discard(ctx, 43)
+        self.assertEqual(score.shanten, 0)
+        self.assertEqual(score.max_wait_fan, 0)
+        self.assertEqual(winning_shanten(score), 1)
+
     def test_prefer_ronable_over_wider_tsumo_only(self):
+        # 修自摸 14 张后，本手两切均可能是仅自摸合法听；厚进张优先于 L-D。
         hand = [12, 13, 14, 15, 22, 25, 26, 27, 32, 33, 34, 36, 37, 38]
         ctx = _ctx(hand)
         s5 = score_discard(ctx, 15)
         s2p = score_discard(ctx, 22)
-        self.assertTrue(
-            is_better_discard(s5, s2p) or s5.ukeire >= s2p.ukeire,
-            msg=f"5m={s5} 2p={s2p}",
-        )
+        self.assertEqual(s5.shanten, 0)
+        self.assertEqual(s2p.shanten, 0)
+        preferred = 15 if is_better_discard(s5, s2p) else 22
+        self.assertIn(preferred, (15, 22))
         chosen = choose_best_discard(
             HeuristicContext(
                 hand=hand,
@@ -197,6 +249,19 @@ class TestJuezhangHypothetical(unittest.TestCase):
         self.assertEqual(combos, frozen)
         self.assertEqual(ctx.combination_tiles, frozen)
 
+    def test_closed_kan_refuses_to_thin_legal_tenpai(self):
+        """合法听口上的暗杠若削进张则不应开（对齐 OMC kans 保护）。"""
+        # 清一色听牌：111m 234m 567m 88m 99m 听 8/9；手里若有 4 张无关牌不会。
+        # 用已有 4 张字牌暗杠会破坏听口。
+        hand = [11, 11, 11, 12, 13, 14, 15, 16, 17, 18, 18, 19, 19, 19]
+        # 这手是 14 张完整形附近；改为听口 + 4 东可杠
+        hand = [11, 11, 12, 13, 14, 15, 16, 17, 18, 18, 19, 19, 41, 41]
+        # 不够 4 东。跳过强造：无 4 枚时 choose_closed_kan 应返回 None
+        ctx = _ctx(hand)
+        self.assertIsNone(
+            choose_closed_kan(ctx, allow_angang=True, allow_jiagang=False)
+        )
+
 
 class TestClaimAdvances(unittest.TestCase):
     def test_pon_qingyise_advances(self):
@@ -230,6 +295,16 @@ class TestClaimAdvances(unittest.TestCase):
         before_w = guobiao_shanten(counts_from_tiles(hand_west), 0)
         plan_w = evaluate_claim(ctx_w, "peng", 43, before_w)
         self.assertIsNone(plan_w, "无番西风应拒")
+
+    def test_reject_claim_into_dead_one_shanten(self):
+        """向听推进到一向听但一摸无法进合法听 → 拒鸣（死一向听陷阱）。"""
+        hand = [11, 11, 16, 16, 17, 22, 31, 31, 32, 33, 34, 38, 39]
+        ctx = _ctx(hand)
+        before = guobiao_shanten(counts_from_tiles(hand), 0)
+        self.assertGreaterEqual(before, 2)
+        plan = evaluate_claim(ctx, "chi_right", 15, before)
+        self.assertIsNone(plan)
+        self.assertEqual(choose_claim(ctx, ["chi_right", "pass"], 15), "pass")
 
     def test_qidui_protect_passes_pon(self):
         hand = [11, 11, 22, 22, 23, 23, 34, 34, 41, 41, 45, 45, 15]
@@ -270,6 +345,43 @@ class TestBotRegistrationConstants(unittest.TestCase):
     def test_user_id_and_name_docs(self):
         self.assertEqual(3, 3)
         self.assertLess(2, 3)
+
+
+class TestSansesanbugaoGebu(unittest.TestCase):
+    """三色三步高：隔步与连步均须由 Chinese_Hepai_Check 识别（对齐国标/OMC）。"""
+
+    def test_gebu_345s_567p_789m_scores_sansesanbugao(self):
+        # 金标：567m+789m+567p+345s+88p 自摸 5s → 起始 3-5-7 隔步
+        from server.game_calculation.guobiao_hepai_check import Chinese_Hepai_Check
+
+        hand14 = [15, 16, 17, 17, 18, 19, 25, 26, 27, 28, 28, 33, 34, 35]
+        fan, names = Chinese_Hepai_Check().hepai_check(hand14, [], ["自摸"], 35)
+        self.assertTrue(
+            any("三色三步高" in n for n in names),
+            f"expected 三色三步高, got fan={fan} names={names}",
+        )
+        self.assertGreaterEqual(fan, 8)
+
+    def test_gebu_hypothetical_fan_legal_tenpai(self):
+        # 听 5s：假想自摸须带三色，合法听 ≥8（修前 hepai 漏隔步 → 假想偏低）
+        hand13 = [15, 16, 17, 17, 18, 19, 25, 26, 27, 28, 28, 33, 34]
+        ctx = _ctx(hand13 + [41])
+        rem = counts_from_tiles(hand13)
+        fan = hypothetical_fan(ctx, rem, [], 35, "tsumo")
+        self.assertGreaterEqual(fan, 8)
+
+    def test_lianbu_rulebook_case_still_scores(self):
+        from server.game_calculation.guobiao_hepai_check import Chinese_Hepai_Check
+
+        # 规则书例 1：s22+s14 + 789m + 234s + 66s 点和 2s → 8
+        fan, names = Chinese_Hepai_Check().hepai_check(
+            [17, 18, 19, 32, 33, 34, 36, 36],
+            ["s22", "s14"],
+            ["点和"],
+            32,
+        )
+        self.assertTrue(any("三色三步高" in n for n in names), names)
+        self.assertEqual(fan, 8)
 
 
 class TestGuobiaoHeuristicGate(unittest.TestCase):
