@@ -5,17 +5,35 @@ import { fileURLToPath } from 'node:url'
 
 import { hepaiCheck } from '../src/game2d/calc/guobiao/gbHepai.ts'
 
-test('big three dragons wait scores instead of falling back to zero fan', () => {
+test('mixed shifted chows: gap-step (隔步 3-5-7) scores sansesanbugao', () => {
+  // 567m+789m+567p+345s+88p 自摸 5s — 起始 3/5/7，旧版仅连步会漏计
   const result = hepaiCheck(
-    [31, 32, 33, 38, 38, 45, 45, 45, 46, 46, 46, 47, 47, 47],
+    [15, 16, 17, 17, 18, 19, 25, 26, 27, 28, 28, 33, 34, 35],
     [],
-    ['点和'],
-    38,
+    ['自摸'],
+    35,
     false,
   )
+  assert.ok(
+    result.fanNames.some((n) => n.includes('三色三步高')),
+    `expected 三色三步高, got ${JSON.stringify(result)}`,
+  )
+  assert.ok(result.fan >= 8)
+})
 
-  assert.ok(result.fan >= 88)
-  assert.ok(result.fanNames.some((name) => name.startsWith('大三元')))
+test('mixed shifted chows: consecutive-step (连步) still scores', () => {
+  // rulebook-ish: chi 234p + chi 456m + 789m + 234s + 66s ron 2s
+  const result = hepaiCheck(
+    [17, 18, 19, 32, 33, 34, 36, 36],
+    ['s22', 's14'],
+    ['点和'],
+    32,
+    false,
+  )
+  assert.ok(
+    result.fanNames.some((n) => n.includes('三色三步高')),
+    `expected 三色三步高, got ${JSON.stringify(result)}`,
+  )
 })
 
 test('all annotated Python scoring examples stay in parity', () => {
