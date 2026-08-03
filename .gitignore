@@ -74,3 +74,6 @@ open_mahjong_web/.env.*.local
 # 已废弃的部署暂存目录（误提交过，勿再使用）
 .deploy_staging/
 
+# Local verification/build artifacts
+/tmp/
+
