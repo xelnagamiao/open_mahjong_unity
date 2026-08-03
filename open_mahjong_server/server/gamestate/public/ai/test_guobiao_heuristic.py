@@ -185,6 +185,18 @@ class TestJuezhangHypothetical(unittest.TestCase):
         fan_no = hypothetical_fan(ctx, counts, [], 45, "ron", juezhang=False)
         self.assertGreaterEqual(fan, fan_no)
 
+    def test_hypothetical_fan_does_not_mutate_combos(self):
+        """暗转明 must not rewrite caller's combination_tiles / shared combo list."""
+        hand = [11, 12, 13, 24, 25, 26, 37, 38, 39, 41, 41, 45]
+        counts = counts_from_tiles(hand)
+        combos = ["G47"]  # ankan 白 — fan_count may try 暗转明 on ron
+        frozen = list(combos)
+        ctx = _ctx(hand, combos=combos, seat_wind=1)
+        _ = hypothetical_fan(ctx, counts, combos, 45, "ron", juezhang=False)
+        _ = hypothetical_fan(ctx, counts, combos, 45, "tsumo", juezhang=False)
+        self.assertEqual(combos, frozen)
+        self.assertEqual(ctx.combination_tiles, frozen)
+
 
 class TestClaimAdvances(unittest.TestCase):
     def test_pon_qingyise_advances(self):

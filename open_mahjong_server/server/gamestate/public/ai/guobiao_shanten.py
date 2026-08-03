@@ -11,7 +11,7 @@ Copyright (c) Satoshi Kobayashi. Licensed under the MIT License.
 """
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 # ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -161,33 +161,84 @@ def _mianzi_suit(bingpai: List[int], n: int = 1) -> Tuple[List[int], List[int]]:
     return max_a, max_b
 
 
-def _mianzi_all(m: List[int], p: List[int], s: List[int], z: List[int],
-                n_fulou: int, has_jiang: bool) -> int:
-    rm = _mianzi_suit(m[:])
-    rp = _mianzi_suit(p[:])
-    rs = _mianzi_suit(s[:])
+SuitSides = Tuple[Tuple[int, int, int], Tuple[int, int, int]]
 
-    zz = [0, 0, 0]
+_SUIT_CACHE: Dict[int, SuitSides] = {}
+
+
+def _pack_suit9(arr: Sequence[int]) -> int:
+    """数牌 1–9 各 3 bit。"""
+    return (
+        (arr[1] & 7)
+        | ((arr[2] & 7) << 3)
+        | ((arr[3] & 7) << 6)
+        | ((arr[4] & 7) << 9)
+        | ((arr[5] & 7) << 12)
+        | ((arr[6] & 7) << 15)
+        | ((arr[7] & 7) << 18)
+        | ((arr[8] & 7) << 21)
+        | ((arr[9] & 7) << 24)
+    )
+
+
+def _mianzi_suit_cached(arr: List[int]) -> SuitSides:
+    key = _pack_suit9(arr)
+    hit = _SUIT_CACHE.get(key)
+    if hit is not None:
+        return hit
+    a, b = _mianzi_suit(arr[:], 1)
+    result: SuitSides = ((a[0], a[1], a[2]), (b[0], b[1], b[2]))
+    _SUIT_CACHE[key] = result
+    return result
+
+
+def _honour_triple(z: Sequence[int]) -> Tuple[int, int, int]:
+    mianzi = dazi = guli = 0
     for n in range(1, 8):
         c = z[n]
         if c >= 3:
-            zz[0] += 1
+            mianzi += 1
         elif c == 2:
-            zz[1] += 1
+            dazi += 1
         elif c == 1:
-            zz[2] += 1
+            guli += 1
+    return mianzi, dazi, guli
 
+
+def _xiangting_from_sides(
+    rm: SuitSides,
+    rp: SuitSides,
+    rs: SuitSides,
+    zz: Tuple[int, int, int],
+    n_fulou: int,
+    has_jiang: bool,
+) -> int:
     best = 13
+    z0, z1, z2 = zz
     for m_side in rm:
         for p_side in rp:
             for s_side in rs:
-                x = [n_fulou, 0, 0]
-                for i in range(3):
-                    x[i] += m_side[i] + p_side[i] + s_side[i] + zz[i]
-                cand = _xiangting_core(x[0], x[1], x[2], has_jiang)
+                cand = _xiangting_core(
+                    n_fulou + m_side[0] + p_side[0] + s_side[0] + z0,
+                    m_side[1] + p_side[1] + s_side[1] + z1,
+                    m_side[2] + p_side[2] + s_side[2] + z2,
+                    has_jiang,
+                )
                 if cand < best:
                     best = cand
     return best
+
+
+def _mianzi_all(m: List[int], p: List[int], s: List[int], z: List[int],
+                n_fulou: int, has_jiang: bool) -> int:
+    return _xiangting_from_sides(
+        _mianzi_suit_cached(m),
+        _mianzi_suit_cached(p),
+        _mianzi_suit_cached(s),
+        _honour_triple(z),
+        n_fulou,
+        has_jiang,
+    )
 
 
 def _counts_to_bingpai(counts: Counts) -> Tuple[List[int], List[int], List[int], List[int]]:
@@ -212,20 +263,86 @@ def _counts_to_bingpai(counts: Counts) -> Tuple[List[int], List[int], List[int],
     return m, p, s, z
 
 
-def xiangting_yiban(counts: Counts, n_melds: int = 0) -> int:
-    m, p, s, z = _counts_to_bingpai(counts)
-    working = (m[:], p[:], s[:], z[:])
-    best = _mianzi_all(*working, n_melds, False)
+_SHANTEN_CACHE: Dict[Tuple[bytes, int, int], int] = {}
+_YIBAN_CACHE: Dict[Tuple[bytes, int], int] = {}
+_EFF_CACHE: Dict[Tuple[bytes, int, int], Tuple[int, ...]] = {}
 
-    for suit_i, arr in enumerate(working):
-        max_n = 7 if suit_i == 3 else _suited_max_rank(arr)
-        for n in range(1, max_n + 1):
-            if arr[n] >= 2:
-                arr[n] -= 2
-                cand = _mianzi_all(working[0], working[1], working[2], working[3], n_melds, True)
-                arr[n] += 2
-                if cand < best:
-                    best = cand
+_TILE_INDEX: Dict[int, int] = {tid: i for i, tid in enumerate(ALL_TILE_IDS)}
+
+
+def pack_counts(counts: Counts) -> bytes:
+    """34 种牌各 1 字节；只遍历手牌中出现的牌种（比扫全 34 快）。"""
+    out = bytearray(34)
+    for tid, c in counts.items():
+        if c:
+            idx = _TILE_INDEX.get(tid)
+            if idx is not None:
+                out[idx] = c & 7
+    return bytes(out)
+
+
+def pack_adjust(packed: bytes, tid: int, delta: int) -> bytes:
+    """在已有打包键上对单牌 ±1（用于摸/切增量）。"""
+    idx = _TILE_INDEX[tid]
+    ba = bytearray(packed)
+    ba[idx] = ba[idx] + delta
+    return bytes(ba)
+
+
+# 旧名兼容
+_pack_counts = pack_counts
+
+
+def clear_shanten_cache() -> None:
+    _SHANTEN_CACHE.clear()
+    _YIBAN_CACHE.clear()
+    _EFF_CACHE.clear()
+    _SUIT_CACHE.clear()
+
+
+def xiangting_yiban(counts: Counts, n_melds: int = 0, *, packed: Optional[bytes] = None) -> int:
+    if packed is None:
+        packed = pack_counts(counts)
+    key = (packed, n_melds)
+    hit = _YIBAN_CACHE.get(key)
+    if hit is not None:
+        return hit
+    m, p, s, z = _counts_to_bingpai(counts)
+    rm = _mianzi_suit_cached(m)
+    rp = _mianzi_suit_cached(p)
+    rs = _mianzi_suit_cached(s)
+    zz = _honour_triple(z)
+    best = _xiangting_from_sides(rm, rp, rs, zz, n_melds, False)
+
+    # 拆雀头时只重算受影响花色，其余套装 DP 复用
+    for n in range(1, 10):
+        if m[n] >= 2:
+            m[n] -= 2
+            cand = _xiangting_from_sides(_mianzi_suit_cached(m), rp, rs, zz, n_melds, True)
+            m[n] += 2
+            if cand < best:
+                best = cand
+        if p[n] >= 2:
+            p[n] -= 2
+            cand = _xiangting_from_sides(rm, _mianzi_suit_cached(p), rs, zz, n_melds, True)
+            p[n] += 2
+            if cand < best:
+                best = cand
+        if s[n] >= 2:
+            s[n] -= 2
+            cand = _xiangting_from_sides(rm, rp, _mianzi_suit_cached(s), zz, n_melds, True)
+            s[n] += 2
+            if cand < best:
+                best = cand
+    for n in range(1, 8):
+        if z[n] >= 2:
+            z[n] -= 2
+            cand = _xiangting_from_sides(rm, rp, rs, _honour_triple(z), n_melds, True)
+            z[n] += 2
+            if cand < best:
+                best = cand
+
+    _YIBAN_CACHE[key] = best
     return best
 
 
@@ -264,20 +381,24 @@ def shanten_quanbukao(counts: Counts) -> int:
     return best
 
 
-def shanten_zuhelong(counts: Counts, n_melds: int = 0) -> int:
+def shanten_zuhelong(counts: Counts, n_melds: int = 0, upper_bound: int = 99) -> int:
     if n_melds > 1:
         return 99
-    best = 99
+    best = upper_bound
     for pattern in ZUHELONG_PATTERNS:
-        remaining = dict(counts)
         missing = 0
+        for tid in pattern:
+            if counts.get(tid, 0) < 1:
+                missing += 1
+        # rest 最低 -1；missing-1 已无法优于当前 best 则跳过
+        if missing - 1 >= best:
+            continue
+        remaining = dict(counts)
         for tid in pattern:
             if remaining.get(tid, 0) >= 1:
                 remaining[tid] -= 1
                 if remaining[tid] <= 0:
                     del remaining[tid]
-            else:
-                missing += 1
         # remaining 已去掉图案牌；需再凑 1 面子 + 雀头（n_fulou=3+n_melds）
         rest = xiangting_yiban(remaining, 3 + n_melds)
         total = missing + rest
@@ -286,18 +407,38 @@ def shanten_zuhelong(counts: Counts, n_melds: int = 0) -> int:
     return best
 
 
-def guobiao_shanten(counts: Counts, n_melds: int = 0) -> int:
-    """总体向听；已完成和型返回 -1。"""
-    best = xiangting_yiban(counts, n_melds)
-    if n_melds == 0:
+def guobiao_shanten(
+    counts: Counts,
+    n_melds: int = 0,
+    *,
+    specials: bool = True,
+    packed: Optional[bytes] = None,
+) -> int:
+    """总体向听；已完成和型返回 -1。
+
+    结果按 (牌计数, n_melds, specials) 缓存：启发式热路径（effective_tiles / 一向听前瞻）
+    会对数万次重复手形反复求向听。
+
+    specials=False 时跳过七对/国士/全不靠/组合龙，仅用于死一向听重塑厚度等
+    非决胜热路径，避免组合龙 DP 爆炸。
+    """
+    if packed is None:
+        packed = pack_counts(counts)
+    key = (packed, n_melds, 1 if specials else 0)
+    hit = _SHANTEN_CACHE.get(key)
+    if hit is not None:
+        return hit
+    best = xiangting_yiban(counts, n_melds, packed=packed)
+    if specials and best > -1 and n_melds == 0:
         best = min(
             best,
             shanten_qidui(counts),
             shanten_shisanyao(counts),
             shanten_quanbukao(counts),
         )
-    if n_melds <= 1:
-        best = min(best, shanten_zuhelong(counts, n_melds))
+    if specials and best > -1 and n_melds <= 1:
+        best = min(best, shanten_zuhelong(counts, n_melds, upper_bound=best))
+    _SHANTEN_CACHE[key] = best
     return best
 
 
@@ -305,16 +446,75 @@ def guobiao_shanten_from_tiles(tiles: Iterable[int], n_melds: int = 0) -> int:
     return guobiao_shanten(counts_from_tiles(tiles), n_melds)
 
 
-def effective_tiles(counts: Counts, n_melds: int = 0) -> List[int]:
+def _yiban_candidate_tiles(counts: Counts) -> List[int]:
+    """一般型有效进张候选：已有牌 + 数牌邻张（±1/±2）。孤立新牌无法单独降向听。"""
+    cands: Set[int] = set()
+    for tid, c in counts.items():
+        if c <= 0:
+            continue
+        if c < 4:
+            cands.add(tid)
+        suit = tid // 10
+        if suit > 3:
+            continue
+        num = tid % 10
+        for d in (-2, -1, 1, 2):
+            n2 = num + d
+            if 1 <= n2 <= 9:
+                nid = suit * 10 + n2
+                if counts.get(nid, 0) < 4:
+                    cands.add(nid)
+    return list(cands)
+
+
+def _special_candidate_tiles(counts: Counts) -> List[int]:
+    """特殊型可能降向听的牌种（与一般型候选取并）。"""
+    cands: Set[int] = set(_yiban_candidate_tiles(counts))
+    for tid in SHISANYAO_IDS:
+        if counts.get(tid, 0) < 4:
+            cands.add(tid)
+    for tid in HONOUR_IDS:
+        if counts.get(tid, 0) < 4:
+            cands.add(tid)
+    for pattern in ZUHELONG_PATTERNS:
+        for tid in pattern:
+            if counts.get(tid, 0) < 4:
+                cands.add(tid)
+    # 七对：奇数张再摸可成对
+    for tid, c in counts.items():
+        if c > 0 and (c & 1) and c < 4:
+            cands.add(tid)
+    return list(cands)
+
+
+def effective_tiles(
+    counts: Counts,
+    n_melds: int = 0,
+    *,
+    specials: bool = True,
+    packed: Optional[bytes] = None,
+) -> List[int]:
     """有效进张：摸入后向听下降的牌种。"""
-    base = guobiao_shanten(counts, n_melds)
+    if packed is None:
+        packed = pack_counts(counts)
+    ekey = (packed, n_melds, 1 if specials else 0)
+    hit = _EFF_CACHE.get(ekey)
+    if hit is not None:
+        return list(hit)
+
+    base = guobiao_shanten(counts, n_melds, specials=specials, packed=packed)
+    candidates = (
+        _special_candidate_tiles(counts) if specials else _yiban_candidate_tiles(counts)
+    )
     result: List[int] = []
-    for tid in ALL_TILE_IDS:
+    for tid in candidates:
         if counts.get(tid, 0) >= 4:
             continue
         nxt = add_tile(counts, tid)
-        if guobiao_shanten(nxt, n_melds) < base:
+        if guobiao_shanten(nxt, n_melds, specials=specials) < base:
             result.append(tid)
+    result.sort()
+    _EFF_CACHE[ekey] = tuple(result)
     return result
 
 

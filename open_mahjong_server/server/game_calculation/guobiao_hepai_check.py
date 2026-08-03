@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 class PlayerTiles:
     def __init__(self, tiles_list, combination_list,complete_step):
         self.hand_tiles = sorted(tiles_list)
-        self.combination_list = combination_list
+        # Copy: fan_count may mutate combination_list (e.g. 暗转明 G→g / K→k).
+        # Sharing the caller's list poisons later hypothetical-fan / cache keys.
+        self.combination_list = list(combination_list)
         self.initial_combination_count = len(combination_list)
         self.complete_step = complete_step # +3 +3 +3 +3 +2 = 14
         self.fan_list = []
@@ -249,7 +251,7 @@ class Chinese_Hepai_Check:
         player_tiles = PlayerTiles(hand_list,tiles_combination,complete_step)
 
 
-        print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
+        self.debug_print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
         
         player_tiles_list = []
         if len(player_tiles.hand_tiles) == 14:

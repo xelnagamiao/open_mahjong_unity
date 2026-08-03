@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, Hashable, List, Optional, Sequence, Set, Tuple
 
 from .guobiao_shanten import (
     ALL_TILE_IDS,
@@ -30,6 +30,8 @@ from .guobiao_shanten import (
     guobiao_shanten,
     live_copies,
     normalize_tile,
+    pack_adjust,
+    pack_counts,
     remove_tile,
     shanten_qidui,
     xiangting_yiban,
@@ -61,6 +63,13 @@ class HeuristicContext:
     seat_wind: int = 0  # 相对庄：0东 … 3北
     flower_count: int = 0
     scorer: Optional[FanScorer] = None
+    # 假想番缓存：concealed+combos+win_tile+way 相关 → 非花番（未过 min_fan 门闩）
+    fan_memo: Optional[Dict[Tuple, int]] = None
+
+
+def counts_key(counts: Counts) -> bytes:
+    """稳定手牌计数键（bytes 打包，对齐向听缓存键）。"""
+    return pack_counts(counts)
 
 
 @dataclass
@@ -201,6 +210,30 @@ def _non_flower_fan(score: int, fan_list: Sequence[str], flower_count: int) -> i
     return max(0, int(score) - max(0, flower_count))
 
 
+def _fan_memo_key(
+    concealed: Counts,
+    combos: Sequence[str],
+    win_tile: int,
+    win_type: str,
+    juezhang: bool,
+    wall_left: int,
+    round_wind: int,
+    seat_wind: int,
+    flower_count: int,
+) -> Tuple:
+    return (
+        counts_key(concealed),
+        tuple(combos),
+        win_tile,
+        win_type,
+        juezhang,
+        wall_left,
+        round_wind,
+        seat_wind,
+        flower_count,
+    )
+
+
 def hypothetical_fan(
     ctx: HeuristicContext,
     concealed: Counts,
@@ -212,21 +245,43 @@ def hypothetical_fan(
     """返回够 minFan 的非花番分，否则 0。"""
     if ctx.scorer is None:
         return 0
+    wall = ctx.wall_left
+    memo = ctx.fan_memo
+    memo_key = None
+    if memo is not None:
+        memo_key = _fan_memo_key(
+            concealed,
+            combos,
+            win_tile,
+            win_type,
+            juezhang,
+            wall,
+            ctx.round_wind,
+            ctx.seat_wind,
+            ctx.flower_count,
+        )
+        cached = memo.get(memo_key)
+        if cached is not None:
+            return cached if cached >= ctx.min_fan else 0
+
     hand_tiles: List[int] = []
     for tid, c in concealed.items():
         hand_tiles.extend([tid] * c)
-    wall = ctx.wall_left
     way = build_way(win_type, ctx, wall, juezhang)
+    # Fresh combos copy: scorer/hepai historically mutated combination_list.
+    combos_arg = list(combos)
     try:
         # 与 action_check.check_hepai 对齐：
         # 自摸：hand 不含和牌，get_tile=和牌；点和：hand 含和牌。
         if win_type == "tsumo":
-            score, fans = ctx.scorer(hand_tiles, combos, way, win_tile)
+            score, fans = ctx.scorer(hand_tiles, combos_arg, way, win_tile)
         else:
-            score, fans = ctx.scorer(hand_tiles + [win_tile], combos, way, win_tile)
+            score, fans = ctx.scorer(hand_tiles + [win_tile], combos_arg, way, win_tile)
     except Exception:
         return 0
     value = _non_flower_fan(score, fans, ctx.flower_count)
+    if memo is not None and memo_key is not None:
+        memo[memo_key] = value
     if value < ctx.min_fan:
         return 0
     return value
@@ -323,6 +378,8 @@ def qualifying_tenpai_ukeire_one_draw(
     remaining: Counts,
     combos: List[str],
     n_melds: int,
+    qualifies_memo: Optional[Dict[Hashable, float]] = None,
+    shanten_memo: Optional[Dict[Hashable, int]] = None,
 ) -> float:
     structural = guobiao_shanten(remaining, n_melds)
     draw_types = effective_tiles(remaining, n_melds) if structural == 1 else list(ALL_TILE_IDS)
@@ -344,15 +401,30 @@ def qualifying_tenpai_ukeire_one_draw(
             seat_wind=ctx.seat_wind,
             flower_count=ctx.flower_count,
             scorer=ctx.scorer,
+            fan_memo=ctx.fan_memo,
         )
         best_w = 0.0
-        for disc in ALL_TILE_IDS:
-            if after_draw.get(disc, 0) <= 0 or disc == draw:
+        for disc, cnt in after_draw.items():
+            if cnt <= 0 or disc == draw:
                 continue
             after_disc = remove_tile(after_draw, disc)
-            if guobiao_shanten(after_disc, n_melds) != 0:
+            ck = pack_counts(after_disc)
+            if shanten_memo is not None:
+                s = shanten_memo.get(ck)
+                if s is None:
+                    s = guobiao_shanten(after_disc, n_melds)
+                    shanten_memo[ck] = s
+            else:
+                s = guobiao_shanten(after_disc, n_melds)
+            if s != 0:
                 continue
-            w = qualifying_wait_weight(sub_ctx, after_disc, combos, n_melds)
+            qkey: Hashable = (draw, ck)
+            if qualifies_memo is not None and qkey in qualifies_memo:
+                w = qualifies_memo[qkey]
+            else:
+                w = qualifying_wait_weight(sub_ctx, after_disc, combos, n_melds)
+                if qualifies_memo is not None:
+                    qualifies_memo[qkey] = w
             if w > best_w:
                 best_w = w
             if best_w >= 1.0:
@@ -365,27 +437,58 @@ def thick_one_shanten_ukeire_after_one_draw(
     remaining: Counts,
     n_melds: int,
     visible: Counts,
+    shanten_memo: Optional[Dict[Hashable, int]] = None,
 ) -> float:
+    """死一向听重塑：一摸后能摸到多「厚」的一向听。
+
+    必须与主决策相同的完整 guobiao_shanten（含特殊型）。原先 specials=False
+    会在「仅特殊型可进张」的死形上把厚度打成 0，改变逃逸排序。
+    就地 ±1 + 增量 pack 仅作加速，语义与全量枚举一致。
+    """
     total = 0.0
-    for draw in effective_tiles(remaining, n_melds):
+    base_packed = pack_counts(remaining)
+    for draw in effective_tiles(remaining, n_melds, specials=True):
         live = max(0, 4 - visible.get(draw, remaining.get(draw, 0)))
         if live <= 0:
             continue
         after_draw = add_tile(remaining, draw)
+        packed_draw = pack_adjust(base_packed, draw, 1)
         next_vis = dict(visible)
         next_vis[draw] = next_vis.get(draw, remaining.get(draw, 0)) + 1
         best = 0.0
-        for disc in ALL_TILE_IDS:
-            if after_draw.get(disc, 0) <= 0 or disc == draw:
-                continue
-            after_disc = remove_tile(after_draw, disc)
-            s = guobiao_shanten(after_disc, n_melds)
+        # 只扫手里实际有的牌种；增量 pack + 就地 ±1 避免反复 dict/全表打包
+        disc_kinds = [tid for tid, cnt in after_draw.items() if cnt > 0 and tid != draw]
+        for disc in disc_kinds:
+            packed_disc = pack_adjust(packed_draw, disc, -1)
+            memo_ck: Hashable = (1, packed_disc)
+            c_before = after_draw[disc]
+            after_draw[disc] = c_before - 1
+            if after_draw[disc] <= 0:
+                del after_draw[disc]
+            if shanten_memo is not None:
+                s = shanten_memo.get(memo_ck)
+                if s is None:
+                    s = guobiao_shanten(
+                        after_draw, n_melds, specials=True, packed=packed_disc
+                    )
+                    shanten_memo[memo_ck] = s
+            else:
+                s = guobiao_shanten(
+                    after_draw, n_melds, specials=True, packed=packed_disc
+                )
             if s > 1:
+                after_draw[disc] = c_before
                 continue
             if s == 0:
+                after_draw[disc] = c_before
                 best = 24.0
                 break
-            u = live_copies(effective_tiles(after_disc, n_melds), after_disc, next_vis)
+            u = live_copies(
+                effective_tiles(after_draw, n_melds, specials=True, packed=packed_disc),
+                after_draw,
+                next_vis,
+            )
+            after_draw[disc] = c_before
             if u > best:
                 best = float(u)
         total += live * best
@@ -635,6 +738,9 @@ def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
     hand = [normalize_tile(t) for t in ctx.hand if normalize_tile(t) <= 47 and normalize_tile(t) // 10 != 5]
     if not hand:
         return None
+    # 本手决策内共享假想番 / 向听 memo（对齐 OMC qualifiesMemo/shantenMemo）
+    if ctx.fan_memo is None:
+        ctx.fan_memo = {}
     near_exhaust = ctx.wall_left < NEAR_EXHAUST_WALL
     candidates: List[Tuple[int, Counts, DiscardScore]] = []
     seen: Set[int] = set()
@@ -655,9 +761,16 @@ def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
         one_step = [c for c in candidates if winning_shanten(c[2]) == 1]
         best_legal = -1.0
         n_melds = _meld_count(ctx.combination_tiles)
+        qualifies_memo: Dict[Hashable, float] = {}
+        shanten_memo: Dict[Hashable, int] = {}
         for cand in one_step:
             legal = qualifying_tenpai_ukeire_one_draw(
-                ctx, cand[1], list(ctx.combination_tiles), n_melds
+                ctx,
+                cand[1],
+                list(ctx.combination_tiles),
+                n_melds,
+                qualifies_memo=qualifies_memo,
+                shanten_memo=shanten_memo,
             )
             better = legal > best_legal or (
                 legal == best_legal and is_better_discard(cand[2], best[2], near_exhaust)
@@ -669,11 +782,12 @@ def choose_best_discard(ctx: HeuristicContext) -> Optional[int]:
         if best_legal <= 0:
             best_reshape = None
             best_progress = -1.0
+            shanten_memo2: Dict[Hashable, int] = {}
             for cand in candidates:
                 if winning_shanten(cand[2]) != 2:
                     continue
                 progress = thick_one_shanten_ukeire_after_one_draw(
-                    cand[1], n_melds, ctx.visible
+                    cand[1], n_melds, ctx.visible, shanten_memo=shanten_memo2
                 )
                 if progress > best_progress or (
                     progress == best_progress
@@ -755,19 +869,33 @@ def count_visible_from_game(game_state, player_index: int) -> Counts:
     return visible
 
 
+_SHARED_CHECKER = None
+_SHARED_SCORER: Optional[FanScorer] = None
+
+
 def make_default_scorer() -> FanScorer:
-    """使用仓库内 Chinese_Hepai_Check。"""
+    """使用仓库内 Chinese_Hepai_Check（进程内单例）。
+
+    hepai_check / fan_count 会就地改 way（门风圈风相同、暗转明等）；
+    此处对 hand/combos/way 先拷贝再算。故意不做跨决策全局检番结果缓存，
+    以免与就地副作用耦合后改变决策。
+    """
+    global _SHARED_CHECKER, _SHARED_SCORER
+    if _SHARED_SCORER is not None:
+        return _SHARED_SCORER
     try:
         from ....game_calculation.guobiao_hepai_check import Chinese_Hepai_Check
     except ImportError:
         from game_calculation.guobiao_hepai_check import Chinese_Hepai_Check  # type: ignore
 
     checker = Chinese_Hepai_Check()
+    _SHARED_CHECKER = checker
 
     def score(hand, combos, way, get_tile):
-        s, fans = checker.hepai_check(hand, combos, way, get_tile)
+        s, fans = checker.hepai_check(list(hand), list(combos), list(way), get_tile)
         return checker.filter_zero_value_fans(s, fans)
 
+    _SHARED_SCORER = score
     return score
 
 
@@ -794,4 +922,5 @@ def context_from_game(game_state, player_index: int, scorer: Optional[FanScorer]
         seat_wind=seat,
         flower_count=len(getattr(player, "huapai_list", [])),
         scorer=scorer or make_default_scorer(),
+        fan_memo={},
     )
