@@ -1,4 +1,4 @@
-import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CFtSUjDF.js";import{u as I}from"./Game.css_vue_type_style_index_0_src_true_lang-BUligten.js";const x={name:"local-uniform-bit",vertex:{header:`
+import{av as U,aG as g,aH as c,aI as _,aJ as m,an as S,aC as h}from"./index-D52sZ-WD.js";import{u as I}from"./Game.css_vue_type_style_index_0_src_true_lang-DWlJPOjW.js";const x={name:"local-uniform-bit",vertex:{header:`
 
             struct LocalUniforms {
                 uTransformMatrix:mat3x3<f32>,
@@ -15,7 +15,7 @@ import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CFtS
             {
                 vPosition = vec4(roundPixels(vPosition.xy, globalUniforms.uResolution), vPosition.zw);
             }
-        `}},C={...x,vertex:{...x.vertex,header:x.vertex.header.replace("group(1)","group(2)")}},D={name:"local-uniform-bit",vertex:{header:`
+        `}},D={...x,vertex:{...x.vertex,header:x.vertex.header.replace("group(1)","group(2)")}},O={name:"local-uniform-bit",vertex:{header:`
 
             uniform mat3 uTransformMatrix;
             uniform vec4 uColor;
@@ -28,7 +28,7 @@ import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CFtS
             {
                 gl_Position.xy = roundPixels(gl_Position.xy, uResolution);
             }
-        `}},O={name:"texture-bit",vertex:{header:`
+        `}},R={name:"texture-bit",vertex:{header:`
 
         struct TextureUniforms {
             uTextureMatrix:mat3x3<f32>,
@@ -44,7 +44,7 @@ import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CFtS
 
         `,main:`
             outColor = textureSample(uTexture, uSampler, vUV);
-        `}},R={name:"texture-bit",vertex:{header:`
+        `}},A={name:"texture-bit",vertex:{header:`
             uniform mat3 uTextureMatrix;
         `,main:`
             uv = (uTextureMatrix * vec3(uv, 1.0)).xy;
@@ -182,4 +182,4 @@ import{at as U,aE as g,aF as c,aG as _,aH as m,al as S,aA as h}from"./index-CFtS
         data[offset + 1] = v[1];
         data[offset + 2] = v[2];
         data[offset + 3] = v[3];
-    `};class N extends S{constructor({buffer:t,offset:a,size:r}){super(),this.uid=h("buffer"),this._resourceType="bufferResource",this._touched=0,this._resourceId=h("resource"),this._bufferResource=!0,this.destroyed=!1,this.buffer=t,this.offset=a|0,this.size=r,this.buffer.on("change",this.onBufferChange,this)}onBufferChange(){this._resourceId=h("resource"),this.emit("change",this)}destroy(t=!1){this.destroyed=!0,t&&this.buffer.destroy(),this.emit("change",this),this.buffer=null,this.removeAllListeners()}}export{N as B,l as G,B as U,x as a,F as b,w as c,p as d,k as e,D as f,R as g,C as l,O as t,P as u};
+    `};class N extends S{constructor({buffer:t,offset:a,size:r}){super(),this.uid=h("buffer"),this._resourceType="bufferResource",this._touched=0,this._resourceId=h("resource"),this._bufferResource=!0,this.destroyed=!1,this.buffer=t,this.offset=a|0,this.size=r,this.buffer.on("change",this.onBufferChange,this)}onBufferChange(){this._resourceId=h("resource"),this.emit("change",this)}destroy(t=!1){this.destroyed=!0,t&&this.buffer.destroy(),this.emit("change",this),this.buffer=null,this.removeAllListeners()}}export{N as B,l as G,B as U,x as a,F as b,w as c,p as d,k as e,O as f,A as g,D as l,R as t,P as u};

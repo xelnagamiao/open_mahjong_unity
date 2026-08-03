@@ -1,10 +1,10 @@
-# Jiandan Fan Details
+# Nanque Fan Details
 
 This document is a working reference for per-fan rule details, edge cases, examples, and implementation notes.
 
-Chinese version: [简单逐番说明](fan_details.zh-CN.md)
+Chinese version: [南雀逐番说明](fan_details.zh-CN.md)
 
-Source table: [Jiandan Fan Scoring](fan_scoring.md)
+Source table: [Nanque Fan Scoring](fan_scoring.md)
 
 ## Template
 
