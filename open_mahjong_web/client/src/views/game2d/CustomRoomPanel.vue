@@ -133,7 +133,7 @@ const RULE_LABELS = {
   qingque: '青雀',
   changsha: '长沙',
   sichuan: '四川',
-  jiandan: '简单麻将',
+  jiandan: '南雀麻将',
   classical: '古典麻将',
 }
 
