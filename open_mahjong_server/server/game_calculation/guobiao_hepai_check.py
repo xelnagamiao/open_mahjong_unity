@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 class PlayerTiles:
     def __init__(self, tiles_list, combination_list,complete_step):
         self.hand_tiles = sorted(tiles_list)
-        self.combination_list = combination_list
+        # Copy: fan_count may mutate combination_list (e.g. 暗转明 G→g / K→k).
+        # Sharing the caller's list poisons later hypothetical-fan / cache keys.
+        self.combination_list = list(combination_list)
         self.initial_combination_count = len(combination_list)
         self.complete_step = complete_step # +3 +3 +3 +3 +2 = 14
         self.fan_list = []
@@ -249,7 +251,7 @@ class Chinese_Hepai_Check:
         player_tiles = PlayerTiles(hand_list,tiles_combination,complete_step)
 
 
-        print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
+        self.debug_print("传参手牌：",player_tiles.hand_tiles,"传参组合：",player_tiles.combination_list,"传参和牌方式：",way_to_hepai,"传参和牌张：",get_tile)
         
         player_tiles_list = []
         if len(player_tiles.hand_tiles) == 14:
@@ -279,7 +281,9 @@ class Chinese_Hepai_Check:
         allow_list = []
         if check_done_list:
             for i in check_done_list:
-                allow_list.append(self.fan_count(i,get_tile,way_to_hepai))
+                # 每拆解拷贝 way：fan_count 会就地 append 暗转明/门风圈风相同，
+                # 共享 list 会污染后续拆解的取 max。
+                allow_list.append(self.fan_count(i, get_tile, list(way_to_hepai)))
 
         fancount_time_end = time()
         logger.debug(f"番种计算耗时：{fancount_time_end - fancount_time_start}秒")
@@ -791,11 +795,11 @@ class Chinese_Hepai_Check:
                             if i in suit_list[2]:
                                 player_tiles.fan_list.append("sansesantongshun") # 三色三同顺
                                 break
-                    # 三色三步高判断
+                    # 三色三步高判断（连步 step=1 + 隔步 step=2，对齐国标/OMC）
                     for i in suit_list[0]:
                         i = int(i)
                         self.debug_print(i)
-                        # 如果[i,i+1,i+2 或者 i,i+1,i-1] 则三色三步高
+                        # 连步：起始相差 1（i,i±1,i±2 及色序置换）
                         if str(i+1) in suit_list[1]:
                             if str(i+2) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
@@ -803,7 +807,6 @@ class Chinese_Hepai_Check:
                             if str(i-1) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
-                        # 如果[i,i-1,i-2 或者 i,i-1,i+1] 则三色三步高
                         if str(i-1) in suit_list[1]:
                             if str(i-2) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
@@ -811,7 +814,6 @@ class Chinese_Hepai_Check:
                             if str(i+1) in suit_list[2]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
-                        # 如果[i,i+1,i+2 或者 i,i+1,i-1] 则三色三步高
                         if str(i+1) in suit_list[2]:
                             if str(i+2) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
@@ -819,12 +821,40 @@ class Chinese_Hepai_Check:
                             if str(i-1) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
-                        # 如果[i,i-1,i-2 或者 i,i-1,i+1] 则三色三步高
                         if str(i-1) in suit_list[2]:
                             if str(i-2) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
                             if str(i+1) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        # 隔步：起始相差 2（i,i±2,i±4 及色序置换）
+                        if str(i+2) in suit_list[1]:
+                            if str(i+4) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i-2) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        if str(i-2) in suit_list[1]:
+                            if str(i-4) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i+2) in suit_list[2]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        if str(i+2) in suit_list[2]:
+                            if str(i+4) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i-2) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                        if str(i-2) in suit_list[2]:
+                            if str(i-4) in suit_list[1]:
+                                player_tiles.fan_list.append("sansesanbugao")
+                                break
+                            if str(i+2) in suit_list[1]:
                                 player_tiles.fan_list.append("sansesanbugao")
                                 break
 

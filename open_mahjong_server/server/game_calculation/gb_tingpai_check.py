@@ -48,8 +48,12 @@ class Chinese_Tingpai_Check:
         self.normal_check(player_tiles) # 一般型检查
         
         self.debug_print(self.waiting_tiles)
-        print(player_tiles.hand_tiles,player_tiles.combination_list,player_tiles.complete_step,self.zuhelong_lack_tiles)
-        self
+        self.debug_print(
+            player_tiles.hand_tiles,
+            player_tiles.combination_list,
+            player_tiles.complete_step,
+            self.zuhelong_lack_tiles,
+        )
 
         return self.waiting_tiles
 

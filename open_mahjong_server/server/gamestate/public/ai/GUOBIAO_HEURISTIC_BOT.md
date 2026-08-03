@@ -1,6 +1,7 @@
 # 高性能罗伯特（国标启发式 AI）
 
-来源：哈基明（github.com/baisebaoma）于 2026-08-01 晚开发群讨论并定稿的版本。
+来源：哈基明（github.com/baisebaoma）于 2026-08-01 晚开发群讨论并定稿的版本。  
+速度优化（测速与复测）：[`GUOBIAO_HEURISTIC_PERF.md`](./GUOBIAO_HEURISTIC_PERF.md)。
 
 | 项 | 值 |
 |----|-----|
@@ -20,6 +21,7 @@
 | `guobiao_heuristic_gate.py` | 加座门闩（仅 standard） |
 | `test_guobiao_heuristic.py` | 单测 |
 | `test_guobiao_heuristic_smoke.py` | 短 smoke（已跑通 2 全庄）/ 可选更长慢测 |
+| `GUOBIAO_HEURISTIC_PERF.md` | 速度优化说明（测速 / 复测） |
 | `ATTRIBUTION.md` | 一般型向听 DP 第三方声明（kobalab/majiang-core，MIT） |
 
 ## 出身与自测画像

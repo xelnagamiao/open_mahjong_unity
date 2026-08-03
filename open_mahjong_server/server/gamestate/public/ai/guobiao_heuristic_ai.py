@@ -11,17 +11,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
 from .get_action import get_ai_action
-from .guobiao_heuristic_logic import choose_best_discard, choose_claim, context_from_game
-from .guobiao_shanten import counts_from_tiles as _cft, guobiao_shanten as _gs, normalize_tile
-from .smart_bot_logic import count_melds, should_accept_hu
+from .guobiao_heuristic_logic import (
+    choose_best_discard,
+    choose_claim,
+    choose_closed_kan,
+    context_from_game,
+)
+from .guobiao_shanten import normalize_tile
+from .smart_bot_logic import should_accept_hu
 
 logger = logging.getLogger(__name__)
 
+# 最低思考墙钟 500ms：先算后补（elapsed < 0.5 才 sleep 补齐）；超过则不补。
+# 鸣牌后的 claim_meld_post_gap 是房间 gap，与 think pad 独立叠加，不计入本地板。
+# smoke 等测试可临时压低 _BOT_DELAY，以便 wait_action 入队后再提交。
 _BOT_DELAY = 0.5
 _RON_HU_ACTIONS = ("hu", "hu_first", "hu_second", "hu_third")
+
+
+async def _think_pad(t0: float) -> None:
+    """决策算完后补 sleep，使墙钟至少 _BOT_DELAY；已超过则不补。"""
+    pad = _BOT_DELAY - (time.perf_counter() - t0)
+    if pad > 0:
+        await asyncio.sleep(pad)
 
 
 async def _wait_until_actionable(game_state, player_index: int, attempts: int = 200, interval: float = 0.01) -> bool:
@@ -46,7 +62,6 @@ async def guobiao_heuristic_action(game_state, player_index: int, action_list: l
             return
 
         if game_status == "waiting_hand_action":
-            await asyncio.sleep(_BOT_DELAY)
             if not await _wait_until_actionable(game_state, player_index):
                 logger.warning(
                     f"高性能罗伯特 {player_index} ({current_player.username}) 手牌询问未进入 waiting_players_list"
@@ -56,15 +71,17 @@ async def guobiao_heuristic_action(game_state, player_index: int, action_list: l
             return
 
         if game_status == "onlycut_after_action":
-            cp = bool(getattr(game_state, "claim_protection", False))
-            from ..claim_protection import get_meld_post_gap
-            await asyncio.sleep(_BOT_DELAY + (get_meld_post_gap(game_state) if cp else 0.0))
             if not await _wait_until_actionable(game_state, player_index):
                 logger.warning(
                     f"高性能罗伯特 {player_index} ({current_player.username}) 鸣牌后未进入 waiting_players_list"
                 )
                 return
-            await _handle_hand_action(game_state, player_index, action_list, current_player)
+            cp = bool(getattr(game_state, "claim_protection", False))
+            from ..claim_protection import get_meld_post_gap
+            meld_gap = get_meld_post_gap(game_state) if cp else 0.0
+            await _handle_hand_action(
+                game_state, player_index, action_list, current_player, meld_gap=meld_gap
+            )
             return
 
         if game_status == "waiting_action_after_cut":
@@ -76,7 +93,6 @@ async def guobiao_heuristic_action(game_state, player_index: int, action_list: l
             return
 
         if game_status == "waiting_buhua_round":
-            await asyncio.sleep(_BOT_DELAY)
             if not await _wait_until_actionable(game_state, player_index):
                 return
             await _handle_buhua_round(game_state, player_index, action_list, current_player)
@@ -93,54 +109,49 @@ async def guobiao_heuristic_action(game_state, player_index: int, action_list: l
         logger.error(f"高性能罗伯特 {player_index} 自动操作失败: {e}", exc_info=True)
 
 
-async def _handle_hand_action(game_state, player_index, action_list, player):
+async def _handle_hand_action(game_state, player_index, action_list, player, *, meld_gap: float = 0.0):
+    t0 = time.perf_counter()
+
+    async def _submit(action, is_moqie=None, tile_id=None, cut_index=None, gang_tile=None):
+        await _think_pad(t0)
+        if meld_gap > 0:
+            await asyncio.sleep(meld_gap)
+        await get_ai_action(game_state, player_index, action, is_moqie, tile_id, cut_index, gang_tile)
+
     if "buhua" in action_list:
         logger.info(f"高性能罗伯特 {player_index} 选择 buhua")
-        await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
+        await _submit("buhua")
         return
 
     if "hu_self" in action_list and should_accept_hu(game_state, player_index, "hu_self"):
         logger.info(f"高性能罗伯特 {player_index} 选择 hu_self")
-        await get_ai_action(game_state, player_index, "hu_self", None, None, None, None)
+        await _submit("hu_self")
         return
 
     ctx = context_from_game(game_state, player_index)
     hand = [normalize_tile(t) for t in player.hand_tiles]
-    combs = list(getattr(player, "combination_tiles", []))
-    meld_count = count_melds(combs)
-    base_shanten = _gs(_cft(hand), meld_count)
 
-    # 暗杠 / 加杠：不恶化 winningShanten（合法听不削进张 —— 简化：向听不变差）
-    if "angang" in action_list:
-        for tile in set(hand):
-            if hand.count(tile) >= 4:
-                test = [t for t in hand if t != tile]
-                after = _gs(_cft(test), meld_count + 1)
-                if after <= base_shanten:
-                    logger.info(f"高性能罗伯特 {player_index} 选择 angang tile={tile}")
-                    await get_ai_action(game_state, player_index, "angang", None, None, None, tile)
-                    return
-
-    if "jiagang" in action_list or "buzhang" in action_list:
-        for c in combs:
-            if not c.startswith("k"):
-                continue
-            try:
-                ktile = normalize_tile(int(c[1:]))
-            except ValueError:
-                continue
-            if ktile in hand:
-                test = hand[:]
-                test.remove(ktile)
-                after = _gs(_cft(test), meld_count)
-                if after <= base_shanten:
-                    action = "jiagang" if "jiagang" in action_list else "buzhang"
-                    logger.info(f"高性能罗伯特 {player_index} 选择 {action} tile={ktile}")
-                    await get_ai_action(game_state, player_index, action, None, None, None, ktile)
-                    return
+    # 先算最优切作基线；暗杠/加杠仅在不恶化 winningShanten、不削合法听进张时取
+    best_disc = choose_best_discard(ctx) if ("cut" in action_list and hand) else None
+    kan = choose_closed_kan(
+        ctx,
+        allow_angang="angang" in action_list,
+        allow_jiagang=("jiagang" in action_list or "buzhang" in action_list),
+        baseline_discard=best_disc,
+    )
+    if kan is not None:
+        kind, tile = kan
+        if kind == "angang":
+            logger.info(f"高性能罗伯特 {player_index} 选择 angang tile={tile}")
+            await _submit("angang", gang_tile=tile)
+            return
+        action = "jiagang" if "jiagang" in action_list else "buzhang"
+        logger.info(f"高性能罗伯特 {player_index} 选择 {action} tile={tile}")
+        await _submit(action, gang_tile=tile)
+        return
 
     if "cut" in action_list and hand:
-        tile_id = choose_best_discard(ctx)
+        tile_id = best_disc if best_disc is not None else choose_best_discard(ctx)
         if tile_id is None:
             tile_id = hand[-1]
         cut_index = player.hand_tiles.index(tile_id) if tile_id in player.hand_tiles else 0
@@ -155,17 +166,18 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
             player.hand_tiles, tile_id, cut_index, draw_slot=has_draw_slot(player)
         )
         logger.info(f"高性能罗伯特 {player_index} 选择 cut tile={tile_id} moqie={is_moqie}")
-        await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
+        await _submit("cut", is_moqie, tile_id, cut_index, None)
 
 
 async def _handle_after_cut(game_state, player_index, action_list, player):
     if not await _wait_until_actionable(game_state, player_index):
         return
 
+    t0 = time.perf_counter()
     for hu_action in _RON_HU_ACTIONS:
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
             logger.info(f"高性能罗伯特 {player_index} 选择 {hu_action}")
-            await asyncio.sleep(_BOT_DELAY)
+            await _think_pad(t0)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
             return
 
@@ -183,16 +195,17 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
         best = "pass" if "pass" in action_list else (action_list[0] if action_list else "pass")
     logger.info(f"高性能罗伯特 {player_index} 选择 {best}")
     if best != "pass":
-        await asyncio.sleep(_BOT_DELAY)
+        await _think_pad(t0)
     await get_ai_action(game_state, player_index, best, None, None, None, None)
 
 
 async def _handle_qianggang(game_state, player_index, action_list, player):
     if not await _wait_until_actionable(game_state, player_index):
         return
+    t0 = time.perf_counter()
     for hu_action in _RON_HU_ACTIONS:
         if hu_action in action_list and should_accept_hu(game_state, player_index, hu_action):
-            await asyncio.sleep(_BOT_DELAY)
+            await _think_pad(t0)
             await get_ai_action(game_state, player_index, hu_action, None, None, None, None)
             return
     if "pass" in action_list:
@@ -200,11 +213,15 @@ async def _handle_qianggang(game_state, player_index, action_list, player):
 
 
 async def _handle_buhua_round(game_state, player_index, action_list, player):
+    t0 = time.perf_counter()
     if "buhua" in action_list:
+        await _think_pad(t0)
         await get_ai_action(game_state, player_index, "buhua", None, None, None, None)
         return
     if "hu_self" in action_list and should_accept_hu(game_state, player_index, "hu_self"):
+        await _think_pad(t0)
         await get_ai_action(game_state, player_index, "hu_self", None, None, None, None)
         return
     if "pass" in action_list:
+        await _think_pad(t0)
         await get_ai_action(game_state, player_index, "pass", None, None, None, None)

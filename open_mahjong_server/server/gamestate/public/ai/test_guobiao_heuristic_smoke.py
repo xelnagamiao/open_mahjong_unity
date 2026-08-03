@@ -8,6 +8,9 @@
 
     python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -k two_quanzhuang
 
+    # 半庄测速（东+南=8 手）
+    SMOKE_MODE=half python -m server.gamestate.public.ai.test_guobiao_heuristic_smoke
+
     # 63 全庄（slow，默认勿跑）
     python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -m slow
 
@@ -196,7 +199,7 @@ async def _install_fast_async():
         except (TypeError, ValueError):
             d = 0.0
         if d >= 0.15:
-            # 换位 4s、局终演出、步时轮询 1s、bot 0.5s 等 → 让步即可
+            # 换位 4s、局终演出、步时轮询 1s、bot 思考 delay（若覆盖）等 → 让步即可
             await real_sleep(0)
         elif d > 0:
             await real_sleep(min(d, 0.01))
@@ -393,6 +396,16 @@ def test_east_wind_tactical_true():
 
 
 @pytest.mark.slow
+def test_half_zhuang_tactical_true():
+    """半庄（东+南=8 手；slow；假想番测速基线/对比用）。"""
+    results = _run_n_matches(1, game_round=2)
+    assert len(results) == 1
+    stats = results[0]
+    assert stats.error is None, stats.error
+    assert stats.hands == 8
+
+
+@pytest.mark.slow
 def test_one_quanzhuang_tactical_true():
     """单全庄（slow；单场约十余分钟）。"""
     results = _run_n_matches(1, game_round=4)
@@ -465,14 +478,15 @@ if __name__ == "__main__":
 
     async def _main():
         mode = os.environ.get("SMOKE_MODE", "east")
+        seed = _env_int("SMOKE_BASE_SEED", DEFAULT_BASE_SEED)
+        match_timeout = _env_float("SMOKE_MATCH_TIMEOUT", DEFAULT_MATCH_TIMEOUT)
         if mode == "63" or mode == "full":
             matches = _env_int("SMOKE_MATCHES", DEFAULT_MATCHES)
-            base = _env_int("SMOKE_BASE_SEED", DEFAULT_BASE_SEED)
             tactical = _env_bool("SMOKE_TACTICAL_CALL", True)
             t0 = time.perf_counter()
             fails = []
             for i in range(matches):
-                st = await run_one_match(seed=base + i, tactical_call=tactical, game_round=4)
+                st = await run_one_match(seed=seed + i, tactical_call=tactical, game_round=4)
                 _print_progress(i + 1, matches, st)
                 if st.error:
                     fails.append(st)
@@ -480,11 +494,21 @@ if __name__ == "__main__":
             print(f"done in {time.perf_counter() - t0:.1f}s fails={len(fails)}")
             sys.exit(1 if fails else 0)
         elif mode == "one":
-            st = await run_one_match(seed=DEFAULT_BASE_SEED, tactical_call=True, game_round=4)
+            st = await run_one_match(
+                seed=seed, tactical_call=True, game_round=4, match_timeout=match_timeout
+            )
+            _print_progress(1, 1, st)
+            sys.exit(1 if st.error else 0)
+        elif mode == "half":
+            st = await run_one_match(
+                seed=seed, tactical_call=True, game_round=2, match_timeout=match_timeout
+            )
             _print_progress(1, 1, st)
             sys.exit(1 if st.error else 0)
         else:
-            st = await run_one_match(seed=DEFAULT_BASE_SEED, tactical_call=True, game_round=1)
+            st = await run_one_match(
+                seed=seed, tactical_call=True, game_round=1, match_timeout=match_timeout
+            )
             _print_progress(1, 1, st)
             sys.exit(1 if st.error else 0)
 
