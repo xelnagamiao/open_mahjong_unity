@@ -253,7 +253,7 @@ public class PlayerInfoPanel : MonoBehaviour {
     // 接收简单麻将统计数据
     public void OnJiandanStatsReceived(bool success, string message, RuleStatsResponse ruleStats) {
         if (!success || ruleStats == null) {
-            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取南雀麻将统计数据失败");
+            NotificationManager.Instance.ShowTip("获取数据", false, message ?? "获取简单麻将统计数据失败");
             return;
         }
 

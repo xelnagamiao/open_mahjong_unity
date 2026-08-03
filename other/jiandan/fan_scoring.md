@@ -1,8 +1,8 @@
-# Nanque Fan Scoring
+# Jiandan Fan Scoring
 
-Chinese version: [南雀番种计分表](fan_scoring.zh-CN.md)
+Chinese version: [简单番种计分表](fan_scoring.zh-CN.md)
 
-Per-fan detail notes: [Nanque Fan Details](fan_details.md)
+Per-fan detail notes: [Jiandan Fan Details](fan_details.md)
 
 ## Fan Table
 

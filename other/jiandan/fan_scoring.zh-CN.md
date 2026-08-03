@@ -1,8 +1,8 @@
-# 南雀番种计分表
+# 简单番种计分表
 
-English version: [Nanque Fan Scoring](fan_scoring.md)
+English version: [Jiandan Fan Scoring](fan_scoring.md)
 
-逐番详细说明：[南雀逐番说明](fan_details.zh-CN.md)
+逐番详细说明：[简单逐番说明](fan_details.zh-CN.md)
 
 ## 番种表
 
