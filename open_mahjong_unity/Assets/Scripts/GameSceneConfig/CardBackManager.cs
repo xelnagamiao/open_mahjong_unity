@@ -35,6 +35,8 @@ public static class CardBackManager
         {
             shared.SetColor("_BackColor", color);
             shared.SetTexture("_BackTex", texture);
+            // 图片叠加在牌背颜色上方：有图时 blend=1（不乘算颜色），无图时 blend=0（纯色）
+            shared.SetFloat("_BackTexBlend", texture != null ? 1f : 0f);
         }
 
         // 已有实例：更新实例颜色 + 材质贴图

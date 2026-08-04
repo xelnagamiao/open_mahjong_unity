@@ -9,6 +9,7 @@ public class Tile3D : MonoBehaviour
     private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
     private static readonly int FrontColorId = Shader.PropertyToID("_FrontColor");
     private static readonly int BackColorId = Shader.PropertyToID("_BackColor");
+    private static readonly int BackTexBlendId = Shader.PropertyToID("_BackTexBlend");
     private static readonly int SideColorId = Shader.PropertyToID("_SideColor");
     private static readonly int TileInstanceParamsId = Shader.PropertyToID("_TileInstanceParams");
     private static readonly int FrontTexId = Shader.PropertyToID("_FrontTex");
@@ -307,6 +308,7 @@ public class Tile3D : MonoBehaviour
         baseBackColor = backColor;
         if (sharedTileMaterial != null) {
             sharedTileMaterial.SetTexture(BackTexId, backTexture);
+            sharedTileMaterial.SetFloat(BackTexBlendId, backTexture != null ? 1f : 0f);
         }
         ApplyPropertyBlock();
     }

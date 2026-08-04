@@ -2,10 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 随机桌面：清空 3D 牌桌后，为四家随机生成副露、手牌与牌河。
-/// 用于牌背颜色/图片在满桌状态下的预览。
-/// 只操作 3D 表现层（对象池），不修改 NormalGameStateManager 对局数据；
-/// 下一次服务端同步会重建真实桌面。
+/// 随机桌面：清空 3D 牌桌后，为四家随机生成副露 + 手牌 + 牌河。
+/// 副露与手牌互相匹配：每家「副露张数 + 手牌张数 = 13」（暗杠/明杠按 4 张计），
+/// 全部从同一副 136 张牌堆抽取，保证每种牌最多 4 张、与对象池一致。
+/// 自家手牌也会以明牌立姿显示在 3D 桌面上（不排除自家）。
+/// 只操作 3D 表现层（对象池），不修改 NormalGameStateManager 对局数据。
 /// </summary>
 public partial class Game3DManager : MonoBehaviour
 {
@@ -17,7 +18,7 @@ public partial class Game3DManager : MonoBehaviour
         41, 42, 43, 44, 45, 46, 47
     };
 
-    /// <summary>随机生成整桌：各家副露 + 他家手牌（自家走 2D 手牌）+ 各家牌河。</summary>
+    /// <summary>随机生成整桌：每家副露 + 手牌合计 13 张，另有随机牌河。</summary>
     public void GenerateRandomTable()
     {
         if (MahjongObjectPool.Instance == null)
@@ -42,43 +43,79 @@ public partial class Game3DManager : MonoBehaviour
         {
             PosPanel3D panel = GetPosPanel(position);
             if (panel == null) continue;
-            LayRandomConcealedHand(position, panel, rng);
-            LayRandomMelds(position, panel, counts, rng);
+
+            // 1) 先抽副露（吃/碰/杠），并扣减牌堆
+            List<List<int>> meldMasks = new List<List<int>>();
+            int meldTileCount = 0;
+            int meldCount = rng.Next(1, 4); // 每家 1~3 组副露
+            for (int i = 0; i < meldCount; i++)
+            {
+                List<int> mask = BuildRandomMeldMask(counts, rng);
+                if (mask == null || mask.Count < 2) break;
+                meldMasks.Add(mask);
+                meldTileCount += MeldTileCount(mask);
+            }
+
+            // 2) 剩余张数补齐到手牌，使 副露 + 手牌 = 13
+            int closedCount = 13 - meldTileCount;
+            if (closedCount < 1) closedCount = 1;
+            List<int> closedHand = DrawRandomTiles(counts, rng, closedCount);
+
+            // 3) 渲染：手牌（自家明牌立姿，他家暗牌）+ 副露 + 牌河
+            LayRandomHand(position, panel, closedHand);
+            LayRandomMelds(position, panel, meldMasks);
             LayRandomRiver(position, panel, counts, rng);
         }
 
-        Debug.Log("GenerateRandomTable: 随机桌面已生成（副露/手牌/牌河）");
+        Debug.Log("GenerateRandomTable: 随机桌面已生成（副露+手牌=13 张/家）");
     }
 
-    /// <summary>他家手牌：13~14 张立起暗牌（牌背朝外）。自家手牌走 2D UI，不生成 3D。</summary>
-    private void LayRandomConcealedHand(string playerPosition, PosPanel3D panel, System.Random rng)
+    /// <summary>
+    /// 手牌：自家以明牌立姿沿自家手牌区排列；左/上/右家为立起暗牌（牌背朝外）。
+    /// </summary>
+    private void LayRandomHand(string playerPosition, PosPanel3D panel, List<int> closedHand)
     {
-        if (playerPosition == "self") return;
         Transform cardsPosition = panel.cardsPosition;
-        if (cardsPosition == null) return;
+        if (cardsPosition == null || closedHand == null || closedHand.Count == 0) return;
 
-        Quaternion rotation;
-        Vector3 direction;
-        if (playerPosition == "left") { rotation = Quaternion.Euler(0, 90, 0); direction = BackDirection; }
-        else if (playerPosition == "top") { rotation = Quaternion.Euler(0, 180, 0); direction = LeftDirection; }
-        else if (playerPosition == "right") { rotation = Quaternion.Euler(0, 270, 0); direction = FrontDirection; }
+        if (playerPosition == "self")
+        {
+            // 自家：明牌立姿，按牌面排序，沿 RightDirection 排列
+            closedHand.Sort(TileIdOrder.Comparer);
+            Vector3 direction = RightDirection.normalized;
+            Quaternion rotation = SelfHandStandingRotation();
+            for (int i = 0; i < closedHand.Count; i++)
+            {
+                Vector3 spawn = cardsPosition.position + cardsPosition.childCount * cardWidth * direction;
+                GameObject cardObj = MahjongObjectPool.Instance.Spawn(closedHand[i], spawn, rotation);
+                if (cardObj == null) continue;
+                cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
+            }
+            return;
+        }
+
+        Quaternion backRotation;
+        Vector3 backDirection;
+        if (playerPosition == "left") { backRotation = Quaternion.Euler(0, 90, 0); backDirection = BackDirection; }
+        else if (playerPosition == "top") { backRotation = Quaternion.Euler(0, 180, 0); backDirection = LeftDirection; }
+        else if (playerPosition == "right") { backRotation = Quaternion.Euler(0, 270, 0); backDirection = FrontDirection; }
         else return;
 
-        int handCount = 13 + (rng.Next(0, 2) == 0 ? 0 : 1);
-        for (int i = 0; i < handCount; i++)
+        for (int i = 0; i < closedHand.Count; i++)
         {
-            Vector3 spawn = cardsPosition.position + cardsPosition.childCount * cardWidth * direction.normalized;
-            GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawn, rotation);
+            Vector3 spawn = cardsPosition.position + cardsPosition.childCount * cardWidth * backDirection.normalized;
+            GameObject cardObj = MahjongObjectPool.Instance.SpawnBlankTile(spawn, backRotation);
             if (cardObj == null) continue;
             cardObj.transform.SetParent(cardsPosition, worldPositionStays: true);
         }
     }
 
-    /// <summary>随机副露：0~2 组，吃/碰/杠混搭，掩码方向位与真实对局一致（0 竖 1 横 2 暗）。</summary>
-    private void LayRandomMelds(string playerPosition, PosPanel3D panel, Dictionary<int, int> counts, System.Random rng)
+    /// <summary>按掩码摆副露，方向位与真实对局一致（0 竖 1 横 2 暗）。</summary>
+    private void LayRandomMelds(string playerPosition, PosPanel3D panel, List<List<int>> meldMasks)
     {
         Transform[] parents = panel.combination3DObjects;
         if (parents == null || parents.Length == 0 || panel.combinationsPosition == null) return;
+        if (meldMasks == null || meldMasks.Count == 0) return;
 
         Quaternion rotation;
         Vector3 setDirection;
@@ -108,17 +145,15 @@ public partial class Game3DManager : MonoBehaviour
             jiagangDirection = LeftDirection;
         }
 
-        int meldCount = rng.Next(0, 3);
         Vector3 cursor = panel.combinationsPosition.position;
         float acrossGroupLastSlot = 0f;
         float groupGap = ConfigManager.Instance != null && ConfigManager.Instance.MeldSpacingEnabled
             ? cardWidth * CombinationGroupGapFactor
             : 0f;
 
-        for (int meldIndex = 0; meldIndex < meldCount; meldIndex++)
+        for (int meldIndex = 0; meldIndex < meldMasks.Count; meldIndex++)
         {
-            List<int> mask = BuildRandomMeldMask(counts, rng);
-            if (mask == null || mask.Count < 2) continue;
+            List<int> mask = meldMasks[meldIndex];
             Transform setParent = parents[Mathf.Min(meldIndex, parents.Length - 1)];
 
             List<int> tileList = new List<int>();
@@ -182,7 +217,7 @@ public partial class Game3DManager : MonoBehaviour
         }
     }
 
-    /// <summary>随机牌河：6~14 张，直接复用对局弃牌布局（每行 6 张、可多行）。</summary>
+    /// <summary>随机牌河：6~14 张，复用对局弃牌布局（每行 6 张、可多行）。</summary>
     private void LayRandomRiver(string playerPosition, PosPanel3D panel, Dictionary<int, int> counts, System.Random rng)
     {
         if (panel.discardsPosition == null) return;
@@ -202,6 +237,36 @@ public partial class Game3DManager : MonoBehaviour
             counts[tileId]--;
             if (counts[tileId] <= 0) available.RemoveAt(index);
         }
+    }
+
+    private static int MeldTileCount(List<int> mask)
+    {
+        if (mask == null) return 0;
+        int count = 0;
+        for (int i = 0; i + 1 < mask.Count; i += 2)
+        {
+            if (mask[i] == 3 || mask[i] == 4) continue;
+            count++;
+        }
+        return count;
+    }
+
+    private static List<int> DrawRandomTiles(Dictionary<int, int> counts, System.Random rng, int n)
+    {
+        List<int> result = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            List<int> available = new List<int>();
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                if (kv.Value > 0) available.Add(kv.Key);
+            }
+            if (available.Count == 0) break;
+            int tileId = available[rng.Next(0, available.Count)];
+            result.Add(tileId);
+            counts[tileId]--;
+        }
+        return result;
     }
 
     /// <summary>从剩余牌堆构造一组副露掩码 [方向位, 牌id, ...]，并扣减牌堆。</summary>

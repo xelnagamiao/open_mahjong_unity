@@ -1,13 +1,13 @@
 using System;
 using System.IO;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 /// <summary>
-/// 牌背配置面板：运行时直接在场景里生成 UI（无需预制体/场景编辑）。
-/// 支持：预设颜色 + RGB 滑条 + HEX 输入；上传牌背图片（桌面文件框 / 移动相册 / WebGL 文件框）；
-/// 拖拽：WebGL 浏览器把图片文件拖进窗口，编辑器里把 Project 里的图片资源拖进 Game 视图。
+/// 牌背设置面板：不再在运行时绘制任何 UI，界面已在场景里手工搭建（CardBackPanel 及其子物体）。
+/// 本组件负责按名字自动查找并挂接事件；Inspector 里手动拖拽的引用优先。
+/// 兼容烘焙进场景的旧版 Text/InputField 与新版 TMP 文本。
 /// </summary>
 public class CardBackConfigPanel : MonoBehaviour
 {
@@ -27,11 +27,6 @@ public class CardBackConfigPanel : MonoBehaviour
         new Color(0.92f, 0.92f, 0.92f, 1f),
     };
 
-    private static readonly Color PanelBg = new Color(0.06f, 0.07f, 0.10f, 0.97f);
-    private static readonly Color ButtonBg = new Color(0.17f, 0.21f, 0.30f, 1f);
-    private static readonly Color Accent = new Color(0.28f, 0.48f, 0.92f, 1f);
-    private static readonly Color LabelColor = new Color(0.82f, 0.85f, 0.90f, 1f);
-
 #if UNITY_WEBGL && !UNITY_EDITOR
     [System.Runtime.InteropServices.DllImport("__Internal")]
     private static extern void UploadFileJS(string gameObjectName, string methodName, string filter);
@@ -40,27 +35,43 @@ public class CardBackConfigPanel : MonoBehaviour
     private static extern void InitCardBackDrop(string gameObjectName, string methodName);
 #endif
 
-    private GameObject panelObject;
-    private Image previewImage;
-    private Slider sliderR;
-    private Slider sliderG;
-    private Slider sliderB;
-    private TMP_InputField hexInput;
-    private TMP_Text valueR;
-    private TMP_Text valueG;
-    private TMP_Text valueB;
+    [Header("拖拽挂接（留空则按场景内名字自动查找）")]
+    [SerializeField] private Image previewImage;
+    [SerializeField] private Slider sliderR;
+    [SerializeField] private Slider sliderG;
+    [SerializeField] private Slider sliderB;
+    [SerializeField] private TMP_Text valueR;
+    [SerializeField] private TMP_Text valueG;
+    [SerializeField] private TMP_Text valueB;
+    [SerializeField] private TMP_InputField hexInput;
+    [SerializeField] private Button hexApplyButton;
+    [SerializeField] private Button restoreButton;
+    [SerializeField] private Button pickImageButton;
+    [SerializeField] private Button dropZoneButton;
+    [SerializeField] private Button clearImageButton;
+    [SerializeField] private Button closeButton;
+
+    // 兼容烘焙进场景的旧版 Text/InputField
+    private Text legacyValueR;
+    private Text legacyValueG;
+    private Text legacyValueB;
+    private InputField legacyHexInput;
 
     private Color currentColor = ConfigManager.DefaultCardBackColor;
     private Texture2D currentTexture;
     private Sprite previewSprite;
     private bool syncing;
+    private bool wired;
 
-    /// <summary>确保场景配置面板下存在牌背面板（不重复创建）。</summary>
-    public static void EnsureCreated(Transform parent)
+    /// <summary>挂到场景里已画好的 CardBackPanel 上；已存在组件则直接复用。</summary>
+    public static CardBackConfigPanel AttachToScenePanel(Transform sceneConfigRoot)
     {
-        if (parent == null) return;
-        if (parent.GetComponentInChildren<CardBackConfigPanel>(true) != null) return;
-        parent.gameObject.AddComponent<CardBackConfigPanel>();
+        if (sceneConfigRoot == null) return null;
+        CardBackConfigPanel existing = sceneConfigRoot.GetComponentInChildren<CardBackConfigPanel>(true);
+        if (existing != null) return existing;
+        Transform panel = FindChildByName(sceneConfigRoot, "CardBackPanel");
+        if (panel == null) return null;
+        return panel.gameObject.AddComponent<CardBackConfigPanel>();
     }
 
     private void Awake()
@@ -71,9 +82,7 @@ public class CardBackConfigPanel : MonoBehaviour
             return;
         }
         Instance = this;
-
-        BuildUI();
-        LoadSavedIntoUI();
+        AutoWire();
     }
 
     private void Start()
@@ -95,239 +104,67 @@ public class CardBackConfigPanel : MonoBehaviour
 #endif
     }
 
-    // ==================== UI 构建 ====================
-
-    private void BuildUI()
+    /// <summary>按名字查找并挂接事件；Inspector 已拖拽的引用优先。</summary>
+    private void AutoWire()
     {
-        RectTransform root = (RectTransform)transform;
+        if (wired) return;
+        wired = true;
 
-        // 旧版烘焙进场景的同名对象先清理，再按新样式重建，避免重复
-        DestroyCardBackChildren(transform);
-        Transform nav = transform.Find("NavigateBar");
-        if (nav != null) DestroyCardBackChildren(nav);
+        if (previewImage == null) previewImage = FindInChildren<Image>(transform, "PreviewImage");
+        if (sliderR == null) sliderR = FindInChildren<Slider>(transform, "RSlider");
+        if (sliderG == null) sliderG = FindInChildren<Slider>(transform, "GSlider");
+        if (sliderB == null) sliderB = FindInChildren<Slider>(transform, "BSlider");
+        if (valueR == null) valueR = FindInChildren<TMP_Text>(transform, "RValue");
+        if (valueG == null) valueG = FindInChildren<TMP_Text>(transform, "GValue");
+        if (valueB == null) valueB = FindInChildren<TMP_Text>(transform, "BValue");
+        if (hexInput == null) hexInput = FindInChildren<TMP_InputField>(transform, "HexInput");
+        if (hexApplyButton == null) hexApplyButton = FindInChildren<Button>(transform, "HexApply");
+        if (restoreButton == null) restoreButton = FindInChildren<Button>(transform, "RestoreButton");
+        if (pickImageButton == null) pickImageButton = FindInChildren<Button>(transform, "PickImageButton");
+        if (dropZoneButton == null) dropZoneButton = FindInChildren<Button>(transform, "DropZone");
+        if (clearImageButton == null) clearImageButton = FindInChildren<Button>(transform, "ClearImageButton");
+        if (closeButton == null) closeButton = FindInChildren<Button>(transform, "CloseButton");
 
-        // 左侧导航栏里加一个“牌背”tab（与桌布/边框/角色并列，由 VerticalLayoutGroup 自动排列）
-        if (nav != null)
-        {
-            Button tabButton = NewButton((RectTransform)nav, "CardBackButton", "牌背", ButtonBg, Color.white);
-            RectTransform tabRt = (RectTransform)tabButton.transform;
-            tabRt.anchorMin = Vector2.zero;
-            tabRt.anchorMax = Vector2.zero;
-            tabRt.pivot = new Vector2(0.5f, 0.5f);
-            tabRt.anchoredPosition = Vector2.zero;
-            tabRt.sizeDelta = new Vector2(354.42f, 107.253f);
+        // 旧版 Text/InputField 兜底（烘焙进场景的旧版面板）
+        if (valueR == null) legacyValueR = FindInChildren<Text>(transform, "RValue");
+        if (valueG == null) legacyValueG = FindInChildren<Text>(transform, "GValue");
+        if (valueB == null) legacyValueB = FindInChildren<Text>(transform, "BValue");
+        if (hexInput == null) legacyHexInput = FindInChildren<InputField>(transform, "HexInput");
 
-            // 插到“角色”按钮后面、隐藏按钮前面
-            Transform characterButton = nav.Find("CharacterButton");
-            tabButton.transform.SetSiblingIndex(
-                characterButton != null ? characterButton.GetSiblingIndex() + 1 : nav.childCount - 1);
-            tabButton.onClick.AddListener(ShowInSceneConfig);
-        }
+        if (closeButton != null) closeButton.onClick.AddListener(() => gameObject.SetActive(false));
+        if (hexApplyButton != null) hexApplyButton.onClick.AddListener(ApplyHex);
+        if (restoreButton != null) restoreButton.onClick.AddListener(RestoreDefault);
+        if (pickImageButton != null) pickImageButton.onClick.AddListener(OpenFilePicker);
+        if (dropZoneButton != null) dropZoneButton.onClick.AddListener(OpenFilePicker);
+        if (clearImageButton != null) clearImageButton.onClick.AddListener(ClearImage);
 
-        // 主面板：放在配置内容区（与 TableClothPanel 同一水平中心）
-        panelObject = NewRect("CardBackPanel", root).gameObject;
-        RectTransform panelRt = (RectTransform)panelObject.transform;
-        panelRt.anchorMin = new Vector2(0f, 1f);
-        panelRt.anchorMax = new Vector2(0f, 1f);
-        panelRt.pivot = new Vector2(0.5f, 0.5f);
-        panelRt.anchoredPosition = new Vector2(1169f, -490f);
-        panelRt.sizeDelta = new Vector2(900f, 820f);
+        if (sliderR != null)
+            sliderR.onValueChanged.AddListener(v => SetColor(new Color(v / 255f, currentColor.g, currentColor.b, 1f)));
+        if (sliderG != null)
+            sliderG.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, v / 255f, currentColor.b, 1f)));
+        if (sliderB != null)
+            sliderB.onValueChanged.AddListener(v => SetColor(new Color(currentColor.r, currentColor.g, v / 255f, 1f)));
 
-        Image bg = panelObject.AddComponent<Image>();
-        bg.color = PanelBg;
-
-        // 标题 + 关闭
-        TMP_Text title = NewText(panelRt, "Title", "牌背设置", 22, Color.white, TextAnchor.MiddleCenter);
-        StretchTop(title.rectTransform, 0f, 40f, 0f);
-
-        Button closeBtn = NewButton(panelRt, "CloseButton", "关闭", ButtonBg, Color.white);
-        RectTransform closeRt = (RectTransform)closeBtn.transform;
-        closeRt.anchorMin = new Vector2(1f, 1f);
-        closeRt.anchorMax = new Vector2(1f, 1f);
-        closeRt.pivot = new Vector2(1f, 1f);
-        closeRt.anchoredPosition = new Vector2(-8f, -6f);
-        closeRt.sizeDelta = new Vector2(56f, 30f);
-        closeBtn.onClick.AddListener(() => panelObject.SetActive(false));
-
-        // 当前预览
-        TMP_Text previewLabel = NewText(panelRt, "PreviewLabel", "当前牌背", 15, LabelColor, TextAnchor.MiddleLeft);
-        StretchTop(previewLabel.rectTransform, 10f, 18f, 56f);
-        previewImage = NewImage(panelRt, "PreviewImage", currentColor);
-        RectTransform previewRt = (RectTransform)previewImage.transform;
-        previewRt.anchorMin = new Vector2(0.5f, 1f);
-        previewRt.anchorMax = new Vector2(0.5f, 1f);
-        previewRt.pivot = new Vector2(0.5f, 1f);
-        previewRt.anchoredPosition = new Vector2(0f, -88f);
-        previewRt.sizeDelta = new Vector2(280f, 150f);
-
-        // 颜色区
-        TMP_Text colorLabel = NewText(panelRt, "ColorLabel", "颜色", 17, Color.white, TextAnchor.MiddleLeft);
-        StretchTop(colorLabel.rectTransform, 10f, 22f, 208f);
-
-        int swatchCols = 5;
-        float swatchSize = 62f;
-        float swatchGap = 76f;
-        float startX = -((swatchCols - 1) * swatchGap) * 0.5f;
         for (int i = 0; i < PresetColors.Length; i++)
         {
-            int row = i / swatchCols;
-            int col = i % swatchCols;
-            Color preset = PresetColors[i];
-            Button swatch = NewButton(panelRt, "Swatch" + i, "", preset, Color.white);
-            RectTransform swRt = (RectTransform)swatch.transform;
-            swRt.anchorMin = new Vector2(0.5f, 1f);
-            swRt.anchorMax = new Vector2(0.5f, 1f);
-            swRt.pivot = new Vector2(0.5f, 1f);
-            swRt.anchoredPosition = new Vector2(startX + col * swatchGap, -238f - row * (swatchSize + 10f));
-            swRt.sizeDelta = new Vector2(swatchSize, swatchSize);
-            Color c = preset;
+            Button swatch = FindInChildren<Button>(transform, "Swatch" + i);
+            if (swatch == null) continue;
+            Color c = PresetColors[i];
             swatch.onClick.AddListener(() => SetColor(c));
         }
 
-        // RGB 滑条
-        CreateSliderRow(panelRt, "R", ref sliderR, ref valueR, -366f, Color.red, currentColor.r * 255f, v => SetColor(new Color(v, currentColor.g, currentColor.b, 1f)));
-        CreateSliderRow(panelRt, "G", ref sliderG, ref valueG, -400f, Color.green, currentColor.g * 255f, v => SetColor(new Color(currentColor.r, v, currentColor.b, 1f)));
-        CreateSliderRow(panelRt, "B", ref sliderB, ref valueB, -434f, Color.blue, currentColor.b * 255f, v => SetColor(new Color(currentColor.r, currentColor.g, v, 1f)));
-
-        // HEX 输入
-        TMP_Text hexLabel = NewText(panelRt, "HexLabel", "HEX", 14, LabelColor, TextAnchor.MiddleRight);
-        RectTransform hexLabelRt = hexLabel.rectTransform;
-        hexLabelRt.anchorMin = new Vector2(0f, 1f);
-        hexLabelRt.anchorMax = new Vector2(0f, 1f);
-        hexLabelRt.pivot = new Vector2(0f, 1f);
-        hexLabelRt.anchoredPosition = new Vector2(16f, -462f);
-        hexLabelRt.sizeDelta = new Vector2(48f, 24f);
-
-        hexInput = CreateInput(panelRt, "HexInput", "RRGGBB 或 RRGGBBAA");
-        RectTransform hexRt = (RectTransform)hexInput.transform;
-        hexRt.anchorMin = new Vector2(0f, 1f);
-        hexRt.anchorMax = new Vector2(0f, 1f);
-        hexRt.pivot = new Vector2(0f, 1f);
-        hexRt.anchoredPosition = new Vector2(72f, -470f);
-        hexRt.sizeDelta = new Vector2(360f, 28f);
-
-        Button hexApply = NewButton(panelRt, "HexApply", "应用", Accent, Color.white);
-        RectTransform hexApplyRt = (RectTransform)hexApply.transform;
-        hexApplyRt.anchorMin = new Vector2(0f, 1f);
-        hexApplyRt.anchorMax = new Vector2(0f, 1f);
-        hexApplyRt.pivot = new Vector2(0f, 1f);
-        hexApplyRt.anchoredPosition = new Vector2(448f, -470f);
-        hexApplyRt.sizeDelta = new Vector2(76f, 28f);
-        hexApply.onClick.AddListener(ApplyHex);
-
-        // 恢复默认
-        Button restore = NewButton(panelRt, "RestoreButton", "恢复默认颜色并清除图片", ButtonBg, Color.white);
-        RectTransform restoreRt = (RectTransform)restore.transform;
-        restoreRt.anchorMin = new Vector2(0.5f, 1f);
-        restoreRt.anchorMax = new Vector2(0.5f, 1f);
-        restoreRt.pivot = new Vector2(0.5f, 1f);
-        restoreRt.anchoredPosition = new Vector2(0f, -512f);
-        restoreRt.sizeDelta = new Vector2(440f, 36f);
-        restore.onClick.AddListener(RestoreDefault);
-
-        // 图片区
-        TMP_Text imageLabel = NewText(panelRt, "ImageLabel", "牌背图片", 17, Color.white, TextAnchor.MiddleLeft);
-        StretchTop(imageLabel.rectTransform, 10f, 22f, 566f);
-
-        Button pickButton = NewButton(panelRt, "PickImageButton", "选择图片", Accent, Color.white);
-        RectTransform pickRt = (RectTransform)pickButton.transform;
-        pickRt.anchorMin = new Vector2(0.5f, 1f);
-        pickRt.anchorMax = new Vector2(0.5f, 1f);
-        pickRt.pivot = new Vector2(0.5f, 1f);
-        pickRt.anchoredPosition = new Vector2(0f, -602f);
-        pickRt.sizeDelta = new Vector2(440f, 38f);
-        pickButton.onClick.AddListener(OpenFilePicker);
-
-        // 拖拽区
-        Button dropZone = NewButton(panelRt, "DropZone", "", new Color(0.10f, 0.12f, 0.16f, 1f), Color.white);
-        RectTransform dropRt = (RectTransform)dropZone.transform;
-        dropRt.anchorMin = new Vector2(0.5f, 1f);
-        dropRt.anchorMax = new Vector2(0.5f, 1f);
-        dropRt.pivot = new Vector2(0.5f, 1f);
-        dropRt.anchoredPosition = new Vector2(0f, -652f);
-        dropRt.sizeDelta = new Vector2(440f, 96f);
-        dropZone.onClick.AddListener(OpenFilePicker);
-        TMP_Text dropText = NewText(dropRt, "DropText", "把图片文件拖到这里\n(WebGL 浏览器 / 编辑器 Project 资源)", 13, LabelColor, TextAnchor.MiddleCenter);
-        Stretch(dropText.rectTransform);
-
-        Button clearButton = NewButton(panelRt, "ClearImageButton", "清除图片（恢复纯色）", ButtonBg, Color.white);
-        RectTransform clearRt = (RectTransform)clearButton.transform;
-        clearRt.anchorMin = new Vector2(0.5f, 1f);
-        clearRt.anchorMax = new Vector2(0.5f, 1f);
-        clearRt.pivot = new Vector2(0.5f, 1f);
-        clearRt.anchoredPosition = new Vector2(0f, -764f);
-        clearRt.sizeDelta = new Vector2(440f, 36f);
-        clearButton.onClick.AddListener(ClearImage);
-
-        // 随机桌面：填满副露/手牌/牌河，方便预览牌背颜色与图片
-        Button randomTableBtn = NewButton(panelRt, "RandomTableButton", "随机桌面：生成副露/手牌/牌河", Accent, Color.white);
-        RectTransform randomRt = (RectTransform)randomTableBtn.transform;
-        randomRt.anchorMin = new Vector2(0.5f, 1f);
-        randomRt.anchorMax = new Vector2(0.5f, 1f);
-        randomRt.pivot = new Vector2(0.5f, 1f);
-        randomRt.anchoredPosition = new Vector2(0f, -814f);
-        randomRt.sizeDelta = new Vector2(440f, 38f);
-        randomTableBtn.onClick.AddListener(RandomTableButton.GenerateRandomTable);
-
-        panelObject.SetActive(false);
+        LoadSavedIntoUI();
     }
-
-    private void ShowInSceneConfig()
-    {
-        SceneConfigPanel sceneConfig = GetComponent<SceneConfigPanel>();
-        if (sceneConfig != null) sceneConfig.ShowCardBackPanel();
-    }
-
-    public GameObject PanelObject => panelObject;
 
     public void ShowPanel()
     {
-        if (panelObject != null) panelObject.SetActive(true);
+        gameObject.SetActive(true);
     }
 
     public void HidePanel()
     {
-        if (panelObject != null) panelObject.SetActive(false);
+        gameObject.SetActive(false);
     }
-
-    private void CreateSliderRow(
-        RectTransform parent,
-        string name,
-        ref Slider slider,
-        ref TMP_Text valueText,
-        float y,
-        Color accent,
-        float initialValue,
-        Action<float> onChanged)
-    {
-        TMP_Text label = NewText(parent, name + "Label", name, 14, LabelColor, TextAnchor.MiddleRight);
-        RectTransform labelRt = label.rectTransform;
-        labelRt.anchorMin = new Vector2(0f, 1f);
-        labelRt.anchorMax = new Vector2(0f, 1f);
-        labelRt.pivot = new Vector2(0f, 1f);
-        labelRt.anchoredPosition = new Vector2(16f, y);
-        labelRt.sizeDelta = new Vector2(44f, 20f);
-
-        slider = CreateSlider(parent, name + "Slider", 0f, 255f, initialValue);
-        RectTransform sliderRt = (RectTransform)slider.transform;
-        sliderRt.anchorMin = new Vector2(0f, 1f);
-        sliderRt.anchorMax = new Vector2(0f, 1f);
-        sliderRt.pivot = new Vector2(0f, 1f);
-        sliderRt.anchoredPosition = new Vector2(66f, y + 8f);
-        sliderRt.sizeDelta = new Vector2(560f, 16f);
-        slider.fillRect.GetComponent<Image>().color = accent;
-        slider.onValueChanged.AddListener(v => onChanged(v));
-
-        valueText = NewText(parent, name + "Value", "0", 14, Color.white, TextAnchor.MiddleLeft);
-        RectTransform valueRt = valueText.rectTransform;
-        valueRt.anchorMin = new Vector2(0f, 1f);
-        valueRt.anchorMax = new Vector2(0f, 1f);
-        valueRt.pivot = new Vector2(0f, 1f);
-        valueRt.anchoredPosition = new Vector2(640f, y);
-        valueRt.sizeDelta = new Vector2(64f, 20f);
-    }
-
-    // ==================== 状态同步 ====================
 
     private void LoadSavedIntoUI()
     {
@@ -343,13 +180,23 @@ public class CardBackConfigPanel : MonoBehaviour
     private void SyncUIFromColor()
     {
         syncing = true;
-        sliderR.value = currentColor.r * 255f;
-        sliderG.value = currentColor.g * 255f;
-        sliderB.value = currentColor.b * 255f;
-        valueR.text = Mathf.RoundToInt(currentColor.r * 255f).ToString();
-        valueG.text = Mathf.RoundToInt(currentColor.g * 255f).ToString();
-        valueB.text = Mathf.RoundToInt(currentColor.b * 255f).ToString();
-        hexInput.text = ColorUtility.ToHtmlStringRGB(currentColor);
+        if (sliderR != null) sliderR.value = currentColor.r * 255f;
+        if (sliderG != null) sliderG.value = currentColor.g * 255f;
+        if (sliderB != null) sliderB.value = currentColor.b * 255f;
+
+        string r = Mathf.RoundToInt(currentColor.r * 255f).ToString();
+        string g = Mathf.RoundToInt(currentColor.g * 255f).ToString();
+        string b = Mathf.RoundToInt(currentColor.b * 255f).ToString();
+        if (valueR != null) valueR.text = r;
+        else if (legacyValueR != null) legacyValueR.text = r;
+        if (valueG != null) valueG.text = g;
+        else if (legacyValueG != null) legacyValueG.text = g;
+        if (valueB != null) valueB.text = b;
+        else if (legacyValueB != null) legacyValueB.text = b;
+
+        string hex = ColorUtility.ToHtmlStringRGB(currentColor);
+        if (hexInput != null) hexInput.text = hex;
+        else if (legacyHexInput != null) legacyHexInput.text = hex;
         syncing = false;
     }
 
@@ -365,12 +212,14 @@ public class CardBackConfigPanel : MonoBehaviour
                 new Rect(0f, 0f, currentTexture.width, currentTexture.height),
                 new Vector2(0.5f, 0.5f));
             previewImage.sprite = previewSprite;
+            // 有图时预览不乘算颜色：白色显示原图，颜色作为底层背景
+            previewImage.color = Color.white;
         }
         else
         {
             previewImage.sprite = null;
+            previewImage.color = currentColor;
         }
-        previewImage.color = currentColor;
     }
 
     private void SetColor(Color color)
@@ -389,7 +238,9 @@ public class CardBackConfigPanel : MonoBehaviour
 
     private void ApplyHex()
     {
-        string hex = (hexInput != null ? hexInput.text : "").Trim();
+        string hex = hexInput != null ? hexInput.text : (legacyHexInput != null ? legacyHexInput.text : "");
+        if (hex == null) hex = "";
+        hex = hex.Trim();
         if (hex.StartsWith("#")) hex = hex.Substring(1);
         if (hex.Length == 6) hex += "FF";
         if (hex.Length != 8 || !ColorUtility.TryParseHtmlString("#" + hex, out Color color))
@@ -418,6 +269,22 @@ public class CardBackConfigPanel : MonoBehaviour
         UpdatePreview();
         CardBackManager.Apply(currentColor, null);
         ShowTip("已恢复默认");
+    }
+
+    private void ClearImage()
+    {
+        if (ConfigManager.Instance != null)
+        {
+            ConfigManager.Instance.SetSelectedCardBackImage("", false);
+        }
+        if (currentTexture != null)
+        {
+            Destroy(currentTexture);
+            currentTexture = null;
+        }
+        UpdatePreview();
+        CardBackManager.Apply(currentColor, null);
+        ShowTip("已清除牌背图片");
     }
 
     // ==================== 图片上传 ====================
@@ -553,71 +420,15 @@ public class CardBackConfigPanel : MonoBehaviour
         ShowTip("牌背图片已应用");
     }
 
-    private void ClearImage()
-    {
-        if (ConfigManager.Instance != null)
-        {
-            ConfigManager.Instance.SetSelectedCardBackImage("", false);
-        }
-        if (currentTexture != null)
-        {
-            Destroy(currentTexture);
-            currentTexture = null;
-        }
-        UpdatePreview();
-        CardBackManager.Apply(currentColor, null);
-        ShowTip("已清除牌背图片");
-    }
-
-    // ==================== 编辑器拖拽（Project 图片资源） ====================
+    // ==================== 编辑器拖拽（Project 图片资源）====================
+    // 拖拽接收由挂在常驻对象上的 CardBackEditorDragReceiver 处理，
+    // 本方法负责把拖进来的纹理落盘并应用。
 
 #if UNITY_EDITOR
-    private void OnGUI()
+    public void ApplyEditorDroppedTexture(Texture2D source)
     {
-        Event e = Event.current;
-        if (e.type == EventType.DragUpdated)
-        {
-            bool hasImage = false;
-            foreach (UnityEngine.Object obj in UnityEditor.DragAndDrop.objectReferences)
-            {
-                if (obj is Texture2D || obj is Sprite)
-                {
-                    hasImage = true;
-                    break;
-                }
-            }
-            if (hasImage)
-            {
-                UnityEditor.DragAndDrop.visualMode = UnityEditor.DragAndDropVisualMode.Copy;
-                e.Use();
-            }
-        }
-        else if (e.type == EventType.DragPerform)
-        {
-            bool applied = false;
-            foreach (UnityEngine.Object obj in UnityEditor.DragAndDrop.objectReferences)
-            {
-                Texture2D tex = obj as Texture2D;
-                if (tex == null && obj is Sprite sprite)
-                {
-                    tex = sprite.texture;
-                }
-                if (tex != null)
-                {
-                    SaveTextureAsCustom(tex);
-                    applied = true;
-                }
-            }
-            if (applied)
-            {
-                UnityEditor.DragAndDrop.AcceptDrag();
-                e.Use();
-            }
-        }
-    }
+        if (source == null) return;
 
-    private void SaveTextureAsCustom(Texture2D source)
-    {
         // 用 RenderTexture 拷贝，兼容 Read/Write 关闭的导入纹理
         RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
         Graphics.Blit(source, rt);
@@ -669,184 +480,32 @@ public class CardBackConfigPanel : MonoBehaviour
         }
     }
 
-    // ==================== UI 组件工厂 ====================
+    // ==================== 场景查找 ====================
 
-    private static TMP_FontAsset _tmpFont;
-    private static TMP_FontAsset TmpFont()
+    private static Transform FindChildByName(Transform root, string name)
     {
-        if (_tmpFont != null) return _tmpFont;
-        _tmpFont = Resources.Load<TMP_FontAsset>("font/Chinese/AlibabaPuHuiTi/AlibabaPuHuiTi-3-55-Regular SDF");
-        if (_tmpFont == null) _tmpFont = TMP_Settings.defaultFontAsset;
-        if (_tmpFont == null) _tmpFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
-        return _tmpFont;
-    }
-
-    private static Sprite _whiteSprite;
-    private static Sprite WhiteSprite()
-    {
-        if (_whiteSprite == null)
+        if (root == null) return null;
+        for (int i = 0; i < root.childCount; i++)
         {
-            _whiteSprite = Sprite.Create(
-                Texture2D.whiteTexture,
-                new Rect(0f, 0f, 1f, 1f),
-                new Vector2(0.5f, 0.5f));
+            Transform child = root.GetChild(i);
+            if (child.name == name) return child;
         }
-        return _whiteSprite;
+        return null;
     }
 
-    private static RectTransform NewRect(string name, Transform parent)
+    private static T FindInChildren<T>(Transform root, string name) where T : Component
     {
-        GameObject go = new GameObject(name, typeof(RectTransform));
-        RectTransform rt = (RectTransform)go.transform;
-        rt.SetParent(parent, false);
-        return rt;
-    }
-
-    private static Image NewImage(RectTransform parent, string name, Color color)
-    {
-        RectTransform rt = NewRect(name, parent);
-        Image img = rt.gameObject.AddComponent<Image>();
-        img.color = color;
-        return img;
-    }
-
-    private static TMP_Text NewText(RectTransform parent, string name, string content, int size, Color color, TextAnchor anchor)
-    {
-        RectTransform rt = NewRect(name, parent);
-        TMP_Text text = rt.gameObject.AddComponent<TextMeshProUGUI>();
-        text.font = TmpFont();
-        text.text = content;
-        text.fontSize = size;
-        text.color = color;
-        text.alignment = TmpAlignment(anchor);
-        text.enableWordWrapping = false;
-        text.overflowMode = TextOverflowModes.Overflow;
-        text.raycastTarget = false;
-        return text;
-    }
-
-    private static TextAlignmentOptions TmpAlignment(TextAnchor anchor)
-    {
-        switch (anchor)
+        if (root == null) return null;
+        foreach (Transform child in root)
         {
-            case TextAnchor.UpperLeft: return TextAlignmentOptions.TopLeft;
-            case TextAnchor.UpperCenter: return TextAlignmentOptions.Top;
-            case TextAnchor.UpperRight: return TextAlignmentOptions.TopRight;
-            case TextAnchor.MiddleLeft: return TextAlignmentOptions.MidlineLeft;
-            case TextAnchor.MiddleRight: return TextAlignmentOptions.MidlineRight;
-            case TextAnchor.LowerLeft: return TextAlignmentOptions.BottomLeft;
-            case TextAnchor.LowerCenter: return TextAlignmentOptions.Bottom;
-            case TextAnchor.LowerRight: return TextAlignmentOptions.BottomRight;
-            default: return TextAlignmentOptions.Midline;
-        }
-    }
-
-    private static Button NewButton(RectTransform parent, string name, string label, Color bg, Color textColor)
-    {
-        RectTransform rt = NewRect(name, parent);
-        Image img = rt.gameObject.AddComponent<Image>();
-        img.color = bg;
-        img.sprite = WhiteSprite();
-        Button button = rt.gameObject.AddComponent<Button>();
-        button.targetGraphic = img;
-        button.transition = Selectable.Transition.None;
-        if (!string.IsNullOrEmpty(label))
-        {
-            TMP_Text text = NewText(rt, "Label", label, 15, textColor, TextAnchor.MiddleCenter);
-            Stretch(text.rectTransform);
-        }
-        return button;
-    }
-
-    private static Slider CreateSlider(RectTransform parent, string name, float min, float max, float value)
-    {
-        RectTransform rt = NewRect(name, parent);
-        Image bg = rt.gameObject.AddComponent<Image>();
-        bg.color = new Color(0.20f, 0.22f, 0.28f, 1f);
-
-        RectTransform fillRt = NewRect("Fill", rt);
-        Stretch(fillRt);
-        Image fill = fillRt.gameObject.AddComponent<Image>();
-        fill.sprite = WhiteSprite();
-        fill.type = Image.Type.Filled;
-        fill.fillMethod = Image.FillMethod.Horizontal;
-        fill.color = Accent;
-
-        RectTransform handleRt = NewRect("Handle", rt);
-        handleRt.anchorMin = new Vector2(0f, 0.5f);
-        handleRt.anchorMax = new Vector2(0f, 0.5f);
-        handleRt.pivot = new Vector2(0.5f, 0.5f);
-        handleRt.sizeDelta = new Vector2(16f, 20f);
-        Image handle = handleRt.gameObject.AddComponent<Image>();
-        handle.sprite = WhiteSprite();
-        handle.color = Color.white;
-
-        Slider slider = rt.gameObject.AddComponent<Slider>();
-        slider.minValue = min;
-        slider.maxValue = max;
-        slider.value = value;
-        slider.fillRect = fillRt;
-        slider.handleRect = handleRt;
-        slider.targetGraphic = handle;
-        slider.direction = Slider.Direction.LeftToRight;
-        return slider;
-    }
-
-    private static TMP_InputField CreateInput(RectTransform parent, string name, string placeholderText)
-    {
-        RectTransform rt = NewRect(name, parent);
-        Image img = rt.gameObject.AddComponent<Image>();
-        img.color = new Color(0.13f, 0.15f, 0.20f, 1f);
-
-        TMP_Text text = NewText(rt, "Text", "", 14, Color.white, TextAnchor.MiddleLeft);
-        RectTransform textRt = text.rectTransform;
-        Stretch(textRt);
-        textRt.offsetMin = new Vector2(8f, 0f);
-        textRt.offsetMax = new Vector2(-8f, 0f);
-
-        TMP_Text ph = NewText(rt, "Placeholder", placeholderText, 14, new Color(1f, 1f, 1f, 0.35f), TextAnchor.MiddleLeft);
-        RectTransform phRt = ph.rectTransform;
-        Stretch(phRt);
-        phRt.offsetMin = new Vector2(8f, 0f);
-        phRt.offsetMax = new Vector2(-8f, 0f);
-
-        TMP_InputField input = rt.gameObject.AddComponent<TMP_InputField>();
-        input.targetGraphic = img;
-        input.textComponent = text;
-        input.placeholder = ph;
-        return input;
-    }
-
-    private static void DestroyCardBackChildren(Transform parent)
-    {
-        if (parent == null) return;
-        for (int i = parent.childCount - 1; i >= 0; i--)
-        {
-            Transform child = parent.GetChild(i);
-            if (child == null) continue;
-            string childName = child.name;
-            if (string.IsNullOrEmpty(childName)) continue;
-            if (childName.Contains("CardBack") || childName.Contains("牌背"))
+            if (child.name == name)
             {
-                UnityEngine.Object.Destroy(child.gameObject);
+                T comp = child.GetComponent<T>();
+                if (comp != null) return comp;
             }
+            T nested = FindInChildren<T>(child, name);
+            if (nested != null) return nested;
         }
-    }
-
-    private static void Stretch(RectTransform rt)
-    {
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-    }
-
-    private static void StretchTop(RectTransform rt, float left, float height, float y)
-    {
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(1f, 1f);
-        rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0f, -y);
-        rt.sizeDelta = new Vector2(-left * 2f, height);
+        return null;
     }
 }
