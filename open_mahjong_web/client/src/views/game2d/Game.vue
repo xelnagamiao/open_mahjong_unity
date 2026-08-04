@@ -370,6 +370,10 @@
                   </div>
                 </div>
               </div>
+
+              <div class="game-felt-rail__section game-fan-table-trigger">
+                <GuobiaoFanTable />
+              </div>
             </aside>
           </div>
         </div>
@@ -406,6 +410,7 @@ import GamePlaySettingsPanel from './GamePlaySettingsPanel.vue'
 import GameTileSkipPanel from './GameTileSkipPanel.vue'
 import GameScoreboardPanel from './GameScoreboardPanel.vue'
 import GameVotePanel from './GameVotePanel.vue'
+import GuobiaoFanTable from '@/components/GuobiaoFanTable.vue'
 import { useGame2dSessionStore } from '@/stores/game2dSession'
 import { MahjongScene } from '@/game2d/game/scene/MahjongScene'
 import { GAME_SOUND_ASSETS, getPreloadedSoundUrl } from '@/game2d/game/resources'
@@ -496,6 +501,9 @@ let resultTimers = []
 let resultRevealToken = 0
 let voteCountdownTimer = null
 
+/** 国标局中错和：结算 ready 后服务端不回发新局快照，而是直接续打。 */
+let pendingCuoheResume = null
+
 function clearResultTimers() {
   for (const id of resultTimers) window.clearTimeout(id)
   resultTimers = []
@@ -524,6 +532,19 @@ function clearRoundResultUi() {
   resetWinRevealState()
   resultContentVisible.value = true
   readySent.value = false
+  pendingCuoheResume = null
+}
+
+/**
+ * 错和 ready 结束、服务端恢复本局后：关闭结算层并还原牌桌。
+ * 与 3D 客户端 NormalGameStateManager.TryResumeAfterCuoheContinue 对齐。
+ */
+function resumeAfterCuoheIfPending(targetScene) {
+  if (!pendingCuoheResume) return
+  const { winnerSeat, isSelfDraw } = pendingCuoheResume
+  pendingCuoheResume = null
+  clearRoundResultUi()
+  targetScene?.resumeAfterMidRoundResult(winnerSeat, isSelfDraw)
 }
 
 /**
@@ -803,7 +824,7 @@ function applyVoteInfo(info) {
       if (voteCountdown.value <= 0) stopVoteCountdown()
     }, 200)
   }
-  if (['end_countdown', 'paused', 'resume_voting', 'resume_countdown'].includes(info.phase)) {
+  if (['paused', 'resume_voting', 'resume_countdown'].includes(info.phase)) {
     scene?.suspendForVote()
   }
 }
@@ -843,6 +864,15 @@ function resetTimeoutAutoDiscardTracking() {
   consecutiveSelfTimeoutCuts = 0
 }
 
+function resetRoundAssistUi(targetScene = scene) {
+  resetTimeoutAutoDiscardTracking()
+  assistSettings.value = resetRoundAssistSettings(assistSettings.value)
+  saveStoredAssistSettings(assistSettings.value)
+  targetScene?.setAssistSettings(assistSettings.value)
+  assistExpandOpen.value = false
+  tileSkipOpen.value = false
+}
+
 function registerSelfCutResponse(response, targetAdapter) {
   const info = response?.do_action_info
   if (
@@ -870,10 +900,7 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       const roundKey = `${update.snapshot.session_id}:${Number(update.snapshot.state.round_counter ?? 0)}`
       if (roundKey !== lastAssistRoundKey) {
         lastAssistRoundKey = roundKey
-        resetTimeoutAutoDiscardTracking()
-        assistSettings.value = resetRoundAssistSettings(assistSettings.value)
-        saveStoredAssistSettings(assistSettings.value)
-        targetScene.setAssistSettings(assistSettings.value)
+        resetRoundAssistUi(targetScene)
       }
       if (!matchStartDefaultsApplied) {
         matchStartDefaultsApplied = true
@@ -890,9 +917,18 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
       hasSnapshot.value = true
       updateSidebarPlayers()
     }
-    if (update.event) targetScene.handleEvent(update.event)
-    if (update.events) update.events.forEach((event) => targetScene.handleEvent(event))
+    if (update.event) {
+      resumeAfterCuoheIfPending(targetScene)
+      targetScene.handleEvent(update.event)
+    }
+    if (update.events) {
+      resumeAfterCuoheIfPending(targetScene)
+      update.events.forEach((event) => targetScene.handleEvent(event))
+    }
     if (update.result) {
+      // Unity initializes AutoAction for every hand. Reset immediately at hand
+      // end too, rather than carrying temporary choices through settlement.
+      resetRoundAssistUi(targetScene)
       readySent.value = false
       resultContentVisible.value = true
       readyStatus.value = Object.fromEntries(sidebarPlayers.value.map((player) => [
@@ -905,10 +941,19 @@ function applyMessage(response, targetAdapter = adapter, targetScene = scene) {
         }))
       }
       appendScoreboardResult(update.result)
+      const resultHuFan = Array.isArray(update.result?.hu_fan) ? update.result.hu_fan : []
+      pendingCuoheResume = typeof update.result.hepai_player_index === 'number'
+        && resultHuFan.includes('错和')
+        ? {
+          winnerSeat: Number(update.result.hepai_player_index),
+          isSelfDraw: update.result.hu_class === 'hu_self',
+        }
+        : null
       revealRoundResultAfterHand(update.result, targetScene)
     }
     if (update.ready) readyStatus.value = { ...readyStatus.value, ...update.ready.player_to_ready }
     if (update.ended) {
+      resetRoundAssistUi(targetScene)
       clearResultTimers()
       finalResult.value = update.ended
     }
@@ -963,6 +1008,8 @@ function handleResponse(response) {
   }
   if (response.type === 'gamestate/vote_end') {
     clearVoteState()
+    // 服务端投票结束属于已完成的对局退出，不再弹出主动离桌确认。
+    leavingActiveGame = true
     void router.push('/2d')
     return
   }

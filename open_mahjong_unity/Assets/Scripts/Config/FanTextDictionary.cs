@@ -255,13 +255,13 @@ public static class FanTextDictionary {
     /// </summary>
     public static readonly Dictionary<string, string> FanToDisplayLanshi = new Dictionary<string, string> {
         {"七星对", "100番"}, {"四同顺", "100番"}, {"九莲宝灯", "100番"}, {"四杠", "100番"},
-        {"大四喜", "72番"}, {"清玄九", "72番"},
+        {"大四喜", "72番"}, {"清幺九", "72番"},
         {"四暗刻", "48番"}, {"十三幺", "48番"},
         {"字一色", "40番"}, {"四连顺", "40番"}, {"四连刻", "40番"},
         {"小四喜", "32番"}, {"三杠", "32番"},
-        {"大三元", "24番"}, {"顺网", "24番"}, {"三同顺", "24番"}, {"盘龙", "24番"},
-        {"混玄九", "16番"}, {"混全大", "16番"}, {"全中", "16番"}, {"全小", "16番"}, {"全带五", "16番"}, {"三同刻", "16番"}, {"小三元", "16番"}, {"全不靠", "16番"},
-        {"三风刻", "12番"}, {"三暗刻", "12番"}, {"清一色", "12番"}, {"三连顺", "12番"}, {"三色连刻", "8番"},
+        {"大三元", "24番"}, {"顺网", "24番"}, {"三同顺", "24番"}, {"顺链", "24番"},
+        {"混幺九", "16番"}, {"全大", "16番"}, {"全中", "16番"}, {"全小", "16番"}, {"全带五", "16番"}, {"三同刻", "16番"}, {"小三元", "16番"}, {"全不靠", "16番"},
+        {"三风刻", "12番"}, {"三暗刻", "12番"}, {"三连刻", "12番"}, {"清一色", "12番"}, {"三连顺", "12番"}, {"三色连刻", "8番"},
         {"清全带幺", "8番"}, {"双杠", "8番"}, {"大于五", "8番"}, {"小于五", "8番"}, {"七对", "8番"}, {"顺环", "8番"},
         {"双箭刻", "6番"}, {"清龙", "6番"},
         {"妙手回春", "5番"}, {"海底捞月", "5番"}, {"杠上开花", "5番"}, {"抢杠和", "5番"}, {"天和", "5番"}, {"地和", "5番"},
@@ -492,6 +492,10 @@ public static class FanTextDictionary {
         if (string.IsNullOrEmpty(fanName)) {
             return fanName;
         }
+        if (rule != null && rule.StartsWith("hongque")) {
+            int separator = fanName.LastIndexOf('|');
+            return separator > 0 ? fanName.Substring(0, separator) : fanName;
+        }
         if (rule == "guobiao/standard" && ConfigManager.IsEnglish) {
             if (FanNameToEnglishGuobiao.TryGetValue(fanName, out string englishName)) {
                 return englishName;
@@ -513,6 +517,13 @@ public static class FanTextDictionary {
     /// 根据规则与番种名称返回显示文本（如 "88番"），未命中时返回 "0番"。
     /// </summary>
     public static string GetFanDisplayText(string rule, string fanName) {
+        if (rule != null && rule.StartsWith("hongque")) {
+            int separator = fanName?.LastIndexOf('|') ?? -1;
+            if (separator > 0 && int.TryParse(fanName.Substring(separator + 1), out int fan)) {
+                return $"{fan}番";
+            }
+            return "0番";
+        }
         if (rule == "guobiao/standard" && ConfigManager.IsEnglish) {
             if (FanToDisplayGuobiaoEnglish.TryGetValue(fanName, out string englishDisplay)) {
                 return englishDisplay;

@@ -85,6 +85,90 @@
   width: 100%;
 }
 
+.game-fan-table-trigger { margin-top: auto; }
+
+.guobiao-fan-table {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+.guobiao-fan-table__button {
+  width: 100%;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.guobiao-fan-table__panel {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100% - 20px));
+  max-height: min(76dvh, 680px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(20, 24, 26, 0.98);
+  color: #f1f3f2;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.46);
+}
+
+.guobiao-fan-table__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  background: #252b2e;
+}
+.guobiao-fan-table__header div { display: grid; gap: 3px; }
+.guobiao-fan-table__header strong { font-size: 16px; }
+.guobiao-fan-table__header span { color: #aeb8ba; font-size: 11px; }
+.guobiao-fan-table__close {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 5px;
+  background: #30383b;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.guobiao-fan-table__groups { min-height: 0; overflow-y: auto; padding: 8px; }
+.guobiao-fan-table__group { border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.guobiao-fan-table__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: #f3f4f2;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.guobiao-fan-table__group-header:hover { background: rgba(255, 255, 255, 0.08); }
+.guobiao-fan-table__chevron { color: #df7d23; font-size: 19px; font-weight: 400; }
+.guobiao-fan-table__entries { display: grid; gap: 6px; padding: 0 8px 9px; }
+.guobiao-fan-table__entry {
+  padding: 8px 10px;
+  border-left: 3px solid #df7d23;
+  background: rgba(255, 255, 255, 0.07);
+}
+.guobiao-fan-table__name { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.guobiao-fan-table__name strong { font-size: 14px; }
+.guobiao-fan-table__name span { color: #f0a157; font-size: 12px; white-space: nowrap; }
+.guobiao-fan-table__entry p { margin: 4px 0 0; color: #d8dfdf; font-size: 12px; line-height: 1.5; }
+.guobiao-fan-table__entry .guobiao-fan-table__example { color: #aebabb; }
+.guobiao-fan-table__example span { color: #df9a53; }
+
 .game-vote-start {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -21,8 +21,12 @@ public class StaticCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         if (ConfigManager.Instance.UseBlankWhiteDragonFace(tile)) {
             faceResourceId = ConfigManager.BlankFaceImageId;
         }
-        string path = $"image/CardFaceImage_xuefun/{faceResourceId}";
-        Sprite sprite = Resources.Load<Sprite>(path);
+        string path = HongqueTileVisual.IsHongqueId(tile)
+            ? HongqueTileVisual.ResourcePath(tile)
+            : $"image/CardFaceImage_xuefun/{faceResourceId}";
+        Sprite sprite = HongqueTileVisual.IsHongqueId(tile)
+            ? HongqueTileVisual.LoadSprite(tile)
+            : Resources.Load<Sprite>(path);
         if (sprite != null) {
             tileImage.sprite = sprite;
             ApplyWallVisual(1f, false, false);

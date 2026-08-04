@@ -15,11 +15,13 @@ import time
 
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
 from .get_action import get_ai_action
+from .bot_executor import bot_action_is_current, run_room_bot_cpu
 from .guobiao_heuristic_logic import (
     choose_best_discard,
     choose_claim,
     choose_closed_kan,
     context_from_game,
+    make_default_scorer,
 )
 from .guobiao_shanten import normalize_tile
 from .smart_bot_logic import should_accept_hu
@@ -31,6 +33,26 @@ logger = logging.getLogger(__name__)
 # smoke 等测试可临时压低 _BOT_DELAY，以便 wait_action 入队后再提交。
 _BOT_DELAY = 0.5
 _RON_HU_ACTIONS = ("hu", "hu_first", "hu_second", "hu_third")
+
+
+def _choose_hand_plan(ctx, action_list, hand):
+    """CPU-only hand decision; all inputs are snapshots made on the room loop."""
+    ctx.scorer = make_default_scorer()
+    best_disc = choose_best_discard(ctx) if ("cut" in action_list and hand) else None
+    kan = choose_closed_kan(
+        ctx,
+        allow_angang="angang" in action_list,
+        allow_jiagang=("jiagang" in action_list or "buzhang" in action_list),
+        baseline_discard=best_disc,
+    )
+    if kan is not None:
+        return kan[0], kan[1]
+    return "cut", best_disc
+
+
+def _choose_claim_plan(ctx, action_list, cut_tile):
+    ctx.scorer = make_default_scorer()
+    return choose_claim(ctx, action_list, cut_tile)
 
 
 async def _think_pad(t0: float) -> None:
@@ -129,18 +151,16 @@ async def _handle_hand_action(game_state, player_index, action_list, player, *, 
         return
 
     ctx = context_from_game(game_state, player_index)
+    ctx.scorer = None  # scorer closure is recreated inside the worker process
     hand = [normalize_tile(t) for t in player.hand_tiles]
-
-    # 先算最优切作基线；暗杠/加杠仅在不恶化 winningShanten、不削合法听进张时取
-    best_disc = choose_best_discard(ctx) if ("cut" in action_list and hand) else None
-    kan = choose_closed_kan(
-        ctx,
-        allow_angang="angang" in action_list,
-        allow_jiagang=("jiagang" in action_list or "buzhang" in action_list),
-        baseline_discard=best_disc,
+    expected_tick = getattr(game_state, "server_action_tick", None)
+    kind, tile = await run_room_bot_cpu(
+        game_state, _choose_hand_plan, ctx, tuple(action_list), tuple(hand)
     )
-    if kan is not None:
-        kind, tile = kan
+    if not bot_action_is_current(game_state, player_index, expected_tick):
+        return
+
+    if kind != "cut":
         if kind == "angang":
             logger.info(f"高性能罗伯特 {player_index} 选择 angang tile={tile}")
             await _submit("angang", gang_tile=tile)
@@ -151,7 +171,7 @@ async def _handle_hand_action(game_state, player_index, action_list, player, *, 
         return
 
     if "cut" in action_list and hand:
-        tile_id = best_disc if best_disc is not None else choose_best_discard(ctx)
+        tile_id = tile
         if tile_id is None:
             tile_id = hand[-1]
         cut_index = player.hand_tiles.index(tile_id) if tile_id in player.hand_tiles else 0
@@ -189,8 +209,18 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
         return
 
     ctx = context_from_game(game_state, player_index)
+    ctx.scorer = None
     claim_actions = [a for a in action_list if a in ("peng", "gang", "chi_left", "chi_mid", "chi_right")]
-    best = choose_claim(ctx, claim_actions + (["pass"] if "pass" in action_list else []), cut_tile)
+    expected_tick = getattr(game_state, "server_action_tick", None)
+    best = await run_room_bot_cpu(
+        game_state,
+        _choose_claim_plan,
+        ctx,
+        tuple(claim_actions + (["pass"] if "pass" in action_list else [])),
+        cut_tile,
+    )
+    if not bot_action_is_current(game_state, player_index, expected_tick):
+        return
     if best not in action_list:
         best = "pass" if "pass" in action_list else (action_list[0] if action_list else "pass")
     logger.info(f"高性能罗伯特 {player_index} 选择 {best}")

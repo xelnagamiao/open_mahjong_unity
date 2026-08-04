@@ -289,6 +289,11 @@ public partial class GameCanvas {
         if (discardCard == null) {
             return;
         }
+        // 虹雀由权威 discard 事件一次性完成“移除出牌张 + 收拢手牌”。提前预演会让
+        // 手牌在服务端事件到达前缺一张。
+        if (HongqueTileVisual.IsHongqueId(discardCard.tileId)) {
+            return;
+        }
         CancelCompetingHandReflowAnimations("出牌收拢");
         _discardLayoutCoroutine = StartCoroutine(AnimateHandLayoutForDiscardCoroutine(discardCard, null, null));
     }

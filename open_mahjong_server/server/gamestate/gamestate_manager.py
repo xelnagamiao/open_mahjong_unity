@@ -12,6 +12,7 @@ from .game_riichi.RiichiGameState import RiichiGameState
 from .game_sichuan.SichuanGameState import SichuanGameState
 from .game_jiandan.JiandanGameState import JiandanGameState
 from .game_taiwan.TaiwanGameState import TaiwanGameState
+from .game_hongque.HongqueGameState import HongqueGameState
 logger = logging.getLogger(__name__)
 
 class GameStateManager:
@@ -34,6 +35,7 @@ class GameStateManager:
         self.room_id_to_SichuanGameState: Dict[str, SichuanGameState] = {}
         self.room_id_to_JiandanGameState: Dict[str, JiandanGameState] = {}
         self.room_id_to_TaiwanGameState: Dict[str, TaiwanGameState] = {}
+        self.room_id_to_HongqueGameState: Dict[str, HongqueGameState] = {}
         # gamestate_id 到游戏状态的映射（主要管理方式）
         self.gamestate_id_to_game_state: Dict[str, Any] = {}
         # 用户ID到游戏状态的映射（用于快速查找玩家所在的活跃游戏）
@@ -294,6 +296,27 @@ class GameStateManager:
                         del self.gamestate_id_to_game_state[game_state.gamestate_id]
                     del self.room_id_to_JiandanGameState[room_id]
                 return Response(type="error_message", success=False, message=f"启动游戏失败: {str(e)}")
+        elif room_rule == "hongque":
+            try:
+                gamestate_id = str(uuid.uuid4())
+                game_state = HongqueGameState(
+                    self.game_server,
+                    room_data,
+                    self.game_server.calculation_service,
+                    self.game_server.db_manager,
+                    gamestate_id,
+                )
+                self.room_id_to_HongqueGameState[room_id] = game_state
+                self.gamestate_id_to_game_state[gamestate_id] = game_state
+                for player_id in room_data["player_list"]:
+                    self.user_id_to_game_state[player_id] = game_state
+                game_state.game_task = asyncio.create_task(game_state.run_game_loop())
+                logger.info("房间 %s 的虹雀对局已启动，gamestate_id=%s", room_id, gamestate_id)
+            except Exception as e:
+                logger.error("创建虹雀对局失败，room_id=%s: %s", room_id, e, exc_info=True)
+                room_data["is_game_running"] = False
+                self.room_id_to_HongqueGameState.pop(room_id, None)
+                return Response(type="error_message", success=False, message=f"启动虹雀对局失败: {e}")
         elif room_rule == "taiwan":
             try:
                 gamestate_id = str(uuid.uuid4())
@@ -400,6 +423,25 @@ class GameStateManager:
         if user_id in self.user_id_to_game_state:
             del self.user_id_to_game_state[user_id]
             logger.info(f"已从游戏状态映射中移除玩家 {user_id}")
+
+    async def abandon_player_game(self, Connect_id: str, user_id: int):
+        """Explicitly leave a reconnectable game instead of only hiding its index."""
+        game_state = self.user_id_to_game_state.get(user_id)
+        if game_state is None:
+            return
+        if getattr(game_state, "room_rule", None) != "hongque":
+            # Preserve the established lifecycle of the shared rules.  The
+            # room-removal repair is scoped to the memory-only Hongque mode.
+            self.remove_player_from_game_state(user_id)
+            return
+        room_id = game_state.room_id
+        await game_state.player_disconnect(user_id)
+        self.remove_player_from_game_state(user_id)
+
+        room_manager = getattr(self.game_server, "room_manager", None)
+        room = getattr(room_manager, "rooms", {}).get(room_id) if room_manager else None
+        if room is not None and user_id in room.get("player_list", []):
+            await room_manager.leave_room(Connect_id, room_id)
     
     def get_game_state_by_room_id(self, room_id: str) -> Optional[Any]:
         """
@@ -427,6 +469,8 @@ class GameStateManager:
             return self.room_id_to_JiandanGameState.get(room_id)
         elif room_id in self.room_id_to_TaiwanGameState:
             return self.room_id_to_TaiwanGameState.get(room_id)
+        elif room_id in self.room_id_to_HongqueGameState:
+            return self.room_id_to_HongqueGameState.get(room_id)
         return None
     
     def get_game_state_by_gamestate_id(self, gamestate_id: str) -> Optional[Any]:
@@ -573,6 +617,8 @@ class GameStateManager:
             del self.room_id_to_JiandanGameState[game_state.room_id]
         elif game_state.room_id in self.room_id_to_TaiwanGameState:
             del self.room_id_to_TaiwanGameState[game_state.room_id]
+        elif game_state.room_id in self.room_id_to_HongqueGameState:
+            del self.room_id_to_HongqueGameState[game_state.room_id]
         
         # 3. 清理 gamestate_id 到游戏状态的映射
         if gamestate_id and gamestate_id in self.gamestate_id_to_game_state:
@@ -599,4 +645,3 @@ class GameStateManager:
         # 然后调用游戏状态的清理方法（取消协程）
         await game_state.cleanup_game_state()
         logger.info(f"已清理游戏状态协程，gamestate_id: {gamestate_id}, room_id: {game_state.room_id}")
-

@@ -45,12 +45,42 @@ def has_draw_slot(player) -> bool:
     return bool(getattr(player, "has_draw_slot", False))
 
 
-def mark_draw_slot(player) -> None:
+def mark_draw_slot(player, tile_id: Optional[int] = None) -> None:
+    """建立摸牌槽，并在规则提供牌值时记录其明确来源。"""
     player.has_draw_slot = True
+    if tile_id is not None:
+        player.last_drawn_tile = tile_id
 
 
 def clear_draw_slot(player) -> None:
     player.has_draw_slot = False
+    if hasattr(player, "last_drawn_tile"):
+        player.last_drawn_tile = None
+
+
+def retain_opening_first_player_draw_slot(players, first_player_index: int) -> None:
+    """开局补花结束时，只保留马上出牌者的有效补牌槽。"""
+    for player in players:
+        if getattr(player, "player_index", None) != first_player_index:
+            clear_draw_slot(player)
+
+
+def get_valid_draw_slot_tile(
+    player,
+    forbidden_norms: Optional[Set[int]] = None,
+) -> Optional[int]:
+    """返回通过服务端槽位校验的摸牌；旧规则没有来源字段时兼容末张。"""
+    hand = player.hand_tiles
+    if not has_draw_slot(player) or not hand:
+        return None
+    forbidden_norms = forbidden_norms or set()
+    explicit_tile = getattr(player, "last_drawn_tile", None)
+    draw_tile = hand[-1] if explicit_tile is None else explicit_tile
+    if not tiles_equal(hand[-1], draw_tile):
+        return None
+    if normalize_tile(draw_tile) in forbidden_norms:
+        return None
+    return draw_tile
 
 
 def bot_ask_hand_game_status(game_state, player_index: int) -> str:
@@ -228,6 +258,37 @@ def pick_timeout_discard_tile(
         if normalize_tile(tile_id) not in forbidden_norms:
             return tile_id
     return hand[-1]
+
+
+def resolve_timeout_cut(
+    player,
+    forbidden_norms: Optional[Set[int]] = None,
+    *,
+    opening_first_discard: bool = False,
+    excluded_tiles: Optional[Set[int]] = None,
+) -> Tuple[int, bool]:
+    """
+    统一超时出牌来源：有效摸牌槽优先摸切；否则手切。
+
+    开局首打没有摸牌槽时按最大合法牌手切，使结果不再依赖服务端
+    发牌/存储顺序。其他手切继续保持历史的从后向前选择策略。
+    """
+    forbidden_norms = forbidden_norms or set()
+    draw_tile = get_valid_draw_slot_tile(player, forbidden_norms)
+    if draw_tile is not None:
+        return draw_tile, True
+
+    hand = player.hand_tiles
+    excluded_tiles = excluded_tiles or set()
+    legal_tiles = [
+        tile
+        for tile in hand
+        if tile not in excluded_tiles and normalize_tile(tile) not in forbidden_norms
+    ]
+    candidates = legal_tiles or [tile for tile in hand if tile not in excluded_tiles]
+    if opening_first_discard and candidates:
+        return max(candidates, key=lambda tile: (normalize_tile(tile), tile)), False
+    return pick_timeout_discard_tile(candidates or hand, forbidden_norms), False
 
 
 def resolve_is_mo_gang(hand: List[int], kan_tile: int, *, draw_slot: bool = True) -> bool:

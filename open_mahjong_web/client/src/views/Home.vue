@@ -397,6 +397,7 @@ const toolLinks = [
     color: '#5470c6',
   },
   { to: '/tools/record-convert', title: '牌谱格式转换', description: '在Salasasa、Botzone、雀渣 与 MJAI 牌谱格式之间转换。', color: '#409eff' },
+  { to: '/library', title: '麻雀图书馆', description: '查阅各类麻将规则的说明书、牌例或文档。', color: '#f97316' },
 ]
 
 const loadStats = async () => {

@@ -58,6 +58,7 @@ from server.gamestate.game_taiwan.wait_action import (
 )
 from server.gamestate.public.ai.auto_cut_ai import auto_cut_action
 from server.gamestate.public.ai.smart_bot_logic import should_accept_hu
+from server.gamestate.public.hand_action_notify import apply_player_cut
 from server.room.room_manager import RoomManager
 from server.room.room_validators import TaiwanRoomValidator
 
@@ -3223,7 +3224,7 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertTrue(state.last_draw_was_last)
         self.assertFalse(state.can_take_wall_tile())
 
-    def test_opening_flower_replacement_does_not_create_a_draw_slot(self):
+    def test_non_dealer_opening_flower_replacement_does_not_create_a_draw_slot(self):
         state = object.__new__(TaiwanGameState)
         state.dead_wall_count = 16
         state.tiles_list = [11] * 16 + [21]
@@ -3243,6 +3244,117 @@ class TaiwanActionAndRoomTest(unittest.TestCase):
         self.assertIsNone(state.player_list[1].last_drawn_tile)
         record_deal.assert_called_once_with(state, 21, "bd", 1)
         self.assertNotIn("merge_deal_tile_into_hand", broadcast.await_args.kwargs)
+
+    def test_dealer_opening_flower_replacement_keeps_the_last_draw_slot(self):
+        state = object.__new__(TaiwanGameState)
+        state.dead_wall_count = 16
+        state.tiles_list = [11] * 16 + [21]
+        state.player_list = [DummyPlayer(i) for i in range(4)]
+        state.dealer_index = 0
+        state.opening_dealer_action = True
+        state.last_draw_was_last = False
+
+        with patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.player_action_record_deal"
+        ), patch(
+            "server.gamestate.game_taiwan.TaiwanGameState.broadcast_do_action",
+            new_callable=AsyncMock,
+        ):
+            tile = asyncio.run(TaiwanGameState._draw_tail_for_player(state, 0, opening=True))
+
+        self.assertEqual(tile, 21)
+        self.assertTrue(state.player_list[0].has_draw_slot)
+        self.assertEqual(state.player_list[0].last_drawn_tile, 21)
+
+    def test_opening_flower_cleanup_preserves_only_the_dealer_draw_slot(self):
+        state = object.__new__(TaiwanGameState)
+        state.rules = TaiwanRules()
+        state.dealer_index = 0
+        state.player_list = [DummyPlayer(i, [11 + i]) for i in range(4)]
+        state.player_list[0].hand_tiles.append(21)
+        state.player_list[1].hand_tiles.append(22)
+        state.player_list[0].has_draw_slot = True
+        state.player_list[0].last_drawn_tile = 21
+        state.player_list[1].has_draw_slot = True
+        state.player_list[1].last_drawn_tile = 22
+
+        asyncio.run(TaiwanGameState._opening_flower_replacement(state))
+
+        self.assertTrue(state.player_list[0].has_draw_slot)
+        self.assertEqual(state.player_list[0].last_drawn_tile, 21)
+        for player in state.player_list[1:]:
+            self.assertFalse(player.has_draw_slot)
+            self.assertIsNone(player.last_drawn_tile)
+
+    def test_opening_dealer_timeout_without_flower_discards_the_largest_hand_tile(self):
+        state = object.__new__(TaiwanGameState)
+        state.dealer_index = 0
+        state.opening_dealer_action = True
+        state.player_list = [DummyPlayer(0, [12, 41, 29])]
+        state.execute_cut = AsyncMock()
+
+        asyncio.run(TaiwanGameState.execute_timeout_cut(state, 0))
+
+        state.execute_cut.assert_awaited_once_with(
+            0,
+            {"TileId": 41, "cutClass": False, "cutIndex": None},
+            is_timeout_action=True,
+        )
+
+    def test_opening_dealer_timeout_uses_the_retained_replacement_draw(self):
+        state = object.__new__(TaiwanGameState)
+        state.dealer_index = 0
+        state.opening_dealer_action = True
+        player = DummyPlayer(0, [12, 29])
+        player.has_draw_slot = True
+        player.last_drawn_tile = 29
+        player.huapai_list = [51]
+        state.player_list = [player]
+        state.execute_cut = AsyncMock()
+
+        asyncio.run(TaiwanGameState.execute_timeout_cut(state, 0))
+
+        state.execute_cut.assert_awaited_once_with(
+            0,
+            {"TileId": 29, "cutClass": True, "cutIndex": None},
+            is_timeout_action=True,
+        )
+
+    def test_opening_dealer_replacement_moqie_passes_slot_validation(self):
+        player = DummyPlayer(0, [12, 29])
+        player.has_draw_slot = True
+        player.last_drawn_tile = 29
+        state = SimpleNamespace(player_list=[player])
+
+        result = asyncio.run(
+            apply_player_cut(
+                state,
+                0,
+                {"TileId": 29, "cutClass": True, "cutIndex": 1},
+            )
+        )
+
+        self.assertEqual(result, (29, True, 1))
+        self.assertEqual(player.hand_tiles, [12])
+        self.assertFalse(player.has_draw_slot)
+
+    def test_opening_dealer_hand_cut_consumes_the_retained_draw_slot(self):
+        player = DummyPlayer(0, [12, 29])
+        player.has_draw_slot = True
+        player.last_drawn_tile = 29
+        state = SimpleNamespace(player_list=[player])
+
+        result = asyncio.run(
+            apply_player_cut(
+                state,
+                0,
+                {"TileId": 12, "cutClass": False, "cutIndex": 0},
+            )
+        )
+
+        self.assertEqual(result, (12, False, 0))
+        self.assertEqual(player.hand_tiles, [29])
+        self.assertFalse(player.has_draw_slot)
 
     def test_drawn_flower_waits_for_buhua_action(self):
         state = object.__new__(TaiwanGameState)

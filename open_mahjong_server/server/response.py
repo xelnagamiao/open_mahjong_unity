@@ -99,6 +99,8 @@ class Ask_hand_action_info(BaseModel):
     remain_tiles: int
     action_list: List[str]
     action_tick: int
+    # 当前手牌询问对应的摸牌来源；由服务端保留到该决策窗口结束，重连补发时仍可恢复。
+    deal_tile_type: Optional[str] = None
     dealer_index: Optional[int] = None  # 本局庄家座位，供开局补花结束后恢复 playindex
     opening_buhua_complete: Optional[bool] = None  # 本条询问是开局补花轮后的庄家首操作
     forced_cut_tiles: Optional[List[int]] = None

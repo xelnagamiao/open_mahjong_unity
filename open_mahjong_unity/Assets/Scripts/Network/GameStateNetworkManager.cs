@@ -26,11 +26,36 @@ public class GameStateNetworkManager : MonoBehaviour {
         return NetworkManager.Instance.GetWebSocket();
     }
 
+    public async void SendHongqueAction(string gamestateId, int actionTick, string action,
+                                        string tile = null, string candidateId = null) {
+        try {
+            var request = new {
+                type = "gamestate/hongque/action",
+                gamestate_id = gamestateId,
+                action_tick = actionTick,
+                action,
+                tile,
+                candidate_id = candidateId,
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            Debug.LogError($"发送虹雀原型操作失败: {e.Message}");
+        }
+    }
+
     /// <summary>
     /// 处理游戏状态相关的服务器响应消息
     /// </summary>
     public void HandleGameStateMessage(Response response) {
         switch (response.type) {
+            case "gamestate/hongque/game_start":
+            case "gamestate/hongque/reconnect":
+            case "gamestate/hongque/update":
+                HongqueTableAdapter.EnsureInstance().ApplyState(response.gamestate_id, response.hongque_state);
+                if (response.hongque_state != null && response.hongque_state.sync_mode == "reconnect") {
+                    AutoReconnect.OnGameRestored();
+                }
+                break;
             case "gamestate/guobiao/game_start":
             case "gamestate/taiwan/game_start":
             case "gamestate/qingque/game_start":
@@ -120,6 +145,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/sichuan/ready_status":
             case "gamestate/changsha/ready_status":
             case "gamestate/jiandan/ready_status":
+            case "gamestate/hongque/ready_status":
                 HandleReadyStatus(response);
                 break;
             case "gamestate/classical/show_shuhewei":
@@ -164,7 +190,8 @@ public class GameStateNetworkManager : MonoBehaviour {
             handresponse.riichi_candidate_cuts,
             handresponse.forbidden_cut_tiles,
             handresponse.forced_cut_tiles,
-            handresponse.ready_qualification
+            handresponse.ready_qualification,
+            handresponse.deal_tile_type
         );
     }
 
@@ -495,7 +522,6 @@ public class GameStateNetworkManager : MonoBehaviour {
     private static void ClearGameTimerIfVoteRequires(VoteInfo info) {
         if (info == null || string.IsNullOrEmpty(info.phase)) return;
         switch (info.phase) {
-            case "end_countdown":
             case "paused":
             case "resume_voting":
             case "resume_countdown":

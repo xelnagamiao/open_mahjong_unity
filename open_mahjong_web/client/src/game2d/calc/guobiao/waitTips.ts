@@ -195,6 +195,9 @@ export function buildLocalWaitData(
   try {
     if (!ctx.tips) return null
     if (ctx.hand.some((tile) => FLOWERS.has(tile))) return null
+    // 蓝十番型并非标准国标的纯换值表；Web 端在独立评价器落地前不显示错误提示。
+    // 权威和牌判定与结算始终由服务端 guobiao/lanshi 计算器负责。
+    if (ctx.subRule === 'guobiao/lanshi') return null
 
     if (!options.includeDiscards) {
       const details = detailsForHand(ctx, ctx.hand)

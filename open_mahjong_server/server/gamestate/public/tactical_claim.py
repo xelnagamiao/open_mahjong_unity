@@ -194,6 +194,9 @@ async def tactical_grace_phase(
 
         if pre_submitted is not None:
             _, action_type, player_index, action_data = pre_submitted
+            # 预提交抢断会替换已广播的低优先级动作；申请标记必须随最终动作重置，
+            # 否则新动作不会发 is_claim，结算却会被错误标记为 silent。
+            skip_claim_broadcast = False
             tactical_mark_player_committed(gs, player_index)
             logger.info(
                 "战术鸣牌打捞到更高优先级抢断 action_type=%s player_index=%s",

@@ -1,0 +1,19 @@
+{
+  "slug": "drawing-mahjong",
+  "label": "绘图麻雀牌谱",
+  "aliases": ["繪圖麻雀牌譜"],
+  "collected_at": "2026-08-04",
+  "notes": "来自 other/rule 的本地牌谱资料，作为传统麻将规则研究与牌例参考。",
+  "sources": [
+    {
+      "id": "drawing-mahjong-local",
+      "url": "/rule-research/绘图麻雀牌谱.pdf",
+      "title": "绘图麻雀牌谱（本地归档）",
+      "type": "rulebook",
+      "lang": "zh",
+      "accessed": "2026-08-04",
+      "local_path": "rule-research/绘图麻雀牌谱.pdf",
+      "excerpt": "传统麻将牌谱资料，收录牌局图示与牌例，可用于规则研究与历史玩法参考。"
+    }
+  ]
+}

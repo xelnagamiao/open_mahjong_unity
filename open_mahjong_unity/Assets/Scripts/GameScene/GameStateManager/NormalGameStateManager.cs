@@ -117,7 +117,6 @@ public partial class NormalGameStateManager : MonoBehaviour{
     }
 
     // 上次摸牌类型
-    public string lastDealTileType; // 上次摸牌类型
     /// <summary>自家最近一次摸入的牌 id（deal_tile/deal_gang_tile/deal_buhua_tile）；切牌后清零。</summary>
     public int lastDealTileId;
 

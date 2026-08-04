@@ -367,6 +367,37 @@ public class RoomNetworkManager : MonoBehaviour {
             NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
         }
     }
+
+    /// <summary>创建不写统计、不存牌谱的虹雀 v1.6 原型房间。</summary>
+    public async void Create_Hongque_Room(Jiandan_Create_RoomConfig config) {
+        if (BlockRoomEntryRequest()) return;
+        try {
+            if (!TryResolveRandomSeed(config.RandomSeed, out string randomSeed, out string seedError)) {
+                NotificationManager.Instance.ShowTip("create_room", false, seedError);
+                return;
+            }
+            var request = new CreateGBRoomRequest {
+                type = "room/create_Hongque_room",
+                rule = "hongque",
+                sub_rule = "hongque/v1.6",
+                roomname = config.RoomName,
+                gameround = config.GameRound,
+                roundTimerValue = config.RoundTimer,
+                stepTimerValue = config.StepTimer,
+                tips = config.Tips,
+                password = config.Password,
+                random_seed = randomSeed,
+                open_cuohe = false,
+                hepai_limit = 0,
+                tourist_limit = config.TouristLimit,
+                allow_spectator = false,
+                tactical_call = false,
+            };
+            await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
+        } catch (Exception e) {
+            NetworkManager.Instance.CreateRoomResponse.Invoke(false, e.Message);
+        }
+    }
     
     /// <summary>
     /// 创建古典麻将房间

@@ -86,6 +86,10 @@ public class ActionButton : MonoBehaviour {
 
     // 按钮点击事件
     void OnClick(){
+        if (actionTypeList.Count == 1 && actionTypeList[0].StartsWith("hongque_group:")) {
+            ShowHongqueCandidates(actionTypeList[0].Substring("hongque_group:".Length));
+            return;
+        }
         // 立直按钮：进入立直选牌模式（隐藏其他按钮、按候选切牌变暗手牌、点击切牌发送 riichi_cut）
         if (actionTypeList.Count == 1 && actionTypeList[0] == "riichi_cut") {
             RiichiCutSelectionController.Instance.EnterRiichiCutMode();
@@ -188,6 +192,31 @@ public class ActionButton : MonoBehaviour {
             Debug.Log($"选择了行动 {actionTypeList[0]}");
             GameCanvas.Instance.ChooseAction(actionTypeList[0],0);
         }
+    }
+
+    private void ShowHongqueCandidates(string kind) {
+        if (!HongqueTableAdapter.IsActive) return;
+        string containerState = "hongque_" + kind;
+        bool close = GameCanvas.Instance.ActionBlockContainerState == containerState;
+        foreach (Transform child in ActionBlockContenter) Destroy(child.gameObject);
+        if (close) {
+            GameCanvas.Instance.ActionBlockContainerState = "None";
+            return;
+        }
+        GameCanvas.Instance.ActionBlockContainerState = containerState;
+        foreach (HongqueCandidateInfo candidate in HongqueTableAdapter.Instance.GetCandidates(kind)) {
+            GameObject blockObject = Instantiate(ActionBlockPrefab, ActionBlockContenter);
+            ActionBlock block = blockObject.GetComponent<ActionBlock>();
+            block.actionType = HongqueTableAdapter.Instance.EncodeCandidateAction(candidate);
+            foreach (string tileCode in candidate.tiles ?? System.Array.Empty<string>()) {
+                int tileId = HongqueTileVisual.FromCode(tileCode);
+                if (tileId == 0) continue;
+                GameObject cardObject = Instantiate(StaticCardPrefab, blockObject.transform);
+                cardObject.GetComponent<StaticCard>().SetTileOnlyImage(tileId);
+            }
+        }
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(ActionBlockContenter as RectTransform);
     }
 
     private static List<(int targetTile, List<int> displayTiles)> CollectAngangOptions(List<int> handTiles) {

@@ -5,7 +5,7 @@ const config = require('../../config/config');
 const { hashPassword } = require('../../utils/password');
 const { writeAudit } = require('../../utils/audit');
 const { fetchUserStatsBundle } = require('../../services/playerStats');
-const { validateUsername } = require('../../utils/username');
+const { normalizeUsername, validateUsername } = require('../../utils/username');
 
 const GAME_SERVER_BASE_URL = config.calcServer.baseUrl.replace(/\/$/, '');
 const GAME_SERVER_TIMEOUT_MS = config.calcServer.timeoutMs;
@@ -304,7 +304,7 @@ router.patch('/:userId', async (req, res) => {
     let idx = 1;
 
     if (username !== undefined) {
-      const name = String(username).trim();
+      const name = normalizeUsername(username);
       const usernameError = validateUsername(name);
       if (usernameError) {
         return res.status(400).json({ success: false, message: usernameError });
@@ -492,7 +492,7 @@ router.post('/:userId/rename', async (req, res) => {
     if (usernameError) {
       return res.status(400).json({ success: false, message: usernameError });
     }
-    const newName = String(new_username).trim();
+    const newName = normalizeUsername(new_username);
 
     const before = await pool.query(
       `SELECT user_id, username, is_tourist FROM users WHERE user_id = $1`,
@@ -584,8 +584,8 @@ router.post('/:userId/history-username', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
     const { old_username, new_username, reason } = req.body || {};
-    const oldName = String(old_username || '').trim();
-    const newName = String(new_username || '').trim();
+    const oldName = normalizeUsername(old_username);
+    const newName = normalizeUsername(new_username);
     if (!Number.isSafeInteger(userId) || !oldName || !newName || oldName === newName || !String(reason || '').trim()) {
       return res.status(400).json({ success: false, message: '请填写原历史用户名、新用户名和变更原因' });
     }

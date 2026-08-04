@@ -1006,10 +1006,11 @@ export class MahjongScene {
       return
     }
 
-    const nonDiscard = this.currentViewerActions.filter((action) => action.kind !== 'discard_tile')
+    const visibleActions = this.viewerActionsAfterMeldFilter()
+    const nonDiscard = visibleActions.filter((action) => action.kind !== 'discard_tile')
     if (nonDiscard.length > 0) {
       this.showMeldChoices(
-        { available_actions: this.currentViewerActions as MeldViewerSnapshot['available_actions'] },
+        { available_actions: visibleActions as MeldViewerSnapshot['available_actions'] },
         reactionTile,
       )
     } else {
@@ -1679,6 +1680,35 @@ export class MahjongScene {
     }
 
     this.syncViewerControls(viewer as Record<string, any>)
+  }
+
+  /**
+   * 国标局中错和续打：本局并未结束，ready 结束后服务端不会下发新局快照，
+   * 而是直接继续本局。清除 roundEnded 封禁，并把和牌展示翻回正常状态：
+   * 荣和错和的和牌张实际仍在河牌，需从摸牌区移除；他家手牌翻回牌背。
+   */
+  resumeAfterMidRoundResult(winnerSeat: number, isSelfDraw: boolean): void {
+    if (!this.mounted) return
+    this.roundEnded = false
+    this.countdown.stop()
+    const winnerDir = transDir(Number(winnerSeat) || 0, this.selfDir)
+    const hand = this.hands[winnerDir]
+    if (!hand) return
+    if (!isSelfDraw && hand.drawnTile) {
+      // 荣和错和：和牌张未真正进入手牌（服务端 hand_tiles 未追加），
+      // 展示结束后从摸牌区移除，牌仍保留在河牌。
+      const winTile = hand.drawnTile
+      hand.drawnTile = null
+      winTile.removeFromParent()
+      winTile.destroy({ children: true })
+    }
+    if (winnerDir !== 0) {
+      // 他家手牌翻回牌背；自家手牌本身明牌，无需隐藏。
+      for (const tile of hand.rightList) tile.hide()
+      if (hand.drawnTile) hand.drawnTile.hide()
+    }
+    this.setViewerWaitInfo(null)
+    this.waitDisplay.visible = this.presentationMode !== 'replay' || this.replayWaitTipsEnabled
   }
 
   /**
@@ -2373,7 +2403,6 @@ export class MahjongScene {
     reactionTile: number | null = null,
   ): void {
     this.clearMeldChoices()
-    // Unity: 半自动不做 UI 过滤，始终展示服务端全集按钮；全量自动在 tryAutoHelper 里已处理。
     const availableActions = viewer.available_actions
     const nonDiscard = availableActions.filter((a) => a.kind !== 'discard_tile')
     if (nonDiscard.length === 0) return
@@ -2399,6 +2428,16 @@ export class MahjongScene {
       () => { this.meldChoicesPanel = null },
     )
     this.playSound('08-inquire')
+  }
+
+  /** Hide the meld buttons disabled in the expanded assist panel. Pass and win actions remain available. */
+  private viewerActionsAfterMeldFilter(): Array<Record<string, any>> {
+    return this.currentViewerActions.filter((action) => {
+      if (this.assist.passChi && action.kind === 'chow') return false
+      if (this.assist.passPeng && action.kind === 'pung') return false
+      if (this.assist.passMingGang && action.kind === 'melded_kong') return false
+      return true
+    })
   }
 
   private clearMeldChoices(): void {

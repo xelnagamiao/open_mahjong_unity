@@ -39,6 +39,8 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_jiandan_cut_tile(game_server, Connect_id, message)
     elif message_type == "gamestate/jiandan/send_action":
         await handle_jiandan_send_action(game_server, Connect_id, message)
+    elif message_type == "gamestate/hongque/action":
+        await handle_hongque_action(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/riichi/set_ryuukyoku_tenpai":
         await handle_set_ryuukyoku_tenpai(game_server, Connect_id, message, websocket)
     elif message_type == "gamestate/GB/add_spectator":
@@ -57,6 +59,29 @@ async def handle_gamestate_message(game_server, Connect_id: str, message: dict, 
         await handle_vote_resume(game_server, Connect_id, message, websocket)
     else:
         logger.warning(f"未知的游戏状态消息路径: {message_type}")
+
+
+async def handle_hongque_action(game_server, Connect_id: str, message: dict, websocket):
+    """Validate and apply one memory-only Hongque prototype action."""
+    gamestate_id = message.get("gamestate_id")
+    game_state = game_server.gamestate_manager.get_game_state_by_gamestate_id(gamestate_id)
+    if game_state is None or getattr(game_state, "room_rule", None) != "hongque":
+        await websocket.send_json({"type": "tips", "success": False, "message": "虹雀原型对局不存在"})
+        return
+    player = game_server.players.get(Connect_id)
+    if player is None or player.user_id is None:
+        await websocket.send_json({"type": "tips", "success": False, "message": "请先登录"})
+        return
+    try:
+        await game_state.submit_action(
+            player.user_id,
+            message.get("action", ""),
+            tile=message.get("tile"),
+            candidate_id=message.get("candidate_id"),
+            action_tick=message.get("action_tick"),
+        )
+    except (ValueError, TypeError) as exc:
+        await websocket.send_json({"type": "tips", "success": False, "message": str(exc)})
 
 async def handle_cut_tile(game_server, Connect_id: str, message: dict, websocket):
     """处理切牌请求"""

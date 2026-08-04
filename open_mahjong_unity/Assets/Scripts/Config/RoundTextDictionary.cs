@@ -34,6 +34,13 @@ public static class RoundTextDictionary {
         {13, "第13局"}, {14, "第14局"}, {15, "第15局"}, {16, "第16局"},
     };
 
+    public static readonly Dictionary<int, string> CurrentRoundTextHongque = new Dictionary<int, string>() {
+        {1, "第一局"}, {2, "第二局"}, {3, "第三局"}, {4, "第四局"},
+        {5, "第五局"}, {6, "第六局"}, {7, "第七局"}, {8, "第八局"},
+        {9, "第九局"}, {10, "第十局"}, {11, "第十一局"}, {12, "第十二局"},
+        {13, "第十三局"}, {14, "第十四局"}, {15, "第十五局"}, {16, "第十六局"},
+    };
+
     public static readonly Dictionary<int, string> MaxRoundText = new Dictionary<int, string> {
         { 1, "东风战" },
         { 2, "东南战" },
@@ -47,16 +54,26 @@ public static class RoundTextDictionary {
         { 4, "16局" },
     };
 
+    public static readonly Dictionary<int, string> MaxRoundTextHongque = new Dictionary<int, string> {
+        { 4, "四局" },
+        { 8, "八局" },
+        { 16, "十六局" },
+    };
+
     public static string GetRoundName(string rule, int currentRound) {
+        string baseRule = rule ?? "";
+        int slash = baseRule.IndexOf('/');
+        if (slash >= 0) baseRule = baseRule.Substring(0, slash);
         Dictionary<int, string> roundMap = null;
-        if (rule == "guobiao") roundMap = CurrentRoundTextGB;
-        else if (rule == "qingque") roundMap = CurrentRoundTextQingque;
-        else if (rule == "riichi") roundMap = CurrentRoundTextRiichi;
-        else if (rule == "classical") roundMap = CurrentRoundTextClassical;
-        else if (rule == "sichuan") roundMap = CurrentRoundTextSichuan;
-        else if (rule == "changsha") roundMap = CurrentRoundTextChangsha;
-        else if (rule == "jiandan") roundMap = CurrentRoundTextJiandan;
-        else if (rule == "taiwan") roundMap = CurrentRoundTextTaiwan;
+        if (baseRule == "guobiao") roundMap = CurrentRoundTextGB;
+        else if (baseRule == "qingque") roundMap = CurrentRoundTextQingque;
+        else if (baseRule == "riichi") roundMap = CurrentRoundTextRiichi;
+        else if (baseRule == "classical") roundMap = CurrentRoundTextClassical;
+        else if (baseRule == "sichuan") roundMap = CurrentRoundTextSichuan;
+        else if (baseRule == "changsha") roundMap = CurrentRoundTextChangsha;
+        else if (baseRule == "jiandan") roundMap = CurrentRoundTextJiandan;
+        else if (baseRule == "taiwan") roundMap = CurrentRoundTextTaiwan;
+        else if (baseRule == "hongque") roundMap = CurrentRoundTextHongque;
         if (roundMap != null && roundMap.TryGetValue(currentRound, out string roundName)) {
             return roundName;
         }
@@ -75,6 +92,11 @@ public static class RoundTextDictionary {
             return MaxRoundTextChangsha.TryGetValue(gameRound, out string changshaText)
                 ? changshaText
                 : $"未知({gameRound})";
+        }
+        if (baseRule == "hongque") {
+            return MaxRoundTextHongque.TryGetValue(gameRound, out string hongqueText)
+                ? hongqueText
+                : $"共{gameRound}局";
         }
         return GetMaxRoundText(gameRound);
     }

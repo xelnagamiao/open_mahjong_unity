@@ -25,13 +25,18 @@ from ..public.round_end_timing import (
 )
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.spectator_rules import too_many_ai_for_spectator
-from ..public.hand_slot_utils import has_draw_slot
+from ..public.hand_slot_utils import (
+    has_draw_slot,
+    mark_draw_slot as mark_player_draw_slot,
+    retain_opening_first_player_draw_slot,
+)
 from ..public.vote_manager import vote_checkpoint
 from .guobiao_debug import (
     GUOBIAO_DEBUG_SCENARIO,
     apply_debug_player_seating,
     get_debug_buhua_start_index,
 )
+from .lanshi_scoring import calculate_lanshi_score_changes
 from .buhua_broadcast import HAND_SETTLE_GAP_SEC, perform_buhua_and_broadcast
 from ..public.game_record_manager import init_game_record,init_game_round,player_action_record_deal,player_action_record_cut,player_action_record_angang,player_action_record_jiagang,player_action_record_chipenggang,player_action_record_hu,player_action_record_liuju,player_action_record_round_end,end_game_record,build_score_changes_by_seat,build_score_changes_dict,capture_player_entry_order
 from ...game_calculation.game_calculation_service import GameCalculationService
@@ -90,6 +95,7 @@ class GuobiaoPlayer:
         self.character_used = 0 # 使用的角色ID
         self.voice_used = 0 # 使用的音色ID
         self.has_draw_slot = False  # 本巡是否刚摸入一张（吃碰杠后为 False）
+        self.last_drawn_tile = None  # 明确摸牌来源，供摸切校验和超时出牌使用
         self.guobiao_rank = "10级"  # 牌桌侧栏显示用段位
         self.guobiao_score = 0.0  # 牌桌侧栏显示用 PT
 
@@ -97,7 +103,7 @@ class GuobiaoPlayer:
         element = tiles_list.pop(0) # 从牌堆中获取第一张牌
         self.hand_tiles.append(element)
         if mark_draw_slot:
-            self.has_draw_slot = True
+            mark_player_draw_slot(self, element)
 
     def get_gang_tile(self, tiles_list, gamestate):
         if len(tiles_list) <= 1 or gamestate.backward_tiles_list_type == "single":
@@ -105,7 +111,7 @@ class GuobiaoPlayer:
         else:
             element = tiles_list.pop(-2) # 从牌堆中获取倒数第二张牌
         self.hand_tiles.append(element)
-        self.has_draw_slot = True
+        mark_player_draw_slot(self, element)
         # 切换倒序摸牌状态
         gamestate.backward_tiles_list_type = "single" if gamestate.backward_tiles_list_type == "double" else "double"
 
@@ -170,6 +176,11 @@ class GuobiaoGameState:
         self.cuohe_type = room_data.get("cuohe_type", 0) # 错和形式：0=-30/+10，1=-40/+0
         self.show_moqie_hint = room_data.get("show_moqie_hint", False) # 是否显示手摸切灰显（默认为False）
         self.hepai_limit = room_data.get("hepai_limit", 8) # 起和番限制（默认8）
+        if self.sub_rule == "guobiao/lanshi":
+            # 蓝十改固定为 5 分起和；错和者单独扣 40 分并停和续局。
+            self.hepai_limit = 5
+            self.open_cuohe = True
+            self.cuohe_type = 1
         self.tactical_call = room_data.get("tactical_call", False) # 战术鸣牌：吃牌固定申请-打断；碰/和/杠/加杠仅在有更高优先级竞争者时询问
         self.tactical_commit_lock = self.tactical_call # 国标：选定鸣牌后不可改选（川麻等规则不启用）
         self.claim_protection = room_data.get("claim_protection", True) # 鸣牌保护：无鸣牌权玩家延迟看到切牌/鸣牌（默认开启）
@@ -504,9 +515,12 @@ class GuobiaoGameState:
             self.game_status = "waiting_hand_action" # 初始行动
             self.current_player_index = get_debug_buhua_start_index(self) if self.Debug else self.dealer_index
             self._opening_buhua_complete_pending = not self.Debug
-            # 开局补花的岭上牌在补花轮结束后并入初始手牌；庄家 14 张、闲家 13 张都应平铺。
-            for player in self.player_list:
-                player.has_draw_slot = False
+            # 开局补花结束只清闲家临时槽。首个出牌者若补过花，保留其
+            # 最后一张替代牌作为一次性摸牌槽；未补花则仍按普通首打手切。
+            retain_opening_first_player_draw_slot(
+                self.player_list,
+                self.current_player_index,
+            )
 
             self.refresh_waiting_tiles(self.current_player_index, is_first_action=True) # 检查手牌等待牌
             logger.info(f"第一位行动玩家{self.current_player_index}的手牌等待牌为{self.player_list[self.current_player_index].waiting_tiles}")
@@ -706,6 +720,7 @@ class GuobiaoGameState:
             if self.hu_class in ["hu_self","hu_first","hu_second","hu_third"]:
                 is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
                 is_kshen = (self.sub_rule == "guobiao/kshen")
+                is_lanshi = (self.sub_rule == "guobiao/lanshi")
 
                 # 自摸
                 if self.hu_class == "hu_self":
@@ -713,7 +728,16 @@ class GuobiaoGameState:
                     hepai_player_index = self.current_player_index
                     self.result_dict = {}
 
-                    if is_xiaolin or is_kshen:
+                    if is_lanshi:
+                        # 蓝十改自摸：和牌者 +(n-1)*2p，其余每家 -2p。
+                        changes = calculate_lanshi_score_changes(
+                            (player.player_index for player in self.player_list),
+                            hepai_player_index,
+                            hu_score,
+                        )
+                        for player in self.player_list:
+                            player.score += changes[player.player_index]
+                    elif is_xiaolin or is_kshen:
                         # 小林规/K神规自摸：对另外三家各付 n，无基础 8 分
                         self.player_list[hepai_player_index].score += hu_score * 3
                         for i in self.player_list:
@@ -742,7 +766,18 @@ class GuobiaoGameState:
                     logger.info(f"和牌玩家索引{hepai_player_index}")
                     self.result_dict = {}
 
-                    if is_xiaolin:
+                    if is_lanshi:
+                        # 蓝十改点和：和牌者 +(n-1)*2p，放铳者 -np，其余各 -p。
+                        fangpao_index = self.current_player_index
+                        changes = calculate_lanshi_score_changes(
+                            (player.player_index for player in self.player_list),
+                            hepai_player_index,
+                            hu_score,
+                            fangpao_index,
+                        )
+                        for player in self.player_list:
+                            player.score += changes[player.player_index]
+                    elif is_xiaolin:
                         # 小林规点和：全铳制，点和 x2，无基础 8 分
                         self.player_list[hepai_player_index].score += hu_score * 2
                         self.player_list[self.current_player_index].score -= hu_score * 2
@@ -946,11 +981,12 @@ class GuobiaoGameState:
         # 小林规或修改了起和番限制的对局不保存统计数据，仅保存牌谱
         is_xiaolin = (self.sub_rule == "guobiao/xiaolin")
         is_kshen = (self.sub_rule == "guobiao/kshen")
+        is_lanshi = (self.sub_rule == "guobiao/lanshi")
         is_custom_hepai = (self.hepai_limit != 8)
         has_ai_player = any(player.user_id <= 10 for player in self.player_list)
         
-        if is_xiaolin or is_kshen:
-            rule_label = "小林规" if is_xiaolin else "K神规"
+        if is_xiaolin or is_kshen or is_lanshi:
+            rule_label = "小林规" if is_xiaolin else ("K神规" if is_kshen else "蓝十改")
             logger.info(f'{rule_label}对局，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
         elif is_custom_hepai:
             logger.info(f'自定义起和番限制({self.hepai_limit})，仅保存牌谱，跳过统计数据保存，game_id: {game_id}')
@@ -1061,4 +1097,3 @@ GuobiaoGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
 # 挂载功能函数于GuobiaoGameState实例
 GuobiaoGameState.next_current_index = next_current_index
 GuobiaoGameState.refresh_waiting_tiles = refresh_waiting_tiles
-

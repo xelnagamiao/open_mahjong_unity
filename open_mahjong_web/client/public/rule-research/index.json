@@ -5,6 +5,12 @@
       "label": "香港麻将",
       "collected_at": "2026-07-20",
       "count": 20
+    },
+    {
+      "slug": "drawing-mahjong",
+      "label": "绘图麻雀牌谱",
+      "collected_at": "2026-08-04",
+      "count": 1
     }
   ]
 }

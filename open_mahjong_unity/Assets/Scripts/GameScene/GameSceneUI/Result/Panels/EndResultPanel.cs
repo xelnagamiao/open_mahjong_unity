@@ -871,6 +871,10 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void HandleGameStateConfirm() {
+        if (HongqueTableAdapter.IsActive && HongqueTableAdapter.Instance.IsRoundEnd) {
+            HongqueTableAdapter.Instance.ConfirmRoundResult();
+            return;
+        }
         if (matchEndMode) {
             ClearEndResultPanel();
             NormalGameStateManager.Instance.FlushPendingGameEnd();
@@ -966,6 +970,7 @@ public class EndResultPanel : MonoBehaviour {
         bool isSichuan = rule != null && rule.StartsWith("sichuan");
         bool isChangsha = rule != null && rule.StartsWith("changsha");
         bool isTaiwan = rule != null && rule.StartsWith("taiwan");
+        bool isHongque = rule != null && rule.StartsWith("hongque");
         TotalFan.gameObject.SetActive(!isTaiwan);
 
         if (isRiichi && riichiExtras != null) {
@@ -982,9 +987,9 @@ public class EndResultPanel : MonoBehaviour {
             return;
         }
 
-        bool showFu = isClassical && baseFu.HasValue;
+        bool showFu = (isClassical || isHongque) && baseFu.HasValue;
         TotalFu.gameObject.SetActive(showFu);
-        if (showFu) TotalFu.text = $"{baseFu.Value}副";
+        if (showFu) TotalFu.text = isHongque ? $"{baseFu.Value}底" : $"{baseFu.Value}副";
 
         if (isClassical) {
             int fanTotal = CalculateClassicalFanTotal(huFan);
@@ -993,6 +998,13 @@ public class EndResultPanel : MonoBehaviour {
             TotalFan.text = $"{ScoreHistorySettlementHelper.CalculateSichuanFanTotal(rule, huFan)}番";
         } else if (isChangsha) {
             TotalFan.text = $"{huScore}分";
+        } else if (isHongque) {
+            int fanTotal = 0;
+            foreach (string fan in huFan ?? System.Array.Empty<string>()) {
+                int separator = fan?.LastIndexOf('|') ?? -1;
+                if (separator > 0 && int.TryParse(fan.Substring(separator + 1), out int value)) fanTotal += value;
+            }
+            TotalFan.text = $"{fanTotal}番";
         } else {
             TotalFan.text = $"{huScore}番";
         }

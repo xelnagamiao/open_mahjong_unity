@@ -19,5 +19,6 @@ pythonnet==3.0.5
 sniffio==1.3.1
 starlette==0.41.3
 typing_extensions==4.12.2
+tzdata==2026.3
 uvicorn==0.32.1
 websockets==14.1

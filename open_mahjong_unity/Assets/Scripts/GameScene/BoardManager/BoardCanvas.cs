@@ -80,32 +80,11 @@ public partial class BoardCanvas : MonoBehaviour {
         // 设置剩余牌数
         remiansTilesText.text = $"余:{gameInfo.tile_count}";
 
-        // 设置当前回合（按 room_rule 判断）
-        string roomType = gameInfo.room_rule;
-        Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao") {
-            roundMap = RoundTextDictionary.CurrentRoundTextGB;
-        } else if (roomType == "qingque") {
-            roundMap = RoundTextDictionary.CurrentRoundTextQingque;
-        } else if (roomType == "riichi") {
-            roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
-        } else if (roomType == "classical") {
-            roundMap = RoundTextDictionary.CurrentRoundTextClassical;
-        } else if (roomType == "sichuan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
-        } else if (roomType == "changsha") {
-            roundMap = RoundTextDictionary.CurrentRoundTextChangsha;
-        } else if (roomType == "jiandan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextJiandan;
-        } else if (roomType == "taiwan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextTaiwan;
-        }
-
-        if (roundMap != null && roundMap.TryGetValue(gameInfo.current_round, out string currentRoundStr)) {
-            CurrentRoundText.text = currentRoundStr;
-        } else {
-            CurrentRoundText.text = "";
-        }
+        // 所有规则统一经过 RoundTextDictionary；新增规则只登记一处局名映射，
+        // 中心盘不再维护一份容易漏项的规则分支。
+        CurrentRoundText.text = RoundTextDictionary.GetRoundName(
+            gameInfo.room_rule,
+            gameInfo.current_round);
     }
 
     // 从牌谱记录初始化中心盘信息
@@ -152,30 +131,7 @@ public partial class BoardCanvas : MonoBehaviour {
 
         remiansTilesText.text = $"余:{Mathf.Max(remainTiles, 0)}";
 
-        Dictionary<int, string> roundMap = null;
-        if (roomType == "guobiao") {
-            roundMap = RoundTextDictionary.CurrentRoundTextGB;
-        } else if (roomType == "qingque") {
-            roundMap = RoundTextDictionary.CurrentRoundTextQingque;
-        } else if (roomType == "riichi") {
-            roundMap = RoundTextDictionary.CurrentRoundTextRiichi;
-        } else if (roomType == "classical") {
-            roundMap = RoundTextDictionary.CurrentRoundTextClassical;
-        } else if (roomType == "sichuan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextSichuan;
-        } else if (roomType == "changsha") {
-            roundMap = RoundTextDictionary.CurrentRoundTextChangsha;
-        } else if (roomType == "jiandan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextJiandan;
-        } else if (roomType == "taiwan") {
-            roundMap = RoundTextDictionary.CurrentRoundTextTaiwan;
-        }
-
-        if (roundMap != null && roundMap.TryGetValue(currentRound, out string currentRoundStr)) {
-            CurrentRoundText.text = currentRoundStr;
-        } else {
-            CurrentRoundText.text = "";
-        }
+        CurrentRoundText.text = RoundTextDictionary.GetRoundName(roomType, currentRound);
 
         baselineScores[player_self_score] = player_self_score.text;
         baselineScores[player_left_score] = player_left_score.text;

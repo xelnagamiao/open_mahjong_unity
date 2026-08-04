@@ -22,6 +22,7 @@ public partial class GameCanvas : MonoBehaviour {
     [SerializeField] private HandCardSelectionController handCardSelectionController;
     [SerializeField] private TMP_Text remianTimeText;        // 剩余时间文本(显示剩余时间[20+5])
     [SerializeField] public Transform ActionButtonContainer;  // 询问操作容器(显示吃,碰,杠,胡,补花,抢杠等按钮)
+    [SerializeField] private Transform ExtraActionButton; // 场景常驻槽；当前仅供虹雀“补牌”使用
     [SerializeField] public Transform ActionBlockContenter;  // 询问操作内容提示(显示吃,碰,杠,胡,补花,抢杠等按钮的多种结果)
 
     [Header("日麻：自家振听标记（仅操作区显示；服务器仅向本人同步 furiten）")]
@@ -506,8 +507,11 @@ public partial class GameCanvas : MonoBehaviour {
             Destroy(child.gameObject);
         }
         foreach (Transform child in ActionButtonContainer){
-            Destroy(child.gameObject);
+            if (child != ExtraActionButton) Destroy(child.gameObject);
         }
+        SetExtraActionButtonVisible(false);
+        // 吃碰杠询问结束（执行/跳过/超时/轮到下家）：隐藏可操作牌底部的光圈。
+        Game3DManager.Instance?.HideClaimGlow();
     }
 
     /// <summary>

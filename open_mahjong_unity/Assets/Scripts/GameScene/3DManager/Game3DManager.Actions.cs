@@ -4,7 +4,7 @@ using UnityEngine;
 
 public partial class Game3DManager : MonoBehaviour
 {
-    /// <summary>副露组与组之间额外空隙（相对牌宽）。</summary>
+    /// <summary>副露组与组之间额外空隙（相对牌宽）；开启“副露间距”设置时生效。</summary>
     private const float CombinationGroupGapFactor = 0.2f;
 
     private void ResetCombinationLastSlotWidths() {
@@ -141,7 +141,9 @@ public partial class Game3DManager : MonoBehaviour
         float prevSlotWidth = 0f;
         bool hasPrevInGroup = false;
         float lastPlacedSlot = 0f;
-        float groupGap = cardWidth * CombinationGroupGapFactor;
+        float groupGap = ConfigManager.Instance != null && ConfigManager.Instance.MeldSpacingEnabled
+            ? cardWidth * CombinationGroupGapFactor
+            : 0f;
 
         for (int i = 0; i < SetTileList.Count; i++)
         {
@@ -219,5 +221,122 @@ public partial class Game3DManager : MonoBehaviour
             return GameRecordManager.Instance.recordPlayer_to_info[playerPosition].combinationTiles.Count;
         }
         return NormalGameStateManager.Instance.player_to_info[playerPosition].combination_tiles.Count;
+    }
+
+    /// <summary>
+    /// 虹雀副露增长（补顺/补杠 3→4→5→6）后重建指定玩家的全部副露：
+    /// 以权威 combination_masks 重新摆放，不依赖加杠动画的碰牌缓存与“末组”假设。
+    /// </summary>
+    public void RebuildPlayerMelds(string playerPosition) {
+        PosPanel3D panel = GetPosPanel(playerPosition);
+        if (panel == null) return;
+        if (!NormalGameStateManager.Instance.player_to_info.TryGetValue(
+                playerPosition, out PlayerInfoClass playerInfo)) {
+            return;
+        }
+        List<int[]> masks = playerInfo.combination_masks ?? new List<int[]>();
+
+        // 归还该家全部副露牌，重置组合光标。
+        foreach (Transform comboParent in panel.combination3DObjects) {
+            if (comboParent == null) continue;
+            for (int i = comboParent.childCount - 1; i >= 0; i--) {
+                MahjongObjectPool.Instance.Return(-1, comboParent.GetChild(i).gameObject);
+            }
+        }
+        SetCombinationLastSlotWidth(playerPosition, 0f);
+        StoreCombinationCursor(playerPosition, panel.combinationsPosition.position);
+
+        Quaternion rotation;
+        Vector3 setDirection;
+        Vector3 jiagangDirection;
+        if (playerPosition == "self") {
+            rotation = Quaternion.Euler(90, 0, 180);
+            setDirection = LeftDirection;
+            jiagangDirection = FrontDirection;
+        } else if (playerPosition == "left") {
+            rotation = Quaternion.Euler(90, 0, 90);
+            setDirection = FrontDirection;
+            jiagangDirection = RightDirection;
+        } else if (playerPosition == "top") {
+            rotation = Quaternion.Euler(90, 0, 0);
+            setDirection = RightDirection;
+            jiagangDirection = BackDirection;
+        } else {
+            rotation = Quaternion.Euler(90, 0, 270);
+            setDirection = BackDirection;
+            jiagangDirection = LeftDirection;
+        }
+
+        float acrossGroupLastSlot = GetCombinationLastSlotWidth(playerPosition);
+        for (int meldIndex = 0; meldIndex < masks.Count && meldIndex < panel.combination3DObjects.Length; meldIndex++) {
+            int[] combinationMask = masks[meldIndex];
+            if (combinationMask == null || combinationMask.Length == 0) continue;
+
+            List<int> tileList = new List<int>();
+            List<int> signList = new List<int>();
+            for (int i = 0; i + 1 < combinationMask.Length; i += 2) {
+                signList.Add(combinationMask[i]);
+                tileList.Add(combinationMask[i + 1]);
+            }
+            tileList.Reverse();
+            signList.Reverse();
+
+            Transform setParent = panel.combination3DObjects[meldIndex];
+            Vector3 setPositionpoint = playerPosition == "self" ? selfSetCombinationsPoint
+                : playerPosition == "left" ? leftSetCombinationsPoint
+                : playerPosition == "top" ? topSetCombinationsPoint
+                : rightSetCombinationsPoint;
+            float prevSlotWidth = 0f;
+            bool hasPrevInGroup = false;
+            float lastPlacedSlot = 0f;
+            float groupGap = ConfigManager.Instance != null && ConfigManager.Instance.MeldSpacingEnabled
+                ? cardWidth * CombinationGroupGapFactor
+                : 0f;
+
+            for (int i = 0; i < tileList.Count; i++) {
+                int sign = signList[i];
+                if (sign == 3 || sign == 4) continue;
+
+                Quaternion tileRotation = rotation;
+                float slotWidth = CombinationSlotWidth(sign, cardWidth, cardHeight);
+                if (sign == 1) {
+                    tileRotation = Quaternion.Euler(0, -90, 0) * rotation;
+                }
+                float advance;
+                if (!hasPrevInGroup) {
+                    advance = acrossGroupLastSlot > 0f
+                        ? 0.5f * (acrossGroupLastSlot + slotWidth) + groupGap
+                        : slotWidth;
+                } else {
+                    advance = 0.5f * (prevSlotWidth + slotWidth);
+                }
+                setPositionpoint += setDirection * advance;
+                Vector3 tilePosition = setPositionpoint;
+                if (sign == 1) {
+                    tilePosition += (-jiagangDirection) * 0.5f * (cardHeight - cardWidth);
+                }
+                prevSlotWidth = slotWidth;
+                hasPrevInGroup = true;
+                lastPlacedSlot = slotWidth;
+
+                int tileId = tileList[i];
+                GameObject cardObj = MahjongObjectPool.Instance.Spawn(tileId, tilePosition, tileRotation);
+                if (cardObj == null) {
+                    Debug.LogError($"无法从对象池获取牌: {tileId}");
+                    continue;
+                }
+                Card3DHoverManager.Instance.RegisterCard(cardObj, tileId);
+                cardObj.transform.SetParent(setParent, worldPositionStays: true);
+                MahjongObjectPool.Instance.RefreshTileCollider(cardObj);
+                Tile3D tile3D = cardObj.GetComponent<Tile3D>();
+                tile3D?.ApplyCombinationPeekState(tileId, sign);
+            }
+
+            StoreCombinationCursor(playerPosition, setPositionpoint);
+            if (lastPlacedSlot > 0f) {
+                SetCombinationLastSlotWidth(playerPosition, lastPlacedSlot);
+                acrossGroupLastSlot = lastPlacedSlot;
+            }
+        }
     }
 }

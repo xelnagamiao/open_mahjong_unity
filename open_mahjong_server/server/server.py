@@ -21,6 +21,7 @@ from .gamestate.gamestate_manager import GameStateManager
 from .database.db_manager import DatabaseManager
 from .public.client_ip import get_client_ip_from_websocket
 from .public.ip_registration_limiter import IpRegistrationLimiter
+from .public.username_validation import normalize_username, validate_username
 from .chat_server.chat_server import ChatServer
 from .gamestate.public.critical_log import setup_critical_logging
 from .game_calculation.game_calculation_service import GameCalculationService
@@ -166,6 +167,8 @@ async def lifespan(app: FastAPI):
     # 测试环境下启动聊天服务器
     if Config.auto_create_chatserver:
         await chat_server.start_chat_server()
+    from .gamestate.public.ai.bot_executor import warm_bot_executor, shutdown_bot_executor
+    await warm_bot_executor()
     reset_task = asyncio.create_task(_daily_ip_limit_reset_loop())
     sampler_task = asyncio.create_task(_online_sampler_loop())
     stats_task = asyncio.create_task(_daily_stats_loop())
@@ -182,6 +185,7 @@ async def lifespan(app: FastAPI):
         await restore_task
     except asyncio.CancelledError:
         pass
+    await shutdown_bot_executor()
     # 关闭时执行（如果需要清理资源，在这里添加）
 
 # 创建游戏服务器实例
@@ -325,6 +329,9 @@ class GameServer:
     # Jiandan is a fixed first-win rule; room creation intentionally exposes no hand-flow option.
     async def create_Jiandan_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "jiandan/standard", tourist_limit: bool = False, allow_spectator: bool = True, tactical_call: bool = False, claim_protection: bool = True, event_id=None) -> Response:
         return await self.room_manager.create_Jiandan_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator, tactical_call, claim_protection, event_id)
+
+    async def create_Hongque_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "hongque/v1.6", tourist_limit: bool = False, allow_spectator: bool = False) -> Response:
+        return await self.room_manager.create_Hongque_room(Connect_id, room_name, gameround, password, roundTimerValue, stepTimerValue, tips, random_seed, sub_rule, tourist_limit, allow_spectator)
 
     # 创建古典麻将房间
     async def create_Classical_room(self, Connect_id: str, room_name: str, gameround: int, password: str, roundTimerValue: int, stepTimerValue: int, tips: bool, random_seed: int = 0, sub_rule: str = "classical/standard", tourist_limit: bool = False, allow_spectator: bool = True, event_id=None) -> Response:
@@ -612,8 +619,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         await player.websocket.send_json(response.dict(exclude_none=True))
                         logging.info(f"玩家 {user_id} 重连成功")
                     else:
-                        # 玩家放弃重连：仅清理 user_id -> game_state 映射
-                        game_server.gamestate_manager.remove_player_from_game_state(user_id)
+                        # 玩家明确放弃比赛：同步退出对局和房间。只删一张
+                        # user_id 索引会留下机器人房间及 current_room_id，下一次
+                        # 登录仍可能被旧生命周期重新挂回去。
+                        await game_server.gamestate_manager.abandon_player_game(Connect_id, user_id)
                         response = Response(
                             type="tips",
                             success=True,
@@ -628,36 +637,6 @@ async def message_input(websocket: WebSocket, Connect_id: str):
     finally:
         # 确保在连接断开时调用 disconnect 方法
         asyncio.create_task(game_server.disconnect(Connect_id))
-
-def validate_username(username: str) -> Optional[str]:
-    """
-    验证用户名：不超过16个字符，中文=2，其他字符=1，总长度>=2，不超过20
-    Returns:
-        如果验证失败返回错误消息，否则返回None
-    """
-    if not username or not username.strip():
-        return "用户名不能为空"
-    
-    username = username.strip()
-    
-    # 检查字符数（不超过16个字符）
-    if len(username) > 16:
-        return "用户名不能超过16个字符"
-    
-    # 计算长度（中文=2，其他 Unicode 字符=1）
-    length = 0
-    for char in username:
-        if '\u4e00' <= char <= '\u9fff':
-            length += 2  # 中文=2
-        else:
-            length += 1
-
-    if length < 2:
-        return "用户名长度至少需要2（中文=2，其他字符=1）"
-    if length > 20:
-        return "用户名不能超过20"
-    
-    return None
 
 def validate_password(password: str) -> Optional[str]:
     """
@@ -877,6 +856,7 @@ async def player_login(
     
     # 验证用户名和密码（游客不需要验证，因为已经生成）
     if not is_tourist:
+        username = normalize_username(username)
         username_error = validate_username(username)
         if username_error:
             return Response(

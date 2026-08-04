@@ -36,7 +36,21 @@
             <p>{{ sec.hint }}</p>
           </div>
         </div>
-        <div class="tags">
+        <div v-if="sec.key === 'materials'" class="tags">
+          <router-link v-for="item in LIBRARY_MATERIALS" :key="item.key" class="tag" :to="item.to" :title="item.description" :style="{ '--ink': item.accent }">
+            <span class="tag-mark" />
+            <span class="tag-text"><strong>{{ item.title }}</strong><em>{{ item.short }}</em></span>
+            <span class="tag-go" aria-hidden="true">→</span>
+          </router-link>
+        </div>
+        <div v-else-if="sec.key === 'submit'" class="tags">
+          <router-link v-for="item in LIBRARY_SUBMISSION" :key="item.key" class="tag" :to="item.to" :title="item.description" :style="{ '--ink': item.accent }">
+            <span class="tag-mark" />
+            <span class="tag-text"><strong>{{ item.title }}</strong><em>{{ item.short }}</em></span>
+            <span class="tag-go" aria-hidden="true">→</span>
+          </router-link>
+        </div>
+        <div v-else class="tags">
           <router-link
             v-for="rule in rulesForSection(sec.key)"
             :key="`${sec.key}-${rule.key}`"
@@ -64,7 +78,12 @@
 </template>
 
 <script setup>
-import { LIBRARY_SECTIONS, rulesForSection } from '@/constants/libraryRules'
+import {
+  LIBRARY_MATERIALS,
+  LIBRARY_SECTIONS,
+  LIBRARY_SUBMISSION,
+  rulesForSection,
+} from '@/constants/libraryRules'
 
 const sections = LIBRARY_SECTIONS.map((s) => ({
   ...s,

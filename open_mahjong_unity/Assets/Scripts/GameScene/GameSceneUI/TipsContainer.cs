@@ -20,6 +20,8 @@ public class TipsContainer : MonoBehaviour
     private readonly List<int> _cachedHandTiles = new List<int>();
     private readonly List<int> _cachedWaitingTiles = new List<int>();
     private bool _hasCachedTenpaiTips;
+    private HongqueScoreHintInfo[] _cachedHongqueWaitHints = Array.Empty<HongqueScoreHintInfo>();
+    private HongqueScoreHintInfo _cachedHongqueWinHint;
     private RecordTipsContext _recordTipsContext;
     public bool hasTips = false; // 是否有提示
     public List<int> waitingTiles = new List<int>();
@@ -39,10 +41,35 @@ public class TipsContainer : MonoBehaviour
         _hasCachedTenpaiTips = false;
         _cachedHandTiles.Clear();
         _cachedWaitingTiles.Clear();
+        _cachedHongqueWaitHints = Array.Empty<HongqueScoreHintInfo>();
+        _cachedHongqueWinHint = null;
         waitingTiles.Clear();
     }
 
-    public bool HasCachedTenpaiTips => _hasCachedTenpaiTips && _cachedWaitingTiles.Count > 0;
+    public bool HasCachedTenpaiTips => _hasCachedTenpaiTips
+        && (_cachedWaitingTiles.Count > 0 || _cachedHongqueWinHint != null);
+
+    /// <summary>缓存服务端权威计算的虹雀听牌/和牌提示，仍由公共提示容器负责展示。</summary>
+    public void CacheHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
+        _cachedHongqueWaitHints = waitHints ?? Array.Empty<HongqueScoreHintInfo>();
+        _cachedHongqueWinHint = winHint;
+        _cachedHandTiles.Clear();
+        _cachedWaitingTiles.Clear();
+        foreach (HongqueScoreHintInfo hint in _cachedHongqueWaitHints) {
+            if (hint == null || string.IsNullOrEmpty(hint.tile)) continue;
+            int tileId = HongqueTileVisual.FromCode(hint.tile);
+            if (tileId != 0) _cachedWaitingTiles.Add(tileId);
+        }
+        if (winHint != null && !string.IsNullOrEmpty(winHint.tile)) {
+            int tileId = HongqueTileVisual.FromCode(winHint.tile);
+            if (tileId != 0 && !_cachedWaitingTiles.Contains(tileId)) {
+                _cachedWaitingTiles.Add(tileId);
+            }
+        }
+        waitingTiles.Clear();
+        waitingTiles.AddRange(_cachedWaitingTiles);
+        _hasCachedTenpaiTips = _cachedHongqueWaitHints.Length > 0 || winHint != null;
+    }
 
     /// <summary>牌桌弃牌/副露变化后重算听牌提示 UI（完整手牌、无切牌预览），不重跑听牌检测。</summary>
     /// <param name="syncHandFromLiveState">为 true 时用当前 selfHandTiles 覆盖缓存，避免鸣牌后余张多算。</param>
@@ -51,6 +78,10 @@ public class TipsContainer : MonoBehaviour
         NormalGameStateManager gameManager = NormalGameStateManager.Instance;
         if (gameManager == null || !gameManager.tips) return;
         _pendingCutTileId = null;
+        if (gameManager.roomRule == "hongque") {
+            SetHongqueTips(_cachedHongqueWaitHints, _cachedHongqueWinHint);
+            return;
+        }
         if (syncHandFromLiveState) {
             _cachedHandTiles.Clear();
             _cachedHandTiles.AddRange(gameManager.selfHandTiles);
@@ -100,6 +131,57 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
+    /// 虹雀的牌型与计分由服务端权威脚本完成；Unity 只把结果渲染进与其他规则
+    /// 相同的 TileContainer/FanContainer，不再把公式塞进操作按钮文字。
+    /// </summary>
+    public void SetHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
+        List<Transform> toDestroy = new List<Transform>();
+        foreach (Transform child in TileContainer.transform) toDestroy.Add(child);
+        foreach (Transform child in FanContainer.transform) toDestroy.Add(child);
+        foreach (Transform child in toDestroy) Destroyer.Instance.AddToDestroyer(child);
+
+        HongqueScoreHintInfo[] hints = winHint != null
+            ? new[] { winHint }
+            : (waitHints ?? Array.Empty<HongqueScoreHintInfo>());
+        List<int> shownWaits = new List<int>();
+        foreach (HongqueScoreHintInfo hint in hints) {
+            if (hint == null) continue;
+            int tileId = string.IsNullOrEmpty(hint.tile) ? 0 : HongqueTileVisual.FromCode(hint.tile);
+            if (tileId != 0) {
+                shownWaits.Add(tileId);
+                InstantiateTipsTile(tileId);
+            }
+            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+            // 只显示直接分值，不展示底/番公式。
+            string label = $"{hint.points}分";
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
+        }
+        UpdateRyuukyokuTenpaiChoice(shownWaits);
+    }
+
+    /// <summary>
+    /// 虹雀切牌预测：展示打出该牌后的和牌张，并本地计算每张的直接分值。
+    /// handTiles 为切掉悬停牌后的手牌；每张和牌张按 handTiles + 该张 计分。
+    /// </summary>
+    private void ShowHongqueCutPreviewTiles(
+        List<int> handTiles,
+        List<int[]> meldMasks,
+        List<int> waitingTiles) {
+        List<int> sorted = new List<int>(waitingTiles);
+        sorted.Sort();
+        foreach (int tileId in sorted) {
+            InstantiateTipsTile(tileId);
+            List<int> winHand = new List<int>(handTiles);
+            winHand.Add(tileId);
+            HongqueWinScore score = HongqueScoring.BestWinResult(
+                winHand, meldMasks, false, false, false);
+            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+            string label = score != null ? $"{score.Points}分" : "0分";
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
+        }
+    }
+
+    /// <summary>
     /// 新入口：外部显式传入“当前手牌列表” + waitingTiles，用于切牌提示等场景
     /// handTiles: 作为和牌基础的手牌（比如已经移除将要切掉的那一张）
     /// waitingTiles: 听牌后的所有和牌张
@@ -122,6 +204,14 @@ public class TipsContainer : MonoBehaviour
         // 销毁子对象
         foreach (Transform child in toDestroy){
             Destroyer.Instance.AddToDestroyer(child);
+        }
+
+        if (NormalGameStateManager.Instance.roomRule == "hongque") {
+            ShowHongqueCutPreviewTiles(
+                handTiles,
+                NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
+                waitingTiles);
+            return;
         }
 
         // 获取游戏管理器实例
@@ -385,7 +475,7 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
-    /// 处理国标规则的和牌提示：guobiao/standard 用 GBhepai，guobiao/xiaolin 用 GBhepaiXiaolin，guobiao/kshen 用 GBhepaiKshen。
+    /// 处理国标规则的和牌提示，并按子规则选择对应番表。
     /// </summary>
     private void ProcessGuobiaoTile(
         int hepaiTile,
@@ -404,6 +494,8 @@ public class TipsContainer : MonoBehaviour
             dianheResult = GBhepaiXiaolin.FilterZeroValueFans(dianheResult.Item1, dianheResult.Item2);
         } else if (subRule == "guobiao/kshen") {
             dianheResult = GBhepaiKshen.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
+        } else if (subRule == "guobiao/lanshi") {
+            dianheResult = GBhepaiLanshi.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         } else {
             dianheResult = GBhepai.HepaiCheck(handList, combinationList, mergedWayToHepai, hepaiTile, false);
         }
@@ -424,6 +516,8 @@ public class TipsContainer : MonoBehaviour
                 zimoResult = GBhepaiXiaolin.FilterZeroValueFans(zimoResult.Item1, zimoResult.Item2);
             } else if (subRule == "guobiao/kshen") {
                 zimoResult = GBhepaiKshen.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
+            } else if (subRule == "guobiao/lanshi") {
+                zimoResult = GBhepaiLanshi.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
             } else {
                 zimoResult = GBhepai.HepaiCheck(handList, combinationList, zimoWayToHepai, hepaiTile, false);
             }

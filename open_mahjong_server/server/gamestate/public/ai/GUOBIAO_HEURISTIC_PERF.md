@@ -156,6 +156,15 @@ python guobiao_heuristic_drawrate.py --matches 4 --workers 2 --skip-half --out g
 3. 保持 memo/剪枝/`specials=True`/print→debug；不要拆加速。
 4. 副露率 Unity 修后 63qz **~60%** vs OMC 长样本 **69%** 仍有差距（与 restore-gebu 63z **59.3%** 已对齐）；三色三步热度修后 **~31%**（贴近 restore-gebu / 低于长样本 34%）。
 
+## 生产缓存与机器人执行器
+
+- `GUOBIAO_AI_CACHE_MB`：单个服务器进程的国标 AI 缓存预算，默认 `200` MiB。
+- 持久缓存只使用预算的 80%（默认 160 MiB），其余 20% 留给单次决策 memo 和分配器余量。
+- 持久配额按 `SUIT/SHANTEN/YIBAN/EFFECTIVE = 10%/50%/30%/10%` 分配，超过配额按 LRU 淘汰。
+- `BOT_CPU_WORKERS`：跨房间机器人工作进程数，默认 `min(4, cpu_count-1)` 且至少 1。
+- 同一房间的 AI 计算串行，不同房间可并行；主事件循环先生成快照，后台只运行纯计算，结果返回后校验 action tick。
+- 多进程部署时缓存预算是每进程预算；总预算 200 MiB 时，应按 worker 数设置 `GUOBIAO_AI_CACHE_MB=200/worker_count`。
+
 ## 注意
 
 - 生产手感：先算后补到最低思考墙钟 `_BOT_DELAY=0.5`（`elapsed < 0.5` 才 sleep 补齐；超过不补）。总思考 ≈ `max(算时, 500ms)`；鸣牌后的 `claim_meld_post_gap` 独立叠加，不计入地板。

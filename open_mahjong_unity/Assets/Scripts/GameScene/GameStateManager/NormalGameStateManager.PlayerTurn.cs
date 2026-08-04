@@ -2,7 +2,11 @@ using UnityEngine;
 
 public partial class NormalGameStateManager {
     // 切换玩家状态
-    public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time, int askHandPlayerIndex = -1, bool isTacticalRecheck = false) {
+    public void SwitchCurrentPlayer(string GetCardPlayer, string SwitchType, int remaining_time,
+                                    int askHandPlayerIndex = -1, bool isTacticalRecheck = false,
+                                    string dealTileType = null, int stepTimeOverride = -1) {
+
+        int displayStepTime = stepTimeOverride >= 0 ? stepTimeOverride : roomStepTime;
 
         // 询问手牌操作
         if (SwitchType == "askHandAction"){
@@ -21,13 +25,13 @@ public partial class NormalGameStateManager {
                 GameCanvas.Instance.RefreshHandTileSelectability();
 
                 // 全量自动（自摸/起手胡/补花）：不出按钮，仅延迟发网，避免闪按钮泄密
-                if (TryResolveImmediateAutoHand(out string autoHandAction, out float autoHandDelay)) {
+                if (TryResolveImmediateAutoHand(dealTileType, out string autoHandAction, out float autoHandDelay)) {
                     StartDelayedAutoChoose(autoHandAction, autoHandDelay);
                 }
                 else {
                     GameCanvas.Instance.SetActionButton(allowActionList);
-                    GameCanvas.Instance.LoadingRemianTime(remaining_time, roomStepTime);
-                    if (ShouldStartAutoCut()) {
+                    GameCanvas.Instance.LoadingRemianTime(remaining_time, displayStepTime);
+                    if (ShouldStartAutoCut(dealTileType)) {
                         StartWaitAutoCut();
                     }
                 }
@@ -61,8 +65,14 @@ public partial class NormalGameStateManager {
             }
             else {
                 GameCanvas.Instance.SetActionButton(allowActionList);
+                // 吃碰杠询问：给可操作牌（最新弃牌/加杠牌）底部显示光圈。
+                if (allowActionList.Count > 0) {
+                    Game3DManager.Instance?.ShowClaimGlow(currentAskCutTileId);
+                }
                 // 战术鸣牌打断窗口：remaining_time 即为 grace 秒数，不再叠加步时（避免显示 5+5）
-                GameCanvas.Instance.LoadingRemianTime(remaining_time, isTacticalRecheck ? 0 : roomStepTime);
+                GameCanvas.Instance.LoadingRemianTime(
+                    remaining_time,
+                    isTacticalRecheck ? 0 : displayStepTime);
             }
             IsSelfActionRequired = true;
             GameSceneMouseInputController.Instance.SetActionInputPhase(GameSceneMouseInputController.InputPhaseAskOther);

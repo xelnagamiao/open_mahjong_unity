@@ -258,7 +258,11 @@ public class Card3DHoverManager : MonoBehaviour
             back.a = data.originalBackColor.a;
             side.a = data.originalSideColor.a;
         }
-        data.tile3D?.SetInstanceVisualState(
+        // Unity 的 == 能识别已销毁对象；?. 只查 C# 空引用，场景销毁时仍会进入
+        // 已销毁 Tile3D 的 gameObject 访问并抛 MissingReferenceException。
+        Tile3D tile3D = data.tile3D;
+        if (tile3D == null) return;
+        tile3D.SetInstanceVisualState(
             front, back, side, data.originalGrayScale);
     }
 

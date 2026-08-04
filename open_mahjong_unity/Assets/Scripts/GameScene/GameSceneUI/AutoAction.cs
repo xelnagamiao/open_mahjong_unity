@@ -98,7 +98,8 @@ public class AutoAction : MonoBehaviour{
         isAutoPass = false;
         isAutoCut = false;
         isAutoCutLocked = false;
-        // 保留 isAutoBuhua 和 isAutoArrangeHandCards 的 current值
+        isAutoBuhua = ConfigManager.Instance == null || ConfigManager.Instance.OpeningAutoBuhuaEnabled;
+        // 自动理牌保留 current 值；自动补花按设置在每局开局时重置
 
         // 鸣牌/牌张面板初始隐藏
         if (mingPaiPanel != null) mingPaiPanel.SetActive(false);

@@ -7,6 +7,7 @@ from ..public.ai.auto_cut_ai import auto_cut_action
 from ..public.ai.smart_bot_ai import smart_bot_action
 from ..public.deal_tile_view import sanitize_deal_tile_for_viewer
 from ..public.hand_slot_utils import bot_ask_hand_game_status, has_draw_slot
+from ..public.hand_draw_source import ensure_hand_draw_source_round, get_hand_draw_source, update_hand_draw_source
 from ..public.claim_protection import (
     claim_protection_enabled,
     is_protected_viewer,
@@ -74,6 +75,7 @@ def _forced_cut_tiles_for_hand_ask(self, player_index: int) -> List[int]:
 # 广播游戏开始/重连 方法
 async def broadcast_game_start(self):
     """广播游戏开始信息"""
+    ensure_hand_draw_source_round(self)
     # 基础游戏信息（与国标一致固定下发 sub_rule、hepai_limit，供 NormalGameStateManager 番表/起和用）
     base_game_info = {
         'room_id': self.room_id, # 房间ID
@@ -230,6 +232,7 @@ async def broadcast_ask_hand_action(self):
                         remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
                         action_tick=self.server_action_tick,
+                        deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                         forced_cut_tiles=forced_cut_tiles or None
                     )
                 )
@@ -243,7 +246,8 @@ async def broadcast_ask_hand_action(self):
                         player_index= self.current_player_index,
                         remain_tiles=len(self.tiles_list),
                         action_list=self.action_dict[i],
-                        action_tick=self.server_action_tick
+                        action_tick=self.server_action_tick,
+                        deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     )
                 )
             is_actor = i == self.current_player_index
@@ -359,6 +363,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
                     remain_tiles=len(self.tiles_list),
                     action_list=self.action_dict.get(reconnect_idx, []),
                     action_tick=self.server_action_tick,
+                    deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     forced_cut_tiles=(
                         _forced_cut_tiles_for_hand_ask(self, reconnect_idx) or None
                     ),
@@ -496,6 +501,7 @@ async def broadcast_do_action(
         self._tactical_silent_action = False
     # 战术鸣牌申请广播不递增操作帧；实际行为（含 silent）正常递增
     if not is_claim:
+        update_hand_draw_source(self, action_list, action_player)
         self.server_action_tick += 1
         if hasattr(self, "_ask_broadcast_time"):
             delattr(self, "_ask_broadcast_time")

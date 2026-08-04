@@ -9,6 +9,7 @@ const { requirePlayer } = require('../../middleware/requirePlayer');
 const { createWindowLimiter, getClientIp } = require('../../middleware/rateLimit');
 const { listUserEvents } = require('../../utils/eventAdminHelpers');
 const { sendEmailBindCode } = require('../../utils/mailer');
+const { normalizeUsername, validateUsername } = require('../../utils/username');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -30,26 +31,6 @@ function normalizeEmail(raw) {
 
 function generateCode() {
   return String(crypto.randomInt(100000, 1000000));
-}
-
-function validateUsername(raw) {
-  const username = String(raw || '').trim();
-  if (!username) return { error: '用户名不能为空' };
-  if (username.length > 16) return { error: '用户名不能超过16个字符' };
-
-  let length = 0;
-  for (const char of username) {
-    if (/[\u4e00-\u9fff]/u.test(char)) {
-      length += 2;
-    } else {
-      length += 1;
-    }
-  }
-  if (length < 2) {
-    return { error: '用户名长度至少需要2（中文=2，其他字符=1）' };
-  }
-  if (length > 20) return { error: '用户名不能超过20' };
-  return { value: username };
 }
 
 function validateNewPassword(raw) {
@@ -96,16 +77,16 @@ async function buildAuthPayload(userId, username) {
 }
 
 router.post('/register', registrationLimiter, async (req, res) => {
-  const parsedUsername = validateUsername(req.body?.username);
-  if (parsedUsername.error) {
-    return res.status(400).json({ success: false, message: parsedUsername.error });
+  const username = normalizeUsername(req.body?.username);
+  const usernameError = validateUsername(username);
+  if (usernameError) {
+    return res.status(400).json({ success: false, message: usernameError });
   }
   const parsedPassword = validateNewPassword(req.body?.password);
   if (parsedPassword.error) {
     return res.status(400).json({ success: false, message: parsedPassword.error });
   }
 
-  const username = parsedUsername.value;
   const password = parsedPassword.value;
   let client;
   try {
@@ -190,7 +171,7 @@ router.post('/login', async (req, res) => {
 
     const result = await pool.query(
       `SELECT user_id, username, password, is_tourist FROM users WHERE username = $1`,
-      [String(username).trim()]
+      [normalizeUsername(username)]
     );
     if (result.rows.length === 0) {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });

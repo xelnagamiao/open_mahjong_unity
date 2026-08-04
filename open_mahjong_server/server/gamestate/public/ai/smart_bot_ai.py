@@ -4,6 +4,7 @@
 import asyncio
 import logging
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
+from .bot_executor import bot_action_is_current, run_room_bot_cpu
 from .get_action import get_ai_action
 from .smart_bot_logic import (
     count_melds, count_visible_tiles, cut_candidate_hand, evaluate_hand,
@@ -16,6 +17,95 @@ _BOT_DELAY = 0.5
 
 # 荣和/抢杠：国标/古典等为 hu_first/second/third；四川血战为 hu
 _RON_HU_ACTIONS = ("hu", "hu_first", "hu_second", "hu_third")
+
+
+def _choose_hand_action(hand, combs, meld_count, visible, dingque, action_list):
+    """Pure CPU decision over snapshots; returns (action, tile)."""
+    hand = list(hand)
+    combs = list(combs)
+    actions = set(action_list)
+    if "buzhang" in actions:
+        for c in combs:
+            if c.startswith("k"):
+                try:
+                    tile = int(c[1:])
+                except ValueError:
+                    continue
+                if tile in hand:
+                    test = hand[:]
+                    test.remove(tile)
+                    if evaluate_hand(test, meld_count, visible) >= evaluate_hand(hand, meld_count, visible):
+                        return "buzhang", tile
+        for tile in set(hand):
+            if hand.count(tile) >= 4:
+                test = [t for t in hand if t != tile]
+                if evaluate_hand(test, meld_count + 1, visible) >= evaluate_hand(hand, meld_count, visible):
+                    return "buzhang", tile
+    if "angang" in actions:
+        for tile in set(hand):
+            if dingque in (1, 2, 3) and tile // 10 == dingque:
+                continue
+            if hand.count(tile) >= 4:
+                test = [t for t in hand if t != tile]
+                if evaluate_hand(test, meld_count + 1, visible) >= evaluate_hand(hand, meld_count, visible):
+                    return "angang", tile
+    if "jiagang" in actions:
+        for c in combs:
+            if c.startswith("k"):
+                try:
+                    tile = int(c[1:])
+                except ValueError:
+                    continue
+                if tile in hand:
+                    test = hand[:]
+                    test.remove(tile)
+                    if evaluate_hand(test, meld_count, visible) >= evaluate_hand(hand, meld_count, visible):
+                        return "jiagang", tile
+    if "cut" in actions and hand:
+        cut_hand = cut_candidate_hand(hand, dingque)
+        tile, _ = find_best_cut(cut_hand, meld_count, visible)
+        return "cut", tile
+    return "pass", None
+
+
+def _choose_claim_action(hand, meld_count, visible, action_list, cut_tile):
+    hand = list(hand)
+    actions = set(action_list)
+    best_action = "pass"
+    best_score = evaluate_hand(hand, meld_count, visible)
+    if "peng" in actions and hand.count(cut_tile) >= 2:
+        test = hand[:]
+        test.remove(cut_tile)
+        test.remove(cut_tile)
+        score = find_best_cut_score(test, meld_count + 1, visible) if test else (-999, -1)
+        if score > best_score:
+            best_action, best_score = "peng", score
+    for action, need in (
+        ("chi_left", (cut_tile - 2, cut_tile - 1)),
+        ("chi_mid", (cut_tile - 1, cut_tile + 1)),
+        ("chi_right", (cut_tile + 1, cut_tile + 2)),
+    ):
+        if action not in actions:
+            continue
+        test = hand[:]
+        valid = True
+        for tile in need:
+            if tile not in test:
+                valid = False
+                break
+            test.remove(tile)
+        if valid:
+            score = find_best_cut_score(test, meld_count + 1, visible) if test else (-999, -1)
+            if score > best_score:
+                best_action, best_score = action, score
+    if "gang" in actions and hand.count(cut_tile) >= 3:
+        test = hand[:]
+        for _ in range(3):
+            test.remove(cut_tile)
+        score = evaluate_hand(test, meld_count + 1, visible)
+        if score > best_score:
+            best_action = "gang"
+    return best_action
 
 
 async def _wait_until_actionable(game_state, player_index: int, attempts: int = 200, interval: float = 0.01) -> bool:
@@ -121,78 +211,31 @@ async def _handle_hand_action(game_state, player_index, action_list, player):
         return
 
     hand = player.hand_tiles[:]
-    combs = getattr(player, 'combination_tiles', [])
+    combs = list(getattr(player, 'combination_tiles', []))
     meld_count = count_melds(combs)
     visible = count_visible_tiles(game_state)
-
-    if "buzhang" in action_list:
-        for c in combs:
-            if c.startswith("k"):
-                try:
-                    ktile = int(c[1:])
-                except ValueError:
-                    continue
-                if ktile in hand:
-                    test_hand = hand[:]
-                    test_hand.remove(ktile)
-                    base_score = evaluate_hand(hand, meld_count, visible)
-                    buzhang_score = evaluate_hand(test_hand, meld_count, visible)
-                    if buzhang_score >= base_score:
-                        logger.info(f"牌效AI {player_index} ({player.username}) 选择 buzhang, tile={ktile}")
-                        await get_ai_action(game_state, player_index, "buzhang", None, None, None, ktile)
-                        return
-        for tile in set(hand):
-            if hand.count(tile) >= 4:
-                test_hand = [t for t in hand if t != tile]
-                base_score = evaluate_hand(hand, meld_count, visible)
-                buzhang_score = evaluate_hand(test_hand, meld_count + 1, visible)
-                if buzhang_score >= base_score:
-                    logger.info(f"牌效AI {player_index} ({player.username}) 选择 buzhang, tile={tile}")
-                    await get_ai_action(game_state, player_index, "buzhang", None, None, None, tile)
-                    return
-
-    # 评估暗杠：暗杠后手牌不变差则执行（定缺花色不可暗杠）
-    if "angang" in action_list:
-        dingque = getattr(player, "dingque_suit", 0)
-        for tile in set(hand):
-            if dingque in (1, 2, 3) and tile // 10 == dingque:
-                continue
-            if hand.count(tile) >= 4:
-                test_hand = [t for t in hand if t != tile]
-                base_score = evaluate_hand(hand, meld_count, visible)
-                gang_score = evaluate_hand(test_hand, meld_count + 1, visible)
-                if gang_score >= base_score:
-                    logger.info(f"牌效AI {player_index} ({player.username}) 选择 angang, tile={tile}")
-                    await get_ai_action(game_state, player_index, "angang", None, None, None, tile)
-                    return
-
-    # 评估加杠：加杠后手牌不变差则执行
-    if "jiagang" in action_list:
-        for c in combs:
-            if c.startswith("k"):
-                try:
-                    ktile = int(c[1:])
-                except ValueError:
-                    continue
-                if ktile in hand:
-                    test_hand = hand[:]
-                    test_hand.remove(ktile)
-                    base_score = evaluate_hand(hand, meld_count, visible)
-                    jia_score = evaluate_hand(test_hand, meld_count, visible)
-                    if jia_score >= base_score:
-                        logger.info(f"牌效AI {player_index} ({player.username}) 选择 jiagang, tile={ktile}")
-                        await get_ai_action(game_state, player_index, "jiagang", None, None, None, ktile)
-                        return
-
-    # 切牌：枚举每张手牌切出后的评分，选最优（四川定缺：手牌含定缺花色时只在定缺牌中选）
-    if "cut" in action_list and hand:
-        dingque = getattr(player, "dingque_suit", 0)
-        cut_hand = cut_candidate_hand(hand, dingque)
-        tile_id, _ = find_best_cut(cut_hand, meld_count, visible)
+    expected_tick = getattr(game_state, "server_action_tick", None)
+    action, tile_id = await run_room_bot_cpu(
+        game_state,
+        _choose_hand_action,
+        tuple(hand),
+        tuple(combs),
+        meld_count,
+        tuple(visible),
+        getattr(player, "dingque_suit", 0),
+        tuple(action_list),
+    )
+    if not bot_action_is_current(game_state, player_index, expected_tick):
+        return
+    if action == "cut" and tile_id is not None:
         cut_index = hand.index(tile_id)
         is_moqie = infer_bot_cut_class(hand, tile_id, cut_index, draw_slot=has_draw_slot(player))
         logger.info(f"牌效AI {player_index} ({player.username}) 选择 cut, tile_id={tile_id}, moqie={is_moqie}")
         await get_ai_action(game_state, player_index, "cut", is_moqie, tile_id, cut_index, None)
+        return
+    if action in ("buzhang", "angang", "jiagang"):
+        logger.info(f"牌效AI {player_index} ({player.username}) 选择 {action}, tile={tile_id}")
+        await get_ai_action(game_state, player_index, action, None, None, None, tile_id)
         return
 
 
@@ -223,58 +266,20 @@ async def _handle_after_cut(game_state, player_index, action_list, player):
     visible = count_visible_tiles(game_state)
 
     # 当前手牌基准评分（不做任何操作时 pass 后的手牌价值）
-    base_score = evaluate_hand(hand, meld_count, visible)
-    best_action = "pass"
-    best_action_score = base_score
+    expected_tick = getattr(game_state, "server_action_tick", None)
+    best_action = await run_room_bot_cpu(
+        game_state,
+        _choose_claim_action,
+        tuple(hand),
+        meld_count,
+        tuple(visible),
+        tuple(action_list),
+        cut_tile,
+    )
+    if not bot_action_is_current(game_state, player_index, expected_tick):
+        return
 
-    # 评估碰：碰后需要切一张，取切后最优评分
-    if "peng" in action_list and hand.count(cut_tile) >= 2:
-        test_hand = hand[:]
-        test_hand.remove(cut_tile)
-        test_hand.remove(cut_tile)
-        if test_hand:
-            peng_best = find_best_cut_score(test_hand, meld_count + 1, visible)
-            if peng_best > best_action_score:
-                best_action = "peng"
-                best_action_score = peng_best
-
-    # 评估吃：吃后需要切一张，取切后最优评分
-    for chi_type in ("chi_left", "chi_mid", "chi_right"):
-        if chi_type not in action_list:
-            continue
-        if chi_type == "chi_left":
-            need = [cut_tile - 2, cut_tile - 1]
-        elif chi_type == "chi_mid":
-            need = [cut_tile - 1, cut_tile + 1]
-        else:
-            need = [cut_tile + 1, cut_tile + 2]
-        test_hand = hand[:]
-        valid = True
-        for n in need:
-            if n in test_hand:
-                test_hand.remove(n)
-            else:
-                valid = False
-                break
-        if not valid:
-            continue
-        if test_hand:
-            chi_best = find_best_cut_score(test_hand, meld_count + 1, visible)
-            if chi_best > best_action_score:
-                best_action = chi_type
-                best_action_score = chi_best
-
-    # 评估明杠：杠后不需要切牌，直接评估手牌
-    if "gang" in action_list and hand.count(cut_tile) >= 3:
-        test_hand = hand[:]
-        for _ in range(3):
-            test_hand.remove(cut_tile)
-        gang_score = evaluate_hand(test_hand, meld_count + 1, visible)
-        if gang_score > best_action_score:
-            best_action = "gang"
-            best_action_score = gang_score
-
-    logger.info(f"牌效AI {player_index} ({player.username}) 选择 {best_action} (score={best_action_score})")
+    logger.info(f"牌效AI {player_index} ({player.username}) 选择 {best_action}")
     if best_action != "pass":
         await asyncio.sleep(_BOT_DELAY)
     await get_ai_action(game_state, player_index, best_action, None, None, None, None)

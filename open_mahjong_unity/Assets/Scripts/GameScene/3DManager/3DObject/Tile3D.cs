@@ -12,6 +12,7 @@ public class Tile3D : MonoBehaviour
     private static readonly int SideColorId = Shader.PropertyToID("_SideColor");
     private static readonly int TileInstanceParamsId = Shader.PropertyToID("_TileInstanceParams");
     private static readonly int FrontTexId = Shader.PropertyToID("_FrontTex");
+    private static readonly int BackTexId = Shader.PropertyToID("_BackTex");
 
     private Renderer cardRenderer;
     private Material sharedTileMaterial;
@@ -134,6 +135,8 @@ public class Tile3D : MonoBehaviour
     /// 初始化组件（可在Awake或需要时手动调用，用于处理SetActive(false)的对象）
     /// </summary>
     private void InitializeComponents() {
+        // 场景销毁时悬停/恢复路径可能仍持有已销毁实例；Unity 的 == 可识别。
+        if (this == null) return;
         if (sharedTileMaterial != null && cardRenderer != null
             && tileMaterialIndex >= 0 && propBlock != null) {
             return;
@@ -260,6 +263,26 @@ public class Tile3D : MonoBehaviour
         ApplyPropertyBlock();
     }
 
+    /// <summary>
+    /// 虹雀资源并非现有麻将 SpriteAtlas 的一部分，因此为每个唯一牌面复用一份独立材质。
+    /// 虹雀牌在牌库中各一张，这条低频路径不会影响普通麻将的 GPU Instancing。
+    /// </summary>
+    public void SetStandaloneCardTexture(int tileId, Texture2D texture, Material faceMaterial) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0 || texture == null || faceMaterial == null) return;
+        Material[] materials = cardRenderer.sharedMaterials;
+        materials[tileMaterialIndex] = faceMaterial;
+        cardRenderer.sharedMaterials = materials;
+        sharedTileMaterial = faceMaterial;
+        currentTileId = tileId;
+        currentPoolTileId = tileId;
+        const float stretch = 1.1f;
+        float tiling = 1f / stretch;
+        frontTilingOffset = new Vector4(tiling, 1f, (1f - tiling) * 0.5f, 0f);
+        if (isActiveAndEnabled && outlineId <= 0) AcquireOutlineId();
+        ApplyPropertyBlock();
+    }
+
     /// <summary>应用逐牌颜色/灰度，只更新实例数据，不创建或修改材质实例。</summary>
     public void SetInstanceVisualState(
         Color frontColor,
@@ -271,6 +294,20 @@ public class Tile3D : MonoBehaviour
         instanceBackColor = backColor;
         instanceSideColor = sideColor;
         instanceGrayScale = grayScale;
+        ApplyPropertyBlock();
+    }
+
+    /// <summary>
+    /// 应用牌背颜色与牌背贴图：颜色走实例 MPB，贴图写共享材质（所有牌共享同一张背图）。
+    /// </summary>
+    public void ApplyBackVisual(Color backColor, Texture2D backTexture) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        instanceBackColor = backColor;
+        baseBackColor = backColor;
+        if (sharedTileMaterial != null) {
+            sharedTileMaterial.SetTexture(BackTexId, backTexture);
+        }
         ApplyPropertyBlock();
     }
 

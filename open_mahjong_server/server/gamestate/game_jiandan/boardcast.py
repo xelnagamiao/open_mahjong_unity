@@ -159,6 +159,13 @@ def ask_action_payload(
     is_hand_action = cut_tile is None and rob_kong_tile is None
     if action_player_index is None:
         action_player_index = viewer_index
+    deal_tile_type = None
+    if is_hand_action and game_state.game_status == "waiting_hand_action":
+        deal_tile_type = (
+            "deal_gang_tile"
+            if game_state.hand_action_is_gang_draw.get(action_player_index, False)
+            else "deal_tile"
+        )
     return {
         "type": "gamestate/jiandan/broadcast_hand_action" if is_hand_action else "gamestate/jiandan/ask_other_action",
         "success": True,
@@ -174,6 +181,7 @@ def ask_action_payload(
             "player_index": action_player_index,
             "remain_tiles": len(game_state.tiles_list),
             "action_tick": game_state.server_action_tick,
+            "deal_tile_type": deal_tile_type,
         } if is_hand_action else None,
         "ask_other_action_info": {
             "action_list": list(action_list),

@@ -11,7 +11,10 @@ Copyright (c) Satoshi Kobayashi. Licensed under the MIT License.
 """
 from __future__ import annotations
 
+import os
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+
+from .bounded_lru_cache import MemoryBoundedLRUCache
 
 # ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -163,7 +166,25 @@ def _mianzi_suit(bingpai: List[int], n: int = 1) -> Tuple[List[int], List[int]]:
 
 SuitSides = Tuple[Tuple[int, int, int], Tuple[int, int, int]]
 
-_SUIT_CACHE: Dict[int, SuitSides] = {}
+def _configured_cache_mib() -> float:
+    try:
+        return max(0.0, float(os.getenv("GUOBIAO_AI_CACHE_MB", "200")))
+    except ValueError:
+        return 200.0
+
+
+def _cache_budget_bytes(weight: float, total_mib: Optional[float] = None) -> int:
+    """Allocate 80% of the per-process budget; leave 20% for decision-local memo."""
+    if total_mib is None:
+        total_mib = _configured_cache_mib()
+    return int(total_mib * 1024 * 1024 * 0.8 * weight)
+
+
+# 200 MiB default: 16/80/48/16 MiB persistent cache plus 40 MiB headroom.
+# Charges include padding for OrderedDict nodes and allocator overhead.
+_SUIT_CACHE = MemoryBoundedLRUCache[int, SuitSides](
+    "suit", _cache_budget_bytes(0.10), 384
+)
 
 
 def _pack_suit9(arr: Sequence[int]) -> int:
@@ -263,9 +284,15 @@ def _counts_to_bingpai(counts: Counts) -> Tuple[List[int], List[int], List[int],
     return m, p, s, z
 
 
-_SHANTEN_CACHE: Dict[Tuple[bytes, int, int], int] = {}
-_YIBAN_CACHE: Dict[Tuple[bytes, int], int] = {}
-_EFF_CACHE: Dict[Tuple[bytes, int, int], Tuple[int, ...]] = {}
+_SHANTEN_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int, int], int](
+    "shanten", _cache_budget_bytes(0.50), 288
+)
+_YIBAN_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int], int](
+    "yiban", _cache_budget_bytes(0.30), 272
+)
+_EFF_CACHE = MemoryBoundedLRUCache[Tuple[bytes, int, int], Tuple[int, ...]](
+    "effective", _cache_budget_bytes(0.10), 448
+)
 
 _TILE_INDEX: Dict[int, int] = {tid: i for i, tid in enumerate(ALL_TILE_IDS)}
 
@@ -298,6 +325,36 @@ def clear_shanten_cache() -> None:
     _YIBAN_CACHE.clear()
     _EFF_CACHE.clear()
     _SUIT_CACHE.clear()
+
+
+def configure_shanten_cache_budget(total_mib: float) -> None:
+    """Resize this process' cache share (used by bot process-pool workers)."""
+    for cache, weight in (
+        (_SUIT_CACHE, 0.10),
+        (_SHANTEN_CACHE, 0.50),
+        (_YIBAN_CACHE, 0.30),
+        (_EFF_CACHE, 0.10),
+    ):
+        cache.resize(_cache_budget_bytes(weight, max(0.0, float(total_mib))))
+
+
+def shanten_cache_stats() -> Dict[str, dict]:
+    """Return serializable cache metrics for logs/admin diagnostics."""
+    caches = (_SUIT_CACHE, _SHANTEN_CACHE, _YIBAN_CACHE, _EFF_CACHE)
+    return {
+        cache.name: {
+            "entries": snap.entries,
+            "estimated_bytes": snap.estimated_bytes,
+            "budget_bytes": snap.budget_bytes,
+            "lookups": snap.lookups,
+            "hits": snap.hits,
+            "misses": snap.misses,
+            "hit_rate": snap.hit_rate,
+            "evictions": snap.evictions,
+        }
+        for cache in caches
+        for snap in (cache.snapshot(),)
+    }
 
 
 def xiangting_yiban(counts: Counts, n_melds: int = 0, *, packed: Optional[bytes] = None) -> int:
