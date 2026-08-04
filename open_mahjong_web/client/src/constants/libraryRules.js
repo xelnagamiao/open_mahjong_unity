@@ -18,14 +18,19 @@ export const LIBRARY_SECTIONS = [
     hint: 'MIL 竞赛与联盟规则书',
   },
   {
-    key: 'local',
-    title: '地方麻将规则',
-    hint: '各地流行玩法与地方竞赛规则',
+    key: 'categorized',
+    title: '归类规则',
+    hint: '地方麻将、自制规则与平台尚未实装的玩法',
   },
   {
-    key: 'custom',
-    title: '自制规则',
-    hint: '社区改版与原创规则书',
+    key: 'materials',
+    title: '其他资料',
+    hint: '规则研究、牌例与来自 other 文件夹的资料索引',
+  },
+  {
+    key: 'submit',
+    title: '提交资料',
+    hint: '提交新的规则书、牌例或规则研究资料',
   },
 ]
 
@@ -34,7 +39,7 @@ export const LIBRARY_RULES = [
     key: 'guobiao',
     label: '国标麻将',
     short: '国标',
-    categories: ['platform'],
+    categories: ['platform', 'mil'],
     description:
       '国标麻将指国家体育总局在1998出台的《中国竞技麻将比赛规则(试行)》中确立的麻将规则。本平台以新编 MCR 作为主规则书。',
     accent: '#3b82f6',
@@ -89,6 +94,45 @@ export const LIBRARY_RULES = [
         desc: '行牌逻辑与概念解释。',
         url: '/rulebooks/qingque-rulebook.pdf',
         filename: '青雀规则文档.pdf',
+      },
+    ],
+  },
+  {
+    key: 'mil-collection',
+    label: 'MIL 竞赛规则资料集',
+    short: 'MIL 资料集',
+    categories: ['mil'],
+    description: '来自 other/rule/MIL_rule 的 MIL 竞赛规则与补充细则，涵盖国标、四川、立直及各地方推广规则。',
+    accent: '#b7791f',
+    resources: [
+      { title: '四川麻将（SBR）竞赛规则（试行2025版）', url: '/rulebooks/mil/四川麻将（SBR）竞赛规则（试行2025版） (1).pdf' },
+      { title: '国标麻将（MCR）竞赛规则', url: '/rulebooks/mil/国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf' },
+      { title: '国标麻将（MCR）规则补充细则（2025）', url: '/rulebooks/mil/国标麻将（MCR）规则补充细则（试行，2025） (1).pdf' },
+      { title: '山西麻将（推广）竞赛规则', url: '/rulebooks/mil/山西麻将（推广）竞赛规则（试行2023版）.pdf' },
+      { title: '广东麻将（推广）竞赛规则', url: '/rulebooks/mil/广东麻将（推广）竞赛规则（试行2023版）.pdf' },
+      { title: '推倒和麻将（推广）竞赛规则', url: '/rulebooks/mil/推倒和麻将（推广）竞赛规则（试行2024版）.pdf' },
+      { title: '杭州麻将（推广）竞赛规则', url: '/rulebooks/mil/杭州麻将（推广）竞赛规则（试行2025版）.pdf' },
+      { title: '温州麻将（试点）竞赛规则', url: '/rulebooks/mil/温州麻将（试点）竞赛规则（试行2024版）.pdf' },
+      { title: '立直麻将竞赛规则（RCR）', url: '/rulebooks/mil/立直麻将竞赛规则riichirules2016.pdf' },
+      { title: '立直麻将（RCR）竞赛规则补充细则', url: '/rulebooks/mil/立直麻将（RCR）竞赛规则补充细则（2024版）.pdf' },
+      { title: '红中麻将（推广）竞赛规则', url: '/rulebooks/mil/红中麻将（推广）竞赛规则（试行2024版）.pdf' },
+      { title: '贵州麻将（推广）竞赛规则', url: '/rulebooks/mil/贵州麻将（推广）竞赛规则（试行2023版）.pdf' },
+      { title: '长春麻将（推广）竞赛规则', url: '/rulebooks/mil/长春麻将（推广）竞赛规则（试行2024版）.pdf' },
+    ],
+  },
+  {
+    key: 'hongque',
+    label: '虹雀²',
+    short: '虹雀²',
+    categories: ['platform', 'custom'],
+    description: '虹雀² v1.6 规则书，介绍牌面、行牌流程、吃碰杠和、补牌及计分规则。',
+    accent: '#f97316',
+    resources: [
+      {
+        title: '虹雀² v1.6 规则书',
+        desc: '虹雀² v1.6 完整规则说明。',
+        url: '/rulebooks/hongque-v1.6.pdf',
+        filename: '虹雀² v1.6.pdf',
       },
     ],
   },
@@ -186,7 +230,7 @@ export const LIBRARY_RULES = [
     key: 'guobiao-kobayashi',
     label: '国标小林改',
     short: '小林改',
-    categories: ['custom'],
+    categories: ['platform', 'custom'],
     description: '社区修改的中国麻将规则，整体沿用国标番种体系并调整部分条款。',
     accent: '#0ea5e9',
     resources: [
@@ -202,7 +246,7 @@ export const LIBRARY_RULES = [
     key: 'guobiao-kshen',
     label: 'K神麻将',
     short: 'K神',
-    categories: ['custom'],
+    categories: ['platform', 'custom'],
     description: '国标 K 神改版规则。',
     accent: '#6366f1',
     resources: [
@@ -216,10 +260,85 @@ export const LIBRARY_RULES = [
   },
 ]
 
+const MIL_RULES = [
+  ['mil-sichuan', '四川麻将（SBR）', '四川麻将（SBR）竞赛规则（试行2025版） (1).pdf'],
+  ['mil-mcr', '国标麻将（MCR）', '国标麻将（MCR）竞赛规则Chinese_mahjong_rules_try (1).pdf'],
+  ['mil-mcr-supplement', '国标 MCR 补充细则', '国标麻将（MCR）规则补充细则（试行，2025） (1).pdf'],
+  ['mil-shanxi', '山西麻将（推广）', '山西麻将（推广）竞赛规则（试行2023版）.pdf'],
+  ['mil-guangdong', '广东麻将（推广）', '广东麻将（推广）竞赛规则（试行2023版）.pdf'],
+  ['mil-tuidao', '推倒和麻将（推广）', '推倒和麻将（推广）竞赛规则（试行2024版）.pdf'],
+  ['mil-hangzhou', '杭州麻将（推广）', '杭州麻将（推广）竞赛规则（试行2025版）.pdf'],
+  ['mil-wenzhou', '温州麻将（试点）', '温州麻将（试点）竞赛规则（试行2024版）.pdf'],
+  ['mil-riichi', '立直麻将（RCR）', '立直麻将竞赛规则riichirules2016.pdf'],
+  ['mil-riichi-supplement', '立直 RCR 补充细则', '立直麻将（RCR）竞赛规则补充细则（2024版）.pdf'],
+  ['mil-red-center', '红中麻将（推广）', '红中麻将（推广）竞赛规则（试行2024版）.pdf'],
+  ['mil-guizhou', '贵州麻将（推广）', '贵州麻将（推广）竞赛规则（试行2023版）.pdf'],
+  ['mil-changchun', '长春麻将（推广）', '长春麻将（推广）竞赛规则（试行2024版）.pdf'],
+].map(([key, label, filename]) => ({
+  key,
+  label,
+  short: label.replace('麻将', ''),
+  categories: ['mil'],
+  description: `MIL 规则资料：${label}。`,
+  accent: '#b7791f',
+  resources: [{ title: label, url: `/rulebooks/mil/${filename}`, filename }],
+}))
+
 export function getLibraryRule(key) {
-  return LIBRARY_RULES.find((r) => r.key === key) || null
+  return [...LIBRARY_RULES, ...MIL_RULES].find((r) => r.key === key) || null
 }
 
 export function rulesForSection(sectionKey) {
+  if (sectionKey === 'categorized') {
+    return LIBRARY_RULES.filter(
+      (r) => !r.categories.includes('platform') && !r.categories.includes('mil'),
+    )
+  }
+  if (sectionKey === 'mil') {
+    const platformRules = LIBRARY_RULES.filter(
+      (r) => r.categories.includes('mil') && !r.categories.includes('platform') && r.key !== 'mil-collection',
+    )
+    const platformMilFiles = new Set(['mil-sichuan', 'mil-mcr', 'mil-riichi'])
+    return platformRules.concat(MIL_RULES.filter((r) => !platformMilFiles.has(r.key)))
+  }
+  if (sectionKey === 'materials' || sectionKey === 'submit') return []
   return LIBRARY_RULES.filter((r) => r.categories.includes(sectionKey))
 }
+
+export const LIBRARY_MATERIALS = [
+  {
+    key: 'research',
+    title: '规则资料搜集',
+    short: '研究归档',
+    description: '浏览已收集的规则来源、牌例、历史资料与外部链接。',
+    to: '/rule-research',
+    accent: '#2f6f5e',
+  },
+  {
+    key: 'drawing-mahjong',
+    title: '《绘图麻雀牌谱》',
+    short: '牌谱资料',
+    description: '传统麻将牌谱与牌例资料，已归档到规则资料搜集。',
+    to: '/rule-research/drawing-mahjong',
+    accent: '#7c3aed',
+  },
+  {
+    key: 'mil-other',
+    title: 'MIL 资料索引',
+    short: 'other/rule',
+    description: '整理 other/rule/inclued_rule 中的 MIL 规则书；已纳入平台的规则仍从 MIL 规则架进入。',
+    to: '/library/guobiao',
+    accent: '#b7791f',
+  },
+]
+
+export const LIBRARY_SUBMISSION = [
+  {
+    key: 'submit-research',
+    title: '提交规则资料',
+    short: '规则研究',
+    description: '提交规则书、牌例、来源链接或校订建议，进入规则资料搜集归档。',
+    to: '/rule-research',
+    accent: '#9f1239',
+  },
+]

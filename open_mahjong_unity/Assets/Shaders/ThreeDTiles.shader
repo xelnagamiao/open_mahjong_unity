@@ -142,7 +142,11 @@ Shader "Custom/ThreeDTiles"
                 float2 sideUV = input.uvSide * _SideTilingOffset.xy + _SideTilingOffset.zw;
                 half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV) * sideColor;
 
-                half4 col = front * input.color.r + back * input.color.g + side * input.color.b;
+                // 背侧边顶点色为黑色(RGB 和<1)时显示 _BackColor 底色；
+                // 该写法兼容当前模型(首颜色层 alpha=1)与清理后的 alpha 方案(背侧边仍为黑色)。
+                half backEdgeMask = saturate(1.0h - (input.color.r + input.color.g + input.color.b));
+                half4 col = front * input.color.r + back * input.color.g + side * input.color.b
+                          + backColor * backEdgeMask;
 
                 half grayScale = (half)instanceParams.x;
                 if (grayScale > 0.0h)

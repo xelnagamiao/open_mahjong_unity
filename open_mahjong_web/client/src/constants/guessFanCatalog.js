@@ -17,7 +17,7 @@ import { pinyin } from 'pinyin-pro'
 
 
 /** @type {GuessFan[]} */
-const GUOBIAO = [
+export const GUOBIAO = [
   { id: 'guobiao:dasixi', names: ['大四喜'], rules: ['guobiao'], types: ['刻子系'], reqLength: 4, fan: 88, relatedIds: ['riichi:daisushi', 'guobiao:xiaosixi', 'riichi:shousuushi'] },
   { id: 'guobiao:dasanyuan', names: ['大三元'], rules: ['guobiao'], types: ['刻子系'], reqLength: 3, fan: 88, relatedIds: ['riichi:daisangen', 'guobiao:xiaosanyuan', 'riichi:shousangen'] },
   { id: 'guobiao:lvyise', names: ['绿一色'], rules: ['guobiao'], types: ['全体系'], reqLength: '全体', fan: 88, relatedIds: ['riichi:ryuuiisou'] },

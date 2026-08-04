@@ -486,9 +486,6 @@ public class HongqueCandidateInfo {
 }
 
 [System.Serializable]
-public class HongqueDiscardInfo { public int player; public string tile; }
-
-[System.Serializable]
 public class HongqueEventInfo {
     public int id;
     public string type;
@@ -499,6 +496,8 @@ public class HongqueEventInfo {
     public string[] hand_tiles;
     public string base_kind;
     public int meld_index;
+    public string claimed_tile;
+    public bool online;
     public bool cut_class;
     public int[] players;
 }
@@ -508,6 +507,8 @@ public class HongqueRoundResultInfo {
     public string reason;
     public int[] winner_indices;
     public HongqueWinnerResultInfo[] winners;
+    public Dictionary<int, int> score_changes;
+    public Dictionary<int, int> scores;
 }
 
 [System.Serializable]
@@ -560,6 +561,7 @@ public class HongquePlayerInfo {
 
 [System.Serializable]
 public class HongqueStateInfo {
+    public string sync_mode;
     public int room_id;
     public string phase;
     public int round;
@@ -576,16 +578,13 @@ public class HongqueStateInfo {
     public bool tips;
     public string message;
     public HongqueRoundResultInfo round_result;
-    public HongqueEventInfo last_event;
     public HongqueEventInfo[] events;
-    public HongqueDiscardInfo last_discard;
     public string[] hand;
     public string[] legal_actions;
     public HongqueCandidateInfo[] candidates;
     public HongqueScoreHintInfo win_hint;
     public string[] waiting_tiles;
     public HongqueScoreHintInfo[] waiting_hints;
-    public string[][] winning_partition;
     public HongquePlayerInfo[] players;
 }
 
@@ -594,7 +593,7 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public string type; // 消息类型
     public bool success; // 消息是否成功
     public string message; // 消息内容
-    public string gamestate_id; // 轻量原型状态使用
+    public string gamestate_id; // 对局状态标识
     public bool show_tip; // room/get_room_list 时回显：True=显示刷新成功tips
     // 消息体
     public MessageInfo message_info; // 用于返回消息信息
@@ -641,6 +640,6 @@ public class Response { // 所有后端的返回数据都由Response类接收
     public LeaderboardEntry[] leaderboard_list; // 国标段位排行榜
     public StickerInfo sticker_info; // 对局表情包广播
     public VoteInfo vote_info; // 房间对局投票暂停/结束状态同步
-    public HongqueStateInfo hongque_state; // 虹雀 v1.6 内存原型快照
+    public HongqueStateInfo hongque_state; // 虹雀开局/重连数据或实时增量
     public EventListEntry[] event_list; // 当前用户可建房的 active 赛事列表
 }

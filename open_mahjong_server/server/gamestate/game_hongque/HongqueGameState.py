@@ -7,12 +7,19 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
+from .efficiency_bot import choose_claim_plan, choose_turn_plan
 from .rules import call_candidates, classify_meld, kong_candidates
 from .scoring import best_win_result
 from .tenpai_check import waiting_tiles
 from .tile import HongqueTile, full_deck
 from .win_check import is_winning_hand
 from ..public.ai.bot_executor import run_room_bot_cpu
+from ..public.round_end_timing import (
+    ROUND_END_PRESENTATION_FADE_SEC,
+    hu_result_ready_pre_panel_seconds,
+    hu_result_ready_wait_seconds,
+    liuju_ready_wait_seconds,
+)
 
 logger = logging.getLogger(__name__)
 BOT_ACTION_DELAY = 0.5
@@ -34,6 +41,7 @@ class HongquePlayer:
     character_used: int = 1
     voice_used: int = 1
     drawn_tile: Optional[str] = None
+    last_draw_was_supplement: bool = False
     remaining_time: int = 20
 
     @property
@@ -42,10 +50,10 @@ class HongquePlayer:
 
 
 class HongqueGameState:
-    """Playable, memory-only Hongque 2 prototype.
+    """Authoritative, memory-only Hongque 2 game state.
 
     The wire format uses HQv3.1 resource keys (``AX1`` ... ``GY9``).  All
-    actions are checked server-side.  This prototype intentionally has no
+    actions are checked server-side.  This rule intentionally has no
     database, statistics, replay, spectator, or match integration.
     """
 
@@ -67,7 +75,7 @@ class HongqueGameState:
         self.step_time = step_timer
         self.turn_seconds = max(1, self.round_time + self.step_time)
         # Claim windows use the same round-time bank plus step time as hand
-        # actions.  The old prototype only used step_time here (normally 5s),
+        # actions.  The early implementation only used step_time here (normally 5s),
         # which made chi/peng/win prompts disappear far too quickly.
         self.claim_seconds = self.turn_seconds
         self.tips = bool(room_data.get("tips", True))
@@ -85,13 +93,16 @@ class HongqueGameState:
         self.action_tick = 0
         self.message = ""
         self.round_result: Optional[dict] = None
-        self.last_event: Optional[dict] = None
         self.events: list[dict] = []
         self.event_sequence = 0
         self.game_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
         self._bot_task: Optional[asyncio.Task] = None
+        self._bot_claim_tasks: dict[int, asyncio.Task] = {}
         self._round_task: Optional[asyncio.Task] = None
+        self._ready_phase_active = False
+        self._ready_players: set[int] = set()
+        self._ready_event = asyncio.Event()
         self._rng = random.Random(str(room_data.get("random_seed") or gamestate_id))
         self.claim_options: dict[int, list[dict]] = {}
         self.claim_responses: dict[int, dict] = {}
@@ -122,6 +133,10 @@ class HongqueGameState:
             raise
 
     async def _start_round(self) -> None:
+        self._cancel_bot_claim_tasks()
+        self._ready_phase_active = False
+        self._ready_players.clear()
+        self._ready_event.clear()
         self.wall = full_deck()
         self._rng.shuffle(self.wall)
         for player in self.players:
@@ -130,6 +145,7 @@ class HongqueGameState:
             player.melds.clear()
             player.supplements = 0
             player.drawn_tile = None
+            player.last_draw_was_supplement = False
             player.remaining_time = self.round_time
         self._wait_hint_cache.clear()
         for _ in range(11):
@@ -140,14 +156,13 @@ class HongqueGameState:
         self.claim_options.clear()
         self.claim_responses.clear()
         self.round_result = None
-        self.last_event = None
         self.events = []
         self.phase = "turn"
         self._start_turn_clock()
         self._draw_for_current_player()
         self.message = f"第 {self.current_round} 局开始"
         self._advance_tick()
-        await self.broadcast_state()
+        await self.broadcast_state(sync_mode="round_start")
         self._schedule_turn_timeout()
         self._schedule_bot_if_needed()
 
@@ -158,6 +173,7 @@ class HongqueGameState:
         tile = self.wall.pop()
         player.hand.append(tile)
         player.drawn_tile = tile
+        player.last_draw_was_supplement = reason == "supplement"
         self._record_event(reason, player=player.index, tile=tile)
         return tile
 
@@ -165,7 +181,6 @@ class HongqueGameState:
         self.event_sequence += 1
         event = {"id": self.event_sequence, "type": event_type, **payload}
         self.events.append(event)
-        self.last_event = event
         return event
 
     def _advance_tick(self) -> None:
@@ -258,7 +273,9 @@ class HongqueGameState:
                 raise ValueError("玩家不在本局中")
             if action_tick is not None and int(action_tick) != self.action_tick:
                 raise ValueError("操作已过期，请按最新局面重试")
-            if self.phase == "turn":
+            if self.phase == "round_end" and action == "ready":
+                await self._handle_ready_action(player)
+            elif self.phase == "turn":
                 await self._handle_turn_action(player, action, tile, candidate_id)
             elif self.phase == "claim":
                 await self._handle_claim_action(player, action, candidate_id)
@@ -284,6 +301,7 @@ class HongqueGameState:
             tile = self.wall.pop()
             player.hand.append(tile)
             player.drawn_tile = tile
+            player.last_draw_was_supplement = True
             self._record_event("supplement", player=player.index, tile=tile)
             self.message = f"{player.username} 补牌"
         elif action == "kong":
@@ -296,6 +314,7 @@ class HongqueGameState:
                 player.hand.remove(code)
             if player.drawn_tile not in player.hand:
                 player.drawn_tile = None
+            claimed_tile = player.melds[candidate["meld_index"]].get("claimed_tile")
             player.melds[candidate["meld_index"]]["tiles"] = candidate["tiles"]
             player.melds[candidate["meld_index"]]["kind"] = classify_meld(candidate["tiles"]).kind
             self._record_event(
@@ -304,6 +323,7 @@ class HongqueGameState:
                 tiles=candidate["tiles"],
                 hand_tiles=candidate["hand_tiles"],
                 meld_index=candidate["meld_index"],
+                claimed_tile=claimed_tile,
             )
             self.message = f"{player.username} 杠牌"
         elif action == "win":
@@ -336,6 +356,7 @@ class HongqueGameState:
         player.discards.append(code)
         cut_class = code == player.drawn_tile
         player.drawn_tile = None
+        player.last_draw_was_supplement = False
         self.last_discard = {"player": player.index, "tile": code}
         self._record_event(
             "discard",
@@ -343,6 +364,16 @@ class HongqueGameState:
             tile=code,
             cut_class=cut_class,
         )
+        # Match the normal mahjong wire order: the authoritative discard is
+        # visible immediately.  Candidate/win enumeration for the other three
+        # seats must not sit in front of the discard animation.
+        self.phase = "resolving"
+        self.turn_deadline = None
+        self.turn_started_at = None
+        self.message = f"{player.username} 出牌"
+        self._advance_tick()
+        await self.broadcast_state()
+        self.events = []
         await self._open_claim_window()
 
     async def _open_claim_window(self) -> None:
@@ -370,10 +401,13 @@ class HongqueGameState:
         await self.broadcast_state()
         # The discard batch has been delivered.  Any automatic bot passes and
         # following draw form a new batch; event ids prevent reconnect/reply
-        # snapshots from replaying the discard animation.
+        # updates from replaying the discard animation.
         self.events = []
+        smart_bot_indices: list[int] = []
         for index in self.claim_options:
-            if self.players[index].is_bot:
+            if self.players[index].user_id == 2:
+                smart_bot_indices.append(index)
+            elif self.players[index].is_bot:
                 self.claim_responses[index] = {"action": "pass"}
         if all(index in self.claim_responses for index in self.claim_options):
             await self._resolve_claims()
@@ -381,6 +415,8 @@ class HongqueGameState:
         if self._claim_timeout_task and not self._claim_timeout_task.done():
             self._claim_timeout_task.cancel()
         self._claim_timeout_task = asyncio.create_task(self._claim_timeout(self.action_tick))
+        for index in smart_bot_indices:
+            self._schedule_bot_claim(index, self.action_tick)
 
     async def _handle_claim_action(self, player: HongquePlayer, action: str,
                                    candidate_id: Optional[str]) -> None:
@@ -437,6 +473,7 @@ class HongqueGameState:
             return
 
     async def _resolve_claims(self) -> None:
+        self._cancel_bot_claim_tasks()
         if self._claim_timeout_task and self._claim_timeout_task is not asyncio.current_task():
             self._claim_timeout_task.cancel()
         claims = []
@@ -445,8 +482,12 @@ class HongqueGameState:
             if response["action"] != "claim":
                 continue
             candidate = response["candidate"]
-            distance = (index - discarder) % 4
-            claims.append((-candidate["priority"], distance, index, candidate))
+            # The discarder's seat is the current seat for this claim window.
+            # Smaller clockwise distance wins after claim priority, including
+            # the wraparound from seat 3 back to seat 0.
+            distance = (index - discarder) % len(self.players)
+            priority = int(candidate.get("priority", 0) or 0)
+            claims.append((-priority, distance, index, candidate))
         if not claims:
             await self._advance_after_unclaimed_discard()
             return
@@ -522,6 +563,7 @@ class HongqueGameState:
 
     async def _finish_round(self, winners: list[tuple[HongquePlayer, dict]], reason: str) -> None:
         self.phase = "round_end"
+        self._cancel_bot_claim_tasks()
         if self._turn_timeout_task and self._turn_timeout_task is not asyncio.current_task():
             self._turn_timeout_task.cancel()
         if self._claim_timeout_task and self._claim_timeout_task is not asyncio.current_task():
@@ -531,7 +573,6 @@ class HongqueGameState:
         self.turn_started_at = None
         self.claim_started_at = None
         self.claim_deadlines.clear()
-        winning_partition = winners[0][1]["partition"] if winners else []
         if winners:
             score_changes: dict[str, int] = {}
             winner_results = []
@@ -561,29 +602,136 @@ class HongqueGameState:
                 "reason": reason,
                 "winner_indices": [winner.index for winner, _ in winners],
                 "score_changes": score_changes,
+                "scores": {str(player.index): player.score for player in self.players},
                 "winners": winner_results,
             }
             self._record_event(reason, players=self.round_result["winner_indices"])
         else:
             self.message = "牌库耗尽，本局流局，庄家不变"
-            self.round_result = {"reason": "draw", "winner_indices": [], "score_changes": {}}
+            self.round_result = {
+                "reason": "draw",
+                "winner_indices": [],
+                "score_changes": {},
+                "scores": {str(player.index): player.score for player in self.players},
+            }
             self._record_event("draw_game", players=[])
         self._advance_tick()
-        await self.broadcast_state(reveal=True, winning_partition=winning_partition)
-        self.current_round += 1
-        if self.current_round > self.max_round:
-            self.phase = "game_end"
-            self.message = "原型对局结束（未写入统计或牌谱）"
-            self._advance_tick()
-            await self.broadcast_state(reveal=True)
-            self._round_task = asyncio.create_task(self._complete_game_lifecycle())
-            return
-        self._round_task = asyncio.create_task(self._delayed_next_round())
+        await self.broadcast_state()
+        fan_count = max(
+            (len(result.get("fans", [])) for _, result in winners),
+            default=0,
+        )
+        self._ready_phase_active = bool(winners)
+        self._ready_players = {
+            player.index for player in self.players if player.is_bot
+        }
+        self._ready_event.clear()
+        self._round_task = asyncio.create_task(
+            self._complete_round_after_result(bool(winners), fan_count)
+        )
 
-    async def _delayed_next_round(self) -> None:
-        await asyncio.sleep(10)
-        async with self._lock:
-            await self._start_round()
+    async def _handle_ready_action(self, player: HongquePlayer) -> None:
+        if not self._ready_phase_active:
+            raise ValueError("当前没有需要确认的和牌结算")
+        if player.index in self._ready_players:
+            return
+        self._ready_players.add(player.index)
+        self._ready_event.set()
+        await self.broadcast_ready_status()
+
+    async def send_ready_status_to(self, player_index: int) -> None:
+        player = self.players[player_index]
+        if player.is_bot or not player.online or self.game_server is None:
+            return
+        connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
+        if connection is None or getattr(connection, "websocket", None) is None:
+            return
+        await connection.websocket.send_json({
+            "type": "gamestate/hongque/ready_status",
+            "success": True,
+            "message": "准备状态更新",
+            "ready_status_info": {
+                "player_to_ready": {
+                    str(item.index): item.index in self._ready_players
+                    for item in self.players
+                },
+            },
+        })
+
+    async def broadcast_ready_status(self) -> None:
+        await asyncio.gather(*(
+            self.send_ready_status_to(player.index) for player in self.players
+        ))
+
+    async def _wait_for_hu_ready(self, fan_count: int) -> None:
+        wait_time = hu_result_ready_wait_seconds(fan_count)
+        deadline = time.monotonic() + wait_time
+        panel_visible_at = (
+            time.monotonic()
+            + hu_result_ready_pre_panel_seconds()
+            + ROUND_END_PRESENTATION_FADE_SEC
+        )
+        await self.broadcast_ready_status()
+        rebroadcasted_for_panel = False
+        while self._ready_phase_active:
+            pending = {
+                player.index for player in self.players
+                if not player.is_bot and player.index not in self._ready_players
+            }
+            if not pending:
+                break
+            now = time.monotonic()
+            if now >= deadline:
+                self._ready_players.update(pending)
+                await self.broadcast_ready_status()
+                break
+            if not rebroadcasted_for_panel and now >= panel_visible_at:
+                await self.broadcast_ready_status()
+                rebroadcasted_for_panel = True
+                continue
+            next_wakeup = deadline
+            if not rebroadcasted_for_panel:
+                next_wakeup = min(next_wakeup, panel_visible_at)
+            self._ready_event.clear()
+            # A ready response can arrive between clear() and wait(). Recheck
+            # the set so an already-complete table never sleeps until timeout.
+            if all(
+                player.is_bot or player.index in self._ready_players
+                for player in self.players
+            ):
+                break
+            try:
+                await asyncio.wait_for(
+                    self._ready_event.wait(),
+                    timeout=max(0.01, next_wakeup - time.monotonic()),
+                )
+            except asyncio.TimeoutError:
+                pass
+
+    async def _complete_round_after_result(self, has_winner: bool, fan_count: int) -> None:
+        try:
+            if has_winner:
+                await self._wait_for_hu_ready(fan_count)
+            else:
+                await asyncio.sleep(liuju_ready_wait_seconds())
+            game_ended = False
+            async with self._lock:
+                if self.phase != "round_end":
+                    return
+                self._ready_phase_active = False
+                self.current_round += 1
+                if self.current_round > self.max_round:
+                    self.phase = "game_end"
+                    self.message = "虹雀对局结束"
+                    self._advance_tick()
+                    await self.broadcast_state()
+                    game_ended = True
+                else:
+                    await self._start_round()
+            if game_ended:
+                await self._complete_game_lifecycle()
+        except asyncio.CancelledError:
+            return
 
     async def _complete_game_lifecycle(self) -> None:
         await asyncio.sleep(4)
@@ -680,13 +828,8 @@ class HongqueGameState:
             event["tile"] = None
         return event
 
-    def _visible_last_event(self, viewer_index: int) -> Optional[dict]:
-        if self.last_event is None:
-            return None
-        return self._visible_event(self.last_event, viewer_index)
-
-    def build_state(self, viewer_index: int, *, reveal: bool = False,
-                    winning_partition: Optional[list[list[str]]] = None) -> dict:
+    def build_state(self, viewer_index: int, *, sync_mode: str = "events",
+                    events_override: Optional[list[dict]] = None) -> dict:
         viewer = self.players[viewer_index]
         actions, candidates = self._legal_turn_actions(viewer)
         if self.phase == "claim" and viewer_index in self.claim_options and viewer_index not in self.claim_responses:
@@ -702,11 +845,10 @@ class HongqueGameState:
             wait_hints = self._wait_hints_for(viewer)
         waits = [hint["tile"] for hint in wait_hints]
         remaining_time, step_remaining = self._remaining_clock(viewer)
-        return {
-            "room_id": int(self.room_id),
+        state = {
+            "sync_mode": sync_mode,
             "phase": self.phase,
             "round": self.current_round,
-            "max_round": self.max_round,
             "dealer": self.dealer_index,
             "current_player": self.current_player_index,
             "wall_count": len(self.wall),
@@ -714,27 +856,33 @@ class HongqueGameState:
             "action_tick": self.action_tick,
             "remaining_time": remaining_time,
             "step_remaining": step_remaining,
-            "round_time": self.round_time,
-            "step_time": self.step_time,
             "tips": self.tips,
             "message": self.message,
             "round_result": self.round_result,
-            "last_event": self._visible_last_event(viewer_index),
-            "events": [self._visible_event(event, viewer_index) for event in self.events],
-            "last_discard": self.last_discard,
-            "hand": list(viewer.hand),
+            "events": [
+                self._visible_event(event, viewer_index)
+                for event in (self.events if events_override is None else events_override)
+            ],
             "legal_actions": actions,
             "candidates": candidates,
             "win_hint": win_hint,
             "waiting_tiles": waits,
             "waiting_hints": wait_hints,
-            "winning_partition": winning_partition or [],
+        }
+        if sync_mode not in {"round_start", "reconnect"}:
+            return state
+
+        state.update({
+            "room_id": int(self.room_id),
+            "max_round": self.max_round,
+            "round_time": self.round_time,
+            "step_time": self.step_time,
+            "hand": list(viewer.hand),
             "players": [{
                 "index": player.index,
                 "user_id": player.user_id,
                 "username": player.username,
                 "hand_count": len(player.hand),
-                "hand": list(player.hand) if reveal else [],
                 "discards": list(player.discards),
                 "melds": list(player.melds),
                 "score": player.score,
@@ -745,17 +893,25 @@ class HongqueGameState:
                 "character_used": player.character_used,
                 "voice_used": player.voice_used,
             } for player in self.players],
-        }
+        })
+        return state
 
     async def send_state_to(self, player_index: int, **kwargs: Any) -> None:
         player = self.players[player_index]
-        if player.is_bot or self.game_server is None:
+        if player.is_bot or not player.online or self.game_server is None:
             return
         connection = getattr(self.game_server, "user_id_to_connection", {}).get(player.user_id)
         if connection is None or getattr(connection, "websocket", None) is None:
             return
+        sync_mode = kwargs.get("sync_mode", "events")
+        if sync_mode not in {"events", "round_start", "reconnect"}:
+            raise ValueError(f"invalid Hongque sync mode: {sync_mode}")
+        message_type = {
+            "round_start": "gamestate/hongque/game_start",
+            "reconnect": "gamestate/hongque/reconnect",
+        }.get(sync_mode, "gamestate/hongque/update")
         await connection.websocket.send_json({
-            "type": "gamestate/hongque/state",
+            "type": message_type,
             "success": True,
             "message": self.message,
             "gamestate_id": self.gamestate_id,
@@ -768,15 +924,15 @@ class HongqueGameState:
     def _schedule_bot_if_needed(self) -> None:
         if self.phase != "turn" or not self.players[self.current_player_index].is_bot:
             return
-        if self._bot_task and not self._bot_task.done():
+        current_task = asyncio.current_task()
+        if (self._bot_task and self._bot_task is not current_task
+                and not self._bot_task.done()):
             self._bot_task.cancel()
         tick = self.action_tick
         self._bot_task = asyncio.create_task(self._bot_turn(tick))
 
     async def _bot_turn(self, tick: int) -> None:
-        # 与其余麻将机器人统一为 0.5 秒展示节奏。候选枚举和判和优化独立
-        # 保留，因此这里不再包含此前 0.8 秒等待造成的额外卡顿。
-        await asyncio.sleep(BOT_ACTION_DELAY)
+        started_at = time.perf_counter()
         async with self._lock:
             if self.phase != "turn" or self.action_tick != tick:
                 return
@@ -785,43 +941,206 @@ class HongqueGameState:
             meld_snapshot = tuple(dict(meld) for meld in player.melds)
             before_first_discard = not any(item.discards for item in self.players)
             wall_empty = not self.wall
-        result = await run_room_bot_cpu(
-            self,
-            best_win_result,
-            hand_snapshot,
-            meld_snapshot,
-            self_draw=True,
-            before_first_discard=before_first_discard,
-            wall_empty=wall_empty,
-        )
+            smart_bot = player.user_id == 2
+            player_index = player.index
+            if smart_bot:
+                visible_snapshot = self._visible_codes_for(player.index)
+                kong_snapshot = tuple(
+                    dict(candidate) for candidate in kong_candidates(player.hand, player.melds)
+                )
+                supplements = player.supplements
+                wall_count = len(self.wall)
+                drawn_tile = player.drawn_tile
+                last_draw_was_supplement = player.last_draw_was_supplement
+        if smart_bot:
+            plan = await run_room_bot_cpu(
+                self,
+                choose_turn_plan,
+                hand_snapshot,
+                meld_snapshot,
+                visible_snapshot,
+                kong_snapshot,
+                supplements=supplements,
+                wall_count=wall_count,
+                drawn_tile=drawn_tile,
+                last_draw_was_supplement=last_draw_was_supplement,
+            )
+        else:
+            result = await run_room_bot_cpu(
+                self,
+                best_win_result,
+                hand_snapshot,
+                meld_snapshot,
+                self_draw=True,
+                before_first_discard=before_first_discard,
+                wall_empty=wall_empty,
+            )
+            plan = {"action": "win"} if result is not None else {
+                "action": "discard",
+                "tile": self._rng.choice(hand_snapshot) if hand_snapshot else None,
+            }
+        delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
+        if delay > 0:
+            await asyncio.sleep(delay)
         async with self._lock:
-            if self.phase != "turn" or self.action_tick != tick:
+            if (self.phase != "turn" or self.action_tick != tick
+                    or self.current_player_index != player_index):
                 return
             # Bot decisions bypass submit_action, so they must start their own
             # event batch just like a human action.  Otherwise the previous
             # draw is resent and the bot discard has no animation event.
             self.events = []
             player = self.players[self.current_player_index]
-            if result is not None:
-                result["winning_hand"] = list(player.hand)
-                await self._finish_round([(player, result)], "self_draw")
+            action = plan.get("action")
+            if action == "win":
+                await self._handle_turn_action(player, "win", None, None)
                 return
-            code = self._rng.choice(player.hand)
+            if action == "supplement":
+                await self._handle_turn_action(player, "supplement", None, None)
+                return
+            if action == "kong":
+                await self._handle_turn_action(
+                    player, "kong", None, plan.get("candidate_id")
+                )
+                return
+            code = plan.get("tile")
+            if code not in player.hand:
+                code = player.drawn_tile if player.drawn_tile in player.hand else (
+                    self._rng.choice(player.hand) if player.hand else None
+                )
+            if code is None:
+                return
             await self._discard_and_open_claim(player, code)
 
+    def _visible_codes_for(self, player_index: int) -> tuple[str, ...]:
+        visible = set(self.players[player_index].hand)
+        for player in self.players:
+            visible.update(player.discards)
+            for meld in player.melds:
+                visible.update(meld.get("tiles", ()))
+        if self.last_discard is not None:
+            visible.add(self.last_discard["tile"])
+        return tuple(sorted(visible))
+
+    def _schedule_bot_claim(self, player_index: int, tick: int) -> None:
+        previous = self._bot_claim_tasks.get(player_index)
+        current = asyncio.current_task()
+        if previous is not None and previous is not current and not previous.done():
+            previous.cancel()
+        self._bot_claim_tasks[player_index] = asyncio.create_task(
+            self._bot_claim(player_index, tick)
+        )
+
+    def _cancel_bot_claim_tasks(self) -> None:
+        current = asyncio.current_task()
+        for task in self._bot_claim_tasks.values():
+            if task is not current and not task.done():
+                task.cancel()
+        self._bot_claim_tasks.clear()
+
+    async def _bot_claim(self, player_index: int, tick: int) -> None:
+        started_at = time.perf_counter()
+        try:
+            async with self._lock:
+                if (self.phase != "claim" or self.action_tick != tick
+                        or player_index in self.claim_responses
+                        or player_index not in self.claim_options):
+                    return
+                player = self.players[player_index]
+                hand_snapshot = tuple(player.hand)
+                meld_snapshot = tuple(dict(meld) for meld in player.melds)
+                candidate_snapshot = tuple(
+                    dict(candidate) for candidate in self.claim_options[player_index]
+                )
+                visible_snapshot = self._visible_codes_for(player_index)
+            plan = await run_room_bot_cpu(
+                self,
+                choose_claim_plan,
+                hand_snapshot,
+                meld_snapshot,
+                candidate_snapshot,
+                visible_snapshot,
+            )
+            delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
+            if delay > 0:
+                await asyncio.sleep(delay)
+            async with self._lock:
+                if (self.phase != "claim" or self.action_tick != tick
+                        or player_index in self.claim_responses
+                        or player_index not in self.claim_options):
+                    return
+                candidate_id = plan.get("candidate_id")
+                candidate = next(
+                    (
+                        item for item in self.claim_options[player_index]
+                        if item.get("id") == candidate_id
+                    ),
+                    None,
+                )
+                if plan.get("action") == "claim" and candidate is not None:
+                    self.claim_responses[player_index] = {
+                        "action": "claim",
+                        "candidate": candidate,
+                    }
+                else:
+                    self.claim_responses[player_index] = {"action": "pass"}
+                if all(index in self.claim_responses for index in self.claim_options):
+                    await self._resolve_claims()
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.exception("虹雀牌效机器人亮牌决策失败: player=%s", player_index)
+            async with self._lock:
+                if (self.phase == "claim" and self.action_tick == tick
+                        and player_index in self.claim_options
+                        and player_index not in self.claim_responses):
+                    self.claim_responses[player_index] = {"action": "pass"}
+                    if all(index in self.claim_responses for index in self.claim_options):
+                        await self._resolve_claims()
+        finally:
+            task = asyncio.current_task()
+            if self._bot_claim_tasks.get(player_index) is task:
+                self._bot_claim_tasks.pop(player_index, None)
+
     async def player_disconnect(self, user_id: int) -> None:
-        player = next((item for item in self.players if item.user_id == user_id), None)
-        if player:
+        async with self._lock:
+            player = next((item for item in self.players if item.user_id == user_id), None)
+            if player is None:
+                return
             player.online = False
+            self.event_sequence += 1
+            presence = {
+                "id": self.event_sequence,
+                "type": "presence",
+                "player": player.index,
+                "online": False,
+            }
+            await self.broadcast_state(events_override=[presence])
 
     async def player_reconnect(self, user_id: int) -> None:
-        player = next((item for item in self.players if item.user_id == user_id), None)
-        if player:
+        async with self._lock:
+            player = next((item for item in self.players if item.user_id == user_id), None)
+            if player is None:
+                return
             player.online = True
-            await self.send_state_to(player.index)
+            # A reconnect is an explicit authoritative restore.  It must not be
+            # inferred client-side from an empty/unknown event batch, because
+            # doing so makes normal discard messages rebuild the whole table.
+            await self.send_state_to(player.index, sync_mode="reconnect")
+            if self._ready_phase_active:
+                await self.send_ready_status_to(player.index)
+            self.event_sequence += 1
+            presence = {
+                "id": self.event_sequence,
+                "type": "presence",
+                "player": player.index,
+                "online": True,
+            }
+            await self.broadcast_state(events_override=[presence])
 
     async def cleanup_game_state(self) -> None:
         current = asyncio.current_task()
+        self._cancel_bot_claim_tasks()
         for task in (self._bot_task, self._round_task, self._claim_timeout_task, self._turn_timeout_task):
             if task and task is not current and not task.done():
                 task.cancel()
@@ -830,7 +1149,7 @@ class HongqueGameState:
             await asyncio.gather(self.game_task, return_exceptions=True)
 
     async def add_spectator(self, user_id: int, connection: Any) -> None:
-        raise ValueError("虹雀原型暂不支持观战")
+        raise ValueError("虹雀规则不支持观战")
 
     async def remove_spectator(self, user_id: int) -> None:
         return None

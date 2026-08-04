@@ -176,7 +176,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
                     }
                 }
             }
-        } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
+        } else if (actionInputPhase == InputPhaseAskOther && HasPassPermission()) {
             if (cfg.AskOtherPassShortcutMode == 0) {
                 if (Input.GetMouseButtonDown(1) && TryConsumeRightClickShortcut()) {
                     TrySendPassFromShortcut("Update按下路径");
@@ -312,7 +312,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
                         TryAutoMoqieFromSelfHand("手牌双击路径", markRightHold: false);
                     }
                 }
-            } else if (actionInputPhase == InputPhaseAskOther && gsm.allowActionList.Contains("pass")) {
+            } else if (actionInputPhase == InputPhaseAskOther && HasPassPermission()) {
                 if (cfg.AskOtherPassShortcutMode == 1) {
                     if (eventData.button == PointerEventData.InputButton.Left && eventData.clickCount >= 2) {
                         GameCanvas.Instance.TrySendPassFromShortcut();
@@ -357,7 +357,7 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     private void TrySendPassFromShortcut(string source) {
-        if (!NormalGameStateManager.Instance.allowActionList.Contains("pass")) return;
+        if (!HasPassPermission()) return;
         GameCanvas.Instance.TrySendPassFromShortcut();
         MarkRightHoldShortcutConsumed(source);
     }
@@ -378,7 +378,10 @@ public class GameSceneMouseInputController : MonoBehaviour {
     }
 
     private bool HasPassPermission() {
-        return NormalGameStateManager.Instance.allowActionList.Contains("pass");
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null) return false;
+        if (gsm.allowActionList.Contains("pass")) return true;
+        return HongqueTableAdapter.IsActive && gsm.allowActionList.Contains("hongque_pass");
     }
 
     private bool IsPointerOverSelfHandCard() {

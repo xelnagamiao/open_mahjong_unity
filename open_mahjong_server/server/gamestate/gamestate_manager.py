@@ -311,12 +311,12 @@ class GameStateManager:
                 for player_id in room_data["player_list"]:
                     self.user_id_to_game_state[player_id] = game_state
                 game_state.game_task = asyncio.create_task(game_state.run_game_loop())
-                logger.info("房间 %s 的虹雀原型已启动，gamestate_id=%s", room_id, gamestate_id)
+                logger.info("房间 %s 的虹雀对局已启动，gamestate_id=%s", room_id, gamestate_id)
             except Exception as e:
-                logger.error("创建虹雀原型失败，room_id=%s: %s", room_id, e, exc_info=True)
+                logger.error("创建虹雀对局失败，room_id=%s: %s", room_id, e, exc_info=True)
                 room_data["is_game_running"] = False
                 self.room_id_to_HongqueGameState.pop(room_id, None)
-                return Response(type="error_message", success=False, message=f"启动虹雀原型失败: {e}")
+                return Response(type="error_message", success=False, message=f"启动虹雀对局失败: {e}")
         elif room_rule == "taiwan":
             try:
                 gamestate_id = str(uuid.uuid4())
@@ -423,6 +423,25 @@ class GameStateManager:
         if user_id in self.user_id_to_game_state:
             del self.user_id_to_game_state[user_id]
             logger.info(f"已从游戏状态映射中移除玩家 {user_id}")
+
+    async def abandon_player_game(self, Connect_id: str, user_id: int):
+        """Explicitly leave a reconnectable game instead of only hiding its index."""
+        game_state = self.user_id_to_game_state.get(user_id)
+        if game_state is None:
+            return
+        if getattr(game_state, "room_rule", None) != "hongque":
+            # Preserve the established lifecycle of the shared rules.  The
+            # room-removal repair is scoped to the memory-only Hongque mode.
+            self.remove_player_from_game_state(user_id)
+            return
+        room_id = game_state.room_id
+        await game_state.player_disconnect(user_id)
+        self.remove_player_from_game_state(user_id)
+
+        room_manager = getattr(self.game_server, "room_manager", None)
+        room = getattr(room_manager, "rooms", {}).get(room_id) if room_manager else None
+        if room is not None and user_id in room.get("player_list", []):
+            await room_manager.leave_room(Connect_id, room_id)
     
     def get_game_state_by_room_id(self, room_id: str) -> Optional[Any]:
         """

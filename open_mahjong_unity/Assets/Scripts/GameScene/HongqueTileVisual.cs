@@ -12,7 +12,9 @@ public static class HongqueTileVisual {
         "AX", "AY", "BX", "BY", "CX", "CY", "DX",
         "DY", "EX", "EY", "FX", "FY", "GX", "GY"
     };
+    private static readonly Dictionary<int, Texture2D> TextureCache = new Dictionary<int, Texture2D>();
     private static readonly Dictionary<int, Sprite> SpriteCache = new Dictionary<int, Sprite>();
+    private static bool texturesPreloaded;
 
     public static bool IsHongqueId(int tileId) {
         int value = tileId - BaseId;
@@ -40,8 +42,27 @@ public static class HongqueTileVisual {
     }
 
     public static Texture2D LoadTexture(int tileId) {
+        if (!IsHongqueId(tileId)) return null;
+        if (TextureCache.TryGetValue(tileId, out Texture2D cached)) return cached;
         string path = ResourcePath(tileId);
-        return path == null ? null : Resources.Load<Texture2D>(path);
+        Texture2D texture = path == null ? null : Resources.Load<Texture2D>(path);
+        if (texture != null) TextureCache[tileId] = texture;
+        return texture;
+    }
+
+    /// <summary>
+    /// 虹雀有 126 张不同牌面。若在每次摸牌/出牌时才同步 Resources.Load，
+    /// 首次出现的新牌面会在主线程产生明显卡点；开局一次性预热后，实战只查字典。
+    /// </summary>
+    public static void PreloadAllTextures() {
+        if (texturesPreloaded) return;
+        Texture2D[] textures = Resources.LoadAll<Texture2D>("image/HQv3.1");
+        foreach (Texture2D texture in textures) {
+            if (texture == null) continue;
+            int tileId = FromCode(texture.name);
+            if (tileId != 0) TextureCache[tileId] = texture;
+        }
+        texturesPreloaded = true;
     }
 
     public static Sprite LoadSprite(int tileId) {

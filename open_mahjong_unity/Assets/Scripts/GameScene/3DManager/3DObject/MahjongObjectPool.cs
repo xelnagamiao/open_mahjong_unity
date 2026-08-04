@@ -133,6 +133,31 @@ public class MahjongObjectPool : MonoBehaviour {
 
     }
 
+    /// <summary>
+    /// 仅在进入虹雀时建立 126 张唯一牌的 3D 对象与材质。
+    /// 虹雀每张牌只出现一次，因此每个牌面一个对象即可；把 Instantiate/材质创建集中到开局，
+    /// 避免实战中每次首次亮出新牌都卡住一帧。
+    /// </summary>
+    public void PrewarmHongquePool() {
+        for (int colour = 0; colour < HongqueTileVisual.ColourCount; colour++) {
+            for (int number = 1; number <= HongqueTileVisual.NumberCount; number++) {
+                EnsureHongqueTilePool(HongqueTileVisual.BaseId + colour * 10 + number);
+            }
+        }
+    }
+
+    private void EnsureHongqueTilePool(int tileId) {
+        if (poolDictionary.ContainsKey(tileId)) return;
+        Queue<GameObject> objectPool = new Queue<GameObject>();
+        GameObject obj = Instantiate(tile3DPrefab);
+        obj.SetActive(false);
+        obj.transform.SetParent(transform);
+        SetupPooledTile(obj);
+        ApplyCardTexture(obj, tileId);
+        objectPool.Enqueue(obj);
+        poolDictionary[tileId] = objectPool;
+    }
+
     private void SetupPooledTile(GameObject obj) {
         EnsureTileCollider(obj);
     }
@@ -198,15 +223,8 @@ public class MahjongObjectPool : MonoBehaviour {
     /// </summary>
     public GameObject Spawn(int type, Vector3 position, Quaternion rotation) {
         if (HongqueTileVisual.IsHongqueId(type) && !poolDictionary.ContainsKey(type)) {
-            // 不让普通麻将启动时承担 126 个额外对象；首次真正出现该虹雀牌时再建池。
-            Queue<GameObject> objectPool = new Queue<GameObject>();
-            GameObject obj = Instantiate(tile3DPrefab);
-            obj.SetActive(false);
-            obj.transform.SetParent(transform);
-            SetupPooledTile(obj);
-            ApplyCardTexture(obj, type);
-            objectPool.Enqueue(obj);
-            poolDictionary[type] = objectPool;
+            // 兼容旧入口/重连：正常虹雀对局会在首个快照时整批预热。
+            EnsureHongqueTilePool(type);
         }
         if (!poolDictionary.ContainsKey(type)) {
             Debug.LogError("牌型不存在于对象池中: " + type);

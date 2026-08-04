@@ -65,6 +65,10 @@ public partial class NormalGameStateManager {
             }
             else {
                 GameCanvas.Instance.SetActionButton(allowActionList);
+                // 吃碰杠询问：给可操作牌（最新弃牌/加杠牌）底部显示光圈。
+                if (allowActionList.Count > 0) {
+                    Game3DManager.Instance?.ShowClaimGlow(currentAskCutTileId);
+                }
                 // 战术鸣牌打断窗口：remaining_time 即为 grace 秒数，不再叠加步时（避免显示 5+5）
                 GameCanvas.Instance.LoadingRemianTime(
                     remaining_time,

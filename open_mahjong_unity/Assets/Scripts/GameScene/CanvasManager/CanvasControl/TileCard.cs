@@ -514,8 +514,11 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                 );
             }
             else if (NormalGameStateManager.Instance.roomRule == "hongque"){
-                // 虹雀提示由服务端权威快照提供，避免 Unity 复制一套变长组合判定。
-                waitingTiles = new HashSet<int>();
+                // 本地用与服务端一致的掩码算法计算“打出该张后仍听什么”，实现切牌预测提示。
+                waitingTiles = HongqueTenpai.WaitingTilesAfterDiscard(
+                    NormalGameStateManager.Instance.selfHandTiles,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
+                    tileId);
             }
             else
             {

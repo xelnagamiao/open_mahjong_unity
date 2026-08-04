@@ -1191,21 +1191,62 @@ class Chinese_Hepai_Check:
             player_tiles.fan_list = ["wufanhe"]
 
         # 结算得分和展示文本
-        # 四归一、双同刻、一般高、喜相逢、连六、幺九刻、花牌七个番种允许复计。 先计算减计列表，然后取最大值向下覆盖
+        # 四归一、双同刻、一般高、喜相逢、连六、幺九刻、花牌七个番种允许复计。
+        # 展示顺序与番种表一致；复计番除外：四归一置于所有 2 番之后，
+        # 其余复计番按表序置于全部 1 番之后（复计番位置与 *N 无关）。
         fuji_set = {"siguiyi","shuangtongke","yibangao","xixiangfeng","lianliu","yaojiuke","huapai"}
-        fuji_list = ["siguiyi","shuangtongke","yibangao","xixiangfeng","lianliu","yaojiuke","huapai"]
+        table_order = [
+            "dasixi","dasanyuan","lvyise","jiulianbaodeng","sigang","lianqidui","shisanyao",
+            "qingyaojiu","xiaosixi","xiaosanyuan","ziyise","sianke","yiseshuanglonghui",
+            "yisesitongshun","yisesijiegao","yisesibugao","sangang","hunyaojiu",
+            "qiduizi","qixingbukao","quanshuangke","qingyise","yisesantongshun","yisesanjiegao",
+            "quanda","quanzhong","quanxiao","qinglong","sanseshuanglonghui","yisesanbugao",
+            "quandaiwu","santongke","sananke","quanbukao","zuhelong","dayuwu","xiaoyuwu","sanfengke",
+            "hualong","tuibudao","sansesantongshun","sansesanjiegao","wufanhe","miaoshouhuichun",
+            "haidilaoyue","gangshangkaihua","qiangganghe","pengpenghe","hunyise","sansesanbugao",
+            "wumenqi","quanqiuren","shuangangang","shuangjianke","quandaiyao","buqiuren",
+            "shuangminggang","hejuezhang","jianke","quanfengke","menfengke","menqianqing","pinghe",
+            "siguiyi","shuangtongke","shuanganke","angang","duanyao","yibangao","xixiangfeng",
+            "lianliu","laoshaofu","yaojiuke","minggang","queyimen","wuzi","bianzhang","qianzhang",
+            "dandiaojiang","zimo","huapai",
+        ]
+        present = set(player_tiles.fan_list)
+        main_list = [key for key in table_order if key in present and key not in fuji_set]
+        # 表外自定义番种（如 明暗杠）按番数插入对应位置：6 番与 4 番之间等。
+        main_list.extend(
+            key for key in player_tiles.fan_list
+            if key not in table_order and key not in fuji_set
+        )
+        main_list.sort(key=lambda key: self.count_model_dict.get(key, 0), reverse=True)
+        if "siguiyi" in present:
+            last_two_index = -1
+            for index, key in enumerate(main_list):
+                if self.count_model_dict.get(key, 0) == 2:
+                    last_two_index = index
+            main_list.insert(last_two_index + 1, "siguiyi")
+        tail_list = [
+            key for key in table_order
+            if key in present and key in fuji_set and key != "siguiyi"
+        ]
+        # 表外复计番（如有）同样追加到表尾并按番数排序
+        tail_list.extend(
+            key for key in player_tiles.fan_list
+            if key not in table_order and key in fuji_set
+        )
+        tail_list.sort(key=lambda key: self.count_model_dict.get(key, 0), reverse=True)
+
         fan_count = 0
         temp_fan_count_list = []
-        for i in player_tiles.fan_list:
-            if i not in fuji_set:
-                fan_count += self.count_model_dict[i]
-                self.debug_print(f"添加番数{i},{self.count_model_dict[i]}")
-                temp_fan_count_list.append(f"{self.eng_to_chinese_dict[i]}")
-        for i in fuji_list:
-            if i in player_tiles.fan_list:
-                fan_count += player_tiles.fan_list.count(i) * self.count_model_dict[i]
-                self.debug_print(f"添加番数{i},{player_tiles.fan_list.count(i) * self.count_model_dict[i]}")
-                temp_fan_count_list.append(f"{self.eng_to_chinese_dict[i]}*{player_tiles.fan_list.count(i)}")
+        for key in main_list + tail_list:
+            count = player_tiles.fan_list.count(key)
+            if key in fuji_set:
+                fan_count += count * self.count_model_dict[key]
+                self.debug_print(f"添加番数{key},{count * self.count_model_dict[key]}")
+                temp_fan_count_list.append(f"{self.eng_to_chinese_dict[key]}*{count}")
+            else:
+                fan_count += self.count_model_dict[key]
+                self.debug_print(f"添加番数{key},{self.count_model_dict[key]}")
+                temp_fan_count_list.append(f"{self.eng_to_chinese_dict[key]}")
 
         player_tiles.fan_count_list = temp_fan_count_list
         self.debug_print("和牌文本",player_tiles.fan_count_list)

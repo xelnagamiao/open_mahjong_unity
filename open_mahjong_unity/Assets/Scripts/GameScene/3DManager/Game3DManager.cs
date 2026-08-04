@@ -6,6 +6,24 @@ using UnityEngine.UI;
 public partial class Game3DManager : MonoBehaviour {
     [SerializeField] private GameObject tile3DPrefab;    // 卡牌 3D预制体
     [SerializeField] private GameObject riichiTenbouPrefab; // 立直点棒（1000）3D预制体
+    [SerializeField] private GameObject claimTileGlowPrefab; // 吃碰杠询问时对可操作牌底部生成的光圈（可空，空时走 Resources 兜底）
+    [Header("吃碰杠光圈设置")]
+    [SerializeField] private Color claimGlowColor = new Color(0.3f, 1f, 0.5f, 0.55f);
+    [SerializeField, Range(0f, 4f)] private float claimGlowIntensity = 1f;
+    [SerializeField, Range(0f, 2f)] private float claimGlowSpread = 0.55f;       // 光环扩散距离，相对牌宽
+    [SerializeField, Range(0f, 0.5f)] private float claimGlowPulseAmount = 0.1f;
+    [SerializeField, Range(0f, 8f)] private float claimGlowPulseSpeed = 2.2f;
+    [SerializeField, Range(0f, 0.3f)] private float claimGlowCornerRadius = 0.12f; // 圆角半径，相对牌宽
+    [SerializeField, Range(-0.5f, 1.5f)] private float claimGlowHeightOffset = 0.12f; // 光圈相对牌背（顶部）的向下偏移，以牌厚为比例，适配牌缩放
+
+    // 吃碰杠光圈实时调参：Inspector 改动由 ClaimTileGlow 每帧拉取，下一帧立即生效。
+    public Color ClaimGlowColor => claimGlowColor;
+    public float ClaimGlowIntensity => claimGlowIntensity;
+    public float ClaimGlowSpread => claimGlowSpread;
+    public float ClaimGlowPulseAmount => claimGlowPulseAmount;
+    public float ClaimGlowPulseSpeed => claimGlowPulseSpeed;
+    public float ClaimGlowCornerRadius => claimGlowCornerRadius;
+    public float ClaimGlowHeightOffset => claimGlowHeightOffset;
     [Header("3D位置面板")]
     [SerializeField] private PosPanel3D selfPosPanel;    // 自家位置面板
     [SerializeField] private PosPanel3D leftPosPanel;    // 左家位置面板
@@ -40,26 +58,38 @@ public partial class Game3DManager : MonoBehaviour {
     private readonly Dictionary<string, GameObject> _lastJiagangObjByPlayer = new Dictionary<string, GameObject>();
     private readonly Dictionary<string, int> _lastJiagangTileIdByPlayer = new Dictionary<string, int>();
 
+    // 每家「最新可操作牌」的登记序号：出牌/加杠时递增，供吃碰杠询问定位光圈目标，
+    // 避免场上存在同点数弃牌/加杠牌时认错张。
+    private readonly Dictionary<string, long> _claimTargetSequenceByPos = new Dictionary<string, long>();
+    private long _claimTargetSequenceCounter;
+    private ClaimTileGlow _claimTileGlow;
+    private Coroutine _claimGlowRetryCoroutine;
+    private bool _claimGlowPrefabMissingLogged;
+
     private void RegisterLastDiscard(string playerPosition, GameObject obj, int tileId) {
         if (string.IsNullOrEmpty(playerPosition)) return;
         _lastDiscardObjByPlayer[playerPosition] = obj;
         _lastDiscardTileIdByPlayer[playerPosition] = tileId;
+        _claimTargetSequenceByPos[playerPosition] = ++_claimTargetSequenceCounter;
     }
 
     private void ClearLastDiscard(string playerPosition) {
         if (string.IsNullOrEmpty(playerPosition)) return;
         _lastDiscardObjByPlayer[playerPosition] = null;
+        _claimTargetSequenceByPos[playerPosition] = 0;
     }
 
     private void RegisterLastJiagang(string playerPosition, GameObject obj, int tileId) {
         if (string.IsNullOrEmpty(playerPosition)) return;
         _lastJiagangObjByPlayer[playerPosition] = obj;
         _lastJiagangTileIdByPlayer[playerPosition] = tileId;
+        _claimTargetSequenceByPos[playerPosition] = ++_claimTargetSequenceCounter;
     }
 
     private void ClearLastJiagang(string playerPosition) {
         if (string.IsNullOrEmpty(playerPosition)) return;
         _lastJiagangObjByPlayer[playerPosition] = null;
+        _claimTargetSequenceByPos[playerPosition] = 0;
     }
 
     private void ClearLastJiagangIfMatches(string playerPosition, GameObject obj) {
@@ -76,6 +106,95 @@ public partial class Game3DManager : MonoBehaviour {
             _lastDiscardTileIdByPlayer[pos] = 0;
             _lastJiagangTileIdByPlayer[pos] = 0;
         }
+    }
+
+    /// <summary>
+    /// 吃碰杠询问：给最新“可操作牌”（弃牌或加杠牌）底部挂上光圈。
+    /// expectedTileId 为服务端下发的切牌/杠牌 id；>0 时仅匹配该牌张，避免场上同点数歧义。
+    /// </summary>
+    public void ShowClaimGlow(int expectedTileId = 0) {
+        if (_claimGlowRetryCoroutine != null) StopCoroutine(_claimGlowRetryCoroutine);
+        _claimGlowRetryCoroutine = StartCoroutine(ClaimGlowRetryCoroutine(expectedTileId));
+    }
+
+    /// <summary>吃碰杠询问结束：隐藏可操作牌底部的光圈。</summary>
+    public void HideClaimGlow() {
+        if (_claimGlowRetryCoroutine != null) {
+            StopCoroutine(_claimGlowRetryCoroutine);
+            _claimGlowRetryCoroutine = null;
+        }
+        if (_claimTileGlow != null) _claimTileGlow.Hide();
+    }
+
+    /// <summary>
+    /// 询问弹出时弃牌 3D 对象可能仍在动画队列中尚未登记，轮询等待目标出现后再挂光圈；
+    /// 目标出现后继续每帧复查，防止延迟登记的新弃牌覆盖旧牌时挂在旧牌上。
+    /// </summary>
+    private IEnumerator ClaimGlowRetryCoroutine(int expectedTileId) {
+        bool loggedWaiting = false;
+        float deadline = Time.unscaledTime + 5f;
+        while (Time.unscaledTime < deadline) {
+            GameObject target = FindLatestClaimTarget(expectedTileId);
+            if (target != null) {
+                ClaimTileGlow glow = EnsureClaimGlowInstance();
+                if (glow != null) glow.AttachTo(target);
+                loggedWaiting = false;
+            } else if (!loggedWaiting) {
+                loggedWaiting = true;
+                Debug.Log($"ClaimTileGlow 等待弃牌/杠牌 3D 对象登记: expectedTileId={expectedTileId}");
+            }
+            yield return null;
+        }
+        _claimGlowRetryCoroutine = null;
+        Debug.Log("ClaimTileGlow 5 秒内未等到可操作牌登记，放弃显示");
+    }
+
+    private ClaimTileGlow EnsureClaimGlowInstance() {
+        if (_claimTileGlow != null) return _claimTileGlow;
+        GameObject prefab = claimTileGlowPrefab;
+        if (prefab == null) {
+            // 场景引用未配置或场景未重载时，回退到 Resources 运行时加载，保证光圈始终可用。
+            prefab = Resources.Load<GameObject>("Effects/ClaimTileGlow/ClaimTileGlow");
+        }
+        if (prefab == null) {
+            if (!_claimGlowPrefabMissingLogged) {
+                _claimGlowPrefabMissingLogged = true;
+                Debug.LogWarning("Game3DManager 未配置 claimTileGlowPrefab 且 Resources 加载失败，吃碰杠光圈不可用");
+            }
+            return null;
+        }
+        _claimTileGlow = Instantiate(prefab).GetComponent<ClaimTileGlow>();
+        if (_claimTileGlow == null) {
+            Debug.LogError("ClaimTileGlow prefab 缺少 ClaimTileGlow 组件");
+            return null;
+        }
+        _claimTileGlow.gameObject.SetActive(false);
+        return _claimTileGlow;
+    }
+
+    /// <summary>在所有登记中找“最新”且（可选）牌张匹配的可操作牌对象。</summary>
+    private GameObject FindLatestClaimTarget(int expectedTileId) {
+        string bestPos = null;
+        bool bestIsJiagang = false;
+        long bestSeq = -1;
+        foreach (KeyValuePair<string, GameObject> kvp in _lastDiscardObjByPlayer) {
+            string pos = kvp.Key;
+            if (kvp.Value == null || !kvp.Value.activeInHierarchy) continue;
+            if (!_claimTargetSequenceByPos.TryGetValue(pos, out long seq) || seq <= 0) continue;
+            if (!_lastDiscardTileIdByPlayer.TryGetValue(pos, out int tileId)) continue;
+            if (expectedTileId > 0 && !TilesMatchForDiscardLookup(tileId, expectedTileId)) continue;
+            if (seq > bestSeq) { bestSeq = seq; bestPos = pos; bestIsJiagang = false; }
+        }
+        foreach (KeyValuePair<string, GameObject> kvp in _lastJiagangObjByPlayer) {
+            string pos = kvp.Key;
+            if (kvp.Value == null || !kvp.Value.activeInHierarchy) continue;
+            if (!_claimTargetSequenceByPos.TryGetValue(pos, out long seq) || seq <= 0) continue;
+            if (!_lastJiagangTileIdByPlayer.TryGetValue(pos, out int tileId)) continue;
+            if (expectedTileId > 0 && !TilesMatchForDiscardLookup(tileId, expectedTileId)) continue;
+            if (seq > bestSeq) { bestSeq = seq; bestPos = pos; bestIsJiagang = true; }
+        }
+        if (bestPos == null) return null;
+        return bestIsJiagang ? _lastJiagangObjByPlayer[bestPos] : _lastDiscardObjByPlayer[bestPos];
     }
 
     /// <summary>登记 tileId 与期望牌张是否一致（含赤宝 105/15 归一化）。期望 id 无效则不匹配。</summary>

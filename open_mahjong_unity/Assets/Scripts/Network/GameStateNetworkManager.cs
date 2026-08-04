@@ -48,8 +48,13 @@ public class GameStateNetworkManager : MonoBehaviour {
     /// </summary>
     public void HandleGameStateMessage(Response response) {
         switch (response.type) {
-            case "gamestate/hongque/state":
+            case "gamestate/hongque/game_start":
+            case "gamestate/hongque/reconnect":
+            case "gamestate/hongque/update":
                 HongqueTableAdapter.EnsureInstance().ApplyState(response.gamestate_id, response.hongque_state);
+                if (response.hongque_state != null && response.hongque_state.sync_mode == "reconnect") {
+                    AutoReconnect.OnGameRestored();
+                }
                 break;
             case "gamestate/guobiao/game_start":
             case "gamestate/taiwan/game_start":
@@ -140,6 +145,7 @@ public class GameStateNetworkManager : MonoBehaviour {
             case "gamestate/sichuan/ready_status":
             case "gamestate/changsha/ready_status":
             case "gamestate/jiandan/ready_status":
+            case "gamestate/hongque/ready_status":
                 HandleReadyStatus(response);
                 break;
             case "gamestate/classical/show_shuhewei":

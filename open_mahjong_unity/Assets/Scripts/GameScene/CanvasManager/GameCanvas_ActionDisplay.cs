@@ -144,6 +144,8 @@ public partial class GameCanvas{
     private string GetActionDisplayText(string actionType, string roomRule) {
         if (actionType == "hongque_rainbow") {
             return "虹";
+        } else if (actionType == "hongque_supplement") {
+            return "补牌";
         } else if (actionType == "chi_left" || actionType == "chi_mid" || actionType == "chi_right"){
             return "吃";
         } else if (actionType == "peng"){

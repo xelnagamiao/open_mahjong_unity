@@ -152,12 +152,33 @@ public class TipsContainer : MonoBehaviour
                 InstantiateTipsTile(tileId);
             }
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            string label = hint.fan_total > 0
-                ? $"{hint.@base}底×{hint.fan_total}番={hint.points}分"
-                : $"0番={hint.points}分";
+            // 只显示直接分值，不展示底/番公式。
+            string label = $"{hint.points}分";
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
         }
         UpdateRyuukyokuTenpaiChoice(shownWaits);
+    }
+
+    /// <summary>
+    /// 虹雀切牌预测：展示打出该牌后的和牌张，并本地计算每张的直接分值。
+    /// handTiles 为切掉悬停牌后的手牌；每张和牌张按 handTiles + 该张 计分。
+    /// </summary>
+    private void ShowHongqueCutPreviewTiles(
+        List<int> handTiles,
+        List<int[]> meldMasks,
+        List<int> waitingTiles) {
+        List<int> sorted = new List<int>(waitingTiles);
+        sorted.Sort();
+        foreach (int tileId in sorted) {
+            InstantiateTipsTile(tileId);
+            List<int> winHand = new List<int>(handTiles);
+            winHand.Add(tileId);
+            HongqueWinScore score = HongqueScoring.BestWinResult(
+                winHand, meldMasks, false, false, false);
+            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+            string label = score != null ? $"{score.Points}分" : "0分";
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
+        }
     }
 
     /// <summary>
@@ -183,6 +204,14 @@ public class TipsContainer : MonoBehaviour
         // 销毁子对象
         foreach (Transform child in toDestroy){
             Destroyer.Instance.AddToDestroyer(child);
+        }
+
+        if (NormalGameStateManager.Instance.roomRule == "hongque") {
+            ShowHongqueCutPreviewTiles(
+                handTiles,
+                NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
+                waitingTiles);
+            return;
         }
 
         // 获取游戏管理器实例

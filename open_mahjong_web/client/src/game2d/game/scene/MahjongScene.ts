@@ -1683,6 +1683,35 @@ export class MahjongScene {
   }
 
   /**
+   * 国标局中错和续打：本局并未结束，ready 结束后服务端不会下发新局快照，
+   * 而是直接继续本局。清除 roundEnded 封禁，并把和牌展示翻回正常状态：
+   * 荣和错和的和牌张实际仍在河牌，需从摸牌区移除；他家手牌翻回牌背。
+   */
+  resumeAfterMidRoundResult(winnerSeat: number, isSelfDraw: boolean): void {
+    if (!this.mounted) return
+    this.roundEnded = false
+    this.countdown.stop()
+    const winnerDir = transDir(Number(winnerSeat) || 0, this.selfDir)
+    const hand = this.hands[winnerDir]
+    if (!hand) return
+    if (!isSelfDraw && hand.drawnTile) {
+      // 荣和错和：和牌张未真正进入手牌（服务端 hand_tiles 未追加），
+      // 展示结束后从摸牌区移除，牌仍保留在河牌。
+      const winTile = hand.drawnTile
+      hand.drawnTile = null
+      winTile.removeFromParent()
+      winTile.destroy({ children: true })
+    }
+    if (winnerDir !== 0) {
+      // 他家手牌翻回牌背；自家手牌本身明牌，无需隐藏。
+      for (const tile of hand.rightList) tile.hide()
+      if (hand.drawnTile) hand.drawnTile.hide()
+    }
+    this.setViewerWaitInfo(null)
+    this.waitDisplay.visible = this.presentationMode !== 'replay' || this.replayWaitTipsEnabled
+  }
+
+  /**
    * Handle a game.event payload from the backend.
    * Two-phase dispatch per the spec document Section 24.
    */

@@ -117,8 +117,20 @@ def score_partition(
         base += 2
 
     fans: list[dict] = []
-    clean_sequences = sum(shape.base_kind == "sequence" and len(shape.tiles) >= 4 for shape in shapes)
-    clean_triplets = sum(shape.base_kind == "triplet" and len(shape.tiles) >= 4 for shape in shapes)
+    # Rulebook wording is inclusive: a 清顺 is any pure-colour sequence with
+    # three or more tiles, while a 清刻 is any pure-colour triplet with four
+    # or more tiles.  Count every qualifying group; these fans are repeatable.
+    # 清顺：仅“花色相同”（colour_step 0）且非彩虹的顺子，按组复计。
+    clean_sequences = sum(
+        shape.base_kind == "sequence"
+        and shape.colour_step == 0
+        and not shape.is_rainbow
+        for shape in shapes
+    )
+    clean_triplets = sum(
+        shape.base_kind == "triplet" and len(shape.tiles) >= 4
+        for shape in shapes
+    )
     if clean_sequences:
         fans.append(_entry("清顺", 1, clean_sequences))
     if clean_triplets:
@@ -155,7 +167,9 @@ def score_partition(
 
     distinct_colours = set(colour_counts)
     all_fourteen = len(distinct_colours) == 14
-    if all_fourteen:
+    if len(distinct_colours) == 1:
+        fans.append(_entry("清一色", 18))
+    elif all_fourteen:
         fans.append(_entry("全彩", 12))
     elif len(distinct_colours) == len(tiles):
         fans.append(_entry("光谱", 6))
@@ -178,7 +192,11 @@ def score_partition(
         fans.append(_entry("三数", 6))
     elif len(numbers) == 4 and _arithmetic(numbers):
         fans.append(_entry("四数", 3))
-    if numbers and set(numbers).issubset({1, 9}):
+    # 全带幺：每组牌均含数字 1 或 9 的牌（按规则书“牌组”判定，而非全体手牌）。
+    if groups and all(
+        any(HongqueTile.parse(code).number in (1, 9) for code in group)
+        for group in groups
+    ):
         fans.append(_entry("全带幺", 2))
 
     is_heavenly = self_draw and before_first_discard and concealed
@@ -189,9 +207,11 @@ def score_partition(
     if self_draw and wall_empty:
         fans.append(_entry("海底", 2))
     # 清一数明确“不计碰碰和”：保留清一数 18 番，排除碰碰和 3 番。
-    if all_triplets and len(numbers) != 1:
+    # 清一数、二数均不计碰碰和。
+    if all_triplets and len(numbers) > 2:
         fans.append(_entry("碰碰和", 3))
-    if shapes and all(shape.base_kind == "sequence" for shape in shapes):
+    # 平和：仅由顺子构成；虹牌是独立牌组，不计入顺子。
+    if shapes and all(shape.kind == "sequence" for shape in shapes):
         fans.append(_entry("平和", 1))
     if len(groups) == 1:
         fans.append(_entry("金龙", 6))
@@ -200,6 +220,8 @@ def score_partition(
     elif len(groups) == 3:
         fans.append(_entry("三金", 1))
 
+    # 番种从大到小展示。
+    fans.sort(key=lambda fan: fan["value"], reverse=True)
     fan_total = sum(fan["total"] for fan in fans)
     return {
         "partition": [list(group) for group in concealed_partition],

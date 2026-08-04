@@ -143,7 +143,7 @@ Material:
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
-    - _BackColor: {r: 0.21804906, g: 0.37241867, b: 0.6603774, a: 1}
+    - _BackColor: {r: 0.218, g: 0.372, b: 0.66, a: 1}
     - _BackTilingOffset: {r: 1, g: 1, b: 0, a: 0}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}

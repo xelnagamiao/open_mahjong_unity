@@ -67,6 +67,10 @@ public partial class NormalGameStateManager {
             allowActionList = BuildMingPaiAllowActionList(action_list);
             SwitchCurrentPlayer("self","askMingPaiAction",remaining_time, isTacticalRecheck: isTacticalRecheck);
         }
+        else {
+            // 空询问不弹按钮，同时收掉上一轮遗留的光圈。
+            Game3DManager.Instance?.HideClaimGlow();
+        }
     }
 
     private void ClearQiangGangAskState() {

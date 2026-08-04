@@ -619,8 +619,10 @@ async def message_input(websocket: WebSocket, Connect_id: str):
                         await player.websocket.send_json(response.dict(exclude_none=True))
                         logging.info(f"玩家 {user_id} 重连成功")
                     else:
-                        # 玩家放弃重连：仅清理 user_id -> game_state 映射
-                        game_server.gamestate_manager.remove_player_from_game_state(user_id)
+                        # 玩家明确放弃比赛：同步退出对局和房间。只删一张
+                        # user_id 索引会留下机器人房间及 current_room_id，下一次
+                        # 登录仍可能被旧生命周期重新挂回去。
+                        await game_server.gamestate_manager.abandon_player_game(Connect_id, user_id)
                         response = Response(
                             type="tips",
                             success=True,

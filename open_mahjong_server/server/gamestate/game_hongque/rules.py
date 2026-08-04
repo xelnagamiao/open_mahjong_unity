@@ -132,6 +132,8 @@ def call_candidates(hand: Sequence[str], discarded: str) -> list[dict]:
         shape = classify_meld(codes_from_mask(group_mask))
         if shape is None:
             continue
+        # Resolution priority is authoritative and intentionally independent
+        # from the bot's hand-efficiency score: rainbow > triplet > sequence.
         candidates.append({
             "kind": shape.kind,
             "base_kind": shape.base_kind,

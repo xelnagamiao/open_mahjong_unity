@@ -54,6 +54,25 @@ public partial class GameCanvas : MonoBehaviour {
         return actionButton;
     }
 
+    private void SetExtraActionButtonVisible(bool visible) {
+        if (ExtraActionButton == null) return;
+        ActionButton actionButton = ExtraActionButton.GetComponent<ActionButton>();
+        if (actionButton == null) {
+            ExtraActionButton.gameObject.SetActive(false);
+            return;
+        }
+        actionButton.actionTypeList.Clear();
+        if (visible) {
+            actionButton.actionTypeList.Add("hongque_supplement");
+            actionButton.TextObject.text = HongqueTableAdapter.GetActionLabel("hongque_supplement");
+            ConfigureActionButtonText(actionButton.TextObject);
+            Button button = actionButton.GetComponent<Button>();
+            ActionButtonColorPreset preset = GetActionButtonColorPreset("hongque_supplement");
+            if (button != null && preset != null) button.colors = preset.ToColorBlock();
+        }
+        ExtraActionButton.gameObject.SetActive(visible);
+    }
+
     private static void ConfigureActionButtonText(TMP_Text text) {
         if (text == null) return;
         text.enableAutoSizing = true;
@@ -127,7 +146,10 @@ public partial class GameCanvas : MonoBehaviour {
 
     // 显示可用行动按钮
     public void SetActionButton(List<string> action_list){
+        action_list = action_list ?? new List<string>();
         bool isSeaBottomAsk = action_list.Contains("sea_bottom");
+        bool showExtraAction = HongqueTableAdapter.IsActive
+            && action_list.Contains("hongque_supplement");
         // 用于跟踪吃牌按钮
         ActionButton chiButton = null;
         // 用于跟踪暗杠按钮
@@ -139,18 +161,25 @@ public partial class GameCanvas : MonoBehaviour {
 
         // 清空按钮
         foreach (Transform child in ActionButtonContainer){
-            Destroy(child.gameObject);
+            if (child != ExtraActionButton) Destroy(child.gameObject);
         }
+        SetExtraActionButtonVisible(showExtraAction);
+
+        int createdRegularButtonCount = 0;
 
         for (int i = 0; i < action_list.Count; i++){
 
             Debug.Log($"询问操作: {action_list[i]}");
             ActionButtonColorPreset colorPreset = GetActionButtonColorPreset(action_list[i]);
 
+            // “补牌”使用场景中预留的可持续按钮，不再生成一次性操作按钮。
+            if (action_list[i] == "hongque_supplement") continue;
+
             if (action_list[i].StartsWith("hongque_")) {
                 ActionButton actionButton = CreateActionButton(colorPreset);
                 actionButton.TextObject.text = HongqueTableAdapter.GetActionLabel(action_list[i]);
                 actionButton.actionTypeList.Add(action_list[i]);
+                createdRegularButtonCount++;
                 continue;
             }
 
@@ -295,7 +324,11 @@ public partial class GameCanvas : MonoBehaviour {
         }
 
         // 播放操作按钮出现音效
-        if (ActionButtonContainer.childCount > 0) {
+        // 单独出现持续型 ExtraActionButton 时保持安静；同时有其他询问按钮才播放提示音。
+        bool shouldPlayAppearSound = HongqueTableAdapter.IsActive
+            ? createdRegularButtonCount > 0
+            : ActionButtonContainer.childCount > 0;
+        if (shouldPlayAppearSound) {
             SoundManager.Instance.PlayActionButtonAppearSound();
         }
 
@@ -315,6 +348,12 @@ public partial class GameCanvas : MonoBehaviour {
     }
 
     public void TrySendPassFromShortcut() {
+        if (HongqueTableAdapter.IsActive) {
+            if (NormalGameStateManager.Instance.allowActionList.Contains("hongque_pass")) {
+                ChooseAction("hongque_pass", 0);
+            }
+            return;
+        }
         if (!NormalGameStateManager.Instance.allowActionList.Contains("pass")) return;
         ChooseAction("pass", 0);
     }

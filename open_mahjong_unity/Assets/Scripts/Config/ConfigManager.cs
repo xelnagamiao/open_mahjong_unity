@@ -68,7 +68,14 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_GONG_HU_SOUND_ENABLED = "GongHuSoundEnabled";
     private const string KEY_MATCH_SUCCESS_SOUND_ENABLED = "MatchSuccessSoundEnabled";
     private const string KEY_OPENING_AUTO_BUHUA_ENABLED = "OpeningAutoBuhuaEnabled";
+    private const string KEY_MELD_SPACING_ENABLED = "MeldSpacingEnabled";
     private const string KEY_TILE_OUTLINE_PRESET = "TileOutlinePreset";
+    private const string KEY_CARD_BACK_COLOR = "CardBackColor";
+    private const string KEY_CARD_BACK_IMAGE_PATH = "CardBackImagePath";
+    private const string KEY_CARD_BACK_IMAGE_IS_CUSTOM = "CardBackImageIsCustom";
+
+    /// <summary>3D card back default color (same as 3DTile.mat _BackColor).</summary>
+    public static readonly Color DefaultCardBackColor = new Color(0.218f, 0.372f, 0.66f, 1f);
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
@@ -106,8 +113,12 @@ public class ConfigManager : MonoBehaviour {
     /// <summary>匹配成功音效：默认开启</summary>
     public bool MatchSuccessSoundEnabled { get; private set; }
     public bool OpeningAutoBuhuaEnabled { get; private set; }
+    /// <summary>副露间距：0 关（默认） 1 开</summary>
+    public bool MeldSpacingEnabled { get; private set; }
     /// <summary>3D 牌描边预设：1=标准纯黑(2/2)，2=粗深黑(3/3)，默认 1</summary>
     public int TileOutlinePreset { get; private set; }
+    /// <summary>3D card back color (default deep blue).</summary>
+    public Color CardBackColor { get; private set; } = DefaultCardBackColor;
 
     public static readonly string[] TileOutlinePresetLabels = {
         "预设1",
@@ -170,7 +181,9 @@ public class ConfigManager : MonoBehaviour {
         GongHuSoundEnabled = PlayerPrefs.GetInt(KEY_GONG_HU_SOUND_ENABLED, 1) == 1;
         MatchSuccessSoundEnabled = PlayerPrefs.GetInt(KEY_MATCH_SUCCESS_SOUND_ENABLED, 1) == 1;
         OpeningAutoBuhuaEnabled = PlayerPrefs.GetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, 1) == 1;
+        MeldSpacingEnabled = PlayerPrefs.GetInt(KEY_MELD_SPACING_ENABLED, 0) == 1;
         TileOutlinePreset = Mathf.Clamp(PlayerPrefs.GetInt(KEY_TILE_OUTLINE_PRESET, 1), 1, 2);
+        CardBackColor = LoadCardBackColor();
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
 #if UNITY_WEBGL && !UNITY_EDITOR
         TargetFrameRate = WebLockedFrameRate;
@@ -247,6 +260,38 @@ public class ConfigManager : MonoBehaviour {
         string path = PlayerPrefs.GetString("SelectedTableEdgePath", "");
         bool isCustom = PlayerPrefs.GetInt("SelectedTableEdgeIsCustom", 0) == 1;
         return (path, isCustom);
+    }
+
+    /// <summary>Set and persist the 3D card back color.</summary>
+    public void SetCardBackColor(Color color) {
+        CardBackColor = color;
+        PlayerPrefs.SetString(KEY_CARD_BACK_COLOR, ColorUtility.ToHtmlStringRGBA(color));
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>Save card back image selection (path, or PlayerPrefs key on WebGL).</summary>
+    public void SetSelectedCardBackImage(string path, bool isCustom) {
+        PlayerPrefs.SetString(KEY_CARD_BACK_IMAGE_PATH, path ?? "");
+        PlayerPrefs.SetInt(KEY_CARD_BACK_IMAGE_IS_CUSTOM, isCustom ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>Get card back image selection.</summary>
+    public (string path, bool isCustom) GetSelectedCardBackImage() {
+        string path = PlayerPrefs.GetString(KEY_CARD_BACK_IMAGE_PATH, "");
+        bool isCustom = PlayerPrefs.GetInt(KEY_CARD_BACK_IMAGE_IS_CUSTOM, 0) == 1;
+        return (path, isCustom);
+    }
+
+    private static Color LoadCardBackColor() {
+        string hex = PlayerPrefs.GetString(KEY_CARD_BACK_COLOR, "");
+        if (!string.IsNullOrEmpty(hex)) {
+            string normalized = hex.StartsWith("#") ? hex : "#" + hex;
+            if (ColorUtility.TryParseHtmlString(normalized, out Color color)) {
+                return color;
+            }
+        }
+        return DefaultCardBackColor;
     }
 
     public static string GetTitleText(int titleId) {
@@ -368,6 +413,12 @@ public class ConfigManager : MonoBehaviour {
     public void SetOpeningAutoBuhuaEnabled(bool enabled) {
         OpeningAutoBuhuaEnabled = enabled;
         PlayerPrefs.SetInt(KEY_OPENING_AUTO_BUHUA_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
+    public void SetMeldSpacingEnabled(bool enabled) {
+        MeldSpacingEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_MELD_SPACING_ENABLED, enabled ? 1 : 0);
         PlayerPrefs.Save();
     }
 

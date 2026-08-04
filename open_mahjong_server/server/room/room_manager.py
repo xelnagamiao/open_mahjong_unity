@@ -1961,6 +1961,14 @@ class RoomManager:
         if room_id not in self.rooms:
             logger.warning(f"房间 {room_id} 不存在，无需销毁")
             return
+
+        # A running room owns a gamestate task and several reconnect indexes.
+        # Destroy both as one lifecycle operation; otherwise bots keep running
+        # after the lobby room itself has disappeared.
+        gamestate_manager = getattr(self.game_server, "gamestate_manager", None)
+        game_state = gamestate_manager.get_game_state_by_room_id(room_id) if gamestate_manager else None
+        if game_state is not None:
+            await gamestate_manager.cleanup_game_state_complete(gamestate_id=game_state.gamestate_id)
         
         room_data = self.rooms[room_id]
         
