@@ -68,7 +68,7 @@
                   <p>
                     辅助工具：站内提供
                     <router-link to="/paili">牌理</router-link>、
-                    <router-link to="/chinese">国标计算器</router-link>、
+                    <router-link to="/calc/chinese">国标计算器</router-link>、
                     <router-link to="/guess-fan">猜番对抗</router-link>、
                     <router-link to="/rulebook">规则书</router-link>
                     等。

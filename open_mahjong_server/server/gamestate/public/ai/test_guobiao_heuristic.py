@@ -348,27 +348,27 @@ class TestBotRegistrationConstants(unittest.TestCase):
 
 
 class TestSansesanbugaoGebu(unittest.TestCase):
-    """三色三步高：隔步与连步均须由 Chinese_Hepai_Check 识别（对齐国标/OMC）。"""
+    """三色三步高只认连步（依次递增一位）；隔步 3-5-7 形不计三色三步高。"""
 
-    def test_gebu_345s_567p_789m_scores_sansesanbugao(self):
-        # 金标：567m+789m+567p+345s+88p 自摸 5s → 起始 3-5-7 隔步
+    def test_gebu_345s_567p_789m_not_sansesanbugao(self):
+        # 567m+789m+567p+345s+88p 自摸 5s → 起始 3-5-7 隔步，国标不计三色三步高
         from server.game_calculation.guobiao_hepai_check import Chinese_Hepai_Check
 
         hand14 = [15, 16, 17, 17, 18, 19, 25, 26, 27, 28, 28, 33, 34, 35]
         fan, names = Chinese_Hepai_Check().hepai_check(hand14, [], ["自摸"], 35)
-        self.assertTrue(
+        self.assertFalse(
             any("三色三步高" in n for n in names),
-            f"expected 三色三步高, got fan={fan} names={names}",
+            f"隔步不应计三色三步高, got fan={fan} names={names}",
         )
-        self.assertGreaterEqual(fan, 8)
+        self.assertLess(fan, 8)
 
-    def test_gebu_hypothetical_fan_legal_tenpai(self):
-        # 听 5s：假想自摸须带三色，合法听 ≥8（修前 hepai 漏隔步 → 假想偏低）
+    def test_gebu_hypothetical_fan_below_limit(self):
+        # 听 5s：隔步不计三色三步高 → 假想自摸不足起和番
         hand13 = [15, 16, 17, 17, 18, 19, 25, 26, 27, 28, 28, 33, 34]
         ctx = _ctx(hand13 + [41])
         rem = counts_from_tiles(hand13)
         fan = hypothetical_fan(ctx, rem, [], 35, "tsumo")
-        self.assertGreaterEqual(fan, 8)
+        self.assertLess(fan, 8)
 
     def test_lianbu_rulebook_case_still_scores(self):
         from server.game_calculation.guobiao_hepai_check import Chinese_Hepai_Check

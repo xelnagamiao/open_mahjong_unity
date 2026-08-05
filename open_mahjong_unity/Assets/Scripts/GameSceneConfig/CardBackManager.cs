@@ -13,6 +13,7 @@ public static class CardBackManager
 
     public static Color CurrentColor { get; private set; } = ConfigManager.DefaultCardBackColor;
     public static Texture2D CurrentTexture { get; private set; }
+    private static bool _savedConfigApplied;
 
     /// <summary>启动或切换设置后调用：读取 ConfigManager 并应用。</summary>
     public static void ApplySavedConfig()
@@ -21,6 +22,18 @@ public static class CardBackManager
         Color color = ConfigManager.Instance.CardBackColor;
         Texture2D texture = LoadSavedTexture();
         Apply(color, texture);
+    }
+
+    /// <summary>
+    /// 保证保存的牌背配置至少应用一次（对局开始取牌、面板打开等入口都能触发）。
+    /// ConfigManager 尚未就绪时不置位，留待下次再试。
+    /// </summary>
+    public static void EnsureSavedConfigApplied()
+    {
+        if (_savedConfigApplied) return;
+        if (ConfigManager.Instance == null) return;
+        _savedConfigApplied = true;
+        ApplySavedConfig();
     }
 
     /// <summary>把牌背颜色与图片应用到共享材质 + 所有 Tile3D。</summary>
@@ -35,6 +48,8 @@ public static class CardBackManager
         {
             shared.SetColor("_BackColor", color);
             shared.SetTexture("_BackTex", texture);
+            // 图片叠加在牌背颜色上方：有图时 blend=1（不乘算颜色），无图时 blend=0（纯色）
+            shared.SetFloat("_BackTexBlend", texture != null ? 1f : 0f);
         }
 
         // 已有实例：更新实例颜色 + 材质贴图
@@ -43,6 +58,18 @@ public static class CardBackManager
         {
             if (tile != null) tile.ApplyBackVisual(color, texture);
         }
+
+        // 对象池内未部署的牌也要同步：FindObjectsByType 只找得到激活实例，
+        // 池内 inactive 牌的实例颜色若不更新，下次 Spawn 时仍是旧牌背。
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplyBackVisual(color, texture);
+            });
+        }
+        _savedConfigApplied = true;
     }
 
     /// <summary>读取保存的牌背图片（桌面读文件，WebGL 读 PlayerPrefs base64）。</summary>

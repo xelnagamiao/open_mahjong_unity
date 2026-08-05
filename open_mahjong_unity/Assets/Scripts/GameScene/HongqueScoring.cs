@@ -12,7 +12,7 @@ public sealed class HongqueMeldShape {
     public bool IsRainbow;
 }
 
-/// <summary>虹雀和牌分解：暗组列表 + 雀头（可为空）。</summary>
+/// <summary>虹雀和牌分解：暗组列表 + 雀头（规则书 5.1.1 不允许雀头，恒为空）。</summary>
 public sealed class HongqueWinDecomposition {
     public List<List<int>> Groups;
     public List<int> Pair;
@@ -153,20 +153,6 @@ public static class HongqueScoring {
 
         foreach (List<List<int>> partition in HongqueTenpai.PartitionsFromCodes(handTileIds)) {
             if (partition.Count > 0 || hasOpenMelds) Append(partition, new List<int>());
-        }
-        if (results.Count > 0) return results;
-
-        for (int left = 0; left < handTileIds.Count; left++) {
-            for (int right = left + 1; right < handTileIds.Count; right++) {
-                if (NumberOf(handTileIds[left]) != NumberOf(handTileIds[right])) continue;
-                List<int> remainder = new List<int>();
-                for (int i = 0; i < handTileIds.Count; i++) {
-                    if (i != left && i != right) remainder.Add(handTileIds[i]);
-                }
-                foreach (List<List<int>> partition in HongqueTenpai.PartitionsFromCodes(remainder)) {
-                    Append(partition, new List<int> { handTileIds[left], handTileIds[right] });
-                }
-            }
         }
         return results;
     }

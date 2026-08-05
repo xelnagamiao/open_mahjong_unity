@@ -8,6 +8,7 @@ Shader "Custom/ThreeDTiles"
 
         _BackTex ("Back Texture (牌背)", 2D) = "white" {}
         _BackColor ("Back Tint", Color) = (1,1,1,1)
+        _BackTexBlend ("Back Texture Blend", Range(0, 1)) = 0
         _BackTilingOffset ("Back Tiling & Offset", Vector) = (1,1,0,0)
 
         _SideTex ("Side Texture (侧面)", 2D) = "white" {}
@@ -57,6 +58,7 @@ Shader "Custom/ThreeDTiles"
                 float4 _SideTex_ST;
                 float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
+                half _BackTexBlend;
                 half _FrontRotation;
             CBUFFER_END
 
@@ -138,7 +140,11 @@ Shader "Custom/ThreeDTiles"
 
                 half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
                 float2 backUV = input.uvBack * _BackTilingOffset.xy + _BackTilingOffset.zw;
-                half4 back = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV) * backColor;
+                // 牌背大面：颜色打底，图片按自身 alpha 叠加在上方（不乘算颜色）。
+                // 无图片时 _BackTexBlend=0，整面为纯 _BackColor。
+                half4 backSample = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV);
+                half3 backRgb = lerp(backColor.rgb, backSample.rgb, saturate(_BackTexBlend) * backSample.a);
+                half4 back = half4(backRgb, 1.0h);
                 float2 sideUV = input.uvSide * _SideTilingOffset.xy + _SideTilingOffset.zw;
                 half4 side = SAMPLE_TEXTURE2D(_SideTex, sampler_SideTex, sideUV) * sideColor;
 

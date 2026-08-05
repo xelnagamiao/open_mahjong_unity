@@ -13,7 +13,7 @@ import Register from '@/views/Register.vue'
 import Account from '@/views/Account.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetail from '@/views/EventDetail.vue'
-import ChineseMahjong from '@/views/ChineseMahjong.vue'
+import CalculatorView from '@/views/CalculatorView.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
 import UnityGame from '@/views/UnityGame.vue'
@@ -96,10 +96,17 @@ const routes = [
         meta: { title: '牌理 - salasasa.cn' }
       },
       {
+        path: 'calc/:kind',
+        name: 'Calculator',
+        component: CalculatorView
+      },
+      {
         path: 'chinese',
-        name: 'ChineseMahjong',
-        component: ChineseMahjong,
-        meta: { title: '国标计算器 - salasasa.cn' }
+        redirect: '/calc/chinese'
+      },
+      {
+        path: 'hongque-calc',
+        redirect: '/calc/hongque'
       },
       {
         path: 'rulebook/:rule?',
@@ -399,6 +406,8 @@ watch(locale, () => {
 router.afterEach((to) => {
   const title = routeTitle(to)
   if (title) document.title = title
+  // 路由切换后默认回到页面顶部，避免从首页进入时停留在上次滚动位置
+  window.scrollTo(0, 0)
 })
 
 export default router

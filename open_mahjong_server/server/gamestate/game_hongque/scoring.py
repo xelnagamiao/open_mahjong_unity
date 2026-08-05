@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from itertools import combinations
 from typing import Iterable, Sequence
 
-from .rules import MeldShape, classify_meld
+from .rules import MeldShape, classify_meld, kong_win_candidates
 from .tile import HongqueTile
 from .win_check import winning_decompositions
 
@@ -152,11 +152,21 @@ def score_partition(
     if consecutive:
         fans.append(consecutive)
 
-    colour_counts = Counter(tile.colour for tile in tiles)
-    max_colour_count = max(colour_counts.values(), default=0)
-    if max_colour_count == 9:
+    # 花色计数：
+    # - 清一色/双色/三色：按“纯色覆盖”计数。纯色牌覆盖 1 个基础色；
+    #   半色牌覆盖相邻 2 个基础色（如 AY=红橙 覆盖 红+橙）。因此
+    #   “红+红橙+橙”（1 12 2）为两种颜色→双色；而“红橙+橙+橙黄”
+    #   （2 23 4）覆盖 红/橙/黄 三种颜色→三色，不是双色。
+    # - 七归一/九归一/光谱/全彩：14 级颜色各自独立计数（7 张 AX 才算
+    #   七归一，AX+AY 不能合并）。
+    colour_counts = Counter(tile.colour for tile in tiles)  # 14 级
+    covered_colours = set()
+    for tile in tiles:
+        covered_colours.update(tile.primary_colours)
+    max_colour_level_count = max(colour_counts.values(), default=0)
+    if max_colour_level_count >= 9:
         fans.append(_entry("九归一", 6))
-    elif max_colour_count in (7, 8):
+    elif max_colour_level_count >= 7:
         fans.append(_entry("七归一", 3))
 
     rainbow_count = sum(shape.is_rainbow for shape in shapes)
@@ -165,17 +175,17 @@ def score_partition(
     elif rainbow_count == 1:
         fans.append(_entry("彩虹", 6))
 
-    distinct_colours = set(colour_counts)
-    all_fourteen = len(distinct_colours) == 14
-    if len(distinct_colours) == 1:
+    distinct_levels = len(colour_counts)
+    colour_count = len(covered_colours)
+    if colour_count == 1:
         fans.append(_entry("清一色", 18))
-    elif all_fourteen:
+    elif distinct_levels == 14:
         fans.append(_entry("全彩", 12))
-    elif len(distinct_colours) == len(tiles):
+    elif distinct_levels == len(tiles):
         fans.append(_entry("光谱", 6))
-    elif len(distinct_colours) == 2:
+    elif colour_count == 2:
         fans.append(_entry("双色", 12))
-    elif len(distinct_colours) == 3:
+    elif colour_count == 3:
         fans.append(_entry("三色", 6))
     if tiles and all(tile.colour % 2 == 0 for tile in tiles):
         fans.append(_entry("全纯色", 1))
@@ -244,6 +254,7 @@ def best_win_result(
     self_draw: bool,
     before_first_discard: bool,
     wall_empty: bool,
+    allow_kong_win: bool = False,
 ) -> dict | None:
     results = [
         score_partition(
@@ -256,6 +267,27 @@ def best_win_result(
         )
         for decomposition in winning_decompositions(hand, open_melds)
     ]
+    if allow_kong_win:
+        # 杠和拆解：自摸的牌可并入明牌完成和牌。按“杠后虚拟状态”计分，
+        # 展示时仍保留真实手牌与明牌（由调用方决定 winning_hand/melds）。
+        hand_codes = [HongqueTile.parse(code).code for code in hand]
+        for candidate in kong_win_candidates(hand_codes, open_melds):
+            rest = list(hand_codes)
+            for code in candidate["hand_tiles"]:
+                rest.remove(code)
+            melds_after = [dict(meld) for meld in open_melds]
+            melds_after[candidate["meld_index"]]["tiles"] = list(candidate["tiles"])
+            results.extend(
+                score_partition(
+                    decomposition["groups"],
+                    melds_after,
+                    pair=decomposition["pair"],
+                    self_draw=self_draw,
+                    before_first_discard=before_first_discard,
+                    wall_empty=wall_empty,
+                )
+                for decomposition in winning_decompositions(rest, melds_after)
+            )
     if not results:
         return None
     return max(results, key=lambda result: (result["points"], result["fan_total"], result["base"]))

@@ -816,7 +816,6 @@ export class Chinese_Hepai_Check {
           for (let i of suit_list[0]) {
             i = Number(i)
             this.debug_print(i)
-            // 连步 step=1
             if ((containsIn(suit_list[1], String((i + 1))))) {
               if ((containsIn(suit_list[2], String((i + 2))))) {
                 player_tiles.fan_list.push("sansesanbugao")
@@ -853,47 +852,6 @@ export class Chinese_Hepai_Check {
                 break
               }
               if ((containsIn(suit_list[1], String((i + 1))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-            }
-            // 隔步 step=2（对齐国标/OMC；原先仅连步会漏 3-5-7 形）
-            if ((containsIn(suit_list[1], String((i + 2))))) {
-              if ((containsIn(suit_list[2], String((i + 4))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-              if ((containsIn(suit_list[2], String((i - 2))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-            }
-            if ((containsIn(suit_list[1], String((i - 2))))) {
-              if ((containsIn(suit_list[2], String((i - 4))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-              if ((containsIn(suit_list[2], String((i + 2))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-            }
-            if ((containsIn(suit_list[2], String((i + 2))))) {
-              if ((containsIn(suit_list[1], String((i + 4))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-              if ((containsIn(suit_list[1], String((i - 2))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-            }
-            if ((containsIn(suit_list[2], String((i - 2))))) {
-              if ((containsIn(suit_list[1], String((i - 4))))) {
-                player_tiles.fan_list.push("sansesanbugao")
-                break
-              }
-              if ((containsIn(suit_list[1], String((i + 2))))) {
                 player_tiles.fan_list.push("sansesanbugao")
                 break
               }

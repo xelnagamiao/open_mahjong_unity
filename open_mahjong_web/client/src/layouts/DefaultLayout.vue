@@ -25,7 +25,8 @@ const route = useRoute()
 const layoutToneClass = computed(() => {
   const path = route.path || ''
   if (path === '/paili' || path.startsWith('/paili/')) return 'tone-paili'
-  if (path === '/chinese' || path.startsWith('/chinese/')) return 'tone-chinese'
+  if (path === '/calc/chinese' || path.startsWith('/calc/chinese/')) return 'tone-chinese'
+  if (path === '/calc/hongque' || path.startsWith('/calc/hongque/')) return 'tone-hongque'
   return ''
 })
 </script>
@@ -42,6 +43,11 @@ const layoutToneClass = computed(() => {
 
 .default-layout.tone-chinese {
   background: #45b7d1;
+}
+
+.default-layout.tone-hongque {
+  background: #2563eb;
+  background: linear-gradient(180deg, #1d4ed8 0%, #3b82f6 55%, #60a5fa 100%);
 }
 
 .layout-header {

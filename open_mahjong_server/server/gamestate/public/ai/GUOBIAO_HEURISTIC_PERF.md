@@ -111,9 +111,11 @@ python guobiao_heuristic_drawrate.py --matches 4 --workers 2 --skip-half --out g
 
 `--workers` 默认 `min(matches, cpu-2)`；传 `1` 即串行。每 worker 独立 import/跑一段种子，主进程汇总和/流局/番种/耗时。
 
-## 63 全庄复核（隔步三色 hepai 修后 · 现行口径）
+## 63 全庄复核（历史口径：隔步三色误改期间 · 已回退）
 
-**修后口径**：`Chinese_Hepai_Check` 三色三步高同时认**连步（step=1）+ 隔步（step=2）**；另含死一向听拒鸣、听口对齐、`hepai` way 拷贝等。种子 **`72001–72063`**，四席高性能、`game_round=4`、fast_sleep、`--workers 14`。脚本：`python -m server.gamestate.public.ai.guobiao_heuristic_drawrate --matches 63 --workers 14 --seed 72001` → 包根 `guobiao_heuristic_drawrate63_result.json`（gitignore）。
+> **口径修正（2026-08-05）**：国标 MCR 三色三步高只允许**依次递增一位（连步 step=1）**，跨 2 的隔步（3-5-7 形）不计三色三步高。PR #98（add-guobiao-heuristic-bot）曾把主规则与 Web 计算器改成“连步+隔步”，属外部 PR 引入的误改，现已回退（服务端 `guobiao_hepai_check.py`、Web `gbHepai.ts` 恢复仅连步；Unity 端从未改动）。下文「修后」列即该误改窗口的测量口径，**不可**当作现行规则金标；「修前（仅连步）」才是与现行规则一致的数值。
+
+**当时口径**：`Chinese_Hepai_Check` 三色三步高同时认**连步（step=1）+ 隔步（step=2）**（现已回退为仅连步）；另含死一向听拒鸣、听口对齐、`hepai` way 拷贝等。种子 **`72001–72063`**，四席高性能、`game_round=4`、fast_sleep、`--workers 14`。脚本：`python -m server.gamestate.public.ai.guobiao_heuristic_drawrate --matches 63 --workers 14 --seed 72001` → 包根 `guobiao_heuristic_drawrate63_result.json`（gitignore）。
 
 | 指标 | 修后 63qz | 修前 63qz（仅连步） | OMC restore-gebu 63z | OMC 长样本（4030 局） |
 |------|----------:|-------------------:|---------------------:|---------------------:|
@@ -143,18 +145,18 @@ python guobiao_heuristic_drawrate.py --matches 4 --workers 2 --skip-half --out g
 | 全带幺 | 1.1% | 1.2% | 1.5% |
 | 碰碰和 | 0.8% | 0.9% | 1.5% |
 
-结论：补隔步后三色三步高 **23.9% → 31.4%**（与本仓 OMC restore-gebu 63z **31.1%** 同量级）；流局 **2.18%** 仍落在 ~2.5% 目标带附近；副露 **59.7%** 与 restore-gebu **59.3%** 几乎贴合。半庄相对加速前仍约 **27×**（11.9 vs 324.5）。
+结论（历史口径）：误加隔步后三色三步高 **23.9% → 31.4%**（接近 OMC restore-gebu 63z **31.1%**）；该提升来自隔步误改，**回退后按现行规则仍为仅连步口径（约 23.9%）**。流局 **2.18%** 仍落在 ~2.5% 目标带附近；副露 **59.7%** 与 restore-gebu **59.3%** 几乎贴合。半庄相对加速前仍约 **27×**（11.9 vs 324.5）。
 
 ### 历史：修隔步前 63（死一向听拒鸣后 · 仅连步）
 
-旧 `guobiao_heuristic_drawrate63_result.json` / 下文数字为**修隔步三色 hepai 之前**样本，**不可**当作现行金标。流局 2.38%、副露 58.2%、三色 **23.9%**、半庄 12.1 s、串行总墙钟 1927 s；主番见上表「修前」列。当时误判三色偏低，接近人类参考 ~25%，实为检番漏隔步。
+旧 `guobiao_heuristic_drawrate63_result.json` / 下文数字为**修隔步三色 hepai 之前**样本，即**仅连步口径**，与现行规则一致（隔步误改已回退）。流局 2.38%、副露 58.2%、三色 **23.9%**、半庄 12.1 s、串行总墙钟 1927 s；主番见上表「修前」列。当时“三色偏低”的判断基于 OMC 隔步口径，按国标仅连步规则并不偏低。
 
 ## 未竟项
 
 1. ~~本 10 种子流局 **1.25%**……~~ → 修前 63：**2.38%**；修后 63：**2.18%**——均在 ~2.5% 目标带附近；10 种子偏低属噪声。
-2. 假想番 vs OMC 逐番：Unity `Chinese_Hepai_Check` 与 OMC `getGuobiaoFanScore` 在多拆解/阻挡上大体同构；`hepai_check` way 拷贝已补；**隔步三色**已补（连步+隔步）。claimed fans strip 仅组队抢番局有意义，自由桌空集。
+2. 假想番 vs OMC 逐番：Unity `Chinese_Hepai_Check` 与 OMC `getGuobiaoFanScore` 在多拆解/阻挡上大体同构；`hepai_check` way 拷贝已补。**注意**：OMC 口径含隔步三色，与本仓国标仅连步规则不一致，逐番对比时三色三步高以本仓规则为准。claimed fans strip 仅组队抢番局有意义，自由桌空集。
 3. 保持 memo/剪枝/`specials=True`/print→debug；不要拆加速。
-4. 副露率 Unity 修后 63qz **~60%** vs OMC 长样本 **69%** 仍有差距（与 restore-gebu 63z **59.3%** 已对齐）；三色三步热度修后 **~31%**（贴近 restore-gebu / 低于长样本 34%）。
+4. 副露率 Unity 修后 63qz **~60%** vs OMC 长样本 **69%** 仍有差距（与 restore-gebu 63z **59.3%** 已对齐）；三色三步热度“修后 **~31%**”为隔步误改口径，回退后按仅连步规则约为 **24%**（贴近人类参考 ~25%）。
 
 ## 生产缓存与机器人执行器
 

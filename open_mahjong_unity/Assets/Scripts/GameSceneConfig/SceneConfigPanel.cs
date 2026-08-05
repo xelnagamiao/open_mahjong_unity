@@ -23,11 +23,32 @@ public class SceneConfigPanel : MonoBehaviour
         tableClothPanel.gameObject.SetActive(false);
         tableEdgePanel.gameObject.SetActive(false);
         characterPanel.gameObject.SetActive(false);
-        CardBackConfigPanel.EnsureCreated(transform);
+        CardBackConfigPanel.AttachToScenePanel(transform);
         cardBackPanel = GetComponentInChildren<CardBackConfigPanel>(true);
         if (cardBackPanel != null) cardBackPanel.HidePanel();
+        HookCardBackButton();
         RandomTableButton.HookExistingButton();
+#if UNITY_EDITOR
+        CardBackEditorDragReceiver.EnsureOnRoot(gameObject);
+#endif
         ShowTableClothPanel();
+    }
+
+    /// <summary>把场景里手工画好的“牌背”导航按钮挂到面板切换逻辑上。</summary>
+    private void HookCardBackButton()
+    {
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            if (button == null || button.gameObject == null) continue;
+            string name = button.gameObject.name;
+            if (string.IsNullOrEmpty(name)) continue;
+            if (!name.Contains("CardBack") && !name.Contains("牌背")) continue;
+            if (cardBackPanel != null && button.transform.IsChildOf(cardBackPanel.transform)) continue;
+            button.onClick.RemoveListener(ShowCardBackPanel);
+            button.onClick.AddListener(ShowCardBackPanel);
+            return;
+        }
     }
 
     private void ShowTableClothPanel() {

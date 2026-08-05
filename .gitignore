@@ -58,6 +58,15 @@ open_mahjong_web/.env
 open_mahjong_web/.env.local
 open_mahjong_web/.env.*.local
 
+# Ignore built Vue static files under dist, keep placeholder md files
+open_mahjong_web/client/dist/*
+!open_mahjong_web/client/dist/android-game/
+!open_mahjong_web/client/dist/android-game/*
+!open_mahjong_web/client/dist/ios-game/
+!open_mahjong_web/client/dist/ios-game/*
+!open_mahjong_web/client/dist/unity-game/
+!open_mahjong_web/client/dist/unity-game/*
+
 # 不忽略.gitignore
 !.gitignore
 

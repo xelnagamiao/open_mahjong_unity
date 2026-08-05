@@ -7,8 +7,7 @@ subset of every hand for each draw, discard, claim prompt, and tips snapshot.
 from __future__ import annotations
 
 from functools import lru_cache
-from itertools import combinations
-from typing import Callable, Iterable, Iterator
+from typing import Callable, Iterable
 
 from .tile import HongqueTile, full_deck
 
@@ -76,10 +75,6 @@ for _group_mask in GROUP_MASKS:
 GROUPS_BY_TILE: tuple[tuple[int, ...], ...] = tuple(
     tuple(groups) for groups in _groups_by_tile
 )
-NUMBER_MASKS: tuple[int, ...] = tuple(
-    sum(_tile_mask(colour, number) for colour in range(14))
-    for number in range(1, 10)
-)
 
 
 def mask_from_codes(codes: Iterable[str]) -> int:
@@ -138,26 +133,8 @@ def partitions_from_codes(codes: Iterable[str]) -> list[list[list[str]]]:
     ]
 
 
-def _same_number_pair_masks(mask: int) -> Iterator[int]:
-    for number_mask in NUMBER_MASKS:
-        number_tiles = mask & number_mask
-        bits: list[int] = []
-        while number_tiles:
-            bit = number_tiles & -number_tiles
-            bits.append(bit)
-            number_tiles ^= bit
-        for left, right in combinations(bits, 2):
-            yield left | right
-
-
 def is_winning_mask(mask: int, *, has_open_group: bool) -> bool:
-    if can_partition_mask(mask) and (mask != 0 or has_open_group):
-        return True
-    for pair_mask in _same_number_pair_masks(mask):
-        remainder = mask ^ pair_mask
-        if can_partition_mask(remainder) and (remainder != 0 or has_open_group):
-            return True
-    return False
+    return can_partition_mask(mask) and (mask != 0 or has_open_group)
 
 
 def _partition_checker_within(container_mask: int) -> Callable[[int], bool]:
@@ -192,20 +169,15 @@ def _partition_checker_within(container_mask: int) -> Callable[[int], bool]:
 def waiting_mask(hand_mask: int, *, used_mask: int, has_open_group: bool) -> int:
     """Return exact tiles which complete ``hand_mask`` in one draw.
 
-    The completed tile either belongs to one indexed legal group or is the
-    second tile of the optional same-number head used by this prototype.
+    The completed tile must make every hand tile belong to a legal group
+    (three or more tiles); same-number pair heads are not a winning shape.
     """
     available_mask = FULL_DECK_MASK & ~used_mask
     can_partition_subset = _partition_checker_within(hand_mask)
 
     @lru_cache(maxsize=None)
     def accepts_group_remainder(mask: int) -> bool:
-        if can_partition_subset(mask):
-            return True
-        return any(
-            can_partition_subset(mask ^ pair)
-            for pair in _same_number_pair_masks(mask)
-        )
+        return can_partition_subset(mask)
 
     waits = 0
     for group_mask in GROUP_MASKS:
@@ -216,18 +188,6 @@ def waiting_mask(hand_mask: int, *, used_mask: int, has_open_group: bool) -> int
             continue
         if accepts_group_remainder(hand_mask ^ overlap):
             waits |= group_mask ^ overlap
-
-    # The drawn tile may instead complete the optional same-number head.  A
-    # pair by itself is not a winning hand unless an exposed group already
-    # exists, matching win_check's prototype extension.
-    remaining = hand_mask
-    while remaining:
-        bit = remaining & -remaining
-        remainder = hand_mask ^ bit
-        if can_partition_subset(remainder) and (remainder != 0 or has_open_group):
-            number = HongqueTile.parse(DECK[bit.bit_length() - 1]).number
-            waits |= NUMBER_MASKS[number - 1]
-        remaining ^= bit
 
     return waits & available_mask
 
@@ -265,12 +225,7 @@ def waiting_masks_after_discards(
 
     @lru_cache(maxsize=None)
     def accepts_group_remainder(mask: int) -> bool:
-        if can_partition_subset(mask):
-            return True
-        return any(
-            can_partition_subset(mask ^ pair)
-            for pair in _same_number_pair_masks(mask)
-        )
+        return can_partition_subset(mask)
 
     hand_size = hand_mask.bit_count()
     for group_mask in GROUP_MASKS:
@@ -290,20 +245,6 @@ def waiting_masks_after_discards(
             if accepts_group_remainder(remainder):
                 waits_by_discard[discard_bit] |= missing
             eligible_discards ^= discard_bit
-
-    # The completing tile can instead form the optional same-number head.
-    for discard_bit in discard_bits:
-        concealed = hand_mask ^ discard_bit
-        pair_anchor_bits = concealed
-        while pair_anchor_bits:
-            anchor_bit = pair_anchor_bits & -pair_anchor_bits
-            remainder = concealed ^ anchor_bit
-            if can_partition_subset(remainder) and (remainder != 0 or has_open_group):
-                number = HongqueTile.parse(
-                    DECK[anchor_bit.bit_length() - 1]
-                ).number
-                waits_by_discard[discard_bit] |= NUMBER_MASKS[number - 1]
-            pair_anchor_bits ^= anchor_bit
 
     for discard_bit in discard_bits:
         waits_by_discard[discard_bit] &= available_mask

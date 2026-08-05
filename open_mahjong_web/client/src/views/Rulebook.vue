@@ -193,6 +193,20 @@ const rules = [
         filename: '古典麻将规则.pdf'
       }
     ]
+  },
+  {
+    key: 'hongque',
+    label: '虹雀²',
+    description: '虹雀² v1.6 规则书，介绍牌面、行牌流程、吃碰杠和、补牌及计分规则。',
+
+    docs: [
+      {
+        title: '虹雀² v1.6 规则书',
+        desc: '虹雀² v1.6 完整规则说明。',
+        url: '/rulebooks/hongque-v1.6.pdf',
+        filename: '虹雀² v1.6.pdf'
+      }
+    ]
   }
 ]
 

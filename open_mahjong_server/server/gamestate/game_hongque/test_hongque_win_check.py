@@ -18,18 +18,21 @@ def test_exposed_groups_with_no_concealed_tiles_are_complete() -> None:
     assert is_winning_hand([], OPEN_SEQUENCE)
 
 
-def test_same_number_pair_is_a_mahjong_style_head() -> None:
-    decompositions = winning_decompositions(["BX5", "CY5"], OPEN_SEQUENCE)
-    assert decompositions
-    assert any(set(item["pair"]) == {"BX5", "CY5"} for item in decompositions)
+def test_same_number_pair_is_not_a_winning_shape() -> None:
+    # Rulebook 5.1.1: every tile must belong to a group; a same-number pair
+    # left outside every group is not a winning shape.
+    assert not is_winning_hand(["BX5", "CY5"], OPEN_SEQUENCE)
+    assert winning_decompositions(["BX5", "CY5"], OPEN_SEQUENCE) == []
 
 
-def test_different_number_pair_is_not_a_head() -> None:
+def test_two_unmatched_tiles_are_not_a_win() -> None:
     assert not is_winning_hand(["BX5", "CY6"], OPEN_SEQUENCE)
 
 
-def test_single_number_wait_lists_every_unused_colour_of_that_number() -> None:
-    waits = waiting_tiles(["BX5"], OPEN_SEQUENCE)
-    assert "CY5" in waits
-    assert "GX5" in waits
+def test_group_completion_wait_lists_tiles_that_form_a_legal_group() -> None:
+    waits = waiting_tiles(["BX4", "BX5"], OPEN_SEQUENCE)
+    assert "BX3" in waits
+    assert "BX6" in waits
     assert "CY6" not in waits
+    # 单一同数字牌只能凑对子，不能组成牌组，因此不是听牌。
+    assert waiting_tiles(["BX5"], OPEN_SEQUENCE) == []

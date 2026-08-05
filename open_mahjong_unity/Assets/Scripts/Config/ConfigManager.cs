@@ -25,15 +25,15 @@ public class ConfigManager : MonoBehaviour {
             // 开发接口地址
             gameUrl = "ws://localhost:8081/game"; // 游戏服务器地址(连接到OMU服务器)
             chatUrl = "ws://localhost:8083/chat"; // 聊天服务器地址(连接到OMUChat服务器)
-            releaseVersion = 19; // 发行版号(验证客户端-服务器版本是否一致)
+            releaseVersion = 20; // 发行版号(验证客户端-服务器版本是否一致)
         } else {
             // 生产环境接口地址
             gameUrl = "wss://salasasa.cn/game";
             chatUrl = "wss://salasasa.cn/chat";
-            releaseVersion = 19;
+            releaseVersion = 20;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.74.2"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.75.5"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -56,7 +56,7 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_MOQIE_SHORTCUT = "MoqieShortcutMode";
     private const string KEY_ASK_OTHER_PASS_SHORTCUT = "AskOtherPassShortcutMode";
     private const string KEY_ASK_OTHER_PASS_SHORTCUT_ORDER_V2 = "AskOtherPassShortcutOrderV2";
-    private const string KEY_TARGET_FRAME_RATE = "TargetFrameRate";
+    private const string KEY_VSYNC_ENABLED = "VsyncEnabled";
     private const string KEY_STREAMER_MODE = "StreamerMode";
     private const string KEY_HAND_CUT_CONFIRM = "HandCutConfirmMode";
     private const string KEY_HAND_SORT_SUIT_ORDER = "HandSortSuitOrderMode";
@@ -93,6 +93,7 @@ public class ConfigManager : MonoBehaviour {
     public int AskOtherPassShortcutMode { get; private set; }
     /// <summary>目标帧率</summary>
     public int TargetFrameRate { get; private set; }
+    public bool VsyncEnabled { get; private set; }
     /// <summary>主播模式：0 关 1 开</summary>
     public bool StreamerModeEnabled { get; private set; }
     /// <summary>两次点击确认出牌：0 关 1 开</summary>
@@ -134,17 +135,11 @@ public class ConfigManager : MonoBehaviour {
     public int VoiceVolume { get; private set; }
     public AppLanguage LanguageMode => _languageMode;
 
-    public static readonly int[] TargetFrameRateOptions = { 60, 90, 120, 180, 220, 300 };
     public static readonly string[] LanguageOptionLabels = { "简体中文", "繁体中文", "English" };
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-    private const int DefaultTargetFrameRate = 60;
-    private const int WebLockedFrameRate = 60;
+    // 帧率全平台统一 60：网页由浏览器 vsync 决定，桌面/安卓由 vSyncCount + targetFrameRate 共同约束。
+    private const int LockedFrameRate = 60;
     public static bool IsTargetFrameRateLocked => true;
-#else
-    private const int DefaultTargetFrameRate = 120;
-    public static bool IsTargetFrameRateLocked => false;
-#endif
 
 #if UNITY_ANDROID && !UNITY_EDITOR
     private const int DefaultHandCutConfirmMode = 1;
@@ -185,13 +180,10 @@ public class ConfigManager : MonoBehaviour {
         TileOutlinePreset = Mathf.Clamp(PlayerPrefs.GetInt(KEY_TILE_OUTLINE_PRESET, 1), 1, 2);
         CardBackColor = LoadCardBackColor();
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
-#if UNITY_WEBGL && !UNITY_EDITOR
-        TargetFrameRate = WebLockedFrameRate;
-#else
-        TargetFrameRate = NormalizeTargetFrameRate(PlayerPrefs.GetInt(KEY_TARGET_FRAME_RATE, DefaultTargetFrameRate));
-#endif
+        VsyncEnabled = PlayerPrefs.GetInt(KEY_VSYNC_ENABLED, 1) == 1;
+        TargetFrameRate = LockedFrameRate;
 
-        QualitySettings.vSyncCount = 0;
+        ApplyVsync();
         ApplyTargetFrameRate();
         Application.runInBackground = true;
         ApplyAntialiasingByPlatform();
@@ -461,23 +453,20 @@ public class ConfigManager : MonoBehaviour {
         }
     }
 
-    public void SetTargetFrameRate(int frameRate) {
-#if UNITY_WEBGL && !UNITY_EDITOR
-        return;
-#else
-        TargetFrameRate = NormalizeTargetFrameRate(frameRate);
-        PlayerPrefs.SetInt(KEY_TARGET_FRAME_RATE, TargetFrameRate);
-        PlayerPrefs.Save();
-        ApplyTargetFrameRate();
-#endif
+    private void ApplyTargetFrameRate() {
+        Application.targetFrameRate = LockedFrameRate;
     }
 
-    private void ApplyTargetFrameRate() {
-#if UNITY_WEBGL && !UNITY_EDITOR
-        Application.targetFrameRate = WebLockedFrameRate;
-#else
-        Application.targetFrameRate = TargetFrameRate;
-#endif
+    /// <summary>垂直同步开关（默认开启；WebGL 由浏览器接管，此设置仅在桌面/安卓生效）。</summary>
+    public void SetVsyncEnabled(bool enabled) {
+        VsyncEnabled = enabled;
+        PlayerPrefs.SetInt(KEY_VSYNC_ENABLED, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+        ApplyVsync();
+    }
+
+    private void ApplyVsync() {
+        QualitySettings.vSyncCount = VsyncEnabled ? 1 : 0;
     }
 
     // Windows / WebGL / iOS / Editor：URP MSAA 4x；Android：MSAA 关 + 相机 FXAA 兜底。
@@ -520,10 +509,4 @@ public class ConfigManager : MonoBehaviour {
         }
     }
 
-    private static int NormalizeTargetFrameRate(int frameRate) {
-        foreach (int option in TargetFrameRateOptions) {
-            if (frameRate == option) return frameRate;
-        }
-        return DefaultTargetFrameRate;
-    }
 }

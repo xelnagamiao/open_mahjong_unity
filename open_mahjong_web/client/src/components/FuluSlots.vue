@@ -27,6 +27,7 @@
       </template>
       <template v-else>
         <el-input
+          :ref="(el) => setInputRef(idx, el)"
           v-model="slot.input"
           :placeholder="hints[idx]"
           size="small"
@@ -63,6 +64,7 @@
 </template>
 
 <script setup>
+import { ref, nextTick } from 'vue'
 import TileChip from './TileChip.vue'
 import { tryParseMeldTiles, FULU_SLOT_HINTS } from '@/composables/useFuluSlots'
 
@@ -73,6 +75,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['activate', 'clear', 'input', 'lock', 'remove-draft', 'remove-locked'])
+const inputRefs = ref([])
+
+const setInputRef = (idx, el) => {
+  inputRefs.value[idx] = el
+}
 
 const draftTiles = (idx) => {
   const tiles = tryParseMeldTiles(props.slots[idx]?.input)
@@ -82,6 +89,10 @@ const draftTiles = (idx) => {
 const onSlotClick = (idx) => {
   if (props.slots[idx].locked) return
   emit('activate', idx)
+  nextTick(() => {
+    const el = inputRefs.value[idx]
+    if (el && typeof el.focus === 'function') el.focus()
+  })
 }
 
 const activate = (idx) => emit('activate', idx)
