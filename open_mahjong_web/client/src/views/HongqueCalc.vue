@@ -32,7 +32,7 @@
           clearable
           @keydown.enter.prevent="calculateScore"
         />
-        <el-button type="primary" size="small" plain :loading="loading" @click="calculateScore">解析</el-button>
+        <el-button type="primary" size="small" plain @click="calculateScore">解析</el-button>
       </div>
 
       <div class="row block">
@@ -86,11 +86,7 @@
       </div>
 
       <div class="result-embed">
-        <div v-if="loading" class="empty">
-          <el-icon class="is-loading" :size="18"><Loading /></el-icon>
-          <span>正在计算...</span>
-        </div>
-        <div v-else-if="!result" class="empty">
+        <div v-if="!result" class="empty">
           <span class="input-target-bar">输入手牌后计算和牌与番数</span>
         </div>
         <div v-else-if="result.mode === 'score'">
@@ -176,8 +172,8 @@
       </div>
 
       <div class="actions">
-        <el-button type="primary" size="default" :loading="loading" @click="calculateScore">计算得分</el-button>
-        <el-button size="default" :loading="loading" @click="calculateDecompose">查看全部拆解</el-button>
+        <el-button type="primary" size="default" @click="calculateScore">计算得分</el-button>
+        <el-button size="default" @click="calculateDecompose">查看全部拆解</el-button>
       </div>
     </section>
   </div>
@@ -186,8 +182,10 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
-import axios from 'axios'
+import {
+  bestWinResult,
+  allWinResults,
+} from '@/game2d/calc/hongque'
 
 const COLOUR_GROUPS = [
   { codePrefix: 'AX', label: '红', colour: 0 },
@@ -230,7 +228,6 @@ function tileShort(code) {
 }
 
 const textInput = ref('')
-const loading = ref(false)
 const result = ref(null)
 
 const form = reactive({
@@ -345,7 +342,7 @@ const buildRequestBody = () => {
   }
 }
 
-const calculateScore = async () => {
+const calculateScore = () => {
   if (!applyTextInput()) return
   let body
   try {
@@ -354,33 +351,27 @@ const calculateScore = async () => {
     ElMessage.error(error.message)
     return
   }
-  loading.value = true
   result.value = null
   try {
-    const resp = await axios.post('/api/mahjong/hongque/score', body)
-    if (!resp.data.success) {
-      ElMessage.error(resp.data.message || '计算失败')
-      return
-    }
-    const data = resp.data.data
+    const score = bestWinResult(body.hand, body.open_melds, {
+      selfDraw: body.self_draw,
+      beforeFirstDiscard: body.before_first_discard,
+      wallEmpty: body.wall_empty,
+    })
     result.value = {
       mode: 'score',
-      is_hepai: data.is_hepai,
-      result: data.result ? {
-        ...data.result,
-        fan_total: data.result.fanTotal,
+      is_hepai: score !== null,
+      result: score ? {
+        ...score,
+        fan_total: score.fanTotal,
       } : null,
     }
-  } catch (err) {
-    console.error(err)
-    const msg = err.response?.data?.message || err.message
-    ElMessage.error(`计算失败：${msg}`)
-  } finally {
-    loading.value = false
+  } catch (error) {
+    ElMessage.error(`计算失败：${error.message}`)
   }
 }
 
-const calculateDecompose = async () => {
+const calculateDecompose = () => {
   if (!applyTextInput()) return
   let body
   try {
@@ -389,29 +380,23 @@ const calculateDecompose = async () => {
     ElMessage.error(error.message)
     return
   }
-  loading.value = true
   result.value = null
   try {
-    const resp = await axios.post('/api/mahjong/hongque/decompose', body)
-    if (!resp.data.success) {
-      ElMessage.error(resp.data.message || '计算失败')
-      return
-    }
-    const data = resp.data.data
+    const decompositions = allWinResults(body.hand, body.open_melds, {
+      selfDraw: body.self_draw,
+      beforeFirstDiscard: body.before_first_discard,
+      wallEmpty: body.wall_empty,
+    })
     result.value = {
       mode: 'decompose',
-      is_hepai: data.is_hepai,
-      decompositions: data.decompositions.map((item) => ({
+      is_hepai: decompositions.length > 0,
+      decompositions: decompositions.map((item) => ({
         ...item,
         fan_total: item.fanTotal,
       })),
     }
-  } catch (err) {
-    console.error(err)
-    const msg = err.response?.data?.message || err.message
-    ElMessage.error(`计算失败：${msg}`)
-  } finally {
-    loading.value = false
+  } catch (error) {
+    ElMessage.error(`计算失败：${error.message}`)
   }
 }
 
