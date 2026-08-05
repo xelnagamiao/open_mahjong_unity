@@ -506,26 +506,35 @@ function scorePartition(
   const consecutive = consecutiveSequenceFan(shapes)
   if (consecutive) fans.push(consecutive)
 
-  const colourCounts = new Map<number, number>()
-  for (const tile of tiles) colourCounts.set(tile.colour, (colourCounts.get(tile.colour) || 0) + 1)
-  const maxColourCount = Math.max(0, ...colourCounts.values())
-  if (maxColourCount === 9) fans.push(entry('九归一', 6))
-  else if (maxColourCount === 7 || maxColourCount === 8) fans.push(entry('七归一', 3))
+  // 花色 = 基础色系（7 族）：AX/AY 同为“红”，BX/BY 同为“橙”，…，
+  // 半色归入其基础纯色所在花色。清一色/双色/三色/光谱/七归一/九归一
+  // 均按花色（7 族）计数；全彩按 14 级全色+半色全部出现计数。
+  const colourCounts = new Map<number, number>() // 14 级（供全彩判定）
+  const familyCounts = new Map<number, number>() // 7 族花色
+  for (const tile of tiles) {
+    colourCounts.set(tile.colour, (colourCounts.get(tile.colour) || 0) + 1)
+    const family = Math.floor(tile.colour / 2)
+    familyCounts.set(family, (familyCounts.get(family) || 0) + 1)
+  }
+  const maxFamilyCount = Math.max(0, ...familyCounts.values())
+  if (maxFamilyCount >= 9) fans.push(entry('九归一', 6))
+  else if (maxFamilyCount >= 7) fans.push(entry('七归一', 3))
 
   const rainbowCount = shapes.filter((shape) => shape.isRainbow).length
   if (rainbowCount >= 2) fans.push(entry('双虹会', 12))
   else if (rainbowCount === 1) fans.push(entry('彩虹', 6))
 
-  const distinctColours = new Set(colourCounts.keys())
-  if (distinctColours.size === 1) {
+  const distinctFamilies = new Set(familyCounts.keys())
+  const distinctLevels = new Set(colourCounts.keys())
+  if (distinctFamilies.size === 1) {
     fans.push(entry('清一色', 18))
-  } else if (distinctColours.size === 14) {
+  } else if (distinctLevels.size === 14) {
     fans.push(entry('全彩', 12))
-  } else if (distinctColours.size === tiles.length) {
+  } else if (distinctFamilies.size === tiles.length) {
     fans.push(entry('光谱', 6))
-  } else if (distinctColours.size === 2) {
+  } else if (distinctFamilies.size === 2) {
     fans.push(entry('双色', 12))
-  } else if (distinctColours.size === 3) {
+  } else if (distinctFamilies.size === 3) {
     fans.push(entry('三色', 6))
   }
   if (tiles.length && tiles.every((tile) => tile.colour % 2 === 0)) fans.push(entry('全纯色', 1))

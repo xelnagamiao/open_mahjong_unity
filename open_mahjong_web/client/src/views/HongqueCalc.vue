@@ -11,7 +11,7 @@
       <h1>虹雀² 和牌计算器</h1>
       <p class="subtitle">
         点击下方牌面添加手牌；点击副露框后，只有能组成合法牌组的牌会高亮可点。
-        手牌 + 副露合计最多 14 张，所有牌必须分成 3 张及以上的合法牌组，无雀头。
+        手牌 + 副露合计 12～14 张，所有牌必须分成 3 张及以上的合法牌组，无雀头。
       </p>
     </div>
 
@@ -277,6 +277,7 @@ const handCountTagType = computed(() => {
   const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
   if (total === 0) return 'warning'
   if (total > MAX_TOTAL_TILES) return 'danger'
+  if (total < 12) return 'warning'
   return total % 3 === 0 ? 'success' : 'warning'
 })
 
@@ -448,6 +449,9 @@ const buildRequestBody = () => {
   const allCodes = [...form.hand, ...openMelds.flatMap((meld) => meld.tiles)]
   if (new Set(allCodes).size !== allCodes.length) {
     throw new Error('手牌与副露存在重复牌')
+  }
+  if (allCodes.length < 12) {
+    throw new Error(`牌数最少 12 张（当前 ${allCodes.length} 张）`)
   }
   return {
     hand: [...form.hand],

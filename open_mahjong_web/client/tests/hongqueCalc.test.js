@@ -117,3 +117,32 @@ test('hongque: meld kind is inferred without open/concealed distinction', () => 
   assert.equal(inferMeldKind(['AX1', 'AY1', 'BX1', 'BY1', 'CX1', 'CY1', 'DX1', 'DY1', 'EX1', 'EY1', 'FX1', 'FY1', 'GX1', 'GY1']).label, '彩虹')
   assert.equal(inferMeldKind(['AX1', 'AX2', 'AY4']), null)
 })
+
+test('hongque: 花色 counts base families (AX/AY are one 花色)', () => {
+  // AX3 AY3 BX3 × 4：花色只有红(AX/AY)与橙(BX)，应为双色；红系 8 张→七归一
+  const result = bestWinResult(
+    ['AX3', 'AY3', 'BX3', 'AX4', 'AY4', 'BX4', 'AX5', 'AY5', 'BX5', 'AX6', 'AY6', 'BX6'],
+    [],
+    flags
+  )
+  assert.ok(result)
+  const names = result.fans.map((fan) => fan.name)
+  assert.ok(names.includes('双色'))
+  assert.ok(names.includes('七归一'))
+  assert.ok(!names.includes('三色'))
+  assert.equal(result.fanTotal, 30)
+  assert.equal(result.points, 240)
+})
+
+test('hongque: short all-same-family hand is 清一色', () => {
+  // AX1..9 + AY1..3 全部属于“红”花色（AX/AY 同族）
+  const result = bestWinResult(
+    ['AX1', 'AX2', 'AX3', 'AX4', 'AX5', 'AX6', 'AX7', 'AX8', 'AX9', 'AY1', 'AY2', 'AY3'],
+    [],
+    flags
+  )
+  assert.ok(result)
+  const names = result.fans.map((fan) => fan.name)
+  assert.ok(names.includes('清一色'))
+  assert.ok(names.includes('九归一'))
+})
