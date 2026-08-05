@@ -10,6 +10,7 @@ Shader "Custom/ThreeDTiles"
         _BackColor ("Back Tint", Color) = (1,1,1,1)
         _BackTexBlend ("Back Texture Blend", Range(0, 1)) = 0
         _BackTilingOffset ("Back Tiling & Offset", Vector) = (1,1,0,0)
+        _BackEdgeColor ("Back Edge Color (背面侧边)", Color) = (0.218, 0.372, 0.66, 1)
 
         _SideTex ("Side Texture (侧面)", 2D) = "white" {}
         _SideColor ("Side Tint", Color) = (1,1,1,1)
@@ -56,7 +57,6 @@ Shader "Custom/ThreeDTiles"
                 float4 _FrontTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
-                float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
                 half _BackTexBlend;
                 half _FrontRotation;
@@ -64,9 +64,12 @@ Shader "Custom/ThreeDTiles"
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
+                // 牌背贴图逐牌 UV 变换（和牌倒牌立牌时翻 180°，对象池回收后复位为默认）
+                UNITY_DEFINE_INSTANCED_PROP(float4, _BackTilingOffset)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _BackColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _SideColor)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _BackEdgeColor)
                 // x = gray scale, y = outline ObjectID
                 UNITY_DEFINE_INSTANCED_PROP(float4, _TileInstanceParams)
             UNITY_INSTANCING_BUFFER_END(TilePerInstance)
@@ -122,12 +125,16 @@ Shader "Custom/ThreeDTiles"
 
                 float4 frontTilingOffset =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontTilingOffset);
+                float4 backTilingOffset =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackTilingOffset);
                 half4 frontColor =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontColor);
                 half4 backColor =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackColor);
                 half4 sideColor =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _SideColor);
+                half4 backEdgeColor =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackEdgeColor);
                 float4 instanceParams =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _TileInstanceParams);
 
@@ -139,7 +146,7 @@ Shader "Custom/ThreeDTiles"
                 }
 
                 half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
-                float2 backUV = input.uvBack * _BackTilingOffset.xy + _BackTilingOffset.zw;
+                float2 backUV = input.uvBack * backTilingOffset.xy + backTilingOffset.zw;
                 // 牌背大面：颜色打底，图片按自身 alpha 叠加在上方（不乘算颜色）。
                 // 无图片时 _BackTexBlend=0，整面为纯 _BackColor。
                 half4 backSample = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV);
@@ -151,8 +158,10 @@ Shader "Custom/ThreeDTiles"
                 // 背侧边顶点色为黑色(RGB 和<1)时显示 _BackColor 底色；
                 // 该写法兼容当前模型(首颜色层 alpha=1)与清理后的 alpha 方案(背侧边仍为黑色)。
                 half backEdgeMask = saturate(1.0h - (input.color.r + input.color.g + input.color.b));
-                half4 col = front * input.color.r + back * input.color.g + side * input.color.b
-                          + backColor * backEdgeMask;
+                // 牌背侧边颜色独立可调：默认与牌背颜色同步，取消同步后单独使用 _BackEdgeColor。
+                half4 col = front * input.color.r + back * input.color.g
+                          + side * input.color.b
+                          + backEdgeColor * backEdgeMask;
 
                 half grayScale = (half)instanceParams.x;
                 if (grayScale > 0.0h)
@@ -250,7 +259,6 @@ Shader "Custom/ThreeDTiles"
                 float4 _FrontTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
-                float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
                 half _FrontRotation;
             CBUFFER_END
@@ -328,7 +336,6 @@ Shader "Custom/ThreeDTiles"
                 float4 _FrontTex_ST;
                 float4 _BackTex_ST;
                 float4 _SideTex_ST;
-                float4 _BackTilingOffset;
                 float4 _SideTilingOffset;
                 half _FrontRotation;
             CBUFFER_END

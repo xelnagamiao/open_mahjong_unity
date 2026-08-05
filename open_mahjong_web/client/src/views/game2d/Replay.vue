@@ -286,9 +286,19 @@
             <button type="button" class="replay-primary-button replay-primary-button--2d" @click="copyShareLink('2d')">
               {{ copiedKind === '2d' ? '链接已复制' : '复制分享链接' }}
             </button>
-            <button type="button" class="replay-primary-button replay-primary-button--3d" @click="copyShareLink('3d')">
-              {{ copiedKind === '3d' ? '已复制' : '复制 3D' }}
-            </button>
+            <div class="replay-share__row">
+              <button
+                type="button"
+                class="replay-primary-button replay-primary-button--node"
+                title="复制当前局数与节点位置链接"
+                @click="copyShareLink('node')"
+              >
+                {{ copiedKind === 'node' ? '已复制' : '复制当前node' }}
+              </button>
+              <button type="button" class="replay-primary-button replay-primary-button--3d" @click="copyShareLink('3d')">
+                {{ copiedKind === '3d' ? '已复制' : '复制 3D' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -418,7 +428,7 @@ const viewerOriginal = ref(0)
 const actionLabel = ref('局初')
 const playing = ref(false)
 const sceneReady = ref(false)
-const copiedKind = ref<'2d' | '3d' | null>(null)
+const copiedKind = ref<'2d' | '3d' | 'node' | null>(null)
 const localRecord = computed(() => isLocalReplayRecord(route.params.gameId))
 const currentScores = ref<number[]>([])
 const showOtherHands = ref(true)
@@ -1386,15 +1396,20 @@ function changeVolume(next: number) {
   scene?.setVolume(volume.value)
 }
 
-async function copyShareLink(kind: '2d' | '3d') {
+async function copyShareLink(kind: '2d' | '3d' | 'node') {
   const gameId = String(detail.value?.game_id || route.params.gameId)
   const path = kind === '3d'
     ? `/game-unity?recordId=${encodeURIComponent(gameId)}`
-    : `/2d/record/${encodeURIComponent(gameId)}`
+    : kind === 'node'
+      ? `/2d/record/${encodeURIComponent(gameId)}?round=${roundIndex.value + 1}&node=${node.value}`
+      : `/2d/record/${encodeURIComponent(gameId)}`
   const url = new URL(path, window.location.origin).toString()
   try {
     await navigator.clipboard.writeText(url)
     copiedKind.value = kind
+    if (kind === 'node') {
+      ElMessage.success(`已复制当前位置链接（第${roundIndex.value + 1}局 node ${node.value}）`)
+    }
     window.setTimeout(() => {
       if (copiedKind.value === kind) copiedKind.value = null
     }, 1800)
@@ -1473,6 +1488,7 @@ async function loadRecord() {
     wallVisible.value = false
     scoreboardOpen.value = false
     settingsOpen.value = false
+    applyDeepLinkPosition()
     await nextTick()
     await mountScene()
     renderPosition()
@@ -1480,6 +1496,24 @@ async function loadRecord() {
     errorMessage.value = error instanceof Error ? error.message : '牌谱读取失败'
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * 分享链接形如 /2d/record/{gameId}?round={第几局，从 1 开始}&node={节点下标，从 0 开始}。
+ * 打开链接时直接跳转到对应局数与节点；参数缺失或越界时回退到开头。
+ */
+function applyDeepLinkPosition() {
+  if (!replay.value) return
+  const rawRound = Number(route.query.round)
+  if (Number.isFinite(rawRound) && rawRound >= 1) {
+    const targetRound = Math.min(replay.value.rounds.length - 1, Math.floor(rawRound) - 1)
+    roundIndex.value = Math.max(0, targetRound)
+  }
+  const rawNode = Number(route.query.node)
+  if (Number.isFinite(rawNode) && rawNode >= 0) {
+    const ticks = replay.value.rounds[roundIndex.value]?.action_ticks ?? []
+    node.value = Math.max(0, Math.min(ticks.length, Math.floor(rawNode)))
   }
 }
 

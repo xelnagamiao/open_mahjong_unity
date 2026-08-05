@@ -5,9 +5,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 牌背设置面板：不再在运行时绘制任何 UI，界面已在场景里手工搭建（CardBackPanel 及其子物体）。
-/// 本组件负责按名字自动查找并挂接事件；Inspector 里手动拖拽的引用优先。
-/// 兼容烘焙进场景的旧版 Text/InputField 与新版 TMP 文本。
+/// 牌背设置面板：只负责牌背颜色与牌背图片。
+/// 界面已在场景里手工搭建（CardBackPanel），本组件按名字自动查找并挂接事件；
+/// Inspector 里手动拖拽的引用优先。牌边设置由独立的 CardEdgePanel 负责。
 /// </summary>
 public class CardBackConfigPanel : MonoBehaviour
 {
@@ -49,7 +49,6 @@ public class CardBackConfigPanel : MonoBehaviour
     [SerializeField] private Button pickImageButton;
     [SerializeField] private Button dropZoneButton;
     [SerializeField] private Button clearImageButton;
-    [SerializeField] private Button closeButton;
 
     // 兼容烘焙进场景的旧版 Text/InputField
     private Text legacyValueR;
@@ -123,7 +122,6 @@ public class CardBackConfigPanel : MonoBehaviour
         if (pickImageButton == null) pickImageButton = FindInChildren<Button>(transform, "PickImageButton");
         if (dropZoneButton == null) dropZoneButton = FindInChildren<Button>(transform, "DropZone");
         if (clearImageButton == null) clearImageButton = FindInChildren<Button>(transform, "ClearImageButton");
-        if (closeButton == null) closeButton = FindInChildren<Button>(transform, "CloseButton");
 
         // 旧版 Text/InputField 兜底（烘焙进场景的旧版面板）
         if (valueR == null) legacyValueR = FindInChildren<Text>(transform, "RValue");
@@ -131,7 +129,6 @@ public class CardBackConfigPanel : MonoBehaviour
         if (valueB == null) legacyValueB = FindInChildren<Text>(transform, "BValue");
         if (hexInput == null) legacyHexInput = FindInChildren<InputField>(transform, "HexInput");
 
-        if (closeButton != null) closeButton.onClick.AddListener(() => gameObject.SetActive(false));
         if (hexApplyButton != null) hexApplyButton.onClick.AddListener(ApplyHex);
         if (restoreButton != null) restoreButton.onClick.AddListener(RestoreDefault);
         if (pickImageButton != null) pickImageButton.onClick.AddListener(OpenFilePicker);
@@ -354,15 +351,15 @@ public class CardBackConfigPanel : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
     public void OnCardBackFileSelected(string data)
     {
-        HandleWebGLFileData(data, saveToPrefs: true);
+        HandleWebGLFileData(data);
     }
 
     public void OnCardBackFileDropped(string data)
     {
-        HandleWebGLFileData(data, saveToPrefs: true);
+        HandleWebGLFileData(data);
     }
 
-    private void HandleWebGLFileData(string data, bool saveToPrefs)
+    private void HandleWebGLFileData(string data)
     {
         if (string.IsNullOrEmpty(data))
         {
@@ -422,7 +419,7 @@ public class CardBackConfigPanel : MonoBehaviour
 
     // ==================== 编辑器拖拽（Project 图片资源）====================
     // 拖拽接收由挂在常驻对象上的 CardBackEditorDragReceiver 处理，
-    // 本方法负责把拖进来的纹理落盘并应用。
+    // 本方法负责把拖进来的纹理落盘并应用为牌背图片。
 
 #if UNITY_EDITOR
     public void ApplyEditorDroppedTexture(Texture2D source)

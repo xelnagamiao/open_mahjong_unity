@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = true;
+    public static bool Debug = false;
 
     public static string webUrl;
     public static string gameUrl;
@@ -33,7 +33,7 @@ public class ConfigManager : MonoBehaviour {
             releaseVersion = 20;
         }
         // 官方服务器链接网址 用于访问转到 （不影响游戏进程）
-        clientVersion = "0.4.75.5"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
+        clientVersion = "0.4.75.6"; // 仅存储 [大版本号.发行版号.开发版本.开发小版本号]
         webUrl = "https://salasasa.cn"; // 访问转到
         mobileDownloadUrl = "https://salasasa.cn/mobile-download"; // Android APK 版本更新下载页
         documentUrl = "https://www.yuque.com/xelnaga-yjcgq/zkwfgr/lusmvid200iez36q?singleDoc#"; // 访问转到
@@ -73,9 +73,17 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_CARD_BACK_COLOR = "CardBackColor";
     private const string KEY_CARD_BACK_IMAGE_PATH = "CardBackImagePath";
     private const string KEY_CARD_BACK_IMAGE_IS_CUSTOM = "CardBackImageIsCustom";
+    private const string KEY_SIDE_COLOR = "SideColor";
+    private const string KEY_BACK_EDGE_COLOR = "BackEdgeColor";
+    private const string KEY_BACK_EDGE_SYNC = "BackEdgeSync";
+    private const string KEY_BACK_EDGE_MODE = "BackEdgeMode";
 
     /// <summary>3D card back default color (same as 3DTile.mat _BackColor).</summary>
     public static readonly Color DefaultCardBackColor = new Color(0.218f, 0.372f, 0.66f, 1f);
+    /// <summary>正面侧边默认颜色（与 3DTile.mat _SideColor 一致，浅灰）。</summary>
+    public static readonly Color DefaultSideColor = new Color(0.7132075f, 0.7132075f, 0.7132075f, 1f);
+    /// <summary>背面侧边默认颜色：默认与牌背颜色同步（跟随 DefaultCardBackColor）。</summary>
+    public static readonly Color DefaultBackEdgeColor = DefaultCardBackColor;
 
     private static AppLanguage _languageMode = AppLanguage.SimplifiedChinese;
     public static event Action OnLanguageChanged;
@@ -120,6 +128,14 @@ public class ConfigManager : MonoBehaviour {
     public int TileOutlinePreset { get; private set; }
     /// <summary>3D card back color (default deep blue).</summary>
     public Color CardBackColor { get; private set; } = DefaultCardBackColor;
+    /// <summary>3D 牌正面侧边颜色（浅灰）。</summary>
+    public Color SideColor { get; private set; } = DefaultSideColor;
+    /// <summary>3D 牌背面侧边颜色：BackEdgeSyncEnabled 开启时跟随牌背颜色。</summary>
+    public Color BackEdgeColor { get; private set; } = DefaultBackEdgeColor;
+    /// <summary>背面侧边颜色是否与牌背颜色同步（默认开启）。</summary>
+    public bool BackEdgeSyncEnabled { get; private set; } = true;
+    /// <summary>背面边缘颜色模式：独立 / 跟随牌背 / 跟随正面边缘。</summary>
+    public CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
 
     public static readonly string[] TileOutlinePresetLabels = {
         "预设1",
@@ -179,6 +195,11 @@ public class ConfigManager : MonoBehaviour {
         MeldSpacingEnabled = PlayerPrefs.GetInt(KEY_MELD_SPACING_ENABLED, 0) == 1;
         TileOutlinePreset = Mathf.Clamp(PlayerPrefs.GetInt(KEY_TILE_OUTLINE_PRESET, 1), 1, 2);
         CardBackColor = LoadCardBackColor();
+        SideColor = LoadSideColor();
+        BackEdgeColor = LoadBackEdgeColor();
+        BackEdgeSyncEnabled = PlayerPrefs.GetInt(KEY_BACK_EDGE_SYNC, 1) == 1;
+        BackEdgeMode = (CardEdgePanel.BackEdgeMode)Mathf.Clamp(
+            PlayerPrefs.GetInt(KEY_BACK_EDGE_MODE, BackEdgeSyncEnabled ? 1 : 0), 0, 2);
         TileIdOrder.SetSortRule(HandSortSuitOrderMode, HandSortHonorOrderMode, HandSortDragonOrderMode, HandSortRiichiDragonOrderMode);
         VsyncEnabled = PlayerPrefs.GetInt(KEY_VSYNC_ENABLED, 1) == 1;
         TargetFrameRate = LockedFrameRate;
@@ -268,6 +289,38 @@ public class ConfigManager : MonoBehaviour {
         PlayerPrefs.Save();
     }
 
+    /// <summary>Set and persist the 3D front-side edge color.</summary>
+    public void SetSideColor(Color color) {
+        SideColor = color;
+        PlayerPrefs.SetString(KEY_SIDE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>Set and persist the 3D back-side edge color.</summary>
+    public void SetBackEdgeColor(Color color) {
+        BackEdgeColor = color;
+        PlayerPrefs.SetString(KEY_BACK_EDGE_COLOR, ColorUtility.ToHtmlStringRGBA(color));
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>Set and persist whether the back-side edge color syncs with the card back color.</summary>
+    public void SetBackEdgeSyncEnabled(bool enabled) {
+        BackEdgeSyncEnabled = enabled;
+        BackEdgeMode = enabled ? CardEdgePanel.BackEdgeMode.FollowBack : CardEdgePanel.BackEdgeMode.Independent;
+        PlayerPrefs.SetInt(KEY_BACK_EDGE_SYNC, enabled ? 1 : 0);
+        PlayerPrefs.SetInt(KEY_BACK_EDGE_MODE, (int)BackEdgeMode);
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>Set and persist the back edge color mode (independent / follow back / follow front).</summary>
+    public void SetBackEdgeMode(CardEdgePanel.BackEdgeMode mode) {
+        BackEdgeMode = mode;
+        BackEdgeSyncEnabled = mode == CardEdgePanel.BackEdgeMode.FollowBack;
+        PlayerPrefs.SetInt(KEY_BACK_EDGE_MODE, (int)mode);
+        PlayerPrefs.SetInt(KEY_BACK_EDGE_SYNC, BackEdgeSyncEnabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
     /// <summary>Get card back image selection.</summary>
     public (string path, bool isCustom) GetSelectedCardBackImage() {
         string path = PlayerPrefs.GetString(KEY_CARD_BACK_IMAGE_PATH, "");
@@ -284,6 +337,28 @@ public class ConfigManager : MonoBehaviour {
             }
         }
         return DefaultCardBackColor;
+    }
+
+    private static Color LoadSideColor() {
+        string hex = PlayerPrefs.GetString(KEY_SIDE_COLOR, "");
+        if (!string.IsNullOrEmpty(hex)) {
+            string normalized = hex.StartsWith("#") ? hex : "#" + hex;
+            if (ColorUtility.TryParseHtmlString(normalized, out Color color)) {
+                return color;
+            }
+        }
+        return DefaultSideColor;
+    }
+
+    private static Color LoadBackEdgeColor() {
+        string hex = PlayerPrefs.GetString(KEY_BACK_EDGE_COLOR, "");
+        if (!string.IsNullOrEmpty(hex)) {
+            string normalized = hex.StartsWith("#") ? hex : "#" + hex;
+            if (ColorUtility.TryParseHtmlString(normalized, out Color color)) {
+                return color;
+            }
+        }
+        return DefaultBackEdgeColor;
     }
 
     public static string GetTitleText(int titleId) {

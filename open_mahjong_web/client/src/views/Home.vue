@@ -383,7 +383,7 @@ const battleLinks = [
 const calcLinks = [
   { to: '/paili', title: '牌理', description: '分析手牌是否听牌，以及听牌的向听数或待牌。', color: '#9b59b6' },
   { to: '/calc/chinese', title: '麻雀计算器', description: '根据手牌、副露、花牌、和牌方式计算番种、得分与全部和牌拆解形态。', color: '#45B7D1' },
-  { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#2d5a46' },
+  { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#c0392b' },
 ]
 
 const toolLinks = [

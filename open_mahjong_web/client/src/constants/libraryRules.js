@@ -307,38 +307,66 @@ export function rulesForSection(sectionKey) {
 
 export const LIBRARY_MATERIALS = [
   {
-    key: 'research',
-    title: '规则资料搜集',
-    short: '研究归档',
-    description: '浏览已收集的规则来源、牌例、历史资料与外部链接。',
-    to: '/rule-research',
+    key: 'materials',
+    title: '其他资料',
+    short: '资料索引',
+    description: '规则资料搜集归档、牌谱与历史资料索引：规则研究、绘图麻雀牌谱与 MIL 资料整理。',
+    to: '/library/materials',
     accent: '#2f6f5e',
-  },
-  {
-    key: 'drawing-mahjong',
-    title: '《绘图麻雀牌谱》',
-    short: '牌谱资料',
-    description: '传统麻将牌谱与牌例资料，已归档到规则资料搜集。',
-    to: '/rule-research/drawing-mahjong',
-    accent: '#7c3aed',
-  },
-  {
-    key: 'mil-other',
-    title: 'MIL 资料索引',
-    short: 'other/rule',
-    description: '整理 other/rule/inclued_rule 中的 MIL 规则书；已纳入平台的规则仍从 MIL 规则架进入。',
-    to: '/library/guobiao',
-    accent: '#b7791f',
+    links: [
+      {
+        title: '规则资料搜集',
+        desc: '浏览规则研究、牌例与历史资料索引。',
+        to: '/rule-research',
+      },
+      {
+        title: '绘图麻雀牌谱',
+        desc: '传统麻将牌谱与牌例资料。',
+        to: '/rule-research/drawing-mahjong',
+      },
+      {
+        title: 'MIL 资料整理',
+        desc: 'other/rule 中的 MIL 规则书索引。',
+        to: '/library#sec-mil',
+      },
+    ],
   },
 ]
 
 export const LIBRARY_SUBMISSION = [
   {
-    key: 'submit-research',
+    key: 'submit',
     title: '提交规则资料',
     short: '规则研究',
     description: '提交规则书、牌例、来源链接或校订建议，进入规则资料搜集归档。',
-    to: '/rule-research',
+    to: '/library/submit',
     accent: '#9f1239',
+    links: [
+      {
+        title: '前往提交入口',
+        desc: '在规则资料搜集页提交新的规则书、牌例或规则研究资料。',
+        to: '/rule-research',
+      },
+    ],
   },
 ]
+
+// 图书馆讨论区主题（非规则条目的板块）：key -> 显示名
+export const LIBRARY_TOPIC_LABELS = {
+  materials: '其他资料',
+  submit: '提交资料',
+  public: '主讨论区',
+}
+
+export function libraryTopicLabel(key) {
+  const rule = getLibraryRule(key)
+  if (rule) return rule.label
+  return LIBRARY_TOPIC_LABELS[key] || String(key || '')
+}
+
+export function libraryTopicPath(key, postId) {
+  if (key === 'public') {
+    return `/library?topic=public${postId ? `&post=${postId}` : ''}`
+  }
+  return `/library/${key}${postId ? `?post=${postId}` : ''}`
+}

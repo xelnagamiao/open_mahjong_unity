@@ -1,6 +1,6 @@
 <!-- 麻雀图书馆 · 规则条目（资源 + 讨论） -->
 <template>
-  <div v-if="rule" class="rule" :style="{ '--ink': rule.accent }">
+  <div v-if="entry" class="rule" :style="{ '--ink': entry.accent }">
     <div class="rule-bg" aria-hidden="true">
       <div class="grain" />
     </div>
@@ -8,20 +8,20 @@
     <header class="top">
       <router-link class="back" to="/library">← 馆藏目录</router-link>
       <div class="title-block">
-        <p class="eyebrow">RULE ENTRY</p>
-        <h1>{{ rule.label }}</h1>
-        <p class="desc">{{ rule.description }}</p>
+        <p class="eyebrow">{{ isRule ? 'RULE ENTRY' : 'LIBRARY TAG' }}</p>
+        <h1>{{ entry.title || entry.label }}</h1>
+        <p class="desc">{{ entry.description }}</p>
       </div>
     </header>
 
     <main class="body">
       <section class="block resources">
         <div class="block-head">
-          <h2>资源存放区</h2>
-          <span>{{ rule.resources.length }} 份</span>
+          <h2>资源存放处</h2>
+          <span>{{ (entry.resources?.length || entry.links?.length || 0) }} 项</span>
         </div>
-        <div v-if="rule.resources.length" class="res-grid">
-          <article v-for="doc in rule.resources" :key="doc.url" class="res-card">
+        <div v-if="entry.resources?.length" class="res-grid">
+          <article v-for="doc in entry.resources" :key="doc.url" class="res-card">
             <h3>{{ doc.title }}</h3>
             <p v-if="doc.desc">{{ doc.desc }}</p>
             <div class="res-actions">
@@ -30,95 +30,20 @@
             </div>
           </article>
         </div>
+        <div v-else-if="entry.links?.length" class="res-grid">
+          <article v-for="link in entry.links" :key="link.to" class="res-card">
+            <h3>{{ link.title }}</h3>
+            <p v-if="link.desc">{{ link.desc }}</p>
+            <div class="res-actions">
+              <router-link class="btn primary" :to="link.to">前往</router-link>
+            </div>
+          </article>
+        </div>
         <p v-else class="empty">暂无 PDF 资源，可在讨论区补充说明。</p>
       </section>
 
       <section class="block forum">
-        <div class="block-head">
-          <h2>讨论区</h2>
-          <span>最新更新优先</span>
-        </div>
-
-        <div v-if="isLoggedIn" class="composer">
-          <input v-model="newTitle" class="field" maxlength="200" placeholder="标题" />
-          <textarea
-            v-model="newBody"
-            class="field area"
-            rows="3"
-            maxlength="10000"
-            placeholder="问题、牌例或规则讨论…"
-          />
-          <div class="composer-bar">
-            <button
-              type="button"
-              class="btn primary"
-              :disabled="!canSubmitPost || posting"
-              @click="submitPost"
-            >
-              {{ posting ? '发布中…' : '发帖' }}
-            </button>
-          </div>
-        </div>
-        <p v-else class="login-tip">
-          <router-link :to="loginRedirect">登录</router-link>
-          后可发帖与回复
-        </p>
-
-        <div v-if="loadingPosts" class="empty">加载中…</div>
-        <div v-else-if="!posts.length" class="empty">还没有帖子。</div>
-        <div v-else class="posts">
-          <article
-            v-for="post in posts"
-            :key="post.post_id"
-            class="post"
-            :class="{ open: expandedId === post.post_id }"
-          >
-            <button type="button" class="post-head" @click="togglePost(post)">
-              <div class="post-title">
-                <h3>{{ post.title }}</h3>
-                <span class="badge">{{ post.reply_count }} 回复</span>
-              </div>
-              <div class="post-meta">
-                <span>{{ displayAuthor(post) }}</span>
-                <span>更新 {{ formatDate(post.updated_at) }}</span>
-              </div>
-            </button>
-
-            <div v-if="expandedId === post.post_id" class="post-panel">
-              <p class="body-text">{{ post.body }}</p>
-
-              <div v-if="detailLoading && detailPostId === post.post_id" class="empty">加载回复…</div>
-              <div v-else-if="detailPostId === post.post_id" class="replies">
-                <div v-if="!replies.length" class="empty soft">暂无回复</div>
-                <div v-for="reply in replies" :key="reply.reply_id" class="reply">
-                  <div class="reply-meta">
-                    <strong>{{ displayAuthor(reply) }}</strong>
-                    <span>{{ formatDate(reply.created_at) }}</span>
-                  </div>
-                  <p class="body-text">{{ reply.body }}</p>
-                </div>
-
-                <div v-if="isLoggedIn" class="reply-box">
-                  <textarea
-                    v-model="replyBody"
-                    class="field area"
-                    rows="2"
-                    maxlength="5000"
-                    placeholder="写下回复…"
-                  />
-                  <button
-                    type="button"
-                    class="btn primary"
-                    :disabled="!replyBody.trim() || replying"
-                    @click="submitReply(post)"
-                  >
-                    {{ replying ? '提交中…' : '回复' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </article>
-        </div>
+        <LibraryDiscussion :topic-key="entry.key" title="讨论区" />
       </section>
     </main>
   </div>
@@ -130,62 +55,34 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import axios from 'axios'
-import { storeToRefs } from 'pinia'
-import { getLibraryRule } from '@/constants/libraryRules'
-import { usePlayerAuthStore } from '@/stores/playerAuth'
-import { getPlayerToken } from '@/api/playerClient'
+import LibraryDiscussion from '@/components/LibraryDiscussion.vue'
+import {
+  getLibraryRule,
+  LIBRARY_MATERIALS,
+  LIBRARY_SUBMISSION,
+} from '@/constants/libraryRules'
 
 const route = useRoute()
-const auth = usePlayerAuthStore()
-const { loaded } = storeToRefs(auth)
-const isLoggedIn = computed(() => auth.isLoggedIn)
 
 const ruleKey = computed(() => String(route.params.rule || ''))
 const rule = computed(() => getLibraryRule(ruleKey.value))
+const specialTag = computed(() => {
+  if (ruleKey.value === 'materials') return LIBRARY_MATERIALS[0] || null
+  if (ruleKey.value === 'submit') return LIBRARY_SUBMISSION[0] || null
+  return null
+})
+const entry = computed(() => rule.value || specialTag.value)
+const isRule = computed(() => !!rule.value)
 
 watch(
-  rule,
-  (r) => {
-    if (r) document.title = `${r.label} · 麻雀图书馆`
+  entry,
+  (e) => {
+    if (e) document.title = `${e.title || e.label} · 麻雀图书馆`
   },
   { immediate: true }
 )
-
-const loginRedirect = computed(
-  () => `/login?redirect=${encodeURIComponent(`/library/${ruleKey.value}`)}`
-)
-
-const posts = ref([])
-const loadingPosts = ref(false)
-const posting = ref(false)
-const newTitle = ref('')
-const newBody = ref('')
-
-const expandedId = ref(null)
-const detailPostId = ref(null)
-const detailLoading = ref(false)
-const replies = ref([])
-const replyBody = ref('')
-const replying = ref(false)
-
-const canSubmitPost = computed(
-  () => newTitle.value.trim().length > 0 && newBody.value.trim().length > 0
-)
-
-function displayAuthor(row) {
-  return row.author_username || (row.author_user_id != null ? `用户${row.author_user_id}` : '匿名')
-}
-
-function formatDate(v) {
-  if (!v) return ''
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return String(v)
-  return d.toLocaleString('zh-CN', { hour12: false })
-}
 
 function openInNewTab(url) {
   window.open(url, '_blank')
@@ -201,107 +98,6 @@ function downloadDoc(url, filename) {
   a.click()
   document.body.removeChild(a)
 }
-
-function authHeaders() {
-  const token = getPlayerToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-async function loadPosts() {
-  if (!rule.value) return
-  loadingPosts.value = true
-  try {
-    const res = await axios.get(`/api/library/rules/${rule.value.key}/posts`)
-    posts.value = res.data?.data?.items || []
-  } catch {
-    posts.value = []
-    ElMessage.error('加载讨论区失败')
-  } finally {
-    loadingPosts.value = false
-  }
-}
-
-async function submitPost() {
-  if (!canSubmitPost.value || !rule.value) return
-  posting.value = true
-  try {
-    await axios.post(
-      `/api/library/rules/${rule.value.key}/posts`,
-      { title: newTitle.value.trim(), body: newBody.value.trim() },
-      { headers: authHeaders() }
-    )
-    newTitle.value = ''
-    newBody.value = ''
-    ElMessage.success('发帖成功')
-    await loadPosts()
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '发帖失败')
-  } finally {
-    posting.value = false
-  }
-}
-
-async function togglePost(post) {
-  if (expandedId.value === post.post_id) {
-    expandedId.value = null
-    return
-  }
-  expandedId.value = post.post_id
-  replyBody.value = ''
-  await loadPostDetail(post.post_id)
-}
-
-async function loadPostDetail(postId) {
-  detailPostId.value = postId
-  detailLoading.value = true
-  replies.value = []
-  try {
-    const res = await axios.get(`/api/library/posts/${postId}`)
-    replies.value = res.data?.data?.replies || []
-    const fresh = res.data?.data?.post
-    if (fresh) {
-      const idx = posts.value.findIndex((p) => p.post_id === postId)
-      if (idx >= 0) posts.value[idx] = { ...posts.value[idx], ...fresh }
-    }
-  } catch {
-    ElMessage.error('加载回复失败')
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-async function submitReply(post) {
-  const text = replyBody.value.trim()
-  if (!text) return
-  replying.value = true
-  try {
-    await axios.post(
-      `/api/library/posts/${post.post_id}/replies`,
-      { body: text },
-      { headers: authHeaders() }
-    )
-    replyBody.value = ''
-    ElMessage.success('回复成功')
-    await loadPosts()
-    expandedId.value = post.post_id
-    await loadPostDetail(post.post_id)
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '回复失败')
-  } finally {
-    replying.value = false
-  }
-}
-
-watch(ruleKey, () => {
-  expandedId.value = null
-  replies.value = []
-  loadPosts()
-})
-
-onMounted(() => {
-  if (!loaded.value) auth.fetchMe()
-  loadPosts()
-})
 </script>
 
 <style scoped>
@@ -509,160 +305,6 @@ onMounted(() => {
   color: var(--ink-soft);
 }
 
-.empty.soft {
-  margin-bottom: 8px;
-}
-
-.login-tip {
-  margin: 0 0 14px;
-  font-size: 13px;
-  color: var(--ink-soft);
-}
-
-.login-tip a {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.composer {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid var(--line);
-}
-
-.field {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--ink-base);
-  font: inherit;
-  font-size: 13px;
-  padding: 8px 10px;
-  outline: none;
-}
-
-.field:focus {
-  border-color: var(--ink);
-}
-
-.field.area {
-  resize: vertical;
-  min-height: 72px;
-  line-height: 1.5;
-}
-
-.composer-bar {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.posts {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.post {
-  background: rgba(255, 255, 255, 0.48);
-  border: 1px solid var(--line);
-  transition: border-color 0.15s ease;
-}
-
-.post.open {
-  border-color: color-mix(in srgb, var(--ink) 45%, var(--line));
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.post-head {
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  padding: 12px 14px;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-
-.post-head:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.post-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-  margin-bottom: 4px;
-}
-
-.post-title h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 650;
-  line-height: 1.35;
-}
-
-.badge {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--ink-soft);
-  background: rgba(16, 40, 32, 0.06);
-  padding: 2px 7px;
-}
-
-.post-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-.post-panel {
-  padding: 0 14px 14px;
-  border-top: 1px solid var(--line);
-}
-
-.body-text {
-  margin: 10px 0;
-  font-size: 13px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.reply {
-  padding: 8px 0;
-  border-top: 1px dashed var(--line);
-}
-
-.reply-meta {
-  display: flex;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-.reply-meta strong {
-  color: var(--ink-base);
-}
-
-.reply-box {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
 .missing {
   min-height: 100vh;
   display: grid;
@@ -693,9 +335,6 @@ onMounted(() => {
 @supports not (background: color-mix(in srgb, red 10%, white)) {
   .rule-bg {
     background: linear-gradient(180deg, #e8f1eb 0%, #dfeae4 100%);
-  }
-  .post.open {
-    border-color: #7aa892;
   }
 }
 </style>

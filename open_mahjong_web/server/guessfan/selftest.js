@@ -1,7 +1,7 @@
 /**
  * 猜番对抗 compare 用例自测（Node CJS）
  */
-const { GUESS_FAN_BY_ID, findFanByName } = require('./catalog')
+const { GUESS_FAN_BY_ID, findFanByName, rollFanValue } = require('./catalog')
 const { compareGuess } = require('./compare')
 const {
   MATCH_OPENING_COUNTDOWN_MS,
@@ -186,6 +186,35 @@ run('15. 双龙会与两规则平和均为条件系', () => {
       `${id}=${fan.types.join('、')}`,
     )
   }
+})
+
+run('16. 食下役抽题一律取门清主番数', () => {
+  const cases = [
+    ['riichi:chanta', 2],
+    ['riichi:ittsu', 2],
+    ['riichi:sanshoku', 2],
+    ['riichi:junchan', 3],
+    ['riichi:honitsu', 3],
+    ['riichi:chinitsu', 6],
+  ]
+  for (const [id, expected] of cases) {
+    const fan = GUESS_FAN_BY_ID[id]
+    for (let i = 0; i < 50; i++) {
+      const rolled = rollFanValue(fan)
+      assert(String(rolled) === String(expected), `${id} roll=${rolled} expected=${expected}`)
+      if (String(rolled) !== String(expected)) return
+    }
+  }
+})
+
+run('17. 答案纯全带(3番)：猜混全带黄、混一色绿、自身绿', () => {
+  const answer = GUESS_FAN_BY_ID['riichi:junchan']
+  const r1 = compareGuess({ answer, rolledFan: 3, guess: GUESS_FAN_BY_ID['riichi:chanta'] })
+  assert(r1.fan.tone === 'yellow', `chanta fan=${r1.fan.tone}`)
+  const r2 = compareGuess({ answer, rolledFan: 3, guess: GUESS_FAN_BY_ID['riichi:honitsu'] })
+  assert(r2.fan.tone === 'green', `honitsu fan=${r2.fan.tone}`)
+  const r3 = compareGuess({ answer, rolledFan: 3, guess: answer })
+  assert(r3.fan.tone === 'green' && r3.correct, `junchan fan=${r3.fan.tone} correct=${r3.correct}`)
 })
 
 console.log(`\n==== ${passed} passed, ${failed} failed ====`)

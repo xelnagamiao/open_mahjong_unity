@@ -3,33 +3,48 @@ const pool = require('../config/database')
 async function ensureGuessFanTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS guess_fan_ratings (
-      user_id       BIGINT PRIMARY KEY,
+      user_id       BIGINT NOT NULL,
+      rule_set      VARCHAR(16) NOT NULL DEFAULT 'mixed',
       username      VARCHAR(64) NOT NULL,
       wins          INTEGER NOT NULL DEFAULT 0,
       matches       INTEGER NOT NULL DEFAULT 0,
       rating        INTEGER NOT NULL DEFAULT 1000,
       streak        INTEGER NOT NULL DEFAULT 0,
       best_streak   INTEGER NOT NULL DEFAULT 0,
-      updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, rule_set)
     );
   `)
+  // 旧表迁移：补充 rule_set 列并把主键改为 (user_id, rule_set)
+  const column = await pool.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'guess_fan_ratings' AND column_name = 'rule_set'`
+  )
+  if (column.rowCount === 0) {
+    await pool.query(`ALTER TABLE guess_fan_ratings ADD COLUMN rule_set VARCHAR(16) NOT NULL DEFAULT 'mixed'`)
+    await pool.query(`DROP INDEX IF EXISTS idx_guess_fan_ratings_rating`)
+    await pool.query(`ALTER TABLE guess_fan_ratings DROP CONSTRAINT IF EXISTS guess_fan_ratings_pkey`)
+    await pool.query(`ALTER TABLE guess_fan_ratings ADD PRIMARY KEY (user_id, rule_set)`)
+  }
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_guess_fan_ratings_rating
-      ON guess_fan_ratings (rating DESC, wins DESC, matches ASC);
+      ON guess_fan_ratings (rule_set, rating DESC, wins DESC, matches ASC);
   `)
 }
 
 /**
  * @param {number} limit
+ * @param {string} [ruleSet] 排行榜规则集：mixed=国标+立直，riichi=立直
  * @returns {Promise<Array<{userId:string,username:string,wins:number,matches:number,rating:number,streak:number,bestStreak:number,losses:number,winRate:number}>>}
  */
-async function fetchLeaderboardTop(limit = 20) {
+async function fetchLeaderboardTop(limit = 20, ruleSet = 'mixed') {
   const result = await pool.query(
     `SELECT user_id, username, wins, matches, rating, streak, best_streak
      FROM guess_fan_ratings
+     WHERE rule_set = $1
      ORDER BY rating DESC, wins DESC, matches ASC
-     LIMIT $1`,
-    [limit]
+     LIMIT $2`,
+    [ruleSet, limit]
   )
   return result.rows.map((row) => {
     const wins = Number(row.wins) || 0
@@ -55,8 +70,9 @@ async function fetchLeaderboardTop(limit = 20) {
  *   players: Array<{ userId: number|string, username: string }>
  * }} opts
  */
-async function applyMatchRating({ winnerUserId, players }) {
+async function applyMatchRating({ winnerUserId, players, ruleSet = 'mixed' }) {
   if (!Array.isArray(players) || players.length !== 2) return null
+  const rule = String(ruleSet || 'mixed').slice(0, 16)
   const ids = players.map((p) => Number(p.userId))
   if (ids.some((id) => !Number.isFinite(id))) {
     throw new Error('无效的用户 ID')
@@ -71,8 +87,9 @@ async function applyMatchRating({ winnerUserId, players }) {
       `SELECT user_id, username, wins, matches, rating, streak, best_streak
        FROM guess_fan_ratings
        WHERE user_id = ANY($1::bigint[])
+         AND rule_set = $2
        FOR UPDATE`,
-      [ids]
+      [ids, rule]
     )
     const byId = new Map(locked.rows.map((r) => [Number(r.user_id), r]))
 
@@ -109,9 +126,9 @@ async function applyMatchRating({ winnerUserId, players }) {
       row.rating = Math.max(0, row.rating + d)
       await client.query(
         `INSERT INTO guess_fan_ratings
-           (user_id, username, wins, matches, rating, streak, best_streak, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
-         ON CONFLICT (user_id) DO UPDATE SET
+           (user_id, rule_set, username, wins, matches, rating, streak, best_streak, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id, rule_set) DO UPDATE SET
            username = EXCLUDED.username,
            wins = EXCLUDED.wins,
            matches = EXCLUDED.matches,
@@ -119,7 +136,7 @@ async function applyMatchRating({ winnerUserId, players }) {
            streak = EXCLUDED.streak,
            best_streak = EXCLUDED.best_streak,
            updated_at = CURRENT_TIMESTAMP`,
-        [row.userId, row.username, row.wins, row.matches, row.rating, row.streak, row.bestStreak]
+        [row.userId, rule, row.username, row.wins, row.matches, row.rating, row.streak, row.bestStreak]
       )
     }
 
