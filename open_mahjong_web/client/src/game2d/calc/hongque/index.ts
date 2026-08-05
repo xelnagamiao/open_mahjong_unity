@@ -293,17 +293,34 @@ function groupsWithin(mask: bigint): bigint[] {
   return result
 }
 
+/**
+ * 按“组内最小牌”建立索引。锚点递归中当前锚点（未覆盖的最小牌）必属于
+ * 下一组，且该组的最小牌就是锚点，因此只需枚举最小牌==锚点的牌组。
+ * 这既剪掉了与锚点无关的分支，也让同一组合只以固定顺序生成一次
+ * （不再出现“相同组合不同顺序”的重复拆解）。
+ */
+function groupsByMinMask(groupCache: bigint[]): Map<bigint, bigint[]> {
+  const buckets = new Map<bigint, bigint[]>()
+  for (const groupMask of groupCache) {
+    const minBit = groupMask & -groupMask
+    const list = buckets.get(minBit)
+    if (list) list.push(groupMask)
+    else buckets.set(minBit, [groupMask])
+  }
+  return buckets
+}
+
 // ---------------------------------------------------------------------------
 // Winning decomposition (win_check.py)
 // ---------------------------------------------------------------------------
 
-function partitionMasks(mask: bigint, groupCache: bigint[]): bigint[][] {
+function partitionMasks(mask: bigint, buckets: Map<bigint, bigint[]>): bigint[][] {
   if (mask === 0n) return [[]]
   const anchor = mask & -mask
   const results: bigint[][] = []
-  for (const groupMask of groupCache) {
+  for (const groupMask of buckets.get(anchor) || []) {
     if ((groupMask & mask) === groupMask) {
-      for (const tail of partitionMasks(mask ^ groupMask, groupCache)) {
+      for (const tail of partitionMasks(mask ^ groupMask, buckets)) {
         results.push([groupMask, ...tail])
       }
     }
@@ -323,12 +340,17 @@ export function winningDecompositions(hand: string[], openMelds: OpenMeld[] = []
   const results: WinDecomposition[] = []
   const seen = new Set<string>()
   const mask = maskFromCodes(codes)
-  const groupCache = groupsWithin(mask)
+  const buckets = groupsByMinMask(groupsWithin(mask))
 
-  for (const partition of partitionMasks(mask, groupCache)) {
+  for (const partition of partitionMasks(mask, buckets)) {
     if (partition.length || openMelds.length) {
       const groups = partition.map(codesFromMask)
-      const key = JSON.stringify([groups, []])
+      // 组内/组间均按牌码排序，保证同一组合只出现一次
+      const key = JSON.stringify(
+        groups
+          .map((group) => [...group].sort())
+          .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      )
       if (seen.has(key)) continue
       seen.add(key)
       results.push({ groups, pair: [] })

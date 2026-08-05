@@ -134,41 +134,6 @@
           </div>
           <div v-else class="msg-inline">{{ result.message || '该牌型不构成和牌' }}</div>
         </div>
-        <div v-else-if="result.mode === 'decompose'">
-          <div v-if="!result.is_hepai" class="msg-inline">该牌型不能和牌，无可用拆解。</div>
-          <div v-else class="decomp-list">
-            <div class="decomp-summary">
-              共 {{ result.decompositions.length }} 种拆解
-            </div>
-            <div
-              v-for="(item, idx) in result.decompositions"
-              :key="idx"
-              class="decomp-item"
-            >
-              <div class="decomp-header">
-                <span class="decomp-rank">#{{ idx + 1 }}</span>
-                <span class="decomp-score">{{ item.score }} 番</span>
-              </div>
-              <div class="decomp-tiles">
-                <div
-                  v-for="(group, gIdx) in renderDecomposition(item.combinations)"
-                  :key="gIdx"
-                  class="decomp-group"
-                >
-                  <div class="decomp-group-label">{{ group.label }}</div>
-                  <div class="decomp-group-tiles nowrap-scroll">
-                    <TileMiniGlyph v-for="(t, tIdx) in group.tiles" :key="tIdx" :tile-id="t" />
-                  </div>
-                </div>
-              </div>
-              <div class="decomp-fans">
-                <el-tag v-for="(name, fIdx) in item.fan_list" :key="fIdx" size="small" effect="plain">
-                  {{ name }}
-                </el-tag>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="row block">
@@ -184,10 +149,49 @@
         </el-button>
       </div>
     </section>
+
+    <section id="gb-decompose-section" class="decompose-section" v-if="decomposeResult">
+      <div class="decompose-head">
+        <h2>全部拆解</h2>
+        <span class="decompose-count">
+          {{ decomposeResult.is_hepai ? `共 ${decomposeResult.decompositions.length} 种拆解` : '不能和牌，无可用拆解' }}
+        </span>
+      </div>
+      <div v-if="decomposeResult.is_hepai" class="decomp-list">
+        <div
+          v-for="(item, idx) in decomposeResult.decompositions"
+          :key="idx"
+          class="decomp-item"
+        >
+          <div class="decomp-header">
+            <span class="decomp-rank">#{{ idx + 1 }}</span>
+            <span class="decomp-score">{{ item.score }} 番</span>
+          </div>
+          <div class="decomp-tiles">
+            <div
+              v-for="(group, gIdx) in renderDecomposition(item.combinations)"
+              :key="gIdx"
+              class="decomp-group"
+            >
+              <div class="decomp-group-label">{{ group.label }}</div>
+              <div class="decomp-group-tiles nowrap-scroll">
+                <TileMiniGlyph v-for="(t, tIdx) in group.tiles" :key="tIdx" :tile-id="t" />
+              </div>
+            </div>
+          </div>
+          <div class="decomp-fans">
+            <el-tag v-for="(name, fIdx) in item.fan_list" :key="fIdx" size="small" effect="plain">
+              {{ name }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+      <div v-else class="msg-inline">该牌型不能和牌。</div>
+    </section>
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import axios from 'axios'
@@ -227,6 +231,7 @@ const form = reactive({
 
 const loading = ref(false)
 const result = ref(null)
+const decomposeResult = ref(null)
 
 const countMeldTiles = (meld, tileId) => {
   if (!meld) return 0
@@ -427,6 +432,7 @@ const resetAll = () => {
   }
   textInput.value = ''
   result.value = null
+  decomposeResult.value = null
   fulu.resetAll()
 }
 
@@ -490,14 +496,17 @@ const calculateScore = async () => {
 const calculateDecompose = async () => {
   if (!ensureReadyForSubmit()) return
   loading.value = true
-  result.value = null
+  decomposeResult.value = null
   try {
     const resp = await axios.post('/api/mahjong/gb/decompose', await buildRequestBody())
     if (!resp.data.success) {
       ElMessage.error(resp.data.message || '计算失败')
       return
     }
-    result.value = { mode: 'decompose', ...resp.data.data }
+    decomposeResult.value = resp.data.data
+    nextTick(() => {
+      document.getElementById('gb-decompose-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   } catch (err) {
     console.error(err)
     const msg = err.response?.data?.message || err.message
@@ -935,4 +944,36 @@ function renderDecomposition(combinations) {
   margin-bottom: 2px;
 }
 .decomp-fans { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.decompose-section {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--omu-border, #ebeef5);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  scroll-margin-top: 16px;
+}
+
+.decompose-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.decompose-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.decompose-count {
+  font-size: 12.5px;
+  color: #475569;
+  font-weight: 600;
+}
 </style>

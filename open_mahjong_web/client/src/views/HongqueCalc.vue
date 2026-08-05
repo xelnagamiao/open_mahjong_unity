@@ -147,39 +147,6 @@
           </div>
           <div v-else class="msg-inline">该牌型不能构成和牌（所有牌必须全部组成 3 张及以上的合法牌组）。</div>
         </div>
-        <div v-else-if="result.mode === 'decompose'">
-          <div v-if="!result.is_hepai" class="msg-inline">该牌型不能和牌，无可拆分拆解。</div>
-          <div v-else class="decomp-list">
-            <div class="decomp-summary">共 {{ result.decompositions.length }} 种拆解（按分数从高到低）</div>
-            <div
-              v-for="(item, idx) in result.decompositions"
-              :key="idx"
-              class="decomp-item"
-            >
-              <div class="decomp-header">
-                <span class="decomp-rank">#{{ idx + 1 }}</span>
-                <span class="decomp-score">{{ item.points }} 分（{{ item.fan_total }} 番）</span>
-              </div>
-              <div class="decomp-groups">
-                <div v-for="(group, gIdx) in item.groups" :key="gIdx" class="decomp-group">
-                  <span
-                    v-for="code in group"
-                    :key="code"
-                    class="hq-tile hq-tile-sm"
-                    :title="code"
-                  >
-                    <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
-                  </span>
-                </div>
-              </div>
-              <div class="decomp-fans">
-                <el-tag v-for="(fan, fIdx) in item.fans" :key="fIdx" size="small" effect="plain">
-                  {{ fan.name }} ×{{ fan.count }}
-                </el-tag>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="row block">
@@ -210,11 +177,51 @@
         <el-button size="default" @click="calculateDecompose">查看全部拆解</el-button>
       </div>
     </section>
+
+    <section id="hongque-decompose-section" class="decompose-section" v-if="decomposeResult">
+      <div class="decompose-head">
+        <h2>全部拆解</h2>
+        <span class="decompose-count">
+          {{ decomposeResult.is_hepai ? `共 ${decomposeResult.decompositions.length} 种（按分数从高到低）` : '不能和牌，无可拆分拆解' }}
+        </span>
+      </div>
+      <div v-if="decomposeResult.is_hepai" class="decomp-list">
+        <div
+          v-for="(item, idx) in decomposeResult.decompositions"
+          :key="idx"
+          class="decomp-item"
+        >
+          <div class="decomp-header">
+            <span class="decomp-rank">#{{ idx + 1 }}</span>
+            <span class="decomp-score">{{ item.points }} 分（{{ item.fan_total }} 番）</span>
+            <span class="decomp-kind">{{ item.concealed ? '门清' : '副露' }}</span>
+          </div>
+          <div class="decomp-groups">
+            <div v-for="(group, gIdx) in item.groups" :key="gIdx" class="decomp-group">
+              <span
+                v-for="code in group"
+                :key="code"
+                class="hq-tile hq-tile-sm"
+                :title="code"
+              >
+                <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
+              </span>
+            </div>
+          </div>
+          <div class="decomp-fans">
+            <el-tag v-for="(fan, fIdx) in item.fans" :key="fIdx" size="small" effect="plain">
+              {{ fan.name }} ×{{ fan.count }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+      <div v-else class="msg-inline">该牌型不能和牌。</div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   bestWinResult,
@@ -255,6 +262,7 @@ function tileFaceUrl(code) {
 
 const textInput = ref('')
 const result = ref(null)
+const decomposeResult = ref(null)
 const activeMeldIdx = ref(-1)
 
 const form = reactive({
@@ -500,21 +508,23 @@ const calculateDecompose = () => {
     ElMessage.error(error.message)
     return
   }
-  result.value = null
+  decomposeResult.value = null
   try {
     const decompositions = allWinResults(body.hand, body.open_melds, {
       selfDraw: body.self_draw,
       beforeFirstDiscard: body.before_first_discard,
       wallEmpty: body.wall_empty,
     })
-    result.value = {
-      mode: 'decompose',
+    decomposeResult.value = {
       is_hepai: decompositions.length > 0,
       decompositions: decompositions.map((item) => ({
         ...item,
         fan_total: item.fanTotal,
       })),
     }
+    nextTick(() => {
+      document.getElementById('hongque-decompose-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   } catch (error) {
     ElMessage.error(`计算失败：${error.message}`)
   }
@@ -533,6 +543,7 @@ const loadDemo = () => {
   form.wallEmpty = false
   textInput.value = form.hand.join(' ')
   result.value = null
+  decomposeResult.value = null
   activeMeldIdx.value = -1
 }
 
@@ -544,6 +555,7 @@ const resetAll = () => {
   form.wallEmpty = false
   textInput.value = ''
   result.value = null
+  decomposeResult.value = null
   activeMeldIdx.value = -1
 }
 </script>
@@ -929,6 +941,47 @@ const resetAll = () => {
   font-size: 13px;
   font-weight: 700;
   color: #529b2e;
+}
+
+.decomp-kind {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.decompose-section {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 6px 20px rgba(15, 45, 110, 0.25);
+  scroll-margin-top: 16px;
+}
+
+.decompose-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.decompose-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.decompose-count {
+  font-size: 12.5px;
+  color: #475569;
+  font-weight: 600;
 }
 
 .decomp-groups {
