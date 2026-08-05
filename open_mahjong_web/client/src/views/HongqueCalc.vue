@@ -8,7 +8,7 @@
 <template>
   <div class="hongque-calc">
     <div class="page-header">
-      <h1>虹雀² 和牌计算器</h1>
+      <CalculatorSwitcher />
       <p class="subtitle">
         点击下方牌面添加手牌；点击副露框后，只有能组成合法牌组的牌会高亮可点。
         手牌 + 副露合计 12～14 张，所有牌必须分成 3 张及以上的合法牌组，无雀头。
@@ -222,6 +222,7 @@
 <script setup>
 import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import CalculatorSwitcher from '@/components/CalculatorSwitcher.vue'
 import {
   bestWinResult,
   allWinResults,

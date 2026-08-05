@@ -2,7 +2,7 @@
 <template>
   <div class="chinese">
     <div class="page-header">
-      <h1>国标计算器</h1>
+      <CalculatorSwitcher />
       <p class="subtitle">选择 14 张牌（含右侧和牌张）、副露与和牌方式，自动计算番种、得分以及全部和牌拆解形态。</p>
     </div>
 
@@ -195,6 +195,7 @@ import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import axios from 'axios'
+import CalculatorSwitcher from '@/components/CalculatorSwitcher.vue'
 import TileChip from '@/components/TileChip.vue'
 import TilePalette from '@/components/TilePalette.vue'
 import TileMiniGlyph from '@/components/TileMiniGlyph.vue'
