@@ -306,6 +306,18 @@ class TestClaimAdvances(unittest.TestCase):
         self.assertIsNone(plan)
         self.assertEqual(choose_claim(ctx, ["chi_right", "pass"], 15), "pass")
 
+    def test_reject_eat_vomit_chi_concealed_run_to_open_run(self):
+        """吃了吐拦截：手牌已有完整暗顺（如 234），吃进其中一张后手牌仍剩该张，
+        且向听持平 → 等价于暗顺换明副露，结构不变、门清丢失，纯亏 → 拒绝吃。"""
+        # 牌例：man555 man6 pin234 pin888 北北 pin5
+        hand = [15, 15, 15, 16, 22, 23, 24, 28, 28, 28, 44, 44, 25]
+        ctx = _ctx(hand)
+        before = guobiao_shanten(counts_from_tiles(hand), 0)
+        # 用 22 23 吃 24（chi_left），手牌仍剩 24 → 暗顺换明顺，应拒
+        plan = evaluate_claim(ctx, "chi_left", 24, before)
+        self.assertIsNone(plan)
+        self.assertEqual(choose_claim(ctx, ["chi_left", "pass"], 24), "pass")
+
     def test_qidui_protect_passes_pon(self):
         hand = [11, 11, 22, 22, 23, 23, 34, 34, 41, 41, 45, 45, 15]
         ctx = _ctx(hand)
