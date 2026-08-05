@@ -1,7 +1,8 @@
 <!--
   虹雀² 和牌计算器（隐藏测试入口 /hongque-calc）
-  按虹雀² v1.6 规则计算和牌拆解与番数/分数，交互设计参照国标计算器。
-  牌码格式：颜色码 AX/AY/BX/.../GY + 数字 1..9（共 126 张唯一牌）。
+  按虹雀² v1.6 规则计算和牌拆解与番数/分数，交互参照国标计算器。
+  牌面使用 Unity 中的 HQv3.1 贴图（public/game2d-assets/hongque-tiles/）。
+  副露牌组与国标计算器一致：点击牌组框激活，再从牌面点选添加，点牌移除。
   规则要点：所有牌必须且仅能属于一个合法牌组（3 张及以上），无雀头。
 -->
 <template>
@@ -9,8 +10,8 @@
     <div class="page-header">
       <h1>虹雀² 和牌计算器</h1>
       <p class="subtitle">
-        输入牌码（如 AX1 AX2 AX3）或点击下方牌面；所有牌必须分成 3 张及以上的合法牌组，无雀头。
-        副露按整组输入，用于规则开发者校验和牌与算分。
+        点击下方牌面添加手牌；点击副露框再点牌面可加入副露牌组，点牌移除。
+        所有牌必须分成 3 张及以上的合法牌组，无雀头。
       </p>
     </div>
 
@@ -40,17 +41,23 @@
           <span class="row-label">手牌 {{ form.hand.length }} 张</span>
           <el-tag size="small" :type="handCountTagType" effect="plain">{{ handCountText }}</el-tag>
         </div>
-        <div class="hand-row">
-          <div class="hand-bar" :class="{ 'is-empty': form.hand.length === 0 }">
+        <div
+          class="hand-row"
+          :class="{ active: activeMeldIdx < 0 }"
+          @click="activateHand"
+        >
+          <div class="hand-bar">
             <template v-if="form.hand.length">
               <span
                 v-for="(code, idx) in form.hand"
                 :key="'h-' + code"
                 class="hq-tile"
-                :style="tileStyle(code)"
+                :class="{ selected: isInMeld(code) }"
                 :title="code"
-                @click="removeHandTile(idx)"
-              >{{ tileShort(code) }}</span>
+                @click.stop="removeHandTile(idx)"
+              >
+                <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
+              </span>
             </template>
             <span v-else class="empty-hint">点击下方牌面添加手牌，点击手牌移除</span>
           </div>
@@ -59,18 +66,35 @@
 
       <div class="row block">
         <div class="row-line">
-          <span class="row-label">副露牌组（{{ melds.length }}/4，每组至少 3 张）</span>
+          <span class="row-label">副露牌组（{{ activeMelds.length }}/4，每组至少 3 张）</span>
           <el-button type="text" size="small" :disabled="melds.length >= 4" @click="addMeld">+ 添加牌组</el-button>
         </div>
-        <div class="meld-list">
-          <div v-for="(meld, idx) in melds" :key="'m-' + idx" class="meld-slot">
-            <el-input
-              :model-value="meld.text"
-              size="small"
-              placeholder="例：CX7 DX7 EX7"
-              @update:model-value="(v) => onMeldInput(idx, v)"
-            />
-            <el-button size="small" type="danger" plain @click="removeMeld(idx)">删除</el-button>
+        <div class="meld-grid">
+          <div
+            v-for="(meld, idx) in melds"
+            :key="'m-' + idx"
+            class="meld-slot"
+            :class="{ active: activeMeldIdx === idx, filled: meld.codes.length > 0 }"
+            @click="activateMeld(idx)"
+          >
+            <div class="meld-slot-head">
+              <span class="slot-index">#{{ idx + 1 }}</span>
+              <el-button type="danger" link size="small" @click.stop="removeMeld(idx)">删除</el-button>
+            </div>
+            <div class="meld-tiles">
+              <template v-if="meld.codes.length">
+                <span
+                  v-for="code in meld.codes"
+                  :key="code"
+                  class="hq-tile hq-tile-sm"
+                  :title="code"
+                  @click.stop="removeMeldTile(idx, code)"
+                >
+                  <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
+                </span>
+              </template>
+              <span v-else class="empty-hint">点击本框后点牌面添加</span>
+            </div>
           </div>
           <span v-if="melds.length === 0" class="empty-hint">无副露（门清）时无需填写</span>
         </div>
@@ -138,9 +162,10 @@
                     v-for="code in group"
                     :key="code"
                     class="hq-tile hq-tile-sm"
-                    :style="tileStyle(code)"
                     :title="code"
-                  >{{ tileShort(code) }}</span>
+                  >
+                    <img :src="tileFaceUrl(code)" :alt="code" draggable="false" @error="onTileError" />
+                  </span>
                 </div>
               </div>
               <div class="decomp-fans">
@@ -154,19 +179,22 @@
       </div>
 
       <div class="row block">
-        <div class="row-line"><span class="row-label">牌面（点击加入手牌）</span></div>
+        <div class="row-line">
+          <span class="row-label">牌面（点击添加{{ activeMeldIdx >= 0 ? `到副露 #${activeMeldIdx + 1}` : '到手牌' }}）</span>
+        </div>
         <div class="palette">
           <div v-for="group in paletteGroups" :key="group.colour" class="palette-row">
-            <span class="palette-code">{{ group.codePrefix }}</span>
+            <span class="palette-code" :style="{ color: `hsl(${hueOf(group.colour)} 62% 38%)` }">{{ group.codePrefix }}</span>
             <span
               v-for="number in 9"
               :key="number"
               class="hq-tile hq-tile-sm"
-              :class="{ selected: isInHand(group.codePrefix + number) }"
-              :style="tileStyle(group.codePrefix + number)"
+              :class="{ selected: isUsed(group.codePrefix + number) }"
               :title="group.codePrefix + number"
-              @click="addHandTile(group.codePrefix + number)"
-            >{{ number }}</span>
+              @click="onPalettePick(group.codePrefix + number)"
+            >
+              <img :src="tileFaceUrl(group.codePrefix + number)" :alt="group.codePrefix + number" draggable="false" @error="onTileError" />
+            </span>
           </div>
         </div>
       </div>
@@ -187,6 +215,8 @@ import {
   allWinResults,
 } from '@/game2d/calc/hongque'
 
+const TILE_BASE_URL = '/game2d-assets/hongque-tiles/'
+
 const COLOUR_GROUPS = [
   { codePrefix: 'AX', label: '红', colour: 0 },
   { codePrefix: 'AY', label: '红橙', colour: 1 },
@@ -206,29 +236,17 @@ const COLOUR_GROUPS = [
 
 const paletteGroups = COLOUR_GROUPS
 
-// 14 级色相：红→橙→黄→绿→青→蓝→紫→红
 function hueOf(colour) {
   return Math.round((colour / 14) * 360)
 }
 
-function tileStyle(code) {
-  const match = /^([A-G])([XY])([1-9])$/.exec(code)
-  if (!match) return {}
-  const colour = 'ABCDEFG'.indexOf(match[1]) * 2 + (match[2] === 'Y' ? 1 : 0)
-  const hue = hueOf(colour)
-  return {
-    background: `linear-gradient(135deg, hsl(${hue} 62% 82%), hsl(${hue} 58% 70%))`,
-    borderColor: `hsl(${hue} 55% 45%)`,
-    color: `hsl(${hue} 48% 18%)`,
-  }
-}
-
-function tileShort(code) {
-  return code.slice(-1)
+function tileFaceUrl(code) {
+  return `${TILE_BASE_URL}${code}.png`
 }
 
 const textInput = ref('')
 const result = ref(null)
+const activeMeldIdx = ref(-1)
 
 const form = reactive({
   hand: [],
@@ -239,14 +257,15 @@ const form = reactive({
 })
 
 const melds = computed(() => form.melds)
+const activeMelds = computed(() => form.melds.filter((meld) => meld.codes.length > 0))
 
 const handCountText = computed(() => {
-  const total = form.hand.length + form.melds.reduce((sum, meld) => sum + meld.codes.length, 0)
+  const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
   return `共 ${total} 张（手牌 ${form.hand.length} + 副露 ${total - form.hand.length}）`
 })
 
 const handCountTagType = computed(() => {
-  const total = form.hand.length + form.melds.reduce((sum, meld) => sum + meld.codes.length, 0)
+  const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
   if (total === 0) return 'warning'
   return total % 3 === 0 ? 'success' : 'danger'
 })
@@ -268,21 +287,38 @@ const parseCodes = (text) => {
 }
 
 const applyTextInput = () => {
-  if (!textInput.value.trim()) return
+  if (!textInput.value.trim()) return true
   try {
     form.hand = parseCodes(textInput.value)
+    return true
   } catch (error) {
     ElMessage.error(`简写解析失败：${error.message}`)
     return false
   }
-  return true
 }
 
-const isInHand = (code) => form.hand.includes(code)
+const allUsedCodes = computed(() => {
+  const codes = new Set(form.hand)
+  for (const meld of form.melds) {
+    for (const code of meld.codes) codes.add(code)
+  }
+  return codes
+})
+
+const isUsed = (code) => allUsedCodes.value.has(code)
+const isInMeld = (code) => form.melds.some((meld) => meld.codes.includes(code))
+
+const syncTextInput = () => {
+  textInput.value = form.hand.join(' ')
+}
 
 const addHandTile = (code) => {
   if (form.hand.includes(code)) {
     removeHandTile(form.hand.indexOf(code))
+    return
+  }
+  if (isUsed(code)) {
+    ElMessage.warning(`牌 ${code} 已在手牌或副露中`)
     return
   }
   if (form.hand.length >= 21) {
@@ -298,25 +334,54 @@ const removeHandTile = (idx) => {
   syncTextInput()
 }
 
-const syncTextInput = () => {
-  textInput.value = form.hand.join(' ')
+const activateHand = () => {
+  activeMeldIdx.value = -1
 }
 
 const addMeld = () => {
-  form.melds.push({ text: '', codes: [] })
+  if (form.melds.length >= 4) return
+  form.melds.push({ codes: [] })
+  activeMeldIdx.value = form.melds.length - 1
 }
 
 const removeMeld = (idx) => {
   form.melds.splice(idx, 1)
+  if (activeMeldIdx.value >= form.melds.length) activeMeldIdx.value = -1
 }
 
-const onMeldInput = (idx, value) => {
+const activateMeld = (idx) => {
+  activeMeldIdx.value = idx
+}
+
+const addMeldTile = (code) => {
+  const meld = form.melds[activeMeldIdx.value]
+  if (!meld) return
+  if (meld.codes.includes(code)) {
+    removeMeldTile(activeMeldIdx.value, code)
+    return
+  }
+  if (isUsed(code)) {
+    ElMessage.warning(`牌 ${code} 已在手牌或副露中`)
+    return
+  }
+  if (meld.codes.length >= 7) {
+    ElMessage.warning('单个副露牌组最多 7 张')
+    return
+  }
+  meld.codes.push(code)
+}
+
+const removeMeldTile = (idx, code) => {
   const meld = form.melds[idx]
-  meld.text = value
-  try {
-    meld.codes = parseCodes(value)
-  } catch (_) {
-    meld.codes = []
+  const index = meld.codes.indexOf(code)
+  if (index >= 0) meld.codes.splice(index, 1)
+}
+
+const onPalettePick = (code) => {
+  if (activeMeldIdx.value >= 0) {
+    addMeldTile(code)
+  } else {
+    addHandTile(code)
   }
 }
 
@@ -325,9 +390,9 @@ const buildRequestBody = () => {
   for (const meld of form.melds) {
     if (!meld.codes.length) continue
     if (meld.codes.length < 3) {
-      throw new Error(`副露牌组需至少 3 张：${meld.text}`)
+      throw new Error(`副露 #${form.melds.indexOf(meld) + 1} 需至少 3 张，当前 ${meld.codes.length} 张`)
     }
-    openMelds.push({ tiles: meld.codes })
+    openMelds.push({ tiles: [...meld.codes] })
   }
   const allCodes = [...form.hand, ...openMelds.flatMap((meld) => meld.tiles)]
   if (new Set(allCodes).size !== allCodes.length) {
@@ -400,6 +465,11 @@ const calculateDecompose = () => {
   }
 }
 
+const onTileError = (event) => {
+  const img = event.target
+  img.style.opacity = '0.25'
+}
+
 const loadDemo = () => {
   form.hand = parseCodes('AX1 AX2 AX3 BX4 BX5 BX6 CY7 DY7 EY7')
   form.melds = []
@@ -408,6 +478,7 @@ const loadDemo = () => {
   form.wallEmpty = false
   textInput.value = form.hand.join(' ')
   result.value = null
+  activeMeldIdx.value = -1
 }
 
 const resetAll = () => {
@@ -418,14 +489,15 @@ const resetAll = () => {
   form.wallEmpty = false
   textInput.value = ''
   result.value = null
+  activeMeldIdx.value = -1
 }
 </script>
 
 <style scoped>
 .hongque-calc {
-  max-width: 880px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 12px 0 20px;
+  padding: 14px 0 24px;
   box-sizing: border-box;
 }
 
@@ -440,7 +512,7 @@ const resetAll = () => {
   margin: 0 0 6px;
   font-weight: bold;
   color: white;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.35);
 }
 
 .subtitle {
@@ -451,20 +523,20 @@ const resetAll = () => {
 }
 
 .main-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--omu-border, #ebeef5);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(15, 45, 110, 0.25);
 }
 
 .card-header {
   padding: 8px 12px;
-  background: #f5f7fa;
-  border-bottom: 1px solid var(--omu-border, #ebeef5);
+  background: #eff6ff;
+  border-bottom: 1px solid #dbeafe;
   font-size: 13px;
   font-weight: 600;
-  color: var(--omu-text-soft, #606266);
+  color: #1e40af;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -487,12 +559,12 @@ const resetAll = () => {
 .row.block { display: block; }
 
 .row + .row {
-  border-top: 1px dashed var(--omu-border, #ebeef5);
+  border-top: 1px dashed #dbeafe;
 }
 
 .row-label {
   font-size: 12.5px;
-  color: var(--omu-text-soft, #475569);
+  color: #334155;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -506,68 +578,121 @@ const resetAll = () => {
 }
 
 .hand-row {
+  display: flex;
   padding: 6px;
-  background: var(--omu-surface-soft, #f5f7fa);
+  background: #f8fafc;
   border-radius: 6px;
-  border: 1px dashed var(--omu-border, #ebeef5);
-  min-height: 44px;
+  border: 1px dashed #93c5fd;
+  min-height: 52px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.hand-row.active {
+  border-color: #2563eb;
+  border-style: solid;
+  background: #eff6ff;
 }
 
 .hand-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  min-height: 32px;
+  min-height: 40px;
   align-items: center;
+  flex: 1;
 }
 
 .empty-hint {
-  color: var(--omu-text-muted, #94a3b8);
+  color: #94a3b8;
   font-size: 12px;
 }
 
 .hq-tile {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 40px;
+  width: 34px;
+  height: 46px;
   border-radius: 5px;
-  border: 1.5px solid;
-  font-weight: 700;
-  font-size: 15px;
+  overflow: hidden;
+  border: 1.5px solid #cbd5e1;
+  background: white;
   cursor: pointer;
   user-select: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
 }
 
 .hq-tile:hover {
   transform: translateY(-2px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+}
+
+.hq-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .hq-tile-sm {
-  width: 24px;
-  height: 32px;
-  font-size: 12px;
+  width: 28px;
+  height: 38px;
 }
 
 .hq-tile.selected {
-  outline: 2px solid #409eff;
+  outline: 2px solid #2563eb;
   outline-offset: 1px;
 }
 
-.meld-list {
-  display: flex;
-  flex-direction: column;
+.meld-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
 .meld-slot {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px dashed #93c5fd;
+  min-height: 84px;
+  min-width: 0;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.meld-slot.active {
+  border-color: #2563eb;
+  border-style: solid;
+  background: #eff6ff;
+}
+
+.meld-slot.filled {
+  border-style: solid;
+  background: #f0f9ff;
+}
+
+.meld-slot-head {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+}
+
+.slot-index {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.meld-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-content: flex-start;
+  min-height: 44px;
 }
 
 .ways {
@@ -592,15 +717,15 @@ const resetAll = () => {
 .palette-code {
   width: 28px;
   font-size: 11px;
-  font-weight: 600;
-  color: var(--omu-text-soft, #475569);
+  font-weight: 700;
   flex-shrink: 0;
+  text-align: center;
 }
 
 .result-embed {
   padding: 10px 12px;
-  background: #fafbfc;
-  border-top: 1px dashed var(--omu-border, #ebeef5);
+  background: #f8fafc;
+  border-top: 1px dashed #dbeafe;
   min-height: 64px;
 }
 
@@ -608,7 +733,7 @@ const resetAll = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--omu-text-muted, #94a3b8);
+  color: #94a3b8;
   font-size: 13px;
   min-height: 40px;
 }
@@ -659,7 +784,7 @@ const resetAll = () => {
   display: flex;
   gap: 6px;
   font-size: 13px;
-  color: var(--omu-text-soft, #475569);
+  color: #475569;
 }
 
 .score-line strong {
@@ -669,7 +794,7 @@ const resetAll = () => {
 .fan-block h4 {
   margin: 0 0 6px;
   font-size: 13px;
-  color: var(--omu-text-soft, #475569);
+  color: #475569;
 }
 
 .fan-tags {
@@ -691,11 +816,11 @@ const resetAll = () => {
 
 .decomp-summary {
   font-size: 12.5px;
-  color: var(--omu-text-soft, #475569);
+  color: #475569;
 }
 
 .decomp-item {
-  border: 1px solid var(--omu-border, #ebeef5);
+  border: 1px solid #dbeafe;
   border-radius: 8px;
   padding: 8px;
   background: white;
@@ -730,7 +855,7 @@ const resetAll = () => {
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  background: var(--omu-surface-soft, #f5f7fa);
+  background: #f1f5f9;
   border-radius: 5px;
 }
 
@@ -745,6 +870,6 @@ const resetAll = () => {
   padding: 10px 12px;
   display: flex;
   gap: 8px;
-  border-top: 1px dashed var(--omu-border, #ebeef5);
+  border-top: 1px dashed #dbeafe;
 }
 </style>
