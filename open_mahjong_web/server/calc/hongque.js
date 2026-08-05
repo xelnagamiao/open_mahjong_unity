@@ -462,35 +462,38 @@ function scorePartition(concealedPartition, openMelds, pair, flags) {
   const consecutive = consecutiveSequenceFan(shapes)
   if (consecutive) fans.push(consecutive)
 
-  // 花色 = 基础色系（7 族）：AX/AY 同为“红”，BX/BY 同为“橙”，…，
-  // 半色归入其基础纯色所在花色。清一色/双色/三色/光谱/七归一/九归一
-  // 均按花色（7 族）计数；全彩按 14 级全色+半色全部出现计数。
-  const colourCounts = new Map() // 14 级（供全彩判定）
-  const familyCounts = new Map() // 7 族花色
+  // 花色计数：
+  // - 清一色/双色/三色：按“纯色覆盖”计数。纯色牌覆盖 1 个基础色；
+  //   半色牌覆盖相邻 2 个基础色（如 AY=红橙 覆盖 红+橙）。因此
+  //   “红+红橙+橙”（1 12 2）为两种颜色→双色；而“红橙+橙+橙黄”
+  //   （2 23 4）覆盖 红/橙/黄 三种颜色→三色，不是双色。
+  // - 七归一/九归一/光谱/全彩：14 级颜色各自独立计数（7 张 AX 才算
+  //   七归一，AX+AY 不能合并）。
+  const colourCounts = new Map() // 14 级
+  const coveredColours = new Set() // 覆盖的基础纯色
   for (const tile of tiles) {
     colourCounts.set(tile.colour, (colourCounts.get(tile.colour) || 0) + 1)
-    const family = Math.floor(tile.colour / 2)
-    familyCounts.set(family, (familyCounts.get(family) || 0) + 1)
+    for (const base of primaryColours(tile.colour)) coveredColours.add(base)
   }
-  const maxFamilyCount = Math.max(0, ...familyCounts.values())
-  if (maxFamilyCount >= 9) fans.push(entry('九归一', 6))
-  else if (maxFamilyCount >= 7) fans.push(entry('七归一', 3))
+  const maxColourLevelCount = Math.max(0, ...colourCounts.values())
+  if (maxColourLevelCount >= 9) fans.push(entry('九归一', 6))
+  else if (maxColourLevelCount >= 7) fans.push(entry('七归一', 3))
 
   const rainbowCount = shapes.filter((shape) => shape.isRainbow).length
   if (rainbowCount >= 2) fans.push(entry('双虹会', 12))
   else if (rainbowCount === 1) fans.push(entry('彩虹', 6))
 
-  const distinctFamilies = new Set(familyCounts.keys())
-  const distinctLevels = new Set(colourCounts.keys())
-  if (distinctFamilies.size === 1) {
+  const distinctLevels = colourCounts.size
+  const colourCoverCount = coveredColours.size
+  if (colourCoverCount === 1) {
     fans.push(entry('清一色', 18))
-  } else if (distinctLevels.size === 14) {
+  } else if (distinctLevels === 14) {
     fans.push(entry('全彩', 12))
-  } else if (distinctFamilies.size === tiles.length) {
+  } else if (distinctLevels === tiles.length) {
     fans.push(entry('光谱', 6))
-  } else if (distinctFamilies.size === 2) {
+  } else if (colourCoverCount === 2) {
     fans.push(entry('双色', 12))
-  } else if (distinctFamilies.size === 3) {
+  } else if (colourCoverCount === 3) {
     fans.push(entry('三色', 6))
   }
   if (tiles.length && tiles.every((tile) => tile.colour % 2 === 0)) fans.push(entry('全纯色', 1))

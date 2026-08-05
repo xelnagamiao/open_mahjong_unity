@@ -118,8 +118,8 @@ test('hongque: meld kind is inferred without open/concealed distinction', () => 
   assert.equal(inferMeldKind(['AX1', 'AX2', 'AY4']), null)
 })
 
-test('hongque: 花色 counts base families (AX/AY are one 花色)', () => {
-  // AX3 AY3 BX3 × 4：花色只有红(AX/AY)与橙(BX)，应为双色；红系 8 张→七归一
+test('hongque: 双色 counts covered pure colours (1 12 2 pattern)', () => {
+  // AX3 AY3 BX3 × 4：红(AX) + 红橙(AY 覆盖红/橙) + 橙(BX) → 覆盖 {红,橙}=2 → 双色
   const result = bestWinResult(
     ['AX3', 'AY3', 'BX3', 'AX4', 'AY4', 'BX4', 'AX5', 'AY5', 'BX5', 'AX6', 'AY6', 'BX6'],
     [],
@@ -128,14 +128,15 @@ test('hongque: 花色 counts base families (AX/AY are one 花色)', () => {
   assert.ok(result)
   const names = result.fans.map((fan) => fan.name)
   assert.ok(names.includes('双色'))
-  assert.ok(names.includes('七归一'))
   assert.ok(!names.includes('三色'))
-  assert.equal(result.fanTotal, 30)
-  assert.equal(result.points, 240)
+  // 七归一按 14 级独立计数：AX/AY/BX 各 4 张，不合并 → 不计七归一
+  assert.ok(!names.includes('七归一'))
+  assert.equal(result.fanTotal, 27)
+  assert.equal(result.points, 216)
 })
 
-test('hongque: short all-same-family hand is 清一色', () => {
-  // AX1..9 + AY1..3 全部属于“红”花色（AX/AY 同族）
+test('hongque: 七归一/九归一 count 14 levels independently', () => {
+  // AX1..9 为同一级（9 张）→ 九归一；AY 不并入 AX
   const result = bestWinResult(
     ['AX1', 'AX2', 'AX3', 'AX4', 'AX5', 'AX6', 'AX7', 'AX8', 'AX9', 'AY1', 'AY2', 'AY3'],
     [],
@@ -143,6 +144,22 @@ test('hongque: short all-same-family hand is 清一色', () => {
   )
   assert.ok(result)
   const names = result.fans.map((fan) => fan.name)
-  assert.ok(names.includes('清一色'))
   assert.ok(names.includes('九归一'))
+  assert.ok(!names.includes('七归一'))
+  // AX 覆盖红、AY 覆盖红+橙 → 双色（不是清一色）
+  assert.ok(names.includes('双色'))
+  assert.ok(!names.includes('清一色'))
+})
+
+test('hongque: 2 23 4 pattern is not 双色 (covers 3 pure colours)', () => {
+  // BX(橙)+BY(橙黄 覆盖橙/黄)+DX(绿)+DY(绿青 覆盖绿/青) → 覆盖 4 色
+  const result = bestWinResult(
+    ['BX1', 'BX2', 'BX3', 'BY1', 'BY2', 'BY3', 'DX1', 'DX2', 'DX3', 'DY1', 'DY2', 'DY3'],
+    [],
+    flags
+  )
+  assert.ok(result)
+  const names = result.fans.map((fan) => fan.name)
+  assert.ok(!names.includes('双色'))
+  assert.ok(!names.includes('三色'))
 })
