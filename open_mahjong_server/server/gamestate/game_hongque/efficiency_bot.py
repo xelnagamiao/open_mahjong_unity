@@ -283,7 +283,10 @@ def choose_turn_plan(
     last_draw_was_supplement: bool = False,
 ) -> dict:
     """Choose win, supplement, kong extension, or an efficient discard."""
-    if is_winning_hand(hand, open_melds):
+    # 杠和（自摸牌并入明牌即和）并入“和”：直接宣言和牌，不实际移动手牌。
+    if is_winning_hand(hand, open_melds) or any(
+        candidate.get("kind") == "kong_win" for candidate in kong_options
+    ):
         return {"action": "win"}
 
     best_tile, baseline = choose_discard(hand, open_melds, visible_codes, drawn_tile)
@@ -314,15 +317,23 @@ def choose_turn_plan(
         # structural evaluation it is enough to know that an exposed group
         # remains present.
         if is_winning_hand(after, melds_after):
-            rank = (1, 0, 0, len(candidate.get("hand_tiles", ())))
+            rank = (
+                1,
+                0,
+                0,
+                1 if candidate.get("kind") == "kong_win" else 0,
+                len(candidate.get("hand_tiles", ())),
+            )
         else:
             _, value = choose_discard(after, melds_after, visible_codes, None)
-            rank = (0,) + value.rank + (len(candidate.get("hand_tiles", ())),)
+            rank = (0,) + value.rank + (0, len(candidate.get("hand_tiles", ())))
         if best_kong_rank is None or rank > best_kong_rank:
             best_kong, best_kong_rank = candidate, rank
 
     baseline_rank = (0,) + baseline.rank + (0,)
     if best_kong is not None and best_kong_rank is not None and best_kong_rank >= baseline_rank:
+        if best_kong_rank[0] == 1:
+            return {"action": "win"}
         return {"action": "kong", "candidate_id": best_kong.get("id")}
     return {"action": "discard", "tile": best_tile}
 

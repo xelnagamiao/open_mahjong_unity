@@ -182,3 +182,34 @@ def kong_candidates(hand: Sequence[str], open_melds: Sequence[dict]) -> list[dic
                 "tiles": list(shape.tiles),
             })
     return candidates
+
+
+def kong_win_candidates(hand: Sequence[str], open_melds: Sequence[dict]) -> list[dict]:
+    """杠和候选：杠完（把若干手牌并入明牌）后剩余手牌构成和牌型。
+
+    与普通杠不同，杠和是一个完整动作：一次操作同时完成杠牌与摸和，
+    无需先杠再在下一轮宣言和牌。候选 id 带 ``kong_win-`` 前缀，避免与
+    同牌型的普通杠候选混淆（两者可同时下发）。
+    """
+    from .win_check import is_winning_hand
+
+    candidates: list[dict] = []
+    for candidate in kong_candidates(hand, open_melds):
+        rest = list(hand)
+        for code in candidate["hand_tiles"]:
+            if code not in rest:
+                break
+            rest.remove(code)
+        else:
+            melds_after = [dict(meld) for meld in open_melds]
+            melds_after[candidate["meld_index"]]["tiles"] = list(candidate["tiles"])
+            if not is_winning_hand(rest, melds_after):
+                continue
+            candidates.append({
+                "id": f"kong_win-{candidate['meld_index']}-{len(candidates)}",
+                "kind": "kong_win",
+                "meld_index": candidate["meld_index"],
+                "hand_tiles": list(candidate["hand_tiles"]),
+                "tiles": list(candidate["tiles"]),
+            })
+    return candidates

@@ -3,6 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 
+/// <summary>杠和（杠完即和）的杠后状态：摸到的听牌、杠后剩余手牌与扩展后的副露。</summary>
+public sealed class HongqueKongWinOption {
+    public int TileId;
+    public List<int> HandAfterKong;
+    public List<int[]> MeldsAfterKong;
+    public HongqueWinScore Score;
+}
+
 /// <summary>
 /// 虹雀听牌计算：与服务端 game_hongque/group_index.py 对应的位掩码实现。
 /// 126 张唯一牌，用 BigInteger 表示 126 位手牌掩码，静态预生成全部合法组。
@@ -328,5 +336,117 @@ public static class HongqueTenpai {
             bits ^= bit;
         }
         return result;
+    }
+
+    /// <summary>
+    /// 杠和最优听牌：返回“摸到后可直接杠并立即和牌”的每张听牌及其杠后状态。
+    /// 枚举方式与服务端 kong_win_candidates 一致：对每副明牌扫描包含它的合法组
+    /// 超集，超集新增牌中恰好只有一张不在手牌里，且杠完剩余手牌可构成和牌型
+    /// （剩余可为空）。按杠后计分（自摸口径）为每张听牌保留最优杠法。
+    /// </summary>
+    /// <param name="handTileIds">切牌后的手牌（已不含悬停切掉的牌）。</param>
+    /// <param name="meldMasks">自家副露掩码（[flag, tileId] 对）。</param>
+    /// <param name="excludedTileId">已弃/在场不可再摸的牌（如悬停切牌预览的弃牌）。</param>
+    public static Dictionary<int, HongqueKongWinOption> BestKongWinOptions(
+        List<int> handTileIds,
+        List<int[]> meldMasks,
+        int? excludedTileId = null) {
+        Dictionary<int, HongqueKongWinOption> bestByTile =
+            new Dictionary<int, HongqueKongWinOption>();
+        Dictionary<int, HongqueWinScore> bestScoreByTile =
+            new Dictionary<int, HongqueWinScore>();
+        if (handTileIds == null || meldMasks == null || meldMasks.Count == 0) {
+            return bestByTile;
+        }
+        List<string> handCodes = handTileIds
+            .Select(HongqueTileVisual.ToCode)
+            .Where(code => code != null)
+            .ToList();
+        if (handCodes.Count != handTileIds.Count) return bestByTile;
+        BigInteger handMask = MaskFromCodes(handCodes);
+        List<string> usedCodes = new List<string>(handCodes);
+        if (excludedTileId.HasValue) {
+            string excludedCode = HongqueTileVisual.ToCode(excludedTileId.Value);
+            if (excludedCode != null) usedCodes.Add(excludedCode);
+        }
+        foreach (int[] mask in meldMasks) {
+            if (mask == null) continue;
+            for (int i = 1; i < mask.Length; i += 2) {
+                string code = HongqueTileVisual.ToCode(mask[i]);
+                if (code != null) usedCodes.Add(code);
+            }
+        }
+        BigInteger availableMask = FullDeckMask & ~MaskFromCodes(usedCodes);
+
+        foreach (int[] mask in meldMasks) {
+            if (mask == null || mask.Length < 2) continue;
+            List<string> meldCodes = new List<string>();
+            for (int i = 1; i < mask.Length; i += 2) {
+                string code = HongqueTileVisual.ToCode(mask[i]);
+                if (code != null) meldCodes.Add(code);
+            }
+            if (meldCodes.Count < 3) continue;
+            BigInteger meldMask = MaskFromCodes(meldCodes);
+            BigInteger anchorBit = meldMask & -meldMask;
+            int anchorIndex = LowestBitIndex(anchorBit);
+            foreach (BigInteger group in GroupsByTile[anchorIndex]) {
+                if ((group & meldMask) != meldMask) continue;
+                BigInteger extra = group ^ meldMask;
+                if (extra == 0) continue;
+                BigInteger missing = extra & ~handMask;
+                if (BitCount(missing) != 1) continue;
+                if ((missing & availableMask) == 0) continue;
+                BigInteger rest = handMask ^ (extra & handMask);
+                if (rest != 0 && !CanPartitionMask(rest)) continue;
+                int tileId = HongqueTileVisual.FromCode(Deck[LowestBitIndex(missing)]);
+                if (tileId == 0) continue;
+
+                // 构建杠后状态：剩余手牌 + 扩展后的副露掩码（flag 统一 0，计分只读牌 id）。
+                List<int> restTileIds = TileIdsFromMask(rest);
+                List<int[]> meldsAfter = new List<int[]>();
+                foreach (int[] original in meldMasks) {
+                    if (original == null) continue;
+                    if (original != mask) {
+                        meldsAfter.Add(original);
+                        continue;
+                    }
+                    List<int> extended = new List<int>();
+                    BigInteger bits = group;
+                    while (bits != 0) {
+                        BigInteger bit = bits & -bits;
+                        int id = HongqueTileVisual.FromCode(Deck[LowestBitIndex(bit)]);
+                        if (id != 0) extended.Add(id);
+                        bits ^= bit;
+                    }
+                    int[] extendedMask = new int[extended.Count * 2];
+                    for (int j = 0; j < extended.Count; j++) {
+                        extendedMask[j * 2] = 0;
+                        extendedMask[j * 2 + 1] = extended[j];
+                    }
+                    meldsAfter.Add(extendedMask);
+                }
+
+                HongqueWinScore score = HongqueScoring.BestWinResult(
+                    restTileIds, meldsAfter, true, false, false);
+                if (score == null) continue;
+                bool better = !bestScoreByTile.TryGetValue(
+                    tileId, out HongqueWinScore current)
+                    || score.Points > current.Points
+                    || (score.Points == current.Points
+                        && score.FanTotal > current.FanTotal)
+                    || (score.Points == current.Points
+                        && score.FanTotal == current.FanTotal
+                        && score.Base > current.Base);
+                if (!better) continue;
+                bestScoreByTile[tileId] = score;
+                bestByTile[tileId] = new HongqueKongWinOption {
+                    TileId = tileId,
+                    HandAfterKong = restTileIds,
+                    MeldsAfterKong = meldsAfter,
+                    Score = score,
+                };
+            }
+        }
+        return bestByTile;
     }
 }

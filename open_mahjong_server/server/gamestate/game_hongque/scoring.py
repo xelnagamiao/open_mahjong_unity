@@ -28,34 +28,57 @@ def _ordered_tiles(shape: MeldShape) -> list[HongqueTile]:
     return sorted(tiles, key=lambda tile: tile.colour)
 
 
-def _same_shape_fan(shapes: Sequence[MeldShape], base_kind: str, names: dict[int, tuple[str, int]]) -> dict | None:
+def _merge_entries(entries: Sequence[dict]) -> list[dict]:
+    """同名番种合并为一条带 count 的记录（与清顺等按组复计的展示一致）。"""
+    merged: dict[str, dict] = {}
+    for item in entries:
+        name = item["name"]
+        if name in merged:
+            merged[name]["count"] += 1
+            merged[name]["total"] = merged[name]["value"] * merged[name]["count"]
+        else:
+            merged[name] = dict(item)
+    return list(merged.values())
+
+
+def _same_shape_fans(shapes: Sequence[MeldShape], base_kind: str, names: dict[int, tuple[str, int]]) -> list[dict]:
+    """同刻/同顺系列：按“数字形状”分组，组内取最高档（双/三/四）。
+
+    不同分组可以复计：如 AX1-3 与 BX1-3、AX7-9 与 BX7-9 各成一组双同顺，
+    则计 2 组双同顺。规则书“每一组牌至多只能计算同顺/同刻/同花一次”
+    由“组内只取最高档”满足（同组的牌不会同时计入双/三/四两档）。
+    """
     buckets: dict[tuple[int, ...], int] = defaultdict(int)
     for shape in shapes:
         if shape.base_kind != base_kind:
             continue
         key = tuple(sorted(HongqueTile.parse(code).number for code in shape.tiles))
         buckets[key] += 1
-    maximum = max(buckets.values(), default=0)
-    eligible = max((count for count in names if maximum >= count), default=0)
-    if not eligible:
-        return None
-    name, value = names[eligible]
-    return _entry(name, value)
+    entries: list[dict] = []
+    for count in buckets.values():
+        eligible = max((n for n in names if count >= n), default=0)
+        if not eligible:
+            continue
+        name, value = names[eligible]
+        entries.append(_entry(name, value))
+    return _merge_entries(entries)
 
 
-def _same_colour_layout_fan(shapes: Sequence[MeldShape]) -> dict | None:
+def _same_colour_layout_fans(shapes: Sequence[MeldShape]) -> list[dict]:
+    """同花系列：按（长度，花色对应）分组，组内取最高档，不同分组可复计。"""
     buckets: dict[tuple[int, tuple[int, ...]], int] = defaultdict(int)
     for shape in shapes:
         ordered = _ordered_tiles(shape)
         buckets[(len(ordered), tuple(tile.colour for tile in ordered))] += 1
-    maximum = max(buckets.values(), default=0)
-    if maximum >= 4:
-        return _entry("四同花", 12)
-    if maximum >= 3:
-        return _entry("三同花", 6)
-    if maximum >= 2:
-        return _entry("双同花", 2)
-    return None
+    entries: list[dict] = []
+    for count in buckets.values():
+        if count >= 4:
+            entries.append(_entry("四同花", 12))
+        elif count >= 3:
+            entries.append(_entry("三同花", 6))
+        elif count >= 2:
+            entries.append(_entry("双同花", 2))
+    return _merge_entries(entries)
 
 
 def _consecutive_sequence_fan(shapes: Sequence[MeldShape]) -> dict | None:
@@ -139,15 +162,9 @@ def score_partition(
     dragon = _dragon_fan(shapes)
     if dragon:
         fans.append(dragon)
-    same_triplet = _same_shape_fan(shapes, "triplet", {2: ("双同刻", 2), 3: ("三同刻", 6), 4: ("四同刻", 12)})
-    if same_triplet:
-        fans.append(same_triplet)
-    same_sequence = _same_shape_fan(shapes, "sequence", {2: ("双同顺", 2), 3: ("三同顺", 6), 4: ("四同顺", 12)})
-    if same_sequence:
-        fans.append(same_sequence)
-    same_colour = _same_colour_layout_fan(shapes)
-    if same_colour:
-        fans.append(same_colour)
+    fans.extend(_same_shape_fans(shapes, "triplet", {2: ("双同刻", 2), 3: ("三同刻", 6), 4: ("四同刻", 12)}))
+    fans.extend(_same_shape_fans(shapes, "sequence", {2: ("双同顺", 2), 3: ("三同顺", 6), 4: ("四同顺", 12)}))
+    fans.extend(_same_colour_layout_fans(shapes))
     consecutive = _consecutive_sequence_fan(shapes)
     if consecutive:
         fans.append(consecutive)
@@ -220,8 +237,9 @@ def score_partition(
     # 清一数、二数均不计碰碰和。
     if all_triplets and len(numbers) > 2:
         fans.append(_entry("碰碰和", 3))
-    # 平和：仅由顺子构成；虹牌是独立牌组，不计入顺子。
-    if shapes and all(shape.kind == "sequence" for shape in shapes):
+    # 平和：仅由顺子构成。彩虹组本质也是顺子（长顺子），不影响平和；
+    # 因此按 base_kind 判断，彩虹顺子同样计入平和，彩虹刻子（刻子类）不计。
+    if shapes and all(shape.base_kind == "sequence" for shape in shapes):
         fans.append(_entry("平和", 1))
     if len(groups) == 1:
         fans.append(_entry("金龙", 6))

@@ -8,9 +8,14 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
 from .efficiency_bot import choose_claim_plan, choose_turn_plan
-from .rules import call_candidates, classify_meld, kong_candidates
+from .rules import (
+    call_candidates,
+    classify_meld,
+    kong_candidates,
+    kong_win_candidates,
+)
 from .scoring import best_win_result
-from .tenpai_check import waiting_tiles
+from .tenpai_check import kong_win_waiting_tiles, waiting_tiles
 from .tile import HongqueTile, full_deck
 from .win_check import is_winning_hand
 from ..public.ai.bot_executor import run_room_bot_cpu
@@ -288,6 +293,7 @@ class HongqueGameState:
                     self_draw=True,
                     before_first_discard=not any(item.discards for item in self.players),
                     wall_empty=not self.wall,
+                    allow_kong_win=True,
                 )
                 if result is not None:
                     result["winning_hand"] = list(player.hand)
@@ -336,26 +342,15 @@ class HongqueGameState:
             self._record_event("supplement", player=player.index, tile=tile)
             self.message = f"{player.username} 补牌"
         elif action == "kong":
+            if len(player.hand) == 1:
+                # 手牌只剩最后一张时杠后必然空手成和，直接走“和”即可，普通杠不单独成立。
+                raise ValueError("手牌只剩一张时请使用和")
             candidates = kong_candidates(player.hand, player.melds)
             candidate = next((item for item in candidates if item["id"] == candidate_id), None)
             if candidate is None:
                 raise ValueError("杠牌候选无效")
             self._consume_time_bank(player, self.turn_started_at)
-            for code in candidate["hand_tiles"]:
-                player.hand.remove(code)
-            if player.drawn_tile not in player.hand:
-                player.drawn_tile = None
-            claimed_tile = player.melds[candidate["meld_index"]].get("claimed_tile")
-            player.melds[candidate["meld_index"]]["tiles"] = candidate["tiles"]
-            player.melds[candidate["meld_index"]]["kind"] = classify_meld(candidate["tiles"]).kind
-            self._record_event(
-                "kong",
-                player=player.index,
-                tiles=candidate["tiles"],
-                hand_tiles=candidate["hand_tiles"],
-                meld_index=candidate["meld_index"],
-                claimed_tile=claimed_tile,
-            )
+            self._apply_kong(player, candidate)
             self.message = f"{player.username} 杠牌"
         elif action == "win":
             result = best_win_result(
@@ -364,6 +359,7 @@ class HongqueGameState:
                 self_draw=True,
                 before_first_discard=not any(item.discards for item in self.players),
                 wall_empty=not self.wall,
+                allow_kong_win=True,
             )
             if result is None:
                 raise ValueError("当前手牌不能和牌")
@@ -378,6 +374,26 @@ class HongqueGameState:
         await self.broadcast_state()
         self._schedule_turn_timeout()
         self._schedule_bot_if_needed()
+
+    def _apply_kong(self, player: HongquePlayer, candidate: dict) -> None:
+        """把杠/杠和候选中的手牌并入对应明牌，同步手牌、副露与事件。"""
+        for code in candidate["hand_tiles"]:
+            player.hand.remove(code)
+        if player.drawn_tile not in player.hand:
+            player.drawn_tile = None
+        claimed_tile = player.melds[candidate["meld_index"]].get("claimed_tile")
+        player.melds[candidate["meld_index"]]["tiles"] = list(candidate["tiles"])
+        player.melds[candidate["meld_index"]]["kind"] = classify_meld(
+            candidate["tiles"]
+        ).kind
+        self._record_event(
+            "kong",
+            player=player.index,
+            tiles=list(candidate["tiles"]),
+            hand_tiles=list(candidate["hand_tiles"]),
+            meld_index=candidate["meld_index"],
+            claimed_tile=claimed_tile,
+        )
 
     async def _discard_and_open_claim(self, player: HongquePlayer, code: str) -> None:
         """Apply the one authoritative discard transition for humans and bots."""
@@ -998,15 +1014,27 @@ class HongqueGameState:
             return [], []
         actions = ["discard"] if player.hand else []
         candidates: list[dict] = []
-        if is_winning_hand(player.hand, player.melds):
+        # 和牌包括普通拆解与“杠和”拆解（自摸牌并入明牌即和），统一按“和”下发；
+        # 杠和看作普通和牌，不在结算时实际移动手牌。
+        if self._can_self_draw_win(player.hand, player.melds):
             actions.append("win")
-        kong = kong_candidates(player.hand, player.melds)
-        if kong:
-            actions.append("kong")
-            candidates.extend(kong)
+        # 手牌只剩最后一张（自摸/补牌张）时，杠后必然空手成和，
+        # 只下发“和”，普通杠没有独立意义。
+        if len(player.hand) != 1:
+            kong = kong_candidates(player.hand, player.melds)
+            if kong:
+                actions.append("kong")
+                candidates.extend(kong)
         if player.supplements < 2 and self.wall:
             actions.append("supplement")
         return actions, candidates
+
+    @staticmethod
+    def _can_self_draw_win(hand: Sequence[str], melds: Sequence[dict]) -> bool:
+        """自摸和判定：手内成组，或自摸牌可并入明牌（杠和）后成和。"""
+        return is_winning_hand(hand, melds) or bool(
+            kong_win_candidates(hand, melds)
+        )
 
     @staticmethod
     def _score_hint(result: Optional[dict], tile: Optional[str] = None) -> Optional[dict]:
@@ -1018,6 +1046,7 @@ class HongqueGameState:
             "fan_total": result["fan_total"],
             "points": result["points"],
             "fans": result["fans"],
+            "self_draw_only": False,
         }
 
     def _viewer_win_hint(self, viewer: HongquePlayer, actions: Sequence[str]) -> Optional[dict]:
@@ -1028,6 +1057,7 @@ class HongqueGameState:
                 self_draw=True,
                 before_first_discard=not any(item.discards for item in self.players),
                 wall_empty=not self.wall,
+                allow_kong_win=True,
             ), viewer.drawn_tile or (viewer.hand[-1] if viewer.hand else None))
         if self.phase == "claim" and "claim" in actions and self.last_discard is not None:
             options = self.claim_options.get(viewer.index, ())
@@ -1057,6 +1087,7 @@ class HongqueGameState:
         if cached is not None:
             return cached
         hints: list[dict] = []
+        # 普通听牌：摸到即按手内成组和牌，可荣可自摸，不作自摸限定。
         for tile in waiting_tiles(viewer.hand, viewer.melds):
             result = best_win_result(
                 viewer.hand + [tile],
@@ -1067,6 +1098,23 @@ class HongqueGameState:
             )
             hint = self._score_hint(result, tile)
             if hint is not None:
+                hints.append(hint)
+        # 杠和听牌：摸到后需把手牌杠进明牌再和，只能自摸和（明牌加牌
+        # 只能用自己摸/补的牌），标记 self_draw_only 供客户端黄色叠底。
+        for tile in kong_win_waiting_tiles(viewer.hand, viewer.melds):
+            if any(hint.get("tile") == tile for hint in hints):
+                continue
+            result = best_win_result(
+                list(viewer.hand) + [tile],
+                viewer.melds,
+                self_draw=True,
+                before_first_discard=False,
+                wall_empty=False,
+                allow_kong_win=True,
+            )
+            hint = self._score_hint(result, tile)
+            if hint is not None:
+                hint["self_draw_only"] = True
                 hints.append(hint)
         self._wait_hint_cache[key] = hints
         return hints
@@ -1192,11 +1240,15 @@ class HongqueGameState:
             wall_empty = not self.wall
             smart_bot = player.user_id == 2
             player_index = player.index
+            kong_snapshot = tuple(
+                dict(candidate)
+                for candidate in (
+                    kong_candidates(player.hand, player.melds)
+                    + kong_win_candidates(player.hand, player.melds)
+                )
+            )
             if smart_bot:
                 visible_snapshot = self._visible_codes_for(player.index)
-                kong_snapshot = tuple(
-                    dict(candidate) for candidate in kong_candidates(player.hand, player.melds)
-                )
                 supplements = player.supplements
                 wall_count = len(self.wall)
                 drawn_tile = player.drawn_tile
@@ -1224,10 +1276,25 @@ class HongqueGameState:
                 before_first_discard=before_first_discard,
                 wall_empty=wall_empty,
             )
-            plan = {"action": "win"} if result is not None else {
-                "action": "discard",
-                "tile": self._rng.choice(hand_snapshot) if hand_snapshot else None,
-            }
+            if result is not None:
+                plan = {"action": "win"}
+            else:
+                kong_win = next(
+                    (
+                        candidate
+                        for candidate in kong_snapshot
+                        if candidate.get("kind") == "kong_win"
+                    ),
+                    None,
+                )
+                if kong_win is not None:
+                    # 杠和并入“和”：直接宣言和牌，不实际移动手牌。
+                    plan = {"action": "win"}
+                else:
+                    plan = {
+                        "action": "discard",
+                        "tile": self._rng.choice(hand_snapshot) if hand_snapshot else None,
+                    }
         delay = BOT_ACTION_DELAY - (time.perf_counter() - started_at)
         if delay > 0:
             await asyncio.sleep(delay)

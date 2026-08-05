@@ -93,6 +93,24 @@ test('hongque: duplicate tiles are rejected', () => {
   assert.equal(bestWinResult(['AX1', 'AX1', 'AX2'], [], flags), null)
 })
 
+test('hongque: same-flower and same-sequence fans are repeatable', () => {
+  // AX1-3/BX1-3 与 AX7-9/BX7-9：两个双同顺；AX1-3/AX7-9 与 BX1-3/BX7-9：两个双同花。
+  const hand = ['AX1', 'AX2', 'AX3', 'AX7', 'AX8', 'AX9', 'BX1', 'BX2', 'BX3', 'BX7', 'BX8', 'BX9']
+  const result = bestWinResult(hand, [], flags)
+  assert.ok(result)
+  const map = fanMap(result)
+  assert.equal(map['双同花'], 4)
+  assert.equal(map['双同顺'], 4)
+})
+
+test('hongque: rainbow sequence still counts for 平和', () => {
+  // 彩虹组本质是长顺子，不影响平和；该手牌最优拆解含彩虹组，仍应计平和。
+  const hand = ['AY1', 'BY2', 'CY3', 'DY4', 'EY5', 'FY6', 'GY7', 'AY8', 'BY9', 'CY8', 'DY7', 'EY6']
+  const result = bestWinResult(hand, [], flags)
+  assert.ok(result)
+  assert.equal(fanMap(result)['平和'], 1)
+})
+
 test('hongque: meld candidate tiles only extend into a legal group', () => {
   const afterFirst = meldCandidateTiles(['AX1'], new Set())
   assert.ok(afterFirst.has('AX2'))
@@ -162,4 +180,23 @@ test('hongque: 2 23 4 pattern is not 双色 (covers 3 pure colours)', () => {
   const names = result.fans.map((fan) => fan.name)
   assert.ok(!names.includes('双色'))
   assert.ok(!names.includes('三色'))
+})
+
+test('hongque: decomposition groups are ordered by number then colour', () => {
+  // 彩虹 GY2 AY3 BY4 CY5 DY6 EY7 组内必须按数字 2..7 递增显示，
+  // 不能按花色排成 AY3 BY4 CY5 DY6 EY7 GY2（旧实现会输出“红4 橙2 蓝8 紫6”式乱序）。
+  const results = allWinResults(
+    ['GY2', 'AY3', 'BY4', 'CY5', 'DY6', 'EY7', 'CX1', 'DX1', 'EX1', 'BX9', 'BY9', 'CX9'],
+    [],
+    flags
+  )
+  assert.ok(results.length >= 1)
+  const hasOrderedRainbow = results.some((item) =>
+    item.groups.some(
+      (group) => JSON.stringify(group) === JSON.stringify(['GY2', 'AY3', 'BY4', 'CY5', 'DY6', 'EY7'])
+    )
+  )
+  assert.ok(hasOrderedRainbow)
+  // 组间按最小数字排序：数字 1 的刻子组排在彩虹（最小数字 2）之前。
+  assert.deepEqual(results[0].groups[0], ['CX1', 'DX1', 'EX1'])
 })

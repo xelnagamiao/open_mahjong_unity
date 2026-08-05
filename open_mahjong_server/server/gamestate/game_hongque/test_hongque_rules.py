@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from .rules import call_candidates, classify_meld, kong_candidates, winning_partitions
+from .rules import (
+    call_candidates,
+    classify_meld,
+    kong_candidates,
+    kong_win_candidates,
+    winning_partitions,
+)
+from .tenpai_check import kong_win_waiting_tiles
 from .tile import HongqueTile, full_deck
 
 
@@ -85,6 +92,33 @@ def test_call_priority_and_kong_extension_follow_table_order() -> None:
     melds = [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}]
     extensions = kong_candidates(["AX4", "GX9"], melds)
     assert any(candidate["hand_tiles"] == ["AX4"] for candidate in extensions)
+
+
+def test_kong_win_candidate_requires_remaining_hand_to_win() -> None:
+    melds = [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}]
+
+    # 手牌只有摸到的 AX4：杠进明牌后空手成和，是杠和。
+    kong_wins = kong_win_candidates(["AX4"], melds)
+    assert len(kong_wins) == 1
+    assert kong_wins[0]["kind"] == "kong_win"
+    assert kong_wins[0]["hand_tiles"] == ["AX4"]
+    assert kong_wins[0]["tiles"] == ["AX1", "AX2", "AX3", "AX4"]
+
+    # 手牌 abc + 摸到 AX4：杠掉 AX4 后 abc 仍为完整一组，同样可杠和。
+    hand = ["AX4", "AX7", "BX7", "CX7"]
+    kong_wins = kong_win_candidates(hand, melds)
+    assert any(candidate["kind"] == "kong_win" for candidate in kong_wins)
+
+    # 杠掉 AX4 后剩余 AX7 无法成组，不是杠和。
+    assert kong_win_candidates(["AX4", "AX7"], melds) == []
+
+
+def test_kong_win_waiting_tiles_are_self_drawn_only() -> None:
+    melds = [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}]
+    # 手牌 AX4：摸到 AX5 后可把 AX4、AX5 一起杠进明牌并空手成和。
+    assert kong_win_waiting_tiles(["AX4"], melds) == ["AX5"]
+    # 无明牌时不存在杠和听牌。
+    assert kong_win_waiting_tiles(["AX4"], []) == []
 
 
 def test_random_cards_covering_all_colours_are_not_a_win() -> None:
