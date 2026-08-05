@@ -601,3 +601,71 @@ export function allWinResults(hand: string[], openMelds: OpenMeld[], flags: WinF
   )
   return results
 }
+
+// ---------------------------------------------------------------------------
+// Meld editing helpers for the calculator UI
+// ---------------------------------------------------------------------------
+
+/** Legal group universe: every 3+ tile shape accepted by classifyMeld. */
+export function legalGroupUniverse(): string[][] {
+  return GROUP_MASKS.map(codesFromMask)
+}
+
+/**
+ * Tiles that may extend the current partial meld into at least one legal
+ * group (sequence/triplet/rainbow).  An empty meld allows every unused tile.
+ */
+export function meldCandidateTiles(
+  picked: string[],
+  used: Iterable<string>,
+): Set<string> {
+  const usedSet = new Set(used)
+  const pickedSet = new Set(picked)
+  const candidates = new Set<string>()
+  if (picked.length === 0) {
+    for (const code of DECK) {
+      if (!usedSet.has(code)) candidates.add(code)
+    }
+    return candidates
+  }
+  let pickedMask = 0n
+  try {
+    pickedMask = maskFromCodes(picked)
+  } catch (_) {
+    return candidates
+  }
+  // 未成组（1~2 张）时只允许补成 3 张合法牌组的候选；已成组（3+ 张）
+  // 后允许继续向更长合法牌组延伸。
+  for (const groupMask of GROUP_MASKS) {
+    if (picked.length < 3 && bitCount(groupMask) !== 3) continue
+    if ((groupMask & pickedMask) === pickedMask) {
+      for (const code of codesFromMask(groupMask)) {
+        if (!usedSet.has(code)) candidates.add(code)
+      }
+    }
+  }
+  return candidates
+}
+
+/**
+ * Infer the meld kind for an editing slot without distinguishing open/
+ * concealed melds: sequence family, triplet family or rainbow.
+ * Returns null when the group is not yet a legal meld.
+ */
+export function inferMeldKind(codes: string[]): {
+  kind: string
+  baseKind: string
+  label: string
+  isRainbow: boolean
+} | null {
+  if (codes.length < 3) return null
+  const shape = classifyMeld(codes)
+  if (!shape) return null
+  if (shape.isRainbow) {
+    return { kind: 'rainbow', baseKind: shape.baseKind, label: '彩虹', isRainbow: true }
+  }
+  if (shape.kind === 'triplet') {
+    return { kind: 'triplet', baseKind: 'triplet', label: '刻子', isRainbow: false }
+  }
+  return { kind: 'sequence', baseKind: 'sequence', label: '顺子', isRainbow: false }
+}

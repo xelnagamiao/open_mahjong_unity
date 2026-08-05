@@ -10,8 +10,8 @@
     <div class="page-header">
       <h1>虹雀² 和牌计算器</h1>
       <p class="subtitle">
-        点击下方牌面添加手牌；点击副露框再点牌面可加入副露牌组，点牌移除。
-        所有牌必须分成 3 张及以上的合法牌组，无雀头。
+        点击下方牌面添加手牌；点击副露框后，只有能组成合法牌组的牌会高亮可点。
+        手牌 + 副露合计最多 14 张，所有牌必须分成 3 张及以上的合法牌组，无雀头。
       </p>
     </div>
 
@@ -79,6 +79,7 @@
           >
             <div class="meld-slot-head">
               <span class="slot-index">#{{ idx + 1 }}</span>
+              <span v-if="meldKindLabel(idx)" class="meld-kind" :class="{ invalid: meldInvalid(idx) }">{{ meldKindLabel(idx) }}</span>
               <el-button type="danger" link size="small" @click.stop="removeMeld(idx)">删除</el-button>
             </div>
             <div class="meld-tiles">
@@ -94,6 +95,9 @@
                 </span>
               </template>
               <span v-else class="empty-hint">点击本框后点牌面添加</span>
+            </div>
+            <div v-if="activeMeldIdx === idx && meldCandidates.size" class="meld-candidate-hint">
+              还可选 {{ meldCandidates.size }} 张（{{ meldNeedCount }} 张成组）
             </div>
           </div>
           <span v-if="melds.length === 0" class="empty-hint">无副露（门清）时无需填写</span>
@@ -180,7 +184,9 @@
 
       <div class="row block">
         <div class="row-line">
-          <span class="row-label">牌面（点击添加{{ activeMeldIdx >= 0 ? `到副露 #${activeMeldIdx + 1}` : '到手牌' }}）</span>
+          <span class="row-label">
+            牌面（{{ activeMeldIdx >= 0 ? `添加到副露 #${activeMeldIdx + 1}，仅高亮牌可组成合法牌组` : `添加到手牌（合计上限 14 张）` }}）
+          </span>
         </div>
         <div class="palette">
           <div v-for="group in paletteGroups" :key="group.colour" class="palette-row">
@@ -189,7 +195,7 @@
               v-for="number in 9"
               :key="number"
               class="hq-tile hq-tile-sm"
-              :class="{ selected: isUsed(group.codePrefix + number) }"
+              :class="paletteTileClass(group.codePrefix + number)"
               :title="group.codePrefix + number"
               @click="onPalettePick(group.codePrefix + number)"
             >
@@ -213,9 +219,12 @@ import { ElMessage } from 'element-plus'
 import {
   bestWinResult,
   allWinResults,
+  meldCandidateTiles,
+  inferMeldKind,
 } from '@/game2d/calc/hongque'
 
 const TILE_BASE_URL = '/game2d-assets/hongque-tiles/'
+const MAX_TOTAL_TILES = 14
 
 const COLOUR_GROUPS = [
   { codePrefix: 'AX', label: '红', colour: 0 },
@@ -261,13 +270,14 @@ const activeMelds = computed(() => form.melds.filter((meld) => meld.codes.length
 
 const handCountText = computed(() => {
   const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
-  return `共 ${total} 张（手牌 ${form.hand.length} + 副露 ${total - form.hand.length}）`
+  return `${total}/${MAX_TOTAL_TILES} 张（手牌 ${form.hand.length} + 副露 ${total - form.hand.length}）`
 })
 
 const handCountTagType = computed(() => {
   const total = form.hand.length + activeMelds.value.reduce((sum, meld) => sum + meld.codes.length, 0)
   if (total === 0) return 'warning'
-  return total % 3 === 0 ? 'success' : 'danger'
+  if (total > MAX_TOTAL_TILES) return 'danger'
+  return total % 3 === 0 ? 'success' : 'warning'
 })
 
 const parseCodes = (text) => {
@@ -305,8 +315,35 @@ const allUsedCodes = computed(() => {
   return codes
 })
 
+const totalTiles = computed(() => {
+  let total = form.hand.length
+  for (const meld of form.melds) total += meld.codes.length
+  return total
+})
+
+const activeMeld = computed(() => (activeMeldIdx.value >= 0 ? form.melds[activeMeldIdx.value] : null))
+
+/** 当前激活副露框的可选下一张牌（能组成合法牌组的高亮集合）。 */
+const meldCandidates = computed(() => {
+  const meld = activeMeld.value
+  if (!meld) return new Set()
+  return meldCandidateTiles(meld.codes, allUsedCodes.value)
+})
+
+const meldNeedCount = computed(() => {
+  const meld = activeMeld.value
+  if (!meld) return 0
+  return Math.max(0, 3 - meld.codes.length)
+})
+
 const isUsed = (code) => allUsedCodes.value.has(code)
 const isInMeld = (code) => form.melds.some((meld) => meld.codes.includes(code))
+
+const paletteTileClass = (code) => {
+  if (isUsed(code)) return { used: true }
+  if (activeMeldIdx.value >= 0 && !meldCandidates.value.has(code)) return { disabled: true }
+  return {}
+}
 
 const syncTextInput = () => {
   textInput.value = form.hand.join(' ')
@@ -321,8 +358,8 @@ const addHandTile = (code) => {
     ElMessage.warning(`牌 ${code} 已在手牌或副露中`)
     return
   }
-  if (form.hand.length >= 21) {
-    ElMessage.warning('手牌已满（最多 21 张）')
+  if (totalTiles.value >= MAX_TOTAL_TILES) {
+    ElMessage.warning(`合计已达 ${MAX_TOTAL_TILES} 张上限`)
     return
   }
   form.hand.push(code)
@@ -356,19 +393,20 @@ const activateMeld = (idx) => {
 const addMeldTile = (code) => {
   const meld = form.melds[activeMeldIdx.value]
   if (!meld) return
+  if (!meldCandidates.value.has(code)) {
+    ElMessage.warning(`牌 ${code} 不能与当前副露组成合法牌组`)
+    return
+  }
   if (meld.codes.includes(code)) {
     removeMeldTile(activeMeldIdx.value, code)
     return
   }
-  if (isUsed(code)) {
-    ElMessage.warning(`牌 ${code} 已在手牌或副露中`)
-    return
-  }
-  if (meld.codes.length >= 7) {
-    ElMessage.warning('单个副露牌组最多 7 张')
+  if (totalTiles.value >= MAX_TOTAL_TILES) {
+    ElMessage.warning(`合计已达 ${MAX_TOTAL_TILES} 张上限`)
     return
   }
   meld.codes.push(code)
+  // 长组可继续追加；成组后仍允许选择能继续扩展的牌。
 }
 
 const removeMeldTile = (idx, code) => {
@@ -383,6 +421,19 @@ const onPalettePick = (code) => {
   } else {
     addHandTile(code)
   }
+}
+
+const meldKindLabel = (idx) => {
+  const meld = form.melds[idx]
+  if (!meld || meld.codes.length < 3) return ''
+  const info = inferMeldKind(meld.codes)
+  if (!info) return '非法牌组'
+  return info.label
+}
+
+const meldInvalid = (idx) => {
+  const meld = form.melds[idx]
+  return meld && meld.codes.length >= 3 && !inferMeldKind(meld.codes)
 }
 
 const buildRequestBody = () => {
@@ -471,8 +522,8 @@ const onTileError = (event) => {
 }
 
 const loadDemo = () => {
-  form.hand = parseCodes('AX1 AX2 AX3 BX4 BX5 BX6 CY7 DY7 EY7')
-  form.melds = []
+  form.hand = parseCodes('AX1 AX2 AX3 BX4 BX5 BX6')
+  form.melds = [{ codes: parseCodes('CY7 DY7 EY7') }, { codes: parseCodes('FX1 GX1 GY1') }]
   form.selfDraw = true
   form.beforeFirstDiscard = false
   form.wallEmpty = false
@@ -644,6 +695,17 @@ const resetAll = () => {
   outline-offset: 1px;
 }
 
+.hq-tile.used {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.hq-tile.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .meld-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -685,6 +747,26 @@ const resetAll = () => {
   font-size: 10px;
   font-weight: 700;
   color: #94a3b8;
+}
+
+.meld-kind {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.meld-kind.invalid {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.meld-candidate-hint {
+  font-size: 10.5px;
+  color: #1d4ed8;
+  font-weight: 600;
 }
 
 .meld-tiles {

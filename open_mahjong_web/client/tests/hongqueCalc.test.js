@@ -6,6 +6,8 @@ import {
   allWinResults,
   isWinningHand,
   winningDecompositions,
+  meldCandidateTiles,
+  inferMeldKind,
 } from '../src/game2d/calc/hongque/index.ts'
 
 const flags = {
@@ -89,4 +91,29 @@ test('hongque: all decompositions sorted best-first', () => {
 test('hongque: duplicate tiles are rejected', () => {
   assert.equal(isWinningHand(['AX1', 'AX1', 'AX2'], []), false)
   assert.equal(bestWinResult(['AX1', 'AX1', 'AX2'], [], flags), null)
+})
+
+test('hongque: meld candidate tiles only extend into a legal group', () => {
+  const afterFirst = meldCandidateTiles(['AX1'], new Set())
+  assert.ok(afterFirst.has('AX2'))
+  assert.ok(afterFirst.has('AX3'))
+  assert.ok(afterFirst.has('AY1'))
+  assert.ok(afterFirst.has('BX1'))
+  assert.ok(!afterFirst.has('CY1')) // CY1 不能与 AX1 组成 3 张合法牌组
+
+  const afterTwo = meldCandidateTiles(['AX1', 'AX2'], new Set())
+  assert.deepEqual([...afterTwo].sort(), ['AX1', 'AX2', 'AX3'])
+  assert.ok(!afterTwo.has('AY3'))
+
+  // 已使用的牌不再作为候选
+  const used = new Set(['AX3'])
+  const withUsed = meldCandidateTiles(['AX1', 'AX2'], used)
+  assert.ok(!withUsed.has('AX3'))
+})
+
+test('hongque: meld kind is inferred without open/concealed distinction', () => {
+  assert.equal(inferMeldKind(['AX1', 'AX2', 'AX3']).label, '顺子')
+  assert.equal(inferMeldKind(['BX3', 'BY3', 'CX3']).label, '刻子')
+  assert.equal(inferMeldKind(['AX1', 'AY1', 'BX1', 'BY1', 'CX1', 'CY1', 'DX1', 'DY1', 'EX1', 'EY1', 'FX1', 'FY1', 'GX1', 'GY1']).label, '彩虹')
+  assert.equal(inferMeldKind(['AX1', 'AX2', 'AY4']), null)
 })
