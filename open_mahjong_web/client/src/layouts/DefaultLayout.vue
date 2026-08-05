@@ -25,8 +25,8 @@ const route = useRoute()
 const layoutToneClass = computed(() => {
   const path = route.path || ''
   if (path === '/paili' || path.startsWith('/paili/')) return 'tone-paili'
-  if (path === '/chinese' || path.startsWith('/chinese/')) return 'tone-chinese'
-  if (path === '/hongque-calc' || path.startsWith('/hongque-calc/')) return 'tone-hongque'
+  if (path === '/calc/chinese' || path.startsWith('/calc/chinese/')) return 'tone-chinese'
+  if (path === '/calc/hongque' || path.startsWith('/calc/hongque/')) return 'tone-hongque'
   return ''
 })
 </script>

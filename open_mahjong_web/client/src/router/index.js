@@ -13,7 +13,7 @@ import Register from '@/views/Register.vue'
 import Account from '@/views/Account.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetail from '@/views/EventDetail.vue'
-import ChineseMahjong from '@/views/ChineseMahjong.vue'
+import CalculatorView from '@/views/CalculatorView.vue'
 import PlayerData from '@/views/PlayerData.vue'
 import PlatformData from '@/views/PlatformData.vue'
 import UnityGame from '@/views/UnityGame.vue'
@@ -23,7 +23,6 @@ import LibraryRule from '@/views/LibraryRule.vue'
 import LibraryLayout from '@/layouts/LibraryLayout.vue'
 import RuleResearch from '@/views/RuleResearch.vue'
 import Paili from '@/views/Paili.vue'
-import HongqueCalc from '@/views/HongqueCalc.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
@@ -97,17 +96,17 @@ const routes = [
         meta: { title: '牌理 - salasasa.cn' }
       },
       {
-        path: 'chinese',
-        name: 'ChineseMahjong',
-        component: ChineseMahjong,
-        meta: { title: '国标计算器 - salasasa.cn' }
+        path: 'calc/:kind',
+        name: 'Calculator',
+        component: CalculatorView
       },
-      // 隐藏测试入口：虹雀² 和牌计算器（不在任何导航中展示）
+      {
+        path: 'chinese',
+        redirect: '/calc/chinese'
+      },
       {
         path: 'hongque-calc',
-        name: 'HongqueCalc',
-        component: HongqueCalc,
-        meta: { title: '虹雀² 和牌计算器 - salasasa.cn' }
+        redirect: '/calc/hongque'
       },
       {
         path: 'rulebook/:rule?',
@@ -407,6 +406,8 @@ watch(locale, () => {
 router.afterEach((to) => {
   const title = routeTitle(to)
   if (title) document.title = title
+  // 路由切换后默认回到页面顶部，避免从首页进入时停留在上次滚动位置
+  window.scrollTo(0, 0)
 })
 
 export default router

@@ -24,14 +24,14 @@ const route = useRoute()
 const router = useRouter()
 
 const calculators = [
-  { to: '/chinese', label: '国标计算器' },
-  { to: '/hongque-calc', label: '虹雀² 计算器' },
+  { to: '/calc/chinese', label: '国标计算器' },
+  { to: '/calc/hongque', label: '虹雀² 计算器' },
 ]
 
 const isActive = (to) => route.path === to
 
 const go = (to) => {
-  if (route.path !== to) router.push(to)
+  if (route.path !== to) router.replace(to)
 }
 </script>
 
@@ -41,8 +41,9 @@ const go = (to) => {
   gap: 4px;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 999px;
-  padding: 4px;
+  border-radius: 8px;
+  padding: 4px 4px;
+  margin: 10px 0 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
@@ -53,7 +54,7 @@ const go = (to) => {
   font-size: 15px;
   font-weight: 700;
   padding: 7px 18px;
-  border-radius: 999px;
+  border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
   letter-spacing: 0.5px;

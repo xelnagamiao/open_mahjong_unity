@@ -1,5 +1,5 @@
 <!--
-  虹雀² 和牌计算器（隐藏测试入口 /hongque-calc）
+  虹雀² 和牌计算器（路由 /calc/hongque）
   按虹雀² v1.6 规则计算和牌拆解与番数/分数，交互参照国标计算器。
   牌面使用 Unity 中的 HQv3.1 贴图（public/game2d-assets/hongque-tiles/）。
   副露牌组与国标计算器一致：点击牌组框激活，再从牌面点选添加，点牌移除。

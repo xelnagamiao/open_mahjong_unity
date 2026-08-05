@@ -106,8 +106,8 @@ const items = [
 ]
 
 const calculators = [
-  { to: '/chinese', label: '国标计算器' },
-  { to: '/hongque-calc', label: '虹雀² 计算器' },
+  { to: '/calc/chinese', label: '国标计算器' },
+  { to: '/calc/hongque', label: '虹雀² 计算器' },
 ]
 
 const isCalcActive = computed(() => calculators.some((calc) => route.path === calc.to))
