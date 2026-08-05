@@ -154,7 +154,9 @@ public class TipsContainer : MonoBehaviour
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             // 只显示直接分值，不展示底/番公式。
             string label = $"{hint.points}分";
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
+            // 只能自摸和（杠和听牌）与国标“仅自摸”一致叠黄色底，番数照常显示。
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
+                label, hint.self_draw_only ? "zimo" : "dianhe");
         }
         UpdateRyuukyokuTenpaiChoice(shownWaits);
     }
@@ -167,17 +169,32 @@ public class TipsContainer : MonoBehaviour
         List<int> handTiles,
         List<int[]> meldMasks,
         List<int> waitingTiles) {
-        List<int> sorted = new List<int>(waitingTiles);
-        sorted.Sort();
-        foreach (int tileId in sorted) {
+        // 杠和听牌只能自摸和：本地按服务端同一掩码算法枚举，非普通和牌张时黄色叠底。
+        Dictionary<int, HongqueKongWinOption> kongWinOptions =
+            HongqueTenpai.BestKongWinOptions(handTiles, meldMasks, _pendingCutTileId);
+        HashSet<int> kongWinOnly = new HashSet<int>(kongWinOptions.Keys);
+        kongWinOnly.ExceptWith(waitingTiles);
+
+        List<int> allTiles = new List<int>(waitingTiles);
+        allTiles.AddRange(kongWinOnly);
+        allTiles = allTiles.Distinct().ToList();
+        allTiles.Sort();
+        foreach (int tileId in allTiles) {
             InstantiateTipsTile(tileId);
-            List<int> winHand = new List<int>(handTiles);
-            winHand.Add(tileId);
-            HongqueWinScore score = HongqueScoring.BestWinResult(
-                winHand, meldMasks, false, false, false);
+            HongqueWinScore score;
+            if (kongWinOnly.Contains(tileId)
+                    && kongWinOptions.TryGetValue(tileId, out HongqueKongWinOption option)) {
+                score = option.Score;
+            } else {
+                List<int> winHand = new List<int>(handTiles);
+                winHand.Add(tileId);
+                score = HongqueScoring.BestWinResult(
+                    winHand, meldMasks, false, false, false);
+            }
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             string label = score != null ? $"{score.Points}分" : "0分";
-            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(label, "dianhe");
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
+                label, kongWinOnly.Contains(tileId) ? "zimo" : "dianhe");
         }
     }
 

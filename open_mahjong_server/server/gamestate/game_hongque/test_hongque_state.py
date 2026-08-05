@@ -623,3 +623,190 @@ async def _exercise_group_wait_ron() -> None:
     assert state.round_result["winners"][0]["pair"] == []
     if state._round_task:
         state._round_task.cancel()
+
+
+def test_win_only_when_hand_is_the_last_tile() -> None:
+    asyncio.run(_exercise_win_only_when_hand_is_last_tile())
+
+
+def test_win_and_plain_kong_are_offered_separately() -> None:
+    asyncio.run(_exercise_win_and_plain_kong_are_offered_separately())
+
+
+def test_supplement_reverts_to_plain_kong_only() -> None:
+    asyncio.run(_exercise_supplement_reverts_to_plain_kong_only())
+
+
+def test_win_via_kong_finishes_round_without_moving_hand() -> None:
+    asyncio.run(_exercise_win_via_kong_finishes_round())
+
+
+def test_wait_hint_marks_kong_win_self_draw_only() -> None:
+    asyncio.run(_exercise_wait_hint_marks_kong_win_self_draw_only())
+
+
+def test_ron_cannot_use_kong_win_decomposition() -> None:
+    asyncio.run(_exercise_ron_cannot_use_kong_win())
+
+
+async def _exercise_win_only_when_hand_is_last_tile() -> None:
+    room = {"room_id": "893", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="win-last-tile")
+    player = state.players[0]
+    player.hand = ["AX4"]
+    player.melds = [{
+        "kind": "sequence",
+        "tiles": ["AX1", "AX2", "AX3"],
+        "from_player": 1,
+        "claimed_tile": "AX1",
+    }]
+    player.drawn_tile = "AX4"
+    state.current_player_index = 0
+    state.phase = "turn"
+    state.wall = []
+
+    actions, candidates = state._legal_turn_actions(player)
+    # 手牌只剩最后一张（自摸/补牌张）时只下发“和”，普通杠无独立意义。
+    assert "win" in actions
+    assert "kong" not in actions
+    assert candidates == []
+
+
+async def _exercise_win_and_plain_kong_are_offered_separately() -> None:
+    room = {"room_id": "894", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="win-vs-kong")
+    player = state.players[0]
+    player.hand = ["AX4", "AX7", "BX7", "CX7"]
+    player.melds = [{
+        "kind": "sequence",
+        "tiles": ["AX1", "AX2", "AX3"],
+        "from_player": 1,
+        "claimed_tile": "AX1",
+    }]
+    player.drawn_tile = "AX4"
+    state.current_player_index = 0
+    state.phase = "turn"
+    state.wall = []
+
+    actions, candidates = state._legal_turn_actions(player)
+    # 同一张 AX4 既能“杠”也能直接“和”（杠和并入和），两者分开下发。
+    assert "win" in actions
+    assert "kong" in actions
+    assert any(candidate["kind"] == "kong" for candidate in candidates)
+
+
+async def _exercise_supplement_reverts_to_plain_kong_only() -> None:
+    room = {"room_id": "895", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="kong-win-supplement")
+    player = state.players[0]
+    player.hand = ["AX4", "AX7"]
+    player.melds = [{
+        "kind": "sequence",
+        "tiles": ["AX1", "AX2", "AX3"],
+        "from_player": 1,
+        "claimed_tile": "AX1",
+    }]
+    player.drawn_tile = "AX7"
+    state.current_player_index = 0
+    state.phase = "turn"
+    state.wall = ["GX9"]
+
+    actions, candidates = state._legal_turn_actions(player)
+    # 补牌后手牌变两张，杠完剩余 AX7 不能和，只允许普通杠、不再有“和”。
+    assert "kong" in actions
+    assert "win" not in actions
+    assert all(candidate["kind"] == "kong" for candidate in candidates)
+
+    await state.submit_action(player.user_id, "supplement", action_tick=state.action_tick)
+    # 补牌后服务端重新询问：回合仍属于该玩家，动作按新手牌重算。
+    assert state.phase == "turn"
+    assert state.current_player_index == 0
+    actions_after, candidates_after = state._legal_turn_actions(player)
+    assert "kong" in actions_after
+    assert "win" not in actions_after
+    assert player.hand == ["AX4", "AX7", "GX9"]
+
+
+async def _exercise_win_via_kong_finishes_round() -> None:
+    room = {"room_id": "896", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="win-via-kong-action")
+    player = state.players[0]
+    player.hand = ["AX4"]
+    player.melds = [{
+        "kind": "sequence",
+        "tiles": ["AX1", "AX2", "AX3"],
+        "from_player": 1,
+        "claimed_tile": "AX1",
+    }]
+    player.drawn_tile = "AX4"
+    state.current_player_index = 0
+    state.phase = "turn"
+    state.wall = []
+
+    actions, candidates = state._legal_turn_actions(player)
+    assert "win" in actions
+    await state.submit_action(player.user_id, "win", action_tick=state.action_tick)
+
+    assert state.phase == "round_end"
+    assert state.round_result["reason"] == "self_draw"
+    winner = state.round_result["winners"][0]
+    # 杠和并入普通和：手牌保持完整展示，明牌不实际移动，和牌拆解按扩展后的明牌计。
+    assert winner["hand"] == ["AX4"]
+    assert winner["melds"][0]["tiles"] == ["AX1", "AX2", "AX3"]
+    assert winner["partition"] == []
+    assert winner["groups"] == [["AX1", "AX2", "AX3", "AX4"]]
+    # 摸最后一张墙牌自摸：海底只按自摸计算。
+    assert any(fan["name"] == "海底" for fan in winner["fans"])
+    if state._round_task:
+        state._round_task.cancel()
+
+
+async def _exercise_wait_hint_marks_kong_win_self_draw_only() -> None:
+    room = {"room_id": "897", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="kong-win-hint")
+    viewer = state.players[3]
+    viewer.hand = ["AX1", "AX2", "AX3"]
+    viewer.melds = [{
+        "kind": "sequence",
+        "tiles": ["AX4", "AX5", "AX6"],
+        "from_player": 1,
+        "claimed_tile": "AX4",
+    }]
+
+    hints = state._wait_hints_for(viewer)
+    ax7 = next(hint for hint in hints if hint["tile"] == "AX7")
+    assert ax7["self_draw_only"] is True
+    assert ax7["points"] > 0
+
+
+async def _exercise_ron_cannot_use_kong_win() -> None:
+    room = {"room_id": "898", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="ron-no-kong-win")
+    discarder = state.players[0]
+    winner = state.players[1]
+    chi_player = state.players[3]
+    discarder.hand = ["AX7"]
+    winner.hand = ["AX1", "AX2", "AX3"]
+    winner.melds = [{
+        "kind": "sequence",
+        "tiles": ["AX4", "AX5", "AX6"],
+        "from_player": 2,
+        "claimed_tile": "AX4",
+    }]
+    # 第三家有吃牌候选，保证弃牌询问窗开启。
+    chi_player.hand = ["AX5", "AX6", "GX9"]
+    state.current_player_index = 0
+    state.phase = "turn"
+    state.wall = ["GX9"]
+    state.tactical_pre_grace_delay = 0.0
+    state.tactical_grace_seconds = 0.01
+
+    await state.submit_action(discarder.user_id, "discard", tile="AX7", action_tick=state.action_tick)
+
+    # AX7 只能并入自家明牌（杠和）成和，不能荣和，因此询问窗不出现“和”。
+    assert state.phase == "claim"
+    options = state.claim_options.get(1, ())
+    assert all(option.get("kind") != "win" for option in options)
+    assert any(option.get("kind") == "sequence" for option in state.claim_options.get(3, ()))
+    if state._claim_grace_task:
+        await state._claim_grace_task

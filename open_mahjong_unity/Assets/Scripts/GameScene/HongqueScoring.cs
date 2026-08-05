@@ -134,7 +134,18 @@ public static class HongqueScoring {
         List<int> handTileIds,
         bool hasOpenMelds) {
         List<HongqueWinDecomposition> results = new List<HongqueWinDecomposition>();
-        if (handTileIds == null || handTileIds.Count == 0) return results;
+        if (handTileIds == null) return results;
+        // 与服务端 win_check 一致：空手牌 + 有明牌 = 和牌型（杠和把最后一张
+        // 牌杠进明牌后的空手状态），此时空分组即为一组合法分解。
+        if (handTileIds.Count == 0) {
+            if (hasOpenMelds) {
+                results.Add(new HongqueWinDecomposition {
+                    Groups = new List<List<int>>(),
+                    Pair = new List<int>(),
+                });
+            }
+            return results;
+        }
         if (handTileIds.Distinct().Count() != handTileIds.Count) return results;
 
         HashSet<string> seen = new HashSet<string>();
@@ -187,8 +198,22 @@ public static class HongqueScoring {
         return shape.Tiles.OrderBy(t => ColourOf(t)).ToList();
     }
 
-    private static FanEntry SameShapeFan(List<HongqueMeldShape> shapes, string baseKind,
+    private static List<FanEntry> MergeEntries(List<FanEntry> entries) {
+        Dictionary<string, FanEntry> merged = new Dictionary<string, FanEntry>();
+        foreach (FanEntry item in entries) {
+            if (merged.TryGetValue(item.Name, out FanEntry existing)) {
+                existing.Count += 1;
+            } else {
+                merged[item.Name] = new FanEntry { Name = item.Name, Value = item.Value, Count = 1 };
+            }
+        }
+        return merged.Values.ToList();
+    }
+
+    private static List<FanEntry> SameShapeFans(List<HongqueMeldShape> shapes, string baseKind,
         Dictionary<int, (string, int)> names) {
+        // 同刻/同顺系列：按“数字形状”分组，组内取最高档（双/三/四），
+        // 不同分组可复计；同组的牌不会同时计入两档。
         Dictionary<string, int> buckets = new Dictionary<string, int>();
         foreach (HongqueMeldShape shape in shapes) {
             if (shape.BaseKind != baseKind) continue;
@@ -196,13 +221,17 @@ public static class HongqueScoring {
             buckets.TryGetValue(key, out int count);
             buckets[key] = count + 1;
         }
-        int maximum = buckets.Values.DefaultIfEmpty(0).Max();
-        int eligible = names.Keys.Where(count => maximum >= count).DefaultIfEmpty(0).Max();
-        if (eligible == 0) return null;
-        return new FanEntry { Name = names[eligible].Item1, Value = names[eligible].Item2 };
+        List<FanEntry> entries = new List<FanEntry>();
+        foreach (int count in buckets.Values) {
+            int eligible = names.Keys.Where(n => count >= n).DefaultIfEmpty(0).Max();
+            if (eligible == 0) continue;
+            entries.Add(new FanEntry { Name = names[eligible].Item1, Value = names[eligible].Item2 });
+        }
+        return MergeEntries(entries);
     }
 
-    private static FanEntry SameColourLayoutFan(List<HongqueMeldShape> shapes) {
+    private static List<FanEntry> SameColourLayoutFans(List<HongqueMeldShape> shapes) {
+        // 同花系列：按（长度，花色对应）分组，组内取最高档，不同分组可复计。
         Dictionary<string, int> buckets = new Dictionary<string, int>();
         foreach (HongqueMeldShape shape in shapes) {
             List<int> ordered = OrderedTiles(shape);
@@ -210,11 +239,13 @@ public static class HongqueScoring {
             buckets.TryGetValue(key, out int count);
             buckets[key] = count + 1;
         }
-        int maximum = buckets.Values.DefaultIfEmpty(0).Max();
-        if (maximum >= 4) return new FanEntry { Name = "四同花", Value = 12 };
-        if (maximum >= 3) return new FanEntry { Name = "三同花", Value = 6 };
-        if (maximum >= 2) return new FanEntry { Name = "双同花", Value = 2 };
-        return null;
+        List<FanEntry> entries = new List<FanEntry>();
+        foreach (int count in buckets.Values) {
+            if (count >= 4) entries.Add(new FanEntry { Name = "四同花", Value = 12 });
+            else if (count >= 3) entries.Add(new FanEntry { Name = "三同花", Value = 6 });
+            else if (count >= 2) entries.Add(new FanEntry { Name = "双同花", Value = 2 });
+        }
+        return MergeEntries(entries);
     }
 
     private static FanEntry ConsecutiveSequenceFan(List<HongqueMeldShape> shapes) {
@@ -309,14 +340,11 @@ public static class HongqueScoring {
 
         FanEntry dragon = DragonFan(shapes);
         if (dragon != null) fans.Add(dragon);
-        FanEntry sameTriplet = SameShapeFan(shapes, "triplet",
-            new Dictionary<int, (string, int)> { { 2, ("双同刻", 2) }, { 3, ("三同刻", 6) }, { 4, ("四同刻", 12) } });
-        if (sameTriplet != null) fans.Add(sameTriplet);
-        FanEntry sameSequence = SameShapeFan(shapes, "sequence",
-            new Dictionary<int, (string, int)> { { 2, ("双同顺", 2) }, { 3, ("三同顺", 6) }, { 4, ("四同顺", 12) } });
-        if (sameSequence != null) fans.Add(sameSequence);
-        FanEntry sameColour = SameColourLayoutFan(shapes);
-        if (sameColour != null) fans.Add(sameColour);
+        fans.AddRange(SameShapeFans(shapes, "triplet",
+            new Dictionary<int, (string, int)> { { 2, ("双同刻", 2) }, { 3, ("三同刻", 6) }, { 4, ("四同刻", 12) } }));
+        fans.AddRange(SameShapeFans(shapes, "sequence",
+            new Dictionary<int, (string, int)> { { 2, ("双同顺", 2) }, { 3, ("三同顺", 6) }, { 4, ("四同顺", 12) } }));
+        fans.AddRange(SameColourLayoutFans(shapes));
         FanEntry consecutive = ConsecutiveSequenceFan(shapes);
         if (consecutive != null) fans.Add(consecutive);
 
@@ -359,8 +387,9 @@ public static class HongqueScoring {
         if (selfDraw && wallEmpty) fans.Add(new FanEntry { Name = "海底", Value = 2 });
         // 清一数、二数均不计碰碰和。
         if (allTriplets && numbers.Count > 2) fans.Add(new FanEntry { Name = "碰碰和", Value = 3 });
-        // 平和：仅由顺子构成；虹牌是独立牌组，不计入顺子。
-        if (shapes.Count > 0 && shapes.All(s => s.Kind == "sequence")) fans.Add(new FanEntry { Name = "平和", Value = 1 });
+        // 平和：仅由顺子构成。彩虹组本质也是顺子（长顺子），不影响平和；
+        // 因此按 BaseKind 判断，彩虹顺子计入平和，彩虹刻子（刻子类）不计。
+        if (shapes.Count > 0 && shapes.All(s => s.BaseKind == "sequence")) fans.Add(new FanEntry { Name = "平和", Value = 1 });
         if (groups.Count == 1) fans.Add(new FanEntry { Name = "金龙", Value = 6 });
         else if (groups.Count == 2) fans.Add(new FanEntry { Name = "二金", Value = 3 });
         else if (groups.Count == 3) fans.Add(new FanEntry { Name = "三金", Value = 1 });

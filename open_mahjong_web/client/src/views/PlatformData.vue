@@ -9,7 +9,7 @@
       <div v-loading="loading">
         <el-tabs v-model="totalsTierTab" class="totals-tabs">
           <el-tab-pane
-            v-for="t in TIER_OPTIONS"
+            v-for="t in TOTALS_TIER_OPTIONS"
             :key="t.value"
             :label="t.label"
             :name="t.value"
@@ -175,6 +175,8 @@ import {
   buildAllFanEntries,
   buildSceneDailyChartOption,
   buildSceneDailyTable,
+  sumSceneTotals,
+  sumTierFans,
 } from '@/utils/statsDisplay'
 
 const TIER_OPTIONS = [
@@ -183,7 +185,8 @@ const TIER_OPTIONS = [
   { value: 'advanced', label: '高级场' },
   { value: 'mcrpl', label: 'mcrpl' },
 ]
-const TIER_LABEL = Object.fromEntries(TIER_OPTIONS.map((t) => [t.value, t.label]))
+const TOTALS_TIER_OPTIONS = [...TIER_OPTIONS, { value: 'total', label: '总计' }]
+const TIER_LABEL = Object.fromEntries(TOTALS_TIER_OPTIONS.map((t) => [t.value, t.label]))
 const MODE_LABELS = { '4/4': '全庄战', '3/4': '东西战', '2/4': '半庄战', '1/4': '东风战' }
 const fanDictSize = Object.keys(GUOBIAO_FAN_DICT).length
 
@@ -216,13 +219,24 @@ const recordsPage = reactive({ current: 1, size: 20 })
 const sceneChartRef = ref(null)
 let sceneChart = null
 
-const activeTierTotals = computed(() =>
-  sceneTotals.value.find((r) => r.match_tier === totalsTierTab.value) || null
-)
+const activeTierTotals = computed(() => {
+  if (totalsTierTab.value === 'total') {
+    const row = sceneTotals.value.find((r) => r.match_tier === 'total')
+    if (row) return row
+    const rows = sceneTotals.value.filter((r) => TIER_OPTIONS.some((t) => t.value === r.match_tier))
+    return rows.length ? sumSceneTotals(rows) : null
+  }
+  return sceneTotals.value.find((r) => r.match_tier === totalsTierTab.value) || null
+})
 
-const tierFanEntries = computed(() =>
-  buildAllFanEntries(sceneTierFans.value[totalsTierTab.value], GUOBIAO_FAN_DICT)
-)
+const tierFanEntries = computed(() => {
+  if (totalsTierTab.value === 'total') {
+    const fans = sceneTierFans.value.total
+      || sumTierFans(sceneTierFans.value, TIER_OPTIONS.map((t) => t.value))
+    return buildAllFanEntries(fans, GUOBIAO_FAN_DICT)
+  }
+  return buildAllFanEntries(sceneTierFans.value[totalsTierTab.value], GUOBIAO_FAN_DICT)
+})
 
 const dailyTable = computed(() =>
   buildSceneDailyTable(sceneDaily.value, TIER_OPTIONS, TIER_LABEL)
@@ -287,7 +301,7 @@ const loadRecentRecords = async () => {
     const offset = (recordsPage.current - 1) * recordsPage.size
     const res = await axios.get('/api/platform/recent-records', {
       params: {
-        match_tier: totalsTierTab.value,
+        ...(totalsTierTab.value === 'total' ? {} : { match_tier: totalsTierTab.value }),
         limit: recordsPage.size,
         offset,
       },

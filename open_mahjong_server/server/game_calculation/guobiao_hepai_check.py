@@ -1193,15 +1193,24 @@ class Chinese_Hepai_Check:
         )
         main_list.sort(key=lambda key: self.count_model_dict.get(key, 0), reverse=True)
         if "siguiyi" in present:
+            # 四归一固定排在所有 2 番之后；若当前没有 2 番番种，
+            # 则排在高番（>=2 番）之后、1 番之前，避免插入到列表头部。
             last_two_index = -1
             for index, key in enumerate(main_list):
-                if self.count_model_dict.get(key, 0) == 2:
+                if self.count_model_dict.get(key, 0) >= 2:
                     last_two_index = index
-            main_list.insert(last_two_index + 1, "siguiyi")
+            insert_pos = last_two_index + 1
+            if "shuangtongke" in present:
+                # 双同刻同为 2 番复计番，固定在四归一之前展示
+                main_list.insert(insert_pos, "shuangtongke")
+                insert_pos += 1
+            main_list.insert(insert_pos, "siguiyi")
         tail_list = [
             key for key in table_order
             if key in present and key in fuji_set and key != "siguiyi"
         ]
+        if "siguiyi" in present:
+            tail_list = [key for key in tail_list if key != "shuangtongke"]
         # 表外复计番（如有）同样追加到表尾并按番数排序
         tail_list.extend(
             key for key in player_tiles.fan_list

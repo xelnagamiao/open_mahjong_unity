@@ -344,19 +344,37 @@ export function winningDecompositions(hand: string[], openMelds: OpenMeld[] = []
 
   for (const partition of partitionMasks(mask, buckets)) {
     if (partition.length || openMelds.length) {
-      const groups = partition.map(codesFromMask)
-      // 组内/组间均按牌码排序，保证同一组合只出现一次
-      const key = JSON.stringify(
-        groups
-          .map((group) => [...group].sort())
-          .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      )
+      // 组内按（数字，花色）升序：顺子/彩虹按数字自然递增，同数刻子按花色；
+      // 组间按（组内最小数字，最小花色）稳定排序，展示美观且保证同一组合只出现一次。
+      const groups = partition
+        .map(codesFromMask)
+        .map((group) =>
+          [...group].sort(
+            (a, b) =>
+              parseTile(a).number - parseTile(b).number ||
+              parseTile(a).colour - parseTile(b).colour
+          )
+        )
+        .sort((a, b) => groupSortKey(a) - groupSortKey(b))
+      const key = JSON.stringify(groups)
       if (seen.has(key)) continue
       seen.add(key)
       results.push({ groups, pair: [] })
     }
   }
   return results
+}
+
+/** 组间排序键：先比组内最小数字，再比最小花色。 */
+function groupSortKey(group: string[]): number {
+  let minNumber = 10
+  let minColour = 14
+  for (const code of group) {
+    const tile = parseTile(code)
+    if (tile.number < minNumber) minNumber = tile.number
+    if (tile.colour < minColour) minColour = tile.colour
+  }
+  return minNumber * 100 + minColour
 }
 
 export function isWinningHand(hand: string[], openMelds: OpenMeld[] = []): boolean {
@@ -390,32 +408,54 @@ function orderedTiles(shape: MeldShape): HongqueTile[] {
   return tiles.sort((a, b) => a.colour - b.colour)
 }
 
-function sameShapeFan(shapes: MeldShape[], baseKind: string, names: Map<number, [string, number]>): FanEntry | null {
+function mergeEntries(entries: FanEntry[]): FanEntry[] {
+  const merged = new Map<string, FanEntry>()
+  for (const item of entries) {
+    const existing = merged.get(item.name)
+    if (existing) {
+      existing.count += 1
+      existing.total = existing.value * existing.count
+    } else {
+      merged.set(item.name, { ...item })
+    }
+  }
+  return [...merged.values()]
+}
+
+function sameShapeFans(shapes: MeldShape[], baseKind: string, names: Map<number, [string, number]>): FanEntry[] {
+  // 同刻/同顺系列：按“数字形状”分组，组内取最高档（双/三/四），
+  // 不同分组可复计；同组的牌不会同时计入两档。
   const buckets = new Map<string, number>()
   for (const shape of shapes) {
     if (shape.baseKind !== baseKind) continue
     const key = JSON.stringify(shape.tiles.map((code) => parseTile(code).number).sort((a, b) => a - b))
     buckets.set(key, (buckets.get(key) || 0) + 1)
   }
-  const maximum = Math.max(0, ...buckets.values())
-  const eligible = [...names.keys()].filter((count) => maximum >= count).sort((a, b) => b - a)[0]
-  if (!eligible) return null
-  const [name, value] = names.get(eligible) as [string, number]
-  return entry(name, value)
+  const entries: FanEntry[] = []
+  for (const count of buckets.values()) {
+    const eligible = [...names.keys()].filter((n) => count >= n).sort((a, b) => b - a)[0]
+    if (!eligible) continue
+    const [name, value] = names.get(eligible) as [string, number]
+    entries.push(entry(name, value))
+  }
+  return mergeEntries(entries)
 }
 
-function sameColourLayoutFan(shapes: MeldShape[]): FanEntry | null {
+function sameColourLayoutFans(shapes: MeldShape[]): FanEntry[] {
+  // 同花系列：按（长度，花色对应）分组，组内取最高档，不同分组可复计。
   const buckets = new Map<string, number>()
   for (const shape of shapes) {
     const ordered = orderedTiles(shape)
     const key = JSON.stringify([ordered.length, ordered.map((tile) => tile.colour)])
     buckets.set(key, (buckets.get(key) || 0) + 1)
   }
-  const maximum = Math.max(0, ...buckets.values())
-  if (maximum >= 4) return entry('四同花', 12)
-  if (maximum >= 3) return entry('三同花', 6)
-  if (maximum >= 2) return entry('双同花', 2)
-  return null
+  const entries: FanEntry[] = []
+  for (const count of buckets.values()) {
+    if (count >= 4) entries.push(entry('四同花', 12))
+    else if (count >= 3) entries.push(entry('三同花', 6))
+    else if (count >= 2) entries.push(entry('双同花', 2))
+  }
+  return mergeEntries(entries)
 }
 
 function combinations<T>(items: T[], r: number): T[][] {
@@ -508,22 +548,19 @@ function scorePartition(
   const dragon = dragonFan(shapes)
   if (dragon) fans.push(dragon)
 
-  const sameTriplet = sameShapeFan(shapes, 'triplet', new Map<number, [string, number]>([
+  fans.push(...sameShapeFans(shapes, 'triplet', new Map<number, [string, number]>([
     [2, ['双同刻', 2]],
     [3, ['三同刻', 6]],
     [4, ['四同刻', 12]],
-  ]))
-  if (sameTriplet) fans.push(sameTriplet)
+  ])))
 
-  const sameSequence = sameShapeFan(shapes, 'sequence', new Map<number, [string, number]>([
+  fans.push(...sameShapeFans(shapes, 'sequence', new Map<number, [string, number]>([
     [2, ['双同顺', 2]],
     [3, ['三同顺', 6]],
     [4, ['四同顺', 12]],
-  ]))
-  if (sameSequence) fans.push(sameSequence)
+  ])))
 
-  const sameColour = sameColourLayoutFan(shapes)
-  if (sameColour) fans.push(sameColour)
+  fans.push(...sameColourLayoutFans(shapes))
 
   const consecutive = consecutiveSequenceFan(shapes)
   if (consecutive) fans.push(consecutive)
@@ -582,7 +619,9 @@ function scorePartition(
   if (flags.selfDraw && flags.wallEmpty) fans.push(entry('海底', 2))
 
   if (allTriplets && numbers.length > 2) fans.push(entry('碰碰和', 3))
-  if (shapes.length && shapes.every((shape) => shape.kind === 'sequence')) fans.push(entry('平和', 1))
+  // 平和：仅由顺子构成。彩虹组本质也是顺子（长顺子），不影响平和；
+  // 因此按 baseKind 判断，彩虹顺子计入平和，彩虹刻子（刻子类）不计。
+  if (shapes.length && shapes.every((shape) => shape.baseKind === 'sequence')) fans.push(entry('平和', 1))
 
   if (groups.length === 1) fans.push(entry('金龙', 6))
   else if (groups.length === 2) fans.push(entry('二金', 3))

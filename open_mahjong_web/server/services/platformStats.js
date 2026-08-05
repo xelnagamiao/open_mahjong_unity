@@ -23,6 +23,13 @@ const SCENE_METRIC_SUMS = `
   SUM(total_round_score)::int AS total_round_score
 `;
 
+const SCENE_METRIC_KEYS = [
+  'total_games', 'total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
+  'total_fan_score', 'total_win_turn', 'total_fangchong_score',
+  'first_place_count', 'second_place_count', 'third_place_count', 'fourth_place_count',
+  'fulu_round_count', 'cuohe_count', 'total_round_score',
+];
+
 function formatStatDate(val) {
   if (val == null) return null;
   if (typeof val === 'string') return val.slice(0, 10);
@@ -39,15 +46,24 @@ function mapTotalsRow(row) {
   const out = { match_tier: row.match_tier };
   if (row.rule != null) out.rule = row.rule;
   if (row.game_type != null) out.game_type = row.game_type;
-  for (const k of [
-    'total_games', 'total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
-    'total_fan_score', 'total_win_turn', 'total_fangchong_score',
-    'first_place_count', 'second_place_count', 'third_place_count', 'fourth_place_count',
-    'fulu_round_count', 'cuohe_count', 'total_round_score',
-  ]) {
+  for (const k of SCENE_METRIC_KEYS) {
     out[k] = Number(row[k]) || 0;
   }
   return out;
+}
+
+/**
+ * 在按场次汇总的结果末尾追加一行“总计”（match_tier = 'total'）。
+ * 所有原始计数字段均可直接累加；比率类指标由前端基于合计重新计算。
+ * 仅在未按 rule/game_type 拆分的汇总模式下追加，避免 detail 视图出现歧义。
+ */
+function appendSceneTotalRow(rows, enabled) {
+  if (!enabled || !rows.length || rows.some((r) => r.match_tier === 'total')) return rows;
+  const total = { match_tier: 'total' };
+  for (const k of SCENE_METRIC_KEYS) {
+    total[k] = rows.reduce((sum, r) => sum + (Number(r[k]) || 0), 0);
+  }
+  return [...rows, total];
 }
 
 function buildSceneTotalsQuery(groupByTierOnly, extraWhere, params) {
@@ -126,7 +142,7 @@ async function querySceneTotals({ asOfDate, tier, gameType, rule, detail } = {})
   const groupByTierOnly = detail !== '1';
   const { sql, params: queryParams } = buildSceneTotalsQuery(groupByTierOnly, extraWhere, params);
   const result = await pool.query(sql, queryParams);
-  return result.rows.map(mapTotalsRow);
+  return appendSceneTotalRow(result.rows.map(mapTotalsRow), groupByTierOnly);
 }
 
 function fillFanByTier(rawByTier) {
@@ -137,6 +153,11 @@ function fillFanByTier(rawByTier) {
       byTier[tier][key] = Number(rawByTier[tier]?.[key]) || 0;
     }
   }
+  const total = {};
+  for (const key of GUOBIAO_FAN_KEYS) {
+    total[key] = LADDER_TIERS.reduce((sum, tier) => sum + (byTier[tier][key] || 0), 0);
+  }
+  byTier.total = total;
   return byTier;
 }
 

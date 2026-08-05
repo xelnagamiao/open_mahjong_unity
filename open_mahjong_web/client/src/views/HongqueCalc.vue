@@ -260,6 +260,21 @@ function tileFaceUrl(code) {
   return `${TILE_BASE_URL}${code}.png`
 }
 
+const tileColourOf = (code) => COLOUR_GROUPS.findIndex((group) => group.codePrefix === code.slice(0, 2))
+const tileNumberOf = (code) => Number(code[2])
+
+/** 手牌按（花色，数字）排序，与牌面调色板/对局手牌一致。 */
+const sortHandCodes = (codes) => {
+  codes.sort((a, b) => tileColourOf(a) - tileColourOf(b) || tileNumberOf(a) - tileNumberOf(b))
+  return codes
+}
+
+/** 副露组内按（数字，花色）排序：顺子/彩虹按数字自然递增，同数刻子按花色。 */
+const sortMeldCodes = (codes) => {
+  codes.sort((a, b) => tileNumberOf(a) - tileNumberOf(b) || tileColourOf(a) - tileColourOf(b))
+  return codes
+}
+
 const textInput = ref('')
 const result = ref(null)
 const decomposeResult = ref(null)
@@ -308,7 +323,7 @@ const parseCodes = (text) => {
 const applyTextInput = () => {
   if (!textInput.value.trim()) return true
   try {
-    form.hand = parseCodes(textInput.value)
+    form.hand = sortHandCodes(parseCodes(textInput.value))
     return true
   } catch (error) {
     ElMessage.error(`简写解析失败：${error.message}`)
@@ -372,6 +387,7 @@ const addHandTile = (code) => {
     return
   }
   form.hand.push(code)
+  sortHandCodes(form.hand)
   syncTextInput()
 }
 
@@ -408,6 +424,7 @@ const addMeldTile = (code) => {
     return
   }
   meld.codes.push(code)
+  sortMeldCodes(meld.codes)
   // 长组可继续追加；成组后仍允许选择能继续扩展的牌。
 }
 
@@ -529,10 +546,10 @@ const onTileError = (event) => {
 }
 
 const loadDemo = () => {
-  form.hand = parseCodes('AX1 AX2 AX3 BX4 BX5 BX6')
+  form.hand = sortHandCodes(parseCodes('AX1 AX2 AX3 BX4 BX5 BX6'))
   form.melds = [
-    { codes: parseCodes('CY7 DY7 EY7') },
-    { codes: parseCodes('FX1 GX1 GY1') },
+    { codes: sortMeldCodes(parseCodes('CY7 DY7 EY7')) },
+    { codes: sortMeldCodes(parseCodes('FX1 GX1 GY1')) },
     { codes: [] },
     { codes: [] },
   ]

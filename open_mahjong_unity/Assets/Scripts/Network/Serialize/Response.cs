@@ -542,6 +542,7 @@ public class HongqueScoreHintInfo {
     public int fan_total;
     public int points;
     public HongqueFanInfo[] fans;
+    public bool self_draw_only; // 只能自摸和（杠和听牌），客户端据此黄色叠底
 }
 
 [System.Serializable]

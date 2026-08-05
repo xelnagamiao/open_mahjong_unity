@@ -130,3 +130,76 @@ def test_exposed_groups_with_concealed_group_complete_the_win() -> None:
         ("AX1", "AX2", "AX3"),
         ("BX4", "BX5", "BX6"),
     ]
+
+
+def test_same_flower_and_same_sequence_fans_are_repeatable() -> None:
+    # AX1-3/BX1-3 与 AX7-9/BX7-9：两个双同顺；AX1-3/AX7-9 与 BX1-3/BX7-9：
+    # 两个双同花。双同花/双同顺按组复计。
+    hand = [
+        "AX1", "AX2", "AX3", "AX7", "AX8", "AX9",
+        "BX1", "BX2", "BX3", "BX7", "BX8", "BX9",
+    ]
+    result = best_win_result(
+        hand,
+        [],
+        self_draw=False,
+        before_first_discard=False,
+        wall_empty=False,
+    )
+    assert result is not None
+    fan_map = {fan["name"]: fan["total"] for fan in result["fans"]}
+    assert fan_map["双同花"] == 4  # 2 组 × 2 番
+    assert fan_map["双同顺"] == 4  # 2 组 × 2 番
+    same_flower = next(fan for fan in result["fans"] if fan["name"] == "双同花")
+    same_sequence = next(fan for fan in result["fans"] if fan["name"] == "双同顺")
+    assert same_flower["count"] == 2
+    assert same_sequence["count"] == 2
+
+
+def test_same_triplet_fans_are_repeatable_across_buckets() -> None:
+    # 数字 1 与数字 3 各有一对同数刻子 → 两个双同刻（2×2 番）。
+    hand = [
+        "AX1", "AY1", "BX1", "CY1", "DY1", "EY1",
+        "AX3", "AY3", "BX3", "CY3", "DY3", "EY3",
+    ]
+    result = best_win_result(
+        hand,
+        [],
+        self_draw=False,
+        before_first_discard=False,
+        wall_empty=False,
+    )
+    assert result is not None
+    same_triplet = next(fan for fan in result["fans"] if fan["name"] == "双同刻")
+    assert same_triplet["value"] == 2
+    assert same_triplet["count"] == 2
+    assert same_triplet["total"] == 4
+
+
+def test_rainbow_sequence_still_counts_for_pinghu() -> None:
+    # 彩虹组本质是长顺子，不影响平和；该手牌最优拆解含彩虹组，仍应计平和。
+    hand = [
+        "AY1", "BY2", "CY3", "DY4", "EY5", "FY6", "GY7",
+        "AY8", "BY9", "CY8", "DY7", "EY6",
+    ]
+    result = best_win_result(
+        hand,
+        [],
+        self_draw=False,
+        before_first_discard=False,
+        wall_empty=False,
+    )
+    assert result is not None
+    assert any(fan["name"] == "平和" for fan in result["fans"])
+
+    # 彩虹刻子（同数 14 张，规则书 1008 分例）是刻子类，不计平和。
+    hand2 = [f"{letter}{half}1" for letter in "ABCDEFG" for half in "XY"]
+    result2 = best_win_result(
+        hand2,
+        [],
+        self_draw=True,
+        before_first_discard=True,
+        wall_empty=False,
+    )
+    assert result2 is not None
+    assert "平和" not in {fan["name"] for fan in result2["fans"]}

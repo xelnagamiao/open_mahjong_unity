@@ -64,6 +64,36 @@ export const buildPlayerStatsRows = (s) => buildStatsRowsBase(s, playerFuluRate)
 /** 平台全站聚合统计（管理后台 / 平台数据页） */
 export const buildPlatformStatsRows = (s) => buildStatsRowsBase(s, platformFuluRate);
 
+/** 场次“总计”页签需要累加的原始计数字段（比率类指标由 buildPlatformStatsRows 基于合计重新计算） */
+export const SCENE_TOTAL_KEYS = [
+  'total_games', 'total_rounds', 'win_count', 'self_draw_count', 'deal_in_count',
+  'total_fan_score', 'total_win_turn', 'total_fangchong_score',
+  'first_place_count', 'second_place_count', 'third_place_count', 'fourth_place_count',
+  'fulu_round_count', 'cuohe_count', 'total_round_score',
+];
+
+/** 把多个场次的原始统计行累加为一行总计（后端已返回 total 行时前端不会走到这里） */
+export const sumSceneTotals = (rows) => {
+  const out = { match_tier: 'total' };
+  for (const k of SCENE_TOTAL_KEYS) {
+    out[k] = rows.reduce((sum, r) => sum + (Number(r?.[k]) || 0), 0);
+  }
+  return out;
+};
+
+/** 把多个场次的番种计数累加为一个总计对象 */
+export const sumTierFans = (fansByTier, tiers) => {
+  const out = {};
+  for (const t of tiers || []) {
+    const fans = fansByTier?.[t];
+    if (!fans) continue;
+    for (const [key, value] of Object.entries(fans)) {
+      out[key] = (out[key] || 0) + (Number(value) || 0);
+    }
+  }
+  return out;
+};
+
 export function buildAllFanEntries(fans, fanDict) {
   const dict = fanDict || {};
   return Object.keys(dict)
