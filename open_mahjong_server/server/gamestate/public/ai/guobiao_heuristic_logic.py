@@ -748,6 +748,18 @@ def evaluate_claim(
                 best_ron_kinds = ron_kinds
                 best_remaining = after_disc
 
+    # 吃了吐拦截：chi 吃进 X 后手牌仍剩一张 X（原暗顺/对子的剩余），且向听
+    # 持平 —— 等价于把手牌原有完整暗顺（如 234）换成明副露（234），结构不变、
+    # 门清丢失，纯亏（不求人/门前清没了，八番更难凑）。此时真实弃牌几乎必然
+    # 打出 X（端张 shed_priority 高），观感「刚吃又打」。
+    # 孤张变面子（向听前进，如 234+4 吃 4 用 23）不受影响。
+    if (
+        action in ("chi_left", "chi_mid", "chi_right")
+        and remaining.get(claimed, 0) > 0
+        and shanten_after == shanten_before
+    ):
+        return None
+
     value_honour_pon = (
         action == "peng"
         and shanten_before > 0
