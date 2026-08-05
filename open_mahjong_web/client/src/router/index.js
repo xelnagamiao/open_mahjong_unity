@@ -23,6 +23,7 @@ import LibraryRule from '@/views/LibraryRule.vue'
 import LibraryLayout from '@/layouts/LibraryLayout.vue'
 import RuleResearch from '@/views/RuleResearch.vue'
 import Paili from '@/views/Paili.vue'
+import HongqueCalc from '@/views/HongqueCalc.vue'
 import SeedVerify from '@/views/SeedVerify.vue'
 import MobileDownload from '@/views/MobileDownload.vue'
 import UsageGuide from '@/views/UsageGuide.vue'
@@ -100,6 +101,13 @@ const routes = [
         name: 'ChineseMahjong',
         component: ChineseMahjong,
         meta: { title: '国标计算器 - salasasa.cn' }
+      },
+      // 隐藏测试入口：虹雀² 和牌计算器（不在任何导航中展示）
+      {
+        path: 'hongque-calc',
+        name: 'HongqueCalc',
+        component: HongqueCalc,
+        meta: { title: '虹雀² 和牌计算器 - salasasa.cn' }
       },
       {
         path: 'rulebook/:rule?',
