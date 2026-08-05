@@ -27,6 +27,22 @@
             @click="closeMenu"
           >{{ item.label }}</router-link>
         </template>
+        <el-dropdown trigger="click" class="calc-nav" @command="onCalcCommand">
+          <span class="nav-link calc-trigger" :class="{ on: isCalcActive }">
+            计算器
+            <el-icon class="calc-caret"><arrow-down /></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="calc in calculators"
+                :key="calc.to"
+                :command="calc.to"
+                :class="{ 'is-active': route.path === calc.to }"
+              >{{ calc.label }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
       <div class="nav-spacer" />
       <div class="nav-controls">
@@ -54,11 +70,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { useMobile } from '@/composables/useMobile'
 import LanguageSelect from '@/components/LanguageSelect.vue'
+import { ArrowDown } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = usePlayerAuthStore()
 const { username, userId, loaded } = storeToRefs(auth)
 const isLoggedIn = computed(() => auth.isLoggedIn)
@@ -77,7 +96,6 @@ const items = [
   { to: '/player-data', label: '历史记录', match: (p) => p === '/player-data' || p === '/player-data/' },
   { to: '/player-data/platform', label: '数据统计', match: (p) => p.includes('/platform') },
   { to: '/paili', label: '牌理' },
-  { to: '/chinese', label: '国标计算器' },
   { to: '/rulebook', label: '规则书', match: (p) => p.startsWith('/rulebook') },
   { to: '/seed-verify', label: '种子验证' },
   { to: '/mobile-download', label: '手机版' },
@@ -86,6 +104,18 @@ const items = [
   { to: '/docs', label: '开发手册' },
   { to: '/github', label: 'GitHub' },
 ]
+
+const calculators = [
+  { to: '/chinese', label: '国标计算器' },
+  { to: '/hongque-calc', label: '虹雀² 计算器' },
+]
+
+const isCalcActive = computed(() => calculators.some((calc) => route.path === calc.to))
+
+function onCalcCommand(to) {
+  if (route.path !== to) router.push(to)
+  closeMenu()
+}
 
 const isActive = (item) => {
   if (item.href) return false
@@ -182,6 +212,31 @@ onMounted(() => {
   color: #9cf;
 }
 
+.calc-nav {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.calc-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  box-sizing: border-box;
+  outline: none;
+  user-select: none;
+}
+
+.calc-caret {
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.calc-nav:hover .calc-caret {
+  transform: rotate(180deg);
+}
+
 @media (max-width: 768px) {
   .topnav {
     padding: 0 12px;
@@ -228,5 +283,13 @@ onMounted(() => {
   .nav-link.auth {
     margin-left: auto;
   }
+}
+</style>
+
+<style>
+.calc-nav .el-dropdown-menu__item.is-active {
+  color: #409eff;
+  font-weight: 600;
+  background: #ecf5ff;
 }
 </style>

@@ -66,8 +66,7 @@
 
       <div class="row block">
         <div class="row-line">
-          <span class="row-label">副露牌组（{{ activeMelds.length }}/4，每组至少 3 张）</span>
-          <el-button type="text" size="small" :disabled="melds.length >= 4" @click="addMeld">+ 添加牌组</el-button>
+          <span class="row-label">副露牌组（{{ activeMelds.length }}/4，点击方块后从牌面选牌）</span>
         </div>
         <div class="meld-grid">
           <div
@@ -80,7 +79,7 @@
             <div class="meld-slot-head">
               <span class="slot-index">#{{ idx + 1 }}</span>
               <span v-if="meldKindLabel(idx)" class="meld-kind" :class="{ invalid: meldInvalid(idx) }">{{ meldKindLabel(idx) }}</span>
-              <el-button type="danger" link size="small" @click.stop="removeMeld(idx)">删除</el-button>
+              <el-button v-if="meld.codes.length" type="danger" link size="small" @click.stop="clearMeld(idx)">清空</el-button>
             </div>
             <div class="meld-tiles">
               <template v-if="meld.codes.length">
@@ -267,7 +266,7 @@ const activeMeldIdx = ref(-1)
 
 const form = reactive({
   hand: [],
-  melds: [],
+  melds: [{ codes: [] }, { codes: [] }, { codes: [] }, { codes: [] }],
   selfDraw: true,
   beforeFirstDiscard: false,
   wallEmpty: false,
@@ -384,15 +383,8 @@ const activateHand = () => {
   activeMeldIdx.value = -1
 }
 
-const addMeld = () => {
-  if (form.melds.length >= 4) return
-  form.melds.push({ codes: [] })
-  activeMeldIdx.value = form.melds.length - 1
-}
-
-const removeMeld = (idx) => {
-  form.melds.splice(idx, 1)
-  if (activeMeldIdx.value >= form.melds.length) activeMeldIdx.value = -1
+const clearMeld = (idx) => {
+  form.melds[idx].codes = []
 }
 
 const activateMeld = (idx) => {
@@ -537,7 +529,12 @@ const onTileError = (event) => {
 
 const loadDemo = () => {
   form.hand = parseCodes('AX1 AX2 AX3 BX4 BX5 BX6')
-  form.melds = [{ codes: parseCodes('CY7 DY7 EY7') }, { codes: parseCodes('FX1 GX1 GY1') }]
+  form.melds = [
+    { codes: parseCodes('CY7 DY7 EY7') },
+    { codes: parseCodes('FX1 GX1 GY1') },
+    { codes: [] },
+    { codes: [] },
+  ]
   form.selfDraw = true
   form.beforeFirstDiscard = false
   form.wallEmpty = false
@@ -549,7 +546,7 @@ const loadDemo = () => {
 
 const resetAll = () => {
   form.hand = []
-  form.melds = []
+  form.melds = [{ codes: [] }, { codes: [] }, { codes: [] }, { codes: [] }]
   form.selfDraw = true
   form.beforeFirstDiscard = false
   form.wallEmpty = false
