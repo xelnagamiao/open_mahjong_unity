@@ -17,7 +17,7 @@
         <el-option :value="4" label="全庄战" />
       </el-select>
     </el-form-item>
-    <el-form-item label="局时(分)">
+    <el-form-item label="局时(秒)">
       <el-select
         :model-value="modelValue.round_timer"
         style="width: 140px"

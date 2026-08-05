@@ -170,6 +170,19 @@ public class MahjongObjectPool : MonoBehaviour {
         tile3D?.RefreshPeekCollider();
     }
 
+    /// <summary>
+    /// 遍历对象池内所有牌对象（含未部署的 inactive 牌），供批量同步牌背等共享视觉。
+    /// FindObjectsByType 只能找到激活实例，池内牌必须走本方法同步。
+    /// </summary>
+    public void ForEachPooledTile(System.Action<GameObject> action) {
+        if (action == null || poolDictionary == null) return;
+        foreach (Queue<GameObject> queue in poolDictionary.Values) {
+            foreach (GameObject tile in queue) {
+                if (tile != null) action(tile);
+            }
+        }
+    }
+
     private static void EnsureTileCollider(GameObject obj) {
         Renderer renderer = obj.GetComponent<Renderer>() ?? obj.GetComponentInChildren<Renderer>();
         if (renderer == null) return;
@@ -236,11 +249,20 @@ public class MahjongObjectPool : MonoBehaviour {
         }
 
         GameObject tile = poolDictionary[type].Dequeue();
+        // 首次取牌时确保保存的牌背颜色/图片已应用（含对象池同步），
+        // 否则重启后池内牌仍带着初始化时的默认牌背颜色。
+        CardBackManager.EnsureSavedConfigApplied();
         tile.SetActive(true);
         tile.transform.position = position;
         tile.transform.rotation = rotation;
         EnsureTileCollider(tile);
         ApplyCardTexture(tile, type);
+        Tile3D spawnedTile3D = tile.GetComponent<Tile3D>();
+        if (spawnedTile3D != null) {
+            spawnedTile3D.ApplyBackVisual(
+                CardBackManager.CurrentColor,
+                CardBackManager.CurrentTexture);
+        }
         return tile;
     }
 

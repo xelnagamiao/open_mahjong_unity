@@ -66,7 +66,8 @@ def _structural_value(hand_mask: int) -> tuple[int, int]:
         overlap = group_mask & hand_mask
         # A one-tile overlap needs at least two entirely new cards and gives no
         # actionable shape information.  Treat it as a replaceable singleton;
-        # exact same-number head waits are still caught by ``waiting_mask``.
+        # waiting_mask only reports tiles that complete a legal group, since
+        # same-number pair heads are not a winning shape.
         if overlap.bit_count() >= 2:
             key = (overlap, group_size)
             variant_counts[key] = variant_counts.get(key, 0) + 1

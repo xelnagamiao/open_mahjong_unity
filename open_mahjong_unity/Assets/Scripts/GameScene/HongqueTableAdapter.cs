@@ -303,6 +303,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             case "draw":
             case "supplement":
             case "discard":
+            case "claim_apply":
             case "sequence":
             case "triplet":
             case "rainbow":
@@ -372,10 +373,16 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             return;
         }
 
+        if (actionEvent.type == "claim_apply") {
+            ApplyClaimApplication(actionEvent);
+            return;
+        }
+
         int claimedTile = HongqueTileVisual.FromCode(actionEvent.tile);
         int[] meldMask = BuildMeldMask(actionEvent);
         string baseKind = string.IsNullOrEmpty(actionEvent.base_kind) ? actionEvent.type : actionEvent.base_kind;
         bool rainbow = actionEvent.type == "rainbow";
+        bool claimApplied = actionEvent.silent;
         string tableAction = baseKind == "triplet" ? "peng" : "chi_left";
         int[] meldTiles = ConvertTiles(actionEvent.tiles);
         string prefix = baseKind == "triplet" ? "k" : "s";
@@ -383,11 +390,33 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         gsm.DoAction(
             new[] { tableAction }, actionEvent.player, claimedTile, null, null, false,
             null, null, null, meldMask, target,
-            isSilent: rainbow, cut_from_player: actionEvent.from_player);
+            isSilent: rainbow || claimApplied, cut_from_player: actionEvent.from_player);
         if (actionEvent.player == state.you) selfHasUnmergedDraw = false;
-        if (rainbow && gsm.indexToPosition.TryGetValue(actionEvent.player, out string position)) {
+        if (rainbow && !claimApplied
+                && gsm.indexToPosition.TryGetValue(actionEvent.player, out string position)) {
             GameCanvas.Instance.ShowActionDisplay(position, "hongque_rainbow", "hongque");
         }
+    }
+
+    /// <summary>
+    /// 战术鸣牌申请帧：只播放发声/动画，不改动牌面。
+    /// 申请已亮相后，对应执行帧会带 silent 标记，本家按钮在提交后由服务端状态清空，
+    /// 其它更高优先级玩家仍保留亮牌按钮，可在剩余询问窗口内抢断。
+    /// </summary>
+    private void ApplyClaimApplication(HongqueEventInfo actionEvent) {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null || !gsm.indexToPosition.TryGetValue(actionEvent.player, out string position)) {
+            return;
+        }
+        string kind = string.IsNullOrEmpty(actionEvent.kind) ? actionEvent.base_kind : actionEvent.kind;
+        if (kind == "rainbow") {
+            GameCanvas.Instance.ShowActionDisplay(position, "hongque_rainbow", "hongque");
+            return;
+        }
+        string action = kind == "win" ? "hu" : (kind == "triplet" ? "peng" : "chi_left");
+        SoundManager.Instance.PlayActionSound(position, action);
+        SoundManager.Instance.PlayPhysicsSound(action);
+        GameCanvas.Instance.ShowActionDisplay(position, action, "hongque");
     }
 
     private void ApplyKongEvent(HongqueEventInfo actionEvent) {
@@ -518,7 +547,8 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             result.player, scores, result.points, fanTokens, huClass,
             ConvertTiles(result.hand), Array.Empty<int>(),
             BuildResultMeldMasks(result.melds),
-            result.@base, null, null, current.round_result.score_changes);
+            result.@base, null, null, current.round_result.score_changes,
+            isSilent: current.round_result.silent);
     }
 
     /// <summary>

@@ -29,6 +29,7 @@ public class AppConfigPanel : MonoBehaviour {
     [SerializeField] private TMP_Dropdown actionButtonColorDropdown;
     [SerializeField] private TMP_Dropdown openingAutoBuhuaDropdown;
     [SerializeField] private TMP_Dropdown meldSpacingDropdown;
+    [SerializeField] private TMP_Dropdown vsyncDropdown;
 
     [Header("提示音效")]
     [SerializeField] private TMP_Dropdown gongHuSoundDropdown;
@@ -46,6 +47,7 @@ public class AppConfigPanel : MonoBehaviour {
         EnsureHandSortDragonDropdown();
         EnsureHandSortRiichiDragonDropdown();
         EnsureActionButtonColorDropdown();
+        EnsureVsyncDropdown();
         InitializeGameplayDropdownOptions();
         if (languageDropdown != null) {
             languageDropdown.onValueChanged.AddListener(OnLanguageDropdownChanged);
@@ -80,6 +82,9 @@ public class AppConfigPanel : MonoBehaviour {
         if (meldSpacingDropdown != null) {
             meldSpacingDropdown.onValueChanged.AddListener(OnMeldSpacingDropdownChanged);
         }
+        if (vsyncDropdown != null) {
+            vsyncDropdown.onValueChanged.AddListener(OnVsyncDropdownChanged);
+        }
         if (gongHuSoundDropdown != null) {
             gongHuSoundDropdown.onValueChanged.AddListener(OnGongHuSoundDropdownChanged);
         }
@@ -89,9 +94,6 @@ public class AppConfigPanel : MonoBehaviour {
         if (tileOutlinePresetDropdown != null) {
             tileOutlinePresetDropdown.onValueChanged.AddListener(OnTileOutlinePresetDropdownChanged);
         }
-#if !UNITY_WEBGL || UNITY_EDITOR
-        targetFrameRateDropdown.onValueChanged.AddListener(OnTargetFrameRateDropdownChanged);
-#endif
         ApplyTargetFrameRateDropdownVisibility();
     }
 
@@ -162,6 +164,10 @@ public class AppConfigPanel : MonoBehaviour {
             meldSpacingDropdown.ClearOptions();
             meldSpacingDropdown.AddOptions(new List<string> { "关", "开" });
         }
+        if (vsyncDropdown != null) {
+            vsyncDropdown.ClearOptions();
+            vsyncDropdown.AddOptions(new List<string> { "关", "开" });
+        }
         if (gongHuSoundDropdown != null) {
             gongHuSoundDropdown.ClearOptions();
             gongHuSoundDropdown.AddOptions(new List<string> { "关", "开" });
@@ -174,14 +180,6 @@ public class AppConfigPanel : MonoBehaviour {
             tileOutlinePresetDropdown.ClearOptions();
             tileOutlinePresetDropdown.AddOptions(new List<string>(ConfigManager.TileOutlinePresetLabels));
         }
-#if !UNITY_WEBGL || UNITY_EDITOR
-        targetFrameRateDropdown.ClearOptions();
-        List<string> frameRateOptions = new List<string>();
-        foreach (int frameRate in ConfigManager.TargetFrameRateOptions) {
-            frameRateOptions.Add(frameRate.ToString());
-        }
-        targetFrameRateDropdown.AddOptions(frameRateOptions);
-#endif
     }
 
     private void SyncGameplayDropdownsFromConfig() {
@@ -231,6 +229,10 @@ public class AppConfigPanel : MonoBehaviour {
             meldSpacingDropdown.SetValueWithoutNotify(ConfigManager.Instance.MeldSpacingEnabled ? 1 : 0);
             meldSpacingDropdown.RefreshShownValue();
         }
+        if (vsyncDropdown != null) {
+            vsyncDropdown.SetValueWithoutNotify(ConfigManager.Instance.VsyncEnabled ? 1 : 0);
+            vsyncDropdown.RefreshShownValue();
+        }
         if (gongHuSoundDropdown != null) {
             gongHuSoundDropdown.SetValueWithoutNotify(ConfigManager.Instance.GongHuSoundEnabled ? 1 : 0);
             gongHuSoundDropdown.RefreshShownValue();
@@ -243,11 +245,6 @@ public class AppConfigPanel : MonoBehaviour {
             tileOutlinePresetDropdown.SetValueWithoutNotify(ConfigManager.Instance.TileOutlinePreset - 1);
             tileOutlinePresetDropdown.RefreshShownValue();
         }
-#if !UNITY_WEBGL || UNITY_EDITOR
-        int frameRateIndex = System.Array.IndexOf(ConfigManager.TargetFrameRateOptions, ConfigManager.Instance.TargetFrameRate);
-        targetFrameRateDropdown.SetValueWithoutNotify(frameRateIndex >= 0 ? frameRateIndex : 0);
-        targetFrameRateDropdown.RefreshShownValue();
-#endif
     }
 
     private void ApplyTargetFrameRateDropdownVisibility() {
@@ -272,8 +269,8 @@ public class AppConfigPanel : MonoBehaviour {
         ConfigManager.Instance.SetAskOtherPassShortcutMode(value);
     }
 
-    private void OnTargetFrameRateDropdownChanged(int value) {
-        ConfigManager.Instance.SetTargetFrameRate(ConfigManager.TargetFrameRateOptions[value]);
+    private void OnVsyncDropdownChanged(int value) {
+        ConfigManager.Instance.SetVsyncEnabled(value == 1);
     }
 
     private void OnStreamerModeDropdownChanged(int value) {
@@ -496,6 +493,13 @@ public class AppConfigPanel : MonoBehaviour {
             handSortRiichiDragonDropdown != null ? handSortRiichiDragonDropdown : handSortDragonDropdown,
             "ActionButtonColorRow",
             "启用按钮颜色");
+    }
+
+    /// <summary>垂直同步开关行（默认开启）。未在场景中挂接时克隆一行“开/关”下拉。</summary>
+    private void EnsureVsyncDropdown() {
+        TMP_Dropdown template = meldSpacingDropdown != null ? meldSpacingDropdown
+            : (actionButtonColorDropdown != null ? actionButtonColorDropdown : moqieShortcutDropdown);
+        vsyncDropdown = CloneDropdownRow(vsyncDropdown, template, "VsyncRow", "垂直同步");
     }
 
     /// <summary>

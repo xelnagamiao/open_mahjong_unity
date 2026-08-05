@@ -79,6 +79,13 @@ class HongqueGameState:
         # which made chi/peng/win prompts disappear far too quickly.
         self.claim_seconds = self.turn_seconds
         self.tips = bool(room_data.get("tips", True))
+        # 战术鸣牌与国标一致：申请广播后停顿再开打断窗口，窗口按 grace 秒数计时。
+        self.tactical_pre_grace_delay = float(
+            room_data.get("tactical_pre_grace_delay", 0.5)
+        )
+        self.tactical_grace_seconds = float(
+            room_data.get("tactical_grace_seconds", 5.0)
+        )
         self.turn_deadline: Optional[float] = None
         self.claim_deadline: Optional[float] = None
         self.turn_started_at: Optional[float] = None
@@ -106,6 +113,17 @@ class HongqueGameState:
         self._rng = random.Random(str(room_data.get("random_seed") or gamestate_id))
         self.claim_options: dict[int, list[dict]] = {}
         self.claim_responses: dict[int, dict] = {}
+        # 战术鸣牌：记录本张弃牌区间内已广播「亮牌申请」的 (玩家 -> candidate id)。
+        # 申请帧只发声/显示动画，不改变牌面；最终执行帧据此标记 silent，避免重复发声。
+        self._claim_apply_broadcast: dict[int, str] = {}
+        # 当前生效的亮牌申请（打断窗口期间的最终候选）。
+        self._claim_applied: Optional[tuple[int, dict]] = None
+        self._claim_grace_active = False
+        self._claim_grace_task: Optional[asyncio.Task] = None
+        self._claim_grace_timeout_task: Optional[asyncio.Task] = None
+        self._claim_grace_deadline: Optional[float] = None
+        # 打断窗口内已 pass 的玩家：本轮申请不再重复询问；新申请替换时清空。
+        self._grace_passed_players: set[int] = set()
         self._claim_timeout_task: Optional[asyncio.Task] = None
         self._turn_timeout_task: Optional[asyncio.Task] = None
         self._wait_hint_cache: dict[tuple, list[dict]] = {}
@@ -155,6 +173,10 @@ class HongqueGameState:
         self.last_discard = None
         self.claim_options.clear()
         self.claim_responses.clear()
+        self._claim_apply_broadcast.clear()
+        self._claim_applied = None
+        self._claim_grace_active = False
+        self._grace_passed_players.clear()
         self.round_result = None
         self.events = []
         self.phase = "turn"
@@ -205,6 +227,15 @@ class HongqueGameState:
         self.claim_deadline = max(self.claim_deadlines.values(), default=self.claim_started_at)
 
     def _remaining_clock(self, viewer: HongquePlayer) -> tuple[int, int]:
+        # 战术鸣牌打断窗口：剩余时间按 grace 秒数显示，不再叠加步时（与国标一致）。
+        if (self._claim_grace_active and self.phase == "claim"
+                and viewer.index in self.claim_options
+                and viewer.index not in self.claim_responses
+                and self._claim_grace_deadline is not None):
+            remaining = max(
+                0, int(self._claim_grace_deadline - time.monotonic() + 0.999)
+            )
+            return remaining, 0
         started_at: Optional[float] = None
         if self.phase == "turn" and viewer.index == self.current_player_index:
             started_at = self.turn_started_at
@@ -382,6 +413,7 @@ class HongqueGameState:
         discarded = self.last_discard["tile"]
         self.claim_options = {}
         self.claim_responses = {}
+        self._claim_apply_broadcast.clear()
         for player in self.players:
             if player.index == discard_player:
                 continue
@@ -427,18 +459,209 @@ class HongqueGameState:
         if action == "pass":
             self._consume_time_bank(player, self.claim_started_at)
             self.claim_responses[player.index] = {"action": "pass"}
+            if self._claim_grace_active:
+                # 打断窗口内的 pass：本轮不再重复询问该玩家。
+                self._grace_passed_players.add(player.index)
+                if not self._claim_grace_pending():
+                    await self._resolve_claims()
+                else:
+                    await self.send_state_to(player.index)
+                return
         elif action == "claim":
             candidate = next((item for item in self.claim_options[player.index] if item["id"] == candidate_id), None)
             if candidate is None:
                 raise ValueError("亮牌候选无效")
             self._consume_time_bank(player, self.claim_started_at)
             self.claim_responses[player.index] = {"action": "claim", "candidate": candidate}
+            if self._claim_grace_active:
+                # 打断窗口内：更高优先级（或更近同优先级）才替换申请；同优先级和牌共存（多家和）。
+                if self._claim_upgrades_applied(player.index, candidate):
+                    await self._begin_claim_grace(player.index, candidate)
+                else:
+                    await self._broadcast_claim_apply(player.index, candidate)
+                    if not self._claim_grace_pending():
+                        await self._resolve_claims()
+                return
+            await self._begin_claim_grace(player.index, candidate)
+            return
         else:
             raise ValueError("未知的亮牌操作")
         if all(index in self.claim_responses for index in self.claim_options):
             await self._resolve_claims()
         else:
             await self.send_state_to(player.index)
+
+    async def _broadcast_claim_apply(self, player_index: int, candidate: dict) -> None:
+        """战术鸣牌申请：立即广播发声/动画帧，不改牌面，与国标 is_claim 一致。
+
+        荣和也走申请帧（和牌声提前播放），最终结算/执行帧标记 silent 避免重复发声。
+        """
+        if not candidate:
+            return
+        candidate_id = candidate.get("id")
+        if self._claim_apply_broadcast.get(player_index) == candidate_id:
+            return
+        self._claim_apply_broadcast[player_index] = candidate_id
+        self.events = []
+        self._record_event(
+            "claim_apply",
+            player=player_index,
+            kind=candidate.get("kind"),
+            base_kind=candidate.get("base_kind", candidate.get("kind")),
+            tile=self.last_discard["tile"] if self.last_discard else None,
+            tiles=list(candidate.get("tiles", ())),
+            hand_tiles=list(candidate.get("hand_tiles", ())),
+        )
+        await self.broadcast_state()
+
+    async def _begin_claim_grace(self, player_index: int, candidate: dict) -> None:
+        """开始战术鸣牌打断流程（与国标 apply_tactical_claim_if_needed 对齐）：
+
+        1) 申请帧立即广播；2) 停顿 tactical_pre_grace_delay 后重新询问更高优先级玩家
+        （含主询问已 pass 者）；3) 打断窗口按 tactical_grace_seconds 独立计时。
+        """
+        self._claim_applied = (player_index, candidate)
+        self._claim_grace_active = True
+        self._grace_passed_players = set()
+        if self._claim_timeout_task and self._claim_timeout_task is not asyncio.current_task():
+            self._claim_timeout_task.cancel()
+            self._claim_timeout_task = None
+        if self._claim_grace_timeout_task \
+                and self._claim_grace_timeout_task is not asyncio.current_task():
+            self._claim_grace_timeout_task.cancel()
+            self._claim_grace_timeout_task = None
+        await self._broadcast_claim_apply(player_index, candidate)
+        self._schedule_claim_grace_flow()
+
+    def _schedule_claim_grace_flow(self) -> None:
+        if self._claim_grace_task and self._claim_grace_task is not asyncio.current_task() \
+                and not self._claim_grace_task.done():
+            self._claim_grace_task.cancel()
+        self._claim_grace_task = asyncio.create_task(
+            self._claim_grace_flow(self.action_tick)
+        )
+
+    async def _claim_grace_flow(self, tick: int) -> None:
+        """申请帧后的停顿 + 打开打断窗口；在后台任务执行，避免占用房间锁。"""
+        try:
+            await asyncio.sleep(max(0.0, self.tactical_pre_grace_delay))
+            async with self._lock:
+                if (not self._claim_grace_active or self.phase != "claim"
+                        or self.action_tick != tick):
+                    return
+                if self._claim_grace_task is not asyncio.current_task():
+                    return
+                await self._open_grace_window()
+        except asyncio.CancelledError:
+            return
+
+    async def _open_grace_window(self) -> None:
+        """重新询问更高优先级玩家（含主询问已 pass 者），并按 grace 秒数开窗。"""
+        if not self._claim_applied:
+            return
+        applied_player, applied_candidate = self._claim_applied
+        applied_rank = self._claim_rank(applied_player, applied_candidate)
+        reasked = False
+        for pid, options in self.claim_options.items():
+            if pid == applied_player or pid in self._grace_passed_players:
+                continue
+            best_rank = max(
+                (self._claim_rank(pid, o) for o in options),
+                default=(0, 0),
+            )
+            if best_rank <= applied_rank:
+                continue
+            response = self.claim_responses.get(pid)
+            if response is not None and response["action"] == "pass":
+                # 主询问阶段已 pass：打断窗口内重新询问，允许改选更高动作。
+                del self.claim_responses[pid]
+                reasked = True
+        if reasked:
+            await self.broadcast_state()
+        pending = self._claim_grace_pending()
+        if pending:
+            # 打断窗口重新计时；倒计时显示按 grace 秒数走。
+            self.claim_started_at = time.monotonic()
+            self.claim_deadline = None
+            self._claim_grace_deadline = time.monotonic() + self.tactical_grace_seconds
+            self._schedule_claim_grace_timeout()
+            return
+        await self._resolve_claims()
+
+    def _claim_grace_pending(self) -> list[int]:
+        """打断窗口内仍需回应的玩家：同/更高优先级且尚未回应（含潜在多家和）。"""
+        if not self._claim_applied:
+            return []
+        applied_player, applied_candidate = self._claim_applied
+        applied_rank = self._claim_rank(applied_player, applied_candidate)
+        pending: list[int] = []
+        for pid, options in self.claim_options.items():
+            if pid == applied_player or pid in self._grace_passed_players:
+                continue
+            best_rank = max(
+                (self._claim_rank(pid, o) for o in options),
+                default=(0, 0),
+            )
+            if best_rank < applied_rank:
+                continue
+            if pid not in self.claim_responses:
+                pending.append(pid)
+        return pending
+
+    def _claim_upgrades_applied(self, pid: int, candidate: dict) -> bool:
+        """打断窗口内新亮牌是否替换当前申请。"""
+        if not self._claim_applied:
+            return True
+        applied_pid, applied_candidate = self._claim_applied
+        if candidate.get("kind") == "win":
+            # 荣和与荣和共存（多家和），不替换；荣和高于一切非和牌。
+            return applied_candidate.get("kind") != "win"
+        if applied_candidate.get("kind") == "win":
+            return False
+        return self._claim_beats(pid, candidate, applied_pid, applied_candidate)
+
+    def _claim_beats(self, pid: int, candidate: dict,
+                     other_pid: int, other_candidate: dict) -> bool:
+        return self._claim_rank(pid, candidate) > self._claim_rank(
+            other_pid, other_candidate
+        )
+
+    def _claim_rank(self, pid: int, candidate: dict) -> tuple[int, int]:
+        """虹雀亮牌综合优先级：候选自带优先级；同优先级按距出牌者顺时针距离，近者优先。
+
+        荣和除外：多家和时所有荣和等价，不按座位区分高下（_resolve_claims 会全部收集）。
+        """
+        priority = int(candidate.get("priority", 0) or 0)
+        if candidate.get("kind") == "win":
+            return (priority, 0)
+        discarder = self.last_discard["player"] if self.last_discard else -1
+        d1 = (pid - discarder) % len(self.players)
+        return (priority, -d1)
+
+    def _schedule_claim_grace_timeout(self) -> None:
+        if self._claim_grace_timeout_task \
+                and self._claim_grace_timeout_task is not asyncio.current_task() \
+                and not self._claim_grace_timeout_task.done():
+            self._claim_grace_timeout_task.cancel()
+        self._claim_grace_timeout_task = asyncio.create_task(
+            self._claim_grace_timeout(self.action_tick)
+        )
+
+    async def _claim_grace_timeout(self, tick: int) -> None:
+        try:
+            await asyncio.sleep(max(
+                0.0, (self._claim_grace_deadline or time.monotonic()) - time.monotonic()
+            ))
+            async with self._lock:
+                if (not self._claim_grace_active or self.phase != "claim"
+                        or self.action_tick != tick):
+                    return
+                if self._claim_grace_timeout_task is not asyncio.current_task():
+                    return
+                # 超时：未回应的同/更高优先级玩家视为放弃，执行当前申请。
+                await self._resolve_claims()
+        except asyncio.CancelledError:
+            return
 
     async def _claim_timeout(self, tick: int) -> None:
         try:
@@ -476,6 +699,13 @@ class HongqueGameState:
         self._cancel_bot_claim_tasks()
         if self._claim_timeout_task and self._claim_timeout_task is not asyncio.current_task():
             self._claim_timeout_task.cancel()
+        if self._claim_grace_task and self._claim_grace_task is not asyncio.current_task():
+            self._claim_grace_task.cancel()
+        if self._claim_grace_timeout_task \
+                and self._claim_grace_timeout_task is not asyncio.current_task():
+            self._claim_grace_timeout_task.cancel()
+        self._claim_grace_active = False
+        self._claim_applied = None
         claims = []
         discarder = self.last_discard["player"]
         for index, response in self.claim_responses.items():
@@ -509,7 +739,11 @@ class HongqueGameState:
                     result["winning_hand"] = list(winner.hand) + [discarded]
                     winners.append((winner, result))
             if winners:
-                await self._finish_round(winners, "ron")
+                ron_silent = any(
+                    self._claim_apply_broadcast.get(claim_index) == claim_candidate.get("id")
+                    for _, _, claim_index, claim_candidate in ron_claims
+                )
+                await self._finish_round(winners, "ron", silent=ron_silent)
                 return
         _, _, winner_index, candidate = min(claims)
         winner = self.players[winner_index]
@@ -528,6 +762,7 @@ class HongqueGameState:
         winner.drawn_tile = None
         self.phase = "turn"
         self._start_turn_clock()
+        claim_applied = self._claim_apply_broadcast.get(winner_index) == candidate.get("id")
         self._record_event(
             candidate["kind"],
             player=winner_index,
@@ -536,6 +771,7 @@ class HongqueGameState:
             tiles=candidate["tiles"],
             hand_tiles=candidate["hand_tiles"],
             base_kind=candidate.get("base_kind", candidate["kind"]),
+            silent=claim_applied,
         )
         self.message = f"{winner.username} 亮牌（{candidate['kind']}）"
         self.claim_options.clear()
@@ -561,13 +797,25 @@ class HongqueGameState:
         self._schedule_turn_timeout()
         self._schedule_bot_if_needed()
 
-    async def _finish_round(self, winners: list[tuple[HongquePlayer, dict]], reason: str) -> None:
+    async def _finish_round(
+        self,
+        winners: list[tuple[HongquePlayer, dict]],
+        reason: str,
+        silent: bool = False,
+    ) -> None:
         self.phase = "round_end"
         self._cancel_bot_claim_tasks()
         if self._turn_timeout_task and self._turn_timeout_task is not asyncio.current_task():
             self._turn_timeout_task.cancel()
         if self._claim_timeout_task and self._claim_timeout_task is not asyncio.current_task():
             self._claim_timeout_task.cancel()
+        if self._claim_grace_task and self._claim_grace_task is not asyncio.current_task():
+            self._claim_grace_task.cancel()
+        if self._claim_grace_timeout_task \
+                and self._claim_grace_timeout_task is not asyncio.current_task():
+            self._claim_grace_timeout_task.cancel()
+        self._claim_grace_active = False
+        self._claim_applied = None
         self.turn_deadline = None
         self.claim_deadline = None
         self.turn_started_at = None
@@ -604,6 +852,7 @@ class HongqueGameState:
                 "score_changes": score_changes,
                 "scores": {str(player.index): player.score for player in self.players},
                 "winners": winner_results,
+                "silent": bool(silent),
             }
             self._record_event(reason, players=self.round_result["winner_indices"])
         else:
@@ -1082,9 +1331,25 @@ class HongqueGameState:
                         "action": "claim",
                         "candidate": candidate,
                     }
+                    if self._claim_grace_active:
+                        if self._claim_upgrades_applied(player_index, candidate):
+                            await self._begin_claim_grace(player_index, candidate)
+                        else:
+                            await self._broadcast_claim_apply(player_index, candidate)
+                            if not self._claim_grace_pending():
+                                await self._resolve_claims()
+                    else:
+                        await self._begin_claim_grace(player_index, candidate)
                 else:
                     self.claim_responses[player_index] = {"action": "pass"}
-                if all(index in self.claim_responses for index in self.claim_options):
+                    if self._claim_grace_active:
+                        self._grace_passed_players.add(player_index)
+                        if not self._claim_grace_pending():
+                            await self._resolve_claims()
+                        return
+                if not self._claim_grace_active and all(
+                    index in self.claim_responses for index in self.claim_options
+                ):
                     await self._resolve_claims()
         except asyncio.CancelledError:
             return
@@ -1095,7 +1360,11 @@ class HongqueGameState:
                         and player_index in self.claim_options
                         and player_index not in self.claim_responses):
                     self.claim_responses[player_index] = {"action": "pass"}
-                    if all(index in self.claim_responses for index in self.claim_options):
+                    if self._claim_grace_active:
+                        self._grace_passed_players.add(player_index)
+                        if not self._claim_grace_pending():
+                            await self._resolve_claims()
+                    elif all(index in self.claim_responses for index in self.claim_options):
                         await self._resolve_claims()
         finally:
             task = asyncio.current_task()
@@ -1141,7 +1410,14 @@ class HongqueGameState:
     async def cleanup_game_state(self) -> None:
         current = asyncio.current_task()
         self._cancel_bot_claim_tasks()
-        for task in (self._bot_task, self._round_task, self._claim_timeout_task, self._turn_timeout_task):
+        for task in (
+            self._bot_task,
+            self._round_task,
+            self._claim_timeout_task,
+            self._claim_grace_task,
+            self._claim_grace_timeout_task,
+            self._turn_timeout_task,
+        ):
             if task and task is not current and not task.done():
                 task.cancel()
         if self.game_task and self.game_task is not current and not self.game_task.done():

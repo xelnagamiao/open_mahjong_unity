@@ -494,11 +494,13 @@ public class HongqueEventInfo {
     public string tile;
     public string[] tiles;
     public string[] hand_tiles;
+    public string kind;
     public string base_kind;
     public int meld_index;
     public string claimed_tile;
     public bool online;
     public bool cut_class;
+    public bool silent;
     public int[] players;
 }
 
@@ -509,6 +511,7 @@ public class HongqueRoundResultInfo {
     public HongqueWinnerResultInfo[] winners;
     public Dictionary<int, int> score_changes;
     public Dictionary<int, int> scores;
+    public bool silent;
 }
 
 [System.Serializable]

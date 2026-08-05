@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 import { hepaiCheck } from '../src/game2d/calc/guobiao/gbHepai.ts'
 
-test('mixed shifted chows: gap-step (隔步 3-5-7) scores sansesanbugao', () => {
-  // 567m+789m+567p+345s+88p 自摸 5s — 起始 3/5/7，旧版仅连步会漏计
+test('mixed shifted chows: gap-step (隔步 3-5-7) does NOT score sansesanbugao', () => {
+  // 567m+789m+567p+345s+88p 自摸 5s — 起始 3/5/7：国标三色三步高仅依次递增一位，不计
   const result = hepaiCheck(
     [15, 16, 17, 17, 18, 19, 25, 26, 27, 28, 28, 33, 34, 35],
     [],
@@ -15,10 +15,10 @@ test('mixed shifted chows: gap-step (隔步 3-5-7) scores sansesanbugao', () => 
     false,
   )
   assert.ok(
-    result.fanNames.some((n) => n.includes('三色三步高')),
-    `expected 三色三步高, got ${JSON.stringify(result)}`,
+    !result.fanNames.some((n) => n.includes('三色三步高')),
+    `隔步不应计三色三步高, got ${JSON.stringify(result)}`,
   )
-  assert.ok(result.fan >= 8)
+  assert.ok(result.fan < 8)
 })
 
 test('mixed shifted chows: consecutive-step (连步) still scores', () => {

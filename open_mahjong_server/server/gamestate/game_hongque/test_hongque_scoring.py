@@ -59,14 +59,17 @@ def test_rulebook_1008_point_example() -> None:
     }
 
 
-def test_same_number_pair_scores_with_exposed_groups_without_becoming_a_meld() -> None:
+def test_exposed_groups_with_concealed_group_complete_the_win() -> None:
     result = best_win_result(
-        ["BX5", "CY5"],
-        [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}],
+        ["AX1", "AX2", "AX3"],
+        [{"kind": "sequence", "tiles": ["BX4", "BX5", "BX6"]}],
         self_draw=True,
         before_first_discard=False,
         wall_empty=False,
     )
     assert result is not None
-    assert result["pair"] == ["BX5", "CY5"]
-    assert result["groups"] == [["AX1", "AX2", "AX3"]]
+    assert result["pair"] == []
+    assert sorted(tuple(group) for group in result["groups"]) == [
+        ("AX1", "AX2", "AX3"),
+        ("BX4", "BX5", "BX6"),
+    ]

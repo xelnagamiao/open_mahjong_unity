@@ -19,7 +19,6 @@ public static class HongqueTenpai {
     private static readonly BigInteger FullDeckMask;
     private static readonly BigInteger[] GroupMasks;
     private static readonly List<BigInteger>[] GroupsByTile;
-    private static readonly BigInteger[] NumberMasks;
     private static readonly Dictionary<BigInteger, bool> CanPartitionCache = new Dictionary<BigInteger, bool>();
 
     static HongqueTenpai() {
@@ -45,14 +44,6 @@ public static class HongqueTenpai {
                 GroupsByTile[LowestBitIndex(bit)].Add(group);
                 remaining ^= bit;
             }
-        }
-        NumberMasks = new BigInteger[9];
-        for (int number = 1; number <= 9; number++) {
-            BigInteger mask = 0;
-            for (int colour = 0; colour < 14; colour++) {
-                mask |= TileMask(colour, number);
-            }
-            NumberMasks[number - 1] = mask;
         }
     }
 
@@ -239,23 +230,6 @@ public static class HongqueTenpai {
         return CanPartitionSubset;
     }
 
-    private static IEnumerable<BigInteger> SameNumberPairMasks(BigInteger mask) {
-        foreach (BigInteger numberMask in NumberMasks) {
-            BigInteger numberTiles = mask & numberMask;
-            List<BigInteger> bits = new List<BigInteger>();
-            while (numberTiles != 0) {
-                BigInteger bit = numberTiles & -numberTiles;
-                bits.Add(bit);
-                numberTiles ^= bit;
-            }
-            for (int i = 0; i < bits.Count; i++) {
-                for (int j = i + 1; j < bits.Count; j++) {
-                    yield return bits[i] | bits[j];
-                }
-            }
-        }
-    }
-
     /// <summary>
     /// 返回每张可弃牌对应的听牌掩码（对应 group_index.waiting_masks_after_discards）。
     /// handMask 为弃牌前完整手牌；usedMask 需包含弃牌前手牌与副露（被弃的牌成为可见牌，不可再摸）。
@@ -282,14 +256,6 @@ public static class HongqueTenpai {
         AcceptsGroupRemainder = mask => {
             if (acceptsCache.TryGetValue(mask, out bool cached)) return cached;
             bool result = canPartitionSubset(mask);
-            if (!result) {
-                foreach (BigInteger pair in SameNumberPairMasks(mask)) {
-                    if (canPartitionSubset(mask ^ pair)) {
-                        result = true;
-                        break;
-                    }
-                }
-            }
             acceptsCache[mask] = result;
             return result;
         };
@@ -310,21 +276,6 @@ public static class HongqueTenpai {
                     waitsByDiscard[discardBit] |= missing;
                 }
                 eligibleDiscards ^= discardBit;
-            }
-        }
-
-        // 摸到的牌也可以补成同数雀头（原型扩展：已有副露时单张等待成立）。
-        foreach (BigInteger discardBit in discardBits) {
-            BigInteger concealed = handMask ^ discardBit;
-            BigInteger pairAnchorBits = concealed;
-            while (pairAnchorBits != 0) {
-                BigInteger anchorBit = pairAnchorBits & -pairAnchorBits;
-                BigInteger remainder = concealed ^ anchorBit;
-                if (canPartitionSubset(remainder) && (remainder != 0 || hasOpenGroup)) {
-                    int number = Deck[LowestBitIndex(anchorBit)][2] - '0';
-                    waitsByDiscard[discardBit] |= NumberMasks[number - 1];
-                }
-                pairAnchorBits ^= anchorBit;
             }
         }
 
