@@ -339,9 +339,9 @@ public class MahjongObjectPool : MonoBehaviour {
             tile3D = cardObj.AddComponent<Tile3D>();
         }
         if (HongqueTileVisual.IsHongqueId(tileId)) {
-            Texture2D texture = HongqueTileVisual.LoadTexture(tileId);
+            Texture2D texture = HongqueTileVisual.LoadTableTexture(tileId);
             if (texture == null) {
-                Debug.LogError($"找不到虹雀 3D 牌面: {HongqueTileVisual.ResourcePath(tileId)}");
+                Debug.LogError($"找不到虹雀 3D 牌面: {HongqueTileVisual.TableResourcePath(tileId)}");
                 return;
             }
             if (!hongqueMaterialCache.TryGetValue(tileId, out Material material)) {
