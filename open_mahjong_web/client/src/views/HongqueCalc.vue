@@ -230,7 +230,7 @@ import {
   inferMeldKind,
 } from '@/game2d/calc/hongque'
 
-const TILE_BASE_URL = '/game2d-assets/hongque-tiles/'
+const TILE_BASE_URL = '/game2d-assets/hongque-hand/'
 const MAX_TOTAL_TILES = 14
 
 const COLOUR_GROUPS = [
