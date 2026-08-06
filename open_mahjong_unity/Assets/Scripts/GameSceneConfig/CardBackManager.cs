@@ -49,6 +49,17 @@ public static class CardBackManager
             if (tile != null) tile.ApplySideVisual(color);
         }
 
+        // 对象池内未部署的牌也要同步：FindObjectsByType 只找得到激活实例，
+        // 池内 inactive 牌的实例颜色若不更新，下次 Spawn 时仍是旧的正边缘颜色。
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplySideVisual(color);
+            });
+        }
+
         // 背面边缘颜色跟随正面边缘模式时，正面边缘变化会连带更新背面边缘。
         if (BackEdgeMode == CardEdgePanel.BackEdgeMode.FollowFront)
         {

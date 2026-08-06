@@ -18,6 +18,7 @@ from .boardcast import (
     broadcast_ready_status,
     broadcast_shuhewei,
     reconnected_send_pending_ask,
+    send_realtime_spectator_snapshot,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, assign_strict_final_ranks
 from .init_tiles import init_classical_tiles
@@ -866,6 +867,7 @@ ClassicalGameState.broadcast_switch_seat = broadcast_switch_seat
 ClassicalGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
 ClassicalGameState.broadcast_shuhewei = broadcast_shuhewei
 ClassicalGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
+ClassicalGameState.send_realtime_spectator_snapshot = send_realtime_spectator_snapshot
 
 ClassicalGameState.next_current_index = next_current_index
 ClassicalGameState.refresh_waiting_tiles = refresh_waiting_tiles

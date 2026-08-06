@@ -30,6 +30,16 @@ public sealed class HongqueWinScore {
 /// 供切牌预测提示展示每张和牌张的直接分值。
 /// </summary>
 public static class HongqueScoring {
+    // 切牌悬停预览：同一手牌+和牌张的计分结果只算一次，避免每悬停一张牌都重算分区/番种。
+    private static readonly Dictionary<string, HongqueWinScore> BestWinResultCache =
+        new Dictionary<string, HongqueWinScore>();
+    private const int BestWinResultCacheLimit = 1024;
+
+    /// <summary>新对局/新牌局开始时清空计分缓存。</summary>
+    public static void ClearCaches() {
+        BestWinResultCache.Clear();
+    }
+
     private static int ColourOf(int tileId) { return (tileId - HongqueTileVisual.BaseId) / 10; }
     private static int NumberOf(int tileId) { return (tileId - HongqueTileVisual.BaseId) % 10; }
 
@@ -188,12 +198,15 @@ public static class HongqueScoring {
 
     private static List<int> OrderedTiles(HongqueMeldShape shape) {
         if (shape.BaseKind == "sequence") {
-            return shape.Tiles
+            List<int> ordered = shape.Tiles
                 .OrderBy(t => NumberOf(t))
                 .ThenBy(t => ColourOf(t))
-                .ToList()
-                .Select(t => t)
                 .ToList();
+            // 与服务端 scoring._ordered_tiles 一致：递减顺子按数字降序读，
+            // 保证“同花（长度+花色对应）”的匹配方向一致——
+            // 递增与递减的同花色顺子可以互为双同花，漏掉反转会少算同花。
+            if (shape.NumberStep < 0) ordered.Reverse();
+            return ordered;
         }
         return shape.Tiles.OrderBy(t => ColourOf(t)).ToList();
     }
@@ -212,12 +225,13 @@ public static class HongqueScoring {
 
     private static List<FanEntry> SameShapeFans(List<HongqueMeldShape> shapes, string baseKind,
         Dictionary<int, (string, int)> names) {
-        // 同刻/同顺系列：按“数字形状”分组，组内取最高档（双/三/四），
-        // 不同分组可复计；同组的牌不会同时计入两档。
+        // 同刻/同顺系列：按“数字集合”分组，组内取最高档（双/三/四）。
+        // 同刻不要求各组张数相等：只看同数字刻子的个数（3/3/4/4 也算四同刻）；
+        // 不同数字可复计；同组的牌不会同时计入两档。
         Dictionary<string, int> buckets = new Dictionary<string, int>();
         foreach (HongqueMeldShape shape in shapes) {
             if (shape.BaseKind != baseKind) continue;
-            string key = string.Join(",", shape.Tiles.Select(NumberOf).OrderBy(n => n));
+            string key = string.Join(",", shape.Tiles.Select(NumberOf).Distinct().OrderBy(n => n));
             buckets.TryGetValue(key, out int count);
             buckets[key] = count + 1;
         }
@@ -414,6 +428,11 @@ public static class HongqueScoring {
         bool selfDraw,
         bool beforeFirstDiscard,
         bool wallEmpty) {
+        string cacheKey = BuildWinResultCacheKey(
+            handTileIds, meldMasks, selfDraw, beforeFirstDiscard, wallEmpty);
+        if (BestWinResultCache.TryGetValue(cacheKey, out HongqueWinScore cached)) {
+            return cached;
+        }
         List<int[]> masks = meldMasks ?? new List<int[]>();
         List<HongqueWinDecomposition> decompositions =
             WinningDecompositions(handTileIds, masks.Count > 0);
@@ -430,6 +449,44 @@ public static class HongqueScoring {
                 best = score;
             }
         }
+        if (BestWinResultCache.Count >= BestWinResultCacheLimit) BestWinResultCache.Clear();
+        BestWinResultCache[cacheKey] = best;
         return best;
+    }
+
+    private static string BuildWinResultCacheKey(
+        List<int> handTileIds,
+        List<int[]> meldMasks,
+        bool selfDraw,
+        bool beforeFirstDiscard,
+        bool wallEmpty) {
+        System.Text.StringBuilder key = new System.Text.StringBuilder(64);
+        if (handTileIds != null) {
+            List<int> sorted = new List<int>(handTileIds);
+            sorted.Sort();
+            for (int i = 0; i < sorted.Count; i++) {
+                if (i > 0) key.Append(',');
+                key.Append(sorted[i]);
+            }
+        }
+        key.Append('|');
+        if (meldMasks != null) {
+            for (int m = 0; m < meldMasks.Count; m++) {
+                int[] mask = meldMasks[m];
+                if (mask == null) continue;
+                List<int> tiles = new List<int>();
+                for (int i = 1; i < mask.Length; i += 2) tiles.Add(mask[i]);
+                tiles.Sort();
+                for (int i = 0; i < tiles.Count; i++) {
+                    key.Append(tiles[i]);
+                    key.Append(';');
+                }
+                key.Append('/');
+            }
+        }
+        key.Append(selfDraw ? 'T' : 'F');
+        key.Append(beforeFirstDiscard ? 'T' : 'F');
+        key.Append(wallEmpty ? 'T' : 'F');
+        return key.ToString();
     }
 }

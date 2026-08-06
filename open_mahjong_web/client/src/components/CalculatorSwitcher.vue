@@ -1,7 +1,3 @@
-<!--
-  计算器切换：国标计算器 / 虹雀² 计算器。
-  替代页面顶部“XX计算器”标题行，点击即可在两个计算器间切换。
--->
 <template>
   <div class="calc-switcher" role="tablist" aria-label="计算器切换">
     <button

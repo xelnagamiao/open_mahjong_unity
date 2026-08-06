@@ -581,6 +581,10 @@ class HongqueGameState:
         for pid, options in self.claim_options.items():
             if pid == applied_player or pid in self._grace_passed_players:
                 continue
+            if self.players[pid].is_bot:
+                # 机器人的 pass 是最终决定：只有智能机器人有决策任务且只在窗口开启时调度一次，
+                # 打断窗口内重询不会再有机器人响应，跳过以免空等整个 grace 窗口。
+                continue
             best_rank = max(
                 (self._claim_rank(pid, o) for o in options),
                 default=(0, 0),

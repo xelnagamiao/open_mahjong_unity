@@ -423,12 +423,13 @@ function mergeEntries(entries: FanEntry[]): FanEntry[] {
 }
 
 function sameShapeFans(shapes: MeldShape[], baseKind: string, names: Map<number, [string, number]>): FanEntry[] {
-  // 同刻/同顺系列：按“数字形状”分组，组内取最高档（双/三/四），
-  // 不同分组可复计；同组的牌不会同时计入两档。
+  // 同刻/同顺系列：按“数字集合”分组，组内取最高档（双/三/四）。
+  // 同刻不要求各组张数相等：只看同数字刻子的个数（3/3/4/4 也算四同刻）；
+  // 不同数字可复计；同组的牌不会同时计入两档。
   const buckets = new Map<string, number>()
   for (const shape of shapes) {
     if (shape.baseKind !== baseKind) continue
-    const key = JSON.stringify(shape.tiles.map((code) => parseTile(code).number).sort((a, b) => a - b))
+    const key = JSON.stringify([...new Set(shape.tiles.map((code) => parseTile(code).number))].sort((a, b) => a - b))
     buckets.set(key, (buckets.get(key) || 0) + 1)
   }
   const entries: FanEntry[] = []

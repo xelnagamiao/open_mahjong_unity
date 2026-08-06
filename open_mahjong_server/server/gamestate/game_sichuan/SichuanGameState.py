@@ -25,6 +25,7 @@ from .boardcast import (
     broadcast_do_action, broadcast_result, broadcast_game_end,
     broadcast_refresh_player_tag_list, broadcast_ready_status,
     broadcast_dingque_ask, broadcast_dingque_done, reconnected_send_pending_ask,
+    send_realtime_spectator_snapshot,
 )
 from ..public.logic_common import next_current_num, assign_strict_final_ranks
 from .init_tiles import init_sichuan_tiles
@@ -1259,3 +1260,4 @@ SichuanGameState.broadcast_do_action = broadcast_do_action
 SichuanGameState.broadcast_game_end = broadcast_game_end
 SichuanGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
 SichuanGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
+SichuanGameState.send_realtime_spectator_snapshot = send_realtime_spectator_snapshot

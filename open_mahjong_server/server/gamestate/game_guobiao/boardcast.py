@@ -63,12 +63,8 @@ async def _send_ask_response_to_viewer(
 
 
 # 广播游戏开始/重连 方法
-async def broadcast_game_start(self):
-    """广播游戏开始信息"""
-    ensure_hand_draw_source_round(self)
-    # 重置操作帧（每次广播开始时重置）
-    self.server_action_tick = 0
-    
+def _build_game_start_payload_for_viewer(self, viewer_index: int) -> dict:
+    """按指定座位视角构建 game_start 的 game_info 载荷（与 broadcast_game_start 完全一致）。"""
     # 基础游戏信息
     base_game_info = {
         'room_id': self.room_id, # 房间ID
@@ -97,6 +93,50 @@ async def broadcast_game_start(self):
     }
     from ..public.game_record_manager import build_player_entry_order_fields
     base_game_info.update(build_player_entry_order_fields(self))
+
+    viewer_player = self.player_list[viewer_index]
+    players_info = []
+    for player in self.player_list:
+        combo_tiles, combo_masks = get_combination_fields_for_viewer(player, viewer_index)
+        players_info.append({
+            'user_id': player.user_id,
+            'username': player.username,
+            'hand_tiles_count': len(player.hand_tiles),
+            'hand_tiles': player.hand_tiles if player.user_id == viewer_player.user_id else None,  # 只有视角玩家的手牌
+            'discard_tiles': player.discard_tiles,
+            'discard_origin_tiles': player.discard_origin_tiles,
+            'combination_tiles': combo_tiles,
+            'combination_mask': combo_masks,
+            'huapai_list': player.huapai_list,
+            'remaining_time': player.remaining_time,
+            'player_index': player.player_index,
+            'original_player_index': player.original_player_index,
+            'score': player.score,
+            'guobiao_rank': player.guobiao_rank,
+            'guobiao_score': player.guobiao_score,
+            'has_draw_slot': player.has_draw_slot,
+            'title_used': player.title_used,
+            'profile_used': player.profile_used,
+            'character_used': player.character_used,
+            'voice_used': player.voice_used,
+            'score_history': player.score_history,
+            'round_number_history': player.round_number_history,
+            'tag_list': player.tag_list,
+        })
+
+    return {
+        **base_game_info,
+        'players_info': players_info,
+        'self_hand_tiles': None,  # 不再使用 self_hand_tiles，手牌在 PlayerInfo 中
+    }
+
+
+async def broadcast_game_start(self):
+    """广播游戏开始信息"""
+    ensure_hand_draw_source_round(self)
+    # 重置操作帧（每次广播开始时重置）
+    self.server_action_tick = 0
+
     # 为每个玩家发送消息，并为每个玩家缓存不同的数据
     for current_player in self.player_list:
         try:
@@ -104,75 +144,56 @@ async def broadcast_game_start(self):
             if "offline" in current_player.tag_list:
                 logger.info(f"玩家 {current_player.username} 已掉线，跳过广播")
                 continue
-            
+
             # 机器人占用 user_id < 10 的保留段，无需网络广播
             if current_player.user_id < 10:
                 continue
-            
-            # 为当前玩家构建玩家信息列表（当前玩家看到自己的手牌，其他人看不到）
-            players_info_for_current = []
-            for player in self.player_list:
-                combo_tiles, combo_masks = get_combination_fields_for_viewer(player, current_player.player_index)
-                player_info = {
-                    'user_id': player.user_id,
-                    'username': player.username,
-                    'hand_tiles_count': len(player.hand_tiles),
-                    'hand_tiles': player.hand_tiles if player.user_id == current_player.user_id else None,  # 只有自己的手牌
-                    'discard_tiles': player.discard_tiles,
-                    'discard_origin_tiles': player.discard_origin_tiles,
-                    'combination_tiles': combo_tiles,
-                    'combination_mask': combo_masks,
-                    'huapai_list': player.huapai_list,
-                    'remaining_time': player.remaining_time,
-                    'player_index': player.player_index,
-                    'original_player_index': player.original_player_index,
-                    'score': player.score,
-                    'guobiao_rank': player.guobiao_rank,
-                    'guobiao_score': player.guobiao_score,
-                    'has_draw_slot': player.has_draw_slot,
-                    'title_used': player.title_used,
-                    'profile_used': player.profile_used,
-                    'character_used': player.character_used,
-                    'voice_used': player.voice_used,
-                    'score_history': player.score_history,
-                    'round_number_history': player.round_number_history,
-                    'tag_list': player.tag_list,
-                }
-                players_info_for_current.append(player_info)
-            
-            # 构建当前玩家的游戏信息
-            game_info_for_current = {
-                **base_game_info,
-                'players_info': players_info_for_current,
-                'self_hand_tiles': None  # 不再使用 self_hand_tiles，手牌在 PlayerInfo 中
-            }
-            
-            # 如果player_list中有玩家在self.game_server.user_id_to_connection:
-            if current_player.user_id in self.game_server.user_id_to_connection:
-                player_conn = self.game_server.user_id_to_connection[current_player.user_id]
-                
-                game_info = GameInfo(**game_info_for_current)
-                response = Response(
-                    type="gamestate/guobiao/game_start",
-                    success=True,
-                    message="游戏开始",
-                    game_info=game_info
-                )
-                
-                await player_conn.websocket.send_json(response.dict(exclude_none=True))
-                await self.send_to_realtime_spectators(current_player.player_index, response)
-                logger.info(f"已向玩家 {current_player.username} 发送游戏开始信息")
-            else:
+
+            # 如果 player_list 中有玩家在 self.game_server.user_id_to_connection:
+            if current_player.user_id not in self.game_server.user_id_to_connection:
                 logger.warning(f"玩家 {current_player.username} (user_id={current_player.user_id}) 未连接，跳过广播")
-            
+                continue
+
+            player_conn = self.game_server.user_id_to_connection[current_player.user_id]
+            game_info = GameInfo(**_build_game_start_payload_for_viewer(self, current_player.player_index))
+            response = Response(
+                type="gamestate/guobiao/game_start",
+                success=True,
+                message="游戏开始",
+                game_info=game_info,
+            )
+
+            await player_conn.websocket.send_json(response.dict(exclude_none=True))
+            await self.send_to_realtime_spectators(current_player.player_index, response)
+            logger.info(f"已向玩家 {current_player.username} 发送游戏开始信息")
         except Exception as e:
             logger.error(f"向玩家 {current_player.username} (user_id={current_player.user_id}) 发送消息失败: {e}")
             # 允许广播出错，继续向其他玩家广播
-    
+
     # 为观战系统记录局开始数据
     if hasattr(self, 'spectator_manager'):
         self.spectator_manager.record_game_title()
         self.spectator_manager.record_round_start()
+
+
+async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_player_index: int):
+    """实时观战接入：按被观战座位视角补发 game_start 与当前 pending ask（与被观战玩家收到的 game_start 完全一致）。"""
+    if spectator_user_id not in self.game_server.user_id_to_connection:
+        return
+    if view_player_index < 0 or view_player_index >= len(self.player_list):
+        return
+    conn = self.game_server.user_id_to_connection[spectator_user_id]
+    payload = _build_game_start_payload_for_viewer(self, view_player_index)
+    payload["view_player_index"] = view_player_index
+    response = Response(
+        type="gamestate/guobiao/game_start",
+        success=True,
+        message="实时观战初始化",
+        game_info=GameInfo(**payload),
+    )
+    await conn.websocket.send_json(response.dict(exclude_none=True))
+    logger.info(f"已向实时观战玩家 {spectator_user_id} 发送国标 game_start（视角座位 {view_player_index}）")
+    await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
 
 # 广播询问手牌操作 补花 加杠 暗杠 自摸 出牌
 async def broadcast_ask_hand_action(self):
@@ -324,25 +345,30 @@ def _reconnect_remaining_time(self, player) -> int:
     return reconnect_remaining_time(self, player)
 
 
-async def reconnected_send_pending_ask(self, user_id: int):
-    """重连后若当前处于 ask_hand 或 ask_other 等待中，向该玩家补发对应消息；剩余时间按经过时间重算（与正常广播逻辑一致：ask_hand 仅当前出牌者收，ask_other 仅有待选操作的玩家收）。"""
-    player = next((p for p in self.player_list if p.user_id == user_id), None)
-    if player is None or user_id not in self.game_server.user_id_to_connection:
+async def reconnected_send_pending_ask_for_viewer(
+    self,
+    connection_user_id: int,
+    view_player_index: int,
+):
+    """按指定座位视角向连接补发当前操作询问（实时观战快照与断线重连共用）。"""
+    if connection_user_id not in self.game_server.user_id_to_connection:
         return
-    reconnect_idx = player.player_index
-    player_conn = self.game_server.user_id_to_connection[user_id]
+    if view_player_index < 0 or view_player_index >= len(self.player_list):
+        return
+    player_conn = self.game_server.user_id_to_connection[connection_user_id]
+    player = self.player_list[view_player_index]
     remaining_sent = _reconnect_remaining_time(self, player)
     if self.game_status == "waiting_hand_action":
-        if reconnect_idx == self.current_player_index:
+        if view_player_index == self.current_player_index:
             response = Response(
                 type="gamestate/guobiao/broadcast_hand_action",
                 success=True,
                 message="发牌，并询问手牌操作",
-                    ask_hand_action_info=Ask_hand_action_info(
+                ask_hand_action_info=Ask_hand_action_info(
                     remaining_time=remaining_sent,
                     player_index=self.current_player_index,
                     remain_tiles=len(self.tiles_list),
-                    action_list=self.action_dict.get(reconnect_idx, []),
+                    action_list=self.action_dict.get(view_player_index, []),
                     action_tick=self.server_action_tick,
                     deal_tile_type=get_hand_draw_source(self, self.current_player_index),
                     dealer_index=getattr(self, 'dealer_index', 0),
@@ -352,7 +378,7 @@ async def reconnected_send_pending_ask(self, user_id: int):
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_hand 给玩家 {player.username}，剩余时间 {remaining_sent}s")
     elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang"):
-        if self.action_dict.get(reconnect_idx):
+        if self.action_dict.get(view_player_index):
             if self.game_status == "waiting_action_qianggang" and getattr(self, "jiagang_tile", None) is not None:
                 cut_tile = self.jiagang_tile
             else:
@@ -363,14 +389,22 @@ async def reconnected_send_pending_ask(self, user_id: int):
                 message="询问操作",
                 ask_other_action_info=Ask_other_action_info(
                     remaining_time=remaining_sent,
-                    action_list=self.action_dict[reconnect_idx],
+                    action_list=self.action_dict[view_player_index],
                     cut_tile=cut_tile,
                     action_tick=self.server_action_tick,
-                    player_index=player.player_index,
+                    player_index=view_player_index,
                 ),
             )
             await player_conn.websocket.send_json(response.dict(exclude_none=True))
             logger.info(f"重连补发 ask_other 给玩家 {player.username}，剩余时间 {remaining_sent}s")
+
+
+async def reconnected_send_pending_ask(self, user_id: int):
+    """重连后若当前处于 ask_hand 或 ask_other 等待中，向该玩家补发对应消息；剩余时间按经过时间重算（与正常广播逻辑一致：ask_hand 仅当前出牌者收，ask_other 仅有待选操作的玩家收）。"""
+    player = next((p for p in self.player_list if p.user_id == user_id), None)
+    if player is None:
+        return
+    await reconnected_send_pending_ask_for_viewer(self, user_id, player.player_index)
 
 
 # 广播操作

@@ -16,6 +16,7 @@ from .boardcast import (
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
     reconnected_send_pending_ask,
+    send_realtime_spectator_snapshot,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_strict_final_ranks
 from ..public.hand_slot_utils import clear_draw_slot, normalize_tile
@@ -1399,6 +1400,7 @@ ChangshaGameState.broadcast_game_end = broadcast_game_end
 ChangshaGameState.broadcast_switch_seat = broadcast_switch_seat
 ChangshaGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
 ChangshaGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
+ChangshaGameState.send_realtime_spectator_snapshot = send_realtime_spectator_snapshot
 
 # 挂载功能函数于ChangshaGameState实例
 ChangshaGameState.next_current_index = next_current_index

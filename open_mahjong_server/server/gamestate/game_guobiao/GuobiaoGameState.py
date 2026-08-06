@@ -16,6 +16,7 @@ from .boardcast import (
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
     reconnected_send_pending_ask,
+    send_realtime_spectator_snapshot,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_competition_final_ranks
 from .init_tiles import init_guobiao_tiles
@@ -1093,6 +1094,7 @@ GuobiaoGameState.broadcast_game_end = broadcast_game_end
 GuobiaoGameState.broadcast_switch_seat = broadcast_switch_seat
 GuobiaoGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
 GuobiaoGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
+GuobiaoGameState.send_realtime_spectator_snapshot = send_realtime_spectator_snapshot
 
 # 挂载功能函数于GuobiaoGameState实例
 GuobiaoGameState.next_current_index = next_current_index

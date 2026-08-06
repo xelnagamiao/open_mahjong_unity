@@ -148,6 +148,19 @@ public static class HongqueTenpai {
 
     private static readonly Dictionary<BigInteger, List<List<BigInteger>>> PartitionCache =
         new Dictionary<BigInteger, List<List<BigInteger>>>();
+    // 切牌悬停预览：同一手牌状态被反复悬停时，全量听牌枚举只算一次。
+    private static readonly Dictionary<(BigInteger, BigInteger, bool), Dictionary<BigInteger, BigInteger>>
+        WaitingMasksCache = new Dictionary<(BigInteger, BigInteger, bool), Dictionary<BigInteger, BigInteger>>();
+    // 杠和候选：同一副明牌的可扩展合法组只扫描一次。
+    private static readonly Dictionary<BigInteger, List<(BigInteger Group, BigInteger Extra)>>
+        MeldExtensionsCache = new Dictionary<BigInteger, List<(BigInteger Group, BigInteger Extra)>>();
+    private const int TenpaiCacheLimit = 512;
+
+    /// <summary>新对局/新牌局开始时清空听牌缓存，避免跨局残留。</summary>
+    public static void ClearCaches() {
+        WaitingMasksCache.Clear();
+        MeldExtensionsCache.Clear();
+    }
 
     /// <summary>枚举掩码的全部合法组划分（对应 group_index.partition_masks）。</summary>
     private static List<List<BigInteger>> PartitionMasks(BigInteger mask) {
@@ -246,6 +259,10 @@ public static class HongqueTenpai {
         BigInteger handMask,
         BigInteger usedMask,
         bool hasOpenGroup) {
+        var cacheKey = (handMask, usedMask, hasOpenGroup);
+        if (WaitingMasksCache.TryGetValue(cacheKey, out Dictionary<BigInteger, BigInteger> cached)) {
+            return new Dictionary<BigInteger, BigInteger>(cached);
+        }
         List<BigInteger> discardBits = new List<BigInteger>();
         BigInteger remaining = handMask;
         while (remaining != 0) {
@@ -290,6 +307,8 @@ public static class HongqueTenpai {
         foreach (BigInteger discardBit in discardBits) {
             waitsByDiscard[discardBit] &= availableMask;
         }
+        if (WaitingMasksCache.Count >= TenpaiCacheLimit) WaitingMasksCache.Clear();
+        WaitingMasksCache[cacheKey] = waitsByDiscard;
         return waitsByDiscard;
     }
 
@@ -387,12 +406,22 @@ public static class HongqueTenpai {
             }
             if (meldCodes.Count < 3) continue;
             BigInteger meldMask = MaskFromCodes(meldCodes);
-            BigInteger anchorBit = meldMask & -meldMask;
-            int anchorIndex = LowestBitIndex(anchorBit);
-            foreach (BigInteger group in GroupsByTile[anchorIndex]) {
-                if ((group & meldMask) != meldMask) continue;
-                BigInteger extra = group ^ meldMask;
-                if (extra == 0) continue;
+            if (!MeldExtensionsCache.TryGetValue(
+                    meldMask,
+                    out List<(BigInteger Group, BigInteger Extra)> extensions)) {
+                BigInteger anchorBit = meldMask & -meldMask;
+                int anchorIndex = LowestBitIndex(anchorBit);
+                extensions = new List<(BigInteger, BigInteger)>();
+                foreach (BigInteger group in GroupsByTile[anchorIndex]) {
+                    if ((group & meldMask) != meldMask) continue;
+                    BigInteger extra = group ^ meldMask;
+                    if (extra == 0) continue;
+                    extensions.Add((group, extra));
+                }
+                if (MeldExtensionsCache.Count >= TenpaiCacheLimit) MeldExtensionsCache.Clear();
+                MeldExtensionsCache[meldMask] = extensions;
+            }
+            foreach ((BigInteger group, BigInteger extra) in extensions) {
                 BigInteger missing = extra & ~handMask;
                 if (BitCount(missing) != 1) continue;
                 if ((missing & availableMask) == 0) continue;

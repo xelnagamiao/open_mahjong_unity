@@ -154,6 +154,30 @@ async def broadcast_game_start(self):
         self.spectator_manager.record_round_start()
 
 
+async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_player_index: int):
+    """实时观战接入：按被观战座位视角补发 game_start 与当前 pending ask（与被观战玩家收到的 game_start 完全一致）。"""
+    if spectator_user_id not in self.game_server.user_id_to_connection:
+        return
+    if view_player_index < 0 or view_player_index >= len(self.player_list):
+        return
+    conn = self.game_server.user_id_to_connection[spectator_user_id]
+    host_player = self.player_list[view_player_index]
+    game_info = GameInfo(
+        **{**_base_game_info(self), 'players_info': _build_players_info(self, host_player.user_id)},
+        self_hand_tiles=None,
+        view_player_index=view_player_index,
+    )
+    response = Response(
+        type="gamestate/sichuan/game_start",
+        success=True,
+        message="实时观战初始化",
+        game_info=game_info,
+    )
+    await conn.websocket.send_json(response.dict(exclude_none=True))
+    logger.info(f"已向实时观战玩家 {spectator_user_id} 发送四川 game_start（视角座位 {view_player_index}）")
+    await reconnected_send_pending_ask_for_viewer(self, spectator_user_id, view_player_index)
+
+
 async def broadcast_dingque_ask(self):
     """定缺阶段：询问四家选择缺门花色（action_list=['dingque']）。"""
     self.server_action_tick += 1
@@ -334,44 +358,57 @@ def _reconnect_remaining_time(self, player) -> int:
     return reconnect_remaining_time(self, player)
 
 
-async def reconnected_send_pending_ask(self, user_id: int):
-    reconnect_idx = next((i for i, p in enumerate(self.player_list) if p.user_id == user_id), None)
-    if reconnect_idx is None or user_id not in self.game_server.user_id_to_connection:
+async def reconnected_send_pending_ask_for_viewer(
+    self,
+    connection_user_id: int,
+    view_player_index: int,
+):
+    """按指定座位视角向连接补发当前操作询问（实时观战快照与断线重连共用）。"""
+    if connection_user_id not in self.game_server.user_id_to_connection:
         return
-    player_conn = self.game_server.user_id_to_connection[user_id]
-    player = self.player_list[reconnect_idx]
+    if view_player_index < 0 or view_player_index >= len(self.player_list):
+        return
+    player_conn = self.game_server.user_id_to_connection[connection_user_id]
+    player = self.player_list[view_player_index]
     remaining_sent = _reconnect_remaining_time(self, player)
-    if self.game_status == "waiting_dingque" and self.action_dict.get(reconnect_idx):
+    if self.game_status == "waiting_dingque" and self.action_dict.get(view_player_index):
         response = Response(
             type="gamestate/sichuan/ask_dingque", success=True, message="请选择定缺花色",
             ask_hand_action_info=Ask_hand_action_info(
-                remaining_time=remaining_sent, player_index=reconnect_idx,
+                remaining_time=remaining_sent, player_index=view_player_index,
                 remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
-                action_list=self.action_dict.get(reconnect_idx, []), action_tick=self.server_action_tick,
+                action_list=self.action_dict.get(view_player_index, []), action_tick=self.server_action_tick,
                 deal_tile_type=get_hand_draw_source(self, self.current_player_index),
             ),
         )
         await player_conn.websocket.send_json(response.dict(exclude_none=True))
-    elif self.game_status == "waiting_hand_action" and reconnect_idx == self.current_player_index:
+    elif self.game_status == "waiting_hand_action" and view_player_index == self.current_player_index:
         response = Response(
             type="gamestate/sichuan/broadcast_hand_action", success=True, message="发牌并询问手牌操作",
             ask_hand_action_info=Ask_hand_action_info(
                 remaining_time=remaining_sent, player_index=self.current_player_index,
                 remain_tiles=max(0, len(self.tiles_list) - self.dead_wall_count),
-                action_list=self.action_dict.get(reconnect_idx, []), action_tick=self.server_action_tick,
+                action_list=self.action_dict.get(view_player_index, []), action_tick=self.server_action_tick,
             ),
         )
         await player_conn.websocket.send_json(response.dict(exclude_none=True))
-    elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and self.action_dict.get(reconnect_idx):
+    elif self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang") and self.action_dict.get(view_player_index):
         cut_tile = self.player_list[self.current_player_index].discard_tiles[-1]
         response = Response(
             type="gamestate/sichuan/ask_other_action", success=True, message="询问操作",
             ask_other_action_info=Ask_other_action_info(
-                remaining_time=remaining_sent, action_list=self.action_dict[reconnect_idx],
+                remaining_time=remaining_sent, action_list=self.action_dict[view_player_index],
                 cut_tile=cut_tile, action_tick=self.server_action_tick,
             ),
         )
         await player_conn.websocket.send_json(response.dict(exclude_none=True))
+
+
+async def reconnected_send_pending_ask(self, user_id: int):
+    reconnect_idx = next((i for i, p in enumerate(self.player_list) if p.user_id == user_id), None)
+    if reconnect_idx is None:
+        return
+    await reconnected_send_pending_ask_for_viewer(self, user_id, reconnect_idx)
 
 
 async def broadcast_do_action(self, action_list: List[str], action_player: int,

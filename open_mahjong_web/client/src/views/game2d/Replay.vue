@@ -611,11 +611,23 @@ const gameInfoRows = computed<GameInfoRow[]>(() => {
   return rows
 })
 
+/**
+ * 错和 tick：fan 列表包含「错和」的 hu_* 动作。服务端记录格式中错和无 end、
+ * 对局继续，因此它只是普通节点，不能被当作本局终点（真正的和牌/流局在其后）。
+ */
+function isCuoheTick(tick: RecordTick | undefined): boolean {
+  if (!tick?.length) return false
+  const action = String(tick[0] ?? '')
+  if (!action.startsWith('hu_')) return false
+  return Array.isArray(tick[3]) && tick[3].includes('错和')
+}
+
 const roundResult = computed(() => {
   const round = currentRound.value
   if (!round || node.value <= 0) return null
   const ticks = (round.action_ticks || []).slice(0, node.value)
   const tick = [...ticks].reverse().find((item) => {
+    if (isCuoheTick(item)) return false
     const action = String(item?.[0] ?? '')
     return action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku'
   })
@@ -970,6 +982,7 @@ function step(delta: number) {
 function roundBackTargetNode(index: number): number {
   const ticks = replay.value?.rounds[index]?.action_ticks ?? []
   const terminalIndex = ticks.findIndex((tick) => {
+    if (isCuoheTick(tick)) return false
     const action = String(tick?.[0] ?? '')
     return action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku'
   })
@@ -983,12 +996,14 @@ function advanceAnimatedStep() {
   const nextNode = node.value + 1
   const tick = currentRound.value?.action_ticks?.[node.value]
   const action = String(tick?.[0] ?? '')
-  const update = replay.value.eventForStep(
+  const rawUpdate = replay.value.eventForStep(
     roundIndex.value,
     node.value,
     viewerOriginal.value,
     showOtherHands.value,
   )
+  // 错和不是本局终点：只推进节点，不执行和牌展示，避免牌桌停留在亮牌状态。
+  const update = isCuoheTick(tick) ? null : rawUpdate
   const nextPosition = replay.value.build(
     roundIndex.value,
     nextNode,
@@ -1017,7 +1032,7 @@ function advanceAnimatedStep() {
     currentScores.value = seatMap.map((seat) => nextPosition.snapshot.seats[seat]?.score ?? 0)
     skipNextPositionRender = true
   }
-  if (action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku') {
+  if (!isCuoheTick(tick) && (action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku')) {
     presentTerminalResult(action, Boolean(update))
   }
 }
@@ -1059,6 +1074,7 @@ function scoreValuesFromTick(tick: RecordTick): number[] | null {
 
 function terminalTick(round: RecordRound): RecordTick | null {
   return [...(round.action_ticks || [])].reverse().find((tick) => {
+    if (isCuoheTick(tick)) return false
     const action = String(tick?.[0] ?? '')
     return action.startsWith('hu_') || action === 'liuju' || action === 'ryuukyoku'
   }) || null

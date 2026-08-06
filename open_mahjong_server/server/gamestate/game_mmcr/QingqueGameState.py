@@ -16,6 +16,7 @@ from .boardcast import (
     broadcast_refresh_player_tag_list,
     broadcast_ready_status,
     reconnected_send_pending_ask,
+    send_realtime_spectator_snapshot,
 )
 from ..public.logic_common import get_index_relative_position, next_current_index, next_current_num, back_current_num, assign_strict_final_ranks
 from .init_tiles import init_qingque_tiles
@@ -779,6 +780,7 @@ QingqueGameState.broadcast_game_end = broadcast_game_end
 QingqueGameState.broadcast_switch_seat = broadcast_switch_seat
 QingqueGameState.broadcast_refresh_player_tag_list = broadcast_refresh_player_tag_list
 QingqueGameState.reconnected_send_pending_ask = reconnected_send_pending_ask
+QingqueGameState.send_realtime_spectator_snapshot = send_realtime_spectator_snapshot
 
 # 挂载功能函数于QingqueGameState实例
 QingqueGameState.next_current_index = next_current_index

@@ -101,12 +101,12 @@ const routes = [
         component: CalculatorView
       },
       {
-        path: 'chinese',
+        path: 'calc',
         redirect: '/calc/chinese'
       },
       {
-        path: 'hongque-calc',
-        redirect: '/calc/hongque'
+        path: 'chinese',
+        redirect: '/calc/chinese'
       },
       {
         path: 'rulebook/:rule?',

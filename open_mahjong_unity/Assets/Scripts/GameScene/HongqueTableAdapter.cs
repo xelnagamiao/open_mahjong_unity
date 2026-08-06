@@ -8,7 +8,8 @@ using UnityEngine;
 /// 全部继续走原有 GameCanvas、Game3DManager 和 NormalGameStateManager。
 /// </summary>
 public sealed class HongqueTableAdapter : MonoBehaviour {
-    private const string ClaimActionPrefix = "hongque_claim:";
+    /// <summary>荣和动作编码前缀；自动操作等通用代码复用此常量，避免重复魔法串。</summary>
+    public const string ClaimActionPrefix = "hongque_claim:";
     private const string KongActionPrefix = "hongque_kong:";
 
     public static HongqueTableAdapter Instance { get; private set; }
@@ -79,6 +80,8 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             // 将 126 张牌面的同步磁盘加载集中到开局，避免首次见到某张牌时卡住出牌/摸牌帧。
             HongqueTileVisual.PreloadAllTextures();
             MahjongObjectPool.Instance?.PrewarmHongquePool();
+            HongqueTenpai.ClearCaches();
+            HongqueScoring.ClearCaches();
         }
         gamestateId = newGamestateId;
         state = newState;
@@ -607,12 +610,10 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         List<int[]> result = new List<int[]>();
         foreach (HongqueMeldInfo meld in melds) {
             List<int> mask = new List<int>();
-            bool claimedMarked = false;
             foreach (string code in meld.tiles ?? Array.Empty<string>()) {
-                bool claimed = !claimedMarked && code == meld.claimed_tile;
-                mask.Add(claimed ? 1 : 0);
+                // 虹雀副露统一竖排：结算展示也不区分认走张。
+                mask.Add(0);
                 mask.Add(HongqueTileVisual.FromCode(code));
-                claimedMarked |= claimed;
             }
             result.Add(mask.ToArray());
         }
