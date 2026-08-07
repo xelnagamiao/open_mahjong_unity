@@ -42,17 +42,18 @@ def _merge_entries(entries: Sequence[dict]) -> list[dict]:
 
 
 def _same_shape_fans(shapes: Sequence[MeldShape], base_kind: str, names: dict[int, tuple[str, int]]) -> list[dict]:
-    """同刻/同顺系列：按“数字形状”分组，组内取最高档（双/三/四）。
+    """同刻/同顺系列：按“数字集合”分组，组内取最高档（双/三/四）。
 
     不同分组可以复计：如 AX1-3 与 BX1-3、AX7-9 与 BX7-9 各成一组双同顺，
-    则计 2 组双同顺。规则书“每一组牌至多只能计算同顺/同刻/同花一次”
-    由“组内只取最高档”满足（同组的牌不会同时计入双/三/四两档）。
+    则计 2 组双同顺。同刻不要求各组张数相等：只看同数字刻子的个数，
+    例如数字 1 的刻子长度为 3/3/3/4 或 3/3/4/4 都算四同刻。
+    规则书“每一组牌至多只能计算同顺/同刻/同花一次”由“组内只取最高档”满足。
     """
     buckets: dict[tuple[int, ...], int] = defaultdict(int)
     for shape in shapes:
         if shape.base_kind != base_kind:
             continue
-        key = tuple(sorted(HongqueTile.parse(code).number for code in shape.tiles))
+        key = tuple(sorted({HongqueTile.parse(code).number for code in shape.tiles}))
         buckets[key] += 1
     entries: list[dict] = []
     for count in buckets.values():

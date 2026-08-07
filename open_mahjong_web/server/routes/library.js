@@ -5,17 +5,41 @@ const { createWindowLimiter, getClientIp } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
+// 与 client/src/constants/libraryRules.js 中的 LIBRARY_RULES / MIL_RULES 保持一致：
+// 新增图书馆条目时需同步添加其 key，否则该条目的讨论区接口会返回“未知的规则条目”。
 const ALLOWED_RULE_KEYS = new Set([
+  // LIBRARY_RULES
   'guobiao',
   'riichi',
   'qingque',
+  'mil-collection',
+  'hongque',
   'classical',
   'sichuan',
   'changsha',
+  'taiwan',
   'jiandan',
   'shiyangjin',
   'guobiao-kobayashi',
   'guobiao-kshen',
+  // MIL_RULES
+  'mil-sichuan',
+  'mil-mcr',
+  'mil-mcr-supplement',
+  'mil-shanxi',
+  'mil-guangdong',
+  'mil-tuidao',
+  'mil-hangzhou',
+  'mil-wenzhou',
+  'mil-riichi',
+  'mil-riichi-supplement',
+  'mil-red-center',
+  'mil-guizhou',
+  'mil-changchun',
+  // 图书馆板块讨论区（非规则条目）
+  'materials',
+  'submit',
+  'public',
 ]);
 
 const postWriteLimiter = createWindowLimiter({
@@ -26,7 +50,9 @@ const postWriteLimiter = createWindowLimiter({
 
 function normalizeRuleKey(raw) {
   const key = String(raw || '').trim().toLowerCase();
-  if (!ALLOWED_RULE_KEYS.has(key)) return { error: '未知的规则条目' };
+  // 规则资料搜集页每个 slug 一个讨论区主题（research-<slug>），动态放行
+  const isResearchTopic = /^research-[a-z0-9-]+$/.test(key);
+  if (!ALLOWED_RULE_KEYS.has(key) && !isResearchTopic) return { error: '未知的规则条目' };
   return { value: key };
 }
 
@@ -101,6 +127,32 @@ router.get('/rules/:ruleKey/posts', async (req, res) => {
     res.json({ success: true, data: { items: result.rows.map(mapPost) } });
   } catch (err) {
     console.error('library posts list:', err);
+    res.status(500).json({ success: false, message: '服务器内部错误' });
+  }
+});
+
+router.get('/posts/recent', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const result = await pool.query(
+      `SELECT p.post_id, p.rule_key, p.title, p.author_user_id,
+              p.created_at, p.updated_at,
+              u.username AS author_username,
+              COALESCE(r.cnt, 0)::int AS reply_count
+       FROM library_posts p
+       LEFT JOIN users u ON u.user_id = p.author_user_id
+       LEFT JOIN (
+         SELECT post_id, COUNT(*)::int AS cnt
+         FROM library_replies
+         GROUP BY post_id
+       ) r ON r.post_id = p.post_id
+       ORDER BY p.updated_at DESC, p.post_id DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json({ success: true, data: { items: result.rows.map(mapPost) } });
+  } catch (err) {
+    console.error('library recent posts:', err);
     res.status(500).json({ success: false, message: '服务器内部错误' });
   }
 });

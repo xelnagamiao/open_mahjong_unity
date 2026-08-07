@@ -10,12 +10,16 @@ public partial class NormalGameStateManager {
     private bool timeoutAutoMoqieActive;
 
     private static readonly HashSet<string> HuActionNames = new HashSet<string> {
-        "hu", "hu_first", "hu_second", "hu_third"
+        "hu", "hu_first", "hu_second", "hu_third", "hongque_win"
     };
 
     private static readonly string[] HandActionsBlockingAutoCut = {
-        "buzhang", "angang", "jiagang", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buhua"
+        "buzhang", "angang", "jiagang", "hu_self", "hu_flower", "initial_hu", "sea_bottom", "buhua",
+        "hongque_win"
     };
+
+    /// <summary>虹雀荣和动作编码前缀（复用 HongqueTableAdapter 常量，避免重复魔法串）。</summary>
+    private const string HongqueClaimPrefix = HongqueTableAdapter.ClaimActionPrefix;
 
     /// <summary>
     /// 只统计服务端明确标记的自家超时切牌。达到阈值后锁存自动摸切，
@@ -80,24 +84,37 @@ public partial class NormalGameStateManager {
         return actions.FirstOrDefault(IsHuAction);
     }
 
+    /// <summary>虹雀荣和：动作形如 hongque_claim:{id}，需按候选 kind==win 识别。</summary>
+    private static string GetHongqueRonAction(IEnumerable<string> actions) {
+        if (!HongqueTableAdapter.IsActive || actions == null) return null;
+        HongqueCandidateInfo ron = HongqueTableAdapter.Instance
+            .GetCandidates("win")
+            .FirstOrDefault();
+        if (ron == null || string.IsNullOrEmpty(ron.id)) return null;
+        string encoded = HongqueClaimPrefix + ron.id;
+        return actions.Contains(encoded) ? encoded : null;
+    }
+
     /// <summary>
     /// 鸣牌询问：应用「不吃/不碰/不明杠」及「不点和」逐项过滤后，仍可供选择的操作（不含 pass）。
     /// 仅用于判定是否「全部跳过」可自动 pass；不做 UI 过滤。
     /// </summary>
     private static List<string> BuildRemainingActionsAfterMeldFilter(List<string> source) {
         List<string> remaining = new List<string>(source);
-        remaining.RemoveAll(a => a == "pass");
+        remaining.RemoveAll(a => a == "pass" || a == "hongque_pass");
         if (AutoAction.Instance.IsPassChi) {
-            remaining.RemoveAll(a => a == "chi_left" || a == "chi_mid" || a == "chi_right");
+            remaining.RemoveAll(a => a == "chi_left" || a == "chi_mid" || a == "chi_right"
+                || a == "hongque_group:sequence");
         }
         if (AutoAction.Instance.IsPassPeng) {
-            remaining.RemoveAll(a => a == "peng");
+            remaining.RemoveAll(a => a == "peng" || a == "hongque_group:triplet");
         }
         if (AutoAction.Instance.IsPassMingGang) {
-            remaining.RemoveAll(a => a == "gang");
+            remaining.RemoveAll(a => a == "gang" || a == "hongque_group:kong");
         }
         if (ShouldFilterRonForAutoPass(source)) {
             remaining.RemoveAll(IsHuAction);
+            remaining.RemoveAll(a => a.StartsWith(HongqueClaimPrefix));
         }
         return remaining;
     }
@@ -110,21 +127,27 @@ public partial class NormalGameStateManager {
         if (!AutoAction.Instance.IsNoRon) {
             return false;
         }
-        if (!allowActions.Any(IsHuAction)) {
+        bool hasHu = allowActions.Any(IsHuAction)
+            || !string.IsNullOrEmpty(GetHongqueRonAction(allowActions));
+        if (!hasHu) {
             return false;
         }
         return !HasUnblockedMeldOption(allowActions);
     }
 
     private static bool HasUnblockedMeldOption(List<string> allowActions) {
-        if (!AutoAction.Instance.IsPassPeng && allowActions.Contains("peng")) {
+        if (!AutoAction.Instance.IsPassPeng
+            && (allowActions.Contains("peng") || allowActions.Contains("hongque_group:triplet"))) {
             return true;
         }
         if (!AutoAction.Instance.IsPassChi &&
-            (allowActions.Contains("chi_left") || allowActions.Contains("chi_mid") || allowActions.Contains("chi_right"))) {
+            (allowActions.Contains("chi_left") || allowActions.Contains("chi_mid")
+                || allowActions.Contains("chi_right")
+                || allowActions.Contains("hongque_group:sequence"))) {
             return true;
         }
-        if (!AutoAction.Instance.IsPassMingGang && allowActions.Contains("gang")) {
+        if (!AutoAction.Instance.IsPassMingGang
+            && (allowActions.Contains("gang") || allowActions.Contains("hongque_group:kong"))) {
             return true;
         }
         return false;
@@ -160,8 +183,11 @@ public partial class NormalGameStateManager {
             return true;
         }
 
-        // 2. 自动和牌（受不点和/不抢杠约束）
+        // 2. 自动和牌（受不点和/不抢杠约束；虹雀自摸=hongque_win，荣和=hongque_claim:{id}）
         string huAction = GetFirstHuAction(allowActionList);
+        if (string.IsNullOrEmpty(huAction)) {
+            huAction = GetHongqueRonAction(allowActionList);
+        }
         if (!string.IsNullOrEmpty(huAction)) {
             bool shouldAutoWin = IsQiangGangAsk
                 ? AutoAction.Instance.ShouldAutoWinRobKong()
@@ -204,10 +230,10 @@ public partial class NormalGameStateManager {
             return true;
         }
 
-        if (allowActionList.Contains("hu_self")
+        if ((allowActionList.Contains("hu_self") || allowActionList.Contains("hongque_win"))
             && AutoAction.Instance.ShouldAutoWinTsumo()
             && !AutoAction.Instance.ShouldAutoPassForCurrentDraw()) {
-            actionType = "hu_self";
+            actionType = allowActionList.Contains("hongque_win") ? "hongque_win" : "hu_self";
             return true;
         }
 

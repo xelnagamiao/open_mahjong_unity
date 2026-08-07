@@ -203,3 +203,68 @@ def test_rainbow_sequence_still_counts_for_pinghu() -> None:
     )
     assert result2 is not None
     assert "平和" not in {fan["name"] for fan in result2["fans"]}
+
+
+def test_same_triplet_counts_groups_regardless_of_length() -> None:
+    # 同刻不要求各组张数相等：数字 1 的刻子 3/3/4 算三同刻，
+    # 3/3/3/4 与 3/3/4/4 都算四同刻（只看同数字刻子的个数）。
+    def meld(*codes):
+        return {"kind": "triplet", "tiles": list(codes)}
+
+    cases = [
+        (
+            [meld("AX1", "AY1", "BX1"), meld("BY1", "CX1", "CY1"),
+             meld("DX1", "DY1", "EX1", "EY1")],
+            "三同刻",
+            6,
+        ),
+        (
+            [meld("AX1", "AY1", "BX1"), meld("BY1", "CX1", "CY1"),
+             meld("DX1", "DY1", "EX1"), meld("EY1", "FX1", "FY1", "GX1")],
+            "四同刻",
+            12,
+        ),
+        (
+            [meld("AX1", "AY1", "BX1"), meld("BY1", "CX1", "CY1"),
+             meld("DX1", "DY1", "EX1", "EY1"), meld("FX1", "FY1", "GX1", "GY1")],
+            "四同刻",
+            12,
+        ),
+    ]
+    for melds, expected_name, expected_total in cases:
+        result = best_win_result(
+            [],
+            melds,
+            self_draw=False,
+            before_first_discard=False,
+            wall_empty=False,
+        )
+        assert result is not None
+        same = [fan for fan in result["fans"] if fan["name"] in ("双同刻", "三同刻", "四同刻")]
+        assert len(same) == 1
+        assert same[0]["name"] == expected_name
+        assert same[0]["total"] == expected_total
+
+
+def test_same_flower_matches_opposite_direction_sequences() -> None:
+    # 同花按“长度 + 花色对应”匹配，方向由顺子自身决定：
+    # 递增顺子 AX1 AY2 BX3 BY4 与递减顺子 BY1 BX2 AY3 AX4 花色对应相同，
+    # 应互为双同花；客户端 OrderedTiles 若不反转递减顺子会漏算。
+    hand = [
+        "AX1", "AY2", "BX3", "BY4",
+        "BY1", "BX2", "AY3", "AX4",
+        "CX1", "CY2", "DX3", "DY4",
+        "DY1", "DX2", "CY3", "CX4",
+    ]
+    result = best_win_result(
+        hand,
+        [],
+        self_draw=False,
+        before_first_discard=False,
+        wall_empty=False,
+    )
+    assert result is not None
+    same_flower = [fan for fan in result["fans"] if fan["name"] == "双同花"]
+    assert len(same_flower) == 1
+    assert same_flower[0]["count"] == 2
+    assert same_flower[0]["total"] == 4

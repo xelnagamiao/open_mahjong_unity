@@ -7,10 +7,12 @@ using UnityEngine;
 public class Tile3D : MonoBehaviour
 {
     private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
+    private static readonly int BackTilingOffsetId = Shader.PropertyToID("_BackTilingOffset");
     private static readonly int FrontColorId = Shader.PropertyToID("_FrontColor");
     private static readonly int BackColorId = Shader.PropertyToID("_BackColor");
     private static readonly int BackTexBlendId = Shader.PropertyToID("_BackTexBlend");
     private static readonly int SideColorId = Shader.PropertyToID("_SideColor");
+    private static readonly int BackEdgeColorId = Shader.PropertyToID("_BackEdgeColor");
     private static readonly int TileInstanceParamsId = Shader.PropertyToID("_TileInstanceParams");
     private static readonly int FrontTexId = Shader.PropertyToID("_FrontTex");
     private static readonly int BackTexId = Shader.PropertyToID("_BackTex");
@@ -23,12 +25,15 @@ public class Tile3D : MonoBehaviour
     private MaterialPropertyBlock propBlock;
     private int outlineId;
     private Vector4 frontTilingOffset = new Vector4(1f, 1f, 0f, 0f);
+    private Vector4 backTilingOffset = new Vector4(1f, 1f, 0f, 0f);
     private Color baseFrontColor = Color.white;
     private Color baseBackColor = Color.white;
     private Color baseSideColor = Color.white;
+    private Color baseBackEdgeColor = Color.white;
     private Color instanceFrontColor = Color.white;
     private Color instanceBackColor = Color.white;
     private Color instanceSideColor = Color.white;
+    private Color instanceBackEdgeColor = Color.white;
     private float baseGrayScale;
     private float instanceGrayScale;
     private bool materialDefaultsCached;
@@ -165,10 +170,12 @@ public class Tile3D : MonoBehaviour
             baseFrontColor = sharedTileMaterial.GetColor(FrontColorId);
             baseBackColor = sharedTileMaterial.GetColor(BackColorId);
             baseSideColor = sharedTileMaterial.GetColor(SideColorId);
+            baseBackEdgeColor = sharedTileMaterial.GetColor(BackEdgeColorId);
             baseGrayScale = sharedTileMaterial.GetFloat("_GrayScale");
             instanceFrontColor = baseFrontColor;
             instanceBackColor = baseBackColor;
             instanceSideColor = baseSideColor;
+            instanceBackEdgeColor = baseBackEdgeColor;
             instanceGrayScale = baseGrayScale;
             materialDefaultsCached = true;
         }
@@ -206,9 +213,11 @@ public class Tile3D : MonoBehaviour
         propBlock.Clear();
         // MPB 中只放 Shader 声明为 instanced 的属性，否则 Unity 会拆散 GPU Instancing。
         propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
+        propBlock.SetVector(BackTilingOffsetId, backTilingOffset);
         propBlock.SetColor(FrontColorId, instanceFrontColor);
         propBlock.SetColor(BackColorId, instanceBackColor);
         propBlock.SetColor(SideColorId, instanceSideColor);
+        propBlock.SetColor(BackEdgeColorId, instanceBackEdgeColor);
         propBlock.SetVector(
             TileInstanceParamsId,
             new Vector4(instanceGrayScale, outlineId, 0f, 0f));
@@ -313,13 +322,64 @@ public class Tile3D : MonoBehaviour
         ApplyPropertyBlock();
     }
 
+    /// <summary>
+    /// 和牌倒牌“立牌姿态”专用：把牌背贴图绕法线翻转 180°（u/v 同时取反），
+    /// 使立牌瞬间朝镜头可见的牌背保持正向；对象池回收时由 ResetBackOrientation 复位。
+    /// 只影响牌背 UV，不影响牌面，也不影响倒牌结束后的牌面朝上展示（届时牌背被压住）。
+    /// </summary>
+    public void SetBackFlip(bool flip) {
+        SetBackOrientation(flip
+            ? new Vector4(-1f, -1f, 1f, 1f)
+            : new Vector4(1f, 1f, 0f, 0f));
+    }
+
+    /// <summary>设置牌背贴图的逐牌 UV 变换（tiling/offset）。</summary>
+    public void SetBackOrientation(Vector4 tilingOffset) {
+        InitializeComponents();
+        backTilingOffset = tilingOffset;
+        ApplyPropertyBlock();
+    }
+
+    /// <summary>对象池回收前恢复牌背贴图默认朝向。</summary>
+    public void ResetBackOrientation() {
+        if (backTilingOffset.x == 1f && backTilingOffset.y == 1f
+            && backTilingOffset.z == 0f && backTilingOffset.w == 0f) {
+            return;
+        }
+        SetBackOrientation(new Vector4(1f, 1f, 0f, 0f));
+    }
+
+    /// <summary>
+    /// 应用正面侧边颜色：走实例 MPB，不影响共享材质上的 _SideTex。
+    /// </summary>
+    public void ApplySideVisual(Color sideColor) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        instanceSideColor = sideColor;
+        baseSideColor = sideColor;
+        ApplyPropertyBlock();
+    }
+
+    /// <summary>
+    /// 应用背面侧边颜色：走实例 MPB，不影响共享材质上的 _BackColor。
+    /// </summary>
+    public void ApplyBackEdgeVisual(Color backEdgeColor) {
+        InitializeComponents();
+        if (cardRenderer == null || tileMaterialIndex < 0) return;
+        instanceBackEdgeColor = backEdgeColor;
+        baseBackEdgeColor = backEdgeColor;
+        ApplyPropertyBlock();
+    }
+
     /// <summary>对象池复用前恢复共享材质的默认视觉状态。</summary>
     public void ResetInstanceVisualState() {
         InitializeComponents();
         instanceFrontColor = baseFrontColor;
         instanceBackColor = baseBackColor;
         instanceSideColor = baseSideColor;
+        instanceBackEdgeColor = baseBackEdgeColor;
         instanceGrayScale = baseGrayScale;
+        backTilingOffset = new Vector4(1f, 1f, 0f, 0f);
         ApplyPropertyBlock();
     }
 

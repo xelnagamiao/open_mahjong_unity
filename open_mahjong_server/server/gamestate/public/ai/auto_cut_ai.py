@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from ..hand_slot_utils import has_draw_slot, infer_bot_cut_class
+from ..offline.offline_auto_action import _skip_offline_first_cut
 from .get_action import get_ai_action
 from .smart_bot_logic import first_dingque_tile
 
@@ -74,6 +75,9 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
 
         if game_status == "waiting_hand_action":
             await asyncio.sleep(_BOT_DELAY)
+            if "offline" in getattr(current_player, "tag_list", []) and _skip_offline_first_cut(game_state, current_player):
+                logger.info(f"掉线托管 {player_index} ({current_player.username}) 首个出牌询问受保护，不自动切牌")
+                return
             if not await _wait_until_actionable(game_state, player_index):
                 logger.warning(f"机器人 {player_index} ({current_player.username}) 手牌询问未进入 waiting_players_list，放弃操作")
                 return
@@ -95,6 +99,9 @@ async def auto_cut_action(game_state, player_index: int, action_list: list, game
             cp = bool(getattr(game_state, "claim_protection", False))
             from ..claim_protection import get_meld_post_gap
             await asyncio.sleep(_BOT_DELAY + (get_meld_post_gap(game_state) if cp else 0.0))
+            if "offline" in getattr(current_player, "tag_list", []) and _skip_offline_first_cut(game_state, current_player):
+                logger.info(f"掉线托管 {player_index} ({current_player.username}) 首个出牌询问受保护，不自动切牌")
+                return
             if not await _wait_until_actionable(game_state, player_index):
                 logger.warning(f"机器人 {player_index} ({current_player.username}) 鸣牌后未进入 waiting_players_list，放弃操作")
                 return

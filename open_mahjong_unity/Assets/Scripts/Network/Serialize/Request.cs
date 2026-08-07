@@ -147,6 +147,7 @@ public class SendChineseGameTileRequest { // 发送国标游戏牌请求
     public int TileId;
     public int cutIndex;
     public string gamestate_id; // 游戏状态ID
+    public int? action_tick; // 本次切牌所回应的询问帧；服务端用于丢弃过期提交
 }
 
 public class SendActionRequest { // 发送国标游戏操作请求

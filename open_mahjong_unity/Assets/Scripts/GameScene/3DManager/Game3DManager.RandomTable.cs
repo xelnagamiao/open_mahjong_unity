@@ -150,9 +150,7 @@ public partial class Game3DManager : MonoBehaviour
 
         Vector3 cursor = panel.combinationsPosition.position;
         float acrossGroupLastSlot = 0f;
-        float groupGap = ConfigManager.Instance != null && ConfigManager.Instance.MeldSpacingEnabled
-            ? cardWidth * CombinationGroupGapFactor
-            : 0f;
+        float groupGap = MeldSpacingGap();
 
         for (int meldIndex = 0; meldIndex < meldMasks.Count; meldIndex++)
         {

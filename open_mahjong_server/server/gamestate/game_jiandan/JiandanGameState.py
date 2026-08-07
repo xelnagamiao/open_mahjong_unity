@@ -278,6 +278,22 @@ class JiandanGameState:
 
         await deliver_realtime_spectator_message(self, player_index, payload)
 
+    async def send_realtime_spectator_snapshot(self, spectator_user_id: int, view_player_index: int) -> None:
+        """实时观战接入：按被观战座位视角补发 game_start 与当前 pending ask（与被观战玩家收到的 game_start 完全一致）。"""
+        if view_player_index < 0 or view_player_index >= len(self.player_list):
+            return
+        conn = None
+        if self.game_server is not None:
+            conn = getattr(self.game_server, "user_id_to_connection", {}).get(spectator_user_id)
+        if conn is None or getattr(conn, "websocket", None) is None:
+            return
+        payload = self.build_game_start_payload(view_player_index)
+        await conn.websocket.send_json(payload)
+        pending = self.build_pending_action_payload(view_player_index)
+        if pending is not None:
+            await conn.websocket.send_json(pending)
+        logger.info(f"已向实时观战玩家 {spectator_user_id} 发送简单 game_start（视角座位 {view_player_index}）")
+
     async def _send_claim_protection_payload(self, viewer_index: int, payload: dict) -> None:
         await self.send_payload_to_player(viewer_index, payload, record_fallback=False)
         await self.send_to_realtime_spectators(viewer_index, payload)

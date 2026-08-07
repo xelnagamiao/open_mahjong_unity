@@ -96,6 +96,7 @@ export function installDomLocalization() {
     if (node.nodeType === Node.TEXT_NODE) {
       const parent = node.parentElement
       if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA'].includes(parent.tagName)) return
+      if (parent.closest?.('[data-no-translate]')) return
       const current = refresh && originals.has(node) ? originals.get(node) : node.nodeValue
       const leading = current.match(/^\s*/)?.[0] || ''
       const trailing = current.match(/\s*$/)?.[0] || ''
@@ -109,6 +110,7 @@ export function installDomLocalization() {
       return
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return
+    if (node.hasAttribute?.('data-no-translate')) return
     for (const attribute of ['aria-label', 'title', 'placeholder']) {
       if (!node.hasAttribute(attribute)) continue
       const key = `attr:${attribute}`

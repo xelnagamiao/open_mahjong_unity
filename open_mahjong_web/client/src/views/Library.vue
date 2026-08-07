@@ -1,4 +1,4 @@
-<!-- 麻雀图书馆 · 独立馆页索引 -->
+<!-- 麻雀图书馆 · 独立馆页索引（底部：主讨论区 + 近期讨论） -->
 <template>
   <div class="lib">
     <div class="lib-bg" aria-hidden="true">
@@ -67,7 +67,33 @@
           </router-link>
         </div>
       </section>
+
     </main>
+
+    <section id="sec-public" class="bottom">
+      <div class="main-disc">
+        <LibraryDiscussion topic-key="public" title="主讨论区" />
+      </div>
+
+      <aside class="recent">
+        <div class="block-head">
+          <h2>近期讨论</h2>
+        </div>
+        <div v-if="recentLoading" class="recent-empty">加载中…</div>
+        <div v-else-if="!recent.length" class="recent-empty">还没有帖子。</div>
+        <ul v-else class="recent-list">
+          <li v-for="item in recent" :key="item.post_id">
+            <router-link :to="libraryTopicPath(item.rule_key, item.post_id)">
+              <span class="recent-topic">{{ libraryTopicLabel(item.rule_key) }}</span>
+              <span class="recent-title">{{ item.title }}</span>
+              <span class="recent-meta">
+                {{ displayAuthor(item) }} · {{ item.reply_count }} 回复 · {{ shortDate(item.updated_at) }}
+              </span>
+            </router-link>
+          </li>
+        </ul>
+      </aside>
+    </section>
 
     <footer class="foot">
       <span>Salasasa · Mahjong Library</span>
@@ -78,12 +104,20 @@
 </template>
 
 <script setup>
+import { nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import axios from 'axios'
+import LibraryDiscussion from '@/components/LibraryDiscussion.vue'
 import {
   LIBRARY_MATERIALS,
   LIBRARY_SECTIONS,
   LIBRARY_SUBMISSION,
+  libraryTopicLabel,
+  libraryTopicPath,
   rulesForSection,
 } from '@/constants/libraryRules'
+
+const route = useRoute()
 
 const sections = LIBRARY_SECTIONS.map((s) => ({
   ...s,
@@ -95,10 +129,59 @@ const sections = LIBRARY_SECTIONS.map((s) => ({
   })[s.key] || s.title,
 }))
 
+const recent = ref([])
+const recentLoading = ref(false)
+
+function displayAuthor(row) {
+  return row.author_username || (row.author_user_id != null ? `用户${row.author_user_id}` : '匿名')
+}
+
+function shortDate(v) {
+  if (!v) return ''
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return String(v)
+  const now = new Date()
+  return d.toDateString() === now.toDateString()
+    ? d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+}
+
+async function loadRecent() {
+  recentLoading.value = true
+  try {
+    const res = await axios.get('/api/library/posts/recent', { params: { limit: 30 } })
+    recent.value = res.data?.data?.items || []
+  } catch {
+    recent.value = []
+  } finally {
+    recentLoading.value = false
+  }
+}
+
 function scrollTo(key) {
   const el = document.getElementById(`sec-${key}`)
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
+
+function scrollToTopic() {
+  const topic = route.query.topic
+  if (!topic) return
+  const el = document.getElementById(`sec-${topic}`)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+onMounted(async () => {
+  loadRecent()
+  await nextTick()
+  scrollToTopic()
+})
+
+watch(
+  () => route.query.topic,
+  () => {
+    nextTick(scrollToTopic)
+  }
+)
 </script>
 
 <style scoped>
@@ -150,6 +233,7 @@ function scrollTo(key) {
 
 .hero,
 .catalog,
+.bottom,
 .foot {
   position: relative;
   z-index: 1;
@@ -220,7 +304,7 @@ function scrollTo(key) {
 }
 
 .catalog {
-  padding-bottom: 48px;
+  padding-bottom: 8px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -336,6 +420,104 @@ function scrollTo(key) {
   transform: translateX(0);
 }
 
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: start;
+  padding-top: 18px;
+  padding-bottom: 44px;
+  border-top: 1px solid var(--line);
+  animation: rise 0.65s ease both;
+  animation-delay: 0.25s;
+}
+
+.main-disc,
+.recent {
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--line);
+  padding: 14px 16px 16px;
+}
+
+.block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.block-head h2 {
+  margin: 0;
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.block-head span {
+  font-size: 11px;
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+}
+
+.recent-empty {
+  padding: 2px 0 4px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recent-list li {
+  border-top: 1px solid rgba(16, 40, 32, 0.08);
+}
+
+.recent-list li:first-child {
+  border-top: 0;
+}
+
+.recent-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 2px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.recent-list a:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.recent-topic {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.recent-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-meta {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
 .foot {
   display: flex;
   justify-content: space-between;
@@ -367,6 +549,12 @@ function scrollTo(key) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 760px) {
+  .bottom {
+    grid-template-columns: 1fr;
   }
 }
 

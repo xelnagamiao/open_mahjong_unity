@@ -13,6 +13,10 @@ public static class CardBackManager
 
     public static Color CurrentColor { get; private set; } = ConfigManager.DefaultCardBackColor;
     public static Texture2D CurrentTexture { get; private set; }
+    public static Color CurrentSideColor { get; private set; } = ConfigManager.DefaultSideColor;
+    public static Color CurrentBackEdgeColor { get; private set; } = ConfigManager.DefaultBackEdgeColor;
+    public static bool BackEdgeSyncEnabled { get; private set; } = true;
+    public static CardEdgePanel.BackEdgeMode BackEdgeMode { get; private set; } = CardEdgePanel.BackEdgeMode.FollowBack;
     private static bool _savedConfigApplied;
 
     /// <summary>启动或切换设置后调用：读取 ConfigManager 并应用。</summary>
@@ -22,6 +26,105 @@ public static class CardBackManager
         Color color = ConfigManager.Instance.CardBackColor;
         Texture2D texture = LoadSavedTexture();
         Apply(color, texture);
+        ApplySideColor(ConfigManager.Instance.SideColor);
+        BackEdgeSyncEnabled = ConfigManager.Instance.BackEdgeSyncEnabled;
+        BackEdgeMode = ConfigManager.Instance.BackEdgeMode;
+        ApplyBackEdgeColor(ResolveBackEdgeColor(BackEdgeMode, ConfigManager.Instance.BackEdgeColor));
+    }
+
+    /// <summary>把正面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
+    public static void ApplySideColor(Color color)
+    {
+        CurrentSideColor = color;
+
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetColor("_SideColor", color);
+        }
+
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
+        foreach (Tile3D tile in tiles)
+        {
+            if (tile != null) tile.ApplySideVisual(color);
+        }
+
+        // 对象池内未部署的牌也要同步：FindObjectsByType 只找得到激活实例，
+        // 池内 inactive 牌的实例颜色若不更新，下次 Spawn 时仍是旧的正边缘颜色。
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplySideVisual(color);
+            });
+        }
+
+        // 背面边缘颜色跟随正面边缘模式时，正面边缘变化会连带更新背面边缘。
+        if (BackEdgeMode == CardEdgePanel.BackEdgeMode.FollowFront)
+        {
+            ApplyBackEdgeColor(color);
+        }
+    }
+
+    /// <summary>把背面侧边颜色应用到共享材质与所有 Tile3D 实例。</summary>
+    public static void ApplyBackEdgeColor(Color color)
+    {
+        CurrentBackEdgeColor = color;
+
+        Material shared = Resources.Load<Material>(MaterialResourcePath);
+        if (shared != null)
+        {
+            shared.SetColor("_BackEdgeColor", color);
+        }
+
+        Tile3D[] tiles = UnityEngine.Object.FindObjectsByType<Tile3D>(FindObjectsSortMode.None);
+        foreach (Tile3D tile in tiles)
+        {
+            if (tile != null) tile.ApplyBackEdgeVisual(color);
+        }
+
+        if (MahjongObjectPool.Instance != null)
+        {
+            MahjongObjectPool.Instance.ForEachPooledTile(pooled =>
+            {
+                Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
+                if (pooledTile != null) pooledTile.ApplyBackEdgeVisual(color);
+            });
+        }
+    }
+
+    /// <summary>
+    /// 设置背面侧边颜色同步开关：同步开启时背面侧边跟随牌背颜色，关闭后可单独设置。
+    /// </summary>
+    public static void SetBackEdgeSync(bool enabled)
+    {
+        SetBackEdgeMode(
+            enabled ? CardEdgePanel.BackEdgeMode.FollowBack : CardEdgePanel.BackEdgeMode.Independent,
+            ConfigManager.Instance != null ? ConfigManager.Instance.BackEdgeColor : CurrentBackEdgeColor);
+    }
+
+    /// <summary>
+    /// 设置背面侧边颜色模式：独立 / 跟随牌背 / 跟随正面边缘。
+    /// </summary>
+    public static void SetBackEdgeMode(CardEdgePanel.BackEdgeMode mode, Color independentColor)
+    {
+        BackEdgeMode = mode;
+        BackEdgeSyncEnabled = mode == CardEdgePanel.BackEdgeMode.FollowBack;
+        ApplyBackEdgeColor(ResolveBackEdgeColor(mode, independentColor));
+    }
+
+    private static Color ResolveBackEdgeColor(CardEdgePanel.BackEdgeMode mode, Color independentColor)
+    {
+        switch (mode)
+        {
+            case CardEdgePanel.BackEdgeMode.FollowBack:
+                return CurrentColor;
+            case CardEdgePanel.BackEdgeMode.FollowFront:
+                return CurrentSideColor;
+            default:
+                return independentColor;
+        }
     }
 
     /// <summary>
@@ -68,6 +171,12 @@ public static class CardBackManager
                 Tile3D pooledTile = pooled != null ? pooled.GetComponent<Tile3D>() : null;
                 if (pooledTile != null) pooledTile.ApplyBackVisual(color, texture);
             });
+        }
+
+        // 背面侧边颜色跟随牌背模式时，牌背颜色变化会连带更新背面侧边。
+        if (BackEdgeMode == CardEdgePanel.BackEdgeMode.FollowBack)
+        {
+            ApplyBackEdgeColor(color);
         }
         _savedConfigApplied = true;
     }

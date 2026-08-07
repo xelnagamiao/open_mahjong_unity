@@ -14,7 +14,7 @@
     <template v-else-if="mode === 'lobby'">
       <section class="sec">
         <div class="sec-h">■ 个人训练、创建房间、匹配</div>
-        <div class="grid g3">
+        <div class="grid g4">
           <button type="button" class="card" style="background: #9b59b6" @click="openTrainModal">
             <h3>个人训练</h3>
             <p>开启单人猜番</p>
@@ -25,21 +25,38 @@
           </button>
           <button
             type="button"
-            class="card"
-            style="background: #e6a23c"
-            :disabled="matching"
-            @click="enterMatch"
+            class="card match-card"
+            style="background: #c0392b"
+            :class="{ active: matchingPools.has('riichi') }"
+            :disabled="connecting"
+            @click="enterMatch('riichi')"
           >
-            <h3>{{ matchCardTitle }}</h3>
+            <h3>{{ matchCardTitle('riichi') }}</h3>
+            <p>规则集：立直、BO5、限时60s、8次猜番机会、计入排行</p>
+          </button>
+          <button
+            type="button"
+            class="card match-card"
+            style="background: #e6a23c"
+            :class="{ active: matchingPools.has('mixed') }"
+            :disabled="connecting"
+            @click="enterMatch('mixed')"
+          >
+            <h3>{{ matchCardTitle('mixed') }}</h3>
             <p>规则集：国标+立直、BO5、限时60s、8次猜番机会、计入排行</p>
           </button>
         </div>
-        <div class="match-bar" :class="{ active: matching, busy: queueSize > 0 }">
+        <div
+          v-for="pool in MATCH_POOL_KEYS"
+          :key="pool"
+          class="match-bar"
+          :class="{ active: matchingPools.has(pool), busy: queueSizeOf(pool) > 0 }"
+        >
           <div class="match-bar-main">
-            <strong>{{ matchQueueTitle }}</strong>
-            <div v-if="queuePlayers.length" class="queue-players">
+            <strong>{{ matchQueueTitle(pool) }}</strong>
+            <div v-if="queuePlayersOf(pool).length" class="queue-players">
               <span
-                v-for="p in queuePlayers"
+                v-for="p in queuePlayersOf(pool)"
                 :key="`${p.userId}-${p.username}`"
                 class="queue-chip"
                 :class="{ me: isMeInQueue(p) }"
@@ -47,8 +64,19 @@
             </div>
             <span v-else class="queue-wait">当前无人排队</span>
           </div>
-          <button v-if="matching" type="button" class="panel-btn ghost" @click="cancelMatch">取消匹配</button>
-          <button v-else type="button" class="panel-btn" :disabled="connecting" @click="enterMatch">加入匹配</button>
+          <button
+            v-if="matchingPools.has(pool)"
+            type="button"
+            class="panel-btn ghost"
+            @click="cancelMatch(pool)"
+          >取消匹配</button>
+          <button
+            v-else
+            type="button"
+            class="panel-btn"
+            :disabled="connecting"
+            @click="enterMatch(pool)"
+          >加入匹配</button>
         </div>
       </section>
 
@@ -117,7 +145,21 @@
 
           <div class="split-rank">
             <div class="sec-h rank-sec-h">
-              <span>■ 排行榜（仅匹配）</span>
+              <div class="rank-tabs">
+                <span class="rank-label">排行榜</span>
+                <button
+                  type="button"
+                  class="rank-tab"
+                  :class="{ active: leaderboardTab === 'mixed' }"
+                  @click="switchLeaderboard('mixed')"
+                >国标+立直</button>
+                <button
+                  type="button"
+                  class="rank-tab"
+                  :class="{ active: leaderboardTab === 'riichi' }"
+                  @click="switchLeaderboard('riichi')"
+                >立直</button>
+              </div>
               <el-tooltip placement="left" :show-after="200" popper-class="elo-tooltip">
                 <template #content>
                   <div class="elo-tip-content">
@@ -171,7 +213,7 @@
                 <li><b>出现概率原则</b>：组合龙复合全不靠的概率为 29.3%（161/550），因此组合龙应当被优先计为顺子系、其次再被计为全不靠系，即 [顺子系、全不靠系]。</li>
                 <li><b>先置逻辑优先原则</b>：在能够预测到导致和牌的行动的具体番数的情况下，优先记条件系，其次记偶然系。例如一发、里宝牌、抢杠、岭上开花、海底捞月应当记 [条件系、偶然系]；天和、地和应当记 [偶然系]；立直、双立直、和绝张应当记 [条件系]。</li>
                 <li><b>复计只计其一原则</b>：在可以复计的番种当中，例如四归一、花牌、红宝牌，应当计单个番种的番值，例如四归一应当记 [2]。</li>
-                <li><b>食下役一律副值原则</b>：涉及食下的番种，应当以番种门清状态下的原生番数为主番数，食下番数为副番数，例如纯全带幺九应当记 [3、2]。</li>
+                <li><b>食下役一律副值原则</b>：涉及食下的番种，应当以番种门清状态下的原生番数为主番数，食下番数为副番数，例如纯全带幺九应当记 [3、2]。抽题时答案番数一律取主番数（门清原生番数），例如纯全带幺九抽 3 番、混全带幺九抽 2 番。</li>
                 <li><b>声明特殊番种原则</b>：四归一的组数规定为 [4、3、2]；组合龙、九莲宝灯的组数规定为 [1]；全不靠、七星不靠与一色系番种的组数规定为 [全体]；对子系的组数规定为 [7]；流局满贯的番数为 [5]。</li>
                 <li><b>避免重复猜取原则</b>：涉及番种意义相近但是需要重复猜取的番种将会开启关联提示或合并，例如答案「全大」的番名规定为 [全大，全中，全小]；役牌·白、役牌·中、自风·南等番种合并为役牌、自风与场风。立直与双立直、混一色与清一色之类猜取较为简单的不设关联提示。</li>
               </ol>
@@ -192,6 +234,7 @@
             <article>
               <h3>对战与排行</h3>
               <p>每局最多猜 8 次、限时 60 秒。有人猜中或时间结束后展示答案与双方猜测，6 秒后自动进入下一局。</p>
+              <p>匹配分为「国标+立直」与「立直」两个池，各自独立排队与计分；排行榜默认展示国标+立直，可切换成立直查看。</p>
               <p>只有系统匹配计入排行榜。战胜高分对手获得更多积分，负于低分对手扣分更多。</p>
             </article>
           </div>
@@ -347,12 +390,24 @@ const error = ref('')
 const connecting = ref(false)
 const showTrain = ref(false)
 const showCreate = ref(false)
-const matching = ref(false)
-const queueSize = ref(0)
-const queuePlayers = ref([])
+
+/** 匹配池：mixed = 国标+立直，riichi = 立直；展示顺序为立直在前 */
+const MATCH_POOL_KEYS = ['riichi', 'mixed']
+const MATCH_POOL_LABELS = { mixed: '国标+立直', riichi: '立直' }
+
+/** 各池独立排队：matchingPools 记录正在排队的池，queues 记录各池队列数据 */
+const matchingPools = ref(new Set())
+const queues = ref({
+  mixed: { size: 0, players: [] },
+  riichi: { size: 0, players: [] },
+})
+
+/** 排行榜：默认展示国标+立直（mixed），可切换成立直（riichi） */
+const leaderboardTab = ref('mixed')
+const lobbyBoards = ref({ mixed: [], riichi: [] })
 
 const lobbyRooms = ref([])
-const lobbyBoard = ref([])
+const lobbyBoard = computed(() => lobbyBoards.value[leaderboardTab.value] || [])
 
 const soloRows = ref([])
 const soloAnswer = ref(null)
@@ -446,7 +501,8 @@ const scoreText = computed(() => {
 const multiTitle = computed(() => {
   if (!room.value) return '对局'
   const tag = room.value.ranked ? '匹配' : `房间 ${room.value.code}`
-  return `${tag} · BO${room.value.bestOf}`
+  const poolLabel = room.value.pool ? (MATCH_POOL_LABELS[room.value.pool] || '') : ''
+  return [tag, poolLabel, `BO${room.value.bestOf}`].filter(Boolean).join(' · ')
 })
 const mePlayer = computed(() => room.value?.players?.find((p) => p.id === myId.value) || null)
 const oppPlayer = computed(() => room.value?.players?.find((p) => p.id !== myId.value) || null)
@@ -514,20 +570,84 @@ function ruleText(rs) {
   return (rs || []).map((r) => RULE_LABEL[r] || r).join('+') || '—'
 }
 
-const matchCardTitle = computed(() => {
-  if (matching.value) return `匹配中（${queueSize.value}）…`
-  if (queueSize.value > 0) return `进入匹配（队列 ${queueSize.value}）`
-  return '进入匹配'
-})
+function matchCardTitle(pool) {
+  const label = MATCH_POOL_LABELS[pool] || pool
+  const size = queueSizeOf(pool)
+  if (matchingPools.value.has(pool)) return `匹配中（${label} · ${size}）…`
+  if (size > 0) return `进入匹配（${label} · 队列 ${size}）`
+  return `进入匹配（${label}）`
+}
 
-const matchQueueTitle = computed(() => {
-  if (matching.value) return `你正在匹配（队列 ${queueSize.value} 人）`
-  if (queueSize.value > 0) return `匹配队列（${queueSize.value} 人）`
-  return '匹配队列（0 人）'
-})
+function matchQueueTitle(pool) {
+  const size = queueSizeOf(pool)
+  if (matchingPools.value.has(pool)) return `${MATCH_POOL_LABELS[pool]} · 你正在匹配（队列 ${size} 人）`
+  if (size > 0) return `${MATCH_POOL_LABELS[pool]} · 匹配队列（${size} 人）`
+  return `${MATCH_POOL_LABELS[pool]} · 匹配队列（0 人）`
+}
+
+function queueSizeOf(pool) {
+  return queues.value[pool]?.size || 0
+}
+
+function queuePlayersOf(pool) {
+  return queues.value[pool]?.players || []
+}
+
+function switchLeaderboard(pool) {
+  if (!MATCH_POOL_KEYS.includes(pool)) return
+  leaderboardTab.value = pool
+}
+
+function applyQueues(queueData) {
+  if (!queueData) return
+  const next = { ...queues.value }
+  for (const key of MATCH_POOL_KEYS) {
+    const q = queueData[key]
+    if (q) next[key] = { size: Number(q.size) || 0, players: q.players || [] }
+  }
+  queues.value = next
+}
+
+function applyLeaderboards(data) {
+  if (!data) return
+  const next = { ...lobbyBoards.value }
+  for (const key of MATCH_POOL_KEYS) {
+    if (Array.isArray(data[key])) next[key] = data[key]
+  }
+  lobbyBoards.value = next
+}
+
+function syncMatchingFromQueues() {
+  if (room.value) return
+  const next = new Set()
+  for (const key of MATCH_POOL_KEYS) {
+    if (queues.value[key]?.players?.some(isMeInQueue)) next.add(key)
+  }
+  matchingPools.value = next
+}
 
 function isMeInQueue(p) {
   return String(p?.userId ?? '') === String(auth.userId ?? '')
+}
+
+/*
+ * 兼容旧版单池字段的兜底（服务端 lobby 同时返回 queues/leaderboards 结构）
+ */
+function normalizeLobby(lobby) {
+  if (!lobby) return null
+  const queuesData = lobby.queues || {
+    mixed: { size: lobby.queueSize || 0, players: lobby.queuePlayers || [] },
+    riichi: { size: 0, players: [] },
+  }
+  const boards = lobby.leaderboards || {
+    mixed: lobby.leaderboard || [],
+    riichi: [],
+  }
+  return {
+    rooms: lobby.rooms || [],
+    queues: queuesData,
+    leaderboards: boards,
+  }
 }
 
 function isMyLobbyRoom(r) {
@@ -547,15 +667,13 @@ function enterPlayRoute() {
 }
 
 function applyLobby(lobby) {
-  if (!lobby) return
-  lobbyRooms.value = lobby.rooms || []
-  lobbyBoard.value = lobby.leaderboard || []
-  queueSize.value = lobby.queueSize || 0
-  queuePlayers.value = lobby.queuePlayers || []
-  // 仅以服务端队列为准：自己不在队列里就退出 matching
-  if (matching.value && !queuePlayers.value.some(isMeInQueue) && !room.value) {
-    matching.value = false
-  }
+  const data = normalizeLobby(lobby)
+  if (!data) return
+  lobbyRooms.value = data.rooms
+  applyQueues(data.queues)
+  applyLeaderboards(data.leaderboards)
+  // 仅以服务端队列为准：自己不在队列里就退出对应池的匹配状态
+  syncMatchingFromQueues()
 }
 
 function ensureSocket() {
@@ -592,7 +710,7 @@ function ensureSocket() {
     applyLobby(lobby)
   })
   socket.value.on('guessfan:matched', ({ state }) => {
-    matching.value = false
+    matchingPools.value = new Set()
     room.value = state
     mode.value = 'multi'
     myId.value = socket.value.id
@@ -601,14 +719,16 @@ function ensureSocket() {
   socket.value.on('connect_error', (err) => {
     error.value = `连接失败：${err.message}`
     connecting.value = false
-    matching.value = false
+    matchingPools.value = new Set()
   })
   socket.value.on('disconnect', () => {
     // 断线后服务端会移出队列；本地同步状态，避免假匹配
-    if (matching.value) {
-      matching.value = false
-      queueSize.value = 0
-      queuePlayers.value = []
+    if (matchingPools.value.size) {
+      matchingPools.value = new Set()
+      queues.value = {
+        mixed: { size: 0, players: [] },
+        riichi: { size: 0, players: [] },
+      }
     }
   })
   return socket.value
@@ -666,9 +786,10 @@ function openTrainModal() {
 function openCreateModal() {
   showCreate.value = true
 }
-function enterMatch() {
-  if (matching.value || connecting.value) return
-  confirmMatch()
+function enterMatch(pool) {
+  if (!MATCH_POOL_KEYS.includes(pool)) return
+  if (matchingPools.value.has(pool) || connecting.value) return
+  confirmMatch(pool)
 }
 
 function confirmTrain() {
@@ -805,27 +926,32 @@ async function joinByInput() {
   await joinRoomByCode(code)
 }
 
-async function confirmMatch() {
+async function confirmMatch(pool) {
   error.value = ''
-  // 先鉴权再入队；matching 仅在服务端确认 queued 后置 true
+  // 先鉴权再入队；matchingPools 仅在服务端确认 queued 后加入对应池
   const authRes = await authEmit()
   if (!authRes?.ok) {
-    matching.value = false
+    matchingPools.value = new Set()
     error.value = authRes?.error || '鉴权失败，无法匹配'
     return
   }
-  const res = await emitAck('guessfan:queue', {})
+  const res = await emitAck('guessfan:queue', { pool })
   if (!res?.ok) {
-    matching.value = false
+    matchingPools.value = new Set()
     error.value = res?.error || '匹配失败'
     await refreshLobby()
     return
   }
-  queueSize.value = res.queueSize || 0
-  queuePlayers.value = res.queuePlayers || []
-  matching.value = !!res.queued
+  if (res.queues) applyQueues(res.queues)
+  if (res.queued) {
+    const next = new Set(matchingPools.value)
+    next.add(pool)
+    matchingPools.value = next
+  } else {
+    matchingPools.value = new Set()
+  }
   if (res.state) {
-    matching.value = false
+    matchingPools.value = new Set()
     room.value = res.state
     mode.value = 'multi'
     myId.value = socket.value.id
@@ -833,12 +959,13 @@ async function confirmMatch() {
   }
 }
 
-async function cancelMatch() {
-  matching.value = false
-  const res = await emitAck('guessfan:queue_cancel', {})
+async function cancelMatch(pool) {
+  const next = new Set(matchingPools.value)
+  next.delete(pool)
+  matchingPools.value = next
+  const res = await emitAck('guessfan:queue_cancel', { pool })
   if (res?.ok) {
-    queueSize.value = res.queueSize || 0
-    queuePlayers.value = res.queuePlayers || []
+    if (res.queues) applyQueues(res.queues)
   } else {
     await refreshLobby()
   }
@@ -873,7 +1000,7 @@ async function leaveRoom(skipConfirm = false, navigate = true) {
     if (!window.confirm('是否退出猜番对抗？退出后对手将直接获胜。')) return
   }
   cancelScheduledStartSound()
-  matching.value = false
+  matchingPools.value = new Set()
   if (socket.value?.connected) {
     try {
       await emitAck('guessfan:leave', {})
@@ -1139,6 +1266,10 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.g4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 .card {
   display: block;
   width: 100%;
@@ -1173,6 +1304,12 @@ onBeforeUnmount(() => {
   font-size: 12px;
   opacity: 0.95;
   line-height: 1.45;
+}
+
+.card.match-card.active {
+  outline: 3px solid #ffd666;
+  outline-offset: 2px;
+  box-shadow: 0 6px 20px rgba(230, 162, 60, 0.35);
 }
 
 .match-bar {
@@ -1241,6 +1378,41 @@ onBeforeUnmount(() => {
 .queue-wait {
   color: #999;
   font-size: 12px;
+}
+
+.rank-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rank-label {
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.rank-tab {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 14px;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rank-tab:hover {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rank-tab.active {
+  background: #e6a23c;
+  border-color: #e6a23c;
+  color: #fff;
+  font-weight: 700;
 }
 
 .panel-box {
@@ -1530,10 +1702,19 @@ onBeforeUnmount(() => {
   .g3 {
     grid-template-columns: 1fr;
   }
+  .g4 {
+    grid-template-columns: 1fr 1fr;
+  }
   .lobby-split {
     grid-template-columns: 1fr;
   }
   .guide-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .g4 {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 

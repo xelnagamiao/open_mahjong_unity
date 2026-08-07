@@ -16,21 +16,66 @@ const {
   applyMatchRating,
 } = require('../utils/guessFanTables')
 
-/** 匹配对局固定配置 */
-const MATCH_DEFAULTS = {
-  rules: ['guobiao', 'riichi'],
-  bestOf: 5,
-  disableRelated: false,
-  maxGuesses: 8,
-  timeLimitSec: 60,
-  ranked: true,
+/** 匹配池固定配置：mixed = 国标+立直，riichi = 立直 */
+const MATCH_POOLS = {
+  mixed: {
+    key: 'mixed',
+    label: '国标+立直',
+    rules: ['guobiao', 'riichi'],
+    bestOf: 5,
+    disableRelated: false,
+    maxGuesses: 8,
+    timeLimitSec: 60,
+    ranked: true,
+  },
+  riichi: {
+    key: 'riichi',
+    label: '立直',
+    rules: ['riichi'],
+    bestOf: 5,
+    disableRelated: false,
+    maxGuesses: 8,
+    timeLimitSec: 60,
+    ranked: true,
+  },
 }
+
+/** 兼容旧客户端：匹配对局固定配置（国标+立直池） */
+const MATCH_DEFAULTS = {
+  ...MATCH_POOLS.mixed,
+  rules: [...MATCH_POOLS.mixed.rules],
+}
+
+/** 供客户端展示的匹配池摘要（不含 rules 以外的内部字段） */
+const MATCH_POOLS_PUBLIC = Object.fromEntries(
+  Object.values(MATCH_POOLS).map((p) => [
+    p.key,
+    {
+      key: p.key,
+      label: p.label,
+      rules: [...p.rules],
+      bestOf: p.bestOf,
+      maxGuesses: p.maxGuesses,
+      timeLimitSec: p.timeLimitSec,
+      ranked: !!p.ranked,
+    },
+  ]),
+)
 
 /** @type {Map<string, object>} */
 const rooms = new Map()
 
-/** @type {Map<string, { socketId: string, userId: number|string, username: string, at: number }>} */
-const matchQueue = new Map()
+/**
+ * 按匹配池分队列。
+ * @type {Map<string, Map<string, { socketId: string, userId: number|string, username: string, at: number }>>}
+ */
+const matchQueues = new Map(Object.keys(MATCH_POOLS).map((key) => [key, new Map()]))
+
+function queueMap(poolKey) {
+  const q = matchQueues.get(poolKey)
+  if (!q) throw new Error('未知的匹配池')
+  return q
+}
 
 const LOBBY_CHANNEL = 'guessfan:lobby'
 function genCode() {
@@ -70,6 +115,7 @@ function roomListItem(room) {
     playerNicks: players.map((p) => p.nick),
     playerCount: players.length,
     maxPlayers: 2,
+    pool: room.pool || (room.ranked ? 'mixed' : null),
     rules: room.rules,
     bestOf: room.bestOf,
     disableRelated: room.disableRelated,
@@ -87,8 +133,8 @@ function listPublicRooms() {
     .map(roomListItem)
 }
 
-function queuePublicList() {
-  return [...matchQueue.values()]
+function queuePublicList(poolKey) {
+  return [...queueMap(poolKey).values()]
     .sort((a, b) => a.at - b.at)
     .map((e) => ({
       userId: e.userId,
@@ -97,17 +143,32 @@ function queuePublicList() {
 }
 
 async function lobbyPayload() {
-  let leaderboard = []
-  try {
-    leaderboard = await fetchLeaderboardTop(20)
-  } catch (err) {
-    console.error('[guessfan] fetch leaderboard failed', err.message)
-  }
+  const pools = Object.keys(MATCH_POOLS)
+  const boards = await Promise.all(
+    pools.map((key) =>
+      fetchLeaderboardTop(20, key).catch((err) => {
+        console.error(`[guessfan] fetch leaderboard failed (${key})`, err.message)
+        return []
+      }),
+    ),
+  )
+  const queues = {}
+  const leaderboards = {}
+  pools.forEach((key, index) => {
+    queues[key] = {
+      size: queueMap(key).size,
+      players: queuePublicList(key),
+    }
+    leaderboards[key] = boards[index]
+  })
   return {
     rooms: listPublicRooms(),
-    leaderboard,
-    queueSize: matchQueue.size,
-    queuePlayers: queuePublicList(),
+    leaderboards,
+    queues,
+    // 兼容旧客户端：默认指国标+立直池
+    leaderboard: leaderboards.mixed,
+    queueSize: queues.mixed.size,
+    queuePlayers: queues.mixed.players,
   }
 }
 
@@ -126,6 +187,7 @@ function roomPublicState(room, viewerId) {
     code: room.code,
     hostId: room.hostId,
     status: room.status,
+    pool: room.pool || (room.ranked ? 'mixed' : null),
     rules: room.rules,
     bestOf: room.bestOf,
     disableRelated: room.disableRelated,
@@ -183,6 +245,7 @@ function createRoom({
   socketId,
   userId,
   username,
+  pool,
   rules,
   bestOf,
   disableRelated,
@@ -193,10 +256,12 @@ function createRoom({
   let code = genCode()
   while (rooms.has(code)) code = genCode()
 
+  const poolKey = pool && MATCH_POOLS[pool] ? pool : null
   const room = {
     code,
     hostId: socketId,
     status: 'lobby',
+    pool: poolKey,
     rules: rules?.length ? rules : ['guobiao', 'riichi'],
     bestOf: [1, 3, 5, 7].includes(bestOf) ? bestOf : 5,
     disableRelated: !!disableRelated,
@@ -252,18 +317,34 @@ function findRoomBySocket(socketId) {
   return [...rooms.values()].find((r) => r.players.has(socketId)) || null
 }
 
-function removeFromQueue(socketId) {
-  matchQueue.delete(socketId)
-}
-
-/** 同一用户只保留最新 socket，避免重连后残留旧排队项 */
-function enqueueMatch(socketId, userId, username) {
-  for (const [sid, entry] of matchQueue) {
-    if (sid !== socketId && String(entry.userId) === String(userId)) {
-      matchQueue.delete(sid)
+function removeFromQueue(socketId, poolKey) {
+  if (poolKey && matchQueues.has(poolKey)) {
+    matchQueues.get(poolKey).delete(socketId)
+  } else {
+    for (const q of matchQueues.values()) {
+      q.delete(socketId)
     }
   }
-  matchQueue.set(socketId, {
+}
+
+/** 同一用户在同一池只保留最新 socket，避免重连后残留旧排队项 */
+function enqueueMatch(poolKey, socketId, userId, username) {
+  const q = queueMap(poolKey)
+  for (const [sid, entry] of q) {
+    if (sid !== socketId && String(entry.userId) === String(userId)) {
+      q.delete(sid)
+    }
+  }
+  // 重连产生的旧 socket 残留在其它池时一并清理，避免同一用户跨池重复排队
+  for (const [otherKey, otherQ] of matchQueues) {
+    if (otherKey === poolKey) continue
+    for (const [sid, entry] of otherQ) {
+      if (sid !== socketId && String(entry.userId) === String(userId)) {
+        otherQ.delete(sid)
+      }
+    }
+  }
+  q.set(socketId, {
     socketId,
     userId,
     username,
@@ -388,6 +469,7 @@ async function recordMatchResult(room) {
     await applyMatchRating({
       winnerUserId: winner.userId,
       players: players.map((p) => ({ userId: p.userId, username: p.nick })),
+      ruleSet: room.pool || 'mixed',
     })
     room.ratingRecorded = true
   } catch (err) {
@@ -490,36 +572,52 @@ async function submitGuess(room, socketId, name, guessId, io) {
 }
 
 function tryMatch(io) {
-  const entries = [...matchQueue.values()]
-  if (entries.length < 2) return
+  let matchedAny = false
+  for (const [poolKey, queue] of matchQueues) {
+    const entries = [...queue.values()].sort((x, y) => x.at - y.at)
+    if (entries.length < 2) continue
 
-  const a = entries[0]
-  const b = entries[1]
-  if (!b || b.socketId === a.socketId) return
+    const a = entries[0]
+    const b = entries[1]
+    if (!b || b.socketId === a.socketId || String(a.userId) === String(b.userId)) continue
 
-  matchQueue.delete(a.socketId)
-  matchQueue.delete(b.socketId)
+    queue.delete(a.socketId)
+    queue.delete(b.socketId)
+    // 同一用户若同时在其它池排队，匹配成功后一并移出，避免已开局仍在排队
+    removeFromQueue(a.socketId)
+    removeFromQueue(b.socketId)
 
-  const room = createRoom({
-    socketId: a.socketId,
-    userId: a.userId,
-    username: a.username,
-    ...MATCH_DEFAULTS,
-  })
-  addPlayer(room, b.socketId, b.username, b.userId)
+    const poolConfig = MATCH_POOLS[poolKey]
+    const room = createRoom({
+      socketId: a.socketId,
+      userId: a.userId,
+      username: a.username,
+      pool: poolKey,
+      rules: [...poolConfig.rules],
+      bestOf: poolConfig.bestOf,
+      disableRelated: poolConfig.disableRelated,
+      maxGuesses: poolConfig.maxGuesses,
+      timeLimitSec: poolConfig.timeLimitSec,
+      ranked: poolConfig.ranked,
+    })
+    addPlayer(room, b.socketId, b.username, b.userId)
 
-  const sa = io.sockets.sockets.get(a.socketId)
-  const sb = io.sockets.sockets.get(b.socketId)
-  if (sa) sa.join(`guessfan:${room.code}`)
-  if (sb) sb.join(`guessfan:${room.code}`)
+    const sa = io.sockets.sockets.get(a.socketId)
+    const sb = io.sockets.sockets.get(b.socketId)
+    if (sa) sa.join(`guessfan:${room.code}`)
+    if (sb) sb.join(`guessfan:${room.code}`)
 
-  prepareMatchOpening(room, io)
-  const stateA = roomPublicState(room, a.socketId)
-  const stateB = roomPublicState(room, b.socketId)
-  if (sa) sa.emit('guessfan:matched', { state: stateA })
-  if (sb) sb.emit('guessfan:matched', { state: stateB })
-  emitRoomState(io, room)
-  broadcastLobby(io).catch((err) => console.error('[guessfan] broadcast after match failed', err.message))
+    prepareMatchOpening(room, io)
+    const stateA = roomPublicState(room, a.socketId)
+    const stateB = roomPublicState(room, b.socketId)
+    if (sa) sa.emit('guessfan:matched', { state: stateA })
+    if (sb) sb.emit('guessfan:matched', { state: stateB })
+    emitRoomState(io, room)
+    matchedAny = true
+  }
+  if (matchedAny) {
+    broadcastLobby(io).catch((err) => console.error('[guessfan] broadcast after match failed', err.message))
+  }
 }
 
 function registerGuessFanHandlers(socket, io) {
@@ -538,6 +636,7 @@ function registerGuessFanHandlers(socket, io) {
           ok: true,
           lobby: await lobbyPayload(),
           matchDefaults: MATCH_DEFAULTS,
+          matchPools: MATCH_POOLS_PUBLIC,
         })
       }
     } catch (e) {
@@ -554,6 +653,7 @@ function registerGuessFanHandlers(socket, io) {
           ok: true,
           lobby: await lobbyPayload(),
           matchDefaults: MATCH_DEFAULTS,
+          matchPools: MATCH_POOLS_PUBLIC,
         })
       }
     } catch (e) {
@@ -604,13 +704,20 @@ function registerGuessFanHandlers(socket, io) {
     }
   })
 
-  socket.on('guessfan:queue', async (_payload, cb) => {
+  socket.on('guessfan:queue', async (payload = {}, cb) => {
     try {
       const { userId, username } = ensureAuth(socket)
       if (findRoomBySocket(socket.id)) throw new Error('已在房间中')
       socket.join(LOBBY_CHANNEL)
-      enqueueMatch(socket.id, userId, username)
-      console.log('[guessfan] queue join', { socketId: socket.id, userId, username, size: matchQueue.size })
+      const poolKey = MATCH_POOLS[payload.pool] ? payload.pool : 'mixed'
+      enqueueMatch(poolKey, socket.id, userId, username)
+      console.log('[guessfan] queue join', {
+        socketId: socket.id,
+        userId,
+        username,
+        pool: poolKey,
+        size: queueMap(poolKey).size,
+      })
       tryMatch(io)
       await broadcastLobby(io)
       const matched = findRoomBySocket(socket.id)
@@ -618,10 +725,17 @@ function registerGuessFanHandlers(socket, io) {
         cb({
           ok: true,
           queued: !matched,
-          queueSize: matchQueue.size,
-          queuePlayers: queuePublicList(),
+          queueSize: queueMap(poolKey).size,
+          queuePlayers: queuePublicList(poolKey),
+          queues: Object.fromEntries(
+            [...matchQueues.entries()].map(([key, q]) => [
+              key,
+              { size: q.size, players: queuePublicList(key) },
+            ]),
+          ),
           state: matched ? roomPublicState(matched, socket.id) : null,
-          matchDefaults: MATCH_DEFAULTS,
+          matchDefaults: MATCH_POOLS[poolKey],
+          matchPools: MATCH_POOLS_PUBLIC,
         })
       }
     } catch (e) {
@@ -630,11 +744,21 @@ function registerGuessFanHandlers(socket, io) {
     }
   })
 
-  socket.on('guessfan:queue_cancel', async (_payload, cb) => {
-    removeFromQueue(socket.id)
+  socket.on('guessfan:queue_cancel', async (payload = {}, cb) => {
+    removeFromQueue(socket.id, payload.pool)
     await broadcastLobby(io)
     if (typeof cb === 'function') {
-      cb({ ok: true, queueSize: matchQueue.size, queuePlayers: queuePublicList() })
+      cb({
+        ok: true,
+        queueSize: queueMap('mixed').size,
+        queuePlayers: queuePublicList('mixed'),
+        queues: Object.fromEntries(
+          [...matchQueues.entries()].map(([key, q]) => [
+            key,
+            { size: q.size, players: queuePublicList(key) },
+          ]),
+        ),
+      })
     }
   })
 
@@ -709,4 +833,10 @@ function registerGuessFanHandlers(socket, io) {
   })
 }
 
-module.exports = { registerGuessFanHandlers, rooms, MATCH_DEFAULTS }
+module.exports = {
+  registerGuessFanHandlers,
+  rooms,
+  MATCH_DEFAULTS,
+  MATCH_POOLS,
+  MATCH_POOLS_PUBLIC,
+}

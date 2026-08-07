@@ -91,6 +91,13 @@
 .replay-share { padding: 14px 0; border-bottom: 1px solid var(--replay-line); }
 .replay-share__split {
   display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.replay-share__row {
+  display: grid;
   grid-template-columns: 3fr 1fr;
   overflow: hidden;
   border-radius: 6px;
@@ -98,6 +105,8 @@
 .replay-primary-button { width: 100%; min-width: 0; min-height: 38px; border-radius: 0; color: #fff; font-size: 14px; font-weight: 700; }
 .replay-primary-button--2d { border-color: #c86818; background: #d8741f; }
 .replay-primary-button--2d:hover { background: #e17c25; }
+.replay-primary-button--node { border-color: #3d6d99; background: #3a6a94; font-size: 12px; }
+.replay-primary-button--node:hover { background: #4679a8; }
 .replay-primary-button--3d { border-color: #9f3030; background: #b93b3b; font-size: 12px; }
 .replay-primary-button--3d:hover { background: #c84848; }
 .replay-keyboard { color: #aeb4b6; font-size: 11px; line-height: 1.5; }

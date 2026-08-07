@@ -137,6 +137,10 @@
               target="_blank"
               rel="noopener noreferrer"
             >{{ item.footerLabel }}</a>
+            <p
+              v-if="item.footerDescription"
+              class="card-footer-description"
+            >{{ item.footerDescription }}</p>
           </div>
           <a
             v-else-if="item.href"
@@ -376,6 +380,7 @@ const battleLinks = [
     color: '#12b7f5',
     footerHref: 'https://discord.gg/RqvxDDgdFH',
     footerLabel: '项目Discord入口',
+    footerDescription: '加入Discord',
   },
   { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
 ]
@@ -383,7 +388,7 @@ const battleLinks = [
 const calcLinks = [
   { to: '/paili', title: '牌理', description: '分析手牌是否听牌，以及听牌的向听数或待牌。', color: '#9b59b6' },
   { to: '/calc/chinese', title: '麻雀计算器', description: '根据手牌、副露、花牌、和牌方式计算番种、得分与全部和牌拆解形态。', color: '#45B7D1' },
-  { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#2d5a46' },
+  { to: '/guess-fan', title: '猜番对抗', description: '单人训练或开房对战', color: '#c0392b' },
 ]
 
 const toolLinks = [
@@ -897,6 +902,16 @@ onMounted(() => {
 
 .card-with-footer .card-footer-link:hover {
   background: #4752c4;
+}
+
+.card-with-footer .card-footer-description {
+  margin: 0;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, .18);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
 }
 
 .card.card-placeholder {

@@ -304,6 +304,8 @@ public class MahjongObjectPool : MonoBehaviour {
         if (tile3D != null) {
             tile3D.isRiichiHorizontal = false;
             tile3D.ResetConcealedState();
+            // 和牌倒牌立牌时牌背翻转过 180°，回收前必须复位，避免下一局牌背仍倒置。
+            tile3D.ResetBackOrientation();
         }
 
         int blankId = BlankPoolTileId;
@@ -337,9 +339,9 @@ public class MahjongObjectPool : MonoBehaviour {
             tile3D = cardObj.AddComponent<Tile3D>();
         }
         if (HongqueTileVisual.IsHongqueId(tileId)) {
-            Texture2D texture = HongqueTileVisual.LoadTexture(tileId);
+            Texture2D texture = HongqueTileVisual.LoadTableTexture(tileId);
             if (texture == null) {
-                Debug.LogError($"找不到虹雀 3D 牌面: {HongqueTileVisual.ResourcePath(tileId)}");
+                Debug.LogError($"找不到虹雀 3D 牌面: {HongqueTileVisual.TableResourcePath(tileId)}");
                 return;
             }
             if (!hongqueMaterialCache.TryGetValue(tileId, out Material material)) {

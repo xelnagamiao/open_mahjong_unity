@@ -48,11 +48,18 @@ public class CardBackEditorDragReceiver : MonoBehaviour
                 {
                     tex = sprite.texture;
                 }
-                if (tex != null && CardBackConfigPanel.Instance != null)
+                if (tex == null) continue;
+
+                // 牌边面板激活时拖入的图片应用到侧面贴图，否则作为牌背图片。
+                if (CardEdgePanel.Instance != null && CardEdgePanel.Instance.gameObject.activeInHierarchy)
+                {
+                    CardEdgePanel.Instance.ApplyEditorDroppedTexture(tex);
+                }
+                else if (CardBackConfigPanel.Instance != null)
                 {
                     CardBackConfigPanel.Instance.ApplyEditorDroppedTexture(tex);
-                    applied = true;
                 }
+                applied = true;
             }
             if (applied)
             {

@@ -22,6 +22,42 @@
     </p>
   </div>
 
+  <div v-else-if="compact" class="assist-dock">
+    <button
+      v-for="item in mainToggles"
+      :key="item.key"
+      type="button"
+      class="assist-dock__item"
+      :class="{ 'is-on': item.value }"
+      :aria-pressed="item.value"
+      @click="item.toggle()"
+    >
+      <span>{{ item.shortLabel }}</span>
+    </button>
+    <button
+      v-if="showTileSettings"
+      type="button"
+      class="assist-dock__item"
+      :class="{ 'is-on': tileSettingsExpanded }"
+      :aria-expanded="tileSettingsExpanded"
+      @click="$emit('toggle-tile-settings')"
+    >
+      <span>牌张</span>
+    </button>
+    <button
+      type="button"
+      class="assist-dock__item"
+      :class="{ 'is-on': expanded }"
+      :aria-expanded="expanded"
+      @click="$emit('toggle-expand')"
+    >
+      <span>展开</span>
+    </button>
+    <div v-if="$slots['tile-panel'] && tileSettingsExpanded" class="assist-dock__tile-panel">
+      <slot name="tile-panel" />
+    </div>
+  </div>
+
   <div v-else class="assist-inline">
     <div v-if="showTileSettings" class="assist-inline__tile-column">
       <button
@@ -74,6 +110,7 @@ const props = defineProps({
   settings: { type: Object, required: true },
   expanded: { type: Boolean, default: false },
   detailOnly: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
   showTileSettings: { type: Boolean, default: false },
   tileSettingsExpanded: { type: Boolean, default: false },
 })
@@ -84,24 +121,28 @@ const mainToggles = computed(() => [
   {
     key: 'autoFlower',
     label: '自动补花',
+    shortLabel: '补花',
     value: Boolean(props.settings.autoFlower),
     toggle: () => emit('update', { autoFlower: !props.settings.autoFlower }),
   },
   {
     key: 'autoDiscard',
     label: '自动摸切',
+    shortLabel: '摸切',
     value: Boolean(props.settings.autoDiscard),
     toggle: () => emit('update', { autoDiscard: !props.settings.autoDiscard }),
   },
   {
     key: 'autoPass',
     label: '不吃碰杠',
+    shortLabel: '过牌',
     value: Boolean(props.settings.autoPass),
     toggle: () => emit('update', withAutoPass(props.settings, !props.settings.autoPass)),
   },
   {
     key: 'autoWin',
     label: '自动和牌',
+    shortLabel: '和牌',
     value: Boolean(props.settings.autoWin),
     toggle: () => emit('update', { autoWin: !props.settings.autoWin }),
   },
@@ -192,5 +233,49 @@ const detailToggles = computed(() => [
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.assist-dock {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.assist-dock__item {
+  flex: 0 0 auto;
+  min-width: 48px;
+  padding: 8px 10px;
+  border: 1px solid rgba(96, 96, 96, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1e2425;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.assist-dock__item.is-on {
+  background: rgba(18, 110, 130, 0.16);
+  border-color: rgba(18, 110, 130, 0.55);
+  color: #0e5666;
+  font-weight: 600;
+}
+
+.assist-dock__item:hover { background: rgba(255, 255, 255, 0.99); }
+
+.assist-dock__tile-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 32;
+  width: min(420px, 100%);
+  max-height: min(70dvh, 560px);
+  overflow-y: auto;
 }
 </style>

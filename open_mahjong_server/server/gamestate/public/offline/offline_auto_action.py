@@ -16,6 +16,30 @@ _PASS_WAIT_STATUSES = (
 )
 _OFFLINE_DELAY = 0.5
 
+# 掉线后首个出牌询问保护：每次掉线只保护一次，之后的询问恢复自动切牌。
+# 标记挂在 player 上（各模式玩家类通用），结合 server_action_tick 区分同一次询问的重复派发。
+_OFFLINE_FIRST_CUT_READY = "offline_first_cut_ready"
+_OFFLINE_FIRST_CUT_TICK = "offline_first_cut_tick"
+
+
+def _mark_offline_first_cut_protection(player) -> None:
+    """每次掉线时标记：掉线后的首个出牌询问不自动切牌。"""
+    setattr(player, _OFFLINE_FIRST_CUT_READY, True)
+    setattr(player, _OFFLINE_FIRST_CUT_TICK, None)
+
+
+def _skip_offline_first_cut(game_state, player) -> bool:
+    """掉线后的首个出牌询问返回 True（跳过自动切牌）；同一次询问重复派发保持跳过。"""
+    tick = getattr(game_state, "server_action_tick", None)
+    if tick is not None and getattr(player, _OFFLINE_FIRST_CUT_TICK, None) == tick:
+        return True
+    if getattr(player, _OFFLINE_FIRST_CUT_READY, False):
+        setattr(player, _OFFLINE_FIRST_CUT_READY, False)
+        if tick is not None:
+            setattr(player, _OFFLINE_FIRST_CUT_TICK, tick)
+        return True
+    return False
+
 
 def _pick_offline_cut_tile(player):
     """掉线托管：摸切优先（末张含花牌照常打出）；定缺花色仍优先（与服务端 _enforce_dingque_first 一致）。"""
@@ -72,6 +96,8 @@ def schedule_offline_auto_on_disconnect(game_state, user_id: int) -> None:
     if player is None:
         return
 
+    _mark_offline_first_cut_protection(player)
+
     non_ai = [p for p in game_state.player_list if p.user_id >= 10]
     if non_ai and all("offline" in p.tag_list for p in non_ai):
         return
@@ -103,7 +129,8 @@ def schedule_offline_auto_on_disconnect(game_state, user_id: int) -> None:
 
 async def offline_auto_action(game_state, player_index: int, action_list: list, game_status: str):
     """
-    掉线玩家托管：鸣牌/抢杠/补花轮一律 pass，行牌只摸切，不自动补花/和/杠。
+    掉线玩家托管：鸣牌/抢杠/补花轮一律 pass；行牌只摸切，不自动补花/和/杠；
+    每次掉线后的首个出牌询问受保护（不自动切牌，交给正常出牌计时器兜底）。
     """
     try:
         current_player = game_state.player_list[player_index]
@@ -121,6 +148,9 @@ async def offline_auto_action(game_state, player_index: int, action_list: list, 
 
         if game_status == "waiting_hand_action":
             await asyncio.sleep(_OFFLINE_DELAY)
+            if _skip_offline_first_cut(game_state, current_player):
+                logger.info(f"掉线托管 {player_index} ({current_player.username}) 首个出牌询问受保护，不自动切牌")
+                return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_offline_cut_tile(current_player)
                 logger.info(
@@ -133,6 +163,9 @@ async def offline_auto_action(game_state, player_index: int, action_list: list, 
             cp = bool(getattr(game_state, "claim_protection", False))
             from ..claim_protection import get_meld_post_gap
             await asyncio.sleep(_OFFLINE_DELAY + (get_meld_post_gap(game_state) if cp else 0.0))
+            if _skip_offline_first_cut(game_state, current_player):
+                logger.info(f"掉线托管 {player_index} ({current_player.username}) 首个出牌询问受保护，不自动切牌")
+                return
             if "cut" in action_list and current_player.hand_tiles:
                 tile_id, cut_index, is_moqie = _pick_offline_cut_tile(current_player)
                 logger.info(

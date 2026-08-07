@@ -181,7 +181,9 @@ export function filterCatalogByRules(rules) {
  */
 export function rollFanValue(fan) {
   if (Array.isArray(fan.fan)) {
-    return fan.fan[Math.floor(Math.random() * fan.fan.length)]
+    // 食下役一律按门清原生番数（数组首项）抽题：
+    // 混全带幺九 [2,1] 恒为 2 番、纯全带幺九 [3,2] 恒为 3 番，绝不出食下副番数。
+    return fan.fan[0]
   }
   return fan.fan
 }

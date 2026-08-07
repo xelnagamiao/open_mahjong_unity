@@ -125,6 +125,7 @@ async def handle_riichi_cut(game_server, Connect_id: str, message: dict, websock
             message.get("TileId"),
             cutIndex=message.get("cutIndex"),
             target_tile=None,
+            action_tick=message.get("action_tick"),
         )
     except Exception as e:
         logger.error(f"处理立直切牌请求失败: {e}", exc_info=True)

@@ -425,7 +425,10 @@ public class GameStateNetworkManager : MonoBehaviour {
                     cutClass = cutClass,
                     TileId = tileId,
                     cutIndex = cutIndex,
-                    gamestate_id = UserDataManager.Instance.GamestateId
+                    gamestate_id = UserDataManager.Instance.GamestateId,
+                    action_tick = NormalGameStateManager.Instance != null
+                        ? NormalGameStateManager.Instance.LastAskActionTick
+                        : (int?)null
                 };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
@@ -675,7 +678,10 @@ public class GameStateNetworkManager : MonoBehaviour {
                 cutClass = cutClass,
                 TileId = tileId,
                 cutIndex = cutIndex,
-                gamestate_id = UserDataManager.Instance.GamestateId
+                gamestate_id = UserDataManager.Instance.GamestateId,
+                action_tick = NormalGameStateManager.Instance != null
+                    ? NormalGameStateManager.Instance.LastAskActionTick
+                    : (int?)null
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
