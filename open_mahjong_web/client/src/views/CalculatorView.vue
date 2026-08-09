@@ -4,22 +4,12 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import ChineseMahjong from '@/views/ChineseMahjong.vue'
 import HongqueCalc from '@/views/HongqueCalc.vue'
 
 const route = useRoute()
 
-const kind = computed(() => (route.params.kind === 'hongque' ? 'hongque' : 'chinese'))
-
-watch(
-  kind,
-  () => {
-    document.title = kind.value === 'hongque'
-      ? '虹雀² 计算器 - salasasa.cn'
-      : '国标计算器 - salasasa.cn'
-  },
-  { immediate: true }
-)
+const kind = computed(() => (route.path === '/calc/hongque' ? 'hongque' : 'chinese'))
 </script>

@@ -29,7 +29,7 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private TMP_Text currentXunmuText;
     [SerializeField] private Button showTileListButton;
     [SerializeField] private Button showGameInfoButton;
-    [SerializeField] private Button showSpectatorInfoButton;
+    [SerializeField] private TMP_Text showGameInfoButtonLabel;
     [SerializeField] private Button showRoundInfoButton;
     // 退出按钮统一由 ExitButtonManager 引用并控制可见性，此处保留 SerializeField 仅用于绑定 onClick
     [SerializeField] private GameObject recordNodeItemPrefab;
@@ -40,10 +40,8 @@ public partial class GameRecordManager : MonoBehaviour {
     [SerializeField] private Transform recordRoundItemContainer;
     [SerializeField] private GameObject tileListView;
     [SerializeField] private GameObject staticCardPrefab;
-    [SerializeField] private GameObject gameInfoView;
-    [SerializeField] private TMP_Text gameInfoText;
-    [SerializeField] private GameObject roundInfoView;
-    [SerializeField] private TMP_Text roundInfoText;
+    [SerializeField] private GameObject infoView;
+    [SerializeField] private TMP_Text infoText;
     [SerializeField] private GameObject spectatingPanel;
 
     public static GameRecordManager Instance { get; private set; }
@@ -259,7 +257,6 @@ public partial class GameRecordManager : MonoBehaviour {
 
         showTileListButton.onClick.AddListener(ShowTileList);
         showGameInfoButton.onClick.AddListener(ShowGameInfo);
-        showSpectatorInfoButton.onClick.AddListener(ShowSpectatorInfo);
         showRoundInfoButton.onClick.AddListener(ShowRoundInfo);
 
         InitializeRecordAutoPlayButton();
@@ -323,21 +320,19 @@ public partial class GameRecordManager : MonoBehaviour {
         xunmuScrollView.gameObject.SetActive(false);
         roundScrollView.gameObject.SetActive(false);
         tileListView.SetActive(false);
-        gameInfoView.SetActive(false);
-        roundInfoView.SetActive(false);
-        spectatorInfoView.SetActive(false);
+        infoView.SetActive(false);
         // 观战模式
         if (CurrentMode == RecordManagerMode.Spectator || CurrentMode == RecordManagerMode.RecordOnSpectator) {
             spectatingPanel.SetActive(true); // 显示观战面板
-            showGameInfoButton.gameObject.SetActive(false); // 隐藏显示游戏信息按钮
-            showSpectatorInfoButton.gameObject.SetActive(true); // 显示显示观战信息按钮
+            showGameInfoButton.gameObject.SetActive(true); // 合并按钮：观战模式显示观战信息
+            if (showGameInfoButtonLabel != null) showGameInfoButtonLabel.text = "观战信息";
             ExitButtonManager.Instance.ShowForSpectator();
         }
         // 牌谱模式
         else if (CurrentMode == RecordManagerMode.Record) {
             spectatingPanel.SetActive(false); // 隐藏观战面板
-            showGameInfoButton.gameObject.SetActive(true); // 显示显示游戏信息按钮
-            showSpectatorInfoButton.gameObject.SetActive(false); // 隐藏显示观战信息按钮
+            showGameInfoButton.gameObject.SetActive(true); // 合并按钮：牌谱模式显示游戏信息
+            if (showGameInfoButtonLabel != null) showGameInfoButtonLabel.text = "游戏信息";
             ExitButtonManager.Instance.ShowForRecord();
         }
         UpdateRecordAutoPlayButtonVisibility();

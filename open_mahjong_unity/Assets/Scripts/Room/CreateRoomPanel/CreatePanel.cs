@@ -115,6 +115,7 @@ public partial class CreatePanel : MonoBehaviour {
             { CfgPassword,       false },
             { CfgRandomSeed,     false },
             { CfgTouristLimit,   false },
+            { CfgHepaiWay,       0 }, // 0=允许多家和 1=头跳
         } },
         { "classical", new Dictionary<string, object> {
             { CfgGameRound,      4 },
@@ -358,6 +359,7 @@ public partial class CreatePanel : MonoBehaviour {
             8 => "hongque",
             _ => "guobiao"
         };
+        RebuildHepaiWayOptions();
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
         if (hasSubRule) {
             PopulateSubRuleDropdown(_ruleState);
@@ -368,6 +370,17 @@ public partial class CreatePanel : MonoBehaviour {
             OnSubRuleChanged(SubRuleDropdown.value);
         }
         RefreshSubRuleDescription();
+    }
+
+    /// <summary>虹雀只开放“多家和 / 头跳”两项，日麻额外提供三家和了流局。</summary>
+    private void RebuildHepaiWayOptions() {
+        if (HepaiWayDropdown == null) return;
+        HepaiWayDropdown.ClearOptions();
+        if (_ruleState == "hongque") {
+            HepaiWayDropdown.AddOptions(new List<string> { "允许多家和牌", "头跳" });
+        } else {
+            HepaiWayDropdown.AddOptions(new List<string> { "允许多家和牌", "三家和了流局", "头跳" });
+        }
     }
 
     /// <summary>遍历当前规则的配置默认值并下发到对应控件。</summary>
@@ -1178,6 +1191,11 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void CreateHongqueRoom() {
+        // 虹雀和牌方式：0=允许多家和（multi_ron），1=头跳（head_bump）
+        string hepaiWay = HepaiWayDropdown.value switch {
+            1 => "head_bump",
+            _ => "multi_ron",
+        };
         var config = new Jiandan_Create_RoomConfig {
             RoomName = roomNameInput.text.Trim(),
             GameRound = GetSelectedGameTime(),
@@ -1191,6 +1209,7 @@ public partial class CreatePanel : MonoBehaviour {
             TouristLimit = TouristLimitToggle.isOn,
             AllowSpectator = false,
             TacticalCall = false,
+            HepaiWay = hepaiWay,
             EventId = null,
         };
         if (!config.Validate(out string error, passwordToggle.isOn, SetRandomSeedToggle.isOn)) {

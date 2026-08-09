@@ -223,9 +223,9 @@ public partial class Game3DManager : MonoBehaviour {
         }
         Tile3D tile3D = cardObj.GetComponent<Tile3D>();
         if (tile3D != null) tile3D.isRiichiHorizontal = useHorizontalLayout;
-        // 和牌倒牌立牌姿态：牌背贴图翻转 180°，保证立牌时朝镜头的牌背为正（回收时复位）。
+        // 和牌倒牌立牌姿态：牌背统一转 180°（回收时由 Tile3D 复位）。
         if (isRecordSet && tile3D != null) {
-            tile3D.SetBackFlip(true);
+            tile3D.SetBackOrientationUpright();
         }
         cardObj.transform.SetParent(SetPosition, worldPositionStays: true);
         cardObj.name = $"Card_{SetPosition.childCount}";

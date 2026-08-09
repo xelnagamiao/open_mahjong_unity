@@ -131,16 +131,7 @@
               <h3>{{ item.title }}</h3>
               <p>{{ item.description }}</p>
             </a>
-            <a
-              class="card-footer-link"
-              :href="item.footerHref"
-              target="_blank"
-              rel="noopener noreferrer"
-            >{{ item.footerLabel }}</a>
-            <p
-              v-if="item.footerDescription"
-              class="card-footer-description"
-            >{{ item.footerDescription }}</p>
+            <DiscordEntry :url="item.footerHref" />
           </div>
           <a
             v-else-if="item.href"
@@ -185,6 +176,7 @@
     <section class="sec">
       <div class="sec-h">■ 工具与文档</div>
       <div class="grid g4">
+        <div class="ad-slot">广告位招租</div>
         <template v-for="item in toolLinks" :key="item.title">
           <div
             v-if="item.placeholder"
@@ -227,6 +219,7 @@ import { buildPlatformStatsRows } from '@/utils/statsDisplay'
 import { eventStatusLabel } from '@/utils/eventMeta'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { locale } from '@/i18n'
+import DiscordEntry from '@/components/DiscordEntry.vue'
 
 const auth = usePlayerAuthStore()
 
@@ -379,8 +372,6 @@ const battleLinks = [
     description: '加入平台交流群，与群友约桌与反馈',
     color: '#12b7f5',
     footerHref: 'https://discord.gg/RqvxDDgdFH',
-    footerLabel: '项目Discord入口',
-    footerDescription: '加入Discord',
   },
   { to: '/github', title: 'Github项目', description: '转至github项目页面', color: '#6699cc' },
 ]
@@ -889,31 +880,6 @@ onMounted(() => {
   filter: brightness(1.05);
 }
 
-.card-with-footer .card-footer-link {
-  display: block;
-  padding: 9px 16px;
-  background: #5865f2;
-  color: #fff;
-  font-size: 12px;
-  line-height: 1.4;
-  text-decoration: none;
-  letter-spacing: 0.02em;
-}
-
-.card-with-footer .card-footer-link:hover {
-  background: #4752c4;
-}
-
-.card-with-footer .card-footer-description {
-  margin: 0;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, .18);
-  color: #fff;
-  font-size: 12px;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-}
-
 .card.card-placeholder {
   cursor: default;
   opacity: 0.92;
@@ -921,6 +887,23 @@ onMounted(() => {
 
 .card.card-placeholder:hover {
   filter: none;
+}
+
+.ad-slot {
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  border: 2px dashed #bdbdbd;
+  background: #fff;
+  color: #9a9a9a;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em;
+  cursor: default;
+  user-select: none;
 }
 
 .card h3 {

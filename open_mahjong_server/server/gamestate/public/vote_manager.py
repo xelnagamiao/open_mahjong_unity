@@ -58,7 +58,16 @@ class VoteManager:
 
     @staticmethod
     def _is_offline(player):
-        return "offline" in getattr(player, "tag_list", [])
+        return ("offline" in getattr(player, "tag_list", [])
+                or getattr(player, "online", True) is False)
+
+    @staticmethod
+    def _seat_index(player):
+        """兼容共享规则的 player_index 与虹雀的 index 玩家模型。"""
+        seat = getattr(player, "player_index", None)
+        if seat is None:
+            seat = getattr(player, "index", None)
+        return seat
 
     def _effective_vote(self, player):
         """真人有效票：已投票用实票；掉线且未投票则默认同意。"""
@@ -372,10 +381,14 @@ class VoteManager:
         humans = self.human_players
         vote_map = {}
         for p in self.gs.player_list:
+            seat = self._seat_index(p)
+            if seat is None:
+                logger.error("投票玩家缺少座位索引: %r", p)
+                continue
             if getattr(p, "is_bot", False):
-                vote_map[str(p.player_index)] = "bot"
+                vote_map[str(seat)] = "bot"
             else:
-                vote_map[str(p.player_index)] = self._effective_vote(p)
+                vote_map[str(seat)] = self._effective_vote(p)
         agree = sum(1 for p in humans if self._effective_vote(p) == "agree")
         refuse = sum(1 for p in humans if self._effective_vote(p) == "refuse")
         total = len(humans)
@@ -433,7 +446,7 @@ class VoteManager:
             try:
                 if player.user_id < 10:
                     continue
-                if "offline" in getattr(player, "tag_list", []):
+                if self._is_offline(player):
                     continue
                 conn = game_server.user_id_to_connection.get(player.user_id)
                 if conn is None:

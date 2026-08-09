@@ -320,17 +320,34 @@ public static class HongqueTenpai {
         List<int> fullHandTileIds,
         List<int[]> meldMasks,
         int discardTileId) {
+        if (fullHandTileIds == null || discardTileId == 0) return new HashSet<int>();
+        List<int> handAfterDiscard = new List<int>(fullHandTileIds);
+        if (!handAfterDiscard.Remove(discardTileId)) return new HashSet<int>();
+        return WaitingTiles(handAfterDiscard, meldMasks, discardTileId);
+    }
+
+    /// <summary>
+    /// 对当前手牌计算普通听牌；悬停预测与实际出牌后的右侧提示共用本入口。
+    /// excludedTileId 用于把假想弃牌计入已使用牌，避免唯一牌重新成为进张。
+    /// </summary>
+    public static HashSet<int> WaitingTiles(
+        List<int> handTileIds,
+        List<int[]> meldMasks,
+        int? excludedTileId = null) {
         HashSet<int> result = new HashSet<int>();
-        if (fullHandTileIds == null || fullHandTileIds.Count == 0 || discardTileId == 0) return result;
-        string[] handCodes = fullHandTileIds
+        if (handTileIds == null) return result;
+        List<string> handCodes = handTileIds
             .Select(HongqueTileVisual.ToCode)
             .Where(code => code != null)
-            .ToArray();
-        if (handCodes.Length != fullHandTileIds.Count) return result;
-        string discardCode = HongqueTileVisual.ToCode(discardTileId);
-        if (discardCode == null) return result;
-
+            .ToList();
+        if (handCodes.Count != handTileIds.Count || handCodes.Distinct().Count() != handCodes.Count) {
+            return result;
+        }
         List<string> usedCodes = new List<string>(handCodes);
+        if (excludedTileId.HasValue) {
+            string excluded = HongqueTileVisual.ToCode(excludedTileId.Value);
+            if (excluded != null) usedCodes.Add(excluded);
+        }
         if (meldMasks != null) {
             foreach (int[] mask in meldMasks) {
                 if (mask == null) continue;
@@ -341,13 +358,15 @@ public static class HongqueTenpai {
             }
         }
         BigInteger handMask = MaskFromCodes(handCodes);
-        BigInteger usedMask = MaskFromCodes(usedCodes);
-        Dictionary<BigInteger, BigInteger> waitsByDiscard = WaitingMasksAfterDiscards(
-            handMask, usedMask, meldMasks != null && meldMasks.Count > 0);
-
-        BigInteger discardBit = BigInteger.One << TileIndex[discardCode];
-        if (!waitsByDiscard.TryGetValue(discardBit, out BigInteger waitMask) || waitMask == 0) return result;
-        BigInteger bits = waitMask;
+        BigInteger availableMask = FullDeckMask & ~MaskFromCodes(usedCodes);
+        Func<BigInteger, bool> canPartitionSubset = BuildPartitionCheckerWithin(handMask);
+        BigInteger waitMask = 0;
+        foreach (BigInteger groupMask in GroupMasks) {
+            BigInteger overlap = groupMask & handMask;
+            if (BitCount(overlap) != BitCount(groupMask) - 1 || BitCount(overlap) < 2) continue;
+            if (canPartitionSubset(handMask ^ overlap)) waitMask |= groupMask ^ overlap;
+        }
+        BigInteger bits = waitMask & availableMask;
         while (bits != 0) {
             BigInteger bit = bits & -bits;
             int tileId = HongqueTileVisual.FromCode(Deck[LowestBitIndex(bit)]);
@@ -355,6 +374,41 @@ public static class HongqueTenpai {
             bits ^= bit;
         }
         return result;
+    }
+
+    /// <summary>用统一 C# 路径计算听牌张与直接分值，供悬停预测及出牌后提示共同调用。</summary>
+    public static HongqueScoreHintInfo[] BuildScoreHints(
+        List<int> handTileIds,
+        List<int[]> meldMasks,
+        int? excludedTileId = null) {
+        List<int> hand = handTileIds != null ? new List<int>(handTileIds) : new List<int>();
+        List<int[]> melds = meldMasks ?? new List<int[]>();
+        HashSet<int> normalWaits = WaitingTiles(hand, melds, excludedTileId);
+        Dictionary<int, HongqueKongWinOption> kongWaits =
+            BestKongWinOptions(hand, melds, excludedTileId);
+        List<int> allWaits = normalWaits.Concat(kongWaits.Keys).Distinct().OrderBy(id => id).ToList();
+        List<HongqueScoreHintInfo> hints = new List<HongqueScoreHintInfo>();
+        foreach (int tileId in allWaits) {
+            bool selfDrawOnly = !normalWaits.Contains(tileId);
+            HongqueWinScore score;
+            if (selfDrawOnly) {
+                score = kongWaits[tileId].Score;
+            } else {
+                List<int> winningHand = new List<int>(hand) { tileId };
+                score = HongqueScoring.BestWinResult(
+                    winningHand, melds, false, false, false);
+            }
+            if (score == null) continue;
+            hints.Add(new HongqueScoreHintInfo {
+                tile = HongqueTileVisual.ToCode(tileId),
+                @base = score.Base,
+                fan_total = score.FanTotal,
+                points = score.Points,
+                fans = Array.Empty<HongqueFanInfo>(),
+                self_draw_only = selfDrawOnly,
+            });
+        }
+        return hints.ToArray();
     }
 
     /// <summary>

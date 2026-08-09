@@ -46,6 +46,15 @@ public partial class GameCanvas{
         if (changeType == "ReSetHandCards") {
             return !isArranged;
         }
+        // 国标轮到自己时允许继续抓着原手牌：正常摸牌只新增独立摸牌张，
+        // 不应把玩家正在进行的拖拽当成需要强制提交的冲突变更。
+        if (changeType == "GetCard"
+                && NormalGameStateManager.Instance != null
+                && NormalGameStateManager.Instance.roomRule == "guobiao"
+                && handCardDragController != null
+                && handCardDragController.CanPreserveActivePressForIncomingDraw()) {
+            return false;
+        }
         return true;
     }
 
@@ -130,6 +139,9 @@ public partial class GameCanvas{
             List<TileCard> main = GetMainHandCardsOrdered(tileCard);
             RectTransform cardRect = cardObj.GetComponent<RectTransform>();
             Vector2 targetPosition = GetDrawTileTargetPosition(main);
+            // 若国标摸牌到达时玩家仍抓着旧牌，把新摸牌补入按下快照；
+            // 这样松手复位/换位时仍会保留这张摸牌及其独立摸牌区位置。
+            handCardDragController?.RegisterIncomingDrawDuringActivePress(tileCard, targetPosition.x);
             yield return StartCoroutine(AnimateGetCard(cardRect, targetPosition));
             if (NormalGameStateManager.Instance.IsSelfActionRequired) {
                 RefreshHandTileSelectability();

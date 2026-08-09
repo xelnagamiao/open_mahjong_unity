@@ -64,8 +64,8 @@ Shader "Custom/ThreeDTiles"
 
             UNITY_INSTANCING_BUFFER_START(TilePerInstance)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontTilingOffset)
-                // 牌背贴图逐牌 UV 变换（和牌倒牌立牌时翻 180°，对象池回收后复位为默认）
-                UNITY_DEFINE_INSTANCED_PROP(float4, _BackTilingOffset)
+                // 牌背贴图逐牌旋转角（度）：按牌当前世界朝向与相机统一校正，保证背图朝镜头正向；0 = 默认
+                UNITY_DEFINE_INSTANCED_PROP(float, _BackRotation)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _FrontColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _BackColor)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _SideColor)
@@ -125,8 +125,8 @@ Shader "Custom/ThreeDTiles"
 
                 float4 frontTilingOffset =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontTilingOffset);
-                float4 backTilingOffset =
-                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackTilingOffset);
+                float backRotation =
+                    UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _BackRotation);
                 half4 frontColor =
                     UNITY_ACCESS_INSTANCED_PROP(TilePerInstance, _FrontColor);
                 half4 backColor =
@@ -146,7 +146,11 @@ Shader "Custom/ThreeDTiles"
                 }
 
                 half4 front = SAMPLE_TEXTURE2D(_FrontTex, sampler_FrontTex, frontUV) * frontColor;
-                float2 backUV = input.uvBack * backTilingOffset.xy + backTilingOffset.zw;
+                float2 backUV = input.uvBack;
+                if (backRotation != 0.0f)
+                {
+                    backUV = RotateUV(backUV, backRotation);
+                }
                 // 牌背大面：颜色打底，图片按自身 alpha 叠加在上方（不乘算颜色）。
                 // 无图片时 _BackTexBlend=0，整面为纯 _BackColor。
                 half4 backSample = SAMPLE_TEXTURE2D(_BackTex, sampler_BackTex, backUV);

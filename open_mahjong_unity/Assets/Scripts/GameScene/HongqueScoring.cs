@@ -27,10 +27,10 @@ public sealed class HongqueWinScore {
 
 /// <summary>
 /// 虹雀本地计分：移植服务端 rules/win_check/scoring，
-/// 供切牌预测提示展示每张和牌张的直接分值。
+/// 供切牌预测与实际出牌后的右侧提示展示每张和牌张的直接分值。
 /// </summary>
 public static class HongqueScoring {
-    // 切牌悬停预览：同一手牌+和牌张的计分结果只算一次，避免每悬停一张牌都重算分区/番种。
+    // 客户端提示：同一手牌+和牌张的计分结果只算一次，避免悬停/右侧提示重复计算分区与番种。
     private static readonly Dictionary<string, HongqueWinScore> BestWinResultCache =
         new Dictionary<string, HongqueWinScore>();
     private const int BestWinResultCacheLimit = 1024;

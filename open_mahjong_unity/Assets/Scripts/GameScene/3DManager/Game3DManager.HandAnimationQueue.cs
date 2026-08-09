@@ -223,6 +223,23 @@ public partial class Game3DManager {
     }
 
     /// <summary>
+    /// 虹雀杠只把一张手牌并入既有副露：串行删除该张并收拢手牌；
+    /// 副露本身由 HongqueTableAdapter 按权威增量重建，这里不播放通用加杠且不安排杠后摸牌。
+    /// </summary>
+    public void RemoveHongqueKongHandTile(string playerPosition, int tileId) {
+        if (!IsHandAnimPlayer(playerPosition) || tileId <= 0) return;
+        EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+            Kind = HandAnimOpKind.RemoveCards,
+            RemoveCount = 1,
+            CutClass = false,
+            TileId = tileId,
+        });
+        EnqueueHandAnimOp(playerPosition, new HandAnimOp {
+            Kind = HandAnimOpKind.Rearrange,
+        });
+    }
+
+    /// <summary>
     /// 打牌者 cut 若仍卡在手牌动画队列，RegisterLastDiscard 会晚于紧随的 peng。
     /// 鸣牌回收最多等这么久，避免逻辑河已删、3D 河牌残留。
     /// </summary>

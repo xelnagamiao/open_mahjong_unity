@@ -94,15 +94,25 @@ export const sumTierFans = (fansByTier, tiers) => {
   return out;
 };
 
-export function buildAllFanEntries(fans, fanDict) {
+/**
+ * 番种条目：count 为达成数量；传入 winCount 时额外计算 percent（占和牌次数的达成率）；
+ * 传入 fanValues 时附加 value（番数）；sortBy 支持 'count'（从多到少）/ 'default'（字典顺序）
+ */
+export function buildAllFanEntries(fans, fanDict, winCount, fanValues, sortBy = 'count') {
   const dict = fanDict || {};
-  return Object.keys(dict)
-    .map((key) => ({
-      key,
-      label: dict[key] || key,
-      count: Number(fans?.[key]) || 0,
-    }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'zh-CN'));
+  const entries = Object.keys(dict).map((key) => {
+    const count = Number(fans?.[key]) || 0;
+    const entry = { key, label: dict[key] || key, count };
+    if (winCount !== undefined && winCount !== null) {
+      entry.percent = ratio(count, winCount);
+    }
+    if (fanValues) {
+      entry.value = Number(fanValues[key]) || 0;
+    }
+    return entry;
+  });
+  if (sortBy === 'default') return entries;
+  return entries.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'zh-CN'));
 }
 
 export const TIER_CHART_COLORS = {

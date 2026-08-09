@@ -9,7 +9,10 @@ using UnityEngine.Rendering.Universal;
 public class ConfigManager : MonoBehaviour {
     public static ConfigManager Instance { get; private set; }
 
-    public static bool Debug = false;
+    public static bool Debug = true;
+
+    /// <summary>Steam 构建开关：为 true 时，场景中挂载 SteamBuildHider 的物体列表会被隐藏。</summary>
+    public static bool BuildForSteam = true;
 
     public static string webUrl;
     public static string gameUrl;
@@ -51,7 +54,6 @@ public class ConfigManager : MonoBehaviour {
     private const string KEY_SOUND_EFFECT_VOLUME = "SoundEffectVolume";
     private const string KEY_VOICE_VOLUME = "VoiceVolume";
     private const int DEFAULT_VOLUME = 100;
-
     private const string KEY_WHITE_DRAGON_FACE = "WhiteDragonFaceMode";
     private const string KEY_MOQIE_SHORTCUT = "MoqieShortcutMode";
     private const string KEY_ASK_OTHER_PASS_SHORTCUT = "AskOtherPassShortcutMode";
@@ -141,6 +143,7 @@ public class ConfigManager : MonoBehaviour {
         "预设1",
         "预设2",
     };
+    /// <summary>描边预设：细(低性能消耗) / 粗(高性能消耗) </summary>
 
     /// <summary>与 RiichiTileUtil / 牌面资源一致：白板 id 为 46（47 为发）。</summary>
     public const int WhiteDragonTileId = 46;

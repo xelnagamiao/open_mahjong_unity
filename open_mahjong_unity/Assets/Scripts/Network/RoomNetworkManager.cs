@@ -392,6 +392,7 @@ public class RoomNetworkManager : MonoBehaviour {
                 tourist_limit = config.TouristLimit,
                 allow_spectator = false,
                 tactical_call = false,
+                hepai_way = string.IsNullOrEmpty(config.HepaiWay) ? "multi_ron" : config.HepaiWay,
             };
             await GetWebSocket().SendText(JsonConvert.SerializeObject(request));
         } catch (Exception e) {
@@ -661,7 +662,7 @@ public class RoomNetworkManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// 添加国标启发式机器人（高性能罗伯特，user_id=3）到房间
+    /// 添加高性能罗伯特（user_id=3）到国标标准或虹雀房间
     /// </summary>
     public async void AddGuobiaoHeuristicBotToRoom(string roomId) {
         var request = new AddBotToRoomRequest {

@@ -757,6 +757,11 @@ class SichuanGameState:
             elif next_status == "match_end":
                 # 整场末局：不等 8s ready，由客户端 match_end 收尾；仅留倒牌/番种渐显余量
                 await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)) - HU_CONFIRM_COUNTDOWN_SEC)
+            elif next_status == "round_continue":
+                # 多家和中间家：面板自动关闭后进入下一家结算（与日麻/虹雀按序展示一致）
+                await asyncio.sleep(
+                    sichuan_settle_hu_panel_wait_seconds(len(fan_list), is_final=False)
+                )
             else:
                 await asyncio.sleep(hu_result_ready_wait_seconds(len(fan_list)))
 

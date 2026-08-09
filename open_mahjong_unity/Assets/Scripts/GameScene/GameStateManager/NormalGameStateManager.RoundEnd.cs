@@ -151,9 +151,31 @@ public partial class NormalGameStateManager {
                 ronDiscarderIndex: ron_discarder_index,
                 recycleDiscard: recycleDiscard,
                 isQianggang: isQianggang,
-                endgameScoreOnly: false);
+                endgameScoreOnly: false,
+                // 多家和中间结算（round_continue）：面板自动关闭、不出确认按钮；
+                // 最后一家（round_end_by_ready / match_end）才进入确认/准备。
+                finalPanel: next_status != "round_continue");
             }
         }
+    }
+
+    /// <summary>
+    /// 自定义规则适配器写入一条通用计分板结算；分数变化与主流程使用同一套快照/历史逻辑。
+    /// </summary>
+    public void AppendExternalRoundSettlementSnapshot(
+        int hepaiPlayerIndex,
+        Dictionary<int, int> playerToScore,
+        int huScore,
+        string[] huFan,
+        string huClass,
+        int[] hepaiPlayerHand,
+        int[][] combinationMask,
+        int? baseFu,
+        Dictionary<int, int> scoreChanges) {
+        AppendRoundSettlementSnapshot(
+            hepaiPlayerIndex, playerToScore, huScore, huFan, huClass,
+            hepaiPlayerHand, combinationMask, baseFu, null, null, scoreChanges);
+        GameSceneUIManager.Instance.UpdateScoreRecord();
     }
 
     private void AppendRoundSettlementSnapshot(

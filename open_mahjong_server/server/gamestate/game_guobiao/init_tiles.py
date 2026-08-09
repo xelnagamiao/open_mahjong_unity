@@ -23,7 +23,10 @@ def init_guobiao_tiles(self):
     self.tiles_list = []
     for tile in sth_tiles_set:
         self.tiles_list.extend([tile] * 4)
-    self.tiles_list.extend(hua_tiles_set)
+    # 蓝十改（MCR 1001—2025）已删除花牌：牌堆不含花牌，客户端无需改动，
+    # 不摸到花牌即不会触发补花/花牌计分。
+    if getattr(self, "sub_rule", None) != "guobiao/lanshi":
+        self.tiles_list.extend(hua_tiles_set)
 
     # 生成本局随机种子并洗牌
     _shuffle_and_deal_guobiao(self)

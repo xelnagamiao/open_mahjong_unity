@@ -16,6 +16,7 @@ public class Qingque_Create_RoomConfig {
     public bool TouristLimit { get; set; }
     public bool AllowSpectator { get; set; }
     public bool TacticalCall { get; set; }
+    public string HepaiWay { get; set; } // head_bump / multi_ron（虹雀使用）
     public string EventId { get; set; }
 
     public bool Validate(out string error, bool passwordToggle, bool setRandomSeedToggle) {

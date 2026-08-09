@@ -45,6 +45,7 @@ from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
     ROUND_END_HAND_REVEAL_SEC,
     liuju_ready_wait_seconds,
+    sichuan_settle_hu_panel_wait_seconds,
 )
 from ..public.ready_phase import run_hu_result_ready_phase as run_synced_hu_ready_phase
 from ..public.game_record_manager import (
@@ -595,6 +596,7 @@ class RiichiGameState:
             if self.next_status == "match_end":
                 break
 
+            self.xunmu = 1
             for p in self.player_list:
                 p.hand_tiles = []
                 p.huapai_list = []
@@ -912,10 +914,16 @@ class RiichiGameState:
                 apply_riichi_sticks=is_first,
                 is_last_settle=is_last,
             )
-            # 整场终场：最后一家跳过 ready，由 match_end 收尾；中间家仍需 ready
-            if is_last and self.next_status == "match_end":
-                continue
-            await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
+            if is_last:
+                # 整场终场：最后一家跳过 ready，由 match_end 收尾；否则进入末步确认
+                if self.next_status == "match_end":
+                    continue
+                await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
+            else:
+                # 中间家：面板自动关闭后进入下一家结算（与川麻终局一致），不再逐家确认
+                await asyncio.sleep(
+                    sichuan_settle_hu_panel_wait_seconds(fan_count, is_final=False)
+                )
 
         self._multi_ron_ready_done = True
 

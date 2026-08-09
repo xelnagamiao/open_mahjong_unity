@@ -43,8 +43,6 @@ public partial class GameRecordManager {
     [SerializeField] private TMP_Text spectatorModeText;
     [SerializeField] private Button spectatorBackLiveButton;
     [SerializeField] private Button spectatorExitButton;
-    [SerializeField] private GameObject spectatorInfoView;
-    [SerializeField] private TMP_Text spectatorInfoText;
 
     /// <summary>
     /// 延时观战：在发出 add_spectator 时绑定目标对局（纯牌谱阅览、实时观战不走此路径）。
@@ -186,15 +184,12 @@ public partial class GameRecordManager {
 
     public void ShowSpectatorInfo() {
         if (!IsSpectatorSession) return;
-        bool nextState = !spectatorInfoView.activeSelf;
+        bool nextState = !infoView.activeSelf;
         if (nextState) {
-            // 与普通信息面板一致：展示前关闭其它信息视图
-            roundInfoView.SetActive(false);
-            gameInfoView.SetActive(false);
-            spectatorInfoText.text = BuildSpectatorInfoString();
-            spectatorInfoView.SetActive(true);
+            infoText.text = BuildSpectatorInfoString();
+            infoView.SetActive(true);
         } else {
-            spectatorInfoView.SetActive(false);
+            infoView.SetActive(false);
         }
     }
 
@@ -305,7 +300,7 @@ public partial class GameRecordManager {
         CurrentMode = live ? RecordManagerMode.Spectator : RecordManagerMode.RecordOnSpectator;
         UpdateSpectatorModeText();
         UpdateModeUIVisibility();
-        if (live) spectatorInfoView.SetActive(false);
+        if (live) infoView.SetActive(false);
     }
 
     private IEnumerator AutoPlayCoroutine() {
@@ -675,10 +670,9 @@ public partial class GameRecordManager {
         if (inSpectator) ExitButtonManager.Instance.ShowForSpectator();
         else if (inRecord) ExitButtonManager.Instance.ShowForRecord();
         else ExitButtonManager.Instance.HideAll();
-        showGameInfoButton.gameObject.SetActive(inRecord);
-        showSpectatorInfoButton.gameObject.SetActive(inSpectator);
-        if (inSpectator) gameInfoView.SetActive(false);
-        if (inRecord) spectatorInfoView.SetActive(false);
+        showGameInfoButton.gameObject.SetActive(true);
+        UpdateGameInfoButtonLabel();
+        infoView.SetActive(false);
         UpdateRecordAutoPlayButtonVisibility();
     }
 

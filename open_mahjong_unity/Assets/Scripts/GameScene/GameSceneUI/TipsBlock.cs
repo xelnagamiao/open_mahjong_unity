@@ -58,8 +58,8 @@ public class TipsBlock : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
                 );
             }
             else if (NormalGameStateManager.Instance.roomRule == "hongque"){
-                // 虹雀使用变长组合与 126 张唯一牌，权威等待牌及计分随状态快照下发；
-                // HongqueTableAdapter 会在本次公共动作处理结束后调用 ShowHongqueTips。
+                // 虹雀使用变长组合与 126 张唯一牌，由 HongqueTableAdapter 在动作处理后
+                // 调用统一的 C# 听牌与计分入口，再通过 ShowHongqueTips 展示。
                 waitingTiles = new HashSet<int>();
             }
             else{

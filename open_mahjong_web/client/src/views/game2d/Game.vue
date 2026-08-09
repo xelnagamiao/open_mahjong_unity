@@ -23,20 +23,12 @@
       <section class="game-page__board-panel">
         <div class="game-page__stage-shell" :style="{ background: appearance.backgroundColorTable }">
           <div class="game-felt-layout">
-            <div
-              ref="playfieldElement"
-              class="game-felt-playfield"
-              @pointerdown="onPlayfieldPointerDown"
-              @pointermove="onPlayfieldPointerMove"
-              @pointerup="onPlayfieldPointerEnd"
-              @pointercancel="onPlayfieldPointerEnd"
-            >
+            <div class="game-felt-playfield">
               <div ref="stageElement" class="game-stage" />
               <div class="game-stage-toolbar">
                 <GameAssistPanel
                   :settings="assistSettings"
                   :expanded="assistExpandOpen"
-                  :compact="isNarrow"
                   show-tile-settings
                   :tile-settings-expanded="tileSkipOpen"
                   @update="patchAssistSettings"
@@ -54,14 +46,6 @@
                     </div>
                   </template>
                 </GameAssistPanel>
-                <button
-                  type="button"
-                  class="game-action-dock__pin"
-                  :aria-label="'把牌桌置顶'"
-                  @click="pinTableToTop"
-                >
-                  置顶牌桌
-                </button>
               </div>
               <div v-if="assistExpandOpen" class="game-stage-panel">
                 <div class="scene-appearance-toggle__card">
@@ -504,113 +488,6 @@ const showReadyButton = ref(false)
 const readyCountdown = ref(0)
 
 let scene = null
-
-// ── 手机端：底部操作 Dock + 牌桌垂直滑动 ─────────────────────────────
-const narrowQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)') : null
-const isNarrow = ref(Boolean(narrowQuery?.matches))
-const playfieldElement = ref(null)
-const tableSlide = ref(0)
-const tableSlideLimits = ref({ min: 0, max: 0 })
-let slideAnimFrame = null
-let tableDrag = null
-
-function onNarrowChange(event) {
-  isNarrow.value = event.matches
-  tableDrag = null
-  if (slideAnimFrame !== null) {
-    cancelAnimationFrame(slideAnimFrame)
-    slideAnimFrame = null
-  }
-  if (!event.matches) {
-    tableSlide.value = 0
-  } else {
-    window.setTimeout(() => {
-      if (sceneReady.value && scene) pinTableToTop()
-    }, 80)
-  }
-}
-
-function refreshSlideLimits() {
-  if (!scene || typeof scene.getVerticalSlideLimits !== 'function') return
-  tableSlideLimits.value = scene.getVerticalSlideLimits()
-}
-
-function applyTableSlide(value) {
-  if (!scene || typeof scene.setVerticalSlide !== 'function') return 0
-  tableSlide.value = scene.setVerticalSlide(value)
-  return tableSlide.value
-}
-
-function animateTableSlideTo(target) {
-  if (slideAnimFrame !== null) {
-    cancelAnimationFrame(slideAnimFrame)
-    slideAnimFrame = null
-  }
-  const start = tableSlide.value
-  const delta = target - start
-  if (Math.abs(delta) < 0.5) {
-    applyTableSlide(target)
-    return
-  }
-  const startedAt = performance.now()
-  const DURATION = 220
-  const step = (now) => {
-    const t = Math.min(1, (now - startedAt) / DURATION)
-    const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-    applyTableSlide(start + delta * eased)
-    if (t < 1) slideAnimFrame = requestAnimationFrame(step)
-    else slideAnimFrame = null
-  }
-  slideAnimFrame = requestAnimationFrame(step)
-}
-
-/** 置顶牌桌：牌桌平滑贴到牌桌区最上边缘。 */
-function pinTableToTop() {
-  if (!isNarrow.value || !sceneReady.value || !scene) return
-  refreshSlideLimits()
-  animateTableSlideTo(tableSlideLimits.value.min)
-}
-
-function onPlayfieldPointerDown(event) {
-  if (!isNarrow.value || !sceneReady.value || tableDrag) return
-  const target = event.target
-  if (target instanceof Element
-    && target.closest('button, a, input, select, textarea, .game-stage-toolbar, .game-stage-panel')) {
-    return
-  }
-  if (!stageElement.value || !stageElement.value.contains(target)) return
-  if (!scene || typeof scene.stagePointFromClient !== 'function' || typeof scene.isOverInteractive !== 'function') {
-    return
-  }
-  const point = scene.stagePointFromClient(event.clientX, event.clientY)
-  if (scene.isOverInteractive(point.x, point.y)) return
-  event.currentTarget?.setPointerCapture?.(event.pointerId)
-  tableDrag = { pointerId: event.pointerId, startY: event.clientY, startSlide: tableSlide.value, active: false }
-}
-
-function onPlayfieldPointerMove(event) {
-  if (!tableDrag || tableDrag.pointerId !== event.pointerId) return
-  const dy = event.clientY - tableDrag.startY
-  if (!tableDrag.active) {
-    if (Math.abs(dy) < 10) return
-    tableDrag.active = true
-  }
-  if (slideAnimFrame !== null) {
-    cancelAnimationFrame(slideAnimFrame)
-    slideAnimFrame = null
-  }
-  applyTableSlide(tableDrag.startSlide + dy)
-}
-
-function onPlayfieldPointerEnd(event) {
-  if (tableDrag && tableDrag.pointerId === event.pointerId) tableDrag = null
-}
-
-function syncTableSlide() {
-  if (!isNarrow.value) return
-  refreshSlideLimits()
-  applyTableSlide(tableSlide.value)
-}
 let adapter = null
 let unsubscribe = null
 let mounted = false
@@ -1186,10 +1063,6 @@ async function mountScene() {
     currentScene.loadSound(sound.alias, audio)
   }
   sceneReady.value = true
-  // 手机竖屏：场景就绪后把牌桌置顶（首帧布局可能尚未稳定，稍作延迟）
-  window.setTimeout(() => {
-    if (scene === currentScene && isNarrow.value) pinTableToTop()
-  }, 120)
   flushPendingGameResponses(currentAdapter, currentScene)
   if (salasasaClient.lastVoteUpdate?.vote_info) {
     applyVoteInfo(salasasaClient.lastVoteUpdate.vote_info)
@@ -1330,10 +1203,7 @@ function sendReady() {
 }
 
 function scheduleFeltResize() {
-  window.setTimeout(() => {
-    scene?.forceResize()
-    syncTableSlide()
-  }, 100)
+  window.setTimeout(() => scene?.forceResize(), 100)
 }
 
 function closeFeltPanels() {
@@ -1450,14 +1320,6 @@ watch(locale, () => {
   scene?.refreshRoundLabel()
 })
 
-// 对局快照就绪后重算滑动范围并置顶（快照展开后牌桌内容边界才稳定）
-watch(hasSnapshot, (value) => {
-  if (!value) return
-  window.setTimeout(() => {
-    if (sceneReady.value && scene && isNarrow.value) pinTableToTop()
-  }, 80)
-})
-
 onBeforeRouteLeave(async () => {
   if (!hasSnapshot.value || finalResult.value || leavingActiveGame) return true
   try {
@@ -1482,7 +1344,6 @@ onBeforeRouteLeave(async () => {
 onMounted(async () => {
   mounted = true
   unsubscribe = salasasaClient.subscribe(handleResponse)
-  narrowQuery?.addEventListener?.('change', onNarrowChange)
   try {
     backgroundImage.value = await loadStoredSceneBackgroundImage()
   } catch {
@@ -1497,12 +1358,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   mounted = false
-  narrowQuery?.removeEventListener?.('change', onNarrowChange)
-  if (slideAnimFrame !== null) {
-    cancelAnimationFrame(slideAnimFrame)
-    slideAnimFrame = null
-  }
-  tableDrag = null
   unsubscribe?.()
   destroyScene()
 })

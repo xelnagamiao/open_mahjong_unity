@@ -409,6 +409,13 @@ class TestGuobiaoHeuristicGate(unittest.TestCase):
     def test_missing_sub_rule_defaults_standard(self):
         self.assertIsNone(guobiao_heuristic_bot_reject_reason({"room_rule": "guobiao"}))
 
+    def test_hongque_allowed(self):
+        self.assertIsNone(
+            guobiao_heuristic_bot_reject_reason(
+                {"room_rule": "hongque", "sub_rule": "hongque/v1.6"}
+            )
+        )
+
     def test_variant_xiaolin_rejected(self):
         msg = guobiao_heuristic_bot_reject_reason(
             {"room_rule": "guobiao", "sub_rule": "guobiao/xiaolin"}

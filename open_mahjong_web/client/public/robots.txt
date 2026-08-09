@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /event-admin
+Disallow: /account
+Disallow: /login
+Disallow: /register
+Disallow: /2d/game
+Disallow: /2d/record/
+Disallow: /2d/player/
+
+Sitemap: https://salasasa.cn/sitemap.xml
