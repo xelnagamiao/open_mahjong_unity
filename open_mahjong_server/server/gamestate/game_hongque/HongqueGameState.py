@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
 from .efficiency_bot import choose_claim_plan, choose_turn_plan
+from .heuristic_bot import (
+    OpponentView,
+    choose_claim_plan as choose_claim_plan_v3,
+    choose_turn_plan as choose_turn_plan_v3,
+)
 from .rules import (
     call_candidates,
     classify_meld,
@@ -453,7 +458,7 @@ class HongqueGameState:
         self.events = []
         smart_bot_indices: list[int] = []
         for index in self.claim_options:
-            if self.players[index].user_id == 2:
+            if self.players[index].user_id in (2, 3):
                 smart_bot_indices.append(index)
             elif self.players[index].is_bot:
                 self.claim_responses[index] = {"action": "pass"}
@@ -1243,6 +1248,7 @@ class HongqueGameState:
             before_first_discard = not any(item.discards for item in self.players)
             wall_empty = not self.wall
             smart_bot = player.user_id == 2
+            heuristic_bot = player.user_id == 3
             player_index = player.index
             kong_snapshot = tuple(
                 dict(candidate)
@@ -1251,12 +1257,18 @@ class HongqueGameState:
                     + kong_win_candidates(player.hand, player.melds)
                 )
             )
-            if smart_bot:
+            if smart_bot or heuristic_bot:
                 visible_snapshot = self._visible_codes_for(player.index)
                 supplements = player.supplements
                 wall_count = len(self.wall)
                 drawn_tile = player.drawn_tile
                 last_draw_was_supplement = player.last_draw_was_supplement
+            if heuristic_bot:
+                opponents_snapshot = tuple(
+                    OpponentView.from_player(opponent)
+                    for opponent in self.players
+                    if opponent.index != player_index
+                )
         if smart_bot:
             plan = await run_room_bot_cpu(
                 self,
@@ -1269,6 +1281,20 @@ class HongqueGameState:
                 wall_count=wall_count,
                 drawn_tile=drawn_tile,
                 last_draw_was_supplement=last_draw_was_supplement,
+            )
+        elif heuristic_bot:
+            plan = await run_room_bot_cpu(
+                self,
+                choose_turn_plan_v3,
+                hand_snapshot,
+                meld_snapshot,
+                visible_snapshot,
+                kong_snapshot,
+                supplements=supplements,
+                wall_count=wall_count,
+                drawn_tile=drawn_tile,
+                last_draw_was_supplement=last_draw_was_supplement,
+                opponents=opponents_snapshot,
             )
         else:
             result = await run_room_bot_cpu(
@@ -1373,9 +1399,13 @@ class HongqueGameState:
                     dict(candidate) for candidate in self.claim_options[player_index]
                 )
                 visible_snapshot = self._visible_codes_for(player_index)
+            claim_fn = (
+                choose_claim_plan_v3 if self.players[player_index].user_id == 3
+                else choose_claim_plan
+            )
             plan = await run_room_bot_cpu(
                 self,
-                choose_claim_plan,
+                claim_fn,
                 hand_snapshot,
                 meld_snapshot,
                 candidate_snapshot,

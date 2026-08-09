@@ -71,6 +71,6 @@ python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -
 
 ## 服务端短 smoke
 
-**两个全庄**服务端短 smoke 已通过：四席高性能罗伯特、`guobiao/standard`、`hepai_limit=8`、`tactical_call=true`、fast_sleep/headless。单全庄约十余分钟；63 全庄仍挂起（勿默认跑）。
+**两个全庄**服务端短 smoke 已通过：四席高性能罗伯特、`guobiao/standard`、`hepai_limit=8`、`tactical_call=true`、fast_sleep/headless。单全庄优化后约 30 秒；63 全庄仍挂起（勿默认跑）。
 
 国标变种（小林/K神/蓝氏等）：服务端拒绝加座；Unity/Web 隐藏或禁用并提示「暂未支持」。
