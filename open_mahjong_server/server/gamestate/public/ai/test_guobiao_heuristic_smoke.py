@@ -4,15 +4,18 @@
 口径：guobiao/standard、hepai_limit=8、tactical_call=true、fast_sleep。
 已跑通规模：两个全庄（四席高性能罗伯特）。63 全庄挂起。
 
-从 open_mahjong_server 目录：
+⚠️ 自战测试约定：本文件内所有测试均标记 @pytest.mark.selfplay。
+server/pytest.ini 默认 addopts=-m "not selfplay"，因此全量测试（无 -m 参数，
+从根目录带路径运行，如 `pytest server/`）会自动排除本文件；手动运行时必须
+显式加 -m selfplay 覆盖，例如：
 
-    python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -k two_quanzhuang
+    python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -k two_quanzhuang -m selfplay
 
     # 半庄测速（东+南=8 手）
     SMOKE_MODE=half python -m server.gamestate.public.ai.test_guobiao_heuristic_smoke
 
     # 63 全庄（slow，默认勿跑）
-    python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -m slow
+    python -m pytest server/gamestate/public/ai/test_guobiao_heuristic_smoke.py -v -m selfplay
 
 环境变量（可选）：
     SMOKE_MATCHES=63          # 全庄数，默认 63（仅 slow）
@@ -48,7 +51,7 @@ logger = logging.getLogger(__name__)
 HEURISTIC_USER_ID = 3
 DEFAULT_MATCHES = 63
 DEFAULT_BASE_SEED = 72001
-DEFAULT_MATCH_TIMEOUT = 1200.0  # 假想番 Python 检番较慢，单全庄可能数分钟
+DEFAULT_MATCH_TIMEOUT = 1200.0  # 假想番 Python 检番较慢，单全庄优化后约 30 秒
 DEFAULT_MAX_TICKS = 200_000
 
 
@@ -386,6 +389,7 @@ def _run_n_matches(n: int, *, game_round: int = 4) -> List[MatchStats]:
     return results
 
 
+@pytest.mark.selfplay
 def test_east_wind_tactical_true():
     """默认短 smoke：东风 4 手，战术鸣牌开，standard / 8 番。"""
     results = _run_n_matches(1, game_round=1)
@@ -395,6 +399,7 @@ def test_east_wind_tactical_true():
     assert stats.hands == 4
 
 
+@pytest.mark.selfplay
 @pytest.mark.slow
 def test_half_zhuang_tactical_true():
     """半庄（东+南=8 手；slow；假想番测速基线/对比用）。"""
@@ -405,9 +410,10 @@ def test_half_zhuang_tactical_true():
     assert stats.hands == 8
 
 
+@pytest.mark.selfplay
 @pytest.mark.slow
 def test_one_quanzhuang_tactical_true():
-    """单全庄（slow；单场约十余分钟）。"""
+    """单全庄（slow；优化后单场约 30 秒）。"""
     results = _run_n_matches(1, game_round=4)
     assert len(results) == 1
     stats = results[0]
@@ -415,6 +421,7 @@ def test_one_quanzhuang_tactical_true():
     assert stats.hands == 16
 
 
+@pytest.mark.selfplay
 @pytest.mark.slow
 def test_two_quanzhuang_tactical_true():
     """两全庄（slow）。"""
@@ -425,6 +432,7 @@ def test_two_quanzhuang_tactical_true():
         assert stats.hands == 16
 
 
+@pytest.mark.selfplay
 @pytest.mark.slow
 def test_63_quanzhuang_heuristic_self_play():
     """63 全庄（slow；挂起，默认勿跑）。"""
