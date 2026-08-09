@@ -246,6 +246,7 @@ async def handle_create_Hongque_room(game_server, Connect_id: str, message: dict
         message.get("sub_rule", "hongque/v1.6"),
         message.get("tourist_limit", False),
         False,
+        message.get("hepai_way", "multi_ron"),
     )
     await websocket.send_json(response.dict(exclude_none=True))
 

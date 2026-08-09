@@ -134,6 +134,35 @@ public class HandCardDragController : MonoBehaviour {
     }
 
     /// <summary>
+    /// 正在按住或拖拽一张仍然存在的手牌时，允许正常摸牌保留本次输入会话。
+    /// 仅检查真实指针状态，已经松手的残留会话仍交给原有清理路径处理。
+    /// </summary>
+    public bool CanPreserveActivePressForIncomingDraw() {
+        return !isFinishingDrag
+            && dragCard != null
+            && dragCardRect != null
+            && (pendingPress || dragSessionActive)
+            && IsPhysicalPointerDown();
+    }
+
+    /// <summary>
+    /// 拖拽过程中新增的摸牌必须并入按下快照，否则松手复位会遗漏该牌，
+    /// 导致摸牌停在动画位置或不参与之后的手牌布局。
+    /// </summary>
+    public void RegisterIncomingDrawDuringActivePress(TileCard drawCard, float targetCenterX) {
+        if (!CanPreserveActivePressForIncomingDraw() || drawCard == null
+                || snapshotOrder == null || snapshotCenterXs == null
+                || snapshotSortIndex == null || snapshotPinned == null
+                || snapshotOrder.Contains(drawCard)) {
+            return;
+        }
+        snapshotOrder.Add(drawCard);
+        snapshotCenterXs.Add(targetCenterX);
+        snapshotSortIndex[drawCard] = drawCard.handSortIndex;
+        snapshotPinned[drawCard] = drawCard.isDrawSlotPinned;
+    }
+
+    /// <summary>
     /// 外部（回合切换 / 右键摸切 / 清理输入残留）清理"指针已抬起但状态未复位"的悬挂按压/拖拽会话，
     /// 避免左右键同时点击等遗留把某张牌永久绑定为 dragCard 而无法出牌。
     /// 关键：指针仍按下时说明是玩家正在进行的合法拖拽（如拖拽出牌途中其他家出牌），绝不能中断，

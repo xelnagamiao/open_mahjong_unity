@@ -390,7 +390,7 @@ public class Chinese_Hepai_Check {
         }
 
         // 七对子检查
-        private bool QD_check(PlayerTiles player_tiles, List<PlayerTiles> player_tiles_list) {
+        protected virtual bool QD_check(PlayerTiles player_tiles, List<PlayerTiles> player_tiles_list) {
             var temp_player_tiles = player_tiles.DeepCopy();
             // 统计每种牌的数量
             var tile_counts = new Dictionary<int, int>();
@@ -440,7 +440,7 @@ public class Chinese_Hepai_Check {
         }
 
         // 全不靠检查
-        private bool QBK_check(PlayerTiles player_tiles, List<PlayerTiles> player_tiles_list) {
+        protected virtual bool QBK_check(PlayerTiles player_tiles, List<PlayerTiles> player_tiles_list) {
             int hand_kind_set = player_tiles.hand_tiles.Distinct().Count();
             // 如果手牌种类为14种 则可能全不靠
             if (hand_kind_set == 14) {
@@ -1429,7 +1429,7 @@ public class Chinese_Hepai_Check {
         }
 
         // 番种输出和得分计算
-        private Tuple<int, List<string>> FanCountOutput(PlayerTiles player_tiles, string combination_str, bool zimo_or_not, List<string> way_to_hepai) {
+        protected virtual Tuple<int, List<string>> FanCountOutput(PlayerTiles player_tiles, string combination_str, bool zimo_or_not, List<string> way_to_hepai) {
 
             // 无番和：排除花牌后，若没有剩余番或剩余番番值均为 0，则添加无番和
             var remaining = player_tiles.fan_list.Where(f => f != "huapai").ToList();

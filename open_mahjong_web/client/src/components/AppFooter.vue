@@ -8,14 +8,25 @@
 
       <div class="footer-section">
         <h4>联系我们</h4>
-        <p>salasasa 麻将平台测试群：906497522</p>
-        <p>open mahjong unity 项目交流：1084537740</p>
-        <p>网站管理员：Q1448826180</p>
         <p>
-          <router-link to="/mobile-download" class="footer-link">
-            手机版下载（Android）
-          </router-link>
+          salasasa 麻将平台测试群：
+          <a
+            href="https://qm.qq.com/q/MGGZV58hOO"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-link"
+          >906497522</a>
         </p>
+        <p>
+          open mahjong unity 项目交流：
+          <a
+            href="https://qm.qq.com/q/MualpyNFoi"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-link"
+          >1084537740</a>
+        </p>
+        <p>网站管理员：Q1448826180</p>
       </div>
 
       <div class="footer-section">
@@ -36,7 +47,7 @@
 .app-footer {
   background-color: #2c3e50;
   color: #ecf0f1;
-  padding: 48px 0 28px;
+  padding: 32px 0 20px;
   margin-top: auto;
 }
 
@@ -45,28 +56,28 @@
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 56px;
+  gap: 40px;
   padding: 0 32px;
 }
 
 .footer-section h3,
 .footer-section h4 {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   color: #3498db;
 }
 
 .footer-section h3 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
 }
 
 .footer-section h4 {
-  font-size: 1.35rem;
+  font-size: 1.15rem;
 }
 
 .footer-section p {
-  margin: 0 0 10px;
-  line-height: 1.75;
-  font-size: 17px;
+  margin: 0 0 6px;
+  line-height: 1.6;
+  font-size: 14px;
   color: #dfe6e9;
 }
 
@@ -88,21 +99,21 @@ a.footer-link {
 
 .footer-bottom {
   text-align: center;
-  margin-top: 40px;
-  padding-top: 22px;
+  margin-top: 24px;
+  padding-top: 14px;
   border-top: 1px solid #34495e;
 }
 
 .footer-bottom p {
   margin: 0;
   color: #bdc3c7;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 @media (max-width: 768px) {
   .footer-content {
     grid-template-columns: 1fr;
-    gap: 36px;
+    gap: 24px;
     text-align: center;
   }
 }

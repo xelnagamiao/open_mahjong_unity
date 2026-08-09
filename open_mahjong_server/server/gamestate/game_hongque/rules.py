@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import combinations
-from typing import Iterable, Sequence
+from typing import Iterable, Optional, Sequence
 
 from .tile import HongqueTile
 
@@ -114,7 +114,12 @@ def _could_form_meld(codes: Sequence[str]) -> bool:
     )
 
 
-def call_candidates(hand: Sequence[str], discarded: str) -> list[dict]:
+def call_candidates(
+    hand: Sequence[str],
+    discarded: str,
+    claimant_index: Optional[int] = None,
+    discarder_index: Optional[int] = None,
+) -> list[dict]:
     from .group_index import codes_from_mask, group_masks_containing, mask_from_codes
 
     discarded = HongqueTile.parse(discarded).code
@@ -132,14 +137,24 @@ def call_candidates(hand: Sequence[str], discarded: str) -> list[dict]:
         shape = classify_meld(codes_from_mask(group_mask))
         if shape is None:
             continue
-        # Resolution priority is authoritative and intentionally independent
-        # from the bot's hand-efficiency score: rainbow > triplet > sequence.
+        # 解析优先级（权威，与牌效评分无关）：和(7) > 虹(6) > 碰(5) > 吃。
+        # 吃按出牌者相对位置分三档，与国标和牌 hu_first/second/third 同构：
+        # 出牌者的下家=chi_first(4) > 对家=chi_second(3) > 上家=chi_third(2)。
+        if shape.is_rainbow:
+            priority = 6
+        elif shape.kind == "triplet":
+            priority = 5
+        elif claimant_index is not None and discarder_index is not None:
+            distance = (claimant_index - discarder_index) % 4
+            priority = {1: 4, 2: 3, 3: 2}.get(distance, 2)
+        else:
+            priority = 2  # 无座位上下文（独立调用/测试）按最低档
         candidates.append({
             "kind": shape.kind,
             "base_kind": shape.base_kind,
             "hand_tiles": list(selected),
             "tiles": list(shape.tiles),
-            "priority": 3 if shape.is_rainbow else (2 if shape.kind == "triplet" else 1),
+            "priority": priority,
         })
     candidates.sort(key=lambda candidate: (-candidate["priority"], len(candidate["tiles"]), candidate["tiles"]))
     for index, candidate in enumerate(candidates):
@@ -171,6 +186,10 @@ def kong_candidates(hand: Sequence[str], open_melds: Sequence[dict]) -> list[dic
             if selected_mask == 0 or selected_mask & hand_mask != selected_mask:
                 continue
             selected = codes_from_mask(selected_mask)
+            # 虹雀的杠是“副露单张增量”：每次只把一张手牌并入现有副露，
+            # 再由后续操作继续 3→4→5→6；不能一次跨级并入多张手牌。
+            if len(selected) != 1:
+                continue
             shape = classify_meld(codes_from_mask(group_mask))
             if shape is None:
                 continue

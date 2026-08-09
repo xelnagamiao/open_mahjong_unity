@@ -337,7 +337,7 @@ public class EndResultPanel : MonoBehaviour {
         string roomRuleForFan = NormalGameStateManager.Instance.subRule;
         ShowRiichiExtrasPanel(roomRuleForFan, riichiExtras);
         GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance.lastGuobiaoEndExtras, hu_fan);
-        TryPlayGongHuSound(roomRuleForFan, hu_fan);
+        TryPlayGongHuSound(roomRuleForFan, hu_fan, hu_score);
 
         // 面板重建：清除被检查高亮，按缓存准备状态重绘座位配色（川麻 Prepare 会随后设置被检查座位）
         checkedFocusSeat = -1;
@@ -395,6 +395,21 @@ public class EndResultPanel : MonoBehaviour {
             }
             BoardCanvas.Instance.UpdatePlayerScores(scoreBySeat, NormalGameStateManager.Instance.indexToPosition);
         }
+    }
+
+    /// <summary>
+    /// 协程版：等待番数动画与倒计时完整播完再返回（多家和逐家展示用）。
+    /// 与 PlayPreparedShowResult 的区别：后者启动协程即返回，无法被上层 yield 等待。
+    /// </summary>
+    public IEnumerator PlayPreparedShowResultCoroutine(
+        int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
+        RiichiEndResultExtras riichiExtras = null, float confirmCountdownSeconds = -1f,
+        bool resumeSichuanContinueAfterClose = false, bool allowConfirmClick = true,
+        bool skipConfirmCountdown = false) {
+        yield return PlayShowResultRoutine(
+            hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
+            confirmCountdownSeconds, resumeSichuanContinueAfterClose,
+            allowConfirmClick, skipConfirmCountdown);
     }
 
     private IEnumerator PlayShowResultRoutine(int hu_score, string[] hu_fan, int? base_fu = null, string[] fu_fan_list = null,
@@ -559,46 +574,89 @@ public class EndResultPanel : MonoBehaviour {
 
         bool isClassical = roomType == "classical/standard";
         bool isRiichi = roomType != null && roomType.StartsWith("riichi");
+        bool animateFanReveal = RecordSetting.Instance != null
+            && RecordSetting.Instance.IsShowHepaiAnimation;
 
-        // 古典麻将：显示副番列表
-        if (isClassical && fu_fan_list != null) {
-            for (int i = 0; i < fu_fan_list.Length; i++) {
-                string fuName = fu_fan_list[i];
-                string fuDisplay = FanTextDictionary.GetFuDisplayText(fuName);
-                string fuNameDisplay = FanTextDictionary.GetFuNameDisplayText(fuName);
-                GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
-                FanCount fuCount = fuInstance.GetComponent<FanCount>();
-                if (fuCount != null) {
-                    fuCount.SetFanCount(fuNameDisplay, fuDisplay);
-                    fuCount.ApplyFuColor();
-                }
-            }
-        }
-
-        if (hu_fan != null) {
-            for (int i = 0; i < hu_fan.Length; i++) {
-                string fanKey = hu_fan[i];
-                string fanDisplay = FanTextDictionary.GetFanDisplayText(roomType, fanKey);
-                string fanLabel = isRiichi
-                    ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey)
-                    : FanTextDictionary.GetFanNameDisplayText(roomType, fanKey);
-                GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
-                FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
-                if (fanCount != null) {
-                    fanCount.SetFanCount(fanLabel, fanDisplay);
-                    fanCount.ApplyFanColor();
-                }
-            }
-        }
-
-        ShowTotalPanel(roomType, hu_score, hu_fan, base_fu, riichiExtras);
         ShowRiichiExtrasPanel(roomType, riichiExtras);
         GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, null, hu_fan);
-        TryPlayGongHuSound(roomType, hu_fan);
+        TryPlayGongHuSound(roomType, hu_fan, hu_score);
 
-        // 回放模式仅显示确认按钮，点击后关闭并切到下一局；观战模式不显示确认，由 end tick 驱动
-        EndButton.interactable = !isSpectator;
+        if (animateFanReveal) {
+            EndButton.gameObject.SetActive(!isSpectator);
+            EndButton.interactable = false;
+            EndButtonText.text = "确认";
+            showResultCoroutine = StartCoroutine(PlayRecordFanRevealRoutine(
+                roomType, hu_score, hu_fan, base_fu, fu_fan_list, riichiExtras,
+                isClassical, isRiichi, isSpectator));
+        } else {
+            PopulateRecordFanEntries(roomType, hu_fan, fu_fan_list, isClassical, isRiichi);
+            ShowTotalPanel(roomType, hu_score, hu_fan, base_fu, riichiExtras);
+            CompleteRecordFanReveal(isSpectator);
+        }
+    }
+
+    private IEnumerator PlayRecordFanRevealRoutine(
+        string roomType, int huScore, string[] huFan, int? baseFu, string[] fuFanList,
+        RiichiEndResultExtras riichiExtras, bool isClassical, bool isRiichi, bool isSpectator) {
+        if (isClassical && fuFanList != null) {
+            for (int i = 0; i < fuFanList.Length; i++) {
+                yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
+                AddRecordFuEntry(fuFanList[i]);
+            }
+        }
+
+        if (huFan != null) {
+            for (int i = 0; i < huFan.Length; i++) {
+                yield return new WaitForSeconds(RoundEndTiming.HuFanRevealIntervalSeconds);
+                AddRecordFanEntry(roomType, huFan[i], isRiichi);
+            }
+        }
+
+        yield return new WaitForSeconds(RoundEndTiming.HuBeforeTotalPanelSeconds);
+        ShowTotalPanel(roomType, huScore, huFan, baseFu, riichiExtras);
+        CompleteRecordFanReveal(isSpectator);
+        showResultCoroutine = null;
+    }
+
+    private void PopulateRecordFanEntries(
+        string roomType, string[] huFan, string[] fuFanList, bool isClassical, bool isRiichi) {
+        if (isClassical && fuFanList != null) {
+            for (int i = 0; i < fuFanList.Length; i++) {
+                AddRecordFuEntry(fuFanList[i]);
+            }
+        }
+        if (huFan != null) {
+            for (int i = 0; i < huFan.Length; i++) {
+                AddRecordFanEntry(roomType, huFan[i], isRiichi);
+            }
+        }
+    }
+
+    private void AddRecordFuEntry(string fuName) {
+        GameObject fuInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount fuCount = fuInstance.GetComponent<FanCount>();
+        if (fuCount == null) return;
+        fuCount.SetFanCount(
+            FanTextDictionary.GetFuNameDisplayText(fuName),
+            FanTextDictionary.GetFuDisplayText(fuName));
+        fuCount.ApplyFuColor();
+    }
+
+    private void AddRecordFanEntry(string roomType, string fanKey, bool isRiichi) {
+        GameObject fanCountInstance = Instantiate(FanCountPrefab, FanCountContainer);
+        FanCount fanCount = fanCountInstance.GetComponent<FanCount>();
+        if (fanCount == null) return;
+        string fanLabel = isRiichi
+            ? FanTextDictionary.GetRiichiYakuDisplayName(fanKey)
+            : FanTextDictionary.GetFanNameDisplayText(roomType, fanKey);
+        fanCount.SetFanCount(fanLabel, FanTextDictionary.GetFanDisplayText(roomType, fanKey));
+        fanCount.ApplyFanColor();
+    }
+
+    private void CompleteRecordFanReveal(bool isSpectator) {
+        // 牌谱需等报分结束后才可确认；观战仍由 end tick 推进。
         EndButton.gameObject.SetActive(!isSpectator);
+        EndButton.interactable = !isSpectator;
         EndButtonText.text = "确认";
     }
 
@@ -983,7 +1041,6 @@ public class EndResultPanel : MonoBehaviour {
                 TotalScore.text = $"{huScore}点";
             }
             TotalLimitDisplay.gameObject.SetActive(false);
-            RebuildResultLayoutHierarchy(FanCountTotalPanel.transform);
             return;
         }
 
@@ -1023,11 +1080,6 @@ public class EndResultPanel : MonoBehaviour {
         bool showLimit = isClassical && huScore >= 300;
         TotalLimitDisplay.gameObject.SetActive(showLimit);
         if (showLimit) TotalLimitDisplay.text = "满贯";
-        RebuildResultLayoutHierarchy(FanCountTotalPanel.transform);
-    }
-
-    private void RebuildResultLayoutHierarchy(Transform changed) {
-        LayoutHierarchyRebuilder.RebuildUpwards(changed, transform);
     }
 
     /// <summary>
@@ -1066,8 +1118,8 @@ public class EndResultPanel : MonoBehaviour {
     /// <summary>
     /// 计算古典麻将翻数总和。若包含"满贯"级别役种则返回 -1 表示满贯。
     /// </summary>
-    private static void TryPlayGongHuSound(string rule, string[] huFan) {
-        if (!FanTextDictionary.ShouldPlayGongHuSound(rule, huFan)) {
+    private static void TryPlayGongHuSound(string rule, string[] huFan, int huScore) {
+        if (!FanTextDictionary.ShouldPlayGongHuSound(rule, huFan, huScore)) {
             return;
         }
         SoundManager.Instance.PlayPhysicsSound("Gong_hu");

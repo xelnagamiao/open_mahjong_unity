@@ -67,21 +67,21 @@ public class RoomPanel : MonoBehaviour {
         return sub == GuobiaoStandardSubRule;
     }
 
+    private static bool SupportsHighPerformanceBot(RoomInfo roomInfo) {
+        return roomInfo != null
+            && (roomInfo.room_rule == "hongque" || IsGuobiaoStandard(roomInfo));
+    }
+
     private void UpdateGuobiaoHeuristicBotButton(RoomInfo roomInfo, bool isHost) {
         if (addGuobiaoHeuristicBotButton == null) return;
 
-        // 高性能机器人仅适用于国标规则，其他规则必须隐藏按钮。
-        bool isGuobiao = roomInfo != null && roomInfo.room_rule == "guobiao";
-        addGuobiaoHeuristicBotButton.gameObject.SetActive(isGuobiao);
-        if (!isGuobiao) return;
+        // 高性能罗伯特适用于国标标准规则和虹雀，其他规则隐藏按钮。
+        bool supported = SupportsHighPerformanceBot(roomInfo);
+        addGuobiaoHeuristicBotButton.gameObject.SetActive(supported);
+        if (!supported) return;
 
-        bool standard = IsGuobiaoStandard(roomInfo);
         bool canAdd = isHost && roomInfo.player_list != null && roomInfo.player_list.Length < 4;
-        if (standard) {
-            addGuobiaoHeuristicBotButton.interactable = canAdd;
-        } else {
-            addGuobiaoHeuristicBotButton.interactable = false;
-        }
+        addGuobiaoHeuristicBotButton.interactable = canAdd;
     }
 
     public void GetRoomInfoResponse(bool success, string message, RoomInfo roomInfo) {
@@ -272,7 +272,7 @@ public class RoomPanel : MonoBehaviour {
     }
 
     private void AddGuobiaoHeuristicBotButtonClicked() {
-        if (lastRoomInfo != null && !IsGuobiaoStandard(lastRoomInfo)) {
+        if (!SupportsHighPerformanceBot(lastRoomInfo)) {
             return;
         }
         RoomNetworkManager.Instance.AddGuobiaoHeuristicBotToRoom(UserDataManager.Instance.RoomId);

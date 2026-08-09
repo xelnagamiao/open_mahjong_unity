@@ -35,6 +35,7 @@ public class ScoreHistoryPanel : MonoBehaviour
         { "changsha", RoundTextDictionary.CurrentRoundTextChangsha },
         { "jiandan", RoundTextDictionary.CurrentRoundTextJiandan },
         { "taiwan", RoundTextDictionary.CurrentRoundTextTaiwan },
+        { "hongque", RoundTextDictionary.CurrentRoundTextHongque },
     };
 
     private void Awake()
@@ -199,7 +200,10 @@ public class ScoreHistoryPanel : MonoBehaviour
         if (totalRounds <= 0) {
             var mgr = NormalGameStateManager.Instance;
             if (mgr.maxRound > 0) {
-                totalRounds = mgr.maxRound * 4;
+                // 通用规则的 maxRound 是风圈数；虹雀服务端下发的已经是实际局数（4/8/16）。
+                totalRounds = mgr.roomRule == "hongque"
+                    ? mgr.maxRound
+                    : mgr.maxRound * 4;
             }
         }
 

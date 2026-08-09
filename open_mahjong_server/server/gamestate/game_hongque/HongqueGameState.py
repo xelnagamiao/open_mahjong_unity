@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
 from .efficiency_bot import choose_claim_plan, choose_turn_plan
+from .heuristic_bot import (
+    OpponentView,
+    choose_claim_plan as choose_claim_plan_v3,
+    choose_turn_plan as choose_turn_plan_v3,
+)
 from .rules import (
     call_candidates,
     classify_meld,
@@ -15,15 +20,25 @@ from .rules import (
     kong_win_candidates,
 )
 from .scoring import best_win_result
-from .tenpai_check import kong_win_waiting_tiles, waiting_tiles
 from .tile import HongqueTile, full_deck
 from .win_check import is_winning_hand
 from ..public.ai.bot_executor import run_room_bot_cpu
+from ..public.vote_manager import vote_checkpoint
 from ..public.round_end_timing import (
     ROUND_END_PRESENTATION_FADE_SEC,
+    SICHUAN_MID_PANEL_CONFIRM_SEC,
     hu_result_ready_pre_panel_seconds,
     hu_result_ready_wait_seconds,
     liuju_ready_wait_seconds,
+    sichuan_settle_hu_panel_wait_seconds,
+)
+from .hongque_debug import (
+    HONGQUE_DEBUG_SCENARIO,
+    apply_debug_player_seating,
+    apply_hongque_debug_hands,
+    get_debug_dealer_index,
+    get_debug_forced_discard,
+    resolve_debug_scenario,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,6 +63,8 @@ class HongquePlayer:
     drawn_tile: Optional[str] = None
     last_draw_was_supplement: bool = False
     remaining_time: int = 20
+    score_history: list[str] = field(default_factory=list)
+    round_number_history: list[int] = field(default_factory=list)
 
     @property
     def is_bot(self) -> bool:
@@ -63,7 +80,8 @@ class HongqueGameState:
     """
 
     def __init__(self, game_server: Any, room_data: dict, calculation_service: Any = None,
-                 db_manager: Any = None, gamestate_id: str = "hongque-test") -> None:
+                 db_manager: Any = None, gamestate_id: str = "hongque-test",
+                 debug: Optional[bool] = None) -> None:
         self.game_server = game_server
         self.room_id = room_data["room_id"]
         self.gamestate_id = gamestate_id
@@ -91,6 +109,12 @@ class HongqueGameState:
         self.tactical_grace_seconds = float(
             room_data.get("tactical_grace_seconds", 5.0)
         )
+        # 如果您在管理自己规则内的分支，请不要将 Debug = True 的配置上传到公共代码仓库。
+        self.Debug = False if debug is None else bool(debug)
+        self.debug_scenario = HONGQUE_DEBUG_SCENARIO
+        # 和牌方式：multi_ron = 多家可同时荣和（依次展示结算面板）；
+        # head_bump = 头跳，只由距出牌者最近的荣和者截和。
+        self.hepai_way = room_data.get("hepai_way", "multi_ron")
         self.turn_deadline: Optional[float] = None
         self.claim_deadline: Optional[float] = None
         self.turn_started_at: Optional[float] = None
@@ -129,9 +153,10 @@ class HongqueGameState:
         self._claim_grace_deadline: Optional[float] = None
         # 打断窗口内已 pass 的玩家：本轮申请不再重复询问；新申请替换时清空。
         self._grace_passed_players: set[int] = set()
+        # 川麻模式：已提交中/低优先级亮牌的玩家，若仍有更高优先级选项，可在窗口内升级亮牌。
+        self._claim_upgrade_players: set[int] = set()
         self._claim_timeout_task: Optional[asyncio.Task] = None
         self._turn_timeout_task: Optional[asyncio.Task] = None
-        self._wait_hint_cache: dict[tuple, list[dict]] = {}
         self.players: list[HongquePlayer] = []
         settings = room_data.get("player_settings", {})
         for index, user_id in enumerate(room_data["player_list"]):
@@ -151,15 +176,50 @@ class HongqueGameState:
     async def run_game_loop(self) -> None:
         try:
             await self._start_round()
-            await asyncio.Future()
+            # 虹雀是事件驱动状态机，没有其它规则的 while game_status 主循环。
+            # 在暂停期间持有状态锁，玩家、超时和机器人任务都无法推进牌局。
+            while True:
+                vote_manager = getattr(self, "vote_manager", None)
+                if vote_manager is not None and vote_manager.phase == "pause_pending":
+                    async with self._lock:
+                        if vote_manager.phase == "pause_pending":
+                            paused_at = time.monotonic()
+                            await vote_checkpoint(self)
+                            self._shift_clocks_after_vote_pause(
+                                time.monotonic() - paused_at
+                            )
+                await asyncio.sleep(0.05)
         except asyncio.CancelledError:
             raise
+
+    def _shift_clocks_after_vote_pause(self, paused_seconds: float) -> None:
+        """暂停不消耗虹雀的步时、储备时间或战术鸣牌窗口。"""
+        if paused_seconds <= 0:
+            return
+        if self.turn_deadline is not None:
+            self.turn_deadline += paused_seconds
+        if self.claim_deadline is not None:
+            self.claim_deadline += paused_seconds
+        if self.turn_started_at is not None:
+            self.turn_started_at += paused_seconds
+        if self.claim_started_at is not None:
+            self.claim_started_at += paused_seconds
+        if self._claim_grace_deadline is not None:
+            self._claim_grace_deadline += paused_seconds
+        self.claim_deadlines = {
+            index: deadline + paused_seconds
+            for index, deadline in self.claim_deadlines.items()
+        }
 
     async def _start_round(self) -> None:
         self._cancel_bot_claim_tasks()
         self._ready_phase_active = False
         self._ready_players.clear()
         self._ready_event.clear()
+        if self.Debug:
+            # 调试：真人固定自家(0)，庄家/首家固定为场景指定座位（上家=3）。
+            apply_debug_player_seating(self)
+            self.dealer_index = get_debug_dealer_index(self)
         self.wall = full_deck()
         self._rng.shuffle(self.wall)
         for player in self.players:
@@ -170,7 +230,6 @@ class HongqueGameState:
             player.drawn_tile = None
             player.last_draw_was_supplement = False
             player.remaining_time = self.round_time
-        self._wait_hint_cache.clear()
         for _ in range(11):
             for offset in range(4):
                 self.players[(self.dealer_index + offset) % 4].hand.append(self.wall.pop())
@@ -182,11 +241,15 @@ class HongqueGameState:
         self._claim_applied = None
         self._claim_grace_active = False
         self._grace_passed_players.clear()
+        self._claim_upgrade_players.clear()
         self.round_result = None
         self.events = []
         self.phase = "turn"
         self._start_turn_clock()
         self._draw_for_current_player()
+        if self.Debug:
+            # 调试：发牌后覆盖为场景固定牌例（上家含 AX1 首打，自家/下家听 AX1）。
+            apply_hongque_debug_hands(self)
         self.message = f"第 {self.current_round} 局开始"
         self._advance_tick()
         await self.broadcast_state(sync_mode="round_start")
@@ -275,29 +338,52 @@ class HongqueGameState:
 
     async def _turn_timeout(self, tick: int, player_index: int, deadline: float) -> None:
         try:
-            await asyncio.sleep(max(0.0, deadline - time.monotonic()))
-            async with self._lock:
-                if (self.phase != "turn" or self.action_tick != tick
-                        or self.current_player_index != player_index):
-                    return
-                self.events = []
-                player = self.players[player_index]
-                player.remaining_time = 0
-                if player.hand:
-                    code = player.drawn_tile if player.drawn_tile in player.hand else player.hand[-1]
+            while True:
+                await asyncio.sleep(max(0.0, deadline - time.monotonic()))
+                async with self._lock:
+                    if (self.phase != "turn" or self.action_tick != tick
+                            or self.current_player_index != player_index):
+                        return
+                    # 投票暂停会顺延权威 deadline；旧睡眠结束后按新值继续等待。
+                    if self.turn_deadline is not None \
+                            and time.monotonic() < self.turn_deadline:
+                        deadline = self.turn_deadline
+                        continue
+                    self.events = []
+                    player = self.players[player_index]
+                    player.remaining_time = 0
+                    if player.hand:
+                        if self.Debug:
+                            forced = get_debug_forced_discard(self, player_index)
+                            if forced and forced in player.hand:
+                                code = forced
+                            else:
+                                code = (
+                                    player.drawn_tile
+                                    if player.drawn_tile in player.hand
+                                    else player.hand[-1]
+                                )
+                        else:
+                            code = (
+                                player.drawn_tile
+                                if player.drawn_tile in player.hand
+                                else player.hand[-1]
+                            )
+                    else:
+                        result = best_win_result(
+                            player.hand,
+                            player.melds,
+                            self_draw=True,
+                            before_first_discard=not any(item.discards for item in self.players),
+                            wall_empty=not self.wall,
+                            allow_kong_win=True,
+                        )
+                        if result is not None:
+                            result["winning_hand"] = list(player.hand)
+                            await self._finish_round([(player, result)], "self_draw")
+                        return
                     await self._discard_and_open_claim(player, code)
                     return
-                result = best_win_result(
-                    player.hand,
-                    player.melds,
-                    self_draw=True,
-                    before_first_discard=not any(item.discards for item in self.players),
-                    wall_empty=not self.wall,
-                    allow_kong_win=True,
-                )
-                if result is not None:
-                    result["winning_hand"] = list(player.hand)
-                    await self._finish_round([(player, result)], "self_draw")
         except asyncio.CancelledError:
             return
 
@@ -430,12 +516,18 @@ class HongqueGameState:
         self.claim_options = {}
         self.claim_responses = {}
         self._claim_apply_broadcast.clear()
+        self._claim_upgrade_players.clear()
         for player in self.players:
             if player.index == discard_player:
                 continue
-            options = call_candidates(player.hand, discarded)
+            options = call_candidates(
+                player.hand,
+                discarded,
+                claimant_index=player.index,
+                discarder_index=discard_player,
+            )
             if is_winning_hand(player.hand + [discarded], player.melds):
-                options.insert(0, {"id": "ron", "kind": "win", "priority": 4,
+                options.insert(0, {"id": "ron", "kind": "win", "priority": 7,
                                    "tiles": [discarded], "hand_tiles": []})
             if options:
                 self.claim_options[player.index] = options
@@ -453,7 +545,13 @@ class HongqueGameState:
         self.events = []
         smart_bot_indices: list[int] = []
         for index in self.claim_options:
-            if self.players[index].user_id == 2:
+            debug_force_ron = (
+                self.Debug
+                and resolve_debug_scenario(self) == "double_ron"
+                and index == 1
+                and any(option.get("kind") == "win" for option in self.claim_options[index])
+            )
+            if self.players[index].user_id in (2, 3) or debug_force_ron:
                 smart_bot_indices.append(index)
             elif self.players[index].is_bot:
                 self.claim_responses[index] = {"action": "pass"}
@@ -470,9 +568,10 @@ class HongqueGameState:
                                    candidate_id: Optional[str]) -> None:
         if player.index not in self.claim_options:
             raise ValueError("你没有可用的亮牌操作")
-        if player.index in self.claim_responses:
-            raise ValueError("已经回应过本次亮牌询问")
+        existing = self.claim_responses.get(player.index)
         if action == "pass":
+            if existing is not None:
+                raise ValueError("已经回应过本次亮牌询问")
             self._consume_time_bank(player, self.claim_started_at)
             self.claim_responses[player.index] = {"action": "pass"}
             if self._claim_grace_active:
@@ -487,8 +586,19 @@ class HongqueGameState:
             candidate = next((item for item in self.claim_options[player.index] if item["id"] == candidate_id), None)
             if candidate is None:
                 raise ValueError("亮牌候选无效")
-            self._consume_time_bank(player, self.claim_started_at)
-            self.claim_responses[player.index] = {"action": "claim", "candidate": candidate}
+            if existing is not None and existing["action"] == "claim":
+                # 川麻模式：已提交低/中优先级亮牌后，仍可升级为更高优先级亮牌（不锁死）。
+                existing_priority = int(existing["candidate"].get("priority", 0) or 0)
+                new_priority = int(candidate.get("priority", 0) or 0)
+                if new_priority <= existing_priority:
+                    raise ValueError("不能降级为更低优先级的亮牌")
+                self.claim_responses[player.index] = {"action": "claim", "candidate": candidate}
+                self._claim_upgrade_players.discard(player.index)
+            elif existing is not None:
+                raise ValueError("已经回应过本次亮牌询问")
+            else:
+                self._consume_time_bank(player, self.claim_started_at)
+                self.claim_responses[player.index] = {"action": "claim", "candidate": candidate}
             if self._claim_grace_active:
                 # 打断窗口内：更高优先级（或更近同优先级）才替换申请；同优先级和牌共存（多家和）。
                 if self._claim_upgrades_applied(player.index, candidate):
@@ -572,7 +682,11 @@ class HongqueGameState:
             return
 
     async def _open_grace_window(self) -> None:
-        """重新询问更高优先级玩家（含主询问已 pass 者），并按 grace 秒数开窗。"""
+        """重新询问更高优先级玩家（含主询问已 pass 者），并按 grace 秒数开窗。
+
+        川麻模式：已提交低/中优先级亮牌的玩家，只要仍有更高优先级选项，也重新弹出
+        更高档按钮，允许在窗口内升级亮牌（不锁死首亮）。
+        """
         if not self._claim_applied:
             return
         applied_player, applied_candidate = self._claim_applied
@@ -587,7 +701,7 @@ class HongqueGameState:
                 continue
             best_rank = max(
                 (self._claim_rank(pid, o) for o in options),
-                default=(0, 0),
+                default=0,
             )
             if best_rank <= applied_rank:
                 continue
@@ -596,7 +710,25 @@ class HongqueGameState:
                 # 主询问阶段已 pass：打断窗口内重新询问，允许改选更高动作。
                 del self.claim_responses[pid]
                 reasked = True
-        if reasked:
+        upgrade_changed = False
+        for pid, options in self.claim_options.items():
+            if self.players[pid].is_bot:
+                continue
+            response = self.claim_responses.get(pid)
+            if response is None or response["action"] != "claim":
+                continue
+            claim_priority = int(response["candidate"].get("priority", 0) or 0)
+            best_rank = max(
+                (self._claim_rank(pid, o) for o in options),
+                default=0,
+            )
+            if best_rank > claim_priority:
+                if pid not in self._claim_upgrade_players:
+                    self._claim_upgrade_players.add(pid)
+                    upgrade_changed = True
+            else:
+                self._claim_upgrade_players.discard(pid)
+        if reasked or upgrade_changed:
             await self.broadcast_state()
         pending = self._claim_grace_pending()
         if pending:
@@ -609,18 +741,28 @@ class HongqueGameState:
         await self._resolve_claims()
 
     def _claim_grace_pending(self) -> list[int]:
-        """打断窗口内仍需回应的玩家：同/更高优先级且尚未回应（含潜在多家和）。"""
+        """打断窗口内仍需回应的玩家：同/更高优先级且尚未回应（含潜在多家和、可升级亮牌者）。"""
         if not self._claim_applied:
             return []
         applied_player, applied_candidate = self._claim_applied
         applied_rank = self._claim_rank(applied_player, applied_candidate)
         pending: list[int] = []
+        for pid in self._claim_upgrade_players:
+            if pid in self._grace_passed_players:
+                continue
+            options = self.claim_options.get(pid, ())
+            best_rank = max(
+                (self._claim_rank(pid, o) for o in options),
+                default=0,
+            )
+            if best_rank > applied_rank and pid not in pending:
+                pending.append(pid)
         for pid, options in self.claim_options.items():
             if pid == applied_player or pid in self._grace_passed_players:
                 continue
             best_rank = max(
                 (self._claim_rank(pid, o) for o in options),
-                default=(0, 0),
+                default=0,
             )
             if best_rank < applied_rank:
                 continue
@@ -646,17 +788,13 @@ class HongqueGameState:
             other_pid, other_candidate
         )
 
-    def _claim_rank(self, pid: int, candidate: dict) -> tuple[int, int]:
-        """虹雀亮牌综合优先级：候选自带优先级；同优先级按距出牌者顺时针距离，近者优先。
+    def _claim_rank(self, pid: int, candidate: dict) -> int:
+        """虹雀亮牌优先级：候选自带（和7 > 虹6 > 碰5 > chi_first4 > chi_second3 > chi_third2）。
 
-        荣和除外：多家和时所有荣和等价，不按座位区分高下（_resolve_claims 会全部收集）。
+        吃按出牌者相对位置分档（与国标和牌 hu_first/second/third 同构），
+        同档位（如两家碰）由 _resolve_claims 按提交先后裁决，与座位无关。
         """
-        priority = int(candidate.get("priority", 0) or 0)
-        if candidate.get("kind") == "win":
-            return (priority, 0)
-        discarder = self.last_discard["player"] if self.last_discard else -1
-        d1 = (pid - discarder) % len(self.players)
-        return (priority, -d1)
+        return int(candidate.get("priority", 0) or 0)
 
     def _schedule_claim_grace_timeout(self) -> None:
         if self._claim_grace_timeout_task \
@@ -669,17 +807,22 @@ class HongqueGameState:
 
     async def _claim_grace_timeout(self, tick: int) -> None:
         try:
-            await asyncio.sleep(max(
-                0.0, (self._claim_grace_deadline or time.monotonic()) - time.monotonic()
-            ))
-            async with self._lock:
-                if (not self._claim_grace_active or self.phase != "claim"
-                        or self.action_tick != tick):
+            deadline = self._claim_grace_deadline or time.monotonic()
+            while True:
+                await asyncio.sleep(max(0.0, deadline - time.monotonic()))
+                async with self._lock:
+                    if (not self._claim_grace_active or self.phase != "claim"
+                            or self.action_tick != tick):
+                        return
+                    if self._claim_grace_timeout_task is not asyncio.current_task():
+                        return
+                    if self._claim_grace_deadline is not None \
+                            and time.monotonic() < self._claim_grace_deadline:
+                        deadline = self._claim_grace_deadline
+                        continue
+                    # 超时：未回应的同/更高优先级玩家视为放弃，执行当前申请。
+                    await self._resolve_claims()
                     return
-                if self._claim_grace_timeout_task is not asyncio.current_task():
-                    return
-                # 超时：未回应的同/更高优先级玩家视为放弃，执行当前申请。
-                await self._resolve_claims()
         except asyncio.CancelledError:
             return
 
@@ -726,24 +869,26 @@ class HongqueGameState:
             self._claim_grace_timeout_task.cancel()
         self._claim_grace_active = False
         self._claim_applied = None
+        self._claim_upgrade_players.clear()
         claims = []
         discarder = self.last_discard["player"]
-        for index, response in self.claim_responses.items():
+        for order, (index, response) in enumerate(self.claim_responses.items()):
             if response["action"] != "claim":
                 continue
             candidate = response["candidate"]
-            # The discarder's seat is the current seat for this claim window.
-            # Smaller clockwise distance wins after claim priority, including
-            # the wraparound from seat 3 back to seat 0.
-            distance = (index - discarder) % len(self.players)
             priority = int(candidate.get("priority", 0) or 0)
-            claims.append((-priority, distance, index, candidate))
+            # 优先级高者胜；同优先级（如两家碰）按提交先后先到先得（与国标一致）。
+            claims.append((-priority, order, index, candidate))
         if not claims:
             await self._advance_after_unclaimed_discard()
             return
         ron_claims = [claim for claim in claims if claim[3]["kind"] == "win"]
         if ron_claims:
-            ron_claims.sort(key=lambda claim: claim[1])
+            # 多家和按距出牌者的顺时针距离排序：最近者成为下一局庄家。
+            ron_claims.sort(key=lambda claim: (claim[2] - discarder) % len(self.players))
+            if self.hepai_way == "head_bump":
+                # 头跳：只保留最近的一家荣和，其余截和。
+                ron_claims = ron_claims[:1]
             discarded = self.last_discard["tile"]
             winners: list[tuple[HongquePlayer, dict]] = []
             for _, _, winner_index, _ in ron_claims:
@@ -804,6 +949,7 @@ class HongqueGameState:
     async def _advance_after_unclaimed_discard(self) -> None:
         self.claim_options.clear()
         self.claim_responses.clear()
+        self._claim_upgrade_players.clear()
         if not self.wall:
             await self._finish_round([], "draw")
             return
@@ -873,6 +1019,7 @@ class HongqueGameState:
                 "scores": {str(player.index): player.score for player in self.players},
                 "winners": winner_results,
                 "silent": bool(silent),
+                "multi_ron": len(winners) > 1,
             }
             self._record_event(reason, players=self.round_result["winner_indices"])
         else:
@@ -884,6 +1031,16 @@ class HongqueGameState:
                 "scores": {str(player.index): player.score for player in self.players},
             }
             self._record_event("draw_game", players=[])
+        # 与通用计分板一致：多家和的每位赢家各占一行，局号可重复；流局占一行 0。
+        history_rows = [
+            {str(winner.index): int(result["points"])}
+            for winner, result in winners
+        ] or [{}]
+        for row in history_rows:
+            for player in self.players:
+                delta = int(row.get(str(player.index), 0) or 0)
+                player.score_history.append(f"+{delta}" if delta > 0 else str(delta))
+                player.round_number_history.append(self.current_round)
         self._advance_tick()
         await self.broadcast_state()
         fan_count = max(
@@ -896,7 +1053,9 @@ class HongqueGameState:
         }
         self._ready_event.clear()
         self._round_task = asyncio.create_task(
-            self._complete_round_after_result(bool(winners), fan_count)
+            self._complete_round_after_result(
+                bool(winners), fan_count, multi_ron=len(winners) > 1
+            )
         )
 
     async def _handle_ready_action(self, player: HongquePlayer) -> None:
@@ -932,8 +1091,8 @@ class HongqueGameState:
             self.send_ready_status_to(player.index) for player in self.players
         ))
 
-    async def _wait_for_hu_ready(self, fan_count: int) -> None:
-        wait_time = hu_result_ready_wait_seconds(fan_count)
+    async def _wait_for_hu_ready(self, fan_count: int, extra_seconds: float = 0.0) -> None:
+        wait_time = hu_result_ready_wait_seconds(fan_count) + extra_seconds
         deadline = time.monotonic() + wait_time
         panel_visible_at = (
             time.monotonic()
@@ -977,10 +1136,26 @@ class HongqueGameState:
             except asyncio.TimeoutError:
                 pass
 
-    async def _complete_round_after_result(self, has_winner: bool, fan_count: int) -> None:
+    async def _complete_round_after_result(
+        self, has_winner: bool, fan_count: int, multi_ron: bool = False
+    ) -> None:
         try:
             if has_winner:
-                await self._wait_for_hu_ready(fan_count)
+                if multi_ron:
+                    # 多家和：先依次播完前几家的完整面板（倒牌+番数动画+3s 维持），
+                    # 最后一家才进入 8s 确认倒计时（ready 阶段），避免服务端提前推进。
+                    winners = self.round_result.get("winners", ())
+                    for index, result in enumerate(winners):
+                        if index == len(winners) - 1:
+                            break
+                        fan_i = len(result.get("fans", ()))
+                        await asyncio.sleep(
+                            hu_result_ready_pre_panel_seconds()
+                            + sichuan_settle_hu_panel_wait_seconds(fan_i, is_final=False)
+                        )
+                    await self._wait_for_hu_ready(fan_count)
+                else:
+                    await self._wait_for_hu_ready(fan_count)
             else:
                 await asyncio.sleep(liuju_ready_wait_seconds())
             game_ended = False
@@ -1075,54 +1250,6 @@ class HongqueGameState:
                 ), self.last_discard["tile"])
         return None
 
-    @staticmethod
-    def _wait_cache_key(hand: Sequence[str], melds: Sequence[dict]) -> tuple:
-        return (
-            tuple(sorted(hand)),
-            tuple(
-                (meld.get("kind", ""), tuple(sorted(meld.get("tiles", ()))))
-                for meld in melds
-            ),
-        )
-
-    def _wait_hints_for(self, viewer: HongquePlayer) -> list[dict]:
-        key = self._wait_cache_key(viewer.hand, viewer.melds)
-        cached = self._wait_hint_cache.get(key)
-        if cached is not None:
-            return cached
-        hints: list[dict] = []
-        # 普通听牌：摸到即按手内成组和牌，可荣可自摸，不作自摸限定。
-        for tile in waiting_tiles(viewer.hand, viewer.melds):
-            result = best_win_result(
-                viewer.hand + [tile],
-                viewer.melds,
-                self_draw=False,
-                before_first_discard=False,
-                wall_empty=False,
-            )
-            hint = self._score_hint(result, tile)
-            if hint is not None:
-                hints.append(hint)
-        # 杠和听牌：摸到后需把手牌杠进明牌再和，只能自摸和（明牌加牌
-        # 只能用自己摸/补的牌），标记 self_draw_only 供客户端黄色叠底。
-        for tile in kong_win_waiting_tiles(viewer.hand, viewer.melds):
-            if any(hint.get("tile") == tile for hint in hints):
-                continue
-            result = best_win_result(
-                list(viewer.hand) + [tile],
-                viewer.melds,
-                self_draw=True,
-                before_first_discard=False,
-                wall_empty=False,
-                allow_kong_win=True,
-            )
-            hint = self._score_hint(result, tile)
-            if hint is not None:
-                hint["self_draw_only"] = True
-                hints.append(hint)
-        self._wait_hint_cache[key] = hints
-        return hints
-
     def _visible_event(self, source: dict, viewer_index: int) -> dict:
         event = dict(source)
         if event.get("type") in {"draw", "supplement"} and event.get("player") != viewer_index:
@@ -1133,18 +1260,27 @@ class HongqueGameState:
                     events_override: Optional[list[dict]] = None) -> dict:
         viewer = self.players[viewer_index]
         actions, candidates = self._legal_turn_actions(viewer)
-        if self.phase == "claim" and viewer_index in self.claim_options and viewer_index not in self.claim_responses:
-            actions = ["pass", "claim"]
-            candidates = self.claim_options[viewer_index]
+        if self.phase == "claim" and viewer_index in self.claim_options:
+            existing = self.claim_responses.get(viewer_index)
+            if (existing is not None and existing["action"] == "claim"
+                    and viewer_index in self._claim_upgrade_players):
+                # 川麻模式：已亮低/中优先级后，只弹出更高优先级候选供升级。
+                existing_priority = int(existing["candidate"].get("priority", 0) or 0)
+                higher = [
+                    item for item in self.claim_options[viewer_index]
+                    if int(item.get("priority", 0) or 0) > existing_priority
+                ]
+                actions = ["claim"] if higher else []
+                candidates = higher
+            elif viewer_index not in self.claim_responses:
+                actions = ["pass", "claim"]
+                candidates = self.claim_options[viewer_index]
+            else:
+                actions, candidates = [], []
         win_hint = self._viewer_win_hint(viewer, actions)
-        wait_hints = []
-        # Match the common table flow: stable tenpai tips are shown after the
-        # player's discard/claim, while their active hand-action window hides
-        # the diamond.  An immediately available win uses win_hint instead.
-        if (self.tips and win_hint is None and self.phase in {"turn", "claim"}
-                and not (self.phase == "turn" and viewer_index == self.current_player_index)):
-            wait_hints = self._wait_hints_for(viewer)
-        waits = [hint["tile"] for hint in wait_hints]
+        # 听牌形与分值提示由客户端 C# 本地计算；服务端仅保留实际可和动作及结算的 Python 权威计分。
+        wait_hints: list[dict] = []
+        waits: list[str] = []
         remaining_time, step_remaining = self._remaining_clock(viewer)
         state = {
             "sync_mode": sync_mode,
@@ -1193,6 +1329,8 @@ class HongqueGameState:
                 "profile_used": player.profile_used,
                 "character_used": player.character_used,
                 "voice_used": player.voice_used,
+                "score_history": list(player.score_history),
+                "round_number_history": list(player.round_number_history),
             } for player in self.players],
         })
         return state
@@ -1243,6 +1381,7 @@ class HongqueGameState:
             before_first_discard = not any(item.discards for item in self.players)
             wall_empty = not self.wall
             smart_bot = player.user_id == 2
+            heuristic_bot = player.user_id == 3
             player_index = player.index
             kong_snapshot = tuple(
                 dict(candidate)
@@ -1251,12 +1390,18 @@ class HongqueGameState:
                     + kong_win_candidates(player.hand, player.melds)
                 )
             )
-            if smart_bot:
+            if smart_bot or heuristic_bot:
                 visible_snapshot = self._visible_codes_for(player.index)
                 supplements = player.supplements
                 wall_count = len(self.wall)
                 drawn_tile = player.drawn_tile
                 last_draw_was_supplement = player.last_draw_was_supplement
+            if heuristic_bot:
+                opponents_snapshot = tuple(
+                    OpponentView.from_player(opponent)
+                    for opponent in self.players
+                    if opponent.index != player_index
+                )
         if smart_bot:
             plan = await run_room_bot_cpu(
                 self,
@@ -1269,6 +1414,20 @@ class HongqueGameState:
                 wall_count=wall_count,
                 drawn_tile=drawn_tile,
                 last_draw_was_supplement=last_draw_was_supplement,
+            )
+        elif heuristic_bot:
+            plan = await run_room_bot_cpu(
+                self,
+                choose_turn_plan_v3,
+                hand_snapshot,
+                meld_snapshot,
+                visible_snapshot,
+                kong_snapshot,
+                supplements=supplements,
+                wall_count=wall_count,
+                drawn_tile=drawn_tile,
+                last_draw_was_supplement=last_draw_was_supplement,
+                opponents=opponents_snapshot,
             )
         else:
             result = await run_room_bot_cpu(
@@ -1323,11 +1482,26 @@ class HongqueGameState:
                     player, "kong", None, plan.get("candidate_id")
                 )
                 return
-            code = plan.get("tile")
-            if code not in player.hand:
-                code = player.drawn_tile if player.drawn_tile in player.hand else (
-                    self._rng.choice(player.hand) if player.hand else None
-                )
+            if self.Debug:
+                forced = get_debug_forced_discard(self, player.index)
+                if forced and forced in player.hand:
+                    code = forced
+                else:
+                    code = plan.get("tile")
+                    if code not in player.hand:
+                        code = (
+                            player.drawn_tile
+                            if player.drawn_tile in player.hand
+                            else (self._rng.choice(player.hand) if player.hand else None)
+                        )
+            else:
+                code = plan.get("tile")
+                if code not in player.hand:
+                    code = (
+                        player.drawn_tile
+                        if player.drawn_tile in player.hand
+                        else (self._rng.choice(player.hand) if player.hand else None)
+                    )
             if code is None:
                 return
             await self._discard_and_open_claim(player, code)
@@ -1373,9 +1547,13 @@ class HongqueGameState:
                     dict(candidate) for candidate in self.claim_options[player_index]
                 )
                 visible_snapshot = self._visible_codes_for(player_index)
+            claim_fn = (
+                choose_claim_plan_v3 if self.players[player_index].user_id == 3
+                else choose_claim_plan
+            )
             plan = await run_room_bot_cpu(
                 self,
-                choose_claim_plan,
+                claim_fn,
                 hand_snapshot,
                 meld_snapshot,
                 candidate_snapshot,

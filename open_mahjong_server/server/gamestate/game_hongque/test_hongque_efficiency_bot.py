@@ -59,7 +59,7 @@ def test_efficiency_claim_always_accepts_authoritative_win() -> None:
     plan = choose_claim_plan(
         ["AX1", "AX2"],
         [],
-        [{"id": "ron", "kind": "win", "priority": 4}],
+        [{"id": "ron", "kind": "win", "priority": 7}],
         ["AX1", "AX2", "AX3"],
     )
     assert plan == {"action": "claim", "candidate_id": "ron"}
@@ -188,7 +188,7 @@ async def _exercise_ordinary_claim_route() -> None:
         "player_list": [101, 1, 103, 104],
         "player_settings": {1: {"username": "普通机器人"}},
     }
-    state = HongqueGameState(None, room, gamestate_id="ordinary-claim-route")
+    state = HongqueGameState(None, room, gamestate_id="ordinary-claim-route", debug=False)
     state.phase = "turn"
     state.players[0].discards = ["EX1"]
     state.players[1].hand = ["DX1", "FX1"]

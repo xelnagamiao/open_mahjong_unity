@@ -189,10 +189,6 @@ export class MahjongScene {
 
   // ── Resize ────────────────────────────────────────────────────────
   private resizeFrame: number | null = null
-  /** 当前垂直滑动偏移（加到 center.y 上，正=向下）。 */
-  private currentSlide = 0
-  /** 每次 layout 重新计算的 center.y 基准值。 */
-  private baseCenterY = 0
   private pendingChoicesTimeout: ReturnType<typeof setTimeout> | null = null
   private autoActionTimeout: ReturnType<typeof setTimeout> | null = null
   private predrawSortTimeout: ReturnType<typeof setTimeout> | null = null
@@ -1168,8 +1164,6 @@ export class MahjongScene {
     this.redrawBackground()
     this.layoutBackgroundImage()
     this.layout()
-    // 尺寸变化后按新的可视范围重新夹紧滑动偏移
-    this.setVerticalSlide(this.currentSlide)
   }
 
   private redrawBackground(): void {
@@ -1313,13 +1307,17 @@ export class MahjongScene {
 
     if (isMobile.any) {
       if (sw > sh) {
-        this.center.x = sh / 2 + 1.4 * TILE_HEIGHT * sh * WINDOW_SCALE / SCALE_FACTOR
+        // 宽高比被压缩成“横条”时保持牌桌正立（不旋转 90°），按高度缩放并居中，
+        // 修复长宽被特殊压缩时牌桌逆时针旋转的问题
+        this.center.x = sw / 2
         this.center.y = sh / 2
-        this.center.rotation = -Math.PI / 2
+        this.center.rotation = 0
         this.center.scale.set(sh * WINDOW_SCALE / SCALE_FACTOR)
       } else {
         this.center.x = sw / 2
-        this.center.y = sw / 2 + 1.4 * TILE_HEIGHT * sw * WINDOW_SCALE / SCALE_FACTOR
+        // 手机竖屏会给牌桌上下各预留独立空间：上方放辅助操作按钮，
+        // 下方完整展示出牌辅助方块。牌桌本体因此应在加长后的舞台内垂直居中。
+        this.center.y = sh / 2
         this.center.rotation = 0
         this.center.scale.set(sw * WINDOW_SCALE / SCALE_FACTOR)
       }
@@ -1329,13 +1327,6 @@ export class MahjongScene {
       this.center.rotation = 0
       this.center.scale.set(Math.min(sw, sh) * WINDOW_SCALE / SCALE_FACTOR)
     }
-
-    // 竖屏手机才允许垂直滑动；横屏/桌面回到基准位置
-    if (!isMobile.any || sw > sh) {
-      this.currentSlide = 0
-    }
-    this.baseCenterY = this.center.y
-    this.center.y = this.baseCenterY + this.currentSlide
   }
 
   private getViewportSize(): { width: number; height: number } {
@@ -2477,88 +2468,6 @@ export class MahjongScene {
   /** Trigger a renderer resize (e.g. after the sidebar height changes). */
   forceResize(): void {
     this.scheduleResizeAndLayout()
-  }
-
-  // ── 牌桌垂直滑动（手机竖屏：置顶/自由拖动）──────────────────────
-
-  /**
-   * 牌桌垂直滑动的可用范围（相对 center.y 基准的偏移，正=向下）。
-   * min = 置顶（内容顶边贴到牌桌区上缘），max = 置底（内容底边保持在底部保留区之上）。
-   */
-  getVerticalSlideLimits(): { min: number; max: number } {
-    if (!this.app) {
-      return { min: 0, max: 0 }
-    }
-    const bounds = this.center.getBounds()
-    const viewHeight = this.app.screen.height
-    const top = bounds.top - this.currentSlide
-    const bottom = bounds.bottom - this.currentSlide
-    const min = -Math.max(0, top)
-    // 底部保留区：给底部操作 Dock 留出空间，避免手牌/辅助方块被盖住
-    const bottomReserve = 150
-    const max = Math.max(min, viewHeight - bottom - bottomReserve)
-    return { min, max }
-  }
-
-  /** 设置垂直滑动偏移（自动夹紧），返回实际生效的偏移。 */
-  setVerticalSlide(offset: number): number {
-    if (!this.app) {
-      return 0
-    }
-    const { min, max } = this.getVerticalSlideLimits()
-    this.currentSlide = Math.min(max, Math.max(min, offset))
-    this.center.y = this.baseCenterY + this.currentSlide
-    return this.currentSlide
-  }
-
-  /** 当前垂直滑动偏移。 */
-  getVerticalSlide(): number {
-    return this.currentSlide
-  }
-
-  /** 置顶：牌桌贴到牌桌区最上边缘。 */
-  pinTableToTop(): number {
-    return this.setVerticalSlide(this.getVerticalSlideLimits().min)
-  }
-
-  /** 将客户端坐标换算为舞台坐标（Stage 坐标与 Canvas CSS 像素一致）。 */
-  stagePointFromClient(clientX: number, clientY: number): { x: number; y: number } {
-    const canvas = this.app?.canvas
-    if (!canvas) {
-      return { x: 0, y: 0 }
-    }
-    const rect = canvas.getBoundingClientRect()
-    return {
-      x: ((clientX - rect.left) / Math.max(rect.width, 1)) * this.app!.screen.width,
-      y: ((clientY - rect.top) / Math.max(rect.height, 1)) * this.app!.screen.height,
-    }
-  }
-
-  /** 该舞台点是否命中可交互对象（牌/按钮/辅助方块），用于区分“空白处拖动牌桌”。 */
-  isOverInteractive(x: number, y: number): boolean {
-    if (!this.app) {
-      return false
-    }
-    try {
-      const eventSystem = (this.app.renderer as unknown as {
-        events?: { rootBoundary?: { hitTest?: (px: number, py: number) => unknown } }
-      }).events
-      if (eventSystem?.rootBoundary?.hitTest?.(x, y) != null) {
-        return true
-      }
-    } catch {
-      // fall through to hand-area check
-    }
-    // 自家手牌区域（含辅助方块）即使当前不可点也视为“非空白”，避免误拖牌桌
-    const hand = this.hands?.[0]
-    if (hand) {
-      try {
-        return hand.getBounds().contains(x, y)
-      } catch {
-        return false
-      }
-    }
-    return false
   }
 
   handleLatencyPong(identifier: number | null | undefined): void {

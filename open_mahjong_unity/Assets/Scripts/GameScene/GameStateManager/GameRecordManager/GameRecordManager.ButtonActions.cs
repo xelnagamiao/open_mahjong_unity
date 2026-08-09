@@ -381,25 +381,31 @@ public partial class GameRecordManager {
     }
 
     private void ShowGameInfo() {
-        if (IsSpectatorSession) return;
-        bool shouldShow = !gameInfoView.activeSelf;
+        if (IsSpectatorSession) {
+            ShowSpectatorInfo();
+            return;
+        }
+        bool shouldShow = !infoView.activeSelf;
         if (shouldShow) {
-            roundInfoView.SetActive(false);
-            gameInfoText.text = BuildGameInfoString();
-            gameInfoView.SetActive(true);
+            infoText.text = BuildGameInfoString();
+            infoView.SetActive(true);
         } else {
-            gameInfoView.SetActive(false);
+            infoView.SetActive(false);
         }
     }
 
+    private void UpdateGameInfoButtonLabel() {
+        if (showGameInfoButtonLabel == null) return;
+        showGameInfoButtonLabel.text = IsSpectatorSession ? "观战信息" : "游戏信息";
+    }
+
     private void ShowRoundInfo() {
-        bool shouldShow = !roundInfoView.activeSelf;
+        bool shouldShow = !infoView.activeSelf;
         if (shouldShow) {
-            gameInfoView.SetActive(false);
-            roundInfoText.text = BuildRoundInfoString();
-            roundInfoView.SetActive(true);
+            infoText.text = BuildRoundInfoString();
+            infoView.SetActive(true);
         } else {
-            roundInfoView.SetActive(false);
+            infoView.SetActive(false);
         }
     }
 

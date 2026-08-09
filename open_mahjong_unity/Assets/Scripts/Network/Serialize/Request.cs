@@ -25,6 +25,7 @@ public class CreateGBRoomRequest { // 创建国标房间请求
     public bool tourist_limit; // 游客限制
     public bool allow_spectator; // 允许观战
     public bool tactical_call; // 战术鸣牌（国标/青雀）
+    public string hepai_way; // 和牌方式 head_bump / multi_ron（虹雀使用）
     public string event_id; // 赛事房间：有则 room_type=events
 }
 

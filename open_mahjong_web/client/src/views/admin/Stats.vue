@@ -81,8 +81,36 @@
             </div>
             <p v-else class="empty-hint">暂无该场次累计数据</p>
             <el-collapse class="fan-collapse">
-              <el-collapse-item :title="`番种出现次数（${fanDictSize}）`" name="fan">
-                <div class="fan-grid">
+              <el-collapse-item name="fan">
+                <template #title>
+                  <span class="fan-collapse-title">番种出现次数（{{ fanDictSize }}）</span>
+                </template>
+                <div class="fan-toolbar">
+                  <el-radio-group v-model="fanTier" size="small" class="fan-toolbar-group">
+                    <el-radio-button value="all">全部</el-radio-button>
+                    <el-radio-button value="low">1-3番</el-radio-button>
+                    <el-radio-button value="mid">4-24番</el-radio-button>
+                    <el-radio-button value="high">25番以上</el-radio-button>
+                  </el-radio-group>
+                  <el-radio-group v-model="fanView" size="small" class="fan-toolbar-group">
+                    <el-radio-button value="table">表格</el-radio-button>
+                    <el-radio-button value="bar">柱状图</el-radio-button>
+                  </el-radio-group>
+                  <el-radio-group v-model="fanSort" size="small" class="fan-toolbar-group">
+                    <el-radio-button value="default">默认顺序</el-radio-button>
+                    <el-radio-button value="count">从多到少</el-radio-button>
+                  </el-radio-group>
+                  <el-button
+                    class="fan-percent-toggle"
+                    size="small"
+                    link
+                    type="primary"
+                    @click="showFanPercent = !showFanPercent"
+                  >
+                    {{ showFanPercent ? '隐藏百分比' : '显示百分比' }}
+                  </el-button>
+                </div>
+                <div v-show="fanView === 'table'" class="fan-grid">
                   <div
                     v-for="item in tierFanEntries"
                     :key="item.key"
@@ -90,9 +118,12 @@
                     :class="{ 'fan-item--zero': item.count === 0 }"
                   >
                     <span class="fan-name">{{ item.label }}</span>
-                    <span class="fan-count">{{ item.count }}</span>
+                    <span class="fan-count">
+                      {{ item.count }}<span v-if="showFanPercent && item.percent !== undefined" class="fan-percent">（{{ item.percent }}）</span>
+                    </span>
                   </div>
                 </div>
+                <div v-show="fanView === 'bar'" ref="fanChartRef" class="fan-chart"></div>
               </el-collapse-item>
             </el-collapse>
           </el-tab-pane>
@@ -144,7 +175,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import adminApi from '@/api/adminClient'
-import { GUOBIAO_FAN_DICT } from '@/constants/guobiaoFanDict'
+import { GUOBIAO_FAN_DICT, GUOBIAO_FAN_VALUES } from '@/constants/guobiaoFanDict'
 import {
   buildPlatformStatsRows,
   buildAllFanEntries,
@@ -163,6 +194,20 @@ const TIER_OPTIONS = [
 const TOTALS_TIER_OPTIONS = [...TIER_OPTIONS, { value: 'total', label: '总计' }]
 const TIER_LABEL = Object.fromEntries(TOTALS_TIER_OPTIONS.map(t => [t.value, t.label]))
 const fanDictSize = Object.keys(GUOBIAO_FAN_DICT).length
+const showFanPercent = ref(false)
+const fanTier = ref('all')
+const fanView = ref('table')
+const fanSort = ref('count')
+const fanChartRef = ref(null)
+let fanChart = null
+
+/** 番种柱状图容器：同一模板在 5 个场次页签中各有一份，ref 是数组，取当前可见的那个 */
+const getFanChartEl = () => {
+  const v = fanChartRef.value
+  if (!v) return null
+  const list = Array.isArray(v) ? v : [v]
+  return list.find((el) => el && el.clientHeight > 0) || list[0] || null
+}
 
 const formatLocalDate = (d) => {
   const y = d.getFullYear()
@@ -219,12 +264,25 @@ const activeTierTotals = computed(() => {
 })
 
 const tierFanEntries = computed(() => {
-  if (totalsTierTab.value === 'total') {
-    const fans = sceneTierFans.value.total
-      || sumTierFans(sceneTierFans.value, TIER_OPTIONS.map(t => t.value))
-    return buildAllFanEntries(fans, GUOBIAO_FAN_DICT)
-  }
-  return buildAllFanEntries(sceneTierFans.value[totalsTierTab.value], GUOBIAO_FAN_DICT)
+  const fans = totalsTierTab.value === 'total'
+    ? (sceneTierFans.value.total
+      || sumTierFans(sceneTierFans.value, TIER_OPTIONS.map(t => t.value)))
+    : sceneTierFans.value[totalsTierTab.value]
+  const entries = buildAllFanEntries(
+    fans,
+    GUOBIAO_FAN_DICT,
+    activeTierTotals.value?.win_count,
+    GUOBIAO_FAN_VALUES,
+    fanSort.value,
+  )
+  const tier = fanTier.value
+  if (tier === 'all') return entries
+  return entries.filter(e => {
+    const v = Number(e.value) || 0
+    if (tier === 'low') return v >= 1 && v <= 3
+    if (tier === 'mid') return v >= 4 && v <= 24
+    return v >= 25
+  })
 })
 
 const visibleTierColumns = computed(() =>
@@ -327,10 +385,66 @@ const renderSceneChart = () => {
   sceneLineChart.setOption(opt, true)
 }
 
+const renderFanChart = () => {
+  if (fanView.value !== 'bar') return
+  const el = getFanChartEl()
+  if (!el) return
+  const entries = tierFanEntries.value
+  const opt = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter(params) {
+        const p = Array.isArray(params) ? params[0] : params
+        const e = entries[p?.dataIndex]
+        if (!e) return ''
+        const lines = [e.label, `达成次数：${e.count}`]
+        if (showFanPercent.value && e.percent !== undefined) lines.push(`占比：${e.percent}`)
+        return lines.join('<br/>')
+      },
+    },
+    grid: { left: 56, right: 24, top: 28, bottom: 104, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: entries.map(e => e.label),
+      axisLabel: { rotate: 60, interval: 0, fontSize: 10, margin: 12, width: 72, overflow: 'truncate' },
+      axisTick: { alignWithLabel: true },
+    },
+    yAxis: { type: 'value', minInterval: 1, name: '次数' },
+    dataZoom: [{
+      type: 'slider',
+      height: 34,
+      bottom: 6,
+      borderColor: '#c0c4cc',
+      backgroundColor: '#f5f7fa',
+      fillerColor: 'rgba(64, 158, 255, 0.3)',
+      handleStyle: { color: '#409eff', borderColor: '#409eff' },
+      moveHandleStyle: { color: '#409eff' },
+      textStyle: { color: '#606266' },
+      showDetail: false,
+    }],
+    series: [{
+      type: 'bar',
+      data: entries.map(e => ({
+        value: e.count,
+        itemStyle: { color: e.value >= 25 ? '#e6a23c' : e.value >= 4 ? '#67c23a' : '#409eff' },
+      })),
+      barMaxWidth: 26,
+    }],
+  }
+  if (!fanChart || fanChart.getDom() !== el) {
+    fanChart?.dispose()
+    fanChart = echarts.init(el)
+  }
+  fanChart.setOption(opt, true)
+  fanChart.resize()
+}
+
 const handleResize = () => {
   lineChart?.resize()
   barChart?.resize()
   sceneLineChart?.resize()
+  fanChart?.resize()
 }
 
 const loadDailyStats = async () => {
@@ -396,6 +510,10 @@ const loadSceneDaily = async () => {
 
 watch(dailyStats, () => nextTick(() => renderCharts()))
 watch([sceneDaily, statsTier], () => nextTick(() => renderSceneChart()))
+watch([tierFanEntries, fanView, showFanPercent], () => nextTick(() => renderFanChart()))
+watch(fanView, (v) => {
+  if (v === 'bar') nextTick(() => renderFanChart())
+})
 
 onMounted(() => {
   loadDailyStats()
@@ -409,6 +527,7 @@ onBeforeUnmount(() => {
   lineChart?.dispose()
   barChart?.dispose()
   sceneLineChart?.dispose()
+  fanChart?.dispose()
 })
 </script>
 
@@ -467,10 +586,23 @@ onBeforeUnmount(() => {
 .stats-value { font-size: 15px; font-weight: 600; color: #303133; }
 .empty-hint { font-size: 13px; color: #909399; margin: 8px 0; }
 .fan-collapse { margin-top: 8px; }
+.fan-collapse-title { flex: 1; min-width: 0; }
+.fan-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
 .fan-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 6px 12px;
+}
+.fan-chart {
+  width: 100%;
+  height: 360px;
+  min-width: 0;
 }
 .fan-item {
   display: flex;
@@ -483,6 +615,8 @@ onBeforeUnmount(() => {
 .fan-item--zero .fan-count { color: #c0c4cc; }
 .fan-name { color: #606266; }
 .fan-count { font-weight: 600; color: #409eff; }
+.fan-percent { margin-left: 5px; font-size: 12px; font-weight: 500; color: #909399; }
+.fan-item--zero .fan-percent { color: #c0c4cc; }
 @media (max-width: 960px) {
   .charts-wrap { grid-template-columns: 1fr 1fr; }
 }

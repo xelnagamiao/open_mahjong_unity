@@ -520,10 +520,6 @@
   pointer-events: auto;
 }
 
-.game-action-dock__pin {
-  display: none;
-}
-
 .game-stage-toolbar .scene-appearance-toggle__button {
   width: auto;
   min-width: 72px;
@@ -713,28 +709,6 @@
   border-color: rgba(211, 89, 89, 0.62);
   background: #382426;
   color: #ffb5b5;
-}
-
-.mahjongGame.is-dark-interface
-  .game-stage-toolbar
-  :is(.assist-dock__item, .game-action-dock__pin) {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: #252a2d;
-  color: #f4f5f5;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.22);
-}
-
-.mahjongGame.is-dark-interface
-  .game-stage-toolbar
-  :is(.assist-dock__item, .game-action-dock__pin):hover {
-  border-color: #df7d23;
-  background: #303538;
-}
-
-.mahjongGame.is-dark-interface .game-stage-toolbar .assist-dock__item.is-on {
-  border-color: rgba(223, 125, 35, 0.72);
-  background: rgba(104, 58, 20, 0.92);
-  color: #ffd09c;
 }
 
 .game-loading {
@@ -1307,44 +1281,14 @@
   .game-page__layout { height: 100dvh; gap: 10px; padding: 12px; }
   .game-page__board-panel { flex: 1 1 auto; min-height: 0; }
   .game-page__stage-shell { height: 100%; }
-  .game-stage {
-    touch-action: none;
-  }
-  .game-stage-toolbar {
-    top: auto;
-    right: 8px;
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    left: 8px;
-    width: auto;
-    max-width: none;
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-  .game-action-dock__pin {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    min-width: 64px;
-    padding: 8px 12px;
-    border: 1px solid rgba(96, 96, 96, 0.28);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.94);
-    color: #1e2425;
-    font-size: 13px;
-    line-height: 1.2;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  }
+  .game-stage-toolbar { top: 8px; right: 8px; }
   .game-stage-panel {
-    top: auto;
+    top: 208px;
     right: 8px;
-    bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+    bottom: auto;
     left: 8px;
     width: auto;
-    max-height: min(calc(100% - 140px), 440px);
+    max-height: min(calc(100% - 220px), 440px);
   }
   .game-felt-layout { flex-direction: column; }
   .game-felt-rail {
@@ -1391,6 +1335,99 @@
 }
 
 @media (max-width: 560px) {
+  /*
+   * Phone portrait layout: make the felt taller than the square table.
+   * The extra height is split around the centered Pixi scene so the top
+   * controls and the bottom discard-helper tiles never cover table content.
+   */
+  @media (orientation: portrait) {
+    .mahjongGame {
+      height: auto;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .game-page__layout {
+      height: auto;
+      min-height: 100dvh;
+      padding: 8px;
+    }
+
+    .game-page__board-panel,
+    .game-page__stage-shell,
+    .game-felt-layout {
+      height: auto;
+      min-height: 0;
+    }
+
+    .game-page__stage-shell {
+      overflow: hidden;
+      border-radius: 14px;
+    }
+
+    .game-felt-rail {
+      max-height: min(26dvh, 210px);
+      padding: 8px;
+    }
+
+    .game-felt-playfield {
+      flex: 0 0 auto;
+      /* Approximately 175px clear space above and below the square table. */
+      height: max(650px, calc(100vw + 350px));
+      min-height: max(650px, calc(100vw + 350px));
+    }
+
+    .game-stage-toolbar {
+      top: 10px;
+      right: 10px;
+      bottom: auto;
+      left: 10px;
+      width: auto;
+      max-width: none;
+      align-items: stretch;
+    }
+
+    .game-stage-toolbar .assist-inline {
+      width: 100%;
+      grid-template-columns: minmax(82px, 0.72fr) minmax(0, 1.6fr);
+      align-items: start;
+    }
+
+    .game-stage-toolbar .assist-inline__tile-column,
+    .game-stage-toolbar .assist-inline__operation-column {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .game-stage-toolbar .assist-inline__operation-column {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .game-stage-toolbar .assist-switch,
+    .game-stage-toolbar .assist-inline__tile-settings {
+      width: 100%;
+      min-width: 0;
+      min-height: 36px;
+      padding: 6px 8px;
+      box-sizing: border-box;
+    }
+
+    .game-stage-toolbar .assist-switch__label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .game-stage-panel {
+      top: 160px;
+      right: 10px;
+      bottom: auto;
+      left: 10px;
+      max-height: min(420px, calc(100% - 330px));
+    }
+  }
+
   .end-result-panel--win { width: min(94%, 520px); }
   .end-result-fan-grid { grid-template-columns: 1fr; }
   .end-result-fan,

@@ -85,12 +85,25 @@ def test_call_priority_and_kong_extension_follow_table_order() -> None:
         "GX2",
     )
     priorities = {candidate["kind"]: candidate["priority"] for candidate in calls}
-    assert priorities["rainbow"] == 3
-    assert priorities["triplet"] == 2
-    assert priorities["sequence"] == 1
+    assert priorities["rainbow"] == 6
+    assert priorities["triplet"] == 5
+    assert priorities["sequence"] == 2  # 无座位上下文按最低档 chi_third
+
+    # 吃按出牌者相对位置分档：出牌者的下家=4 > 对家=3 > 上家=2。
+    calls_by_seat = {
+        distance: call_candidates(
+            ["AX2", "AX3", "BX9"], "AX1",
+            claimant_index=(0 + distance) % 4,
+            discarder_index=0,
+        )[0]["priority"]
+        for distance in (1, 2, 3)
+    }
+    assert calls_by_seat == {1: 4, 2: 3, 3: 2}
 
     melds = [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}]
     extensions = kong_candidates(["AX4", "GX9"], melds)
+    assert extensions
+    assert all(len(candidate["hand_tiles"]) == 1 for candidate in extensions)
     assert any(candidate["hand_tiles"] == ["AX4"] for candidate in extensions)
 
 

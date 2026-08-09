@@ -7,7 +7,7 @@ using UnityEngine;
 public class Tile3D : MonoBehaviour
 {
     private static readonly int FrontTilingOffsetId = Shader.PropertyToID("_FrontTilingOffset");
-    private static readonly int BackTilingOffsetId = Shader.PropertyToID("_BackTilingOffset");
+    private static readonly int BackRotationId = Shader.PropertyToID("_BackRotation");
     private static readonly int FrontColorId = Shader.PropertyToID("_FrontColor");
     private static readonly int BackColorId = Shader.PropertyToID("_BackColor");
     private static readonly int BackTexBlendId = Shader.PropertyToID("_BackTexBlend");
@@ -25,7 +25,7 @@ public class Tile3D : MonoBehaviour
     private MaterialPropertyBlock propBlock;
     private int outlineId;
     private Vector4 frontTilingOffset = new Vector4(1f, 1f, 0f, 0f);
-    private Vector4 backTilingOffset = new Vector4(1f, 1f, 0f, 0f);
+    private float backRotation;
     private Color baseFrontColor = Color.white;
     private Color baseBackColor = Color.white;
     private Color baseSideColor = Color.white;
@@ -77,6 +77,12 @@ public class Tile3D : MonoBehaviour
         Transform mesh = GetFaceMeshTransform();
         EnsureFaceRotationBaseline();
         mesh.localRotation = concealed ? faceDownLocalRotation : faceUpLocalRotation;
+        // 暗面/暗杠展示牌背：统一转 180° 使背图正对该玩家；恢复正常面则不旋转。
+        if (concealed) {
+            SetBackOrientationUpright();
+        } else {
+            ResetBackOrientation();
+        }
         RefreshPeekCollider();
     }
 
@@ -107,6 +113,7 @@ public class Tile3D : MonoBehaviour
         }
         hasFaceRotationBaseline = false;
         faceMeshTransform = null;
+        ResetBackOrientation();
         RefreshPeekCollider();
     }
 
@@ -213,7 +220,7 @@ public class Tile3D : MonoBehaviour
         propBlock.Clear();
         // MPB 中只放 Shader 声明为 instanced 的属性，否则 Unity 会拆散 GPU Instancing。
         propBlock.SetVector(FrontTilingOffsetId, frontTilingOffset);
-        propBlock.SetVector(BackTilingOffsetId, backTilingOffset);
+        propBlock.SetFloat(BackRotationId, backRotation);
         propBlock.SetColor(FrontColorId, instanceFrontColor);
         propBlock.SetColor(BackColorId, instanceBackColor);
         propBlock.SetColor(SideColorId, instanceSideColor);
@@ -323,30 +330,28 @@ public class Tile3D : MonoBehaviour
     }
 
     /// <summary>
-    /// 和牌倒牌“立牌姿态”专用：把牌背贴图绕法线翻转 180°（u/v 同时取反），
-    /// 使立牌瞬间朝镜头可见的牌背保持正向；对象池回收时由 ResetBackOrientation 复位。
-    /// 只影响牌背 UV，不影响牌面，也不影响倒牌结束后的牌面朝上展示（届时牌背被压住）。
+    /// 统一牌背朝向：暗面/暗杠与和牌倒牌立牌的“牌背可见”场景统一旋转 180°（u/v 同时取反），
+    /// 使背图正对该牌所属玩家的正面方向（图案顶朝桌心，玩家可正常阅读），并保持与正常立牌背面一致。
+    /// 只影响牌背 UV 采样，不影响牌面；悬停 peek 只翻转网格（SetPeekFaceUp），不会重算此值，
+    /// 移开鼠标恢复暗面后牌背仍保持正向。
     /// </summary>
-    public void SetBackFlip(bool flip) {
-        SetBackOrientation(flip
-            ? new Vector4(-1f, -1f, 1f, 1f)
-            : new Vector4(1f, 1f, 0f, 0f));
+    public void SetBackOrientationUpright() {
+        SetBackRotation(180f);
     }
 
-    /// <summary>设置牌背贴图的逐牌 UV 变换（tiling/offset）。</summary>
-    public void SetBackOrientation(Vector4 tilingOffset) {
+    /// <summary>设置牌背贴图的逐牌旋转角（度，0/90/180/270）。</summary>
+    public void SetBackRotation(float rotationDegrees) {
         InitializeComponents();
-        backTilingOffset = tilingOffset;
+        backRotation = rotationDegrees;
         ApplyPropertyBlock();
     }
 
-    /// <summary>对象池回收前恢复牌背贴图默认朝向。</summary>
+    /// <summary>恢复牌背贴图默认朝向（不旋转）。</summary>
     public void ResetBackOrientation() {
-        if (backTilingOffset.x == 1f && backTilingOffset.y == 1f
-            && backTilingOffset.z == 0f && backTilingOffset.w == 0f) {
+        if (backRotation == 0f) {
             return;
         }
-        SetBackOrientation(new Vector4(1f, 1f, 0f, 0f));
+        SetBackRotation(0f);
     }
 
     /// <summary>
@@ -379,7 +384,7 @@ public class Tile3D : MonoBehaviour
         instanceSideColor = baseSideColor;
         instanceBackEdgeColor = baseBackEdgeColor;
         instanceGrayScale = baseGrayScale;
-        backTilingOffset = new Vector4(1f, 1f, 0f, 0f);
+        backRotation = 0f;
         ApplyPropertyBlock();
     }
 

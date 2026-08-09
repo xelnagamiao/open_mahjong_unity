@@ -49,7 +49,7 @@ public class TipsContainer : MonoBehaviour
     public bool HasCachedTenpaiTips => _hasCachedTenpaiTips
         && (_cachedWaitingTiles.Count > 0 || _cachedHongqueWinHint != null);
 
-    /// <summary>缓存服务端权威计算的虹雀听牌/和牌提示，仍由公共提示容器负责展示。</summary>
+    /// <summary>缓存虹雀提示：稳定听牌由 C# 本地计算，即时可和提示沿用服务端动作结果。</summary>
     public void CacheHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
         _cachedHongqueWaitHints = waitHints ?? Array.Empty<HongqueScoreHintInfo>();
         _cachedHongqueWinHint = winHint;
@@ -131,8 +131,8 @@ public class TipsContainer : MonoBehaviour
     }
 
     /// <summary>
-    /// 虹雀的牌型与计分由服务端权威脚本完成；Unity 只把结果渲染进与其他规则
-    /// 相同的 TileContainer/FanContainer，不再把公式塞进操作按钮文字。
+    /// 虹雀提示使用 C# 本地牌型与计分；实际和牌仍由 Python 服务端权威结算。
+    /// 结果渲染进与其他规则相同的 TileContainer/FanContainer。
     /// </summary>
     public void SetHongqueTips(HongqueScoreHintInfo[] waitHints, HongqueScoreHintInfo winHint) {
         List<Transform> toDestroy = new List<Transform>();
@@ -143,6 +143,9 @@ public class TipsContainer : MonoBehaviour
         HongqueScoreHintInfo[] hints = winHint != null
             ? new[] { winHint }
             : (waitHints ?? Array.Empty<HongqueScoreHintInfo>());
+        // 虹雀每张牌唯一：听牌等待张若已在任一玩家牌河，则永远无法再摸到/点和，按灰色显示；
+        // 当前可直接和（含刚打出可点和的 win_hint）不受影响。
+        HashSet<int> riverTiles = winHint == null ? CollectHongqueRiverTiles() : null;
         List<int> shownWaits = new List<int>();
         foreach (HongqueScoreHintInfo hint in hints) {
             if (hint == null) continue;
@@ -154,9 +157,39 @@ public class TipsContainer : MonoBehaviour
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             // 只显示直接分值，不展示底/番公式。
             string label = $"{hint.points}分";
-            // 只能自摸和（杠和听牌）与国标“仅自摸”一致叠黄色底，番数照常显示。
+            string colorType = riverTiles != null && riverTiles.Contains(tileId) ? "exhausted"
+                : (hint.self_draw_only ? "zimo" : "dianhe");
+            // 已入河为灰色；仅自摸（杠和听牌）叠黄色底；可点和为绿色。
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
-                label, hint.self_draw_only ? "zimo" : "dianhe");
+                label, colorType);
+        }
+        UpdateRyuukyokuTenpaiChoice(shownWaits);
+    }
+
+    /// <summary>
+    /// 虹雀假想弃牌预览：渲染统一 C# 计分入口的结果，和实际弃牌后的右侧听牌共用同一路径。
+    /// </summary>
+    public void SetHongqueCutPreviewHints(HongqueScoreHintInfo[] waitHints, int pendingCutTileId) {
+        _pendingCutTileId = pendingCutTileId;
+        List<Transform> toDestroy = new List<Transform>();
+        foreach (Transform child in TileContainer.transform) toDestroy.Add(child);
+        foreach (Transform child in FanContainer.transform) toDestroy.Add(child);
+        foreach (Transform child in toDestroy) Destroyer.Instance.AddToDestroyer(child);
+
+        HashSet<int> riverTiles = CollectHongqueRiverTiles();
+        riverTiles.Add(pendingCutTileId);
+        List<int> shownWaits = new List<int>();
+        foreach (HongqueScoreHintInfo hint in waitHints ?? Array.Empty<HongqueScoreHintInfo>()) {
+            if (hint == null || string.IsNullOrEmpty(hint.tile)) continue;
+            int tileId = HongqueTileVisual.FromCode(hint.tile);
+            if (tileId == 0) continue;
+            shownWaits.Add(tileId);
+            InstantiateTipsTile(tileId);
+            GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
+            string colorType = riverTiles.Contains(tileId) ? "exhausted"
+                : (hint.self_draw_only ? "zimo" : "dianhe");
+            fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
+                $"{hint.points}分", colorType);
         }
         UpdateRyuukyokuTenpaiChoice(shownWaits);
     }
@@ -179,6 +212,8 @@ public class TipsContainer : MonoBehaviour
         allTiles.AddRange(kongWinOnly);
         allTiles = allTiles.Distinct().ToList();
         allTiles.Sort();
+        // 虹雀每张牌唯一：听牌张若已在任一玩家牌河，则永远无法再摸到/点和，按灰色显示。
+        HashSet<int> riverTiles = CollectHongqueRiverTiles();
         foreach (int tileId in allTiles) {
             InstantiateTipsTile(tileId);
             HongqueWinScore score;
@@ -193,9 +228,26 @@ public class TipsContainer : MonoBehaviour
             }
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             string label = score != null ? $"{score.Points}分" : "0分";
+            string colorType = riverTiles.Contains(tileId) ? "exhausted"
+                : (kongWinOnly.Contains(tileId) ? "zimo" : "dianhe");
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
-                label, kongWinOnly.Contains(tileId) ? "zimo" : "dianhe");
+                label, colorType);
         }
+    }
+
+    /// <summary>收集场上全部玩家牌河中的牌（虹雀每张唯一，已在河中的听牌张无法再获得）。</summary>
+    private static HashSet<int> CollectHongqueRiverTiles() {
+        HashSet<int> river = new HashSet<int>();
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null || gsm.player_to_info == null) return river;
+        foreach (KeyValuePair<string, PlayerInfoClass> kv in gsm.player_to_info) {
+            PlayerInfoClass info = kv.Value;
+            if (info == null || info.discard_tiles == null) continue;
+            foreach (int tileId in info.discard_tiles) {
+                if (tileId > 0) river.Add(tileId);
+            }
+        }
+        return river;
     }
 
     /// <summary>

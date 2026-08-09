@@ -343,7 +343,7 @@ def _claim_advances(before: EfficiencyValue, after: EfficiencyValue, priority: i
         return after.distance < before.distance
     if after.live_waits != before.live_waits:
         return after.live_waits > before.live_waits
-    if priority >= 3:  # a structurally neutral rainbow carries meaningful fan
+    if priority >= 6:  # 虹(6)：结构性中性但番值高，宽松放行；碰(5)/吃(2-4) 需补偿开副露
         return after.flexibility >= before.flexibility
     # Ordinary chi/peng must compensate for opening the hand.
     return after.flexibility > before.flexibility * 5 // 4

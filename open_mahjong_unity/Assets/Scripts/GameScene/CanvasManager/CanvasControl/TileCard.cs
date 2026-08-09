@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -447,6 +448,26 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             return;
         }
 
+        if (NormalGameStateManager.Instance.roomRule == "hongque") {
+            List<int> handAfterDiscard = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
+            bool removed = handAfterDiscard.Remove(tileId);
+            HongqueScoreHintInfo[] localHints = removed
+                ? HongqueTenpai.BuildScoreHints(
+                    handAfterDiscard,
+                    NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
+                    tileId)
+                : Array.Empty<HongqueScoreHintInfo>();
+            if (!isHovering && !ignoreHoverGate) return;
+            if (localHints.Length > 0) {
+                TipsContainer.Instance.SetHongqueCutPreviewHints(localHints, tileId);
+                TipsContainer.Instance.hasTips = true;
+                TipsContainer.Instance.ShowTips();
+            } else {
+                TipsContainer.Instance.EndCutPreviewTips();
+            }
+            return;
+        }
+
         // 临时移除当前牌，进行听牌检测
         List<int> tempHandTiles = new List<int>(NormalGameStateManager.Instance.selfHandTiles);
         tempHandTiles.Remove(tileId);
@@ -512,13 +533,6 @@ public class TileCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
                     NormalGameStateManager.Instance.player_to_info["self"].combination_tiles ?? new List<string>(),
                     NormalGameStateManager.Instance.detailedConfig
                 );
-            }
-            else if (NormalGameStateManager.Instance.roomRule == "hongque"){
-                // 本地用与服务端一致的掩码算法计算“打出该张后仍听什么”，实现切牌预测提示。
-                waitingTiles = HongqueTenpai.WaitingTilesAfterDiscard(
-                    NormalGameStateManager.Instance.selfHandTiles,
-                    NormalGameStateManager.Instance.player_to_info["self"].combination_masks,
-                    tileId);
             }
             else
             {

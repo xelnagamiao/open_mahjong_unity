@@ -217,5 +217,68 @@ run('17. 答案纯全带(3番)：猜混全带黄、混一色绿、自身绿', ()
   assert(r3.fan.tone === 'green' && r3.correct, `junchan fan=${r3.fan.tone} correct=${r3.correct}`)
 })
 
+run('18. 宝牌/赤宝牌/里宝牌 互为黄色关联且番名合并', () => {
+  const ids = ['riichi:dora', 'riichi:aka_dora', 'riichi:ura_dora']
+  for (const answerId of ids) {
+    for (const guessId of ids) {
+      if (answerId === guessId) continue
+      const answer = GUESS_FAN_BY_ID[answerId]
+      const guess = GUESS_FAN_BY_ID[guessId]
+      const r = compareGuess({ answer, rolledFan: answer.fan, guess })
+      assert(r.name.tone === 'yellow', `${answerId} <- ${guessId}: ${r.name.tone}`)
+      assert(!r.correct, `${answerId} <- ${guessId} not correct`)
+    }
+  }
+  const dora = GUESS_FAN_BY_ID['riichi:dora']
+  assert(
+    JSON.stringify(dora.names) === JSON.stringify(['宝牌', '赤宝牌', '里宝牌']),
+    `dora names=${JSON.stringify(dora.names)}`,
+  )
+  const disabled = compareGuess({
+    answer: dora,
+    rolledFan: dora.fan,
+    guess: GUESS_FAN_BY_ID['riichi:aka_dora'],
+    disableRelated: true,
+  })
+  assert(disabled.name.tone === 'gray', `disabled=${disabled.name.tone}`)
+})
+
+run('19. 海底捞月/河底捞鱼/妙手回春 互为黄色关联且番名合并', () => {
+  const ids = [
+    'guobiao:haidilaoyue',
+    'guobiao:miaoshouhuichun',
+    'riichi:haitei',
+    'riichi:houtei',
+  ]
+  for (const answerId of ids) {
+    for (const guessId of ids) {
+      if (answerId === guessId) continue
+      const answer = GUESS_FAN_BY_ID[answerId]
+      const guess = GUESS_FAN_BY_ID[guessId]
+      const rolledFan = Array.isArray(answer.fan) ? answer.fan[0] : answer.fan
+      const r = compareGuess({ answer, rolledFan, guess })
+      assert(r.name.tone === 'yellow', `${answerId} <- ${guessId}: ${r.name.tone}`)
+      assert(!r.correct, `${answerId} <- ${guessId} not correct`)
+    }
+  }
+  assert(
+    JSON.stringify(GUESS_FAN_BY_ID['guobiao:haidilaoyue'].names) ===
+      JSON.stringify(['海底捞月', '河底捞鱼', '妙手回春']),
+    `haidilaoyue names=${JSON.stringify(GUESS_FAN_BY_ID['guobiao:haidilaoyue'].names)}`,
+  )
+  assert(
+    JSON.stringify(GUESS_FAN_BY_ID['riichi:houtei'].names) ===
+      JSON.stringify(['河底捞鱼', '海底捞月', '妙手回春']),
+    `houtei names=${JSON.stringify(GUESS_FAN_BY_ID['riichi:houtei'].names)}`,
+  )
+  const disabled = compareGuess({
+    answer: GUESS_FAN_BY_ID['riichi:houtei'],
+    rolledFan: 1,
+    guess: GUESS_FAN_BY_ID['guobiao:haidilaoyue'],
+    disableRelated: true,
+  })
+  assert(disabled.name.tone === 'gray', `disabled=${disabled.name.tone}`)
+})
+
 console.log(`\n==== ${passed} passed, ${failed} failed ====`)
 process.exit(failed ? 1 : 0)

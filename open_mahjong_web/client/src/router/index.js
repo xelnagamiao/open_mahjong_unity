@@ -4,6 +4,7 @@ import { useEventAdminAuthStore } from '@/stores/eventAdminAuth'
 import { usePlayerAuthStore } from '@/stores/playerAuth'
 import { watch } from 'vue'
 import { locale, tr } from '@/i18n'
+import { SITE, seoEntryFor, noindexEntryFor } from '@/seo'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import PlayerDataLayout from '@/layouts/PlayerDataLayout.vue'
 import AccountLayout from '@/layouts/AccountLayout.vue'
@@ -96,8 +97,13 @@ const routes = [
         meta: { title: '牌理 - salasasa.cn' }
       },
       {
-        path: 'calc/:kind',
-        name: 'Calculator',
+        path: 'calc/chinese',
+        name: 'CalculatorChinese',
+        component: CalculatorView
+      },
+      {
+        path: 'calc/hongque',
+        name: 'CalculatorHongque',
         component: CalculatorView
       },
       {
@@ -329,6 +335,32 @@ const routes = [
   }
 ]
 
+/**
+ * 把 seo.js 中的 TDK 配置合并进路由 meta：
+ * 具体路径精确匹配，动态路由按模式（如 '/library/:rule'）匹配。
+ */
+function applySeoRoutes(routes, parentPath = '') {
+  for (const route of routes) {
+    const fullPath = (parentPath + (route.path || '')).replace(/\/+/g, '/').replace(/\/$/, '') || '/'
+    const seo = seoEntryFor(fullPath)
+    const noindex = noindexEntryFor(fullPath)
+    if (seo || noindex) {
+      const merged = { ...(seo || {}) }
+      if (noindex) {
+        merged.noindex = true
+        if (!merged.title) merged.title = noindex.title
+        if (!merged.description) merged.description = noindex.description || ''
+      }
+      route.meta = { ...(route.meta || {}), ...merged }
+    }
+    if (route.children) {
+      applySeoRoutes(route.children, fullPath.endsWith('/') ? fullPath : `${fullPath}/`)
+    }
+  }
+}
+
+applySeoRoutes(routes)
+
 const router = createRouter({
   history: createWebHistory(),
   routes,
@@ -339,10 +371,6 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  if (to.meta.title) {
-    document.title = tr(to.meta.title)
-  }
-
   if (to.path.startsWith('/admin')) {
     const auth = useAdminAuthStore()
     if (to.meta.publicAdmin) {
@@ -392,20 +420,47 @@ router.beforeEach(async (to, from, next) => {
   next()
 })
 
-function routeTitle(route) {
-  const title = route.meta.title
-  if (!title) return ''
-  return route.path.startsWith('/admin') ? title : tr(title)
+function setHeadMeta(name, content) {
+  let el = document.head.querySelector(`meta[name="${name}"]`)
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('name', name)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
 }
 
-watch(locale, () => {
-  const title = routeTitle(router.currentRoute.value)
-  if (title) document.title = title
-}, { immediate: true })
+function applyHead(route) {
+  const title = route.meta.title
+  if (title) {
+    // 后台标题保持原文，不参与 i18n（与原逻辑一致）
+    document.title = route.path.startsWith('/admin') ? title : tr(title)
+  }
+  if (route.meta.description) {
+    setHeadMeta('description', route.meta.description)
+  } else {
+    document.head.querySelector('meta[name="description"]')?.remove()
+  }
+  if (route.meta.keywords) {
+    setHeadMeta('keywords', route.meta.keywords)
+  } else {
+    document.head.querySelector('meta[name="keywords"]')?.remove()
+  }
+  setHeadMeta('robots', route.meta.noindex ? 'noindex,nofollow' : 'index,follow')
+
+  let canonical = document.head.querySelector('link[rel="canonical"]')
+  if (!canonical) {
+    canonical = document.createElement('link')
+    canonical.setAttribute('rel', 'canonical')
+    document.head.appendChild(canonical)
+  }
+  canonical.setAttribute('href', SITE.domain + route.path)
+}
+
+watch(locale, () => applyHead(router.currentRoute.value), { immediate: true })
 
 router.afterEach((to) => {
-  const title = routeTitle(to)
-  if (title) document.title = title
+  applyHead(to)
   // 路由切换后默认回到页面顶部，避免从首页进入时停留在上次滚动位置
   window.scrollTo(0, 0)
 })

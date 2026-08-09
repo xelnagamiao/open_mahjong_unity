@@ -96,6 +96,14 @@ public partial class NormalGameStateManager {
     }
 
     /// <summary>
+    /// 自动过牌的动作名：虹雀必须发 hongque_pass（走 gamestate/hongque/action），
+    /// 发标准 "pass" 会走 GB 协议导致服务端收不到回应，亮牌窗口挂起卡死。
+    /// </summary>
+    private static string ResolveAutoPassAction() {
+        return HongqueTableAdapter.IsActive ? "hongque_pass" : "pass";
+    }
+
+    /// <summary>
     /// 鸣牌询问：应用「不吃/不碰/不明杠」及「不点和」逐项过滤后，仍可供选择的操作（不含 pass）。
     /// 仅用于判定是否「全部跳过」可自动 pass；不做 UI 过滤。
     /// </summary>
@@ -179,7 +187,7 @@ public partial class NormalGameStateManager {
 
         // 1. 牌张设置命中：不询问任何操作（含荣和）
         if (AutoAction.Instance.ShouldAutoPassForCurrentDiscard()) {
-            actionType = "pass";
+            actionType = ResolveAutoPassAction();
             return true;
         }
 
@@ -201,7 +209,7 @@ public partial class NormalGameStateManager {
 
         // 3. 全部可操作项被筛光 → 自动 pass
         if (ShouldAutoPassMingPaiAsk(allowActionList)) {
-            actionType = "pass";
+            actionType = ResolveAutoPassAction();
             return true;
         }
 

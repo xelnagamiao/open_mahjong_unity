@@ -512,6 +512,7 @@ public class HongqueRoundResultInfo {
     public Dictionary<int, int> score_changes;
     public Dictionary<int, int> scores;
     public bool silent;
+    public bool multi_ron;
 }
 
 [System.Serializable]
@@ -561,6 +562,8 @@ public class HongquePlayerInfo {
     public int profile_used;
     public int character_used;
     public int voice_used;
+    public string[] score_history;
+    public int[] round_number_history;
 }
 
 [System.Serializable]

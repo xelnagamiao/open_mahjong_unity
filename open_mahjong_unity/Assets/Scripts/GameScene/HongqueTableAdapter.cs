@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -26,6 +27,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
     private string lastActionUiKey;
     private string lastTipsUiKey;
     private int lastDiscardTileId;
+    private int lastDiscardPlayerIndex = -1;
 
     public static HongqueTableAdapter EnsureInstance() {
         if (Instance != null) return Instance;
@@ -77,6 +79,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             lastActionUiKey = null;
             lastTipsUiKey = null;
             lastDiscardTileId = 0;
+            lastDiscardPlayerIndex = -1;
             // 将 126 张牌面的同步磁盘加载集中到开局，避免首次见到某张牌时卡住出牌/摸牌帧。
             HongqueTileVisual.PreloadAllTextures();
             MahjongObjectPool.Instance?.PrewarmHongquePool();
@@ -126,6 +129,11 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
 
     public void SendDiscard(int tileId) {
         if (!IsActive) return;
+        // 点击出牌即结束本地操作窗口。不能等服务端 discard 帧回来后再清理，
+        // 否则倒计时协程会在网络往返期间短暂刷新出旧值或默认值。
+        GameCanvas.Instance.StopTimeRunning();
+        GameSceneMouseInputController.Instance.SetActionInputPhase(
+            GameSceneMouseInputController.InputPhaseNone);
         Send("discard", HongqueTileVisual.ToCode(tileId));
         NormalGameStateManager.Instance.allowActionList.Clear();
         GameCanvas.Instance.ClearActionButton();
@@ -241,11 +249,14 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             gsm.SwitchCurrentPlayer(
                 "self", switchType, state.remaining_time, state.you,
                 false, null, state.step_remaining);
-        } else if (state.phase == "claim") {
-            // This viewer has already answered the claim window.  Clear local
-            // input without manufacturing a fresh hand-action timer.
+        } else if (state.phase != "turn") {
+            // resolving 是出牌事件与鸣牌询问之间的中间帧；claim 无操作表示本家
+            // 已经回答。两者都只能清理输入，不能用 AskHandAction(0, ...)
+            // 制造一个“0+步时”倒计时，否则会在出牌后闪出默认数字再消失。
             gsm.SwitchCurrentPlayer("self", "ClearAction", 0);
         } else {
+            // 真正 turn 阶段且轮到其它家时，用通用入口更新行动者指示；
+            // SwitchCurrentPlayer 会走非本家分支并保持计时器关闭。
             gsm.AskHandAction(0, state.current_player, state.wall_count, Array.Empty<string>());
         }
     }
@@ -270,7 +281,17 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             TipsContainer.Instance.HideTips();
             return;
         }
-        HongqueScoreHintInfo[] waits = state.waiting_hints ?? Array.Empty<HongqueScoreHintInfo>();
+        HongqueScoreHintInfo[] waits = Array.Empty<HongqueScoreHintInfo>();
+        bool showStableWaits = state.win_hint == null
+            && (state.phase == "turn" || state.phase == "claim")
+            && !(state.phase == "turn" && state.current_player == state.you);
+        if (showStableWaits) {
+            NormalGameStateManager gsm = NormalGameStateManager.Instance;
+            waits = HongqueTenpai.BuildScoreHints(
+                gsm.selfHandTiles,
+                gsm.player_to_info["self"].combination_masks,
+                lastDiscardPlayerIndex == state.you ? lastDiscardTileId : (int?)null);
+        }
         if (state.win_hint != null || waits.Length > 0) {
             TipsBlock.Instance.ShowHongqueTips(waits, state.win_hint);
             return;
@@ -360,6 +381,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         if (actionEvent.type == "discard") {
             int tileId = HongqueTileVisual.FromCode(actionEvent.tile);
             lastDiscardTileId = tileId;
+            lastDiscardPlayerIndex = actionEvent.player;
             gsm.DoAction(
                 new[] { "cut" }, actionEvent.player, tileId, null, null, actionEvent.cut_class,
                 null, null, null, null, null, isSilent: false);
@@ -394,6 +416,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             new[] { tableAction }, actionEvent.player, claimedTile, null, null, false,
             null, null, null, meldMask, target,
             isSilent: rainbow || claimApplied, cut_from_player: actionEvent.from_player);
+        NormalizeHongqueMeldMasks(actionEvent.player);
         if (actionEvent.player == state.you) selfHasUnmergedDraw = false;
         if (rainbow && !claimApplied
                 && gsm.indexToPosition.TryGetValue(actionEvent.player, out string position)) {
@@ -468,7 +491,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             ? meldTiles[0]
             : HongqueTileVisual.FromCode(actionEvent.claimed_tile);
         playerInfo.combination_tiles[actionEvent.meld_index] = prefix + firstTile;
-        playerInfo.combination_masks[actionEvent.meld_index] = mask.ToArray();
+        playerInfo.combination_masks[actionEvent.meld_index] = ToVerticalMeldMask(mask.ToArray());
 
         // 移出本次加入手牌的手牌：self 同步 2D/3D 手牌，其它家只减计数。
         for (int i = 0; i < addedCodes.Length; i++) {
@@ -479,6 +502,11 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             } else {
                 playerInfo.hand_tiles_count = Mathf.Max(0, playerInfo.hand_tiles_count - 1);
             }
+            // 虹雀杠不走通用“加杠后摸牌”流程，但桌面 3D 手牌仍须实减一张并收拢。
+            Game3DManager.Instance.RemoveHongqueKongHandTile(position, tileId);
+        }
+        if (position == "self") {
+            playerInfo.hand_tiles_count = gsm.selfHandTiles.Count;
         }
 
         // 声音/动作字样 + 按权威数据重建该家全部副露。
@@ -486,6 +514,29 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         GameCanvas.Instance.ShowActionDisplay(position, "gang", "hongque");
         Game3DManager.Instance.RebuildPlayerMelds(position);
         selfHasUnmergedDraw = false;
+    }
+
+    private static int[] ToVerticalMeldMask(int[] mask) {
+        if (mask == null) return Array.Empty<int>();
+        int[] vertical = (int[])mask.Clone();
+        for (int i = 0; i + 1 < vertical.Length; i += 2) {
+            vertical[i] = 0;
+        }
+        return vertical;
+    }
+
+    private static void NormalizeHongqueMeldMasks(int playerIndex) {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null || !gsm.indexToPosition.TryGetValue(playerIndex, out string position)
+                || !gsm.player_to_info.TryGetValue(position, out PlayerInfoClass playerInfo)
+                || playerInfo.combination_masks == null) {
+            return;
+        }
+        for (int i = 0; i < playerInfo.combination_masks.Count; i++) {
+            playerInfo.combination_masks[i] = ToVerticalMeldMask(playerInfo.combination_masks[i]);
+        }
+        // 普通吃碰已经由 DoAction 排入通用副露动画；这里只归一化计分板使用的竖立标记。
+        // 若此处立即重建 3D 副露，会先显示最终位置，再由已排队的动画重复生成并移动一次。
     }
 
     private static int[] BuildMeldMask(HongqueEventInfo actionEvent) {
@@ -519,6 +570,7 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         gsm.SwitchCurrentPlayer("None", "ClearAction", 0);
         TipsBlock.Instance?.HideTipsBlock();
         TipsContainer.Instance?.HideTips();
+        RecordScoreboardSettlements(current, scores);
         foreach (KeyValuePair<int, string> seat in gsm.indexToPosition) {
             if (scores.TryGetValue(seat.Key, out int score) && gsm.player_to_info.TryGetValue(seat.Value, out PlayerInfoClass info)) {
                 info.score = score;
@@ -531,18 +583,119 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         }
         if (current.round_result.winners == null || current.round_result.winners.Length == 0) return;
 
+        if (current.round_result.multi_ron && current.round_result.winners.Length > 1) {
+            // 多家和：按服务端座位顺序依次展示每位赢家的结算面板，
+            // 中间面板自动关闭，最后一家才进入确认/准备阶段。
+            StartCoroutine(ShowMultiRonSequence(current, scores));
+            return;
+        }
+
         HongqueWinnerResultInfo result = current.round_result.winners
             .FirstOrDefault(item => item != null && item.player == current.you)
             ?? current.round_result.winners.FirstOrDefault(item => item != null);
         if (result == null || result.player < 0 || result.player >= 4) return;
 
-        // 番种从大到小；可复计番（如清顺/清刻按组计）参照国标展示：按次数展开成多行。
-        string[] fanTokens = (result.fans ?? Array.Empty<HongqueFanInfo>())
+        PresentHuResult(result, scores, current, finalPanel: true);
+    }
+
+    private static void RecordScoreboardSettlements(
+        HongqueStateInfo current, Dictionary<int, int> finalScores) {
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        if (gsm == null || current?.round_result == null) return;
+        HongqueWinnerResultInfo[] winners = current.round_result.winners
+            ?? Array.Empty<HongqueWinnerResultInfo>();
+        if (winners.Length == 0) {
+            gsm.AppendExternalRoundSettlementSnapshot(
+                -1, finalScores, 0, Array.Empty<string>(), "liuju",
+                Array.Empty<int>(), Array.Empty<int[]>(), null,
+                new Dictionary<int, int>());
+            return;
+        }
+        // 服务端 score_history 按整局只追加一行；多家和的逐家面板仍分别展示，
+        // 但计分板必须合并成同一局的一行，否则下一局同步时行数不一致会清空快照。
+        int primaryWinnerIndex = current.round_result.winner_indices?.FirstOrDefault()
+            ?? winners.FirstOrDefault(item => item != null)?.player
+            ?? -1;
+        HongqueWinnerResultInfo result = winners.FirstOrDefault(
+            item => item != null && item.player == primaryWinnerIndex)
+            ?? winners.FirstOrDefault(item => item != null);
+        if (result == null) return;
+        string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
+        Dictionary<int, int> roundChanges = current.round_result.score_changes != null
+            ? new Dictionary<int, int>(current.round_result.score_changes)
+            : new Dictionary<int, int>();
+        gsm.AppendExternalRoundSettlementSnapshot(
+            result.player, finalScores, result.points, BuildFanTokens(result), huClass,
+            ConvertTiles(result.hand), BuildResultMeldMasks(result.melds),
+            result.@base, roundChanges);
+    }
+
+    private static string[] BuildFanTokens(HongqueWinnerResultInfo result) {
+        return (result?.fans ?? Array.Empty<HongqueFanInfo>())
             .OrderByDescending(fan => fan.value)
             .SelectMany(fan => Enumerable.Repeat(
-                $"{fan.name}|{fan.value}",
-                Math.Max(1, fan.count)))
+                $"{fan.name}|{fan.value}", Math.Max(1, fan.count)))
             .ToArray();
+    }
+
+    private IEnumerator ShowMultiRonSequence(HongqueStateInfo current, Dictionary<int, int> finalScores) {
+        HongqueWinnerResultInfo[] results = current.round_result.winners;
+        int[] order = current.round_result.winner_indices
+            ?? results.Select(item => item.player).ToArray();
+        NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        for (int i = 0; i < order.Length; i++) {
+            HongqueWinnerResultInfo result = results
+                .FirstOrDefault(item => item != null && item.player == order[i]);
+            if (result == null) continue;
+            bool isLast = i == order.Length - 1;
+            // 本阶段增减：只带当前赢家自己的加分（虹雀不扣分，无扣分项）。
+            // 不能把 round_result.score_changes（所有赢家合并）传给面板，
+            // 否则第一家就会把后续赢家的变更一起展示出来。
+            Dictionary<int, int> stageScoreChanges = new Dictionary<int, int>();
+            if (current.round_result.score_changes != null
+                    && current.round_result.score_changes.TryGetValue(result.player, out int winnerPoints)
+                    && winnerPoints != 0) {
+                stageScoreChanges[result.player] = winnerPoints;
+            }
+            // 阶段分数 = 最终分 - 尚未结算赢家的得分（虹雀赢家仅自加得分，无交叉支付）。
+            Dictionary<int, int> stageScores = new Dictionary<int, int>(finalScores);
+            for (int j = i + 1; j < order.Length; j++) {
+                int laterPlayer = order[j];
+                int laterPoints = current.round_result.score_changes != null
+                    && current.round_result.score_changes.TryGetValue(laterPlayer, out int p)
+                    ? p : 0;
+                if (stageScores.ContainsKey(laterPlayer)) {
+                    stageScores[laterPlayer] -= laterPoints;
+                }
+            }
+            yield return PresentHuResultCoroutine(result, stageScores, stageScoreChanges, current, isLast);
+            BoardCanvas.Instance?.UpdatePlayerScores(stageScores, gsm.indexToPosition);
+        }
+    }
+
+    private IEnumerator PresentHuResultCoroutine(
+        HongqueWinnerResultInfo result, Dictionary<int, int> scores,
+        Dictionary<int, int> stageScoreChanges,
+        HongqueStateInfo current, bool finalPanel) {
+        // 番种从大到小；可复计番（如清顺/清刻按组计）参照国标展示：按次数展开成多行。
+        string[] fanTokens = BuildFanTokens(result);
+        string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
+        // 与其他麻将规则共用完整结算链：清操作与提示 -> 和牌字样/音效 -> 3D 倒牌 -> 结算面板。
+        // room_rule=hongque 会使用普通荣和的原地倒牌，不会进入国标“从河里拿回和牌张”的分支。
+        yield return RoundEndPresentation.Instance.PresentHuResultSequenceCoroutine(
+            result.player, scores, result.points, fanTokens, huClass,
+            ConvertTiles(result.hand), Array.Empty<int>(),
+            BuildResultMeldMasks(result.melds),
+            result.@base, null, null, stageScoreChanges,
+            isSilent: current.round_result.silent,
+            finalPanel: finalPanel);
+    }
+
+    private void PresentHuResult(
+        HongqueWinnerResultInfo result, Dictionary<int, int> scores,
+        HongqueStateInfo current, bool finalPanel) {
+        // 番种从大到小；可复计番（如清顺/清刻按组计）参照国标展示：按次数展开成多行。
+        string[] fanTokens = BuildFanTokens(result);
         string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
         // 与其他麻将规则共用完整结算链：清操作与提示 -> 和牌字样/音效 -> 3D 倒牌 -> 结算面板。
         // room_rule=hongque 会使用普通荣和的原地倒牌，不会进入国标“从河里拿回和牌张”的分支。
@@ -551,7 +704,8 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             ConvertTiles(result.hand), Array.Empty<int>(),
             BuildResultMeldMasks(result.melds),
             result.@base, null, null, current.round_result.score_changes,
-            isSilent: current.round_result.silent);
+            isSilent: current.round_result.silent,
+            finalPanel: finalPanel);
     }
 
     /// <summary>
@@ -673,12 +827,10 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
                 string prefix = meld.kind == "triplet" ? "k" : meld.kind == "rainbow" ? "h" : "s";
                 combinations.Add(prefix + (tileIds.Length > 0 ? tileIds[0].ToString() : "0"));
                 List<int> mask = new List<int>();
-                bool claimedMarked = false;
                 foreach (int id in tileIds) {
-                    bool isClaimed = !claimedMarked && HongqueTileVisual.ToCode(id) == meld.claimed_tile;
-                    mask.Add(isClaimed ? 1 : 0);
+                    // 虹雀不保留来源座位横置；计分板与桌面统一保存竖立标记。
+                    mask.Add(0);
                     mask.Add(id);
-                    claimedMarked |= isClaimed;
                 }
                 masks.Add(mask.ToArray());
             }
@@ -707,8 +859,8 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             character_used = source.character_used > 0 ? source.character_used : 1,
             voice_used = source.voice_used > 0 ? source.voice_used : 1,
             huapai_list = Array.Empty<int>(),
-            score_history = Array.Empty<string>(),
-            round_number_history = Array.Empty<int>(),
+            score_history = source.score_history ?? Array.Empty<string>(),
+            round_number_history = source.round_number_history ?? Array.Empty<int>(),
             tag_list = Array.Empty<string>(),
             initial_hu_types = Array.Empty<string>(),
             discard_riichi_flags = new bool[source.discards?.Length ?? 0],

@@ -150,7 +150,7 @@ public partial class Game3DManager {
         GameObject winObj = MahjongObjectPool.Instance.Spawn(winTileId, spawnPos, rot);
         if (winObj == null) yield break;
         Tile3D winTile3D = winObj.GetComponent<Tile3D>();
-        if (winTile3D != null) winTile3D.SetBackFlip(true);
+        if (winTile3D != null) winTile3D.SetBackOrientationUpright();
         winObj.transform.SetParent(target, worldPositionStays: true);
         int lastSlot = closedSorted.Length;
         Vector3 endPos = GetRecordHandSlotWorldPosition(playerPosition, target, lastSlot);
@@ -169,7 +169,8 @@ public partial class Game3DManager {
             Quaternion startRot = riverTile.transform.rotation;
             riverTile.transform.SetParent(target, worldPositionStays: true);
             Tile3D riverTile3D = riverTile.GetComponent<Tile3D>();
-            if (riverTile3D != null) riverTile3D.SetBackFlip(true);
+            // 和牌倒牌立牌：牌背统一转 180°（旅行途中背图随牌转动）。
+            if (riverTile3D != null) riverTile3D.SetBackOrientationUpright();
             yield return CoLerpTransform(riverTile.transform, startPos, startRot, endPos, endRot, HepaiRevealTiming.TravelSeconds);
             yield break;
         }

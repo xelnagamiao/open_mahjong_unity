@@ -10,6 +10,8 @@ public class RecordSetting : MonoBehaviour {
     [SerializeField] private TMP_Text showMoqieModeText; // 手摸切灰显
     [SerializeField] private TMP_Text showChongHintText; // 铳牌提示
 
+    [SerializeField] private TMP_Text showHepaiAnimationText;
+
     [Header("颜色配置")]
     [SerializeField] private Color falseColor = Color.white;
     [SerializeField] private Color trueColor = new Color(1f, 0.5f, 0f);
@@ -22,6 +24,9 @@ public class RecordSetting : MonoBehaviour {
 
     private bool isShowChongHint = true;
     public bool IsShowChongHint { get => isShowChongHint; }
+
+    private bool isShowHepaiAnimation = false;
+    public bool IsShowHepaiAnimation { get => isShowHepaiAnimation; }
 
     private void Awake() {
         if (Instance == null) {
@@ -39,6 +44,7 @@ public class RecordSetting : MonoBehaviour {
         if (showChongHintText != null) {
             AddClickListener(showChongHintText, ToggleShowChongHint);
         }
+        AddClickListener(showHepaiAnimationText, ToggleShowHepaiAnimation);
         RefreshUI();
     }
 
@@ -66,6 +72,11 @@ public class RecordSetting : MonoBehaviour {
         }
     }
 
+    private void ToggleShowHepaiAnimation() {
+        isShowHepaiAnimation = !isShowHepaiAnimation;
+        RefreshUI();
+    }
+
     private void RefreshUI() {
         showCardsModeText.color = isShowCardsMode ? trueColor : falseColor;
         if (showMoqieModeText != null) {
@@ -73,6 +84,9 @@ public class RecordSetting : MonoBehaviour {
         }
         if (showChongHintText != null) {
             showChongHintText.color = isShowChongHint ? trueColor : falseColor;
+        }
+        if (showHepaiAnimationText != null) {
+            showHepaiAnimationText.color = isShowHepaiAnimation ? trueColor : falseColor;
         }
     }
 

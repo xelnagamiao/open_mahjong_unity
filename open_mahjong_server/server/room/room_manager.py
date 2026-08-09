@@ -648,6 +648,7 @@ class RoomManager:
         roundTimerValue: int, stepTimerValue: int, tips: bool,
         random_seed: int = 0, sub_rule: str = "hongque/v1.6",
         tourist_limit: bool = False, allow_spectator: bool = False,
+        hepai_way: str = "multi_ron",
     ) -> Response:
         """Create a memory-only Hongque prototype room."""
         try:
@@ -677,6 +678,7 @@ class RoomManager:
                 "open_cuohe": False,
                 "tourist_limit": tourist_limit,
                 "allow_spectator": False,
+                "hepai_way": hepai_way if hepai_way in ("head_bump", "multi_ron") else "multi_ron",
                 "max_player": 4,
                 "player_list": [player.user_id],
                 "player_settings": {player.user_id: {
@@ -1473,7 +1475,7 @@ class RoomManager:
             return Response(type="tips", success=False, message=f"添加机器人失败: {str(e)}")
 
     async def add_guobiao_heuristic_bot_to_room(self, Connect_id: str, room_id: str) -> Response:
-        """添加国标启发式机器人「高性能罗伯特」（user_id=3），仅国标标准规则。"""
+        """添加「高性能罗伯特」（user_id=3），支持国标标准规则与虹雀。"""
         try:
             if room_id not in self.rooms:
                 return Response(type="error_message", success=False, message="房间不存在")

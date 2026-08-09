@@ -304,8 +304,6 @@ public class MahjongObjectPool : MonoBehaviour {
         if (tile3D != null) {
             tile3D.isRiichiHorizontal = false;
             tile3D.ResetConcealedState();
-            // 和牌倒牌立牌时牌背翻转过 180°，回收前必须复位，避免下一局牌背仍倒置。
-            tile3D.ResetBackOrientation();
         }
 
         int blankId = BlankPoolTileId;

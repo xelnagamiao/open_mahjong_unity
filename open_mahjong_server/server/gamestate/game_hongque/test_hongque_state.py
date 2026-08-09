@@ -55,8 +55,28 @@ def test_chi_claim_winner_discards_then_next_seat_draws() -> None:
     asyncio.run(_exercise_chi_claim_winner_discards_then_next_seat())
 
 
-def test_closer_chi_interrupt_winner_flows_to_next_seat() -> None:
-    asyncio.run(_exercise_closer_chi_interrupt_winner_flows_to_next_seat())
+def test_chi_priority_by_discarder_relative_seat_flows_to_next_seat() -> None:
+    asyncio.run(_exercise_chi_priority_by_discarder_relative_seat())
+
+
+def test_reported_chi_sequence_draws_to_correct_seat() -> None:
+    asyncio.run(_exercise_reported_chi_sequence())
+
+
+def test_debug_double_ron_self_and_next_win_on_first_discard() -> None:
+    asyncio.run(_exercise_debug_double_ron())
+
+
+def test_claim_can_upgrade_to_higher_priority_after_claiming_lower() -> None:
+    asyncio.run(_exercise_claim_upgrade_to_higher())
+
+
+def test_head_bump_only_nearest_ron_wins() -> None:
+    asyncio.run(_exercise_head_bump_ron())
+
+
+def test_multi_ron_marks_all_winners() -> None:
+    asyncio.run(_exercise_multi_ron_flag())
 
 
 def test_kong_extends_open_meld_stepwise() -> None:
@@ -94,7 +114,7 @@ def test_default_hand_and_claim_clock_is_twenty_plus_five() -> None:
     assert 24.0 < state.claim_deadline - state.claim_started_at <= 25.0
 
 
-def test_stable_tenpai_snapshot_contains_authoritative_score_hints() -> None:
+def test_server_snapshot_leaves_tenpai_hint_scoring_to_client() -> None:
     room = {"room_id": "893", "game_round": 1, "player_list": [101, 102, 103, 104]}
     state = HongqueGameState(None, room, gamestate_id="tenpai-hint-test")
     viewer = state.players[1]
@@ -109,12 +129,37 @@ def test_stable_tenpai_snapshot_contains_authoritative_score_hints() -> None:
     state.phase = "turn"
 
     snapshot = state.build_state(1)
-    hints = {hint["tile"]: hint for hint in snapshot["waiting_hints"]}
-    assert "AX3" in hints
-    assert hints["AX3"]["points"] > 0
-    assert hints["AX3"]["base"] > 0
-    # 只有同数字两张的“对子待张”不构成听牌。
-    assert "CY5" not in hints
+    assert snapshot["waiting_tiles"] == []
+    assert snapshot["waiting_hints"] == []
+
+
+def test_round_result_records_score_and_round_history_for_reconnect() -> None:
+    asyncio.run(_exercise_score_history_for_reconnect())
+
+
+async def _exercise_score_history_for_reconnect() -> None:
+    room = {"room_id": "895", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="score-history-test")
+    state.current_round = 2
+    winner = state.players[0]
+    result = {
+        "points": 31,
+        "winning_hand": ["AX1", "AX2", "AX3"],
+        "partition": [["AX1", "AX2", "AX3"]],
+        "groups": [["AX1", "AX2", "AX3"]],
+        "pair": [],
+        "base": 3,
+        "fans": [{"name": "测试", "value": 28, "count": 1, "total": 28}],
+        "fan_total": 28,
+    }
+    await state._finish_round([(winner, result)], "self_draw")
+    if state._round_task is not None:
+        state._round_task.cancel()
+
+    assert [player.score_history for player in state.players] == [["+31"], ["0"], ["0"], ["0"]]
+    reconnect = state.build_state(0, sync_mode="reconnect")
+    assert reconnect["players"][0]["score_history"] == ["+31"]
+    assert reconnect["players"][0]["round_number_history"] == [2]
 
 
 async def _exercise_round() -> None:
@@ -127,7 +172,7 @@ async def _exercise_round() -> None:
         "player_list": user_ids,
         "player_settings": {user_id: {"username": f"P{user_id}"} for user_id in user_ids},
     }
-    state = HongqueGameState(None, room, gamestate_id="test")
+    state = HongqueGameState(None, room, gamestate_id="test", debug=False)
     await state._start_round()
     assert len(state.wall) == 81
     assert [len(player.hand) for player in state.players] == [12, 11, 11, 11]
@@ -167,7 +212,7 @@ async def _exercise_claim() -> None:
     candidate = {
         "id": "call-0",
         "kind": "sequence",
-        "priority": 1,
+        "priority": 2,
         "hand_tiles": ["AX2", "AX3"],
         "tiles": ["AX1", "AX2", "AX3"],
     }
@@ -194,7 +239,7 @@ async def _exercise_turn_progression() -> None:
             "profile_image_id": 1,
         } for user_id in user_ids},
     }
-    state = HongqueGameState(None, room, gamestate_id="progress-test")
+    state = HongqueGameState(None, room, gamestate_id="progress-test", debug=False)
     await state._start_round()
     initial_wall = len(state.wall)
 
@@ -229,7 +274,7 @@ async def _exercise_self_win_qualification() -> None:
     candidate = {
         "id": "call-0",
         "kind": "sequence",
-        "priority": 1,
+        "priority": 2,
         "hand_tiles": ["AX2", "AX3"],
         "tiles": ["AX1", "AX2", "AX3"],
     }
@@ -255,7 +300,7 @@ async def _exercise_multiple_ron() -> None:
     state.players[1].hand = ["AX2", "AX3"]
     state.players[3].hand = ["AX2", "AX3"]
     state.last_discard = {"player": 0, "tile": "AX1"}
-    ron = {"id": "ron", "kind": "win", "priority": 4, "tiles": ["AX1"], "hand_tiles": []}
+    ron = {"id": "ron", "kind": "win", "priority": 7, "tiles": ["AX1"], "hand_tiles": []}
     state.claim_options = {1: [ron], 3: [ron]}
     state.claim_responses = {
         1: {"action": "claim", "candidate": ron},
@@ -327,12 +372,13 @@ async def _exercise_tactical_claim_apply_execute() -> None:
         "id": "call-0",
         "kind": "sequence",
         "base_kind": "sequence",
-        "priority": 1,
+        "priority": 4,
         "hand_tiles": ["AX2", "AX3"],
         "tiles": ["AX1", "AX2", "AX3"],
     }
     # 玩家 3 也有可选亮牌，但暂时不回应：申请帧不应等待其回应。
-    state.claim_options = {1: [seq], 3: [dict(seq, id="call-1")]}
+    # 出牌者为 0：玩家1=下家(chi_first=4)，玩家3=上家(chi_third=2)。
+    state.claim_options = {1: [seq], 3: [dict(seq, id="call-1", priority=2)]}
     state.claim_responses = {}
     state.phase = "claim"
     state._start_claim_clock()
@@ -370,7 +416,7 @@ async def _exercise_tactical_grace_reask() -> None:
         "id": "call-0",
         "kind": "sequence",
         "base_kind": "sequence",
-        "priority": 1,
+        "priority": 4,
         "hand_tiles": ["AX2", "AX3"],
         "tiles": ["AX1", "AX2", "AX3"],
     }
@@ -378,7 +424,7 @@ async def _exercise_tactical_grace_reask() -> None:
         "id": "call-1",
         "kind": "triplet",
         "base_kind": "triplet",
-        "priority": 2,
+        "priority": 5,
         "hand_tiles": ["AX1", "AX1"],
         "tiles": ["AX1", "AX1", "AX1"],
     }
@@ -407,7 +453,11 @@ async def _exercise_tactical_grace_reask() -> None:
 
 
 async def _exercise_closer_chi_interrupts_farther() -> None:
-    """虹雀近位优先：更近的吃按更高优先级处理，可打断远处吃的申请（含主询问已 pass 者重询）。"""
+    """虹雀吃按出牌者相对位置分档：出牌者的下家(chi_first) > 对家(chi_second) > 上家(chi_third)。
+
+    出牌者为 0 号：下家(1)=chi_first，上家(3)=chi_third，高档可打断低档申请
+    （含主询问已 pass 者重询）。
+    """
     room = {"room_id": "995", "game_round": 1, "player_list": [101, 102, 103, 104]}
     state = HongqueGameState(None, room, gamestate_id="closer-chi-test")
     state.tactical_pre_grace_delay = 0.0
@@ -420,24 +470,27 @@ async def _exercise_closer_chi_interrupts_farther() -> None:
         "id": "call-0",
         "kind": "sequence",
         "base_kind": "sequence",
-        "priority": 1,
         "hand_tiles": ["AX2", "AX3"],
         "tiles": ["AX1", "AX2", "AX3"],
     }
-    state.claim_options = {1: [dict(seq, id="call-1")], 3: [dict(seq, id="call-2")]}
+    # 出牌者为 0：下家(1)=chi_first(4)，上家(3)=chi_third(2)。
+    state.claim_options = {
+        1: [dict(seq, id="call-1", priority=4)],
+        3: [dict(seq, id="call-2", priority=2)],
+    }
     state.claim_responses = {1: {"action": "pass"}}  # 近位玩家主询问已 pass
     state.phase = "claim"
     state._start_claim_clock()
 
-    # 远位玩家先申请吃
+    # 上家(3, chi_third)先申请吃
     await state._handle_claim_action(state.players[3], "claim", "call-2")
-    assert state._claim_applied == (3, dict(seq, id="call-2"))
+    assert state._claim_applied == (3, dict(seq, id="call-2", priority=2))
     if state._claim_grace_task:
         await state._claim_grace_task
-    # 近位玩家的 pass 在打断窗口被撤销重询（近位吃 > 远位吃）
+    # 下家(1, chi_first)的 pass 在打断窗口被撤销重询（高档吃 > 低档吃）
     assert 1 not in state.claim_responses
 
-    # 近位玩家改选吃，替换远位申请并执行
+    # 下家改选吃，替换上家申请并执行
     await state._handle_claim_action(state.players[1], "claim", "call-1")
     if state._claim_grace_task:
         await state._claim_grace_task
@@ -505,7 +558,7 @@ async def _exercise_tactical_grace_timeout() -> None:
         "id": "call-0",
         "kind": "triplet",
         "base_kind": "triplet",
-        "priority": 2,
+        "priority": 5,
         "hand_tiles": ["AX1", "AX1"],
         "tiles": ["AX1", "AX1", "AX1"],
     }
@@ -573,14 +626,18 @@ async def _exercise_chi_claim_winner_discards_then_next_seat() -> None:
     assert draw and draw[-1]["player"] == 2
 
 
-async def _exercise_closer_chi_interrupt_winner_flows_to_next_seat() -> None:
-    """近位优先：远处下家先战鸣申请，更近的上家抢断获胜后，摸牌仍按胜者下一家流转。"""
+async def _exercise_chi_priority_by_discarder_relative_seat() -> None:
+    """出牌者相对位置分档：对家(2)出牌时，上家(3)是出牌者的下家=chi_first。
+
+    下家(1)（出牌者的上家=chi_third）先申请，上家(chi_first)在打断窗口抢断获胜，
+    上家打出后摸牌流转到 (上家+1)%4 = 0（我）。
+    """
     room = {"room_id": "993", "game_round": 1, "player_list": [101, 102, 103, 104]}
-    state = HongqueGameState(None, room, gamestate_id="closer-interrupt-seat-test")
+    state = HongqueGameState(None, room, gamestate_id="discarder-relative-test")
     state.tactical_pre_grace_delay = 0.0
     state.tactical_grace_seconds = 0.01
     p = state.players
-    # 0=我 1=下家(远 d=3) 2=对家(出牌方) 3=上家(近 d=1)
+    # 0=我 1=下家 2=对家(出牌方) 3=上家（对家的下家，吃档最高）
     p[3].hand = ["AX1"]
     p[2].hand = ["AX2", "AX3", "BX9"]
     p[1].hand = ["BX7", "BX8", "CY9"]
@@ -596,16 +653,17 @@ async def _exercise_closer_chi_interrupt_winner_flows_to_next_seat() -> None:
     if state._claim_grace_task:
         await state._claim_grace_task
 
-    # 对家出 BX9：下家(1)与上家(3)都能吃，上家更近。
+    # 对家出 BX9：下家(1)（d=3, chi_third）与上家(3)（d=1, chi_first）都能吃。
     p[3].hand = ["BX7", "BX8", "EX9"]
     await state.submit_action(p[2].user_id, "discard", tile="BX9", action_tick=state.action_tick)
     assert state.phase == "claim" and 1 in state.claim_options and 3 in state.claim_options
-    # 下家先战鸣申请
+    # 下家(1, chi_third)先申请：低档先亮相。
     chi = next(c for c in state.claim_options[1] if c["kind"] == "sequence")
     await state.submit_action(p[1].user_id, "claim", candidate_id=chi["id"], action_tick=state.action_tick)
     if state._claim_grace_task:
         await state._claim_grace_task
-    # 更近的上家抢断
+    # 上家(3, chi_first)进入打断窗口（优先级更高），随后抢断获胜。
+    assert 3 in state.claim_options and 3 not in state.claim_responses
     chi = next(c for c in state.claim_options[3] if c["kind"] == "sequence")
     await state.submit_action(p[3].user_id, "claim", candidate_id=chi["id"], action_tick=state.action_tick)
     if state._claim_grace_task:
@@ -623,6 +681,223 @@ async def _exercise_closer_chi_interrupt_winner_flows_to_next_seat() -> None:
     draw = [event for event in state.events if event["type"] == "draw"]
     assert state.current_player_index == 0
     assert draw and draw[-1]["player"] == 0
+
+
+async def _exercise_reported_chi_sequence() -> None:
+    """反馈场景回归：上家(3)出牌，对家(2)/下家(1)/我(0)都能吃。
+
+    按出牌者相对位置分档：我(0, 出牌者下家)=chi_first、下家(1, 出牌者对家)=chi_second、
+    对家(2, 出牌者上家)=chi_third。对家先申请、下家后申请 → 下家获胜；
+    我作为最高档在打断窗口内被等待（不再被直接抢走），未操作则窗口超时后下家执行，
+    下家打出 → 摸牌流转到 (下家+1)%4 = 对家。
+    """
+    room = {"room_id": "991", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="reported-sequence-test")
+    state.tactical_pre_grace_delay = 0.0
+    state.tactical_grace_seconds = 0.01
+    p = state.players
+    # 0=我 1=下家 2=对家 3=上家
+    p[3].hand = ["AX1"]                          # 上家出 AX1
+    p[2].hand = ["AX2", "AX3", "BX9"]            # 对家可吃 AX1（chi_third）
+    p[1].hand = ["AX2", "AX3", "CY9"]            # 下家可吃 AX1（chi_second）
+    p[0].hand = ["AX2", "AX3", "EX9"]            # 我可吃 AX1（chi_first，最高）
+    state.current_player_index = 3
+    state.phase = "turn"
+    state.wall = ["GX1", "GX2", "GX3", "GX4", "GX5", "GX6", "GX7", "GX8", "GX9",
+                  "FY1", "FY2", "FY3", "FY4", "FY5", "FY6", "FY7", "FY8", "FY9"]
+
+    await state.submit_action(p[3].user_id, "discard", tile="AX1", action_tick=state.action_tick)
+    assert state.phase == "claim" and 0 in state.claim_options and 1 in state.claim_options
+    assert 2 in state.claim_options
+    # 对家(2, 最低档)先战鸣申请。
+    chi = next(c for c in state.claim_options[2] if c["kind"] == "sequence")
+    await state.submit_action(p[2].user_id, "claim", candidate_id=chi["id"], action_tick=state.action_tick)
+    if state._claim_grace_task:
+        await state._claim_grace_task
+    # 下家(1, chi_second)后申请，覆盖对家。
+    chi = next(c for c in state.claim_options[1] if c["kind"] == "sequence")
+    await state.submit_action(p[1].user_id, "claim", candidate_id=chi["id"], action_tick=state.action_tick)
+    if state._claim_grace_task:
+        await state._claim_grace_task
+    # 我(0, chi_first)仍在打断窗口等待集合中——不被直接抢走。
+    assert 0 in state._claim_grace_pending()
+    assert state._claim_grace_timeout_task is not None
+    if state._claim_grace_timeout_task:
+        await state._claim_grace_timeout_task
+    if state._claim_grace_task:
+        await state._claim_grace_task
+    assert state.current_player_index == 1
+    assert p[1].melds and p[1].hand == ["CY9"]
+    assert p[2].melds == []
+
+    # 下家打出后，摸牌必须是 (1+1)%4 = 2（对家）。
+    await state.submit_action(p[1].user_id, "discard", tile="CY9", action_tick=state.action_tick)
+    if state.phase == "claim":
+        for pid in list(state.claim_options):
+            if pid not in state.claim_responses:
+                await state.submit_action(state.players[pid].user_id, "pass", action_tick=state.action_tick)
+    draw = [event for event in state.events if event["type"] == "draw"]
+    assert state.current_player_index == 2
+    assert draw and draw[-1]["player"] == 2
+
+
+async def _exercise_debug_double_ron() -> None:
+    """Debug 两家和牌：上家(3)首打 AX1，自家(0)与下家(1)同时荣和。"""
+    room = {"room_id": "989", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="debug-double-ron", debug=True)
+    state.tactical_pre_grace_delay = 0.0
+    state.tactical_grace_seconds = 0.01
+    await state._start_round()
+    p = state.players
+    # 庄家/首打固定为上家(3)，首打牌张为 AX1。
+    assert state.dealer_index == 3
+    assert state.current_player_index == 3
+    assert "AX1" in p[3].hand
+    # 上家不可天和（含重复牌，无法成和）。
+    actions, _ = state._legal_turn_actions(p[3])
+    assert "win" not in actions
+    # 开局摸牌事件与覆盖后的手牌一致，避免客户端白牌/多一张。
+    opening_draw = next(
+        event for event in state.events
+        if event["type"] == "draw" and event["player"] == 3
+    )
+    assert opening_draw["tile"] == p[3].drawn_tile
+    assert p[3].drawn_tile in p[3].hand
+
+    await state.submit_action(p[3].user_id, "discard", tile="AX1", action_tick=state.action_tick)
+    assert state.phase == "claim"
+    ron0 = next(c for c in state.claim_options[0] if c["kind"] == "win")
+    ron1 = next(c for c in state.claim_options[1] if c["kind"] == "win")
+    assert all(
+        c["kind"] != "win" for c in state.claim_options.get(2, ())
+    ), "对家不应有荣和选项"
+
+    # 自家与下家同时荣和 → 两家和牌。
+    await asyncio.gather(
+        state.submit_action(p[0].user_id, "claim", candidate_id=ron0["id"], action_tick=state.action_tick),
+        state.submit_action(p[1].user_id, "claim", candidate_id=ron1["id"], action_tick=state.action_tick),
+    )
+    if state._claim_grace_task:
+        await state._claim_grace_task
+    if state._claim_grace_timeout_task:
+        await state._claim_grace_timeout_task
+
+    assert state.phase == "round_end"
+    assert sorted(state.round_result["winner_indices"]) == [0, 1]
+    assert state.round_result["multi_ron"] is True
+    # 自家点确定（ready）→ 服务端播完中间面板后推进下一局，验证两家和牌不会卡死。
+    await state.submit_action(p[0].user_id, "ready", action_tick=state.action_tick)
+    if state._round_task:
+        await asyncio.wait_for(state._round_task, timeout=40)
+    assert state.current_round == 2
+    if state._round_task:
+        state._round_task.cancel()
+
+
+async def _exercise_claim_upgrade_to_higher() -> None:
+    """川麻模式：自己先碰（中优先级），别人也碰，自己仍可升级为和（高优先级）。"""
+    room = {"room_id": "988", "game_round": 1, "player_list": [101, 102, 103, 104]}
+    state = HongqueGameState(None, room, gamestate_id="claim-upgrade-test", debug=False)
+    state.tactical_pre_grace_delay = 0.0
+    state.tactical_grace_seconds = 0.01
+    p = state.players
+    # 0=我 1=下家 2=对家 3=上家
+    p[3].hand = ["AX1", "AX2", "AX2", "BX1", "BX2", "BX3",
+                 "CX1", "CX2", "CX3", "DX1", "DX2", "DX3"]  # 上家首打 AX1（含重复，不可和）
+    p[0].hand = ["BX1", "CX1", "AX2", "AX3", "AX4",
+                 "BX5", "BX6", "BX7", "CX5", "CX6", "CX7"]  # 我可碰 AX1 也可和 AX1
+    p[1].hand = ["BX1", "CX1", "DX2", "DX3", "DX4",
+                 "EX5", "EX6", "EX7", "FY1", "FY2", "FY4"]  # 下家可碰 AX1（FY 组不完整，不可和）
+    p[2].hand = ["BX5", "BX6", "BX7", "CX1", "CX2", "CX3",
+                 "DX1", "DX2", "DX3", "EX1", "EX1"]  # 对家无操作
+    state.current_player_index = 3
+    state.phase = "turn"
+    state.wall = ["GX1", "GX2", "GX3", "GX4", "GX5", "GX6", "GX7", "GX8", "GX9",
+                  "FY1", "FY2", "FY3", "FY4", "FY5", "FY6", "FY7", "FY8", "FY9"]
+
+    await state.submit_action(p[3].user_id, "discard", tile="AX1", action_tick=state.action_tick)
+    assert state.phase == "claim"
+    assert any(c["kind"] == "triplet" for c in state.claim_options[0])
+    assert any(c["kind"] == "win" for c in state.claim_options[0])
+    assert any(c["kind"] == "triplet" for c in state.claim_options[1])
+
+    # 我（自家）先碰（中优先级）。
+    peng0 = next(c for c in state.claim_options[0] if c["kind"] == "triplet")
+    await state.submit_action(p[0].user_id, "claim", candidate_id=peng0["id"], action_tick=state.action_tick)
+    if state._claim_grace_task:
+        await state._claim_grace_task
+    # 下家也碰（别人执行中优先级操作）。
+    peng1 = next(c for c in state.claim_options[1] if c["kind"] == "triplet")
+    await state.submit_action(p[1].user_id, "claim", candidate_id=peng1["id"], action_tick=state.action_tick)
+    if state._claim_grace_task:
+        await state._claim_grace_task
+
+    # 川麻模式：我仍可升级为和（更高优先级按钮重新弹出）。
+    assert 0 in state._claim_upgrade_players
+    win0 = next(c for c in state.claim_options[0] if c["kind"] == "win")
+    await state.submit_action(p[0].user_id, "claim", candidate_id=win0["id"], action_tick=state.action_tick)
+    if state._claim_grace_task:
+        await state._claim_grace_task
+    if state._claim_grace_timeout_task:
+        await state._claim_grace_timeout_task
+
+    assert state.phase == "round_end"
+    assert state.round_result["winner_indices"] == [0]
+    assert p[0].melds == []  # 荣和不改手牌，直接结算
+    if state._round_task:
+        state._round_task.cancel()
+
+
+async def _exercise_head_bump_ron() -> None:
+    """头跳：多家荣和时只保留距出牌者最近的一家，其余截和。"""
+    room = {"room_id": "990", "game_round": 1, "player_list": [101, 102, 103, 104],
+            "hepai_way": "head_bump"}
+    state = HongqueGameState(None, room, gamestate_id="head-bump-test")
+    state.players[0].discards = ["AX1"]
+    state.players[1].hand = ["AX2", "AX3"]
+    state.players[3].hand = ["AX2", "AX3"]
+    state.last_discard = {"player": 0, "tile": "AX1"}
+    ron = {"id": "ron", "kind": "win", "priority": 7, "tiles": ["AX1"], "hand_tiles": []}
+    state.claim_options = {1: [ron], 3: [ron]}
+    state.claim_responses = {
+        1: {"action": "claim", "candidate": ron},
+        3: {"action": "claim", "candidate": ron},
+    }
+    state.phase = "claim"
+
+    await state._resolve_claims()
+
+    assert state.phase == "round_end"
+    assert state.round_result["winner_indices"] == [1]  # 距出牌者 1 最近，截和
+    assert state.round_result["multi_ron"] is False
+    if state._round_task:
+        state._round_task.cancel()
+
+
+async def _exercise_multi_ron_flag() -> None:
+    """多家和：所有可荣和者全部结算，round_result 标记 multi_ron=True。"""
+    room = {"room_id": "989", "game_round": 1, "player_list": [101, 102, 103, 104],
+            "hepai_way": "multi_ron"}
+    state = HongqueGameState(None, room, gamestate_id="multi-ron-flag-test")
+    state.players[0].discards = ["AX1"]
+    state.players[1].hand = ["AX2", "AX3"]
+    state.players[3].hand = ["AX2", "AX3"]
+    state.last_discard = {"player": 0, "tile": "AX1"}
+    ron = {"id": "ron", "kind": "win", "priority": 7, "tiles": ["AX1"], "hand_tiles": []}
+    state.claim_options = {1: [ron], 3: [ron]}
+    state.claim_responses = {
+        1: {"action": "claim", "candidate": ron},
+        3: {"action": "claim", "candidate": ron},
+    }
+    state.phase = "claim"
+
+    await state._resolve_claims()
+
+    assert state.phase == "round_end"
+    assert sorted(state.round_result["winner_indices"]) == [1, 3]
+    assert state.round_result["multi_ron"] is True
+    if state._round_task:
+        state._round_task.cancel()
 
 
 async def _exercise_kong_extends_open_meld() -> None:

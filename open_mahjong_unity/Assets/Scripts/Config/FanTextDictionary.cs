@@ -268,6 +268,12 @@ public static class FanTextDictionary {
         {"花龙", "4番"}, {"三色同顺", "4番"}, {"碰碰和", "3番"}, {"混全带幺", "3番"}, {"混一色", "3番"}, {"三色连顺", "3番"},
         {"双同刻", "2番"}, {"双暗刻", "2番"}, {"一般高", "2番"}, {"和绝张", "2番"}, {"箭刻", "2番"}, {"圈风刻", "2番"}, {"门风刻", "2番"}, {"四归一", "2番"}, {"暗杠", "2番"}, {"五门齐", "2番"}, {"全求人", "2番"},
         {"自摸", "1番"}, {"门前清", "1番"}, {"明杠", "1番"}, {"断幺", "1番"}, {"喜相逢", "1番"}, {"连六", "1番"}, {"老少副", "1番"}, {"幺九刻", "1番"},
+        {"四归一*1", "2番"}, {"四归一*2", "4番"}, {"四归一*3", "6番"}, {"四归一*4", "8番"},
+        {"一般高*1", "2番"}, {"一般高*2", "4番"}, {"一般高*3", "6番"}, {"一般高*4", "8番"},
+        {"喜相逢*1", "1番"}, {"喜相逢*2", "2番"}, {"喜相逢*3", "3番"}, {"喜相逢*4", "4番"},
+        {"幺九刻*1", "1番"}, {"幺九刻*2", "2番"}, {"幺九刻*3", "3番"}, {"幺九刻*4", "4番"},
+        {"老少副*1", "1番"}, {"老少副*2", "2番"}, {"老少副*3", "3番"}, {"老少副*4", "4番"},
+        {"连六*1", "1番"}, {"连六*2", "2番"}, {"连六*3", "3番"}, {"连六*4", "4番"},
     };
 
     /// <summary>
@@ -563,16 +569,20 @@ public static class FanTextDictionary {
     }
 
     /// <summary>
-    /// 国标：任一单项番数 &gt;24（即 32 番及以上）；日麻：含役满（含双倍役满）时，和牌面板出现应播放 Gong_hu 音效。
+    /// 国标：任一单项番数 &gt;24；日麻：含役满；虹雀：和牌总分 &gt;30 时播放 Gong_hu。
     /// </summary>
-    public static bool ShouldPlayGongHuSound(string rule, string[] huFan) {
-        if (huFan == null || huFan.Length == 0 || string.IsNullOrEmpty(rule)) {
+    public static bool ShouldPlayGongHuSound(string rule, string[] huFan, int huScore = 0) {
+        if (string.IsNullOrEmpty(rule)) {
             return false;
         }
 
         bool isGuobiao = rule.StartsWith("guobiao/");
         bool isRiichi = rule.StartsWith("riichi");
-        if (!isGuobiao && !isRiichi) {
+        bool isHongque = rule.StartsWith("hongque");
+        if (isHongque) {
+            return huScore > 30;
+        }
+        if ((!isGuobiao && !isRiichi) || huFan == null || huFan.Length == 0) {
             return false;
         }
 
