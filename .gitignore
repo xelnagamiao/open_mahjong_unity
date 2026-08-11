@@ -33,6 +33,10 @@ open_mahjong_server/*
 
 # 保留 server 目录
 !open_mahjong_server/server/
+!open_mahjong_server/tests/
+!open_mahjong_server/tests/**
+!open_mahjong_server/docs/
+!open_mahjong_server/docs/**
 open_mahjong_server/server/error_log/*
 open_mahjong_server/server/local_config.py
 
@@ -44,6 +48,8 @@ open_mahjong_server/server/**/.pytest_cache/
 open_mahjong_server/server/**/.mypy_cache/
 open_mahjong_server/server/**/.ruff_cache/
 open_mahjong_server/server/**/*.pyo
+open_mahjong_server/tests/**/__pycache__/
+open_mahjong_server/tests/**/*.py[cod]
 
 # 服务端运行日志（勿提交）
 open_mahjong_server/logs/
@@ -85,4 +91,7 @@ open_mahjong_web/client/dist/*
 
 # Local verification/build artifacts
 /tmp/
+/.pytest_cache/
+open_mahjong_unity/Assets/Resources/PerformanceTestRunInfo.json*
+open_mahjong_unity/Assets/Resources/PerformanceTestRunSettings.json*
 

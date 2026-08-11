@@ -41,6 +41,8 @@ def tactical_commit_lock_enabled(gs) -> bool:
     return bool(getattr(gs, "tactical_commit_lock", False))
 
 
+# 「保存已确定行为」：玩家提交非 pass 后即锁定本次选择；后续只询问尚未
+# 承诺且能以更高优先级打断的玩家，已确定者不再改选。
 def tactical_mark_player_committed(gs, player_index: int) -> None:
     """国标：玩家已成功提交非 pass 鸣牌，本张弃牌区间内不可改选。"""
     if not tactical_commit_lock_enabled(gs):

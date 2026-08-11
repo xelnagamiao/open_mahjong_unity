@@ -204,6 +204,8 @@ class Show_result_info(BaseModel):
     is_zimo: Optional[bool] = None  # 本次和牌是否自摸
     hepai_tile: Optional[int] = None  # 和牌张（自摸时仅和牌者视角下发真实 id，他人为 0）
     multi_ron: Optional[bool] = None  # 一炮多响事件标志（客户端每家补花区摆 1 张变暗牌）
+    simultaneous_hu_hands: Optional[Dict[int, List[int]]] = None  # 多家和首条结算携带全部赢家手牌
+    skip_hand_reveal: Optional[bool] = None  # 后续赢家仅播放结算面板，不重复倒牌
     is_qianggang: Optional[bool] = None  # 抢杠和：和牌张为加杠牌，客户端透明克隆且不提前收走加杠牌
     recycle_discard: Optional[bool] = None  # 点炮和牌动画结束后回收河牌（单家=true；多响仅最后一家=true）
     suppress_hand_reveal: Optional[bool] = None  # 血战：和牌时不展开手牌，仅补花区标记

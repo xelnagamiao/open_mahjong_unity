@@ -66,7 +66,7 @@
 ### 4.3 隔离性（不破坏其它模式）
 
 改动全部位于 `game_hongque/` 目录内，未触碰国标等其它模式或 `public/ai/` 共享代码；
-`test_hongque_bot_isolation.py` 守卫：虹雀 bot 不拉入其它模式模块、`user_id=2` 仍走牌效、
+`server/gamestate/game_hongque/test_hongque_bot_isolation.py` 守卫：虹雀 bot 不拉入其它模式模块、`user_id=2` 仍走牌效、
 `user_id=3` 走启发式入口。
 
 ## 5. 复现 / 继续验证方法

@@ -18,6 +18,7 @@ async def run_hu_result_ready_phase(
     fan_count: int,
     broadcast_ready_status: Callable[..., Awaitable[None]],
     fu_fan_count: int = 0,
+    pre_panel_delay_sec: float | None = None,
 ) -> None:
     """进入 waiting_ready，等待人类确认或超时。
 
@@ -25,9 +26,13 @@ async def run_hu_result_ready_phase(
     出现前发出，因此在「倒牌 + 渐显」结束后再广播一次，以便显示自动准备标记。
     四个座位都就绪后立即继续；deadline 仅用于防止掉线玩家永久卡住续局。
     """
-    wait_time = hu_result_ready_wait_seconds(fan_count, fu_fan_count)
+    if pre_panel_delay_sec is None:
+        pre_panel_delay_sec = hu_result_ready_pre_panel_seconds()
+    wait_time = hu_result_ready_wait_seconds(
+        fan_count, fu_fan_count, pre_panel_delay_sec=pre_panel_delay_sec
+    )
     deadline = time.time() + wait_time
-    panel_visible_at = time.time() + hu_result_ready_pre_panel_seconds() + ROUND_END_PRESENTATION_FADE_SEC
+    panel_visible_at = time.time() + pre_panel_delay_sec + ROUND_END_PRESENTATION_FADE_SEC
 
     game_state.action_dict = {}
     for player in game_state.player_list:

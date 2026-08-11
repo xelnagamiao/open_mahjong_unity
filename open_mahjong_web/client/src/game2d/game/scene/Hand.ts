@@ -37,6 +37,9 @@ export class Hand extends Container {
   private readonly river: River | null
   readonly waitDisplay: WaitDisplay | null
   private readonly discardHelperList: DiscardHelper[] = []
+  private pendingDiscardTile: Tile | null = null
+  private pendingDiscardHelper: DiscardHelper | null = null
+  private requireDiscardConfirmation = false
   private readonly handScale: number
   private readonly replayStyle: boolean
 
@@ -453,8 +456,12 @@ export class Hand extends Container {
 
   // ── Discard interaction ──────────────────────────────────────────
 
-  waitDiscard(onDiscard: (tid: number, useDrawnTile: boolean) => void): void {
+  waitDiscard(
+    onDiscard: (tid: number, useDrawnTile: boolean) => void,
+    requireConfirmation = false,
+  ): void {
     this.unwaitDiscard()
+    this.requireDiscardConfirmation = requireConfirmation
 
     if (this.drawnTile) {
       const dt = this.drawnTile
@@ -476,27 +483,66 @@ export class Hand extends Container {
     }
   }
 
-  private bindClick(tile: Tile, fire: () => void, hx: number, hy: number): void {
+  private bindClick(
+    tile: Tile,
+    fire: () => void,
+    hx: number,
+    hy: number,
+  ): void {
+    let helper: DiscardHelper | null = null
+    const activate = (): void => {
+      if (!this.requireDiscardConfirmation || this.pendingDiscardTile === tile) {
+        this.unwaitDiscard()
+        fire()
+        return
+      }
+      this.clearPendingDiscardSelection()
+      this.pendingDiscardTile = tile
+      this.pendingDiscardHelper = helper
+      tile.setSelectionTint(true)
+      helper?.setSelected(true)
+    }
+
     if (IS_MOBILE_PHONE) {
       const h = new DiscardHelper(this, hx, hy)
+      helper = h
       this.discardHelperList.push(h)
       h.eventMode = 'static'; h.cursor = 'pointer'
-      h.on('pointerdown', (e: FederatedPointerEvent) => {
+      tile.eventMode = 'static'; tile.cursor = 'pointer'
+      const onTap = (e: FederatedPointerEvent): void => {
         if (e.button !== 0) return
-        this.unwaitDiscard(); fire()
-      })
+        activate()
+      }
+      h.on('pointertap', onTap)
+      tile.on('pointertap', onTap)
     } else {
       tile.eventMode = 'static'; tile.cursor = 'pointer'
       tile.on('pointerdown', (e: FederatedPointerEvent) => {
         if (e.button !== 0) return
-        this.unwaitDiscard(); fire()
+        activate()
       })
     }
   }
 
+  private clearPendingDiscardSelection(): void {
+    this.pendingDiscardTile?.setSelectionTint(false)
+    this.pendingDiscardHelper?.setSelected(false)
+    this.pendingDiscardTile = null
+    this.pendingDiscardHelper = null
+  }
+
+  setDiscardConfirmationRequired(required: boolean): void {
+    this.requireDiscardConfirmation = required
+    if (!required) this.clearPendingDiscardSelection()
+  }
+
   unwaitDiscard(): void {
-    for (const t of this.rightList) { t.off('pointerdown'); t.setHoverEnabled(t.shown) }
-    if (this.drawnTile) { this.drawnTile.off('pointerdown'); this.drawnTile.setHoverEnabled(this.drawnTile.shown) }
+    this.clearPendingDiscardSelection()
+    for (const t of this.rightList) { t.off('pointerdown'); t.off('pointertap'); t.setHoverEnabled(t.shown) }
+    if (this.drawnTile) {
+      this.drawnTile.off('pointerdown'); this.drawnTile.off('pointertap')
+      this.drawnTile.setHoverEnabled(this.drawnTile.shown)
+    }
     for (const h of this.discardHelperList) { h.visible = false; this.removeChild(h); h.destroy() }
     this.discardHelperList.length = 0
   }

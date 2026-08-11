@@ -42,6 +42,17 @@
         <span class="assist-switch__thumb" />
       </span>
     </button>
+
+    <button
+      type="button"
+      class="assist-switch assist-switch--row"
+      :class="{ 'is-on': settings.confirmDiscard }"
+      :aria-pressed="settings.confirmDiscard"
+      @click="$emit('assist-update', { confirmDiscard: !settings.confirmDiscard })"
+    >
+      <span class="assist-switch__label">二次点击确认出牌</span>
+      <span class="assist-switch__value">{{ settings.confirmDiscard ? '是' : '否' }}</span>
+    </button>
   </div>
 </template>
 

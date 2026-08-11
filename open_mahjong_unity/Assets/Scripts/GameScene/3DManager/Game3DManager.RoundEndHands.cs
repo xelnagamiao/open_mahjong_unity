@@ -50,6 +50,28 @@ public partial class Game3DManager {
         yield return new WaitForSeconds(HepaiRevealTiming.ExpandHoldSeconds);
     }
 
+    /// <summary>多家荣和：同一帧摆好全部赢家手牌并同时触发倒牌动画。</summary>
+    public IEnumerator PlayMultipleHepaiHandReveals(IList<HepaiPresentationRequest> requests) {
+        if (requests == null || requests.Count == 0) yield break;
+        ResetHandRevealAnimators();
+        List<PosPanel3D> revealPanels = new List<PosPanel3D>();
+        for (int i = 0; i < requests.Count; i++) {
+            HepaiPresentationRequest request = requests[i];
+            if (request == null || request.HepaiPlayerHand == null || request.HepaiPlayerHand.Length == 0) continue;
+            PosPanel3D panel = GetPosPanel(request.WinnerPosition);
+            if (panel == null) continue;
+            ForceHandRevealIdle(panel);
+            LayRoundEndFaceHandAtPosition(request.WinnerPosition, request.HepaiPlayerHand);
+            revealPanels.Add(panel);
+        }
+        if (revealPanels.Count == 0) yield break;
+        yield return new WaitForSeconds(HepaiRevealTiming.TravelSeconds);
+        for (int i = 0; i < revealPanels.Count; i++) {
+            PlayHandRevealAnimation(revealPanels[i]);
+        }
+        yield return new WaitForSeconds(HepaiRevealTiming.ExpandHoldSeconds);
+    }
+
     /// <summary>
     /// 被抢加杠在服务端确认前已按加杠暂态展示；和牌确认后应撤回该加杠牌。
     /// </summary>

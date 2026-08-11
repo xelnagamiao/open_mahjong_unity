@@ -71,6 +71,21 @@ test('hongque: exposed groups complete the win, no pair head', () => {
   assert.equal(result.points, 57)
 })
 
+test('hongque: 全带幺 accepts a 123 meld extended with 4', () => {
+  const result = bestWinResult(
+    [
+      'BX1', 'BX2', 'BX3',
+      'CX1', 'CX2', 'CX3',
+      'DX7', 'DX8', 'DX9',
+    ],
+    [{ kind: 'sequence', tiles: ['AX1', 'AX2', 'AX3', 'AX4'] }],
+    flags
+  )
+  assert.ok(result)
+  assert.equal(fanMap(result)['全带幺'], 2)
+  assert.ok(result.groups.some((group) => group.join(',') === 'AX1,AX2,AX3,AX4'))
+})
+
 test('hongque: same-number pair outside every group is not a win', () => {
   const melds = [{ kind: 'sequence', tiles: ['AX1', 'AX2', 'AX3'] }]
   assert.equal(isWinningHand(['BX5', 'CY5'], melds), false)
@@ -199,4 +214,26 @@ test('hongque: decomposition groups are ordered by number then colour', () => {
   assert.ok(hasOrderedRainbow)
   // 组间按最小数字排序：数字 1 的刻子组排在彩虹（最小数字 2）之前。
   assert.deepEqual(results[0].groups[0], ['CX1', 'DX1', 'EX1'])
+})
+
+test('hongque: 四数 allows a missing slot in a four-term arithmetic frame', () => {
+  const result = bestWinResult(
+    'AX8 BX8 CX8 CY6 DX6 DX8 DX9 DY6 EX8 EX9 FX9 GX8'.split(' '),
+    [],
+    flags
+  )
+  assert.ok(result)
+  const names = new Set(result.fans.map((fan) => fan.name))
+  assert.ok(names.has('四数'))
+  assert.ok(!names.has('三数'))
+})
+
+test('hongque: 三数 remains an exact arithmetic triple', () => {
+  for (const numbers of [[1, 2, 3], [1, 4, 7], [3, 6, 9], [2, 5, 8]]) {
+    const result = bestWinResult(numbers.map((number) => `AX${number}`), [], flags)
+    assert.ok(result)
+    const names = new Set(result.fans.map((fan) => fan.name))
+    assert.ok(names.has('三数'))
+    assert.ok(!names.has('四数'))
+  }
 })

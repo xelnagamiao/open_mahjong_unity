@@ -3,8 +3,9 @@
   position: relative;
   width: 100%;
   min-height: 100dvh;
-  height: 100dvh;
-  overflow: hidden;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
   background: #999999;
   font-family: var(--game2d-font-family, serif);
 }
@@ -13,6 +14,7 @@
   display: flex;
   width: 100%;
   min-height: 100dvh;
+  height: auto;
   gap: 18px;
   padding: 18px;
   box-sizing: border-box;
@@ -29,9 +31,9 @@
 .game-page__stage-shell {
   position: relative;
   flex: 1 1 auto;
-  height: calc(100dvh - 36px);
+  height: auto;
+  min-height: calc(100dvh - 36px);
   min-width: 0;
-  min-height: 0;
   border: 2px solid rgba(96, 96, 96, 0.7);
   border-radius: 18px;
   overflow: hidden;
@@ -43,8 +45,8 @@
   display: flex;
   flex-direction: row;
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: calc(100dvh - 40px);
 }
 
 .game-felt-playfield {
@@ -52,6 +54,7 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  touch-action: pan-y;
 }
 
 .game-felt-rail {
@@ -63,9 +66,7 @@
   gap: 8px;
   padding: 10px;
   box-sizing: border-box;
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  overflow: visible;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: rgba(0, 0, 0, 0.14);
@@ -600,6 +601,12 @@
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   transition: transform .16s ease;
+}
+
+.assist-switch__value {
+  min-width: 20px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .assist-switch.is-on .assist-switch__thumb {
@@ -1277,10 +1284,19 @@
 }
 .game-blocked-actions button:hover { background: #e8e8e0; }
 
+/* Desktop/tablet: keep the canvas at one viewport so the long settings rail
+ * cannot move the centered table (and the player's hand) below the fold. */
+@media (min-width: 561px) {
+  .game-felt-playfield {
+    height: calc(100dvh - 40px);
+    min-height: calc(100dvh - 40px);
+  }
+}
+
 @media (max-width: 900px) {
-  .game-page__layout { height: 100dvh; gap: 10px; padding: 12px; }
+  .game-page__layout { height: auto; gap: 10px; padding: 12px; }
   .game-page__board-panel { flex: 1 1 auto; min-height: 0; }
-  .game-page__stage-shell { height: 100%; }
+  .game-page__stage-shell { height: auto; }
   .game-stage-toolbar { top: 8px; right: 8px; }
   .game-stage-panel {
     top: 208px;
@@ -1295,7 +1311,7 @@
     order: -1;
     width: 100%;
     min-width: unset;
-    max-height: min(40dvh, 340px);
+    max-height: none;
     border-left: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   }
@@ -1366,10 +1382,7 @@
       border-radius: 14px;
     }
 
-    .game-felt-rail {
-      max-height: min(26dvh, 210px);
-      padding: 8px;
-    }
+    .game-felt-rail { max-height: none; padding: 8px; }
 
     .game-felt-playfield {
       flex: 0 0 auto;
@@ -1377,6 +1390,10 @@
       height: max(650px, calc(100vw + 350px));
       min-height: max(650px, calc(100vw + 350px));
     }
+
+    /* Pixi applies a non-scrolling touch policy to its canvas by default.
+     * Override it on phones so dragging anywhere on the felt scrolls the page. */
+    .game-stage canvas { touch-action: pan-y !important; }
 
     .game-stage-toolbar {
       top: 10px;
@@ -1388,39 +1405,35 @@
       align-items: stretch;
     }
 
-    .game-stage-toolbar .assist-inline {
-      width: 100%;
-      grid-template-columns: minmax(82px, 0.72fr) minmax(0, 1.6fr);
-      align-items: start;
-    }
-
-    .game-stage-toolbar .assist-inline__tile-column,
-    .game-stage-toolbar .assist-inline__operation-column {
-      width: 100%;
-      min-width: 0;
-    }
-
-    .game-stage-toolbar .assist-inline__operation-column {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .game-stage-toolbar .assist-switch,
     .game-stage-toolbar .assist-inline__tile-settings {
       width: 100%;
       min-width: 0;
-      min-height: 36px;
-      padding: 6px 8px;
+      min-height: 32px;
+      padding: 4px 5px;
       box-sizing: border-box;
+      justify-content: center;
+      opacity: 0.7;
     }
 
+    .game-stage-toolbar .assist-switch.is-on {
+      opacity: 1;
+      box-shadow: inset 0 0 0 1px currentColor, 0 4px 10px rgba(0, 0, 0, 0.16);
+    }
+
+    .game-stage-toolbar .assist-switch__track { display: none; }
+
     .game-stage-toolbar .assist-switch__label {
-      overflow: hidden;
-      text-overflow: ellipsis;
+      width: 100%;
+      overflow: visible;
+      font-size: 12px;
+      line-height: 1.15;
+      text-align: center;
       white-space: nowrap;
     }
 
     .game-stage-panel {
-      top: 160px;
+      top: 92px;
       right: 10px;
       bottom: auto;
       left: 10px;

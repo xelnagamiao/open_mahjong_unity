@@ -6,6 +6,7 @@ from itertools import combinations
 from typing import Iterable, Optional, Sequence
 
 from .tile import HongqueTile
+from .action_priority import HONGQUE_ACTION_PRIORITY, claim_action_type
 
 
 @dataclass(frozen=True)
@@ -137,21 +138,14 @@ def call_candidates(
         shape = classify_meld(codes_from_mask(group_mask))
         if shape is None:
             continue
-        # 解析优先级（权威，与牌效评分无关）：和(7) > 虹(6) > 碰(5) > 吃。
-        # 吃按出牌者相对位置分三档，与国标和牌 hu_first/second/third 同构：
-        # 出牌者的下家=chi_first(4) > 对家=chi_second(3) > 上家=chi_third(2)。
-        if shape.is_rainbow:
-            priority = 6
-        elif shape.kind == "triplet":
-            priority = 5
-        elif claimant_index is not None and discarder_index is not None:
-            distance = (claimant_index - discarder_index) % 4
-            priority = {1: 4, 2: 3, 3: 2}.get(distance, 2)
-        else:
-            priority = 2  # 无座位上下文（独立调用/测试）按最低档
+        action_type = claim_action_type(
+            shape.kind, claimant_index, discarder_index
+        )
+        priority = HONGQUE_ACTION_PRIORITY[action_type]
         candidates.append({
             "kind": shape.kind,
             "base_kind": shape.base_kind,
+            "action_type": action_type,
             "hand_tiles": list(selected),
             "tiles": list(shape.tiles),
             "priority": priority,

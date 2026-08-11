@@ -400,6 +400,19 @@ function arithmetic(values: number[]): boolean {
   return step > 0 && ordered.every((value, index) => index === 0 || value - ordered[index - 1] === step)
 }
 
+function fitsArithmeticSlots(values: number[], slotCount: number): boolean {
+  const ordered = [...new Set(values)].sort((a, b) => a - b)
+  if (ordered.length !== values.length || ordered.length < 2 || ordered.length > slotCount) return false
+  for (let step = 1; step <= 8; step += 1) {
+    for (let start = 1; start <= 9; start += 1) {
+      const frame = Array.from({ length: slotCount }, (_, index) => start + step * index)
+      if (frame[frame.length - 1] > 9) break
+      if (ordered.every((number) => frame.includes(number))) return true
+    }
+  }
+  return false
+}
+
 function orderedTiles(shape: MeldShape): HongqueTile[] {
   const tiles = shape.tiles.map(parseTile)
   if (shape.baseKind === 'sequence') {
@@ -608,7 +621,8 @@ function scorePartition(
   if (numbers.length === 1) fans.push(entry('清一数', 18))
   else if (numbers.length === 2) fans.push(entry('二数', 12))
   else if (numbers.length === 3 && arithmetic(numbers)) fans.push(entry('三数', 6))
-  else if (numbers.length === 4 && arithmetic(numbers)) fans.push(entry('四数', 3))
+  // 四数允许四个等距位置中有空缺；严格等差的三个数字优先按三数计算。
+  else if ([3, 4].includes(numbers.length) && fitsArithmeticSlots(numbers, 4)) fans.push(entry('四数', 3))
 
   if (groups.length && groups.every((group) => group.some((code) => [1, 9].includes(parseTile(code).number)))) {
     fans.push(entry('全带幺', 2))

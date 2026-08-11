@@ -697,6 +697,9 @@ class RoomManager:
                 "is_game_running": False,
             }
             room_data.update(validated.dict())
+            # Hongque exposes actual hand count to clients (4/8/12/16), unlike
+            # wind-based rules whose game_round remains a 1-4 wind count.
+            room_data["game_round"] = validated.game_round * 4
             room_data["is_player_set_random_seed"] = validated.random_seed != 0
             self.rooms[room_id] = room_data
             if password:

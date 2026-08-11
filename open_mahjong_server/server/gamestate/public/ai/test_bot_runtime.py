@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from types import SimpleNamespace
 
+from . import bot_executor
 from .bot_executor import bot_action_is_current, run_room_bot_cpu
 from .bounded_lru_cache import MemoryBoundedLRUCache
 from .guobiao_shanten import shanten_cache_stats
@@ -44,6 +47,27 @@ def test_stale_bot_result_is_rejected():
     assert bot_action_is_current(room, 1, 8)
     room.server_action_tick = 9
     assert not bot_action_is_current(room, 1, 8)
+
+
+def test_warmup_falls_back_when_process_workers_cannot_start(monkeypatch):
+    class BrokenExecutor:
+        def submit(self, *_args, **_kwargs):
+            raise BrokenProcessPool("simulated worker startup failure")
+
+        def shutdown(self, **_kwargs):
+            return None
+
+    async def scenario():
+        monkeypatch.setattr(bot_executor, "_EXECUTOR", None)
+        monkeypatch.setattr(bot_executor, "_USE_THREAD_FALLBACK", False)
+        monkeypatch.setattr(bot_executor, "_process_executor", BrokenExecutor)
+        try:
+            await bot_executor.warm_bot_executor()
+            assert isinstance(bot_executor._EXECUTOR, ThreadPoolExecutor)
+        finally:
+            await bot_executor.shutdown_bot_executor()
+
+    asyncio.run(scenario())
 
 
 def test_room_cpu_work_is_serial_and_event_loop_keeps_running():

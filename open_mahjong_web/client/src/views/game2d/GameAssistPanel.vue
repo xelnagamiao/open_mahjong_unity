@@ -193,4 +193,24 @@ const detailToggles = computed(() => [
   flex-direction: column;
   gap: 8px;
 }
+
+@media (max-width: 560px) and (orientation: portrait) {
+  .assist-inline {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .assist-inline__tile-column,
+  .assist-inline__operation-column {
+    display: contents;
+  }
+
+  .assist-inline__operation-column > .assist-switch:nth-child(1) { order: 1; }
+  .assist-inline__operation-column > .assist-switch:nth-child(2) { order: 2; }
+  .assist-inline__operation-column > .assist-switch:nth-child(3) { order: 3; }
+  .assist-inline__operation-column > .assist-switch:nth-child(4) { order: 4; }
+  .assist-inline__tile-settings { order: 5; }
+  .assist-inline__operation-column > .assist-switch:nth-child(5) { order: 6; }
+}
 </style>

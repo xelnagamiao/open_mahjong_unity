@@ -29,6 +29,19 @@ public static partial class HepaiRevealDirector {
         // 错和续局的手牌恢复在 ready 结束后由 NormalGameStateManager.TryResumeAfterCuoheContinue 统一处理
     }
 
+    public static IEnumerator PlayMany(Dictionary<int, int[]> playerHands, string huClass) {
+        if (playerHands == null || playerHands.Count == 0) yield break;
+        List<HepaiPresentationRequest> requests = new List<HepaiPresentationRequest>();
+        foreach (KeyValuePair<int, int[]> item in playerHands) {
+            if (item.Value == null || item.Value.Length == 0) continue;
+            if (!NormalGameStateManager.Instance.indexToPosition.TryGetValue(item.Key, out string winnerPos)) continue;
+            requests.Add(BuildRequestCore(
+                winnerPos, huClass, item.Value, null, ResolveLiveRuleKey(),
+                NormalGameStateManager.Instance.lastDiscardPlayerPosition));
+        }
+        yield return Game3DManager.Instance.PlayMultipleHepaiHandReveals(requests);
+    }
+
     public static HepaiPresentationRequest BuildRequest(string winnerPosition, string huClass, int[] hand, string[] huFan) {
         string ruleKey = ResolveLiveRuleKey();
         string discardPos = NormalGameStateManager.Instance.lastDiscardPlayerPosition;

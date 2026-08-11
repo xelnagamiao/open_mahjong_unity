@@ -114,7 +114,7 @@
                       </span>
                       <span v-if="r.playerCount < 2" class="player-chip waiting">等待玩家</span>
                     </div>
-                    <span class="meta">{{ ruleText(r.rules) }} · BO{{ r.bestOf }}</span>
+                    <span class="meta">{{ ruleText(r.rules) }} · BO{{ r.bestOf }} · {{ r.timeLimitSec }}s · {{ r.maxGuesses || 8 }} 次</span>
                     <span class="meta">{{ r.playerCount }}/2</span>
                     <span v-if="r.disableRelated" class="tag">无关联</span>
                     <span v-if="isMyLobbyRoom(r)" class="tag you">我的</span>
@@ -233,7 +233,7 @@
             </article>
             <article>
               <h3>对战与排行</h3>
-              <p>每局最多猜 8 次、限时 60 秒。有人猜中或时间结束后展示答案与双方猜测，6 秒后自动进入下一局。</p>
+              <p>个人训练和自建房可选择 6、8、10 或 12 次猜测机会，以及 40、60、80 或 100 秒限时；系统匹配固定为 8 次、60 秒。有人猜中、次数用尽或时间结束后展示答案与双方猜测，6 秒后自动进入下一局。</p>
               <p>匹配分为「国标+立直」与「立直」两个池，各自独立排队与计分；排行榜默认展示国标+立直，可切换成立直查看。</p>
               <p>只有系统匹配计入排行榜。战胜高分对手获得更多积分，负于低分对手扣分更多。</p>
             </article>
@@ -249,12 +249,12 @@
       :subtitle="ruleLabels"
       :status-text="soloStatus"
       :remain-sec="soloRemainSec"
-      :time-limit-sec="60"
+      :time-limit-sec="soloTimeLimitSec"
       :rules="rules"
       :input-disabled="soloDone"
       :my-rows="soloRows"
       :me-label="auth.username || '我'"
-      :max-guesses="MAX_GUESSES"
+      :max-guesses="soloMaxGuesses"
       :reveal="soloReveal"
       :error="error"
       :start-countdown-sec="soloStartSec"
@@ -319,6 +319,20 @@
         <el-form-item label="关联提示">
           <el-switch v-model="enableRelated" />
         </el-form-item>
+        <el-form-item label="限时">
+          <el-radio-group v-model="soloTimeLimitSec">
+            <el-radio-button v-for="seconds in TIME_LIMIT_OPTIONS" :key="seconds" :label="seconds">
+              {{ seconds }} 秒
+            </el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="猜测次数">
+          <el-radio-group v-model="soloMaxGuesses">
+            <el-radio-button v-for="count in MAX_GUESSES_OPTIONS" :key="count" :label="count">
+              {{ count }} 次
+            </el-radio-button>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showTrain = false">取消</el-button>
@@ -346,8 +360,22 @@
         <el-form-item label="关联提示">
           <el-switch v-model="enableRelated" />
         </el-form-item>
+        <el-form-item label="限时">
+          <el-radio-group v-model="roomTimeLimitSec">
+            <el-radio-button v-for="seconds in TIME_LIMIT_OPTIONS" :key="seconds" :label="seconds">
+              {{ seconds }} 秒
+            </el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="猜测次数">
+          <el-radio-group v-model="roomMaxGuesses">
+            <el-radio-button v-for="count in MAX_GUESSES_OPTIONS" :key="count" :label="count">
+              {{ count }} 次
+            </el-radio-button>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="对局规则">
-          <span class="form-static">限时 60 秒 · 每人 8 次猜测 · 不计排行榜</span>
+          <span class="form-static">不计排行榜</span>
         </el-form-item>
         <el-form-item label="房主">
           <span class="form-static">{{ auth.username }}</span>
@@ -382,9 +410,15 @@ const route = useRoute()
 const router = useRouter()
 
 const mode = ref('lobby')
+const TIME_LIMIT_OPTIONS = [40, 60, 80, 100]
+const MAX_GUESSES_OPTIONS = [6, 8, 10, 12]
 const rules = ref(['guobiao', 'riichi'])
 const enableRelated = ref(true)
 const bestOf = ref(5)
+const soloTimeLimitSec = ref(60)
+const roomTimeLimitSec = ref(60)
+const soloMaxGuesses = ref(MAX_GUESSES)
+const roomMaxGuesses = ref(MAX_GUESSES)
 const joinCode = ref('')
 const error = ref('')
 const connecting = ref(false)
@@ -472,15 +506,15 @@ const soloStatus = computed(() => {
     const hit = soloRows.value.some((r) => r.result.correct)
     return hit ? `猜中！答案：${soloReveal.value.name}` : `未猜中。答案：${soloReveal.value.name}`
   }
-  return `剩余 ${MAX_GUESSES - soloRows.value.length} 次 · 第 ${soloRows.value.length + 1} 猜`
+  return `剩余 ${soloMaxGuesses.value - soloRows.value.length} 次 · 第 ${soloRows.value.length + 1} 猜`
 })
 const soloResultTitle = computed(() =>
   soloRows.value.some((row) => row.result?.correct) ? '你猜中了！' : '本局未猜中',
 )
 const soloResultMessage = computed(() => {
   if (soloEndReason.value === 'correct') return '成功猜中答案，可以再来一局继续挑战'
-  if (soloEndReason.value === 'timeout') return '60 秒时间到，可以再来一局继续挑战'
-  return '8 次猜测机会已用尽，可以再来一局继续挑战'
+  if (soloEndReason.value === 'timeout') return `${soloTimeLimitSec.value} 秒时间到，可以再来一局继续挑战`
+  return `${soloMaxGuesses.value} 次猜测机会已用尽，可以再来一局继续挑战`
 })
 const soloResultPlayers = computed(() => [
   {
@@ -801,6 +835,8 @@ function confirmTrain() {
     query: {
       rules: rules.value.join(','),
       related: enableRelated.value ? '1' : '0',
+      time: String(soloTimeLimitSec.value),
+      guesses: String(soloMaxGuesses.value),
     },
   })
 }
@@ -817,12 +853,13 @@ function startSoloRound() {
   soloDone.value = false
   soloEndReason.value = ''
   soloStartAt.value = null
-  soloRoundEndsAt.value = Date.now() + 60000
+  const roundDurationMs = soloTimeLimitSec.value * 1000
+  soloRoundEndsAt.value = Date.now() + roundDurationMs
   nowMs.value = Date.now()
   mode.value = 'solo'
   if (Date.now() - lastStartSoundAt > 500) playStartSound()
   cancelScheduledStartSound()
-  soloTimer = setTimeout(() => finishSoloRound('timeout'), 60000)
+  soloTimer = setTimeout(() => finishSoloRound('timeout'), roundDurationMs)
 }
 
 function prepareSoloRound() {
@@ -844,6 +881,12 @@ function startSoloFromRoute() {
     .filter((rule) => ['guobiao', 'riichi'].includes(rule))
   if (requestedRules.length) rules.value = requestedRules
   enableRelated.value = String(route.query.related ?? '1') !== '0'
+  const requestedTimeLimit = Number(route.query.time)
+  soloTimeLimitSec.value = TIME_LIMIT_OPTIONS.includes(requestedTimeLimit) ? requestedTimeLimit : 60
+  const requestedMaxGuesses = Number(route.query.guesses)
+  soloMaxGuesses.value = MAX_GUESSES_OPTIONS.includes(requestedMaxGuesses)
+    ? requestedMaxGuesses
+    : MAX_GUESSES
   prepareSoloRound()
 }
 
@@ -880,7 +923,7 @@ function onSoloGuess(payload) {
     disableRelated: disableRelated.value,
   })
   soloRows.value.push({ name: guess.names[0], result })
-  if (result.correct || soloRows.value.length >= MAX_GUESSES) {
+  if (result.correct || soloRows.value.length >= soloMaxGuesses.value) {
     finishSoloRound(result.correct ? 'correct' : 'exhausted')
   }
 }
@@ -892,6 +935,8 @@ async function confirmCreate() {
     rules: [...rules.value],
     bestOf: bestOf.value,
     disableRelated: disableRelated.value,
+    timeLimitSec: roomTimeLimitSec.value,
+    maxGuesses: roomMaxGuesses.value,
   })
   if (!res.ok) {
     error.value = res.error || '创建失败'

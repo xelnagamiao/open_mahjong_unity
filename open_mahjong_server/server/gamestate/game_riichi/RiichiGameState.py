@@ -43,6 +43,7 @@ from .boardcast import (
 from ..public.logic_common import next_current_num, next_current_index, back_current_num, assign_strict_final_ranks
 from ..public.round_end_timing import (
     hu_result_ready_wait_seconds,
+    hu_result_ready_pre_panel_seconds,
     ROUND_END_HAND_REVEAL_SEC,
     liuju_ready_wait_seconds,
     sichuan_settle_hu_panel_wait_seconds,
@@ -889,6 +890,10 @@ class RiichiGameState:
         from .boardcast import broadcast_do_action
 
         self._multi_ron_any_oya_win = any(player_index == 0 for player_index, _ in queue)
+        simultaneous_hu_hands = {
+            player_index: list(self.player_list[player_index].hand_tiles)
+            for player_index, _ in queue
+        }
 
         for index, (winner_index, hu_class) in enumerate(queue):
             self.hu_class = hu_class
@@ -913,17 +918,22 @@ class RiichiGameState:
                 apply_honba=is_first,
                 apply_riichi_sticks=is_first,
                 is_last_settle=is_last,
+                simultaneous_hu_hands=simultaneous_hu_hands if is_first else None,
+                skip_hand_reveal=not is_first,
             )
             if is_last:
                 # 整场终场：最后一家跳过 ready，由 match_end 收尾；否则进入末步确认
                 if self.next_status == "match_end":
                     continue
-                await run_synced_hu_ready_phase(self, fan_count, broadcast_ready_status)
+                await run_synced_hu_ready_phase(
+                    self, fan_count, broadcast_ready_status, pre_panel_delay_sec=0.0
+                )
             else:
                 # 中间家：面板自动关闭后进入下一家结算（与川麻终局一致），不再逐家确认
-                await asyncio.sleep(
-                    sichuan_settle_hu_panel_wait_seconds(fan_count, is_final=False)
-                )
+                wait_seconds = sichuan_settle_hu_panel_wait_seconds(fan_count, is_final=False)
+                if is_first:
+                    wait_seconds += hu_result_ready_pre_panel_seconds()
+                await asyncio.sleep(wait_seconds)
 
         self._multi_ron_ready_done = True
 
@@ -932,6 +942,8 @@ class RiichiGameState:
         apply_honba: bool = True,
         apply_riichi_sticks: bool = True,
         is_last_settle: bool = False,
+        simultaneous_hu_hands: Optional[dict[int, list[int]]] = None,
+        skip_hand_reveal: bool = False,
     ):
         result = self.result_dict.get(self.hu_class)
         if not result:
@@ -1092,6 +1104,8 @@ class RiichiGameState:
             score_changes={p.original_player_index: score_changes[p.player_index] for p in self.player_list},
             langyong_multiplier=langyong_multiplier,
             langyong_scored_points=langyong_scored_points,
+            simultaneous_hu_hands=simultaneous_hu_hands,
+            skip_hand_reveal=True if skip_hand_reveal else None,
             silent=True,
             next_status=self.next_status,
         )

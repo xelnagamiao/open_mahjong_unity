@@ -30,6 +30,8 @@ export interface AssistSettings {
   silentTiles: number[]
   /** 选中牌不自动自摸（默认开） */
   silentSkipTsumo: boolean
+  /** 二次点击确认出牌；手机端首次使用默认开启。 */
+  confirmDiscard: boolean
 }
 
 export const DEFAULT_ASSIST_SETTINGS: AssistSettings = {
@@ -46,9 +48,15 @@ export const DEFAULT_ASSIST_SETTINGS: AssistSettings = {
   noRobKong: false,
   silentTiles: [],
   silentSkipTsumo: true,
+  confirmDiscard: false,
 }
 
 const STORAGE_KEY = 'salasasa.game2d.assistSettings'
+
+function defaultConfirmDiscard(): boolean {
+  return typeof window !== 'undefined'
+    && window.matchMedia('(max-width: 560px) and (pointer: coarse)').matches
+}
 
 function normalizeTileId(value: unknown): number | null {
   const tile = Number(value)
@@ -92,6 +100,9 @@ export function normalizeAssistSettings(raw: Partial<AssistSettings> | null | un
     noRobKong: Boolean(raw?.noRobKong),
     silentTiles: silent,
     silentSkipTsumo: raw?.silentSkipTsumo !== false,
+    confirmDiscard: typeof raw?.confirmDiscard === 'boolean'
+      ? raw.confirmDiscard
+      : defaultConfirmDiscard(),
   }
 }
 

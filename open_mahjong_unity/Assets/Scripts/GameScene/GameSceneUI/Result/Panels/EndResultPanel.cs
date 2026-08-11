@@ -17,16 +17,18 @@ public class EndResultPanel : MonoBehaviour {
 
     [SerializeField] private TextMeshProUGUI SelfUserName;
     [SerializeField] private TextMeshProUGUI SelfScore;
-    [SerializeField] private Image SelfReady;
     [SerializeField] private TextMeshProUGUI LeftUserName;
     [SerializeField] private TextMeshProUGUI LeftScore;
-    [SerializeField] private Image LeftReady;
     [SerializeField] private TextMeshProUGUI TopUserName;
     [SerializeField] private TextMeshProUGUI TopScore;
-    [SerializeField] private Image TopReady;
     [SerializeField] private TextMeshProUGUI RightUserName;
     [SerializeField] private TextMeshProUGUI RightScore;
-    [SerializeField] private Image RightReady;
+
+    [Header("准备状态文本")]
+    [SerializeField] private TextMeshProUGUI SelfReadyText;
+    [SerializeField] private TextMeshProUGUI LeftReadyText;
+    [SerializeField] private TextMeshProUGUI TopReadyText;
+    [SerializeField] private TextMeshProUGUI RightReadyText;
 
     [SerializeField] private TextMeshProUGUI EndButtonText;
     [SerializeField] private Button EndButton;
@@ -59,7 +61,7 @@ public class EndResultPanel : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI guobiaoAngangCheckText;
 
     [Header("玩家面板背景（按状态着色：正常蓝/准备橙/被检查深红）")]
-    [Tooltip("各座位的面板背景 Image。未拖入时回退到旧版 Ready 图标显隐。")]
+    [Tooltip("各座位的面板背景 Image，用颜色表示正常、准备和被检查状态。")]
     [SerializeField] private Image SelfPanelBackground;
     [SerializeField] private Image LeftPanelBackground;
     [SerializeField] private Image TopPanelBackground;
@@ -77,6 +79,8 @@ public class EndResultPanel : MonoBehaviour {
 
     // 最近一次准备状态缓存（按 player_index），用于面板重建/服务端逐步驱动时保持准备色不丢失
     private readonly Dictionary<int, bool> cachedReadyStatus = new Dictionary<int, bool>();
+    // 从收到 show_result 起到新一局清场止为 true；允许在倒牌动画期间提前缓存本轮准备广播。
+    private bool gameResultLifecycleActive = false;
     // 当前“被检查”的座位 player_index（川麻终局逐家查牌/查叫高亮）；-1 表示无
     private int checkedFocusSeat = -1;
     // 当前查叫面板是否含退税（用于补“退税”标签与延长停留）
@@ -131,6 +135,7 @@ public class EndResultPanel : MonoBehaviour {
             PanelVisibilityToggleButton.onClick.AddListener(TogglePanelContentVisibility);
         }
         ResetPanelContentVisibility();
+        ResetSeatVisualsToNormal();
     }
 
     private CanvasGroup GetPanelContentCanvasGroup() {
@@ -263,6 +268,7 @@ public class EndResultPanel : MonoBehaviour {
     public void PrepareSichuanChaRefundSingle(
         Dictionary<int, int> player_to_score,
         Dictionary<int, int> scoreChanges) {
+        EnsureGameResultLifecycle();
         currentState = StateGame;
         gameObject.SetActive(true);
         ResetPanelContentVisibility();
@@ -276,11 +282,6 @@ public class EndResultPanel : MonoBehaviour {
 
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
         GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
-        SelfReady.gameObject.SetActive(false);
-        LeftReady.gameObject.SetActive(false);
-        TopReady.gameObject.SetActive(false);
-        RightReady.gameObject.SetActive(false);
-
         ApplyScoreChangesToPanel(player_to_score, scoreChanges);
 
         GameObject statusFanInstance = Instantiate(FanCountPrefab, FanCountContainer);
@@ -316,6 +317,7 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     public void InitializeShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> scoreChanges = null, bool suppressHandReveal = false, EndResultTileLayout tileLayout = EndResultTileLayout.HuWithWinTile) {
+        EnsureGameResultLifecycle();
         currentState = StateGame;
         currentWinnerPointDelta = null;
         gameObject.SetActive(true);
@@ -339,7 +341,7 @@ public class EndResultPanel : MonoBehaviour {
         GuobiaoAngangCheck.Apply(guobiaoAngangCheckText, NormalGameStateManager.Instance.lastGuobiaoEndExtras, hu_fan);
         TryPlayGongHuSound(roomRuleForFan, hu_fan, hu_score);
 
-        // 面板重建：清除被检查高亮，按缓存准备状态重绘座位配色（川麻 Prepare 会随后设置被检查座位）
+        // 面板重建：清除被检查高亮；四川连续结算步骤保留本轮已收到的准备状态。
         checkedFocusSeat = -1;
         ApplySeatVisuals();
 
@@ -499,7 +501,7 @@ public class EndResultPanel : MonoBehaviour {
 
     /// <summary>
     /// 牌谱回放结算展示（不依赖对局内 player_to_score/手牌数据）：
-    /// - 默认除和牌者外，其他玩家显示为已准备
+    /// - 牌谱/观战不显示对局准备状态，四家使用正常座位底色
     /// - 同步展示后显示「确认」按钮；观战模式下不显示确认，由 end tick 驱动下一局
     /// </summary>
     public void DisplayRecordResult(int hepai_player_index, int hu_score, string[] hu_fan, string hu_class, string roomType,
@@ -518,6 +520,10 @@ public class EndResultPanel : MonoBehaviour {
         matchEndMode = false;
         currentState = StateRecord;
         currentWinnerPointDelta = null;
+        gameResultLifecycleActive = false;
+        cachedReadyStatus.Clear();
+        checkedFocusSeat = -1;
+        ResetSeatVisualsToNormal();
         gameObject.SetActive(true);
         ResetPanelContentVisibility();
         endButtonConfirmed = false;
@@ -536,12 +542,6 @@ public class EndResultPanel : MonoBehaviour {
         LeftUserName.text = positionToUsername != null && positionToUsername.ContainsKey("left") ? positionToUsername["left"] : "";
         TopUserName.text = positionToUsername != null && positionToUsername.ContainsKey("top") ? positionToUsername["top"] : "";
         RightUserName.text = positionToUsername != null && positionToUsername.ContainsKey("right") ? positionToUsername["right"] : "";
-
-        // 回放模式默认全员未准备
-        SelfReady.gameObject.SetActive(false);
-        LeftReady.gameObject.SetActive(false);
-        TopReady.gameObject.SetActive(false);
-        RightReady.gameObject.SetActive(false);
 
         // 显示和牌玩家手牌（与实时对局 PopulateEndTilesContainer 一致）
         if (hepai_player_hand != null && hepai_player_hand.Length > 0) {
@@ -837,6 +837,7 @@ public class EndResultPanel : MonoBehaviour {
             StopCoroutine(showResultCoroutine);
             showResultCoroutine = null;
         }
+        EnsureGameResultLifecycle();
         currentState = StateGame;
         gameObject.SetActive(true);
         ResetPanelContentVisibility();
@@ -848,11 +849,6 @@ public class EndResultPanel : MonoBehaviour {
 
         ShowRiichiExtrasPanel(NormalGameStateManager.Instance.subRule, null);
         GuobiaoAngangCheck.Clear(guobiaoAngangCheckText);
-        SelfReady.gameObject.SetActive(false);
-        LeftReady.gameObject.SetActive(false);
-        TopReady.gameObject.SetActive(false);
-        RightReady.gameObject.SetActive(false);
-
         // 该玩家手牌整体显示（流局无和牌张，不做末张拆分）
         if (hand != null && hand.Length > 0) {
             int[] sorted = (int[])hand.Clone();
@@ -948,9 +944,9 @@ public class EndResultPanel : MonoBehaviour {
         }
     }
 
-    // 更新准备状态显示：缓存最新准备状态并按缓存重绘座位配色（修复机器人/罗伯特已准备却不显示准备色）
+    // 只接受当前 show_result 生命周期内的权威准备状态；可早于面板显示，拒绝上一轮收尾的迟到广播。
     public void UpdateReadyStatus(Dictionary<int, bool> playerToReady) {
-        if (matchEndMode) {
+        if (matchEndMode || !gameResultLifecycleActive) {
             return;
         }
         if (playerToReady != null) {
@@ -971,12 +967,12 @@ public class EndResultPanel : MonoBehaviour {
         }
     }
 
-    private Image SeatReadyImage(string position) {
+    private TextMeshProUGUI SeatReadyText(string position) {
         switch (position) {
-            case "self": return SelfReady;
-            case "left": return LeftReady;
-            case "top": return TopReady;
-            case "right": return RightReady;
+            case "self": return SelfReadyText;
+            case "left": return LeftReadyText;
+            case "top": return TopReadyText;
+            case "right": return RightReadyText;
             default: return null;
         }
     }
@@ -1002,19 +998,36 @@ public class EndResultPanel : MonoBehaviour {
     }
 
     private void ApplySeatVisual(string position, SeatVisual visual) {
-        Image bg = SeatBackground(position);
-        if (bg != null) {
-            // 背景已配置：用颜色表达状态，并隐藏旧版 Ready 图标
-            bg.color = visual == SeatVisual.Ready ? SeatColorReady
-                : visual == SeatVisual.Checked ? SeatColorChecked
-                : SeatColorNormal;
-            Image readyImg = SeatReadyImage(position);
-            if (readyImg != null) readyImg.gameObject.SetActive(false);
-        } else {
-            // 背景未配置（未在 Inspector 拖入）：回退到旧版 Ready 图标显隐
-            Image readyImg = SeatReadyImage(position);
-            if (readyImg != null) readyImg.gameObject.SetActive(visual == SeatVisual.Ready);
+        TextMeshProUGUI readyText = SeatReadyText(position);
+        if (readyText != null) {
+            readyText.gameObject.SetActive(visual == SeatVisual.Ready);
         }
+
+        Image bg = SeatBackground(position);
+        if (bg == null) return;
+        bg.color = visual == SeatVisual.Ready ? SeatColorReady
+            : visual == SeatVisual.Checked ? SeatColorChecked
+            : SeatColorNormal;
+    }
+
+    /// <summary>收到服务端 show_result 时开启本轮结算生命周期。</summary>
+    public void BeginGameResultLifecycle() {
+        gameResultLifecycleActive = true;
+        cachedReadyStatus.Clear();
+        checkedFocusSeat = -1;
+        ResetSeatVisualsToNormal();
+    }
+
+    /// <summary>兼容不经 NormalGameStateManager.ShowResult 的旧入口。</summary>
+    private void EnsureGameResultLifecycle() {
+        if (!gameResultLifecycleActive) BeginGameResultLifecycle();
+    }
+
+    private void ResetSeatVisualsToNormal() {
+        ApplySeatVisual("self", SeatVisual.Normal);
+        ApplySeatVisual("left", SeatVisual.Normal);
+        ApplySeatVisual("top", SeatVisual.Normal);
+        ApplySeatVisual("right", SeatVisual.Normal);
     }
 
     /// <summary>
@@ -1145,9 +1158,11 @@ public class EndResultPanel : MonoBehaviour {
         currentState = StateNone;
         matchEndMode = false;
         currentWinnerPointDelta = null;
+        gameResultLifecycleActive = false;
         // 新一局：清空准备缓存与被检查高亮，座位配色复位
         cachedReadyStatus.Clear();
         checkedFocusSeat = -1;
+        ResetSeatVisualsToNormal();
         chajiaoHasRefund = false;
         endButtonConfirmed = false;
 
@@ -1180,11 +1195,5 @@ public class EndResultPanel : MonoBehaviour {
         TopScore.text = "";
         RightUserName.text = "";
         RightScore.text = "";
-
-        // 隐藏所有准备状态
-        SelfReady.gameObject.SetActive(false);
-        LeftReady.gameObject.SetActive(false);
-        TopReady.gameObject.SetActive(false);
-        RightReady.gameObject.SetActive(false);
     }
 }

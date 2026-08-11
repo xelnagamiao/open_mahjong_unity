@@ -316,7 +316,9 @@ public class GameStateNetworkManager : MonoBehaviour {
             showresponse.gang_refund_changes,
             showresponse.is_qianggang,
             showresponse.liuju_refund,
-            showresponse.next_status
+            showresponse.next_status,
+            showresponse.simultaneous_hu_hands,
+            showresponse.skip_hand_reveal
         );
         // 四川·血战到底：本盘未结束（仍有玩家继续行牌）→ 挂起结算层，待下次询问时关闭并续打
         if (NormalGameStateManager.Instance.IsSichuanRule()) {
@@ -695,7 +697,7 @@ public class GameStateNetworkManager : MonoBehaviour {
     private void HandleReadyStatus(Response response) {
         Debug.Log($"收到准备状态更新: {response.message}");
         if (response.ready_status_info != null) {
-            // 始终缓存准备状态（即使面板此刻未激活，例如川麻终局步间切换），重建面板时按缓存重绘准备色
+            // EndResultPanel 只在当前对局结算生命周期内接收；川麻步骤间即使面板暂时隐藏也会保留本轮状态。
             if (EndResultPanel.Instance != null) {
                 EndResultPanel.Instance.UpdateReadyStatus(response.ready_status_info.player_to_ready);
             }

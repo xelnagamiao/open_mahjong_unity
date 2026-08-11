@@ -196,6 +196,21 @@ public static class HongqueScoring {
         return true;
     }
 
+    private static bool FitsArithmeticSlots(List<int> values, int slotCount) {
+        List<int> ordered = values.Distinct().OrderBy(v => v).ToList();
+        if (ordered.Count != values.Count || ordered.Count < 2 || ordered.Count > slotCount) return false;
+        for (int step = 1; step <= 8; step++) {
+            for (int start = 1; start <= 9; start++) {
+                List<int> frame = Enumerable.Range(0, slotCount)
+                    .Select(index => start + step * index)
+                    .ToList();
+                if (frame[frame.Count - 1] > 9) break;
+                if (ordered.All(frame.Contains)) return true;
+            }
+        }
+        return false;
+    }
+
     private static List<int> OrderedTiles(HongqueMeldShape shape) {
         if (shape.BaseKind == "sequence") {
             List<int> ordered = shape.Tiles
@@ -364,19 +379,24 @@ public static class HongqueScoring {
 
         Dictionary<int, int> colourCounts = allTiles.GroupBy(ColourOf).ToDictionary(g => g.Key, g => g.Count());
         int maxColourCount = colourCounts.Values.DefaultIfEmpty(0).Max();
-        if (maxColourCount == 9) fans.Add(new FanEntry { Name = "九归一", Value = 6 });
-        else if (maxColourCount == 7 || maxColourCount == 8) fans.Add(new FanEntry { Name = "七归一", Value = 3 });
+        if (maxColourCount >= 9) fans.Add(new FanEntry { Name = "九归一", Value = 6 });
+        else if (maxColourCount >= 7) fans.Add(new FanEntry { Name = "七归一", Value = 3 });
 
         int rainbowCount = shapes.Count(s => s.IsRainbow);
         if (rainbowCount >= 2) fans.Add(new FanEntry { Name = "双虹会", Value = 12 });
         else if (rainbowCount == 1) fans.Add(new FanEntry { Name = "彩虹", Value = 6 });
 
-        int distinctColours = colourCounts.Count;
-        if (distinctColours == 1) fans.Add(new FanEntry { Name = "清一色", Value = 18 });
-        else if (distinctColours == 14) fans.Add(new FanEntry { Name = "全彩", Value = 12 });
-        else if (distinctColours == allTiles.Count) fans.Add(new FanEntry { Name = "光谱", Value = 6 });
-        else if (distinctColours == 2) fans.Add(new FanEntry { Name = "双色", Value = 12 });
-        else if (distinctColours == 3) fans.Add(new FanEntry { Name = "三色", Value = 6 });
+        // 权威脚本同时使用两种颜色概念：牌面的 14 个色阶用于全彩/光谱，
+        // 色阶所覆盖的三原色用于清一色/双色/三色。二者不能混用。
+        int distinctColourLevels = colourCounts.Count;
+        HashSet<int> coveredPrimaryColours = new HashSet<int>(
+            allTiles.SelectMany(tile => PrimaryColours(ColourOf(tile))));
+        int primaryColourCount = coveredPrimaryColours.Count;
+        if (primaryColourCount == 1) fans.Add(new FanEntry { Name = "清一色", Value = 18 });
+        else if (distinctColourLevels == 14) fans.Add(new FanEntry { Name = "全彩", Value = 12 });
+        else if (distinctColourLevels == allTiles.Count) fans.Add(new FanEntry { Name = "光谱", Value = 6 });
+        else if (primaryColourCount == 2) fans.Add(new FanEntry { Name = "双色", Value = 12 });
+        else if (primaryColourCount == 3) fans.Add(new FanEntry { Name = "三色", Value = 6 });
         if (allTiles.Count > 0 && allTiles.All(t => ColourOf(t) % 2 == 0)) fans.Add(new FanEntry { Name = "全纯色", Value = 1 });
         if (allTiles.Count > 0 && allTiles.All(t => ColourOf(t) % 2 == 1)) fans.Add(new FanEntry { Name = "全半色", Value = 1 });
 
@@ -385,7 +405,8 @@ public static class HongqueScoring {
         if (numbers.Count == 1) fans.Add(new FanEntry { Name = "清一数", Value = 18 });
         else if (numbers.Count == 2) fans.Add(new FanEntry { Name = "二数", Value = 12 });
         else if (numbers.Count == 3 && Arithmetic(numbers)) fans.Add(new FanEntry { Name = "三数", Value = 6 });
-        else if (numbers.Count == 4 && Arithmetic(numbers)) fans.Add(new FanEntry { Name = "四数", Value = 3 });
+        // 四数允许四个等距位置中有空缺；严格等差的三个数字优先按三数计算。
+        else if ((numbers.Count == 3 || numbers.Count == 4) && FitsArithmeticSlots(numbers, 4)) fans.Add(new FanEntry { Name = "四数", Value = 3 });
         // 全带幺：每组牌均含数字 1 或 9 的牌（按规则书“牌组”判定，而非全体手牌）。
         if (groups.Count > 0
                 && groups.All(group => group.Any(tile => {

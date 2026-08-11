@@ -266,16 +266,16 @@ public partial class NormalGameStateManager {
                         bool isMoGang = is_mo_gang == true;
                         player_to_info[GetCardPlayer].combination_tiles.Add(combination_target);
                         AppendCombinationMask(player_to_info[GetCardPlayer], combination_mask);
-                        List<int> angangRemoveList = GameRecordMeldCodec.ExtractHandTilesFromMask(combination_mask);
                         if (GetCardPlayer == "self"){
+                            List<int> angangRemoveList = GameRecordMeldCodec.ExtractHandTilesFromMask(combination_mask);
                             foreach (int tile_id in angangRemoveList){
                                 selfHandTiles.Remove(tile_id);
                             }
                             ApplyAngangHandCardRemoval(angangRemoveList, isMoGang);
                         } else {
-                            player_to_info[GetCardPlayer].hand_tiles_count -= angangRemoveList.Count;
+                            player_to_info[GetCardPlayer].hand_tiles_count -= GameRecordMeldCodec.AngangHandTileCount;
                         }
-                        Game3DManager.Instance.Change3DTile(action, 0, angangRemoveList.Count, GetCardPlayer, false, combination_mask, isMoGang: isMoGang);
+                        Game3DManager.Instance.Change3DTile(action, 0, GameRecordMeldCodec.AngangHandTileCount, GetCardPlayer, false, combination_mask, isMoGang: isMoGang);
                     }
                     else{
                         // 吃 / 碰 / 明杠：河牌被取走；打牌者与牌张由服务端 cut_from_player / cut_tile 必填下发。
