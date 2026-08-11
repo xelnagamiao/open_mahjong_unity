@@ -9,6 +9,8 @@ const { compareGuess, revealAnswer, extractTonePreview } = require('./compare')
 const {
   MATCH_OPENING_COUNTDOWN_MS,
   ROUND_RESULT_WAIT_MS,
+  normalizeCustomMaxGuesses,
+  normalizeCustomTimeLimit,
   shouldUseMatchOpeningCountdown,
 } = require('./timing')
 const {
@@ -120,6 +122,7 @@ function roomListItem(room) {
     bestOf: room.bestOf,
     disableRelated: room.disableRelated,
     ranked: !!room.ranked,
+    maxGuesses: room.maxGuesses,
     timeLimitSec: room.timeLimitSec || 0,
     status: room.status,
     createdAt: room.createdAt,
@@ -673,8 +676,8 @@ function registerGuessFanHandlers(socket, io) {
         rules: payload.rules,
         bestOf: payload.bestOf,
         disableRelated: payload.disableRelated,
-        maxGuesses: MAX_GUESSES,
-        timeLimitSec: 60,
+        maxGuesses: normalizeCustomMaxGuesses(payload.maxGuesses),
+        timeLimitSec: normalizeCustomTimeLimit(payload.timeLimitSec),
         ranked: false,
       })
       socket.join(`guessfan:${room.code}`)

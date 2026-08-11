@@ -47,8 +47,8 @@ class ChatServer:
             with open(secret_file_path, 'r') as f:
                 saved_key = f.read().strip()
                 if not saved_key or len(saved_key) < 10:
-                    raise Exception(f"秘钥文件内容无效: {saved_key}")
-                logger.info(f"秘钥文件验证成功: {saved_key[:20]}...")
+                    raise Exception("秘钥文件内容无效")
+                logger.info("秘钥文件验证成功")
         except Exception as e:
             logger.error(f"读取秘钥文件失败: {e}")
             raise
@@ -75,7 +75,8 @@ class ChatServer:
             # 调试环境使用命令行窗口显示日志信息（仅 Windows）
             if sys.platform == 'win32':
                 process = subprocess.Popen(
-                    ['cmd.exe', '/k', 'cd /d', script_dir, '&&', executable_path],
+                    [executable_path],
+                    cwd=script_dir,
                     creationflags=subprocess.CREATE_NEW_CONSOLE,
                 )
             else:
@@ -88,6 +89,9 @@ class ChatServer:
                     text=True
                 )
             
+            await asyncio.sleep(0.2)
+            if process.poll() is not None:
+                raise RuntimeError(f"聊天服务器启动后立即退出，退出码: {process.returncode}")
             logger.info(f"聊天服务器进程已启动，PID: {process.pid}")
             
         except Exception as e:
@@ -123,10 +127,9 @@ class ChatServer:
             with open(secret_file_path, 'r', encoding='utf-8') as f:
                 saved_content = f.read().strip()
                 if saved_content != secret_key:
-                    raise Exception(f"文件内容验证失败: 期望 {secret_key}, 实际 {saved_content}")
+                    raise Exception("文件内容验证失败")
             
             logger.info(f"新秘钥已保存到 {secret_file_path}")
-            logger.info(f"秘钥: {secret_key[:20]}...")
             logger.info(f"文件大小: {os.path.getsize(secret_file_path)} 字节")
 
         except Exception as e:

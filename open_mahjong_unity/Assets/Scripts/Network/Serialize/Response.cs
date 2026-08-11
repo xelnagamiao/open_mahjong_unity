@@ -110,6 +110,8 @@ public class ShowResultInfo { // 显示结算结果
     public bool? is_zimo;
     public int? hepai_tile;                       // 和牌张（自摸时仅和牌者可见真实 id）
     public bool? multi_ron;                       // 一炮多响事件标志（客户端每家补花区摆 1 张变暗牌）
+    public Dictionary<int, int[]> simultaneous_hu_hands; // 多家和首条结算：全部赢家手牌，统一倒牌
+    public bool? skip_hand_reveal;                // 后续赢家只播结算面板，不重复倒牌
     public bool? is_qianggang;                    // 抢杠和：透明克隆加杠牌，不提前收走
     public bool? recycle_discard;                 // 和牌动画结束后回收河牌（多响仅最后一家为 true）
     public bool? suppress_hand_reveal;            // 血战：和牌时不展开手牌

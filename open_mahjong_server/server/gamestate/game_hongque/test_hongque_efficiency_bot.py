@@ -2,22 +2,22 @@ import asyncio
 import random
 from functools import lru_cache
 
-from .HongqueGameState import HongqueGameState
-from .efficiency_bot import (
+from server.gamestate.game_hongque.HongqueGameState import HongqueGameState
+from server.gamestate.game_hongque.efficiency_bot import (
     _structural_value,
     choose_claim_plan,
     choose_discard,
     choose_turn_plan,
 )
-from .group_index import (
+from server.gamestate.game_hongque.group_index import (
     GROUP_MASKS,
     TILE_INDEX,
     mask_from_codes,
     waiting_mask,
     waiting_masks_after_discards,
 )
-from .rules import call_candidates
-from .tile import full_deck
+from server.gamestate.game_hongque.rules import call_candidates
+from server.gamestate.game_hongque.tile import full_deck
 
 
 def test_efficiency_discard_preserves_connected_groups() -> None:
@@ -29,7 +29,9 @@ def test_efficiency_discard_preserves_connected_groups() -> None:
 
 
 def test_efficiency_turn_uses_legal_supplement_before_discard() -> None:
-    hand = "AX1 AX2 AX3 BX4 BX5 BX6 CX7 CX8 GY9".split()
+    # A supplement is reserved for a genuinely ineffective draw; a ready hand
+    # must keep its waits instead of spending the limited redraw.
+    hand = "DY9 GY2 EY2 AY4 BX6 EX9 FX3 GX3 CX2".split()
     plan = choose_turn_plan(
         hand,
         [],
@@ -37,7 +39,7 @@ def test_efficiency_turn_uses_legal_supplement_before_discard() -> None:
         [],
         supplements=0,
         wall_count=50,
-        drawn_tile="GY9",
+        drawn_tile="CX2",
     )
     assert plan == {"action": "supplement"}
 
@@ -188,7 +190,7 @@ async def _exercise_ordinary_claim_route() -> None:
         "player_list": [101, 1, 103, 104],
         "player_settings": {1: {"username": "普通机器人"}},
     }
-    state = HongqueGameState(None, room, gamestate_id="ordinary-claim-route", debug=False)
+    state = HongqueGameState(None, room, gamestate_id="ordinary-claim-route")
     state.phase = "turn"
     state.players[0].discards = ["EX1"]
     state.players[1].hand = ["DX1", "FX1"]

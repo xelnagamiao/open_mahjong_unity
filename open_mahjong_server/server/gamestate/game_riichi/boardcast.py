@@ -295,6 +295,8 @@ async def broadcast_result(
     exhaustive_penalty: Optional[bool] = None,
     langyong_multiplier: Optional[int] = None,
     langyong_scored_points: Optional[int] = None,
+    simultaneous_hu_hands: Optional[Dict[int, List[int]]] = None,
+    skip_hand_reveal: Optional[bool] = None,
     silent: bool = False,
     next_status: Optional[str] = None,
 ):
@@ -334,6 +336,8 @@ async def broadcast_result(
                     exhaustive_penalty=exhaustive_penalty,
                     langyong_multiplier=langyong_multiplier,
                     langyong_scored_points=langyong_scored_points,
+                    simultaneous_hu_hands=simultaneous_hu_hands,
+                    skip_hand_reveal=skip_hand_reveal,
                     silent=True if silent else None,
                     next_status=next_status,
                 ),

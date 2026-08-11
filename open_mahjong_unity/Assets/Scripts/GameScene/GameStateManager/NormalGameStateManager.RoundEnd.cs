@@ -11,7 +11,7 @@ public partial class NormalGameStateManager {
     private bool awaitingMatchEnd;
 
     // 回合结束 和牌 流局
-    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null, string liuju_step = null, Dictionary<int, string> liuju_status = null, Dictionary<int, int[]> liuju_hands = null, bool liuju_status_final = false, int? hepai_tile = null, bool? multi_ron = null, bool? suppress_hand_reveal = null, Dictionary<int, int[]> liuju_hu_hands = null, bool? defer_score_settlement = null, int? cha_payer_index = null, int? ron_discarder_index = null, bool? recycle_discard = null, Dictionary<int, int> gang_refund_changes = null, bool? is_qianggang = null, bool liuju_refund = false, string next_status = null) {
+    public void ShowResult(int hepai_player_index, Dictionary<int, int> player_to_score, int hu_score, string[] hu_fan, string hu_class, int[] hepai_player_hand, int[] hepai_player_huapai, int[][] hepai_player_combination_mask, int? base_fu = null, string[] fu_fan_list = null, RiichiEndResultExtras riichiExtras = null, Dictionary<int, int> score_changes = null, bool isSilent = false, GuobiaoEndResultExtras guobiaoExtras = null, string liuju_step = null, Dictionary<int, string> liuju_status = null, Dictionary<int, int[]> liuju_hands = null, bool liuju_status_final = false, int? hepai_tile = null, bool? multi_ron = null, bool? suppress_hand_reveal = null, Dictionary<int, int[]> liuju_hu_hands = null, bool? defer_score_settlement = null, int? cha_payer_index = null, int? ron_discarder_index = null, bool? recycle_discard = null, Dictionary<int, int> gang_refund_changes = null, bool? is_qianggang = null, bool liuju_refund = false, string next_status = null, Dictionary<int, int[]> simultaneous_hu_hands = null, bool? skip_hand_reveal = null) {
         ClearChangshaSeaBottomVisual();
         lastGuobiaoEndExtras = guobiaoExtras;
         bool isMatchEnd = next_status == "match_end";
@@ -19,6 +19,8 @@ public partial class NormalGameStateManager {
         awaitingMatchEnd = false;
         if (EndResultPanel.Instance != null) {
             EndResultPanel.Instance.SetNextStatus(next_status);
+            // 生命周期先于倒牌/渐显动画开始，确保不会漏掉动画期间到达的本轮准备广播。
+            EndResultPanel.Instance.BeginGameResultLifecycle();
         }
         if (hu_class == "initial_hu") {
             ShowInitialHuResult(hepai_player_index, player_to_score, score_changes, isSilent);
@@ -154,7 +156,9 @@ public partial class NormalGameStateManager {
                 endgameScoreOnly: false,
                 // 多家和中间结算（round_continue）：面板自动关闭、不出确认按钮；
                 // 最后一家（round_end_by_ready / match_end）才进入确认/准备。
-                finalPanel: next_status != "round_continue");
+                finalPanel: next_status != "round_continue",
+                simultaneousHuHands: simultaneous_hu_hands,
+                skipHandReveal: skip_hand_reveal == true);
             }
         }
     }

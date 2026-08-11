@@ -6,6 +6,10 @@ const { compareGuess } = require('./compare')
 const {
   MATCH_OPENING_COUNTDOWN_MS,
   ROUND_RESULT_WAIT_MS,
+  CUSTOM_MAX_GUESSES_OPTIONS,
+  CUSTOM_TIME_LIMIT_OPTIONS,
+  normalizeCustomMaxGuesses,
+  normalizeCustomTimeLimit,
   shouldUseMatchOpeningCountdown,
 } = require('./timing')
 
@@ -170,6 +174,42 @@ run('14. 首次开局3秒与局间6秒不叠加', () => {
     !shouldUseMatchOpeningCountdown({ round: 1, openingCountdownUsed: false }),
     'later round does not add 3s',
   )
+})
+
+run('14.1. 个人练习与自建房限时选项', () => {
+  assert(
+    JSON.stringify(CUSTOM_TIME_LIMIT_OPTIONS) === JSON.stringify([40, 60, 80, 100]),
+    `options=${CUSTOM_TIME_LIMIT_OPTIONS.join(',')}`,
+  )
+  assert(normalizeCustomTimeLimit(undefined) === 60, '旧客户端未传限时时默认 60 秒')
+  for (const seconds of CUSTOM_TIME_LIMIT_OPTIONS) {
+    assert(normalizeCustomTimeLimit(seconds) === seconds, `accept ${seconds}s`)
+  }
+  let rejected = false
+  try {
+    normalizeCustomTimeLimit(30)
+  } catch {
+    rejected = true
+  }
+  assert(rejected, 'reject unsupported time limit')
+})
+
+run('14.2. 个人练习与自建房猜测次数选项', () => {
+  assert(
+    JSON.stringify(CUSTOM_MAX_GUESSES_OPTIONS) === JSON.stringify([6, 8, 10, 12]),
+    `options=${CUSTOM_MAX_GUESSES_OPTIONS.join(',')}`,
+  )
+  assert(normalizeCustomMaxGuesses(undefined) === 8, '旧客户端未传猜测次数时默认 8 次')
+  for (const maxGuesses of CUSTOM_MAX_GUESSES_OPTIONS) {
+    assert(normalizeCustomMaxGuesses(maxGuesses) === maxGuesses, `accept ${maxGuesses} guesses`)
+  }
+  let rejected = false
+  try {
+    normalizeCustomMaxGuesses(9)
+  } catch {
+    rejected = true
+  }
+  assert(rejected, 'reject unsupported max guesses')
 })
 
 run('15. 双龙会与两规则平和均为条件系', () => {

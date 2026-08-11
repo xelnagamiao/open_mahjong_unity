@@ -168,7 +168,12 @@ async def lifespan(app: FastAPI):
     if Config.auto_create_chatserver:
         await chat_server.start_chat_server()
     from .gamestate.public.ai.bot_executor import warm_bot_executor, shutdown_bot_executor
-    await warm_bot_executor()
+    try:
+        await warm_bot_executor()
+    except Exception:
+        # Warming is only an optimization. Keep the API available and let the
+        # first bot request initialize the executor lazily if warm-up fails.
+        logging.exception("机器人执行器预热失败，服务将继续启动并在首次使用时重试")
     reset_task = asyncio.create_task(_daily_ip_limit_reset_loop())
     sampler_task = asyncio.create_task(_online_sampler_loop())
     stats_task = asyncio.create_task(_daily_stats_loop())

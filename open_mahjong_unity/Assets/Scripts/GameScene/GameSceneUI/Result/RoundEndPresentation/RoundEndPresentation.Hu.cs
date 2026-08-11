@@ -11,13 +11,14 @@ public partial class RoundEndPresentation {
         bool isSilent = false, bool playPresentationEffects = true,
         bool suppressHandReveal = false, int hepaiTile = 0, bool multiRon = false,
         bool deferScoreSettlement = false, int? ronDiscarderIndex = null, bool recycleDiscard = false,
-        bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true) {
+        bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true,
+        Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false) {
         StartSequence(PresentHuResultSequenceCoroutine(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
             hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             base_fu, fu_fan_list, riichiExtras, score_changes, isSilent, playPresentationEffects,
             suppressHandReveal, hepaiTile, multiRon, deferScoreSettlement, ronDiscarderIndex, recycleDiscard,
-            isQianggang, endgameScoreOnly, finalPanel));
+            isQianggang, endgameScoreOnly, finalPanel, simultaneousHuHands, skipHandReveal));
     }
 
     /// <summary>协程版和牌结算：供虹雀多家和按顺序逐家展示，等上一家面板播完再进下家。</summary>
@@ -28,13 +29,14 @@ public partial class RoundEndPresentation {
         bool isSilent = false, bool playPresentationEffects = true,
         bool suppressHandReveal = false, int hepaiTile = 0, bool multiRon = false,
         bool deferScoreSettlement = false, int? ronDiscarderIndex = null, bool recycleDiscard = false,
-        bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true) {
+        bool isQianggang = false, bool endgameScoreOnly = false, bool finalPanel = true,
+        Dictionary<int, int[]> simultaneousHuHands = null, bool skipHandReveal = false) {
         yield return HuResult(
             hepai_player_index, player_to_score, hu_score, hu_fan, hu_class,
             hepai_player_hand, hepai_player_huapai, hepai_player_combination_mask,
             base_fu, fu_fan_list, riichiExtras, score_changes, isSilent, playPresentationEffects,
             suppressHandReveal, hepaiTile, multiRon, deferScoreSettlement, ronDiscarderIndex, recycleDiscard,
-            isQianggang, endgameScoreOnly, finalPanel);
+            isQianggang, endgameScoreOnly, finalPanel, simultaneousHuHands, skipHandReveal);
     }
 
     private IEnumerator HuResult(
@@ -43,16 +45,28 @@ public partial class RoundEndPresentation {
         int? base_fu, string[] fu_fan_list, RiichiEndResultExtras riichiExtras, Dictionary<int, int> score_changes,
         bool isSilent, bool playPresentationEffects,
         bool suppressHandReveal, int hepaiTile, bool multiRon, bool deferScoreSettlement, int? ronDiscarderIndex,
-        bool recycleDiscard, bool isQianggang, bool endgameScoreOnly, bool finalPanel) {
+        bool recycleDiscard, bool isQianggang, bool endgameScoreOnly, bool finalPanel,
+        Dictionary<int, int[]> simultaneousHuHands, bool skipHandReveal) {
         bool selfWon = NormalGameStateManager.Instance.indexToPosition[hepai_player_index] == "self";
         bool isSichuan = NormalGameStateManager.Instance.IsSichuanRule();
         bool isMidGameSichuanHu = deferScoreSettlement && isSichuan && !endgameScoreOnly;
         // 终局 settle_hu：仅分数面板，不重复 3D 和牌动画（reveal_hu 已亮牌）
         bool isEndgameScoreOnly = endgameScoreOnly;
-        bool willRevealWinnerHand = playPresentationEffects && !isEndgameScoreOnly && !isMidGameSichuanHu
+        bool hasSimultaneousReveal = simultaneousHuHands != null && simultaneousHuHands.Count > 1;
+        bool willRevealWinnerHand = playPresentationEffects && !skipHandReveal && !isEndgameScoreOnly && !isMidGameSichuanHu
             && hepai_player_hand != null && hepai_player_hand.Length > 0;
 
-        if (selfWon && !isMidGameSichuanHu && !isEndgameScoreOnly) {
+        bool selfIsAmongBatchWinners = false;
+        if (hasSimultaneousReveal) {
+            foreach (KeyValuePair<int, string> seat in NormalGameStateManager.Instance.indexToPosition) {
+                if (seat.Value == "self" && simultaneousHuHands.ContainsKey(seat.Key)) {
+                    selfIsAmongBatchWinners = true;
+                    break;
+                }
+            }
+        }
+        if ((selfWon || selfIsAmongBatchWinners) && !skipHandReveal
+                && !isMidGameSichuanHu && !isEndgameScoreOnly) {
             HideSelfGameplayControl(!willRevealWinnerHand && !suppressHandReveal);
         }
 
@@ -70,6 +84,8 @@ public partial class RoundEndPresentation {
         if (isMidGameSichuanHu) {
             yield return HepaiRevealDirector.PlaySichuanMidGame(
                 hepai_player_index, hu_class, hepaiTile, multiRon, ronDiscarderIndex, recycleDiscard, isQianggang);
+        } else if (hasSimultaneousReveal && playPresentationEffects && !skipHandReveal) {
+            yield return HepaiRevealDirector.PlayMany(simultaneousHuHands, hu_class);
         } else if (willRevealWinnerHand) {
             yield return HepaiRevealDirector.Play(hepai_player_index, hepai_player_hand, hu_class, hu_fan, isQianggang, ronDiscarderIndex, hepaiTile);
         }

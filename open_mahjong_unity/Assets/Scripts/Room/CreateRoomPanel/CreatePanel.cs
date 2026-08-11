@@ -253,21 +253,11 @@ public partial class CreatePanel : MonoBehaviour {
 
     private void EnsureRuleDropdownOptions() {
         if (chooseRule == null) return;
-        string[] expectedOptions = {
-            "国标麻将",
-            "立直麻将",
-            "青雀",
-            "四川麻将",
-            "长沙麻将",
-            "台湾麻将",
-            "古典麻将",
-            "南雀",
-            "虹雀²（原型）",
-        };
-        bool needsRefresh = chooseRule.options.Count != expectedOptions.Length;
+        IReadOnlyList<CreateRoomRuleTextConfig> configs = CreateRoomRuleTextConfigCatalog.Rules;
+        bool needsRefresh = chooseRule.options.Count != configs.Count;
         if (!needsRefresh) {
-            for (int i = 0; i < expectedOptions.Length; i++) {
-                if (chooseRule.options[i].text == expectedOptions[i]) continue;
+            for (int i = 0; i < configs.Count; i++) {
+                if (chooseRule.options[i].text == configs[i].DisplayName) continue;
                 needsRefresh = true;
                 break;
             }
@@ -275,7 +265,8 @@ public partial class CreatePanel : MonoBehaviour {
         if (!needsRefresh) return;
 
         chooseRule.ClearOptions();
-        var options = new List<string>(expectedOptions);
+        var options = new List<string>();
+        foreach (CreateRoomRuleTextConfig config in configs) options.Add(config.DisplayName);
         chooseRule.AddOptions(options);
         chooseRule.RefreshShownValue();
     }
@@ -347,18 +338,7 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private void OnRuleDropdownChanged(int selectedIndex) {
-        _ruleState = selectedIndex switch {
-            0 => "guobiao",
-            1 => "riichi",
-            2 => "qingque",
-            3 => "sichuan",
-            4 => "changsha",
-            5 => "taiwan",
-            6 => "classical",
-            7 => "jiandan",
-            8 => "hongque",
-            _ => "guobiao"
-        };
+        _ruleState = CreateRoomRuleTextConfigCatalog.GetRule(selectedIndex).Rule;
         RebuildHepaiWayOptions();
         bool hasSubRule = RuleConfigs[_ruleState].ContainsKey(CfgSubRule);
         if (hasSubRule) {
@@ -499,24 +479,16 @@ public partial class CreatePanel : MonoBehaviour {
         }
     }
 
-    private string GetCurrentSubRuleKey() {
-        if (_ruleState == "qingque") return "qingque/standard";
-        if (_ruleState == "classical") return "classical/standard";
-        if (_ruleState == "sichuan") return "sichuan/standard";
-        if (_ruleState == "changsha") return "changsha/classic_double_bird";
-        if (_ruleState == "jiandan") return "jiandan/standard";
-        if (_ruleState == "hongque") return "hongque/v1.6";
-        if (_ruleState == "taiwan") return "taiwan/standard";
-        if (_ruleState == "riichi") return GetSelectedRiichiSubRule();
-        return GetSelectedSubRule();
-    }
-
     private string GetSelectedRiichiSubRule() {
-        return SubRuleDropdown.value == 1 ? "riichi/langyong" : "riichi/standard";
+        return CreateRoomRuleTextConfigCatalog.GetRule("riichi")
+            .GetSubRule(SubRuleDropdown.value).Key;
     }
 
     private void RefreshSubRuleDescription() {
-        SubRuleDescriptionText.text = SubRuleDescriptionDictionary.GetDescription(GetCurrentSubRuleKey());
+        CreateRoomSubRuleTextConfig subRule = CreateRoomRuleTextConfigCatalog
+            .GetRule(_ruleState)
+            .GetSubRule(SubRuleDropdown.value);
+        SubRuleDescriptionText.text = subRule != null ? subRule.Description : "";
         SubRuleDescriptionText.ForceMeshUpdate();
         LayoutHierarchyRebuilder.RebuildUpwards(SubRuleDescriptionText.rectTransform, transform);
     }
@@ -529,12 +501,11 @@ public partial class CreatePanel : MonoBehaviour {
     /// <summary>按当前规则填充子规则下拉选项。仅含子规则的规则（国标 / 日麻）会用到。</summary>
     private void PopulateSubRuleDropdown(string rule) {
         SubRuleDropdown.ClearOptions();
-        if (rule == "riichi") {
-            SubRuleDropdown.AddOptions(new List<string> { "立直麻将(标准)", "浪涌麻将" });
-        } else {
-            // 国标：SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "国标麻将(蓝十改)" });
-            SubRuleDropdown.AddOptions(new List<string> { "标准规(新编MCR)", "国标麻将(小林改)", "K神麻将", "国标麻将(蓝十改)" });
+        var options = new List<string>();
+        foreach (CreateRoomSubRuleTextConfig subRule in CreateRoomRuleTextConfigCatalog.GetRule(rule).SubRules) {
+            options.Add(subRule.DisplayName);
         }
+        SubRuleDropdown.AddOptions(options);
         SubRuleDropdown.value = 0;
     }
 
@@ -566,12 +537,8 @@ public partial class CreatePanel : MonoBehaviour {
     }
 
     private string GetSelectedSubRule() {
-        return SubRuleDropdown.value switch {
-            1 => "guobiao/xiaolin",
-            2 => "guobiao/kshen",
-            3 => "guobiao/lanshi",
-            _ => "guobiao/standard"
-        };
+        return CreateRoomRuleTextConfigCatalog.GetRule("guobiao")
+            .GetSubRule(SubRuleDropdown.value).Key;
     }
 
     /// <summary>运行时从赤宝牌开关克隆日麻专属选项，避免场景内重复手工挂接。</summary>

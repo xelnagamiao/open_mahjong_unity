@@ -1,4 +1,6 @@
-from .scoring import best_win_result
+import pytest
+
+from server.gamestate.game_hongque.scoring import best_win_result
 
 
 def test_scoring_uses_rulebook_base_times_fan_sum() -> None:
@@ -130,6 +132,25 @@ def test_exposed_groups_with_concealed_group_complete_the_win() -> None:
         ("AX1", "AX2", "AX3"),
         ("BX4", "BX5", "BX6"),
     ]
+
+
+def test_all_groups_contain_terminal_accepts_four_tile_extended_meld() -> None:
+    """123 补入 4 后仍是同一牌组；该组含 1，所以不应破坏全带幺。"""
+    result = best_win_result(
+        [
+            "BX1", "BX2", "BX3",
+            "CX1", "CX2", "CX3",
+            "DX7", "DX8", "DX9",
+        ],
+        [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3", "AX4"]}],
+        self_draw=True,
+        before_first_discard=False,
+        wall_empty=False,
+    )
+    assert result is not None
+    fan_map = {fan["name"]: fan["total"] for fan in result["fans"]}
+    assert fan_map["全带幺"] == 2
+    assert ["AX1", "AX2", "AX3", "AX4"] in result["groups"]
 
 
 def test_same_flower_and_same_sequence_fans_are_repeatable() -> None:
@@ -268,3 +289,26 @@ def test_same_flower_matches_opposite_direction_sequences() -> None:
     assert len(same_flower) == 1
     assert same_flower[0]["count"] == 2
     assert same_flower[0]["total"] == 4
+
+
+@pytest.mark.parametrize("numbers", [(1, 2, 3), (1, 4, 7), (3, 6, 9), (2, 5, 8)])
+def test_three_numbers_accepts_any_strict_arithmetic_triple(numbers) -> None:
+    hand = [f"AX{number}" for number in numbers]
+    result = best_win_result(
+        hand, [], self_draw=False, before_first_discard=False, wall_empty=False,
+    )
+    assert result is not None
+    names = {fan["name"] for fan in result["fans"]}
+    assert "三数" in names
+    assert "四数" not in names
+
+
+def test_four_numbers_allows_a_gap_in_the_arithmetic_frame() -> None:
+    hand = "AX8 BX8 CX8 CY6 DX6 DX8 DX9 DY6 EX8 EX9 FX9 GX8".split()
+    result = best_win_result(
+        hand, [], self_draw=False, before_first_discard=False, wall_empty=False,
+    )
+    assert result is not None
+    names = {fan["name"] for fan in result["fans"]}
+    assert "四数" in names
+    assert "三数" not in names

@@ -36,6 +36,23 @@ from .boardcast import _send_do_action_payload_to_viewer
 
 logger = logging.getLogger(__name__)
 
+
+def select_tactical_initial_submission(game_state, submissions):
+    """同批到达时先展示低优先级申请，让更高优先级在战术窗口中抢断。"""
+    non_pass = [item for item in submissions if item[1].get("action_type") != "pass"]
+    candidates = non_pass or submissions
+    if not candidates:
+        return None
+    discarder = getattr(game_state, "current_player_index", 0)
+    return min(
+        candidates,
+        key=lambda item: (
+            game_state.action_priority.get(item[1].get("action_type"), -1),
+            (item[0] - discarder) % 4,
+        ),
+    )
+
+
 # 等待玩家行动
 async def wait_action(self):
     self.waiting_players_list = [] # [2,3]
@@ -116,65 +133,65 @@ async def wait_action(self):
         for task in pending:
             task.cancel()
 
-        # 处理完成的任务
+        completed_submissions = []
         for task in done:
             # 计时器完成：仅用于周期性重检 timeout；实际已用时间按送达起算
-            if task == timer_task: 
+            if task == timer_task:
                 continue
-            # 玩家操作完成，获取玩家索引
-            else:
-                # 使用映射获取玩家索引
-                temp_player_index = task_to_player[task]
-                temp_action_data = await self.action_queues[temp_player_index].get() # 获取操作数据
-                temp_action_type = temp_action_data.get("action_type") # 获取操作类型
+            temp_player_index = task_to_player[task]
+            temp_action_data = dict(await self.action_queues[temp_player_index].get())
+            completed_submissions.append((temp_player_index, temp_action_data))
 
-                # 复制字典以避免引用问题
-                temp_action_data = dict(temp_action_data)
-                logger.debug(f"复制后: temp_player_index={temp_player_index}, temp_action_data={temp_action_data}")
+        tactical_batch = (
+            getattr(self, "tactical_call", False)
+            and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
+        )
+        if tactical_batch and len(completed_submissions) > 1:
+            initial_submission = select_tactical_initial_submission(self, completed_submissions)
+            # 同批的其余动作仍属于有效预提交；放回各自队列，交给战术窗口处理。
+            # 这样会先广播吃，再由碰/杠/和抢断，而不是由 asyncio 的集合遍历顺序决定结果。
+            for submission in completed_submissions:
+                if submission is initial_submission:
+                    continue
+                queued_player, queued_data = submission
+                self.action_queues[queued_player].put_nowait(queued_data)
+                self.action_events[queued_player].set()
+            completed_submissions = [initial_submission]
 
-                used_int_time = int(get_ask_elapsed(self, temp_player_index))
-                if timeout_grace > 0 and used_int_time >= timeout_grace: # 扣除玩家超出步时的时间
-                    self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
-               
-                self.action_dict[temp_player_index] = [] # 从可执行操作列表中移除操作
-                if temp_action_type != "pass":
-                    tactical_mark_player_committed(self, temp_player_index)
-                # 主询问 pass 不记入战术 passed；低优先级鸣牌申请后仍从快照再问更高优先级（含已 pass 者）。
-                # 同一批完成任务中可能已有更高优先级操作清空等待列表，因此移除前先确认仍在等待。
-                if temp_player_index in self.waiting_players_list:
-                    self.waiting_players_list.remove(temp_player_index) # 从玩家等待列表中移除玩家
-                
-                # 检查当前操作是否是最高优先级的
-                do_interrupt = True
-                for check_player_index in self.waiting_players_list:
-                    for action in self.action_dict[check_player_index]:
-                        # 如果有其他更高优先级的操作，则继续等待
-                        if self.action_priority[temp_action_type] < self.action_priority[action]:
-                            do_interrupt = False
-                
-                # 如果action_data为空，添加action_data
-                if not action_data:
-                    action_data = dict(temp_action_data)  # 创建副本
-                    action_type = temp_action_type
-                    player_index = temp_player_index  # 保存对应的玩家索引
-                    logger.debug(f"设置action_data: player_index={player_index}, action_data={action_data}")
+        for temp_player_index, temp_action_data in completed_submissions:
+            temp_action_type = temp_action_data.get("action_type")
+            logger.debug(f"复制后: temp_player_index={temp_player_index}, temp_action_data={temp_action_data}")
 
-                # 在有人进行操作时，如果操作类型优先级更高，则覆盖上一个玩家的action_data
-                elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
-                    action_data = dict(temp_action_data)  # 创建副本
-                    action_type = temp_action_type
-                    player_index = temp_player_index  # 更新为对应的玩家索引
-                    logger.debug(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
+            used_int_time = int(get_ask_elapsed(self, temp_player_index))
+            if timeout_grace > 0 and used_int_time >= timeout_grace:
+                self.player_list[temp_player_index].remaining_time -= (used_int_time - timeout_grace)
 
-                # 战术鸣牌：任一非 pass 提交立即结束主询问，不等待更高优先级竞争者（如 A 吃时不等 B 碰）。
-                # 申请广播 + 0.5s 后再进入 5 秒打断窗口，高优先级可在该窗口内抢断。
-                tactical_immediate_break = (
-                    getattr(self, "tactical_call", False)
-                    and temp_action_type != "pass"
-                    and self.game_status in ("waiting_action_after_cut", "waiting_action_qianggang")
-                )
-                if do_interrupt or tactical_immediate_break:
-                    self.waiting_players_list = [] # 清空等待列表，强制结束循环
+            self.action_dict[temp_player_index] = []
+            if temp_action_type != "pass":
+                tactical_mark_player_committed(self, temp_player_index)
+            if temp_player_index in self.waiting_players_list:
+                self.waiting_players_list.remove(temp_player_index)
+
+            do_interrupt = True
+            for check_player_index in self.waiting_players_list:
+                for action in self.action_dict[check_player_index]:
+                    if self.action_priority[temp_action_type] < self.action_priority[action]:
+                        do_interrupt = False
+
+            if not action_data:
+                action_data = dict(temp_action_data)
+                action_type = temp_action_type
+                player_index = temp_player_index
+                logger.debug(f"设置action_data: player_index={player_index}, action_data={action_data}")
+            elif self.action_priority[temp_action_type] > self.action_priority[action_type]:
+                action_data = dict(temp_action_data)
+                action_type = temp_action_type
+                player_index = temp_player_index
+                logger.debug(f"覆盖action_data: player_index={player_index}, action_data={action_data}")
+
+            tactical_immediate_break = tactical_batch and temp_action_type != "pass"
+            if do_interrupt or tactical_immediate_break:
+                self.waiting_players_list = []
 
     # 等待行为结束,开始处理操作,pass,超时逻辑
     # 如果操作是最高优先级的直接结束循环

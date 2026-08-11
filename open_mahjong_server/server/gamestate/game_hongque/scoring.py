@@ -21,6 +21,22 @@ def _arithmetic(values: Sequence[int]) -> bool:
     return step > 0 and all(ordered[i + 1] - ordered[i] == step for i in range(len(ordered) - 1))
 
 
+def _fits_arithmetic_slots(values: Sequence[int], slot_count: int) -> bool:
+    """Return whether the numbers fit inside an arithmetic frame with gaps."""
+    ordered = sorted(set(values))
+    if len(ordered) != len(values) or len(ordered) < 2 or len(ordered) > slot_count:
+        return False
+    present = set(ordered)
+    for step in range(1, 9):
+        for start in range(1, 10):
+            frame = {start + step * offset for offset in range(slot_count)}
+            if max(frame) > 9:
+                break
+            if present <= frame:
+                return True
+    return False
+
+
 def _ordered_tiles(shape: MeldShape) -> list[HongqueTile]:
     tiles = [HongqueTile.parse(code) for code in shape.tiles]
     if shape.base_kind == "sequence":
@@ -218,7 +234,9 @@ def score_partition(
         fans.append(_entry("二数", 12))
     elif len(numbers) == 3 and _arithmetic(numbers):
         fans.append(_entry("三数", 6))
-    elif len(numbers) == 4 and _arithmetic(numbers):
+    # 四数按四个等距位置判定，允许其中存在空缺。例如 6/8/9 可嵌入
+    # 6/7/8/9，因此仍计四数；严格等差的三个数字已优先计三数。
+    elif len(numbers) in (3, 4) and _fits_arithmetic_slots(numbers, 4):
         fans.append(_entry("四数", 3))
     # 全带幺：每组牌均含数字 1 或 9 的牌（按规则书“牌组”判定，而非全体手牌）。
     if groups and all(

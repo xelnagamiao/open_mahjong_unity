@@ -1,5 +1,5 @@
-from .group_index import mask_from_codes
-from .heuristic_bot import (
+from server.gamestate.game_hongque.group_index import mask_from_codes
+from server.gamestate.game_hongque.heuristic_bot import (
     OpponentView,
     V2Value,
     _claim_advances,
@@ -11,7 +11,7 @@ from .heuristic_bot import (
     choose_turn_plan,
     evaluate_hand,
 )
-from .rules import call_candidates
+from server.gamestate.game_hongque.rules import call_candidates
 
 
 class _FakePlayer:
@@ -211,7 +211,7 @@ def test_far_hand_folds_to_safest_within_budget() -> None:
 
 
 def _structural_value_ref(hand, tile) -> int:
-    from .heuristic_bot import _structural_value
+    from server.gamestate.game_hongque.heuristic_bot import _structural_value
 
     remaining = [c for c in hand if c != tile]
     return _structural_value(mask_from_codes(remaining))[0]

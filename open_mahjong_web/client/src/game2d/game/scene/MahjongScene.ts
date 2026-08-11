@@ -162,6 +162,7 @@ export class MahjongScene {
   }
   setAssistSettings(next: Partial<AssistSettings> | AssistSettings): void {
     this.assist = normalizeAssistSettings({ ...this.assist, ...next })
+    this.hands[0]?.setDiscardConfirmationRequired(this.assist.confirmDiscard)
   }
 
   // ── Interactive state ─────────────────────────────────────────────
@@ -189,6 +190,7 @@ export class MahjongScene {
 
   // ── Resize ────────────────────────────────────────────────────────
   private resizeFrame: number | null = null
+  private resizeObserver: ResizeObserver | null = null
   private pendingChoicesTimeout: ReturnType<typeof setTimeout> | null = null
   private autoActionTimeout: ReturnType<typeof setTimeout> | null = null
   private predrawSortTimeout: ReturnType<typeof setTimeout> | null = null
@@ -377,6 +379,10 @@ export class MahjongScene {
     hostElement.replaceChildren(this.app.canvas)
     this.layout()
     window.addEventListener('resize', this.handleResize)
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.scheduleResizeAndLayout())
+      this.resizeObserver.observe(hostElement)
+    }
 
     this.createSubComponents()
     this.mounted = true
@@ -423,6 +429,8 @@ export class MahjongScene {
     this.clearScoreDifferenceTimeout()
     this.stopLatencyMeasurement()
     window.removeEventListener('resize', this.handleResize)
+    this.resizeObserver?.disconnect()
+    this.resizeObserver = null
     document.removeEventListener('contextmenu', this.handleRightClick)
     document.removeEventListener('pointerdown', this.handleLeftDoubleClickShortcut)
     document.removeEventListener('wheel', this.handleWheel)
@@ -1026,7 +1034,7 @@ export class MahjongScene {
           tile: tid,
           use_drawn_tile: useDrawn,
         })
-      })
+      }, this.assist.confirmDiscard)
     } else {
       this.hands[0].unwaitDiscard()
     }
@@ -1317,7 +1325,8 @@ export class MahjongScene {
         this.center.x = sw / 2
         // 手机竖屏会给牌桌上下各预留独立空间：上方放辅助操作按钮，
         // 下方完整展示出牌辅助方块。牌桌本体因此应在加长后的舞台内垂直居中。
-        this.center.y = sh / 2
+        const topSpaceReduction = Math.min(52, Math.max(0, (sh - sw) / 4))
+        this.center.y = sh / 2 - topSpaceReduction
         this.center.rotation = 0
         this.center.scale.set(sw * WINDOW_SCALE / SCALE_FACTOR)
       }
@@ -1327,6 +1336,7 @@ export class MahjongScene {
       this.center.rotation = 0
       this.center.scale.set(Math.min(sw, sh) * WINDOW_SCALE / SCALE_FACTOR)
     }
+
   }
 
   private getViewportSize(): { width: number; height: number } {

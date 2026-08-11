@@ -9,6 +9,8 @@
    且入口确实来自 heuristic_bot（而非误绑其它实现）。
 """
 import importlib
+from pathlib import Path
+import subprocess
 import sys
 
 # 仅虹雀目录内的模块允许被虹雀 bot 依赖。
@@ -24,17 +26,37 @@ def _foreign_game_modules() -> set[str]:
 
 
 def test_bot_modules_do_not_import_other_modes() -> None:
-    from server.gamestate.game_hongque import (  # noqa: F401
-        efficiency_bot,
-        heuristic_bot,
+    # 其它测试在收集阶段可能已经加载别的玩法；用全新解释器验证 bot 的真实依赖。
+    script = """
+import importlib
+import sys
+
+allowed = "server.gamestate.game_hongque"
+importlib.import_module(allowed + ".efficiency_bot")
+importlib.import_module(allowed + ".heuristic_bot")
+foreign = sorted(
+    module_name
+    for module_name in sys.modules
+    if module_name.startswith("server.gamestate.game_")
+    and module_name != allowed
+    and not module_name.startswith(allowed + ".")
+)
+if foreign:
+    raise AssertionError(f"虹雀 bot 拉入了其它模式模块: {foreign}")
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[3],
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    foreign = _foreign_game_modules()
-    assert not foreign, f"虹雀 bot 拉入了其它模式模块: {sorted(foreign)}"
+    assert result.returncode == 0, result.stderr or result.stdout
 
 
 def test_hongque_state_user2_stays_on_efficiency() -> None:
     """user_id=2（牌效罗伯特）在虹雀仍走 efficiency_bot，未被改动。"""
-    hgs = importlib.import_module("server.gamestate.game_hongque.HongqueGameState")
+    hgs = importlib.import_module("server.gamestate.game_hongque.get_action")
     efficiency = importlib.import_module("server.gamestate.game_hongque.efficiency_bot")
 
     assert hgs.choose_turn_plan is efficiency.choose_turn_plan
@@ -43,7 +65,7 @@ def test_hongque_state_user2_stays_on_efficiency() -> None:
 
 def test_hongque_state_user3_wired_to_v3_turn() -> None:
     """user_id=3（高性能罗伯特）在虹雀走 heuristic_bot 的出牌入口。"""
-    hgs = importlib.import_module("server.gamestate.game_hongque.HongqueGameState")
+    hgs = importlib.import_module("server.gamestate.game_hongque.get_action")
     bot = importlib.import_module("server.gamestate.game_hongque.heuristic_bot")
 
     assert hgs.choose_turn_plan_v3 is bot.choose_turn_plan
@@ -52,7 +74,7 @@ def test_hongque_state_user3_wired_to_v3_turn() -> None:
 
 def test_hongque_state_user3_wired_to_v3_claim() -> None:
     """user_id=3 在虹雀的鸣牌入口同样来自 heuristic_bot。"""
-    hgs = importlib.import_module("server.gamestate.game_hongque.HongqueGameState")
+    hgs = importlib.import_module("server.gamestate.game_hongque.get_action")
     bot = importlib.import_module("server.gamestate.game_hongque.heuristic_bot")
 
     assert hgs.choose_claim_plan_v3 is bot.choose_claim_plan

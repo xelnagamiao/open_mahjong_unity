@@ -1,5 +1,5 @@
-from .tenpai_check import waiting_tiles
-from .win_check import is_winning_hand, winning_decompositions
+from server.gamestate.game_hongque.tenpai_check import waiting_tiles
+from server.gamestate.game_hongque.win_check import is_winning_hand, winning_decompositions
 
 
 OPEN_SEQUENCE = [{

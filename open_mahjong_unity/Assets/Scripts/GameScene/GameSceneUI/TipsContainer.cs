@@ -143,9 +143,9 @@ public class TipsContainer : MonoBehaviour
         HongqueScoreHintInfo[] hints = winHint != null
             ? new[] { winHint }
             : (waitHints ?? Array.Empty<HongqueScoreHintInfo>());
-        // 虹雀每张牌唯一：听牌等待张若已在任一玩家牌河，则永远无法再摸到/点和，按灰色显示；
+        // 虹雀每张牌唯一：听牌等待张若已在任一玩家牌河或副露，则永远无法再摸到/点和，按灰色显示；
         // 当前可直接和（含刚打出可点和的 win_hint）不受影响。
-        HashSet<int> riverTiles = winHint == null ? CollectHongqueRiverTiles() : null;
+        HashSet<int> unavailableTiles = winHint == null ? CollectHongqueUnavailableTiles() : null;
         List<int> shownWaits = new List<int>();
         foreach (HongqueScoreHintInfo hint in hints) {
             if (hint == null) continue;
@@ -157,9 +157,9 @@ public class TipsContainer : MonoBehaviour
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             // 只显示直接分值，不展示底/番公式。
             string label = $"{hint.points}分";
-            string colorType = riverTiles != null && riverTiles.Contains(tileId) ? "exhausted"
+            string colorType = unavailableTiles != null && unavailableTiles.Contains(tileId) ? "exhausted"
                 : (hint.self_draw_only ? "zimo" : "dianhe");
-            // 已入河为灰色；仅自摸（杠和听牌）叠黄色底；可点和为绿色。
+            // 已公开为灰色；仅自摸（杠和听牌）叠黄色底；可点和为绿色。
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
                 label, colorType);
         }
@@ -176,8 +176,8 @@ public class TipsContainer : MonoBehaviour
         foreach (Transform child in FanContainer.transform) toDestroy.Add(child);
         foreach (Transform child in toDestroy) Destroyer.Instance.AddToDestroyer(child);
 
-        HashSet<int> riverTiles = CollectHongqueRiverTiles();
-        riverTiles.Add(pendingCutTileId);
+        HashSet<int> unavailableTiles = CollectHongqueUnavailableTiles();
+        unavailableTiles.Add(pendingCutTileId);
         List<int> shownWaits = new List<int>();
         foreach (HongqueScoreHintInfo hint in waitHints ?? Array.Empty<HongqueScoreHintInfo>()) {
             if (hint == null || string.IsNullOrEmpty(hint.tile)) continue;
@@ -186,7 +186,7 @@ public class TipsContainer : MonoBehaviour
             shownWaits.Add(tileId);
             InstantiateTipsTile(tileId);
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
-            string colorType = riverTiles.Contains(tileId) ? "exhausted"
+            string colorType = unavailableTiles.Contains(tileId) ? "exhausted"
                 : (hint.self_draw_only ? "zimo" : "dianhe");
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
                 $"{hint.points}分", colorType);
@@ -212,8 +212,8 @@ public class TipsContainer : MonoBehaviour
         allTiles.AddRange(kongWinOnly);
         allTiles = allTiles.Distinct().ToList();
         allTiles.Sort();
-        // 虹雀每张牌唯一：听牌张若已在任一玩家牌河，则永远无法再摸到/点和，按灰色显示。
-        HashSet<int> riverTiles = CollectHongqueRiverTiles();
+        // 虹雀每张牌唯一：听牌张若已在任一玩家牌河或副露，则永远无法再摸到/点和，按灰色显示。
+        HashSet<int> unavailableTiles = CollectHongqueUnavailableTiles();
         foreach (int tileId in allTiles) {
             InstantiateTipsTile(tileId);
             HongqueWinScore score;
@@ -228,26 +228,36 @@ public class TipsContainer : MonoBehaviour
             }
             GameObject fanObject = Instantiate(FanPrefab, FanContainer.transform);
             string label = score != null ? $"{score.Points}分" : "0分";
-            string colorType = riverTiles.Contains(tileId) ? "exhausted"
+            string colorType = unavailableTiles.Contains(tileId) ? "exhausted"
                 : (kongWinOnly.Contains(tileId) ? "zimo" : "dianhe");
             fanObject.GetComponent<TipsFanCount>().SetTipsFanCount(
                 label, colorType);
         }
     }
 
-    /// <summary>收集场上全部玩家牌河中的牌（虹雀每张唯一，已在河中的听牌张无法再获得）。</summary>
-    private static HashSet<int> CollectHongqueRiverTiles() {
-        HashSet<int> river = new HashSet<int>();
+    /// <summary>收集全部玩家牌河与副露中的牌（虹雀每张唯一，已公开的听牌张无法再获得）。</summary>
+    private static HashSet<int> CollectHongqueUnavailableTiles() {
+        HashSet<int> unavailable = new HashSet<int>();
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
-        if (gsm == null || gsm.player_to_info == null) return river;
+        if (gsm == null || gsm.player_to_info == null) return unavailable;
         foreach (KeyValuePair<string, PlayerInfoClass> kv in gsm.player_to_info) {
             PlayerInfoClass info = kv.Value;
-            if (info == null || info.discard_tiles == null) continue;
-            foreach (int tileId in info.discard_tiles) {
-                if (tileId > 0) river.Add(tileId);
+            if (info == null) continue;
+            if (info.discard_tiles != null) {
+                foreach (int tileId in info.discard_tiles) {
+                    if (tileId > 0) unavailable.Add(tileId);
+                }
+            }
+            if (info.combination_masks == null) continue;
+            foreach (int[] meldMask in info.combination_masks) {
+                if (meldMask == null) continue;
+                // 副露掩码按 [flag, tileId] 成对保存；虹雀的竖立标记 flag=0 也必须计入。
+                for (int i = 1; i < meldMask.Length; i += 2) {
+                    if (meldMask[i] > 0) unavailable.Add(meldMask[i]);
+                }
             }
         }
-        return river;
+        return unavailable;
     }
 
     /// <summary>

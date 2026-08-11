@@ -5,5 +5,6 @@ game records.  Public tile codes match the Unity HQv3.1 resource names.
 """
 
 from .HongqueGameState import HongqueGameState
+from .player import HongquePlayer
 
-__all__ = ["HongqueGameState"]
+__all__ = ["HongqueGameState", "HongquePlayer"]

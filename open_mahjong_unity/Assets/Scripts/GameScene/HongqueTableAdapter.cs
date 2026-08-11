@@ -643,6 +643,27 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
         int[] order = current.round_result.winner_indices
             ?? results.Select(item => item.player).ToArray();
         NormalGameStateManager gsm = NormalGameStateManager.Instance;
+        Dictionary<int, int[]> simultaneousHuHands = results
+            .Where(item => item != null)
+            .ToDictionary(item => item.player, item => ConvertTiles(item.hand));
+        // 多家和开始时先把计分板还原到本局结算前；随后每张面板只加入当前赢家得分。
+        // 避免统一倒牌期间提前看到所有赢家的最终分数。
+        Dictionary<int, int> initialScores = new Dictionary<int, int>(finalScores);
+        for (int i = 0; i < order.Length; i++) {
+            int player = order[i];
+            if (current.round_result.score_changes != null
+                    && current.round_result.score_changes.TryGetValue(player, out int points)
+                    && initialScores.ContainsKey(player)) {
+                initialScores[player] -= points;
+            }
+        }
+        foreach (KeyValuePair<int, string> seat in gsm.indexToPosition) {
+            if (initialScores.TryGetValue(seat.Key, out int score)
+                    && gsm.player_to_info.TryGetValue(seat.Value, out PlayerInfoClass playerInfo)) {
+                playerInfo.score = score;
+            }
+        }
+        BoardCanvas.Instance?.UpdatePlayerScores(initialScores, gsm.indexToPosition);
         for (int i = 0; i < order.Length; i++) {
             HongqueWinnerResultInfo result = results
                 .FirstOrDefault(item => item != null && item.player == order[i]);
@@ -651,11 +672,25 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             // 本阶段增减：只带当前赢家自己的加分（虹雀不扣分，无扣分项）。
             // 不能把 round_result.score_changes（所有赢家合并）传给面板，
             // 否则第一家就会把后续赢家的变更一起展示出来。
+            // EndResultPanel 进入本流程前，本地分数已经同步为整局最终分。
+            // 因此必须显式给所有玩家写入本阶段 delta=0；若省略后续赢家，通用解析器会把
+            // “阶段分数尚未包含其和牌得分”误判为一次负分变化。
+            // score_changes 使用 original_player_index 键，与通用结算面板的优先解析口径一致。
             Dictionary<int, int> stageScoreChanges = new Dictionary<int, int>();
+            foreach (KeyValuePair<int, string> seat in gsm.indexToPosition) {
+                if (gsm.player_to_info.TryGetValue(seat.Value, out PlayerInfoClass playerInfo)) {
+                    stageScoreChanges[playerInfo.original_player_index] = 0;
+                }
+            }
             if (current.round_result.score_changes != null
                     && current.round_result.score_changes.TryGetValue(result.player, out int winnerPoints)
                     && winnerPoints != 0) {
-                stageScoreChanges[result.player] = winnerPoints;
+                if (gsm.indexToPosition.TryGetValue(result.player, out string winnerPosition)
+                        && gsm.player_to_info.TryGetValue(winnerPosition, out PlayerInfoClass winnerInfo)) {
+                    stageScoreChanges[winnerInfo.original_player_index] = winnerPoints;
+                } else {
+                    stageScoreChanges[result.player] = winnerPoints;
+                }
             }
             // 阶段分数 = 最终分 - 尚未结算赢家的得分（虹雀赢家仅自加得分，无交叉支付）。
             Dictionary<int, int> stageScores = new Dictionary<int, int>(finalScores);
@@ -668,7 +703,10 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
                     stageScores[laterPlayer] -= laterPoints;
                 }
             }
-            yield return PresentHuResultCoroutine(result, stageScores, stageScoreChanges, current, isLast);
+            yield return PresentHuResultCoroutine(
+                result, stageScores, stageScoreChanges, current, isLast,
+                i == 0 ? simultaneousHuHands : null,
+                skipHandReveal: i > 0);
             BoardCanvas.Instance?.UpdatePlayerScores(stageScores, gsm.indexToPosition);
         }
     }
@@ -676,7 +714,9 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
     private IEnumerator PresentHuResultCoroutine(
         HongqueWinnerResultInfo result, Dictionary<int, int> scores,
         Dictionary<int, int> stageScoreChanges,
-        HongqueStateInfo current, bool finalPanel) {
+        HongqueStateInfo current, bool finalPanel,
+        Dictionary<int, int[]> simultaneousHuHands = null,
+        bool skipHandReveal = false) {
         // 番种从大到小；可复计番（如清顺/清刻按组计）参照国标展示：按次数展开成多行。
         string[] fanTokens = BuildFanTokens(result);
         string huClass = current.round_result.reason == "self_draw" ? "hu_self" : "hu";
@@ -688,7 +728,9 @@ public sealed class HongqueTableAdapter : MonoBehaviour {
             BuildResultMeldMasks(result.melds),
             result.@base, null, null, stageScoreChanges,
             isSilent: current.round_result.silent,
-            finalPanel: finalPanel);
+            finalPanel: finalPanel,
+            simultaneousHuHands: simultaneousHuHands,
+            skipHandReveal: skipHandReveal);
     }
 
     private void PresentHuResult(

@@ -2,15 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from .rules import (
+from server.gamestate.game_hongque.rules import (
     call_candidates,
     classify_meld,
     kong_candidates,
     kong_win_candidates,
     winning_partitions,
 )
-from .tenpai_check import kong_win_waiting_tiles
-from .tile import HongqueTile, full_deck
+from server.gamestate.game_hongque.tenpai_check import kong_win_waiting_tiles
+from server.gamestate.game_hongque.tile import HongqueTile, full_deck
 
 
 def test_hq_resource_code_round_trip_and_deck() -> None:
@@ -18,8 +18,9 @@ def test_hq_resource_code_round_trip_and_deck() -> None:
     assert len(full_deck()) == 126
     assert len(set(full_deck())) == 126
     workspace = Path(__file__).resolve().parents[4]
-    resource_dir = workspace / "open_mahjong_unity" / "Assets" / "Resources" / "image" / "HQv3.1"
-    assert all((resource_dir / f"{code}.png").is_file() for code in full_deck())
+    image_root = workspace / "open_mahjong_unity" / "Assets" / "Resources" / "image"
+    for resource_dir in (image_root / "HQv3.1-hand", image_root / "HQv3.1-table"):
+        assert all((resource_dir / f"{code}.png").is_file() for code in full_deck())
 
 
 def test_triplet_and_sequence_follow_cyclic_colour_levels() -> None:
@@ -85,9 +86,9 @@ def test_call_priority_and_kong_extension_follow_table_order() -> None:
         "GX2",
     )
     priorities = {candidate["kind"]: candidate["priority"] for candidate in calls}
-    assert priorities["rainbow"] == 6
-    assert priorities["triplet"] == 5
-    assert priorities["sequence"] == 2  # 无座位上下文按最低档 chi_third
+    assert priorities["rainbow"] == 9
+    assert priorities["triplet"] == 6
+    assert priorities["sequence"] == 3  # 无座位上下文按最低档 third
 
     # 吃按出牌者相对位置分档：出牌者的下家=4 > 对家=3 > 上家=2。
     calls_by_seat = {
@@ -98,7 +99,37 @@ def test_call_priority_and_kong_extension_follow_table_order() -> None:
         )[0]["priority"]
         for distance in (1, 2, 3)
     }
-    assert calls_by_seat == {1: 4, 2: 3, 3: 2}
+    assert calls_by_seat == {1: 5, 2: 4, 3: 3}
+
+    # 碰和虹同样按相对座次分档，不能由网络请求先后决定赢家。
+    peng_by_seat = {
+        distance: next(candidate for candidate in call_candidates(
+            ["BX1", "CX1"], "AX1",
+            claimant_index=distance,
+            discarder_index=0,
+        ) if candidate["kind"] == "triplet")
+        for distance in (1, 2, 3)
+    }
+    assert [peng_by_seat[index]["action_type"] for index in (1, 2, 3)] == [
+        "peng_first", "peng_second", "peng_third",
+    ]
+    assert [peng_by_seat[index]["priority"] for index in (1, 2, 3)] == [8, 7, 6]
+
+    rainbow_hands = {
+        1: ["BX1", "CX1", "DX1", "EX1", "FX1", "GX1"],
+        2: ["BX2", "CX3", "DX4", "EX5", "FX6", "GX7"],
+        3: ["BX7", "CX6", "DX5", "EX4", "FX3", "GX2"],
+    }
+    hong_by_seat = {
+        distance: next(candidate for candidate in call_candidates(
+            hand, "AX1", claimant_index=distance, discarder_index=0,
+        ) if candidate["kind"] == "rainbow")
+        for distance, hand in rainbow_hands.items()
+    }
+    assert [hong_by_seat[index]["action_type"] for index in (1, 2, 3)] == [
+        "hong_first", "hong_second", "hong_third",
+    ]
+    assert [hong_by_seat[index]["priority"] for index in (1, 2, 3)] == [11, 10, 9]
 
     melds = [{"kind": "sequence", "tiles": ["AX1", "AX2", "AX3"]}]
     extensions = kong_candidates(["AX4", "GX9"], melds)

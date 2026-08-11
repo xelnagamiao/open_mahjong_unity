@@ -4,8 +4,11 @@ import pytest
 
 from server.gamestate.public.tactical_claim import (
     apply_tactical_claim_if_needed,
+    get_higher_priority_snapshot,
     tactical_grace_phase,
 )
+from server.gamestate.game_guobiao.wait_action import select_tactical_initial_submission
+from server.gamestate.public.ai.get_action import get_ai_action
 
 
 class _FakeGameState:
@@ -121,3 +124,52 @@ def test_tactical_and_claim_protection_switches(tactical_call, claim_protection)
         assert sent[0]["action_player"] == 0
         assert sent[0]["is_claim"] is True
 
+
+def test_simultaneous_chi_and_peng_starts_with_chi_application():
+    """同一事件循环批次内吃碰同时到达，也应先展示吃，再让碰进入抢断窗口。"""
+    gs = _FakeGameState()
+    gs.current_player_index = 0
+    gs.action_priority = {"pass": 0, "chi_left": 1, "peng": 2}
+    submissions = [
+        (2, {"action_type": "peng"}),
+        (1, {"action_type": "chi_left"}),
+    ]
+
+    assert select_tactical_initial_submission(gs, submissions) == submissions[1]
+
+
+def test_claimant_cannot_interrupt_own_chi_with_peng():
+    gs = _FakeGameState()
+    gs.tactical_commit_lock = True
+    gs.action_priority = {"pass": 0, "chi_left": 1, "peng": 2}
+    gs._tactical_action_snapshot = {
+        0: [],
+        1: ["chi_left", "peng"],
+        2: [],
+        3: [],
+    }
+    gs._tactical_passed_players = set()
+    gs._tactical_committed_players = {1}
+
+    higher, any_higher = get_higher_priority_snapshot(gs, "chi_left", 1)
+
+    assert any_higher is False
+    assert higher == {0: [], 1: [], 2: [], 3: []}
+
+
+def test_committed_bot_cannot_queue_a_second_claim():
+    gs = _FakeGameState()
+    gs.game_status = "waiting_action_after_cut"
+    gs.current_player_index = 0
+    gs.tactical_commit_lock = True
+    gs._tactical_committed_players = {1}
+    gs.waiting_players_list = [1]
+    gs.action_dict = {0: [], 1: ["peng"], 2: [], 3: []}
+    gs.player_list = [type("Player", (), {})() for _ in range(4)]
+    gs.action_queues = {index: asyncio.Queue() for index in range(4)}
+    gs.action_events = {index: asyncio.Event() for index in range(4)}
+
+    _run(get_ai_action(gs, 1, "peng", False, 0, 0, 0))
+
+    assert gs.action_queues[1].empty()
+    assert not gs.action_events[1].is_set()

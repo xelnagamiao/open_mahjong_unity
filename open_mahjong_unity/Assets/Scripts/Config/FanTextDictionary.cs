@@ -269,6 +269,7 @@ public static class FanTextDictionary {
         {"双同刻", "2番"}, {"双暗刻", "2番"}, {"一般高", "2番"}, {"和绝张", "2番"}, {"箭刻", "2番"}, {"圈风刻", "2番"}, {"门风刻", "2番"}, {"四归一", "2番"}, {"暗杠", "2番"}, {"五门齐", "2番"}, {"全求人", "2番"},
         {"自摸", "1番"}, {"门前清", "1番"}, {"明杠", "1番"}, {"断幺", "1番"}, {"喜相逢", "1番"}, {"连六", "1番"}, {"老少副", "1番"}, {"幺九刻", "1番"},
         {"四归一*1", "2番"}, {"四归一*2", "4番"}, {"四归一*3", "6番"}, {"四归一*4", "8番"},
+        {"双同刻*1", "2番"}, {"双同刻*2", "4番"}, {"双同刻*3", "6番"}, {"双同刻*4", "8番"},
         {"一般高*1", "2番"}, {"一般高*2", "4番"}, {"一般高*3", "6番"}, {"一般高*4", "8番"},
         {"喜相逢*1", "1番"}, {"喜相逢*2", "2番"}, {"喜相逢*3", "3番"}, {"喜相逢*4", "4番"},
         {"幺九刻*1", "1番"}, {"幺九刻*2", "2番"}, {"幺九刻*3", "3番"}, {"幺九刻*4", "4番"},
@@ -569,7 +570,7 @@ public static class FanTextDictionary {
     }
 
     /// <summary>
-    /// 国标：任一单项番数 &gt;24；日麻：含役满；虹雀：和牌总分 &gt;30 时播放 Gong_hu。
+    /// 国标：任一单项番数 &gt;24；日麻：含役满；虹雀：和牌总分达到 30 时播放 Gong_hu。
     /// </summary>
     public static bool ShouldPlayGongHuSound(string rule, string[] huFan, int huScore = 0) {
         if (string.IsNullOrEmpty(rule)) {
@@ -580,7 +581,7 @@ public static class FanTextDictionary {
         bool isRiichi = rule.StartsWith("riichi");
         bool isHongque = rule.StartsWith("hongque");
         if (isHongque) {
-            return huScore > 30;
+            return huScore >= 30;
         }
         if ((!isGuobiao && !isRiichi) || huFan == null || huFan.Length == 0) {
             return false;
